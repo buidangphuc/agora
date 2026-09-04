@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package platform.notification.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service NotificationService {
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+}
+
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_ORDER = 1;
+  NOTIFICATION_TYPE_PROMOTION = 2;
+  NOTIFICATION_TYPE_SYSTEM = 3;
+  NOTIFICATION_TYPE_CHAT = 4;
+}
+
+message Notification {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+  string body = 4;
+  NotificationType type = 5;
+  string link_url = 6;
+  bool is_read = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ListNotificationsRequest {
+  int32 page_size = 1;
+  int32 page_number = 2;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  int32 total_unread = 2;
+}
+
+message MarkAsReadRequest {
+  string id = 1; // if empty, mark all as read
+}
+
+message MarkAsReadResponse {
+  bool success = 1;
+}
+
+message GetUnreadCountRequest {}
+
+message GetUnreadCountResponse {
+  int32 unread_count = 1;
+}
+
+// ── Events ──
+message NotificationCreatedEvent {
+  Notification notification = 1;
+}

@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+// team-search (Go) owns this: a read-model built by consuming listing events
+// (ADR-0002) and indexing into OpenSearch. Starts lexical (free-text + filter +
+// suggest); the engine is swappable to hybrid/semantic later WITHOUT changing
+// this contract (ADR-0005) — embeddings come from team-ai's model-server seam.
+package platform.search.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+enum SortBy {
+  SORT_BY_UNSPECIFIED = 0;
+  SORT_BY_RELEVANCE = 1;   // Best text match score
+  SORT_BY_PRICE_ASC = 2;   // Price: Low to High
+  SORT_BY_PRICE_DESC = 3;  // Price: High to Low
+  SORT_BY_NEWEST = 4;      // Newest listings first
+}
+
+// Owned by team-search. Reads its OWN OpenSearch read-model (rebuildable by
+// replaying Kafka); never joins another service's DB (Rule 3).
+service SearchService {
+  rpc SearchListings(SearchListingsRequest) returns (SearchListingsResponse);
+  // Autocomplete / type-ahead suggestions over indexed listing titles.
+  rpc Suggest(SuggestRequest) returns (SuggestResponse);
+
+  // ── Saved Searches ──
+  // Persist the caller's current query + filters so it can be re-run later.
+  rpc SaveSearch(SaveSearchRequest) returns (SaveSearchResponse);
+  rpc ListSavedSearches(ListSavedSearchesRequest) returns (ListSavedSearchesResponse);
+  rpc DeleteSavedSearch(DeleteSavedSearchRequest) returns (DeleteSavedSearchResponse);
+  // Re-execute a saved search; returns the same shape as SearchListings.
+  rpc RunSavedSearch(RunSavedSearchRequest) returns (RunSavedSearchResponse);
+}
+
+message SearchListingsRequest {
+  string query = 1;
+  platform.common.v1.PageRequest page = 2;
+  // Optional structured filters (e.g. status, currency), applied alongside the
+  // free-text match. Engine translates these to term filters.
+  map<string, string> filters = 3;
+  string category_id = 4;
+  int64 min_price = 5;
+  int64 max_price = 6;
+  SortBy sort_by = 7;
+  int32 min_rating = 8;
+}
+
+message SearchHit {
+  string listing_id = 1;
+  float score = 2;
+}
+
+message SearchListingsResponse {
+  repeated SearchHit hits = 1;
+  platform.common.v1.PageResponse page = 2;
+  // Aggregated facet counts over the matched set, for filter navigation.
+  Facets facets = 3;
+}
+
+// One facet value + how many matching listings carry it.
+message FacetBucket {
+  string key = 1;   // category_id / seller_id / price-range label / rating floor
+  int64 count = 2;
+}
+
+// Facet aggregations computed alongside hits (OpenSearch aggregations).
+message Facets {
+  repeated FacetBucket categories = 1;   // key = category_id
+  repeated FacetBucket price_ranges = 2; // key = bucket label e.g. "0-100000"
+  repeated FacetBucket ratings = 3;      // key = rating floor e.g. "4" (>=4 stars)
+  repeated FacetBucket sellers = 4;      // key = seller_id
+}
+
+message SuggestRequest {
+  // Partial text the user has typed so far.
+  string query = 1;
+  // Max suggestions to return; 0 = server default.
+  int32 limit = 2;
+}
+
+message SuggestResponse {
+  // Suggested completions (listing titles), best first.
+  repeated string suggestions = 1;
+}
+
+// ── Saved Search Messages ──
+
+// A persisted query + filters the caller can re-run. filters_json is the opaque
+// JSON blob mirroring SearchListingsRequest.filters/structured filters.
+message SavedSearch {
+  string id = 1;
+  string query = 2;
+  string filters_json = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message SaveSearchRequest {
+  string query = 1;
+  string filters_json = 2;
+}
+
+message SaveSearchResponse {
+  SavedSearch saved_search = 1;
+}
+
+message ListSavedSearchesRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListSavedSearchesResponse {
+  repeated SavedSearch saved_searches = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message DeleteSavedSearchRequest {
+  string id = 1;
+}
+
+message DeleteSavedSearchResponse {}
+
+message RunSavedSearchRequest {
+  string id = 1;
+}
+
+// Mirrors SearchListingsResponse (reuses SearchHit/Facets) — a distinct message
+// is required by buf's RPC_RESPONSE_STANDARD_NAME / RPC_REQUEST_RESPONSE_UNIQUE.
+message RunSavedSearchResponse {
+  repeated SearchHit hits = 1;
+  platform.common.v1.PageResponse page = 2;
+  Facets facets = 3;
+}

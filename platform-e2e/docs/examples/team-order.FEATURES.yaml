@@ -1,0 +1,107 @@
+# EXAMPLE manifest (proposal) — would live at team-order/FEATURES.yaml
+# Grounded in team-order's real RPCs/routes (MASTER_CAPABILITY_MATRIX Phase 5–8)
+# and the actual frontend selectors used by platform-e2e today.
+# Validate against: platform-e2e/schemas/features.schema.json
+repo: team-order
+owner: order-team
+
+features:
+  - id: order.cart-management
+    title: Shopping cart management
+    persona: buyer
+    priority: P1
+    summary: Add, view and clear items in the cart before checkout.
+    entry_route: /listing/{listing_id}
+    related_routes: [/cart]
+    services: [team-order, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      seed: [listing.v1.CreateListing]
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.ClearCart]
+    ui:
+      key_elements:
+        add_to_cart: "role:button=Thêm Vào Giỏ Hàng"
+        checkout_link: 'a[href="/checkout"]'
+        empty_state: "text:Giỏ hàng của bạn đang trống"
+    acceptance:
+      - Given a buyer is logged in
+      - And a listing has been seeded via the API
+      - When the buyer adds the product to the cart
+      - And the buyer opens the cart
+      - Then the cart shows the product and a checkout action
+    tags: [buyer]
+    status: planned
+    covered_by: null
+
+  - id: order.purchase-saga
+    title: Distributed purchase saga
+    persona: buyer
+    priority: P0
+    summary: Placing an order runs the 4-step saga to a PAID order.
+    entry_route: /checkout
+    related_routes: [/account/orders, "/checkout/pay/{order_id}"]
+    services: [team-order, team-domain, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A cart with one item and a saved delivery address.
+    api:
+      seed: [listing.v1.CreateListing, order.v1.AddToCart]
+      exercised: [order.v1.CreateOrder, order.v1.GetSagaState]
+    ui:
+      key_elements:
+        place_order: "role:button=Xác nhận đặt hàng"
+        pay_demo: "role:button=Tiến hành thanh toán Demo"
+    acceptance:
+      - Given a buyer with an item in the cart
+      - When the buyer places the order
+      - Then the order reaches PAID via the saga
+    tags: [buyer, smoke]
+    status: planned
+    covered_by: null
+
+  - id: order.saga-compensation
+    title: Saga failure triggers compensation
+    persona: buyer
+    priority: P1
+    summary: A forced payment failure releases stock and cancels the order.
+    entry_route: /checkout
+    services: [team-order, team-domain, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [order.v1.ForceFailSaga, order.v1.GetSagaState]
+    acceptance:
+      - Given an order is mid-saga
+      - When the payment step is forced to fail
+      - Then stock is released and the order is CANCELLED
+    tags: [buyer]
+    status: planned
+    covered_by: null
+
+  - id: order.rma-return
+    title: RMA return and refund
+    persona: buyer
+    priority: P2
+    summary: Buyer requests a return; seller approval refunds and restocks.
+    entry_route: /account/orders/{order_id}
+    services: [team-order, team-payment]
+    preconditions:
+      login: buyer
+      data: A delivered, paid order belonging to the buyer.
+    api:
+      exercised: [order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    ui:
+      key_elements:
+        open_rma: "role:button=Yêu cầu trả hàng"
+    acceptance:
+      - Given a buyer has a delivered order
+      - When the buyer submits a return request
+      - And the seller approves it
+      - Then the payment is refunded and stock restored
+    tags: [buyer]
+    status: manual
+    covered_by: null

@@ -1,0 +1,10 @@
+# Binaries
+/out/
+server
+
+# Go test / coverage artifacts
+coverage.out
+coverage.summary
+
+# Local env overrides
+.env

@@ -1,0 +1,40 @@
+# OTel Collector config — Multi-destination Enterprise Observability.
+# Receives OTLP from services and forwards metrics to Prometheus and traces to Jaeger.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 256
+
+exporters:
+  debug:
+    verbosity: normal
+
+  # Prometheus metrics exporter endpoint (scraped by prometheus:9090)
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: marketplace
+
+  # Jaeger OTLP gRPC trace exporter
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, prometheus]

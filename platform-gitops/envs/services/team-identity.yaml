@@ -1,0 +1,37 @@
+# Invariant baseline for team-identity — extracted verbatim from argocd/apps/team-identity.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-identity
+image:
+  repo: localhost:5001/team-identity
+containerPort: 50053
+service:
+  port: 50053
+grpcPort: 50053          # native gRPC health probes (grpc.health.v1.Health)
+# Second in-cluster port exposing the JWKS HTTP listener (see env.JWKS_HTTP_PORT
+# below) so the gateway can reach http://team-identity:50063/.well-known/jwks.json.
+# Adds a `jwks` containerPort + Service port via charts/service (ADR-0006).
+jwksPort: 50063
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+env:
+  # JWKS HTTP listener (ADR-0006): identity is otherwise gRPC-only. It publishes
+  # its RSA public key(s) at GET /.well-known/jwks.json on this port for the edge.
+  JWKS_HTTP_PORT: "50063"
+secrets:
+  enabled: true      # DATABASE_URL + RS256 signing key from Vault (svc/team-identity + shared/jwt)
+  jwtShared: true    # now the RS256 PRIVATE key + kid (JWT_PRIVATE_KEY, JWT_KID); identity-only
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress; allow the edge
+# (team-gateway — AuthService + JWKS on :50063) and the intra-namespace peer
+# team-order (address validation). Deployed envs only (local exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway, team-order]
+# NOTE: 50063 is now exposed in-cluster via the chart's optional `jwksPort` (set
+# above): charts/service renders a second `jwks` containerPort + Service port so the
+# gateway can reach http://team-identity:50063. Local dev reaches it via docker-compose.

@@ -1,0 +1,25 @@
+{{- if and .Values.autoscaling.enabled (eq .Values.autoscaling.type "keda") }}
+# KEDA ScaledObject — event/metric-driven autoscaling for IO-bound services.
+# Scales on the triggers below (e.g. Prometheus request rate) instead of CPU, so a
+# service saturated by concurrent IO scales even while its CPU stays low.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  scaleTargetRef:
+    name: {{ .Values.name }}
+  minReplicaCount: {{ .Values.autoscaling.minReplicas | default 1 }}
+  maxReplicaCount: {{ .Values.autoscaling.maxReplicas | default 5 }}
+  pollingInterval: {{ .Values.autoscaling.keda.pollingInterval | default 15 }}
+  cooldownPeriod: {{ .Values.autoscaling.keda.cooldownPeriod | default 60 }}
+  {{- with .Values.autoscaling.keda.advanced }}
+  advanced:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  triggers:
+    {{- toYaml .Values.autoscaling.keda.triggers | nindent 4 }}
+{{- end }}

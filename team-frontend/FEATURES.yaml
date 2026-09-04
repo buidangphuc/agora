@@ -1,0 +1,338 @@
+# Feature manifest for team-frontend.
+# Ownership rule: a feature belongs to the repo owning the CAPABILITY. The
+# frontend is the UI shell, so it owns only presentational/cross-cutting journeys;
+# auth lives in team-identity, listing in team-domain, search in team-search, etc.
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-frontend
+owner: frontend-team
+
+features:
+  - id: home.landing
+    title: Marketplace home landing
+    persona: guest
+    priority: P1
+    summary: The home page renders the category bar, service hubs and listing grid.
+    entry_route: /
+    services: [team-frontend, team-search]
+    preconditions:
+      login: guest
+    ui:
+      key_elements:
+        search_input: "placeholder:Tìm kiếm sản phẩm"
+    acceptance:
+      - Given the home page is open
+      - Then the category bar and a product grid are visible
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/shell.feature::Home landing renders the catalog"
+
+  - id: nav.global-header
+    title: Global header navigation
+    persona: guest
+    priority: P2
+    summary: Header exposes search, cart counter and the account menu on every page.
+    entry_route: /
+    related_routes: [/cart, /login]
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    ui:
+      key_elements:
+        search_input: "placeholder:Tìm kiếm sản phẩm"
+        cart_link: 'a[href="/cart"]'
+    acceptance:
+      - Given any page is open
+      - Then the header shows search, the cart icon and an account entry
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/shell.feature::Global header exposes search and cart"
+
+  - id: promo.vouchers-page
+    title: Vouchers hub browse
+    persona: guest
+    priority: P2
+    summary: Visitors can browse available vouchers on the Vouchers Hub.
+    entry_route: /vouchers
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    ui:
+      key_elements:
+        heading: "text:Kho Voucher"
+        save_button: "role:button=Lưu mã"
+    acceptance:
+      - Given the vouchers page is open
+      - Then the vouchers hub lists available vouchers
+    tags: [buyer]
+    status: automated
+    covered_by: "promo/vouchers.feature::Visitor browses available vouchers"
+
+  - id: shop.storefront
+    title: Seller dedicated storefront
+    persona: buyer
+    priority: P2
+    summary: Buyers can view a seller's dedicated shop storefront, follow the shop and browse items.
+    entry_route: "/shop/{id}"
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        follow_button: "role:button=Theo Dõi"
+    acceptance:
+      - Given a buyer is logged in
+      - When the buyer opens a seller shop page
+      - Then the shop profile header displays the store rating and product catalog
+      - And the buyer can toggle following the shop
+    tags: [buyer, shop]
+    status: automated
+    covered_by: "shop/shop_storefront.feature::Buyer explores public seller shop storefront"
+
+  - id: cart.item-management
+    title: Cart quantity and item clearing
+    persona: buyer
+    priority: P1
+    summary: Buyer adjusts item quantities and clears items in shopping cart.
+    entry_route: /cart
+    services: [team-frontend, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        clear_button: "role:button=Xóa tất cả"
+    acceptance:
+      - Given a buyer is logged in
+      - And a listing has been seeded via the API
+      - When the buyer opens the seeded listing
+      - And the buyer adds the product to the cart
+      - And the buyer opens the cart
+      - Then the buyer can increase the item quantity
+      - When the buyer clears all items from the cart
+      - Then the cart displays the empty state
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/cart_management.feature::Buyer modifies item quantity in cart"
+
+  - id: chat.floating-bubble
+    title: Floating chat messenger bubble
+    persona: buyer
+    priority: P2
+    summary: Floating chat bubble at bottom right allows quick navigation to support and shop chats.
+    entry_route: /
+    services: [team-frontend, team-chat]
+    preconditions:
+      login: buyer
+    ui:
+      key_elements:
+        chat_bubble: 'a[aria-label="Mở hộp thư tin nhắn và hỗ trợ"]'
+    acceptance:
+      - Given a buyer is logged in
+      - When the user opens the home page
+      - Then the floating chat bubble is visible on the bottom right
+      - When the user clicks the floating chat button
+      - Then the chat messenger page is displayed
+    tags: [buyer, chat]
+    status: automated
+    covered_by: "chat/floating_chat.feature::Visitor navigates to chat via floating bubble"
+
+  - id: admin.cockpit-radar
+    title: Admin telemetry and microservices health radar
+    persona: admin
+    priority: P2
+    summary: Admin inspects throughput and latency golden signals on the cockpit HUD.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    ui:
+      key_elements:
+        throughput_card: "text:Total Gateway Throughput"
+    acceptance:
+      - When the admin opens the cockpit HUD
+      - Then the telemetry summary cards display throughput and latency metrics
+    tags: [admin]
+    status: automated
+    covered_by: "admin/cockpit_health_radar.feature::Admin inspects live telemetry on Cockpit"
+
+  - id: tracking.emit-view
+    title: Browsing a product emits a tracking event
+    persona: buyer
+    priority: P2
+    summary: >-
+      Opening a product detail page fires a best-effort telemetry beacon to the
+      gateway, which publishes a TrackingEvent (EVENT_TYPE_VIEW) on the
+      analytics.events Kafka topic. Best-effort: browsing never blocks on it.
+    entry_route: /
+    related_routes: ["/listing/{id}"]
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        product_title: "role:heading"
+    acceptance:
+      - Given a buyer opens a product detail page
+      - When the page records the product view
+      - Then exactly one EventEnvelope of type platform.analytics.v1.TrackingEvent is published to the analytics.events topic
+      - And its payload is a TrackingEvent with EventType EVENT_TYPE_VIEW carrying the listing id and page path
+    tags: [buyer, tracking]
+    status: automated
+    covered_by: "tracking/emit_tracking.feature::A browsing beacon becomes a tracking event on analytics.events"
+
+  - id: ops.cockpit-live-metrics
+    title: Admin Cockpit shows live per-service metrics from Prometheus
+    persona: admin
+    priority: P2
+    summary: >-
+      The Admin Cockpit HUD (/admin/cockpit) polls GET /api/admin/metrics, which
+      the gateway serves from real Prometheus data (per-service RPS / p95 / p99 /
+      error-rate) instead of the old math/rand stub. The gateway runs a fixed,
+      hardcoded PromQL set server-side and shapes it into the frozen
+      CockpitMetricsResponse — raw Prometheus is never exposed to the browser.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, prometheus, team-search]
+    preconditions:
+      login: admin
+    ui:
+      key_elements:
+        heading: "text:Microservices Health & RED Metrics Radar"
+    acceptance:
+      - Given an admin opens /admin/cockpit after traffic has been driven through the gateway to a service (e.g. search reads)
+      - Then the HUD shows a non-zero, Prometheus-sourced RPS and latency for that service, reflecting the real activity rather than a fixed or random baseline
+    tags: [admin, observability]
+    status: automated
+    covered_by: "admin/cockpit_health_radar.feature::Admin inspects live telemetry on Cockpit"
+
+  - id: recommendations.for-you-row
+    title: Buyer sees a "Gợi ý cho bạn" recommendations row from team-ai
+    persona: buyer
+    priority: P2
+    summary: >-
+      The home page (context HOMEPAGE, no seed) and the product-detail page
+      (context SIMILAR_ITEMS, seeded with the current listing id) render a "Gợi ý
+      cho bạn" row populated from team-ai (RecommendationService/Recommend) via
+      the gateway using the caller's session. The RPC returns listing ids +
+      scores only; the frontend hydrates each id into a product card through the
+      existing gateway listing client. Server-only — the browser never calls
+      team-ai directly (Rule 1). When the service is UNAVAILABLE
+      (RECS_ENABLED=false) the row is hidden and the page still renders.
+    entry_route: /
+    related_routes: ["/listing/{id}"]
+    services: [team-ai, team-gateway, team-frontend]
+    api:
+      exercised: [recommendation.v1.Recommend]
+    preconditions:
+      login: buyer
+    ui:
+      key_elements:
+        recs_row: "text:Gợi ý cho bạn"
+    acceptance:
+      - Given a logged-in buyer opens the page carrying the recommendations row
+      - Then the "Gợi ý cho bạn" row is populated with product cards sourced from team-ai via the gateway (not a client-side mock or hardcoded list)
+      - And when the recommendation service returns UNAVAILABLE the page still renders and the row is hidden
+    tags: [buyer, recommendations]
+    status: automated
+    covered_by: "recommendations/recommendations.feature::Recommendations are unavailable without breaking the page"
+
+  - id: ops.cockpit-reflects-activity
+    title: Cockpit reflects real request activity
+    persona: admin
+    priority: P2
+    summary: >-
+      After traffic is driven through the gateway to a service, the Cockpit HUD
+      shows non-zero, Prometheus-sourced RPS and latency for that service —
+      reflecting real activity, not the old math/rand baseline.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, prometheus, team-search]
+    preconditions:
+      login: admin
+    ui:
+      key_elements:
+        heading: "text:Microservices Health & RED Metrics Radar"
+    acceptance:
+      - Given an admin opens /admin/cockpit after traffic has been driven through the gateway to a service
+      - Then the HUD shows a non-zero, Prometheus-sourced RPS and latency for that service, reflecting the real activity rather than a fixed or random baseline
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Cockpit reflects real request activity"
+
+  - id: ops.cockpit-idle-trends-zero
+    title: Idle stack trends toward zero, not a random baseline
+    persona: admin
+    priority: P2
+    summary: >-
+      With no traffic flowing through the gateway, the exercised service's RPS
+      trends toward zero as Prometheus reports, rather than the previous
+      "~124 + rand()" stub baseline.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, prometheus]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given no traffic is flowing through the gateway
+      - Then the exercised service's RPS trends toward zero as Prometheus reports, rather than the previous random stub baseline
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Idle stack trends toward zero, not a random baseline"
+
+  - id: ops.cockpit-no-raw-prometheus
+    title: Browser cannot reach raw Prometheus through the gateway
+    persona: admin
+    priority: P2
+    summary: >-
+      The gateway is a thin read-only proxy: GET /api/admin/metrics returns only
+      the shaped CockpitMetricsResponse JSON and no endpoint forwards arbitrary
+      PromQL or raw Prometheus responses to the browser (architecture Rule 2).
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, prometheus]
+    preconditions:
+      login: admin
+    acceptance:
+      - When the cockpit endpoint GET /api/admin/metrics is called
+      - Then the gateway returns only the shaped CockpitMetricsResponse JSON, and no endpoint forwards arbitrary PromQL or raw Prometheus responses to the browser
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Browser cannot reach raw Prometheus through the gateway"
+
+  - id: ops.cockpit-prometheus-degrades
+    title: Prometheus unavailable degrades gracefully
+    persona: admin
+    priority: P2
+    summary: >-
+      When PROMETHEUS_URL is unset or Prometheus is unreachable, GET
+      /api/admin/metrics still returns a valid response in the expected
+      CockpitMetricsResponse shape with cleared/zeroed metric values, never
+      re-introducing random data.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given PROMETHEUS_URL is unset or Prometheus is unreachable
+      - Then GET /api/admin/metrics still returns a valid response in the expected shape with cleared/zeroed metric values, never re-introducing random data
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Prometheus unavailable degrades gracefully"
+
+  - id: ops.cockpit-orders-revenue-derived
+    title: Orders/revenue are not presented as Prometheus-sourced truth
+    persona: admin
+    priority: P2
+    summary: >-
+      Because no Prometheus business metric for orders/revenue exists,
+      total_orders_24h and total_revenue_24h are populated from a derived source
+      (not a Prometheus business counter) and documented as estimated, pending a
+      future order-domain metric, while keeping the response field shape.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When the cockpit response is produced
+      - Then total_orders_24h and total_revenue_24h are populated from a derived source (not a Prometheus business counter) and are documented as estimated, pending a future order-domain metric
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Orders/revenue are not presented as Prometheus-sourced truth"

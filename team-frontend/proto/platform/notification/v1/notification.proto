@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package platform.notification.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service NotificationService {
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+
+  // ── Price-drop / back-in-stock alert subscriptions ──
+  rpc SubscribeAlert(SubscribeAlertRequest) returns (SubscribeAlertResponse);
+  rpc UnsubscribeAlert(UnsubscribeAlertRequest) returns (UnsubscribeAlertResponse);
+  rpc ListAlertSubscriptions(ListAlertSubscriptionsRequest) returns (ListAlertSubscriptionsResponse);
+
+  // ── Per-user notification preferences ──
+  rpc GetNotificationPrefs(GetNotificationPrefsRequest) returns (GetNotificationPrefsResponse);
+  rpc UpdateNotificationPrefs(UpdateNotificationPrefsRequest) returns (UpdateNotificationPrefsResponse);
+}
+
+// How often batched (digest) notifications are delivered.
+enum DigestFrequency {
+  DIGEST_FREQUENCY_OFF = 0;
+  DIGEST_FREQUENCY_DAILY = 1;
+  DIGEST_FREQUENCY_WEEKLY = 2;
+}
+
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_ORDER = 1;
+  NOTIFICATION_TYPE_PROMOTION = 2;
+  NOTIFICATION_TYPE_SYSTEM = 3;
+  NOTIFICATION_TYPE_CHAT = 4;
+  NOTIFICATION_TYPE_PRICE_DROP = 5;
+  NOTIFICATION_TYPE_BACK_IN_STOCK = 6;
+}
+
+enum AlertType {
+  ALERT_TYPE_UNSPECIFIED = 0;
+  ALERT_TYPE_PRICE_DROP = 1;
+  ALERT_TYPE_BACK_IN_STOCK = 2;
+}
+
+message Notification {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+  string body = 4;
+  NotificationType type = 5;
+  string link_url = 6;
+  bool is_read = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ListNotificationsRequest {
+  int32 page_size = 1;
+  int32 page_number = 2;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  int32 total_unread = 2;
+}
+
+message MarkAsReadRequest {
+  string id = 1; // if empty, mark all as read
+}
+
+message MarkAsReadResponse {
+  bool success = 1;
+}
+
+message GetUnreadCountRequest {}
+
+message GetUnreadCountResponse {
+  int32 unread_count = 1;
+}
+
+// ── Alert Subscription Messages ──
+message AlertSubscription {
+  string id = 1;
+  string user_id = 2;
+  string listing_id = 3;
+  AlertType type = 4;
+}
+
+message SubscribeAlertRequest {
+  string listing_id = 1;
+  AlertType type = 2;
+}
+
+message SubscribeAlertResponse {
+  AlertSubscription subscription = 1;
+}
+
+message UnsubscribeAlertRequest {
+  string subscription_id = 1;
+}
+
+message UnsubscribeAlertResponse {}
+
+message ListAlertSubscriptionsRequest {}
+
+message ListAlertSubscriptionsResponse {
+  repeated AlertSubscription subscriptions = 1;
+}
+
+// ── Notification Preference Messages ──
+message NotificationPrefs {
+  // Per-type opt-in map keyed by NotificationType enum name (e.g. "NOTIFICATION_TYPE_ORDER").
+  map<string, bool> type_enabled = 1;
+  DigestFrequency digest_freq = 2;
+}
+
+message GetNotificationPrefsRequest {}
+
+message GetNotificationPrefsResponse {
+  NotificationPrefs prefs = 1;
+}
+
+message UpdateNotificationPrefsRequest {
+  NotificationPrefs prefs = 1;
+}
+
+message UpdateNotificationPrefsResponse {
+  NotificationPrefs prefs = 1;
+}
+
+// ── Events ──
+message NotificationCreatedEvent {
+  Notification notification = 1;
+}

@@ -1,0 +1,34 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+venv/
+.venv/
+.mypy_cache/
+log/
+static/media/
+.ruff_cache/
+.pytest_cache/
+.uv-cache/
+.python-version
+.local/
+
+# vscode
+.vscode/
+
+# logs
+logs/
+
+data/
+
+research/experiments/local/
+research/experiments/mlruns/
+research/evaluation/reports/*
+!research/evaluation/reports/.gitkeep
+research/artifacts/sample_model_manifest.yaml
+research/artifacts/generated/
+
+fastapi_template
+
+# Claude Code: user-specific permissions (not shared with team)
+.claude/settings.local.json

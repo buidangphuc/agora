@@ -1,0 +1,38 @@
+{
+  "name": "team-frontend-edge",
+  "//name": "PLACEHOLDER — rename to your real package/repo name (e.g. team-frontend) when you instantiate this seed.",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Edge / Backend-for-Frontend seed — consumes platform gRPC via Connect-ES, exposes a thin HTTP surface. Becomes team-frontend (Next.js web/wap SSR + BFF) later.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "//proto": "Vendor the proto module under proto-vendor/ (see proto-vendor/README.md), then generate the Connect-ES client into ./generated. `buf` is invoked via the @bufbuild/buf devDep; if you install buf externally, drop that dep and call plain `buf`.",
+    "proto": "buf generate",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "check": "biome check . && tsc --noEmit && vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.10.0",
+    "@connectrpc/connect": "^1.6.1",
+    "@connectrpc/connect-node": "^1.6.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@bufbuild/buf": "^1.47.2",
+    "@bufbuild/protoc-gen-es": "^1.10.0",
+    "@connectrpc/protoc-gen-connect-es": "^1.6.1",
+    "@types/node": "^20.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

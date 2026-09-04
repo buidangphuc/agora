@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package platform.ai.v1;
+
+service AIService {
+  // Shopping Assistant RAG query: returns text reply + interactive product cards
+  rpc ShoppingAssistant(ShoppingAssistantRequest) returns (ShoppingAssistantResponse);
+  // Magic Listing: generates SEO description, category and price estimation for sellers
+  rpc MagicListing(MagicListingRequest) returns (MagicListingResponse);
+  // Chat Copilot: generates 3 quick smart reply suggestions for shop seller
+  rpc ChatCopilot(ChatCopilotRequest) returns (ChatCopilotResponse);
+}
+
+message ProductCardSnippet {
+  string listing_id = 1;
+  string title = 2;
+  int64 price = 3;
+  string currency = 4;
+  string image_url = 5;
+  int32 discount_rate = 6;
+  string rating_text = 7;
+}
+
+message ShoppingAssistantRequest {
+  string user_id = 1;
+  string message = 2;
+  repeated string previous_context = 3;
+}
+
+message ShoppingAssistantResponse {
+  string reply_text = 1;
+  repeated ProductCardSnippet product_cards = 2;
+  repeated string suggested_followups = 3;
+}
+
+message MagicListingRequest {
+  string title_hint = 1;
+  string category_hint = 2;
+  string image_url = 3;
+}
+
+message MagicListingResponse {
+  string generated_title = 1;
+  string generated_description = 2;
+  string suggested_category_id = 3;
+  int64 suggested_price_min = 4;
+  int64 suggested_price_max = 5;
+  repeated string highlight_tags = 6;
+}
+
+message ChatCopilotRequest {
+  string seller_id = 1;
+  string buyer_message = 2;
+  string listing_id = 3;
+}
+
+message ChatCopilotResponse {
+  repeated string quick_replies = 1;
+}

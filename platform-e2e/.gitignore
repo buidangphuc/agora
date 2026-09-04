@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Test artifacts
+test-results/
+screenshots/
+traces/
+*.log
+
+# Playwright
+playwright-report/
+
+# Local secrets (committed env files hold placeholders only)
+.env.local.secret

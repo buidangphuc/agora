@@ -1,0 +1,25 @@
+# Per-image tags for the `local` environment. CI bumps these (yq) on each build;
+# ArgoCD syncs the change to the cluster. One key per service.
+global:
+  registry: localhost:5001
+  imagePullPolicy: IfNotPresent
+images:
+  team-identity: local
+  team-domain: local
+  team-search: local
+  team-engagement: local
+  team-order: local
+  team-payment: local
+  team-chat: local
+  team-notification: local
+  team-referral: local
+  team-verification: local
+  team-sharing: local
+  team-audit: local
+  team-gateway: local
+  team-frontend: local
+  team-ai: local
+  team-promotion: local
+  search-indexer: local
+  team-analytics: local
+  platform-recsys: local

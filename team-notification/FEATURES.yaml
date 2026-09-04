@@ -1,0 +1,93 @@
+# Feature manifest for team-notification (in-app notification center).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-notification
+owner: notification-team
+
+features:
+  - id: notification.center
+    title: Notification center
+    persona: buyer
+    priority: P1
+    summary: A user reads notifications and marks them as read.
+    entry_route: /notifications
+    services: [team-notification, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [notification.v1.ListNotifications, notification.v1.MarkAsRead]
+    acceptance:
+      - Given a user has notifications
+      - When the user opens the notification center and reads one
+      - Then it is marked as read
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/consumer_pages.feature::Notification center renders"
+
+  - id: notification.alerts
+    title: Price-drop / back-in-stock alert subscriptions
+    persona: buyer
+    priority: P1
+    summary: A buyer subscribes to price-drop and back-in-stock alerts on a listing and manages them from the notifications center.
+    entry_route: "/listing/{listing_id}"
+    related_routes: [/notifications]
+    services: [team-notification, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised:
+        - notification.v1.SubscribeAlert
+        - notification.v1.ListAlertSubscriptions
+        - notification.v1.UnsubscribeAlert
+    acceptance:
+      - Given a buyer viewing a listing
+      - When the buyer enables an alert and opens the notifications center
+      - Then the subscription is listed, and cancelling it removes the row
+    tags: [buyer]
+    status: automated
+    covered_by: "notification/alerts.feature::Buyer subscribes to a price-drop alert and then cancels it"
+
+  - id: notification.alerts-delivery
+    title: Alert notification delivery
+    persona: buyer
+    priority: P1
+    summary: When the seller lowers price or restocks, the subscribed buyer receives a price-drop / back-in-stock notification.
+    entry_route: /notifications
+    related_routes: ["/listing/{listing_id}"]
+    services: [team-notification, team-domain, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [notification.v1.SubscribeAlert, notification.v1.ListNotifications, listing.v1.UpdateListing]
+    acceptance:
+      - Given a buyer subscribed to a price-drop / back-in-stock alert
+      - When the seller lowers the price or restocks via the gateway
+      - Then the corresponding notification appears in the center
+    tags: [buyer]
+    # Scenarios authored (notification/alert_delivery.feature) and bound as xfail.
+    # BLOCKED by a backend contract gap: team-domain publishes
+    # platform.listing.v1.ListingChanged on listing.events, but team-notification's
+    # consumer only reacts to ListingPricingChanged / ListingStockChanged (which
+    # Reconciled: team-notification's consumer now handles platform.listing.v1.ListingChanged
+    # and self-diffs price/stock; price-drop + back-in-stock delivery scenarios pass.
+    status: automated
+    covered_by: "notification/alert_delivery.feature::Price-drop notification after the seller lowers the price"
+
+  - id: notification.unread-badge
+    title: Unread badge counter
+    persona: buyer
+    priority: P2
+    summary: The header badge reflects the unread notification count.
+    entry_route: /
+    services: [team-notification, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [notification.v1.GetUnreadCount]
+    acceptance:
+      - Given a user has unread notifications
+      - Then the header badge shows the unread count
+    tags: [buyer]
+    status: automated
+    covered_by: "notification/unread_badge.feature::Unread notification count is reflected on header"

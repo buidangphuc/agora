@@ -1,0 +1,6 @@
+0000000000000000000000000000000000000000 168f12c3de828a3473bcd0fd8b71868859679d63 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788425276 +0700	branch: Created from HEAD
+168f12c3de828a3473bcd0fd8b71868859679d63 e5e460ee57b65594e3bfbbb73cf37816878dc530 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788425276 +0700	commit: fix(order): durable saga + payment consumer + authz [SA-C2,H3,M6,M7,M8]
+e5e460ee57b65594e3bfbbb73cf37816878dc530 16aa7dcd889b90d86dc3713ff0e246b35eb603ce Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788425737 +0700	commit: fix(order): idempotent stock release on CancelOrder
+16aa7dcd889b90d86dc3713ff0e246b35eb603ce fe9f8a0f45c700612cc220fce4241917e233dde9 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788509246 +0700	commit: feat(order): Reorder — re-add a past order's items to the cart
+fe9f8a0f45c700612cc220fce4241917e233dde9 acf4114212f1b9f950e225d0593ff8eb62127f91 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788513302 +0700	commit: fix(team-order: reject anonymous principal in RequirePrincipal (security)
+acf4114212f1b9f950e225d0593ff8eb62127f91 1881a481f918107234a9ef16614ee047303c2647 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788518374 +0700	commit: test(e2e): cover wire-openfeature scenarios for archive gate

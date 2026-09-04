@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://helm.releases.hashicorp.com
+    chart: vault
+    targetRevision: 0.28.1
+    helm:
+      values: |
+        # Local dev mode: single unsealed node, known root token, in-memory.
+        # Config is re-seeded idempotently by deploy/vault/bootstrap-vault.sh.
+        server:
+          dev:
+            enabled: true
+            devRootToken: "root"
+          ha:
+            enabled: false
+          standalone:
+            enabled: false
+        injector:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

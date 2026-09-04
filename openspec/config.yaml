@@ -1,0 +1,56 @@
+schema: spec-driven
+
+# Shown to AI when creating/applying artifacts. Keep changes inside these rails.
+context: |
+  AI-first marketplace (Shopee-like) as a POLYREPO. One `platform-core` holds the
+  contract + infra + rules; each `team-*` sibling holds exactly one service.
+
+  Repos & bounded contexts (owner of a capability = where its FEATURES.yaml lives):
+    platform-core   — proto contract, docker infra, ADRs, seed tools
+    platform-e2e    — Python pytest-bdd + Playwright E2E platform (drives :3000 via gateway :8080)
+    team-gateway    — Connect edge :8080 (JWT verify once, rate-limit/CORS; NO business logic)
+    team-frontend   — Next.js 14 SSR :3000 (UI shell only; talks ONLY to the gateway)
+    team-identity   — auth (HS256 JWT, scopes), addresses :50053
+    team-domain     — listing write-model + stock holds, emits Kafka :50051
+    team-search     — OpenSearch CQRS read-model (SearchListings/Suggest) :50052
+    team-engagement — favorites, reviews, Q&A, disputes :50054
+    team-order      — cart, 4-step purchase saga, shipment, RMA :50055
+    team-payment    — mock payment, refund, seller wallet/payout :50056
+    team-chat       — buyer↔seller chat :50057
+    team-notification — in-app notifications :50058
+    team-ai         — FastAPI AI (RAG assistant, magic-listing, chat-copilot) :8000
+
+  Non-negotiable architecture rules (see platform-core/docs + ADRs):
+    1. Frontend/BFF talks ONLY to the gateway; never call a service directly.
+    2. Gateway routes+orchestrates, holds no business logic; verifies auth once,
+       forwards x-principal-{id,type,scopes} downstream.
+    3. Each service owns its DB; need another service's data -> call its gRPC.
+    4. Contract is source of truth: a message/RPC is defined ONLY in
+       platform-core/packages/proto. Never hand-edit generated code.
+    5. State-change events -> Kafka `<domain>.events`; background jobs -> RabbitMQ.
+
+  E2E contract (shift-left): every change that adds/alters a user-facing capability
+  MUST update the owning repo's `<repo>/FEATURES.yaml` (schema:
+  platform-e2e/schemas/features.schema.json). A spec `#### Scenario:` maps 1:1 to a
+  FEATURES.yaml `acceptance` line and a platform-e2e `.feature` scenario. A change is
+  archivable only when its scenarios are `status: automated` and green
+  (`make -C platform-e2e features-check`).
+
+rules:
+  proposal:
+    - State which repos/services and which capability the change touches.
+    - Include a "Non-goals" section.
+    - Respect the 5 architecture rules above; flag any cross-service contract change to platform-core/proto.
+  tasks:
+    - "Split into two parallel tracks - code (per repo) and e2e (platform-e2e)."
+    - "The e2e track updates the owning repo FEATURES.yaml and adds a .feature + steps + page objects."
+  spec:
+    - "Write requirements as testable '#### Scenario:' WHEN/THEN blocks (Gherkin-adjacent)."
+
+operations:
+  apply:
+    guidance:
+      - Run the code and e2e tracks in parallel where the surfaces are disjoint.
+  archive:
+    guidance:
+      - "Before archiving, confirm 'make -C platform-e2e features-check' is green and the change's scenarios are automated."

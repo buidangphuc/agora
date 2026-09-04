@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+// team-payment (Go) owns this: mock payment transactions (Phase 5).
+// Financially sensitive => MOCK ONLY (no real money movement).
+package platform.payment.v1;
+
+import "google/protobuf/timestamp.proto";
+
+enum PaymentMethod {
+  PAYMENT_METHOD_UNSPECIFIED = 0;
+  PAYMENT_METHOD_COD = 1;         // Cash on Delivery
+  PAYMENT_METHOD_MOCK_MOMO = 2;   // Mock MoMo QR
+  PAYMENT_METHOD_MOCK_BANK = 3;   // Mock Bank Transfer
+  PAYMENT_METHOD_MOCK_CARD = 4;   // Mock Credit/Debit Card
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_PENDING = 1;
+  PAYMENT_STATUS_PAID = 2;
+  PAYMENT_STATUS_FAILED = 3;
+  PAYMENT_STATUS_REFUNDED = 4;
+}
+
+message PaymentTransaction {
+  string id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  int64 amount = 4;
+  string currency = 5;
+  PaymentMethod method = 6;
+  PaymentStatus status = 7;
+  string provider_reference = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+service PaymentService {
+  rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+  rpc ProcessMockPayment(ProcessMockPaymentRequest) returns (ProcessMockPaymentResponse);
+}
+
+message CreatePaymentRequest {
+  string order_id = 1;
+  PaymentMethod method = 2;
+}
+
+message CreatePaymentResponse {
+  PaymentTransaction transaction = 1;
+  string payment_url = 2; // URL to the mock payment checkout page
+}
+
+message GetPaymentRequest {
+  string id = 1;
+  string order_id = 2;
+}
+
+message GetPaymentResponse {
+  PaymentTransaction transaction = 1;
+}
+
+message ProcessMockPaymentRequest {
+  string transaction_id = 1;
+  bool simulate_success = 2; // true to simulate successful payment, false for failure
+}
+
+message ProcessMockPaymentResponse {
+  PaymentTransaction transaction = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// PaymentSettled is the event-carried outcome of a mock payment (AD4). team-payment
+// writes it via the transactional outbox and publishes it on Kafka topic
+// "payment.events" (key = order_id), wrapped in platform.events.v1.EventEnvelope
+// whose event_id is the outbox row id. team-order consumes it idempotently and
+// transitions the order (SETTLED -> PAID) exactly once. Mirrored here from the
+// platform-core contract so team-order can generate the consumer types.
+message PaymentSettled {
+  string payment_id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  PaymentStatus status = 4; // PAYMENT_STATUS_PAID (settled) | PAYMENT_STATUS_FAILED
+  string occurred_at = 5;   // RFC3339; also the read-model version source
+}

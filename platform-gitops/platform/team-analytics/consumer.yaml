@@ -1,0 +1,49 @@
+# team-analytics warehouse writer (cmd/consumer) — a Kafka-consumer WORKER that
+# reads analytics.events from Redpanda and appends TrackingEvents to the analytics
+# warehouse (DuckDB local / BigQuery prod) behind the WarehouseWriter seam.
+# Worker variant: Deployment only, NO Service/Ingress/NetworkPolicy — mirrors the
+# platform/search-indexer consumer precedent. A CPU request is declared so the
+# HPA/KEDA path stays usable.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: team-analytics
+  namespace: marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: team-analytics }
+  template:
+    metadata:
+      labels: { app: team-analytics }
+    spec:
+      containers:
+        - name: consumer
+          image: localhost:5001/team-analytics:local
+          env:
+            - { name: KAFKA_ENABLED, value: "true" }
+            - { name: KAFKA_BROKERS, value: "redpanda:9092" }
+            - { name: KAFKA_ANALYTICS_TOPIC, value: "analytics.events" }
+            - { name: KAFKA_CONSUMER_GROUP, value: "team-analytics" }
+            - { name: WAREHOUSE_DRIVER, value: "duckdb" }
+            - { name: DUCKDB_PATH, value: "/data/analytics.duckdb" }
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            grpc: { port: 50059 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            grpc: { port: 50059 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - { name: analytics-data, mountPath: /data }
+      volumes:
+        - name: analytics-data
+          emptyDir: {}

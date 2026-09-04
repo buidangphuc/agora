@@ -1,0 +1,25 @@
+# team-search CQRS indexer (cmd/indexer) — separate consumer binary that reads
+# listing.events from Redpanda and indexes into OpenSearch. Reuses team-search-env
+# (Vault bag: KAFKA_BROKERS, OPENSEARCH_URL, ...). No Service (consumer only).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: team-search-indexer
+  namespace: marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: team-search-indexer }
+  template:
+    metadata:
+      labels: { app: team-search-indexer }
+    spec:
+      containers:
+        - name: indexer
+          image: localhost:5001/team-search-indexer:local
+          envFrom:
+            - secretRef: { name: team-search-env }
+          env:
+            - { name: KAFKA_ENABLED, value: "true" }
+            - { name: KAFKA_LISTING_TOPIC, value: "listing.events" }
+            - { name: KAFKA_CONSUMER_GROUP, value: "team-search-indexer" }

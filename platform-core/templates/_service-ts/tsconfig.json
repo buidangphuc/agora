@@ -1,0 +1,30 @@
+{
+  // Strict, modern ESM. Targets Node 20+ (ES2022 language + lib).
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": ".",
+
+    // Strictness — keep the seed honest.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Interop / emit.
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true
+  },
+  // `generated/` is produced by `npm run proto` (gitignored). It is included so
+  // the client compiles once you have vendored the proto module and generated.
+  "include": ["src/**/*.ts", "generated/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

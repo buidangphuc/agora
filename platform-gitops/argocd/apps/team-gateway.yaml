@@ -1,0 +1,73 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-gateway
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-gateway
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-gateway
+          image:
+            repo: localhost:5001/team-gateway
+            pullPolicy: Always
+          containerPort: 8080
+          service:
+            port: 8080
+          healthPath: /healthz
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          # Representative CPU-HPA rollout: stateless request-server, scales on CPU.
+          # Requires metrics-server + the resources.requests.cpu above.
+          autoscaling:
+            enabled: true
+            type: cpu
+            minReplicas: 1
+            maxReplicas: 5
+            targetCPUUtilizationPercentage: 60
+          env:
+            HTTP_PORT: "8080"
+            UPSTREAM_IDENTITY_ADDR: "team-identity:50053"
+            UPSTREAM_LISTING_ADDR: "team-domain:50051"
+            UPSTREAM_SEARCH_ADDR: "team-search:50052"
+            UPSTREAM_ENGAGEMENT_ADDR: "team-engagement:50054"
+            UPSTREAM_ORDER_ADDR: "team-order:50055"
+            UPSTREAM_PAYMENT_ADDR: "team-payment:50056"
+            UPSTREAM_CHAT_ADDR: "team-chat:50057"
+            UPSTREAM_AI_ADDR: "team-ai:50060"
+            UPSTREAM_RECOMMENDATION_ADDR: "team-ai:50060"
+            UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
+            UPSTREAM_NOTIFICATION_ADDR: "team-notification:50058"
+            JWKS_URL: "http://team-identity:50063/.well-known/jwks.json"
+            JWKS_CACHE_TTL: "300"
+          secrets:
+            enabled: true
+            jwtShared: false     # gateway holds no signing secret; verifies via JWKS (ADR-0006)
+          ingress:
+            enabled: true
+            host: api.localtest.me
+            path: /
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

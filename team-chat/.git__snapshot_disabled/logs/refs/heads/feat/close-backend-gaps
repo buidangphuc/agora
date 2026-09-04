@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 8e04ee2b85fa50ab7c383362053a7ac64ad0b6e9 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788492747 +0700	branch: Created from HEAD
+8e04ee2b85fa50ab7c383362053a7ac64ad0b6e9 20c59aede2c3bdae46bf2158db9b72d1fdb885d1 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788492889 +0700	commit: feat(chat): message search (SearchMessages) — participant-scoped ILIKE + tests
+20c59aede2c3bdae46bf2158db9b72d1fdb885d1 ca65008cced056afdab439dfd1da51944d22d07d Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788498302 +0700	commit: feat(chat): rich messages (MessageType/listing-card/payload) + ListQuickReplies + migration
+ca65008cced056afdab439dfd1da51944d22d07d a3e7e5edcb7df4ca3b0f06662f9049528c934ba6 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788513302 +0700	commit: fix(team-chat: reject anonymous principal in RequirePrincipal (security)

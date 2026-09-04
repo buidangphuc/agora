@@ -1,0 +1,8 @@
+0000000000000000000000000000000000000000 7268ba312f8044e951e5a295152148728fa0476c Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788254817 +0700	commit (initial): feat: complete showcase feature implementation and verification
+7268ba312f8044e951e5a295152148728fa0476c 1dd1fa873203a031e7b90358482de2a25fbefe49 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788269419 +0700	commit: test: add comprehensive unit tests and Sonar coverage profiling
+1dd1fa873203a031e7b90358482de2a25fbefe49 3b7119ba4cee8c272a0e511c835fca6020f74c2c Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788271512 +0700	commit: test: add config unit tests and refresh coverage profiles
+3b7119ba4cee8c272a0e511c835fca6020f74c2c 7df0b8d2726e32b05afce10367236543b051d006 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788278615 +0700	commit: docs: comprehensive audit and README update for architecture, RPCs, and E2E matrix
+7df0b8d2726e32b05afce10367236543b051d006 cd8dccb9b691468bb4ff0226bb94c05b0c70288c Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788322199 +0700	commit: feat(team-notification): register automated feature manifests
+cd8dccb9b691468bb4ff0226bb94c05b0c70288c cd8dccb9b691468bb4ff0226bb94c05b0c70288c Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788498241 +0700	checkout: moving from main to feat/12-features
+cd8dccb9b691468bb4ff0226bb94c05b0c70288c 6e31bceffe3f2a110b12663b6fa768f6c6d8a021 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788498308 +0700	commit: feat(notification): preferences + digest (Get/UpdateNotificationPrefs) + prefs migration
+6e31bceffe3f2a110b12663b6fa768f6c6d8a021 05f7b144e5df5f5deb796142464e7da253232a51 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788516298 +0700	commit: fix(team-notification: register grpc.health.v1.Health service

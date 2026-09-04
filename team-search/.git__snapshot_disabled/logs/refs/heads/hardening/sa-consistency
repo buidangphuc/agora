@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 1625ffc9659482a4f596dead502d063ad89377a4 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788425275 +0700	branch: Created from HEAD
+1625ffc9659482a4f596dead502d063ad89377a4 b941c2402e91e0da86d1b8e34553c5aabaedeae5 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788425275 +0700	commit: fix(search): exactly-once consumer + version guard [SA-C1,H5]
+b941c2402e91e0da86d1b8e34553c5aabaedeae5 ec2393799ac5cfd0d3299e07c99e39473475701b Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788509246 +0700	commit: feat(search): saved searches — Save/List/Delete/RunSavedSearch

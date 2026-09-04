@@ -1,0 +1,5 @@
+/generated/
+bin/
+.env
+*.duckdb
+*.parquet

@@ -1,0 +1,42 @@
+# Per-service, per-env overlay for team-gateway in prod: real ingress host, higher
+# replica floor/ceiling and prod-sized resources on top of the hardened chart.
+ingress:
+  enabled: true
+  host: api.example.com
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  type: cpu
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+# Progressive delivery (add-canary-deploys): representative service opts into the
+# canary Rollout in prod. The HPA above now targets the Rollout (chart D5). More
+# conservative than staging — smaller first step, longer pauses, tighter SLO.
+rollout:
+  enabled: true
+  canary:
+    steps:
+      - setWeight: 10
+      - pause: { duration: 300 }
+      - analysis: true
+      - setWeight: 25
+      - pause: { duration: 300 }
+      - analysis: true
+      - setWeight: 50
+      - pause: { duration: 300 }
+      - analysis: true
+      - setWeight: 100
+  analysis:
+    intervalSeconds: 60
+    count: 5
+    failureLimit: 1
+    errorRateThreshold: "0.02"
+    latencyP95Ms: "400"
+    minRps: "0.1"

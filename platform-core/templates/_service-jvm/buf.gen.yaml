@@ -1,0 +1,37 @@
+# buf codegen — runs IN THIS REPO, writes ONLY into ./generated (see ADR-0001).
+#
+# platform-core NEVER generates into this template. You vendor its proto module
+# under proto-vendor/ (a git submodule pinned at a tag) and run `buf generate`
+# here (`make proto`). The output in generated/ is gitignored (see .gitignore),
+# regenerated on demand, and NEVER hand-edited.
+#
+# JVM stack: protobuf-java (messages) + protobuf-kotlin (Kotlin DSL builders) +
+# grpc-java (stubs) + grpc-kotlin (coroutine ImplBase). build.gradle.kts wires
+# ./generated in as an extra source root.
+version: v2
+
+# Managed mode applies buf's default `com` java package prefix, so proto package
+# `platform.listing.v1` generates into java/kotlin package `com.platform.listing.v1`
+# (which is what the adapter imports). Without this the generated package would be
+# a bare `platform.listing.v1` and the imports below would not resolve.
+managed:
+  enabled: true
+
+plugins:
+  # Java message classes (runtime base for everything below).
+  - remote: buf.build/protocolbuffers/java
+    out: generated
+  # Kotlin builder DSL (the `listing { … }` helpers the adapter uses).
+  - remote: buf.build/protocolbuffers/kotlin
+    out: generated
+  # gRPC Java service stubs.
+  - remote: buf.build/grpc/java
+    out: generated
+  # gRPC Kotlin coroutine stubs (ListingServiceCoroutineImplBase).
+  - remote: buf.build/grpc/kotlin
+    out: generated
+
+# The vendored proto module is the codegen input. Its buf.yaml (module root)
+# comes in with the submodule, so imports like "platform/common/v1/common.proto" resolve.
+inputs:
+  - directory: proto-vendor

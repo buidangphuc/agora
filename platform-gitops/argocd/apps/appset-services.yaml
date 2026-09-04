@@ -1,0 +1,100 @@
+# Env dimension for the marketplace services WITHOUT duplicating an Application per
+# (service × env). A matrix of {cluster} × {service} templates one ArgoCD Application
+# per combination, each pointing charts/service at that env's overlays.
+#
+# `local` is intentionally NOT generated here — it keeps its existing per-service
+# Applications in argocd/apps/*.yaml unchanged (byte-identical render), so this
+# ApplicationSet only adds real staging/prod clusters.
+#
+# Multi-cluster gate: the cluster dimension is a `clusters` generator selecting only
+# clusters labelled `envScoped: "true"`. Each such cluster ALSO carries `envName`
+# (staging|prod) and `envRegistry` labels that drive the overlay path + image repo.
+# The local kind cluster (in-cluster) is unlabelled, so this ApplicationSet generates
+# ZERO apps locally — staging/prod overlays never flood the local marketplace ns with
+# images from unreachable registries. Register a real cluster with those labels to
+# activate its env. (ArgoCD matrix supports exactly two generators — cluster × service.)
+#
+# Value precedence (later wins in Helm):
+#   1. chart defaults (charts/service/values.yaml)
+#   2. $values/envs/<env>/values.yaml          — images map + global (per-env registry/tags)
+#   3. $values/envs/services/<svc>.yaml         — invariant per-service baseline (identity, ports, env, secrets, base sizing)
+#   4. $values/envs/<env>/services.yaml         — env-wide overlay (probe timing, env policy)
+#   5. $values/envs/<env>/services/<svc>.yaml   — per-service per-env overlay (resources/replicas/HPA/ingress host) [optional]
+#   6. inline `values:` below                   — image.repo/pullPolicy composed from the cluster's env labels
+#
+# Infra / raw-manifest apps (postgres, minio via infra-shared, backup, monitoring) are
+# NOT env-scoped here; they remain local-only until real staging/prod clusters exist
+# (cluster provisioning is out of scope — see the proposal's Non-goals).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: marketplace-services
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          # Only REAL registered staging/prod clusters (labelled envScoped=true) match.
+          # Local in-cluster is unlabelled → zero apps generated here.
+          - clusters:
+              selector:
+                matchLabels:
+                  envScoped: "true"
+          - list:
+              elements:
+                - { name: team-identity }
+                - { name: team-domain }
+                - { name: team-search }
+                - { name: team-engagement }
+                - { name: team-order }
+                - { name: team-payment }
+                - { name: team-chat }
+                - { name: team-notification }
+                - { name: team-referral }
+                - { name: team-verification }
+                - { name: team-sharing }
+                - { name: team-audit }
+                - { name: team-gateway }
+                - { name: team-frontend }
+                - { name: team-ai }
+                - { name: team-promotion }
+  template:
+    metadata:
+      # {{.name}} = service (list generator wins the key over the cluster's own name);
+      # env comes from the selected cluster's label.
+      name: '{{.name}}-{{index .metadata.labels "envName"}}'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "4"
+    spec:
+      project: default
+      destination:
+        server: "{{.server}}"
+        namespace: marketplace
+      sources:
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+          targetRevision: main
+          ref: values
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+          targetRevision: main
+          path: charts/service
+          helm:
+            releaseName: "{{.name}}"
+            ignoreMissingValueFiles: true
+            valueFiles:
+              - $values/envs/{{index .metadata.labels "envName"}}/values.yaml
+              - $values/envs/services/{{.name}}.yaml
+              - $values/envs/{{index .metadata.labels "envName"}}/services.yaml
+              - $values/envs/{{index .metadata.labels "envName"}}/services/{{.name}}.yaml
+            values: |
+              image:
+                repo: {{index .metadata.labels "envRegistry"}}/{{.name}}
+                pullPolicy: IfNotPresent
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,0 +1,7 @@
+test(e2e): cover recommendation scenarios for archive gate
+
+Add automated FEATURES entries mapping surface-recommendations,
+serve-recommendations-teamai, and add-recommendation-contract spec
+scenarios to platform-e2e .feature coverage.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+// Online recommendation serving contract. This file is the single source of
+// truth for the recommendation RPC (Rule 4); it defines only the contract.
+// The online serving side (implementing this RPC) lands in
+// `serve-recommendations-teamai` (team-ai serving, team-gateway routing,
+// team-frontend surfacing). The ranked artifacts this RPC reads (Qdrant +
+// Redis) are produced offline by `build-als-training-job` from the behavioral
+// warehouse fed by platform.analytics.v1.TrackingEvent.
+//
+// The response carries listing ids + scores only (never hydrated cards): the
+// recommendation side never owns listing content, so the serving layer
+// hydrates cards from the owning services (team-search/team-domain) — DB per
+// service (Rule 3).
+package platform.recommendation.v1;
+
+// RecommendationContext identifies where a recommendation widget is shown, so
+// the server can pick a strategy (for-you feed vs item-item similarity, etc.)
+// without a new RPC per surface.
+enum RecommendationContext {
+  RECOMMENDATION_CONTEXT_UNSPECIFIED = 0;
+  // Homepage "for you" feed (personalized, no seed listing).
+  RECOMMENDATION_CONTEXT_HOMEPAGE = 1;
+  // PDP "similar items" — item-to-item from seed_listing_id.
+  RECOMMENDATION_CONTEXT_SIMILAR_ITEMS = 2;
+  // Cart page cross-sell, anchored on the cart's seed_listing_id.
+  RECOMMENDATION_CONTEXT_CART = 3;
+  // Recommendations surfaced alongside a search result set.
+  RECOMMENDATION_CONTEXT_SEARCH = 4;
+}
+
+// Owned by the online serving layer (team-ai, see serve-recommendations-teamai).
+// Reads offline-built ranking artifacts (Qdrant/Redis); never joins another
+// service's DB (Rule 3). Single-shot request/response — no streaming RPC.
+service RecommendationService {
+  // Return a ranked set of listing ids for the given caller and context.
+  rpc Recommend(RecommendRequest) returns (RecommendResponse);
+}
+
+message RecommendRequest {
+  // Authenticated user id. Set this XOR anonymous_id: exactly one identifies
+  // the caller. Empty for an anonymous visitor.
+  string user_id = 1;
+  // Stable anonymous visitor id (cookie/device) for a not-logged-in caller.
+  // Set this XOR user_id.
+  string anonymous_id = 2;
+  // Optional anchor listing for item-to-item contexts (PDP "similar items",
+  // cart cross-sell). Empty for feed-style contexts (e.g. homepage).
+  string seed_listing_id = 3;
+  // Where the recommendation is shown; lets the server choose a strategy.
+  RecommendationContext context = 4;
+  // Max items to return; 0 = server default.
+  int32 limit = 5;
+}
+
+message RecommendedItem {
+  // Listing to recommend. Ids only — the serving layer hydrates the card from
+  // the owning service (Rule 3); recommendation never owns listing content.
+  string listing_id = 1;
+  // Relevance score from the offline model; higher = more relevant.
+  float score = 2;
+  // 1-based position of this item in the ranking (best-first).
+  int32 rank = 3;
+}
+
+message RecommendResponse {
+  // Recommended listings, ordered best-first by rank.
+  repeated RecommendedItem items = 1;
+  // Version of the offline artifact that produced this ranking, tying the
+  // result back to the model that built it (provenance).
+  string model_version = 2;
+}

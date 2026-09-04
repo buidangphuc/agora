@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-frontend
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-frontend
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-frontend
+          image:
+            repo: localhost:5001/team-frontend
+            pullPolicy: Always
+          containerPort: 3000
+          service:
+            port: 3000
+          healthPath: /
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          env:
+            GATEWAY_URL: "http://team-gateway:8080"
+            JWT_SECRET: "dev-secret-change-me"
+            FLIPT_ADDR: "flipt:8080"
+            FEATURE_FLAGS_ENABLED: "true"
+          ingress:
+            enabled: true
+            host: marketplace.localtest.me
+            path: /
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

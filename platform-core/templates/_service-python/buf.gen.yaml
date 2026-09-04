@@ -1,0 +1,16 @@
+version: v2
+
+# Consumer-side codegen (ADR-0001): platform-core NEVER writes generated code
+# into this repo. We vendor its proto module as a git submodule under
+# `proto-vendor/` and generate Python stubs into our OWN local `generated/`
+# (git-ignored). Run via `make proto`.
+clean: true
+
+plugins:
+  # protobuf messages (+ .pyi type stubs) and grpc.aio service stubs.
+  - remote: buf.build/protocolbuffers/python
+    out: generated
+  - remote: buf.build/protocolbuffers/pyi
+    out: generated
+  - remote: buf.build/grpc/python
+    out: generated

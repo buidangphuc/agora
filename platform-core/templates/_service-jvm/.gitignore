@@ -1,0 +1,9 @@
+# Generated proto code — produced by `make proto`, never committed (ADR-0001).
+/generated/
+
+# Gradle
+.gradle/
+build/
+
+# Local env / secrets
+.env

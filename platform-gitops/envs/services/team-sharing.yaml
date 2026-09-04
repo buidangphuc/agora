@@ -1,0 +1,24 @@
+# Invariant baseline for team-sharing — mirrors argocd/apps/team-sharing.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-sharing
+image:
+  repo: localhost:5001/team-sharing
+containerPort: 50065
+service:
+  port: 50065
+grpcPort: 50065          # native gRPC health probes (grpc.health.v1.Health)
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+secrets:
+  enabled: true
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50065; only the
+# edge (team-gateway) may reach it. Deployed envs only (local exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway]

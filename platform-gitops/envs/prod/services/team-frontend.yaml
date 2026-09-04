@@ -1,0 +1,13 @@
+# Per-service, per-env overlay for team-frontend in prod: real ingress host, more
+# replicas and prod-sized resources.
+replicas: 3
+ingress:
+  enabled: true
+  host: www.example.com
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi

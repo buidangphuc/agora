@@ -1,0 +1,6 @@
+0000000000000000000000000000000000000000 732325bd7e5b70c8198f3d358ef6a7e5b2c61fa2 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788358227 +0700	branch: Created from HEAD
+732325bd7e5b70c8198f3d358ef6a7e5b2c61fa2 5e5a2b5e7a42c9bfebc3ee72cf4e958d29b0589c Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788358227 +0700	commit: feat(identity): RS256 signing + JWKS endpoint (clean cutover from HS256)
+5e5a2b5e7a42c9bfebc3ee72cf4e958d29b0589c 98f0b3108c34a046a286c4d567ebe5686a94c91a Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788504772 +0700	commit: fix(identity): grant search:write scope to all roles so saved-searches work
+98f0b3108c34a046a286c4d567ebe5686a94c91a 05fcae8d6cc52e11886349d4c1a18aa482d79a4d Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788509238 +0700	commit: feat(identity): account safety center — SessionService (list/revoke sessions, login history)
+05fcae8d6cc52e11886349d4c1a18aa482d79a4d 7fdb74f594358599de08f1aa0bb90f29ccaac08a Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788513302 +0700	commit: fix(team-identity: reject anonymous principal in RequirePrincipal (security)
+7fdb74f594358599de08f1aa0bb90f29ccaac08a 61c958e2f2e89de0107d59c650cc6c80b74a1165 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788518372 +0700	commit: test(e2e): cover migrate-jwt-rs256-jwks scenarios for archive gate

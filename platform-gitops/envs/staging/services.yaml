@@ -1,0 +1,8 @@
+# Env-wide sizing/policy overlay for `staging`, applied to EVERY service render after
+# the per-service baseline (envs/services/<svc>.yaml) so these win over the baseline,
+# and before the optional per-service override (envs/staging/services/<svc>.yaml).
+# Env-wide knobs only (probe timing) — per-service sizing lives in the per-service files.
+probes:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3

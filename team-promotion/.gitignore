@@ -1,0 +1,9 @@
+# Generated protobuf/gRPC code — produced by `buf generate`, never hand-edited,
+# never committed (ADR-0001: each consumer generates in its own repo).
+/generated/
+
+# Build output.
+bin/
+
+# Local environment / secrets.
+.env

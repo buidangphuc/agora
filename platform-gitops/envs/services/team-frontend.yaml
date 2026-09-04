@@ -1,0 +1,25 @@
+# Invariant baseline for team-frontend — extracted verbatim from argocd/apps/team-frontend.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-frontend
+image:
+  repo: localhost:5001/team-frontend
+  pullPolicy: Always
+containerPort: 3000
+service:
+  port: 3000
+healthPath: /
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+env:
+  GATEWAY_URL: "http://team-gateway:8080"
+  JWT_SECRET: "dev-secret-change-me"
+ingress:
+  enabled: true
+  host: marketplace.localtest.me
+  path: /

@@ -1,0 +1,347 @@
+syntax = "proto3";
+
+// team-order (Go) owns this: shopping cart + order placement + order lifecycle.
+// It reserves and releases stock via gRPC to team-domain (Rule 3).
+package platform.order.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/identity/v1/identity.proto";
+import "platform/payment/v1/payment.proto";
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;     // Order placed, waiting for payment/processing
+  ORDER_STATUS_PAID = 2;        // Payment confirmed
+  ORDER_STATUS_SHIPPED = 3;     // Seller shipped the order
+  ORDER_STATUS_COMPLETED = 4;   // Buyer received & completed order
+  ORDER_STATUS_CANCELLED = 5;   // Cancelled (stock released)
+}
+
+// ── Cart Service ──
+
+service CartService {
+  rpc GetCart(GetCartRequest) returns (GetCartResponse);
+  rpc AddToCart(AddToCartRequest) returns (AddToCartResponse);
+  rpc UpdateCartItem(UpdateCartItemRequest) returns (UpdateCartItemResponse);
+  rpc RemoveFromCart(RemoveFromCartRequest) returns (RemoveFromCartResponse);
+  rpc ClearCart(ClearCartRequest) returns (ClearCartResponse);
+  // Reorder adds the items of a past order back into the caller's cart and
+  // returns the updated cart.
+  rpc Reorder(ReorderRequest) returns (ReorderResponse);
+}
+
+message CartItem {
+  string id = 1;
+  string listing_id = 2;
+  string variant_id = 3;
+  int32 quantity = 4;
+  int64 unit_price = 5;
+  string title = 6;
+  string variant_name = 7;
+  string image_url = 8;
+  string seller_id = 9;
+}
+
+message Cart {
+  string user_id = 1;
+  repeated CartItem items = 2;
+  int64 subtotal = 3;
+}
+
+message GetCartRequest {}
+
+message GetCartResponse {
+  Cart cart = 1;
+}
+
+message AddToCartRequest {
+  string listing_id = 1;
+  string variant_id = 2;
+  int32 quantity = 3;
+}
+
+message AddToCartResponse {
+  Cart cart = 1;
+}
+
+message UpdateCartItemRequest {
+  string item_id = 1;
+  int32 quantity = 2;
+}
+
+message UpdateCartItemResponse {
+  Cart cart = 1;
+}
+
+message RemoveFromCartRequest {
+  string item_id = 1;
+}
+
+message RemoveFromCartResponse {
+  Cart cart = 1;
+}
+
+message ClearCartRequest {}
+
+message ClearCartResponse {}
+
+message ReorderRequest {
+  string order_id = 1;
+}
+
+// Wraps the existing Cart payload (mirrors GetCartResponse); a distinct message
+// is required by buf's RPC_RESPONSE_STANDARD_NAME / RPC_REQUEST_RESPONSE_UNIQUE.
+message ReorderResponse {
+  Cart cart = 1;
+}
+
+// ── Order Service ──
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc ListBuyerOrders(ListBuyerOrdersRequest) returns (ListBuyerOrdersResponse);
+  rpc ListSellerOrders(ListSellerOrdersRequest) returns (ListSellerOrdersResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  rpc CalculateShippingFee(CalculateShippingFeeRequest) returns (CalculateShippingFeeResponse);
+  // Saga Orchestration & Testability (P3 Pillar)
+  rpc GetSagaState(GetSagaStateRequest) returns (GetSagaStateResponse);
+  rpc ForceFailSaga(ForceFailSagaRequest) returns (ForceFailSagaResponse);
+  // RMA (Return & Refund Management)
+  rpc CreateReturnRequest(CreateReturnRequestRequest) returns (CreateReturnRequestResponse);
+  rpc GetReturnRequest(GetReturnRequestRequest) returns (GetReturnRequestResponse);
+  rpc UpdateReturnStatus(UpdateReturnStatusRequest) returns (UpdateReturnStatusResponse);
+
+  // Shipment & Logistics Tracking
+  rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse);
+  rpc GetShipmentTracking(GetShipmentTrackingRequest) returns (GetShipmentTrackingResponse);
+}
+
+enum ReturnStatus {
+  RETURN_STATUS_UNSPECIFIED = 0;
+  RETURN_STATUS_PENDING = 1;     // Buyer requested return/refund
+  RETURN_STATUS_APPROVED = 2;    // Seller/System approved return
+  RETURN_STATUS_REJECTED = 3;    // Seller/System rejected return
+  RETURN_STATUS_REFUNDED = 4;    // Refund completed
+}
+
+enum ShipmentStatus {
+  SHIPMENT_STATUS_UNSPECIFIED = 0;
+  SHIPMENT_STATUS_PENDING = 1;     // Shipment label created / waiting pickup
+  SHIPMENT_STATUS_PICKED_UP = 2;   // Carrier picked up package
+  SHIPMENT_STATUS_IN_TRANSIT = 3;  // In transit to destination
+  SHIPMENT_STATUS_DELIVERED = 4;   // Successfully delivered
+  SHIPMENT_STATUS_FAILED = 5;      // Delivery failed / returned to sender
+}
+
+// ── RMA / Return Model ──
+
+message OrderReturn {
+  string id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  string seller_id = 4;
+  string reason = 5;
+  int64 refund_amount = 6;
+  ReturnStatus status = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateReturnRequestRequest {
+  string order_id = 1;
+  string reason = 2;
+  int64 refund_amount = 3;
+}
+
+message CreateReturnRequestResponse {
+  OrderReturn return_request = 1;
+}
+
+message GetReturnRequestRequest {
+  string id = 1;
+}
+
+message GetReturnRequestResponse {
+  OrderReturn return_request = 1;
+}
+
+message UpdateReturnStatusRequest {
+  string id = 1;
+  ReturnStatus status = 2;
+}
+
+message UpdateReturnStatusResponse {
+  OrderReturn return_request = 1;
+}
+
+// ── Shipment Tracking Model ──
+
+message ShipmentCheckpoint {
+  string id = 1;
+  string shipment_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string location = 4;
+  string description = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message Shipment {
+  string id = 1;
+  string order_id = 2;
+  string carrier = 3; // SPX, GHN, GHTK, etc.
+  string tracking_code = 4;
+  ShipmentStatus status = 5;
+  repeated ShipmentCheckpoint checkpoints = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateShipmentRequest {
+  string order_id = 1;
+  string carrier = 2; // SPX, GHN, GHTK
+  string tracking_code = 3;
+}
+
+message CreateShipmentResponse {
+  Shipment shipment = 1;
+}
+
+message GetShipmentTrackingRequest {
+  string tracking_code = 1;
+  string order_id = 2;
+  string shipment_id = 3;
+}
+
+message GetShipmentTrackingResponse {
+  Shipment shipment = 1;
+}
+
+message SagaStep {
+  string name = 1; // "1. Order Initialized", "2. Stock Reserved", "3. Payment Charged", "4. Order Confirmed"
+  string status = 2; // "PENDING", "SUCCESS", "FAILED", "COMPENSATED"
+  google.protobuf.Timestamp timestamp = 3;
+  string detail = 4;
+}
+
+message GetSagaStateRequest {
+  string order_id = 1;
+}
+
+message GetSagaStateResponse {
+  string order_id = 1;
+  string current_step = 2;
+  repeated SagaStep steps = 3;
+  bool is_compensated = 4;
+  string compensation_reason = 5;
+}
+
+message ForceFailSagaRequest {
+  string order_id = 1;
+  string fail_step = 2; // "payment" or "shipping"
+}
+
+message ForceFailSagaResponse {
+  bool success = 1;
+  string message = 2;
+  GetSagaStateResponse saga_state = 3;
+}
+
+message OrderItem {
+  string id = 1;
+  string listing_id = 2;
+  string variant_id = 3;
+  string title = 4;
+  string variant_name = 5;
+  int32 quantity = 6;
+  int64 unit_price = 7;
+  string image_url = 8;
+}
+
+message Order {
+  string id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  OrderStatus status = 4;
+  int64 total_amount = 5;
+  string currency = 6;
+  platform.identity.v1.Address shipping_address = 7;
+  repeated OrderItem items = 8;
+  string tracking_number = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  int64 shipping_fee = 12;
+  platform.payment.v1.PaymentMethod payment_method = 13;
+  int64 items_subtotal = 14;
+  // Voucher discount applied at checkout; total_amount = items_subtotal + shipping_fee - discount_amount.
+  int64 discount_amount = 15;
+  string voucher_code = 16;
+}
+
+message CreateOrderRequest {
+  string address_id = 1;
+  // Optional: if empty, checkout all items in the user's cart
+  repeated string item_ids = 2;
+  platform.payment.v1.PaymentMethod payment_method = 3;
+  // Optional voucher code; redeemed against team-promotion during the saga.
+  string voucher_code = 4;
+}
+
+message CreateOrderResponse {
+  repeated Order orders = 1; // 1 per seller
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message ListBuyerOrdersRequest {
+  OrderStatus status_filter = 1;
+}
+
+message ListBuyerOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message ListSellerOrdersRequest {
+  OrderStatus status_filter = 1;
+}
+
+message ListSellerOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message UpdateOrderStatusRequest {
+  string id = 1;
+  OrderStatus status = 2;
+  string tracking_number = 3;
+}
+
+message UpdateOrderStatusResponse {
+  Order order = 1;
+}
+
+message CancelOrderRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message CancelOrderResponse {
+  Order order = 1;
+}
+
+message CalculateShippingFeeRequest {
+  string city = 1;
+  int64 items_subtotal = 2;
+}
+
+message CalculateShippingFeeResponse {
+  int64 shipping_fee = 1;
+  bool is_free_shipping = 2;
+  string message = 3;
+}

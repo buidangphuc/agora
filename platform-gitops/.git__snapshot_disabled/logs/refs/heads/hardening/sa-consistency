@@ -1,0 +1,12 @@
+0000000000000000000000000000000000000000 326fbc0a2284245e614fc13a92c373460c4611b8 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788425277 +0700	branch: Created from HEAD
+326fbc0a2284245e614fc13a92c373460c4611b8 ed14696f8570af533d7a7d4492d6fbf79c755c9a Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788425277 +0700	commit: feat(gitops): zero-trust NetworkPolicy + Kafka ACL [SA-H4]
+ed14696f8570af533d7a7d4492d6fbf79c755c9a 6289e5b7e7fe0e1e2e7c046e5dae4442c3f7e221 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788492919 +0700	commit: feat(gitops): wire OpenFeature Flipt env for team-order + team-frontend
+6289e5b7e7fe0e1e2e7c046e5dae4442c3f7e221 a9a956d0bee61b62514309c4cc9566708deef3bb Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788498354 +0700	commit: feat(gitops): register team-referral/sharing/audit/verification (compose, argocd, ports)
+a9a956d0bee61b62514309c4cc9566708deef3bb a39e37536ab221b55eff3779a63892fa3237830a ci <ci@local> 1788513819 +0700	commit: fix(gitops): onboard team-ai into Vault config (k8s role + policy + kv)
+a39e37536ab221b55eff3779a63892fa3237830a 485132e99e47e3154b694195423e2b679d575e05 ci <ci@local> 1788514392 +0700	commit: fix(gitops): gate staging/prod ApplicationSet to real clusters only
+485132e99e47e3154b694195423e2b679d575e05 ddb57eef4f2574314a6882be595d3f1522404b3a ci <ci@local> 1788514540 +0700	commit: fix(gitops): appset matrix = cluster x service (2 generators; env from cluster labels)
+ddb57eef4f2574314a6882be595d3f1522404b3a 3d9ed1a4460ebb62f5d66201d2af4fed8597f03c ci <ci@local> 1788514934 +0700	commit: fix(gitops): team-ai KAFKA_ENABLED=true (ingest worker validates it at startup)
+3d9ed1a4460ebb62f5d66201d2af4fed8597f03c 0c859d48340615cc2f62fcb959631dec66fa38e8 ci <ci@local> 1788515414 +0700	commit: fix(gitops): onboard promotion/audit/referral/sharing/verification (postgres+vault); team-ai serving-only
+0c859d48340615cc2f62fcb959631dec66fa38e8 4523a71a8e7d3002106f0006be482874555f9c03 ci <ci@local> 1788515648 +0700	commit: fix(gitops): postgres-users PostSync Job (create roles on live DB without re-init)
+4523a71a8e7d3002106f0006be482874555f9c03 209ac898186ac9d03d55099e7ab737a3bc66196b ci <ci@local> 1788516816 +0700	commit: fix(gitops): set GRPC_PORT to match probe port (promotion/audit/verification)
+209ac898186ac9d03d55099e7ab737a3bc66196b b866e0c193fe627b257a4126ea272ca228349aeb ci <ci@local> 1788517092 +0700	commit: fix(gitops): chart Service omits grpc port when equal to http port (dup port)

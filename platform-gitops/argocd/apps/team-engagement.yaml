@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-engagement
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-engagement
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-engagement
+          image:
+            repo: localhost:5001/team-engagement
+          containerPort: 50054
+          service:
+            port: 50054
+          grpcPort: 50054          # native gRPC health probes (grpc.health.v1.Health)
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            UPSTREAM_ORDER_ADDR: "team-order:50055"
+          secrets:
+            enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

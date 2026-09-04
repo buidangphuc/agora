@@ -1,0 +1,5 @@
+fix(team-verification: register grpc.health.v1.Health service
+
+The kind deployment's readiness/liveness probe is a gRPC health check (grpc.health.v1.Health); the server never registered it, so probes failed with 'unknown service grpc.health.v1.Health' -> never Ready -> liveness restart loop. Register health.NewServer() and report SERVING.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

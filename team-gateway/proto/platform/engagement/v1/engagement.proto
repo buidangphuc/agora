@@ -1,0 +1,405 @@
+syntax = "proto3";
+
+// team-engagement (Go) owns this: per-user favorites, views/stats, and product reviews & ratings (Phase 6).
+// These are the trust and behavior signals a future recommender will consume.
+package platform.engagement.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+// Owned by team-engagement (DB-per-service). Favorites and reviews require an authenticated
+// user; views, stats, and review listings are public.
+service EngagementService {
+  rpc AddFavorite(AddFavoriteRequest) returns (AddFavoriteResponse);
+  rpc RemoveFavorite(RemoveFavoriteRequest) returns (RemoveFavoriteResponse);
+  rpc ListFavorites(ListFavoritesRequest) returns (ListFavoritesResponse);
+  rpc IsFavorite(IsFavoriteRequest) returns (IsFavoriteResponse);
+  rpc RecordView(RecordViewRequest) returns (RecordViewResponse);
+  rpc GetListingStats(GetListingStatsRequest) returns (GetListingStatsResponse);
+  // Per-user recently-viewed listing history (most-recent-first), populated as a
+  // side-effect of RecordView. Anonymous callers get an empty list.
+  rpc GetRecentlyViewed(GetRecentlyViewedRequest) returns (GetRecentlyViewedResponse);
+
+  // ── Reviews & Ratings ──
+  rpc CreateReview(CreateReviewRequest) returns (CreateReviewResponse);
+  rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse);
+  rpc GetListingRatingSummary(GetListingRatingSummaryRequest) returns (GetListingRatingSummaryResponse);
+  rpc MarkReviewHelpful(MarkReviewHelpfulRequest) returns (MarkReviewHelpfulResponse);
+  rpc GetShopRatingSummary(GetShopRatingSummaryRequest) returns (GetShopRatingSummaryResponse);
+
+  // ── Wishlist Collections (named lists on top of favorites) ──
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  rpc AddToCollection(AddToCollectionRequest) returns (AddToCollectionResponse);
+  rpc RemoveFromCollection(RemoveFromCollectionRequest) returns (RemoveFromCollectionResponse);
+  rpc ListCollectionItems(ListCollectionItemsRequest) returns (ListCollectionItemsResponse);
+
+  // ── Product Q&A ──
+  rpc AskQuestion(AskQuestionRequest) returns (AskQuestionResponse);
+  rpc AnswerQuestion(AnswerQuestionRequest) returns (AnswerQuestionResponse);
+  rpc ListQuestionsByListing(ListQuestionsByListingRequest) returns (ListQuestionsByListingResponse);
+
+  // ── Disputes ──
+  rpc CreateDispute(CreateDisputeRequest) returns (CreateDisputeResponse);
+  rpc GetDispute(GetDisputeRequest) returns (GetDisputeResponse);
+  rpc ResolveDispute(ResolveDisputeRequest) returns (ResolveDisputeResponse);
+
+  // ── Seller Follow / Feed ──
+  // Follow/unfollow a seller; the follow graph powers the personalized feed.
+  rpc FollowSeller(FollowSellerRequest) returns (FollowSellerResponse);
+  rpc UnfollowSeller(UnfollowSellerRequest) returns (UnfollowSellerResponse);
+  rpc ListFollowedSellers(ListFollowedSellersRequest) returns (ListFollowedSellersResponse);
+  rpc IsFollowing(IsFollowingRequest) returns (IsFollowingResponse);
+  // Feed of listings from sellers the caller follows (most-recent-first).
+  rpc ListFollowedListings(ListFollowedListingsRequest) returns (ListFollowedListingsResponse);
+
+  // ── Loyalty / Daily Check-in ──
+  // Daily check-in that advances the caller's streak and awards coins.
+  rpc CheckIn(CheckInRequest) returns (CheckInResponse);
+  // Current loyalty snapshot (streak, coin balance, last check-in time).
+  rpc GetLoyalty(GetLoyaltyRequest) returns (GetLoyaltyResponse);
+}
+
+message AddFavoriteRequest {
+  string listing_id = 1;
+}
+
+message AddFavoriteResponse {}
+
+message RemoveFavoriteRequest {
+  string listing_id = 1;
+}
+
+message RemoveFavoriteResponse {}
+
+message ListFavoritesRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListFavoritesResponse {
+  // Favorited listing ids (most-recent first); resolve details via ListingService.
+  repeated string listing_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message IsFavoriteRequest {
+  string listing_id = 1;
+}
+
+message IsFavoriteResponse {
+  bool favorite = 1;
+}
+
+message RecordViewRequest {
+  string listing_id = 1;
+}
+
+message RecordViewResponse {
+  int64 view_count = 1;
+}
+
+message GetListingStatsRequest {
+  string listing_id = 1;
+}
+
+message GetListingStatsResponse {
+  int64 view_count = 1;
+  int64 favorite_count = 2;
+}
+
+message GetRecentlyViewedRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message GetRecentlyViewedResponse {
+  // Recently-viewed listing ids (most-recent first); resolve details via ListingService.
+  repeated string listing_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// ── Review Messages ──
+
+message Review {
+  string id = 1;
+  string listing_id = 2;
+  string user_id = 3;
+  string user_name = 4;
+  string order_id = 5;
+  int32 rating = 6; // 1 to 5 stars
+  string comment = 7;
+  google.protobuf.Timestamp created_at = 8;
+  repeated string media_urls = 9;   // review photos
+  int64 helpful_count = 10;         // number of users who marked this helpful
+  bool verified_purchase = 11;      // buyer has a delivered order for the listing
+}
+
+message RatingBreakdown {
+  int32 star_1 = 1;
+  int32 star_2 = 2;
+  int32 star_3 = 3;
+  int32 star_4 = 4;
+  int32 star_5 = 5;
+}
+
+message CreateReviewRequest {
+  string listing_id = 1;
+  int32 rating = 2; // 1-5
+  string comment = 3;
+  string order_id = 4;
+  repeated string media_urls = 5;
+}
+
+message CreateReviewResponse {
+  Review review = 1;
+}
+
+message ListReviewsRequest {
+  string listing_id = 1;
+  int32 rating_filter = 2; // 0 = all, 1-5 = specific star rating
+  platform.common.v1.PageRequest page = 3;
+}
+
+message ListReviewsResponse {
+  repeated Review reviews = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message GetListingRatingSummaryRequest {
+  string listing_id = 1;
+}
+
+message GetListingRatingSummaryResponse {
+  string listing_id = 1;
+  double average_rating = 2; // e.g. 4.8
+  int64 review_count = 3;
+  RatingBreakdown breakdown = 4;
+}
+
+message MarkReviewHelpfulRequest {
+  string review_id = 1;
+}
+
+message MarkReviewHelpfulResponse {
+  int64 helpful_count = 1;
+}
+
+message GetShopRatingSummaryRequest {
+  string seller_id = 1;
+}
+
+message GetShopRatingSummaryResponse {
+  string seller_id = 1;
+  double average_rating = 2;
+  int64 review_count = 3;
+  RatingBreakdown breakdown = 4;
+}
+
+// ── Wishlist Collection Messages ──
+
+message Collection {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  int64 item_count = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message CreateCollectionRequest {
+  string name = 1;
+}
+
+message CreateCollectionResponse {
+  Collection collection = 1;
+}
+
+message ListCollectionsRequest {}
+
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+}
+
+message AddToCollectionRequest {
+  string collection_id = 1;
+  string listing_id = 2;
+}
+
+message AddToCollectionResponse {}
+
+message RemoveFromCollectionRequest {
+  string collection_id = 1;
+  string listing_id = 2;
+}
+
+message RemoveFromCollectionResponse {}
+
+message ListCollectionItemsRequest {
+  string collection_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListCollectionItemsResponse {
+  repeated string listing_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// ── Product Q&A Messages ──
+
+message ProductAnswer {
+  string id = 1;
+  string question_id = 2;
+  string user_id = 3;
+  string answer_text = 4;
+  bool is_shop_reply = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ProductQuestion {
+  string id = 1;
+  string listing_id = 2;
+  string user_id = 3;
+  string question_text = 4;
+  repeated ProductAnswer answers = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message AskQuestionRequest {
+  string listing_id = 1;
+  string question_text = 2;
+}
+
+message AskQuestionResponse {
+  ProductQuestion question = 1;
+}
+
+message AnswerQuestionRequest {
+  string question_id = 1;
+  string answer_text = 2;
+  bool is_shop_reply = 3;
+}
+
+message AnswerQuestionResponse {
+  ProductAnswer answer = 1;
+}
+
+message ListQuestionsByListingRequest {
+  string listing_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListQuestionsByListingResponse {
+  repeated ProductQuestion questions = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// ── Dispute Messages ──
+
+enum DisputeStatus {
+  DISPUTE_STATUS_UNSPECIFIED = 0;
+  DISPUTE_STATUS_OPEN = 1;
+  DISPUTE_STATUS_INVESTIGATING = 2;
+  DISPUTE_STATUS_RESOLVED = 3;
+  DISPUTE_STATUS_REJECTED = 4;
+}
+
+message Dispute {
+  string id = 1;
+  string order_id = 2;
+  string claimant_id = 3;
+  string defendant_id = 4;
+  string reason = 5;
+  repeated string evidence_urls = 6;
+  DisputeStatus status = 7;
+  string resolution = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CreateDisputeRequest {
+  string order_id = 1;
+  string defendant_id = 2;
+  string reason = 3;
+  repeated string evidence_urls = 4;
+}
+
+message CreateDisputeResponse {
+  Dispute dispute = 1;
+}
+
+message GetDisputeRequest {
+  string dispute_id = 1;
+}
+
+message GetDisputeResponse {
+  Dispute dispute = 1;
+}
+
+message ResolveDisputeRequest {
+  string dispute_id = 1;
+  DisputeStatus status = 2;
+  string resolution = 3;
+}
+
+message ResolveDisputeResponse {
+  Dispute dispute = 1;
+}
+
+// ── Seller Follow / Feed Messages ──
+
+message FollowSellerRequest {
+  string seller_id = 1;
+}
+
+message FollowSellerResponse {}
+
+message UnfollowSellerRequest {
+  string seller_id = 1;
+}
+
+message UnfollowSellerResponse {}
+
+message ListFollowedSellersRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListFollowedSellersResponse {
+  // Followed seller ids (most-recent first); resolve details via ListingService.
+  repeated string seller_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message IsFollowingRequest {
+  string seller_id = 1;
+}
+
+message IsFollowingResponse {
+  bool following = 1;
+}
+
+message ListFollowedListingsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListFollowedListingsResponse {
+  // Listing ids from followed sellers (most-recent first); resolve via ListingService.
+  repeated string listing_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// ── Loyalty / Daily Check-in Messages ──
+
+message CheckInRequest {}
+
+message CheckInResponse {
+  int32 streak = 1;         // consecutive daily check-ins after this one
+  int64 coins_earned = 2;   // coins awarded by this check-in
+  int64 coin_balance = 3;   // resulting total coin balance
+}
+
+message GetLoyaltyRequest {}
+
+message GetLoyaltyResponse {
+  int32 streak = 1;
+  int64 coin_balance = 2;
+  google.protobuf.Timestamp last_checkin = 3;
+}
+

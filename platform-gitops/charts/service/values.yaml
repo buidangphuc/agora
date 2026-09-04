@@ -1,0 +1,149 @@
+# Defaults; child Applications override per service. `images` is merged in from
+# envs/local/values.yaml (CI-bumped) and indexed by `name` to resolve the tag.
+name: service
+defaultTag: local
+images: {}
+
+image:
+  repo: localhost:5001/service
+  pullPolicy: IfNotPresent
+
+replicas: 1
+containerPort: 8080
+service:
+  port: 8080
+
+env: {}
+healthPath: ""          # e.g. /healthz -> HTTP readiness + liveness + startup probes
+
+# gRPC health port. 0/empty = disabled (HTTP-only service). When > 0, the chart
+# renders native Kubernetes gRPC readiness + liveness + startup probes (`grpc:`
+# probe type, requires K8s 1.24+) against this port. The service must expose the
+# standard gRPC Health service (grpc.health.v1.Health) on this port for probes to pass.
+grpcPort: 0             # e.g. 50051 -> adds gRPC readiness/liveness/startup probes
+
+# Optional second HTTP port exposed alongside the primary port, for a service that
+# serves an extra plain-HTTP endpoint on its own port (e.g. team-identity's JWKS at
+# GET /.well-known/jwks.json on 50063, ADR-0006). 0/empty = disabled: nothing extra
+# renders and the default single-port Service/container is unchanged. When > 0, the
+# chart adds a second named (`jwks`) containerPort and a matching Service port so the
+# endpoint is reachable in-cluster (http://<name>:<jwksPort>). No probes are attached.
+jwksPort: 0             # e.g. 50063 -> adds a second `jwks` containerPort + Service port
+
+# Probe timing knobs, shared by the HTTP and gRPC probe blocks. Defaults match the
+# chart's historical readiness values (5s initial delay, 5s period). `startup` gets
+# its own failure budget so slow starters (initialDelay + period*failureThreshold)
+# are not killed during boot before liveness takes over.
+probes:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 3     # readiness/liveness consecutive failures before acting
+  startup:
+    failureThreshold: 30  # 30 * periodSeconds (=150s) boot budget before liveness kicks in
+
+# Pod resource requests/limits. HPA needs a CPU *request* to compute utilization,
+# so every deployed service should declare at least requests.cpu. Kept {} by default
+# so nothing regresses; fill in per service via the child Application values.
+resources: {}
+# e.g.
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+#   limits:
+#     cpu: 500m
+#     memory: 256Mi
+
+# Horizontal Pod Autoscaler (autoscaling/v2). Requires metrics-server + resources.requests.cpu.
+# When enabled, the Deployment drops its static `replicas` and the HPA owns replica count.
+autoscaling:
+  enabled: false
+  type: cpu             # cpu = HPA on CPU/memory · keda = KEDA ScaledObject (event/RPS-driven)
+  minReplicas: 1
+  maxReplicas: 5
+  # --- type: cpu (HPA) ---
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 0   # 0 = disabled
+  behavior: {}          # optional scaleUp/scaleDown tuning
+  # --- type: keda (ScaledObject) --- for IO-bound services, scale on request rate etc.
+  keda:
+    pollingInterval: 15
+    cooldownPeriod: 60
+    advanced: {}
+    triggers: []        # e.g. a Prometheus RPS trigger:
+    #   - type: prometheus
+    #     metadata:
+    #       serverAddress: http://prometheus.marketplace.svc:9090
+    #       query: sum(rate(teamai_grpc_requests_total[30s]))
+    #       threshold: "5"
+
+# Progressive delivery via Argo Rollouts (add-canary-deploys). OPT-IN: when
+# `rollout.enabled` is false (default) the chart renders a plain Deployment,
+# byte-identical to before, and NO Rollout/AnalysisTemplate. When true, the chart
+# renders an argoproj.io/v1alpha1 Rollout (canary strategy) in place of the
+# Deployment, plus an AnalysisTemplate that gates promotion on Prometheus RED
+# metrics; the HPA scaleTargetRef then points at the Rollout (the Rollout owns
+# replica count). Enabled only for the representative service in staging/prod.
+rollout:
+  enabled: false
+  canary:
+    # Canary steps. `setWeight`/`pause` are passed through verbatim; a step of
+    # `{ analysis: true }` is expanded by the chart into an analysis step that
+    # references this service's AnalysisTemplate (<name>-canary) by name, so a
+    # canary breaching a threshold is rolled back automatically. Default cadence:
+    # 20% → pause+analysis → 50% → pause+analysis → 100%.
+    steps:
+      - setWeight: 20
+      - pause: { duration: 60 }
+      - analysis: true
+      - setWeight: 50
+      - pause: { duration: 60 }
+      - analysis: true
+      - setWeight: 100
+  analysis:
+    # In-cluster Prometheus from add-prometheus-infra (carries the gateway's
+    # per-upstream RED series exported by the otel-collector, and team-ai's).
+    prometheusAddress: http://prometheus.marketplace.svc:9090
+    intervalSeconds: 30      # analysis measurement interval
+    count: 3                 # measurements per analysis run before it concludes
+    failureLimit: 1          # breaches tolerated before the canary is rolled back
+    # `service` is passed to the AnalysisTemplate as {{args.service}} so per-service
+    # query filtering is available; defaults to the service name.
+    service: ""
+    # Metric families + labels rendered by the collector's Prometheus exporter
+    # (add-prometheus-infra). The RED signal is the gateway's gRPC client
+    # duration histogram: `_count` for RPS/error-rate, `_bucket` for p95.
+    countMetric: marketplace_rpc_client_duration_milliseconds_count
+    bucketMetric: marketplace_rpc_client_duration_milliseconds_bucket
+    statusLabel: rpc_grpc_status_code   # "0" == OK
+    okStatus: "0"
+    range: 1m                # rate() window for the queries
+    # Thresholds (per-service tunable).
+    errorRateThreshold: "0.05"   # fail if non-OK/total error rate >= 5%
+    latencyP95Ms: "500"          # fail if p95 client latency >= 500ms
+    minRps: "0.1"                # rps-sanity: fail if the canary sees ~no traffic
+    # Optional full-query overrides. Empty = use the chart's default query built
+    # from the knobs above (aggregate edge RED, valid for the gateway canary). A
+    # service can filter by target with e.g.
+    #   errorRateQuery: sum(rate(<countMetric>{rpc_service="...",<status>!="0"}[1m])) / sum(rate(<countMetric>{rpc_service="..."}[1m]))
+    errorRateQuery: ""
+    latencyQuery: ""
+    rpsQuery: ""
+
+ingress:
+  enabled: false
+  host: ""
+  path: /
+  rewriteTarget: ""
+
+# NetworkPolicy: default-deny ingress, allow from the named sources (pod app labels).
+networkPolicy:
+  enabled: false
+  allowFrom: []         # e.g. [team-gateway]  (pods with app=<x> may connect)
+
+# Vault + External Secrets: each service auths to Vault as its own SA (role=name),
+# reads only svc/<name>/* (+ shared/jwt), synced to Secret <name>-env, used via envFrom.
+secrets:
+  enabled: false
+  jwtShared: false      # identity only: pull JWT_PRIVATE_KEY + JWT_KID from svc/shared/jwt (RS256, ADR-0006)
+  vaultServer: http://vault.vault.svc:8200
+  vaultKvPath: svc

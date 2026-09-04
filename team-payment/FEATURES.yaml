@@ -1,0 +1,92 @@
+# Feature manifest for team-payment (mock payment + seller wallet/payouts).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-payment
+owner: payment-team
+
+features:
+  - id: payment.mock-pay
+    title: Mock payment for an order
+    persona: buyer
+    priority: P0
+    summary: A buyer completes a demo payment and the order becomes PAID.
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order, team-frontend]
+    preconditions:
+      login: buyer
+      data: An order in PENDING state awaiting payment.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.CreatePayment, payment.v1.GetPayment]
+    acceptance:
+      - Given a buyer has a pending order
+      - When the buyer completes the demo payment
+      - Then the order status becomes PAID
+    tags: [buyer]
+    status: automated
+    covered_by: "payment/mock_pay.feature::Buyer completes mock payment for an order"
+    notes: >
+      Hardened: on settle, team-payment writes payment=PAID and a
+      platform.payment.v1.PaymentSettled event to payment.events in the SAME
+      transaction (transactional outbox), instead of a fire-and-forget
+      order.UpdateOrderStatus RPC; team-order consumes it idempotently to reach PAID.
+      No more payment=PAID + order=PENDING dual-write (SA-H3). See ADR-0009
+      (payment↔order event integration), ADR-0007 (durable saga).
+
+  - id: payment.seller-wallet
+    title: Seller wallet balance
+    persona: seller
+    priority: P1
+    summary: A seller views wallet balance accrued from completed orders.
+    entry_route: /seller/analytics
+    services: [team-payment, team-frontend]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.GetSellerWallet]
+    ui:
+      key_elements:
+        wallet_balance: "text:Số dư ví"
+    acceptance:
+      - Given a seller is logged in
+      - When the seller opens analytics
+      - Then the wallet balance is shown
+    tags: [seller]
+    status: automated
+    covered_by: "seller/fulfillment_and_payout.feature::Seller views analytics and requests wallet payout"
+
+  - id: payment.payout
+    title: Request a bank payout
+    persona: seller
+    priority: P2
+    summary: A seller withdraws wallet balance and sees it in payout history.
+    entry_route: /seller/analytics
+    services: [team-payment, team-frontend]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.ListPayoutHistory]
+    acceptance:
+      - Given a seller has a positive wallet balance
+      - When the seller requests a payout
+      - Then the payout appears in payout history
+    tags: [seller]
+    status: automated
+    covered_by: "fintech/seller_payout.feature::Seller requests a bank payout from wallet balance"
+
+  - id: payment.refund
+    title: Refund on approved return
+    persona: buyer
+    priority: P2
+    summary: An approved RMA triggers a refund back to the buyer.
+    entry_route: /account/orders
+    services: [team-payment, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [payment.v1.RefundPayment]
+    acceptance:
+      - Given a return request is approved
+      - When the refund is processed
+      - Then the buyer is refunded and the transaction is recorded
+    tags: [buyer]
+    status: automated
+    covered_by: "payment/refund.feature::Refund payment is processed on approved return"

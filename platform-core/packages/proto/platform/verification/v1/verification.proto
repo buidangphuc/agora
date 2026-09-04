@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+// Seller/user KYC verification: document submission, status lookup, and review.
+package platform.verification.v1;
+
+service VerificationService {
+  // Submit a KYC document for review (called by the user being verified).
+  rpc SubmitKyc(SubmitKycRequest) returns (SubmitKycResponse);
+  // Fetch the current verification status (and badge eligibility) for a user.
+  rpc GetVerificationStatus(GetVerificationStatusRequest) returns (GetVerificationStatusResponse);
+  // Approve/reject a submitted KYC document (called by a reviewer/admin).
+  rpc ReviewKyc(ReviewKycRequest) returns (ReviewKycResponse);
+}
+
+enum VerificationStatus {
+  VERIFICATION_STATUS_UNSPECIFIED = 0;
+  VERIFICATION_STATUS_PENDING = 1;
+  VERIFICATION_STATUS_VERIFIED = 2;
+  VERIFICATION_STATUS_REJECTED = 3;
+}
+
+message SubmitKycRequest {
+  string doc_type = 1; // e.g. "national_id", "passport", "business_license"
+  string doc_ref = 2;  // storage key / reference to the uploaded document
+}
+
+message SubmitKycResponse {
+  string id = 1;
+  VerificationStatus status = 2;
+}
+
+message GetVerificationStatusRequest {
+  string user_id = 1;
+}
+
+message GetVerificationStatusResponse {
+  VerificationStatus status = 1;
+  bool badge = 2; // true when the verified badge should be shown
+}
+
+message ReviewKycRequest {
+  string id = 1;
+  string decision = 2; // "approve" | "reject"
+}
+
+message ReviewKycResponse {
+  VerificationStatus status = 1;
+}

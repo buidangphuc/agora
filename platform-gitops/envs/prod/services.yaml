@@ -1,0 +1,10 @@
+# Env-wide sizing/policy overlay for `prod`, applied to EVERY service render after the
+# per-service baseline (so it wins) and before the per-service override. Prod uses more
+# conservative probe timing; per-service resource/replica/HPA bumps live in the
+# per-service files under envs/prod/services/.
+probes:
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  failureThreshold: 3
+  startup:
+    failureThreshold: 30

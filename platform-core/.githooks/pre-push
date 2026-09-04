@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# platform-core merge-gate (local). Blocks push when the contract is unhealthy.
+# Enable once with: make hooks-install
+set -euo pipefail
+
+echo "→ pre-push: platform-core check"
+if ! command -v buf >/dev/null 2>&1; then
+  echo "✗ buf not installed — cannot verify proto contract. Install: brew install bufbuild/buf/buf" >&2
+  exit 1
+fi
+
+make check
+echo "✓ pre-push check passed"

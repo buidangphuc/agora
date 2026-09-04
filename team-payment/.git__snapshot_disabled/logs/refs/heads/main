@@ -1,0 +1,8 @@
+0000000000000000000000000000000000000000 4c38052ee82b0f3025ff9a59f18a195a1a67a68f Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788254817 +0700	commit (initial): feat: complete showcase feature implementation and verification
+4c38052ee82b0f3025ff9a59f18a195a1a67a68f 56a882402d57d49a6c546997a3bdad242e22a943 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788269419 +0700	commit: test: add comprehensive unit tests and Sonar coverage profiling
+56a882402d57d49a6c546997a3bdad242e22a943 d3a4ff1f71a5bd2b03cb3861f5e0fc9c50088a55 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788269872 +0700	commit: test: expand unit test coverage across repositories
+d3a4ff1f71a5bd2b03cb3861f5e0fc9c50088a55 4f0a3a7746f33a74f759f74553fdf217d60113ef Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788271513 +0700	commit: test: add config unit tests and refresh coverage profiles
+4f0a3a7746f33a74f759f74553fdf217d60113ef 9ba745aec114d9446cdf096dcd2ec6beb02b62c7 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788271740 +0700	commit: test: add address handler and repository unit tests
+9ba745aec114d9446cdf096dcd2ec6beb02b62c7 c270d1d6bc3ae01c38ddc45ed119e1a3b9d68194 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788272574 +0700	commit: feat: implement RMA, shipments, seller wallet, Q&A, disputes and password management
+c270d1d6bc3ae01c38ddc45ed119e1a3b9d68194 7635aa00d325f12189b95023fd4dc7caf647173b Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788278615 +0700	commit: docs: comprehensive audit and README update for architecture, RPCs, and E2E matrix
+7635aa00d325f12189b95023fd4dc7caf647173b 2f13ba5622bded9869115e2552613ad51d2c91a1 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788322191 +0700	commit: fix(payment): fallback order lookup on refund and update manifest

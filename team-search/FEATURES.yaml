@@ -1,0 +1,116 @@
+# Feature manifest for team-search (OpenSearch read-model — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-search
+owner: search-team
+
+features:
+  - id: search.query
+    title: Search listings with filters
+    persona: guest
+    priority: P0
+    summary: A query returns matching published listings with filter/sort support.
+    entry_route: /search
+    related_routes: [/]
+    services: [team-search, team-frontend]
+    preconditions:
+      login: guest
+      data: Uses the pre-seeded catalog (CQRS index populated).
+    api:
+      exercised: [search.v1.SearchListings]
+    ui:
+      key_elements:
+        search_input: "placeholder:Tìm kiếm sản phẩm"
+        empty_state: "text:Không tìm thấy sản phẩm"
+    acceptance:
+      - Given the home page is open
+      - When the user searches for "laptop"
+      - Then the results page lists matching products
+    tags: [buyer, smoke]
+    status: automated
+    covered_by: "buyer/search_and_discovery.feature::Buyer discovers products through search and filter options"
+    notes: >
+      Hardened: the CQRS indexer is now exactly-once — on an OpenSearch index error
+      the consumer retries then routes the record to <topic>.dlq and never advances
+      the offset past a failed record, and every read-model doc carries a monotonic
+      version guard so out-of-order/redelivered events cannot resurrect a deleted
+      listing (SA-C1/H5). See ADR-0005 (search read-model) and the hardening spec's
+      AD1 (consumer offset discipline) / AD2 (read-model version guard).
+
+  - id: search.suggest
+    title: Auto-suggest keywords
+    persona: guest
+    priority: P2
+    summary: Typing in the search box shows an auto-suggest dropdown.
+    entry_route: /
+    services: [team-search, team-frontend]
+    preconditions:
+      login: guest
+    api:
+      exercised: [search.v1.Suggest]
+    ui:
+      key_elements:
+        search_input: "placeholder:Tìm kiếm sản phẩm"
+    acceptance:
+      - Given the home page is open
+      - When the user types a partial keyword
+      - Then a suggestion dropdown appears
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/consumer_pages.feature::Search suggests keywords"
+
+  - id: search.sort-filtering
+    title: Search results sorting
+    persona: buyer
+    priority: P1
+    summary: Buyer sorts search results by price and criteria.
+    entry_route: /search
+    services: [team-search, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    ui:
+      key_elements:
+        sort_bar: "text:Sắp xếp theo:"
+    acceptance:
+      - Given a buyer is logged in
+      - When the buyer searches for "iPhone"
+      - Then the search results sort bar displays the sorting controls
+      - When the buyer sorts search results by newest
+      - Then the search URL contains the selected sort parameter
+    tags: [buyer, search]
+    status: automated
+    covered_by: "buyer/search_price_sort.feature::Buyer sorts search results by price and criteria"
+
+  - id: search.facets
+    title: Faceted search filters
+    persona: buyer
+    priority: P1
+    summary: >
+      The search results page renders facet aggregations (categories, price ranges,
+      ratings, sellers) with per-bucket counts, and selecting a facet narrows the
+      result set, reflects the filter in the URL, and recomputes the facet counts.
+    entry_route: /search
+    services: [team-search, team-frontend]
+    preconditions:
+      login: buyer
+      data: >
+        Seeded published listings across categories and price ranges, indexed into
+        the OpenSearch read-model (team-search consumes listing.events).
+    api:
+      exercised: [search.v1.SearchListings]
+    ui:
+      key_elements:
+        facets_sidebar: "testid:search-facets"
+        facet_groups: "testid:facet-categories|facet-price_ranges|facet-ratings|facet-sellers"
+        facet_bucket: "testid:facet-bucket"
+        results: "testid:search-results"
+    acceptance:
+      - Given seeded listings across categories and price ranges are indexed
+      - When the buyer opens the search results for the seeded listings
+      - Then the facet sidebar shows category and price buckets with counts
+      - When the buyer selects the "100000-500000" price-range facet
+      - Then the results narrow, the URL reflects the price filter, and facet counts update
+    tags: [buyer, search]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Facet buckets render with counts"

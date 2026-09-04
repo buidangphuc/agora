@@ -1,0 +1,5 @@
+fix(team-chat: reject anonymous principal in RequirePrincipal (security)
+
+Same class as the promotion unauth bug: RequirePrincipal only checked id != "", so the gateway's anonymous principal (id="anonymous") passed. All RequirePrincipal-gated RPCs here are user-scoped (bind to principal.id) — anonymous would have shared one identity across guests. Now reject anonymous id/type.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

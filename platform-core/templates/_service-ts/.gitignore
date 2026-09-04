@@ -1,0 +1,7 @@
+# Generated Connect-ES code — produced by `npm run proto`, never committed here
+# (ADR-0001: consumers generate locally into ./generated).
+/generated/
+
+node_modules/
+dist/
+.env

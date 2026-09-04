@@ -1,0 +1,364 @@
+# platform-core local infra — LOCAL ONLY (Phase 0). No cloud.
+# Fixed stack: Postgres per-service (owned) + Redis + Qdrant (shared).
+# On production these map to managed services; only .env values change.
+name: platform-core
+
+services:
+  # ── SHARED INFRA — every service may connect ──────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    ports: ["6333:6333", "6334:6334"] # 6333 http, 6334 grpc
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      # qdrant image has no curl/wget; TCP probe the http port via bash.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/6333"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Flipt — self-hosted feature-flag (release-toggle) server. gRPC :9000 for
+  # in-network, in-process SDK evaluation; HTTP + UI :8080 mapped to host 8083
+  # (8080 is the gateway on the host, 9000 is MinIO's S3 API on the host, so gRPC
+  # stays in-network only). SQLite flag store persisted on flipt_data so toggles
+  # survive restarts. No SDK is wired yet (see wire-openfeature).
+  flipt:
+    image: flipt/flipt:v1.54.0
+    ports:
+      - "8083:8080" # HTTP + UI (gRPC :9000 stays in-network only)
+    volumes:
+      - flipt_data:/var/opt/flipt
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── OWNED DBs — one Postgres per service, isolated credentials ────────
+  # Rule 3: no service holds another service's connection string.
+  # Add a new service DB by copying a block: next free host port 543X,
+  # <name>_db / <name>_svc / <name>_pass, and a pg_<name> volume.
+  postgres-listing:
+    image: postgres:16-alpine
+    ports: ["5433:5432"]
+    environment:
+      POSTGRES_DB: listing_db
+      POSTGRES_USER: listing_svc
+      POSTGRES_PASSWORD: listing_pass
+    volumes:
+      - pg_listing:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listing_svc -d listing_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-search:
+    image: postgres:16-alpine
+    ports: ["5434:5432"]
+    environment:
+      POSTGRES_DB: search_db
+      POSTGRES_USER: search_svc
+      POSTGRES_PASSWORD: search_pass
+    volumes:
+      - pg_search:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U search_svc -d search_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-identity:
+    image: postgres:16-alpine
+    ports: ["5435:5432"]
+    environment:
+      POSTGRES_DB: identity_db
+      POSTGRES_USER: identity_svc
+      POSTGRES_PASSWORD: identity_pass
+    volumes:
+      - pg_identity:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identity_svc -d identity_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-engagement:
+    image: postgres:16-alpine
+    ports: ["5436:5432"]
+    environment:
+      POSTGRES_DB: engagement_db
+      POSTGRES_USER: engagement_svc
+      POSTGRES_PASSWORD: engagement_pass
+    volumes:
+      - pg_engagement:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engagement_svc -d engagement_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-order:
+    image: postgres:16-alpine
+    ports: ["5437:5432"]
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: order_svc
+      POSTGRES_PASSWORD: order_pass
+    volumes:
+      - pg_order:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_svc -d order_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-payment:
+    image: postgres:16-alpine
+    ports: ["5438:5432"]
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_svc
+      POSTGRES_PASSWORD: payment_pass
+    volumes:
+      - pg_payment:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_svc -d payment_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-chat:
+    image: postgres:16-alpine
+    ports: ["5439:5432"]
+    environment:
+      POSTGRES_DB: chat_db
+      POSTGRES_USER: chat_svc
+      POSTGRES_PASSWORD: chat_pass
+    volumes:
+      - pg_chat:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat_svc -d chat_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-promotion:
+    image: postgres:16-alpine
+    ports: ["5440:5432"]
+    environment:
+      POSTGRES_DB: promotion_db
+      POSTGRES_USER: promotion_svc
+      POSTGRES_PASSWORD: promotion_pass
+    volumes:
+      - pg_promotion:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U promotion_svc -d promotion_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-notification:
+    image: postgres:16-alpine
+    ports: ["5441:5432"]
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_svc
+      POSTGRES_PASSWORD: notification_pass
+    volumes:
+      - pg_notification:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_svc -d notification_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── ASYNC BROKERS — two, by role (see docs/ADR/0002) ──────────────────
+  # Kafka (Redpanda locally) = event streaming between services; RabbitMQ =
+  # task/work queues (prod → SQS). Both start with `make dev`.
+
+  # Redpanda: Kafka-API compatible, no JVM/ZooKeeper. Code uses a normal Kafka
+  # client; swappable for Apache Kafka in prod (same API).
+  redpanda:
+    image: redpandadata/redpanda:v24.1.7
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=warn
+      # Advertise the in-network listener as `redpanda:9092` and a host listener
+      # on 19092 so tools on the host can reach it too.
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092" # Kafka API (host)
+      - "9644:9644" # admin/metrics
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # OpenSearch: the search read-model store (ADR-0005). team-search consumes
+  # listing events and indexes here; security disabled for local dev only.
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # ── OBSERVABILITY & TOOLS ─────────────────────────────────────────────
+  # Complete Enterprise Observability: Tracing (Jaeger), Metrics (Prometheus + Grafana),
+  # Kafka Inspection (Kafka UI), and Multi-protocol Ingestion (OTel Collector).
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    ports: ["8088:8080"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: shopee-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: redpanda:9092
+      DYNAMIC_CONFIG_ENABLED: "true"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686" # Web UI
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:16686/ | grep -q 'Jaeger UI'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    ports: ["9090:9090"]
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:9090/-/healthy | grep -q 'Prometheus Server is Healthy'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    ports: ["3001:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8889:8889" # Prometheus metrics endpoint
+    depends_on:
+      jaeger:
+        condition: service_healthy
+
+  # ── OBJECT STORE — S3-compatible local MinIO (Phase 3) ────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # MinIO bucket init: creates listing-images bucket with public read policy
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb --ignore-existing local/listing-images;
+      /usr/bin/mc anonymous set download local/listing-images;
+      exit 0;
+      "
+
+volumes:
+  qdrant_data:
+  flipt_data:
+  pg_listing:
+  pg_search:
+  pg_identity:
+  pg_engagement:
+  pg_order:
+  pg_payment:
+  pg_chat:
+  pg_promotion:
+  pg_notification:
+  redpanda_data:
+  rabbitmq_data:
+  opensearch_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:

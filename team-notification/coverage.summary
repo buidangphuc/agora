@@ -1,0 +1,15 @@
+github.com/buidangphuc/team-notification/internal/config/config.go:14:			Load				100.0%
+github.com/buidangphuc/team-notification/internal/config/config.go:23:			getEnv				66.7%
+github.com/buidangphuc/team-notification/internal/grpcserver/server.go:19:		New				0.0%
+github.com/buidangphuc/team-notification/internal/grpcserver/server.go:26:		Start				0.0%
+github.com/buidangphuc/team-notification/internal/grpcserver/server.go:34:		Stop				0.0%
+github.com/buidangphuc/team-notification/internal/handler/notification.go:18:		NewNotificationHandler		100.0%
+github.com/buidangphuc/team-notification/internal/handler/notification.go:22:		ListNotifications		75.0%
+github.com/buidangphuc/team-notification/internal/handler/notification.go:46:		MarkAsRead			75.0%
+github.com/buidangphuc/team-notification/internal/handler/notification.go:54:		GetUnreadCount			80.0%
+github.com/buidangphuc/team-notification/internal/repository/notification.go:25:	NewPostgresNotificationRepo	0.0%
+github.com/buidangphuc/team-notification/internal/repository/notification.go:29:	CreateNotification		0.0%
+github.com/buidangphuc/team-notification/internal/repository/notification.go:45:	ListNotifications		0.0%
+github.com/buidangphuc/team-notification/internal/repository/notification.go:77:	MarkAsRead			0.0%
+github.com/buidangphuc/team-notification/internal/repository/notification.go:86:	GetUnreadCount			0.0%
+total:											(statements)			30.0%

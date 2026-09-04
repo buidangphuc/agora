@@ -1,0 +1,5 @@
+fix(gitops): chart Service omits grpc port when equal to http port (dup port)
+
+When grpcPort == service.port the Service rendered two identical ports -> 'Duplicate value spec.ports[1]' -> the Application never synced (so GRPC_PORT env / image updates never applied). Only add the grpc Service port when it differs.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

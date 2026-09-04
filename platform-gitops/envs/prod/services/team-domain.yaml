@@ -1,0 +1,10 @@
+# Per-service, per-env overlay for team-domain in prod: prod-sized requests/limits for
+# the listing write-model (gRPC). Hardened gRPC probes come from the baseline chart.
+replicas: 2
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi

@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 ae68c4fb7314c30d3bd1b0d47c9413c60b1b43d2 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788492747 +0700	branch: Created from HEAD
+ae68c4fb7314c30d3bd1b0d47c9413c60b1b43d2 83cb8036a38cdfb6c591032ab8666ecb84b04377 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788492895 +0700	commit: feat(engagement): recently-viewed history (GetRecentlyViewed) + view_history migration
+83cb8036a38cdfb6c591032ab8666ecb84b04377 242a0de1e9a53a95ba1a459b524743bd162acec1 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788498296 +0700	commit: feat(engagement): follow seller + feed (FollowSeller/ListFollowedListings) + follows migration
+242a0de1e9a53a95ba1a459b524743bd162acec1 24f19ae43adfd9ba3c874bd40936fc288bf39bf5 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788509254 +0700	commit: feat(engagement): loyalty daily check-in — streak + coins (CheckIn/GetLoyalty)

@@ -1,0 +1,5 @@
+fix(promotion): reject anonymous principal in RequirePrincipal (security)
+
+The gateway resolves unauthenticated callers to principal id="anonymous" (type ANONYMOUS). RequirePrincipal only checked id != "", so anonymous passed — CreateVoucher/flash-sale/ad-campaign/subscribe were all mint-able without logging in. Now reject anonymous id/type. Verified: no-token CreateVoucher -> Unauthenticated; seller token still works.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

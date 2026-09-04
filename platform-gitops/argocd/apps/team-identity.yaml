@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-identity
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-identity
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-identity
+          image:
+            repo: localhost:5001/team-identity
+          containerPort: 50053
+          service:
+            port: 50053
+          grpcPort: 50053          # native gRPC health probes (grpc.health.v1.Health)
+          jwksPort: 50063          # second Service+container port so the edge can reach http://team-identity:50063/.well-known/jwks.json (ADR-0006)
+          env:
+            JWKS_HTTP_PORT: "50063"   # serves GET /.well-known/jwks.json (public keys; ADR-0006)
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          secrets:
+            enabled: true      # DATABASE_URL + JWT from Vault (svc/team-identity + shared/jwt)
+            jwtShared: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

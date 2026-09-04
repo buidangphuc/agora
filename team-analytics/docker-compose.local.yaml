@@ -1,0 +1,25 @@
+# Standalone local run for team-analytics. In the polyrepo, prefer platform-core's
+# `make dev` (shared redpanda). This file runs the worker in isolation against the
+# platform-core Redpanda on the shared compose network, writing to an embedded
+# DuckDB file on a mounted volume (no external warehouse service needed locally).
+services:
+  team-analytics:
+    build: .
+    environment:
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_ANALYTICS_TOPIC: "analytics.events"
+      KAFKA_CONSUMER_GROUP: "team-analytics"
+      WAREHOUSE_DRIVER: "duckdb"
+      DUCKDB_PATH: "/data/analytics.duckdb"
+    volumes:
+      - analytics-data:/data
+    networks:
+      - platform-core_default
+
+volumes:
+  analytics-data:
+
+networks:
+  platform-core_default:
+    external: true

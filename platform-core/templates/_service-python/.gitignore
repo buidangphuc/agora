@@ -1,0 +1,11 @@
+# Generated protobuf/grpc stubs — a build artifact, produced by `make proto`.
+# Never commit; regenerate from the pinned proto submodule instead (ADR-0001).
+/generated/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local secrets / config
+.env

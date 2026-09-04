@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-rollouts
+  namespace: argocd
+  annotations:
+    # Earlier sync-wave than the marketplace services (wave 4) so the Rollout CRDs
+    # exist before any service opts into rollout.enabled. Mirrors keda.yaml (wave 1).
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-rollouts
+    targetRevision: 2.37.3
+    helm:
+      values: |
+        # Argo Rollouts controller. Installs the Rollout/AnalysisTemplate CRDs and
+        # runs the canary controller that drives setWeight/pause/analysis steps.
+        # Declaring this Application is in scope; syncing it (the one-time CRD
+        # bootstrap) on a live cluster is cluster-gated (add-canary-deploys D6).
+        installCRDs: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

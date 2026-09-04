@@ -1,0 +1,32 @@
+# Per-service, per-env overlay for team-gateway in staging (applied LAST → highest
+# precedence). Real ingress host + a slightly wider HPA ceiling than local.
+ingress:
+  enabled: true
+  host: api.staging.example.com
+autoscaling:
+  enabled: true
+  type: cpu
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+# Progressive delivery (add-canary-deploys): representative service opts into the
+# canary Rollout in staging. The HPA above now targets the Rollout (chart D5).
+# Faster/coarser cadence than prod — staging is where a bad image should surface.
+rollout:
+  enabled: true
+  canary:
+    steps:
+      - setWeight: 25
+      - pause: { duration: 60 }
+      - analysis: true
+      - setWeight: 50
+      - pause: { duration: 60 }
+      - analysis: true
+      - setWeight: 100
+  analysis:
+    intervalSeconds: 30
+    count: 3
+    failureLimit: 1
+    errorRateThreshold: "0.05"
+    latencyP95Ms: "500"
+    minRps: "0.1"

@@ -1,0 +1,55 @@
+# DORMANT — reusable CI workflow for the polyrepo (Phase 0 is local-only,
+# no cloud). When you go remote, publish this to `org/ci-workflows` and each
+# team repo references it in 3 lines:
+#
+#   # team-*/.github/workflows/ci.yml
+#   jobs:
+#     ci:
+#       uses: org/ci-workflows/.github/workflows/standard-ci.yml@v1
+#       with:
+#         language: go   # go | python | jvm | ts
+#
+# One definition, every repo inherits it. Mirrors the LOCAL `make check` gate
+# so "green locally" == "green in CI".
+name: standard-ci
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        required: true
+        type: string
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true # vendored proto module
+      - uses: bufbuild/buf-action@v1
+        with:
+          lint: true
+          breaking: true
+          breaking_against: "https://github.com/${{ github.repository }}.git#branch=main"
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      # Each language runs its own `make check` (lint + typecheck + test),
+      # defined in the service template's Makefile. Toolchain setup is
+      # language-conditional; kept minimal here as the dormant contract.
+      - name: check
+        run: make check
+
+  # Security posture the current product CI is missing — wired here for later.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: secret-scan
+        uses: gitleaks/gitleaks-action@v2
+      # dependency/container scan (trivy) added when images are published.

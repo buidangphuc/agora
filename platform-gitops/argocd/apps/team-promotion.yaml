@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-promotion
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-promotion
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-promotion
+          image:
+            repo: localhost:5001/team-promotion
+          containerPort: 50061
+          service:
+            port: 50061
+          grpcPort: 50061          # native gRPC health probes (grpc.health.v1.Health)
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            FEATURE_FLAGS_ENABLED: "false"
+            GRPC_PORT: "50061"
+            KAFKA_ENABLED: "true"
+            PROMOTION_EVENTS_TOPIC: "promotion.events"
+          secrets:
+            enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

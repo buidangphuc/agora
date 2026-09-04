@@ -1,0 +1,380 @@
+# Feature manifest for team-order (cart, saga, RMA — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-order
+owner: order-team
+
+features:
+  - id: order.buyer-reaches-checkout
+    title: Buyer search-to-checkout journey
+    persona: buyer
+    priority: P0
+    summary: A buyer finds a product, adds it to the cart and reaches checkout.
+    entry_route: /search
+    related_routes: ["/listing/{listing_id}", /cart, /checkout]
+    services: [team-order, team-search, team-domain]
+    preconditions:
+      login: buyer
+      data: Uses the pre-seeded catalog (seed-marketplace.sh).
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart]
+    ui:
+      key_elements:
+        add_to_cart: "role:button=Thêm Vào Giỏ Hàng"
+        checkout_link: 'a[href="/checkout"]'
+    acceptance:
+      - Given a buyer is logged in
+      - When the buyer searches for a product and adds it to the cart
+      - And the buyer proceeds to checkout
+      - Then the checkout page is displayed
+    tags: [buyer, smoke]
+    status: automated
+    covered_by: "buyer/purchase.feature::Buyer searches, opens a product and reaches checkout"
+
+  - id: order.seeded-product-purchasable
+    title: A seeded product is purchasable
+    persona: buyer
+    priority: P1
+    summary: A listing seeded via the API renders a working add-to-cart action.
+    entry_route: /listing/{listing_id}
+    services: [team-order, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      seed: [listing.v1.CreateListing]
+      exercised: [order.v1.AddToCart]
+    ui:
+      key_elements:
+        add_to_cart: "role:button=Thêm Vào Giỏ Hàng"
+    acceptance:
+      - Given a buyer is logged in
+      - And a listing has been seeded via the API
+      - When the buyer opens the seeded listing
+      - Then the add-to-cart action is available
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/purchase.feature::A seeded product is purchasable"
+
+  - id: order.purchase-saga
+    title: Distributed purchase saga to PAID
+    persona: buyer
+    priority: P0
+    summary: Placing an order runs the 4-step saga to a PAID order.
+    entry_route: /checkout
+    related_routes: [/account/orders, "/checkout/pay/{order_id}"]
+    services: [team-order, team-domain, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A cart with one item and a saved delivery address.
+    api:
+      seed: [listing.v1.CreateListing, order.v1.AddToCart]
+      exercised: [order.v1.CreateOrder, order.v1.GetSagaState]
+    ui:
+      key_elements:
+        place_order: "role:button=Xác nhận đặt hàng"
+    acceptance:
+      - Given a buyer with an item in the cart and a saved address
+      - When the buyer places the order
+      - Then the order reaches PAID via the saga
+    tags: [buyer]
+    status: automated
+    covered_by: "order/purchase_saga.feature::Placing an order runs the purchase saga to PAID"
+    notes: >
+      Hardened (consistency change): the saga is now durable — reservation/saga
+      state is persisted in Postgres before external effects and payment→order is
+      event-carried via PaymentSettled on payment.events (no fire-and-forget RPC).
+      See ADR-0007 (durable saga + compensation), ADR-0008 (inventory reservation),
+      ADR-0009 (payment↔order event integration).
+
+  - id: order.checkout-kill-switch
+    title: Checkout emergency kill-switch (OpenFeature + Flipt)
+    persona: buyer
+    priority: P1
+    summary: >
+      The boolean flag `checkout-enabled` gates the checkout / place-order path.
+      Flipped OFF in Flipt, the checkout entry is hidden in the UI and CreateOrder
+      is rejected by team-order; ON, checkout works normally. Fail-open: a Flipt
+      outage leaves checkout available.
+    entry_route: /cart
+    related_routes: [/checkout]
+    services: [team-frontend, team-gateway, team-order, flipt]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A cart with one item; `checkout-enabled` seeded via Flipt's API per scenario.
+    api:
+      seed: [listing.v1.CreateListing, order.v1.AddToCart]
+      exercised: [order.v1.CreateOrder]
+    ui:
+      key_elements:
+        checkout_link: 'a[href="/checkout"]'
+        unavailable_notice: "text=Thanh toán tạm thời không khả dụng"
+    acceptance:
+      # Maps 1:1 to specs/feature-flags/spec.md scenarios.
+      - Given a buyer has an item in the cart
+      - When `checkout-enabled` is turned OFF in Flipt
+      - Then the checkout / place-order entry is hidden or disabled in the UI
+      - And a CreateOrder request through the gateway is rejected as checkout-unavailable
+      - When `checkout-enabled` is turned ON in Flipt
+      - Then the checkout entry appears and the buyer can place an order via gateway → team-order
+    tags: [buyer, feature-flags, kill-switch]
+    status: automated
+    covered_by: "feature_flags/checkout_kill_switch.feature::The browser never evaluates flags"
+
+  - id: order.saga-compensation
+    title: Saga failure triggers compensation
+    persona: buyer
+    priority: P1
+    summary: A forced payment failure releases stock and cancels the order.
+    entry_route: /checkout
+    services: [team-order, team-domain, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [order.v1.ForceFailSaga, order.v1.GetSagaState]
+    acceptance:
+      - Given an order is mid-saga
+      - When the payment step is forced to fail
+      - Then stock is released and the order is CANCELLED
+    tags: [buyer]
+    status: automated
+    covered_by: "order/saga_compensation.feature::Forced payment failure triggers saga compensation and releases stock"
+    notes: >
+      Hardened: compensations run on a fresh context (never the failed request ctx),
+      failed releases are retried/parked (never discarded), and a TTL sweeper releases
+      stock held by a crashed checkout so no reservation leaks. See ADR-0007 (durable
+      saga + compensation), ADR-0008 (reservation TTL/idempotency).
+
+  - id: order.shipment-tracking
+    title: SPX shipment tracking
+    persona: buyer
+    priority: P2
+    summary: A paid order generates a shipment with a trackable checkpoint timeline.
+    entry_route: "/account/orders/{order_id}"
+    related_routes: ["/seller/orders/{order_id}"]
+    services: [team-order]
+    preconditions:
+      login: buyer
+      data: A paid order ready to ship.
+    api:
+      exercised: [order.v1.CreateShipment, order.v1.GetShipmentTracking]
+    acceptance:
+      - Given a buyer has a paid order
+      - When the order is shipped
+      - Then the order detail shows the SPX tracking timeline
+    tags: [buyer]
+    status: automated
+    covered_by: "order/shipment_tracking.feature::Order shipment generates trackable timeline"
+
+  - id: order.rma-return
+    title: RMA return and refund
+    persona: buyer
+    priority: P2
+    summary: Buyer requests a return; seller approval refunds and restocks.
+    entry_route: /account/orders/{order_id}
+    services: [team-order, team-payment]
+    preconditions:
+      login: buyer
+      data: A delivered, paid order belonging to the buyer.
+    api:
+      exercised: [order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    ui:
+      key_elements:
+        open_rma: "role:button=Yêu cầu trả hàng"
+    acceptance:
+      - Given a buyer has a delivered order
+      - When the buyer submits a return request
+      - And the seller approves it
+      - Then the payment is refunded and stock restored
+    tags: [buyer]
+    status: automated
+    covered_by: "order/rma_return.feature::Buyer submits return request and seller updates status"
+
+  - id: order.detail-timeline
+    title: Order detail and 5-step delivery timeline
+    persona: buyer
+    priority: P1
+    summary: Buyer inspects order summary, items and 5-step delivery status progression.
+    entry_route: "/account/orders/{order_id}"
+    services: [team-order, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [order.v1.GetOrder]
+    acceptance:
+      - Given a buyer is logged in
+      - And the buyer has placed an order via API
+      - When the buyer navigates to the order detail page
+      - Then the order summary shows the 5-step delivery timeline and items
+    tags: [buyer, order]
+    status: automated
+    covered_by: "order/order_timeline_view.feature::Buyer inspects order details and 5-step delivery timeline"
+
+  - id: order.history-list
+    title: Buyer order history overview
+    persona: buyer
+    priority: P1
+    summary: Buyer views all previous orders placed across shops with status badges.
+    entry_route: /account/orders
+    services: [team-order, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [order.v1.ListOrders]
+    acceptance:
+      - Given a buyer is logged in
+      - And the buyer has placed an order via API
+      - When the buyer navigates to the orders page
+      - Then the orders list displays the placed order cards with status badges
+    tags: [buyer, order]
+    status: automated
+    covered_by: "buyer/order_history_tabs.feature::Buyer views order history cards"
+
+  - id: order.seller-management
+    title: Seller order fulfillment management
+    persona: seller
+    priority: P1
+    summary: Seller monitors customer orders and fulfillment status.
+    entry_route: /seller/orders
+    services: [team-order, team-frontend]
+    preconditions:
+      login: seller
+      seed_tag: needsSeller
+    api:
+      exercised: [order.v1.ListOrders]
+    acceptance:
+      - Given a seeded seller is logged in
+      - When the seller navigates to the seller orders page
+      - Then the seller orders dashboard displays the order status tabs
+    tags: [seller, order]
+    status: automated
+    covered_by: "seller/seller_order_management.feature::Seller views order management list"
+
+  - id: order.flag-client-boot
+    title: The service starts with a working flag client
+    persona: buyer
+    priority: P1
+    summary: >
+      On boot team-order constructs an OpenFeature client with the Flipt provider,
+      available to handlers, evaluating against an in-memory snapshot streamed from Flipt.
+    entry_route: /cart
+    services: [team-order, flipt]
+    preconditions:
+      login: buyer
+      data: FLIPT_ADDR points at the Flipt server.
+    acceptance:
+      - Given FLIPT_ADDR points at the Flipt server
+      - When team-order boots
+      - Then its bootstrap constructs an OpenFeature client with the Flipt provider available to handlers
+      - And the provider maintains an in-memory flag snapshot streamed from Flipt
+    tags: [feature-flags, openfeature]
+    status: automated
+    covered_by: "feature-flags/openfeature_lifecycle.feature::The service starts with a working flag client"
+
+  - id: order.flag-client-shutdown
+    title: The flag client shuts down cleanly
+    persona: buyer
+    priority: P2
+    summary: On shutdown the OpenFeature provider and Flipt stream are closed during teardown.
+    entry_route: /cart
+    services: [team-order, flipt]
+    preconditions:
+      login: buyer
+      data: team-order running with the OpenFeature Flipt provider open.
+    acceptance:
+      - Given team-order is running with the OpenFeature Flipt provider open
+      - When team-order shuts down
+      - Then the OpenFeature provider and Flipt stream are closed as part of resource teardown
+    tags: [feature-flags, openfeature]
+    status: automated
+    covered_by: "feature-flags/openfeature_lifecycle.feature::The flag client shuts down cleanly"
+
+  - id: order.killswitch-off
+    title: Kill-switch off blocks checkout end-to-end
+    persona: buyer
+    priority: P1
+    summary: >
+      With checkout-enabled OFF in Flipt the checkout entry is hidden in the UI and a
+      CreateOrder request through the gateway is rejected as checkout-unavailable.
+    entry_route: /cart
+    related_routes: [/checkout]
+    services: [team-frontend, team-gateway, team-order, flipt]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A cart with one item; checkout-enabled seeded OFF via Flipt.
+    api:
+      seed: [listing.v1.CreateListing, order.v1.AddToCart]
+      exercised: [order.v1.CreateOrder]
+    ui:
+      key_elements:
+        checkout_link: 'a[href="/checkout"]'
+        unavailable_notice: "text=Thanh toán tạm thời không khả dụng"
+    acceptance:
+      - Given a buyer has an item in the cart
+      - When checkout-enabled is turned OFF in Flipt
+      - And the buyer opens the cart page
+      - Then the checkout entry is hidden and a checkout-unavailable notice is shown
+      - And a CreateOrder request through the gateway is rejected as checkout-unavailable
+    tags: [buyer, feature-flags, kill-switch]
+    status: automated
+    covered_by: "feature-flags/openfeature_lifecycle.feature::Kill-switch off blocks checkout end-to-end"
+
+  - id: order.killswitch-on
+    title: Kill-switch on allows checkout
+    persona: buyer
+    priority: P1
+    summary: >
+      With checkout-enabled ON (or Flipt unreachable and the default applies) the checkout
+      entry is shown and a buyer can place an order through gateway → team-order.
+    entry_route: /cart
+    related_routes: [/checkout]
+    services: [team-frontend, team-gateway, team-order, flipt]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A cart with one item; checkout-enabled ON via Flipt (or Flipt down, default ON).
+    api:
+      seed: [listing.v1.CreateListing, order.v1.AddToCart]
+      exercised: [order.v1.CreateOrder]
+    ui:
+      key_elements:
+        checkout_link: 'a[href="/checkout"]'
+    acceptance:
+      - Given a buyer has an item in the cart
+      - When checkout-enabled is on or Flipt is unreachable and the default applies
+      - And the buyer opens the cart page
+      - Then the checkout entry is shown and the buyer can place an order via gateway to team-order
+    tags: [buyer, feature-flags, kill-switch]
+    status: automated
+    covered_by: "feature-flags/openfeature_lifecycle.feature::Kill-switch on allows checkout"
+
+  - id: order.killswitch-no-redeploy
+    title: Toggling takes effect without a redeploy
+    persona: buyer
+    priority: P1
+    summary: >
+      Flipping checkout-enabled in the Flipt UI takes effect within seconds through the
+      streamed in-memory snapshot, with no code change, image rebuild, ArgoCD sync or restart.
+    entry_route: /cart
+    related_routes: [/checkout]
+    services: [team-frontend, team-gateway, team-order, flipt]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: Services and frontend running unchanged; checkout-enabled toggled via Flipt UI.
+    api:
+      seed: [listing.v1.CreateListing, order.v1.AddToCart]
+      exercised: [order.v1.CreateOrder]
+    acceptance:
+      - Given the services and frontend are running unchanged
+      - When an operator flips checkout-enabled in the Flipt UI
+      - Then the new state takes effect within seconds through the streamed in-memory snapshot
+      - And no code change, image rebuild, ArgoCD sync, or pod restart is required
+    tags: [buyer, feature-flags, kill-switch]
+    status: automated
+    covered_by: "feature-flags/openfeature_lifecycle.feature::Toggling takes effect without a redeploy"

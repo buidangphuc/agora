@@ -1,0 +1,70 @@
+# Gitea = local git host for the `platform-gitops` desired-state repo (GitHub stand-in).
+# ArgoCD (in-cluster) pulls from gitea-http.gitea.svc; the host pushes via ingress.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitea
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gitea }
+  template:
+    metadata:
+      labels: { app: gitea }
+    spec:
+      containers:
+        - name: gitea
+          image: gitea/gitea:1.22
+          env:
+            - { name: GITEA__database__DB_TYPE, value: sqlite3 }
+            - { name: GITEA__server__ROOT_URL, value: "http://gitea.localtest.me/" }
+            - { name: GITEA__server__DOMAIN, value: gitea.localtest.me }
+            - { name: GITEA__server__HTTP_PORT, value: "3000" }
+            - { name: GITEA__security__INSTALL_LOCK, value: "true" }
+            - { name: GITEA__service__DISABLE_REGISTRATION, value: "true" }
+          ports:
+            - { containerPort: 3000, name: http }
+            - { containerPort: 22, name: ssh }
+          readinessProbe:
+            httpGet: { path: /api/healthz, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-http
+  namespace: gitea
+spec:
+  selector: { app: gitea }
+  ports:
+    - { name: http, port: 3000, targetPort: 3000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: gitea.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gitea-http
+                port: { number: 3000 }

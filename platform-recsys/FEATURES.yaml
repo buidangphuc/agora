@@ -1,0 +1,44 @@
+# Feature manifest for platform-recsys (offline ALS training job — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+#
+# platform-recsys has NO user-facing UI: it is an offline PySpark batch job. Its
+# "user-facing scenario" is indirect — a backend integration assertion (run the
+# job on sample warehouse data → Qdrant collections populated + Redis cache
+# written), not a Playwright journey. Modelled exactly like team-analytics'
+# warehouse worker: persona guest, status not-testable, verified at the data layer.
+
+repo: platform-recsys
+owner: platform-recsys-team
+
+features:
+  - id: recsys.als-training
+    title: ALS model is trained from the behavioral warehouse and published to Qdrant + Redis
+    persona: guest
+    priority: P2
+    summary: >
+      An offline PySpark job reads tracking_events, builds implicit-feedback
+      (user, item, weight) triples, fits Spark MLlib ALS (implicitPrefs=true), and
+      loads item/user vectors into Qdrant plus a precomputed Top-N cache into Redis,
+      each stamped with a model_version.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: >
+        A sample tracking_events Parquet warehouse (view/click/add_to_cart events for
+        several users and listings), local Qdrant (:6333) and Redis (:6379) running,
+        and the job run in Spark local mode (no cluster).
+    acceptance:
+      - Given a sample tracking_events dataset with view/click/add-to-cart events for several users and listings
+      - When the job runs in Spark local mode against that sample warehouse
+      - Then it produces an ALS model with item factors and user factors, having dropped rows with an empty listing_id and collapsed events to weighted per-(user,item) interactions
+      - And the item-vector and user-vector Qdrant collections exist and are populated with one point per trained listing / user, each stamped with the run's model_version
+      - And Redis holds a per-user recommendation entry and a per-listing similar-items entry (ranked listing ids + scores) plus a model-version key identifying the generation just written
+    tags: [recsys, integration]
+    status: not-testable
+    notes: >
+      Backend batch job (no UI). Verified at the data layer by a platform-e2e
+      integration test (train from sample warehouse → assert Qdrant collections
+      populated + Redis cache written), wired into `make collect` as a non-UI test.
+      Deferred to the e2e track (spec-to-e2e), outside this change's code-repo
+      boundary. A real ALS run + Qdrant/Redis load are Spark/cluster-gated.

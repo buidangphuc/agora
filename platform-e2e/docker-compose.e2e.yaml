@@ -1,0 +1,24 @@
+services:
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: platform-e2e-runner
+    environment:
+      - ENV=docker
+      - BASE_URL=http://team-frontend-svc:3000
+      - GATEWAY_URL=http://team-gateway-svc:8080
+      - KAFKA_BROKERS=redpanda:9092
+      - FLIPT_URL=http://flipt:8080
+      - HEADLESS=true
+    networks:
+      - platform-core_default
+    volumes:
+      - .:/workspace
+      - ./test-results:/workspace/test-results
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  platform-core_default:
+    external: true

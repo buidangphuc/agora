@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 dd635a35ff057c6ded6ca1b9b2542654ba49eff6 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353354 +0700	branch: Created from HEAD
+dd635a35ff057c6ded6ca1b9b2542654ba49eff6 fae409aa07685574ccc6320b90a7a4dba02a4ba7 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353354 +0700	commit: feat(contract+infra): tracking event contract + Flipt/Prometheus wiring
+fae409aa07685574ccc6320b90a7a4dba02a4ba7 170203a3e15e0e5c7f053b74855b67133ec9e311 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788358209 +0700	commit: feat(contract): recommendation contract + ADR-0006 RS256/JWKS auth

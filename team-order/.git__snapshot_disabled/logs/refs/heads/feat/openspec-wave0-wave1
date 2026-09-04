@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 d15ea7d46b73f478808d63ee30a43d70405e9ba7 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353416 +0700	branch: Created from HEAD
+d15ea7d46b73f478808d63ee30a43d70405e9ba7 168f12c3de828a3473bcd0fd8b71868859679d63 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353416 +0700	commit: feat(order): OpenFeature checkout kill-switch (fail-open)

@@ -1,0 +1,20 @@
+# Per-image tags for the `staging` environment (mirrors envs/local/values.yaml's shape).
+# CI bumps these (yq) on each build the same way it bumps local; ArgoCD syncs them.
+# The ApplicationSet composes image.repo as `<global.registry>/<service>` per env, so
+# the registry below is what staging pulls from.
+global:
+  registry: staging-registry.example.com
+  imagePullPolicy: IfNotPresent
+images:
+  team-identity: staging
+  team-domain: staging
+  team-search: staging
+  team-engagement: staging
+  team-order: staging
+  team-payment: staging
+  team-chat: staging
+  team-notification: staging
+  team-gateway: staging
+  team-frontend: staging
+  team-ai: staging
+  search-indexer: staging

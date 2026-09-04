@@ -1,0 +1,66 @@
+[project]
+name = "platform-e2e"
+version = "0.1.0"
+description = "Python E2E platform (pytest-bdd + Playwright) for the marketplace polyrepo"
+requires-python = ">=3.10"
+dependencies = [
+    "pytest>=8.3",
+    "pytest-bdd>=8.1",
+    "pytest-playwright>=0.6",
+    "playwright>=1.48",
+    "pytest-xdist>=3.6",
+    "pytest-html>=4.1",
+    "httpx>=0.27",
+    "faker>=30.0",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "python-dotenv>=1.0",
+    "confluent-kafka>=2.4",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.7", "black>=24.10", "pyyaml>=6.0", "jsonschema>=4.20"]
+
+[tool.pytest.ini_options]
+# pytest-bdd resolves feature paths relative to this dir.
+bdd_features_base_dir = "tests/e2e/features"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "smoke: critical golden-path scenarios (whole set stays fast)",
+    "buyer: consumer/buyer persona journeys",
+    "seller: seller persona journeys",
+    "auth: authentication flows driven through the real UI",
+    "order: order tracking, fulfillment and RMA return journeys",
+    "engagement: reviews, favorites, Q&A and disputes",
+    "fintech: seller analytics, wallet and payout settlements",
+    "ai: AI assistant RAG, magic listing and admin cockpit",
+    "recommendations: \"Gợi ý cho bạn\" row sourced from team-ai via the gateway (surface-recommendations)",
+    "tracking: analytics browsing-beacon / TrackingEvent emission (emit-tracking-events)",
+    "observability: admin cockpit live per-service metrics (replace-cockpit-mock-metrics)",
+    "admin: admin persona / operator journeys",
+    "featureflags: OpenFeature + Flipt flag-gated behaviour (wire-openfeature)",
+    "promo: promotion vouchers and discounts",
+    "shop: public seller storefront and shop journeys",
+    "search: catalog search and filtering journeys",
+    "chat: buyer seller messaging and threads",
+    "killswitch: checkout-enabled emergency kill-switch scenarios",
+    "wap: mobile/WAP emulation scenarios",
+    "needsSeller: Before-seeds a seller account via the gateway API",
+    "needsBuyer: Before-seeds a buyer account via the gateway API",
+    "needsListing: Before-seeds a published listing via the gateway API",
+    "needsAddress: Before-seeds a default delivery address for the buyer",
+    "needsOrder: Before-seeds a PENDING order with items for testing",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]

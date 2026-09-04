@@ -1,0 +1,75 @@
+# Feature manifest for team-analytics (warehouse writer — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+#
+# team-analytics has NO user-facing UI: its capabilities are a backend
+# consumer/integration assertion (produce → consume → warehouse), not a
+# Playwright journey. These features are therefore marked `not-testable` for the
+# UI auto-generator; the pipeline is verified by a platform-e2e *integration*
+# (non-UI) test that produces to analytics.events and asserts the DuckDB row.
+repo: team-analytics
+owner: analytics-team
+
+features:
+  - id: analytics.warehouse-sink
+    title: Tracking events land in the warehouse
+    persona: guest
+    priority: P2
+    summary: A TrackingEvent produced to analytics.events is consumed and appended to the warehouse; non-tracking envelopes are skipped.
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+      data: Requires Redpanda (analytics.events topic) and the team-analytics worker running with WAREHOUSE_DRIVER=duckdb.
+    acceptance:
+      - Given an EventEnvelope carrying a TrackingEvent is produced to analytics.events
+      - When the team-analytics worker consumes it
+      - Then the event's behavioral fields plus the envelope principal appear as a row in the DuckDB warehouse
+      - And an envelope whose type is not platform.analytics.v1.TrackingEvent is skipped without a row and without failing the consumer
+    tags: [analytics, integration]
+    status: not-testable
+    notes: >
+      Backend consumer assertion (no UI). Verified at the data layer by a
+      platform-e2e integration test (produce → consume → assert DuckDB row),
+      wired into `make collect` as a non-UI test. Deferred to the e2e track.
+
+  - id: analytics.warehouse-driver-swap
+    title: Warehouse target is swappable behind the WarehouseWriter seam
+    persona: guest
+    priority: P2
+    summary: The worker writes through one WarehouseWriter interface; WAREHOUSE_DRIVER selects duckdb (local/test) or bigquery (prod) with no change to event handling.
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+      data: WAREHOUSE_DRIVER=duckdb locally; bigquery is unit/parity-tested only (no local creds).
+    acceptance:
+      - Given the worker starts with WAREHOUSE_DRIVER=duckdb
+      - When tracking events are consumed
+      - Then rows are written to the local DuckDB/Parquet warehouse
+      - And the same rows would be written to BigQuery under WAREHOUSE_DRIVER=bigquery with no change to event handling
+    tags: [analytics, integration]
+    status: not-testable
+    notes: >
+      Parity guarded by the DuckDB↔BigQuery schema parity unit test; BigQuery is
+      not exercisable in local e2e (no creds).
+
+  - id: analytics.batch-write
+    title: Events are written in batches with offset-after-write
+    persona: guest
+    priority: P2
+    summary: The worker accumulates events and flushes on batch size or max interval, committing Kafka offsets only after a durable write (at-least-once).
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+      data: A burst of tracking events on analytics.events.
+    acceptance:
+      - Given a burst of tracking events arrives on analytics.events
+      - When the worker consumes them
+      - Then it flushes them to the warehouse in batches
+      - And commits consumer offsets only after the batch is durably written, so a crash mid-batch reprocesses rather than loses events
+    tags: [analytics, integration]
+    status: not-testable
+    notes: >
+      Batch flush (size + interval) and offset-after-write are covered by the
+      consumer unit tests (batcher_test.go).

@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-recsys
+  namespace: argocd
+  annotations:
+    # After the warehouse + shared infra (Qdrant/Redis); same post-infra slot as
+    # other scheduled workloads (cf. infra-postgres-backup at wave 2). The job
+    # only runs on its cron schedule, so a later wave is harmless.
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+    targetRevision: main
+    path: platform/recsys
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

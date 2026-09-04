@@ -1,0 +1,29 @@
+# Invariant baseline for team-notification — extracted verbatim from argocd/apps/team-notification.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-notification
+image:
+  repo: localhost:5001/team-notification
+containerPort: 50058
+service:
+  port: 50058
+grpcPort: 50058          # native gRPC health probes (grpc.health.v1.Health)
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+env:
+  KAFKA_ENABLED: "true"
+  LISTING_EVENTS_TOPIC: "listing.events"
+  NOTIFICATION_LISTING_CONSUMER_GROUP: "team-notification.listing"
+  LISTING_EVENTS_DLQ_TOPIC: "listing.events.dlq"
+secrets:
+  enabled: true
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50058; only the
+# edge (team-gateway) may reach it. Deployed envs only (local exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway]

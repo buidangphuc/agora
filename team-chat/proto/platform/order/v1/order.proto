@@ -1,0 +1,188 @@
+syntax = "proto3";
+
+// team-order (Go) owns this: shopping cart + order placement + order lifecycle.
+// It reserves and releases stock via gRPC to team-domain (Rule 3).
+package platform.order.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/identity/v1/identity.proto";
+import "platform/payment/v1/payment.proto";
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;     // Order placed, waiting for payment/processing
+  ORDER_STATUS_PAID = 2;        // Payment confirmed
+  ORDER_STATUS_SHIPPED = 3;     // Seller shipped the order
+  ORDER_STATUS_COMPLETED = 4;   // Buyer received & completed order
+  ORDER_STATUS_CANCELLED = 5;   // Cancelled (stock released)
+}
+
+// ── Cart Service ──
+
+service CartService {
+  rpc GetCart(GetCartRequest) returns (GetCartResponse);
+  rpc AddToCart(AddToCartRequest) returns (AddToCartResponse);
+  rpc UpdateCartItem(UpdateCartItemRequest) returns (UpdateCartItemResponse);
+  rpc RemoveFromCart(RemoveFromCartRequest) returns (RemoveFromCartResponse);
+  rpc ClearCart(ClearCartRequest) returns (ClearCartResponse);
+}
+
+message CartItem {
+  string id = 1;
+  string listing_id = 2;
+  string variant_id = 3;
+  int32 quantity = 4;
+  int64 unit_price = 5;
+  string title = 6;
+  string variant_name = 7;
+  string image_url = 8;
+  string seller_id = 9;
+}
+
+message Cart {
+  string user_id = 1;
+  repeated CartItem items = 2;
+  int64 subtotal = 3;
+}
+
+message GetCartRequest {}
+
+message GetCartResponse {
+  Cart cart = 1;
+}
+
+message AddToCartRequest {
+  string listing_id = 1;
+  string variant_id = 2;
+  int32 quantity = 3;
+}
+
+message AddToCartResponse {
+  Cart cart = 1;
+}
+
+message UpdateCartItemRequest {
+  string item_id = 1;
+  int32 quantity = 2;
+}
+
+message UpdateCartItemResponse {
+  Cart cart = 1;
+}
+
+message RemoveFromCartRequest {
+  string item_id = 1;
+}
+
+message RemoveFromCartResponse {
+  Cart cart = 1;
+}
+
+message ClearCartRequest {}
+
+message ClearCartResponse {}
+
+// ── Order Service ──
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc ListBuyerOrders(ListBuyerOrdersRequest) returns (ListBuyerOrdersResponse);
+  rpc ListSellerOrders(ListSellerOrdersRequest) returns (ListSellerOrdersResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  rpc CalculateShippingFee(CalculateShippingFeeRequest) returns (CalculateShippingFeeResponse);
+}
+
+message OrderItem {
+  string id = 1;
+  string listing_id = 2;
+  string variant_id = 3;
+  string title = 4;
+  string variant_name = 5;
+  int32 quantity = 6;
+  int64 unit_price = 7;
+  string image_url = 8;
+}
+
+message Order {
+  string id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  OrderStatus status = 4;
+  int64 total_amount = 5;
+  string currency = 6;
+  platform.identity.v1.Address shipping_address = 7;
+  repeated OrderItem items = 8;
+  string tracking_number = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  int64 shipping_fee = 12;
+  platform.payment.v1.PaymentMethod payment_method = 13;
+  int64 items_subtotal = 14;
+}
+
+message CreateOrderRequest {
+  string address_id = 1;
+  // Optional: if empty, checkout all items in the user's cart
+  repeated string item_ids = 2;
+  platform.payment.v1.PaymentMethod payment_method = 3;
+}
+
+message CreateOrderResponse {
+  repeated Order orders = 1; // 1 per seller
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message ListBuyerOrdersRequest {
+  OrderStatus status_filter = 1;
+}
+
+message ListBuyerOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message ListSellerOrdersRequest {
+  OrderStatus status_filter = 1;
+}
+
+message ListSellerOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message UpdateOrderStatusRequest {
+  string id = 1;
+  OrderStatus status = 2;
+  string tracking_number = 3;
+}
+
+message UpdateOrderStatusResponse {
+  Order order = 1;
+}
+
+message CancelOrderRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message CancelOrderResponse {
+  Order order = 1;
+}
+
+message CalculateShippingFeeRequest {
+  string city = 1;
+  int64 items_subtotal = 2;
+}
+
+message CalculateShippingFeeResponse {
+  int64 shipping_fee = 1;
+  bool is_free_shipping = 2;
+  string message = 3;
+}

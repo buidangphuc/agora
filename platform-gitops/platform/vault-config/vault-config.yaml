@@ -1,0 +1,129 @@
+# Vault config as a GitOps-applied Job (ArgoCD PostSync hook). Replaces the manual
+# bootstrap script: config lives in git, ArgoCD re-runs it on every sync. Idempotent.
+# Add a new service = append its name to SERVICES in the ConfigMap below.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-configurer
+  namespace: vault
+---
+# Vault (dev) needs to review k8s SA tokens for the kubernetes auth method.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: vault
+    namespace: vault
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config-script
+  namespace: vault
+data:
+  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification"
+  config.sh: |
+    #!/bin/sh
+    set -e
+    export VAULT_ADDR=http://vault.vault.svc:8200 VAULT_TOKEN=root
+    # structure: k8s auth + kv engine + shared/jwt
+    vault auth enable kubernetes 2>/dev/null || true
+    vault write auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc" >/dev/null
+    vault secrets enable -path=svc kv-v2 2>/dev/null || true
+    # RS256 issuer key (ADR-0006): only team-identity signs, so only it reads this.
+    # The PRIVATE key + kid live here; the gateway needs NO secret (it fetches the
+    # public key from identity's JWKS). Dev keypair — regenerate for real envs.
+    cat > /tmp/jwt_private_key.pem <<'PEM'
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCa9r1/pblm+mdm
+    FH5EHODWz/KHexkPcE4uDN8Fw+FaZXlC8LwPwGLX1uuBbOHZ4Itd8leTvREihqfs
+    GqtPh4Nuuw+MmZr78WtH96tI1LxFvdyZJ4D8F9L9t3VIW3HgV3acVjZNQefFQCd8
+    IwF3uoeH29+eazdZsbWLN3ulkpkgaUW+CptBm4wZ55zlizR+ANy0bHjhA9Pipy5k
+    cvha5t6u2wOISbLu7YTkLARouE1YP1C54FGMMFOffhPm1aJfftfwysrroZnb0nLT
+    QBv2knsjm2tk9rdA4gkkUqM6C8MrsExjFyLH6dSbW1q25zY0gwulic0PPmCkJq0c
+    bj00NXhlAgMBAAECggEABaZoa16J/4Cyw2yM3APniL2FPL5WwBLaruAmQ4oMTeT0
+    QmYPnU1o7TC3Xn0vUOfYfQDog4j5tnYNalTgmSI6Pw/P9dLl7Ti0rieQFbQ39x0A
+    jY78q3Rc64ZEXvKCmOjneLTF/xQflLgNmH+YPprM9T2ljhufpYQOt/g6aGOLdLyD
+    UpHTroKQP6Jifa7q+8UgGz/44QhLHwZI3oyO07a/OWhzhRDlpwsh4eMhWcJiKIde
+    fWdXxhwk5nafUCf3hpedIA0418QRBWeCK5h9F1pVkiIiznhNsmp6jyEcQoYlV0W5
+    7j7+b0pGS6igchb8ljj3raHvhnm+ukd1FbF9CFmsEwKBgQDT9UzHAyGyBx1fQFde
+    My0hQUpbwjVcJzqhoNSRv97z4x5ejFMJRPsuloEzqXq33VQ86lHhpg1K+ArY6XeA
+    vzy3cd8HLA/9vES9oMgspMCHrNRyomJ+x9+jYehr/umHGzIqyFfu3ZriJpuVrGf4
+    PY+RiOUNVGVuBxwjZxNzJQ9OVwKBgQC7KbyR8dkRR87H17oBm8GWBO+joNmzUaNO
+    sm5q3KS3aGdRoYzX2HdoPxhxaIr/gAEXektnp5QdNmt8r/xnhofm//tdOJaB4NKW
+    fd/xerND0ajRzhWRlfh9enSQ8UYjsyurOQwpArZ7+LHUtpBPrFNR+p2pPa8yWz1+
+    0WqRS3HBowKBgQC3jkA+PJ0KopSyL3M59dHIcdVmX2p8ctCYtkJAMkxvIynisV0b
+    suxf7SDYz5Wh8v+HfVkJtBbg7KvgK1c9XN/E8c02VddHYqqZGcsgtlCxbl/RIoVv
+    y8IFqL1yASDVyxyH5lYYWztNTCgC13p2hUF2xHmwMH1iaq/YjORQHDEEIwKBgG0A
+    aao1x82gnHUW1mWJaL0OMuKBE0i0CwASOuxRhDysuT95bqVmlGRKGtoxoIIc8oXR
+    24iKuGArCX6cn8tLNmr6OlKYWk9ZuEudE4d3hl/BAyjtdPJM/WNWpfykB81S0+Ps
+    XYCk69JXjHntuS4tlnjwFFI0coxJRw9Mt1vXLHExAoGBAMgolo3b0gEaH9W0Y6JV
+    mCgz4IWbwv33zYsgWkDIRAqxC3Yb7+LOIWOh5WkHZ3xDv6rRu5K3jwPjtP4HgOcU
+    q157I7U+g8YFCgczWUrDz9Ffcxf2mpBKGKuKFxY0vQxFijomHTPvR7m0BLronev/
+    mgi+aqBmWK71t/t9R9551U39
+    -----END PRIVATE KEY-----
+    PEM
+    vault kv put svc/shared/jwt JWT_PRIVATE_KEY=@/tmp/jwt_private_key.pem JWT_KID="dev-2026" >/dev/null
+    rm -f /tmp/jwt_private_key.pem
+    echo "shared/jwt seeded (RS256 private key + kid; identity-only)"
+    for svc in $SERVICES; do
+      u=$(echo "$svc" | tr '-' '_')
+      # per-service env bag (services read DB differently: DATABASE_URL / DB_* / POSTGRES_*)
+      vault kv put "svc/${svc}/config" \
+        DATABASE_URL="postgres://${u}_svc:${u}_pass@postgres.marketplace.svc:5432/${u}_db?sslmode=disable" \
+        DB_HOST="postgres.marketplace.svc" DB_PORT="5432" DB_USER="${u}_svc" DB_PASSWORD="${u}_pass" DB_NAME="${u}_db" \
+        POSTGRES_HOST="postgres.marketplace.svc" POSTGRES_PORT="5432" POSTGRES_USER="${u}_svc" POSTGRES_PASSWORD="${u}_pass" POSTGRES_DB="${u}_db" \
+        OPENSEARCH_URL="http://opensearch.marketplace.svc:9200" OPENSEARCH_INDEX="listings" \
+        REDIS_HOST="valkey.marketplace.svc" REDIS_PORT="6379" \
+        KAFKA_BROKERS="redpanda.marketplace.svc:9092" KAFKA_BROKER="redpanda.marketplace.svc:9092" \
+        HTTP_PORT="8080" >/dev/null
+      # policy: read ONLY its own path. The RS256 signing key at shared/jwt is
+      # readable by team-identity ALONE (ADR-0006) — the edge/gateway and every
+      # other service no longer hold any JWT secret.
+      printf 'path "svc/data/%s/*" { capabilities = ["read"] }\n' "$svc" > /tmp/p.hcl
+      if [ "$svc" = "team-identity" ]; then
+        printf 'path "svc/data/shared/jwt" { capabilities = ["read"] }\n' >> /tmp/p.hcl
+      fi
+      vault policy write "$svc" /tmp/p.hcl >/dev/null
+      # k8s auth role: only pods with SA=<svc> in ns marketplace get this policy
+      vault write "auth/kubernetes/role/${svc}" \
+        bound_service_account_names="$svc" \
+        bound_service_account_namespaces="marketplace" \
+        policies="$svc" ttl=1h >/dev/null
+      echo "configured: $svc (kv + policy + role)"
+    done
+    echo "vault-config done."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-config
+  namespace: vault
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      serviceAccountName: vault-configurer
+      restartPolicy: OnFailure
+      containers:
+        - name: configure
+          image: hashicorp/vault:1.17
+          command: ["sh", "-c", "sh /scripts/config.sh"]
+          env:
+            - name: SERVICES
+              valueFrom:
+                configMapKeyRef: { name: vault-config-script, key: SERVICES }
+          volumeMounts:
+            - { name: script, mountPath: /scripts }
+      volumes:
+        - name: script
+          configMap: { name: vault-config-script }

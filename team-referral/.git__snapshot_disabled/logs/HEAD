@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 a7bdfe31bab97ef303c52171dfd5f33826a19161 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788498265 +0700	commit (initial): feat: team-referral service — referral codes, redemption, mock reward ledger
+a7bdfe31bab97ef303c52171dfd5f33826a19161 3d18b43afa7b59f8ca573019e88ccd8332f1bf9c Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788504765 +0700	commit: fix(referral): read principal from x-principal-id (was x-user-id) so gateway-forwarded auth works
+3d18b43afa7b59f8ca573019e88ccd8332f1bf9c dcaa2fe9bed3abe6c8e6ff6c58de6cd710ec0278 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788516297 +0700	commit: fix(team-referral: register grpc.health.v1.Health service

@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+// team-payment (Go) owns this: mock payment transactions & seller wallets (Phase 5).
+// Financially sensitive => MOCK ONLY (no real money movement).
+package platform.payment.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+enum PaymentMethod {
+  PAYMENT_METHOD_UNSPECIFIED = 0;
+  PAYMENT_METHOD_COD = 1;         // Cash on Delivery
+  PAYMENT_METHOD_MOCK_MOMO = 2;   // Mock MoMo QR
+  PAYMENT_METHOD_MOCK_BANK = 3;   // Mock Bank Transfer
+  PAYMENT_METHOD_MOCK_CARD = 4;   // Mock Credit/Debit Card
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_PENDING = 1;
+  PAYMENT_STATUS_PAID = 2;
+  PAYMENT_STATUS_FAILED = 3;
+  PAYMENT_STATUS_REFUNDED = 4;
+}
+
+enum PayoutStatus {
+  PAYOUT_STATUS_UNSPECIFIED = 0;
+  PAYOUT_STATUS_PENDING = 1;
+  PAYOUT_STATUS_PROCESSING = 2;
+  PAYOUT_STATUS_COMPLETED = 3;
+  PAYOUT_STATUS_REJECTED = 4;
+}
+
+enum WalletTransactionType {
+  WALLET_TRANSACTION_TYPE_UNSPECIFIED = 0;
+  WALLET_TRANSACTION_TYPE_ORDER_SETTLEMENT = 1;
+  WALLET_TRANSACTION_TYPE_PAYOUT = 2;
+  WALLET_TRANSACTION_TYPE_REFUND_DEDUCTION = 3;
+}
+
+// PaymentSettled is emitted on Kafka topic "payment.events" (key = order_id),
+// wrapped in platform.events.v1.EventEnvelope, via team-payment's transactional
+// outbox. team-order consumes it idempotently to transition the order (ADR-0009).
+message PaymentSettled {
+  string payment_id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  PaymentStatus status = 4;  // PAYMENT_STATUS_PAID | PAYMENT_STATUS_FAILED
+  string occurred_at = 5;    // RFC3339; also the read-model version source
+}
+
+message PaymentTransaction {
+  string id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  int64 amount = 4;
+  string currency = 5;
+  PaymentMethod method = 6;
+  PaymentStatus status = 7;
+  string provider_reference = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message SellerWallet {
+  string id = 1;
+  string seller_id = 2;
+  int64 balance = 3;
+  string currency = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message PayoutRequest {
+  string id = 1;
+  string seller_id = 2;
+  int64 amount = 3;
+  string bank_code = 4;
+  string account_number = 5;
+  string account_name = 6;
+  PayoutStatus status = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message WalletTransaction {
+  string id = 1;
+  string wallet_id = 2;
+  int64 amount = 3;
+  WalletTransactionType type = 4;
+  string reference_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+service PaymentService {
+  rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+  rpc ProcessMockPayment(ProcessMockPaymentRequest) returns (ProcessMockPaymentResponse);
+  rpc GetSellerWallet(GetSellerWalletRequest) returns (GetSellerWalletResponse);
+  rpc RequestPayout(RequestPayoutRequest) returns (RequestPayoutResponse);
+  rpc ListPayoutHistory(ListPayoutHistoryRequest) returns (ListPayoutHistoryResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+
+  // ── Seller Wallet Ledger ──
+  rpc GetWalletBalance(GetWalletBalanceRequest) returns (GetWalletBalanceResponse);
+  rpc ListLedgerEntries(ListLedgerEntriesRequest) returns (ListLedgerEntriesResponse);
+  // RequestWalletPayout books a payout ledger entry for the seller. Named to
+  // avoid colliding with the existing bank-detail RequestPayout RPC above.
+  rpc RequestWalletPayout(RequestWalletPayoutRequest) returns (RequestWalletPayoutResponse);
+}
+
+// A single wallet ledger movement (settlement, payout, refund, etc.).
+message WalletEntry {
+  string id = 1;
+  string seller_id = 2;
+  string type = 3;      // e.g. "ORDER_SETTLEMENT", "PAYOUT", "REFUND_DEDUCTION"
+  int64 amount = 4;     // minor units; sign indicates credit/debit
+  string status = 5;    // e.g. "PENDING", "COMPLETED", "REJECTED"
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message GetWalletBalanceRequest {
+  string seller_id = 1;
+}
+
+message GetWalletBalanceResponse {
+  int64 balance = 1; // minor units
+}
+
+message ListLedgerEntriesRequest {
+  string seller_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListLedgerEntriesResponse {
+  repeated WalletEntry entries = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message RequestWalletPayoutRequest {
+  string seller_id = 1;
+  int64 amount = 2; // minor units
+}
+
+message RequestWalletPayoutResponse {
+  WalletEntry entry = 1;
+}
+
+message CreatePaymentRequest {
+  string order_id = 1;
+  PaymentMethod method = 2;
+}
+
+message CreatePaymentResponse {
+  PaymentTransaction transaction = 1;
+  string payment_url = 2; // URL to the mock payment checkout page
+}
+
+message GetPaymentRequest {
+  string id = 1;
+  string order_id = 2;
+}
+
+message GetPaymentResponse {
+  PaymentTransaction transaction = 1;
+}
+
+message ProcessMockPaymentRequest {
+  string transaction_id = 1;
+  bool simulate_success = 2; // true to simulate successful payment, false for failure
+}
+
+message ProcessMockPaymentResponse {
+  PaymentTransaction transaction = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetSellerWalletRequest {
+  string seller_id = 1;
+}
+
+message GetSellerWalletResponse {
+  SellerWallet wallet = 1;
+}
+
+message RequestPayoutRequest {
+  string seller_id = 1;
+  int64 amount = 2;
+  string bank_code = 3;
+  string account_number = 4;
+  string account_name = 5;
+}
+
+message RequestPayoutResponse {
+  PayoutRequest payout = 1;
+}
+
+message ListPayoutHistoryRequest {
+  string seller_id = 1;
+}
+
+message ListPayoutHistoryResponse {
+  repeated PayoutRequest payouts = 1;
+}
+
+message RefundPaymentRequest {
+  string payment_id = 1;
+  int64 amount = 2;
+  string reason = 3;
+}
+
+message RefundPaymentResponse {
+  PaymentTransaction transaction = 1;
+  bool success = 2;
+  string message = 3;
+}

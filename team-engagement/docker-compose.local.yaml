@@ -1,0 +1,8 @@
+services:
+  postgres-engagement:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: engagement_svc
+      POSTGRES_PASSWORD: engagement_pass
+      POSTGRES_DB: engagement_db
+    ports: ["5436:5432"]

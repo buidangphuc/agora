@@ -1,0 +1,26 @@
+# Invariant baseline for team-chat — extracted verbatim from argocd/apps/team-chat.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-chat
+image:
+  repo: localhost:5001/team-chat
+containerPort: 50057
+service:
+  port: 50057
+grpcPort: 50057          # native gRPC health probes (grpc.health.v1.Health)
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+env:
+  KAFKA_ENABLED: "true"
+secrets:
+  enabled: true
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50057; only the
+# edge (team-gateway) may reach it. Deployed envs only (local exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway]

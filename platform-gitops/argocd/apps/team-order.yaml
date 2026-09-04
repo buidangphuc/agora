@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-order
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-order
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-order
+          image:
+            repo: localhost:5001/team-order
+          containerPort: 50055
+          service:
+            port: 50055
+          grpcPort: 50055          # native gRPC health probes (grpc.health.v1.Health)
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
+            FLIPT_ADDR: "flipt:9000"
+            FEATURE_FLAGS_ENABLED: "true"
+          secrets:
+            enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

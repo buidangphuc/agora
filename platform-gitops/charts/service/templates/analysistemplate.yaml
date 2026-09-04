@@ -1,0 +1,72 @@
+{{- if .Values.rollout.enabled }}
+{{- $a := .Values.rollout.analysis }}
+# Canary AnalysisTemplate (add-canary-deploys D4). The Rollout references this by
+# name (<name>-canary) from its `analysis` steps. Metrics query the in-cluster
+# Prometheus that add-prometheus-infra populates with the gateway's per-upstream
+# RED series (marketplace_rpc_client_duration_milliseconds_*, exported by the
+# otel-collector). A metric breaching its failureLimit fails the AnalysisRun, which
+# rolls the canary back to stable; all metrics passing auto-promotes to the next
+# weight. Queries/thresholds are values so each service tunes its own SLO.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .Values.name }}-canary
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  # `service` is passed by the Rollout; available to per-service query overrides
+  # as {{`{{args.service}}`}} (e.g. to filter the RED series by target).
+  args:
+    - name: service
+      value: {{ $a.service | default .Values.name | quote }}
+  metrics:
+    # error-rate: fraction of non-OK gRPC responses over total. Rolls back above threshold.
+    - name: error-rate
+      interval: {{ $a.intervalSeconds }}s
+      count: {{ $a.count }}
+      failureLimit: {{ $a.failureLimit }}
+      successCondition: result[0] < {{ $a.errorRateThreshold }}
+      provider:
+        prometheus:
+          address: {{ $a.prometheusAddress }}
+          query: |
+            {{- if $a.errorRateQuery }}
+            {{ $a.errorRateQuery | nindent 12 | trim }}
+            {{- else }}
+            sum(rate({{ $a.countMetric }}{ {{ $a.statusLabel }}!="{{ $a.okStatus }}" }[{{ $a.range }}]))
+            /
+            clamp_min(sum(rate({{ $a.countMetric }}[{{ $a.range }}])), 1)
+            {{- end }}
+    # latency: p95 of the gRPC client duration histogram (already milliseconds).
+    - name: latency-p95
+      interval: {{ $a.intervalSeconds }}s
+      count: {{ $a.count }}
+      failureLimit: {{ $a.failureLimit }}
+      successCondition: result[0] < {{ $a.latencyP95Ms }}
+      provider:
+        prometheus:
+          address: {{ $a.prometheusAddress }}
+          query: |
+            {{- if $a.latencyQuery }}
+            {{ $a.latencyQuery | nindent 12 | trim }}
+            {{- else }}
+            histogram_quantile(0.95, sum by (le) (rate({{ $a.bucketMetric }}[{{ $a.range }}])))
+            {{- end }}
+    # rps-sanity: the canary is actually receiving traffic (guards a false
+    # "healthy because idle" — analysis fails/inconclusive if RPS ~ 0).
+    - name: rps-sanity
+      interval: {{ $a.intervalSeconds }}s
+      count: {{ $a.count }}
+      failureLimit: {{ $a.failureLimit }}
+      successCondition: result[0] >= {{ $a.minRps }}
+      provider:
+        prometheus:
+          address: {{ $a.prometheusAddress }}
+          query: |
+            {{- if $a.rpsQuery }}
+            {{ $a.rpsQuery | nindent 12 | trim }}
+            {{- else }}
+            sum(rate({{ $a.countMetric }}[{{ $a.range }}]))
+            {{- end }}
+{{- end }}

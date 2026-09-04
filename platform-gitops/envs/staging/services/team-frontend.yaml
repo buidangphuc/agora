@@ -1,0 +1,4 @@
+# Per-service, per-env overlay for team-frontend in staging: real ingress host.
+ingress:
+  enabled: true
+  host: www.staging.example.com

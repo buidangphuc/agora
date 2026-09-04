@@ -1,0 +1,9 @@
+{
+  "categories": [
+    { "id": "cat-electronics", "name": "Điện Thoại & Phụ Kiện" },
+    { "id": "cat-laptop", "name": "Máy Tính & Laptop" },
+    { "id": "cat-fashion-men", "name": "Thời Trang Nam" },
+    { "id": "cat-beauty", "name": "Sắc Đẹp & Mỹ Phẩm" }
+  ],
+  "search_terms": ["laptop", "điện thoại", "tai nghe"]
+}

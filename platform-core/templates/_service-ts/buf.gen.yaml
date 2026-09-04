@@ -1,0 +1,32 @@
+# buf codegen — runs IN THIS REPO, writes ONLY into ./generated (see ADR-0001).
+#
+# platform-core NEVER generates into this template. You vendor its proto module
+# under proto-vendor/ (a git submodule pinned at a tag) and run `buf generate`
+# here (`npm run proto`). The output in generated/ is gitignored (see
+# .gitignore) and regenerated on demand; never hand-edit it.
+#
+# Connect-ES uses two plugins:
+#   protoc-gen-es          -> <pkg>/<v>/<file>_pb.ts       (message types)
+#   protoc-gen-connect-es  -> <pkg>/<v>/<file>_connect.ts  (service clients)
+# e.g. proto-vendor/platform/search/v1/search.proto ->
+#        generated/platform/search/v1/search_pb.ts
+#        generated/platform/search/v1/search_connect.ts
+version: v2
+
+plugins:
+  # Message types. `local` runs the plugin from node_modules (installed as a
+  # devDependency) — no remote BSR calls, matching the local-only posture.
+  - local: protoc-gen-es
+    out: generated
+    opt:
+      - target=ts
+  # Service client stubs (SearchService, ListingService, ...).
+  - local: protoc-gen-connect-es
+    out: generated
+    opt:
+      - target=ts
+
+# The vendored proto module is the codegen input. Its buf.yaml (module root)
+# comes in with the submodule, so imports like "platform/common/v1/common.proto" resolve.
+inputs:
+  - directory: proto-vendor

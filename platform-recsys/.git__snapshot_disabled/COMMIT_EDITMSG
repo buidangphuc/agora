@@ -1,0 +1,5 @@
+feat: platform-recsys ALS training job (new bounded context)
+
+OpenSpec Wave 2 build-als-training-job: PySpark reads the analytics warehouse (DuckDB Parquet local / BigQuery prod), fits implicit-feedback ALS, loads item/user factors into Qdrant + a precomputed Redis cache (contract aligned to serve-recommendations-teamai). Nightly CronJob via gitops. Verified: py_compile, ruff/black, 22 pytest (Spark-gated tests skip: no Java on host). Spark run + Qdrant/Redis load in CI/cluster.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

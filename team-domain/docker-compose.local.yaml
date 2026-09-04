@@ -1,0 +1,29 @@
+# Local dev dependency: this service's OWN Postgres (DB-per-service, Rule 3).
+# Host port 5433 matches the platform-core infra convention (postgres-<svc> on
+# 5433+) and the DATABASE_URL default in .env.example.
+#
+#   docker compose -f docker-compose.local.yaml up -d postgres-listing
+#
+# Then apply migrations (golang-migrate) and run the service:
+#   make migrate
+#   make run
+
+services:
+  postgres-listing:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: listing_svc
+      POSTGRES_PASSWORD: listing_pass
+      POSTGRES_DB: listing_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-listing-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listing_svc -d listing_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-listing-data:

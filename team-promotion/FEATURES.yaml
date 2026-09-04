@@ -1,0 +1,54 @@
+# Feature manifest for team-promotion (vouchers + flash-sale — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-promotion
+owner: promotion-team
+
+features:
+  - id: promotion.voucher-redeemed-at-checkout
+    title: Buyer redeems a voucher at checkout
+    persona: buyer
+    priority: P0
+    summary: A buyer applies a valid voucher code at checkout and pays the discounted total.
+    entry_route: /checkout
+    related_routes: ["/vouchers", /cart]
+    services: [team-promotion, team-order]
+    preconditions:
+      login: buyer
+      data: A shop/platform voucher exists and the cart meets its min-spend.
+    api:
+      exercised: [promotion.v1.ValidateAndReserve, promotion.v1.CommitReservation, order.v1.CreateOrder]
+    ui:
+      key_elements:
+        voucher_input: 'input[name="voucher_code"]'
+        apply_button: "role:button=Apply"
+    acceptance:
+      - Given a buyer is logged in with a qualifying cart
+      - When the buyer applies a valid voucher code at checkout
+      - Then the discount is applied and the order total is reduced
+    tags: [buyer, promotion]
+    status: automated
+    covered_by: "promo/vouchers.feature::Buyer redeems a valid voucher at checkout"
+    notes: "Also negative-path covered by 'Invalid voucher code is rejected at checkout' in the same feature file."
+
+  - id: promotion.flash-sale-live-stock
+    title: Flash-sale listing shows sale price and live stock
+    persona: buyer
+    priority: P1
+    summary: A listing under an active flash-sale campaign shows the sale price and a live remaining-stock meter.
+    entry_route: /listing/{listing_id}
+    services: [team-promotion, team-domain]
+    preconditions:
+      login: guest
+      data: An active flash-sale campaign exists for the listing.
+    api:
+      exercised: [promotion.v1.GetActiveFlashSale, promotion.v1.GetFlashSaleStock]
+    ui:
+      key_elements:
+        flash_sale_meter: '[data-testid="flash-sale-stock"]'
+    acceptance:
+      - Given an active flash-sale campaign for a listing
+      - When a buyer views the listing
+      - Then the sale price and a live remaining-stock meter are shown
+    tags: [buyer, promotion]
+    status: automated
+    covered_by: "promo/vouchers.feature::Flash-sale listing shows sale price and live remaining-stock meter"

@@ -1,0 +1,30 @@
+# Invariant baseline for team-domain — extracted verbatim from argocd/apps/team-domain.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-domain
+image:
+  repo: localhost:5001/team-domain
+containerPort: 50051
+service:
+  port: 50051
+grpcPort: 50051          # native gRPC health probes (grpc.health.v1.Health)
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+env:
+  KAFKA_ENABLED: "true"
+secrets:
+  enabled: true
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to the gRPC port
+# (:50051), allow only the edge (team-gateway) and the required intra-namespace
+# peer (team-order — ReserveStock/ReleaseStock). Closes the "any pod can forge an
+# x-principal admin" path at the network layer until service-identity mTLS lands.
+# Rendered by charts/service/templates/networkpolicy.yaml; deployed envs only
+# (local docker-compose is a single trusted network — exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway, team-order]

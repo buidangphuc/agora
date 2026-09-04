@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 0abfd6842ec76b92adb4937ace35ca866f2a140b Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788498283 +0700	commit (initial): feat: team-verification service — mock KYC submit/review + verified badge
+0abfd6842ec76b92adb4937ace35ca866f2a140b ebff4c8198d7e7a64e9910f86ef307520fa052e3 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788506093 +0700	commit: fix(verification): regen stubs for UNSPECIFIED=0 enum shift
+ebff4c8198d7e7a64e9910f86ef307520fa052e3 4beedc785309f4cb704410bfd459b5a4da7d05f3 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788508228 +0700	commit: fix(verification): correct GRPC_PORT in .env.example (50064)
+4beedc785309f4cb704410bfd459b5a4da7d05f3 e00793607eb8532fdd6378fae1a636736aa41dea Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788516297 +0700	commit: fix(team-verification: register grpc.health.v1.Health service

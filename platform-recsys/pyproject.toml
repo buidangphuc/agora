@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "platform-recsys"
+version = "0.1.0"
+description = "Offline PySpark ALS training job — behavioral warehouse → Qdrant + Redis recommendation artifacts."
+requires-python = ">=3.10"
+dependencies = [
+    "pyspark==3.5.1",
+    "numpy>=1.24",
+    "qdrant-client>=1.7",
+    "redis>=5.0",
+    # prod BigQuery read path uses the Spark BigQuery connector jar (spark.py),
+    # not a Python dep; pandas/pyarrow back the local sample generator.
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4", "black>=24.0"]
+
+[project.scripts]
+recsys-train = "recsys.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["recsys*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.black]
+line-length = 110
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

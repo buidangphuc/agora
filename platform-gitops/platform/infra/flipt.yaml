@@ -1,0 +1,53 @@
+# Flipt — self-hosted feature-flag (release-toggle) server. Shared infra, picked up
+# by the wave-0 `infra-shared` ArgoCD Application (directory.recurse over platform/infra),
+# so it is Ready before the wave-4 services that will evaluate flags. gRPC :9000 for
+# in-process SDK evaluation, HTTP + UI :8080. SQLite flag store on a PVC so toggles
+# survive pod reschedules. No SDK is wired yet (see wire-openfeature).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: flipt-data, namespace: marketplace }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: flipt, namespace: marketplace }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: flipt } }
+  strategy: { type: Recreate }   # single RWO volume — don't run two pods on the same PVC
+  template:
+    metadata: { labels: { app: flipt } }
+    spec:
+      # Flipt runs as uid/gid 10001; let the kubelet chown the PVC so SQLite is writable.
+      securityContext: { fsGroup: 10001 }
+      containers:
+        - name: flipt
+          image: flipt/flipt:v1.54.0
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 9000 }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts: [{ name: data, mountPath: /var/opt/flipt }]
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: flipt-data }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: flipt, namespace: marketplace }
+spec:
+  selector: { app: flipt }
+  ports:
+    - { name: grpc, port: 9000, targetPort: 9000 }
+    - { name: http, port: 8080, targetPort: 8080 }

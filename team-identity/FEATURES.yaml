@@ -1,0 +1,242 @@
+# Feature manifest for team-identity (auth + addresses — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-identity
+owner: identity-team
+
+features:
+  - id: auth.login
+    title: Sign in through the UI
+    persona: guest
+    priority: P0
+    summary: A registered user signs in via the login form and lands on home.
+    entry_route: /login
+    services: [team-identity, team-gateway, team-frontend]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.Login]
+    ui:
+      key_elements:
+        username: "#username"
+        password: "#password"
+        submit: "role:button=Đăng nhập"
+    acceptance:
+      - Given the login page is open
+      - When the user logs in as the seeded buyer
+      - Then the user lands on the home page
+    tags: [auth, smoke]
+    status: automated
+    covered_by: "auth/login.feature::Valid login through the UI"
+
+  - id: auth.login-rejects-invalid
+    title: Invalid credentials are rejected
+    persona: guest
+    priority: P1
+    summary: Wrong username/password shows an inline error and no session.
+    entry_route: /login
+    services: [team-identity, team-gateway, team-frontend]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.Login]
+    ui:
+      key_elements:
+        error: "text:không chính xác"
+    acceptance:
+      - Given the login page is open
+      - When the user logs in with invalid credentials
+      - Then a login error is shown
+    tags: [auth]
+    status: automated
+    covered_by: "auth/login.feature::Invalid credentials are rejected"
+
+  - id: auth.register
+    title: Register a new account
+    persona: guest
+    priority: P0
+    summary: A visitor registers as buyer or seller and is signed in.
+    entry_route: /register
+    services: [team-identity, team-gateway, team-frontend]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.Register]
+    ui:
+      key_elements:
+        username: "#username"
+        password: "#password"
+        role: "#role"
+        submit: "role:button=Đăng ký"
+    acceptance:
+      - Given the register page is open
+      - When the visitor registers with a unique username and a role
+      - Then the visitor is signed in and lands on home
+    tags: [auth]
+    status: automated
+    covered_by: "auth/register.feature::Visitor registers a new buyer account"
+
+  - id: auth.password-reset
+    title: Password reset token lifecycle
+    persona: guest
+    priority: P2
+    summary: Requesting a reset issues a short-lived token that sets a new password.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.RequestPasswordReset, identity.v1.ResetPassword]
+    acceptance:
+      - Given a registered account
+      - When a password reset is requested
+      - Then a valid reset token is issued and can set a new password
+    tags: [auth]
+    status: automated
+    covered_by: "auth/password_reset.feature::User requests a password reset token"
+
+  - id: address.manage
+    title: Manage delivery addresses
+    persona: buyer
+    priority: P1
+    summary: A buyer adds, edits and sets a default delivery address.
+    entry_route: /account/addresses
+    services: [team-identity, team-gateway, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - identity.v1.CreateAddress
+        - identity.v1.ListAddresses
+        - identity.v1.SetDefaultAddress
+    acceptance:
+      - Given a buyer is logged in
+      - When the buyer adds a new address and marks it default
+      - Then the address appears as the default in the address list
+    tags: [buyer]
+    status: automated
+    covered_by: "identity/addresses.feature::Buyer adds a delivery address"
+
+  - id: auth.logout-journey
+    title: User session logout
+    persona: buyer
+    priority: P1
+    summary: Authenticated user logs out via header and terminates session.
+    entry_route: /
+    services: [team-identity, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given a buyer is logged in
+      - When the user opens the home page
+      - And the user clicks the logout button
+      - Then the header displays the login and register links
+    tags: [auth]
+    status: automated
+    covered_by: "auth/logout_flow.feature::Authenticated user logs out via header"
+
+  - id: auth.jwt-rs256-login
+    title: Login issues an RS256 token carrying a kid
+    persona: guest
+    priority: P0
+    summary: A successful login returns a JWT signed RS256 with a kid header.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.Login]
+    acceptance:
+      - Given a registered user
+      - When the user logs in successfully through team-identity
+      - Then the JWT header has alg RS256 and a non-empty kid and the claims carry sub, name, typ and scopes
+    tags: [auth, jwt]
+    status: automated
+    covered_by: "auth/jwt_rs256_jwks.feature::Login issues an RS256 token carrying a kid"
+
+  - id: auth.jwt-no-hs256
+    title: The HS256 shared-secret signing path is gone
+    persona: guest
+    priority: P1
+    summary: Identity requires an RSA private key and kid and never signs HS256.
+    entry_route: /login
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given team-identity is configured with an RSA private key and a kid
+      - When team-identity starts
+      - Then it does not read or require a shared JWT_SECRET and cannot mint an HS256 token
+    tags: [auth, jwt]
+    status: automated
+    covered_by: "auth/jwt_rs256_jwks.feature::The HS256 shared-secret signing path is gone"
+
+  - id: auth.jwks-active-key
+    title: JWKS serves the active public key
+    persona: guest
+    priority: P0
+    summary: The JWKS endpoint publishes the RSA public key matching a fresh token's kid.
+    entry_route: /login
+    services: [team-identity]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.Login]
+    acceptance:
+      - Given team-identity has issued a fresh token with a kid
+      - When a client requests GET /.well-known/jwks.json from team-identity
+      - Then the keys array contains an RSA public JWK whose kid matches the token and no private key is present
+    tags: [auth, jwks]
+    status: automated
+    covered_by: "auth/jwt_rs256_jwks.feature::JWKS serves the active public key"
+
+  - id: auth.gateway-accepts-rs256
+    title: A valid RS256 token from identity is accepted
+    persona: buyer
+    priority: P0
+    summary: The gateway verifies a fresh token against the JWKS and forwards the principal.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given a bearer token freshly issued by team-identity
+      - When a request reaches the gateway with that token
+      - Then the gateway verifies it against the JWKS key matching the kid and forwards x-principal metadata
+    tags: [auth, jwt]
+    status: automated
+    covered_by: "auth/jwt_rs256_jwks.feature::A valid RS256 token from identity is accepted"
+
+  - id: auth.gateway-rejects-unknown-key
+    title: Gateway rejects a token not signed by a current JWKS key
+    persona: guest
+    priority: P1
+    summary: A token whose kid is absent from the JWKS resolves to the anonymous principal.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given a bearer token whose kid is absent from the JWKS
+      - When a request reaches the gateway with that token
+      - Then it is not accepted as authenticated and the caller is anonymous with PUBLIC_SCOPES
+    tags: [auth, jwt]
+    status: automated
+    covered_by: "auth/jwt_rs256_jwks.feature::Gateway rejects a token not signed by a current JWKS key"
+
+  - id: auth.jwks-key-rotation
+    title: A token signed by a rotated-in key verifies
+    persona: buyer
+    priority: P1
+    summary: The gateway refreshes its JWKS and accepts tokens signed by a newly rotated-in key.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given team-identity published a new signing key with a new kid alongside the previous key
+      - And the gateway has refreshed its cached JWKS
+      - When a request reaches the gateway with a token signed by the new kid
+      - Then the gateway accepts it and tokens signed by the previous kid also continue to verify
+    tags: [auth, jwks]
+    status: automated
+    covered_by: "auth/jwt_rs256_jwks.feature::A token signed by a rotated-in key verifies"

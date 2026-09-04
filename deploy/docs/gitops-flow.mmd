@@ -1,0 +1,15 @@
+%% Dán vào Lucidchart: Import (hoặc "+ Insert" > Mermaid) rồi paste toàn bộ.
+%% Cũng render được ở draw.io, GitHub, VS Code, Notion.
+flowchart LR
+  dev["👤 Dev<br/>git push"] --> ci["⚙️ GitHub Actions (act)<br/>build image + test"]
+  ci -->|"đẩy image"| reg[("📦 Registry = ECR<br/>kho image")]
+  ci -->|"ghi tag mới"| git[("🗂️ platform-gitops (Git)<br/>khai 'chạy image nào'")]
+  git -->|"ArgoCD xem Git"| argo["🚀 ArgoCD<br/>tự deploy (pull)"]
+  argo -->|"deploy"| eks["☸️ Kubernetes = EKS<br/>chạy các service (pod)"]
+  reg -.->|"kéo image"| eks
+  eks -->|"expose"| alb["🌐 ingress-nginx = ALB<br/>cổng vào"]
+  user["👤 User"] -->|"mở web"| alb
+  eks -.->|"dùng"| rds[("Postgres = RDS")]
+  eks -.-> msk[("Redpanda = MSK")]
+  eks -.-> s3[("MinIO = S3")]
+  eks -.-> os[("OpenSearch")]

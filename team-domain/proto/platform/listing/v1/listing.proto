@@ -1,0 +1,325 @@
+syntax = "proto3";
+
+// SEED contract — proves codegen + breaking-check wiring. team-domain (Go) owns
+// this: the catalog write-model (source of truth in listing_db) and the events
+// it emits when a listing changes.
+package platform.listing.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+// Owned by team-domain. DB-per-service: only this service touches listing_db.
+// Reads (GetListing/ListListings) + writes (CreateListing/UpdateListing); every
+// write emits a ListingChanged event on Kafka (ADR-0002).
+service ListingService {
+  rpc GetListing(GetListingRequest) returns (GetListingResponse);
+  rpc ListListings(ListListingsRequest) returns (ListListingsResponse);
+  // ListMyListings returns the listings owned by the calling Principal (the
+  // seller center). Requires the listing.write scope.
+  rpc ListMyListings(ListMyListingsRequest) returns (ListMyListingsResponse);
+  rpc CreateListing(CreateListingRequest) returns (CreateListingResponse);
+  rpc UpdateListing(UpdateListingRequest) returns (UpdateListingResponse);
+  // DeleteListing removes the caller's own listing (or any, for admin) and emits
+  // ListingChanged(DELETED) so read-models drop it.
+  rpc DeleteListing(DeleteListingRequest) returns (DeleteListingResponse);
+  // GetImageUploadUrl generates a presigned URL to upload a product image.
+  rpc GetImageUploadUrl(GetImageUploadUrlRequest) returns (GetImageUploadUrlResponse);
+  // ListCategories returns standard product categories, optionally filtered by parent_id.
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  // GetCategory returns details of a single category by id.
+  rpc GetCategory(GetCategoryRequest) returns (GetCategoryResponse);
+  // ReserveStock atomically reserves inventory for checkout (called by team-order).
+  rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
+  // ReleaseStock releases previously reserved inventory when an order is cancelled.
+  rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+
+  // ── Seller Storefront ──
+  // UpsertStorefront creates or replaces the calling seller's storefront page.
+  rpc UpsertStorefront(UpsertStorefrontRequest) returns (UpsertStorefrontResponse);
+  // GetStorefront fetches a storefront by seller_id or slug.
+  rpc GetStorefront(GetStorefrontRequest) returns (GetStorefrontResponse);
+
+  // ── Listing Bundles ──
+  // A bundle groups several of a seller's listings for a single bundle price.
+  rpc CreateBundle(CreateBundleRequest) returns (CreateBundleResponse);
+  rpc GetBundle(GetBundleRequest) returns (GetBundleResponse);
+  rpc ListBundlesBySeller(ListBundlesBySellerRequest) returns (ListBundlesBySellerResponse);
+}
+
+// A seller-defined bundle of listings sold together at bundle_price.
+message Bundle {
+  string id = 1;
+  string seller_id = 2;
+  string title = 3;
+  repeated string listing_ids = 4;
+  int64 bundle_price = 5; // minor units (e.g. VND)
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message CreateBundleRequest {
+  string title = 1;
+  repeated string listing_ids = 2;
+  int64 bundle_price = 3;
+}
+
+message CreateBundleResponse {
+  Bundle bundle = 1;
+}
+
+message GetBundleRequest {
+  string id = 1;
+}
+
+message GetBundleResponse {
+  Bundle bundle = 1;
+}
+
+message ListBundlesBySellerRequest {
+  string seller_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListBundlesBySellerResponse {
+  repeated Bundle bundles = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// A seller's public storefront/shop page.
+message Storefront {
+  string seller_id = 1;
+  string slug = 2;
+  string banner_url = 3;
+  string tagline = 4;
+  // Listing ids the seller pins/features on the storefront.
+  repeated string featured_listing_ids = 5;
+  // Visual theme key (e.g. "default", "dark", "festive").
+  string theme = 6;
+}
+
+message UpsertStorefrontRequest {
+  Storefront storefront = 1;
+}
+
+message UpsertStorefrontResponse {
+  Storefront storefront = 1;
+}
+
+message GetStorefrontRequest {
+  // Look up by seller_id; if empty, slug is used.
+  string seller_id = 1;
+  string slug = 2;
+}
+
+message GetStorefrontResponse {
+  Storefront storefront = 1;
+}
+
+message Variant {
+  string id = 1;
+  string listing_id = 2;
+  string name = 3; // e.g. "Xanh Navy / Size L", "128GB / Đen"
+  string sku = 4; // e.g. "IP15-128-BLK"
+  int64 price = 5; // minor units (override price; if 0, use listing.price)
+  int32 stock = 6; // available inventory count
+  string image_url = 7; // optional thumbnail
+}
+
+message ReserveStockRequest {
+  string listing_id = 1;
+  string variant_id = 2; // optional, empty if buying base listing
+  int32 quantity = 3;
+  string reservation_id = 4;
+}
+
+message ReserveStockResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ReleaseStockRequest {
+  string listing_id = 1;
+  string variant_id = 2;
+  int32 quantity = 3;
+  string reservation_id = 4;
+}
+
+message ReleaseStockResponse {
+  bool success = 1;
+}
+
+message Category {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  // Parent category id (empty for top-level categories).
+  string parent_id = 4;
+  int32 display_order = 5;
+  string icon_url = 6;
+}
+
+message ListCategoriesRequest {
+  // Optional parent_id to filter child categories. If empty, returns top-level categories.
+  string parent_id = 1;
+}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+}
+
+message GetCategoryRequest {
+  string id = 1;
+}
+
+message GetCategoryResponse {
+  Category category = 1;
+}
+
+message Listing {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  int64 price = 4; // minor units (e.g. VND), integer to avoid float money
+  string currency = 5; // ISO 4217, e.g. "VND"
+  ListingStatus status = 6;
+  // Owner (Principal id of the seller). Server-assigned on create; read-only.
+  string seller_id = 7;
+  // Storage keys for product images in object storage (MinIO / S3).
+  repeated string image_keys = 8;
+  // Category id tagging this listing.
+  string category_id = 9;
+  // Stock count for base listing (when no variants).
+  int32 stock = 10;
+  // Product variants (color/size/specs).
+  repeated Variant variants = 11;
+}
+
+enum ListingStatus {
+  LISTING_STATUS_UNSPECIFIED = 0;
+  LISTING_STATUS_DRAFT = 1;
+  LISTING_STATUS_PUBLISHED = 2;
+  LISTING_STATUS_REJECTED = 3;
+}
+
+message GetImageUploadUrlRequest {
+  // MIME type of the image to upload, e.g. "image/jpeg", "image/png", "image/webp".
+  string content_type = 1;
+  // Optional original filename for extension extraction.
+  string filename = 2;
+}
+
+message GetImageUploadUrlResponse {
+  // Presigned S3 PUT URL for uploading the image binary directly.
+  string upload_url = 1;
+  // Object storage key to attach to Listing.image_keys.
+  string image_key = 2;
+  // Public URL where the image can be accessed once uploaded.
+  string public_url = 3;
+}
+
+message GetListingRequest {
+  string id = 1;
+}
+
+message GetListingResponse {
+  Listing listing = 1;
+}
+
+message ListListingsRequest {
+  platform.common.v1.PageRequest page = 1;
+  // Optional status filter (e.g. "published"); empty = all statuses.
+  string status = 2;
+}
+
+message ListListingsResponse {
+  repeated Listing listings = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message ListMyListingsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListMyListingsResponse {
+  repeated Listing listings = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message CreateListingRequest {
+  // Seller-provided listing. `id` may be empty for server-assigned ids.
+  Listing listing = 1;
+}
+
+message CreateListingResponse {
+  Listing listing = 1;
+}
+
+message UpdateListingRequest {
+  // Full replacement of the listing identified by `listing.id`.
+  Listing listing = 1;
+}
+
+message UpdateListingResponse {
+  Listing listing = 1;
+}
+
+message DeleteListingRequest {
+  string id = 1;
+}
+
+message DeleteListingResponse {}
+
+// ── Events (Kafka; ADR-0002) ────────────────────────────────────────────────
+// How a listing changed. Consumers (e.g. team-search) upsert/delete their
+// read-model on this.
+enum ChangeType {
+  CHANGE_TYPE_UNSPECIFIED = 0;
+  CHANGE_TYPE_CREATED = 1;
+  CHANGE_TYPE_UPDATED = 2;
+  CHANGE_TYPE_DELETED = 3;
+}
+
+// ListingChanged is the monolithic domain event emitted on write (kept for backward compatibility).
+message ListingChanged {
+  Listing listing = 1;
+  ChangeType change_type = 2;
+}
+
+// ListingBaseInfoChanged is emitted when core metadata changes (title, description, category, images).
+message ListingBaseInfoChanged {
+  string listing_id = 1;
+  string title = 2;
+  string description = 3;
+  string category_id = 4;
+  repeated string image_keys = 5;
+  string seller_id = 6;
+  ListingStatus status = 7;
+  ChangeType change_type = 8;
+}
+
+// ListingPricingChanged is emitted when base price or promotional/discount pricing values change.
+// Promotion team triggers campaign values (flash sale, seasonal discounts, coupons), domain holds the pricing values.
+message ListingPricingChanged {
+  string listing_id = 1;
+  int64 original_price = 2; // Giá niêm yết gốc
+  int64 promotional_price = 3; // Giá sau khi áp dụng khuyến mãi / flash sale (nếu có)
+  string currency = 4;
+  int32 discount_rate = 5; // % giảm giá, ví dụ: 25 (%)
+  bool is_on_sale = 6; // true nếu đang trong đợt sale / giảm giá
+  string promotion_type = 7; // e.g. "FLASH_SALE", "MEGA_SALE", "DIRECT_DISCOUNT"
+  string campaign_id = 8; // ID chiến dịch do Promotion Team cấp
+}
+
+// ListingStockChanged is emitted when inventory levels change (purchases, reservations, restock).
+message ListingStockChanged {
+  string listing_id = 1;
+  int32 stock = 2;
+  repeated Variant variants = 3;
+}
+
+// ListingStatusChanged is emitted when publication/moderation status changes.
+message ListingStatusChanged {
+  string listing_id = 1;
+  ListingStatus status = 2;
+}
+
+

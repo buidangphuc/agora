@@ -1,0 +1,84 @@
+# Feature manifest for team-gateway.
+# Ownership rule: a feature belongs to the repo owning the CAPABILITY. The
+# gateway owns edge-only, cross-cutting HTTP capabilities — identity resolution,
+# request forwarding and edge telemetry (the /api/track collector) — holding no
+# business logic and owning no domain storage (architecture Rule 2).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-gateway
+owner: platform-team
+
+features:
+  - id: tracking.beacon-rejects-malformed
+    title: Edge collector rejects a malformed browsing beacon without producing
+    persona: buyer
+    priority: P2
+    summary: >-
+      The gateway /api/track edge collector validates the beacon before mapping
+      it to a TrackingEvent. A beacon with no recognizable event type or a
+      malformed body is rejected with a client error and nothing is published to
+      the analytics.events Kafka topic.
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the gateway receives a beacon with no recognizable event type
+      - Then the gateway responds with a client error
+      - And nothing is published to the analytics.events topic
+    tags: [tracking]
+    status: automated
+    covered_by: "tracking/emit_tracking.feature::A malformed beacon is rejected without producing"
+
+  - id: tracking.principal-in-envelope
+    title: Authenticated browsing attributes the tracking event via the envelope
+    persona: buyer
+    priority: P2
+    summary: >-
+      The gateway sets EventEnvelope.principal from the edge-resolved principal
+      (the same x-principal-* identity resolved for every request) and never
+      copies authenticated user identity into TrackingEvent payload fields, which
+      carry only behavioral context.
+    entry_route: /
+    related_routes: ["/listing/{id}"]
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    acceptance:
+      - Given a buyer is logged in
+      - When a logged-in buyer's view beacon is collected at the gateway
+      - Then the produced EventEnvelope principal identifies the buyer
+      - And the TrackingEvent payload contains no authenticated user id in its own fields
+    tags: [buyer, tracking]
+    status: automated
+    covered_by: "tracking/emit_tracking.feature::Authenticated browsing attributes the event via the envelope"
+
+  - id: tracking.best-effort-delivery
+    title: A browsing action still succeeds when the tracking event cannot be delivered
+    persona: buyer
+    priority: P2
+    summary: >-
+      Telemetry emission is best-effort: the beacon is fired asynchronously and
+      the gateway producer degrades to a no-op when Kafka is disabled
+      (KAFKA_ENABLED=false) or the broker is unavailable, so recording an event
+      never blocks or fails the buyer's browsing action.
+    entry_route: /
+    related_routes: ["/listing/{id}"]
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    acceptance:
+      - Given a buyer is logged in
+      - When the buyer performs a tracked browsing action while the analytics producer is unavailable
+      - Then the browsing action completes normally
+      - And no user-visible error is shown
+    tags: [buyer, tracking]
+    status: automated
+    covered_by: "tracking/emit_tracking.feature::A browsing action still succeeds when the event cannot be delivered"

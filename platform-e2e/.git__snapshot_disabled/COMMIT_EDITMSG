@@ -1,0 +1,8 @@
+test(e2e): cover recommendation scenarios for archive gate
+
+Add gateway-routing scenario to recommendations.feature and new
+recommend_serving.feature + recommendation_contract.feature so every
+spec scenario in surface-recommendations, serve-recommendations-teamai,
+and add-recommendation-contract resolves to a real .feature scenario.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

@@ -1,0 +1,45 @@
+# Feature manifest for team-chat (buyer<->seller real-time messaging).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-chat
+owner: chat-team
+
+features:
+  - id: chat.buyer-seller-thread
+    title: Buyer-seller chat thread
+    persona: buyer
+    priority: P1
+    summary: A buyer opens a chat with a seller and exchanges messages.
+    entry_route: "/chat/{thread_id}"
+    related_routes: [/chat]
+    services: [team-chat, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [chat.v1.GetOrCreateThread, chat.v1.SendMessage, chat.v1.GetThreadMessages]
+    acceptance:
+      - Given a buyer is viewing a seller's product
+      - When the buyer opens chat and sends a message
+      - Then the message appears in the thread history
+    tags: [buyer]
+    status: automated
+    covered_by: "chat/chat_thread.feature::Buyer opens chat with seller and sends a message"
+
+  - id: chat.thread-list
+    title: Conversation list
+    persona: buyer
+    priority: P2
+    summary: A user sees their conversations and unread markers.
+    entry_route: /chat
+    services: [team-chat, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [chat.v1.ListThreads, chat.v1.MarkThreadRead]
+    acceptance:
+      - Given a user has existing conversations
+      - When the user opens the chat list
+      - Then their threads are listed with unread state
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/consumer_pages.feature::Chat conversations render"

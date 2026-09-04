@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+// Behavioral analytics/tracking contract. A TrackingEvent is never sent bare:
+// producers serialize it into platform.events.v1.EventEnvelope.payload with
+// type = "platform.analytics.v1.TrackingEvent" and publish it on the dedicated
+// Kafka topic `analytics.events` (separate from listing.events and from any
+// transactional database). Consumers switch on the envelope `type` and unmarshal
+// the payload. Authenticated user identity travels in EventEnvelope.principal —
+// this payload carries only anonymous_id/session_id (no PII by design).
+package platform.analytics.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// AnalyticsQueryService serves aggregated read-model queries over the warehouse
+// (DuckDB local / BigQuery prod) for seller dashboards. It never writes; the
+// TrackingEvent pipeline above feeds the tables it reads.
+service AnalyticsQueryService {
+  // Conversion funnel counts for a seller over [from, to].
+  rpc GetSellerFunnel(GetSellerFunnelRequest) returns (GetSellerFunnelResponse);
+  // Revenue broken down by day and by top-selling SKU over [from, to].
+  rpc GetRevenueBreakdown(GetRevenueBreakdownRequest) returns (GetRevenueBreakdownResponse);
+}
+
+message GetSellerFunnelRequest {
+  string seller_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message GetSellerFunnelResponse {
+  int64 impressions = 1;
+  int64 views = 2;
+  int64 adds = 3;    // add-to-cart count
+  int64 orders = 4;
+}
+
+message DayRevenue {
+  string day = 1;      // ISO date, e.g. "2026-09-04"
+  int64 revenue = 2;   // minor units
+  int64 order_count = 3;
+}
+
+message TopSku {
+  string sku = 1;
+  string listing_id = 2;
+  int64 revenue = 3;   // minor units
+  int64 units_sold = 4;
+}
+
+message GetRevenueBreakdownRequest {
+  string seller_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message GetRevenueBreakdownResponse {
+  repeated DayRevenue days = 1;
+  repeated TopSku top_skus = 2;
+}
+
+// EventType distinguishes the behavioral signals a single TrackingEvent can
+// represent, so producers need no new message type per interaction.
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  // A product/listing view (detail page impression).
+  EVENT_TYPE_VIEW = 1;
+  // A click on a listing, card, banner, or other tracked element.
+  EVENT_TYPE_CLICK = 2;
+  // A listing added to the cart.
+  EVENT_TYPE_ADD_TO_CART = 3;
+  // A search-result impression (listing shown in a result set).
+  EVENT_TYPE_IMPRESSION = 4;
+}
+
+// TrackingEvent is the behavioral event payload carried inside
+// platform.events.v1.EventEnvelope on the `analytics.events` topic. It is the
+// single shape feeding the data warehouse (DuckDB local / BigQuery prod) and,
+// later, the recommendation engine.
+message TrackingEvent {
+  // What kind of behavioral signal this is.
+  EventType event_type = 1;
+  // Listing the event relates to (empty when not listing-scoped, e.g. a search
+  // impression before a specific card).
+  string listing_id = 2;
+  // Server/browser session id grouping a burst of activity.
+  string session_id = 3;
+  // Stable anonymous visitor id (cookie/device); NOT an authenticated user id —
+  // identity travels in EventEnvelope.principal.
+  string anonymous_id = 4;
+  // Path of the page where the event occurred, e.g. "/listing/prod-123".
+  string page_path = 5;
+  // Referrer URL/path that led to page_path.
+  string referrer = 6;
+  // 1-based rank of the item within a list/result set (0 when not applicable).
+  uint32 position = 7;
+  // Search query in effect when the event fired (for IMPRESSION/CLICK on results).
+  string search_query = 8;
+  // Open-ended extension bag for future/experimental attributes without a
+  // contract change; keep well-known signals as first-class fields above.
+  map<string, string> properties = 9;
+}

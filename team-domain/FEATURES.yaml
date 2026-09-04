@@ -1,0 +1,128 @@
+# Feature manifest for team-domain (listing write-model — capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-domain
+owner: domain-team
+
+features:
+  - id: listing.create
+    title: Create a listing
+    persona: seller
+    priority: P0
+    summary: A seller publishes a product via the new-listing form.
+    entry_route: /seller/new
+    related_routes: [/seller]
+    services: [team-domain, team-frontend]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.CreateListing]
+    ui:
+      key_elements:
+        title: "#title"
+        category: "#categoryId"
+        price: "#price"
+        stock: "#stock"
+        submit: "role:button=Đăng bán ngay"
+    acceptance:
+      - Given a seeded seller is logged in
+      - When the seller creates a new listing
+      - Then the new listing appears in the seller's listings
+    tags: [seller, smoke]
+    status: automated
+    covered_by: "seller/create-listing.feature::Seller creates a new listing"
+
+  - id: listing.edit
+    title: Edit an existing listing
+    persona: seller
+    priority: P1
+    summary: A seller updates price/stock/status of one of their listings.
+    entry_route: "/seller/{listing_id}/edit"
+    related_routes: [/seller]
+    services: [team-domain, team-frontend]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    api:
+      exercised: [listing.v1.UpdateListing, listing.v1.GetListing]
+    acceptance:
+      - Given a seller owns a listing
+      - When the seller updates its price and saves
+      - Then the listing reflects the new price
+    tags: [seller]
+    status: automated
+    covered_by: "seller/edit-listing.feature::Seller renames a listing"
+
+  - id: listing.delete
+    title: Delete a listing
+    persona: seller
+    priority: P2
+    summary: A seller removes a listing and it disappears from their catalog.
+    entry_route: /seller
+    services: [team-domain, team-frontend]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    api:
+      exercised: [listing.v1.DeleteListing]
+    acceptance:
+      - Given a seller owns a listing
+      - When the seller deletes it
+      - Then it no longer appears in the seller's listings
+    tags: [seller]
+    status: automated
+    covered_by: "seller/listing_delete.feature::Seller deletes an existing listing"
+
+  - id: listing.stock-reservation
+    title: Atomic stock reservation
+    persona: buyer
+    priority: P1
+    summary: Reserve/release stock holds during the purchase saga.
+    entry_route: /checkout
+    services: [team-domain, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: Exercised indirectly by the order saga (no standalone UI).
+    api:
+      exercised: [listing.v1.ReserveStock, listing.v1.ReleaseStock]
+    acceptance:
+      - Given a listing with limited stock
+      - When an order reserves stock and then is cancelled
+      - Then the reserved stock is released back
+    tags: [buyer]
+    status: not-testable
+    covered_by: null
+    notes: >
+      Backend invariant; assert via order.saga-compensation rather than directly.
+      Hardened: ReserveStock is now idempotent on a caller-supplied reservation_id
+      (re-reserve with the same id is a no-op) so a retried checkout cannot
+      double-decrement stock, and reservations carry a TTL swept by team-order
+      (SA-M6/C2). See ADR-0008 (inventory reservation), ADR-0007 (durable saga).
+
+  - id: listing.event-durability
+    title: Listing events survive a publish failure (transactional outbox)
+    persona: seller
+    priority: P1
+    summary: >
+      A listing write records its domain event in an outbox row in the SAME DB
+      transaction, and a relayer delivers it at-least-once — so an event is never
+      lost if Kafka is down between commit and publish (ADR-0002).
+    entry_route: /seller/new
+    services: [team-domain, team-search]
+    preconditions:
+      login: seller
+      data: Requires toggling Kafka/broker availability during the write.
+    api:
+      exercised: [listing.v1.CreateListing]
+    acceptance:
+      - Given a seller creates a listing while the Kafka broker is unavailable
+      - Then no event is lost — the outbox_events row stays 'pending'
+      - When the broker is restored and the relayer runs
+      - Then the event is delivered once (row → 'published') and team-search reflects the listing
+    tags: [system, durability]
+    status: not-testable
+    covered_by: null
+    notes: >
+      Delivery is at-least-once; consumers dedupe on the stable EventEnvelope.event_id
+      (== outbox row id). platform-e2e integration test (broker-down create → restore →
+      assert delivered once) is a follow-up in the platform-e2e repo.

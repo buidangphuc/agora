@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-search
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-search
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-search
+          image:
+            repo: localhost:5001/team-search
+          containerPort: 50052
+          service:
+            port: 50052
+          # NOTE: team-search is a gRPC service (:50052) but is NOT in the enumerated
+          # 7 for this change; grpcPort probes deferred as a follow-up. CPU request
+          # declared now so the HPA path is usable.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            KAFKA_ENABLED: "true"
+          secrets:
+            enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

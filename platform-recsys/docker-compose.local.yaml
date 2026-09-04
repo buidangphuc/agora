@@ -1,0 +1,32 @@
+# Local run recipe: run the ALS batch once against a sample Parquet warehouse,
+# writing to the Qdrant (:6333) and Redis (:6379) already in platform-core's
+# compose. Join platform-core's network so `qdrant` / `redis` resolve.
+#
+#   make sample SAMPLE=./data/tracking_events.parquet
+#   docker compose -f docker-compose.local.yaml run --rm recsys-train
+#
+# This is a batch job (restart: "no"), not a long-running service — it mirrors
+# the platform-gitops CronJob shape locally.
+services:
+  recsys-train:
+    build: .
+    image: localhost:5001/platform-recsys:local
+    restart: "no"
+    environment:
+      ENV: local
+      WAREHOUSE_DRIVER: duckdb
+      WAREHOUSE_PARQUET_PATH: /data/tracking_events.parquet
+      QDRANT_URL: http://qdrant:6333
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      ALS_RANK: "64"
+      ALS_MAX_ITER: "15"
+      TOP_N: "50"
+    volumes:
+      - ./data:/data
+    networks:
+      - platform-core_default
+
+networks:
+  platform-core_default:
+    external: true

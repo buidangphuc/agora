@@ -1,0 +1,62 @@
+minimum_pre_commit_version: "3.6.0"
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+ci:
+  autofix_prs: true
+  autoupdate_schedule: monthly
+
+# Vendored agent tooling (spec-kit) is upstream-managed — keep it byte-identical,
+# out of hygiene/lint hooks. detect-secrets keeps its own narrower exclude too.
+exclude: ^(\.specify/|\.claude/skills/)
+
+repos:
+  # Hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: debug-statements
+
+  # Ruff: format + lint (replaces black + isort + flake8 + pyink)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: ["--fix"]
+
+  # Secrets detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: ^(project/artifacts/|project/data/|data/|mlruns/|minio/|\.specify/integrations/)
+
+  # Shell
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        files: ^(scripts/|.*\.sh)$
+
+  # Verify .env.example matches Settings fields
+  - repo: local
+    hooks:
+      - id: check-env-example
+        name: Check .env.example matches Settings
+        entry: uv run python -m scripts.check_env_example
+        language: system
+        pass_filenames: false
+        files: ^(\.env\.example|app/core/config\.py)$
+
+  # Commit message (Conventional Commits)
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.28.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]

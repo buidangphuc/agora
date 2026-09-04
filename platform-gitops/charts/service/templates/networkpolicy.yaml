@@ -1,0 +1,28 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.name }}
+  policyTypes: [Ingress]
+  ingress:
+    {{- if .Values.ingress.enabled }}
+    # allow the ingress controller (edge) to reach public services
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+    {{- end }}
+    {{- with .Values.networkPolicy.allowFrom }}
+    - from:
+        {{- range . }}
+        - podSelector:
+            matchLabels:
+              app: {{ . }}
+        {{- end }}
+    {{- end }}
+{{- end }}

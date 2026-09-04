@@ -1,0 +1,26 @@
+# Invariant baseline for team-engagement — extracted verbatim from argocd/apps/team-engagement.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-engagement
+image:
+  repo: localhost:5001/team-engagement
+containerPort: 50054
+service:
+  port: 50054
+grpcPort: 50054          # native gRPC health probes (grpc.health.v1.Health)
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+env:
+  UPSTREAM_ORDER_ADDR: "team-order:50055"
+secrets:
+  enabled: true
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50054; only the
+# edge (team-gateway) may reach it. Deployed envs only (local exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway]

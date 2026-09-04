@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marketplace.local/schemas/features.schema.json",
+  "title": "Repo Feature Manifest",
+  "description": "Machine-readable, feature-centric description of a repo's user-facing capabilities. Consumed by the platform-e2e auto-generator to author Gherkin + steps + page objects. One file per repo at <repo>/FEATURES.yaml.",
+  "type": "object",
+  "required": ["repo", "features"],
+  "additionalProperties": false,
+  "properties": {
+    "repo": { "type": "string", "description": "Owning repo directory name, e.g. team-order." },
+    "owner": { "type": "string", "description": "Optional team/handle responsible for these features." },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    }
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "required": ["id", "title", "persona", "entry_route", "acceptance", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
+          "description": "Stable unique key across the polyrepo, form <domain>.<slug>, e.g. order.purchase-saga."
+        },
+        "title": { "type": "string", "description": "Human-readable feature name." },
+        "persona": {
+          "enum": ["guest", "buyer", "seller", "admin"],
+          "description": "Primary actor — drives which account the generator logs in as."
+        },
+        "priority": {
+          "enum": ["P0", "P1", "P2"],
+          "description": "P0 -> eligible for @smoke."
+        },
+        "summary": { "type": "string", "description": "One-line intent." },
+        "entry_route": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Frontend path where the journey starts (may contain {param})."
+        },
+        "related_routes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Other routes the journey visits."
+        },
+        "services": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All repos exercised — the set that must be running for this test."
+        },
+        "preconditions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "login": {
+              "enum": ["guest", "buyer", "seller", "admin", null],
+              "description": "Session to establish before the journey (null/guest = anonymous)."
+            },
+            "seed_tag": {
+              "type": ["string", "null"],
+              "description": "Marker in platform-e2e config/tags.py::TAG_PAYLOAD_MAP that seeds required state (e.g. needsListing)."
+            },
+            "data": { "type": "string", "description": "Free-text notes on other preconditions." }
+          }
+        },
+        "api": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "seed": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Gateway RPC ids used to set up state, form <service>.v1.<Method>."
+            },
+            "exercised": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "RPC ids the feature drives — used for coverage mapping and API assertions."
+            }
+          }
+        },
+        "ui": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "key_elements": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "name -> platform-e2e semantic-locator string (role:/label:/text:/placeholder:/testid: or CSS). Feeds page-object generation."
+            }
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Gherkin-ready Given/When/Then lines the generator turns into a Scenario."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Become pytest markers (register new ones in pyproject.toml)."
+        },
+        "status": {
+          "enum": ["planned", "automated", "manual", "not-testable"],
+          "description": "planned = ready for auto-gen; automated = has a live scenario; manual = human-only; not-testable = excluded."
+        },
+        "covered_by": {
+          "type": ["string", "null"],
+          "description": "Traceability pointer once automated: tests/e2e/features/<file>.feature::<Scenario name>."
+        },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "id": "seller-tech",
+      "username": "shopee_tech_mall",
+      "password": "pass123",
+      "role": "seller",
+      "note": "Seeded by platform-core/tools/seed-marketplace.sh"
+    },
+    {
+      "id": "seller-fashion",
+      "username": "shopee_fashion_mall",
+      "password": "pass123",
+      "role": "seller"
+    },
+    {
+      "id": "buyer-main",
+      "username": "khach_hang_shopee",
+      "password": "pass123",
+      "role": "buyer"
+    },
+    {
+      "id": "admin-main",
+      "username": "admin@market.vn",
+      "password": "pass123",
+      "role": "admin"
+    }
+  ]
+}

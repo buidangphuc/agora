@@ -1,0 +1,68 @@
+# Minimal Prometheus for autoscaling metrics — scrapes app /metrics endpoints so
+# KEDA can scale on request rate (the IO-load signal), not CPU. Single pod, no PVC.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: marketplace
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 5s
+      evaluation_interval: 5s
+    scrape_configs:
+      - job_name: team-ai
+        metrics_path: /metrics
+        static_configs:
+          - targets: ["team-ai.marketplace.svc:8000"]
+      # Gateway RED metrics (marketplace_rpc_client_*) reach Prometheus via the
+      # otel-collector's OTLP→Prometheus exporter on :8889 — mirrors the compose
+      # scrape so the in-cluster Prometheus carries per-service RPS/latency too.
+      - job_name: otel-collector
+        static_configs:
+          - targets: ["otel-collector.marketplace.svc:8889"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: marketplace
+  labels: { app: prometheus }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: prometheus }
+  template:
+    metadata:
+      labels: { app: prometheus }
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.52.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.retention.time=1h
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 300m, memory: 512Mi }
+      volumes:
+        - name: config
+          configMap: { name: prometheus-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: marketplace
+  labels: { app: prometheus }
+spec:
+  selector: { app: prometheus }
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090

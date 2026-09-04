@@ -1,0 +1,20 @@
+# Per-image tags for the `prod` environment (mirrors envs/local/values.yaml's shape).
+# Prod pins immutable release tags (never a moving tag like `local`/`staging`); CI
+# bumps these to the released version on promotion. imagePullPolicy IfNotPresent since
+# tags are immutable. The ApplicationSet composes image.repo as `<registry>/<service>`.
+global:
+  registry: registry.example.com
+  imagePullPolicy: IfNotPresent
+images:
+  team-identity: "1.0.0"
+  team-domain: "1.0.0"
+  team-search: "1.0.0"
+  team-engagement: "1.0.0"
+  team-order: "1.0.0"
+  team-payment: "1.0.0"
+  team-chat: "1.0.0"
+  team-notification: "1.0.0"
+  team-gateway: "1.0.0"
+  team-frontend: "1.0.0"
+  team-ai: "1.0.0"
+  search-indexer: "1.0.0"

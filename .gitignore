@@ -1,0 +1,60 @@
+# ── Generated protobuf/gRPC/Connect code (regenerated via buf; ADR-0001) ──
+**/generated/
+**/src/generated/
+**/app/transport/grpc/_pb/
+**/gen/
+
+# ── Node / Next.js (team-frontend) ──
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+*.tsbuildinfo
+
+# ── Go build output ──
+**/bin/
+**/*.test
+**/*.out
+
+# ── Python ──
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.egg-info/
+
+# ── Data / local warehouses / DBs ──
+**/*.duckdb
+**/*.duckdb.wal
+**/*.sqlite
+**/data/
+
+# ── Test artifacts ──
+**/test-results/
+**/test-results/screenshots/
+**/playwright-report/
+**/.playwright/
+
+# ── Env & secrets (keep .env.example) ──
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+
+# ── Editor / OS ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.log
+
+# ── Scrum planning scratch (optional: remove this line to keep the plans) ──
+# plan*/
+
+# ── Local tool caches ──
+**/.uv-cache/
+.codegraph/
+**/.turbo/

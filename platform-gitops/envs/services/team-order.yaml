@@ -1,0 +1,28 @@
+# Invariant baseline for team-order — extracted verbatim from argocd/apps/team-order.yaml
+# (the per-service inline block). Shared across envs; env overlays layer on top.
+# image.repo/pullPolicy are re-set per-env by the ApplicationSet.
+name: team-order
+image:
+  repo: localhost:5001/team-order
+containerPort: 50055
+service:
+  port: 50055
+grpcPort: 50055          # native gRPC health probes (grpc.health.v1.Health)
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+env:
+  UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
+secrets:
+  enabled: true
+# Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50055; only the
+# edge (team-gateway) may reach OrderService/CartService. Payment→order is now
+# event-carried (AD4), so team-payment is NOT a gRPC peer here. Deployed envs only
+# (local exempt per ADR-0010).
+networkPolicy:
+  enabled: true
+  allowFrom: [team-gateway]

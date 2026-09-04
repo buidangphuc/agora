@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Gateway RED metrics (marketplace_rpc_client_*) reach Prometheus via the
+  # otel-collector's OTLP→Prometheus exporter on :8889 — no per-service /metrics.
+  - job_name: "otel-collector"
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # team-ai already serves a Prometheus-text /metrics (teamai_grpc_requests_total,
+  # used by KEDA); scrape it directly. team-ai-svc is its network alias on the
+  # shared platform-core_default network (matches UPSTREAM_AI_ADDR=team-ai-svc).
+  - job_name: "team-ai"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["team-ai-svc:8000"]
+
+  - job_name: "redpanda"
+    static_configs:
+      - targets: ["redpanda:9644"]

@@ -1,0 +1,5 @@
+feat(proto): 6-feature batch contracts — SessionService, saved-searches, Reorder, loyalty check-in, bundles, sponsored
+
+Also carries the storefront/subscription contracts from the prior batch and any accumulated WIP.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

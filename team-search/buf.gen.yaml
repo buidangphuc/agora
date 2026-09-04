@@ -1,0 +1,20 @@
+# buf codegen — writes ONLY into ./generated (ADR-0001). Vendored proto under
+# ./proto; managed mode stamps go_package to match this module.
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/buidangphuc/team-search/generated
+
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: generated
+    opt: paths=source_relative
+  - remote: buf.build/grpc/go
+    out: generated
+    opt: paths=source_relative
+
+inputs:
+  - directory: proto

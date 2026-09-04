@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 a01e2d078b2d2dc36f38bfa84273e0624d2ed9f0 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353416 +0700	branch: Created from HEAD
+a01e2d078b2d2dc36f38bfa84273e0624d2ed9f0 5ad59653aab7f9c6908811f4a916165c2e6f32b7 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353416 +0700	commit: feat(domain): transactional outbox for listing events

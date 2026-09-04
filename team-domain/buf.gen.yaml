@@ -1,0 +1,33 @@
+# buf codegen — runs IN THIS REPO, writes ONLY into ./generated (ADR-0001).
+#
+# platform-core owns the contract under packages/proto and versions it with git
+# tags. This service vendors the *proto sources* under ./proto (see proto/README.md)
+# and generates its own Go code locally into ./generated (gitignored). platform-core
+# never writes code into this repo.
+#
+# Managed mode stamps a go_package on every message so generated import paths line
+# up with this module:
+#   proto/platform/listing/v1/listing.proto
+#     -> github.com/buidangphuc/team-domain/generated/platform/listing/v1
+#   proto/platform/common/v1/common.proto
+#     -> github.com/buidangphuc/team-domain/generated/platform/common/v1
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/buidangphuc/team-domain/generated
+
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: generated
+    opt: paths=source_relative
+  - remote: buf.build/grpc/go
+    out: generated
+    opt: paths=source_relative
+
+# The vendored proto module is the codegen input. Its buf.yaml (module root) sits
+# at proto/buf.yaml, so imports like "platform/common/v1/common.proto" resolve.
+inputs:
+  - directory: proto

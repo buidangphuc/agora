@@ -1,0 +1,78 @@
+# platform-recsys — offline ALS training job. A SCHEDULED batch (CronJob), not a
+# Deployment/Service: it has no request-serving surface. It reads the analytics
+# warehouse and writes its own artifact stores — item/user vectors into Qdrant
+# (:6333, the instance team-ai targets) and a precomputed Top-N cache into Redis
+# (:6379). Mirrors the postgres-backup CronJob shape (schedule + concurrency
+# guard + history limits); mirrors the team-analytics worker in having NO
+# Service/Ingress/NetworkPolicy.
+#
+# Non-secret job config. Schedule is duplicated on CronJob.spec.schedule (a static
+# field that cannot read a ConfigMap) — keep the two in sync when changing cadence.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recsys-config
+  namespace: marketplace
+data:
+  SCHEDULE: "0 3 * * *"          # nightly 03:00 UTC (after postgres-backup at 02:00)
+  # Warehouse reader seam. Local reads the DuckDB-exported Parquet on a shared
+  # volume; prod flips WAREHOUSE_DRIVER=bigquery + the BIGQUERY_* coordinates.
+  WAREHOUSE_DRIVER: "duckdb"
+  WAREHOUSE_PARQUET_PATH: "/data/tracking_events.parquet"
+  # Artifact stores (shared infra service names in the marketplace namespace).
+  QDRANT_URL: "http://qdrant:6333"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  # Cache/collection contract — MUST match serve-recommendations-teamai.
+  QDRANT_ITEM_COLLECTION: "item_als_vectors"
+  QDRANT_USER_COLLECTION: "user_als_vectors"
+  RECS_CACHE_PREFIX: "recs"
+  RECS_SCHEMA_VERSION: "v1"
+  RECS_CACHE_TTL_SECONDS: "172800"   # 48h > nightly cadence
+  # Interaction window + ALS hyperparameters (tunable defaults).
+  INTERACTION_WINDOW_DAYS: "30"
+  ALS_RANK: "64"
+  ALS_REG_PARAM: "0.05"
+  ALS_ALPHA: "40.0"
+  ALS_MAX_ITER: "15"
+  TOP_N: "50"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: platform-recsys
+  namespace: marketplace
+spec:
+  schedule: "0 3 * * *"          # nightly 03:00 UTC — mirrors recsys-config.SCHEDULE
+  concurrencyPolicy: Forbid       # idempotent per model_version; never overlap runs
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: { app: platform-recsys }
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: recsys-train
+              image: localhost:5001/platform-recsys:local
+              # The image ENTRYPOINT is `python -m recsys` (the batch job itself).
+              envFrom:
+                - configMapRef: { name: recsys-config }
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  cpu: "2"
+                  memory: 2Gi
+              volumeMounts:
+                - { name: warehouse-data, mountPath: /data }
+          volumes:
+            # Local: the DuckDB-exported Parquet warehouse. In prod (BigQuery)
+            # this volume is unused; the reader talks to BigQuery instead.
+            - name: warehouse-data
+              emptyDir: {}

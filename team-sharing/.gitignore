@@ -1,0 +1,6 @@
+/server
+/out
+coverage.out
+coverage.summary
+*.log
+.env

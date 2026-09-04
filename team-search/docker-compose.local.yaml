@@ -1,0 +1,11 @@
+# Standalone local deps for team-search. In the polyrepo, prefer platform-core's
+# `make dev` (shared redpanda + opensearch). This file is for running the service
+# in isolation.
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports: ["9200:9200"]

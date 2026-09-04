@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 a85d449b0bd5c1c3dc4cc5cec3c3264e39f5255b Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788498259 +0700	commit (initial): feat(promotion): seller subscription tiers (ListPlans/Subscribe/GetEntitlements), mock
+a85d449b0bd5c1c3dc4cc5cec3c3264e39f5255b 3089e47358d60a4bdbd8836e9c7b9d0a583f1cca Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788509254 +0700	commit: feat(promotion): sponsored listings — CreateAdCampaign/ListSponsoredSlots (mock)
+3089e47358d60a4bdbd8836e9c7b9d0a583f1cca bbeba4af254ab8da289e4e374e96d7f9d67c1f36 Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com> 1788512959 +0700	commit: fix(promotion): reject anonymous principal in RequirePrincipal (security)

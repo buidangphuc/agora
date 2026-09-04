@@ -1,0 +1,78 @@
+# Non-secret backup config + the loop script. Credentials live in secret.yaml only.
+# DATABASES is the explicit fallback list; at runtime backup.sh prefers the SERVICES
+# value read straight from the `postgres-init` ConfigMap (single source of truth for
+# what databases exist) and derives `team_<svc>_db`, so the two never drift.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pg-backup-config
+  namespace: marketplace
+data:
+  # NOTE: CronJob.spec.schedule is a static field and cannot read a ConfigMap; the
+  # CronJob manifest mirrors this value. Keep the two in sync when changing the cadence.
+  SCHEDULE: "0 2 * * *"          # daily 02:00 UTC
+  PGHOST: postgres.marketplace.svc
+  PGPORT: "5432"
+  S3_ENDPOINT: http://minio.marketplace.svc:9000
+  S3_BUCKET: postgres-backups
+  RETENTION_DAYS: "7"
+  # Fallback list (used only if SERVICES is empty). Matches postgres-init SERVICES:
+  # team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification
+  DATABASES: "team_identity_db team_domain_db team_search_db team_engagement_db team_order_db team_payment_db team_chat_db team_notification_db"
+  backup.sh: |
+    #!/bin/sh
+    # pg_dump every service DB on the shared Postgres → gzip → MinIO, then prune.
+    # Continues past a single DB's failure; exits non-zero if ANY DB failed so
+    # monitoring/alerting fires. No credential literals here — all from env/Secret.
+    set -u
+    : "${RETENTION_DAYS:=7}"
+    export PATH="/tools:${PATH}"
+    export MC_CONFIG_DIR="${MC_CONFIG_DIR:-/tmp/.mc}"
+
+    # Prefer the cluster's own SERVICES list (from postgres-init) → derive team_<svc>_db.
+    if [ -n "${SERVICES:-}" ]; then
+      DBS=""
+      for svc in $SERVICES; do
+        DBS="$DBS $(echo "$svc" | tr '-' '_')_db"
+      done
+    else
+      DBS="${DATABASES:-}"
+    fi
+
+    if [ -z "$(echo "$DBS" | tr -d ' ')" ]; then
+      echo "no databases to back up (SERVICES and DATABASES both empty)" >&2
+      exit 1
+    fi
+
+    echo "==> configuring object store alias"
+    mc alias set store "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+
+    ts=$(date -u +%Y%m%dT%H%M%SZ)
+    fail=0
+    for db in $DBS; do
+      echo "==> dumping ${db}"
+      # Dump to a file first so pg_dump's own exit status is checked directly
+      # (busybox sh has no reliable pipefail), then compress and upload.
+      if pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$db" -f "/tmp/${db}.sql"; then
+        gzip -f "/tmp/${db}.sql"
+        if mc cp "/tmp/${db}.sql.gz" "store/${S3_BUCKET}/${db}/${db}-${ts}.sql.gz"; then
+          echo "ok: ${db}"
+        else
+          echo "UPLOAD FAILED: ${db}" >&2
+          fail=1
+        fi
+        rm -f "/tmp/${db}.sql.gz"
+      else
+        echo "DUMP FAILED: ${db}" >&2
+        fail=1
+      fi
+    done
+
+    echo "==> pruning objects older than ${RETENTION_DAYS}d in ${S3_BUCKET}"
+    mc rm --recursive --force --older-than "${RETENTION_DAYS}d" "store/${S3_BUCKET}/" || true
+
+    if [ "$fail" -ne 0 ]; then
+      echo "one or more databases failed to back up" >&2
+      exit 1
+    fi
+    echo "backup complete"

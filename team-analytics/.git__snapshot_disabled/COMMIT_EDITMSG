@@ -1,0 +1,5 @@
+fix(analytics): runtime image distroless/cc for libstdc++ (DuckDB CGO)
+
+Container exited 127: /consumer could not load libstdc++.so.6. distroless/base lacks the C++ runtime DuckDB links; cc-debian12 includes it.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

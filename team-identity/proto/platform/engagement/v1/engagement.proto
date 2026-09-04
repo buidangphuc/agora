@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+// team-engagement (Go) owns this: per-user favorites and per-listing view/stats.
+// These are the behavior signals a future recommender (team-reco) will consume.
+package platform.engagement.v1;
+
+import "platform/common/v1/common.proto";
+
+// Owned by team-engagement (DB-per-service). Favorites require an authenticated
+// user (engagement scopes); views/stats are public.
+service EngagementService {
+  rpc AddFavorite(AddFavoriteRequest) returns (AddFavoriteResponse);
+  rpc RemoveFavorite(RemoveFavoriteRequest) returns (RemoveFavoriteResponse);
+  rpc ListFavorites(ListFavoritesRequest) returns (ListFavoritesResponse);
+  rpc IsFavorite(IsFavoriteRequest) returns (IsFavoriteResponse);
+  rpc RecordView(RecordViewRequest) returns (RecordViewResponse);
+  rpc GetListingStats(GetListingStatsRequest) returns (GetListingStatsResponse);
+}
+
+message AddFavoriteRequest {
+  string listing_id = 1;
+}
+
+message AddFavoriteResponse {}
+
+message RemoveFavoriteRequest {
+  string listing_id = 1;
+}
+
+message RemoveFavoriteResponse {}
+
+message ListFavoritesRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListFavoritesResponse {
+  // Favorited listing ids (most-recent first); resolve details via ListingService.
+  repeated string listing_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message IsFavoriteRequest {
+  string listing_id = 1;
+}
+
+message IsFavoriteResponse {
+  bool favorite = 1;
+}
+
+message RecordViewRequest {
+  string listing_id = 1;
+}
+
+message RecordViewResponse {
+  int64 view_count = 1;
+}
+
+message GetListingStatsRequest {
+  string listing_id = 1;
+}
+
+message GetListingStatsResponse {
+  int64 view_count = 1;
+  int64 favorite_count = 2;
+}

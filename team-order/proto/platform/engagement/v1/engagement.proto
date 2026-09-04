@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+// team-engagement (Go) owns this: per-user favorites, views/stats, and product reviews & ratings (Phase 6).
+// These are the trust and behavior signals a future recommender will consume.
+package platform.engagement.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+// Owned by team-engagement (DB-per-service). Favorites and reviews require an authenticated
+// user; views, stats, and review listings are public.
+service EngagementService {
+  rpc AddFavorite(AddFavoriteRequest) returns (AddFavoriteResponse);
+  rpc RemoveFavorite(RemoveFavoriteRequest) returns (RemoveFavoriteResponse);
+  rpc ListFavorites(ListFavoritesRequest) returns (ListFavoritesResponse);
+  rpc IsFavorite(IsFavoriteRequest) returns (IsFavoriteResponse);
+  rpc RecordView(RecordViewRequest) returns (RecordViewResponse);
+  rpc GetListingStats(GetListingStatsRequest) returns (GetListingStatsResponse);
+
+  // ── Reviews & Ratings ──
+  rpc CreateReview(CreateReviewRequest) returns (CreateReviewResponse);
+  rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse);
+  rpc GetListingRatingSummary(GetListingRatingSummaryRequest) returns (GetListingRatingSummaryResponse);
+}
+
+message AddFavoriteRequest {
+  string listing_id = 1;
+}
+
+message AddFavoriteResponse {}
+
+message RemoveFavoriteRequest {
+  string listing_id = 1;
+}
+
+message RemoveFavoriteResponse {}
+
+message ListFavoritesRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListFavoritesResponse {
+  // Favorited listing ids (most-recent first); resolve details via ListingService.
+  repeated string listing_ids = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message IsFavoriteRequest {
+  string listing_id = 1;
+}
+
+message IsFavoriteResponse {
+  bool favorite = 1;
+}
+
+message RecordViewRequest {
+  string listing_id = 1;
+}
+
+message RecordViewResponse {
+  int64 view_count = 1;
+}
+
+message GetListingStatsRequest {
+  string listing_id = 1;
+}
+
+message GetListingStatsResponse {
+  int64 view_count = 1;
+  int64 favorite_count = 2;
+}
+
+// ── Review Messages ──
+
+message Review {
+  string id = 1;
+  string listing_id = 2;
+  string user_id = 3;
+  string user_name = 4;
+  string order_id = 5;
+  int32 rating = 6; // 1 to 5 stars
+  string comment = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message RatingBreakdown {
+  int32 star_1 = 1;
+  int32 star_2 = 2;
+  int32 star_3 = 3;
+  int32 star_4 = 4;
+  int32 star_5 = 5;
+}
+
+message CreateReviewRequest {
+  string listing_id = 1;
+  int32 rating = 2; // 1-5
+  string comment = 3;
+  string order_id = 4;
+}
+
+message CreateReviewResponse {
+  Review review = 1;
+}
+
+message ListReviewsRequest {
+  string listing_id = 1;
+  int32 rating_filter = 2; // 0 = all, 1-5 = specific star rating
+  platform.common.v1.PageRequest page = 3;
+}
+
+message ListReviewsResponse {
+  repeated Review reviews = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message GetListingRatingSummaryRequest {
+  string listing_id = 1;
+}
+
+message GetListingRatingSummaryResponse {
+  string listing_id = 1;
+  double average_rating = 2; // e.g. 4.8
+  int64 review_count = 3;
+  RatingBreakdown breakdown = 4;
+}

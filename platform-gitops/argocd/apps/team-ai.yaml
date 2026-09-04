@@ -1,0 +1,80 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: team-ai
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+      targetRevision: main
+      path: charts/service
+      helm:
+        releaseName: team-ai
+        valueFiles:
+          - $values/envs/local/values.yaml
+        values: |
+          name: team-ai
+          image:
+            repo: localhost:5001/team-ai
+            pullPolicy: Always
+          containerPort: 8000
+          service:
+            port: 8000
+          # Extra gRPC port so the gateway can reach team-ai's AIService/ChatService.
+          grpcPort: 50060
+          healthPath: /healthz
+          env:
+            # AI service (platform.ai.v1.AIService + ChatService streaming) over gRPC.
+            # Mock model — no external deps needed; enable RAG/DB later for real LLM.
+            GRPC_ENABLED: "true"
+            GRPC_HOST: "0.0.0.0"
+            GRPC_PORT: "50060"
+            CHAT_BACKEND: "mock"
+            RAG_ENABLED: "false"
+            # Serving-only pod (mock gRPC AI): the ingest worker (Kafka→search index)
+            # is an addon gated off when KAFKA_ENABLED=false. The stale kind image built
+            # it unconditionally; the rebuilt image respects this flag.
+            KAFKA_ENABLED: "false"
+            SEARCH_ENABLED: "false"
+            DATABASE_ENABLED: "false"
+            REDIS_ENABLED: "false"
+            QUEUE_ENABLED: "false"
+            OBJECTS_ENABLED: "false"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          autoscaling:
+            enabled: true
+            type: keda            # IO-bound: scale on request RATE, not CPU
+            minReplicas: 1
+            maxReplicas: 4
+            keda:
+              pollingInterval: 5
+              cooldownPeriod: 30
+              triggers:
+                - type: prometheus
+                  metadata:
+                    serverAddress: http://prometheus.marketplace.svc:9090
+                    query: sum(rate(teamai_grpc_requests_total[30s]))
+                    threshold: "5"     # ~5 rps per replica → scale up
+          secrets:
+            enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

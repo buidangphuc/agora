@@ -1,0 +1,117 @@
+# Shared Postgres (1 instance) — logical isolation: each service its own database +
+# role. Names match what Vault hands out in DATABASE_URL (<svc_underscored>_db /
+# _svc / _pass). Local: emptyDir (ephemeral, re-inits each start).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: marketplace
+data:
+  SERVICES: "team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-audit team-referral team-sharing team-verification"
+  init.sh: |
+    #!/bin/sh
+    set -e
+    for svc in $SERVICES; do
+      u=$(echo "$svc" | tr '-' '_')
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<SQL
+    DO \$do\$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${u}_svc') THEN
+        CREATE ROLE ${u}_svc LOGIN PASSWORD '${u}_pass';
+      END IF;
+    END \$do\$;
+    SELECT 'CREATE DATABASE ${u}_db OWNER ${u}_svc'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='${u}_db')\gexec
+    SQL
+      echo "db ready: ${u}_db (owner ${u}_svc)"
+    done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_USER, value: postgres }
+            - { name: POSTGRES_PASSWORD, value: postgres }
+            - { name: POSTGRES_DB, value: postgres }
+            - name: SERVICES
+              valueFrom: { configMapKeyRef: { name: postgres-init, key: SERVICES } }
+          ports:
+            - { containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "postgres"] }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - { name: initdb, mountPath: /docker-entrypoint-initdb.d }
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: initdb
+          configMap: { name: postgres-init, items: [{ key: init.sh, path: init.sh }] }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: marketplace
+spec:
+  selector: { app: postgres }
+  ports:
+    - { name: postgres, port: 5432, targetPort: 5432 }
+---
+# initdb (docker-entrypoint-initdb.d) only runs on an EMPTY data dir, so adding a
+# service to SERVICES does not create its role on an already-initialised Postgres.
+# This PostSync Job re-runs the same idempotent CREATE ROLE/DATABASE loop against the
+# live instance on every ArgoCD sync — so new services get their DB user without a
+# data-wiping restart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-users
+  namespace: marketplace
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed-users
+          image: postgres:16-alpine
+          env:
+            - { name: PGPASSWORD, value: postgres }
+            - name: SERVICES
+              valueFrom: { configMapKeyRef: { name: postgres-init, key: SERVICES } }
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              until pg_isready -h postgres.marketplace.svc -U postgres; do sleep 2; done
+              for svc in $SERVICES; do
+                u=$(echo "$svc" | tr '-' '_')
+                psql -v ON_ERROR_STOP=1 -h postgres.marketplace.svc -U postgres -d postgres <<SQL
+              DO \$do\$ BEGIN
+                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${u}_svc') THEN
+                  CREATE ROLE ${u}_svc LOGIN PASSWORD '${u}_pass';
+                END IF;
+              END \$do\$;
+              SELECT 'CREATE DATABASE ${u}_db OWNER ${u}_svc'
+                WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='${u}_db')\gexec
+              SQL
+                echo "db ready: ${u}_db (owner ${u}_svc)"
+              done

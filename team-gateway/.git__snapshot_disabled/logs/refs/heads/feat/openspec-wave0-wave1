@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 c1d0f7d756e0a81ccd76397ff0739aba1c5ede35 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353416 +0700	branch: Created from HEAD
+c1d0f7d756e0a81ccd76397ff0739aba1c5ede35 9ed7707773f4268005fef2df99fbc27786cd21db Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788353416 +0700	commit: feat(gateway): analytics collector, OTel metrics, real cockpit PromQL
+9ed7707773f4268005fef2df99fbc27786cd21db 87f33d5158cf631a3c426f9e97f21c4619145df1 Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn> 1788358209 +0700	commit: feat(gateway): RS256/JWKS verification + recommendation forwarder

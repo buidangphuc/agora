@@ -1,0 +1,24 @@
+# app-of-apps: the single Application ArgoCD watches. It renders every child
+# Application under platform-gitops/argocd/apps (one per service + infra).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: marketplace-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+    targetRevision: main
+    path: argocd/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
