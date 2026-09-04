@@ -11,8 +11,6 @@ name: marketplace-services
 x-migrate: &migrate-defaults
   image: migrate/migrate:v4.17.1
   restart: on-failure
-  networks:
-    - platform-core_default
 
 services:
   # ── KAFKA TOPIC INIT ────────────────────────────────────────────────────────
@@ -34,89 +32,15 @@ services:
         done
         rpk topic create payment.events payment.events.dlq promotion.events listing.events listing.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
-    networks:
-      - platform-core_default
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
-  # platform-core/infra owns postgres for the original services (postgres-listing…
-  # postgres-notification, host ports 5433–5441). These 4 new services' Postgres are
+  # platform-core/infra owns postgres for the original services (postgres…
+  # postgres, host ports 5433–5441). These 4 new services' Postgres are
   # declared here (platform-core is read-only for this change) but mirror that pattern
   # exactly: postgres:16-alpine, isolated <name>_svc/<name>_pass/<name>_db creds, a
   # pg_<name> volume, pg_isready healthcheck, on the same external platform-core_default
   # network so each service reaches it in-network as postgres-<name>:5432. Host ports
   # continue the 543X sequence (5442–5445) with no collision with platform-core's DBs.
-  postgres-referral:
-    image: postgres:16-alpine
-    container_name: postgres-referral
-    ports: ["5442:5432"]
-    environment:
-      POSTGRES_DB: referral_db
-      POSTGRES_USER: referral_svc
-      POSTGRES_PASSWORD: referral_pass
-    volumes:
-      - pg_referral:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U referral_svc -d referral_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks:
-      - platform-core_default
-
-  postgres-verification:
-    image: postgres:16-alpine
-    container_name: postgres-verification
-    ports: ["5443:5432"]
-    environment:
-      POSTGRES_DB: verification_db
-      POSTGRES_USER: verification_svc
-      POSTGRES_PASSWORD: verification_pass
-    volumes:
-      - pg_verification:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U verification_svc -d verification_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks:
-      - platform-core_default
-
-  postgres-sharing:
-    image: postgres:16-alpine
-    container_name: postgres-sharing
-    ports: ["5444:5432"]
-    environment:
-      POSTGRES_DB: sharing_db
-      POSTGRES_USER: sharing_svc
-      POSTGRES_PASSWORD: sharing_pass
-    volumes:
-      - pg_sharing:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sharing_svc -d sharing_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks:
-      - platform-core_default
-
-  postgres-audit:
-    image: postgres:16-alpine
-    container_name: postgres-audit
-    ports: ["5445:5432"]
-    environment:
-      POSTGRES_DB: audit_db
-      POSTGRES_USER: audit_svc
-      POSTGRES_PASSWORD: audit_pass
-    volumes:
-      - pg_audit:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U audit_svc -d audit_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks:
-      - platform-core_default
-
   team-identity-migrate:
     <<: *migrate-defaults
     container_name: team-identity-migrate
@@ -124,7 +48,7 @@ services:
       - ./team-identity/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://identity_svc:identity_pass@postgres-identity:5432/identity_db?sslmode=disable
+      - -database=postgres://identity_svc:identity_pass@postgres:5432/identity_db?sslmode=disable
       - up
 
   team-domain-migrate:
@@ -134,7 +58,7 @@ services:
       - ./team-domain/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://listing_svc:listing_pass@postgres-listing:5432/listing_db?sslmode=disable
+      - -database=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - up
 
   team-engagement-migrate:
@@ -144,7 +68,7 @@ services:
       - ./team-engagement/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://engagement_svc:engagement_pass@postgres-engagement:5432/engagement_db?sslmode=disable
+      - -database=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
       - up
 
   team-order-migrate:
@@ -154,7 +78,7 @@ services:
       - ./team-order/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://order_svc:order_pass@postgres-order:5432/order_db?sslmode=disable
+      - -database=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - up
 
   team-payment-migrate:
@@ -164,7 +88,7 @@ services:
       - ./team-payment/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://payment_svc:payment_pass@postgres-payment:5432/payment_db?sslmode=disable
+      - -database=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - up
 
   team-chat-migrate:
@@ -174,7 +98,7 @@ services:
       - ./team-chat/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://chat_svc:chat_pass@postgres-chat:5432/chat_db?sslmode=disable
+      - -database=postgres://chat_svc:chat_pass@postgres:5432/chat_db?sslmode=disable
       - up
 
   team-promotion-migrate:
@@ -184,7 +108,7 @@ services:
       - ./team-promotion/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://promotion_svc:promotion_pass@postgres-promotion:5432/promotion_db?sslmode=disable
+      - -database=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
       - up
 
   team-notification-migrate:
@@ -194,59 +118,59 @@ services:
       - ./team-notification/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://notification_svc:notification_pass@postgres-notification:5432/notification_db?sslmode=disable
+      - -database=postgres://notification_svc:notification_pass@postgres:5432/notification_db?sslmode=disable
       - up
 
   team-referral-migrate:
     <<: *migrate-defaults
     container_name: team-referral-migrate
     depends_on:
-      postgres-referral:
+      postgres:
         condition: service_healthy
     volumes:
       - ./team-referral/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://referral_svc:referral_pass@postgres-referral:5432/referral_db?sslmode=disable
+      - -database=postgres://referral_svc:referral_pass@postgres:5432/referral_db?sslmode=disable
       - up
 
   team-verification-migrate:
     <<: *migrate-defaults
     container_name: team-verification-migrate
     depends_on:
-      postgres-verification:
+      postgres:
         condition: service_healthy
     volumes:
       - ./team-verification/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://verification_svc:verification_pass@postgres-verification:5432/verification_db?sslmode=disable
+      - -database=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
       - up
 
   team-sharing-migrate:
     <<: *migrate-defaults
     container_name: team-sharing-migrate
     depends_on:
-      postgres-sharing:
+      postgres:
         condition: service_healthy
     volumes:
       - ./team-sharing/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://sharing_svc:sharing_pass@postgres-sharing:5432/sharing_db?sslmode=disable
+      - -database=postgres://sharing_svc:sharing_pass@postgres:5432/sharing_db?sslmode=disable
       - up
 
   team-audit-migrate:
     <<: *migrate-defaults
     container_name: team-audit-migrate
     depends_on:
-      postgres-audit:
+      postgres:
         condition: service_healthy
     volumes:
       - ./team-audit/migrations:/migrations:ro
     command:
       - -path=/migrations
-      - -database=postgres://audit_svc:audit_pass@postgres-audit:5432/audit_db?sslmode=disable
+      - -database=postgres://audit_svc:audit_pass@postgres:5432/audit_db?sslmode=disable
       - up
 
   team-identity:
@@ -260,14 +184,12 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://identity_svc:identity_pass@postgres-identity:5432/identity_db?sslmode=disable
+      - DATABASE_URL=postgres://identity_svc:identity_pass@postgres:5432/identity_db?sslmode=disable
       - JWT_PRIVATE_KEY='-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCa9r1/pblm+mdm\nFH5EHODWz/KHexkPcE4uDN8Fw+FaZXlC8LwPwGLX1uuBbOHZ4Itd8leTvREihqfs\nGqtPh4Nuuw+MmZr78WtH96tI1LxFvdyZJ4D8F9L9t3VIW3HgV3acVjZNQefFQCd8\nIwF3uoeH29+eazdZsbWLN3ulkpkgaUW+CptBm4wZ55zlizR+ANy0bHjhA9Pipy5k\ncvha5t6u2wOISbLu7YTkLARouE1YP1C54FGMMFOffhPm1aJfftfwysrroZnb0nLT\nQBv2knsjm2tk9rdA4gkkUqM6C8MrsExjFyLH6dSbW1q25zY0gwulic0PPmCkJq0c\nbj00NXhlAgMBAAECggEABaZoa16J/4Cyw2yM3APniL2FPL5WwBLaruAmQ4oMTeT0\nQmYPnU1o7TC3Xn0vUOfYfQDog4j5tnYNalTgmSI6Pw/P9dLl7Ti0rieQFbQ39x0A\njY78q3Rc64ZEXvKCmOjneLTF/xQflLgNmH+YPprM9T2ljhufpYQOt/g6aGOLdLyD\nUpHTroKQP6Jifa7q+8UgGz/44QhLHwZI3oyO07a/OWhzhRDlpwsh4eMhWcJiKIde\nfWdXxhwk5nafUCf3hpedIA0418QRBWeCK5h9F1pVkiIiznhNsmp6jyEcQoYlV0W5\n7j7+b0pGS6igchb8ljj3raHvhnm+ukd1FbF9CFmsEwKBgQDT9UzHAyGyBx1fQFde\nMy0hQUpbwjVcJzqhoNSRv97z4x5ejFMJRPsuloEzqXq33VQ86lHhpg1K+ArY6XeA\nvzy3cd8HLA/9vES9oMgspMCHrNRyomJ+x9+jYehr/umHGzIqyFfu3ZriJpuVrGf4\nPY+RiOUNVGVuBxwjZxNzJQ9OVwKBgQC7KbyR8dkRR87H17oBm8GWBO+joNmzUaNO\nsm5q3KS3aGdRoYzX2HdoPxhxaIr/gAEXektnp5QdNmt8r/xnhofm//tdOJaB4NKW\nfd/xerND0ajRzhWRlfh9enSQ8UYjsyurOQwpArZ7+LHUtpBPrFNR+p2pPa8yWz1+\n0WqRS3HBowKBgQC3jkA+PJ0KopSyL3M59dHIcdVmX2p8ctCYtkJAMkxvIynisV0b\nsuxf7SDYz5Wh8v+HfVkJtBbg7KvgK1c9XN/E8c02VddHYqqZGcsgtlCxbl/RIoVv\ny8IFqL1yASDVyxyH5lYYWztNTCgC13p2hUF2xHmwMH1iaq/YjORQHDEEIwKBgG0A\naao1x82gnHUW1mWJaL0OMuKBE0i0CwASOuxRhDysuT95bqVmlGRKGtoxoIIc8oXR\n24iKuGArCX6cn8tLNmr6OlKYWk9ZuEudE4d3hl/BAyjtdPJM/WNWpfykB81S0+Ps\nXYCk69JXjHntuS4tlnjwFFI0coxJRw9Mt1vXLHExAoGBAMgolo3b0gEaH9W0Y6JV\nmCgz4IWbwv33zYsgWkDIRAqxC3Yb7+LOIWOh5WkHZ3xDv6rRu5K3jwPjtP4HgOcU\nq157I7U+g8YFCgczWUrDz9Ffcxf2mpBKGKuKFxY0vQxFijomHTPvR7m0BLronev/\nmgi+aqBmWK71t/t9R9551U39\n-----END PRIVATE KEY-----\n'
       - JWT_KID=dev-2026
       - JWKS_HTTP_PORT=50063
       - GRPC_PORT=50053
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-domain:
     build:
@@ -280,14 +202,12 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://listing_svc:listing_pass@postgres-listing:5432/listing_db?sslmode=disable
+      - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - OUTBOX_ENABLED=true
       - GRPC_PORT=50051
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-search:
     build:
@@ -297,14 +217,12 @@ services:
     container_name: team-search-svc
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://search_svc:search_pass@postgres-search:5432/search_db?sslmode=disable
+      - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
       - OPENSEARCH_URL=http://opensearch:9200
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - GRPC_PORT=50052
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-search-indexer:
     image: team-search:local
@@ -312,13 +230,11 @@ services:
     entrypoint: ["/indexer"]
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://search_svc:search_pass@postgres-search:5432/search_db?sslmode=disable
+      - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
       - OPENSEARCH_URL=http://opensearch:9200
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-engagement:
     build:
@@ -331,13 +247,11 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres-engagement:5432/engagement_db?sslmode=disable
+      - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
       # verified-purchase check: engagement calls team-order to confirm a delivered order (no cross-DB join)
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       - GRPC_PORT=50054
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-order:
     build:
@@ -352,7 +266,7 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://order_svc:order_pass@postgres-order:5432/order_db?sslmode=disable
+      - DATABASE_URL=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
       - FEATURE_FLAGS_ENABLED=true
@@ -369,8 +283,6 @@ services:
       - UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061
       - GRPC_PORT=50055
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-promotion:
     build:
@@ -385,7 +297,7 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres-promotion:5432/promotion_db?sslmode=disable
+      - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
       - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
       - FEATURE_FLAGS_EVAL_TIMEOUT_MS=500
@@ -394,8 +306,6 @@ services:
       - PROMOTION_EVENTS_TOPIC=promotion.events
       - GRPC_PORT=50061
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-payment:
     build:
@@ -410,7 +320,7 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://payment_svc:payment_pass@postgres-payment:5432/payment_db?sslmode=disable
+      - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       # Transactional-outbox relayer (AD4): settle writes payment=PAID + a
       # PaymentSettled outbox row in one tx; the relayer drains it to
@@ -420,8 +330,6 @@ services:
       - PAYMENT_EVENTS_TOPIC=payment.events
       - GRPC_PORT=50056
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-chat:
     build:
@@ -434,11 +342,12 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://chat_svc:chat_pass@postgres-chat:5432/chat_db?sslmode=disable
+      - DATABASE_URL=postgres://chat_svc:chat_pass@postgres:5432/chat_db?sslmode=disable
+      # team-chat builds its DB config from POSTGRES_* (default host postgres-chat);
+      # point it at the shared instance.
+      - POSTGRES_HOST=postgres
       - GRPC_PORT=50057
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-notification:
     build:
@@ -452,7 +361,7 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_URL=postgres://notification_svc:notification_pass@postgres-notification:5432/notification_db?sslmode=disable
+      - DATABASE_URL=postgres://notification_svc:notification_pass@postgres:5432/notification_db?sslmode=disable
       # listing.events consumer (F3): price-drop / back-in-stock alerts
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
@@ -461,8 +370,6 @@ services:
       - LISTING_EVENTS_DLQ_TOPIC=listing.events.dlq
       - GRPC_PORT=50058
       - ENV=local
-    networks:
-      - platform-core_default
 
   # ── 4 NEW gRPC services (mirror team-notification wiring) ─────────────────────
   team-referral:
@@ -476,11 +383,9 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://referral_svc:referral_pass@postgres-referral:5432/referral_db?sslmode=disable
+      - DATABASE_URL=postgres://referral_svc:referral_pass@postgres:5432/referral_db?sslmode=disable
       - GRPC_PORT=50062
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-verification:
     build:
@@ -493,11 +398,9 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://verification_svc:verification_pass@postgres-verification:5432/verification_db?sslmode=disable
+      - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
       - GRPC_PORT=50064
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-sharing:
     build:
@@ -510,11 +413,9 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://sharing_svc:sharing_pass@postgres-sharing:5432/sharing_db?sslmode=disable
+      - DATABASE_URL=postgres://sharing_svc:sharing_pass@postgres:5432/sharing_db?sslmode=disable
       - GRPC_PORT=50065
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-audit:
     build:
@@ -527,11 +428,9 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://audit_svc:audit_pass@postgres-audit:5432/audit_db?sslmode=disable
+      - DATABASE_URL=postgres://audit_svc:audit_pass@postgres:5432/audit_db?sslmode=disable
       - GRPC_PORT=50066
       - ENV=local
-    networks:
-      - platform-core_default
 
   team-gateway:
     build:
@@ -566,8 +465,6 @@ services:
       - PROMETHEUS_URL=http://prometheus:9090
     ports:
       - "8080:8080"
-    networks:
-      - platform-core_default
 
   team-ai:
     build:
@@ -582,7 +479,7 @@ services:
       - GRPC_HOST=0.0.0.0
       - GRPC_PORT=50060
       - DATABASE_ENABLED=false
-      - POSTGRES_HOST=postgres-listing
+      - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=listing_svc
       - POSTGRES_PASSWORD=listing_pass
@@ -606,8 +503,6 @@ services:
     ports:
       - "8001:8000"
       - "50060:50060"
-    networks:
-      - platform-core_default
 
   team-analytics:
     build:
@@ -626,8 +521,6 @@ services:
       - DUCKDB_PATH=/tmp/analytics.duckdb
     volumes:
       - analytics_data:/data
-    networks:
-      - platform-core_default
 
   team-frontend:
     build:
@@ -644,8 +537,6 @@ services:
       - FLIPT_ADDR=flipt:8080
     ports:
       - "3000:3000"
-    networks:
-      - platform-core_default
 
   platform-e2e:
     build:
@@ -660,16 +551,6 @@ services:
       - HEADLESS=true
     volumes:
       - ./platform-e2e/test-results:/workspace/test-results
-    networks:
-      - platform-core_default
-
-networks:
-  platform-core_default:
-    external: true
 
 volumes:
   analytics_data:
-  pg_referral:
-  pg_verification:
-  pg_sharing:
-  pg_audit:

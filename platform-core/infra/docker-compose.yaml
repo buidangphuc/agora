@@ -47,140 +47,27 @@ services:
   # Rule 3: no service holds another service's connection string.
   # Add a new service DB by copying a block: next free host port 543X,
   # <name>_db / <name>_svc / <name>_pass, and a pg_<name> volume.
-  postgres-listing:
+  # ── SHARED Postgres (single instance, logical DB-per-service) ─────────
+  # One postgres for every service; the init script creates <svc>_db/<svc>_svc
+  # per service (identity/listing/search/engagement/order/payment/chat/
+  # notification/promotion/audit/referral/sharing/verification). Add a service =
+  # append it to postgres-init/10-create-service-databases.sh (no new container).
+  postgres:
     image: postgres:16-alpine
-    ports: ["5433:5432"]
+    ports: ["5432:5432"]
     environment:
-      POSTGRES_DB: listing_db
-      POSTGRES_USER: listing_svc
-      POSTGRES_PASSWORD: listing_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
     volumes:
-      - pg_listing:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U listing_svc -d listing_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  postgres-search:
-    image: postgres:16-alpine
-    ports: ["5434:5432"]
-    environment:
-      POSTGRES_DB: search_db
-      POSTGRES_USER: search_svc
-      POSTGRES_PASSWORD: search_pass
-    volumes:
-      - pg_search:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U search_svc -d search_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-identity:
-    image: postgres:16-alpine
-    ports: ["5435:5432"]
-    environment:
-      POSTGRES_DB: identity_db
-      POSTGRES_USER: identity_svc
-      POSTGRES_PASSWORD: identity_pass
-    volumes:
-      - pg_identity:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U identity_svc -d identity_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-engagement:
-    image: postgres:16-alpine
-    ports: ["5436:5432"]
-    environment:
-      POSTGRES_DB: engagement_db
-      POSTGRES_USER: engagement_svc
-      POSTGRES_PASSWORD: engagement_pass
-    volumes:
-      - pg_engagement:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U engagement_svc -d engagement_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-order:
-    image: postgres:16-alpine
-    ports: ["5437:5432"]
-    environment:
-      POSTGRES_DB: order_db
-      POSTGRES_USER: order_svc
-      POSTGRES_PASSWORD: order_pass
-    volumes:
-      - pg_order:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U order_svc -d order_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-payment:
-    image: postgres:16-alpine
-    ports: ["5438:5432"]
-    environment:
-      POSTGRES_DB: payment_db
-      POSTGRES_USER: payment_svc
-      POSTGRES_PASSWORD: payment_pass
-    volumes:
-      - pg_payment:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U payment_svc -d payment_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-chat:
-    image: postgres:16-alpine
-    ports: ["5439:5432"]
-    environment:
-      POSTGRES_DB: chat_db
-      POSTGRES_USER: chat_svc
-      POSTGRES_PASSWORD: chat_pass
-    volumes:
-      - pg_chat:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chat_svc -d chat_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-promotion:
-    image: postgres:16-alpine
-    ports: ["5440:5432"]
-    environment:
-      POSTGRES_DB: promotion_db
-      POSTGRES_USER: promotion_svc
-      POSTGRES_PASSWORD: promotion_pass
-    volumes:
-      - pg_promotion:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U promotion_svc -d promotion_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  postgres-notification:
-    image: postgres:16-alpine
-    ports: ["5441:5432"]
-    environment:
-      POSTGRES_DB: notification_db
-      POSTGRES_USER: notification_svc
-      POSTGRES_PASSWORD: notification_pass
-    volumes:
-      - pg_notification:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U notification_svc -d notification_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
 
   # ── ASYNC BROKERS — two, by role (see docs/ADR/0002) ──────────────────
   # Kafka (Redpanda locally) = event streaming between services; RabbitMQ =
@@ -345,17 +232,9 @@ services:
       "
 
 volumes:
+  pg_data:
   qdrant_data:
   flipt_data:
-  pg_listing:
-  pg_search:
-  pg_identity:
-  pg_engagement:
-  pg_order:
-  pg_payment:
-  pg_chat:
-  pg_promotion:
-  pg_notification:
   redpanda_data:
   rabbitmq_data:
   opensearch_data:

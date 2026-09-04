@@ -1,0 +1,13 @@
+# Single entrypoint for the whole local stack.
+#
+#   docker compose up -d --build      # ONE command: shared infra + every service
+#   docker compose down               # stop everything
+#   docker compose down -v            # stop + wipe data (fresh DBs on next up)
+#
+# Brings up the SHARED infra once (a single Postgres with a logical DB per service,
+# plus Redpanda, Redis, OpenSearch, MinIO, Flipt, Qdrant, observability) and then
+# every marketplace service + its migrate job, all on one project network.
+name: platform-core
+include:
+  - platform-core/infra/docker-compose.yaml
+  - docker-compose.services.yaml
