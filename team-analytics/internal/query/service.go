@@ -94,6 +94,84 @@ func (s *Service) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetR
 	return resp, nil
 }
 
+// GetDemandForecast serves probabilistic daily demand forecasts and restock points.
+func (s *Service) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDemandForecastRequest) (*analyticsv1.GetDemandForecastResponse, error) {
+	if s.repo == nil {
+		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
+	}
+	sellerID := strings.TrimSpace(req.GetSellerId())
+	if sellerID == "" {
+		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
+	}
+	listingID := strings.TrimSpace(req.GetListingId())
+	if listingID == "" {
+		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
+	}
+	horizon := int(req.GetHorizonDays())
+	if horizon <= 0 {
+		horizon = 28
+	}
+
+	res, err := s.repo.DemandForecast(ctx, sellerID, listingID, horizon)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "demand forecast: %v", err)
+	}
+
+	leadTime := int(req.GetLeadTimeDays())
+	if leadTime <= 0 {
+		leadTime = 3
+	}
+	serviceLevel := req.GetServiceLevel()
+	if serviceLevel <= 0.0 {
+		serviceLevel = 0.95
+	}
+	z := 1.65
+	if serviceLevel >= 0.99 {
+		z = 2.33
+	} else if serviceLevel >= 0.90 && serviceLevel < 0.95 {
+		z = 1.28
+	}
+
+	var leadDemandP50 float64
+	var sumSpread float64
+	nDays := len(res.DailyForecast)
+	for i := 0; i < leadTime && i < nDays; i++ {
+		leadDemandP50 += res.DailyForecast[i].P50
+		sumSpread += (res.DailyForecast[i].P90 - res.DailyForecast[i].P50)
+	}
+	avgSpread := 1.0
+	if leadTime > 0 && nDays > 0 {
+		effectiveCount := float64(leadTime)
+		if float64(nDays) < effectiveCount {
+			effectiveCount = float64(nDays)
+		}
+		avgSpread = sumSpread / effectiveCount
+	}
+	safetyStock := z * avgSpread
+	reorderPoint := leadDemandP50 + safetyStock
+
+	resp := &analyticsv1.GetDemandForecastResponse{
+		SellerId:              sellerID,
+		ListingId:             listingID,
+		ModelVersion:          res.ModelVersion,
+		IsColdStart:           res.IsColdStart,
+		SuggestedReorderPoint: reorderPoint,
+		SafetyStock:           safetyStock,
+		DailyForecasts:        make([]*analyticsv1.DailyForecast, 0, len(res.DailyForecast)),
+	}
+
+	for _, pt := range res.DailyForecast {
+		resp.DailyForecasts = append(resp.DailyForecasts, &analyticsv1.DailyForecast{
+			Date: pt.Date,
+			P10:  pt.P10,
+			P50:  pt.P50,
+			P90:  pt.P90,
+		})
+	}
+
+	return resp, nil
+}
+
 // window converts the optional request timestamps into a concrete [from, to]
 // range. A missing `from` opens the lower bound (zero time); a missing `to`
 // opens the upper bound (farFuture). A from > to window yields no rows, which
@@ -112,3 +190,4 @@ func window(from, to *timestamppb.Timestamp) (time.Time, time.Time) {
 
 // compile-time assertion that the servicer satisfies the generated interface.
 var _ analyticsv1.AnalyticsQueryServiceServer = (*Service)(nil)
+

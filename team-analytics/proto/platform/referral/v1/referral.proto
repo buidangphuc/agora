@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+// Referral program: per-user invite codes, redemptions, and reward ledger.
+// Rewards are pure accounting values here — no real money movement.
+package platform.referral.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+service ReferralService {
+  // Mint (or return the existing) referral code for the calling user.
+  rpc CreateReferralCode(CreateReferralCodeRequest) returns (CreateReferralCodeResponse);
+  // Fetch the caller's own referral summary.
+  rpc GetMyReferral(GetMyReferralRequest) returns (GetMyReferralResponse);
+  // Redeem someone else's referral code (called by the invited user).
+  rpc RedeemReferral(RedeemReferralRequest) returns (RedeemReferralResponse);
+  rpc ListReferralRewards(ListReferralRewardsRequest) returns (ListReferralRewardsResponse);
+}
+
+message ReferralReward {
+  string id = 1;
+  int64 amount = 2;   // minor units
+  string reason = 3;  // e.g. "invitee_first_order"
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message CreateReferralCodeRequest {}
+
+message CreateReferralCodeResponse {
+  string code = 1;
+}
+
+message GetMyReferralRequest {}
+
+message GetMyReferralResponse {
+  string code = 1;
+  int64 invited_count = 2;
+  int64 rewards_total = 3; // minor units
+}
+
+message RedeemReferralRequest {
+  string code = 1;
+}
+
+message RedeemReferralResponse {}
+
+message ListReferralRewardsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListReferralRewardsResponse {
+  repeated ReferralReward rewards = 1;
+  platform.common.v1.PageResponse page = 2;
+}

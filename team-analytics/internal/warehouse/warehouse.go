@@ -88,7 +88,48 @@ func ColumnNames() []string {
 	return names
 }
 
-// TableName is the single append-only table both adapters write to.
+// OrderFactRecord is one row in the order_facts warehouse table, representing
+// an authoritative purchased line item emitted by team-order on PAID transition (ADR-0013).
+type OrderFactRecord struct {
+	EventID    string
+	OrderID    string
+	ListingID  string
+	VariantID  string
+	SellerID   string
+	Quantity   int32
+	UnitPrice  int64
+	Currency   string
+	OccurredAt time.Time
+	Status     string
+}
+
+// OrderFactsTableName is the canonical table for authoritative line-item purchase facts.
+const OrderFactsTableName = "order_facts"
+
+// OrderFactsSchema is the canonical schema for order_facts with DuckDB/BigQuery parity.
+var OrderFactsSchema = []Column{
+	{"event_id", "VARCHAR", "STRING"},
+	{"order_id", "VARCHAR", "STRING"},
+	{"listing_id", "VARCHAR", "STRING"},
+	{"variant_id", "VARCHAR", "STRING"},
+	{"seller_id", "VARCHAR", "STRING"},
+	{"quantity", "INTEGER", "INT64"},
+	{"unit_price", "BIGINT", "INT64"},
+	{"currency", "VARCHAR", "STRING"},
+	{"occurred_at", "TIMESTAMP", "TIMESTAMP"},
+	{"status", "VARCHAR", "STRING"},
+}
+
+// OrderFactsColumnNames returns the ordered column names of order_facts.
+func OrderFactsColumnNames() []string {
+	names := make([]string, len(OrderFactsSchema))
+	for i, c := range OrderFactsSchema {
+		names[i] = c.Name
+	}
+	return names
+}
+
+// TableName is the single append-only table both adapters write to for tracking.
 const TableName = "tracking_events"
 
 // WarehouseWriter is the swap seam: the consumer writes batches through this one
@@ -101,6 +142,8 @@ type WarehouseWriter interface {
 	// than partially/silently dropping rows: the caller commits Kafka offsets
 	// only after Write returns nil (at-least-once).
 	Write(ctx context.Context, batch []*TrackingRecord) error
+	// WriteOrderFacts appends a batch of order line item facts.
+	WriteOrderFacts(ctx context.Context, batch []*OrderFactRecord) error
 	// Close flushes and releases the underlying handle.
 	Close() error
 }

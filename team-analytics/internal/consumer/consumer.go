@@ -20,13 +20,13 @@ type Consumer struct {
 	client *kgo.Client
 }
 
-// New dials the brokers and joins the consumer group for topic. Auto-commit is
+// New dials the brokers and joins the consumer group for topics. Auto-commit is
 // disabled: the flush path commits explicitly after each successful write.
-func New(brokers []string, group, topic string) (*Consumer, error) {
+func New(brokers []string, group string, topics ...string) (*Consumer, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup(group),
-		kgo.ConsumeTopics(topic),
+		kgo.ConsumeTopics(topics...),
 		kgo.DisableAutoCommit(),
 	)
 	if err != nil {
@@ -38,12 +38,6 @@ func New(brokers []string, group, topic string) (*Consumer, error) {
 // Run polls records, maps + batches them, and flushes to writer. It returns when
 // ctx is cancelled, doing a best-effort final flush so a partial batch is not
 // lost on graceful shutdown.
-//
-// Offset discipline: the flush closure commits uncommitted offsets ONLY after
-// writer.Write succeeds. Because the Batcher always flushes its entire buffer
-// (every polled-but-uncommitted record) before the commit runs, a commit never
-// races ahead of a durable write — a crash mid-batch reprocesses rather than
-// loses events.
 func (c *Consumer) Run(
 	ctx context.Context,
 	writer warehouse.WarehouseWriter,
@@ -51,14 +45,22 @@ func (c *Consumer) Run(
 	flushInterval time.Duration,
 	logger *slog.Logger,
 ) error {
-	flush := func(ctx context.Context, batch []*warehouse.TrackingRecord) error {
+	flushTracking := func(ctx context.Context, batch []*warehouse.TrackingRecord) error {
 		if err := writer.Write(ctx, batch); err != nil {
 			return err
 		}
 		// Durable write succeeded → it is now safe to advance offsets.
 		return c.client.CommitUncommittedOffsets(ctx)
 	}
-	batcher := NewBatcher(batchSize, flush)
+	trackingBatcher := NewBatcher(batchSize, flushTracking)
+
+	flushOrderFacts := func(ctx context.Context, batch []*warehouse.OrderFactRecord) error {
+		if err := writer.WriteOrderFacts(ctx, batch); err != nil {
+			return err
+		}
+		return c.client.CommitUncommittedOffsets(ctx)
+	}
+	orderBatcher := NewOrderFactBatcher(batchSize, flushOrderFacts)
 
 	// Interval flush: bound how long a partial batch lingers (design.md).
 	if flushInterval > 0 {
@@ -70,8 +72,11 @@ func (c *Consumer) Run(
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					if err := batcher.Flush(ctx); err != nil && ctx.Err() == nil {
-						logger.Warn("interval flush failed; will retry", slog.Any("err", err))
+					if err := trackingBatcher.Flush(ctx); err != nil && ctx.Err() == nil {
+						logger.Warn("tracking interval flush failed; will retry", slog.Any("err", err))
+					}
+					if err := orderBatcher.Flush(ctx); err != nil && ctx.Err() == nil {
+						logger.Warn("order facts interval flush failed; will retry", slog.Any("err", err))
 					}
 				}
 			}
@@ -82,8 +87,11 @@ func (c *Consumer) Run(
 		if ctx.Err() != nil {
 			// Graceful shutdown: try to persist whatever is buffered.
 			flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := batcher.Flush(flushCtx); err != nil {
-				logger.Warn("final flush failed", slog.Any("err", err))
+			if err := trackingBatcher.Flush(flushCtx); err != nil {
+				logger.Warn("final tracking flush failed", slog.Any("err", err))
+			}
+			if err := orderBatcher.Flush(flushCtx); err != nil {
+				logger.Warn("final order facts flush failed", slog.Any("err", err))
 			}
 			cancel()
 			return nil
@@ -103,25 +111,38 @@ func (c *Consumer) Run(
 		iter := fetches.RecordIter()
 		for !iter.Done() {
 			rec := iter.Next()
-			tr, ok, err := RecordFromEnvelope(rec.Value)
-			if err != nil {
+
+			tr, okTr, errTr := RecordFromEnvelope(rec.Value)
+			if okTr {
+				if err := trackingBatcher.Add(ctx, tr); err != nil && ctx.Err() == nil {
+					logger.Warn("tracking batch flush failed; records retained for retry", slog.Any("err", err))
+				}
+				continue
+			}
+
+			of, okOf, errOf := OrderFactsFromEnvelope(rec.Value)
+			if okOf {
+				if err := orderBatcher.Add(ctx, of...); err != nil && ctx.Err() == nil {
+					logger.Warn("order facts batch flush failed; records retained for retry", slog.Any("err", err))
+				}
+				continue
+			}
+
+			if errTr != nil && errOf != nil {
 				// Poison record: log and move on (offset advances with the batch).
 				logger.Warn("decode record failed; skipping",
 					slog.String("key", string(rec.Key)),
-					slog.Any("err", err),
+					slog.Any("errTr", errTr),
+					slog.Any("errOf", errOf),
 				)
 				continue
 			}
-			if !ok {
-				logger.Debug("skipping non-tracking envelope", slog.String("key", string(rec.Key)))
-				continue
-			}
-			if err := batcher.Add(ctx, tr); err != nil && ctx.Err() == nil {
-				logger.Warn("batch flush failed; records retained for retry", slog.Any("err", err))
-			}
+
+			logger.Debug("skipping unknown envelope", slog.String("key", string(rec.Key)))
 		}
 	}
 }
 
 // Close shuts the client down.
 func (c *Consumer) Close() { c.client.Close() }
+

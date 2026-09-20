@@ -140,5 +140,49 @@ func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, 
 	return b, nil
 }
 
+// DemandForecast generates seasonal baseline quantile predictions over memory events.
+func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error) {
+	if horizonDays <= 0 {
+		horizonDays = 28
+	}
+	var totalUnits int64
+	for _, e := range m.events {
+		if e.SellerID == sellerID && (e.ListingID == listingID || e.SKU == listingID) {
+			totalUnits += e.Units
+		}
+	}
+	baseDaily := float64(totalUnits) / 14.0
+	if baseDaily <= 0 {
+		baseDaily = 2.0
+	}
+
+	points := make([]DailyPoint, horizonDays)
+	now := time.Now().UTC()
+	for i := 0; i < horizonDays; i++ {
+		dt := now.AddDate(0, 0, i+1).Format("2006-01-02")
+		p10 := baseDaily * 0.6
+		p50 := baseDaily
+		p90 := baseDaily * 1.5
+		if p10 < 0 {
+			p10 = 0
+		}
+		points[i] = DailyPoint{
+			Date: dt,
+			P10:  float64(int(p10*10)) / 10.0,
+			P50:  float64(int(p50*10)) / 10.0,
+			P90:  float64(int(p90*10)) / 10.0,
+		}
+	}
+
+	return ForecastResult{
+		SellerID:      sellerID,
+		ListingID:     listingID,
+		ModelVersion:  "memory_baseline_v1",
+		IsColdStart:   totalUnits == 0,
+		DailyForecast: points,
+	}, nil
+}
+
 // compile-time assertion that the fake satisfies the seam.
 var _ Repository = (*MemoryRepository)(nil)
+

@@ -73,3 +73,59 @@ features:
     notes: >
       Batch flush (size + interval) and offset-after-write are covered by the
       consumer unit tests (batcher_test.go).
+
+  - id: analytics.order-facts-ingestion
+    title: Consuming order paid events appends rows to order_facts
+    persona: guest
+    priority: P1
+    summary: OrderPaidEvent envelopes on order.events are consumed, unpacked into line-item facts, and appended to the columnar order_facts table.
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+      data: Redpanda order.events topic and team-analytics worker.
+    acceptance:
+      - Given an OrderPaidEvent on Kafka topic order.events with multiple line items
+      - When team-analytics processes the message
+      - Then one row per line item is inserted into order_facts with matching seller_id, listing_id, quantity, and unit_price
+    tags: [analytics, order, integration]
+    status: automated
+    covered_by: "analytics/order_facts.feature::Consuming an order paid event appends rows to order_facts"
+
+  - id: analytics.revenue-breakdown-facts
+    title: GetRevenueBreakdown aggregates real revenue from order_facts
+    persona: seller
+    priority: P1
+    summary: AnalyticsQueryService aggregates revenue, orders, and top SKUs directly from the order_facts warehouse table.
+    entry_route: /seller/analytics
+    services: [team-analytics]
+    preconditions:
+      login: seller
+      data: Seeded order_facts for the seller.
+    acceptance:
+      - Given multiple order lines in order_facts for a seller across several dates
+      - When GetRevenueBreakdown is queried for that seller
+      - Then top SKUs report accurate revenue and units_sold calculated as SUM(quantity * unit_price) and SUM(quantity)
+    tags: [analytics, seller, integration]
+    status: automated
+    covered_by: "analytics/order_facts.feature::GetRevenueBreakdown aggregates real revenue from order_facts"
+
+  - id: analytics.demand-forecast
+    title: GetDemandForecast serves probabilistic daily demand and restock points
+    persona: seller
+    priority: P1
+    summary: AnalyticsQueryService returns p10/p50/p90 daily demand forecasts and deterministic reorder point recommendations.
+    entry_route: /seller/analytics
+    services: [team-analytics]
+    preconditions:
+      login: seller
+      data: Historical or cold-start order_facts for the seller.
+    acceptance:
+      - Given a seller SKU with historical order facts
+      - When GetDemandForecast is queried for that seller and listing
+      - Then a multi-day forecast with p10, p50, p90 quantiles and suggested reorder point is returned
+    tags: [analytics, forecast, seller, integration]
+    status: automated
+    covered_by: "analytics/order_facts.feature::GetDemandForecast serves probabilistic daily demand and restock points"
+
+

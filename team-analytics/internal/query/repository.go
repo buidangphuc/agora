@@ -55,6 +55,23 @@ type Breakdown struct {
 	TopSkus []TopSku
 }
 
+// DailyPoint represents a single day's quantile forecast.
+type DailyPoint struct {
+	Date string
+	P10  float64
+	P50  float64
+	P90  float64
+}
+
+// ForecastResult contains the multi-day probabilistic demand prediction.
+type ForecastResult struct {
+	SellerID      string
+	ListingID     string
+	ModelVersion  string
+	IsColdStart   bool
+	DailyForecast []DailyPoint
+}
+
 // Repository is the read-only warehouse seam the query service depends on. Two
 // implementations exist: DuckDBRepository (real SQL over tracking_events) and
 // MemoryRepository (in-memory, used by the unit tests so they need no live
@@ -66,4 +83,7 @@ type Repository interface {
 	// RevenueBreakdown returns per-day revenue and the top-N SKUs by revenue for
 	// sellerID over [from, to] (inclusive). Empty window yields empty slices.
 	RevenueBreakdown(ctx context.Context, sellerID string, from, to time.Time, topN int) (Breakdown, error)
+	// DemandForecast returns probabilistic demand quantiles (p10, p50, p90) for a listing over horizonDays.
+	DemandForecast(ctx context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error)
 }
+

@@ -174,3 +174,29 @@ func TestNilRepository(t *testing.T) {
 		t.Errorf("nil repo funnel: err = %v, want Unavailable", err)
 	}
 }
+
+func TestGetDemandForecast_HappyPath(t *testing.T) {
+	svc := query.NewService(newRepo())
+	resp, err := svc.GetDemandForecast(context.Background(), &analyticsv1.GetDemandForecastRequest{
+		SellerId:     "seller-1",
+		ListingId:    "lst-a",
+		HorizonDays:  14,
+		LeadTimeDays: 3,
+	})
+	if err != nil {
+		t.Fatalf("GetDemandForecast: %v", err)
+	}
+	if resp.GetSellerId() != "seller-1" || resp.GetListingId() != "lst-a" {
+		t.Errorf("resp seller/listing = %s/%s, want seller-1/lst-a", resp.GetSellerId(), resp.GetListingId())
+	}
+	if len(resp.GetDailyForecasts()) != 14 {
+		t.Fatalf("daily_forecasts len = %d, want 14", len(resp.GetDailyForecasts()))
+	}
+	if resp.GetSuggestedReorderPoint() <= 0 {
+		t.Errorf("suggested_reorder_point = %v, want > 0", resp.GetSuggestedReorderPoint())
+	}
+	if resp.GetSafetyStock() <= 0 {
+		t.Errorf("safety_stock = %v, want > 0", resp.GetSafetyStock())
+	}
+}
+

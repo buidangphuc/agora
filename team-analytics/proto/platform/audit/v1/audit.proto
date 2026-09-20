@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+// Append-only audit log: who did what to which target, with free-form metadata.
+package platform.audit.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+service AuditService {
+  // Append an audit event (write-only; server assigns id + created_at).
+  rpc WriteAuditEvent(WriteAuditEventRequest) returns (WriteAuditEventResponse);
+  // Query the audit trail, filtered by actor and/or target type.
+  rpc QueryAuditLog(QueryAuditLogRequest) returns (QueryAuditLogResponse);
+}
+
+message AuditEvent {
+  string id = 1;
+  string actor_id = 2;
+  string action = 3;       // e.g. "listing.update", "payout.request"
+  string target_type = 4;  // e.g. "listing", "order"
+  string target_id = 5;
+  map<string, string> metadata = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message WriteAuditEventRequest {
+  string actor_id = 1;
+  string action = 2;
+  string target_type = 3;
+  string target_id = 4;
+  map<string, string> metadata = 5;
+}
+
+message WriteAuditEventResponse {}
+
+message QueryAuditLogRequest {
+  string actor_id = 1;     // optional filter
+  string target_type = 2;  // optional filter
+  platform.common.v1.PageRequest page = 3;
+}
+
+message QueryAuditLogResponse {
+  repeated AuditEvent events = 1;
+  platform.common.v1.PageResponse page = 2;
+}

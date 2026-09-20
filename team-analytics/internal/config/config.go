@@ -49,8 +49,9 @@ type Server struct {
 type Kafka struct {
 	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
-	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
+	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
+	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
 }
 
 // Warehouse selects and configures the WarehouseWriter adapter. DuckDB is the

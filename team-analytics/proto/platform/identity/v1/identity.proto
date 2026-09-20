@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+// team-identity (Go) owns this: user accounts + credential verification. It
+// issues signed tokens (HS256 JWT today) whose claims the Gateway verifies at
+// the edge and turns into a platform.common.v1.Principal (ADR-0003). Downstream
+// services never see credentials — only the resolved Principal.
+package platform.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+// Public auth surface: no Principal/scope is required to call these (they are
+// how a caller obtains one).
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  // "buyer" (default) or "seller". admin is seeded, not self-assignable.
+  string role = 3;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+// AuthResult is the payload both Register and Login return: a signed token plus
+// the resolved Principal (so a client can show identity without decoding it).
+message AuthResult {
+  string token = 1;
+  platform.common.v1.Principal principal = 2;
+  string username = 3;
+}
+
+message RegisterResponse {
+  AuthResult result = 1;
+}
+
+message LoginResponse {
+  AuthResult result = 1;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+}
+
+message RequestPasswordResetRequest {
+  string username = 1;
+}
+
+message RequestPasswordResetResponse {
+  string reset_token = 1;
+  int64 expires_at = 2;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {
+  bool success = 1;
+}
+
+// AddressService manages shipping addresses for registered buyers.
+// Requires valid user authentication (Principal).
+service AddressService {
+  rpc ListAddresses(ListAddressesRequest) returns (ListAddressesResponse);
+  rpc CreateAddress(CreateAddressRequest) returns (CreateAddressResponse);
+  rpc UpdateAddress(UpdateAddressRequest) returns (UpdateAddressResponse);
+  rpc DeleteAddress(DeleteAddressRequest) returns (DeleteAddressResponse);
+  rpc SetDefaultAddress(SetDefaultAddressRequest) returns (SetDefaultAddressResponse);
+}
+
+message Address {
+  string id = 1;
+  string user_id = 2;
+  string recipient_name = 3;
+  string phone = 4;
+  string street = 5;
+  string ward = 6;
+  string district = 7;
+  string city = 8;
+  bool is_default = 9;
+}
+
+message ListAddressesRequest {}
+
+message ListAddressesResponse {
+  repeated Address addresses = 1;
+}
+
+message CreateAddressRequest {
+  string recipient_name = 1;
+  string phone = 2;
+  string street = 3;
+  string ward = 4;
+  string district = 5;
+  string city = 6;
+  bool is_default = 7;
+}
+
+message CreateAddressResponse {
+  Address address = 1;
+}
+
+message UpdateAddressRequest {
+  string id = 1;
+  string recipient_name = 2;
+  string phone = 3;
+  string street = 4;
+  string ward = 5;
+  string district = 6;
+  string city = 7;
+  bool is_default = 8;
+}
+
+message UpdateAddressResponse {
+  Address address = 1;
+}
+
+message DeleteAddressRequest {
+  string id = 1;
+}
+
+message DeleteAddressResponse {}
+
+message SetDefaultAddressRequest {
+  string id = 1;
+}
+
+message SetDefaultAddressResponse {
+  Address address = 1;
+}
+
+// SessionService exposes a signed-in user's active sessions and login history.
+// Requires valid user authentication (Principal) — these operate on the caller's
+// own account.
+service SessionService {
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  rpc ListLoginHistory(ListLoginHistoryRequest) returns (ListLoginHistoryResponse);
+}
+
+// An active authenticated session (device/browser) for the caller.
+message Session {
+  string id = 1;
+  string device = 2;
+  string ip = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_seen = 5;
+  bool revoked = 6;
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+message RevokeSessionResponse {}
+
+// A recorded login attempt (successful or failed) against the caller's account.
+message LoginEvent {
+  string id = 1;
+  string ip = 2;
+  string user_agent = 3;
+  bool success = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListLoginHistoryRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListLoginHistoryResponse {
+  repeated LoginEvent events = 1;
+  platform.common.v1.PageResponse page = 2;
+}

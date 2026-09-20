@@ -16,10 +16,11 @@ type Writer struct {
 	mu sync.Mutex
 	// FailWith, when non-nil, is returned by Write and no rows are recorded —
 	// simulating a flush failure so the caller must NOT advance offsets.
-	FailWith error
-	rows     []*warehouse.TrackingRecord
-	batches  int
-	closed   bool
+	FailWith       error
+	rows           []*warehouse.TrackingRecord
+	orderFactRows  []*warehouse.OrderFactRecord
+	batches        int
+	closed         bool
 }
 
 // New returns an empty fake writer.
@@ -35,6 +36,27 @@ func (w *Writer) Write(_ context.Context, batch []*warehouse.TrackingRecord) err
 	w.rows = append(w.rows, batch...)
 	w.batches++
 	return nil
+}
+
+// WriteOrderFacts records a batch of order facts.
+func (w *Writer) WriteOrderFacts(_ context.Context, batch []*warehouse.OrderFactRecord) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.FailWith != nil {
+		return w.FailWith
+	}
+	w.orderFactRows = append(w.orderFactRows, batch...)
+	w.batches++
+	return nil
+}
+
+// OrderFactRows returns a copy of all written order facts.
+func (w *Writer) OrderFactRows() []*warehouse.OrderFactRecord {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	out := make([]*warehouse.OrderFactRecord, len(w.orderFactRows))
+	copy(out, w.orderFactRows)
+	return out
 }
 
 // Close marks the writer closed.

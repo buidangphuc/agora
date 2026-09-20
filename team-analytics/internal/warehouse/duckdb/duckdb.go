@@ -52,15 +52,30 @@ func createTableDDL() string {
 	)
 }
 
+func createOrderFactsTableDDL() string {
+	cols := make([]string, len(warehouse.OrderFactsSchema))
+	for i, c := range warehouse.OrderFactsSchema {
+		cols[i] = fmt.Sprintf("%s %s", c.Name, c.DuckDBType)
+	}
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (\n  %s\n)",
+		warehouse.OrderFactsTableName, strings.Join(cols, ",\n  "),
+	)
+}
+
 func (w *Writer) ensureSchema(ctx context.Context) error {
 	if _, err := w.db.ExecContext(ctx, createTableDDL()); err != nil {
 		return fmt.Errorf("ensure %s table: %w", warehouse.TableName, err)
+	}
+	if _, err := w.db.ExecContext(ctx, createOrderFactsTableDDL()); err != nil {
+		return fmt.Errorf("ensure %s table: %w", warehouse.OrderFactsTableName, err)
 	}
 	return nil
 }
 
 // insertSQL is the parameterized append for one row, column order == Schema.
 var insertSQL = buildInsertSQL()
+var insertOrderFactsSQL = buildInsertOrderFactsSQL()
 
 func buildInsertSQL() string {
 	names := warehouse.ColumnNames()
@@ -71,6 +86,18 @@ func buildInsertSQL() string {
 	return fmt.Sprintf(
 		"INSERT INTO %s (%s) VALUES (%s)",
 		warehouse.TableName, strings.Join(names, ", "), strings.Join(ph, ", "),
+	)
+}
+
+func buildInsertOrderFactsSQL() string {
+	names := warehouse.OrderFactsColumnNames()
+	ph := make([]string, len(names))
+	for i := range names {
+		ph[i] = "?"
+	}
+	return fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES (%s)",
+		warehouse.OrderFactsTableName, strings.Join(names, ", "), strings.Join(ph, ", "),
 	)
 }
 
@@ -122,6 +149,45 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit batch: %w", err)
+	}
+	return nil
+}
+
+// WriteOrderFacts appends a batch of order line items in one transaction.
+func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFactRecord) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, insertOrderFactsSQL)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("prepare insert order facts: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, r := range batch {
+		if _, err := stmt.ExecContext(ctx,
+			r.EventID,
+			r.OrderID,
+			r.ListingID,
+			r.VariantID,
+			r.SellerID,
+			int64(r.Quantity),
+			r.UnitPrice,
+			r.Currency,
+			r.OccurredAt,
+			r.Status,
+		); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("insert order fact row %s: %w", r.EventID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit order facts batch: %w", err)
 	}
 	return nil
 }

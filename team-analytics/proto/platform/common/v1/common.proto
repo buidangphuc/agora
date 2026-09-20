@@ -46,3 +46,10 @@ message PageResponse {
   // Best-effort total; -1 when unknown/not computed.
   int64 total = 2;
 }
+
+// ── Tracing keys (documentation-only constants) ─────────────────────────────
+// Canonical metadata keys interceptors propagate on every hop. See ADR-0004.
+//   traceparent  → W3C trace context
+//   x-request-id → human-facing correlation id (bridged from repo convention)
+// Interceptors read/write these gRPC metadata keys; they are lowercase because
+// gRPC metadata keys are case-insensitive and normalized to lowercase.

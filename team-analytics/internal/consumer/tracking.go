@@ -66,6 +66,18 @@ func eventTypeName(t analyticsv1.EventType) string {
 		return "add_to_cart"
 	case analyticsv1.EventType_EVENT_TYPE_IMPRESSION:
 		return "impression"
+	case analyticsv1.EventType_EVENT_TYPE_REMOVE_FROM_CART:
+		return "remove_from_cart"
+	case analyticsv1.EventType_EVENT_TYPE_BEGIN_CHECKOUT:
+		return "begin_checkout"
+	case analyticsv1.EventType_EVENT_TYPE_APPLY_PROMOTION:
+		return "apply_promotion"
+	case analyticsv1.EventType_EVENT_TYPE_SEARCH_FILTER:
+		return "search_filter"
+	case analyticsv1.EventType_EVENT_TYPE_FAVORITE:
+		return "favorite"
+	case analyticsv1.EventType_EVENT_TYPE_SHARE:
+		return "share"
 	default:
 		return "unspecified"
 	}

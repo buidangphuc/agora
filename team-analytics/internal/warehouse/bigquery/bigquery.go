@@ -70,6 +70,19 @@ func bqSchema() (bigquery.Schema, error) {
 	return s, nil
 }
 
+// bqOrderFactsSchema maps the canonical warehouse.OrderFactsSchema to a BigQuery schema.
+func bqOrderFactsSchema() (bigquery.Schema, error) {
+	s := make(bigquery.Schema, 0, len(warehouse.OrderFactsSchema))
+	for _, c := range warehouse.OrderFactsSchema {
+		ft, err := fieldType(c.BigQueryType)
+		if err != nil {
+			return nil, fmt.Errorf("order_facts column %s: %w", c.Name, err)
+		}
+		s = append(s, &bigquery.FieldSchema{Name: c.Name, Type: ft})
+	}
+	return s, nil
+}
+
 func fieldType(t string) (bigquery.FieldType, error) {
 	switch t {
 	case "STRING":
@@ -92,8 +105,6 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	}
 	meta := &bigquery.TableMetadata{
 		Schema: schema,
-		// Partition by ingest date for cheap pruned scans; cluster by the columns
-		// the recommendation engine filters on most.
 		TimePartitioning: &bigquery.TimePartitioning{
 			Type:  bigquery.DayPartitioningType,
 			Field: "occurred_at",
@@ -104,6 +115,24 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	if err != nil && !isAlreadyExists(err) {
 		return fmt.Errorf("ensure %s.%s table: %w", w.dataset, w.table, err)
 	}
+
+	factsSchema, err := bqOrderFactsSchema()
+	if err != nil {
+		return err
+	}
+	factsMeta := &bigquery.TableMetadata{
+		Schema: factsSchema,
+		TimePartitioning: &bigquery.TimePartitioning{
+			Type:  bigquery.DayPartitioningType,
+			Field: "occurred_at",
+		},
+		Clustering: &bigquery.Clustering{Fields: []string{"seller_id", "listing_id"}},
+	}
+	err = w.client.Dataset(w.dataset).Table(warehouse.OrderFactsTableName).Create(ctx, factsMeta)
+	if err != nil && !isAlreadyExists(err) {
+		return fmt.Errorf("ensure %s.%s table: %w", w.dataset, warehouse.OrderFactsTableName, err)
+	}
+
 	return nil
 }
 
@@ -123,11 +152,26 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	return nil
 }
 
+// WriteOrderFacts streams order line item facts into BigQuery order_facts table.
+func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFactRecord) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	rows := make([]*orderFactRowSaver, len(batch))
+	for i, r := range batch {
+		rows[i] = &orderFactRowSaver{rec: r}
+	}
+	inserter := w.client.Dataset(w.dataset).Table(warehouse.OrderFactsTableName).Inserter()
+	if err := inserter.Put(ctx, rows); err != nil {
+		return fmt.Errorf("bigquery insert order facts batch of %d: %w", len(batch), err)
+	}
+	return nil
+}
+
 // Close closes the BigQuery client.
 func (w *Writer) Close() error { return w.client.Close() }
 
-// rowSaver adapts a TrackingRecord to the BigQuery insert API, keeping the row
-// shape aligned with the canonical schema and setting InsertID for dedup.
+// rowSaver adapts a TrackingRecord to the BigQuery insert API.
 type rowSaver struct{ rec *warehouse.TrackingRecord }
 
 func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
@@ -160,6 +204,25 @@ func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
 	return row, s.rec.EventID, nil
 }
 
+// orderFactRowSaver adapts an OrderFactRecord to the BigQuery insert API.
+type orderFactRowSaver struct{ rec *warehouse.OrderFactRecord }
+
+func (s *orderFactRowSaver) Save() (map[string]bigquery.Value, string, error) {
+	row := map[string]bigquery.Value{
+		"event_id":    s.rec.EventID,
+		"order_id":    s.rec.OrderID,
+		"listing_id":  s.rec.ListingID,
+		"variant_id":  s.rec.VariantID,
+		"seller_id":   s.rec.SellerID,
+		"quantity":    int64(s.rec.Quantity),
+		"unit_price":  s.rec.UnitPrice,
+		"currency":    s.rec.Currency,
+		"occurred_at": s.rec.OccurredAt,
+		"status":      s.rec.Status,
+	}
+	return row, s.rec.EventID, nil
+}
+
 func isAlreadyExists(err error) bool {
 	var apiErr *googleapi.Error
 	if errors.As(err, &apiErr) {
@@ -172,4 +235,5 @@ func isAlreadyExists(err error) bool {
 var (
 	_ warehouse.WarehouseWriter = (*Writer)(nil)
 	_ bigquery.ValueSaver       = (*rowSaver)(nil)
+	_ bigquery.ValueSaver       = (*orderFactRowSaver)(nil)
 )

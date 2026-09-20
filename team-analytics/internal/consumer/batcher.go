@@ -75,3 +75,59 @@ func (b *Batcher) flushLocked(ctx context.Context) error {
 	b.buf = nil
 	return nil
 }
+
+// OrderFactFlushFunc durably writes a batch of order facts.
+type OrderFactFlushFunc func(ctx context.Context, batch []*warehouse.OrderFactRecord) error
+
+// OrderFactBatcher accumulates order fact records and flushes on maxSize or interval.
+type OrderFactBatcher struct {
+	mu      sync.Mutex
+	buf     []*warehouse.OrderFactRecord
+	maxSize int
+	flush   OrderFactFlushFunc
+}
+
+// NewOrderFactBatcher returns an OrderFactBatcher.
+func NewOrderFactBatcher(maxSize int, flush OrderFactFlushFunc) *OrderFactBatcher {
+	if maxSize <= 0 {
+		maxSize = 1
+	}
+	return &OrderFactBatcher{maxSize: maxSize, flush: flush}
+}
+
+// Add appends order facts and flushes if buffer is full.
+func (b *OrderFactBatcher) Add(ctx context.Context, recs ...*warehouse.OrderFactRecord) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf = append(b.buf, recs...)
+	if len(b.buf) >= b.maxSize {
+		return b.flushLocked(ctx)
+	}
+	return nil
+}
+
+// Flush writes whatever is buffered.
+func (b *OrderFactBatcher) Flush(ctx context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.flushLocked(ctx)
+}
+
+// Len reports current buffered count.
+func (b *OrderFactBatcher) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.buf)
+}
+
+func (b *OrderFactBatcher) flushLocked(ctx context.Context) error {
+	if len(b.buf) == 0 {
+		return nil
+	}
+	if err := b.flush(ctx, b.buf); err != nil {
+		return err
+	}
+	b.buf = nil
+	return nil
+}
+

@@ -1,0 +1,296 @@
+syntax = "proto3";
+
+// team-promotion (Go) owns this: shop/platform vouchers and time-boxed flash-sale
+// campaigns. Discounts are pure CALCULATION — this service never moves money
+// (payments/wallet stay mock, see AGENTS.md §7). Redemption at checkout mirrors
+// team-domain's ReserveStock (ADR-0008): ValidateAndReserve is idempotent on the
+// caller's reservation_id, then Commit/Release close the hold. State-change
+// events are emitted on `promotion.events` (ADR-0002).
+package platform.promotion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+enum DiscountType {
+  DISCOUNT_TYPE_UNSPECIFIED = 0;
+  DISCOUNT_TYPE_PERCENT = 1; // discount_value = 1..100 (percent off)
+  DISCOUNT_TYPE_FIXED = 2;   // discount_value = minor-unit amount off
+}
+
+enum VoucherScope {
+  VOUCHER_SCOPE_UNSPECIFIED = 0;
+  VOUCHER_SCOPE_SHOP = 1;     // applies to one seller's items (seller_id set)
+  VOUCHER_SCOPE_PLATFORM = 2; // applies platform-wide
+}
+
+// Owned by team-promotion (DB-per-service). Checkout redemption is synchronous
+// gRPC from the order saga — never fire-and-forget.
+service VoucherService {
+  rpc CreateVoucher(CreateVoucherRequest) returns (CreateVoucherResponse);
+  rpc GetVoucher(GetVoucherRequest) returns (GetVoucherResponse);
+  rpc ListVouchers(ListVouchersRequest) returns (ListVouchersResponse);
+  // Idempotent on reservation_id: same id returns the same discount without
+  // decrementing quota twice. Reject (valid=false + reason) if expired,
+  // below min_spend, or quota exhausted.
+  rpc ValidateAndReserve(ValidateAndReserveRequest) returns (ValidateAndReserveResponse);
+  rpc CommitReservation(CommitReservationRequest) returns (CommitReservationResponse);
+  rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+}
+
+// Time-boxed sale price + capped stock for a listing/variant.
+service FlashSaleService {
+  rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
+  rpc GetActiveFlashSale(GetActiveFlashSaleRequest) returns (GetActiveFlashSaleResponse);
+  rpc ListActiveCampaigns(ListActiveCampaignsRequest) returns (ListActiveCampaignsResponse);
+  // Live remaining stock for the flash-sale banner/meter (frontend LiveFlashSaleStock).
+  rpc GetFlashSaleStock(GetFlashSaleStockRequest) returns (GetFlashSaleStockResponse);
+}
+
+// Seller subscription tiers (shop upgrade plans). Discounts/limits are pure
+// entitlement calculation — this service never moves money (AGENTS.md §7).
+service SubscriptionService {
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+  rpc GetEntitlements(GetEntitlementsRequest) returns (GetEntitlementsResponse);
+}
+
+enum PlanTier {
+  PLAN_TIER_UNSPECIFIED = 0;
+  PLAN_TIER_FREE = 1;
+  PLAN_TIER_PRO = 2;
+  PLAN_TIER_PREMIUM = 3;
+}
+
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  SUBSCRIPTION_STATUS_EXPIRED = 2;
+  SUBSCRIPTION_STATUS_CANCELLED = 3;
+}
+
+message Plan {
+  string id = 1;
+  PlanTier name = 2;
+  int64 price = 3;              // minor units (per billing period)
+  repeated string features = 4; // human-readable feature bullets
+}
+
+message SellerSubscription {
+  string id = 1;
+  string seller_id = 2;
+  string plan_id = 3;
+  PlanTier tier = 4;
+  SubscriptionStatus status = 5;
+  google.protobuf.Timestamp starts_at = 6;
+  google.protobuf.Timestamp ends_at = 7;
+}
+
+message ListPlansRequest {}
+
+message ListPlansResponse {
+  repeated Plan plans = 1;
+}
+
+message SubscribeRequest {
+  string plan_id = 1;
+}
+
+message SubscribeResponse {
+  SellerSubscription subscription = 1;
+}
+
+message GetEntitlementsRequest {
+  string seller_id = 1;
+}
+
+message GetEntitlementsResponse {
+  PlanTier plan = 1;
+  // Entitlement limits keyed by feature (e.g. "max_listings" -> "500").
+  map<string, string> limits = 2;
+}
+
+message Voucher {
+  string id = 1;
+  string code = 2;
+  VoucherScope scope = 3;
+  string seller_id = 4;
+  DiscountType discount_type = 5;
+  int64 discount_value = 6;
+  int64 min_spend = 7;
+  int64 max_discount = 8; // cap for percentage discounts; 0 = uncapped
+  int64 quota = 9;        // total redemptions allowed; 0 = unlimited
+  int64 used = 10;
+  google.protobuf.Timestamp starts_at = 11;
+  google.protobuf.Timestamp ends_at = 12;
+}
+
+message CreateVoucherRequest {
+  string code = 1;
+  VoucherScope scope = 2;
+  DiscountType discount_type = 3;
+  int64 discount_value = 4;
+  int64 min_spend = 5;
+  int64 max_discount = 6;
+  int64 quota = 7;
+  google.protobuf.Timestamp starts_at = 8;
+  google.protobuf.Timestamp ends_at = 9;
+}
+
+message CreateVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message GetVoucherRequest {
+  string code = 1;
+}
+
+message GetVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message ListVouchersRequest {
+  string seller_id = 1; // empty = platform-scoped vouchers
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListVouchersResponse {
+  repeated Voucher vouchers = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message ValidateAndReserveRequest {
+  string reservation_id = 1; // caller-owned idempotency key (the order saga id)
+  string code = 2;
+  string buyer_id = 3;
+  int64 cart_subtotal = 4;
+  string seller_id = 5; // required for shop-scoped vouchers
+}
+
+message ValidateAndReserveResponse {
+  bool valid = 1;
+  string reason = 2; // human-readable reason when valid=false
+  int64 discount_amount = 3;
+  string voucher_id = 4;
+}
+
+message CommitReservationRequest {
+  string reservation_id = 1;
+}
+
+message CommitReservationResponse {
+  bool committed = 1;
+}
+
+message ReleaseReservationRequest {
+  string reservation_id = 1;
+}
+
+message ReleaseReservationResponse {
+  bool released = 1;
+}
+
+message FlashSaleCampaign {
+  string id = 1;
+  string listing_id = 2;
+  string variant_id = 3;
+  int64 sale_price = 4;
+  int64 stock_cap = 5;
+  int64 stock_sold = 6;
+  google.protobuf.Timestamp starts_at = 7;
+  google.protobuf.Timestamp ends_at = 8;
+}
+
+message CreateCampaignRequest {
+  string listing_id = 1;
+  string variant_id = 2;
+  int64 sale_price = 3;
+  int64 stock_cap = 4;
+  google.protobuf.Timestamp starts_at = 5;
+  google.protobuf.Timestamp ends_at = 6;
+}
+
+message CreateCampaignResponse {
+  FlashSaleCampaign campaign = 1;
+}
+
+message GetActiveFlashSaleRequest {
+  string listing_id = 1;
+}
+
+message GetActiveFlashSaleResponse {
+  bool active = 1;
+  FlashSaleCampaign campaign = 2;
+}
+
+message ListActiveCampaignsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListActiveCampaignsResponse {
+  repeated FlashSaleCampaign campaigns = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message GetFlashSaleStockRequest {
+  string campaign_id = 1;
+}
+
+message GetFlashSaleStockResponse {
+  int64 remaining = 1;
+  int64 stock_cap = 2;
+}
+
+// Sponsored placements / pay-per-slot ad campaigns. Budget/bid are pure
+// bookkeeping values — this service never moves money (AGENTS.md §7).
+service SponsoredService {
+  rpc CreateAdCampaign(CreateAdCampaignRequest) returns (CreateAdCampaignResponse);
+  // Returns the listing ids to render in sponsored slots for a given context
+  // (e.g. a search query, category, or homepage placement key).
+  rpc ListSponsoredSlots(ListSponsoredSlotsRequest) returns (ListSponsoredSlotsResponse);
+}
+
+enum AdCampaignStatus {
+  AD_CAMPAIGN_STATUS_UNSPECIFIED = 0;
+  AD_CAMPAIGN_STATUS_ACTIVE = 1;
+  AD_CAMPAIGN_STATUS_PAUSED = 2;
+  AD_CAMPAIGN_STATUS_ENDED = 3;
+}
+
+message AdCampaign {
+  string id = 1;
+  string seller_id = 2;
+  string listing_id = 3;
+  int64 budget = 4; // total budget in minor units
+  int64 bid = 5;    // per-slot bid in minor units
+  AdCampaignStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateAdCampaignRequest {
+  string listing_id = 1;
+  int64 budget = 2;
+  int64 bid = 3;
+}
+
+message CreateAdCampaignResponse {
+  AdCampaign campaign = 1;
+}
+
+message ListSponsoredSlotsRequest {
+  // Placement context key (e.g. search query, category id, or slot name).
+  string context_str = 1;
+}
+
+message ListSponsoredSlotsResponse {
+  // Listing ids to render as sponsored, best-bid first; resolve via ListingService.
+  repeated string listing_ids = 1;
+}
+
+// ── Events (emitted on `promotion.events`, wrapped in EventEnvelope) ──
+message VoucherChanged {
+  Voucher voucher = 1;
+}
+
+message FlashSaleChanged {
+  FlashSaleCampaign campaign = 1;
+}

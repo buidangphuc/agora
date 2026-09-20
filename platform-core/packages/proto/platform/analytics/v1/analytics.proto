@@ -19,6 +19,8 @@ service AnalyticsQueryService {
   rpc GetSellerFunnel(GetSellerFunnelRequest) returns (GetSellerFunnelResponse);
   // Revenue broken down by day and by top-selling SKU over [from, to].
   rpc GetRevenueBreakdown(GetRevenueBreakdownRequest) returns (GetRevenueBreakdownResponse);
+  // Probabilistic demand & restock forecast for a seller SKU over horizon [ADR-0013].
+  rpc GetDemandForecast(GetDemandForecastRequest) returns (GetDemandForecastResponse);
 }
 
 message GetSellerFunnelRequest {
@@ -58,6 +60,32 @@ message GetRevenueBreakdownResponse {
   repeated TopSku top_skus = 2;
 }
 
+message DailyForecast {
+  string date = 1;       // ISO date "YYYY-MM-DD"
+  double p10 = 2;        // 10th percentile daily units
+  double p50 = 3;        // 50th percentile median units
+  double p90 = 4;        // 90th percentile upper units
+}
+
+message GetDemandForecastRequest {
+  string seller_id = 1;
+  string listing_id = 2;
+  int32 horizon_days = 3;      // e.g. 14 or 28 days
+  int32 lead_time_days = 4;    // e.g. 3 days
+  double service_level = 5;    // e.g. 0.95 (safety factor z = 1.65)
+}
+
+message GetDemandForecastResponse {
+  string seller_id = 1;
+  string listing_id = 2;
+  repeated DailyForecast daily_forecasts = 3;
+  double suggested_reorder_point = 4;
+  double safety_stock = 5;
+  string model_version = 6;
+  bool is_cold_start = 7;
+}
+
+
 // EventType distinguishes the behavioral signals a single TrackingEvent can
 // represent, so producers need no new message type per interaction.
 enum EventType {
@@ -70,7 +98,20 @@ enum EventType {
   EVENT_TYPE_ADD_TO_CART = 3;
   // A search-result impression (listing shown in a result set).
   EVENT_TYPE_IMPRESSION = 4;
+  // An item removed from the cart.
+  EVENT_TYPE_REMOVE_FROM_CART = 5;
+  // A checkout journey began.
+  EVENT_TYPE_BEGIN_CHECKOUT = 6;
+  // A promo voucher was applied/attempted.
+  EVENT_TYPE_APPLY_PROMOTION = 7;
+  // Search filters / sorting changed.
+  EVENT_TYPE_SEARCH_FILTER = 8;
+  // Product added to favorites / wishlist.
+  EVENT_TYPE_FAVORITE = 9;
+  // Product share action initiated.
+  EVENT_TYPE_SHARE = 10;
 }
+
 
 // TrackingEvent is the behavioral event payload carried inside
 // platform.events.v1.EventEnvelope on the `analytics.events` topic. It is the

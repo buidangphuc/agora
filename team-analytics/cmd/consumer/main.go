@@ -77,14 +77,15 @@ func run() error {
 	}()
 	defer srv.GracefulStop()
 
-	cons, err := consumer.New(settings.KafkaBrokers(), settings.Kafka.ConsumerGroup, settings.Kafka.AnalyticsTopic)
+	cons, err := consumer.New(settings.KafkaBrokers(), settings.Kafka.ConsumerGroup, settings.Kafka.AnalyticsTopic, settings.Kafka.OrderTopic)
 	if err != nil {
 		return fmt.Errorf("kafka consumer: %w", err)
 	}
 	defer cons.Close()
 
 	logger.Info("analytics consumer starting",
-		slog.String("topic", settings.Kafka.AnalyticsTopic),
+		slog.String("analytics_topic", settings.Kafka.AnalyticsTopic),
+		slog.String("order_topic", settings.Kafka.OrderTopic),
 		slog.String("group", settings.Kafka.ConsumerGroup),
 		slog.String("driver", settings.Warehouse.Driver),
 		slog.Int("batch_max_size", settings.Batch.MaxSize),
