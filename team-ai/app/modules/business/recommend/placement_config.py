@@ -7,6 +7,15 @@ from pathlib import Path
 from typing import Any
 import yaml
 
+KNOWN_RANKING_MODELS = {"cosine_rank", "gbdt"}
+KNOWN_STRATEGIES = {
+    "user_precomputed",
+    "seed_vector_similarity",
+    "cart_cross_similarity",
+    "category_popular",
+    "global_popular",
+}
+
 
 @dataclass
 class LadderStep:
@@ -32,7 +41,7 @@ class PlacementConfig:
 
 
 class PlacementRegistry:
-    """Registry loading placement configurations from YAML."""
+    """Registry loading placement configurations from YAML with startup validation."""
 
     def __init__(self, config_path: str | Path | None = None) -> None:
         self._placements: dict[str, PlacementConfig] = {}
@@ -41,6 +50,7 @@ class PlacementRegistry:
             self._load_from_yaml(path)
         else:
             self._load_defaults()
+        self.validate()
 
     def _load_from_yaml(self, path: Path) -> None:
         with open(path, "r", encoding="utf-8") as f:
@@ -82,6 +92,21 @@ class PlacementRegistry:
                 LadderStep(tier="tier4_global_popular", strategy="global_popular", min_candidates=1),
             ],
         )
+
+    def validate(self) -> None:
+        """Startup validation: rejects placements naming unbound ranking models or strategies."""
+        for pid, cfg in self._placements.items():
+            if cfg.ranking_model not in KNOWN_RANKING_MODELS:
+                raise ValueError(
+                    f"Placement '{pid}' declares unbound ranking model '{cfg.ranking_model}'. "
+                    f"Supported models: {sorted(KNOWN_RANKING_MODELS)}"
+                )
+            for step in cfg.candidate_ladder:
+                if step.strategy and step.strategy not in KNOWN_STRATEGIES:
+                    raise ValueError(
+                        f"Placement '{pid}' declares unbound candidate strategy '{step.strategy}'. "
+                        f"Supported strategies: {sorted(KNOWN_STRATEGIES)}"
+                    )
 
     def get(self, placement_id: str) -> PlacementConfig:
         return self._placements.get(placement_id) or self._placements.get("home_feed") or PlacementConfig(

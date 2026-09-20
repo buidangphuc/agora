@@ -1,6 +1,7 @@
 """RecommendationService — the multi-placement serving pipeline with fallback ladder (ADR-0012).
 
 Resolution order and configuration is driven by PlacementRegistry (WHAT layer) + Execution Strategies (HOW layer).
+Integrates GBDT Ranker, FeatureStore, and NearlineSignal ports with graceful degradation.
 """
 
 from __future__ import annotations
@@ -13,9 +14,19 @@ from loguru import logger
 
 from app.core.errors import ServiceUnavailableError
 from app.modules.business.recommend.placement_config import PlacementRegistry
-from app.modules.business.recommend.ranking import rank_and_filter
+from app.modules.business.recommend.ranking import (
+    CosineRankerAdapter,
+    FeatureStorePort,
+    GBDTRankerAdapter,
+    InMemoryFeatureStore,
+    InMemoryNearlineStore,
+    NearlineSignalPort,
+    RankerPort,
+    rank_and_filter,
+)
 from app.modules.business.recommend.schemas import (
     Candidate,
+    RecommendedItem,
     RecommendQuery,
     RecommendResult,
 )
@@ -32,6 +43,9 @@ class RecommendationService:
         backend: RetrievalBackend,
         cache: PrecomputedCache,
         registry: PlacementRegistry | None = None,
+        feature_store: FeatureStorePort | None = None,
+        nearline_store: NearlineSignalPort | None = None,
+        ranker: RankerPort | None = None,
         candidate_top_k: int = 100,
         result_top_k: int = 10,
         retrieve_timeout_ms: int = 25,
@@ -41,6 +55,10 @@ class RecommendationService:
         self._backend = backend
         self._cache = cache
         self._registry = registry or PlacementRegistry()
+        self._feature_store = feature_store or InMemoryFeatureStore()
+        self._nearline_store = nearline_store or InMemoryNearlineStore()
+        self._gbdt_ranker = ranker or GBDTRankerAdapter()
+        self._cosine_ranker = CosineRankerAdapter()
         self._candidate_top_k = candidate_top_k
         self._result_top_k = result_top_k
         self._retrieve_timeout_ms = retrieve_timeout_ms
@@ -104,7 +122,12 @@ class RecommendationService:
             })
 
             if len(candidates) >= min_candidates:
-                items = rank_and_filter(candidates, query, limit)
+                items, rank_status, hit_count, rank_source = await self._rank_candidates(
+                    candidates, query, config, limit
+                )
+                if rank_status == "degraded":
+                    status = "degraded"
+
                 if items:
                     elapsed_ms = (time.perf_counter() - start_time) * 1000.0
                     explain_data: dict[str, Any] = {}
@@ -116,6 +139,9 @@ class RecommendationService:
                             "latency_ms": round(elapsed_ms, 2),
                             "ladder_traversed": ladder_history,
                             "ranking_model": config.ranking_model,
+                            "ranking_source": rank_source,
+                            "featurestore_hit_count": hit_count,
+                            "nearline_enabled": self._nearline_store is not None,
                             "status": status,
                         }
                     return self._result(
@@ -139,6 +165,10 @@ class RecommendationService:
                 "strategy": "floor_popular",
                 "latency_ms": round(elapsed_ms, 2),
                 "ladder_traversed": ladder_history,
+                "ranking_model": "cosine_rank",
+                "ranking_source": "cosine",
+                "featurestore_hit_count": 0,
+                "nearline_enabled": self._nearline_store is not None,
                 "status": "fallback",
             }
         return self._result(
@@ -149,6 +179,46 @@ class RecommendationService:
             status="fallback",
             explain=explain_data,
         )
+
+    async def _rank_candidates(
+        self,
+        candidates: list[Candidate],
+        query: RecommendQuery,
+        config: Any,
+        limit: int,
+    ) -> tuple[list[RecommendedItem], str, int, str]:
+        """Rank candidates using configured ranking model with FeatureStore & Nearline enrichment."""
+        item_features: dict[str, dict[str, Any]] = {}
+        hit_count = 0
+        ranking_model = getattr(config, "ranking_model", "cosine_rank")
+        use_fs = getattr(config, "use_featurestore", False)
+
+        # 1. Feature store enrichment
+        if use_fs and self._feature_store is not None:
+            try:
+                candidate_ids = [c.listing_id for c in candidates if c.listing_id]
+                item_features = await self._feature_store.get_item_features_batch(candidate_ids)
+                hit_count = len(item_features)
+            except Exception as exc:
+                logger.warning("Feature store lookup failed: {}, degrading to cosine", exc)
+                return rank_and_filter(candidates, query, limit), "degraded", 0, "degraded_cosine"
+
+        # 2. Ranking dispatch
+        if ranking_model == "gbdt":
+            try:
+                ranked = self._gbdt_ranker.rank_candidates(
+                    candidates=candidates,
+                    query=query,
+                    item_features_map=item_features,
+                    nearline_store=self._nearline_store,
+                    limit=limit,
+                )
+                return ranked, "ok", hit_count, "gbdt"
+            except Exception as exc:
+                logger.warning("GBDT ranker failed: {}, degrading to cosine", exc)
+                return rank_and_filter(candidates, query, limit), "degraded", hit_count, "degraded_cosine"
+        else:
+            return rank_and_filter(candidates, query, limit), "ok", hit_count, "cosine"
 
     async def _retrieve_similar(self, seed_listing_id: str) -> list[Candidate]:
         try:
