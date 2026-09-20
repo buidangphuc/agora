@@ -1,9 +1,11 @@
-"""Unit tests for GBDTRanker demonstrating NDCG@10 improvement over raw cosine and feature store enrichment."""
+"""Unit tests for GBDTRanker demonstrating NDCG@10 improvement over raw cosine
+and feature store enrichment.
+"""
 
 from __future__ import annotations
 
 from recsys.evals.metrics import ndcg_at_k
-from recsys.ranker.features import compute_ips_weight, extract_candidate_features
+from recsys.ranker.features import extract_candidate_features
 from recsys.ranker.model import GBDTRanker
 
 
@@ -33,7 +35,7 @@ def test_feature_extraction_and_ips() -> None:
     assert features.category_match == 0.8
     assert features.historical_ctr == 0.08
     assert features.conversion_rate == 0.03
-    assert len(features.to_vector()) == 7
+    assert len(features.to_vector()) == 10
     # IPS weight for pos=4 with gamma=0.5 is 2.0
     assert abs(features.position_weight - 2.0) < 1e-4
 
