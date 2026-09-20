@@ -48,6 +48,8 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **team-verification** | Go | Seller/user KYC verification submissions (owns its DB) | :50064 |
 | **team-sharing** | Go | Shareable listing links + share tracking (owns its DB) | :50065 |
 | **team-audit** | Go | Audit event log (owns its DB) | :50066 |
+| **platform-recsys** | Python | Offline ALS recommendation model trainer + candidate indexing (owns DB/Qdrant collection) | — |
+| **platform-modelserve** | Python | Internal ML model serving router + Hugging Face TEI / vLLM runtime integration (ADR-0011) | :8100 (router HTTP) |
 
 ## 3. The rules you must not break
 
@@ -111,7 +113,7 @@ platform-core/tools/seed-marketplace.sh
 ```
 
 Ports: gateway `:8080`, frontend `:3000`, domain `:50051`, search `:50052`,
-identity `:50053`, engagement `:50054`, promotion `:50061`. Infra: postgres-listing `5433`,
+identity `:50053`, engagement `:50054`, promotion `:50061`. Modelserve router: `:8100` (TEI embed `:8101`, TEI rerank `:8102`, vLLM `:8103`). Infra: postgres-listing `5433`,
 postgres-search `5434`, postgres-identity `5435`, postgres-engagement `5436`,
 postgres-promotion `5440`, postgres-notification `5441`,
 redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
