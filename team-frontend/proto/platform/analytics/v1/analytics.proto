@@ -34,6 +34,8 @@ message GetSellerFunnelResponse {
   int64 views = 2;
   int64 adds = 3;    // add-to-cart count
   int64 orders = 4;
+  int64 begin_checkouts = 5;
+  int64 purchases = 6;
 }
 
 message DayRevenue {
@@ -110,6 +112,14 @@ enum EventType {
   EVENT_TYPE_FAVORITE = 9;
   // Product share action initiated.
   EVENT_TYPE_SHARE = 10;
+  // Cart page viewed (GA4 view_cart).
+  EVENT_TYPE_VIEW_CART = 11;
+  // Shipping info step completed / submitted (GA4 add_shipping_info).
+  EVENT_TYPE_ADD_SHIPPING_INFO = 12;
+  // Payment method selected / submitted (GA4 add_payment_info).
+  EVENT_TYPE_ADD_PAYMENT_INFO = 13;
+  // Order purchase completed on client (GA4 purchase, marketing/funnel signal).
+  EVENT_TYPE_PURCHASE = 14;
 }
 
 
@@ -145,4 +155,28 @@ message TrackingEvent {
   string impression_id = 11;
   // Active recommendation/search model generation (e.g. "als_v1", "two_tower_v2").
   string model_version = 12;
+  // ISO-4217 currency code (e.g. "VND", "USD").
+  string currency = 13;
+  // Monetary value in minor units at event level (e.g. cart total or checkout total).
+  int64 value = 14;
+  // Monetary unit price in minor units at item level.
+  int64 price = 15;
+  // Item quantity for multi-item or cart actions.
+  uint32 quantity = 16;
+  // Order / transaction identifier for purchase deduplication.
+  string transaction_id = 17;
+  // Promotion / voucher coupon code applied.
+  string coupon = 18;
+  // Catalog category of the item.
+  string item_category = 19;
+  // List / collection identifier where the item was displayed (distinct from placement_id).
+  string item_list_id = 20;
+  // Human-readable list / collection name.
+  string item_list_name = 21;
+  // Correlation ID grouping flat fan-out item rows originating from the same logical multi-item event.
+  string event_group_id = 22;
+  // Selected shipping tier (e.g. "SPX_STANDARD", "SPX_EXPRESS").
+  string shipping_tier = 23;
+  // Selected payment method type (e.g. "MOCK_WALLET", "COD").
+  string payment_type = 24;
 }
