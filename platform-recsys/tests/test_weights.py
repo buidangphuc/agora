@@ -13,6 +13,9 @@ def test_event_weight_known_types():
     assert W.event_weight("click", DEFAULT_EVENT_WEIGHTS) == 2.0
     assert W.event_weight("add_to_cart", DEFAULT_EVENT_WEIGHTS) == 5.0
     assert W.event_weight("impression", DEFAULT_EVENT_WEIGHTS) == 0.5
+    assert W.event_weight("view_cart", DEFAULT_EVENT_WEIGHTS) == 2.5
+    assert W.event_weight("begin_checkout", DEFAULT_EVENT_WEIGHTS) == 8.0
+    assert W.event_weight("purchase", DEFAULT_EVENT_WEIGHTS) == 10.0
 
 
 def test_event_weight_case_insensitive():

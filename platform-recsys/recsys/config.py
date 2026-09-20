@@ -29,7 +29,12 @@ DEFAULT_EVENT_WEIGHTS = {
     "impression": 0.5,
     "view": 1.0,
     "click": 2.0,
+    "view_cart": 2.5,
     "add_to_cart": 5.0,
+    "add_shipping_info": 6.0,
+    "add_payment_info": 7.0,
+    "begin_checkout": 8.0,
+    "purchase": 10.0,
 }
 
 

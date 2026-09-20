@@ -33,6 +33,21 @@ TRACKING_COLUMNS = [
     "principal_id",
     "principal_type",
     "properties",
+    "placement_id",
+    "impression_id",
+    "model_version",
+    "currency",
+    "value",
+    "price",
+    "quantity",
+    "transaction_id",
+    "coupon",
+    "item_category",
+    "item_list_id",
+    "item_list_name",
+    "event_group_id",
+    "shipping_tier",
+    "payment_type",
 ]
 
 
