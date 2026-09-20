@@ -109,6 +109,9 @@ class AppError(Exception):
     data: Any = None
     headers: dict[str, str] | None = None
 
+    def __str__(self) -> str:
+        return self.message
+
 
 class BadRequestError(AppError):
     def __init__(

@@ -8,7 +8,8 @@ generated stubs. Keep it that way — proto types live only at the transport edg
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,10 @@ class RecommendQuery:
     seed_listing_id: str = ""
     context: str = ""
     limit: int = 0
+    placement_id: str = "home_feed"  # "home_feed", "similar_items", "cart_cross_sell"
+    category_id: str = ""
+    cart_listing_ids: list[str] = field(default_factory=list)
+    include_explain: bool = False
 
     @property
     def is_anonymous(self) -> bool:
@@ -55,3 +60,9 @@ class RecommendResult:
     # Which path produced the result — "cache" | "ann" | "popular". Useful for
     # observability and asserted by unit tests; not part of the wire contract.
     source: str
+    placement_id: str = "home_feed"
+    fallback_tier: str = "tier1_personalized"
+    # Status per ADR-0012: "real" | "cached" | "degraded" | "fallback"
+    status: str = "real"
+    # Explainability payload if requested
+    explain: dict[str, Any] = field(default_factory=dict)

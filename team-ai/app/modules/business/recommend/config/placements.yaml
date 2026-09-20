@@ -1,0 +1,75 @@
+# Recommendation Placements Configuration (ADR-0012)
+# WHAT layer: defines placement slots, candidate source ladders, ranking and caching policies.
+
+version: "1.0"
+placements:
+  home_feed:
+    name: "Home Feed Personalized Recommendations"
+    enabled: true
+    result_limit: 10
+    timeout_ms: 50
+    allow_cache: true
+    candidate_ladder:
+      - tier: "tier1_personalized"
+        strategy: "user_precomputed"
+        min_candidates: 5
+      - tier: "tier2_session_context"
+        strategy: "seed_vector_similarity"
+        min_candidates: 3
+      - tier: "tier3_category_trending"
+        strategy: "category_popular"
+        min_candidates: 3
+      - tier: "tier4_global_popular"
+        strategy: "global_popular"
+        min_candidates: 1
+    ranking:
+      model: "gbdt"
+      use_featurestore: true
+    filters:
+      in_stock_only: true
+      deduplicate_sellers: false
+
+  similar_items:
+    name: "Product Detail Page Similar Items"
+    enabled: true
+    result_limit: 10
+    timeout_ms: 30
+    allow_cache: true
+    candidate_ladder:
+      - tier: "tier1_vector_ann"
+        strategy: "seed_vector_similarity"
+        min_candidates: 5
+      - tier: "tier3_category_trending"
+        strategy: "category_popular"
+        min_candidates: 3
+      - tier: "tier4_global_popular"
+        strategy: "global_popular"
+        min_candidates: 1
+    ranking:
+      model: "cosine_rank"
+    filters:
+      in_stock_only: true
+      exclude_seed: true
+
+  cart_cross_sell:
+    name: "Cart Cross-Sell Recommendations"
+    enabled: true
+    result_limit: 8
+    timeout_ms: 35
+    allow_cache: false
+    candidate_ladder:
+      - tier: "tier2_cart_ann"
+        strategy: "cart_cross_similarity"
+        min_candidates: 4
+      - tier: "tier3_category_trending"
+        strategy: "category_popular"
+        min_candidates: 2
+      - tier: "tier4_global_popular"
+        strategy: "global_popular"
+        min_candidates: 1
+    ranking:
+      model: "gbdt"
+      use_featurestore: true
+    filters:
+      in_stock_only: true
+      exclude_cart_items: true
