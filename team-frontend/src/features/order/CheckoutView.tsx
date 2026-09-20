@@ -11,7 +11,7 @@ import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCart } from "@/lib/gateway/cart";
 import { getImageUrl } from "@/lib/media";
-import { track } from "@/lib/track";
+import { trackEcommerce } from "@/lib/analytics";
 import { checkoutAction } from "./actions";
 
 const PAYMENT_OPTIONS = [
@@ -63,31 +63,36 @@ function computeShippingFee(
 export function CheckoutView({
   cart,
   addresses,
+  defaultAddressId,
 }: {
   cart: ViewCart;
   addresses: ViewAddress[];
+  defaultAddressId?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
   const defaultAddr =
-    addresses.find((a) => a.isDefault) ??
-    (addresses.length > 0 ? addresses[0] : null);
+    addresses.find((a) => a.id === defaultAddressId) ?? addresses[0];
 
-  const [selectedAddressId, setSelectedAddressId] = useState<string>(
-    defaultAddr?.id ?? "",
-  );
+  const [selectedAddressId, setSelectedAddressId] = useState<
+    string | undefined
+  >(defaultAddr?.id);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(
     PaymentMethod.COD,
   );
 
   // Fire begin_checkout beacon on checkout mount
   useState(() => {
-    track({
-      type: "begin_checkout",
-      properties: {
-        cart_subtotal: String(cart.subtotal),
-        items_count: String(cart.items.length),
-      },
+    trackEcommerce("begin_checkout", {
+      currency: "VND",
+      value: cart.subtotal,
+      items: cart.items.map((it, idx) => ({
+        itemId: it.listingId,
+        itemName: it.title,
+        price: it.price,
+        quantity: it.quantity,
+        index: idx + 1,
+      })),
     });
   });
 
@@ -125,12 +130,11 @@ export function CheckoutView({
     setVoucherError("");
     try {
       const res = await previewVoucherAction(code, cart.subtotal, sellerId);
-      track({
-        type: "apply_promotion",
+      trackEcommerce("apply_promotion", {
+        coupon: code,
+        value: res.discount || 0,
         properties: {
-          code,
           valid: String(res.valid),
-          discount: String(res.discount || 0),
         },
       });
       if (!res.valid) {
@@ -144,24 +148,6 @@ export function CheckoutView({
         setAppliedDiscount(res.discount);
         toast.success(`✓ Áp dụng mã ${code} thành công: -₫${res.discount.toLocaleString("vi-VN")}`);
       }
-    } catch {
-      const msg = "Không thể áp dụng mã giảm giá lúc này.";
-      setVoucherError(msg);
-      toast.error(msg);
-    } finally {
-      setApplyingVoucher(false);
-    }
-  }
-
-        return;
-      }
-      setAppliedCode(code.toUpperCase());
-      setAppliedDiscount(res.discountAmount);
-      toast.success(
-        `✓ Áp dụng mã ${code.toUpperCase()} — giảm ${res.discountAmount.toLocaleString(
-          "vi-VN",
-        )} VND!`,
-      );
     } catch {
       const msg = "Không kiểm tra được mã giảm giá. Vui lòng thử lại.";
       setVoucherError(msg);
@@ -197,6 +183,24 @@ export function CheckoutView({
         setError(res.message || "Đặt hàng thất bại.");
         return;
       }
+
+      // Track purchase event
+      trackEcommerce("purchase", {
+        transactionId: res.orderId || `order-${Date.now()}`,
+        currency: "VND",
+        value: finalTotal,
+        coupon: appliedCode || undefined,
+        shippingTier: isFreeShipping ? "FREE" : "STANDARD",
+        paymentType: String(selectedMethod),
+        items: cart.items.map((it, idx) => ({
+          itemId: it.listingId,
+          itemName: it.title,
+          price: it.price,
+          quantity: it.quantity,
+          index: idx + 1,
+        })),
+      });
+
       if (res.paymentUrl) {
         router.push(res.paymentUrl);
       } else {

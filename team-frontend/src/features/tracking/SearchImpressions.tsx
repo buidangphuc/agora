@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-
-import { track } from "@/lib/track";
+import { trackEcommerce } from "@/lib/analytics";
 
 /**
- * Fires a best-effort `impression` beacon for each rendered search result, with
- * its 1-based result position and the active query. Rendered on the search page
- * alongside the results grid. Renders nothing.
+ * Fires a single batched `view_item_list` ecommerce event for the rendered search results,
+ * populating dataLayer and sending batched beacons in a single HTTP request to /api/track.
  */
 export function SearchImpressions({
   listingIds,
@@ -17,9 +15,19 @@ export function SearchImpressions({
   query?: string;
 }) {
   useEffect(() => {
-    listingIds.forEach((listingId, index) => {
-      track({ type: "impression", listingId, position: index + 1, query });
+    if (listingIds.length === 0) return;
+
+    trackEcommerce("view_item_list", {
+      query,
+      itemListId: "search_results",
+      itemListName: "Search Results",
+      items: listingIds.map((listingId, index) => ({
+        itemId: listingId,
+        index: index + 1,
+        itemListId: "search_results",
+      })),
     });
   }, [listingIds, query]);
+
   return null;
 }

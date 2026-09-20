@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { FloatingChatBubble } from "@/components/ui/FloatingChatBubble";
 import { SearchBar } from "@/features/search/SearchBar";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { AnalyticsProvider } from "@/features/tracking/AnalyticsProvider";
 import { logoutAction } from "@/features/auth/actions";
 import { getCart } from "@/lib/gateway/cart";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
@@ -92,7 +93,8 @@ export default async function RootLayout({
   return (
     <html lang="vi">
       <body className="bg-[#f5f5f5] text-[#222222] flex flex-col min-h-screen font-sans antialiased">
-        <ToastProvider>
+        <AnalyticsProvider>
+          <ToastProvider>
           {/* ── Shopee Signature Gradient Header ── */}
           <header className="bg-gradient-to-b from-[#f53d2d] to-[#f63] text-white sticky top-0 z-30 shadow-md">
             {/* 1. Top Utility Navigation Bar */}
@@ -437,6 +439,7 @@ export default async function RootLayout({
             </div>
           </footer>
         </ToastProvider>
+      </AnalyticsProvider>
       </body>
     </html>
   );

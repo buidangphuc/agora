@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ViewListing } from "@/lib/gateway/listings";
-import { track } from "@/lib/track";
+import { trackEcommerce } from "@/lib/analytics";
 import { addToCartAction } from "./actions";
 
 export function AddToCartButton({
@@ -30,10 +30,18 @@ export function AddToCartButton({
       );
 
       if (res.ok) {
-        track({
-          type: "add_to_cart",
-          listingId: listing.id,
-          properties: { quantity: String(quantity) },
+        trackEcommerce("add_to_cart", {
+          currency: "VND",
+          value: (listing.price || 0) * quantity,
+          items: [
+            {
+              itemId: listing.id,
+              itemName: listing.title,
+              price: listing.price,
+              quantity,
+              itemCategory: listing.category,
+            },
+          ],
         });
         success(`✓ Đã thêm ${quantity} sản phẩm vào giỏ hàng!`);
         if (redirectNow) {

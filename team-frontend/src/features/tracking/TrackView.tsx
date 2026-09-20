@@ -1,23 +1,36 @@
 "use client";
 
 import { useEffect } from "react";
-
-import { track } from "@/lib/track";
+import { trackEcommerce } from "@/lib/analytics";
 
 /**
- * Fires a best-effort `view` beacon once when the component mounts. Rendered on
- * the product detail page so opening a PDP records a listing view. Renders
- * nothing.
+ * Fires a best-effort `view_item` ecommerce event once when the component mounts.
+ * Rendered on the product detail page so opening a PDP records a listing view in
+ * dataLayer and sends a view beacon. Renders nothing.
  */
 export function TrackView({
   listingId,
   path,
+  price,
+  category,
 }: {
   listingId: string;
   path?: string;
+  price?: number;
+  category?: string;
 }) {
   useEffect(() => {
-    track({ type: "view", listingId, path });
-  }, [listingId, path]);
+    trackEcommerce("view_item", {
+      path,
+      items: [
+        {
+          itemId: listingId,
+          price,
+          itemCategory: category,
+        },
+      ],
+    });
+  }, [listingId, path, price, category]);
+
   return null;
 }
