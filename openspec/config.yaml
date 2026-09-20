@@ -19,6 +19,8 @@ context: |
     team-chat       — buyer↔seller chat :50057
     team-notification — in-app notifications :50058
     team-ai         — FastAPI AI (RAG assistant, magic-listing, chat-copilot) :8000
+    platform-recsys — offline ALS recommendation trainer + candidate indexing
+    platform-modelserve — internal ML model serving router + TEI/vLLM runtimes :8100
 
   Non-negotiable architecture rules (see platform-core/docs + ADRs):
     1. Frontend/BFF talks ONLY to the gateway; never call a service directly.
