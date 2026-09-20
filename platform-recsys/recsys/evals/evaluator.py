@@ -1,9 +1,9 @@
-"""ModelEvaluator for offline evaluation of candidate and champion models."""
+"""ModelEvaluator for offline evaluation of candidate and champion models with temporal split ownership."""
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
+import logging
 from typing import Any
 
 from recsys.evals.metrics import (
@@ -15,6 +15,7 @@ from recsys.evals.metrics import (
     precision_at_k,
     recall_at_k,
 )
+from recsys.evals.split import user_leave_k_out_temporal_split
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,43 @@ class ModelEvaluator:
 
     def evaluate(
         self,
-        actual_dict: dict[str, Sequence[str] | set[str]],
-        predicted_dict: dict[str, Sequence[str] | Sequence[tuple[str, float]]],
+        actual_dict: dict[str, Sequence[str] | set[str]] | None = None,
+        predicted_dict: dict[str, Sequence[str] | Sequence[tuple[str, float]]] | None = None,
         all_catalog_items: Sequence[str] | set[str] | None = None,
+        *,
+        raw_interactions: list[dict[str, Any]] | None = None,
+        split_k: int = 1,
+        split_strategy: str = "external",
+        cutoff_timestamp: float | None = None,
+        train_events_count: int = 0,
+        test_events_count: int = 0,
     ) -> dict[str, Any]:
-        """Compute full suite of ranking metrics over test users."""
+        """Compute full suite of ranking metrics over test users, recording temporal split metadata."""
+        predicted_dict = predicted_dict or {}
+
+        # If raw_interactions are provided, derive temporal split and holdout ground truth
+        if raw_interactions is not None:
+            train_set, holdout_gt = user_leave_k_out_temporal_split(
+                raw_interactions,
+                k=split_k,
+            )
+            actual_dict = holdout_gt
+            split_strategy = "temporal"
+            train_events_count = len(train_set)
+            test_events_count = sum(len(items) for items in holdout_gt.values())
+            if train_set:
+                cutoff_timestamp = max(float(x.get("timestamp", 0.0)) for x in train_set)
+        else:
+            actual_dict = actual_dict or {}
+
         if not actual_dict:
-            return {"user_count": 0}
+            return {
+                "user_count": 0,
+                "split_strategy": split_strategy,
+                "cutoff_timestamp": cutoff_timestamp,
+                "train_events": train_events_count,
+                "test_events": test_events_count,
+            }
 
         # Normalize predicted items if list of (item_id, score) tuples is given
         clean_preds: dict[str, list[str]] = {}
@@ -45,6 +76,10 @@ class ModelEvaluator:
 
         results: dict[str, Any] = {
             "user_count": len(actual_dict),
+            "split_strategy": split_strategy,
+            "cutoff_timestamp": cutoff_timestamp,
+            "train_events": train_events_count,
+            "test_events": test_events_count,
         }
 
         for k in self.k_values:
@@ -100,7 +135,6 @@ class ModelEvaluator:
             )
             return False, msg
 
-        # Check coverage constraint if present
         base_cov = baseline_metrics.get("coverage@10")
         cand_cov = candidate_metrics.get("coverage@10")
         if base_cov is not None and cand_cov is not None and base_cov > 0:
