@@ -51,6 +51,13 @@ markers = [
     "needsListing: Before-seeds a published listing via the gateway API",
     "needsAddress: Before-seeds a default delivery address for the buyer",
     "needsOrder: Before-seeds a PENDING order with items for testing",
+    "notification: notification delivery, alerts, and badges",
+    "analytics: analytics warehouse, funnels, and tracking",
+    "recsys: recsys pipelines, evaluation, and models",
+    "batch: batch processing and offline pipelines",
+    "registry: model registry and promotion gates",
+    "integration: end-to-end multi-service integration tests",
+    "journeys: end-to-end full user journey scenarios",
 ]
 
 [tool.ruff]
