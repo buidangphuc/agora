@@ -37,10 +37,16 @@ type trackBeacon struct {
 // beaconEventTypes maps the beacon's lowercase action name to its EventType.
 // An unknown/empty type is rejected (nothing is produced).
 var beaconEventTypes = map[string]analyticsv1.EventType{
-	"view":        analyticsv1.EventType_EVENT_TYPE_VIEW,
-	"click":       analyticsv1.EventType_EVENT_TYPE_CLICK,
-	"add_to_cart": analyticsv1.EventType_EVENT_TYPE_ADD_TO_CART,
-	"impression":  analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
+	"view":             analyticsv1.EventType_EVENT_TYPE_VIEW,
+	"click":            analyticsv1.EventType_EVENT_TYPE_CLICK,
+	"add_to_cart":      analyticsv1.EventType_EVENT_TYPE_ADD_TO_CART,
+	"impression":       analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
+	"remove_from_cart": analyticsv1.EventType_EVENT_TYPE_REMOVE_FROM_CART,
+	"begin_checkout":   analyticsv1.EventType_EVENT_TYPE_BEGIN_CHECKOUT,
+	"apply_promotion":  analyticsv1.EventType_EVENT_TYPE_APPLY_PROMOTION,
+	"search_filter":    analyticsv1.EventType_EVENT_TYPE_SEARCH_FILTER,
+	"favorite":         analyticsv1.EventType_EVENT_TYPE_FAVORITE,
+	"share":            analyticsv1.EventType_EVENT_TYPE_SHARE,
 }
 
 // HandleTrack builds the pure edge-telemetry collector: parse the beacon (single

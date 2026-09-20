@@ -8,6 +8,10 @@ import { track } from "@/lib/track";
 type TrackLinkProps = ComponentProps<typeof Link> & {
   /** Listing this link points at; carried on the click beacon. */
   listingId: string;
+  placementId?: string;
+  impressionId?: string;
+  modelVersion?: string;
+  position?: number;
 };
 
 /**
@@ -17,12 +21,23 @@ type TrackLinkProps = ComponentProps<typeof Link> & {
  */
 export function TrackLink({
   listingId,
+  placementId,
+  impressionId,
+  modelVersion,
+  position,
   onClick,
   children,
   ...rest
 }: TrackLinkProps) {
   function handleClick(e: MouseEvent<HTMLAnchorElement>) {
-    track({ type: "click", listingId });
+    track({
+      type: "click",
+      listingId,
+      placementId,
+      impressionId,
+      modelVersion,
+      position,
+    });
     onClick?.(e);
   }
   return (
@@ -31,3 +46,4 @@ export function TrackLink({
     </Link>
   );
 }
+

@@ -11,6 +11,7 @@ import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCart } from "@/lib/gateway/cart";
 import { getImageUrl } from "@/lib/media";
+import { track } from "@/lib/track";
 import { checkoutAction } from "./actions";
 
 const PAYMENT_OPTIONS = [
@@ -78,6 +79,18 @@ export function CheckoutView({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(
     PaymentMethod.COD,
   );
+
+  // Fire begin_checkout beacon on checkout mount
+  useState(() => {
+    track({
+      type: "begin_checkout",
+      properties: {
+        cart_subtotal: String(cart.subtotal),
+        items_count: String(cart.items.length),
+      },
+    });
+  });
+
   // Voucher preview state — the discount is authoritative from team-promotion
   // (via the gateway), never computed in the browser.
   const [voucherCode, setVoucherCode] = useState("");
@@ -112,12 +125,34 @@ export function CheckoutView({
     setVoucherError("");
     try {
       const res = await previewVoucherAction(code, cart.subtotal, sellerId);
+      track({
+        type: "apply_promotion",
+        properties: {
+          code,
+          valid: String(res.valid),
+          discount: String(res.discount || 0),
+        },
+      });
       if (!res.valid) {
         setAppliedCode("");
         setAppliedDiscount(0);
         const msg = res.reason || "Mã giảm giá không hợp lệ.";
         setVoucherError(msg);
         toast.error(msg);
+      } else {
+        setAppliedCode(code);
+        setAppliedDiscount(res.discount);
+        toast.success(`✓ Áp dụng mã ${code} thành công: -₫${res.discount.toLocaleString("vi-VN")}`);
+      }
+    } catch {
+      const msg = "Không thể áp dụng mã giảm giá lúc này.";
+      setVoucherError(msg);
+      toast.error(msg);
+    } finally {
+      setApplyingVoucher(false);
+    }
+  }
+
         return;
       }
       setAppliedCode(code.toUpperCase());

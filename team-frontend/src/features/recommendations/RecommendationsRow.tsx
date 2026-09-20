@@ -33,7 +33,7 @@ export async function RecommendationsRow({
 
   if (items.length === 0) return null;
 
-  const heading = seedListingId ? "Sản phẩm tương tự" : "Gợi ý cho bạn";
+  const placementId = seedListingId ? "pdp_similar_items" : "home_recommendations";
 
   return (
     <section className="space-y-3">
@@ -44,7 +44,7 @@ export async function RecommendationsRow({
         </span>
         <span className="text-[12px] text-gray-400 font-normal">{heading}</span>
       </div>
-      <ListingGrid listings={items} />
+      <ListingGrid listings={items} placementId={placementId} />
     </section>
   );
 }

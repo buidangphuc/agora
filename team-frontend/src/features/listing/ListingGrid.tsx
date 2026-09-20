@@ -5,9 +5,15 @@ import { ListingCard } from "./ListingCard";
 export function ListingGrid({
   listings,
   empty = "Không tìm thấy sản phẩm nào phù hợp.",
+  placementId,
+  impressionId,
+  modelVersion,
 }: {
   listings: ViewListing[];
   empty?: string;
+  placementId?: string;
+  impressionId?: string;
+  modelVersion?: string;
 }) {
   if (listings.length === 0) {
     return (
@@ -23,9 +29,17 @@ export function ListingGrid({
   }
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-      {listings.map((l) => (
-        <ListingCard key={l.id} listing={l} />
+      {listings.map((l, index) => (
+        <ListingCard
+          key={l.id}
+          listing={l}
+          placementId={placementId}
+          impressionId={impressionId}
+          modelVersion={modelVersion}
+          position={index + 1}
+        />
       ))}
     </div>
   );
 }
+

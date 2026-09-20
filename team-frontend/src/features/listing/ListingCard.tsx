@@ -1,13 +1,22 @@
 import { formatPrice, formatSoldCount } from "@/components/ui/format";
 import { FavoriteButton } from "@/features/engagement/FavoriteButton";
+import { TrackImpression } from "@/features/tracking/TrackImpression";
 import { TrackLink } from "@/features/tracking/TrackLink";
 import type { ViewListing } from "@/lib/gateway/listings";
 import { getImageUrl } from "@/lib/media";
 
 export function ListingCard({
   listing,
+  placementId,
+  impressionId,
+  modelVersion,
+  position,
 }: {
   listing: ViewListing;
+  placementId?: string;
+  impressionId?: string;
+  modelVersion?: string;
+  position?: number;
 }) {
   const imageSrc =
     listing.imageKeys && listing.imageKeys.length > 0
@@ -27,22 +36,34 @@ export function ListingCard({
   const soldCount = listing.stock > 0 ? 120 + ((listing.stock * 3) % 850) : 85;
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xs border border-gray-200/80 bg-white shadow-shopee transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-shopee-hover">
-      {/* ── 1:1 Aspect Ratio Image & Official Badges ── */}
-      <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
-        <TrackLink
-          listingId={listing.id}
-          href={`/listing/${listing.id}`}
-          className="block h-full w-full"
-        >
-          {imageSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageSrc}
-              alt={listing.title}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-              loading="lazy"
-            />
+    <TrackImpression
+      listingId={listing.id}
+      placementId={placementId}
+      impressionId={impressionId}
+      modelVersion={modelVersion}
+      position={position}
+    >
+      <article className="group relative flex flex-col overflow-hidden rounded-xs border border-gray-200/80 bg-white shadow-shopee transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-shopee-hover">
+        {/* ── 1:1 Aspect Ratio Image & Official Badges ── */}
+        <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
+          <TrackLink
+            listingId={listing.id}
+            placementId={placementId}
+            impressionId={impressionId}
+            modelVersion={modelVersion}
+            position={position}
+            href={`/listing/${listing.id}`}
+            className="block h-full w-full"
+          >
+            {imageSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageSrc}
+                alt={listing.title}
+                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                loading="lazy"
+              />
+
           ) : (
             <div className="grid h-full w-full place-items-center text-gray-300 bg-gray-50">
               <span className="text-3xl">🛍️</span>
@@ -128,5 +149,6 @@ export function ListingCard({
         </div>
       </div>
     </article>
+    </TrackImpression>
   );
 }

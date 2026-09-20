@@ -12,7 +12,17 @@
  * scoped) so downstream can group a visitor's activity.
  */
 
-export type TrackEventType = "view" | "click" | "add_to_cart" | "impression";
+export type TrackEventType =
+  | "view"
+  | "click"
+  | "add_to_cart"
+  | "impression"
+  | "remove_from_cart"
+  | "begin_checkout"
+  | "apply_promotion"
+  | "search_filter"
+  | "favorite"
+  | "share";
 
 export interface TrackEvent {
   readonly type: TrackEventType;

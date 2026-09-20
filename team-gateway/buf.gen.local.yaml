@@ -1,0 +1,20 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/buidangphuc/team-gateway/generated
+
+plugins:
+  - local: /Users/phuc.buidang/go/bin/protoc-gen-go
+    out: generated
+    opt: paths=source_relative
+  - local: /Users/phuc.buidang/go/bin/protoc-gen-go-grpc
+    out: generated
+    opt: paths=source_relative
+  - local: /Users/phuc.buidang/go/bin/protoc-gen-connect-go
+    out: generated
+    opt: paths=source_relative
+
+inputs:
+  - directory: proto

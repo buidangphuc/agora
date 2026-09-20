@@ -28,6 +28,8 @@ func (m *mockAnalyticsPublisher) PublishTrackingEvent(
 	return nil
 }
 
+func (m *mockAnalyticsPublisher) Close() {}
+
 func TestHandleTrackWithAttribution(t *testing.T) {
 	edge := &Edge{
 		publicScopes: []string{"public"},
