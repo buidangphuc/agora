@@ -78,12 +78,19 @@ type OrderRepository interface {
 	UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error)
 }
 
+type OrderPaidHook func(ctx context.Context, order Order) error
+
 type PostgresOrderRepository struct {
-	pool *pgxpool.Pool
+	pool       *pgxpool.Pool
+	onPaidHook OrderPaidHook
 }
 
 func NewPostgresOrderRepository(pool *pgxpool.Pool) *PostgresOrderRepository {
 	return &PostgresOrderRepository{pool: pool}
+}
+
+func (r *PostgresOrderRepository) SetOnPaidHook(hook OrderPaidHook) {
+	r.onPaidHook = hook
 }
 
 const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount`
@@ -288,17 +295,27 @@ func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id stri
 		return Order{}, err
 	}
 	o.Items = items
+
+	if status == OrderStatusPaid && r.onPaidHook != nil {
+		_ = r.onPaidHook(ctx, o)
+	}
+
 	return o, nil
 }
 
 // InMemoryOrderRepository for unit tests
 type InMemoryOrderRepository struct {
-	mu     sync.RWMutex
-	orders map[string]Order
+	mu         sync.RWMutex
+	orders     map[string]Order
+	onPaidHook OrderPaidHook
 }
 
 func NewInMemoryOrderRepository() *InMemoryOrderRepository {
 	return &InMemoryOrderRepository{orders: make(map[string]Order)}
+}
+
+func (r *InMemoryOrderRepository) SetOnPaidHook(hook OrderPaidHook) {
+	r.onPaidHook = hook
 }
 
 func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {
@@ -363,7 +380,7 @@ func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID s
 	return res, nil
 }
 
-func (r *InMemoryOrderRepository) UpdateOrderStatus(_ context.Context, id string, status OrderStatus, trackingNumber string) (Order, error) {
+func (r *InMemoryOrderRepository) UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
@@ -376,5 +393,10 @@ func (r *InMemoryOrderRepository) UpdateOrderStatus(_ context.Context, id string
 	}
 	o.UpdatedAt = time.Now()
 	r.orders[id] = o
+
+	if status == OrderStatusPaid && r.onPaidHook != nil {
+		_ = r.onPaidHook(ctx, o)
+	}
+
 	return o, nil
 }

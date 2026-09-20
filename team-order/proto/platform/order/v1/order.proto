@@ -345,3 +345,24 @@ message CalculateShippingFeeResponse {
   bool is_free_shipping = 2;
   string message = 3;
 }
+
+// ── Order Events (Kafka payload for order.events) ──
+
+message OrderLineItemFact {
+  string listing_id = 1;
+  string variant_id = 2;
+  string seller_id = 3;
+  int32 quantity = 4;
+  int64 unit_price = 5;
+  string currency = 6;
+}
+
+message OrderPaidEvent {
+  string order_id = 1;
+  string buyer_id = 2;
+  repeated OrderLineItemFact items = 3;
+  int64 total_amount = 4;
+  string currency = 5;
+  google.protobuf.Timestamp paid_at = 6;
+}
+

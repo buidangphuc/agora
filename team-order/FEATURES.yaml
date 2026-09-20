@@ -378,3 +378,41 @@ features:
     tags: [buyer, feature-flags, kill-switch]
     status: automated
     covered_by: "feature-flags/openfeature_lifecycle.feature::Toggling takes effect without a redeploy"
+
+  - id: order.outbox-settlement
+    title: Order settlement commits an outbox event atomically
+    persona: buyer
+    priority: P1
+    summary: When an order transitions to PAID, an OrderPaidEvent outbox row is stored in the same database transaction.
+    entry_route: /checkout
+    services: [team-order]
+    preconditions:
+      login: buyer
+      data: An order transitioning to PAID.
+    acceptance:
+      - Given an order in PENDING status with line items
+      - When the order transitions to PAID
+      - Then an outbox event is stored in order_outbox_events with status pending and the exact line item quantities and prices
+    tags: [order, outbox, integration]
+    status: automated
+    covered_by: "analytics/order_facts.feature::Order settlement commits an outbox event atomically"
+
+  - id: order.outbox-relayer
+    title: Relayer publishes pending order events to Kafka
+    persona: guest
+    priority: P1
+    summary: Background relayer publishes pending outbox events to Kafka order.events and marks records published.
+    entry_route: /
+    services: [team-order]
+    preconditions:
+      login: guest
+      data: Pending records in order_outbox_events.
+    acceptance:
+      - Given pending records in order_outbox_events
+      - When the outbox relayer runs a sweep
+      - Then events are published to order.events partitioned by order_id
+      - And the outbox records are marked published with a published_at timestamp
+    tags: [order, outbox, integration]
+    status: automated
+    covered_by: "analytics/order_facts.feature::Relayer publishes pending order events to Kafka"
+
