@@ -1,0 +1,23 @@
+repo: platform-featurestore
+owner: platform-ml-team
+
+features:
+  - id: featurestore.online-features
+    title: Online feature store serves low-latency user and item features from Redis
+    persona: guest
+    priority: P1
+    summary: >
+      Provides sub-5ms feature lookup for user historical behaviors and item signals
+      used by ranking models.
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+      data: >
+        Redis running with feature store keys populated.
+    acceptance:
+      - Given an entity ID (user or listing)
+      - When querying online features
+      - Then the feature store returns typed numerical and categorical features within 10ms
+    tags: [featurestore, ml]
+    status: not-testable
