@@ -1,0 +1,64 @@
+{
+  "sellers": [
+    {
+      "id": "seller-dmx",
+      "username": "dien_may_xanh",
+      "shop_name": "Điện Máy Xanh Official Store",
+      "email": "dienmayxanh@official.vn",
+      "category_id": "cat-appliances",
+      "kyc": {
+        "status": "VERIFIED",
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_dmx_license.pdf"
+      }
+    },
+    {
+      "id": "seller-coolmate",
+      "username": "coolmate_official",
+      "shop_name": "Coolmate Official Store",
+      "email": "support@coolmate.me",
+      "category_id": "cat-fashion",
+      "kyc": {
+        "status": "VERIFIED",
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_coolmate_license.pdf"
+      }
+    },
+    {
+      "id": "seller-anker",
+      "username": "anker_flagship",
+      "shop_name": "Anker Flagship Store VN",
+      "email": "anker.flagship@anker.vn",
+      "category_id": "cat-electronics",
+      "kyc": {
+        "status": "VERIFIED",
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_anker_license.pdf"
+      }
+    },
+    {
+      "id": "seller-locknlock",
+      "username": "locknlock_vietnam",
+      "shop_name": "Lock&Lock Vietnam Official",
+      "email": "cs@locknlock.vn",
+      "category_id": "cat-home",
+      "kyc": {
+        "status": "VERIFIED",
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_locknlock_license.pdf"
+      }
+    },
+    {
+      "id": "seller-nike",
+      "username": "nike_vietnam_store",
+      "shop_name": "Nike Vietnam Store",
+      "email": "contact@nike.vn",
+      "category_id": "cat-sports",
+      "kyc": {
+        "status": "VERIFIED",
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_nike_license.pdf"
+      }
+    }
+  ]
+}

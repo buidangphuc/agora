@@ -1,0 +1,104 @@
+{
+  "buyers": [
+    {
+      "username": "nguyen_van_a",
+      "name": "Nguyễn Văn An",
+      "phone": "0912345678",
+      "street": "Số 15 Liễu Giai",
+      "ward": "Phường Liễu Giai",
+      "district": "Quận Ba Đình",
+      "city": "Hà Nội",
+      "is_default": true
+    },
+    {
+      "username": "tran_thi_b",
+      "name": "Trần Thị Bích",
+      "phone": "0987654321",
+      "street": "Số 48 Cầu Giấy",
+      "ward": "Phường Quan Hoa",
+      "district": "Quận Cầu Giấy",
+      "city": "Hà Nội",
+      "is_default": true
+    },
+    {
+      "username": "le_hoang_nam",
+      "name": "Lê Hoàng Nam",
+      "phone": "0903123456",
+      "street": "120 Nguyễn Huệ",
+      "ward": "Phường Bến Nghé",
+      "district": "Quận 1",
+      "city": "TP Hồ Chí Minh",
+      "is_default": true
+    },
+    {
+      "username": "pham_thi_hoa",
+      "name": "Phạm Thị Mai Hoa",
+      "phone": "0934567890",
+      "street": "88 Nguyễn Thị Thập",
+      "ward": "Phường Tân Phú",
+      "district": "Quận 7",
+      "city": "TP Hồ Chí Minh",
+      "is_default": true
+    },
+    {
+      "username": "vu_duc_minh",
+      "name": "Vũ Đức Minh",
+      "phone": "0971234567",
+      "street": "25 Nguyễn Văn Linh",
+      "ward": "Phường Nam Dương",
+      "district": "Quận Hải Châu",
+      "city": "Đà Nẵng",
+      "is_default": true
+    },
+    {
+      "username": "hoang_gia_bao",
+      "name": "Hoàng Gia Bảo",
+      "phone": "0962345678",
+      "street": "104 Điện Biên Phủ",
+      "ward": "Phường Chính Gián",
+      "district": "Quận Thanh Khê",
+      "city": "Đà Nẵng",
+      "is_default": true
+    },
+    {
+      "username": "dang_thuy_trang",
+      "name": "Đặng Thùy Trang",
+      "phone": "0945678901",
+      "street": "72 30 Tháng 4",
+      "ward": "Phường Hưng Lợi",
+      "district": "Quận Ninh Kiều",
+      "city": "Cần Thơ",
+      "is_default": true
+    },
+    {
+      "username": "bui_tien_dung",
+      "name": "Bùi Tiến Dũng",
+      "phone": "0918765432",
+      "street": "36 Lê Hồng Phong",
+      "ward": "Phường Đông Khê",
+      "district": "Quận Ngô Quyền",
+      "city": "Hải Phòng",
+      "is_default": true
+    },
+    {
+      "username": "do_thi_mai",
+      "name": "Đỗ Thị Mai",
+      "phone": "0981122334",
+      "street": "55 Tôn Đức Thắng",
+      "ward": "Phường Hàng Bột",
+      "district": "Quận Đống Đa",
+      "city": "Hà Nội",
+      "is_default": true
+    },
+    {
+      "username": "truong_quoc_huy",
+      "name": "Trương Quốc Huy",
+      "phone": "0909988776",
+      "street": "180 Điện Biên Phủ",
+      "ward": "Phường 15",
+      "district": "Quận Bình Thạnh",
+      "city": "TP Hồ Chí Minh",
+      "is_default": true
+    }
+  ]
+}

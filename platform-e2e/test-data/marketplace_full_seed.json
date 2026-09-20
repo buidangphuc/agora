@@ -1,0 +1,5500 @@
+{
+  "metadata": {
+    "generated_at": "2026-09-20T15:22:09.719347+00:00",
+    "total_sellers": 5,
+    "total_buyers": 10,
+    "total_products": 52,
+    "total_vouchers": 10,
+    "total_tracking_events": 550,
+    "total_orders": 203
+  },
+  "categories": [
+    {
+      "id": "cat-electronics",
+      "name": "Điện Tử & Thiết Bị Số"
+    },
+    {
+      "id": "cat-fashion",
+      "name": "Thời Trang Nam Nữ"
+    },
+    {
+      "id": "cat-home",
+      "name": "Nhà Cửa & Đời Sống"
+    },
+    {
+      "id": "cat-appliances",
+      "name": "Thiết Bị Điện Gia Dụng"
+    },
+    {
+      "id": "cat-sports",
+      "name": "Thể Thao & Dã Ngoại"
+    }
+  ],
+  "sellers": [
+    {
+      "id": "seller-dmx",
+      "username": "dien_may_xanh",
+      "shop_name": "Điện Máy Xanh Official Store",
+      "email": "dienmayxanh@official.vn",
+      "category": "cat-appliances",
+      "kyc": {
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_dmx_license.pdf"
+      }
+    },
+    {
+      "id": "seller-coolmate",
+      "username": "coolmate_official",
+      "shop_name": "Coolmate Official Store",
+      "email": "support@coolmate.me",
+      "category": "cat-fashion",
+      "kyc": {
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_coolmate_license.pdf"
+      }
+    },
+    {
+      "id": "seller-anker",
+      "username": "anker_flagship",
+      "shop_name": "Anker Flagship Store VN",
+      "email": "anker.flagship@anker.vn",
+      "category": "cat-electronics",
+      "kyc": {
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_anker_license.pdf"
+      }
+    },
+    {
+      "id": "seller-locknlock",
+      "username": "locknlock_vietnam",
+      "shop_name": "Lock&Lock Vietnam Official",
+      "email": "cs@locknlock.vn",
+      "category": "cat-home",
+      "kyc": {
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_locknlock_license.pdf"
+      }
+    },
+    {
+      "id": "seller-nike",
+      "username": "nike_vietnam_store",
+      "shop_name": "Nike Vietnam Store",
+      "email": "contact@nike.vn",
+      "category": "cat-sports",
+      "kyc": {
+        "doc_type": "business_license",
+        "doc_ref": "docs/kyc_nike_license.pdf"
+      }
+    }
+  ],
+  "buyers": [
+    {
+      "username": "nguyen_van_a",
+      "name": "Nguyễn Văn An",
+      "phone": "0912345678",
+      "street": "Số 15 Liễu Giai",
+      "ward": "Phường Liễu Giai",
+      "district": "Quận Ba Đình",
+      "city": "Hà Nội"
+    },
+    {
+      "username": "tran_thi_b",
+      "name": "Trần Thị Bích",
+      "phone": "0987654321",
+      "street": "Số 48 Cầu Giấy",
+      "ward": "Phường Quan Hoa",
+      "district": "Quận Cầu Giấy",
+      "city": "Hà Nội"
+    },
+    {
+      "username": "le_hoang_nam",
+      "name": "Lê Hoàng Nam",
+      "phone": "0903123456",
+      "street": "120 Nguyễn Huệ",
+      "ward": "Phường Bến Nghé",
+      "district": "Quận 1",
+      "city": "TP Hồ Chí Minh"
+    },
+    {
+      "username": "pham_thi_hoa",
+      "name": "Phạm Thị Mai Hoa",
+      "phone": "0934567890",
+      "street": "88 Nguyễn Thị Thập",
+      "ward": "Phường Tân Phú",
+      "district": "Quận 7",
+      "city": "TP Hồ Chí Minh"
+    },
+    {
+      "username": "vu_duc_minh",
+      "name": "Vũ Đức Minh",
+      "phone": "0971234567",
+      "street": "25 Nguyễn Văn Linh",
+      "ward": "Phường Nam Dương",
+      "district": "Quận Hải Châu",
+      "city": "Đà Nẵng"
+    },
+    {
+      "username": "hoang_gia_bao",
+      "name": "Hoàng Gia Bảo",
+      "phone": "0962345678",
+      "street": "104 Điện Biên Phủ",
+      "ward": "Phường Chính Gián",
+      "district": "Quận Thanh Khê",
+      "city": "Đà Nẵng"
+    },
+    {
+      "username": "dang_thuy_trang",
+      "name": "Đặng Thùy Trang",
+      "phone": "0945678901",
+      "street": "72 30 Tháng 4",
+      "ward": "Phường Hưng Lợi",
+      "district": "Quận Ninh Kiều",
+      "city": "Cần Thơ"
+    },
+    {
+      "username": "bui_tien_dung",
+      "name": "Bùi Tiến Dũng",
+      "phone": "0918765432",
+      "street": "36 Lê Hồng Phong",
+      "ward": "Phường Đông Khê",
+      "district": "Quận Ngô Quyền",
+      "city": "Hải Phòng"
+    },
+    {
+      "username": "do_thi_mai",
+      "name": "Đỗ Thị Mai",
+      "phone": "0981122334",
+      "street": "55 Tôn Đức Thắng",
+      "ward": "Phường Hàng Bột",
+      "district": "Quận Đống Đa",
+      "city": "Hà Nội"
+    },
+    {
+      "username": "truong_quoc_huy",
+      "name": "Trương Quốc Huy",
+      "phone": "0909988776",
+      "street": "180 Điện Biên Phủ",
+      "ward": "Phường 15",
+      "district": "Quận Bình Thạnh",
+      "city": "TP Hồ Chí Minh"
+    }
+  ],
+  "products": [
+    {
+      "id": "mock-66608cd1",
+      "title": "Điện thoại Apple iPhone 15 Pro Max 256GB - Chính hãng VN/A (Khung viền Titan, Camera 5x)",
+      "category_id": "cat-electronics",
+      "price": 29990000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Titan Tự Nhiên / 256GB",
+          "sku": "IP15PM-NAT-256",
+          "price": 29990000,
+          "stock": 60
+        },
+        {
+          "name": "Titan Xanh / 256GB",
+          "sku": "IP15PM-BLU-256",
+          "price": 29990000,
+          "stock": 50
+        },
+        {
+          "name": "Titan Đen / 512GB",
+          "sku": "IP15PM-BLK-512",
+          "price": 34990000,
+          "stock": 40
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-7bb8b694",
+      "title": "Laptop Apple MacBook Pro 14 inch M3 Pro (18GB Unified RAM / 512GB SSD) - Hàng Chính Hãng",
+      "category_id": "cat-electronics",
+      "price": 49990000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Space Black / 18GB/512GB",
+          "sku": "MBP14-M3P-BLK",
+          "price": 49990000,
+          "stock": 25
+        },
+        {
+          "name": "Silver / 18GB/1TB",
+          "sku": "MBP14-M3P-SLV-1T",
+          "price": 56990000,
+          "stock": 20
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-edca60e2",
+      "title": "Máy tính bảng Apple iPad Air M2 11 inch Wi-Fi 128GB - Thiết kế siêu mỏng nhẹ",
+      "category_id": "cat-electronics",
+      "price": 16490000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Xám Không Gian / 128GB",
+          "sku": "IPADAIR-M2-GRY",
+          "price": 16490000,
+          "stock": 35
+        },
+        {
+          "name": "Xanh Pastel / 128GB",
+          "sku": "IPADAIR-M2-BLU",
+          "price": 16490000,
+          "stock": 35
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-ab532138",
+      "title": "Điện thoại Samsung Galaxy S24 Ultra 5G 12GB/256GB - Quyền Năng Galaxy AI Đỉnh Cao",
+      "category_id": "cat-electronics",
+      "price": 27990000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Titanium Gray / 256GB",
+          "sku": "SS-S24U-GRY",
+          "price": 27990000,
+          "stock": 45
+        },
+        {
+          "name": "Titanium Violet / 256GB",
+          "sku": "SS-S24U-VIO",
+          "price": 27990000,
+          "stock": 45
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-a9f50136",
+      "title": "Tai Nghe Chống Ồn Cao Cấp Sony WH-1000XM5 Không Dây - Chống Ồn Chủ Động ANC Đỉnh Cao",
+      "category_id": "cat-electronics",
+      "price": 6990000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Đen Nhám Cổ Điển",
+          "sku": "SONY-XM5-BLK",
+          "price": 6990000,
+          "stock": 50
+        },
+        {
+          "name": "Bạc Bạch Kim",
+          "sku": "SONY-XM5-SLV",
+          "price": 6990000,
+          "stock": 30
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-8d2963e7",
+      "title": "Tai Nghe True Wireless Apple AirPods Pro 2 MagSafe USB-C - Âm Thanh Không Gian Cá Nhân Hóa",
+      "category_id": "cat-electronics",
+      "price": 5690000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Trắng Chuẩn VN/A",
+          "sku": "APP2-USBC-WHT",
+          "price": 5690000,
+          "stock": 120
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-7293ffcf",
+      "title": "Màn Hình Đồ Họa Chuyên Nghiệp Dell UltraSharp U2724D 27 inch 2K 120Hz IPS Black",
+      "category_id": "cat-electronics",
+      "price": 9890000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Bạc Chân Kim Loại",
+          "sku": "DELL-U2724D-SLV",
+          "price": 9890000,
+          "stock": 40
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-00acae4c",
+      "title": "Loa Bluetooth Di Động Marshall Emberton II Chống Nước IP67 - Âm Thanh 360 Độ True Stereophonic",
+      "category_id": "cat-electronics",
+      "price": 3790000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Black & Brass (Đen Viền Đồng)",
+          "sku": "MARSH-EMB2-BLK",
+          "price": 3790000,
+          "stock": 40
+        },
+        {
+          "name": "Cream (Màu Kem Cổ Điển)",
+          "sku": "MARSH-EMB2-CRM",
+          "price": 3790000,
+          "stock": 25
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1545454675-3531b543be5d?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-e69c721b",
+      "title": "Củ Sạc Nhanh Anker GaNPrime 65W 3 Cổng (2 Type-C + 1 USB-A) - Nhỏ Gọn Siêu Nhanh",
+      "category_id": "cat-electronics",
+      "price": 890000,
+      "seller_user": "anker_flagship",
+      "seller_id": "uid-anker_flagship",
+      "variants": [
+        {
+          "name": "Đen Phantom",
+          "sku": "ANKER-65W-BLK",
+          "price": 890000,
+          "stock": 120
+        },
+        {
+          "name": "Trắng Ngọc Trai",
+          "sku": "ANKER-65W-WHT",
+          "price": 890000,
+          "stock": 80
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1622445262464-84b1456045b6?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-b13bfb63",
+      "title": "Pin Dự Phòng Anker MagGo Qi2 15W 10.000mAh Không Dây Từ Tính Siêu Nhanh",
+      "category_id": "cat-electronics",
+      "price": 1290000,
+      "seller_user": "anker_flagship",
+      "seller_id": "uid-anker_flagship",
+      "variants": [
+        {
+          "name": "Đen Carbon",
+          "sku": "ANKER-MAG10K-BLK",
+          "price": 1290000,
+          "stock": 70
+        },
+        {
+          "name": "Trắng Ice",
+          "sku": "ANKER-MAG10K-WHT",
+          "price": 1290000,
+          "stock": 70
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1609592424109-dd9892f1b177?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-ab1343cc",
+      "title": "Cáp Sạc Nhanh C To C Anker PowerLine III Flow Silicone Siêu Mềm Mại 100W 1.8m",
+      "category_id": "cat-electronics",
+      "price": 280000,
+      "seller_user": "anker_flagship",
+      "seller_id": "uid-anker_flagship",
+      "variants": [
+        {
+          "name": "Xanh Mint - 1.8m",
+          "sku": "ANKER-C2C-MNT",
+          "price": 280000,
+          "stock": 150
+        },
+        {
+          "name": "Tím Lavender - 1.8m",
+          "sku": "ANKER-C2C-LAV",
+          "price": 280000,
+          "stock": 150
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-fcfaea9b",
+      "title": "Tai Nghe Chụp Tai Chống Ồn Anker Soundcore Space One - Hi-Res Audio Không Dây",
+      "category_id": "cat-electronics",
+      "price": 1890000,
+      "seller_user": "anker_flagship",
+      "seller_id": "uid-anker_flagship",
+      "variants": [
+        {
+          "name": "Đen Huyền Bí",
+          "sku": "ANKER-SPO-BLK",
+          "price": 1890000,
+          "stock": 60
+        },
+        {
+          "name": "Màu Be Sữa",
+          "sku": "ANKER-SPO-LAT",
+          "price": 1890000,
+          "stock": 50
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-9cab2ac8",
+      "title": "Áo Thun Nam Cổ Tròn Coolmate Cotton Compact 100% Chống Nhăn Co Giãn Thoáng Mát",
+      "category_id": "cat-fashion",
+      "price": 179000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Đen Classic - Size L",
+          "sku": "CM-TSHIRT-BLK-L",
+          "price": 179000,
+          "stock": 100
+        },
+        {
+          "name": "Trắng Basic - Size L",
+          "sku": "CM-TSHIRT-WHT-L",
+          "price": 179000,
+          "stock": 90
+        },
+        {
+          "name": "Xanh Navy - Size XL",
+          "sku": "CM-TSHIRT-NVY-XL",
+          "price": 179000,
+          "stock": 90
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-752d185c",
+      "title": "Áo Polo Nam Coolmate Pique Cotton Thấm Hút Mồ Hôi Thoáng Khí Cao Cấp",
+      "category_id": "cat-fashion",
+      "price": 249000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Xanh Navy - Size M",
+          "sku": "CM-POLO-NVY-M",
+          "price": 249000,
+          "stock": 60
+        },
+        {
+          "name": "Xanh Navy - Size L",
+          "sku": "CM-POLO-NVY-L",
+          "price": 249000,
+          "stock": 70
+        },
+        {
+          "name": "Trắng Kem - Size L",
+          "sku": "CM-POLO-WHT-L",
+          "price": 249000,
+          "stock": 60
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-f0bb7a70",
+      "title": "Quần Short Thể Thao Nam Coolmate QuickDry 7 inch Co Giãn 4 Chiều Thoáng Mát",
+      "category_id": "cat-fashion",
+      "price": 189000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Đen Nam Tính - Size L",
+          "sku": "CM-SHORT-BLK-L",
+          "price": 189000,
+          "stock": 110
+        },
+        {
+          "name": "Xám Ghi Đậm - Size L",
+          "sku": "CM-SHORT-GRY-L",
+          "price": 189000,
+          "stock": 110
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-83b26895",
+      "title": "Quần Jean Nam Dáng Slimfit Coolmate Clean Denim Co Giãn Thoải Mái",
+      "category_id": "cat-fashion",
+      "price": 499000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Xanh Chàm Đậm - Size 31",
+          "sku": "CM-JEAN-IND-31",
+          "price": 499000,
+          "stock": 75
+        },
+        {
+          "name": "Xanh Nhạt Vintage - Size 32",
+          "sku": "CM-JEAN-BLU-32",
+          "price": 499000,
+          "stock": 75
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-c24c5bed",
+      "title": "Combo 3 Quần Lót Nam Boxer Sợi Tre Bamboo Coolmate Kháng Khuẩn Khử Mùi",
+      "category_id": "cat-fashion",
+      "price": 239000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Combo 3 Màu Basic - Size L",
+          "sku": "CM-BOXER-3L",
+          "price": 239000,
+          "stock": 160
+        },
+        {
+          "name": "Combo 3 Màu Basic - Size XL",
+          "sku": "CM-BOXER-3XL",
+          "price": 239000,
+          "stock": 160
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-32a146c7",
+      "title": "Áo Khoác Gió Thể Thao Nam 2 Lớp Chống Nước Cản Gió - Form Dáng Trẻ Trung",
+      "category_id": "cat-fashion",
+      "price": 399000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Xanh Navy - Size M",
+          "sku": "CM-WIND-NVY-M",
+          "price": 399000,
+          "stock": 60
+        },
+        {
+          "name": "Xanh Navy - Size L",
+          "sku": "CM-WIND-NVY-L",
+          "price": 399000,
+          "stock": 60
+        },
+        {
+          "name": "Đen Basic - Size L",
+          "sku": "CM-WIND-BLK-L",
+          "price": 399000,
+          "stock": 60
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1548883354-7622d03aca27?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-e09b552d",
+      "title": "Áo Sơ Mi Nam Tay Dài Vải Oxford Cotton Dày Dặn Đứng Form Chống Nhăn",
+      "category_id": "cat-fashion",
+      "price": 349000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Trắng Tinh Tế - Size L",
+          "sku": "CM-SHIRT-WHT-L",
+          "price": 349000,
+          "stock": 70
+        },
+        {
+          "name": "Xanh Dương Nhạt - Size L",
+          "sku": "CM-SHIRT-BLU-L",
+          "price": 349000,
+          "stock": 70
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-55162670",
+      "title": "Áo Hoodie Nỉ Bông Unisex Form Rộng Oversize Hàn Quốc Dày Dặn Ấm Áp",
+      "category_id": "cat-fashion",
+      "price": 389000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Xám Melange - FreeSize",
+          "sku": "CM-HOODIE-GRY",
+          "price": 389000,
+          "stock": 80
+        },
+        {
+          "name": "Đen Classic - FreeSize",
+          "sku": "CM-HOODIE-BLK",
+          "price": 389000,
+          "stock": 80
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-4adc9496",
+      "title": "Thắt Lưng Nam Da Bò Thật Nguyên Tấm Khóa Tự Động Hợp Kim Chống Rỉ",
+      "category_id": "cat-fashion",
+      "price": 289000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Đen Da Mịn - Bản 3.5cm",
+          "sku": "CM-BELT-BLK",
+          "price": 289000,
+          "stock": 110
+        },
+        {
+          "name": "Nâu Cà Phê - Bản 3.5cm",
+          "sku": "CM-BELT-BRW",
+          "price": 289000,
+          "stock": 100
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-bbc9b28d",
+      "title": "Đầm Nữ Dáng Xòe Cổ Vuông Tay Bồng Phong Cách Vintage Thanh Lịch Nữ Tính",
+      "category_id": "cat-fashion",
+      "price": 420000,
+      "seller_user": "coolmate_official",
+      "seller_id": "uid-coolmate_official",
+      "variants": [
+        {
+          "name": "Trắng Sữa - Size S",
+          "sku": "CM-DRESS-WHT-S",
+          "price": 420000,
+          "stock": 45
+        },
+        {
+          "name": "Trắng Sữa - Size M",
+          "sku": "CM-DRESS-WHT-M",
+          "price": 420000,
+          "stock": 45
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-5dcc9bd4",
+      "title": "Bình Giữ Nhiệt Lock&Lock Feather Light Thép Không Gỉ 450ml - Giữ Nóng Lạnh 24h",
+      "category_id": "cat-home",
+      "price": 249000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Xanh Mint Dịu Mát",
+          "sku": "LOCK-FL-MNT",
+          "price": 249000,
+          "stock": 125
+        },
+        {
+          "name": "Đen Nhám Thể Thao",
+          "sku": "LOCK-FL-BLK",
+          "price": 249000,
+          "stock": 125
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-d9fa5061",
+      "title": "Bộ 4 Hộp Thủy Tinh Chịu Nhiệt Lock&Lock Glass Top Oven Safe Dùng Được Lò Nướng 400°C",
+      "category_id": "cat-home",
+      "price": 369000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Bộ 4 Hộp Vuông & Chữ Nhật",
+          "sku": "LOCK-SET4-GLS",
+          "price": 369000,
+          "stock": 180
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1584990347449-39908cfb2742?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-fb317068",
+      "title": "Nồi Cơm Điện Cao Tần IH Lock&Lock 1.8L Lòng Nồi Niêu Chống Dính 3D Đa Năng",
+      "category_id": "cat-home",
+      "price": 1890000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Trắng Kim Cương 1.8L",
+          "sku": "LOCK-RICE-WHT",
+          "price": 1890000,
+          "stock": 30
+        },
+        {
+          "name": "Đen Titan 1.8L",
+          "sku": "LOCK-RICE-BLK",
+          "price": 1890000,
+          "stock": 30
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-c6c4c7f4",
+      "title": "Bộ Dao Làm Bếp Inox 7 Món Cao Cấp Lock&Lock Kèm Giá Cắm Gỗ Thông Sang Trọng",
+      "category_id": "cat-home",
+      "price": 589000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Bộ 7 Món Kèm Giá Gỗ",
+          "sku": "LOCK-KNIFE-7P",
+          "price": 589000,
+          "stock": 100
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1593618998160-e34014e67546?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-0bac58bd",
+      "title": "Chảo Xào Chống Dính Lock&Lock Deco Lòng Sâu 28cm Đáy Từ Dùng Mọi Loại Bếp",
+      "category_id": "cat-home",
+      "price": 429000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Màu Xanh Cổ Vịt - 28cm",
+          "sku": "LOCK-PAN-GRN-28",
+          "price": 429000,
+          "stock": 70
+        },
+        {
+          "name": "Màu Vàng Be - 28cm",
+          "sku": "LOCK-PAN-YEL-28",
+          "price": 429000,
+          "stock": 70
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1583778176476-4a8b02a64c01?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-cd774620",
+      "title": "Cây Lau Nhà Xoay Tay Tự Vắt Lock&Lock Easy Mop Kèm Thùng Vắt Đôi Tiện Lợi",
+      "category_id": "cat-home",
+      "price": 499000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Xanh Dương Tươi Sáng",
+          "sku": "LOCK-MOP-BLU",
+          "price": 499000,
+          "stock": 55
+        },
+        {
+          "name": "Xám Ghi Sang Trọng",
+          "sku": "LOCK-MOP-GRY",
+          "price": 499000,
+          "stock": 55
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-ad41f272",
+      "title": "Máy Xay Sinh Tố Cầm Tay Đa Năng Lock&Lock 2 Cối Nhựa Tritan Không Chứa BPA",
+      "category_id": "cat-home",
+      "price": 399000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Trắng Kem 2 Cối",
+          "sku": "LOCK-BLND-WHT",
+          "price": 399000,
+          "stock": 65
+        },
+        {
+          "name": "Xanh Navy 2 Cối",
+          "sku": "LOCK-BLND-NVY",
+          "price": 399000,
+          "stock": 65
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-09eadfaf",
+      "title": "Thảm Lau Chân San Hô Sợi Microfiber Siêu Thấm Hút Nước Đáy Cao Su Chống Trượt",
+      "category_id": "cat-home",
+      "price": 79000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Xám Khói 40x60cm",
+          "sku": "MAT-CORAL-GRY",
+          "price": 79000,
+          "stock": 250
+        },
+        {
+          "name": "Xanh Lam 40x60cm",
+          "sku": "MAT-CORAL-BLU",
+          "price": 79000,
+          "stock": 200
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-3c9a53ef",
+      "title": "Kệ Để Giày Dép Gỗ Tự Nhiên 5 Tầng Gấp Gọn Thông Minh Không Cần Lắp Đặt",
+      "category_id": "cat-home",
+      "price": 219000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Gỗ Tự Nhiên 50cm",
+          "sku": "SHOE-RACK-50",
+          "price": 219000,
+          "stock": 85
+        },
+        {
+          "name": "Gỗ Tự Nhiên 70cm",
+          "sku": "SHOE-RACK-70",
+          "price": 259000,
+          "stock": 85
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-fcc58cf4",
+      "title": "Đèn Bàn Học LED Chống Cận Thị Cảm Ứng 3 Chế Độ Sáng Bảo Vệ Mắt",
+      "category_id": "cat-home",
+      "price": 189000,
+      "seller_user": "locknlock_vietnam",
+      "seller_id": "uid-locknlock_vietnam",
+      "variants": [
+        {
+          "name": "Trắng Tinh Khiết",
+          "sku": "LAMP-LED-WHT",
+          "price": 189000,
+          "stock": 110
+        },
+        {
+          "name": "Đen Nhám Hiện Đại",
+          "sku": "LAMP-LED-BLK",
+          "price": 189000,
+          "stock": 110
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1534353436294-0dbd4bdac845?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-f9fcf88c",
+      "title": "Robot Hút Bụi Lau Nhà Tự Động Giặt Giẻ Sấy Khí Nóng Roborock S8 Pro Ultra",
+      "category_id": "cat-appliances",
+      "price": 21990000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Trắng Sang Trọng",
+          "sku": "ROBOROCK-S8-WHT",
+          "price": 21990000,
+          "stock": 20
+        },
+        {
+          "name": "Đen Huyền Bí",
+          "sku": "ROBOROCK-S8-BLK",
+          "price": 21990000,
+          "stock": 15
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-e6ac969d",
+      "title": "Nồi Chiên Không Dầu Điện Tử Philips XXL HD9650/90 Dung Tích 7.3L - Công Suất 2225W",
+      "category_id": "cat-appliances",
+      "price": 4290000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Đen Bóng Điện Tử 7.3L",
+          "sku": "PHILIPS-XXL-BLK",
+          "price": 4290000,
+          "stock": 60
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1585659722983-3a675dabf23d?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-f2089455",
+      "title": "Máy Lọc Không Khí Thông Minh Xiaomi Smart Air Purifier 4 Pro - Lọc Bụi Mịn PM2.5",
+      "category_id": "cat-appliances",
+      "price": 3890000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Trắng Tinh Khiết Bản Quốc Tế",
+          "sku": "XIAOMI-AIR-4PRO",
+          "price": 3890000,
+          "stock": 80
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-193ecb2b",
+      "title": "Quạt Tháp Không Cánh Lọc Không Khí Philips Smart 2 Trong 1 Kháng Khuẩn Ion Âm",
+      "category_id": "cat-appliances",
+      "price": 4790000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Xám Bạc Kim Loại",
+          "sku": "PHILIPS-FAN-SLV",
+          "price": 4790000,
+          "stock": 25
+        },
+        {
+          "name": "Trắng Ngọc Trai",
+          "sku": "PHILIPS-FAN-WHT",
+          "price": 4790000,
+          "stock": 20
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1618941716939-553df3c6c278?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-6847ebf6",
+      "title": "Máy Hút Ẩm Không Khí Thông Minh Xiaomi New Widetech 20L/ngày Bình Chứa 3.2L",
+      "category_id": "cat-appliances",
+      "price": 3490000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Trắng Tinh Tế 20L",
+          "sku": "XIAOMI-HUM-20L",
+          "price": 3490000,
+          "stock": 55
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-b3add482",
+      "title": "Nồi Áp Suất Điện Tử Đa Năng Tefal Turbo Cuisine 5L Lòng Nồi Niêu Hình Cầu",
+      "category_id": "cat-appliances",
+      "price": 2190000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Đen Titan 5L",
+          "sku": "TEFAL-TURBO-5L",
+          "price": 2190000,
+          "stock": 75
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-be589354",
+      "title": "Bàn Ủi Hơi Nước Đứng Philips ComfortTouch Plus 2000W Đầu Ủi FlexHead Linh Hoạt",
+      "category_id": "cat-appliances",
+      "price": 2890000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Tím Pastel",
+          "sku": "PHILIPS-IRON-PUR",
+          "price": 2890000,
+          "stock": 50
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1585659722983-3a675dabf23d?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-a2bce903",
+      "title": "Máy Ép Chậm Hurom H-200 Easy Clean Trục Ép Tự Cắt Miệng Cối Ép Nguyên Trái",
+      "category_id": "cat-appliances",
+      "price": 8490000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Đen Nhám Sang Trọng",
+          "sku": "HUROM-H200-BLK",
+          "price": 8490000,
+          "stock": 15
+        },
+        {
+          "name": "Đỏ Mận Quý Phái",
+          "sku": "HUROM-H200-RED",
+          "price": 8490000,
+          "stock": 15
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-bea11f96",
+      "title": "Máy Sấy Tóc Bổ Sung Ion Âm Nanoe Chăm Sóc Tóc Panasonic EH-NA98 1800W",
+      "category_id": "cat-appliances",
+      "price": 2990000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Hồng Ánh Kim",
+          "sku": "PANA-NA98-PNK",
+          "price": 2990000,
+          "stock": 35
+        },
+        {
+          "name": "Đen Bóng Huyền Bí",
+          "sku": "PANA-NA98-BLK",
+          "price": 2990000,
+          "stock": 30
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-7e6b56fb",
+      "title": "Lò Nướng Thùng Điện Tử Sharp EO-A384RCSV-ST 38L Chức Năng Nướng Đối Lưu",
+      "category_id": "cat-appliances",
+      "price": 1890000,
+      "seller_user": "dien_may_xanh",
+      "seller_id": "uid-dien_may_xanh",
+      "variants": [
+        {
+          "name": "Inox Bạc 38L",
+          "sku": "SHARP-OVEN-38L",
+          "price": 1890000,
+          "stock": 40
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1585659722983-3a675dabf23d?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-7c178e13",
+      "title": "Giày Chạy Bộ Nam Nike Air Zoom Pegasus 40 Êm Ái Nảy Bước Siêu Nhẹ",
+      "category_id": "cat-sports",
+      "price": 3290000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Trắng Phối Xanh - Size 41",
+          "sku": "NIKE-PEG40-WHT-41",
+          "price": 3290000,
+          "stock": 40
+        },
+        {
+          "name": "Đen Trắng - Size 42",
+          "sku": "NIKE-PEG40-BLK-42",
+          "price": 3290000,
+          "stock": 40
+        },
+        {
+          "name": "Cam Neon - Size 42.5",
+          "sku": "NIKE-PEG40-ORG-425",
+          "price": 3290000,
+          "stock": 40
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-03db59f4",
+      "title": "Giày Thể Thao Sneaker Nam Nữ Nike Air Force 1 '07 All-White Chuẩn Authentic",
+      "category_id": "cat-sports",
+      "price": 2890000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "All-White - Size 40",
+          "sku": "AF1-WHT-40",
+          "price": 2890000,
+          "stock": 50
+        },
+        {
+          "name": "All-White - Size 41",
+          "sku": "AF1-WHT-41",
+          "price": 2890000,
+          "stock": 60
+        },
+        {
+          "name": "All-White - Size 42",
+          "sku": "AF1-WHT-42",
+          "price": 2890000,
+          "stock": 50
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-20a1b24f",
+      "title": "Xe Đạp Thể Thao Địa Hình Giant ATX 830 Khung Hợp Kim Nhôm ALUXX - Phanh Đĩa Dầu",
+      "category_id": "cat-sports",
+      "price": 8990000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Màu Xanh Đậm - Size M",
+          "sku": "GIANT-ATX830-BLU",
+          "price": 8990000,
+          "stock": 15
+        },
+        {
+          "name": "Màu Đen Đỏ - Size L",
+          "sku": "GIANT-ATX830-RED",
+          "price": 8990000,
+          "stock": 15
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-87958f80",
+      "title": "Vợt Cầu Lông Yonex Astrox 88D Pro Chính Hãng Chuyên Công - Khung Cầu Carbon Siêu Cứng",
+      "category_id": "cat-sports",
+      "price": 3750000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Bản 3U-G5 (Nặng đầu)",
+          "sku": "YONEX-88D-3U",
+          "price": 3750000,
+          "stock": 25
+        },
+        {
+          "name": "Bản 4U-G5 (Linh hoạt)",
+          "sku": "YONEX-88D-4U",
+          "price": 3750000,
+          "stock": 20
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-60ba41a1",
+      "title": "Quả Bóng Đá Tiêu Chuẩn Thi Đấu FIFA Quality Pro Molten F5V5000 Số 5 Đúc Nhiệt",
+      "category_id": "cat-sports",
+      "price": 1450000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Trắng Họa Tiết Đỏ Xanh Số 5",
+          "sku": "MOLTEN-F5000",
+          "price": 1450000,
+          "stock": 80
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1614632537423-1e6c2e7e0aab?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-9cf8746b",
+      "title": "Thảm Tập Yoga Định Tuyến Cao Su Tự Nhiên PU Chống Trơn Trượt Tuyệt Đối 5mm",
+      "category_id": "cat-sports",
+      "price": 650000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Xanh Ngọc Lục Bảo 5mm",
+          "sku": "YOGA-PU-GRN",
+          "price": 650000,
+          "stock": 50
+        },
+        {
+          "name": "Tím Thạch Anh 5mm",
+          "sku": "YOGA-PU-PUR",
+          "price": 650000,
+          "stock": 50
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-dec4dccc",
+      "title": "Bình Nước Thể Thao Nike HyperFuel Water Bottle 700ml Nắp Bóp Uống Nhanh",
+      "category_id": "cat-sports",
+      "price": 290000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Đen Nhám Thể Thao 700ml",
+          "sku": "NIKE-BOT-BLK",
+          "price": 290000,
+          "stock": 130
+        },
+        {
+          "name": "Xanh Neon Năng Động 700ml",
+          "sku": "NIKE-BOT-NEO",
+          "price": 290000,
+          "stock": 120
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-40dc9c65",
+      "title": "Bộ 5 Dây Kháng Lực Đa Năng PowerBand Cao Su Tự Nhiên Tập Gym Tại Nhà",
+      "category_id": "cat-sports",
+      "price": 350000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Bộ 5 Dây Full Mức Tạ",
+          "sku": "POWERBAND-5SET",
+          "price": 350000,
+          "stock": 180
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-2f48e039",
+      "title": "Đồng Hồ Thể Thao Chuyên Nghiệp Garmin Forerunner 265 Màn Hình AMOLED Rực Rỡ",
+      "category_id": "cat-sports",
+      "price": 10990000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Đen Viền Vàng 46mm",
+          "sku": "GARMIN-265-BLK",
+          "price": 10990000,
+          "stock": 15
+        },
+        {
+          "name": "Trắng Viền Xanh 46mm",
+          "sku": "GARMIN-265-WHT",
+          "price": 10990000,
+          "stock": 10
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
+    {
+      "id": "mock-905fe66e",
+      "title": "Kính Bơi Thi Đấu Chống Đọng Sương & Chống Tia UV Speedo Fastskin Elite Mắt Tráng Gương",
+      "category_id": "cat-sports",
+      "price": 690000,
+      "seller_user": "nike_vietnam_store",
+      "seller_id": "uid-nike_vietnam_store",
+      "variants": [
+        {
+          "name": "Gương Bạc Chống Lóa",
+          "sku": "SPEEDO-FS-SLV",
+          "price": 690000,
+          "stock": 50
+        },
+        {
+          "name": "Xanh Biển Trong Suốt",
+          "sku": "SPEEDO-FS-BLU",
+          "price": 690000,
+          "stock": 40
+        }
+      ],
+      "images": [
+        "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&auto=format&fit=crop&q=80"
+      ]
+    }
+  ],
+  "vouchers": [
+    {
+      "code": "WELCOME50",
+      "scope": 2,
+      "discount_type": 2,
+      "discount_value": 50000,
+      "min_spend": 200000,
+      "max_discount": 50000,
+      "quota": 1000,
+      "name": "Giảm 50k cho khách hàng mới đơn từ 200k"
+    },
+    {
+      "code": "FREESHIP",
+      "scope": 2,
+      "discount_type": 2,
+      "discount_value": 30000,
+      "min_spend": 0,
+      "max_discount": 30000,
+      "quota": 5000,
+      "name": "Miễn phí vận chuyển toàn quốc giảm tối đa 30k"
+    },
+    {
+      "code": "TECH100K",
+      "scope": 2,
+      "discount_type": 2,
+      "discount_value": 100000,
+      "min_spend": 1000000,
+      "max_discount": 100000,
+      "quota": 500,
+      "name": "Giảm 100k cho đơn hàng thiết bị công nghệ từ 1 triệu"
+    },
+    {
+      "code": "MEGA20",
+      "scope": 2,
+      "discount_type": 1,
+      "discount_value": 20,
+      "min_spend": 500000,
+      "max_discount": 200000,
+      "quota": 200,
+      "name": "Giảm 20% tối đa 200k cho đơn từ 500k"
+    },
+    {
+      "code": "SHOPEE10K",
+      "scope": 2,
+      "discount_type": 2,
+      "discount_value": 10000,
+      "min_spend": 99000,
+      "max_discount": 10000,
+      "quota": 2000,
+      "name": "Giảm 10k đơn từ 99k toàn sàn"
+    },
+    {
+      "code": "DMX50K",
+      "scope": 1,
+      "seller_user": "dien_may_xanh",
+      "discount_type": 2,
+      "discount_value": 50000,
+      "min_spend": 500000,
+      "max_discount": 50000,
+      "quota": 300,
+      "name": "Điện Máy Xanh: Giảm 50k cho đơn từ 500k"
+    },
+    {
+      "code": "COOLMATE15",
+      "scope": 1,
+      "seller_user": "coolmate_official",
+      "discount_type": 1,
+      "discount_value": 15,
+      "min_spend": 250000,
+      "max_discount": 50000,
+      "quota": 500,
+      "name": "Coolmate: Giảm 15% tối đa 50k cho đơn từ 250k"
+    },
+    {
+      "code": "ANKER10",
+      "scope": 1,
+      "seller_user": "anker_flagship",
+      "discount_type": 1,
+      "discount_value": 10,
+      "min_spend": 300000,
+      "max_discount": 100000,
+      "quota": 400,
+      "name": "Anker: Giảm 10% tối đa 100k cho đơn từ 300k"
+    },
+    {
+      "code": "LOCK30K",
+      "scope": 1,
+      "seller_user": "locknlock_vietnam",
+      "discount_type": 2,
+      "discount_value": 30000,
+      "min_spend": 300000,
+      "max_discount": 30000,
+      "quota": 600,
+      "name": "Lock&Lock: Giảm 30k cho đơn gia dụng từ 300k"
+    },
+    {
+      "code": "NIKE100K",
+      "scope": 1,
+      "seller_user": "nike_vietnam_store",
+      "discount_type": 2,
+      "discount_value": 100000,
+      "min_spend": 1500000,
+      "max_discount": 100000,
+      "quota": 250,
+      "name": "Nike Vietnam: Giảm 100k cho đơn thể thao từ 1.5 triệu"
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "ord-20260821-0001",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-c6c4c7f4",
+      "variant_id": "LOCK-KNIFE-7P",
+      "quantity": 1,
+      "unit_price": 589000,
+      "currency": "VND",
+      "occurred_at": "2026-08-21T10:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260821-0002",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-08-21T10:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260821-0003",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-c24c5bed",
+      "variant_id": "CM-BOXER-3L",
+      "quantity": 1,
+      "unit_price": 239000,
+      "currency": "VND",
+      "occurred_at": "2026-08-21T10:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260822-0004",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-193ecb2b",
+      "variant_id": "PHILIPS-FAN-SLV",
+      "quantity": 1,
+      "unit_price": 4790000,
+      "currency": "VND",
+      "occurred_at": "2026-08-22T11:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260822-0005",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-9cf8746b",
+      "variant_id": "YOGA-PU-GRN",
+      "quantity": 1,
+      "unit_price": 650000,
+      "currency": "VND",
+      "occurred_at": "2026-08-22T11:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0006",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7293ffcf",
+      "variant_id": "DELL-U2724D-SLV",
+      "quantity": 1,
+      "unit_price": 9890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0007",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-e69c721b",
+      "variant_id": "ANKER-65W-BLK",
+      "quantity": 1,
+      "unit_price": 890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0007",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-55162670",
+      "variant_id": "CM-HOODIE-GRY",
+      "quantity": 1,
+      "unit_price": 389000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0008",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-752d185c",
+      "variant_id": "CM-POLO-NVY-M",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0008",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0008",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-7c178e13",
+      "variant_id": "NIKE-PEG40-WHT-41",
+      "quantity": 1,
+      "unit_price": 3290000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0009",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-6847ebf6",
+      "variant_id": "XIAOMI-HUM-20L",
+      "quantity": 1,
+      "unit_price": 3490000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0009",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260823-0009",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-4adc9496",
+      "variant_id": "CM-BELT-BLK",
+      "quantity": 1,
+      "unit_price": 289000,
+      "currency": "VND",
+      "occurred_at": "2026-08-23T01:57:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260824-0010",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-24T09:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260824-0011",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7bb8b694",
+      "variant_id": "MBP14-M3P-BLK",
+      "quantity": 1,
+      "unit_price": 49990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-24T09:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260824-0011",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-e69c721b",
+      "variant_id": "ANKER-65W-BLK",
+      "quantity": 1,
+      "unit_price": 890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-24T09:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260824-0011",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-ab1343cc",
+      "variant_id": "ANKER-C2C-MNT",
+      "quantity": 1,
+      "unit_price": 280000,
+      "currency": "VND",
+      "occurred_at": "2026-08-24T09:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260824-0012",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a2bce903",
+      "variant_id": "HUROM-H200-BLK",
+      "quantity": 1,
+      "unit_price": 8490000,
+      "currency": "VND",
+      "occurred_at": "2026-08-24T09:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260825-0013",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-752d185c",
+      "variant_id": "CM-POLO-NVY-M",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-08-25T04:14:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260825-0014",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fcc58cf4",
+      "variant_id": "LAMP-LED-WHT",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-08-25T04:14:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260825-0014",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-5dcc9bd4",
+      "variant_id": "LOCK-FL-MNT",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-08-25T04:14:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260825-0014",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-c24c5bed",
+      "variant_id": "CM-BOXER-3L",
+      "quantity": 1,
+      "unit_price": 239000,
+      "currency": "VND",
+      "occurred_at": "2026-08-25T04:14:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0015",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a9f50136",
+      "variant_id": "SONY-XM5-BLK",
+      "quantity": 1,
+      "unit_price": 6990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0015",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-193ecb2b",
+      "variant_id": "PHILIPS-FAN-SLV",
+      "quantity": 1,
+      "unit_price": 4790000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0016",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-b13bfb63",
+      "variant_id": "ANKER-MAG10K-BLK",
+      "quantity": 1,
+      "unit_price": 1290000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0017",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-8d2963e7",
+      "variant_id": "APP2-USBC-WHT",
+      "quantity": 1,
+      "unit_price": 5690000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0017",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fcc58cf4",
+      "variant_id": "LAMP-LED-WHT",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0018",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-40dc9c65",
+      "variant_id": "POWERBAND-5SET",
+      "quantity": 1,
+      "unit_price": 350000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0019",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-0bac58bd",
+      "variant_id": "LOCK-PAN-GRN-28",
+      "quantity": 1,
+      "unit_price": 429000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0019",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-32a146c7",
+      "variant_id": "CM-WIND-NVY-M",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260826-0019",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-4adc9496",
+      "variant_id": "CM-BELT-BLK",
+      "quantity": 1,
+      "unit_price": 289000,
+      "currency": "VND",
+      "occurred_at": "2026-08-26T04:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0020",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-ad41f272",
+      "variant_id": "LOCK-BLND-WHT",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0020",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-9cf8746b",
+      "variant_id": "YOGA-PU-GRN",
+      "quantity": 1,
+      "unit_price": 650000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0021",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0021",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-6847ebf6",
+      "variant_id": "XIAOMI-HUM-20L",
+      "quantity": 1,
+      "unit_price": 3490000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0022",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7e6b56fb",
+      "variant_id": "SHARP-OVEN-38L",
+      "quantity": 1,
+      "unit_price": 1890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0023",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0024",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-3c9a53ef",
+      "variant_id": "SHOE-RACK-50",
+      "quantity": 1,
+      "unit_price": 219000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260827-0025",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-bbc9b28d",
+      "variant_id": "CM-DRESS-WHT-S",
+      "quantity": 1,
+      "unit_price": 420000,
+      "currency": "VND",
+      "occurred_at": "2026-08-27T09:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0026",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-dec4dccc",
+      "variant_id": "NIKE-BOT-BLK",
+      "quantity": 1,
+      "unit_price": 290000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0026",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-03db59f4",
+      "variant_id": "AF1-WHT-40",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0026",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-00acae4c",
+      "variant_id": "MARSH-EMB2-BLK",
+      "quantity": 1,
+      "unit_price": 3790000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0027",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-b3add482",
+      "variant_id": "TEFAL-TURBO-5L",
+      "quantity": 1,
+      "unit_price": 2190000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0027",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-bbc9b28d",
+      "variant_id": "CM-DRESS-WHT-S",
+      "quantity": 1,
+      "unit_price": 420000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0028",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7bb8b694",
+      "variant_id": "MBP14-M3P-BLK",
+      "quantity": 1,
+      "unit_price": 49990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0029",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fcc58cf4",
+      "variant_id": "LAMP-LED-WHT",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0029",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-ab532138",
+      "variant_id": "SS-S24U-GRY",
+      "quantity": 1,
+      "unit_price": 27990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0030",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-2f48e039",
+      "variant_id": "GARMIN-265-BLK",
+      "quantity": 1,
+      "unit_price": 10990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0030",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-00acae4c",
+      "variant_id": "MARSH-EMB2-BLK",
+      "quantity": 1,
+      "unit_price": 3790000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0030",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-7c178e13",
+      "variant_id": "NIKE-PEG40-WHT-41",
+      "quantity": 1,
+      "unit_price": 3290000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0031",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-ab1343cc",
+      "variant_id": "ANKER-C2C-MNT",
+      "quantity": 1,
+      "unit_price": 280000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260828-0031",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-6847ebf6",
+      "variant_id": "XIAOMI-HUM-20L",
+      "quantity": 1,
+      "unit_price": 3490000,
+      "currency": "VND",
+      "occurred_at": "2026-08-28T00:20:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0032",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-f0bb7a70",
+      "variant_id": "CM-SHORT-BLK-L",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0032",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7bb8b694",
+      "variant_id": "MBP14-M3P-BLK",
+      "quantity": 1,
+      "unit_price": 49990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0032",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-b13bfb63",
+      "variant_id": "ANKER-MAG10K-BLK",
+      "quantity": 1,
+      "unit_price": 1290000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0033",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0033",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-9cab2ac8",
+      "variant_id": "CM-TSHIRT-BLK-L",
+      "quantity": 1,
+      "unit_price": 179000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0033",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-905fe66e",
+      "variant_id": "SPEEDO-FS-SLV",
+      "quantity": 1,
+      "unit_price": 690000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0034",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0034",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-bea11f96",
+      "variant_id": "PANA-NA98-PNK",
+      "quantity": 1,
+      "unit_price": 2990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0034",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f9fcf88c",
+      "variant_id": "ROBOROCK-S8-WHT",
+      "quantity": 1,
+      "unit_price": 21990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260829-0035",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-29T00:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0036",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7bb8b694",
+      "variant_id": "MBP14-M3P-BLK",
+      "quantity": 1,
+      "unit_price": 49990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0036",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7293ffcf",
+      "variant_id": "DELL-U2724D-SLV",
+      "quantity": 1,
+      "unit_price": 9890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0037",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-40dc9c65",
+      "variant_id": "POWERBAND-5SET",
+      "quantity": 1,
+      "unit_price": 350000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0038",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-f0bb7a70",
+      "variant_id": "CM-SHORT-BLK-L",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0039",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-f0bb7a70",
+      "variant_id": "CM-SHORT-BLK-L",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0039",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260830-0039",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7bb8b694",
+      "variant_id": "MBP14-M3P-BLK",
+      "quantity": 1,
+      "unit_price": 49990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-30T03:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0040",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-9cab2ac8",
+      "variant_id": "CM-TSHIRT-BLK-L",
+      "quantity": 1,
+      "unit_price": 179000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T01:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0040",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-e6ac969d",
+      "variant_id": "PHILIPS-XXL-BLK",
+      "quantity": 1,
+      "unit_price": 4290000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T01:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0041",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T01:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0042",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-ad41f272",
+      "variant_id": "LOCK-BLND-WHT",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0043",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a9f50136",
+      "variant_id": "SONY-XM5-BLK",
+      "quantity": 1,
+      "unit_price": 6990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0043",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-ab1343cc",
+      "variant_id": "ANKER-C2C-MNT",
+      "quantity": 1,
+      "unit_price": 280000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0044",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-9cf8746b",
+      "variant_id": "YOGA-PU-GRN",
+      "quantity": 1,
+      "unit_price": 650000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0044",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0045",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-ab532138",
+      "variant_id": "SS-S24U-GRY",
+      "quantity": 1,
+      "unit_price": 27990000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0046",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-03db59f4",
+      "variant_id": "AF1-WHT-40",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0046",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-83b26895",
+      "variant_id": "CM-JEAN-IND-31",
+      "quantity": 1,
+      "unit_price": 499000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0046",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a2bce903",
+      "variant_id": "HUROM-H200-BLK",
+      "quantity": 1,
+      "unit_price": 8490000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260831-0047",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-87958f80",
+      "variant_id": "YONEX-88D-3U",
+      "quantity": 1,
+      "unit_price": 3750000,
+      "currency": "VND",
+      "occurred_at": "2026-08-31T21:50:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260901-0048",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-905fe66e",
+      "variant_id": "SPEEDO-FS-SLV",
+      "quantity": 1,
+      "unit_price": 690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-01T19:52:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260901-0049",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f9fcf88c",
+      "variant_id": "ROBOROCK-S8-WHT",
+      "quantity": 1,
+      "unit_price": 21990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-01T19:52:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0050",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f9fcf88c",
+      "variant_id": "ROBOROCK-S8-WHT",
+      "quantity": 1,
+      "unit_price": 21990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0050",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-193ecb2b",
+      "variant_id": "PHILIPS-FAN-SLV",
+      "quantity": 1,
+      "unit_price": 4790000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0050",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0051",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-8d2963e7",
+      "variant_id": "APP2-USBC-WHT",
+      "quantity": 1,
+      "unit_price": 5690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0052",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-55162670",
+      "variant_id": "CM-HOODIE-GRY",
+      "quantity": 1,
+      "unit_price": 389000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0053",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-ad41f272",
+      "variant_id": "LOCK-BLND-WHT",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0053",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-bbc9b28d",
+      "variant_id": "CM-DRESS-WHT-S",
+      "quantity": 1,
+      "unit_price": 420000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0054",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-4adc9496",
+      "variant_id": "CM-BELT-BLK",
+      "quantity": 1,
+      "unit_price": 289000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0055",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-8d2963e7",
+      "variant_id": "APP2-USBC-WHT",
+      "quantity": 1,
+      "unit_price": 5690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0055",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7bb8b694",
+      "variant_id": "MBP14-M3P-BLK",
+      "quantity": 1,
+      "unit_price": 49990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0055",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-bea11f96",
+      "variant_id": "PANA-NA98-PNK",
+      "quantity": 1,
+      "unit_price": 2990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T04:17:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0056",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-7c178e13",
+      "variant_id": "NIKE-PEG40-WHT-41",
+      "quantity": 1,
+      "unit_price": 3290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T18:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0057",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T18:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0058",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-9cf8746b",
+      "variant_id": "YOGA-PU-GRN",
+      "quantity": 1,
+      "unit_price": 650000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T18:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0059",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-9cf8746b",
+      "variant_id": "YOGA-PU-GRN",
+      "quantity": 1,
+      "unit_price": 650000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T18:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260903-0059",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-8d2963e7",
+      "variant_id": "APP2-USBC-WHT",
+      "quantity": 1,
+      "unit_price": 5690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-03T18:38:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0060",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-8d2963e7",
+      "variant_id": "APP2-USBC-WHT",
+      "quantity": 1,
+      "unit_price": 5690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0061",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7e6b56fb",
+      "variant_id": "SHARP-OVEN-38L",
+      "quantity": 1,
+      "unit_price": 1890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0061",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-66608cd1",
+      "variant_id": "IP15PM-NAT-256",
+      "quantity": 1,
+      "unit_price": 29990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0062",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-e69c721b",
+      "variant_id": "ANKER-65W-BLK",
+      "quantity": 1,
+      "unit_price": 890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0062",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-e6ac969d",
+      "variant_id": "PHILIPS-XXL-BLK",
+      "quantity": 1,
+      "unit_price": 4290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0063",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-00acae4c",
+      "variant_id": "MARSH-EMB2-BLK",
+      "quantity": 1,
+      "unit_price": 3790000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260904-0063",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a9f50136",
+      "variant_id": "SONY-XM5-BLK",
+      "quantity": 1,
+      "unit_price": 6990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-04T20:46:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0064",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-40dc9c65",
+      "variant_id": "POWERBAND-5SET",
+      "quantity": 1,
+      "unit_price": 350000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0065",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-7c178e13",
+      "variant_id": "NIKE-PEG40-WHT-41",
+      "quantity": 1,
+      "unit_price": 3290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0065",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-dec4dccc",
+      "variant_id": "NIKE-BOT-BLK",
+      "quantity": 1,
+      "unit_price": 290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0065",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-9cab2ac8",
+      "variant_id": "CM-TSHIRT-BLK-L",
+      "quantity": 1,
+      "unit_price": 179000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0066",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-905fe66e",
+      "variant_id": "SPEEDO-FS-SLV",
+      "quantity": 1,
+      "unit_price": 690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0067",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-32a146c7",
+      "variant_id": "CM-WIND-NVY-M",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0067",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-87958f80",
+      "variant_id": "YONEX-88D-3U",
+      "quantity": 1,
+      "unit_price": 3750000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0067",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a2bce903",
+      "variant_id": "HUROM-H200-BLK",
+      "quantity": 1,
+      "unit_price": 8490000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0068",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-ad41f272",
+      "variant_id": "LOCK-BLND-WHT",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260905-0068",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-87958f80",
+      "variant_id": "YONEX-88D-3U",
+      "quantity": 1,
+      "unit_price": 3750000,
+      "currency": "VND",
+      "occurred_at": "2026-09-05T19:01:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0069",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fcc58cf4",
+      "variant_id": "LAMP-LED-WHT",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0070",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0071",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-00acae4c",
+      "variant_id": "MARSH-EMB2-BLK",
+      "quantity": 1,
+      "unit_price": 3790000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0071",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-ab1343cc",
+      "variant_id": "ANKER-C2C-MNT",
+      "quantity": 1,
+      "unit_price": 280000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0072",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-40dc9c65",
+      "variant_id": "POWERBAND-5SET",
+      "quantity": 1,
+      "unit_price": 350000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0072",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-66608cd1",
+      "variant_id": "IP15PM-NAT-256",
+      "quantity": 1,
+      "unit_price": 29990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0072",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-09eadfaf",
+      "variant_id": "MAT-CORAL-GRY",
+      "quantity": 1,
+      "unit_price": 79000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0073",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-dec4dccc",
+      "variant_id": "NIKE-BOT-BLK",
+      "quantity": 1,
+      "unit_price": 290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260906-0073",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-f0bb7a70",
+      "variant_id": "CM-SHORT-BLK-L",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-09-06T23:43:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260908-0074",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7e6b56fb",
+      "variant_id": "SHARP-OVEN-38L",
+      "quantity": 1,
+      "unit_price": 1890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-08T10:19:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260908-0075",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-87958f80",
+      "variant_id": "YONEX-88D-3U",
+      "quantity": 1,
+      "unit_price": 3750000,
+      "currency": "VND",
+      "occurred_at": "2026-09-08T10:19:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260908-0075",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-03db59f4",
+      "variant_id": "AF1-WHT-40",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-08T10:19:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260908-0076",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-60ba41a1",
+      "variant_id": "MOLTEN-F5000",
+      "quantity": 1,
+      "unit_price": 1450000,
+      "currency": "VND",
+      "occurred_at": "2026-09-08T10:19:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260908-0077",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-08T10:19:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260909-0078",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-55162670",
+      "variant_id": "CM-HOODIE-GRY",
+      "quantity": 1,
+      "unit_price": 389000,
+      "currency": "VND",
+      "occurred_at": "2026-09-09T11:14:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260909-0079",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-ab532138",
+      "variant_id": "SS-S24U-GRY",
+      "quantity": 1,
+      "unit_price": 27990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-09T11:14:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0080",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T05:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0080",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fb317068",
+      "variant_id": "LOCK-RICE-WHT",
+      "quantity": 1,
+      "unit_price": 1890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T05:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0081",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-e69c721b",
+      "variant_id": "ANKER-65W-BLK",
+      "quantity": 1,
+      "unit_price": 890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T05:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0081",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fb317068",
+      "variant_id": "LOCK-RICE-WHT",
+      "quantity": 1,
+      "unit_price": 1890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T05:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0081",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-83b26895",
+      "variant_id": "CM-JEAN-IND-31",
+      "quantity": 1,
+      "unit_price": 499000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T05:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0082",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-09eadfaf",
+      "variant_id": "MAT-CORAL-GRY",
+      "quantity": 1,
+      "unit_price": 79000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0082",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-3c9a53ef",
+      "variant_id": "SHOE-RACK-50",
+      "quantity": 1,
+      "unit_price": 219000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0083",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-ad41f272",
+      "variant_id": "LOCK-BLND-WHT",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0083",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-6847ebf6",
+      "variant_id": "XIAOMI-HUM-20L",
+      "quantity": 1,
+      "unit_price": 3490000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0083",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-b3add482",
+      "variant_id": "TEFAL-TURBO-5L",
+      "quantity": 1,
+      "unit_price": 2190000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0084",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-6847ebf6",
+      "variant_id": "XIAOMI-HUM-20L",
+      "quantity": 1,
+      "unit_price": 3490000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0084",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-3c9a53ef",
+      "variant_id": "SHOE-RACK-50",
+      "quantity": 1,
+      "unit_price": 219000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260910-0084",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-7293ffcf",
+      "variant_id": "DELL-U2724D-SLV",
+      "quantity": 1,
+      "unit_price": 9890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-10T18:58:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260912-0085",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-09-12T03:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260912-0085",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-87958f80",
+      "variant_id": "YONEX-88D-3U",
+      "quantity": 1,
+      "unit_price": 3750000,
+      "currency": "VND",
+      "occurred_at": "2026-09-12T03:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260912-0085",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-c24c5bed",
+      "variant_id": "CM-BOXER-3L",
+      "quantity": 1,
+      "unit_price": 239000,
+      "currency": "VND",
+      "occurred_at": "2026-09-12T03:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260912-0086",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-12T03:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260912-0087",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-0bac58bd",
+      "variant_id": "LOCK-PAN-GRN-28",
+      "quantity": 1,
+      "unit_price": 429000,
+      "currency": "VND",
+      "occurred_at": "2026-09-12T03:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260912-0088",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-bea11f96",
+      "variant_id": "PANA-NA98-PNK",
+      "quantity": 1,
+      "unit_price": 2990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-12T03:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0089",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0089",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-2f48e039",
+      "variant_id": "GARMIN-265-BLK",
+      "quantity": 1,
+      "unit_price": 10990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0090",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-bea11f96",
+      "variant_id": "PANA-NA98-PNK",
+      "quantity": 1,
+      "unit_price": 2990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0091",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0092",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f9fcf88c",
+      "variant_id": "ROBOROCK-S8-WHT",
+      "quantity": 1,
+      "unit_price": 21990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0092",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-2f48e039",
+      "variant_id": "GARMIN-265-BLK",
+      "quantity": 1,
+      "unit_price": 10990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0092",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fcc58cf4",
+      "variant_id": "LAMP-LED-WHT",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0093",
+      "buyer_id": "uid-vu_duc_minh",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-03db59f4",
+      "variant_id": "AF1-WHT-40",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0094",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0094",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-edca60e2",
+      "variant_id": "IPADAIR-M2-GRY",
+      "quantity": 1,
+      "unit_price": 16490000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260913-0094",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-dec4dccc",
+      "variant_id": "NIKE-BOT-BLK",
+      "quantity": 1,
+      "unit_price": 290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-13T04:11:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0095",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-2f48e039",
+      "variant_id": "GARMIN-265-BLK",
+      "quantity": 1,
+      "unit_price": 10990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0095",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-905fe66e",
+      "variant_id": "SPEEDO-FS-SLV",
+      "quantity": 1,
+      "unit_price": 690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0096",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a9f50136",
+      "variant_id": "SONY-XM5-BLK",
+      "quantity": 1,
+      "unit_price": 6990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0097",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0098",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-5dcc9bd4",
+      "variant_id": "LOCK-FL-MNT",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0099",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-b13bfb63",
+      "variant_id": "ANKER-MAG10K-BLK",
+      "quantity": 1,
+      "unit_price": 1290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260914-0100",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-5dcc9bd4",
+      "variant_id": "LOCK-FL-MNT",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-09-14T00:49:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260915-0101",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-40dc9c65",
+      "variant_id": "POWERBAND-5SET",
+      "quantity": 1,
+      "unit_price": 350000,
+      "currency": "VND",
+      "occurred_at": "2026-09-15T13:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260915-0102",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-60ba41a1",
+      "variant_id": "MOLTEN-F5000",
+      "quantity": 1,
+      "unit_price": 1450000,
+      "currency": "VND",
+      "occurred_at": "2026-09-15T13:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0103",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0103",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-9cf8746b",
+      "variant_id": "YOGA-PU-GRN",
+      "quantity": 1,
+      "unit_price": 650000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0104",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-60ba41a1",
+      "variant_id": "MOLTEN-F5000",
+      "quantity": 1,
+      "unit_price": 1450000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0105",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-be589354",
+      "variant_id": "PHILIPS-IRON-PUR",
+      "quantity": 1,
+      "unit_price": 2890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0105",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-3c9a53ef",
+      "variant_id": "SHOE-RACK-50",
+      "quantity": 1,
+      "unit_price": 219000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0106",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-5dcc9bd4",
+      "variant_id": "LOCK-FL-MNT",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0107",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T05:33:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0108",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-e09b552d",
+      "variant_id": "CM-SHIRT-WHT-L",
+      "quantity": 1,
+      "unit_price": 349000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0108",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-f0bb7a70",
+      "variant_id": "CM-SHORT-BLK-L",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0109",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-f2089455",
+      "variant_id": "XIAOMI-AIR-4PRO",
+      "quantity": 1,
+      "unit_price": 3890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0109",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-anker_flagship",
+      "listing_id": "mock-fcfaea9b",
+      "variant_id": "ANKER-SPO-BLK",
+      "quantity": 1,
+      "unit_price": 1890000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0109",
+      "buyer_id": "uid-pham_thi_hoa",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-60ba41a1",
+      "variant_id": "MOLTEN-F5000",
+      "quantity": 1,
+      "unit_price": 1450000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0110",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-bea11f96",
+      "variant_id": "PANA-NA98-PNK",
+      "quantity": 1,
+      "unit_price": 2990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0110",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-fcc58cf4",
+      "variant_id": "LAMP-LED-WHT",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0111",
+      "buyer_id": "uid-truong_quoc_huy",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-4adc9496",
+      "variant_id": "CM-BELT-BLK",
+      "quantity": 1,
+      "unit_price": 289000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0112",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-ad41f272",
+      "variant_id": "LOCK-BLND-WHT",
+      "quantity": 1,
+      "unit_price": 399000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0112",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-coolmate_official",
+      "listing_id": "mock-f0bb7a70",
+      "variant_id": "CM-SHORT-BLK-L",
+      "quantity": 1,
+      "unit_price": 189000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0112",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-20a1b24f",
+      "variant_id": "GIANT-ATX830-BLU",
+      "quantity": 1,
+      "unit_price": 8990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260916-0113",
+      "buyer_id": "uid-bui_tien_dung",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-e6ac969d",
+      "variant_id": "PHILIPS-XXL-BLK",
+      "quantity": 1,
+      "unit_price": 4290000,
+      "currency": "VND",
+      "occurred_at": "2026-09-16T19:53:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0114",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-nike_vietnam_store",
+      "listing_id": "mock-40dc9c65",
+      "variant_id": "POWERBAND-5SET",
+      "quantity": 1,
+      "unit_price": 350000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T08:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0115",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-8d2963e7",
+      "variant_id": "APP2-USBC-WHT",
+      "quantity": 1,
+      "unit_price": 5690000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T08:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0115",
+      "buyer_id": "uid-tran_thi_b",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-09eadfaf",
+      "variant_id": "MAT-CORAL-GRY",
+      "quantity": 1,
+      "unit_price": 79000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T08:34:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0116",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-c6c4c7f4",
+      "variant_id": "LOCK-KNIFE-7P",
+      "quantity": 1,
+      "unit_price": 589000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T22:48:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0117",
+      "buyer_id": "uid-le_hoang_nam",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-bea11f96",
+      "variant_id": "PANA-NA98-PNK",
+      "quantity": 1,
+      "unit_price": 2990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T22:48:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0118",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-d9fa5061",
+      "variant_id": "LOCK-SET4-GLS",
+      "quantity": 1,
+      "unit_price": 369000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T22:48:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260918-0118",
+      "buyer_id": "uid-dang_thuy_trang",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-5dcc9bd4",
+      "variant_id": "LOCK-FL-MNT",
+      "quantity": 1,
+      "unit_price": 249000,
+      "currency": "VND",
+      "occurred_at": "2026-09-18T22:48:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260920-0119",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-09eadfaf",
+      "variant_id": "MAT-CORAL-GRY",
+      "quantity": 1,
+      "unit_price": 79000,
+      "currency": "VND",
+      "occurred_at": "2026-09-20T00:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260920-0119",
+      "buyer_id": "uid-do_thi_mai",
+      "seller_id": "uid-dien_may_xanh",
+      "listing_id": "mock-a9f50136",
+      "variant_id": "SONY-XM5-BLK",
+      "quantity": 1,
+      "unit_price": 6990000,
+      "currency": "VND",
+      "occurred_at": "2026-09-20T00:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260920-0120",
+      "buyer_id": "uid-hoang_gia_bao",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-3c9a53ef",
+      "variant_id": "SHOE-RACK-50",
+      "quantity": 1,
+      "unit_price": 219000,
+      "currency": "VND",
+      "occurred_at": "2026-09-20T00:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    },
+    {
+      "order_id": "ord-20260920-0121",
+      "buyer_id": "uid-nguyen_van_a",
+      "seller_id": "uid-locknlock_vietnam",
+      "listing_id": "mock-cd774620",
+      "variant_id": "LOCK-MOP-BLU",
+      "quantity": 1,
+      "unit_price": 499000,
+      "currency": "VND",
+      "occurred_at": "2026-09-20T00:41:09Z",
+      "status": "ORDER_STATUS_COMPLETED"
+    }
+  ],
+  "sample_tracking_events": [
+    {
+      "type": "add_shipping_info",
+      "listingId": "mock-c6c4c7f4",
+      "sessionId": "sess-0c2d87461c11",
+      "anonymousId": "anon-0642d37b08",
+      "path": "/listing/mock-c6c4c7f4",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 6,
+      "query": "Bộ",
+      "placementId": "home_feed",
+      "impressionId": "988d4058-c55a-43b1-98e6-d0af56ff030e",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 589000,
+      "price": 589000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "6aab3aa7-b86a-4b8d-82ac-b1f3de426c1e",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "click",
+      "listingId": "mock-66608cd1",
+      "sessionId": "sess-452fd362e475",
+      "anonymousId": "anon-e985c870e8",
+      "path": "/listing/mock-66608cd1",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 3,
+      "query": "Điện",
+      "placementId": "category_page",
+      "impressionId": "78f87dbe-d2e1-414d-b697-d992047d7ce1",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 29990000,
+      "price": 29990000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "3c7c1d73-bbe2-4e66-b072-8bf08f40bd40",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "add_payment_info",
+      "listingId": "mock-e69c721b",
+      "sessionId": "sess-6827060492f6",
+      "anonymousId": "anon-07f8facd98",
+      "path": "/listing/mock-e69c721b",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 19,
+      "query": "Củ",
+      "placementId": "similar_items",
+      "impressionId": "6251ed73-b629-4f0b-bf14-8310e21a9fdb",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 890000,
+      "price": 890000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "da849eb3-668b-48e0-8527-548f0da464e0",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-anker_flagship",
+        "seller_user": "anker_flagship",
+        "brand": "anker_flagship"
+      }
+    },
+    {
+      "type": "impression",
+      "listingId": "mock-752d185c",
+      "sessionId": "sess-85661cc96dda",
+      "anonymousId": "anon-8a417a24eb",
+      "path": "/listing/mock-752d185c",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 9,
+      "query": "Áo",
+      "placementId": "home_feed",
+      "impressionId": "34d4ff48-4d62-4284-a3ad-97caf93ba8bb",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 249000,
+      "price": 249000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "51468c26-4c1e-49be-800f-40d0c7d10ccc",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "add_payment_info",
+      "listingId": "mock-83b26895",
+      "sessionId": "sess-7fee7c7a3c69",
+      "anonymousId": "anon-b4b88fd2ec",
+      "path": "/listing/mock-83b26895",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 4,
+      "query": "Quần",
+      "placementId": "search_results",
+      "impressionId": "690e7201-12be-4407-8695-532364a549c9",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 499000,
+      "price": 499000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "3363cd63-a1cf-4c83-b644-6715279c2129",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-fcfaea9b",
+      "sessionId": "sess-799a06adcc02",
+      "anonymousId": "anon-4124269511",
+      "path": "/listing/mock-fcfaea9b",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 5,
+      "query": "Tai",
+      "placementId": "category_page",
+      "impressionId": "1c54e14e-ae74-436e-8e7b-02b136ab9ad5",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1890000,
+      "price": 1890000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "b1705d79-b390-4e52-8092-92da27ed79f5",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-anker_flagship",
+        "seller_user": "anker_flagship",
+        "brand": "anker_flagship"
+      }
+    },
+    {
+      "type": "purchase",
+      "listingId": "mock-40dc9c65",
+      "sessionId": "sess-710537cc15ea",
+      "anonymousId": "anon-234841ff38",
+      "path": "/listing/mock-40dc9c65",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 5,
+      "query": "Bộ",
+      "placementId": "search_results",
+      "impressionId": "8b7f93a7-71d2-4f9e-ac05-811816e1532a",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 350000,
+      "price": 350000,
+      "quantity": 1,
+      "transactionId": "txn-c182c943db",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "882558a1-9c08-4747-869d-9a11efce1b22",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-7e6b56fb",
+      "sessionId": "sess-8aa6ecbe3507",
+      "anonymousId": "anon-dc58d20eec",
+      "path": "/listing/mock-7e6b56fb",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 10,
+      "query": "Lò",
+      "placementId": "category_page",
+      "impressionId": "8e3c3fda-03ae-46bb-af9f-9189e105d1b7",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 1890000,
+      "price": 1890000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "a7016208-f2f4-44dd-8362-b9f596199b27",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "impression",
+      "listingId": "mock-60ba41a1",
+      "sessionId": "sess-e6c4c565d52a",
+      "anonymousId": "anon-25e1849d0b",
+      "path": "/listing/mock-60ba41a1",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 16,
+      "query": "Quả",
+      "placementId": "home_feed",
+      "impressionId": "5104f6c6-d49c-40b4-a9cd-651ae9b08d05",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 2900000,
+      "price": 1450000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "ce2c2138-13eb-4d9f-b5d3-d611eef2ae35",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view_cart",
+      "listingId": "mock-7e6b56fb",
+      "sessionId": "sess-4c2f89bfbe9a",
+      "anonymousId": "anon-c94f3dd793",
+      "path": "/listing/mock-7e6b56fb",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 12,
+      "query": "Lò",
+      "placementId": "cart_cross_sell",
+      "impressionId": "29bc66ff-373f-4e16-86db-6acaf00f1d25",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 5670000,
+      "price": 1890000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "9dca271a-2b28-43b8-b26b-9f3fbf482648",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "add_shipping_info",
+      "listingId": "mock-bbc9b28d",
+      "sessionId": "sess-b663edd872bb",
+      "anonymousId": "anon-ed2506cdc7",
+      "path": "/listing/mock-bbc9b28d",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 2,
+      "query": "Đầm",
+      "placementId": "cart_cross_sell",
+      "impressionId": "5838ab35-f597-46be-b099-5c32430ddb2e",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 420000,
+      "price": 420000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "5f94132f-33f5-4698-babe-a52bebc0fb7a",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-b13bfb63",
+      "sessionId": "sess-1899d58b635d",
+      "anonymousId": "anon-2e20ee999a",
+      "path": "/listing/mock-b13bfb63",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 5,
+      "query": "Pin",
+      "placementId": "similar_items",
+      "impressionId": "6990a377-0e8f-40a9-8b38-55921f59218f",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1290000,
+      "price": 1290000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "a9949632-b3d7-48d2-bf8a-14687bb94496",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-anker_flagship",
+        "seller_user": "anker_flagship",
+        "brand": "anker_flagship"
+      }
+    },
+    {
+      "type": "impression",
+      "listingId": "mock-dec4dccc",
+      "sessionId": "sess-b8966e3d3bb9",
+      "anonymousId": "anon-8287b281d5",
+      "path": "/listing/mock-dec4dccc",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 15,
+      "query": "Bình",
+      "placementId": "search_results",
+      "impressionId": "be06caed-060a-4523-a686-88917d9767b3",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 580000,
+      "price": 290000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "babb6ad8-139d-47c9-b887-916be46a72c2",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-4adc9496",
+      "sessionId": "sess-7166a73bd746",
+      "anonymousId": "anon-e95eb77531",
+      "path": "/listing/mock-4adc9496",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 2,
+      "query": "Thắt",
+      "placementId": "category_page",
+      "impressionId": "4d0aec79-778d-45fd-8f40-2750936d3b5e",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 578000,
+      "price": 289000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "94330105-10b4-4282-8875-81fcffee0809",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-0bac58bd",
+      "sessionId": "sess-282be9c4638a",
+      "anonymousId": "anon-f6a6d19e65",
+      "path": "/listing/mock-0bac58bd",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 19,
+      "query": "Chảo",
+      "placementId": "search_results",
+      "impressionId": "b49997a7-aeb3-46be-9192-7b6df66150c2",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 429000,
+      "price": 429000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "c4f72588-6567-4b2c-bd3d-686d78376cdc",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "begin_checkout",
+      "listingId": "mock-6847ebf6",
+      "sessionId": "sess-e28ed105969b",
+      "anonymousId": "anon-9c99299912",
+      "path": "/listing/mock-6847ebf6",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 9,
+      "query": "Máy",
+      "placementId": "similar_items",
+      "impressionId": "68734727-bdec-4416-a1f7-5f34a147ff1c",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 3490000,
+      "price": 3490000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "70135273-6064-4012-a601-d2e3ef1dfa11",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "favorite",
+      "listingId": "mock-9cab2ac8",
+      "sessionId": "sess-f5bc6e364bee",
+      "anonymousId": "anon-f6e57f8c49",
+      "path": "/listing/mock-9cab2ac8",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 24,
+      "query": "Áo",
+      "placementId": "search_results",
+      "impressionId": "b72bc2b3-8bba-44b5-a248-83d09b42e928",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 179000,
+      "price": 179000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "d60fed0c-3239-452b-8b43-4a1b8ba3187c",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-a2bce903",
+      "sessionId": "sess-16dcb8498511",
+      "anonymousId": "anon-f0cf371d90",
+      "path": "/listing/mock-a2bce903",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 14,
+      "query": "Máy",
+      "placementId": "home_feed",
+      "impressionId": "b6b4e7ce-0c39-49f1-8fed-2c76b913b2b3",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 16980000,
+      "price": 8490000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "1c5e18f8-2909-4387-8243-4f675b103b15",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "begin_checkout",
+      "listingId": "mock-9cab2ac8",
+      "sessionId": "sess-879f9f3cb5c5",
+      "anonymousId": "anon-9bc40d7c5e",
+      "path": "/listing/mock-9cab2ac8",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 18,
+      "query": "Áo",
+      "placementId": "category_page",
+      "impressionId": "ae1f748a-cb7a-4260-a876-226080684e69",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 179000,
+      "price": 179000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "6e9c1958-27e0-4ad1-ad91-453e6d3cc43b",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-fb317068",
+      "sessionId": "sess-f9b3ffc2a05b",
+      "anonymousId": "anon-bb8883279c",
+      "path": "/listing/mock-fb317068",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 6,
+      "query": "Nồi",
+      "placementId": "search_results",
+      "impressionId": "278395eb-a200-44a2-ab6d-19a8ff2b9613",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 1890000,
+      "price": 1890000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "f890b2bd-712e-4ac1-a54c-4232b9dc1387",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-7bb8b694",
+      "sessionId": "sess-69992c1e120f",
+      "anonymousId": "anon-ee2bebc31f",
+      "path": "/listing/mock-7bb8b694",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 17,
+      "query": "Laptop",
+      "placementId": "similar_items",
+      "impressionId": "d9ccec41-90c9-4d86-9775-e935e8c7f872",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 49990000,
+      "price": 49990000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "af7f371b-4d95-4f65-8cab-96dcc829379d",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "add_payment_info",
+      "listingId": "mock-d9fa5061",
+      "sessionId": "sess-52c84c7a62c5",
+      "anonymousId": "anon-39b085596b",
+      "path": "/listing/mock-d9fa5061",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 18,
+      "query": "Bộ",
+      "placementId": "cart_cross_sell",
+      "impressionId": "e6c7f7fb-a0aa-4cf3-a7c9-67c5b03f0dcd",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 369000,
+      "price": 369000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "ca5cf9fd-d425-44a0-a97c-e86dcde982be",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-7e6b56fb",
+      "sessionId": "sess-bbe5e03a0651",
+      "anonymousId": "anon-6f1f8c8ccd",
+      "path": "/listing/mock-7e6b56fb",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 12,
+      "query": "Lò",
+      "placementId": "similar_items",
+      "impressionId": "2cf38d2b-8a4c-44ed-b351-133510921509",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1890000,
+      "price": 1890000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "ef46123f-8e4c-4768-aea0-74adcb47d8f5",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-bea11f96",
+      "sessionId": "sess-73837a288fe8",
+      "anonymousId": "anon-6269448896",
+      "path": "/listing/mock-bea11f96",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 4,
+      "query": "Máy",
+      "placementId": "home_feed",
+      "impressionId": "62810385-1a5b-408f-94a1-294bf437ea6f",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 8970000,
+      "price": 2990000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "41d75985-91ed-4f2c-9abd-c4f3a355d72b",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "click",
+      "listingId": "mock-87958f80",
+      "sessionId": "sess-da5db26ef02e",
+      "anonymousId": "anon-bc2b631fe5",
+      "path": "/listing/mock-87958f80",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 22,
+      "query": "Vợt",
+      "placementId": "home_feed",
+      "impressionId": "9fecabc8-2d4c-4a0e-b9b6-0dff9dca5645",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 3750000,
+      "price": 3750000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "5ac3df3d-3e6c-4999-bee0-1d18d55a8bdd",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-f9fcf88c",
+      "sessionId": "sess-548459a87294",
+      "anonymousId": "anon-ab2e58dc7d",
+      "path": "/listing/mock-f9fcf88c",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 7,
+      "query": "Robot",
+      "placementId": "home_feed",
+      "impressionId": "7bf8a080-50cd-4128-b99a-9d5c07c1cd03",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 21990000,
+      "price": 21990000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "a3c5a185-b7e3-4e9f-b6a9-4fbc30c7f568",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "purchase",
+      "listingId": "mock-20a1b24f",
+      "sessionId": "sess-085665b1ddd2",
+      "anonymousId": "anon-c49562147f",
+      "path": "/listing/mock-20a1b24f",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 17,
+      "query": "Xe",
+      "placementId": "search_results",
+      "impressionId": "d6c629cd-6e8c-435e-89d0-2ca1df1c05fb",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 8990000,
+      "price": 8990000,
+      "quantity": 1,
+      "transactionId": "txn-42d4a57a51",
+      "coupon": "",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "f61d4bcb-079c-419e-9904-da21dc8ac9d7",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-00acae4c",
+      "sessionId": "sess-230d8a31eda3",
+      "anonymousId": "anon-72586b9779",
+      "path": "/listing/mock-00acae4c",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 20,
+      "query": "Loa",
+      "placementId": "search_results",
+      "impressionId": "35e5710c-2250-44e2-a094-df5d5d304d21",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 7580000,
+      "price": 3790000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "0ee4032b-0b4c-4f26-bc2c-39bcdbb2d5c6",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "impression",
+      "listingId": "mock-c6c4c7f4",
+      "sessionId": "sess-6bf18af9fdba",
+      "anonymousId": "anon-b3a18b8f55",
+      "path": "/listing/mock-c6c4c7f4",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 21,
+      "query": "Bộ",
+      "placementId": "similar_items",
+      "impressionId": "9ef567ca-9df0-45fb-b244-c084cfe139b5",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1178000,
+      "price": 589000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "df7e5f4d-d7ec-45e2-b7eb-e71248914fc8",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-9cf8746b",
+      "sessionId": "sess-d887fa5be6d9",
+      "anonymousId": "anon-574be384c4",
+      "path": "/listing/mock-9cf8746b",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 22,
+      "query": "Thảm",
+      "placementId": "similar_items",
+      "impressionId": "775c4ffd-4046-417c-9280-f25fb88a2284",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 650000,
+      "price": 650000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "f8992e43-504d-4fa8-a55a-7b11dcff42b8",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view",
+      "listingId": "mock-dec4dccc",
+      "sessionId": "sess-d54a468f26cd",
+      "anonymousId": "anon-13bf4da071",
+      "path": "/listing/mock-dec4dccc",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 3,
+      "query": "Bình",
+      "placementId": "search_results",
+      "impressionId": "97077e61-6431-49bd-8217-361af22e564b",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 870000,
+      "price": 290000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "7e166f3c-2e62-4768-82b9-f2b004a55be1",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view_cart",
+      "listingId": "mock-b13bfb63",
+      "sessionId": "sess-a84b713d4be8",
+      "anonymousId": "anon-2854984340",
+      "path": "/listing/mock-b13bfb63",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 17,
+      "query": "Pin",
+      "placementId": "cart_cross_sell",
+      "impressionId": "b83789ac-314e-4593-aa7c-12981fed7431",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1290000,
+      "price": 1290000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "6691be14-0950-4f87-adca-bbec3764f7d6",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-anker_flagship",
+        "seller_user": "anker_flagship",
+        "brand": "anker_flagship"
+      }
+    },
+    {
+      "type": "impression",
+      "listingId": "mock-ad41f272",
+      "sessionId": "sess-e440f82df02e",
+      "anonymousId": "anon-c0a8e23cce",
+      "path": "/listing/mock-ad41f272",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 2,
+      "query": "Máy",
+      "placementId": "home_feed",
+      "impressionId": "457db5b2-c142-49b6-90ec-afaa61c7b03d",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 399000,
+      "price": 399000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "548a598f-a771-42a3-b914-6ef5cfd2b494",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "purchase",
+      "listingId": "mock-f0bb7a70",
+      "sessionId": "sess-c91124cf31e8",
+      "anonymousId": "anon-c698e3afa6",
+      "path": "/listing/mock-f0bb7a70",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 4,
+      "query": "Quần",
+      "placementId": "home_feed",
+      "impressionId": "568cb920-709b-47c6-95e8-393159d74a43",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 189000,
+      "price": 189000,
+      "quantity": 1,
+      "transactionId": "txn-2b1f9a4962",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "c42e503c-57f3-4a95-aa41-64fa17a6e090",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-b3add482",
+      "sessionId": "sess-c676e7dd5962",
+      "anonymousId": "anon-918b8ca245",
+      "path": "/listing/mock-b3add482",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 12,
+      "query": "Nồi",
+      "placementId": "search_results",
+      "impressionId": "186569f9-6359-4302-a301-fcf73b9c7370",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 2190000,
+      "price": 2190000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "a125ff30-0bf3-41f1-96cb-266e86cd9cd7",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "begin_checkout",
+      "listingId": "mock-e6ac969d",
+      "sessionId": "sess-60218981d5b2",
+      "anonymousId": "anon-9f0251fdf9",
+      "path": "/listing/mock-e6ac969d",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 5,
+      "query": "Nồi",
+      "placementId": "home_feed",
+      "impressionId": "c9a329ce-ba90-49ad-b23e-5a723260282b",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 4290000,
+      "price": 4290000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "16d4e21c-5741-49b8-9a6b-731f76ba674f",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "begin_checkout",
+      "listingId": "mock-e6ac969d",
+      "sessionId": "sess-d6152fb7d811",
+      "anonymousId": "anon-0ab06f859d",
+      "path": "/listing/mock-e6ac969d",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 6,
+      "query": "Nồi",
+      "placementId": "similar_items",
+      "impressionId": "8952e977-ebd4-461b-ae27-4fedf259ae17",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 4290000,
+      "price": 4290000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "b8b118b5-f24f-4a29-a82b-d4e98f5c63ef",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "view_cart",
+      "listingId": "mock-7e6b56fb",
+      "sessionId": "sess-e400e35a0b9f",
+      "anonymousId": "anon-52d034e0c2",
+      "path": "/listing/mock-7e6b56fb",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 3,
+      "query": "Lò",
+      "placementId": "similar_items",
+      "impressionId": "c4a1cdbd-9e3b-4c66-aab9-bf87f1ee8d39",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 5670000,
+      "price": 1890000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "3d4364ec-67a1-4c82-ae6a-3c36ecffcbbd",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-f0bb7a70",
+      "sessionId": "sess-1da8cc22c739",
+      "anonymousId": "anon-077e6dc804",
+      "path": "/listing/mock-f0bb7a70",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 13,
+      "query": "Quần",
+      "placementId": "similar_items",
+      "impressionId": "869e95d0-783e-4a41-890e-e2c8fa759e29",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 189000,
+      "price": 189000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "18af9b61-86fc-487c-ba93-cae663e85297",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "click",
+      "listingId": "mock-b13bfb63",
+      "sessionId": "sess-b3aeed544d83",
+      "anonymousId": "anon-96d32fe2bb",
+      "path": "/listing/mock-b13bfb63",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 20,
+      "query": "Pin",
+      "placementId": "category_page",
+      "impressionId": "309025a4-4078-40c5-8dc3-be01551ebbfc",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 1290000,
+      "price": 1290000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "5192428b-a10e-4208-ae6e-86854329a4e5",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-anker_flagship",
+        "seller_user": "anker_flagship",
+        "brand": "anker_flagship"
+      }
+    },
+    {
+      "type": "view_cart",
+      "listingId": "mock-0bac58bd",
+      "sessionId": "sess-792986b0a093",
+      "anonymousId": "anon-0a685568c4",
+      "path": "/listing/mock-0bac58bd",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 16,
+      "query": "Chảo",
+      "placementId": "category_page",
+      "impressionId": "eb6d7ea7-4230-4959-9cfc-aa7d67b6100d",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1287000,
+      "price": 429000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "bc347574-afe1-4f23-bec4-e97d8f862b07",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "click",
+      "listingId": "mock-09eadfaf",
+      "sessionId": "sess-30152104218f",
+      "anonymousId": "anon-2599a03542",
+      "path": "/listing/mock-09eadfaf",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 18,
+      "query": "Thảm",
+      "placementId": "search_results",
+      "impressionId": "fa23b0d2-6639-4ea4-a184-44c319ba845d",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 79000,
+      "price": 79000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "f9341e6a-d042-4ced-b498-76dcb3ab3ca4",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "add_shipping_info",
+      "listingId": "mock-905fe66e",
+      "sessionId": "sess-731c84504cd2",
+      "anonymousId": "anon-63fe07a14a",
+      "path": "/listing/mock-905fe66e",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 7,
+      "query": "Kính",
+      "placementId": "similar_items",
+      "impressionId": "cd187ac4-35fe-4069-9684-f83e5fdc207f",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 690000,
+      "price": 690000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "e60ceedb-f37d-4236-9877-b512c1067807",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "favorite",
+      "listingId": "mock-b3add482",
+      "sessionId": "sess-1416925fa7e2",
+      "anonymousId": "anon-af0a75145f",
+      "path": "/listing/mock-b3add482",
+      "referrer": "https://market.vn/category/cat-appliances",
+      "position": 17,
+      "query": "Nồi",
+      "placementId": "home_feed",
+      "impressionId": "77280508-dc8f-41c2-9a24-48478439e0fa",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 6570000,
+      "price": 2190000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "WELCOME50",
+      "itemCategory": "cat-appliances",
+      "itemListId": "list-cat-appliances",
+      "itemListName": "Danh Mục cat-appliances",
+      "eventGroupId": "ba19e7ac-af44-416d-a154-d7c49af0b350",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "favorite",
+      "listingId": "mock-32a146c7",
+      "sessionId": "sess-17b331d66bb0",
+      "anonymousId": "anon-375b8e47b2",
+      "path": "/listing/mock-32a146c7",
+      "referrer": "https://market.vn/category/cat-fashion",
+      "position": 5,
+      "query": "Áo",
+      "placementId": "search_results",
+      "impressionId": "53615aad-b5d6-4b1a-b246-2658938545d1",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 798000,
+      "price": 399000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-fashion",
+      "itemListId": "list-cat-fashion",
+      "itemListName": "Danh Mục cat-fashion",
+      "eventGroupId": "08130b6b-5d0a-4302-a9f8-aec04ab2431c",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-coolmate_official",
+        "seller_user": "coolmate_official",
+        "brand": "coolmate_official"
+      }
+    },
+    {
+      "type": "favorite",
+      "listingId": "mock-7293ffcf",
+      "sessionId": "sess-c90177e85a95",
+      "anonymousId": "anon-94714ed5a1",
+      "path": "/listing/mock-7293ffcf",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 12,
+      "query": "Màn",
+      "placementId": "similar_items",
+      "impressionId": "c2e3cc9f-c1d4-4ab4-8596-d0acf9edd059",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 29670000,
+      "price": 9890000,
+      "quantity": 3,
+      "transactionId": "",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "055e2115-e654-479d-b3af-3f82bd53d9a8",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "purchase",
+      "listingId": "mock-87958f80",
+      "sessionId": "sess-9c04f6cd66fe",
+      "anonymousId": "anon-98c2c9cfe0",
+      "path": "/listing/mock-87958f80",
+      "referrer": "https://market.vn/category/cat-sports",
+      "position": 16,
+      "query": "Vợt",
+      "placementId": "search_results",
+      "impressionId": "d0aaaa78-32d9-4399-8a2e-6749ac691ff9",
+      "modelVersion": "baseline_v1",
+      "currency": "VND",
+      "value": 7500000,
+      "price": 3750000,
+      "quantity": 2,
+      "transactionId": "txn-293ec27744",
+      "coupon": "FREESHIP",
+      "itemCategory": "cat-sports",
+      "itemListId": "list-cat-sports",
+      "itemListName": "Danh Mục cat-sports",
+      "eventGroupId": "44c16372-749a-47b4-b167-ab5ba188482e",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-nike_vietnam_store",
+        "seller_user": "nike_vietnam_store",
+        "brand": "nike_vietnam_store"
+      }
+    },
+    {
+      "type": "view_cart",
+      "listingId": "mock-c6c4c7f4",
+      "sessionId": "sess-786103f885f1",
+      "anonymousId": "anon-f2b1faa3f9",
+      "path": "/listing/mock-c6c4c7f4",
+      "referrer": "https://market.vn/category/cat-home",
+      "position": 23,
+      "query": "Bộ",
+      "placementId": "home_feed",
+      "impressionId": "1e6616cb-ab2f-40ba-80e6-b66bcd67ae6f",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 1178000,
+      "price": 589000,
+      "quantity": 2,
+      "transactionId": "",
+      "coupon": "TECH100K",
+      "itemCategory": "cat-home",
+      "itemListId": "list-cat-home",
+      "itemListName": "Danh Mục cat-home",
+      "eventGroupId": "29ac2c39-01fe-4cc6-84b7-08188a6610d4",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-locknlock_vietnam",
+        "seller_user": "locknlock_vietnam",
+        "brand": "locknlock_vietnam"
+      }
+    },
+    {
+      "type": "add_to_cart",
+      "listingId": "mock-ab532138",
+      "sessionId": "sess-901956d504f7",
+      "anonymousId": "anon-4d54249b1b",
+      "path": "/listing/mock-ab532138",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 15,
+      "query": "Điện",
+      "placementId": "home_feed",
+      "impressionId": "a2974162-ff4e-440c-8371-ec252a5865c0",
+      "modelVersion": "als_v1",
+      "currency": "VND",
+      "value": 27990000,
+      "price": 27990000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "ca80fe51-d780-4e27-9c6e-adcc8e411916",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    },
+    {
+      "type": "add_payment_info",
+      "listingId": "mock-66608cd1",
+      "sessionId": "sess-ca0e81c4df9e",
+      "anonymousId": "anon-eb5ca4d754",
+      "path": "/listing/mock-66608cd1",
+      "referrer": "https://market.vn/category/cat-electronics",
+      "position": 17,
+      "query": "Điện",
+      "placementId": "cart_cross_sell",
+      "impressionId": "af4f8014-997d-4e70-9613-8521920c5a5b",
+      "modelVersion": "two_tower_v2",
+      "currency": "VND",
+      "value": 29990000,
+      "price": 29990000,
+      "quantity": 1,
+      "transactionId": "",
+      "coupon": "MEGA20",
+      "itemCategory": "cat-electronics",
+      "itemListId": "list-cat-electronics",
+      "itemListName": "Danh Mục cat-electronics",
+      "eventGroupId": "6c88684a-640d-477a-b582-d101da2daa4c",
+      "shippingTier": "SPX_STANDARD",
+      "paymentType": "COD",
+      "properties": {
+        "seller_id": "uid-dien_may_xanh",
+        "seller_user": "dien_may_xanh",
+        "brand": "dien_may_xanh"
+      }
+    }
+  ]
+}

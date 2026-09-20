@@ -1,0 +1,109 @@
+{
+  "vouchers": [
+    {
+      "code": "WELCOME50",
+      "scope": "VOUCHER_SCOPE_PLATFORM",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 50000,
+      "min_spend": 200000,
+      "max_discount": 50000,
+      "quota": 1000,
+      "description": "Giảm 50k cho khách hàng mới đơn từ 200k"
+    },
+    {
+      "code": "FREESHIP",
+      "scope": "VOUCHER_SCOPE_PLATFORM",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 30000,
+      "min_spend": 0,
+      "max_discount": 30000,
+      "quota": 5000,
+      "description": "Miễn phí vận chuyển toàn quốc giảm tối đa 30k"
+    },
+    {
+      "code": "TECH100K",
+      "scope": "VOUCHER_SCOPE_PLATFORM",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 100000,
+      "min_spend": 1000000,
+      "max_discount": 100000,
+      "quota": 500,
+      "description": "Giảm 100k cho đơn hàng thiết bị công nghệ từ 1 triệu"
+    },
+    {
+      "code": "MEGA20",
+      "scope": "VOUCHER_SCOPE_PLATFORM",
+      "discount_type": "DISCOUNT_TYPE_PERCENT",
+      "discount_value": 20,
+      "min_spend": 500000,
+      "max_discount": 200000,
+      "quota": 200,
+      "description": "Giảm 20% tối đa 200k cho đơn từ 500k"
+    },
+    {
+      "code": "SHOPEE10K",
+      "scope": "VOUCHER_SCOPE_PLATFORM",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 10000,
+      "min_spend": 99000,
+      "max_discount": 10000,
+      "quota": 2000,
+      "description": "Giảm 10k đơn từ 99k toàn sàn"
+    },
+    {
+      "code": "DMX50K",
+      "scope": "VOUCHER_SCOPE_SHOP",
+      "seller_user": "dien_may_xanh",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 50000,
+      "min_spend": 500000,
+      "max_discount": 50000,
+      "quota": 300,
+      "description": "Điện Máy Xanh: Giảm 50k cho đơn từ 500k"
+    },
+    {
+      "code": "COOLMATE15",
+      "scope": "VOUCHER_SCOPE_SHOP",
+      "seller_user": "coolmate_official",
+      "discount_type": "DISCOUNT_TYPE_PERCENT",
+      "discount_value": 15,
+      "min_spend": 250000,
+      "max_discount": 50000,
+      "quota": 500,
+      "description": "Coolmate: Giảm 15% tối đa 50k cho đơn từ 250k"
+    },
+    {
+      "code": "ANKER10",
+      "scope": "VOUCHER_SCOPE_SHOP",
+      "seller_user": "anker_flagship",
+      "discount_type": "DISCOUNT_TYPE_PERCENT",
+      "discount_value": 10,
+      "min_spend": 300000,
+      "max_discount": 100000,
+      "quota": 400,
+      "description": "Anker: Giảm 10% tối đa 100k cho đơn từ 300k"
+    },
+    {
+      "code": "LOCK30K",
+      "scope": "VOUCHER_SCOPE_SHOP",
+      "seller_user": "locknlock_vietnam",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 30000,
+      "min_spend": 300000,
+      "max_discount": 30000,
+      "quota": 600,
+      "description": "Lock&Lock: Giảm 30k cho đơn gia dụng từ 300k"
+    },
+    {
+      "code": "NIKE100K",
+      "scope": "VOUCHER_SCOPE_SHOP",
+      "seller_user": "nike_vietnam_store",
+      "discount_type": "DISCOUNT_TYPE_FIXED",
+      "discount_value": 100000,
+      "min_spend": 1500000,
+      "max_discount": 100000,
+      "quota": 250,
+      "description": "Nike Vietnam: Giảm 100k cho đơn thể thao từ 1.5 triệu"
+    }
+  ]
+}

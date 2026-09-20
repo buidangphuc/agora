@@ -1,9 +1,10 @@
 {
   "categories": [
-    { "id": "cat-electronics", "name": "Điện Thoại & Phụ Kiện" },
-    { "id": "cat-laptop", "name": "Máy Tính & Laptop" },
-    { "id": "cat-fashion-men", "name": "Thời Trang Nam" },
-    { "id": "cat-beauty", "name": "Sắc Đẹp & Mỹ Phẩm" }
+    { "id": "cat-electronics", "name": "Điện Tử & Thiết Bị Số" },
+    { "id": "cat-fashion", "name": "Thời Trang Nam Nữ" },
+    { "id": "cat-home", "name": "Nhà Cửa & Đời Sống" },
+    { "id": "cat-appliances", "name": "Thiết Bị Điện Gia Dụng" },
+    { "id": "cat-sports", "name": "Thể Thao & Dã Ngoại" }
   ],
-  "search_terms": ["laptop", "điện thoại", "tai nghe"]
+  "search_terms": ["iphone 15", "macbook", "coolmate", "bình giữ nhiệt", "robot hút bụi", "giày nike", "vợt cầu lông"]
 }

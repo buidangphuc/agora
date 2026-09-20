@@ -1,11 +1,115 @@
 {
   "users": [
     {
+      "id": "seller-dmx",
+      "username": "dien_may_xanh",
+      "password": "pass123",
+      "role": "seller",
+      "shop_name": "Điện Máy Xanh Official Store"
+    },
+    {
+      "id": "seller-coolmate",
+      "username": "coolmate_official",
+      "password": "pass123",
+      "role": "seller",
+      "shop_name": "Coolmate Official Store"
+    },
+    {
+      "id": "seller-anker",
+      "username": "anker_flagship",
+      "password": "pass123",
+      "role": "seller",
+      "shop_name": "Anker Flagship Store VN"
+    },
+    {
+      "id": "seller-locknlock",
+      "username": "locknlock_vietnam",
+      "password": "pass123",
+      "role": "seller",
+      "shop_name": "Lock&Lock Vietnam Official"
+    },
+    {
+      "id": "seller-nike",
+      "username": "nike_vietnam_store",
+      "password": "pass123",
+      "role": "seller",
+      "shop_name": "Nike Vietnam Store"
+    },
+    {
+      "id": "buyer-nguyen-van-a",
+      "username": "nguyen_van_a",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Nguyễn Văn An"
+    },
+    {
+      "id": "buyer-tran-thi-b",
+      "username": "tran_thi_b",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Trần Thị Bích"
+    },
+    {
+      "id": "buyer-le-hoang-nam",
+      "username": "le_hoang_nam",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Lê Hoàng Nam"
+    },
+    {
+      "id": "buyer-pham-thi-hoa",
+      "username": "pham_thi_hoa",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Phạm Thị Mai Hoa"
+    },
+    {
+      "id": "buyer-vu-duc-minh",
+      "username": "vu_duc_minh",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Vũ Đức Minh"
+    },
+    {
+      "id": "buyer-hoang-gia-bao",
+      "username": "hoang_gia_bao",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Hoàng Gia Bảo"
+    },
+    {
+      "id": "buyer-dang-thuy-trang",
+      "username": "dang_thuy_trang",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Đặng Thùy Trang"
+    },
+    {
+      "id": "buyer-bui-tien-dung",
+      "username": "bui_tien_dung",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Bùi Tiến Dũng"
+    },
+    {
+      "id": "buyer-do-thi-mai",
+      "username": "do_thi_mai",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Đỗ Thị Mai"
+    },
+    {
+      "id": "buyer-truong-quoc-huy",
+      "username": "truong_quoc_huy",
+      "password": "pass123",
+      "role": "buyer",
+      "name": "Trương Quốc Huy"
+    },
+    {
       "id": "seller-tech",
       "username": "shopee_tech_mall",
       "password": "pass123",
-      "role": "seller",
-      "note": "Seeded by platform-core/tools/seed-marketplace.sh"
+      "role": "seller"
     },
     {
       "id": "seller-fashion",
