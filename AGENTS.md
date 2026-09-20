@@ -163,7 +163,7 @@ service behind the gateway; it never requires a new repo.
   httpOnly `session` cookie. `next build` + `tsc` clean.
 - **Financially sensitive** (payments / wallet / boost): **mock/placeholder only**
   — never implement real money movement.
-- **Commits** authored as `Bùi Đăng phúc <phuc.buidang@batdongsan.com.vn>`, and
+- **Commits** authored as `Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com>`, and
   end the commit message with:
   `Co-Authored-By: <your agent> <noreply@…>`.
   Commit per phase; don't push unless asked.
