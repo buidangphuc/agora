@@ -3,12 +3,14 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
 	eventsv1 "github.com/buidangphuc/team-search/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-search/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-search/internal/index"
+	"github.com/buidangphuc/team-search/internal/retrieval"
 )
 
 // Discriminator types carried in EventEnvelope.Type
@@ -23,6 +25,12 @@ const (
 // ListingEventHandler decodes listing events and applies changes to OpenSearch read-model.
 // Fine-grained events perform Partial Updates on OpenSearch to save CPU/Memory and avoid re-indexing text.
 func ListingEventHandler(idx index.Index) Handler {
+	return ListingEventHandlerWithEmbedder(idx, nil)
+}
+
+// ListingEventHandlerWithEmbedder decodes listing events, vectorizes content using embedder, and applies changes to OpenSearch.
+// If embedder is nil or embedding fails (D4), it sets vector_pending: true without failing the ingestion.
+func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedClient) Handler {
 	return func(ctx context.Context, _ []byte, value []byte) error {
 		var env eventsv1.EventEnvelope
 		if err := proto.Unmarshal(value, &env); err != nil {
@@ -46,7 +54,20 @@ func ListingEventHandler(idx index.Index) Handler {
 			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
 				return idx.Delete(ctx, l.GetId())
 			}
-			return idx.Upsert(ctx, toDoc(l, version))
+			doc := toDoc(l, version)
+			if embedder != nil {
+				text := strings.TrimSpace(l.GetTitle() + " " + l.GetDescription())
+				if text != "" {
+					vec, err := embedder.Embed(ctx, text)
+					if err == nil && len(vec) > 0 {
+						doc.Embedding = vec
+						doc.VectorPending = false
+					} else {
+						doc.VectorPending = true
+					}
+				}
+			}
+			return idx.Upsert(ctx, doc)
 
 		case listingBaseInfoChangedType:
 			var base listingv1.ListingBaseInfoChanged
@@ -60,7 +81,7 @@ func ListingEventHandler(idx index.Index) Handler {
 				return idx.Delete(ctx, base.GetListingId())
 			}
 			// Partial update base descriptive fields
-			return idx.PartialUpdate(ctx, base.GetListingId(), map[string]interface{}{
+			fields := map[string]interface{}{
 				"id":          base.GetListingId(),
 				"title":       base.GetTitle(),
 				"description": base.GetDescription(),
@@ -68,7 +89,20 @@ func ListingEventHandler(idx index.Index) Handler {
 				"seller_id":   base.GetSellerId(),
 				"status":      statusString(base.GetStatus()),
 				"version":     version,
-			})
+			}
+			if embedder != nil {
+				text := strings.TrimSpace(base.GetTitle() + " " + base.GetDescription())
+				if text != "" {
+					vec, err := embedder.Embed(ctx, text)
+					if err == nil && len(vec) > 0 {
+						fields["embedding"] = vec
+						fields["vector_pending"] = false
+					} else {
+						fields["vector_pending"] = true
+					}
+				}
+			}
+			return idx.PartialUpdate(ctx, base.GetListingId(), fields)
 
 		case listingPricingChangedType:
 			var pricing listingv1.ListingPricingChanged

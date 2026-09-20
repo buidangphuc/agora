@@ -15,6 +15,7 @@ import (
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/interceptor"
 	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/retrieval"
 )
 
 const (
@@ -24,22 +25,26 @@ const (
 	maxSuggest      = 20
 )
 
-// SearchHandler implements searchv1.SearchServiceServer over an index.Index for
+// SearchHandler implements searchv1.SearchServiceServer over an index.Index / retrieval.Engine for
 // queries and a repository.SavedSearchRepository for user-owned saved searches.
 type SearchHandler struct {
 	searchv1.UnimplementedSearchServiceServer
-	idx   index.Index
-	saved repository.SavedSearchRepository
+	idx    index.Index
+	engine *retrieval.Engine
+	saved  repository.SavedSearchRepository
 }
 
-// NewSearchHandler builds the handler around the read-model index and the
-// saved-search store. saved may be nil when the service runs query-only (the
-// saved-search RPCs then fail closed with codes.Unimplemented).
+// NewSearchHandler builds the handler around the read-model index and the saved-search store.
 func NewSearchHandler(idx index.Index, saved repository.SavedSearchRepository) *SearchHandler {
-	return &SearchHandler{idx: idx, saved: saved}
+	return NewSearchHandlerWithEngine(idx, nil, saved)
 }
 
-// SearchListings runs a free-text + filter query against the read-model.
+// NewSearchHandlerWithEngine builds the handler with a retrieval engine for multi-strategy search.
+func NewSearchHandlerWithEngine(idx index.Index, engine *retrieval.Engine, saved repository.SavedSearchRepository) *SearchHandler {
+	return &SearchHandler{idx: idx, engine: engine, saved: saved}
+}
+
+// SearchListings runs a multi-strategy hybrid, semantic, or lexical query against the read-model.
 func (h *SearchHandler) SearchListings(
 	ctx context.Context,
 	req *searchv1.SearchListingsRequest,
@@ -48,7 +53,27 @@ func (h *SearchHandler) SearchListings(
 		return nil, err
 	}
 	from, size := decodePage(req.GetPage())
-	res, err := h.idx.Search(ctx, req.GetQuery(), req.GetFilters(), req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), req.GetMinRating(), req.GetSortBy(), from, size)
+
+	var res index.SearchResult
+	var err error
+
+	if h.engine != nil {
+		res, _, err = h.engine.Execute(ctx, retrieval.SearchParams{
+			Query:      req.GetQuery(),
+			Filters:    req.GetFilters(),
+			CategoryID: req.GetCategoryId(),
+			MinPrice:   req.GetMinPrice(),
+			MaxPrice:   req.GetMaxPrice(),
+			MinRating:  req.GetMinRating(),
+			SortBy:     req.GetSortBy(),
+			SearchMode: req.GetSearchMode(),
+			From:       from,
+			Size:       size,
+		})
+	} else {
+		res, err = h.idx.Search(ctx, req.GetQuery(), req.GetFilters(), req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), req.GetMinRating(), req.GetSortBy(), from, size)
+	}
+
 	if err != nil {
 		return nil, status.Error(codes.Internal, "search failed")
 	}

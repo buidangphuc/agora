@@ -64,7 +64,7 @@ func run() error {
 	// no extra infra. Swap in repository.NewPostgresSavedSearchRepository(db)
 	// once a Postgres handle is opened in bootstrap (migrations/0001_saved_searches).
 	savedRepo := repository.NewInMemorySavedSearchRepository()
-	h := handler.NewSearchHandler(res.Index, savedRepo)
+	h := handler.NewSearchHandlerWithEngine(res.Index, res.Engine, savedRepo)
 	srv := grpcserver.Build(settings, h, res.Health, logger)
 
 	addr := net.JoinHostPort(settings.Server.Host, strconv.Itoa(settings.Server.Port))

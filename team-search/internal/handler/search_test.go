@@ -10,10 +10,12 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
+	"github.com/buidangphuc/team-search/internal/config"
 	"github.com/buidangphuc/team-search/internal/handler"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/interceptor"
 	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/retrieval"
 )
 
 type mockIndex struct {
@@ -44,6 +46,14 @@ func (m *mockIndex) Search(ctx context.Context, query string, filters map[string
 			Ratings:     []index.FacetBucket{{Key: "4", Count: 2}, {Key: "3", Count: 2}},
 			Sellers:     []index.FacetBucket{{Key: "seller_1", Count: 2}},
 		},
+	}, nil
+}
+func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+	return index.SearchResult{
+		Hits: []index.Hit{
+			{ListingID: "vec_listing_1", Score: 0.9},
+		},
+		Total: 1,
 	}, nil
 }
 func (m *mockIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
@@ -137,6 +147,27 @@ func TestSearchHandler(t *testing.T) {
 		}
 		if len(res.Suggestions) != 3 {
 			t.Errorf("expected 3 suggestions, got %d", len(res.Suggestions))
+		}
+	})
+
+	t.Run("SearchListings with Engine and SearchMode", func(t *testing.T) {
+		embed := &retrieval.MockEmbedClient{Dim: 4}
+		eng := retrieval.NewEngine(&mockIndex{}, embed, nil, config.Retrieval{
+			EnableHybridSearch: true,
+			HybridRRFK:         60,
+			HybridFusionWindow: 200,
+		})
+		hEngine := handler.NewSearchHandlerWithEngine(&mockIndex{}, eng, repository.NewInMemorySavedSearchRepository())
+
+		res, err := hEngine.SearchListings(ctx, &searchv1.SearchListingsRequest{
+			Query:      "iPhone",
+			SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID,
+		})
+		if err != nil {
+			t.Fatalf("SearchListings hybrid error: %v", err)
+		}
+		if len(res.Hits) == 0 {
+			t.Errorf("expected non-empty hits from hybrid engine")
 		}
 	})
 }

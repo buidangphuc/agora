@@ -114,3 +114,24 @@ features:
     tags: [buyer, search]
     status: automated
     covered_by: "frontend/search_facets.feature::Facet buckets render with counts"
+
+  - id: search.hybrid-retrieval
+    title: Multi-strategy hybrid retrieval
+    persona: buyer
+    priority: P1
+    summary: >
+      Search queries retrieve products via concurrent lexical (BM25) and semantic
+      (k-NN dense vector) strategies, fused via in-process RRF with fail-open resiliency.
+    entry_route: /search
+    services: [team-search, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - Given a buyer is logged in
+      - When the buyer searches for "sneakers"
+      - Then the search results page displays matching products
+    tags: [buyer, search, hybrid]
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Buyer searches catalog with multi-strategy hybrid retrieval"

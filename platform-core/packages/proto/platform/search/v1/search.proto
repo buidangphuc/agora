@@ -17,6 +17,13 @@ enum SortBy {
   SORT_BY_NEWEST = 4;      // Newest listings first
 }
 
+enum SearchMode {
+  SEARCH_MODE_UNSPECIFIED = 0; // Default: HYBRID when semantic retrieval is configured
+  SEARCH_MODE_HYBRID = 1;      // Multi-strategy fusion (BM25 + k-NN Dense Vector)
+  SEARCH_MODE_LEXICAL = 2;     // BM25 text match only
+  SEARCH_MODE_SEMANTIC = 3;    // Dense vector nearest neighbors only
+}
+
 // Owned by team-search. Reads its OWN OpenSearch read-model (rebuildable by
 // replaying Kafka); never joins another service's DB (Rule 3).
 service SearchService {
@@ -44,6 +51,7 @@ message SearchListingsRequest {
   int64 max_price = 6;
   SortBy sort_by = 7;
   int32 min_rating = 8;
+  SearchMode search_mode = 9;
 }
 
 message SearchHit {

@@ -71,6 +71,10 @@ func (f *fakeIndex) Search(_ context.Context, query string, filters map[string]s
 	return index.SearchResult{Hits: matched[from:end], Total: total}, nil
 }
 
+func (f *fakeIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+	return f.Search(ctx, "", filters, categoryID, minPrice, maxPrice, minRating, sortBy, from, size)
+}
+
 func (f *fakeIndex) Suggest(_ context.Context, prefix string, limit int) ([]string, error) {
 	var out []string
 	for _, d := range f.docs {

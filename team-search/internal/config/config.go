@@ -19,6 +19,7 @@ type Settings struct {
 	Runtime       Runtime
 	Server        Server
 	OpenSearch    OpenSearch
+	Retrieval     Retrieval
 	Kafka         Kafka
 	Observability Observability
 }
@@ -40,6 +41,18 @@ type Server struct {
 type OpenSearch struct {
 	URL   string `env:"OPENSEARCH_URL" default:"http://localhost:9200"`
 	Index string `env:"OPENSEARCH_INDEX" default:"listings"`
+}
+
+// Retrieval configures the multi-strategy hybrid retrieval platform.
+type Retrieval struct {
+	ModelServerURL     string  `env:"MODEL_SERVER_URL" default:"http://localhost:8100"`
+	EmbeddingDim       int     `env:"EMBEDDING_DIM" default:"384"`
+	EnableHybridSearch bool    `env:"ENABLE_HYBRID_SEARCH" default:"true"`
+	EnableReranker     bool    `env:"ENABLE_RERANKER" default:"false"`
+	HybridFusionWindow int     `env:"HYBRID_FUSION_WINDOW" default:"200"`
+	HybridRRFK         int     `env:"HYBRID_RRF_K" default:"60"`
+	LexicalWeight      float64 `env:"HYBRID_LEXICAL_WEIGHT" default:"1.0"`
+	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
 }
 
 // Kafka configures the listing-events consumer (ADR-0002).
