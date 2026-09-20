@@ -1,0 +1,39 @@
+name: CI - team-ai
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "team-ai/**"
+  pull_request:
+    paths:
+      - "team-ai/**"
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: team-ai
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e ".[dev]"
+
+      - name: Environment drift gate
+        run: pytest tests/test_env_drift.py -v
+
+      - name: Run unit & RAG contract tests
+        run: pytest tests/ -k "not integration and not slow" -v
