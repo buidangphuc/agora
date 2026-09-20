@@ -30,14 +30,16 @@ func (r *DuckDBRepository) SellerFunnel(ctx context.Context, sellerID string, fr
 SELECT
   COUNT(*) FILTER (WHERE event_type = 'impression') AS impressions,
   COUNT(*) FILTER (WHERE event_type = 'view')       AS views,
-  COUNT(*) FILTER (WHERE event_type = 'add_to_cart') AS adds
+  COUNT(*) FILTER (WHERE event_type = 'add_to_cart') AS adds,
+  COUNT(*) FILTER (WHERE event_type = 'begin_checkout') AS begin_checkouts,
+  COUNT(*) FILTER (WHERE event_type = 'purchase') AS purchases
 FROM %s
 WHERE occurred_at >= ? AND occurred_at <= ?`,
 		warehouse.TableName)
 
 	var f Funnel
 	row := r.db.QueryRowContext(ctx, trackingQ, from.UTC(), to.UTC())
-	if err := row.Scan(&f.Impressions, &f.Views, &f.Adds); err != nil {
+	if err := row.Scan(&f.Impressions, &f.Views, &f.Adds, &f.BeginCheckouts, &f.Purchases); err != nil {
 		return Funnel{}, fmt.Errorf("seller funnel tracking query: %w", err)
 	}
 

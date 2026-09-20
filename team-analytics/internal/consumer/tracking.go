@@ -51,6 +51,18 @@ func RecordFromEnvelope(value []byte) (rec *warehouse.TrackingRecord, ok bool, e
 		PlacementID:   te.GetPlacementId(),
 		ImpressionID:  te.GetImpressionId(),
 		ModelVersion:  te.GetModelVersion(),
+		Currency:      te.GetCurrency(),
+		Value:         te.GetValue(),
+		Price:         te.GetPrice(),
+		Quantity:      te.GetQuantity(),
+		TransactionID: te.GetTransactionId(),
+		Coupon:        te.GetCoupon(),
+		ItemCategory:  te.GetItemCategory(),
+		ItemListID:    te.GetItemListId(),
+		ItemListName:  te.GetItemListName(),
+		EventGroupID:  te.GetEventGroupId(),
+		ShippingTier:  te.GetShippingTier(),
+		PaymentType:   te.GetPaymentType(),
 	}, true, nil
 }
 
@@ -78,6 +90,14 @@ func eventTypeName(t analyticsv1.EventType) string {
 		return "favorite"
 	case analyticsv1.EventType_EVENT_TYPE_SHARE:
 		return "share"
+	case analyticsv1.EventType_EVENT_TYPE_VIEW_CART:
+		return "view_cart"
+	case analyticsv1.EventType_EVENT_TYPE_ADD_SHIPPING_INFO:
+		return "add_shipping_info"
+	case analyticsv1.EventType_EVENT_TYPE_ADD_PAYMENT_INFO:
+		return "add_payment_info"
+	case analyticsv1.EventType_EVENT_TYPE_PURCHASE:
+		return "purchase"
 	default:
 		return "unspecified"
 	}

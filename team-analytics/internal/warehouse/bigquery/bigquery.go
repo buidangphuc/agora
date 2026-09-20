@@ -200,6 +200,18 @@ func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
 		"placement_id":   s.rec.PlacementID,
 		"impression_id":  s.rec.ImpressionID,
 		"model_version":  s.rec.ModelVersion,
+		"currency":       s.rec.Currency,
+		"value":          s.rec.Value,
+		"price":          s.rec.Price,
+		"quantity":       int64(s.rec.Quantity),
+		"transaction_id": s.rec.TransactionID,
+		"coupon":         s.rec.Coupon,
+		"item_category":  s.rec.ItemCategory,
+		"item_list_id":   s.rec.ItemListID,
+		"item_list_name": s.rec.ItemListName,
+		"event_group_id": s.rec.EventGroupID,
+		"shipping_tier":  s.rec.ShippingTier,
+		"payment_type":   s.rec.PaymentType,
 	}
 	return row, s.rec.EventID, nil
 }

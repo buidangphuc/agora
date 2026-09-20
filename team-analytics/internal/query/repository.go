@@ -28,10 +28,12 @@ import (
 
 // Funnel is the seller conversion funnel over a [from, to] window.
 type Funnel struct {
-	Impressions int64
-	Views       int64
-	Adds        int64 // add-to-cart count
-	Orders      int64 // distinct orders (purchases)
+	Impressions    int64
+	Views          int64
+	Adds           int64 // add-to-cart count
+	Orders         int64 // distinct orders (purchases)
+	BeginCheckouts int64
+	Purchases      int64
 }
 
 // DayRevenue is one calendar day's revenue and order count (minor units).

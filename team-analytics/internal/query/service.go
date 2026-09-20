@@ -49,10 +49,12 @@ func (s *Service) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSelle
 		return nil, status.Errorf(codes.Internal, "seller funnel: %v", err)
 	}
 	return &analyticsv1.GetSellerFunnelResponse{
-		Impressions: f.Impressions,
-		Views:       f.Views,
-		Adds:        f.Adds,
-		Orders:      f.Orders,
+		Impressions:    f.Impressions,
+		Views:          f.Views,
+		Adds:           f.Adds,
+		Orders:         f.Orders,
+		BeginCheckouts: f.BeginCheckouts,
+		Purchases:      f.Purchases,
 	}, nil
 }
 

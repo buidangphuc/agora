@@ -23,11 +23,13 @@ func TestDuckDBRepository_OrderFactsAndFunnel(t *testing.T) {
 
 	// Write tracking events
 	trackingEvents := []*warehouse.TrackingRecord{
-		{EventID: "e1", EventType: "impression", OccurredAt: d1},
-		{EventID: "e2", EventType: "impression", OccurredAt: d1},
-		{EventID: "e3", EventType: "view", OccurredAt: d1},
-		{EventID: "e4", EventType: "add_to_cart", OccurredAt: d1},
-		{EventID: "e5", EventType: "view", OccurredAt: d2},
+		{EventID: "e1", EventType: "impression", OccurredAt: d1, ListingID: "lst-a", Price: 500, Currency: "VND", EventGroupID: "grp-1"},
+		{EventID: "e2", EventType: "impression", OccurredAt: d1, ListingID: "lst-b", Price: 100, Currency: "VND", EventGroupID: "grp-1"},
+		{EventID: "e3", EventType: "view", OccurredAt: d1, ListingID: "lst-a"},
+		{EventID: "e4", EventType: "add_to_cart", OccurredAt: d1, ListingID: "lst-a"},
+		{EventID: "e5", EventType: "view", OccurredAt: d2, ListingID: "lst-b"},
+		{EventID: "e6", EventType: "begin_checkout", OccurredAt: d2, Value: 600, Currency: "VND"},
+		{EventID: "e7", EventType: "purchase", OccurredAt: d2, ListingID: "lst-a", Price: 500, Quantity: 1, Value: 600, Currency: "VND", TransactionID: "tx-100"},
 	}
 	if err := w.Write(ctx, trackingEvents); err != nil {
 		t.Fatalf("Write tracking events: %v", err)
@@ -98,8 +100,19 @@ func TestDuckDBRepository_OrderFactsAndFunnel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SellerFunnel: %v", err)
 	}
-	if funnel.Impressions != 2 || funnel.Views != 2 || funnel.Adds != 1 || funnel.Orders != 3 {
-		t.Errorf("funnel = %+v, want impressions=2 views=2 adds=1 orders=3", funnel)
+	if funnel.Impressions != 2 || funnel.Views != 2 || funnel.Adds != 1 || funnel.Orders != 3 || funnel.BeginCheckouts != 1 || funnel.Purchases != 1 {
+		t.Errorf("funnel = %+v, want impressions=2 views=2 adds=1 orders=3 begin_checkouts=1 purchases=1", funnel)
+	}
+
+	// Test GA4 view
+	var ga4EventName, ga4ItemID string
+	var ga4Price int64
+	row := w.DB().QueryRowContext(ctx, "SELECT event_name, item_id, price FROM ga4_events WHERE event_id = 'e1'")
+	if err := row.Scan(&ga4EventName, &ga4ItemID, &ga4Price); err != nil {
+		t.Fatalf("query ga4_events view: %v", err)
+	}
+	if ga4EventName != "view_item_list" || ga4ItemID != "lst-a" || ga4Price != 500 {
+		t.Errorf("ga4_events record = (%s, %s, %d), want (view_item_list, lst-a, 500)", ga4EventName, ga4ItemID, ga4Price)
 	}
 
 	// Test Revenue Breakdown

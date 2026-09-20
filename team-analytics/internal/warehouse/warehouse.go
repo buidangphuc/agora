@@ -44,6 +44,18 @@ type TrackingRecord struct {
 	ImpressionID string
 	// ModelVersion is the model generation identifier.
 	ModelVersion string
+	Currency      string
+	Value         int64
+	Price         int64
+	Quantity      uint32
+	TransactionID string
+	Coupon        string
+	ItemCategory  string
+	ItemListID    string
+	ItemListName  string
+	EventGroupID  string
+	ShippingTier  string
+	PaymentType   string
 }
 
 // Column is one entry of the canonical warehouse schema. The DuckDB and BigQuery
@@ -77,6 +89,18 @@ var Schema = []Column{
 	{"placement_id", "VARCHAR", "STRING"},
 	{"impression_id", "VARCHAR", "STRING"},
 	{"model_version", "VARCHAR", "STRING"},
+	{"currency", "VARCHAR", "STRING"},
+	{"value", "BIGINT", "INT64"},
+	{"price", "BIGINT", "INT64"},
+	{"quantity", "INTEGER", "INT64"},
+	{"transaction_id", "VARCHAR", "STRING"},
+	{"coupon", "VARCHAR", "STRING"},
+	{"item_category", "VARCHAR", "STRING"},
+	{"item_list_id", "VARCHAR", "STRING"},
+	{"item_list_name", "VARCHAR", "STRING"},
+	{"event_group_id", "VARCHAR", "STRING"},
+	{"shipping_tier", "VARCHAR", "STRING"},
+	{"payment_type", "VARCHAR", "STRING"},
 }
 
 // ColumnNames returns the ordered column names of the canonical schema.

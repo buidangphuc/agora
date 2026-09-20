@@ -67,9 +67,68 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	if _, err := w.db.ExecContext(ctx, createTableDDL()); err != nil {
 		return fmt.Errorf("ensure %s table: %w", warehouse.TableName, err)
 	}
+
+	// Idempotent column migrations for existing databases (Gap G6)
+	for _, c := range warehouse.Schema {
+		alterSQL := fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", warehouse.TableName, c.Name, c.DuckDBType)
+		if _, err := w.db.ExecContext(ctx, alterSQL); err != nil {
+			return fmt.Errorf("migrate column %s: %w", c.Name, err)
+		}
+	}
+
 	if _, err := w.db.ExecContext(ctx, createOrderFactsTableDDL()); err != nil {
 		return fmt.Errorf("ensure %s table: %w", warehouse.OrderFactsTableName, err)
 	}
+
+	for _, c := range warehouse.OrderFactsSchema {
+		alterSQL := fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", warehouse.OrderFactsTableName, c.Name, c.DuckDBType)
+		if _, err := w.db.ExecContext(ctx, alterSQL); err != nil {
+			return fmt.Errorf("migrate order_facts column %s: %w", c.Name, err)
+		}
+	}
+
+	// Create or replace standard ga4_events view
+	createViewSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW ga4_events AS
+SELECT
+  event_id,
+  CASE event_type
+    WHEN 'view' THEN 'view_item'
+    WHEN 'click' THEN 'select_item'
+    WHEN 'impression' THEN 'view_item_list'
+    ELSE event_type
+  END AS event_name,
+  listing_id AS item_id,
+  session_id,
+  anonymous_id,
+  page_path,
+  referrer AS page_referrer,
+  position AS index,
+  search_query AS search_term,
+  occurred_at,
+  principal_id,
+  principal_type,
+  properties,
+  placement_id,
+  impression_id,
+  model_version,
+  currency,
+  value,
+  price,
+  quantity,
+  transaction_id,
+  coupon,
+  item_category,
+  item_list_id,
+  item_list_name,
+  event_group_id,
+  shipping_tier,
+  payment_type
+FROM %s`, warehouse.TableName)
+
+	if _, err := w.db.ExecContext(ctx, createViewSQL); err != nil {
+		return fmt.Errorf("ensure ga4_events view: %w", err)
+	}
+
 	return nil
 }
 
@@ -142,6 +201,18 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.PlacementID,
 			r.ImpressionID,
 			r.ModelVersion,
+			r.Currency,
+			r.Value,
+			r.Price,
+			int64(r.Quantity),
+			r.TransactionID,
+			r.Coupon,
+			r.ItemCategory,
+			r.ItemListID,
+			r.ItemListName,
+			r.EventGroupID,
+			r.ShippingTier,
+			r.PaymentType,
 		); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert row %s: %w", r.EventID, err)

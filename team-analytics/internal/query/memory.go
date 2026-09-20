@@ -59,6 +59,10 @@ func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from
 			f.Views++
 		case "add_to_cart":
 			f.Adds++
+		case "begin_checkout":
+			f.BeginCheckouts++
+		case "purchase":
+			f.Purchases++
 		}
 		if e.OrderID != "" {
 			orders[e.OrderID] = struct{}{}
