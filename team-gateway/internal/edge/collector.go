@@ -20,15 +20,18 @@ const maxBeaconBytes = 64 * 1024
 // It carries behavioral context ONLY — never authenticated identity, which the
 // edge attaches via the envelope principal (contract forbids PII in payload).
 type trackBeacon struct {
-	Type        string            `json:"type"`
-	ListingID   string            `json:"listingId"`
-	SessionID   string            `json:"sessionId"`
-	AnonymousID string            `json:"anonymousId"`
-	Path        string            `json:"path"`
-	Referrer    string            `json:"referrer"`
-	Position    uint32            `json:"position"`
-	Query       string            `json:"query"`
-	Properties  map[string]string `json:"properties"`
+	Type         string            `json:"type"`
+	ListingID    string            `json:"listingId"`
+	SessionID    string            `json:"sessionId"`
+	AnonymousID  string            `json:"anonymousId"`
+	Path         string            `json:"path"`
+	Referrer     string            `json:"referrer"`
+	Position     uint32            `json:"position"`
+	Query        string            `json:"query"`
+	PlacementID  string            `json:"placementId"`
+	ImpressionID string            `json:"impressionId"`
+	ModelVersion string            `json:"modelVersion"`
+	Properties   map[string]string `json:"properties"`
 }
 
 // beaconEventTypes maps the beacon's lowercase action name to its EventType.
@@ -70,15 +73,18 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 				return
 			}
 			evs = append(evs, &analyticsv1.TrackingEvent{
-				EventType:   et,
-				ListingId:   b.ListingID,
-				SessionId:   b.SessionID,
-				AnonymousId: b.AnonymousID,
-				PagePath:    b.Path,
-				Referrer:    b.Referrer,
-				Position:    b.Position,
-				SearchQuery: b.Query,
-				Properties:  b.Properties,
+				EventType:    et,
+				ListingId:    b.ListingID,
+				SessionId:    b.SessionID,
+				AnonymousId:  b.AnonymousID,
+				PagePath:     b.Path,
+				Referrer:     b.Referrer,
+				Position:     b.Position,
+				SearchQuery:  b.Query,
+				Properties:   b.Properties,
+				PlacementId:  b.PlacementID,
+				ImpressionId: b.ImpressionID,
+				ModelVersion: b.ModelVersion,
 			})
 		}
 

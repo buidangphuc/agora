@@ -98,4 +98,10 @@ message TrackingEvent {
   // Open-ended extension bag for future/experimental attributes without a
   // contract change; keep well-known signals as first-class fields above.
   map<string, string> properties = 9;
+  // Which placement rendered the item (e.g. "home_feed", "similar_items", "cart_cross_sell").
+  string placement_id = 10;
+  // Unique UUID linking an impression directly to downstream click/add/purchase actions.
+  string impression_id = 11;
+  // Active recommendation/search model generation (e.g. "als_v1", "two_tower_v2").
+  string model_version = 12;
 }

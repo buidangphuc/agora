@@ -14,7 +14,6 @@
 
 export type TrackEventType = "view" | "click" | "add_to_cart" | "impression";
 
-/** A single tracked browsing action. Behavioral context only — never PII. */
 export interface TrackEvent {
   readonly type: TrackEventType;
   readonly listingId?: string;
@@ -26,6 +25,12 @@ export interface TrackEvent {
   readonly position?: number;
   /** Search query in effect, when applicable. */
   readonly query?: string;
+  /** Placement slot (e.g. "home_feed", "similar_items", "cart_cross_sell"). */
+  readonly placementId?: string;
+  /** Unique impression UUID linking subsequent user interactions. */
+  readonly impressionId?: string;
+  /** Active recommendation/search model generation. */
+  readonly modelVersion?: string;
   /** Open-ended extension bag for experimental attributes. */
   readonly properties?: Record<string, string>;
 }
@@ -40,6 +45,9 @@ export interface TrackBeacon {
   readonly referrer: string;
   readonly position: number;
   readonly query: string;
+  readonly placementId?: string;
+  readonly impressionId?: string;
+  readonly modelVersion?: string;
   readonly properties?: Record<string, string>;
 }
 
@@ -112,6 +120,9 @@ export function buildBeacon(event: TrackEvent): TrackBeacon {
     referrer,
     position: event.position ?? 0,
     query: event.query ?? "",
+    ...(event.placementId ? { placementId: event.placementId } : {}),
+    ...(event.impressionId ? { impressionId: event.impressionId } : {}),
+    ...(event.modelVersion ? { modelVersion: event.modelVersion } : {}),
     ...(event.properties ? { properties: event.properties } : {}),
   };
 }

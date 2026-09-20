@@ -48,6 +48,9 @@ func RecordFromEnvelope(value []byte) (rec *warehouse.TrackingRecord, ok bool, e
 		PrincipalID:   principal.GetId(),
 		PrincipalType: principalTypeName(principal.GetType()),
 		Properties:    te.GetProperties(),
+		PlacementID:   te.GetPlacementId(),
+		ImpressionID:  te.GetImpressionId(),
+		ModelVersion:  te.GetModelVersion(),
 	}, true, nil
 }
 

@@ -112,6 +112,9 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.PrincipalID,
 			r.PrincipalType,
 			props,
+			r.PlacementID,
+			r.ImpressionID,
+			r.ModelVersion,
 		); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert row %s: %w", r.EventID, err)

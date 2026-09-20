@@ -153,6 +153,9 @@ func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
 		"principal_id":   s.rec.PrincipalID,
 		"principal_type": s.rec.PrincipalType,
 		"properties":     props,
+		"placement_id":   s.rec.PlacementID,
+		"impression_id":  s.rec.ImpressionID,
+		"model_version":  s.rec.ModelVersion,
 	}
 	return row, s.rec.EventID, nil
 }

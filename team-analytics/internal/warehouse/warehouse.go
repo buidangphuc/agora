@@ -38,6 +38,12 @@ type TrackingRecord struct {
 	PrincipalType string
 	// Properties is the open-ended extension bag, persisted as a JSON column.
 	Properties map[string]string
+	// PlacementID is the placement slot (e.g. "home_feed", "similar_items").
+	PlacementID string
+	// ImpressionID is the unique impression uuid linking downstream interactions.
+	ImpressionID string
+	// ModelVersion is the model generation identifier.
+	ModelVersion string
 }
 
 // Column is one entry of the canonical warehouse schema. The DuckDB and BigQuery
@@ -68,6 +74,9 @@ var Schema = []Column{
 	{"principal_id", "VARCHAR", "STRING"},
 	{"principal_type", "VARCHAR", "STRING"},
 	{"properties", "JSON", "JSON"},
+	{"placement_id", "VARCHAR", "STRING"},
+	{"impression_id", "VARCHAR", "STRING"},
+	{"model_version", "VARCHAR", "STRING"},
 }
 
 // ColumnNames returns the ordered column names of the canonical schema.

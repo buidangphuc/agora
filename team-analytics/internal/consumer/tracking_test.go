@@ -51,8 +51,11 @@ func TestTrackingEnvelopeMapsToRecord(t *testing.T) {
 		PagePath:    "/listing/prod-1",
 		Referrer:    "/",
 		Position:    3,
-		SearchQuery: "laptop",
-		Properties:  map[string]string{"experiment": "a"},
+		SearchQuery:  "laptop",
+		PlacementId:  "home_feed",
+		ImpressionId: "imp-uuid-123",
+		ModelVersion: "als_v1",
+		Properties:   map[string]string{"experiment": "a"},
 	}
 	value := wrap(t, consumer.TrackingEventType, te,
 		&commonv1.Principal{Id: "user-1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER}, at)
@@ -75,6 +78,9 @@ func TestTrackingEnvelopeMapsToRecord(t *testing.T) {
 	}
 	if rec.Position != 3 || rec.SearchQuery != "laptop" {
 		t.Errorf("position/query not mapped: pos=%d q=%q", rec.Position, rec.SearchQuery)
+	}
+	if rec.PlacementID != "home_feed" || rec.ImpressionID != "imp-uuid-123" || rec.ModelVersion != "als_v1" {
+		t.Errorf("attribution fields not mapped: placement=%q imp=%q model=%q", rec.PlacementID, rec.ImpressionID, rec.ModelVersion)
 	}
 	if !rec.OccurredAt.Equal(at) {
 		t.Errorf("OccurredAt = %v, want %v", rec.OccurredAt, at)
