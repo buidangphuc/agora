@@ -70,9 +70,17 @@ class RecommendationService:
             raise ServiceUnavailableError("recommendation collection contract mismatch")
 
         start_time = time.perf_counter()
-        placement_id = query.placement_id or "home_feed"
+        placement_id = query.placement_id or ("similar_items" if query.seed_listing_id and not query.user_id else "home_feed")
         config = self._registry.get(placement_id)
         limit = query.limit or config.result_limit or self._result_top_k
+        active_model_version = self._model_version
+        if self._model_version == "serving-fallback" and hasattr(self._cache, "get_model_version") and callable(self._cache.get_model_version):
+            try:
+                cached_version = await self._cache.get_model_version()
+                if cached_version:
+                    active_model_version = cached_version
+            except Exception as exc:
+                logger.debug("recs.get_model_version failed err={}", exc)
 
         ladder_history: list[dict[str, Any]] = []
 
@@ -151,6 +159,7 @@ class RecommendationService:
                         fallback_tier=tier,
                         status=status,
                         explain=explain_data,
+                        model_version=active_model_version,
                     )
 
         # Fallback to absolute floor
@@ -178,6 +187,7 @@ class RecommendationService:
             fallback_tier="tier4_global_popular",
             status="fallback",
             explain=explain_data,
+            model_version=active_model_version,
         )
 
     async def _rank_candidates(
@@ -257,10 +267,11 @@ class RecommendationService:
         fallback_tier: str = "tier1_personalized",
         status: str = "real",
         explain: dict[str, Any] | None = None,
+        model_version: str | None = None,
     ) -> RecommendResult:
         return RecommendResult(
             items=items,
-            model_version=self._model_version,
+            model_version=model_version or self._model_version,
             source=source,
             placement_id=placement_id,
             fallback_tier=fallback_tier,

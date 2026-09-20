@@ -3,7 +3,7 @@
 import pytest
 
 from app.core.errors import ServiceUnavailableError
-from app.modules.ai.rag.embeddings import _extract_vectors, aembed_texts, embed_texts
+from app.modules.ai.rag.embeddings import _extract_vectors, embed_texts
 
 
 def test_extract_vectors_from_embeddings_dict():

@@ -7,3 +7,4 @@ from tests.e2e.step_definitions.common_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.recommendations_steps import *  # noqa: F401,F403
 
 scenarios("recommendations/recommendations.feature")
+scenarios("recommendations/pipeline_eval_registry.feature")

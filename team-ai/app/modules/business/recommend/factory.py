@@ -16,6 +16,12 @@ from loguru import logger
 
 from app.modules.business.recommend.backends import build_backend
 from app.modules.business.recommend.cache import PrecomputedCache
+from app.modules.business.recommend.placement_config import PlacementRegistry
+from app.modules.business.recommend.ranking import (
+    GBDTRankerAdapter,
+    InMemoryFeatureStore,
+    InMemoryNearlineStore,
+)
 from app.modules.business.recommend.service import RecommendationService
 
 if TYPE_CHECKING:
@@ -47,9 +53,18 @@ async def build_recommendation_service(
             settings.RECS_VECTOR_DIM,
             settings.RECS_QDRANT_DISTANCE,
         )
+    registry = PlacementRegistry()
+    feature_store = InMemoryFeatureStore()
+    nearline_store = InMemoryNearlineStore()
+    ranker = GBDTRankerAdapter()
+
     return RecommendationService(
         backend=backend,
         cache=cache,
+        registry=registry,
+        feature_store=feature_store,
+        nearline_store=nearline_store,
+        ranker=ranker,
         candidate_top_k=settings.RECS_CANDIDATE_TOP_K,
         result_top_k=settings.RECS_RESULT_TOP_K,
         retrieve_timeout_ms=settings.RECS_RETRIEVE_TIMEOUT_MS,

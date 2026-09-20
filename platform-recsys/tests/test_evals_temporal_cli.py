@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from recsys.evals.evaluator import ModelEvaluator
 from recsys.evals.split import temporal_train_test_split
 

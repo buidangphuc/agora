@@ -7,7 +7,6 @@ from recsys.monitoring.drift import (
     DriftLevel,
     calculate_categorical_psi,
     calculate_numerical_psi,
-    calculate_psi,
 )
 
 

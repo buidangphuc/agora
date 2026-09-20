@@ -105,7 +105,8 @@ def _register_recommendation_service(
     ``None`` when ``RECS_ENABLED=false`` and the servicer aborts UNAVAILABLE.
     """
     if recommendation_provider is None:
-        recommendation_provider = lambda: None
+        def recommendation_provider():
+            return None
     try:
         from app.transport.grpc._pb.platform.recommendation.v1 import (
             recommendation_pb2,

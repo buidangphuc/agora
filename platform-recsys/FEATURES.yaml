@@ -1,11 +1,5 @@
 # Feature manifest for platform-recsys (offline ALS training job — capability owner).
 # Schema: platform-e2e/schemas/features.schema.json
-#
-# platform-recsys has NO user-facing UI: it is an offline PySpark batch job. Its
-# "user-facing scenario" is indirect — a backend integration assertion (run the
-# job on sample warehouse data → Qdrant collections populated + Redis cache
-# written), not a Playwright journey. Modelled exactly like team-analytics'
-# warehouse worker: persona guest, status not-testable, verified at the data layer.
 
 repo: platform-recsys
 owner: platform-recsys-team
@@ -40,5 +34,113 @@ features:
       Backend batch job (no UI). Verified at the data layer by a platform-e2e
       integration test (train from sample warehouse → assert Qdrant collections
       populated + Redis cache written), wired into `make collect` as a non-UI test.
-      Deferred to the e2e track (spec-to-e2e), outside this change's code-repo
-      boundary. A real ALS run + Qdrant/Redis load are Spark/cluster-gated.
+
+  - id: recsys.eval-metrics
+    title: A run produces ranking metrics for the generation it trained
+    persona: guest
+    priority: P1
+    summary: >
+      The offline pipeline scores the trained generation against a temporal holdout
+      and records ndcg@10 and coverage@10 metrics.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given an offline batch pipeline run over warehouse tracking events
+      - When ALS training completes and the temporal holdout is scored
+      - Then the run reports ndcg@10 and coverage@10 metrics attributed to the run's model_version
+    tags: [recsys, evals]
+    status: automated
+    covered_by: "recommendations/pipeline_eval_registry.feature::A run produces ranking metrics for the generation it trained"
+
+  - id: recsys.eval-holdout-gate
+    title: A run with no usable holdout is not a candidate
+    persona: guest
+    priority: P2
+    summary: >
+      When the interaction window yields no test events, the run is not registered as a candidate.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given an interaction window with no test events after temporal split
+      - When the evaluation stage runs
+      - Then no candidate is registered and the promotion gate is skipped
+    tags: [recsys, evals]
+    status: automated
+    covered_by: "recommendations/pipeline_eval_registry.feature::A run with no usable holdout is not a candidate"
+
+  - id: recsys.promotion-gate-reject
+    title: A regressing candidate does not become champion
+    persona: guest
+    priority: P1
+    summary: >
+      A candidate with degraded metrics is rejected by the gate and does not replace the champion.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given an incumbent champion model in the registry
+      - When a candidate model evaluates below the incumbent champion tolerance
+      - Then the candidate status is recorded as rejected
+      - And the champion key still names the previous version
+    tags: [recsys, registry]
+    status: automated
+    covered_by: "recommendations/pipeline_eval_registry.feature::A regressing candidate does not become champion"
+
+  - id: recsys.serving-isolation
+    title: A rejected candidate leaves the previous generation serving
+    persona: guest
+    priority: P1
+    summary: >
+      Rejected candidates do not overwrite serving artifacts in Qdrant/Redis.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given a candidate model rejected by the promotion gate
+      - When the pipeline run finishes
+      - Then serving vector collections and active model_version remain on the previous generation
+    tags: [recsys, serving]
+    status: automated
+    covered_by: "recommendations/pipeline_eval_registry.feature::A rejected candidate leaves the previous generation serving"
+
+  - id: recsys.bootstrap-registry
+    title: The first run bootstraps the registry
+    persona: guest
+    priority: P1
+    summary: >
+      The first run in an empty registry is promoted as champion and published to serving stores.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given an empty model registry with no existing champion
+      - When the initial pipeline run completes with valid metrics
+      - Then the initial model is promoted as champion and published to serving stores
+    tags: [recsys, registry]
+    status: automated
+    covered_by: "recommendations/pipeline_eval_registry.feature::The first run bootstraps the registry"
+
+  - id: recsys.run-summary-observability
+    title: The run summary states the decision and its reason
+    persona: guest
+    priority: P2
+    summary: >
+      The pipeline execution summary reports metrics, decision, and promotion reason.
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given an offline pipeline execution
+      - When the pipeline completes evaluation and gating
+      - Then the summary reports model_version, metrics, decision, and promotion reason
+    tags: [recsys, observability]
+    status: automated
+    covered_by: "recommendations/pipeline_eval_registry.feature::The run summary states the decision and its reason"

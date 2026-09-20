@@ -110,6 +110,10 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("enable_two_tower", "ENABLE_TWO_TOWER", "false", _as_bool),
     ("qdrant_two_tower_collection", "QDRANT_TWO_TOWER_COLLECTION", "item_two_tower_vectors", _as_str),
     ("two_tower_dim", "TWO_TOWER_DIM", "32", _as_int),
+    # ── Model Registry & Promotion Gate ──────────────────────────────────────
+    ("promotion_primary_metric", "PROMOTION_PRIMARY_METRIC", "ndcg@10", _as_str),
+    ("promotion_min_relative_improvement", "PROMOTION_MIN_RELATIVE_IMPROVEMENT", "0.01", _as_float),
+    ("promotion_min_coverage_ratio", "PROMOTION_MIN_COVERAGE_RATIO", "0.8", _as_float),
     # Provenance stamped on every artifact; empty ⇒ derive from the run clock.
     ("model_version", "MODEL_VERSION", "", _as_str),
 ]
@@ -149,6 +153,9 @@ class Settings:
     cache_prefix: str = "recs"
     cache_schema_version: str = "v1"
     cache_ttl_seconds: int = 172800
+    promotion_primary_metric: str = "ndcg@10"
+    promotion_min_relative_improvement: float = 0.01
+    promotion_min_coverage_ratio: float = 0.8
     model_version: str = ""
 
     # ── Derived helpers ──────────────────────────────────────────────────────

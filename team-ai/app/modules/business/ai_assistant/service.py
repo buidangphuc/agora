@@ -503,12 +503,7 @@ class AIAssistantService:
                 scored.append((score, item))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-
-        if not scored:
-            # Fallback to popular recommendations if no direct match
-            candidates = CATALOG[:top_k]
-        else:
-            candidates = [x[1] for x in scored[:top_k]]
+        candidates = [x[1] for x in scored[:top_k]] if scored else CATALOG[:top_k]
 
         return [
             ProductCard(

@@ -21,7 +21,7 @@ class RecommendQuery:
     seed_listing_id: str = ""
     context: str = ""
     limit: int = 0
-    placement_id: str = "home_feed"  # "home_feed", "similar_items", "cart_cross_sell"
+    placement_id: str = ""  # "home_feed", "similar_items", "cart_cross_sell"
     category_id: str = ""
     cart_listing_ids: list[str] = field(default_factory=list)
     include_explain: bool = False

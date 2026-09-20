@@ -42,6 +42,9 @@ class PrecomputedCache:
     def popular_key(self) -> str:
         return f"{self._prefix}:{self._schema_version}:popular"
 
+    def model_version_key(self) -> str:
+        return f"{self._prefix}:{self._schema_version}:model_version"
+
     async def get_user_candidates(self, user_id: str) -> list[Candidate] | None:
         if not user_id:
             return None
@@ -49,6 +52,18 @@ class PrecomputedCache:
 
     async def get_popular_candidates(self) -> list[Candidate] | None:
         return await self._read(self.popular_key())
+
+    async def get_model_version(self) -> str | None:
+        if self._redis is None:
+            return None
+        try:
+            val = await self._redis.get(self.model_version_key())
+            if isinstance(val, bytes):
+                return val.decode("utf-8")
+            return str(val) if val is not None else None
+        except Exception as exc:
+            logger.warning("recs.cache.get_model_version_failed err={}", exc)
+            return None
 
     async def _read(self, key: str) -> list[Candidate] | None:
         if self._redis is None:

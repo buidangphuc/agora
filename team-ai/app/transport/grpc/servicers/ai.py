@@ -5,7 +5,8 @@ Adheres to the platform-core gRPC contract (platform.ai.v1.AIService).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import grpc
 from loguru import logger

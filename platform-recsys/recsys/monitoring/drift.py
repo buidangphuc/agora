@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-import math
-from typing import Any, Sequence
+from typing import Any
 
 
 class DriftLevel(str, Enum):
@@ -149,7 +150,7 @@ def calculate_numerical_psi(
             t_bin_counts[-1] += 1
 
     psi = 0.0
-    for b_c, t_c in zip(b_bin_counts, t_bin_counts):
+    for b_c, t_c in zip(b_bin_counts, t_bin_counts, strict=False):
         p = max(epsilon, b_c / float(b_len))
         q = max(epsilon, t_c / float(t_len))
         psi += (q - p) * math.log(q / p)
@@ -168,7 +169,7 @@ def calculate_psi(
         return 0.0
 
     sample = baseline[0]
-    if isinstance(sample, (int, float)) and not isinstance(sample, bool):
+    if isinstance(sample, int | float) and not isinstance(sample, bool):
         return calculate_numerical_psi(
             [float(x) for x in baseline],
             [float(x) for x in target],
@@ -227,7 +228,8 @@ class DriftDetector:
             "# TYPE recsys_feature_psi gauge",
         ]
         for name, res in report.feature_results.items():
-            lines.append(f'recsys_feature_psi{{feature="{name}",level="{res.drift_level.value}"}} {res.psi:.4f}')
+            metric_label = f'recsys_feature_psi{{feature="{name}",level="{res.drift_level.value}"}}'
+            lines.append(f"{metric_label} {res.psi:.4f}")
 
         lines.extend([
             "# HELP recsys_model_drift_alert Indicates if any feature has significant drift",

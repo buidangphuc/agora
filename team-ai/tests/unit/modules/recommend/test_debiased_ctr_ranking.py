@@ -7,7 +7,6 @@ import asyncio
 from app.modules.business.recommend.placement_config import PlacementRegistry
 from app.modules.business.recommend.ranking import (
     GBDTRankerAdapter,
-    InMemoryFeatureStore,
     InMemoryNearlineStore,
 )
 from app.modules.business.recommend.schemas import Candidate, RecommendQuery

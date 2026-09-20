@@ -6,9 +6,13 @@ Tests strict end-to-end wiring of GBDT ranking, FeatureStore enrichment, startup
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 
-from app.modules.business.recommend.placement_config import PlacementConfig, PlacementRegistry
+from app.modules.business.recommend.placement_config import (
+    PlacementConfig,
+    PlacementRegistry,
+)
 from app.modules.business.recommend.ranking import (
     GBDTRankerAdapter,
     InMemoryFeatureStore,

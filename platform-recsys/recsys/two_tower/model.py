@@ -48,7 +48,7 @@ class TwoTowerModel:
         """Calculates inner product similarity score between user and item feature representations."""
         u_vec = self.user_tower.project(user_features)
         i_vec = self.item_tower.project(item_features)
-        return sum(u * v for u, v in zip(u_vec, i_vec))
+        return sum(u * v for u, v in zip(u_vec, i_vec, strict=False))
 
     def retrieve(
         self,
@@ -67,7 +67,7 @@ class TwoTowerModel:
         for lid, i_vec in self._item_vectors.items():
             if lid in excludes:
                 continue
-            sim = sum(u * v for u, v in zip(u_vec, i_vec))
+            sim = sum(u * v for u, v in zip(u_vec, i_vec, strict=False))
             scores.append((lid, sim))
 
         scores.sort(key=lambda x: x[1], reverse=True)

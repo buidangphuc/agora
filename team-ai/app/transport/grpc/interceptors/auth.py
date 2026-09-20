@@ -24,7 +24,6 @@ from app.modules.platform.identity.schemas import Principal
 from app.transport.grpc.context import _principal
 from app.transport.grpc.interceptors._wrap import wrap_handler
 
-
 _PRINCIPAL_TYPES = {"user", "service", "anonymous"}
 
 # Infrastructure services that must answer unauthenticated: the gRPC health check

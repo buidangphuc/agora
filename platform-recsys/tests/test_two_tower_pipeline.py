@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 from recsys.config import Settings
 from recsys.load.qdrant import load_two_tower_vectors
-from recsys.two_tower.model import TwoTowerModel
 from recsys.two_tower.pipeline import train_and_index_two_tower
 
 

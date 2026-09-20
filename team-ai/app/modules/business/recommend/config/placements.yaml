@@ -12,13 +12,13 @@ placements:
     candidate_ladder:
       - tier: "tier1_personalized"
         strategy: "user_precomputed"
-        min_candidates: 5
+        min_candidates: 1
       - tier: "tier2_session_context"
         strategy: "seed_vector_similarity"
-        min_candidates: 3
+        min_candidates: 1
       - tier: "tier3_category_trending"
         strategy: "category_popular"
-        min_candidates: 3
+        min_candidates: 1
       - tier: "tier4_global_popular"
         strategy: "global_popular"
         min_candidates: 1
@@ -38,10 +38,10 @@ placements:
     candidate_ladder:
       - tier: "tier1_vector_ann"
         strategy: "seed_vector_similarity"
-        min_candidates: 5
+        min_candidates: 1
       - tier: "tier3_category_trending"
         strategy: "category_popular"
-        min_candidates: 3
+        min_candidates: 1
       - tier: "tier4_global_popular"
         strategy: "global_popular"
         min_candidates: 1
@@ -60,10 +60,10 @@ placements:
     candidate_ladder:
       - tier: "tier2_cart_ann"
         strategy: "cart_cross_similarity"
-        min_candidates: 4
+        min_candidates: 1
       - tier: "tier3_category_trending"
         strategy: "category_popular"
-        min_candidates: 2
+        min_candidates: 1
       - tier: "tier4_global_popular"
         strategy: "global_popular"
         min_candidates: 1

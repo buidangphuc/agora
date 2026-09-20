@@ -10,10 +10,10 @@ Each run writes under a fresh ``model_version`` and prunes stale generations.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-import uuid
 
 # Stable namespace so a given listing/user maps to the same point id every run.
 _NS = uuid.UUID("6f7a1e2c-9b3d-4c5a-8e21-0d9f4a2b1c00")

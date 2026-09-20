@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+
 import yaml
 
 KNOWN_RANKING_MODELS = {"cosine_rank", "gbdt"}
@@ -53,7 +53,7 @@ class PlacementRegistry:
         self.validate()
 
     def _load_from_yaml(self, path: Path) -> None:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
         placements_data = data.get("placements", {})
