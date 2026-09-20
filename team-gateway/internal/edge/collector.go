@@ -16,37 +16,61 @@ import (
 // small; anything larger is a malformed/abusive request.
 const maxBeaconBytes = 64 * 1024
 
+// maxBatchItems caps the number of events sent in a single batched array.
+const maxBatchItems = 100
+
 // trackBeacon is the browser beacon shape (see team-frontend/src/lib/track.ts).
 // It carries behavioral context ONLY — never authenticated identity, which the
 // edge attaches via the envelope principal (contract forbids PII in payload).
 type trackBeacon struct {
-	Type         string            `json:"type"`
-	ListingID    string            `json:"listingId"`
-	SessionID    string            `json:"sessionId"`
-	AnonymousID  string            `json:"anonymousId"`
-	Path         string            `json:"path"`
-	Referrer     string            `json:"referrer"`
-	Position     uint32            `json:"position"`
-	Query        string            `json:"query"`
-	PlacementID  string            `json:"placementId"`
-	ImpressionID string            `json:"impressionId"`
-	ModelVersion string            `json:"modelVersion"`
-	Properties   map[string]string `json:"properties"`
+	Type          string            `json:"type"`
+	ListingID     string            `json:"listingId"`
+	SessionID     string            `json:"sessionId"`
+	AnonymousID   string            `json:"anonymousId"`
+	Path          string            `json:"path"`
+	Referrer      string            `json:"referrer"`
+	Position      uint32            `json:"position"`
+	Query         string            `json:"query"`
+	PlacementID   string            `json:"placementId"`
+	ImpressionID  string            `json:"impressionId"`
+	ModelVersion  string            `json:"modelVersion"`
+	Properties    map[string]string `json:"properties"`
+	Currency      string            `json:"currency"`
+	Value         int64             `json:"value"`
+	Price         int64             `json:"price"`
+	Quantity      uint32            `json:"quantity"`
+	TransactionID string            `json:"transactionId"`
+	Coupon        string            `json:"coupon"`
+	ItemCategory  string            `json:"itemCategory"`
+	ItemListID    string            `json:"itemListId"`
+	ItemListName  string            `json:"itemListName"`
+	EventGroupID  string            `json:"eventGroupId"`
+	ShippingTier  string            `json:"shippingTier"`
+	PaymentType   string            `json:"paymentType"`
 }
 
 // beaconEventTypes maps the beacon's lowercase action name to its EventType.
 // An unknown/empty type is rejected (nothing is produced).
 var beaconEventTypes = map[string]analyticsv1.EventType{
-	"view":             analyticsv1.EventType_EVENT_TYPE_VIEW,
-	"click":            analyticsv1.EventType_EVENT_TYPE_CLICK,
-	"add_to_cart":      analyticsv1.EventType_EVENT_TYPE_ADD_TO_CART,
-	"impression":       analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
-	"remove_from_cart": analyticsv1.EventType_EVENT_TYPE_REMOVE_FROM_CART,
-	"begin_checkout":   analyticsv1.EventType_EVENT_TYPE_BEGIN_CHECKOUT,
-	"apply_promotion":  analyticsv1.EventType_EVENT_TYPE_APPLY_PROMOTION,
-	"search_filter":    analyticsv1.EventType_EVENT_TYPE_SEARCH_FILTER,
-	"favorite":         analyticsv1.EventType_EVENT_TYPE_FAVORITE,
-	"share":            analyticsv1.EventType_EVENT_TYPE_SHARE,
+	"view":              analyticsv1.EventType_EVENT_TYPE_VIEW,
+	"click":             analyticsv1.EventType_EVENT_TYPE_CLICK,
+	"add_to_cart":       analyticsv1.EventType_EVENT_TYPE_ADD_TO_CART,
+	"impression":        analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
+	"remove_from_cart":  analyticsv1.EventType_EVENT_TYPE_REMOVE_FROM_CART,
+	"begin_checkout":    analyticsv1.EventType_EVENT_TYPE_BEGIN_CHECKOUT,
+	"apply_promotion":   analyticsv1.EventType_EVENT_TYPE_APPLY_PROMOTION,
+	"search_filter":     analyticsv1.EventType_EVENT_TYPE_SEARCH_FILTER,
+	"favorite":          analyticsv1.EventType_EVENT_TYPE_FAVORITE,
+	"share":             analyticsv1.EventType_EVENT_TYPE_SHARE,
+	"view_cart":         analyticsv1.EventType_EVENT_TYPE_VIEW_CART,
+	"add_shipping_info": analyticsv1.EventType_EVENT_TYPE_ADD_SHIPPING_INFO,
+	"add_payment_info":  analyticsv1.EventType_EVENT_TYPE_ADD_PAYMENT_INFO,
+	"purchase":          analyticsv1.EventType_EVENT_TYPE_PURCHASE,
+
+	// GA4 Standard Event Aliases
+	"view_item":      analyticsv1.EventType_EVENT_TYPE_VIEW,
+	"select_item":    analyticsv1.EventType_EVENT_TYPE_CLICK,
+	"view_item_list": analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
 }
 
 // HandleTrack builds the pure edge-telemetry collector: parse the beacon (single
@@ -91,6 +115,18 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 				PlacementId:  b.PlacementID,
 				ImpressionId: b.ImpressionID,
 				ModelVersion: b.ModelVersion,
+				Currency:     b.Currency,
+				Value:        b.Value,
+				Price:        b.Price,
+				Quantity:     b.Quantity,
+				TransactionId: b.TransactionID,
+				Coupon:       b.Coupon,
+				ItemCategory: b.ItemCategory,
+				ItemListId:   b.ItemListID,
+				ItemListName: b.ItemListName,
+				EventGroupId: b.EventGroupID,
+				ShippingTier: b.ShippingTier,
+				PaymentType:  b.PaymentType,
 			})
 		}
 
@@ -129,6 +165,9 @@ func parseBeacons(body []byte) ([]trackBeacon, error) {
 		}
 		if len(batch) == 0 {
 			return nil, jsonError("empty batch")
+		}
+		if len(batch) > maxBatchItems {
+			return nil, jsonError("batch exceeds max items")
 		}
 		return batch, nil
 	}
