@@ -39,7 +39,11 @@ test:
 
 .PHONY: test-host
 test-host:
-	$(PY) -m pytest -q tests/test_config.py tests/test_weights.py tests/test_recommend.py tests/test_env_drift.py
+	$(PY) -m pytest -q tests/test_config.py tests/test_weights.py tests/test_recommend.py tests/test_env_drift.py tests/test_evals.py tests/test_registry.py tests/test_nearline.py tests/test_ranker.py
+
+.PHONY: eval
+eval:
+	$(PY) -m recsys.evals
 
 .PHONY: check-env
 check-env:
