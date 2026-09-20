@@ -1,0 +1,53 @@
+# Feature manifest for platform-modelserve (model serving platform capability).
+# Schema: platform-e2e/schemas/features.schema.json
+
+repo: platform-modelserve
+owner: platform-ml-team
+
+features:
+  - id: modelserve.embedding-router
+    title: Model server routes vector embedding requests with Redis caching and upstream TEI integration
+    persona: guest
+    priority: P1
+    summary: >
+      Provides an HTTP serving endpoint conforming to team-ai's embedding contract,
+      caching embeddings in Redis by model version and input hash, and proxying cache
+      misses to Hugging Face TEI.
+    entry_route: /embed
+    services: [platform-modelserve]
+    preconditions:
+      login: guest
+      data: >
+        ModelServe router (:8100) running with Redis (:6379) and upstream TEI embed runtime (:8101).
+    acceptance:
+      - Given an embedding request payload with texts
+      - When team-ai posts to /embed or /v1/embeddings
+      - Then the router returns embedding vectors matching the contract expected by _extract_vectors
+      - And subsequent requests for identical texts under the same model_version hit Redis cache directly
+    tags: [modelserve, ai, inference]
+    status: not-testable
+    notes: >
+      Internal platform capability called only by team-ai (no browser-facing UI).
+      Verified via automated unit, integration, and contract conformance tests in platform-modelserve.
+
+  - id: modelserve.admission-control
+    title: Model server enforces queue-depth admission control with 429 backpressure
+    persona: guest
+    priority: P2
+    summary: >
+      Tracks in-flight requests and rejects new requests with HTTP 429 Too Many Requests
+      and Retry-After header when queue depth exceeds threshold.
+    entry_route: /embed
+    services: [platform-modelserve]
+    preconditions:
+      login: guest
+      data: >
+        ModelServe router (:8100) running with MAX_QUEUE_DEPTH configured.
+    acceptance:
+      - Given the router is saturated beyond MAX_QUEUE_DEPTH concurrent requests
+      - When an additional request arrives
+      - Then the router responds with HTTP 429 and Retry-After header to prevent collapse
+    tags: [modelserve, resilience]
+    status: not-testable
+    notes: >
+      Internal platform capability verified via unit and concurrency tests.

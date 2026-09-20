@@ -1,0 +1,236 @@
+# platform-modelserve — Internal ML model serving router + TEI / vLLM runtimes (ADR-0011).
+# Reconciled by the infra-shared ArgoCD Application (sync-wave 0).
+# Ingress to the router (:8100) is restricted via NetworkPolicy so only team-ai can reach it.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: modelserve-models-cache
+  namespace: marketplace
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+---
+# ── 1. ModelServe Router (Port :8100) ─────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: modelserve-router
+  namespace: marketplace
+  labels:
+    app: modelserve-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: modelserve-router
+  template:
+    metadata:
+      labels:
+        app: modelserve-router
+    spec:
+      containers:
+        - name: router
+          image: agora/platform-modelserve:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8100
+          env:
+            - name: ROUTER_PORT
+              value: "8100"
+            - name: TEI_EMBED_URL
+              value: "http://tei-embed.marketplace.svc:8101"
+            - name: TEI_RERANK_URL
+              value: "http://tei-rerank.marketplace.svc:8102"
+            - name: VLLM_URL
+              value: "http://vllm.marketplace.svc:8103"
+            - name: REDIS_URL
+              value: "redis://redis.marketplace.svc:6379/0"
+            - name: EMBED_CACHE_ENABLED
+              value: "true"
+            - name: MODEL_VERSION
+              value: "bge-small-en-v1.5"
+            - name: MAX_QUEUE_DEPTH
+              value: "100"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8100
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8100
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: modelserve-router
+  namespace: marketplace
+  labels:
+    app: modelserve-router
+spec:
+  selector:
+    app: modelserve-router
+  ports:
+    - name: http
+      port: 8100
+      targetPort: 8100
+---
+# ── 2. TEI Embed Runtime (Port :8101) ─────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tei-embed
+  namespace: marketplace
+  labels:
+    app: tei-embed
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tei-embed
+  template:
+    metadata:
+      labels:
+        app: tei-embed
+    spec:
+      containers:
+        - name: tei-embed
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODEL_ID
+              value: "BAAI/bge-small-en-v1.5"
+            - name: PORT
+              value: "8101"
+          ports:
+            - name: http
+              containerPort: 8101
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          volumeMounts:
+            - name: models-cache
+              mountPath: /data
+      volumes:
+        - name: models-cache
+          persistentVolumeClaim:
+            claimName: modelserve-models-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tei-embed
+  namespace: marketplace
+  labels:
+    app: tei-embed
+spec:
+  selector:
+    app: tei-embed
+  ports:
+    - name: http
+      port: 8101
+      targetPort: 8101
+---
+# ── 3. TEI Rerank Runtime (Port :8102) ────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tei-rerank
+  namespace: marketplace
+  labels:
+    app: tei-rerank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tei-rerank
+  template:
+    metadata:
+      labels:
+        app: tei-rerank
+    spec:
+      containers:
+        - name: tei-rerank
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODEL_ID
+              value: "BAAI/bge-reranker-base"
+            - name: PORT
+              value: "8102"
+          ports:
+            - name: http
+              containerPort: 8102
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          volumeMounts:
+            - name: models-cache
+              mountPath: /data
+      volumes:
+        - name: models-cache
+          persistentVolumeClaim:
+            claimName: modelserve-models-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tei-rerank
+  namespace: marketplace
+  labels:
+    app: tei-rerank
+spec:
+  selector:
+    app: tei-rerank
+  ports:
+    - name: http
+      port: 8102
+      targetPort: 8102
+---
+# ── 4. NetworkPolicy: Service-to-Service Zero-Trust (ADR-0010 / ADR-0011) ─────
+# Internal isolation: only team-ai and prometheus can access modelserve-router :8100.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: modelserve-router-isolation
+  namespace: marketplace
+spec:
+  podSelector:
+    matchLabels:
+      app: modelserve-router
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: team-ai
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8100

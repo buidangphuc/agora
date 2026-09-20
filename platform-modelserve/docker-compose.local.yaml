@@ -1,0 +1,38 @@
+# platform-modelserve local compose stack
+# Starts router + Hugging Face TEI CPU embed container on platform-core_default
+version: "3.8"
+
+networks:
+  platform-core_default:
+    external: true
+
+services:
+  # TEI CPU Embed runtime for local dev
+  tei-embed:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    environment:
+      - MODEL_ID=BAAI/bge-small-en-v1.5
+      - PORT=8101
+    ports:
+      - "8101:8101"
+    networks:
+      - platform-core_default
+
+  # ModelServe Router
+  modelserve-router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ROUTER_PORT=8100
+      - TEI_EMBED_URL=http://tei-embed:8101
+      - REDIS_URL=redis://redis:6379/0
+      - EMBED_CACHE_ENABLED=true
+      - MODEL_VERSION=bge-small-en-v1.5
+      - MAX_QUEUE_DEPTH=100
+    ports:
+      - "8100:8100"
+    depends_on:
+      - tei-embed
+    networks:
+      - platform-core_default
