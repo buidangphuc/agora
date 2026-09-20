@@ -59,3 +59,9 @@ class TrackingService(BaseService):
         """POST an arbitrary (possibly malformed) body as the beacon transport does."""
         resp = self.send("POST", ep.TRACK, content=raw_body)
         return resp.status_code
+
+    def emit_batch(self, items: list[dict[str, Any]]) -> int:
+        """POST a batched array of tracking beacons."""
+        resp = self.send("POST", ep.TRACK, json_body=items)
+        return resp.status_code
+

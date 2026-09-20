@@ -32,3 +32,12 @@ Feature: Browsing actions emit tracking events
     When the buyer performs a tracked browsing action while the analytics producer is unavailable
     Then the browsing action completes normally
     And no user-visible error is shown
+
+  @needsBuyer @needsListing
+  Scenario: Multi-item ecommerce beacons fan out and carry financial and group attributes
+    Given a buyer is logged in
+    And a listing has been seeded via the API
+    When the gateway receives a batched ecommerce payload with GA4 aliases
+    Then multiple EventEnvelopes sharing the same event group id are published to the "analytics.events" topic
+    And the purchase tracking payload carries transaction id, currency and minor unit prices
+

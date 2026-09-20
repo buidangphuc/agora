@@ -166,3 +166,72 @@ def no_user_visible_error(world: World) -> None:
     assert (
         error_banner.count() == 0 or not error_banner.first.is_visible()
     ), "a user-visible error was shown during a best-effort tracked action"
+
+
+# ── Ecommerce Batching & Fan-out Steps ────────────────────────────────────
+@when("the gateway receives a batched ecommerce payload with GA4 aliases")
+def emit_batched_ecommerce_payload(world: World) -> None:
+    listing = world.state.listing
+    session_id = f"e2e-sess-{uuid.uuid4()}"
+    event_group_id = f"grp-{uuid.uuid4()}"
+    tx_id = f"tx-{uuid.uuid4()}"
+
+    batch = [
+        {
+            "type": "view_item_list",
+            "listingId": listing.listing_id,  # type: ignore[union-attr]
+            "sessionId": session_id,
+            "eventGroupId": event_group_id,
+            "currency": "VND",
+            "price": 50000,
+            "position": 1,
+            "itemListId": "search_results",
+        },
+        {
+            "type": "purchase",
+            "listingId": listing.listing_id,  # type: ignore[union-attr]
+            "sessionId": session_id,
+            "eventGroupId": event_group_id,
+            "transactionId": tx_id,
+            "currency": "VND",
+            "value": 150000,
+            "price": 50000,
+            "quantity": 1,
+            "shippingTier": "SPX_EXPRESS",
+            "paymentType": "MOCK_WALLET",
+        },
+    ]
+
+    status = world.service_factory.tracking.emit_batch(batch)
+    assert status in (200, 202, 204), f"batch beacon should be accepted, got {status}"
+    world.state.extra["track_session_id"] = session_id
+    world.state.extra["event_group_id"] = event_group_id
+    world.state.extra["transaction_id"] = tx_id
+
+
+@then(
+    parsers.parse(
+        'multiple EventEnvelopes sharing the same event group id are published to the "{topic}" topic'
+    )
+)
+def multiple_envelopes_sharing_group_id(world: World, topic: str) -> None:
+    session_id = world.state.extra["track_session_id"]
+    group_id = world.state.extra["event_group_id"]
+    envelopes = _envelopes_for_session(world, session_id)
+    assert len(envelopes) >= 2, f"expected at least 2 envelopes, got {len(envelopes)}"
+    for env in envelopes:
+        text = _as_text(env)
+        assert group_id in text, f"group id {group_id} not found in envelope {text}"
+
+
+@then("the purchase tracking payload carries transaction id, currency and minor unit prices")
+def purchase_payload_carries_ecommerce_fields(world: World) -> None:
+    session_id = world.state.extra["track_session_id"]
+    tx_id = world.state.extra["transaction_id"]
+    envelopes = _envelopes_for_session(world, session_id)
+    purchase_envs = [env for env in envelopes if "EVENT_TYPE_PURCHASE" in _as_text(env) or tx_id in _as_text(env)]
+    assert len(purchase_envs) >= 1, f"no purchase envelope found for tx {tx_id}"
+    text = _as_text(purchase_envs[0])
+    assert tx_id in text, "transaction id missing"
+    assert "VND" in text, "currency missing"
+
