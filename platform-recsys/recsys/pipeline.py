@@ -2,8 +2,8 @@
 
 Orchestrates the seams. The heavy Spark work (read, map, index, fit) stays in
 the executors; the collected factor matrices are ranked on the driver
-(recsys.recommend) and loaded into the artifact stores. Idempotent per
-model_version: re-running the same window reproduces the same artifacts.
+(recsys.recommend) and loaded into the artifact stores.
+Optionally trains and indexes Two-Tower neural candidate retrieval model when enabled.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from .load import redis_cache
 from .model_version import resolve_model_version
 from .spark import build_spark
 from .train import train_als
+from .two_tower.pipeline import train_and_index_two_tower
 from .warehouse import read_tracking_events
 
 log = logging.getLogger("recsys.pipeline")
@@ -44,8 +45,6 @@ def run(settings: Settings | None = None) -> dict:
         events = read_tracking_events(spark, settings)
         triples = build_triples(events, settings)
 
-        # Popularity fallback from the (user,item,weight) triples — summed weight
-        # per listing (computed on Spark, small result collected to the driver).
         from pyspark.sql import functions as F  # noqa: PLC0415
 
         pop_rows = (
@@ -76,7 +75,7 @@ def run(settings: Settings | None = None) -> dict:
         )
         cache_counts = redis_cache.load_cache(settings, model_version, user_recs, item_recs, popular)
 
-        summary = {
+        summary: dict = {
             "model_version": model_version,
             "qdrant": qdrant_counts,
             "cache": cache_counts,
@@ -84,6 +83,22 @@ def run(settings: Settings | None = None) -> dict:
             "users": len(user_ids),
             "popular": len(popular),
         }
+
+        # ── Two-Tower Stage (Optional) ───────────────────────────────────────────
+        if settings.enable_two_tower:
+            catalog_items = [{"listing_id": lid} for lid in item_ids]
+            _tt_model, tt_vectors = train_and_index_two_tower(
+                catalog_items=catalog_items,
+                embedding_dim=settings.two_tower_dim,
+            )
+            tt_count = qdrant_load.load_two_tower_vectors(
+                settings=settings,
+                model_version=model_version,
+                item_vectors=tt_vectors,
+            )
+            summary["two_tower_items"] = tt_count
+            log.info("two-tower stage indexed items=%d", tt_count)
+
         log.info("batch complete %s", summary)
         return summary
     finally:

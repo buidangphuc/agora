@@ -106,6 +106,10 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     # TTL a bit longer than the batch cadence (nightly) so a missed run degrades
     # gracefully rather than emptying the cache. Default 48h.
     ("cache_ttl_seconds", "RECS_CACHE_TTL_SECONDS", "172800", _as_int),
+    # ── Two-Tower candidate retrieval stage (optional) ───────────────────────
+    ("enable_two_tower", "ENABLE_TWO_TOWER", "false", _as_bool),
+    ("qdrant_two_tower_collection", "QDRANT_TWO_TOWER_COLLECTION", "item_two_tower_vectors", _as_str),
+    ("two_tower_dim", "TWO_TOWER_DIM", "32", _as_int),
     # Provenance stamped on every artifact; empty ⇒ derive from the run clock.
     ("model_version", "MODEL_VERSION", "", _as_str),
 ]
@@ -135,6 +139,9 @@ class Settings:
     qdrant_url: str = "http://localhost:6333"
     qdrant_item_collection: str = "item_als_vectors"
     qdrant_user_collection: str = "user_als_vectors"
+    enable_two_tower: bool = False
+    qdrant_two_tower_collection: str = "item_two_tower_vectors"
+    two_tower_dim: int = 32
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_password: str = ""
