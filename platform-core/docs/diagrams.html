@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agora Marketplace — Editorial Architecture Diagrams</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f8fafc;
+      --paper-card: #ffffff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --soft: #94a3b8;
+      --rule: #e2e8f0;
+      --rule-dark: #cbd5e1;
+      --accent: #ea580c;
+      --accent-tint: #fff7ed;
+      --accent-border: #fdba74;
+      --blue: #2563eb;
+      --blue-tint: #eff6ff;
+      --green: #16a34a;
+      --green-tint: #f0fdf4;
+      --purple: #9333ea;
+      --purple-tint: #faf5ff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--paper);
+      color: var(--ink);
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 32px 24px;
+      line-height: 1.5;
+    }
+
+    header {
+      max-width: 1200px;
+      margin: 0 auto 28px;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .title-group h1 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 2.25rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .title-group p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .badge {
+      font-family: 'Geist Mono', monospace;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      background: #fff;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      color: var(--muted);
+    }
+    .badge.focal {
+      background: var(--accent-tint);
+      border-color: var(--accent-border);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Tabs */
+    .tabs-nav {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .tab-btn {
+      font-family: 'Geist', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 8px 16px;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: var(--ink);
+      border-color: var(--soft);
+    }
+    .tab-btn.active {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+
+    .diagram-viewport {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    .diagram-meta {
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .diagram-meta h2 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .diagram-meta .diagram-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-family: 'Geist Mono', monospace;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* SVG Editorial styling */
+    .node-title { font-family: 'Geist', sans-serif; font-weight: 600; font-size: 12px; fill: var(--ink); }
+    .node-sub { font-family: 'Geist Mono', monospace; font-size: 9.5px; fill: var(--muted); }
+    .node-tag { font-family: 'Geist Mono', monospace; font-size: 8px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
+    .edge-label { font-family: 'Geist Mono', monospace; font-size: 8.5px; fill: var(--muted); font-weight: 500; }
+    .group-label { font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; fill: var(--muted); }
+    .aside-text { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 14px; fill: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>Agora Polyrepo Architecture</h1>
+      <p>Hệ thống kiến trúc đa tầng Marketplace & Pipeline MLOps / Telemetry thời gian thực</p>
+    </div>
+    <div class="badge-bar">
+      <span class="badge focal">Editorial Diagrams</span>
+      <span class="badge">Polyrepo</span>
+      <span class="badge">CQRS & Saga</span>
+      <span class="badge">Two-Tower MLOps</span>
+    </div>
+  </header>
+
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('tab-global')">1. Tổng Thể Hệ Thống</button>
+    <button class="tab-btn" onclick="switchTab('tab-gateway')">2. Edge Gateway & Zero-Trust</button>
+    <button class="tab-btn" onclick="switchTab('tab-telemetry')">3. Data & Telemetry Pipeline</button>
+    <button class="tab-btn" onclick="switchTab('tab-mlops')">4. MLOps & RecSys Engine</button>
+    <button class="tab-btn" onclick="switchTab('tab-saga')">5. Distributed Saga & Outbox</button>
+    <button class="tab-btn" onclick="switchTab('tab-search')">6. Hybrid Search & RRF</button>
+  </div>
+
+  <div class="diagram-viewport">
+
+    <!-- TAB 1: GLOBAL ARCHITECTURE -->
+    <div id="tab-global" class="tab-content active">
+      <div class="diagram-meta">
+        <h2>Global High-Level System Architecture</h2>
+        <span class="diagram-desc">Type: Architecture · Target Density: 4/10 · Zero Mermaid Slop</span>
+      </div>
+      <svg viewBox="0 0 1000 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+          <marker id="arrow-accent" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#ea580c" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+        </defs>
+
+        <!-- Container 1: Client Layer -->
+        <rect x="30" y="30" width="940" height="70" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="45" y="50" class="group-label">📱 CLIENT APPLICATIONS & SSR</text>
+
+        <rect x="50" y="58" width="260" height="32" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="62" y="74" class="node-title">team-frontend</text>
+        <text x="175" y="74" class="node-sub">Next.js 14 SSR :3000</text>
+
+        <rect x="340" y="58" width="280" height="32" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="352" y="74" class="node-title">GA4 DataLayer Dispatcher</text>
+        <text x="510" y="74" class="node-sub">window.dataLayer</text>
+
+        <rect x="650" y="58" width="290" height="32" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="662" y="74" class="node-title">Mobile / External Clients</text>
+        <text x="825" y="74" class="node-sub">Connect-ES Client</text>
+
+        <!-- Connector Client -> Gateway -->
+        <path d="M 180 90 L 180 140" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 480 90 L 480 140" stroke="#ea580c" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <rect x="420" y="108" width="120" height="16" fill="#f8fafc" rx="2"/>
+        <text x="425" y="120" class="edge-label" fill="#ea580c">POST /api/track (Beacons)</text>
+
+        <!-- Container 2: Edge Gateway (Focal) -->
+        <rect x="30" y="140" width="940" height="80" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+        <text x="45" y="160" class="group-label" fill="#c2410c">🛡️ EDGE GATEWAY & BẢO MẬT (VERIFY-ONLY)</text>
+        <rect x="50" y="168" width="890" height="42" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1.2"/>
+        <text x="65" y="188" class="node-title" fill="#c2410c">team-gateway</text>
+        <text x="160" y="188" class="node-sub">:8080 Connect Edge</text>
+        <text x="320" y="188" class="node-sub">RS256 JWT Verify (via JWKS :50063) · Rate Limit · Deadlines · Metadata Forwarder (x-principal-*)</text>
+        <text x="65" y="202" class="node-tag" fill="#ea580c">FOCAL EDGE COMPONENT</text>
+
+        <!-- Downstream gRPC Routes -->
+        <path d="M 120 220 L 120 270" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 280 220 L 280 270" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 450 220 L 450 270" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 620 220 L 620 270" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 800 220 L 800 270" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Container 3: Core Business Microservices -->
+        <rect x="30" y="270" width="940" height="140" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="45" y="290" class="group-label">⚙️ CORE DOMAIN MICROSERVICES (gRPC / DB-PER-SERVICE)</text>
+
+        <!-- Service cards -->
+        <rect x="50" y="300" width="160" height="48" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="60" y="318" class="node-title">team-identity</text>
+        <text x="60" y="332" class="node-sub">:50053 · RS256 / JWKS</text>
+        <text x="60" y="342" class="node-tag" fill="#64748b">Auth & Roles</text>
+
+        <rect x="225" y="300" width="160" height="48" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="235" y="318" class="node-title">team-domain</text>
+        <text x="235" y="332" class="node-sub">:50051 · Listing Write</text>
+        <text x="235" y="342" class="node-tag" fill="#64748b">Write Model</text>
+
+        <rect x="400" y="300" width="160" height="48" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="410" y="318" class="node-title">team-order</text>
+        <text x="410" y="332" class="node-sub">:50055 · Saga / Cart</text>
+        <text x="410" y="342" class="node-tag" fill="#64748b">Saga Orchestrator</text>
+
+        <rect x="575" y="300" width="170" height="48" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="585" y="318" class="node-title">team-promotion</text>
+        <text x="585" y="332" class="node-sub">:50061 · Voucher / Flash</text>
+        <text x="585" y="342" class="node-tag" fill="#64748b">Voucher Reserve</text>
+
+        <rect x="760" y="300" width="190" height="48" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="770" y="318" class="node-title">team-payment</text>
+        <text x="770" y="332" class="node-sub">:50056 · Mock Wallet</text>
+        <text x="770" y="342" class="node-tag" fill="#64748b">Ledger & Payout</text>
+
+        <!-- Second row of services -->
+        <rect x="50" y="355" width="160" height="45" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="60" y="373" class="node-title">team-engagement</text>
+        <text x="60" y="388" class="node-sub">:50054 · Review / Favs</text>
+
+        <rect x="225" y="355" width="160" height="45" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="235" y="373" class="node-title">team-chat & notify</text>
+        <text x="235" y="388" class="node-sub">:50057 / :50058</text>
+
+        <rect x="400" y="355" width="160" height="45" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="410" y="373" class="node-title">team-verification</text>
+        <text x="410" y="388" class="node-sub">:50064 · KYC Submissions</text>
+
+        <rect x="575" y="355" width="170" height="45" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="585" y="373" class="node-title">team-sharing & audit</text>
+        <text x="585" y="388" class="node-sub">:50065 / :50066</text>
+
+        <rect x="760" y="355" width="190" height="45" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="770" y="373" class="node-title">team-search</text>
+        <text x="770" y="388" class="node-sub">:50052 · OpenSearch Read</text>
+
+        <!-- Container 4: Event Broker & Storage Layer -->
+        <rect x="30" y="430" width="460" height="160" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="45" y="450" class="group-label">📨 EVENT BROKER & CDC (KAFKA / REDPANDA)</text>
+
+        <rect x="50" y="460" width="420" height="30" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="60" y="479" class="node-sub">Topic: listing.events (Key: listing_id) → team-search consumer</text>
+
+        <rect x="50" y="495" width="420" height="30" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="60" y="514" class="node-sub">Topic: order.events (Key: order_id) → Outbox Relayer → Warehouse</text>
+
+        <rect x="50" y="530" width="420" height="30" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="60" y="549" class="node-sub">Topic: analytics.events (Key: session_id) → DuckDB Warehouse</text>
+
+        <!-- Container 5: AI & MLOps Platform -->
+        <rect x="510" y="430" width="460" height="160" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="525" y="450" class="group-label">🧠 MLOPS & RECSYS PLATFORM</text>
+
+        <rect x="530" y="460" width="200" height="50" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="540" y="480" class="node-title">platform-recsys</text>
+        <text x="540" y="498" class="node-sub">Two-Tower & ALS Trainer</text>
+
+        <rect x="750" y="460" width="200" height="50" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="760" y="480" class="node-title">team-ai (:50060)</text>
+        <text x="760" y="498" class="node-sub">Recommend & Copilot API</text>
+
+        <rect x="530" y="520" width="200" height="55" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="540" y="538" class="node-title">Qdrant Vector DB</text>
+        <text x="540" y="552" class="node-sub">:6333 · Item Embeddings</text>
+        <text x="540" y="565" class="node-tag" fill="#2563eb">Dense Retrieval</text>
+
+        <rect x="750" y="520" width="200" height="55" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="760" y="538" class="node-title">DuckDB Warehouse</text>
+        <text x="760" y="552" class="node-sub">team-analytics (:50059)</text>
+        <text x="760" y="565" class="node-tag" fill="#16a34a">Conversion Facts</text>
+
+      </svg>
+    </div>
+
+    <!-- TAB 2: GATEWAY & ZERO-TRUST -->
+    <div id="tab-gateway" class="tab-content">
+      <div class="diagram-meta">
+        <h2>Edge Gateway & Zero-Trust Authentication Architecture</h2>
+        <span class="diagram-desc">Type: Process & Security Matrix · ADR-0003 + ADR-0006</span>
+      </div>
+      <svg viewBox="0 0 1000 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="gw-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+        </defs>
+
+        <!-- Columns for Actors -->
+        <rect x="40" y="30" width="180" height="50" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="130" y="55" text-anchor="middle" class="node-title">Client / Browser</text>
+        <text x="130" y="70" text-anchor="middle" class="node-sub">Untrusted Origin</text>
+
+        <rect x="300" y="30" width="220" height="50" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+        <text x="410" y="55" text-anchor="middle" class="node-title" fill="#c2410c">team-gateway (:8080)</text>
+        <text x="410" y="70" text-anchor="middle" class="node-sub">Verify-Only Edge</text>
+
+        <rect x="580" y="30" width="180" height="50" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="670" y="55" text-anchor="middle" class="node-title">team-identity (:50053)</text>
+        <text x="670" y="70" text-anchor="middle" class="node-sub">Key Custodian (JWKS :50063)</text>
+
+        <rect x="800" y="30" width="160" height="50" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="880" y="55" text-anchor="middle" class="node-title">Microservices</text>
+        <text x="880" y="70" text-anchor="middle" class="node-sub">Zero-Trust Consumers</text>
+
+        <!-- Vertical Actor Lines -->
+        <line x1="130" y1="80" x2="130" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="410" y1="80" x2="410" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="670" y1="80" x2="670" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="880" y1="80" x2="880" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+        <!-- Message 1: Boot JWKS sync -->
+        <path d="M 410 110 L 670 110" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <rect x="470" y="98" width="140" height="16" fill="#ffffff" rx="2"/>
+        <text x="475" y="110" class="edge-label">1. GET /.well-known/jwks.json</text>
+
+        <path d="M 670 140 L 410 140" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <rect x="460" y="128" width="160" height="16" fill="#ffffff" rx="2"/>
+        <text x="465" y="140" class="edge-label">2. Public Keys (cached 300s)</text>
+
+        <!-- Message 2: Login -->
+        <path d="M 130 180 L 410 180" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <rect x="210" y="168" width="120" height="16" fill="#ffffff" rx="2"/>
+        <text x="215" y="180" class="edge-label">3. POST /AuthService/Login</text>
+
+        <path d="M 410 200 L 670 200" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <path d="M 670 230 L 410 230" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <rect x="480" y="218" width="130" height="16" fill="#ffffff" rx="2"/>
+        <text x="485" y="230" class="edge-label">4. RS256 Signed JWT</text>
+
+        <!-- Message 3: Authenticated Request -->
+        <path d="M 130 280 L 410 280" stroke="#ea580c" stroke-width="1.5" marker-end="url(#gw-arrow)"/>
+        <rect x="180" y="268" width="180" height="16" fill="#ffffff" rx="2"/>
+        <text x="185" y="280" class="edge-label" fill="#c2410c">5. Request (Bearer eyJhbGci...)</text>
+
+        <!-- Gateway Verify Box -->
+        <rect x="340" y="305" width="140" height="42" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+        <text x="350" y="322" class="node-tag" fill="#c2410c">VERIFY SIGNATURE</text>
+        <text x="350" y="338" class="node-sub">Check RS256 by 'kid'</text>
+
+        <!-- Message 4: Forward with Principal -->
+        <path d="M 410 370 L 880 370" stroke="#16a34a" stroke-width="1.5" marker-end="url(#gw-arrow)"/>
+        <rect x="520" y="358" width="260" height="16" fill="#ffffff" rx="2"/>
+        <text x="525" y="370" class="edge-label" fill="#16a34a">6. gRPC + x-principal-id / x-principal-scopes</text>
+
+        <path d="M 880 410 L 410 410" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <path d="M 410 410 L 130 410" stroke="#64748b" stroke-width="1.2" marker-end="url(#gw-arrow)"/>
+        <rect x="220" y="398" width="100" height="16" fill="#ffffff" rx="2"/>
+        <text x="225" y="410" class="edge-label">7. Clean Response</text>
+      </svg>
+    </div>
+
+    <!-- TAB 3: DATA PIPELINE -->
+    <div id="tab-telemetry" class="tab-content">
+      <div class="diagram-meta">
+        <h2>Data & Telemetry Ingestion Pipeline (CQRS + Multi-Item Fan-Out)</h2>
+        <span class="diagram-desc">Type: Data Flow & Medallion Architecture · GA4 / GTM Compatibility</span>
+      </div>
+      <svg viewBox="0 0 1000 460" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="pipe-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+        </defs>
+
+        <!-- Stage 1: Browser Collection -->
+        <rect x="30" y="50" width="220" height="340" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="45" y="75" class="group-label">1. BROWSER DATA LAYER</text>
+
+        <rect x="45" y="95" width="190" height="60" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="55" y="115" class="node-title">dataLayer.push()</text>
+        <text x="55" y="130" class="node-sub">ecommerce: null (Reset)</text>
+        <text x="55" y="145" class="node-tag" fill="#2563eb">State Isolation</text>
+
+        <rect x="45" y="170" width="190" height="90" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="55" y="190" class="node-title">Batched Impressions</text>
+        <text x="55" y="206" class="node-sub">Groups N rendered cards</text>
+        <text x="55" y="222" class="node-sub">into 1 HTTP POST /api/track</text>
+        <text x="55" y="245" class="node-tag" fill="#16a34a">10x Load Reduction</text>
+
+        <rect x="45" y="275" width="190" height="95" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="55" y="295" class="node-title">Multi-Item Fan-out</text>
+        <text x="55" y="311" class="node-sub">Cart / Checkout actions</text>
+        <text x="55" y="327" class="node-sub">splits items[] with common</text>
+        <text x="55" y="350" class="node-tag" fill="#ea580c">event_group_id</text>
+
+        <!-- Stage 2: Edge Ingestion -->
+        <path d="M 250 215 L 310 215" stroke="#64748b" stroke-width="1.5" marker-end="url(#pipe-arrow)"/>
+
+        <rect x="310" y="50" width="200" height="340" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="325" y="75" class="group-label">2. EDGE GATEWAY</text>
+
+        <rect x="325" y="140" width="170" height="150" rx="4" fill="#ffffff" stroke="#fdba74" stroke-width="1.2"/>
+        <text x="335" y="165" class="node-title" fill="#c2410c">POST /api/track</text>
+        <text x="335" y="185" class="node-sub">• Fast validation</text>
+        <text x="335" y="202" class="node-sub">• Stamp Principal</text>
+        <text x="335" y="220" class="node-sub">• Non-blocking send</text>
+        <text x="335" y="240" class="node-sub">• Returns 204 No Content</text>
+        <text x="335" y="270" class="node-tag" fill="#ea580c">Zero Business Logic</text>
+
+        <!-- Stage 3: Kafka Streaming -->
+        <path d="M 510 215 L 570 215" stroke="#64748b" stroke-width="1.5" marker-end="url(#pipe-arrow)"/>
+
+        <rect x="570" y="50" width="180" height="340" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="585" y="75" class="group-label">3. KAFKA BROKER</text>
+
+        <rect x="585" y="110" width="150" height="70" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="595" y="130" class="node-title">analytics.events</text>
+        <text x="595" y="148" class="node-sub">Key: session_id</text>
+        <text x="595" y="165" class="node-tag" fill="#64748b">Raw Telemetry</text>
+
+        <rect x="585" y="200" width="150" height="70" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="595" y="220" class="node-title">order.events</text>
+        <text x="595" y="238" class="node-sub">Key: order_id</text>
+        <text x="595" y="255" class="node-tag" fill="#64748b">Outbox Facts</text>
+
+        <rect x="585" y="290" width="150" height="70" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="595" y="310" class="node-title">listing.events</text>
+        <text x="595" y="328" class="node-sub">Key: listing_id</text>
+        <text x="595" y="345" class="node-tag" fill="#64748b">CQRS Changes</text>
+
+        <!-- Stage 4: Warehouse & Storage -->
+        <path d="M 750 145 L 810 145" stroke="#64748b" stroke-width="1.5" marker-end="url(#pipe-arrow)"/>
+        <path d="M 750 325 L 810 325" stroke="#64748b" stroke-width="1.5" marker-end="url(#pipe-arrow)"/>
+
+        <rect x="810" y="50" width="160" height="340" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="825" y="75" class="group-label">4. LAKE & WAREHOUSE</text>
+
+        <rect x="825" y="110" width="130" height="100" rx="4" fill="#ffffff" stroke="#16a34a" stroke-width="1.2"/>
+        <text x="835" y="130" class="node-title">DuckDB</text>
+        <text x="835" y="148" class="node-sub">Parquet Storage</text>
+        <text x="835" y="165" class="node-sub">• bronze_events</text>
+        <text x="835" y="180" class="node-sub">• gold_funnels</text>
+        <text x="835" y="198" class="node-tag" fill="#16a34a">Analytics Hub</text>
+
+        <rect x="825" y="280" width="130" height="90" rx="4" fill="#ffffff" stroke="#2563eb" stroke-width="1.2"/>
+        <text x="835" y="300" class="node-title">OpenSearch</text>
+        <text x="835" y="318" class="node-sub">listings_index</text>
+        <text x="835" y="338" class="node-sub">BM25 + Dense</text>
+        <text x="835" y="358" class="node-tag" fill="#2563eb">Search Read Model</text>
+
+      </svg>
+    </div>
+
+    <!-- TAB 4: MLOPS & RECSYS -->
+    <div id="tab-mlops" class="tab-content">
+      <div class="diagram-meta">
+        <h2>MLOps Lifecycle & Recommendation Engine Pipeline</h2>
+        <span class="diagram-desc">Type: Loop / Flywheel with Model Registry Promotion Gate</span>
+      </div>
+      <svg viewBox="0 0 1000 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ml-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+        </defs>
+
+        <!-- Box 1: Warehouse Extraction -->
+        <rect x="40" y="60" width="200" height="110" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="55" y="85" class="node-title">1. Warehouse Extract</text>
+        <text x="55" y="105" class="node-sub">DuckDB Fact Tables</text>
+        <text x="55" y="122" class="node-sub">• User-Item Interaction Matrix</text>
+        <text x="55" y="138" class="node-sub">• Temporal Split (Train / Holdout)</text>
+        <text x="55" y="158" class="node-tag" fill="#64748b">Data Prep</text>
+
+        <!-- Arrow 1 -> 2 -->
+        <path d="M 240 115 L 300 115" stroke="#64748b" stroke-width="1.5" marker-end="url(#ml-arrow)"/>
+
+        <!-- Box 2: Two-Tower & ALS Training -->
+        <rect x="300" y="60" width="220" height="110" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="315" y="85" class="node-title">2. Model Training</text>
+        <text x="315" y="105" class="node-sub">platform-recsys</text>
+        <text x="315" y="122" class="node-sub">• Implicit ALS Factorization</text>
+        <text x="315" y="138" class="node-sub">• Two-Tower Deep Embeddings</text>
+        <text x="315" y="158" class="node-tag" fill="#2563eb">Model Training</text>
+
+        <!-- Arrow 2 -> 3 -->
+        <path d="M 520 115 L 580 115" stroke="#64748b" stroke-width="1.5" marker-end="url(#ml-arrow)"/>
+
+        <!-- Box 3: Evaluation & Gate (Focal) -->
+        <rect x="580" y="45" width="220" height="140" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+        <text x="595" y="70" class="node-title" fill="#c2410c">3. Evaluation & Gate</text>
+        <text x="595" y="90" class="node-sub">Temporal Holdout Scoring</text>
+        <text x="595" y="108" class="node-sub">• Calculate NDCG@10 & MAP@10</text>
+        <text x="595" y="125" class="node-sub">• Compare vs Incumbent Champion</text>
+        <text x="595" y="145" class="node-tag" fill="#c2410c">PROMOTION GATE G-005</text>
+        <text x="595" y="165" class="node-sub">Candidate >= Champion - 0.005</text>
+
+        <!-- Arrow 3 -> 4 (Pass) -->
+        <path d="M 800 115 L 860 115" stroke="#16a34a" stroke-width="1.5" marker-end="url(#ml-arrow)"/>
+
+        <!-- Box 4: Registry -->
+        <rect x="860" y="60" width="100" height="110" rx="6" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+        <text x="870" y="85" class="node-title" fill="#15803d">Registry</text>
+        <text x="870" y="105" class="node-sub">CHAMPION</text>
+        <text x="870" y="125" class="node-sub">Metadata</text>
+        <text x="870" y="150" class="node-tag" fill="#15803d">Versioned</text>
+
+        <!-- Artifact Publishing (Downward from Registry / Gate) -->
+        <path d="M 910 170 L 910 260 L 780 260" stroke="#64748b" stroke-width="1.5" marker-end="url(#ml-arrow)"/>
+        <rect x="795" y="248" width="105" height="16" fill="#ffffff" rx="2"/>
+        <text x="800" y="260" class="edge-label">Publish Artifacts</text>
+
+        <!-- Serving Infrastructure -->
+        <rect x="40" y="240" width="730" height="190" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="55" y="265" class="group-label">4. ONLINE SERVING & INFERENCE (TWO-STAGE RETRIEVAL)</text>
+
+        <rect x="60" y="285" width="190" height="120" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="70" y="308" class="node-title">Qdrant Vector DB</text>
+        <text x="70" y="325" class="node-sub">:6333 · Item Vectors</text>
+        <text x="70" y="342" class="node-sub">HNSW ANN Search (Top-100)</text>
+        <text x="70" y="365" class="node-tag" fill="#2563eb">Stage 1: Candidates</text>
+
+        <rect x="280" y="285" width="190" height="120" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="290" y="308" class="node-title">Redis Top-N Cache</text>
+        <text x="290" y="325" class="node-sub">:6379 · recs:v1:user:{id}</text>
+        <text x="290" y="342" class="node-sub">Fast Path Cache hit (< 2ms)</text>
+        <text x="290" y="365" class="node-tag" fill="#16a34a">Fast Path Cache</text>
+
+        <rect x="500" y="285" width="250" height="120" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="510" y="308" class="node-title">team-ai (:50060)</text>
+        <text x="510" y="325" class="node-sub">Recommend RPC</text>
+        <text x="510" y="342" class="node-sub">GBDT Ranker + Stock Filter</text>
+        <text x="510" y="358" class="node-sub">Output: Top-10 Recommended Cards</text>
+        <text x="510" y="380" class="node-tag" fill="#ea580c">Stage 2: Ranking & Filtering</text>
+
+      </svg>
+    </div>
+
+    <!-- TAB 5: SAGA & OUTBOX -->
+    <div id="tab-saga" class="tab-content">
+      <div class="diagram-meta">
+        <h2>Distributed Purchase Saga & Transactional Outbox Pattern</h2>
+        <span class="diagram-desc">Type: Swimlane & Sequence · Guaranteed Financial Consistency</span>
+      </div>
+      <svg viewBox="0 0 1000 460" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="saga-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+        </defs>
+
+        <!-- Swimlane Headers -->
+        <rect x="30" y="30" width="180" height="40" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="120" y="55" text-anchor="middle" class="node-title">team-order (Orchestrator)</text>
+
+        <rect x="230" y="30" width="170" height="40" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="315" y="55" text-anchor="middle" class="node-title">team-promotion</text>
+
+        <rect x="420" y="30" width="170" height="40" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="505" y="55" text-anchor="middle" class="node-title">team-domain (Stock)</text>
+
+        <rect x="610" y="30" width="170" height="40" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="695" y="55" text-anchor="middle" class="node-title">team-payment (Wallet)</text>
+
+        <rect x="800" y="30" width="170" height="40" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+        <text x="885" y="55" text-anchor="middle" class="node-title" fill="#c2410c">Outbox Relayer & Kafka</text>
+
+        <!-- Vertical Lifelines -->
+        <line x1="120" y1="70" x2="120" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="315" y1="70" x2="315" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="505" y1="70" x2="505" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="695" y1="70" x2="695" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="885" y1="70" x2="885" y2="440" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+        <!-- Step 1: Voucher Reserve -->
+        <path d="M 120 100 L 315 100" stroke="#64748b" stroke-width="1.2" marker-end="url(#saga-arrow)"/>
+        <rect x="150" y="88" width="135" height="16" fill="#ffffff" rx="2"/>
+        <text x="155" y="100" class="edge-label">1. ReserveVoucher(WELCOME50)</text>
+
+        <path d="M 315 125 L 120 125" stroke="#16a34a" stroke-width="1.2" marker-end="url(#saga-arrow)"/>
+        <rect x="160" y="113" width="115" height="16" fill="#ffffff" rx="2"/>
+        <text x="165" y="125" class="edge-label" fill="#16a34a">Voucher Reserved (-50k)</text>
+
+        <!-- Step 2: Stock Reserve -->
+        <path d="M 120 160 L 505 160" stroke="#64748b" stroke-width="1.2" marker-end="url(#saga-arrow)"/>
+        <rect x="230" y="148" width="165" height="16" fill="#ffffff" rx="2"/>
+        <text x="235" y="160" class="edge-label">2. ReserveStock(items, quantities)</text>
+
+        <path d="M 505 185 L 120 185" stroke="#16a34a" stroke-width="1.2" marker-end="url(#saga-arrow)"/>
+        <rect x="240" y="173" width="145" height="16" fill="#ffffff" rx="2"/>
+        <text x="245" y="185" class="edge-label" fill="#16a34a">Stock Locks Confirmed</text>
+
+        <!-- Step 3: Payment Capture -->
+        <path d="M 120 220 L 695 220" stroke="#64748b" stroke-width="1.2" marker-end="url(#saga-arrow)"/>
+        <rect x="330" y="208" width="155" height="16" fill="#ffffff" rx="2"/>
+        <text x="335" y="220" class="edge-label">3. AuthorizePayment(31.179M)</text>
+
+        <path d="M 695 245 L 120 245" stroke="#16a34a" stroke-width="1.2" marker-end="url(#saga-arrow)"/>
+        <rect x="340" y="233" width="135" height="16" fill="#ffffff" rx="2"/>
+        <text x="345" y="245" class="edge-label" fill="#16a34a">Wallet Debited (PAID)</text>
+
+        <!-- Step 4: Atomic DB Commit + Outbox Insert -->
+        <rect x="50" y="280" width="140" height="50" rx="4" fill="#f0fdf4" stroke="#86efac" stroke-width="1.2"/>
+        <text x="60" y="300" class="node-tag" fill="#15803d">ATOMIC DB COMMIT</text>
+        <text x="60" y="315" class="node-sub">UPDATE orders -> 'PAID'</text>
+        <text x="60" y="325" class="node-sub">INSERT order_outbox_events</text>
+
+        <!-- Step 5: Relayer Sweep to Kafka -->
+        <path d="M 120 360 L 885 360" stroke="#ea580c" stroke-width="1.5" marker-end="url(#saga-arrow)"/>
+        <rect x="420" y="348" width="220" height="16" fill="#ffffff" rx="2"/>
+        <text x="425" y="360" class="edge-label" fill="#c2410c">4. Relayer sweep -> Kafka order.events</text>
+
+        <rect x="815" y="380" width="140" height="40" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+        <text x="825" y="398" class="node-title" fill="#c2410c">Published</text>
+        <text x="825" y="412" class="node-sub">Outbox marked 'PUBLISHED'</text>
+
+      </svg>
+    </div>
+
+    <!-- TAB 6: HYBRID SEARCH -->
+    <div id="tab-search" class="tab-content">
+      <div class="diagram-meta">
+        <h2>Hybrid Search & Reciprocal Rank Fusion (RRF)</h2>
+        <span class="diagram-desc">Type: Flowchart / Process · OpenSearch Lexical + Qdrant Dense Vector Fusion</span>
+      </div>
+      <svg viewBox="0 0 1000 440" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="sr-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M1 1L6 4L1 7" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </marker>
+        </defs>
+
+        <!-- User Query Box -->
+        <rect x="40" y="160" width="180" height="80" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="55" y="185" class="node-title">User Search Query</text>
+        <text x="55" y="205" class="node-sub">"iPhone 15 Pro Max"</text>
+        <text x="55" y="225" class="node-tag" fill="#2563eb">Query Ingress</text>
+
+        <!-- Fork arrows -->
+        <path d="M 220 180 L 300 110" stroke="#64748b" stroke-width="1.5" marker-end="url(#sr-arrow)"/>
+        <path d="M 220 220 L 300 290" stroke="#64748b" stroke-width="1.5" marker-end="url(#sr-arrow)"/>
+
+        <!-- Branch 1: BM25 Lexical -->
+        <rect x="300" y="50" width="240" height="120" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="315" y="75" class="node-title">1. Lexical Retrieval (BM25)</text>
+        <text x="315" y="95" class="node-sub">OpenSearch Index :9200</text>
+        <text x="315" y="112" class="node-sub">• Multi-match Title, Brand, Category</text>
+        <text x="315" y="128" class="node-sub">• Filters: In-stock, Price, Seller</text>
+        <text x="315" y="152" class="node-tag" fill="#2563eb">Output: Top-50 BM25 Candidates</text>
+
+        <!-- Branch 2: Semantic Dense Vector -->
+        <rect x="300" y="230" width="240" height="120" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="315" y="255" class="node-title">2. Semantic Dense Retrieval</text>
+        <text x="315" y="275" class="node-sub">platform-modelserve :8101 (TEI)</text>
+        <text x="315" y="292" class="node-sub">• Generate 384d Query Embedding</text>
+        <text x="315" y="308" class="node-sub">• Qdrant HNSW Cosine Search</text>
+        <text x="315" y="332" class="node-tag" fill="#9333ea">Output: Top-50 Vector Candidates</text>
+
+        <!-- Convergence to RRF Fusion Engine (Focal) -->
+        <path d="M 540 110 L 620 180" stroke="#64748b" stroke-width="1.5" marker-end="url(#sr-arrow)"/>
+        <path d="M 540 290 L 620 220" stroke="#64748b" stroke-width="1.5" marker-end="url(#sr-arrow)"/>
+
+        <rect x="620" y="130" width="210" height="140" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+        <text x="635" y="155" class="node-title" fill="#c2410c">3. RRF Fusion & Ranker</text>
+        <text x="635" y="175" class="node-sub">Reciprocal Rank Fusion</text>
+        <text x="635" y="195" class="node-sub">Score = Σ 1 / (60 + rank_i)</text>
+        <text x="635" y="215" class="node-sub">GBDT eGMV Boost</text>
+        <text x="635" y="245" class="node-tag" fill="#c2410c">FUSION ENGINE</text>
+
+        <!-- Final Result -->
+        <path d="M 830 200 L 890 200" stroke="#16a34a" stroke-width="1.5" marker-end="url(#sr-arrow)"/>
+
+        <rect x="890" y="150" width="80" height="100" rx="6" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+        <text x="900" y="180" class="node-title" fill="#15803d">Result</text>
+        <text x="900" y="200" class="node-sub">Top 20</text>
+        <text x="900" y="220" class="node-sub">Ranked</text>
+        <text x="900" y="238" class="node-tag" fill="#15803d">Grid UI</text>
+
+      </svg>
+    </div>
+
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+      
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+      if (activeBtn) activeBtn.classList.add('active');
+    }
+  </script>
+</body>
+</html>
