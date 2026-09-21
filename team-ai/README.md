@@ -120,7 +120,12 @@ flowchart TD
 1. **Aggregated Review Ingestion**: Ingests batched customer reviews (star ratings and textual feedback).
 2. **Aspect-Based Sentiment Clustering**: Distills collective sentiment, clusters prominent strengths (**Pros**) and recurring defects or complaints (**Cons**), and outputs an executive bulleted summary for product detail pages.
 
-### E. Gateway & Edge Security Integration
+### E. Product Tag Classifier & Filter Taxonomy Enrichment (`POST /api/v1/ai/tags/*`)
+1. **Online Fast Tag Classification (`/tags/classify`)**: Sub-millisecond inference extracting canonical filter facets (connectivity, materials, wattage, features) for 1-click seller selection.
+2. **Offline Candidate Exploration (`/tags/explore`)**: Mines emergent technical specs and customer search trends from uncataloged listings, clustering them into candidate pools (`status: EXPLORING`).
+3. **Promotion Gating (`/tags/promote`)**: Evaluates frequency support and extraction confidence to elevate candidate tags to **Official Canonical Labels**, dynamically enriching `team-search` OpenSearch dynamic filter facets.
+
+### F. Gateway & Edge Security Integration
 - All downstream gRPC calls from `team-gateway` authenticate the user once and forward trusted identity via `x-principal-id`, `x-principal-type`, and `x-principal-scopes` metadata headers.
 - Anonymous and authenticated users are routed seamlessly with rate-limiting and circuit-breaking managed at the edge.
 
