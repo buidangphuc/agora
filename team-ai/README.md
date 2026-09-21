@@ -1,182 +1,187 @@
-# team-ai — Marketplace AI Engine (FastAPI & RAG)
+# team-ai — Marketplace AI Engine (FastAPI & gRPC RAG Microservice)
 
-`team-ai` là dịch vụ trí tuệ nhân tạo (AI Microservice) độc lập chạy trên nền tảng **FastAPI (Python 3.12)** tại cổng `:8000`. Dịch vụ cung cấp các năng lực AI chuyên sâu cho thương mại điện tử: Trợ lý mua sắm RAG thông minh, Công cụ tạo tin đăng chuẩn SEO (Magic Listing) cho người bán và Trợ lý trả lời tin nhắn 1-click (Chat Copilot).
+`team-ai` is the central real-time **Generative AI and Intelligent Inference service** for the Agora marketplace. Running on **Python 3.12** with dual-transport interfaces (FastAPI HTTP on `:8000` and Connect-compatible gRPC on `:50050`), it provides buyers and sellers with low-latency LLM completions, context-aware Retrieval-Augmented Generation (RAG), automated product listing generation, and seller communication copilot capabilities.
 
 ---
 
-## 1. Các Endpoints AI Chính
+## 1. System Design & Architecture Overview
 
-Dịch vụ cung cấp 3 endpoint AI phục vụ trực tiếp cho người mua (Buyer), người bán (Seller) và hệ thống Chat:
+`team-ai` delivers domain-tailored AI capabilities across the marketplace by bridging user interactions with upstream dense retrieval vector stores and LLM runtime clusters:
+- **Buyer Experience**: Intelligent conversational Shopping Assistant powered by hybrid RAG that parses user queries, searches product embeddings in Qdrant, and returns structured product cards with follow-up suggestions.
+- **Seller Operations**:
+  - **Magic Listing Generator**: Automatically creates SEO-optimized product titles, detailed Markdown descriptions, category taxonomy tags, and price boundaries from sparse hints or images.
+  - **Chat Copilot**: Real-time intent classification for customer inquiries providing 1-click contextual quick replies for sellers.
+  - **Review Summarizer**: Multi-review sentiment distillation and pros/cons clustering for listings.
+- **Dual Transport Integration**: Exposes both RESTful HTTP endpoints for direct frontend/AI testing and high-performance gRPC (`platform.ai.v1.AIService`) for edge routing via `team-gateway`.
 
+---
+
+## 2. Tech Stack
+
+- **Application Framework**: Python 3.12, FastAPI, Uvicorn (ASGI), gRPC (`grpcio`, `grpcio-tools`, `grpc.aio`)
+- **AI Orchestration & Knowledge Retrieval**:
+  - **LangChain & LlamaIndex**: Prompt templating, agent chains, document ingestion, and context retrieval
+  - **Pydantic v2**: Strict schema validation and serialization
+- **Inference & Vector Backends**:
+  - **platform-modelserve (`:8100`)**: Upstream gateway for Hugging Face TEI embeddings/rerankers and vLLM text generation
+  - **Qdrant (`:6333`)**: High-performance approximate nearest neighbor (ANN) vector database
+- **Data & Caching**: PostgreSQL (SQLAlchemy / Alembic), Redis (token buckets & rate limits)
+- **Observability & MLOps**: Langfuse (LLM trace observability, token usage, latency), OpenTelemetry metrics & distributed tracing, Loguru structured logging
+
+---
+
+## 3. Architecture Diagram
+
+```mermaid
+flowchart TD
+    subgraph Clients["Client Layer"]
+        GW["team-gateway (:8080)"]
+        FE["team-frontend (Next.js SSR)"]
+    end
+
+    subgraph TeamAI["team-ai Microservice (:8000 HTTP / :50050 gRPC)"]
+        subgraph TransportLayer["Dual Transport Ingress"]
+            GRPC["gRPC AIServicer\n(platform.ai.v1.AIService)"]
+            FASTAPI["FastAPI REST Router\n(/api/v1/ai/*)"]
+        end
+
+        subgraph CoreEngine["AIAssistant Core Engine"]
+            ASSISTANT["Shopping Assistant\n(RAG Pipeline)"]
+            MAGIC["Magic Listing Generator\n(SEO & Categorizer)"]
+            COPILOT["Chat Copilot\n(Intent Classifier & Quick Replies)"]
+            SUMMARIZER["Review Summarizer\n(Sentiment & Pros/Cons)"]
+        end
+
+        subgraph AIOrchestration["AI / RAG Framework"]
+            LC["LangChain / LlamaIndex\n(Prompt Chains & Vector Tools)"]
+            EVAL["Langfuse Tracker\n(Traces, Tokens & Latency)"]
+        end
+    end
+
+    subgraph ModelServing["Internal ML & Vector Infrastructure"]
+        MS["platform-modelserve (:8100 Router)"]
+        TEI_EMB["TEI Embeddings (:8101)"]
+        TEI_RERANK["TEI Reranker (:8102)"]
+        VLLM["vLLM Text Generation (:8103)"]
+        QDRANT[("Qdrant Vector DB (:6333)")]
+    end
+
+    FE -->|Connect / REST| GW
+    GW -->|gRPC x-principal-*| GRPC
+    FE -.->|Direct HTTP (Dev/Docs)| FASTAPI
+
+    GRPC --> ASSISTANT
+    GRPC --> MAGIC
+    GRPC --> COPILOT
+    GRPC --> SUMMARIZER
+
+    FASTAPI --> ASSISTANT
+    FASTAPI --> MAGIC
+    FASTAPI --> COPILOT
+    FASTAPI --> SUMMARIZER
+
+    ASSISTANT --> LC
+    MAGIC --> LC
+    COPILOT --> LC
+    SUMMARIZER --> LC
+    LC -.-> EVAL
+
+    LC -->|Dense Vector Query| QDRANT
+    LC -->|Embedding & Chat Completion| MS
+    MS --> TEI_EMB
+    MS --> TEI_RERANK
+    MS --> VLLM
 ```
-                      ┌───────────────────────────────────────┐
-                      │        team-ai (FastAPI :8000)        │
-                      └──────────────────┬────────────────────┘
-                                         │
-       ┌─────────────────────────────────┼─────────────────────────────────┐
-       ▼                                 ▼                                 ▼
-POST /api/v1/ai/assistant        POST /api/v1/ai/magic-listing     POST /api/v1/ai/chat-copilot
-(Shopping Assistant RAG)         (SEO & Category Auto-tagging)     (1-Click Seller Smart Replies)
-```
 
 ---
 
-### 1. `POST /api/v1/ai/assistant` — RAG Shopping Assistant
-Nhận câu hỏi bằng ngôn ngữ tự nhiên từ người mua, truy vấn catalog sản phẩm thông qua RAG / semantic keyword matching, và trả về lời tư vấn cá nhân hóa, các thẻ sản phẩm gợi ý và câu hỏi tiếp theo.
+## 4. Internal Architecture & Data Flow
 
-- **Request Body (`ShoppingAssistantRequest`)**:
-  ```json
-  {
-    "message": "Tìm cho mình áo thun cotton form rộng giá dưới 200k",
-    "user_id": "usr-buyer-001",
-    "previous_context": ["Chào shop"],
-    "top_k": 4
-  }
-  ```
-- **Response Body (`ShoppingAssistantResponse`)**:
-  ```json
-  {
-    "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"Tìm cho mình áo thun cotton...\", AI Assistant gợi ý cho bạn sản phẩm nổi bật Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát với giá chỉ 149,000đ...",
-    "product_cards": [
-      {
-        "listing_id": "prod-101",
-        "title": "Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát",
-        "price": 149000,
-        "currency": "VND",
-        "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500",
-        "discount_rate": 20,
-        "rating": 4.9,
-        "rating_text": "4.9/5 (1.2k đánh giá)"
-      }
-    ],
-    "suggested_followups": [
-      "Sản phẩm này có những size và màu nào?",
-      "Có mã freeship hoặc giảm giá thêm không shop?",
-      "Chính sách đổi trả size như thế nào?"
-    ]
-  }
-  ```
+### A. RAG Shopping Assistant (`POST /api/v1/ai/assistant` / `ShoppingAssistant` gRPC)
+1. **Query Ingestion**: Parses buyer natural language requirements (e.g., *"Find oversized 100% cotton t-shirt under 200k VND"*).
+2. **Dense Vector & Semantic Search**: Queries `platform-modelserve` to embed the query text, fetches top-K listing candidates from Qdrant (`item_als_vectors` / catalog vectors), and cross-scores them with semantic keywords.
+3. **Synthesis & Card Formulation**: Injects catalog context into LangChain prompts, synthesizing a personalized recommendation response along with structured `ProductCard` snippets (title, price, image, ratings, discount) and dynamic follow-up exploration prompts.
+
+### B. Magic Listing Generator (`POST /api/v1/ai/magic-listing` / `MagicListing` gRPC)
+1. **Input Normalization**: Ingests title hints, category clues, or product image URLs.
+2. **SEO Optimization & Markdown Structuring**: Generates high-converting, keyword-dense titles, formatted Markdown product descriptions (Key Features, Specifications, Care Guidelines), and extracts trending search hashtags.
+3. **Taxonomy & Price Guardrails**: Classifies the item into standard category taxonomies (`cat-electronics`, `cat-fashion`, etc.) and recommends calibrated competitive price bounds (`suggested_price_min`, `suggested_price_max`).
+
+### C. Chat Copilot Smart Replies (`POST /api/v1/ai/chat-copilot` / `ChatCopilot` gRPC)
+1. **Intent Extraction**: Analyzes buyer messages inside active buyer-seller chat threads.
+2. **Classification Archetypes**: Identifies critical ecommerce customer intents:
+   - Stock & Size Availability
+   - Shipping & Delivery Timeline
+   - Discounts, Vouchers & Best Offers
+   - Return & Warranty Policy
+3. **1-Click Suggestion Generation**: Generates 3 polite, accurate, and context-aware response variations for instant seller dispatch.
+
+### D. Multi-Review Summarization (`SummarizeReviews` gRPC)
+1. **Aggregated Review Ingestion**: Ingests batched customer reviews (star ratings and textual feedback).
+2. **Aspect-Based Sentiment Clustering**: Distills collective sentiment, clusters prominent strengths (**Pros**) and recurring defects or complaints (**Cons**), and outputs an executive bulleted summary for product detail pages.
+
+### E. Gateway & Edge Security Integration
+- All downstream gRPC calls from `team-gateway` authenticate the user once and forward trusted identity via `x-principal-id`, `x-principal-type`, and `x-principal-scopes` metadata headers.
+- Anonymous and authenticated users are routed seamlessly with rate-limiting and circuit-breaking managed at the edge.
 
 ---
 
-### 2. `POST /api/v1/ai/magic-listing` — Magic Listing Generator
-Giúp người bán tạo nhanh nội dung đăng bán chuẩn SEO chỉ từ một từ khóa gợi ý hoặc tên sơ bộ. AI tự động sinh Tiêu đề chuẩn SEO, Bản mô tả chi tiết Markdown, Phân loại ngành hàng, Ước lượng khoảng giá tối ưu và Gắn thẻ hashtag thịnh hành.
-
-- **Request Body (`MagicListingRequest`)**:
-  ```json
-  {
-    "title_hint": "tai nghe bluetooth chống ồn",
-    "category_hint": "",
-    "image_url": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500"
-  }
-  ```
-- **Response Body (`MagicListingResponse`)**:
-  ```json
-  {
-    "generated_title": "Tai Nghe Bluetooth Chống Ồn Chính Hãng - Bảo Hành 12 Tháng - Thiết Kế Hiện Đại",
-    "generated_description": "### 🌟 **Tai Nghe Bluetooth Chống Ồn Chính Hãng...**\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ Chất lượng âm thanh vượt trội...\n- ✅ Chống ồn chủ động ANC...",
-    "suggested_category_id": "cat-electronics",
-    "suggested_price_min": 250000,
-    "suggested_price_max": 490000,
-    "highlight_tags": ["tai", "nghe", "bluetooth", "chống", "ồn", "chính hãng", "cao cấp", "freeship"]
-  }
-  ```
-
----
-
-### 3. `POST /api/v1/ai/chat-copilot` — Chat Copilot Smart Replies
-Phân tích tin nhắn của người mua trong cửa sổ chat để nhận diện ý định (Hỏi tồn kho hàng, Hỏi thời gian giao hàng, Xin giảm giá/voucher, Hỏi chính sách bảo hành/đổi trả, Tư vấn size số) và tạo ngay **3 câu trả lời nhanh phù hợp nhất** để người bán chỉ cần bấm 1-click để gửi.
-
-- **Request Body (`ChatCopilotRequest`)**:
-  ```json
-  {
-    "buyer_message": "Sản phẩm này còn sẵn hàng và có size L không shop?",
-    "seller_id": "usr-seller-001",
-    "listing_id": "prod-101"
-  }
-  ```
-- **Response Body (`ChatCopilotResponse`)**:
-  ```json
-  {
-    "quick_replies": [
-      "Dạ chào bạn, sản phẩm bên shop hiện vẫn còn sẵn hàng ạ! Bạn đặt sớm để shop đóng gói gửi đi ngay trong ngày nhé.",
-      "Chào bạn, hàng luôn có sẵn tại kho và được kiểm tra kỹ trước khi gửi. Bạn cần shop tư vấn thêm về size hay màu sắc không ạ?",
-      "Dạ shop còn bạn nhé! Mọi đơn đặt trước 16h hôm nay sẽ được giao cho đơn vị vận chuyển ngay ạ."
-    ]
-  }
-  ```
-
----
-
-## 2. Kiến trúc & Cấu trúc Thư mục
+## 5. Directory Structure
 
 ```text
 app/
   api/
     v1/
-      ai/                      # AI API Surface (assistant, magic-listing, chat-copilot)
-        dependencies.py        # Dependency injection cho AIAssistantService
-        router.py              # APIRouter definitions
-      completions/             # LangChain completions transport (stream/sync)
-  bootstrap/                   # FastAPI app factory & lifecycle hooks
-  core/                        # Config, database, logging, error handling
+      ai/                      # AI REST API routes (assistant, magic-listing, chat-copilot)
+        dependencies.py        # Dependency injection for AIAssistantService
+        router.py              # FastAPI APIRouter
+      completions/             # Streaming and synchronous LLM completion endpoints
+      health/                  # Liveness and readiness endpoints
+  bootstrap/                   # App factory, lifecycle hooks, and gRPC background thread
+  core/                        # Configuration, database engine, logging, OpenTelemetry
   modules/
     ai/
-      llm/                     # LangChain Chat Model & Langfuse Tracker
-      rag/                     # LlamaIndex knowledge retrieval
+      llm/                     # LangChain Chat Model & Langfuse Tracker integrations
+      rag/                     # LlamaIndex knowledge retrieval & vector tools
     business/
-      ai_assistant/            # Domain logic, rich product catalog & heuristic AI engines
-        schemas.py             # Pydantic schemas (ProductCard, MagicListing, ChatCopilot)
+      ai_assistant/            # Core business logic: schemas, prompts, and service rules
+        schemas.py             # Pydantic schemas (ProductCard, MagicListing, ChatCopilot, Reviews)
         service.py             # AIAssistantService implementation
+  transport/
+    grpc/                      # gRPC server, servicers (AIServicer), and generated proto stubs
+proto/                         # Vendored platform contracts (platform.ai.v1)
 ```
 
 ---
 
-## 3. Cấu hình Biến môi trường (`.env`)
+## 6. Environment Configuration
 
-| Biến môi trường | Mặc định | Ý nghĩa |
+| Variable | Default | Description |
 |---|---|---|
-| `HOST` | `0.0.0.0` | Địa chỉ bind của server FastAPI |
-| `PORT` | `8000` | Cổng HTTP |
-| `AUTH_BEARER_TOKEN` | `change-me-local-bearer-token` | Static Bearer token cho các endpoint nội bộ |
-| `CORS_ALLOW_ORIGINS` | `*` | Danh sách CORS allowed origins |
-| `LANGFUSE_ENABLED` | `false` | Bật/tắt observability Langfuse |
-| `LANGFUSE_PUBLIC_KEY` | `""` | Public API Key của Langfuse |
-| `LANGFUSE_SECRET_KEY` | `""` | Secret API Key của Langfuse |
-| `CHAT_MODEL` | `""` | Tên model LangChain (vd: `openai:gpt-4.1-mini`) |
+| `HOST` | `0.0.0.0` | Bind address for FastAPI |
+| `PORT` | `8000` | HTTP port for REST endpoints |
+| `GRPC_PORT` | `50050` | gRPC server listening port |
+| `MODELSERVE_URL` | `http://localhost:8100` | Address of platform-modelserve router |
+| `QDRANT_URL` | `http://localhost:6333` | Vector database endpoint |
+| `CHAT_MODEL` | `openai:gpt-4.1-mini` | LLM model identifier for LangChain completions |
+| `LANGFUSE_ENABLED` | `false` | Enable Langfuse tracing and observability |
+| `LANGFUSE_PUBLIC_KEY` | `""` | Langfuse public API key |
+| `LANGFUSE_SECRET_KEY` | `""` | Langfuse secret API key |
 
 ---
 
-## 4. Hướng dẫn chạy và Kiểm thử
+## 7. Local Development & Testing
 
 ```bash
-# 1. Cài đặt môi trường với uv
+# 1. Setup environment with uv
 cp .env.example .env
 uv sync --dev
 
-# 2. Chạy unit tests
+# 2. Run unit and integration tests
 make test
 
-# 3. Khởi chạy server ở chế độ dev (Auto-reload)
+# 3. Start development server with auto-reload
 make dev
-# Server lắng nghe tại http://localhost:8000 (Swagger docs tại http://localhost:8000/docs)
-```
-
-### Kiểm tra nhanh bằng cURL
-
-```bash
-# Test Shopping Assistant
-curl -X POST http://localhost:8000/api/v1/ai/assistant \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Gợi ý cho mình tai nghe chống ồn tốt"}'
-
-# Test Magic Listing
-curl -X POST http://localhost:8000/api/v1/ai/magic-listing \
-  -H "Content-Type: application/json" \
-  -d '{"title_hint": "áo khoác bomber kaki"}'
-
-# Test Chat Copilot
-curl -X POST http://localhost:8000/api/v1/ai/chat-copilot \
-  -H "Content-Type: application/json" \
-  -d '{"buyer_message": "Có được xem hàng trước khi nhận không shop?"}'
+# REST Swagger Docs: http://localhost:8000/docs
+# Health probe: http://localhost:8000/healthz
 ```
