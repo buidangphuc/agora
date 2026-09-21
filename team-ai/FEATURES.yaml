@@ -58,225 +58,48 @@ features:
       exercised: [ai.v1.ChatCopilot]
     acceptance:
       - Given a seller is in a buyer conversation
-      - When the seller invokes the copilot
-      - Then a suggested reply is drafted
-    tags: [seller, ai]
+      - When a buyer sends a question
+      - Then the copilot offers 3 one-click reply drafts
+    tags: [seller, chat, ai]
     status: automated
     covered_by: "ai/chat_copilot.feature::Seller uses chat copilot to generate reply drafts"
 
-  - id: admin.cockpit
-    title: Admin observability cockpit
-    persona: admin
+  - id: ai.tag-classifier-taxonomy
+    title: Product & SKU tag classification and filter enrichment
+    persona: seller
+    priority: P1
+    summary: AI classifies SPU and granular SKU variants, discovering candidate tags and promoting them to canonical search filter facets.
+    entry_route: /seller/new
+    services: [team-ai, team-search, team-frontend]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given a seller enters product title and child SKU variants
+      - When tag classification is requested
+      - Then canonical SPU tags and granular SKU variant facets are returned
+    tags: [ai, seller, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::SPU Level Tag Classification"
+
+  - id: ai.summarize-reviews
+    title: AI review summarization
+    persona: buyer
     priority: P2
-    summary: Admin cockpit streams live metrics and system health.
-    entry_route: /admin/cockpit
-    services: [team-ai, team-gateway, team-frontend]
-    preconditions:
-      login: admin
-    acceptance:
-      - Given an admin opens the cockpit
-      - Then live metrics and service health are displayed
-    tags: [ai]
-    status: automated
-    covered_by: "ai_and_cockpit/ai_and_cockpit.feature::Inspect system health on the Admin Cockpit"
-
-  - id: recommendations.serve
-    title: Recommendation serving (Recommend RPC)
-    persona: buyer
-    priority: P1
-    summary: >
-      team-ai serves the Recommend RPC online — a two-stage Qdrant ANN +
-      business-rule ranking pipeline with a Redis pre-computed fast path, gated
-      behind RECS_ENABLED. team-ai has no browser surface of its own; the
-      end-to-end user-facing flow is owned by surface-recommendations, which
-      flips this capability to automated.
+    summary: Product reviews are distilled into pros/cons and a sentiment summary.
     entry_route: "/product/{listing_id}"
-    services: [team-ai]
+    services: [team-ai, team-frontend]
     api:
-      exercised: [recommendation.v1.Recommend]
+      exercised: [ai.v1.SummarizeReviews]
     acceptance:
-      - Given RECS_ENABLED=true and the training-job artifacts are populated
-      - When a caller invokes recommendation.v1.Recommend
-      - Then team-ai returns a non-empty Top-10 of in-stock recommendations
-      - And when RECS_ENABLED=false the call fails with UNAVAILABLE
-    tags: [ai, recommendations]
+      - Given a listing has multiple customer reviews
+      - When the PDP loads
+      - Then an AI summary highlights key pros, cons, and overall sentiment
+    tags: [ai, buyer, reviews]
     status: automated
-    covered_by: "recommendations/recommendations.feature::Recommendations are unavailable without breaking the page"
-
-  - id: recommendations.gateway-forward
-    title: Gateway forwards Recommend to team-ai
-    persona: buyer
-    priority: P1
-    summary: The gateway forwards Recommend to team-ai unchanged, carrying x-principal-* metadata.
-    entry_route: "/product/{listing_id}"
-    services: [team-gateway, team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given a buyer is logged in
-      - When the frontend calls Recommend through the gateway with the caller's session
-      - Then the gateway forwards to team-ai over gRPC with x-principal-* metadata and returns the list unchanged
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommendations.feature::Recommend routes through the gateway to team-ai"
-
-  - id: recommendations.buyer-row
-    title: Buyer sees a "Gợi ý cho bạn" recommendations row
-    persona: buyer
-    priority: P1
-    summary: A logged-in buyer sees a recommendations row sourced from team-ai via the gateway.
-    entry_route: "/"
-    services: [team-frontend, team-gateway, team-ai]
-    preconditions:
-      login: buyer
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given a buyer is logged in
-      - When the buyer opens the page carrying the recommendations row
-      - Then the row is populated with product cards sourced from team-ai via the gateway
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommendations.feature::Logged-in buyer sees a recommendations row sourced from team-ai"
-
-  - id: recommendations.serve-top10
-    title: Recommend returns a Top-10 product list
-    persona: buyer
-    priority: P1
-    summary: team-ai returns at most ten recommended products from the recommend module.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given RECS_ENABLED=true and training-job artifacts are populated
-      - When a caller invokes Recommend with a user_id
-      - Then team-ai returns a RecommendResponse with at most ten recommended products
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Recommend returns a Top-10 product list"
-
-  - id: recommendations.serve-flag-off
-    title: Recommend is unavailable when the flag is off
-    persona: buyer
-    priority: P1
-    summary: With RECS_ENABLED=false, Recommend aborts UNAVAILABLE and touches no datastore.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given RECS_ENABLED=false
-      - When a caller invokes Recommend
-      - Then the call fails with UNAVAILABLE naming the flag and no Qdrant or Redis access happens
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Recommend is unavailable when the flag is off"
-
-  - id: recommendations.serve-filter
-    title: Out-of-stock and seed items are filtered from candidates
-    persona: buyer
-    priority: P1
-    summary: Ranking drops out-of-stock, duplicate, and seed_listing_id items from candidates.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given ANN candidates include an out-of-stock item, a duplicate, and the seed_listing_id
-      - When Recommend ranks and filters the candidates
-      - Then the response has at most ten distinct in-stock products, none the seed listing
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Out-of-stock and seed items are filtered from candidates"
-
-  - id: recommendations.serve-cache-hit
-    title: Cache hit serves without a Qdrant query
-    persona: buyer
-    priority: P1
-    summary: A pre-computed Redis list is served without issuing a Qdrant ANN query.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given a user whose pre-computed Top-N list is present in Redis
-      - When Recommend is called for that user
-      - Then the response is built from the cached list and no Qdrant ANN query is issued
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Cache hit serves without a Qdrant query"
-
-  - id: recommendations.serve-cache-miss
-    title: Cache miss falls back to Qdrant retrieval
-    persona: buyer
-    priority: P1
-    summary: On a Redis miss or error, Recommend falls back to the Qdrant two-stage path.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given a user with no cached list or an unreachable Redis
-      - When Recommend is called for that user
-      - Then the module retrieves candidates from Qdrant and still returns a Top-10 result
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Cache miss falls back to Qdrant retrieval"
-
-  - id: recommendations.serve-anon-seed
-    title: Anonymous request seeded from a listing returns similar items
-    persona: guest
-    priority: P1
-    summary: An anonymous call with a seed_listing_id returns in-stock items similar to the seed.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given Recommend is called with an empty user_id and a seed_listing_id
-      - When the module retrieves candidates from Qdrant seeded by the listing
-      - Then it returns in-stock items similar to the seed, excluding the seed
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Anonymous request seeded from a listing returns similar items"
-
-  - id: recommendations.serve-popular
-    title: No user, no seed falls back to popular items
-    persona: guest
-    priority: P1
-    summary: With no user_id and no seed, Recommend returns a popularity-based Top-10.
-    entry_route: "/"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given Recommend is called with no user_id and no seed_listing_id
-      - When the module has no anchor to retrieve from
-      - Then it returns a non-empty popularity-based Top-10 rather than an empty response
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::No user, no seed falls back to popular items"
-
-  - id: recommendations.serve-timeout
-    title: Retrieval timeout yields a fallback, not an error
-    persona: buyer
-    priority: P1
-    summary: When Qdrant retrieval exceeds the timeout, Recommend returns the popularity fallback.
-    entry_route: "/product/{listing_id}"
-    services: [team-ai]
-    api:
-      exercised: [recommendation.v1.Recommend]
-    acceptance:
-      - Given Qdrant retrieval exceeds RECS_RETRIEVE_TIMEOUT_MS
-      - When Recommend hits the retrieval timeout
-      - Then it returns the popularity fallback list without failing or blocking past the budget
-    tags: [ai, recommendations]
-    status: automated
-    covered_by: "recommendations/recommend_serving.feature::Retrieval timeout yields a fallback, not an error"
+    covered_by: "engagement/reviews_and_qa.feature::Buyer submits a product question and views reviews"
 
   - id: recommendations.contract-proto
-    title: The recommendation proto lints and stays non-breaking
+    title: Recommendation contract compiles cleanly
     persona: buyer
     priority: P1
     summary: buf lint and buf breaking pass after adding the recommendation proto additively.
