@@ -1,19 +1,21 @@
-# Agora MLOps — Product Tag Classifier & Taxonomy Filter Enrichment
+# Agora MLOps — Product & Granular SKU Tag Classifier & Filter Taxonomy Enrichment
 
-A production-grade, two-stage machine learning system that accelerates seller listing creation with **1-click auto-tagging** and dynamically enriches the marketplace search filter system with **canonical facets** via an offline exploration and promotion gating pipeline.
+A production-grade, two-stage machine learning system that accelerates seller listing creation with **1-click auto-tagging** and dynamically enriches the marketplace search filter system with **canonical facets** scaling across **SPU (Parent Listing) and Child SKU (Variant)** levels.
 
 ---
 
 ## 1. Executive Summary & Problem Statement
 
-In an e-commerce marketplace (Shopee / Amazon scale), two critical friction points occur:
-1. **Seller Listing Friction:** Sellers manually type product titles and descriptions but frequently omit standardized technical specifications, materials, and feature tags (e.g. *Bluetooth 5.3*, *Inverter*, *Inox 304*, *UPF50+*), leading to sparse catalog metadata.
-2. **Search Discoverability & Conversion Loss:** Buyers rely heavily on granular faceted filters (`filter.connectivity=bluetooth-5-3`, `filter.material=cotton-100`, `filter.feature=anc`). If listings lack standardized tags, search recall drops and filter aggregations become ineffective.
+In an e-commerce marketplace (Shopee / Amazon scale), products have multi-tiered hierarchies:
+1. **SPU Level (Standard Product Unit / Parent Listing):** Brand, general category, high-level features (*Khung Titanium, Chống nước IPX7, Sạc nhanh 65W GaN, Chống ồn ANC*).
+2. **SKU Level (Stock Keeping Unit / Child Variants):** Color (*Titan Tự Nhiên, Xanh Navy, Đen Nhám*), Storage Capacity (*128GB, 256GB, 512GB, 1TB*), Apparel Sizes (*S, M, L, XL*), Power/Wattage variants, and edition bundles (*Bản tiêu chuẩn, Combo phụ kiện*).
 
-To solve this without manual taxonomy overhead, Agora implements a **Two-Stage Tag Lifecycle (Explore $\rightarrow$ Promote)**:
-- **Offline Exploration (`explore`):** Mines uncataloged listings, customer search queries, and unstructured descriptions to discover emergent candidate tags and cluster them into candidate facet groups.
-- **Promotion Gating (`promote`):** Evaluates candidate quality metrics (frequency support, confidence score, category coherence, and synonym mapping) to promote candidates into **Official Canonical Labels**.
-- **Online Fast Inference (`classify`):** Real-time sub-millisecond classification predicting canonical tags and structured OpenSearch facet filters as the seller types in the listing portal.
+### The SKU-Level Scaling Challenge
+- If filtering is only performed at the SPU level, a buyer searching for `filter.capacity=512gb` might land on a product where only the 128GB variant is in stock, or where the price displayed doesn't reflect the 512GB SKU.
+- Agora solves this by implementing **Hierarchical SPU $\rightarrow$ Granular SKU Classification**:
+  - Inherits common parent SPU tags into all child variants: $\mathcal{T}(\text{SKU}_i) = \mathcal{T}(\text{SPU}) \cup \mathcal{T}_{\text{specific}}(\text{SKU}_i)$.
+  - Extracts exact variant dimensions (`color`, `capacity`, `size`, `power`, `material`) per SKU.
+  - Formulates ready-to-index **OpenSearch 2.11 Nested Documents** enabling exact variant queries (`variants.capacity=512gb AND variants.stock > 0`) without cross-variant false positives.
 
 ---
 
@@ -21,40 +23,40 @@ To solve this without manual taxonomy overhead, Agora implements a **Two-Stage T
 
 ```mermaid
 flowchart TD
-  subgraph Seller_Flow["1. Seller Listing Creation (Online Path)"]
+  subgraph Seller_Flow["1. Seller Listing & SKU Creation (Online Path)"]
     Seller["Seller in Storefront / Cockpit"]
-    ListingForm["Listing Creation Form (Title + Description)"]
-    ClassifyAPI["POST /api/v1/ai/tags/classify<br/>(team-ai :8000 / team-gateway :8080)"]
-    TagClassifier["TagClassifierService<br/>• Accent Normalization & N-Gram Matcher<br/>• Synonym Graph Lookup<br/>• Canonical Filter Mapper"]
-    AutoTags["1-Click Suggested Tags & Facet Values"]
+    ListingForm["Listing & Variant Matrix Form (Parent + N SKUs)"]
+    ClassifyAPI["POST /api/v1/ai/tags/classify-sku-hierarchy<br/>(team-ai :8000 / team-gateway :8080)"]
+    TagClassifier["TagClassifierService<br/>• SPU Feature Extractor<br/>• Granular SKU Variant Matcher<br/>• Tag Inheritance Resolver"]
+    AutoTags["SPU Common Tags + Granular SKU Facets"]
   end
 
-  subgraph Search_Enrichment["2. Search Index & Dynamic Faceting"]
-    DomainSvc["team-domain (:50051)<br/>Persists Listing + Tag IDs"]
+  subgraph Search_Enrichment["2. OpenSearch 2.11 Nested Indexing & Faceting"]
+    DomainSvc["team-domain (:50051)<br/>Persists Listing + Variants + Facets"]
     Outbox["Transactional Outbox<br/>Kafka: listing.events"]
-    SearchIndexer["team-search (:50052)<br/>OpenSearch 2.11 Indexer"]
-    OpenSearch[("OpenSearch<br/>listings_v1 Index<br/>• Keyword Facets<br/>• Dynamic Aggregations")]
-    Buyer["Buyer Search & Filter Navigation"]
+    SearchIndexer["team-search (:50052)<br/>OpenSearch 2.11 Nested Indexer"]
+    OpenSearch[("OpenSearch<br/>listings_v1 Index<br/>• Root Facets (brand, spu_tags)<br/>• Nested Variant Facets (color, size, storage)")]
+    Buyer["Buyer Search & Precise SKU Filter"]
   end
 
-  subgraph MLOps_Lifecycle["3. Offline Discovery & Promotion Pipeline"]
+  subgraph MLOps_Lifecycle["3. Offline Exploration & Promotion Gating"]
     CatalogLakehouse[("DuckDB / Parquet Lakehouse<br/>data/analytics/*.parquet")]
-    ExploreJob["Offline Exploration Pipeline<br/>• Pattern & Spec Mining (Watt, mAh, Material)<br/>• Semantic Clustering & Frequency Analysis"]
+    ExploreJob["Offline Exploration Pipeline<br/>• SPU & SKU Pattern Mining<br/>• Spec Clustering (Watt, mAh, Storage, Material)"]
     CandidatePool[("Candidate Tags Exploration Pool<br/>Status: EXPLORING")]
-    PromotionGate["Promotion & Canonicalization Gate<br/>• Threshold: Frequency >= N, Confidence >= theta<br/>• Semantic Deduplication & Synonym Binding"]
-    CanonicalTaxonomy[("Canonical Filter Facet Registry<br/>Status: PROMOTED")]
+    PromotionGate["Promotion & Canonicalization Gate<br/>• Threshold: Frequency >= N, Confidence >= theta<br/>• Synonym Binding & Facet Grouping"]
+    CanonicalTaxonomy[("Canonical Facet Registry<br/>Status: PROMOTED")]
   end
 
   %% Online Inference Connections
   Seller --> ListingForm
-  ListingForm -->|Fast Latency < 2ms| ClassifyAPI
+  ListingForm -->|Vectorized Batch Latency < 5ms| ClassifyAPI
   ClassifyAPI --> TagClassifier
-  TagClassifier -->|Top-K Promoted Tags + Facets| AutoTags
+  TagClassifier -->|SPU Tags + Per-SKU Facet Map| AutoTags
   AutoTags -->|Seller Approves with 1-Click| DomainSvc
   DomainSvc --> Outbox
   Outbox --> SearchIndexer
   SearchIndexer --> OpenSearch
-  Buyer -->|Faceted Queries (e.g. filter.connectivity=bluetooth-5-3)| OpenSearch
+  Buyer -->|Nested Queries (e.g. variants.capacity=512gb & variants.stock>0)| OpenSearch
 
   %% Offline Exploration Connections
   CatalogLakehouse --> ExploreJob
@@ -67,7 +69,7 @@ flowchart TD
 
 ---
 
-## 3. Two-Stage Tag Lifecycle & Workflow
+## 3. Hierarchical SKU Classification & Inheritance Flow
 
 ```mermaid
 sequenceDiagram
@@ -76,143 +78,156 @@ sequenceDiagram
   participant FE as Frontend Seller Portal
   participant AI as team-ai (:8000)
   participant Registry as Taxonomy Registry
-  participant Kafka as Redpanda (listing.events)
   participant Search as team-search (:50052)
-  participant MLOps as Offline MLOps Explorer
 
-  Note over Seller,AI: Phase A: Online Real-Time Tag Classification (<2ms)
-  Seller->>FE: Enters Title: "Tai nghe Bluetooth 5.3 chống ồn ANC sạc 65W GaN"
-  FE->>AI: POST /api/v1/ai/tags/classify
-  AI->>Registry: Lookup Canonical Tags & Synonyms
-  AI-->>FE: 200 OK (Tags: [Bluetooth 5.3, ANC, Sạc nhanh 65W GaN], Facets: {connectivity, feature, power})
-  FE-->>Seller: Surfaces 1-Click Tag Chips on UI
-  Seller->>FE: Submits Listing with Tags
+  Seller->>FE: Enters SPU: "iPhone 15 Pro Max Titanium IPX7" + 4 Variants: [256GB Titan, 512GB Xanh, 1TB Đen]
+  FE->>AI: POST /api/v1/ai/tags/classify-sku-hierarchy
+  AI->>Registry: Match SPU Common Tags & Specific SKU Facets
+  AI-->>FE: 200 OK (SPU: [Titanium, IPX7], SKU1: {capacity: 256gb, color: titan-tu-nhien}, SKU2: {capacity: 512gb, color: xanh-navy})
+  FE-->>Seller: Displays 1-Click Verified Facets on Variant Matrix
+  Seller->>FE: Confirms & Publishes Listing
 
-  Note over MLOps,Registry: Phase B: Offline Candidate Exploration & Discovery
-  MLOps->>MLOps: Ingest Batch of 10,000 uncataloged listings
-  MLOps->>MLOps: Mine emergent specs (e.g. "Công suất 100W", "Dung lượng 20000mAh", "Vải Linen")
-  MLOps->>Registry: Register Candidates into Exploration Pool (Status: EXPLORING)
-
-  Note over MLOps,Search: Phase C: Gating & Promotion to Canonical Facet
-  MLOps->>MLOps: Evaluate Promotion Rules (Occurrences >= 5, Confidence >= 0.85)
-  MLOps->>Registry: POST /api/v1/ai/tags/promote (tag_slugs: ["cong-suat-100w", "vai-linen-tu-nhien"])
-  Registry-->>AI: Active Canonical Taxonomy Updated
-  Registry-->>Search: Register New OpenSearch Dynamic Filter Facets
+  FE->>Search: Upsert OpenSearch Nested Document
+  Note over Search: Indexes nested objects: variants.capacity, variants.color, variants.price, variants.stock
 ```
 
 ---
 
-## 4. Mathematical Formulation & Gating Thresholds
+## 4. OpenSearch 2.11 Nested Mapping Definition
 
-### 1. Tag Extraction Confidence Scoring
-Given an input listing $L$ with normalized text $T_L = \text{Norm}(\text{Title} \oplus \text{Description})$, the confidence score $S(t, L)$ for a candidate tag $t$ belonging to category $C_t$ is computed as:
+To guarantee that filtering for `capacity=512gb` and `price <= 35000000` matches the **exact same SKU variant**, the OpenSearch index is configured with `nested` variant mapping:
 
-$$S(t, L) = \left( \alpha \cdot \mathbb{I}_{\text{Exact}}(t, T_L) + (1-\alpha) \cdot \max_{s \in \text{Syn}(t)} \text{Sim}(s, T_L) \right) \cdot \gamma(C_t, C_L)$$
-
-Where:
-- $\mathbb{I}_{\text{Exact}}(t, T_L) \in \{0, 1\}$ indicates exact token/regex boundary match.
-- $\text{Sim}(s, T_L)$ is the maximum semantic similarity against registered synonyms $\text{Syn}(t)$.
-- $\alpha = 0.85$ prioritizes high-precision exact n-gram matching.
-- $\gamma(C_t, C_L)$ is the category prior: $\gamma = 1.0$ when category matches or $C_t = \text{"all"}$, and $\gamma = 0.60$ for cross-category priors.
-
-### 2. Promotion Gating Criterion
-A candidate tag $t \in \mathcal{T}_{\text{exploring}}$ is eligible for automated promotion to Canonical Facet $\mathcal{T}_{\text{promoted}}$ if and only if:
-
-$$\text{Eligible}(t) = \begin{cases} 
-1 & \text{if } \text{Freq}(t) \ge N_{\min} \land \overline{S}(t) \ge \theta_{\text{conf}} \land \text{Entropy}(C_t) \le H_{\max} \\
-0 & \text{otherwise}
-\end{cases}$$
-
-Where default production thresholds are set to:
-- $N_{\min} = 5$ (Minimum catalog occurrence support).
-- $\theta_{\text{conf}} = 0.80$ (Minimum average extraction confidence).
-- $\text{Entropy}(C_t) \le 0.5$ (Category coherence filter ensuring the tag is not noisy cross-domain spam).
+```json
+{
+  "mappings": {
+    "properties": {
+      "listing_id": { "type": "keyword" },
+      "title": { "type": "text", "analyzer": "vietnamese_standard" },
+      "category_id": { "type": "keyword" },
+      "price_min": { "type": "long" },
+      "price_max": { "type": "long" },
+      "total_stock": { "type": "integer" },
+      "is_in_stock": { "type": "boolean" },
+      "spu_tags": { "type": "keyword" },
+      "spu_facets": {
+        "properties": {
+          "feature": { "type": "keyword" },
+          "connectivity": { "type": "keyword" },
+          "material": { "type": "keyword" },
+          "power": { "type": "keyword" },
+          "capacity": { "type": "keyword" },
+          "color": { "type": "keyword" },
+          "size": { "type": "keyword" }
+        }
+      },
+      "variants": {
+        "type": "nested",
+        "properties": {
+          "variant_id": { "type": "keyword" },
+          "sku_code": { "type": "keyword" },
+          "name": { "type": "text" },
+          "price": { "type": "long" },
+          "stock": { "type": "integer" },
+          "is_in_stock": { "type": "boolean" },
+          "facets": {
+            "properties": {
+              "capacity": { "type": "keyword" },
+              "color": { "type": "keyword" },
+              "size": { "type": "keyword" },
+              "power": { "type": "keyword" },
+              "ram": { "type": "keyword" }
+            }
+          },
+          "tags": { "type": "keyword" }
+        }
+      }
+    }
+  }
+}
+```
 
 ---
 
 ## 5. API Specification
 
-### 1. Classify Product Tags (Online Fast Inference)
-`POST /api/v1/ai/tags/classify`
+### 1. Hierarchical SPU & SKU Classification
+`POST /api/v1/ai/tags/classify-sku-hierarchy`
 
 **Request:**
 ```json
 {
-  "title": "Tai nghe Bluetooth 5.3 chống ồn chủ động ANC sạc nhanh 65W GaN",
-  "description": "Chuẩn chống nước IPX7 pin 50h chuyên gaming",
+  "spu_title": "Điện thoại Apple iPhone 15 Pro Max Khung Titanium Chống nước IPX7",
+  "spu_description": "Camera tiềm vọng 5x chip A17 Pro mạnh mẽ chuyên gaming",
   "category_id": "cat-electronics",
-  "top_k": 8,
-  "include_candidates": true
-}
-```
-
-**Response (`200 OK` in < 2ms):**
-```json
-{
-  "canonical_tags": [
+  "variants": [
     {
-      "tag_id": "tag-bt-53",
-      "name": "Bluetooth 5.3",
-      "slug": "bluetooth-5-3",
-      "facet_group": "connectivity",
-      "category_id": "cat-electronics",
-      "status": "promoted",
-      "confidence": 1.0,
-      "is_canonical": true
+      "variant_id": "sku-101",
+      "name": "Titan Tự Nhiên / 256GB",
+      "sku_code": "IP15PM-NAT-256",
+      "price": 29990000,
+      "stock": 20,
+      "options": { "color": "Titan Tự Nhiên", "capacity": "256GB" }
     },
     {
-      "tag_id": "tag-anc",
-      "name": "Chống ồn chủ động (ANC)",
-      "slug": "chong-on-chu-dong-anc",
-      "facet_group": "feature",
-      "category_id": "cat-electronics",
-      "status": "promoted",
-      "confidence": 1.0,
-      "is_canonical": true
+      "variant_id": "sku-102",
+      "name": "Xanh Navy / 512GB",
+      "sku_code": "IP15PM-BLU-512",
+      "price": 34990000,
+      "stock": 12,
+      "options": { "color": "Xanh Navy", "capacity": "512GB" }
     }
-  ],
-  "candidate_tags": [],
-  "suggested_facet_filters": {
-    "connectivity": ["bluetooth-5-3"],
-    "feature": ["chong-on-chu-dong-anc", "chong-nuoc-ipx7"],
-    "power": ["sac-nhanh-65w-gan"],
-    "usage": ["chuyen-gaming"]
-  },
-  "category_id": "cat-electronics",
-  "execution_time_ms": 0.85
+  ]
 }
 ```
 
-### 2. Explore Candidate Tags (Offline Batch Discovery)
-`POST /api/v1/ai/tags/explore`
-
-Processes a batch of raw product listings, extracts emergent specs/patterns, clusters keyword frequencies, and registers candidates in the exploration pool.
-
-### 3. Promote Candidate Tags (Gating & Canonicalization)
-`POST /api/v1/ai/tags/promote`
-
-**Request:**
+**Response (`200 OK` in < 3ms):**
 ```json
 {
-  "tag_slugs": ["cong-suat-100w", "dung-luong-20000mah", "vai-linen-tu-nhien"],
-  "target_category_id": "cat-electronics",
-  "add_synonyms": ["sac 100w", "pin 20000mah", "chat lieu linen"]
+  "spu_title": "Điện thoại Apple iPhone 15 Pro Max Khung Titanium Chống nước IPX7",
+  "category_id": "cat-electronics",
+  "spu_canonical_tags": [
+    { "slug": "chong-nuoc-ipx7", "name": "Chống nước IPX7", "facet_group": "feature" },
+    { "slug": "chuyen-gaming", "name": "Chuyên Gaming", "facet_group": "usage" }
+  ],
+  "sku_results": [
+    {
+      "variant_id": "sku-101",
+      "sku_code": "IP15PM-NAT-256",
+      "name": "Titan Tự Nhiên / 256GB",
+      "price": 29990000,
+      "stock": 20,
+      "is_in_stock": true,
+      "variant_facets": {
+        "capacity": "256gb",
+        "color": "titan-tu-nhien"
+      },
+      "all_effective_tags": [
+        { "slug": "chong-nuoc-ipx7" },
+        { "slug": "chuyen-gaming" },
+        { "slug": "256gb" },
+        { "slug": "titan-tu-nhien" }
+      ]
+    }
+  ],
+  "spu_facet_filters": {
+    "feature": ["chong-nuoc-ipx7"],
+    "usage": ["chuyen-gaming"],
+    "capacity": ["256gb", "512gb"],
+    "color": ["titan-tu-nhien", "xanh-navy"]
+  },
+  "total_skus_processed": 2,
+  "execution_time_ms": 2.15
 }
 ```
 
 ---
 
-## 6. Running the Tag Pipeline CLI Tool
-
-The pipeline includes a standalone, fully functional CLI tool to verify online inference, offline exploration, and promotion gating:
+## 6. Running the Demo & Test Suites
 
 ```bash
-# Execute the full 4-phase lifecycle demo
+# Run the end-to-end 4-phase pipeline (including SKU hierarchy & OpenSearch nested payload generation)
 python3 platform-core/tools/tag_taxonomy_pipeline.py
-```
 
-### Running Unit & API Tests
-```bash
-# Execute Pytest test suites
+# Run unit & API test suites
 python3 -m pytest team-ai/tests/unit/modules/test_tag_classifier*.py -v
 ```

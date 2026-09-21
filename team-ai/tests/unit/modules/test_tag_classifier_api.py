@@ -18,7 +18,7 @@ async def test_tag_classifier_endpoints(test_settings):
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. Classify endpoint
+        # 1. SPU Classify endpoint
         classify_res = await client.post(
             "/api/v1/ai/tags/classify",
             json={
@@ -34,13 +34,48 @@ async def test_tag_classifier_endpoints(test_settings):
         assert "chong-on-chu-dong-anc" in canonical_slugs
         assert "connectivity" in data["suggested_facet_filters"]
 
-        # 2. List tags endpoint
+        # 2. Granular SKU Hierarchy Classify endpoint
+        sku_res = await client.post(
+            "/api/v1/ai/tags/classify-sku-hierarchy",
+            json={
+                "spu_title": "Điện thoại iPhone 15 Pro Max Khung Titanium Chống nước IPX7",
+                "spu_description": "Chuyên gaming camera 5x pin trâu",
+                "category_id": "cat-electronics",
+                "variants": [
+                    {
+                        "variant_id": "v-1",
+                        "name": "Titan Tự Nhiên - 256GB",
+                        "sku_code": "IP15-NAT-256",
+                        "price": 29990000,
+                        "stock": 10,
+                        "options": {"color": "Titan Tự Nhiên", "capacity": "256GB"},
+                    },
+                    {
+                        "variant_id": "v-2",
+                        "name": "Xanh Navy - 512GB",
+                        "sku_code": "IP15-BLU-512",
+                        "price": 34990000,
+                        "stock": 5,
+                        "options": {"color": "Xanh Navy", "capacity": "512GB"},
+                    },
+                ],
+            },
+        )
+        assert sku_res.status_code == 200
+        sku_data = sku_res.json()
+        assert sku_data["total_skus_processed"] == 2
+        assert len(sku_data["sku_results"]) == 2
+        assert sku_data["sku_results"][0]["variant_facets"]["capacity"] == "256gb"
+        assert sku_data["sku_results"][1]["variant_facets"]["color"] == "xanh-navy"
+        assert "capacity" in sku_data["spu_facet_filters"]
+
+        # 3. List tags endpoint
         list_res = await client.get("/api/v1/ai/tags?category_id=cat-electronics")
         assert list_res.status_code == 200
         list_data = list_res.json()
         assert list_data["canonical_count"] > 0
 
-        # 3. Explore endpoint
+        # 4. Explore endpoint
         explore_res = await client.post(
             "/api/v1/ai/tags/explore",
             json={
@@ -65,7 +100,7 @@ async def test_tag_classifier_endpoints(test_settings):
         explore_data = explore_res.json()
         assert explore_data["total_processed"] == 2
 
-        # 4. Promote endpoint
+        # 5. Promote endpoint
         promote_res = await client.post(
             "/api/v1/ai/tags/promote",
             json={

@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Agora MLOps — Product Tag Classifier, Discovery & Filter Taxonomy Enrichment Pipeline.
+"""Agora MLOps — Product & SKU Tag Classifier, Discovery & Filter Taxonomy Enrichment Pipeline.
 
-Demonstrates the 2-stage lifecycle:
-1. Online Inference: Fast tag classification (<10ms) for seller listing forms & OpenSearch facets.
+Demonstrates:
+1. Online SPU & Granular SKU-Level Inference (<5ms for parent + N child variants).
 2. Offline Exploration: Candidate tag extraction & frequency clustering over uncataloged listings.
 3. Gating & Promotion: Statistical threshold evaluation & promotion to official Canonical Labels.
+4. OpenSearch Nested Document payload generation for high-scale SKU-level filtering.
 
 Usage:
-    python3 platform-core/tools/tag_taxonomy_pipeline.py [--benchmark] [--explore] [--promote]
+    python3 platform-core/tools/tag_taxonomy_pipeline.py
 """
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import json
 import sys
@@ -23,12 +23,14 @@ from typing import Any
 sys.path.insert(0, "team-ai")
 
 from app.modules.business.tag_classifier.schemas import (
+    ClassifySkuHierarchyRequest,
     ClassifyTagsRequest,
     ExploreTagsRequest,
     FacetGroup,
     ListTagsRequest,
     PromoteTagRequest,
     RawListingItem,
+    SkuVariantInput,
     TagStatus,
 )
 from app.modules.business.tag_classifier.service import TagClassifierService
@@ -45,12 +47,47 @@ SAMPLE_SELLER_INPUTS = [
         "description": "Chất liệu cotton tự nhiên thoáng mát, công nghệ chống tia UV bảo vệ da khi đi nắng.",
         "category_id": "cat-fashion",
     },
-    {
-        "title": "Nồi chiên không dầu Rapid Air công nghệ Inverter tiết kiệm điện lòng nồi Inox 304",
-        "description": "Dung tích 6L nướng gà nguyên con không dầu mỡ, thép không gỉ 304 bền bỉ dễ vệ sinh.",
-        "category_id": "cat-appliances",
-    },
 ]
+
+SAMPLE_HIERARCHICAL_PRODUCT = ClassifySkuHierarchyRequest(
+    spu_title="Điện thoại Apple iPhone 15 Pro Max Khung Titanium Chống nước IPX7 Chuyên Gaming",
+    spu_description="Camera tiềm vọng 5x zoom quang học, sạc nhanh 20W PD, chip A17 Pro mạnh mẽ",
+    category_id="cat-electronics",
+    variants=[
+        SkuVariantInput(
+            variant_id="sku-101",
+            name="Titan Tự Nhiên / 256GB",
+            sku_code="IP15PM-NAT-256",
+            price=29990000,
+            stock=20,
+            options={"color": "Titan Tự Nhiên", "capacity": "256GB"},
+        ),
+        SkuVariantInput(
+            variant_id="sku-102",
+            name="Xanh Navy / 512GB",
+            sku_code="IP15PM-BLU-512",
+            price=34990000,
+            stock=12,
+            options={"color": "Xanh Navy", "capacity": "512GB"},
+        ),
+        SkuVariantInput(
+            variant_id="sku-103",
+            name="Đen Nhám / 1TB",
+            sku_code="IP15PM-BLK-1TB",
+            price=41990000,
+            stock=5,
+            options={"color": "Đen Nhám", "capacity": "1TB"},
+        ),
+        SkuVariantInput(
+            variant_id="sku-104",
+            name="Trắng Ngọc Trai / 256GB",
+            sku_code="IP15PM-WHT-256",
+            price=29990000,
+            stock=0,
+            options={"color": "Trắng Ngọc Trai", "capacity": "256GB"},
+        ),
+    ],
+)
 
 SAMPLE_UNCATALOGED_BATCH = [
     RawListingItem(
@@ -58,6 +95,9 @@ SAMPLE_UNCATALOGED_BATCH = [
         title="Pin sạc dự phòng dung lượng 20000mAh công suất 100W siêu nhanh",
         description="Pin sạc 20000mAh chuẩn PD 100W sạc được cho Macbook và laptop gaming",
         category_id="cat-electronics",
+        variants=[
+            SkuVariantInput(variant_id="v1", name="Bản 100W Màu Đen", options={"power": "100W", "color": "Đen"})
+        ],
     ),
     RawListingItem(
         listing_id="raw-02",
@@ -94,39 +134,39 @@ SAMPLE_UNCATALOGED_BATCH = [
 
 async def run_pipeline() -> None:
     print("=" * 80)
-    print(" Agora MLOps — Product Tag Classifier & Filter Taxonomy Pipeline")
+    print(" Agora MLOps — Product & Granular SKU Tag Classifier Pipeline")
     print("=" * 80)
 
     service = TagClassifierService()
 
     # -------------------------------------------------------------------------
-    # Phase 1: Online Tag Classification (Fast Inference)
+    # Phase 1: Online SPU & Granular SKU-Level Hierarchical Classification
     # -------------------------------------------------------------------------
-    print("\n[Phase 1] Online Fast Tag Classification for Seller Postings")
+    print("\n[Phase 1] Online Granular SKU Hierarchy Classification (<5ms)")
     print("-" * 80)
 
-    for i, sample in enumerate(SAMPLE_SELLER_INPUTS, start=1):
-        req = ClassifyTagsRequest(
-            title=sample["title"],
-            description=sample["description"],
-            category_id=sample["category_id"],
-            top_k=6,
-        )
-        res = await service.classify_tags(req)
+    sku_res = await service.classify_sku_hierarchy(SAMPLE_HIERARCHICAL_PRODUCT)
+    print(f"Parent SPU: {sku_res.spu_title}")
+    print(f"  Category: {sku_res.category_id} | Execution Time: {sku_res.execution_time_ms}ms")
+    print(f"  SPU Inherited Common Tags:")
+    for t in sku_res.spu_canonical_tags:
+        print(f"    - [{t.facet_group.value.upper()}] {t.name} (slug: '{t.slug}')")
 
-        print(f"\nProduct #{i}: {sample['title']}")
-        print(f"  Category: {res.category_id} | Inference Latency: {res.execution_time_ms}ms")
-        print("  Predicted Canonical Tags:")
-        for tag in res.canonical_tags:
-            print(f"    - [{tag.facet_group.value.upper()}] {tag.name} (slug: '{tag.slug}', conf: {tag.confidence:.2f})")
-        print("  OpenSearch Filter Facet Mapping:")
-        for group, slugs in res.suggested_facet_filters.items():
-            print(f"    - filter.{group}: {slugs}")
+    print(f"\n  Child SKU Variants ({sku_res.total_skus_processed} SKUs classified):")
+    for i, sku in enumerate(sku_res.sku_results, start=1):
+        stock_badge = f"{sku.stock} in stock" if sku.is_in_stock else "OUT OF STOCK"
+        print(f"    SKU #{i}: {sku.name} ({sku.sku_code}) — {sku.price:,.0f} VND [{stock_badge}]")
+        print(f"      * Specific Facets: {sku.variant_facets}")
+        print(f"      * Effective Tags ({len(sku.all_effective_tags)}): {[t.slug for t in sku.all_effective_tags]}")
+
+    print(f"\n  Aggregated Parent OpenSearch Filter Facets:")
+    for k, v in sku_res.spu_facet_filters.items():
+        print(f"    - filter.{k}: {v}")
 
     # -------------------------------------------------------------------------
-    # Phase 2: Offline Exploration Pipeline (Candidate Tag Discovery)
+    # Phase 2: Offline Exploration Pipeline (Candidate Discovery)
     # -------------------------------------------------------------------------
-    print("\n\n[Phase 2] Offline Exploration — Mining & Clustering Raw Listings")
+    print("\n\n[Phase 2] Offline Exploration — Mining & Clustering Raw Listings & SKUs")
     print("-" * 80)
     print(f"Ingesting batch of {len(SAMPLE_UNCATALOGED_BATCH)} unclassified listings into exploration pool...")
 
@@ -165,31 +205,11 @@ async def run_pipeline() -> None:
         print(f"  [PROMOTED] {tag.name} -> Canonical Slug: '{tag.slug}' (Facet: {tag.facet_group.value})")
 
     # -------------------------------------------------------------------------
-    # Phase 4: Verification & Re-Classification with Enriched Taxonomy
+    # Phase 4: OpenSearch Ready-to-Index Document Payload Verification
     # -------------------------------------------------------------------------
-    print("\n\n[Phase 4] Post-Promotion Classification & Dynamic Filter Enrichment")
+    print("\n\n[Phase 4] OpenSearch 2.11 Nested Index Document Payload")
     print("-" * 80)
-
-    test_listing = {
-        "title": "Củ sạc đa năng Baseus công suất 100W sạc nhanh laptop pin dự phòng 20000mAh",
-        "description": "Cổng Type-C GaN 100W công suất lớn sạc nhanh tiện lợi đi du lịch",
-        "category_id": "cat-electronics",
-    }
-    req = ClassifyTagsRequest(
-        title=test_listing["title"],
-        description=test_listing["description"],
-        category_id=test_listing["category_id"],
-    )
-    res = await service.classify_tags(req)
-
-    print(f"New Listing: {test_listing['title']}")
-    print(f"  Inference Latency: {res.execution_time_ms}ms")
-    print("  Matched Canonical Tags (including newly promoted):")
-    for tag in res.canonical_tags:
-        print(f"    - [{tag.facet_group.value.upper()}] {tag.name} (slug: '{tag.slug}')")
-    print("  Updated OpenSearch Dynamic Facets:")
-    for group, slugs in res.suggested_facet_filters.items():
-        print(f"    - filter.{group}: {slugs}")
+    print(json.dumps(sku_res.nested_opensearch_doc, indent=2, ensure_ascii=False))
 
     # Summary Statistics
     list_res = await service.list_tags(ListTagsRequest())

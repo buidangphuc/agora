@@ -9,6 +9,8 @@ from typing import Any
 from loguru import logger
 
 from app.modules.business.tag_classifier.schemas import (
+    ClassifySkuHierarchyRequest,
+    ClassifySkuHierarchyResponse,
     ClassifyTagsRequest,
     ClassifyTagsResponse,
     ExploreTagsRequest,
@@ -19,6 +21,8 @@ from app.modules.business.tag_classifier.schemas import (
     PromoteTagRequest,
     PromoteTagResponse,
     RawListingItem,
+    SkuClassificationResult,
+    SkuVariantInput,
     TagItem,
     TagStatus,
 )
@@ -37,9 +41,9 @@ def _slugify(s: str) -> str:
     return cleaned.strip("-")
 
 
-# Default Seed Canonical Taxonomy for Agora Marketplace
+# Default Seed Canonical Taxonomy for Agora Marketplace (SPU & SKU Levels)
 SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
-    # --- Electronics (cat-electronics) ---
+    # ── Electronics SPU Features ──
     {
         "tag_id": "tag-bt-53",
         "name": "Bluetooth 5.3",
@@ -124,7 +128,178 @@ SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
         "search_volume": 3400,
         "conversion_lift": 0.19,
     },
-    # --- Fashion & Apparel (cat-fashion) ---
+    # ── SKU Level: Storage & Memory Variants ──
+    {
+        "tag_id": "tag-cap-128gb",
+        "name": "Bộ nhớ 128GB",
+        "slug": "128gb",
+        "facet_group": FacetGroup.CAPACITY,
+        "category_id": "cat-electronics",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["128gb", "128g", "128 gb", "rom 128gb"],
+        "occurrence_count": 210,
+        "search_volume": 4200,
+        "conversion_lift": 0.15,
+    },
+    {
+        "tag_id": "tag-cap-256gb",
+        "name": "Bộ nhớ 256GB",
+        "slug": "256gb",
+        "facet_group": FacetGroup.CAPACITY,
+        "category_id": "cat-electronics",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["256gb", "256g", "256 gb", "rom 256gb"],
+        "occurrence_count": 340,
+        "search_volume": 6800,
+        "conversion_lift": 0.24,
+    },
+    {
+        "tag_id": "tag-cap-512gb",
+        "name": "Bộ nhớ 512GB",
+        "slug": "512gb",
+        "facet_group": FacetGroup.CAPACITY,
+        "category_id": "cat-electronics",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["512gb", "512g", "512 gb", "rom 512gb"],
+        "occurrence_count": 180,
+        "search_volume": 3900,
+        "conversion_lift": 0.20,
+    },
+    {
+        "tag_id": "tag-cap-1tb",
+        "name": "Bộ nhớ 1TB",
+        "slug": "1tb",
+        "facet_group": FacetGroup.CAPACITY,
+        "category_id": "cat-electronics",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["1tb", "1 tb", "1024gb", "rom 1tb"],
+        "occurrence_count": 95,
+        "search_volume": 2100,
+        "conversion_lift": 0.18,
+    },
+    # ── SKU Level: Colors ──
+    {
+        "tag_id": "tag-col-titan-natural",
+        "name": "Màu Titan Tự Nhiên",
+        "slug": "titan-tu-nhien",
+        "facet_group": FacetGroup.COLOR,
+        "category_id": "cat-electronics",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["titan tu nhien", "natural titanium", "mau titan", "titan xam"],
+        "occurrence_count": 120,
+        "search_volume": 5600,
+        "conversion_lift": 0.28,
+    },
+    {
+        "tag_id": "tag-col-navy",
+        "name": "Màu Xanh Navy",
+        "slug": "xanh-navy",
+        "facet_group": FacetGroup.COLOR,
+        "category_id": "all",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["xanh navy", "navy", "xanh dam", "xanh bien dam", "blue navy"],
+        "occurrence_count": 150,
+        "search_volume": 3100,
+        "conversion_lift": 0.14,
+    },
+    {
+        "tag_id": "tag-col-black-matte",
+        "name": "Màu Đen Nhám",
+        "slug": "den-nham",
+        "facet_group": FacetGroup.COLOR,
+        "category_id": "all",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["den nham", "matte black", "den", "mau den", "black"],
+        "occurrence_count": 280,
+        "search_volume": 7200,
+        "conversion_lift": 0.19,
+    },
+    {
+        "tag_id": "tag-col-white-pearl",
+        "name": "Màu Trắng Ngọc Trai",
+        "slug": "trang-ngoc-trai",
+        "facet_group": FacetGroup.COLOR,
+        "category_id": "all",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["trang ngoc trai", "trang", "pearl white", "mau trang", "white"],
+        "occurrence_count": 190,
+        "search_volume": 4400,
+        "conversion_lift": 0.16,
+    },
+    # ── SKU Level: Clothing Sizes ──
+    {
+        "tag_id": "tag-size-s",
+        "name": "Size S",
+        "slug": "size-s",
+        "facet_group": FacetGroup.SIZE,
+        "category_id": "cat-fashion",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["size s", "s", "co s"],
+        "occurrence_count": 220,
+        "search_volume": 2500,
+        "conversion_lift": 0.12,
+    },
+    {
+        "tag_id": "tag-size-m",
+        "name": "Size M",
+        "slug": "size-m",
+        "facet_group": FacetGroup.SIZE,
+        "category_id": "cat-fashion",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["size m", "m", "co m"],
+        "occurrence_count": 310,
+        "search_volume": 4600,
+        "conversion_lift": 0.20,
+    },
+    {
+        "tag_id": "tag-size-l",
+        "name": "Size L",
+        "slug": "size-l",
+        "facet_group": FacetGroup.SIZE,
+        "category_id": "cat-fashion",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["size l", "l", "co l"],
+        "occurrence_count": 350,
+        "search_volume": 5100,
+        "conversion_lift": 0.22,
+    },
+    {
+        "tag_id": "tag-size-xl",
+        "name": "Size XL",
+        "slug": "size-xl",
+        "facet_group": FacetGroup.SIZE,
+        "category_id": "cat-fashion",
+        "status": TagStatus.PROMOTED,
+        "confidence": 1.0,
+        "is_canonical": True,
+        "synonyms": ["size xl", "xl", "co xl"],
+        "occurrence_count": 280,
+        "search_volume": 3800,
+        "conversion_lift": 0.18,
+    },
+    # ── Fashion SPU Features & Materials ──
     {
         "tag_id": "tag-cotton-100",
         "name": "100% Cotton Premium",
@@ -181,7 +356,7 @@ SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
         "search_volume": 1200,
         "conversion_lift": 0.11,
     },
-    # --- Home & Appliances (cat-appliances / cat-home) ---
+    # ── Home & Appliances SPU Features ──
     {
         "tag_id": "tag-inverter-saving",
         "name": "Công nghệ Inverter Tiết Kiệm Điện",
@@ -230,7 +405,7 @@ SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
 class TagClassifierService:
     """Service providing:
 
-    1. Fast online tag classification for seller listing form (`classify_tags`).
+    1. Fast online tag classification for SPU & child SKU variants (`classify_tags`, `classify_sku_hierarchy`).
     2. Offline candidate tag exploration & extraction over batch listings (`explore_tags`).
     3. Gating and promotion pipeline to elevate candidate tags to canonical filter facets (`promote_tags`).
     """
@@ -247,10 +422,8 @@ class TagClassifierService:
 
     def _register_canonical_tag(self, tag: TagItem) -> None:
         self._canonical_tags[tag.slug] = tag
-        # Index main name and slug
         self._synonym_index[_strip_accents(tag.name)] = tag.slug
         self._synonym_index[_strip_accents(tag.slug.replace("-", " "))] = tag.slug
-        # Index all explicit synonyms
         for syn in tag.synonyms:
             self._synonym_index[_strip_accents(syn)] = tag.slug
 
@@ -258,7 +431,6 @@ class TagClassifierService:
         if tag.slug in self._canonical_tags:
             return  # Already canonical
         if tag.slug in self._candidate_tags:
-            # Increment frequency
             existing = self._candidate_tags[tag.slug]
             existing.occurrence_count += tag.occurrence_count
             existing.confidence = max(existing.confidence, tag.confidence)
@@ -266,7 +438,7 @@ class TagClassifierService:
             self._candidate_tags[tag.slug] = tag
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 1. Online Fast Tag Classification
+    # 1. SPU Level Online Classification
     # ──────────────────────────────────────────────────────────────────────────
     async def classify_tags(self, request: ClassifyTagsRequest) -> ClassifyTagsResponse:
         """Classifies product text (title + description) and returns Top-K
@@ -274,32 +446,26 @@ class TagClassifierService:
         promoted canonical tags and discovered candidate tags.
         """
         start_time = time.perf_counter()
-
         combined_text = f"{request.title} {request.description}"
         norm_text = _strip_accents(combined_text)
 
         matched_canonical: list[tuple[TagItem, float]] = []
         matched_candidates: list[tuple[TagItem, float]] = []
 
-        # 1. Scan Canonical Tags & Synonyms
         seen_canonical_slugs: set[str] = set()
         for syn_norm, slug in self._synonym_index.items():
             if slug in seen_canonical_slugs:
                 continue
-            # Word boundary regex or direct substring match
             pattern = r"\b" + re.escape(syn_norm) + r"\b"
             if re.search(pattern, norm_text):
                 tag = self._canonical_tags[slug]
-                # Check category relevance if specified
                 cat_boost = 1.0
                 if request.category_id and tag.category_id not in ("all", request.category_id):
-                    cat_boost = 0.6  # Minor penalty for category mismatch
-                
+                    cat_boost = 0.6
                 score = tag.confidence * cat_boost
                 matched_canonical.append((tag, score))
                 seen_canonical_slugs.add(slug)
 
-        # 2. Scan Existing Candidate Tags
         if request.include_candidates:
             seen_cand_slugs: set[str] = set()
             for slug, cand in self._candidate_tags.items():
@@ -312,7 +478,6 @@ class TagClassifierService:
                     matched_candidates.append((cand, score))
                     seen_cand_slugs.add(slug)
 
-        # 3. Dynamic Candidate Extraction (Extract emergent high-frequency tech terms, specs, materials)
         emergent_candidates = self._extract_emergent_patterns(norm_text, request.category_id)
         for cand in emergent_candidates:
             if cand.slug not in seen_canonical_slugs and cand.slug not in [c.slug for c, _ in matched_candidates]:
@@ -320,14 +485,12 @@ class TagClassifierService:
                 if request.include_candidates:
                     matched_candidates.append((cand, cand.confidence * 0.8))
 
-        # Sort by score descending
         matched_canonical.sort(key=lambda x: x[1], reverse=True)
         matched_candidates.sort(key=lambda x: x[1], reverse=True)
 
         final_canonical = [item[0] for item in matched_canonical[: request.top_k]]
         final_candidates = [item[0] for item in matched_candidates[: request.top_k]]
 
-        # Build structured search facet filter mappings (for OpenSearch / team-search)
         facet_filters: dict[str, list[str]] = {}
         for tag in final_canonical:
             group_key = tag.facet_group.value
@@ -345,11 +508,142 @@ class TagClassifierService:
             execution_time_ms=round(latency_ms, 2),
         )
 
-    def _extract_emergent_patterns(self, norm_text: str, category_id: str) -> list[TagItem]:
-        """Heuristic pattern extraction for emergent technical specs, battery,
+    # ──────────────────────────────────────────────────────────────────────────
+    # 2. SKU-Level Hierarchical Classification (SPU -> Granular SKU)
+    # ──────────────────────────────────────────────────────────────────────────
+    async def classify_sku_hierarchy(
+        self, request: ClassifySkuHierarchyRequest
+    ) -> ClassifySkuHierarchyResponse:
+        """Scales classification down to each child SKU variant.
 
-        wattage, materials, and display specs.
+        - Extracts SPU common tags once.
+        - For each variant, extracts SKU-specific facets (color, size, storage, ram, power, edition).
+        - Computes union effective tags (SPU + SKU) and builds OpenSearch nested document structure.
         """
+        start_time = time.perf_counter()
+
+        # Step 1: Classify Parent SPU Common Tags
+        spu_res = await self.classify_tags(
+            ClassifyTagsRequest(
+                title=request.spu_title,
+                description=request.spu_description,
+                category_id=request.category_id,
+                top_k=10,
+                include_candidates=False,
+            )
+        )
+        spu_tags = spu_res.canonical_tags
+        spu_facet_map: dict[str, set[str]] = {
+            k: set(v) for k, v in spu_res.suggested_facet_filters.items()
+        }
+
+        # Step 2: Granular SKU Level Classification
+        sku_results: list[SkuClassificationResult] = []
+        opensearch_variants_payload: list[dict[str, Any]] = []
+
+        for v in request.variants:
+            # Combine variant title, options dict, and SKU code
+            variant_options_text = " ".join(f"{k} {val}" for k, val in v.options.items())
+            variant_raw_text = f"{v.name} {variant_options_text} {v.sku_code}"
+            norm_v_text = _strip_accents(variant_raw_text)
+
+            # Match variant-specific tags
+            sku_specific_tags: list[TagItem] = []
+            variant_facets: dict[str, str] = {}
+            seen_sku_slugs: set[str] = set()
+
+            for syn_norm, slug in self._synonym_index.items():
+                if slug in seen_sku_slugs:
+                    continue
+                pattern = r"\b" + re.escape(syn_norm) + r"\b"
+                if re.search(pattern, norm_v_text):
+                    tag = self._canonical_tags[slug]
+                    # Check if this tag is a variant-specific dimension
+                    if tag.facet_group in (
+                        FacetGroup.COLOR,
+                        FacetGroup.SIZE,
+                        FacetGroup.CAPACITY,
+                        FacetGroup.RAM,
+                        FacetGroup.POWER,
+                        FacetGroup.MATERIAL,
+                        FacetGroup.EDITION,
+                    ):
+                        sku_specific_tags.append(tag)
+                        variant_facets[tag.facet_group.value] = tag.slug
+                        seen_sku_slugs.add(slug)
+
+                        # Accumulate into SPU facet coverage
+                        fg = tag.facet_group.value
+                        if fg not in spu_facet_map:
+                            spu_facet_map[fg] = set()
+                        spu_facet_map[fg].add(tag.slug)
+
+            # Build all effective tags (SPU union SKU)
+            all_effective = list({t.slug: t for t in (spu_tags + sku_specific_tags)}.values())
+
+            sku_res = SkuClassificationResult(
+                variant_id=v.variant_id or f"var-{len(sku_results)+1}",
+                sku_code=v.sku_code,
+                name=v.name,
+                price=v.price,
+                stock=v.stock,
+                is_in_stock=(v.stock > 0),
+                sku_specific_tags=sku_specific_tags,
+                inherited_spu_tags=spu_tags,
+                all_effective_tags=all_effective,
+                variant_facets=variant_facets,
+            )
+            sku_results.append(sku_res)
+
+            # Prepare OpenSearch nested document representation
+            opensearch_variants_payload.append(
+                {
+                    "variant_id": sku_res.variant_id,
+                    "sku_code": sku_res.sku_code,
+                    "name": sku_res.name,
+                    "price": sku_res.price,
+                    "stock": sku_res.stock,
+                    "is_in_stock": sku_res.is_in_stock,
+                    "facets": variant_facets,
+                    "tags": [t.slug for t in sku_res.all_effective_tags],
+                }
+            )
+
+        # Finalize SPU Aggregated Facet Filters
+        final_spu_facets = {k: sorted(list(v)) for k, v in spu_facet_map.items()}
+
+        # OpenSearch Full Document Shape
+        prices = [v.price for v in request.variants if v.price > 0]
+        total_stock = sum(v.stock for v in request.variants)
+        nested_doc = {
+            "title": request.spu_title,
+            "category_id": request.category_id,
+            "price_min": min(prices) if prices else 0,
+            "price_max": max(prices) if prices else 0,
+            "total_stock": total_stock,
+            "is_in_stock": (total_stock > 0),
+            "spu_tags": [t.slug for t in spu_tags],
+            "spu_facets": final_spu_facets,
+            "variants": opensearch_variants_payload,
+        }
+
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
+
+        return ClassifySkuHierarchyResponse(
+            spu_title=request.spu_title,
+            category_id=request.category_id or "cat-general",
+            spu_canonical_tags=spu_tags,
+            sku_results=sku_results,
+            spu_facet_filters=final_spu_facets,
+            nested_opensearch_doc=nested_doc,
+            total_skus_processed=len(request.variants),
+            execution_time_ms=round(latency_ms, 2),
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # 3. Emergent Pattern Extraction (SPU & SKU)
+    # ──────────────────────────────────────────────────────────────────────────
+    def _extract_emergent_patterns(self, norm_text: str, category_id: str) -> list[TagItem]:
         candidates: list[TagItem] = []
 
         # Patterns: Wattage (e.g. 100w, 120w, 240w)
@@ -409,7 +703,26 @@ class TagClassifierService:
                 )
             )
 
-        # Patterns: Fabric / Materials (linen, lua satin, jean denim, titan)
+        # Patterns: RAM Memory (e.g. 8gb ram, 16gb ram, 32gb ram)
+        for match in re.finditer(r"\b(\d{1,2})\s*gb\s*ram\b", norm_text):
+            size = match.group(1)
+            name = f"RAM {size}GB"
+            slug = f"ram-{size}gb"
+            candidates.append(
+                TagItem(
+                    tag_id=f"cand-{slug}",
+                    name=name,
+                    slug=slug,
+                    facet_group=FacetGroup.RAM,
+                    category_id=category_id or "cat-electronics",
+                    status=TagStatus.EXPLORING,
+                    confidence=0.94,
+                    is_canonical=False,
+                    occurrence_count=1,
+                )
+            )
+
+        # Patterns: Fabric / Materials / Finishes
         material_keywords = [
             ("linen", "Vải Linen Tự Nhiên", "vai-linen-tu-nhien", FacetGroup.MATERIAL, "cat-fashion"),
             ("satin", "Lụa Satin Cao Cấp", "lua-satin-cao-cap", FacetGroup.MATERIAL, "cat-fashion"),
@@ -436,23 +749,21 @@ class TagClassifierService:
         return candidates
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 2. Offline Exploration Pipeline
+    # 4. Offline Exploration Pipeline (SPU & SKU Batches)
     # ──────────────────────────────────────────────────────────────────────────
     async def explore_tags(self, request: ExploreTagsRequest) -> ExploreTagsResponse:
-        """Processes a batch of raw product listings, extracts emergent
+        """Processes raw batch listings and child SKU variants, discovering
 
-        candidate tags, clusters them by frequency and semantic affinity, and
-        stores them in the candidate exploration pool.
+        emergent specs, clustering them into candidate pools.
         """
         initial_candidate_count = len(self._candidate_tags)
         extracted_slugs: Counter[str] = Counter()
         candidate_map: dict[str, TagItem] = {}
 
         for item in request.batch_listings:
+            # Mine from parent listing
             combined = f"{item.title} {item.description}"
             norm = _strip_accents(combined)
-
-            # Extract specs & patterns
             discovered = self._extract_emergent_patterns(norm, item.category_id)
             for tag in discovered:
                 extracted_slugs[tag.slug] += 1
@@ -461,14 +772,23 @@ class TagClassifierService:
                 else:
                     candidate_map[tag.slug].occurrence_count += 1
 
-        # Filter by threshold & register into candidate pool
-        promoted_count = 0
+            # Mine from child SKU variants
+            for var in item.variants:
+                var_text = f"{var.name} {' '.join(var.options.values())} {var.sku_code}"
+                var_norm = _strip_accents(var_text)
+                var_discovered = self._extract_emergent_patterns(var_norm, item.category_id)
+                for tag in var_discovered:
+                    extracted_slugs[tag.slug] += 1
+                    if tag.slug not in candidate_map:
+                        candidate_map[tag.slug] = tag
+                    else:
+                        candidate_map[tag.slug].occurrence_count += 1
+
         for slug, freq in extracted_slugs.items():
             if freq >= request.min_frequency:
                 tag = candidate_map[slug]
                 if tag.confidence >= request.min_confidence:
                     self._register_candidate_tag(tag)
-                    promoted_count += 1
 
         new_candidates = len(self._candidate_tags) - initial_candidate_count
         discovered_list = [
@@ -490,18 +810,13 @@ class TagClassifierService:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 3. Promotion & Canonicalization Gate
+    # 5. Promotion Gating & Registry
     # ──────────────────────────────────────────────────────────────────────────
     async def promote_tags(self, request: PromoteTagRequest) -> PromoteTagResponse:
-        """Promotes candidate tag(s) to official canonical filter facets.
-
-        Once promoted, these tags immediately become active for online
-        classification and search dynamic facets.
-        """
+        """Promotes candidate tag(s) to official canonical filter facets."""
         promoted_list: list[TagItem] = []
 
         for slug in request.tag_slugs:
-            # Check candidate pool
             if slug in self._candidate_tags:
                 tag = self._candidate_tags.pop(slug)
                 tag.status = TagStatus.PROMOTED
@@ -518,7 +833,6 @@ class TagClassifierService:
                 promoted_list.append(tag)
                 logger.info(f"Promoted candidate tag '{slug}' to canonical facet ({tag.facet_group.value})")
             elif slug in self._canonical_tags:
-                # Already canonical, update metadata
                 tag = self._canonical_tags[slug]
                 if request.add_synonyms:
                     tag.synonyms.extend(request.add_synonyms)
@@ -526,7 +840,6 @@ class TagClassifierService:
                         self._synonym_index[_strip_accents(s)] = slug
                 promoted_list.append(tag)
             else:
-                # Create and register directly if requested
                 new_tag = TagItem(
                     tag_id=f"tag-{slug}",
                     name=slug.replace("-", " ").title(),
@@ -548,7 +861,7 @@ class TagClassifierService:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 4. List / Query Tags
+    # 6. Query Tags
     # ──────────────────────────────────────────────────────────────────────────
     async def list_tags(self, request: ListTagsRequest) -> ListTagsResponse:
         all_tags: list[TagItem] = list(self._canonical_tags.values()) + list(self._candidate_tags.values())

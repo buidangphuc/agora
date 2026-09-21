@@ -13,6 +13,8 @@ from app.modules.business.ai_assistant.schemas import (
 )
 from app.modules.business.ai_assistant.service import AIAssistantService
 from app.modules.business.tag_classifier.schemas import (
+    ClassifySkuHierarchyRequest,
+    ClassifySkuHierarchyResponse,
     ClassifyTagsRequest,
     ClassifyTagsResponse,
     ExploreTagsRequest,
@@ -69,14 +71,14 @@ async def chat_copilot_endpoint(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Tag Classifier & Filter Taxonomy Enrichment Endpoints
+# SPU & SKU Hierarchical Tag Classifier Endpoints
 # ──────────────────────────────────────────────────────────────────────────────
 
 @router.post(
     "/tags/classify",
     response_model=ClassifyTagsResponse,
-    summary="Classify Product Tags (Online Fast Inference for Seller Posting)",
-    description="Fast online inference: extracts and predicts canonical filter tags and emergent candidate tags from title & description to speed up seller listing creation.",
+    summary="Classify SPU Product Tags (Online Fast Inference)",
+    description="Fast online inference: extracts and predicts canonical filter tags and emergent candidate tags from parent title & description.",
 )
 async def classify_tags_endpoint(
     payload: ClassifyTagsRequest,
@@ -86,10 +88,23 @@ async def classify_tags_endpoint(
 
 
 @router.post(
+    "/tags/classify-sku-hierarchy",
+    response_model=ClassifySkuHierarchyResponse,
+    summary="Classify SKU Hierarchy (Granular SPU & Variant Level Inference)",
+    description="Scales tag classification across parent listing and all child SKU variants (color, storage, ram, size, power, material), returning OpenSearch nested document payload.",
+)
+async def classify_sku_hierarchy_endpoint(
+    payload: ClassifySkuHierarchyRequest,
+    tag_service: TagClassifierService = Depends(get_tag_classifier_service),
+) -> ClassifySkuHierarchyResponse:
+    return await tag_service.classify_sku_hierarchy(payload)
+
+
+@router.post(
     "/tags/explore",
     response_model=ExploreTagsResponse,
     summary="Explore Candidate Tags (Offline Discovery & Clustering)",
-    description="Offline MLOps pipeline: processes a batch of raw product listings, extracts emergent specs/features, clusters keywords, and registers candidate tags into exploration pool.",
+    description="Offline MLOps pipeline: processes a batch of raw product listings & SKU variants, extracts emergent specs/features, clusters keywords, and registers candidate tags into exploration pool.",
 )
 async def explore_tags_endpoint(
     payload: ExploreTagsRequest,
@@ -115,7 +130,7 @@ async def promote_tags_endpoint(
     "/tags",
     response_model=ListTagsResponse,
     summary="List Tags (Canonical Filter Facets & Exploration Candidates)",
-    description="Lists marketplace tags filtered by category, facet group (connectivity, material, power, feature), and lifecycle status.",
+    description="Lists marketplace tags filtered by category, facet group (connectivity, material, power, color, size, capacity), and lifecycle status.",
 )
 async def list_tags_endpoint(
     category_id: str = Query(default="", description="Filter by category ID"),
