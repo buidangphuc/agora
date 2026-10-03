@@ -95,7 +95,7 @@ export function CollectionsManager({
                 <span>📂</span>
                 <span>{c.name}</span>
               </Link>
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
                 {c.itemCount} sản phẩm
               </span>
             </li>
