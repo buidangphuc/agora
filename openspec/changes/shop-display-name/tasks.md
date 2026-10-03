@@ -18,9 +18,9 @@
 
 ## 3. Code - team-gateway
 
-- [ ] 3.1 Regenerate `generated/` and add the `BatchGetStorefronts` forwarder to `internal/edge/listing.go` using `callRead` (pass-through, no composition); verify `go build ./...`
-- [ ] 3.2 Add a forwarder test that the request reaches the upstream unchanged and the principal metadata is forwarded; verify `go test ./internal/edge/...`
-- [ ] 3.3 Run the gateway gates; verify `go vet ./... && go test ./...` pass
+- [x] 3.1 Regenerate `generated/` and add the `BatchGetStorefronts` forwarder to `internal/edge/listing.go` using `callRead` (pass-through, no composition); verify `go build ./...`
+- [x] 3.2 Add a forwarder test that the request reaches the upstream unchanged and the principal metadata is forwarded; verify `go test ./internal/edge/...`
+- [x] 3.3 Run the gateway gates; verify `go vet ./... && go test ./...` pass
 
 ## 4. Code - team-frontend gateway wrappers
 
