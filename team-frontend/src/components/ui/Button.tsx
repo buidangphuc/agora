@@ -1,4 +1,5 @@
 import React from "react";
+import { Spinner } from "./Spin";
 
 export type ButtonVariant =
   | "primary"
@@ -19,28 +20,45 @@ export interface ButtonProps
   rightIcon?: React.ReactNode;
 }
 
+// Tier 3: component tokens, referencing Tier 2 aliases (Tier 1 scale only for
+// the pressed fill, which has no alias).
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-action-primary text-text-inverse hover:bg-action-primary-hover active:bg-primary-700 focus:ring-focus-ring shadow-sm",
+    "bg-action-primary text-text-inverse hover:bg-action-primary-hover active:bg-primary-700 shadow-sm",
   secondary:
-    "bg-gray-100 text-gray-800 hover:bg-gray-200 active:bg-gray-300 focus:ring-gray-400",
+    "bg-surface-page text-text-primary hover:bg-border-subtle active:bg-border-strong",
   outline:
-    "border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 focus:ring-primary-500 shadow-sm",
-  ghost:
-    "text-gray-700 hover:bg-gray-100 active:bg-gray-200 focus:ring-gray-400",
+    "border border-border-strong text-text-primary bg-surface-card hover:bg-surface-muted active:bg-surface-page shadow-sm",
+  ghost: "text-text-primary hover:bg-surface-page active:bg-border-subtle",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus:ring-red-500 shadow-sm",
+    "bg-danger text-text-inverse hover:bg-accent-danger-dark active:bg-accent-danger-dark active:brightness-90 shadow-sm",
   white:
-    "bg-white text-gray-800 hover:bg-gray-100 active:bg-gray-200 focus:ring-gray-400 shadow-sm",
+    "bg-surface-card text-text-primary hover:bg-surface-page active:bg-border-subtle shadow-sm",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  xs: "py-1 px-2 text-xs rounded-md gap-1",
-  sm: "py-1.5 px-3 text-xs font-medium rounded-md gap-1.5",
-  md: "py-2 px-4 text-sm font-medium rounded-lg gap-2",
-  lg: "py-2.5 px-5 text-base font-medium rounded-lg gap-2.5",
+  xs: "py-1 px-2 text-xs rounded-lg",
+  sm: "py-1.5 px-3 text-xs font-medium rounded-lg",
+  md: "py-2 px-4 text-sm font-medium rounded-lg",
+  lg: "py-2.5 px-5 text-base font-medium rounded-lg",
 };
 
+const gapStyles: Record<ButtonSize, string> = {
+  xs: "gap-1",
+  sm: "gap-1.5",
+  md: "gap-2",
+  lg: "gap-2.5",
+};
+
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2";
+
+/**
+ * Shared state contract (UI_SYSTEM_DESIGN.md section 4): hover, active scale,
+ * focus-visible ring, disabled (native + aria-disabled) and loading
+ * (`isLoading`: spinner overlay, label kept in flow so the width never changes,
+ * activation blocked, aria-busy).
+ */
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -53,26 +71,50 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       leftIcon,
       rightIcon,
       type = "button",
+      onClick,
       ...props
     },
     ref,
   ) => {
+    const blocked = disabled || isLoading;
+    const stateStyles = disabled
+      ? "opacity-50 pointer-events-none cursor-not-allowed"
+      : isLoading
+        ? "pointer-events-none cursor-progress"
+        : "cursor-pointer active:scale-95";
+
     return (
       <button
         ref={ref}
         type={type}
-        disabled={disabled || isLoading}
-        className={`inline-flex items-center justify-center font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         {...props}
+        disabled={disabled}
+        aria-disabled={blocked ? "true" : undefined}
+        aria-busy={isLoading ? "true" : undefined}
+        onClick={(e) => {
+          if (blocked) {
+            e.preventDefault();
+            return;
+          }
+          onClick?.(e);
+        }}
+        className={`relative inline-flex items-center justify-center font-medium transition duration-150 select-none ${focusRing} ${stateStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       >
-        {isLoading ? (
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
-        ) : (
-          leftIcon && <span className="inline-flex shrink-0">{leftIcon}</span>
-        )}
-        <span>{children}</span>
-        {!isLoading && rightIcon && (
-          <span className="inline-flex shrink-0">{rightIcon}</span>
+        <span
+          className={`inline-flex items-center justify-center ${gapStyles[size]} ${
+            isLoading ? "opacity-0" : ""
+          }`}
+        >
+          {leftIcon && <span className="inline-flex shrink-0">{leftIcon}</span>}
+          <span>{children}</span>
+          {rightIcon && (
+            <span className="inline-flex shrink-0">{rightIcon}</span>
+          )}
+        </span>
+        {isLoading && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <Spinner />
+          </span>
         )}
       </button>
     );

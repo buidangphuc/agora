@@ -5,8 +5,8 @@
 
 ## 2. Code — team-frontend: existing primitives to the contract
 
-- [ ] 2.1 Button: `aria-busy`, `aria-disabled`, focus-visible ring, width-preserving loading; verify the loading-width and disabled scenario tests pass
-- [ ] 2.2 Input: label/`htmlFor`, `aria-describedby`, `aria-invalid`; verify the error-announced scenario test passes
+- [x] 2.1 Button: `aria-busy`, `aria-disabled`, focus-visible ring, width-preserving loading; verify the loading-width and disabled scenario tests pass
+- [x] 2.2 Input: label/`htmlFor`, `aria-describedby`, `aria-invalid`; verify the error-announced scenario test passes
 - [ ] 2.3 Modal on `useDialog` with `role="dialog"`, `aria-modal`, `aria-labelledby`; verify the focus-trap scenario test passes
 - [ ] 2.4 Tabs with tablist roles and arrow keys, plus the server-compatible link variant (`hrefFor`); verify the keyboard and link-tabs scenario tests pass
 - [ ] 2.5 Badge, Card (`loading`), PriceTag, Result, Descriptions, Statistic (`loading`), Stepper (`aria-current`) on Tier 2/3 tokens; verify their tests pass and the token lint is clean
