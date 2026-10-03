@@ -160,6 +160,24 @@ const config: Config = {
         "shopee-card":
           "0 1px 2px 0 rgba(60,64,67,.1), 0 1px 3px 1px rgba(60,64,67,.05)",
       },
+      // Layout sizes that replaced arbitrary values: 1200px page container, chat
+      // bubble widths, viewport-relative page/chat panes and the AI modal height.
+      maxWidth: {
+        page: "75rem",
+        bubble: "75%",
+        "bubble-wide": "85%",
+      },
+      height: {
+        chat: "calc(100vh - 280px)",
+        modal: "37.5rem",
+      },
+      minHeight: {
+        "viewport-main": "calc(100vh - 140px)",
+        chat: "32.5rem",
+      },
+      maxHeight: {
+        chat: "42.5rem",
+      },
       backdropBlur: {
         xs: "2px",
       },
