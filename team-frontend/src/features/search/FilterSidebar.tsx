@@ -156,7 +156,7 @@ export function FilterSidebar({
           )}
           <span className="truncate">{label}</span>
         </span>
-        <span className="shrink-0 text-[11px] text-gray-400">({count})</span>
+        <span className="shrink-0 text-xs text-gray-400">({count})</span>
       </button>
     );
   }
@@ -333,7 +333,7 @@ export function FilterSidebar({
       </Card>
 
       {!hasAnyFacet && (
-        <p className="px-1 text-[11px] text-gray-400">
+        <p className="px-1 text-xs text-gray-400">
           Chưa có bộ lọc nào cho kết quả này.
         </p>
       )}

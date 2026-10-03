@@ -95,7 +95,7 @@ export function SearchBar() {
       </form>
 
       {/* Suggested Keywords Strip */}
-      <div className="mt-1.5 flex flex-wrap gap-2 text-[11px] text-white/90">
+      <div className="mt-1.5 flex flex-wrap gap-2 text-xs text-white/90">
         {TRENDING_KEYWORDS.map((kw) => (
           <Link
             key={kw}
@@ -121,7 +121,7 @@ export function SearchBar() {
                   <span className="text-gray-400">🔍</span>
                   <span className="font-medium">{s}</span>
                 </div>
-                <span className="text-[10px] text-primary-500 font-semibold">
+                <span className="text-xs text-primary-500 font-semibold">
                   Tìm kiếm →
                 </span>
               </button>
