@@ -229,7 +229,7 @@ export function ChatView({
   const isSearching = searchFilter.trim().length > 0;
 
   return (
-    <div className="flex h-[calc(100vh-280px)] min-h-[520px] max-h-[680px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex h-chat min-h-chat max-h-chat overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       {/* Threads List (Left) */}
       <div
         className={`${
@@ -241,7 +241,7 @@ export function ChatView({
             <h1 className="text-base font-bold text-gray-900 flex items-center gap-2">
               <span className="text-lg">💬</span> Hộp thư tin nhắn
             </h1>
-            <span className="text-[11px] font-semibold text-brand bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">
+            <span className="text-xs font-semibold text-brand bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">
               {threads.length} hội thoại
             </span>
           </div>
@@ -285,7 +285,7 @@ export function ChatView({
                         {m.senderName}
                       </p>
                       {m.createdAt && (
-                        <span className="text-[10px] text-gray-400 font-normal">
+                        <span className="text-xs text-gray-400 font-normal">
                           {m.createdAt}
                         </span>
                       )}
@@ -335,13 +335,13 @@ export function ChatView({
                         {partnerRole} #{partnerId.slice(0, 6)}
                       </p>
                       {t.lastMessageAt && (
-                        <span className="text-[10px] text-gray-400 font-normal">
+                        <span className="text-xs text-gray-400 font-normal">
                           {t.lastMessageAt}
                         </span>
                       )}
                     </div>
                     {t.listingTitle && (
-                      <p className="truncate text-[11px] text-brand font-medium mb-0.5">
+                      <p className="truncate text-xs text-brand font-medium mb-0.5">
                         📦 {t.listingTitle}
                       </p>
                     )}
@@ -350,7 +350,7 @@ export function ChatView({
                     </p>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white shadow-2xs">
+                    <span className="rounded-full bg-brand px-1.5 py-0.5 text-xs font-bold text-white shadow-2xs">
                       {unreadCount}
                     </span>
                   )}
@@ -398,7 +398,7 @@ export function ChatView({
                         : `#${activeThread.buyerId.slice(0, 6)}`}
                       )
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       Trực tuyến
                     </span>
@@ -414,7 +414,7 @@ export function ChatView({
                           `Xem sản phẩm #${activeThread.listingId.slice(0, 8)}`}
                       </Link>
                     ) : (
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-xs text-gray-400">
                         Cuộc trò chuyện trực tiếp 1:1
                       </span>
                     )}
@@ -465,9 +465,9 @@ export function ChatView({
                       {isListingCard ? (
                         <Link
                           href={`/listing/${m.listingId}`}
-                          className="max-w-[75%] rounded-2xl border border-brand/30 bg-white p-3 text-xs shadow-2xs transition hover:border-brand"
+                          className="max-w-bubble rounded-2xl border border-brand/30 bg-white p-3 text-xs shadow-2xs transition hover:border-brand"
                         >
-                          <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-brand">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-brand">
                             📦 Sản phẩm
                           </span>
                           <p className="mt-1.5 font-semibold text-gray-900">
@@ -475,17 +475,17 @@ export function ChatView({
                               `Sản phẩm #${m.listingId.slice(0, 8)}`}
                           </p>
                           {m.payload && (
-                            <p className="mt-0.5 text-[11px] text-gray-500">
+                            <p className="mt-0.5 text-xs text-gray-500">
                               {m.payload}
                             </p>
                           )}
-                          <span className="mt-1.5 inline-block text-[11px] font-semibold text-brand">
+                          <span className="mt-1.5 inline-block text-xs font-semibold text-brand">
                             Xem chi tiết →
                           </span>
                         </Link>
                       ) : (
                         <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs shadow-2xs leading-relaxed ${
+                          className={`max-w-bubble rounded-2xl px-4 py-2.5 text-xs shadow-2xs leading-relaxed ${
                             isMe
                               ? "bg-brand text-white rounded-tr-xs"
                               : "bg-white text-gray-800 border border-gray-200/80 rounded-tl-xs"
@@ -496,7 +496,7 @@ export function ChatView({
                           </p>
                         </div>
                       )}
-                      <span className="mt-1 text-[10px] text-gray-400 px-1 font-medium">
+                      <span className="mt-1 text-xs text-gray-400 px-1 font-medium">
                         {m.createdAt}
                       </span>
                     </div>
@@ -507,7 +507,7 @@ export function ChatView({
 
             {/* ✨ AI Seller Copilot Quick Replies (from team-ai via the gateway) */}
             {isSeller && (
-              <div className="px-4 py-2 bg-gradient-to-r from-indigo-50/90 to-blue-50/60 border-t border-indigo-100 flex items-center gap-2 overflow-x-auto text-[11px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="px-4 py-2 bg-gradient-to-r from-indigo-50/90 to-blue-50/60 border-t border-indigo-100 flex items-center gap-2 overflow-x-auto text-xs [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                   type="button"
                   onClick={loadCopilot}
@@ -535,7 +535,7 @@ export function ChatView({
 
             {/* 💬 Buyer quick-reply chips (seller-configured, team-chat) */}
             {!isSeller && quickReplies.length > 0 && (
-              <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-2 overflow-x-auto text-[11px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-2 overflow-x-auto text-xs [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <span className="shrink-0 font-bold text-gray-500">
                   Trả lời nhanh:
                 </span>
