@@ -12,7 +12,7 @@
 - [x] 2.3 Add `scripts/check-tokens.mjs` with `tokens-allow` support and a Vitest test of its matcher on good and bad samples; verify the test passes
 - [x] 2.4 Append the token lint to the `check` script; verify it currently reports the known violations
 - [x] 2.5 Replace all raw hex and arbitrary values with tokens, one commit per feature folder; verify the token lint reports 0 and `npm run check` is green
-- [ ] 2.6 Update `UI_SYSTEM_DESIGN.md` §2 with the alias table and the Ant Design mapping; verify links resolve
+- [x] 2.6 Update `UI_SYSTEM_DESIGN.md` §2 with the alias table and the Ant Design mapping; verify links resolve
 
 - [x] 2.7 Add `src/lib/action-result.ts` (`ActionResult<T>`, `ok`, `fail`) with a type-narrowing Vitest test; verify `npx vitest run src/lib` and `npx tsc --noEmit` pass
 

@@ -46,25 +46,79 @@ Tokens are named design decisions stored as platform-neutral values, following t
 └────────────────────────────────────────────────────────┘
 ```
 
-### A. Core Tokens (`tailwind.config.ts`)
+### A. Tier 1 - Core Tokens (`tailwind.config.ts`)
+The only place raw values live.
 - **Primary Scale (Agora Brand)**:
   - `50: #fff5f2`, `100: #ffe8e1`, `200: #ffd4c7`, `300: #ffb5a0`, `400: #ff8566`
   - `500: #ee4d2d` (Brand Default)
   - `600: #d73211`, `700: #b52309`, `800: #941e0c`, `900: #7a1d0f`, `950: #430b05`
-- **Neutral Scale**: Standard Slate/Gray (`50` through `900`).
-- **Semantic Accents**:
-  - Mall/Danger: `#d0011b` (Red)
-  - Promotion/Discount: `#ffbe00` / `#ffe97a` (Amber/Yellow)
-  - Success/Freeship: `#00bfa5` / `#10b981` (Emerald)
-- **Spacing Scale (4px Baseline)**:
-  - `1`: 4px, `2`: 8px, `3`: 12px, `4`: 16px, `5`: 20px, `6`: 24px, `8`: 32px, `12`: 48px.
+- **Neutral Scale** (`neutral-50` ... `neutral-900`): same values as Tailwind `gray`
+  (`50 #f9fafb`, `100 #f3f4f6`, `200 #e5e7eb`, `300 #d1d5db`, `400 #9ca3af`, `500 #6b7280`,
+  `600 #4b5563`, `700 #374151`, `800 #1f2937`, `900 #111827`).
+- **Semantic Accents** (`accent.*`):
+  - Mall/Danger: `#d0011b` (dark `#b00016`)
+  - Promotion/Discount: `#ffbe00` / `#ffe97a`
+  - Success/Freeship: `#00bfa5`
+- **Spacing Scale (4px Baseline)**: Tailwind default (`1` = 4px, `2` = 8px, `3` = 12px, `4` = 16px, `5` = 20px,
+  `6` = 24px, `8` = 32px, `12` = 48px) plus `18` = 72px.
+- **Type Scale**: 12 / 14 / 16 / 20 / 24 px only (`text-xs` 12, `text-sm` 14, `text-base` 16, `text-lg`/`text-xl` 20,
+  `text-2xl`..`text-5xl` 24). Nothing below 12px exists.
 - **Elevation Shadows**:
   - `shadow-preline-card`: Soft resting card shadow (`0 1px 3px rgba(0,0,0,0.07)`).
   - `shadow-preline-hover`: Elevated card hover shadow (`0 10px 15px -3px rgba(0,0,0,0.08)`).
+  - `shadow-xs` / `shadow-2xs`: hairline elevation.
 - **Border Radius**:
   - Control/Button: `rounded-lg` (8px).
   - Card/Item: `rounded-xl` (12px).
   - Modal/Hero Banner: `rounded-2xl` (16px).
+- **Layout sizes** (replace arbitrary values): `max-w-page` (1200px), `max-w-bubble` (75%), `max-w-bubble-wide`
+  (85%), `h-chat` / `min-h-chat` / `max-h-chat`, `min-h-viewport-main`, `h-modal`.
+
+### B. Tier 2 - Semantic Aliases (`src/app/globals.css`)
+CSS variables on `:root` that reference Tier 1, exposed as Tailwind colours. Component code prefers these over
+primitives. Because Tailwind prefixes the utility, the colour keys read `bg-action-primary`,
+`text-text-primary`, `border-border-subtle`, and so on.
+
+| Alias (CSS variable) | Tier 1 value | Tailwind use |
+|---|---|---|
+| `--color-action-primary` | `primary-500` `#ee4d2d` | `bg-action-primary`, `text-action-primary` |
+| `--color-action-primary-hover` | `primary-600` | `hover:bg-action-primary-hover` |
+| `--color-surface-page` | `neutral-100` | `bg-surface-page` |
+| `--color-surface-card` | white | `bg-surface-card` |
+| `--color-surface-muted` | `neutral-50` | `bg-surface-muted` |
+| `--color-border-subtle` | `neutral-200` | `border-border-subtle` |
+| `--color-border-strong` | `neutral-300` | `border-border-strong` |
+| `--color-text-primary` | `neutral-900` | `text-text-primary` |
+| `--color-text-secondary` | `neutral-600` | `text-text-secondary` |
+| `--color-text-disabled` | `neutral-400` | `text-text-disabled` |
+| `--color-text-inverse` | white | `text-text-inverse` |
+| `--color-danger` | `accent.danger` `#d0011b` | `bg-danger`, `text-danger` |
+| `--color-promo` | `accent.promo` `#ffbe00` | `bg-promo`, `text-promo` |
+| `--color-success` | `accent.success` `#00bfa5` | `bg-success`, `text-success` |
+| `--color-focus-ring` | `primary-300` | `ring-focus-ring` |
+
+Redefining a variable restyles every consumer (a later dark mode is one block). Alias colours are plain
+`var(...)`, so Tailwind opacity modifiers (`bg-action-primary/50`) do not apply to them; use a Tier 1 scale for that.
+
+### C. Tier 3 - Component Tokens
+Class maps inside `src/components/ui/*` (for example the `Button` variant map), referencing Tier 2 only.
+
+### D. Mapping to Ant Design's token model
+Ant Design 5 derives Seed to Map to Alias to Component tokens through CSS-in-JS. We keep the same shape on
+Tailwind without depending on `antd`:
+
+| Ant Design | Agora |
+|---|---|
+| Seed token (`colorPrimary`, `borderRadius`, `fontSize`, `sizeUnit`) | Tier 1 in `tailwind.config.ts` |
+| Map token (`colorPrimaryBg`, `colorPrimaryHover`, ...) | Tier 1 scales 50-950 (pre-derived, not computed) |
+| Alias token (`colorText`, `colorBgContainer`, `colorBorderSecondary`, ...) | Tier 2 CSS variables |
+| Component token (`Button.primaryColor`, ...) | Tier 3 class maps in `src/components/ui/*` |
+| Layout `Grid` (24 columns) / `Space` | Tailwind grid + `gap-*` on the 4px scale |
+| Exception 403/404/500 | `src/app/not-found.tsx`, `src/app/error.tsx` |
+| Skeleton | `src/app/loading.tsx` |
+
+Enforcement: `npm run check` runs `scripts/check-tokens.mjs`, which rejects raw hex, `rgb()`/`hsl()`, arbitrary
+`utility-[...]` values and inline style colours in `src/**/*.tsx`; `// tokens-allow: <reason>` exempts one line.
 
 ---
 
