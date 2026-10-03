@@ -392,6 +392,8 @@ export interface ViewStorefront {
   tagline: string;
   featuredListingIds: string[];
   theme: string;
+  /** Seller-chosen shop name; empty = unset (UI falls back via shopLabel). */
+  displayName: string;
 }
 
 export async function getStorefront(
@@ -408,6 +410,7 @@ export async function getStorefront(
       tagline: s.tagline,
       featuredListingIds: s.featuredListingIds ?? [],
       theme: s.theme,
+      displayName: s.displayName,
     };
   } catch {
     return null;
@@ -425,6 +428,7 @@ export async function upsertStorefront(
       tagline: input.tagline ?? "",
       featuredListingIds: input.featuredListingIds ?? [],
       theme: input.theme ?? "",
+      displayName: input.displayName ?? "",
     },
   });
   const s = res.storefront;
@@ -436,6 +440,7 @@ export async function upsertStorefront(
     tagline: s.tagline,
     featuredListingIds: s.featuredListingIds ?? [],
     theme: s.theme,
+    displayName: s.displayName,
   };
 }
 

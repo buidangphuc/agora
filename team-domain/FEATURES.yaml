@@ -126,3 +126,32 @@ features:
       Delivery is at-least-once; consumers dedupe on the stable EventEnvelope.event_id
       (== outbox row id). platform-e2e integration test (broker-down create → restore →
       assert delivered once) is a follow-up in the platform-e2e repo.
+
+  - id: listing.shop-display-name
+    title: Seller shop display name and batch lookup
+    persona: seller
+    priority: P1
+    summary: >
+      A seller sets a public shop display name on their storefront; visitors read it
+      via GetStorefront and resolve many names at once with BatchGetStorefronts.
+    entry_route: "/shop/{id}"
+    related_routes: [/cart, /account/following]
+    services: [team-domain, team-gateway, team-frontend]
+    preconditions:
+      login: seller
+    api:
+      seed: [listing.v1.UpsertStorefront]
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - The name is returned for a storefront (trimmed) via GetStorefront
+      - A name change is reflected by the next GetStorefront and BatchGetStorefronts
+      - Invalid names are rejected (over 80 characters or a control character) with InvalidArgument
+      - A seller cannot set another seller's name (seller id forced from the principal)
+      - An unknown or deleted seller gives an empty name (omitted from the batch response)
+      - Duplicates are collapsed and more than 100 ids fails with InvalidArgument
+    tags: [seller, shop, contract]
+    status: planned
+    covered_by: null
+    notes: >
+      Backend scenarios are covered by team-domain handler tests; the UI-visible
+      scenarios live in team-frontend FEATURES (shop.storefront, cart.shop-names, ...).

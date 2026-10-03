@@ -26,7 +26,10 @@ type Storefront struct {
 	Tagline            string
 	FeaturedListingIDs []string
 	Theme              string
-	UpdatedAt          time.Time
+	// DisplayName is the seller-chosen public shop name (trimmed, <=80 runes).
+	// Empty means unset. Stored inside the JSONB config (no migration).
+	DisplayName string
+	UpdatedAt   time.Time
 }
 
 // StorefrontRepository is the port the storefront service depends on. Upsert is
@@ -40,6 +43,9 @@ type StorefrontRepository interface {
 	GetBySeller(ctx context.Context, sellerID string) (Storefront, error)
 	// GetBySlug loads a storefront by its public slug, or ErrStorefrontNotFound.
 	GetBySlug(ctx context.Context, slug string) (Storefront, error)
+	// GetBySellers loads the storefronts of the given seller ids in one query.
+	// Sellers without a storefront are omitted; order is unspecified.
+	GetBySellers(ctx context.Context, sellerIDs []string) ([]Storefront, error)
 }
 
 // InMemoryStorefrontRepository is a deterministic fake store for tests. It
@@ -96,6 +102,19 @@ func (r *InMemoryStorefrontRepository) GetBySlug(_ context.Context, slug string)
 		}
 	}
 	return Storefront{}, ErrStorefrontNotFound
+}
+
+// GetBySellers returns the storefronts that exist for the given seller ids.
+func (r *InMemoryStorefrontRepository) GetBySellers(_ context.Context, sellerIDs []string) ([]Storefront, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]Storefront, 0, len(sellerIDs))
+	for _, id := range sellerIDs {
+		if s, ok := r.bySeller[id]; ok {
+			out = append(out, s)
+		}
+	}
+	return out, nil
 }
 
 // compile-time assertion that the fake satisfies the port.

@@ -17,6 +17,11 @@ class ShopProfilePage(BasePage):
         return self.page.locator("h1, h2").first
 
     @property
+    def shop_name(self) -> Locator:
+        """The shop name heading in the profile card (display name or fallback label)."""
+        return self.page.locator("h1").first
+
+    @property
     def follow_button(self) -> Locator:
         return self.page.get_by_role("button", name="+ Theo Dõi").first
 

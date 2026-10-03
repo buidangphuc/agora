@@ -85,9 +85,45 @@ features:
       - When the buyer opens a seller shop page
       - Then the shop profile header displays the store rating and product catalog
       - And the buyer can toggle following the shop
+      - When a seller has set the display name "Tiem Hoa Nho", then the shop header and the product detail shop header show "Tiem Hoa Nho" and link to /shop/<sellerId>
+      - When the seller renames the shop to "Tiem Hoa Lon", then the next page load shows "Tiem Hoa Lon" without a cache purge
     tags: [buyer, shop]
     status: automated
     covered_by: "shop/shop_storefront.feature::Buyer explores public seller shop storefront"
+    notes: >
+      The two display-name acceptance lines are covered by planned scenarios in
+      shop/shop_display_name.feature ("The name is returned for a storefront",
+      "A name change is reflected"); they have not been run yet (stack was not up).
+
+  - id: shop.display-name-fallback
+    title: Shop label falls back to the seller id prefix
+    persona: buyer
+    priority: P2
+    summary: When a seller has no display name, or the name lookup fails, the UI shows "Shop #<first 6 chars of sellerId>".
+    entry_route: "/shop/{id}"
+    related_routes: [/cart, /account/following]
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+      data: A seeded seller that has not created a storefront.
+    api:
+      exercised: [listing.v1.GetStorefront, listing.v1.BatchGetStorefronts]
+    ui:
+      key_elements:
+        shop_name: "h1"
+    acceptance:
+      - Given a seller with no display name
+      - When a visitor opens the seller's shop page
+      - Then the shop header reads "Shop #" followed by the first 6 characters of the seller id
+      - And when BatchGetStorefronts fails or is Unimplemented the cart still renders every item with the fallback label
+    tags: [buyer, shop]
+    status: planned
+    covered_by: null
+    notes: >
+      Scenario "Fallback when the seller has no name" is written in
+      shop/shop_display_name.feature; run pending a live stack. The lookup-failure
+      line is covered by Vitest (cart.test.ts) because failing the gateway call is not
+      reproducible through the UI.
 
   - id: cart.item-management
     title: Cart quantity and item clearing
@@ -114,6 +150,57 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "buyer/cart_management.feature::Buyer modifies item quantity in cart"
+
+  - id: cart.shop-names
+    title: Cart resolves shop names in one batch
+    persona: buyer
+    priority: P2
+    summary: A cart with items from two sellers resolves both shop names with a single BatchGetStorefronts call.
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Two sellers with display names, one published listing each, both in the buyer's cart.
+    api:
+      seed: [listing.v1.UpsertStorefront, order.v1.AddToCart]
+      exercised: [order.v1.GetCart, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given a buyer's cart holds items from sellers "Shop Alpha" and "Shop Beta"
+      - When the cart page loads
+      - Then exactly one BatchGetStorefronts call is made with both seller ids
+      - And each cart item carries its own shop name (sellerDisplayName)
+    tags: [buyer, cart, shop]
+    status: planned
+    covered_by: null
+    notes: >
+      Scenario "A cart with two sellers returns both names in one batch" is written in
+      shop/shop_display_name.feature and asserts the batch lookup through the gateway.
+      The cart view has no per-shop group header yet; the header assertion lands with the
+      ui-phase cart grouping. "Exactly one call" is covered by Vitest (cart.test.ts).
+
+  - id: following.shop-names
+    title: Following list shows shop names
+    persona: buyer
+    priority: P2
+    summary: /account/following resolves the followed sellers' names with one batch call.
+    entry_route: /account/following
+    services: [team-frontend, team-gateway, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+      data: Buyer follows three sellers, some with display names.
+    api:
+      exercised: [engagement.v1.ListFollowedSellers, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given a buyer follows three sellers
+      - When the buyer opens /account/following
+      - Then one ListFollowedSellers call and one BatchGetStorefronts call are made
+      - And each row shows the seller's display name, or "Shop #<6 chars>" when it has none
+    tags: [buyer, shop]
+    status: planned
+    covered_by: null
+    notes: >
+      No platform-e2e scenario yet (needs three seeded followed sellers); the one-batch
+      behaviour is covered by Vitest (follow.test.ts). Follow-up for the e2e wave.
 
   - id: chat.floating-bubble
     title: Floating chat messenger bubble

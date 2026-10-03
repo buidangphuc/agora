@@ -12,6 +12,7 @@ import type {
 } from "@/generated/platform/engagement/v1/engagement_pb.js";
 import { makeClients } from "./client.js";
 import { getToken } from "./session.js";
+import { batchGetShopNames } from "./shops.js";
 
 function gateway() {
   return makeClients(getToken());
@@ -264,12 +265,22 @@ export async function isFollowing(sellerId: string): Promise<boolean> {
   }
 }
 
-export async function listFollowedSellers(): Promise<string[]> {
+export interface FollowedSeller {
+  sellerId: string;
+  /** Empty when the seller has no name; render via shopLabel(). */
+  displayName: string;
+}
+
+export async function listFollowedSellers(): Promise<FollowedSeller[]> {
   try {
     const res = await gateway().engagement.listFollowedSellers({
       page: { cursor: "", pageSize: 48 },
     });
-    return res.sellerIds;
+    const names = await batchGetShopNames(res.sellerIds);
+    return res.sellerIds.map((sellerId) => ({
+      sellerId,
+      displayName: names.get(sellerId) ?? "",
+    }));
   } catch {
     return [];
   }

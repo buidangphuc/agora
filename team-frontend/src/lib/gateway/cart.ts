@@ -3,6 +3,7 @@ import "server-only";
 import type { Cart, CartItem } from "@/generated/platform/order/v1/order_pb.js";
 import { makeClients } from "./client.js";
 import { getToken } from "./session.js";
+import { batchGetShopNames } from "./shops.js";
 
 function gateway() {
   return makeClients(getToken());
@@ -18,6 +19,8 @@ export interface ViewCartItem {
   variantName: string;
   imageUrl: string;
   sellerId: string;
+  /** Resolved shop name; empty when unknown (render via shopLabel()). */
+  sellerDisplayName: string;
 }
 
 export interface ViewCart {
@@ -38,6 +41,7 @@ function mapCartItem(it: CartItem): ViewCartItem {
     variantName: it.variantName,
     imageUrl: it.imageUrl,
     sellerId: it.sellerId,
+    sellerDisplayName: "",
   };
 }
 
@@ -55,10 +59,24 @@ function mapCart(c?: Cart): ViewCart {
   };
 }
 
+// withShopNames attaches seller display names with ONE batch call. It never
+// throws: a failed lookup leaves names empty and the cart still renders.
+async function withShopNames(cart: ViewCart): Promise<ViewCart> {
+  if (cart.items.length === 0) return cart;
+  const names = await batchGetShopNames(cart.items.map((it) => it.sellerId));
+  return {
+    ...cart,
+    items: cart.items.map((it) => ({
+      ...it,
+      sellerDisplayName: names.get(it.sellerId) ?? "",
+    })),
+  };
+}
+
 export async function getCart(): Promise<ViewCart> {
   try {
     const res = await gateway().cart.getCart({});
-    return mapCart(res.cart);
+    return await withShopNames(mapCart(res.cart));
   } catch {
     return { userId: "", items: [], subtotal: 0, totalItems: 0 };
   }

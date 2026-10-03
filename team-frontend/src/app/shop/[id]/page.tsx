@@ -6,6 +6,7 @@ import {
   listListings,
 } from "@/lib/gateway/listings";
 import { getPrincipal } from "@/lib/gateway/session";
+import { shopLabel } from "@/lib/gateway/shops";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function ShopPage({
     <section className="py-2">
       <ShopStorefrontView
         sellerId={params.id}
+        shopName={shopLabel(params.id, storefront?.displayName)}
         listings={shopListings.length > 0 ? shopListings : page.items}
         loggedIn={me !== null}
         initialFollowing={following}

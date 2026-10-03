@@ -232,6 +232,24 @@ func (f *ListingForwarder) GetStorefront(
 	return connect.NewResponse(out), nil
 }
 
+// BatchGetStorefronts forwards the shop-name batch read unchanged (public read,
+// same posture as GetStorefront; team-domain enforces the scope and the 100-id cap).
+func (f *ListingForwarder) BatchGetStorefronts(
+	ctx context.Context,
+	req *connect.Request[listingv1.BatchGetStorefrontsRequest],
+) (*connect.Response[listingv1.BatchGetStorefrontsResponse], error) {
+	var out *listingv1.BatchGetStorefrontsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.BatchGetStorefronts(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 // ── Bundles ──
 
 func (f *ListingForwarder) CreateBundle(

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { listFollowedSellers } from "@/lib/gateway/engagement";
 import { searchListings } from "@/lib/gateway/search";
 import { getPrincipal } from "@/lib/gateway/session";
+import { shopLabel } from "@/lib/gateway/shops";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ export const metadata = {
 export default async function FollowingPage() {
   if (!getPrincipal()) redirect("/login");
 
-  const sellerIds = await listFollowedSellers();
+  const followed = await listFollowedSellers();
+  const sellerIds = followed.map((f) => f.sellerId);
 
   // Feed = published listings from the sellers the user follows. team-engagement's
   // ListFollowedListings depends on a listing-event consumer that isn't wired yet,
@@ -58,13 +60,13 @@ export default async function FollowingPage() {
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {sellerIds.map((id) => (
+            {followed.map(({ sellerId: id, displayName }) => (
               <li key={id}>
                 <Link
                   href={`/shop/${id}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand"
                 >
-                  🏪 Shop #{id.slice(0, 6)}
+                  🏪 {shopLabel(id, displayName)}
                 </Link>
               </li>
             ))}
