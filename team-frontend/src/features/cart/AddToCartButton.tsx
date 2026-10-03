@@ -93,7 +93,7 @@ export function AddToCartButton({
             +
           </button>
         </div>
-        <span className="text-gray-400 text-[11px]">
+        <span className="text-gray-400 text-xs">
           {listing.stock} sản phẩm có sẵn
         </span>
       </div>
@@ -104,7 +104,7 @@ export function AddToCartButton({
           type="button"
           disabled={loading || listing.stock <= 0}
           onClick={() => handleAdd(false)}
-          className="flex items-center justify-center gap-2 rounded-xs border border-brand bg-[#ffeee8] px-6 py-3 text-xs font-bold text-brand hover:bg-[#ffe5dc] transition shadow-xs disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-xs border border-brand bg-brand-light px-6 py-3 text-xs font-bold text-brand hover:bg-primary-100 transition shadow-xs disabled:opacity-50"
         >
           <span>🛒</span>
           <span>{loading ? "Đang thêm..." : "Thêm Vào Giỏ Hàng"}</span>

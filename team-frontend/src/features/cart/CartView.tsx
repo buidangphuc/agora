@@ -248,7 +248,7 @@ export function CartView({
             >
               Mua Hàng ({cart.items.length})
             </Button>
-            <p className="text-center text-[11px] text-gray-500">
+            <p className="text-center text-xs text-gray-500">
               Thanh toán tạm thời không khả dụng. Vui lòng thử lại sau.
             </p>
           </div>
