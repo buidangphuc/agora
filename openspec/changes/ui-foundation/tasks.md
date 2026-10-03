@@ -14,7 +14,7 @@
 - [ ] 2.5 Replace all raw hex and arbitrary values with tokens, one commit per feature folder; verify the token lint reports 0 and `npm run check` is green
 - [ ] 2.6 Update `UI_SYSTEM_DESIGN.md` §2 with the alias table and the Ant Design mapping; verify links resolve
 
-- [ ] 2.7 Add `src/lib/action-result.ts` (`ActionResult<T>`, `ok`, `fail`) with a type-narrowing Vitest test; verify `npx vitest run src/lib` and `npx tsc --noEmit` pass
+- [x] 2.7 Add `src/lib/action-result.ts` (`ActionResult<T>`, `ok`, `fail`) with a type-narrowing Vitest test; verify `npx vitest run src/lib` and `npx tsc --noEmit` pass
 
 ## 3. Code — team-frontend: Exception and loading shells
 
