@@ -24,6 +24,28 @@ import {
 
 /** Client-side demos for the /dev/ui catalogue: everything that holds state or takes callbacks. */
 
+/** Counts activations so loading/disabled buttons can be proven inert. */
+export function ClickProbeDemo() {
+  const [clicks, setClicks] = useState(0);
+  const hit = () => setClicks((n) => n + 1);
+  return (
+    <div className="flex items-center gap-3">
+      <Button isLoading onClick={hit} data-testid="ui-probe-loading">
+        Đang thêm
+      </Button>
+      <Button disabled onClick={hit} data-testid="ui-probe-disabled">
+        Hết hàng
+      </Button>
+      <Button variant="outline" onClick={hit} data-testid="ui-probe-enabled">
+        Bình thường
+      </Button>
+      <span className="text-xs text-text-secondary">
+        Lượt kích hoạt: <b data-testid="ui-click-count">{clicks}</b>
+      </span>
+    </div>
+  );
+}
+
 export function ModalDemo() {
   const [open, setOpen] = useState(false);
   return (

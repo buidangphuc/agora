@@ -38,6 +38,7 @@ import {
 } from "@/components/ui";
 
 import {
+  ClickProbeDemo,
   ClosableDemo,
   DrawerDemo,
   ErrorStatesDemo,
@@ -175,6 +176,9 @@ export function Catalogue({
           >
             Có biểu tượng
           </Button>
+        </Demo>
+        <Demo label="Activation: loading and disabled buttons ignore clicks and Enter">
+          <ClickProbeDemo />
         </Demo>
       </Section>
 
