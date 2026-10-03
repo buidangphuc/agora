@@ -93,7 +93,7 @@ export function AddressManager({
                     <span className="text-xs text-gray-400">|</span>
                     <span className="text-sm text-gray-600">{addr.phone}</span>
                     {addr.isDefault && (
-                      <span className="rounded bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
+                      <span className="rounded bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
                         Mặc định
                       </span>
                     )}
