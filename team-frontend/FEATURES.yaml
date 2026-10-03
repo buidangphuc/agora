@@ -519,7 +519,8 @@ features:
       - When the idle and loading "Thêm vào giỏ" buttons are compared
       - Then both have the same rendered width, the loading one has aria-busy=true and a spinner, and clicking it does nothing
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::A loading button keeps its width and blocks clicks"
 
   - id: ui.disabled-inert
     title: Disabled is announced and inert
@@ -536,7 +537,8 @@ features:
       - Then the disabled button has the disabled attribute and aria-disabled=true
       - And clicking it or pressing Enter/Space on it changes nothing
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Disabled is announced and inert"
 
   - id: ui.focus-ring-keyboard
     title: Focus ring shows for keyboard users only
@@ -555,7 +557,8 @@ features:
       - When the same button is clicked with the mouse
       - Then no focus ring is drawn
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Focus ring shows for keyboard users only"
 
   - id: ui.empty-table
     title: An empty table shows Empty, not a blank area
@@ -571,7 +574,8 @@ features:
       - Given the /dev/ui catalogue is open
       - Then the empty table shows its headers and the "Chưa có sản phẩm" Empty description
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::An empty table shows Empty, not a blank area"
 
   - id: ui.statistic-loading-stable
     title: A loading statistic does not shift layout
@@ -588,7 +592,8 @@ features:
       - When the loading toggle switches the statistics from skeleton to values
       - Then each statistic card's height is unchanged
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::A loading statistic does not shift layout"
 
   - id: ui.modal-focus-trap
     title: Modal traps focus and restores it
@@ -607,7 +612,8 @@ features:
       - When the user presses Escape
       - Then the dialog closes and focus is back on the opening button
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Modal traps focus and restores it"
 
   - id: ui.tabs-keyboard
     title: Tabs are keyboard navigable
@@ -624,7 +630,8 @@ features:
       - When focus is on the first tab and the user presses ArrowRight
       - Then the second tab is selected and its panel is shown
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Tabs are keyboard navigable"
 
   - id: ui.link-tabs-url
     title: Link tabs keep their state in the URL
@@ -642,7 +649,8 @@ features:
       - When another link tab is clicked and the user goes back
       - Then the previous tab is current again
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Link tabs keep their state in the URL"
 
   - id: ui.input-error-announced
     title: Input errors are announced
@@ -658,7 +666,8 @@ features:
       - Given the /dev/ui catalogue is open
       - Then the errored email input has aria-invalid=true and its description is the error message
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Input errors are announced"
 
   - id: ui.quantity-bounds
     title: QuantityPicker respects its bounds
@@ -676,7 +685,8 @@ features:
       - When 5 is typed into it
       - Then the value is 3 and the decrement button is enabled
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::QuantityPicker respects its bounds"
 
   - id: ui.pagination-links
     title: Pagination works without client JavaScript
@@ -692,7 +702,8 @@ features:
       - Given the /dev/ui catalogue is open
       - Then pagination links to pages 1 to 5 are present and page 2 has aria-current=page
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Pagination works without client JavaScript"
 
   - id: ui.image-fallback
     title: Image reserves its box and falls back
@@ -708,7 +719,8 @@ features:
       - Given the /dev/ui catalogue is open
       - Then the broken image shows the fallback placeholder in a square box
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_components.feature::Image reserves its box and falls back"
 
   - id: ui.catalogue-not-in-production
     title: The catalogue is not shipped to production

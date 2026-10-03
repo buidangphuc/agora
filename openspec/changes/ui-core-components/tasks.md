@@ -26,5 +26,5 @@
 ## 5. E2E — platform-e2e
 
 - [x] 5.1 Add `team-frontend/FEATURES.yaml` entries for every scenario (`status: planned`); verify `make -C platform-e2e features-check`
-- [ ] 5.2 Add `tests/e2e/features/frontend/ui_components.feature` driving `/dev/ui` (keyboard focus ring, modal focus trap, tabs arrows, quantity bounds); verify green and flip to `automated`
+- [x] 5.2 Add `tests/e2e/features/frontend/ui_components.feature` driving `/dev/ui` (keyboard focus ring, modal focus trap, tabs arrows, quantity bounds); verify green and flip to `automated`
 - [ ] 5.3 Run `openspec validate ui-core-components --strict`; verify it is valid
