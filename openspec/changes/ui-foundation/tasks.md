@@ -18,8 +18,8 @@
 
 ## 3. Code — team-frontend: Exception and loading shells
 
-- [ ] 3.1 Add `src/app/not-found.tsx` (404 result + link home); verify `curl -s -o /dev/null -w '%{http_code}' :3000/does-not-exist` prints 404
-- [ ] 3.2 Add `src/app/error.tsx` (client, retry via `reset()`) and `src/app/loading.tsx` (shell skeleton); verify a Vitest test renders both
+- [x] 3.1 Add `src/app/not-found.tsx` (404 result + link home); verify `curl -s -o /dev/null -w '%{http_code}' :3000/does-not-exist` prints 404
+- [x] 3.2 Add `src/app/error.tsx` (client, retry via `reset()`) and `src/app/loading.tsx` (shell skeleton); verify a Vitest test renders both
 
 ## 4. E2E — platform-e2e
 
