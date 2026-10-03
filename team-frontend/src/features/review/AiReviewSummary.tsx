@@ -11,7 +11,7 @@ export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
         <span>✨</span>
         <span>Tóm tắt đánh giá bằng AI</span>
         {summary.sentiment && (
-          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-indigo-700">
             {summary.sentiment}
           </span>
         )}
@@ -26,7 +26,7 @@ export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {summary.pros.length > 0 && (
           <div>
-            <p className="text-[11px] font-bold text-emerald-700">👍 Ưu điểm</p>
+            <p className="text-xs font-bold text-emerald-700">👍 Ưu điểm</p>
             <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
               {summary.pros.map((p) => (
                 <li key={p}>• {p}</li>
@@ -36,7 +36,7 @@ export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
         )}
         {summary.cons.length > 0 && (
           <div>
-            <p className="text-[11px] font-bold text-red-600">👎 Hạn chế</p>
+            <p className="text-xs font-bold text-red-600">👎 Hạn chế</p>
             <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
               {summary.cons.map((c) => (
                 <li key={c}>• {c}</li>

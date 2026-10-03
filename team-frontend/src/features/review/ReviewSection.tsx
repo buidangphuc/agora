@@ -44,14 +44,12 @@ function ReviewItem({ review }: { review: ViewReview }) {
           {review.verifiedPurchase && (
             <span
               data-testid="verified-purchase"
-              className="ml-2 inline-flex items-center gap-0.5 rounded-2xs bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+              className="ml-2 inline-flex items-center gap-0.5 rounded-2xs bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700"
             >
               ✓ Đã mua hàng
             </span>
           )}
-          <span className="ml-2 text-[10px] text-gray-400">
-            {review.createdAt}
-          </span>
+          <span className="ml-2 text-xs text-gray-400">{review.createdAt}</span>
         </div>
       </div>
 
@@ -88,7 +86,7 @@ function ReviewItem({ review }: { review: ViewReview }) {
           data-testid="review-helpful"
           onClick={vote}
           disabled={voted || pending}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition ${
             voted
               ? "border-brand bg-orange-50 text-brand"
               : "border-gray-200 text-gray-600 hover:border-brand hover:text-brand"
