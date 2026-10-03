@@ -112,7 +112,7 @@ export function VouchersView() {
                 <span className="text-2xl">
                   {v.discountType === "shipping" ? "🚚" : "🎟️"}
                 </span>
-                <span className="mt-1 text-[11px] font-bold text-brand uppercase">
+                <span className="mt-1 text-xs font-bold text-brand uppercase">
                   {v.badge}
                 </span>
               </div>
@@ -124,9 +124,7 @@ export function VouchersView() {
                     <span className="rounded bg-brand/10 px-2 py-0.5 text-xs font-bold text-brand">
                       {v.code}
                     </span>
-                    <span className="text-[10px] text-gray-400">
-                      HSD: 30 ngày
-                    </span>
+                    <span className="text-xs text-gray-400">HSD: 30 ngày</span>
                   </div>
                   <h3 className="mt-1.5 text-sm font-bold text-gray-900 truncate">
                     {v.title}
@@ -139,7 +137,7 @@ export function VouchersView() {
                 {/* Progress bar and CTA */}
                 <div className="mt-3 flex items-center justify-between gap-4 pt-2 border-t border-gray-100">
                   <div className="flex-1">
-                    <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
                       <span>Đã dùng {usedPercent}%</span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
