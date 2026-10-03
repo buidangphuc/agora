@@ -122,7 +122,10 @@ const loadedPicture =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 /** Every core component in every state (server-rendered; interactive demos are client islands). */
-export function Catalogue() {
+export function Catalogue({
+  status = "shipping",
+  page = 2,
+}: { status?: string; page?: number }) {
   return (
     <main className="mx-auto max-w-page space-y-12 px-4 py-8">
       <header className="space-y-1">
@@ -288,9 +291,9 @@ export function Catalogue() {
             ]}
           />
         </Demo>
-        <Demo label="Pagination (page 2 of 5) and a long range">
+        <Demo label="Pagination (page 2 of 5 by default; ?page=N) and a long range">
           <Pagination
-            current={2}
+            current={page}
             total={50}
             pageSize={10}
             hrefFor={(p) => `/dev/ui?page=${p}`}
@@ -306,7 +309,7 @@ export function Catalogue() {
           <TabsDemo />
           <PillsTabsDemo />
           <Tabs
-            activeId="shipping"
+            activeId={status}
             hrefFor={(id) => `/dev/ui?status=${id}`}
             items={[
               { id: "all", label: "Tất cả" },

@@ -61,3 +61,20 @@ describe("/dev/ui catalogue", () => {
     expect(notFound).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("/dev/ui search params", () => {
+  it("drive the link tabs and the pagination so back/forward restore them", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    render(<UiCataloguePage searchParams={{ status: "done", page: "4" }} />);
+    const linkTabs = screen.getByRole("navigation", { name: "Tabs" });
+    expect(
+      within(linkTabs).getByRole("link", { name: "Hoàn tất" }),
+    ).toHaveAttribute("aria-current", "page");
+    const pagination = screen.getAllByRole("navigation", {
+      name: "Phân trang",
+    })[0];
+    expect(
+      within(pagination).getByRole("link", { name: "Trang 4" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+});
