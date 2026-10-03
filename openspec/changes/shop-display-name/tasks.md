@@ -36,11 +36,13 @@
 
 ## 5. E2E - platform-e2e + FEATURES.yaml
 
-- [ ] 5.1 Update `team-frontend/FEATURES.yaml` (`shop.storefront` acceptance and new `shop.display-name-fallback`, `cart.shop-names`, `following.shop-names`) and `team-domain/FEATURES.yaml` (task 2.6) so each spec `#### Scenario:` maps 1:1 to an `acceptance` line; verify `make -C platform-e2e features-check`
-- [ ] 5.2 Add `platform-e2e/tests/e2e/features/shop/shop_display_name.feature` with scenarios: name returned for a storefront, name change reflected, cart with two sellers shows both names, unknown seller falls back to "Shop #<6 chars>"; verify `--collect-only` finds all four
-- [ ] 5.3 Add steps and page-object locators (seed a storefront with a name through the API using a seller token, seed a cart with two sellers, read the cart group headers); verify steps are resolved with no undefined-step errors
+- [x] 5.1 Update `team-frontend/FEATURES.yaml` (`shop.storefront` acceptance and new `shop.display-name-fallback`, `cart.shop-names`, `following.shop-names`) and `team-domain/FEATURES.yaml` (task 2.6) so each spec `#### Scenario:` maps 1:1 to an `acceptance` line; verify `make -C platform-e2e features-check`
+- [x] 5.2 Add `platform-e2e/tests/e2e/features/shop/shop_display_name.feature` with scenarios: name returned for a storefront, name change reflected, cart with two sellers shows both names, unknown seller falls back to "Shop #<6 chars>"; verify `--collect-only` finds all four
+- [x] 5.3 Add steps and page-object locators (seed a storefront with a name through the API using a seller token, seed a cart with two sellers, read the cart group headers); verify steps are resolved with no undefined-step errors
+  - Note: verified with `pytest --collect-only` (4 scenarios) plus a step-resolution check (0 undefined steps). The cart scenario asserts the BatchGetStorefronts lookup via the gateway because the cart view has no per-shop group header yet.
 - [ ] 5.4 Run against the local stack and flip features to `status: automated` with `covered_by`; verify `make -C platform-e2e` shop tests pass and `make -C platform-e2e features-check` is green
+  - Not ticked: the agora stack was not running and containers must not be started from this task. Run `make -C platform-e2e` shop tests against a live stack, then flip `listing.shop-display-name`, `shop.display-name-fallback`, `cart.shop-names` to `status: automated` with `covered_by`; `following.shop-names` still needs its own scenario.
 
 ## 6. Validation
 
-- [ ] 6.1 Validate the change; verify `openspec validate shop-display-name --strict` reports valid
+- [x] 6.1 Validate the change; verify `openspec validate shop-display-name --strict` reports valid

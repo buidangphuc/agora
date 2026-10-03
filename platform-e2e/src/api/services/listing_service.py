@@ -46,3 +46,24 @@ class ListingService(BaseService):
         data = self.post(ep.LISTING_CATEGORIES, {})
         result = data.get("result") or data
         return result.get("categories", [])
+
+    # ── Storefront / shop display name ───────────────────────────────────
+    def upsert_storefront(self, slug: str, display_name: str = "") -> dict[str, Any]:
+        """Create/replace the calling seller's storefront (seller bearer token).
+
+        The seller id is forced from the principal server-side.
+        """
+        data = self.post(
+            ep.LISTING_UPSERT_STOREFRONT,
+            {"storefront": {"slug": slug, "displayName": display_name}},
+        )
+        return data.get("storefront") or {}
+
+    def get_storefront(self, seller_id: str) -> dict[str, Any]:
+        data = self.post(ep.LISTING_GET_STOREFRONT, {"sellerId": seller_id})
+        return data.get("storefront") or {}
+
+    def batch_get_storefronts(self, seller_ids: list[str]) -> dict[str, str]:
+        """BatchGetStorefronts -> {sellerId: displayName} (unknown sellers omitted)."""
+        data = self.post(ep.LISTING_BATCH_GET_STOREFRONTS, {"sellerIds": seller_ids})
+        return {s.get("sellerId", ""): s.get("displayName", "") for s in data.get("shops", [])}
