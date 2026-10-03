@@ -21,7 +21,7 @@
 
 ## 4. Code — team-frontend: catalogue
 
-- [ ] 4.1 Add `/dev/ui` rendering every component in every state, 404 in production; verify a smoke test renders it and `NODE_ENV=production next build && next start` returns 404 for `/dev/ui`
+- [x] 4.1 Add `/dev/ui` rendering every component in every state, 404 in production; verify a smoke test renders it and `NODE_ENV=production next build && next start` returns 404 for `/dev/ui`
 
 ## 5. E2E — platform-e2e
 
