@@ -471,7 +471,8 @@ export function ChatView({
                             📦 Sản phẩm
                           </span>
                           <p className="mt-1.5 font-semibold text-gray-900">
-                            {m.content || `Sản phẩm #${m.listingId.slice(0, 8)}`}
+                            {m.content ||
+                              `Sản phẩm #${m.listingId.slice(0, 8)}`}
                           </p>
                           {m.payload && (
                             <p className="mt-0.5 text-[11px] text-gray-500">

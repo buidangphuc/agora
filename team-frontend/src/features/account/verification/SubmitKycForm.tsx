@@ -36,10 +36,14 @@ export function SubmitKycForm() {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label
+          htmlFor="kyc-doc-type"
+          className="mb-1 block text-xs font-medium text-gray-600"
+        >
           Loại giấy tờ
         </label>
         <select
+          id="kyc-doc-type"
           value={docType}
           onChange={(e) => setDocType(e.target.value)}
           className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-brand focus:outline-none"
@@ -52,10 +56,14 @@ export function SubmitKycForm() {
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label
+          htmlFor="kyc-doc-ref"
+          className="mb-1 block text-xs font-medium text-gray-600"
+        >
           Mã tham chiếu tài liệu
         </label>
         <input
+          id="kyc-doc-ref"
           type="text"
           value={docRef}
           onChange={(e) => setDocRef(e.target.value)}

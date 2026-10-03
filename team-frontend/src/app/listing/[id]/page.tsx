@@ -15,6 +15,7 @@ import { AiReviewSummary } from "@/features/review/AiReviewSummary";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { ShopRatingSummary } from "@/features/review/ShopRatingSummary";
 import { TrackView } from "@/features/tracking/TrackView";
+import { summarizeReviews } from "@/lib/gateway/ai";
 import {
   listCollections,
   listQuestionsByListing,
@@ -23,7 +24,6 @@ import {
 import { getListing } from "@/lib/gateway/listings";
 import { AlertType, listAlertSubscriptions } from "@/lib/gateway/notification";
 import { getActiveFlashSale } from "@/lib/gateway/promotion";
-import { summarizeReviews } from "@/lib/gateway/ai";
 import {
   getListingRatingSummary,
   getShopRatingSummary,

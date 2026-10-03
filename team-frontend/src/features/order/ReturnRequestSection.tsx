@@ -76,7 +76,9 @@ export function ReturnRequestSection({
       className="mt-6 rounded-2xl border bg-white p-6 shadow-xs"
     >
       <div className="border-b pb-4">
-        <h2 className="text-lg font-bold text-gray-900">TRẢ HÀNG / HOÀN TIỀN</h2>
+        <h2 className="text-lg font-bold text-gray-900">
+          TRẢ HÀNG / HOÀN TIỀN
+        </h2>
         <p className="mt-0.5 text-xs text-gray-500">
           Gửi yêu cầu trả hàng cho đơn này. Hoàn tiền là mô phỏng (demo).
         </p>

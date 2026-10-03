@@ -172,7 +172,8 @@ export async function createShareLinkAction(
   } catch (err: unknown) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Tạo liên kết chia sẻ thất bại.",
+      message:
+        err instanceof Error ? err.message : "Tạo liên kết chia sẻ thất bại.",
     };
   }
 }

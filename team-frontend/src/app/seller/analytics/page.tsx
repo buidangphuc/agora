@@ -2,10 +2,7 @@ import { redirect } from "next/navigation";
 
 import { SellerAnalyticsMock } from "@/features/seller/SellerAnalyticsMock";
 import { SellerFunnelPanel } from "@/features/seller/SellerFunnelPanel";
-import {
-  getRevenueBreakdown,
-  getSellerFunnel,
-} from "@/lib/gateway/analytics";
+import { getRevenueBreakdown, getSellerFunnel } from "@/lib/gateway/analytics";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";

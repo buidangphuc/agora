@@ -9,7 +9,10 @@ export async function submitKycAction(
   docRef: string,
 ): Promise<{ ok: boolean; message?: string }> {
   if (!docType.trim() || !docRef.trim()) {
-    return { ok: false, message: "Vui lòng chọn loại giấy tờ và nhập mã tham chiếu." };
+    return {
+      ok: false,
+      message: "Vui lòng chọn loại giấy tờ và nhập mã tham chiếu.",
+    };
   }
   try {
     await submitKyc(docType, docRef);
@@ -18,7 +21,8 @@ export async function submitKycAction(
   } catch (err: unknown) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Gửi hồ sơ xác minh thất bại.",
+      message:
+        err instanceof Error ? err.message : "Gửi hồ sơ xác minh thất bại.",
     };
   }
 }

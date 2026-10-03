@@ -16,7 +16,8 @@ export async function ensureReferralCodeAction(): Promise<{
   } catch (err: unknown) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Tạo mã giới thiệu thất bại.",
+      message:
+        err instanceof Error ? err.message : "Tạo mã giới thiệu thất bại.",
     };
   }
 }
@@ -34,7 +35,8 @@ export async function redeemReferralAction(
   } catch (err: unknown) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Nhập mã giới thiệu thất bại.",
+      message:
+        err instanceof Error ? err.message : "Nhập mã giới thiệu thất bại.",
     };
   }
 }

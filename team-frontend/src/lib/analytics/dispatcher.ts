@@ -1,7 +1,7 @@
 import { pushDataLayer } from "./dataLayer";
 import { ga4ToInternal } from "./map";
 import { beaconQueue } from "./queue";
-import { GA4EventName, EcommerceParams, WireTrackBeacon } from "./schema";
+import { EcommerceParams, GA4EventName, WireTrackBeacon } from "./schema";
 
 const ANONYMOUS_ID_KEY = "bds_anonymous_id";
 const SESSION_ID_KEY = "bds_session_id";
@@ -42,7 +42,10 @@ function persistentId(storage: Storage | undefined, key: string): string {
  * Dispatch an ecommerce interaction event across all destinations (dataLayer + in-house edge).
  * Never throws into caller. Safe during SSR.
  */
-export function trackEcommerce(name: GA4EventName, params: EcommerceParams = {}): void {
+export function trackEcommerce(
+  name: GA4EventName,
+  params: EcommerceParams = {},
+): void {
   if (typeof window === "undefined") return;
 
   try {
@@ -52,8 +55,14 @@ export function trackEcommerce(name: GA4EventName, params: EcommerceParams = {})
     // 2. Build WireTrackBeacon(s) for in-house Edge Gateway (/api/track -> Kafka)
     const anonymousId = persistentId(safeStorage("local"), ANONYMOUS_ID_KEY);
     const sessionId = persistentId(safeStorage("session"), SESSION_ID_KEY);
-    const path = params.path ?? (typeof location !== "undefined" ? location.pathname : "") ?? "";
-    const referrer = params.referrer ?? (typeof document !== "undefined" ? document.referrer : "") ?? "";
+    const path =
+      params.path ??
+      (typeof location !== "undefined" ? location.pathname : "") ??
+      "";
+    const referrer =
+      params.referrer ??
+      (typeof document !== "undefined" ? document.referrer : "") ??
+      "";
     const query = params.query ?? "";
     const internalEventType = ga4ToInternal(name);
 
@@ -77,10 +86,16 @@ export function trackEcommerce(name: GA4EventName, params: EcommerceParams = {})
           ...(it.modelVersion ? { modelVersion: it.modelVersion } : {}),
           ...(params.properties ? { properties: params.properties } : {}),
           ...(params.currency ? { currency: params.currency } : {}),
-          ...(typeof params.value === "number" ? { value: Math.round(params.value) } : {}),
-          ...(typeof it.price === "number" ? { price: Math.round(it.price) } : {}),
+          ...(typeof params.value === "number"
+            ? { value: Math.round(params.value) }
+            : {}),
+          ...(typeof it.price === "number"
+            ? { price: Math.round(it.price) }
+            : {}),
           ...(typeof it.quantity === "number" ? { quantity: it.quantity } : {}),
-          ...(params.transactionId ? { transactionId: params.transactionId } : {}),
+          ...(params.transactionId
+            ? { transactionId: params.transactionId }
+            : {}),
           ...(params.coupon ? { coupon: params.coupon } : {}),
           ...(it.itemCategory ? { itemCategory: it.itemCategory } : {}),
           ...(it.itemListId ? { itemListId: it.itemListId } : {}),
@@ -105,8 +120,12 @@ export function trackEcommerce(name: GA4EventName, params: EcommerceParams = {})
         query,
         ...(params.properties ? { properties: params.properties } : {}),
         ...(params.currency ? { currency: params.currency } : {}),
-        ...(typeof params.value === "number" ? { value: Math.round(params.value) } : {}),
-        ...(params.transactionId ? { transactionId: params.transactionId } : {}),
+        ...(typeof params.value === "number"
+          ? { value: Math.round(params.value) }
+          : {}),
+        ...(params.transactionId
+          ? { transactionId: params.transactionId }
+          : {}),
         ...(params.coupon ? { coupon: params.coupon } : {}),
         ...(params.shippingTier ? { shippingTier: params.shippingTier } : {}),
         ...(params.paymentType ? { paymentType: params.paymentType } : {}),

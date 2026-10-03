@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
-import type { ViewListing } from "@/lib/gateway/listings";
 import { trackEcommerce } from "@/lib/analytics";
+import type { ViewListing } from "@/lib/gateway/listings";
 import { addToCartAction } from "./actions";
 
 export function AddToCartButton({
@@ -39,7 +39,7 @@ export function AddToCartButton({
               itemName: listing.title,
               price: listing.price,
               quantity,
-              itemCategory: listing.category,
+              itemCategory: listing.categoryId,
             },
           ],
         });

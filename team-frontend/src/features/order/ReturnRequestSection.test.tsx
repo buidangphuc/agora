@@ -41,7 +41,11 @@ describe("ReturnRequestSection", () => {
     await user.click(screen.getByTestId("return-submit"));
 
     await waitFor(() =>
-      expect(createReturnRequestAction).toHaveBeenCalledWith("o1", "hỏng", 50000),
+      expect(createReturnRequestAction).toHaveBeenCalledWith(
+        "o1",
+        "hỏng",
+        50000,
+      ),
     );
     expect(await screen.findByTestId("return-status")).toHaveTextContent(
       "Chờ duyệt",

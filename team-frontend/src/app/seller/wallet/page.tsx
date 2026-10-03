@@ -2,10 +2,7 @@ import { redirect } from "next/navigation";
 
 import { formatPrice } from "@/components/ui/format";
 import { WalletPayoutButton } from "@/features/seller/WalletPayoutButton";
-import {
-  getWalletBalance,
-  listLedgerEntries,
-} from "@/lib/gateway/payment";
+import { getWalletBalance, listLedgerEntries } from "@/lib/gateway/payment";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +58,9 @@ export default async function SellerWalletPage() {
                   <td className="px-5 py-3 font-bold text-slate-900">
                     {formatPrice(e.amount, "VND")}
                   </td>
-                  <td className="px-5 py-3 text-slate-600">{e.status || "—"}</td>
+                  <td className="px-5 py-3 text-slate-600">
+                    {e.status || "—"}
+                  </td>
                   <td className="px-5 py-3 text-slate-500">{e.createdAt}</td>
                 </tr>
               ))}

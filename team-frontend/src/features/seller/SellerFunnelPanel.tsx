@@ -17,7 +17,10 @@ export function SellerFunnelPanel({
 }) {
   const totalRevenue = revenue.days.reduce((s, d) => s + d.revenue, 0);
   const cells = [
-    { label: "Lượt hiển thị", value: funnel.impressions.toLocaleString("vi-VN") },
+    {
+      label: "Lượt hiển thị",
+      value: funnel.impressions.toLocaleString("vi-VN"),
+    },
     { label: "Lượt xem", value: funnel.views.toLocaleString("vi-VN") },
     { label: "Thêm giỏ", value: funnel.adds.toLocaleString("vi-VN") },
     { label: "Đơn hàng", value: funnel.orders.toLocaleString("vi-VN") },

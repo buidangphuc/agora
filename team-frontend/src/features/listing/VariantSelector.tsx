@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PriceTag } from "@/components/ui/PriceTag";
 import { useToast } from "@/components/ui/ToastProvider";
 import { addToCartAction } from "@/features/cart/actions";
 import type { ViewVariant } from "@/lib/gateway/listings";
@@ -10,13 +13,13 @@ import type { ViewVariant } from "@/lib/gateway/listings";
 export function VariantSelector({
   listingId,
   basePrice,
-  currency,
+  currency = "VND",
   baseStock,
   variants = [],
 }: {
   listingId: string;
   basePrice: number;
-  currency: string;
+  currency?: string;
   baseStock: number;
   variants?: ViewVariant[];
 }) {
@@ -70,7 +73,7 @@ export function VariantSelector({
           setTimeout(() => setFeedback(""), 3000);
         }
       } else {
-        const errorMsg = res.message || "Thêm vào giỏ thất bại.";
+        const errorMsg = res.message || "Không thể thêm vào giỏ hàng.";
         setFeedback(errorMsg);
         toast.error(errorMsg);
       }
@@ -84,15 +87,13 @@ export function VariantSelector({
   }
 
   return (
-    <div className="mt-6 space-y-5 rounded-lg border bg-gray-50/50 p-5">
+    <Card className="mt-6 space-y-5 rounded-2xl border-gray-200/80 bg-gray-50/50 p-6 shadow-preline-card">
       {/* Current Price */}
-      <div className="flex items-baseline gap-3">
-        <span className="text-2xl font-bold text-brand">
-          {currentPrice.toLocaleString("vi-VN")} {currency}
-        </span>
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <PriceTag price={currentPrice} size="xl" />
         {selectedVariant?.sku && (
           <span className="text-xs text-gray-400">
-            SKU: {selectedVariant.sku}
+            SKU: #{selectedVariant.sku}
           </span>
         )}
       </div>
@@ -100,10 +101,10 @@ export function VariantSelector({
       {/* Variant Selection Chips */}
       {variants.length > 0 && (
         <div>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-gray-600">
             Tùy chọn / Phân loại
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {variants.map((v) => {
               const isSelected = v.id === selectedVariantId;
               const out = v.stock <= 0;
@@ -112,15 +113,15 @@ export function VariantSelector({
                   key={v.id}
                   type="button"
                   onClick={() => handleSelect(v.id)}
-                  className={`relative rounded-md border px-3.5 py-2 text-sm font-medium transition ${
+                  className={`relative rounded-xl border px-4 py-2 text-xs font-medium transition cursor-pointer select-none ${
                     isSelected
-                      ? "border-brand bg-orange-50 text-brand shadow-xs"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                  } ${out ? "opacity-60" : ""}`}
+                      ? "border-primary-500 bg-primary-50/80 text-primary-600 ring-2 ring-primary-100 font-semibold shadow-xs"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                  } ${out ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <span>{v.name}</span>
                   {out && (
-                    <span className="ml-1.5 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-500">
+                    <span className="ml-1.5 rounded bg-gray-100 px-1 py-0.2 text-[10px] text-gray-500">
                       Hết hàng
                     </span>
                   )}
@@ -132,39 +133,39 @@ export function VariantSelector({
       )}
 
       {/* Stock status & Quantity selector */}
-      <div className="flex items-center justify-between border-t pt-4">
+      <div className="flex items-center justify-between border-t border-gray-200/80 pt-4 flex-wrap gap-3">
         <div>
           <span className="block text-xs text-gray-500">Tình trạng kho:</span>
           {isOutOfStock ? (
-            <span className="text-sm font-semibold text-red-600">
-              🔴 Tạm hết hàng
+            <span className="text-xs font-semibold text-rose-600 flex items-center gap-1 mt-0.5">
+              <span>●</span> Tạm hết hàng
             </span>
           ) : (
-            <span className="text-sm font-medium text-emerald-700">
-              🟢 Còn {currentStock} sản phẩm
+            <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+              <span>●</span> Còn {currentStock} sản phẩm sẵn có
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <span className="text-xs text-gray-500">Số lượng:</span>
-          <div className="flex items-center rounded-md border bg-white">
+          <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-2xs overflow-hidden">
             <button
               type="button"
               onClick={handleDecrease}
               disabled={isOutOfStock || quantity <= 1 || adding}
-              className="px-2.5 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+              className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer"
             >
               -
             </button>
-            <span className="w-8 text-center text-sm font-medium">
+            <span className="w-8 text-center text-xs font-bold text-gray-900">
               {quantity}
             </span>
             <button
               type="button"
               onClick={handleIncrease}
               disabled={isOutOfStock || quantity >= currentStock || adding}
-              className="px-2.5 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+              className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer"
             >
               +
             </button>
@@ -175,7 +176,7 @@ export function VariantSelector({
       {feedback && (
         <p
           className={`text-xs font-medium ${
-            feedback.startsWith("✓") ? "text-green-600" : "text-red-600"
+            feedback.startsWith("✓") ? "text-emerald-600" : "text-rose-600"
           }`}
         >
           {feedback}
@@ -184,23 +185,28 @@ export function VariantSelector({
 
       {/* Action CTA Buttons */}
       <div className="flex gap-3 pt-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="lg"
           disabled={isOutOfStock || adding}
+          isLoading={adding}
           onClick={() => handleAddToCart(false)}
-          className="flex-1 rounded-md border border-brand bg-orange-50/50 py-2.5 font-medium text-brand transition hover:bg-orange-100/50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+          className="flex-1 font-bold text-primary-600 border-primary-500 hover:bg-primary-50/50"
         >
-          {adding ? "Đang thêm..." : "Thêm vào giỏ"}
-        </button>
-        <button
+          Thêm vào giỏ
+        </Button>
+        <Button
           type="button"
+          variant="primary"
+          size="lg"
           disabled={isOutOfStock || adding}
           onClick={() => handleAddToCart(true)}
-          className="flex-1 rounded-md bg-brand py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="flex-1 font-bold shadow-md"
         >
           {isOutOfStock ? "Tạm hết hàng" : "Mua ngay"}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }

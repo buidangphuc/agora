@@ -8,10 +8,10 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { AddressModal } from "@/features/address/AddressModal";
 import { previewVoucherAction } from "@/features/voucher/actions";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { trackEcommerce } from "@/lib/analytics";
 import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCart } from "@/lib/gateway/cart";
 import { getImageUrl } from "@/lib/media";
-import { trackEcommerce } from "@/lib/analytics";
 import { checkoutAction } from "./actions";
 
 const PAYMENT_OPTIONS = [
@@ -89,7 +89,7 @@ export function CheckoutView({
       items: cart.items.map((it, idx) => ({
         itemId: it.listingId,
         itemName: it.title,
-        price: it.price,
+        price: it.unitPrice,
         quantity: it.quantity,
         index: idx + 1,
       })),
@@ -132,7 +132,7 @@ export function CheckoutView({
       const res = await previewVoucherAction(code, cart.subtotal, sellerId);
       trackEcommerce("apply_promotion", {
         coupon: code,
-        value: res.discount || 0,
+        value: res.discountAmount || 0,
         properties: {
           valid: String(res.valid),
         },
@@ -145,8 +145,10 @@ export function CheckoutView({
         toast.error(msg);
       } else {
         setAppliedCode(code);
-        setAppliedDiscount(res.discount);
-        toast.success(`✓ Áp dụng mã ${code} thành công: -₫${res.discount.toLocaleString("vi-VN")}`);
+        setAppliedDiscount(res.discountAmount);
+        toast.success(
+          `✓ Áp dụng mã ${code} thành công: -₫${res.discountAmount.toLocaleString("vi-VN")}`,
+        );
       }
     } catch {
       const msg = "Không kiểm tra được mã giảm giá. Vui lòng thử lại.";
@@ -186,7 +188,7 @@ export function CheckoutView({
 
       // Track purchase event
       trackEcommerce("purchase", {
-        transactionId: res.orderId || `order-${Date.now()}`,
+        transactionId: res.orderIds?.[0] || `order-${Date.now()}`,
         currency: "VND",
         value: finalTotal,
         coupon: appliedCode || undefined,
@@ -195,7 +197,7 @@ export function CheckoutView({
         items: cart.items.map((it, idx) => ({
           itemId: it.listingId,
           itemName: it.title,
-          price: it.price,
+          price: it.unitPrice,
           quantity: it.quantity,
           index: idx + 1,
         })),

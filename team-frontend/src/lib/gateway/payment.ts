@@ -175,9 +175,9 @@ function mapWalletEntry(e: {
 }): ViewWalletEntry {
   let createdAt = "";
   if (e.createdAt) {
-    createdAt = new Date(
-      Number(e.createdAt.seconds) * 1000,
-    ).toLocaleDateString("vi-VN");
+    createdAt = new Date(Number(e.createdAt.seconds) * 1000).toLocaleDateString(
+      "vi-VN",
+    );
   }
   return {
     id: e.id,

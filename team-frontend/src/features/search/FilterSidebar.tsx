@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import type { ViewCategory } from "@/lib/gateway/listings";
 import type { ViewFacets } from "@/lib/gateway/search";
 
@@ -58,60 +60,78 @@ export function FilterSidebar({
   const searchParams = useSearchParams();
 
   const [minPriceInput, setMinPriceInput] = useState<string>(
-    currentMinPrice ? String(currentMinPrice) : "",
+    currentMinPrice !== undefined ? String(currentMinPrice) : "",
   );
   const [maxPriceInput, setMaxPriceInput] = useState<string>(
-    currentMaxPrice ? String(currentMaxPrice) : "",
+    currentMaxPrice !== undefined ? String(currentMaxPrice) : "",
   );
 
-  const categoryName = (id: string) =>
-    categories.find((c) => c.id === id)?.name ?? id;
+  const priceKey = currentPriceKey(currentMinPrice, currentMaxPrice);
 
-  function updateFilter(updates: Record<string, string | undefined>) {
-    const params = new URLSearchParams(searchParams.toString());
+  function categoryName(id: string): string {
+    const found = categories.find((c) => c.id === id);
+    return found?.name || id;
+  }
+
+  function updateFilter(updates: {
+    category?: string;
+    seller?: string;
+    rating?: string;
+    minPrice?: string;
+    maxPrice?: string;
+  }) {
+    const next = new URLSearchParams(searchParams.toString());
     for (const [key, val] of Object.entries(updates)) {
-      if (val === undefined || val === "") {
-        params.delete(key);
+      if (val === undefined) {
+        next.delete(key);
       } else {
-        params.set(key, val);
+        next.set(key, val);
       }
     }
-    router.push(`/search?${params.toString()}`);
+    next.delete("cursor");
+    router.push(`/search?${next.toString()}`);
   }
 
   function handleApplyPrice(e: React.FormEvent) {
     e.preventDefault();
+    const min = minPriceInput.trim();
+    const max = maxPriceInput.trim();
     updateFilter({
-      minPrice: minPriceInput.trim() ? minPriceInput.trim() : undefined,
-      maxPrice: maxPriceInput.trim() ? maxPriceInput.trim() : undefined,
+      minPrice: min && Number(min) > 0 ? min : undefined,
+      maxPrice: max && Number(max) > 0 ? max : undefined,
     });
   }
 
   function handleClearAll() {
     setMinPriceInput("");
     setMaxPriceInput("");
-    router.push("/search");
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("category");
+    next.delete("seller");
+    next.delete("rating");
+    next.delete("minPrice");
+    next.delete("maxPrice");
+    next.delete("cursor");
+    router.push(`/search?${next.toString()}`);
   }
 
-  const priceKey = currentPriceKey(currentMinPrice, currentMaxPrice);
   const hasAnyFacet =
     facets.categories.length > 0 ||
     facets.priceRanges.length > 0 ||
     facets.ratings.length > 0 ||
     facets.sellers.length > 0;
 
-  // A single clickable facet bucket exposing its key + count to e2e.
   function Bucket({
-    active,
+    dataKey,
     label,
     count,
-    dataKey,
+    active,
     onToggle,
   }: {
-    active: boolean;
+    dataKey: string;
     label: string;
     count: number;
-    dataKey: string;
+    active: boolean;
     onToggle: () => void;
   }) {
     return (
@@ -122,12 +142,18 @@ export function FilterSidebar({
         data-active={active ? "true" : "false"}
         aria-pressed={active}
         onClick={onToggle}
-        className={`flex w-full items-center justify-between gap-2 py-1 px-1 rounded text-left transition ${
-          active ? "font-bold text-brand" : "text-gray-700 hover:text-brand"
+        className={`flex w-full items-center justify-between gap-2 py-1.5 px-2 rounded-lg text-left transition text-xs cursor-pointer ${
+          active
+            ? "font-semibold text-primary-600 bg-primary-50/80"
+            : "text-gray-700 hover:text-primary-600 hover:bg-gray-50"
         }`}
       >
         <span className="flex items-center gap-1.5 truncate">
-          {active && <span aria-hidden>✓</span>}
+          {active && (
+            <span aria-hidden className="text-primary-600 font-bold">
+              ✓
+            </span>
+          )}
           <span className="truncate">{label}</span>
         </span>
         <span className="shrink-0 text-[11px] text-gray-400">({count})</span>
@@ -138,19 +164,19 @@ export function FilterSidebar({
   return (
     <aside
       data-testid="search-facets"
-      className="w-full space-y-4 lg:w-56 shrink-0 text-xs"
+      className="w-full space-y-4 lg:w-60 shrink-0 text-xs"
     >
       {/* ── Categories ── */}
       {facets.categories.length > 0 && (
-        <div
+        <Card
           data-testid="facet-categories"
-          className="rounded-xs bg-white p-3 shadow-2xs"
+          className="rounded-2xl p-4 border-gray-200/80 shadow-preline-card"
         >
-          <h3 className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-800 border-b pb-2">
+          <h3 className="flex items-center gap-2 font-bold uppercase tracking-wider text-gray-900 border-b border-gray-100 pb-3 text-xs">
             <span>☰</span>
             <span>Danh Mục</span>
           </h3>
-          <div className="mt-2.5 space-y-1 max-h-64 overflow-y-auto">
+          <div className="mt-3 space-y-1 max-h-64 overflow-y-auto pr-1">
             {facets.categories.map((b) => (
               <Bucket
                 key={b.key}
@@ -166,11 +192,11 @@ export function FilterSidebar({
               />
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
-      <div className="rounded-xs bg-white p-3 shadow-2xs space-y-4">
-        <h3 className="font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1 border-b pb-2">
+      <Card className="rounded-2xl p-4 border-gray-200/80 shadow-preline-card space-y-4">
+        <h3 className="font-bold uppercase tracking-wider text-gray-900 flex items-center gap-2 border-b border-gray-100 pb-3 text-xs">
           <span>🔍</span>
           <span>Bộ Lọc Tìm Kiếm</span>
         </h3>
@@ -207,15 +233,18 @@ export function FilterSidebar({
         )}
 
         {/* ── Custom price form ── */}
-        <form onSubmit={handleApplyPrice} className="border-t pt-3 space-y-2">
+        <form
+          onSubmit={handleApplyPrice}
+          className="border-t border-gray-100 pt-3 space-y-2.5"
+        >
           <div className="font-semibold text-gray-700">Tự Nhập Giá (₫)</div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <input
               type="number"
               placeholder="₫ TỪ"
               value={minPriceInput}
               onChange={(e) => setMinPriceInput(e.target.value)}
-              className="w-full rounded-xs border border-gray-300 p-1 text-xs text-gray-800 placeholder-gray-400 focus:border-brand focus:outline-hidden"
+              className="w-full rounded-lg border border-gray-200 p-1.5 text-xs text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
             <span className="text-gray-400">-</span>
             <input
@@ -223,21 +252,26 @@ export function FilterSidebar({
               placeholder="₫ ĐẾN"
               value={maxPriceInput}
               onChange={(e) => setMaxPriceInput(e.target.value)}
-              className="w-full rounded-xs border border-gray-300 p-1 text-xs text-gray-800 placeholder-gray-400 focus:border-brand focus:outline-hidden"
+              className="w-full rounded-lg border border-gray-200 p-1.5 text-xs text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
-          <button
+          <Button
             type="submit"
-            className="w-full rounded-xs bg-brand py-1.5 font-bold uppercase tracking-wider text-white hover:bg-brand-dark transition shadow-2xs"
+            variant="primary"
+            size="sm"
+            className="w-full font-bold uppercase tracking-wider shadow-xs"
           >
             ÁP DỤNG
-          </button>
+          </Button>
         </form>
 
         {/* ── Ratings (facet) ── */}
         {facets.ratings.length > 0 && (
-          <div data-testid="facet-ratings" className="border-t pt-3 space-y-1">
-            <h4 className="font-semibold text-gray-700 mb-1.5">Đánh Giá</h4>
+          <div
+            data-testid="facet-ratings"
+            className="border-t border-gray-100 pt-3 space-y-1"
+          >
+            <h4 className="font-semibold text-gray-700 mb-2">Đánh Giá</h4>
             {facets.ratings.map((b) => {
               const star = Math.max(0, Math.min(5, Number(b.key) || 0));
               return (
@@ -262,8 +296,11 @@ export function FilterSidebar({
 
         {/* ── Sellers (facet) ── */}
         {facets.sellers.length > 0 && (
-          <div data-testid="facet-sellers" className="border-t pt-3 space-y-1">
-            <h4 className="font-semibold text-gray-700 mb-1.5">Nơi Bán</h4>
+          <div
+            data-testid="facet-sellers"
+            className="border-t border-gray-100 pt-3 space-y-1"
+          >
+            <h4 className="font-semibold text-gray-700 mb-2">Nơi Bán</h4>
             {facets.sellers.map((b) => (
               <Bucket
                 key={b.key}
@@ -282,14 +319,18 @@ export function FilterSidebar({
         )}
 
         {/* ── Clear all ── */}
-        <button
-          type="button"
-          onClick={handleClearAll}
-          className="w-full rounded-xs border border-gray-300 py-1.5 font-bold uppercase tracking-wider text-gray-700 hover:border-brand hover:text-brand transition"
-        >
-          XÓA TẤT CẢ
-        </button>
-      </div>
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleClearAll}
+            className="w-full font-semibold uppercase tracking-wider text-gray-600 hover:text-gray-900"
+          >
+            XÓA TẤT CẢ
+          </Button>
+        </div>
+      </Card>
 
       {!hasAnyFacet && (
         <p className="px-1 text-[11px] text-gray-400">

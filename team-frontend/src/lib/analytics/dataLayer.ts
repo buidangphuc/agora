@@ -1,4 +1,4 @@
-import { GA4EventName, EcommerceParams } from "./schema";
+import { EcommerceParams, GA4EventName } from "./schema";
 
 declare global {
   interface Window {
@@ -11,7 +11,10 @@ declare global {
  * Resets { ecommerce: null } immediately prior to every push to avoid property pollution.
  * Safe during SSR; never throws.
  */
-export function pushDataLayer(name: GA4EventName, params: EcommerceParams): void {
+export function pushDataLayer(
+  name: GA4EventName,
+  params: EcommerceParams,
+): void {
   if (typeof window === "undefined") return;
 
   try {
@@ -25,8 +28,10 @@ export function pushDataLayer(name: GA4EventName, params: EcommerceParams): void
     if (params.currency) ecommercePayload.currency = params.currency;
     if (typeof params.value === "number") ecommercePayload.value = params.value;
     if (params.coupon) ecommercePayload.coupon = params.coupon;
-    if (params.transactionId) ecommercePayload.transaction_id = params.transactionId;
-    if (params.shippingTier) ecommercePayload.shipping_tier = params.shippingTier;
+    if (params.transactionId)
+      ecommercePayload.transaction_id = params.transactionId;
+    if (params.shippingTier)
+      ecommercePayload.shipping_tier = params.shippingTier;
     if (params.paymentType) ecommercePayload.payment_type = params.paymentType;
 
     if (params.items && params.items.length > 0) {

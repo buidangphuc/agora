@@ -1,9 +1,9 @@
 ## 1. Code — team-frontend: green gate
 
-- [ ] 1.1 Run `npx biome check --write .` (safe fixes only) and fix the remaining Biome errors by hand (Modal a11y included); verify `npx biome check .` exits 0
-- [ ] 1.2 Fix the 11 `tsc` errors (CheckoutView `orderId`/`price`, RecommendationsRow `heading`, SearchImpressions `itemListId`, track.test `buildBeacon`, ...) against the real types, no `any`/`@ts-ignore`; verify `npx tsc --noEmit` exits 0
-- [ ] 1.3 Fix the 5 failing Vitest tests; verify `npx vitest run` is all green
-- [ ] 1.4 Commit the green baseline (WIP primitives + fixes); verify `npm run check` and `npx next build` pass
+- [x] 1.1 Run `npx biome check --write .` (safe fixes only) and fix the remaining Biome errors by hand (Modal a11y included); verify `npx biome check .` exits 0
+- [x] 1.2 Fix the 11 `tsc` errors (CheckoutView `orderId`/`price`, RecommendationsRow `heading`, SearchImpressions `itemListId`, track.test `buildBeacon`, ...) against the real types, no `any`/`@ts-ignore`; verify `npx tsc --noEmit` exits 0
+- [x] 1.3 Fix the 5 failing Vitest tests; verify `npx vitest run` is all green
+- [x] 1.4 Commit the green baseline (WIP primitives + fixes); verify `npm run check` and `npx next build` pass
 
 ## 2. Code — team-frontend: tokens
 

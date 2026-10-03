@@ -40,7 +40,9 @@ export default async function FollowingPage() {
   return (
     <section className="space-y-6 py-2">
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <h1 className="text-lg font-bold text-gray-900">🏪 Shop đang theo dõi</h1>
+        <h1 className="text-lg font-bold text-gray-900">
+          🏪 Shop đang theo dõi
+        </h1>
         <p className="mt-0.5 text-xs text-gray-500">
           Các gian hàng và sản phẩm bạn đang theo dõi.
         </p>

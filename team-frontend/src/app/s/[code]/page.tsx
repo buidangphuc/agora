@@ -16,10 +16,10 @@ export default async function ShareRedirectPage({
 
   switch (link.targetType) {
     case "listing":
-      redirect(`/listing/${link.targetId}`);
+      return redirect(`/listing/${link.targetId}`);
     case "shop":
     case "seller":
-      redirect(`/shop/${link.targetId}`);
+      return redirect(`/shop/${link.targetId}`);
     default:
       redirect("/");
   }

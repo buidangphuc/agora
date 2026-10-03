@@ -3,10 +3,7 @@ import { redirect } from "next/navigation";
 import { formatPrice } from "@/components/ui/format";
 import { GenerateReferralCodeButton } from "@/features/account/referral/GenerateReferralCodeButton";
 import { RedeemReferralForm } from "@/features/account/referral/RedeemReferralForm";
-import {
-  getMyReferral,
-  listReferralRewards,
-} from "@/lib/gateway/referral";
+import { getMyReferral, listReferralRewards } from "@/lib/gateway/referral";
 import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";

@@ -14,7 +14,11 @@ const shipmentWithCheckpoints: ViewShipment = {
   status: ShipmentStatus.IN_TRANSIT,
   statusText: "Đang vận chuyển",
   checkpoints: [
-    { timestamp: "01/09 10:00", location: "Hà Nội", description: "Đã lấy hàng" },
+    {
+      timestamp: "01/09 10:00",
+      location: "Hà Nội",
+      description: "Đã lấy hàng",
+    },
     { timestamp: "02/09 08:00", location: "Đà Nẵng", description: "Đang giao" },
   ],
 };

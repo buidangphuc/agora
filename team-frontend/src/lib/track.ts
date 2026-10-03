@@ -5,7 +5,7 @@
  * Analytics Dispatcher and DataLayer.
  */
 
-import { trackEcommerce, internalToGa4 } from "./analytics";
+import { internalToGa4, trackEcommerce } from "./analytics";
 import type { InternalEventType } from "./analytics/schema";
 
 export type TrackEventType = InternalEventType;

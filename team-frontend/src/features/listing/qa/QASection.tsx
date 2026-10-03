@@ -38,7 +38,11 @@ function AnswerForm({
     }
     setError("");
     start(async () => {
-      const res = await answerQuestionAction(listingId, questionId, text.trim());
+      const res = await answerQuestionAction(
+        listingId,
+        questionId,
+        text.trim(),
+      );
       if (res.ok) {
         setText("");
         setOpen(false);

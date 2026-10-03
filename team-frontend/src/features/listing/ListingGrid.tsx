@@ -1,5 +1,5 @@
+import { Card } from "@/components/ui/Card";
 import type { ViewListing } from "@/lib/gateway/listings";
-
 import { ListingCard } from "./ListingCard";
 
 export function ListingGrid({
@@ -17,18 +17,21 @@ export function ListingGrid({
 }) {
   if (listings.length === 0) {
     return (
-      <div className="rounded-xs border border-gray-100 bg-white p-12 text-center shadow-shopee">
-        <p className="text-4xl">🔍</p>
-        <p className="mt-3 text-sm font-semibold text-gray-700">{empty}</p>
-        <p className="mt-1 text-xs text-gray-400">
+      <Card className="rounded-2xl p-14 text-center border-gray-200/80">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl">
+          🔍
+        </div>
+        <p className="mt-4 text-sm font-semibold text-gray-800">{empty}</p>
+        <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
           Hãy thử tìm kiếm với từ khóa khác hoặc điều chỉnh lại bộ lọc giá/danh
-          mục.
+          mục để tìm sản phẩm mong muốn.
         </p>
-      </div>
+      </Card>
     );
   }
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-3.5">
       {listings.map((l, index) => (
         <ListingCard
           key={l.id}
@@ -42,4 +45,3 @@ export function ListingGrid({
     </div>
   );
 }
-

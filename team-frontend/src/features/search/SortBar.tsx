@@ -18,52 +18,40 @@ export function SortBar({
     router.push(`/search?${params.toString()}`);
   }
 
+  const sortButtons = [
+    { id: "relevance", label: "Liên Quan" },
+    { id: "newest", label: "Mới Nhất" },
+    { id: "sales", label: "Bán Chạy" },
+  ];
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xs bg-[#ededed] p-3 text-xs">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-gray-100/80 p-3.5 text-xs border border-gray-200/60 shadow-2xs">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-gray-600 font-medium mr-1">Sắp xếp theo:</span>
-        <button
-          type="button"
-          onClick={() => handleSort("relevance")}
-          className={`rounded-xs px-4 py-1.5 font-medium transition ${
-            currentSort === "relevance"
-              ? "bg-brand text-white shadow-2xs"
-              : "bg-white text-gray-800 hover:bg-gray-50"
-          }`}
-        >
-          Liên Quan
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleSort("newest")}
-          className={`rounded-xs px-4 py-1.5 font-medium transition ${
-            currentSort === "newest"
-              ? "bg-brand text-white shadow-2xs"
-              : "bg-white text-gray-800 hover:bg-gray-50"
-          }`}
-        >
-          Mới Nhất
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleSort("sales")}
-          className={`rounded-xs px-4 py-1.5 font-medium transition ${
-            currentSort === "sales"
-              ? "bg-brand text-white shadow-2xs"
-              : "bg-white text-gray-800 hover:bg-gray-50"
-          }`}
-        >
-          Bán Chạy
-        </button>
+        {sortButtons.map((btn) => {
+          const isActive = currentSort === btn.id;
+          return (
+            <button
+              key={btn.id}
+              type="button"
+              onClick={() => handleSort(btn.id)}
+              className={`rounded-lg px-4 py-2 font-medium transition cursor-pointer ${
+                isActive
+                  ? "bg-primary-500 text-white shadow-xs font-semibold"
+                  : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200/80"
+              }`}
+            >
+              {btn.label}
+            </button>
+          );
+        })}
 
         <select
           value={currentSort.startsWith("price_") ? currentSort : ""}
           onChange={(e) => {
             if (e.target.value) handleSort(e.target.value);
           }}
-          className="rounded-xs border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 outline-none focus:border-brand"
+          className="rounded-lg border border-gray-200/80 bg-white px-3 py-2 text-xs text-gray-700 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 cursor-pointer"
         >
           <option value="">Giá: Mặc định</option>
           <option value="price_asc">Giá: Thấp đến Cao</option>
@@ -73,7 +61,8 @@ export function SortBar({
 
       <div className="text-xs text-gray-500">
         Tìm thấy{" "}
-        <strong className="text-brand font-bold">{totalResults}</strong> kết quả
+        <strong className="text-primary-600 font-bold">{totalResults}</strong>{" "}
+        kết quả
       </div>
     </div>
   );

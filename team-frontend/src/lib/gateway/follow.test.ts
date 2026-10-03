@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { makeClients } from "./client.js";
 import {
   followSeller,
   isFollowing,
   listFollowedSellers,
   unfollowSeller,
 } from "./engagement.js";
-import { makeClients } from "./client.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
 vi.mock("./session.js", () => ({
@@ -55,9 +55,7 @@ describe("follow-seller gateway wrappers", () => {
 
   it("listFollowedSellers maps ids and normalizes errors to []", async () => {
     stubEngagement({
-      listFollowedSellers: vi
-        .fn()
-        .mockResolvedValue({ sellerIds: ["a", "b"] }),
+      listFollowedSellers: vi.fn().mockResolvedValue({ sellerIds: ["a", "b"] }),
     });
     await expect(listFollowedSellers()).resolves.toEqual(["a", "b"]);
 

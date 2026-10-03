@@ -83,7 +83,9 @@ describe("engagement gateway wrapper", () => {
 
   it("getRecentlyViewed returns the listing ids", async () => {
     const engagement = stubEngagement({
-      getRecentlyViewed: vi.fn().mockResolvedValue({ listingIds: ["l1", "l2"] }),
+      getRecentlyViewed: vi
+        .fn()
+        .mockResolvedValue({ listingIds: ["l1", "l2"] }),
     });
     await expect(getRecentlyViewed()).resolves.toEqual(["l1", "l2"]);
     expect(engagement.getRecentlyViewed).toHaveBeenCalledWith({

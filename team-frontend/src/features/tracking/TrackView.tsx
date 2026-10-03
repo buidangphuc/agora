@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import { trackEcommerce } from "@/lib/analytics";
+import { useEffect } from "react";
 
 /**
  * Fires a best-effort `view_item` ecommerce event once when the component mounts.

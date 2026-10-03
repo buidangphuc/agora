@@ -33,7 +33,11 @@ export async function RecommendationsRow({
 
   if (items.length === 0) return null;
 
-  const placementId = seedListingId ? "pdp_similar_items" : "home_recommendations";
+  const placementId = seedListingId
+    ? "pdp_similar_items"
+    : "home_recommendations";
+
+  const heading = seedListingId ? "Sản phẩm tương tự" : "Dành riêng cho bạn";
 
   return (
     <section className="space-y-3">
