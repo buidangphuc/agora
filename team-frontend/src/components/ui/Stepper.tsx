@@ -48,7 +48,7 @@ export function Stepper({
                   {step.title}
                 </p>
                 {step.description && (
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     {step.description}
                   </p>
                 )}

@@ -20,7 +20,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 const variantStyles: Record<BadgeVariant, string> = {
   primary:
     "bg-primary-50 text-primary-600 border border-primary-200/60 font-semibold",
-  mall: "bg-[#d0011b] text-white font-bold tracking-wider uppercase",
+  mall: "bg-danger text-white font-bold tracking-wider uppercase",
   success:
     "bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium",
   warning: "bg-amber-50 text-amber-700 border border-amber-200 font-medium",
@@ -30,7 +30,7 @@ const variantStyles: Record<BadgeVariant, string> = {
 };
 
 const sizeStyles: Record<BadgeSize, string> = {
-  xs: "py-0.5 px-1.5 text-[10px] leading-none",
+  xs: "py-0.5 px-1.5 text-xs leading-none",
   sm: "py-0.5 px-2 text-xs leading-4",
   md: "py-1 px-2.5 text-xs font-medium leading-4",
 };

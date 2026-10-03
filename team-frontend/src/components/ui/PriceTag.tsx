@@ -11,22 +11,22 @@ export interface PriceTagProps {
 
 const sizeMap = {
   sm: {
-    symbol: "text-[11px]",
+    symbol: "text-xs",
     price: "text-xs font-bold",
-    original: "text-[10px]",
-    discount: "text-[9px] px-1",
+    original: "text-xs",
+    discount: "text-xs px-1",
   },
   md: {
     symbol: "text-xs",
     price: "text-sm font-bold",
     original: "text-xs",
-    discount: "text-[10px] px-1",
+    discount: "text-xs px-1",
   },
   lg: {
     symbol: "text-sm",
     price: "text-lg font-bold",
     original: "text-xs",
-    discount: "text-[11px] px-1.5",
+    discount: "text-xs px-1.5",
   },
   xl: {
     symbol: "text-lg",

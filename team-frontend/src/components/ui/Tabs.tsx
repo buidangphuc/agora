@@ -55,7 +55,7 @@ export function Tabs({
               <span>{tab.label}</span>
               {tab.badge !== undefined && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  className={`text-xs px-1.5 py-0.2 rounded-full ${
                     isActive
                       ? "bg-primary-50 text-primary-600"
                       : "bg-gray-200 text-gray-600"
@@ -91,7 +91,7 @@ export function Tabs({
               <span>{tab.label}</span>
               {tab.badge !== undefined && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  className={`text-xs px-1.5 py-0.2 rounded-full ${
                     isActive
                       ? "bg-primary-100 text-primary-600 font-bold"
                       : "bg-gray-100 text-gray-600"
