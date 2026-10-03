@@ -500,3 +500,229 @@ features:
       - Then every element styled by the action-primary alias renders the overridden colour
     tags: [buyer]
     status: planned
+
+  # ---- ui-core-components (core component set + /dev/ui catalogue). The scenarios
+  # ---- drive the dev-only /dev/ui page, so they need only the frontend, no backend.
+
+  - id: ui.button-loading
+    title: A loading button keeps its width and blocks clicks
+    persona: guest
+    priority: P2
+    summary: >-
+      Button isLoading swaps the label for a spinner overlay without changing the button width, sets aria-busy and ignores clicks.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the idle and loading "Thêm vào giỏ" buttons are compared
+      - Then both have the same rendered width, the loading one has aria-busy=true and a spinner, and clicking it does nothing
+    tags: [buyer]
+    status: planned
+
+  - id: ui.disabled-inert
+    title: Disabled is announced and inert
+    persona: guest
+    priority: P2
+    summary: >-
+      A disabled interactive component carries aria-disabled=true and ignores pointer and keyboard activation.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the disabled button has the disabled attribute and aria-disabled=true
+      - And clicking it or pressing Enter/Space on it changes nothing
+    tags: [buyer]
+    status: planned
+
+  - id: ui.focus-ring-keyboard
+    title: Focus ring shows for keyboard users only
+    persona: guest
+    priority: P2
+    summary: >-
+      The 2px focus-ring alias ring is drawn on keyboard focus (Tab) and not on mouse click.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the user tabs to a button
+      - Then a focus ring (box-shadow in the focus-ring colour) is drawn
+      - When the same button is clicked with the mouse
+      - Then no focus ring is drawn
+    tags: [buyer]
+    status: planned
+
+  - id: ui.empty-table
+    title: An empty table shows Empty, not a blank area
+    persona: guest
+    priority: P2
+    summary: >-
+      A Table with no rows still renders its column headers and an Empty block with the configured description.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the empty table shows its headers and the "Chưa có sản phẩm" Empty description
+    tags: [buyer]
+    status: planned
+
+  - id: ui.statistic-loading-stable
+    title: A loading statistic does not shift layout
+    persona: guest
+    priority: P2
+    summary: >-
+      Switching a Statistic between loading and a value keeps its bounding box height.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the loading toggle switches the statistics from skeleton to values
+      - Then each statistic card's height is unchanged
+    tags: [buyer]
+    status: planned
+
+  - id: ui.modal-focus-trap
+    title: Modal traps focus and restores it
+    persona: guest
+    priority: P2
+    summary: >-
+      Opening a Modal moves focus inside, Tab cycles inside only, Escape closes it and focus returns to the opener.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the user opens the modal and presses Tab repeatedly
+      - Then focus never leaves the dialog
+      - When the user presses Escape
+      - Then the dialog closes and focus is back on the opening button
+    tags: [buyer]
+    status: planned
+
+  - id: ui.tabs-keyboard
+    title: Tabs are keyboard navigable
+    persona: guest
+    priority: P2
+    summary: >-
+      ArrowRight on the focused tab selects the next tab and shows its panel.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When focus is on the first tab and the user presses ArrowRight
+      - Then the second tab is selected and its panel is shown
+    tags: [buyer]
+    status: planned
+
+  - id: ui.link-tabs-url
+    title: Link tabs keep their state in the URL
+    persona: guest
+    priority: P2
+    summary: >-
+      Tabs with hrefFor render links whose active tab is aria-current=page, and the browser back button restores the previous tab.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the link tabs are anchors and the active one has aria-current=page
+      - When another link tab is clicked and the user goes back
+      - Then the previous tab is current again
+    tags: [buyer]
+    status: planned
+
+  - id: ui.input-error-announced
+    title: Input errors are announced
+    persona: guest
+    priority: P2
+    summary: >-
+      An Input with an error sets aria-invalid=true and its accessible description contains the error text.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the errored email input has aria-invalid=true and its description is the error message
+    tags: [buyer]
+    status: planned
+
+  - id: ui.quantity-bounds
+    title: QuantityPicker respects its bounds
+    persona: guest
+    priority: P2
+    summary: >-
+      With min=1 max=3 showing 3 the increment button is disabled, typing 5 clamps to 3 and decrement stays enabled.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the quantity picker at its max has a disabled increment button
+      - When 5 is typed into it
+      - Then the value is 3 and the decrement button is enabled
+    tags: [buyer]
+    status: planned
+
+  - id: ui.pagination-links
+    title: Pagination works without client JavaScript
+    persona: guest
+    priority: P2
+    summary: >-
+      Pagination renders plain links to pages 1-5 with the current page marked aria-current=page.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then pagination links to pages 1 to 5 are present and page 2 has aria-current=page
+    tags: [buyer]
+    status: planned
+
+  - id: ui.image-fallback
+    title: Image reserves its box and falls back
+    persona: guest
+    priority: P2
+    summary: >-
+      An Image with aspect=square keeps a square box before and after a failed load and shows the fallback placeholder.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the broken image shows the fallback placeholder in a square box
+    tags: [buyer]
+    status: planned
+
+  - id: ui.catalogue-not-in-production
+    title: The catalogue is not shipped to production
+    persona: guest
+    priority: P2
+    summary: >-
+      /dev/ui returns HTTP 404 in a production build. Needs a production build served by next start; verified by hand and by the next.config rewrite unit test, so it stays planned until the e2e stack can run a production frontend.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given a production build of team-frontend is running
+      - When /dev/ui is requested
+      - Then the response status is 404
+    tags: [buyer]
+    status: planned
