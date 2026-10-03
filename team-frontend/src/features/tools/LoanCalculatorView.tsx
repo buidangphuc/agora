@@ -84,7 +84,7 @@ export function LoanCalculatorView() {
                   key={val}
                   type="button"
                   onClick={() => setPropertyPrice(val)}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                     propertyPrice === val
                       ? "bg-red-50 text-red-600 border border-red-300"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -113,7 +113,7 @@ export function LoanCalculatorView() {
               onChange={(e) => setLoanPercent(Number(e.target.value))}
               className="w-full accent-red-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>10%</span>
               <span>50%</span>
               <span>70% (Phổ biến)</span>
@@ -138,7 +138,7 @@ export function LoanCalculatorView() {
               onChange={(e) => setLoanYears(Number(e.target.value))}
               className="w-full accent-red-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>5 năm</span>
               <span>15 năm</span>
               <span>20 năm (Khuyên dùng)</span>
@@ -180,7 +180,7 @@ export function LoanCalculatorView() {
                 }`}
               >
                 <div className="font-bold text-xs">Dư nợ giảm dần</div>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   Tiền lãi giảm dần theo thời gian
                 </p>
               </button>
@@ -195,7 +195,7 @@ export function LoanCalculatorView() {
                 }`}
               >
                 <div className="font-bold text-xs">Trả đều hàng tháng</div>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   Khoản trả cố định mỗi tháng
                 </p>
               </button>
@@ -218,7 +218,7 @@ export function LoanCalculatorView() {
               <span className="text-2xl sm:text-3xl font-black text-red-600 mt-1 block">
                 {Math.round(firstMonthPayment).toLocaleString("vi-VN")} đ
               </span>
-              <p className="text-[11px] text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 Gốc: {Math.round(monthlyPrincipal).toLocaleString("vi-VN")} đ ·
                 Lãi: {Math.round(firstMonthInterest).toLocaleString("vi-VN")} đ
               </p>
