@@ -7,8 +7,8 @@
 
 ## 2. Code — team-frontend: tokens
 
-- [ ] 2.1 Complete Tier 1 in `tailwind.config.ts` (neutral, accents, type scale 12/14/16/20/24, radius, shadows); verify `npx next build` passes
-- [ ] 2.2 Add Tier 2 CSS variables to `src/app/globals.css` and map them as Tailwind colours; verify a unit test renders a `bg-action-primary` element with the brand colour
+- [x] 2.1 Complete Tier 1 in `tailwind.config.ts` (neutral, accents, type scale 12/14/16/20/24, radius, shadows); verify `npx next build` passes
+- [x] 2.2 Add Tier 2 CSS variables to `src/app/globals.css` and map them as Tailwind colours; verify a unit test renders a `bg-action-primary` element with the brand colour
 - [ ] 2.3 Add `scripts/check-tokens.mjs` with `tokens-allow` support and a Vitest test of its matcher on good and bad samples; verify the test passes
 - [ ] 2.4 Append the token lint to the `check` script; verify it currently reports the known violations
 - [ ] 2.5 Replace all raw hex and arbitrary values with tokens, one commit per feature folder; verify the token lint reports 0 and `npm run check` is green

@@ -1,10 +1,35 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "files": { "ignore": ["src/generated/**", ".next/**", "node_modules/**"] },
-  "organizeImports": { "enabled": true },
+  "files": {
+    "ignore": ["src/generated/**", ".next/**", "node_modules/**"]
+  },
+  "organizeImports": {
+    "enabled": true
+  },
   "linter": {
     "enabled": true,
-    "rules": { "recommended": true, "style": { "useImportType": "off" } }
+    "rules": {
+      "recommended": true,
+      "style": {
+        "useImportType": "off"
+      }
+    }
   },
-  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 }
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "overrides": [
+    {
+      "include": ["src/app/globals.css"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnknownFunction": "off"
+          }
+        }
+      }
+    }
+  ]
 }
