@@ -336,3 +336,80 @@ features:
     tags: [admin, observability]
     status: automated
     covered_by: "ops-cockpit/cockpit_metrics.feature::Orders/revenue are not presented as Prometheus-sourced truth"
+
+  # ---- ui-foundation (design tokens + Exception shells). status: planned until the
+  # ---- ui_foundation.feature scenarios have run green against the local stack.
+  - id: ui.not-found
+    title: Unknown route shows the 404 result
+    persona: guest
+    priority: P2
+    summary: >-
+      An unknown URL renders the Exception 404 result with a visible link back to
+      the home page and an HTTP 404 status (src/app/not-found.tsx).
+    entry_route: /does-not-exist
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor opens /does-not-exist
+      - Then the page shows a "not found" result with a visible link back to /
+      - And the HTTP status is 404
+    tags: [buyer]
+    status: planned
+
+  - id: ui.error-recovery
+    title: A thrown page error is recoverable
+    persona: guest
+    priority: P2
+    summary: >-
+      When a server component throws during render, src/app/error.tsx shows the
+      error result with a "Thử lại" button that re-renders the segment. Needs a
+      fault-injection hook (none exists), so it is covered by the Vitest shell test
+      until a test route is added.
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a server component throws during render
+      - Then the error result is shown with a "Thử lại" (retry) button
+      - And clicking it re-renders the segment
+    tags: [buyer]
+    status: planned
+
+  - id: ui.brand-colour-token
+    title: The brand colour resolves from the design tokens
+    persona: guest
+    priority: P2
+    summary: >-
+      A primary action on the storefront renders the brand colour from the Tier 1
+      primary scale (rgb(238, 77, 45)).
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the home page is open
+      - Then the header search button's computed background colour is rgb(238, 77, 45)
+      - And the --color-action-primary alias resolves to the same colour
+    tags: [buyer]
+    status: planned
+
+  - id: ui.alias-override
+    title: Changing an alias restyles every user of it
+    persona: guest
+    priority: P2
+    summary: >-
+      Overriding --color-action-primary on :root restyles every component that
+      consumes the alias (primary Button, sale PriceTag) with no component change.
+    entry_route: /
+    services: [team-frontend, team-search]
+    preconditions:
+      login: guest
+      data: At least one listing must render so a PriceTag is on the page.
+    acceptance:
+      - Given the home page is open
+      - When --color-action-primary is overridden on :root
+      - Then every element styled by the action-primary alias renders the overridden colour
+    tags: [buyer]
+    status: planned
