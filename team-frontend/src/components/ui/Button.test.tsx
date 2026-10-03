@@ -31,6 +31,8 @@ describe("Button state contract", () => {
     expect(busy.querySelector(".animate-spin")).not.toBeNull();
     expect(busy.querySelector(".absolute")).not.toBeNull();
 
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute("aria-disabled", "true");
     await user.click(busy);
     expect(onClick).not.toHaveBeenCalled();
   });

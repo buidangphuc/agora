@@ -71,7 +71,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       leftIcon,
       rightIcon,
       type = "button",
-      onClick,
       ...props
     },
     ref,
@@ -88,16 +87,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         {...props}
-        disabled={disabled}
+        // Native disabled blocks pointer, Enter/Space and form submission with no
+        // JavaScript handler, so Button stays usable from server components
+        // (a wrapper onClick would break RSC serialisation).
+        disabled={blocked}
         aria-disabled={blocked ? "true" : undefined}
         aria-busy={isLoading ? "true" : undefined}
-        onClick={(e) => {
-          if (blocked) {
-            e.preventDefault();
-            return;
-          }
-          onClick?.(e);
-        }}
         className={`relative inline-flex items-center justify-center font-medium transition duration-150 select-none ${focusRing} ${stateStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       >
         <span
