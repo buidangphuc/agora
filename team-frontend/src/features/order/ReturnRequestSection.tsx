@@ -17,7 +17,7 @@ function StatusBadge({ ret }: { ret: ViewOrderReturn }) {
   return (
     <span
       data-testid="return-status"
-      className={`inline-flex rounded-2xs px-2 py-0.5 text-[11px] font-semibold ${tone}`}
+      className={`inline-flex rounded-2xs px-2 py-0.5 text-xs font-semibold ${tone}`}
     >
       {ret.statusText}
     </span>

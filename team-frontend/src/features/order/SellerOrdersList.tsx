@@ -209,7 +209,7 @@ export function SellerOrdersList({
                   <span>{o.createdAt}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                     {o.paymentMethodText}
                   </span>
                   <div>{getStatusBadge(o.status, o.statusText)}</div>
@@ -228,7 +228,7 @@ export function SellerOrdersList({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="grid h-full w-full place-items-center text-[10px] text-gray-400">
+                        <div className="grid h-full w-full place-items-center text-xs text-gray-400">
                           🛍️
                         </div>
                       )}

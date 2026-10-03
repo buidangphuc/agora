@@ -146,7 +146,7 @@ export function BuyerOrdersList({
                   <span>{o.createdAt}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                     {o.paymentMethodText}
                   </span>
                   <div>{getStatusBadge(o.status, o.statusText)}</div>
@@ -165,7 +165,7 @@ export function BuyerOrdersList({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="grid h-full w-full place-items-center text-[10px] text-gray-400">
+                        <div className="grid h-full w-full place-items-center text-xs text-gray-400">
                           No img
                         </div>
                       )}
@@ -199,7 +199,7 @@ export function BuyerOrdersList({
                               productTitle: it.title,
                             })
                           }
-                          className="mt-1 inline-block rounded bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-brand hover:bg-orange-100"
+                          className="mt-1 inline-block rounded bg-orange-50 px-2 py-0.5 text-xs font-semibold text-brand hover:bg-orange-100"
                         >
                           ⭐ Đánh giá
                         </button>

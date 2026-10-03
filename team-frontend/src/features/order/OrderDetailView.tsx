@@ -106,7 +106,7 @@ export function OrderDetailView({ order }: { order: ViewOrder }) {
               return (
                 <div
                   key={step.title}
-                  className="relative z-10 flex flex-col items-center text-center max-w-[100px]"
+                  className="relative z-10 flex flex-col items-center text-center max-w-24"
                 >
                   <div
                     className={`grid h-10 w-10 place-items-center rounded-full text-base transition-all duration-300 ${
@@ -126,7 +126,7 @@ export function OrderDetailView({ order }: { order: ViewOrder }) {
                   >
                     {step.title}
                   </span>
-                  <span className="hidden sm:inline text-[10px] text-gray-400">
+                  <span className="hidden sm:inline text-xs text-gray-400">
                     {step.desc}
                   </span>
                 </div>
@@ -142,11 +142,11 @@ export function OrderDetailView({ order }: { order: ViewOrder }) {
                 Đơn vị vận chuyển:{" "}
               </span>
               <span className="text-brand font-bold">SPX Express Hỏa Tốc</span>
-              <p className="text-[11px] text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500 mt-0.5">
                 Mã vận đơn: <strong>{order.trackingNumber}</strong>
               </p>
             </div>
-            <span className="rounded bg-emerald-100 text-emerald-800 px-2.5 py-1 text-[11px] font-semibold">
+            <span className="rounded bg-emerald-100 text-emerald-800 px-2.5 py-1 text-xs font-semibold">
               🚚 Đang trên đường giao đến bạn
             </span>
           </div>

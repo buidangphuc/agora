@@ -85,7 +85,7 @@ export function OrderTimeline({
                 <p className="text-xs font-semibold text-gray-800">
                   {c.description || "Cập nhật"}
                 </p>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   {[c.location, c.timestamp].filter(Boolean).join(" · ")}
                 </p>
               </div>
@@ -110,7 +110,7 @@ export function OrderTimeline({
               </div>
               <div className="pb-3">
                 <p className="text-xs font-semibold text-gray-800">{s.name}</p>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   {[s.detail, s.timestamp].filter(Boolean).join(" · ")}
                 </p>
               </div>

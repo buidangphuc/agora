@@ -292,7 +292,7 @@ export function CheckoutView({
                         <span className="text-xs text-gray-400">|</span>
                         <span className="text-gray-600">{a.phone}</span>
                         {a.isDefault && (
-                          <span className="rounded bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                          <span className="rounded bg-brand/10 px-1.5 py-0.5 text-xs font-semibold text-brand">
                             Mặc định
                           </span>
                         )}
@@ -493,7 +493,7 @@ export function CheckoutView({
               {finalTotal.toLocaleString("vi-VN")} VND
             </span>
             {discountAmount > 0 && (
-              <p className="text-[11px] font-normal text-emerald-600">
+              <p className="text-xs font-normal text-emerald-600">
                 (Tiết kiệm {discountAmount.toLocaleString("vi-VN")} VND)
               </p>
             )}
@@ -524,7 +524,7 @@ export function CheckoutView({
               <span>⚡</span>
               <span>Saga Distributed Pipeline</span>
             </span>
-            <span className="text-[10px] font-semibold bg-indigo-200/70 text-indigo-800 px-2 py-0.5 rounded">
+            <span className="text-xs font-semibold bg-indigo-200/70 text-indigo-800 px-2 py-0.5 rounded">
               Orchestrator Mode
             </span>
           </div>
@@ -564,7 +564,7 @@ export function CheckoutView({
           </button>
         </div>
 
-        <p className="text-center text-[11px] text-gray-400">
+        <p className="text-center text-xs text-gray-400">
           * Đây là môi trường Demo. Thanh toán hoàn toàn không trừ tiền thật.
         </p>
       </div>
