@@ -142,7 +142,7 @@ export function CockpitView() {
             {(data?.total_rps || 485.2).toFixed(1)}{" "}
             <span className="text-xs font-normal text-slate-500">req/sec</span>
           </div>
-          <div className="text-[11px] text-emerald-500/80 mt-1">
+          <div className="text-xs text-emerald-500/80 mt-1">
             ↑ 14% so với giờ trước (Normal Load)
           </div>
         </div>
@@ -155,7 +155,7 @@ export function CockpitView() {
             {(data?.avg_latency_ms || 18.4).toFixed(1)}{" "}
             <span className="text-xs font-normal text-slate-500">ms</span>
           </div>
-          <div className="text-[11px] text-cyan-500/80 mt-1">
+          <div className="text-xs text-cyan-500/80 mt-1">
             ✓ Trong ngưỡng SLA (&lt; 50ms)
           </div>
         </div>
@@ -168,7 +168,7 @@ export function CockpitView() {
             {(data?.total_orders_24h || 1420).toLocaleString()}{" "}
             <span className="text-xs font-normal text-slate-500">đơn</span>
           </div>
-          <div className="text-[11px] text-amber-500/80 mt-1">
+          <div className="text-xs text-amber-500/80 mt-1">
             ⚡ Flash sale peak active
           </div>
         </div>
@@ -181,7 +181,7 @@ export function CockpitView() {
             {(data?.total_revenue_24h || 384500000).toLocaleString()}{" "}
             <span className="text-xs font-normal text-slate-500">₫</span>
           </div>
-          <div className="text-[11px] text-purple-500/80 mt-1">
+          <div className="text-xs text-purple-500/80 mt-1">
             Mock payment transactions confirmed
           </div>
         </div>
@@ -224,7 +224,7 @@ export function CockpitView() {
                     </td>
                     <td className="py-2.5 px-3 text-slate-400">:{s.port}</td>
                     <td className="py-2.5 px-3">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
                         ● {s.status}
                       </span>
                     </td>
@@ -254,12 +254,12 @@ export function CockpitView() {
               <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
                 ⚡ Live Orders Stream (SSE)
               </h2>
-              <span className="text-[10px] bg-red-950 text-red-400 border border-red-800 px-2 py-0.5 rounded font-bold animate-pulse">
+              <span className="text-xs bg-red-950 text-red-400 border border-red-800 px-2 py-0.5 rounded font-bold animate-pulse">
                 ops:orders
               </span>
             </div>
 
-            <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {(liveOrders.length > 0
                 ? liveOrders
                 : [
@@ -292,11 +292,11 @@ export function CockpitView() {
                       <span className="text-emerald-400 font-bold">
                         🛒 {o.id}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
+                      <span className="text-xs text-slate-500 font-mono">
                         ({o.time})
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400">{o.user}</div>
+                    <div className="text-xs text-slate-400">{o.user}</div>
                   </div>
                   <div className="text-right font-mono font-bold text-amber-400">
                     {o.amount.toLocaleString()} ₫
@@ -306,7 +306,7 @@ export function CockpitView() {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500 text-center">
+          <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-500 text-center">
             Kafka Topic:{" "}
             <code className="text-slate-400 font-mono">order.events</code> →
             Edge SSE
@@ -336,17 +336,17 @@ export function CockpitView() {
             >
               <div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono text-cyan-400 font-semibold truncate max-w-[180px]">
+                  <span className="font-mono text-cyan-400 font-semibold truncate max-w-44">
                     trace:{t.trace_id.slice(0, 12)}...
                   </span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded">
+                  <span className="text-xs font-bold px-1.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded">
                     {t.status}
                   </span>
                 </div>
                 <div className="text-xs text-slate-300 font-medium mt-1.5">
                   {t.operation}
                 </div>
-                <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                <div className="text-xs text-slate-500 font-mono mt-0.5">
                   Duration: {t.duration}
                 </div>
               </div>
@@ -361,7 +361,7 @@ export function CockpitView() {
                 className="w-full py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 text-blue-300 text-xs font-semibold rounded text-center transition-all flex items-center justify-center gap-1.5"
               >
                 <span>🔍 Soi Trace trên Jaeger UI (:16686)</span>
-                <span className="text-[10px]">↗</span>
+                <span className="text-xs">↗</span>
               </a>
             </div>
           ))}
