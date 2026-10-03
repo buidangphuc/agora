@@ -137,7 +137,7 @@ export function NotificationsView({
                     <h3 className="text-xs font-bold text-gray-900">
                       {n.title}
                     </h3>
-                    <span className="text-[10px] text-gray-400 shrink-0">
+                    <span className="text-xs text-gray-400 shrink-0">
                       {n.createdAt}
                     </span>
                   </div>

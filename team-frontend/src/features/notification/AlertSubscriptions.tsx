@@ -91,7 +91,7 @@ export function AlertSubscriptions({
                   >
                     {r.title}
                   </Link>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                     <span>{label.icon}</span>
                     <span>{label.text}</span>
                   </span>
