@@ -94,7 +94,7 @@ export function FlashSaleSection({ listings }: { listings: ViewListing[] }) {
                     ⚡
                   </div>
                 )}
-                <div className="absolute top-0 right-0 rounded-bl bg-yellow-400 px-1 text-[9px] font-extrabold text-red-600">
+                <div className="absolute top-0 right-0 rounded-bl bg-yellow-400 px-1 text-xs font-extrabold text-red-600">
                   -{discount}%
                 </div>
               </div>
@@ -110,7 +110,7 @@ export function FlashSaleSection({ listings }: { listings: ViewListing[] }) {
                     className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500"
                     style={{ width: `${soldProgress}%` }}
                   />
-                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold uppercase text-white">
+                  <span className="absolute inset-0 flex items-center justify-center text-xs font-bold uppercase text-white">
                     🔥 ĐÃ BÁN {soldProgress}
                   </span>
                 </div>

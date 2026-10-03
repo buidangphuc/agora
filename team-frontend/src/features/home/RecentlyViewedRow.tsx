@@ -27,7 +27,7 @@ export async function RecentlyViewedRow({ limit = 12 }: { limit?: number }) {
           <span>👀</span>
           <span>Vừa xem</span>
         </span>
-        <span className="text-[12px] text-gray-400 font-normal">
+        <span className="text-xs text-gray-400 font-normal">
           Sản phẩm bạn đã xem gần đây
         </span>
       </div>
