@@ -10,12 +10,15 @@ import type { ViewListing, ViewStorefront } from "@/lib/gateway/listings";
 
 export function ShopStorefrontView({
   sellerId,
+  shopName,
   listings,
   loggedIn,
   initialFollowing = false,
   storefront = null,
 }: {
   sellerId: string;
+  /** Label built server-side via shopLabel() (name or the id fallback). */
+  shopName: string;
   listings: ViewListing[];
   loggedIn: boolean;
   initialFollowing?: boolean;
@@ -61,9 +64,7 @@ export function ShopStorefrontView({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold truncate">
-                  Shop Chính Hãng #{sellerId.slice(0, 6)}
-                </h1>
+                <h1 className="text-base font-bold truncate">{shopName}</h1>
                 <span className="rounded bg-white text-red-600 px-1.5 py-0.2 text-[9px] font-extrabold">
                   Mall
                 </span>

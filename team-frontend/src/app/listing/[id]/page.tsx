@@ -20,7 +20,7 @@ import {
   listQuestionsByListing,
   recordView,
 } from "@/lib/gateway/engagement";
-import { getListing } from "@/lib/gateway/listings";
+import { getListing, getStorefront } from "@/lib/gateway/listings";
 import { AlertType, listAlertSubscriptions } from "@/lib/gateway/notification";
 import { getActiveFlashSale } from "@/lib/gateway/promotion";
 import { summarizeReviews } from "@/lib/gateway/ai";
@@ -30,6 +30,7 @@ import {
   listReviews,
 } from "@/lib/gateway/reviews";
 import { getPrincipal } from "@/lib/gateway/session";
+import { shopLabel } from "@/lib/gateway/shops";
 import { getImageUrl } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,7 @@ export default async function ProductDetailPage({
     reviews,
     ratingSummary,
     shopSummary,
+    storefront,
     collections,
     alertSubs,
     questions,
@@ -60,6 +62,7 @@ export default async function ProductDetailPage({
     listReviews(params.id),
     getListingRatingSummary(params.id),
     getShopRatingSummary(listing.sellerId),
+    getStorefront(listing.sellerId),
     loggedIn ? listCollections() : Promise.resolve([]),
     loggedIn ? listAlertSubscriptions() : Promise.resolve([]),
     listQuestionsByListing(params.id),
@@ -329,7 +332,9 @@ export default async function ProductDetailPage({
           </div>
           <div>
             <h3 className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
-              <span>Official Store Partner</span>
+              <span>
+                {shopLabel(listing.sellerId, storefront?.displayName)}
+              </span>
               <span className="rounded-2xs bg-[#d0011b] px-1 py-0.2 text-[9px] font-bold text-white uppercase">
                 Mall
               </span>

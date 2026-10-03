@@ -24,13 +24,15 @@
 
 ## 4. Code - team-frontend gateway wrappers
 
-- [ ] 4.1 Regenerate `src/generated` (never hand-edit); verify `npx tsc --noEmit`
-- [ ] 4.2 Add `src/lib/gateway/shops.ts`: `batchGetShopNames(sellerIds): Map<string,string>` (dedupe, chunk 100, one call per chunk, swallow errors incl. `Unimplemented` -> empty map) and pure `shopLabel(sellerId, displayName)`; verify Vitest cases for fallback "Shop #abc123", short id, empty name, dedupe, one call for two sellers and error swallowed
-- [ ] 4.3 `listings.ts`: add `displayName` to `ViewStorefront`, map it in `getStorefront`, pass it in `upsertStorefront`; verify `listings.test.ts`
-- [ ] 4.4 `cart.ts`: add `sellerDisplayName` to `ViewCartItem` and resolve names with one batch call after `getCart()`; verify `cart.test.ts` "two sellers -> exactly one batch call" and "batch failure -> items still returned"
-- [ ] 4.5 `engagement.ts`: change `listFollowedSellers()` to return `{ sellerId, displayName }[]` (one batch call) and update the `/account/following` caller and `follow.test.ts`; verify `npx vitest run src/lib/gateway`
-- [ ] 4.6 Hand the label to the UI phases: use `shopLabel()` in the existing shop header, cart group header and following list call sites that currently print `Shop #...` (remove ad-hoc strings only; no layout work, which stays in the `ui-phase-*` changes); verify `grep -rn "Shop #" src` finds only `shops.ts`
+- [x] 4.1 Regenerate `src/generated` (never hand-edit); verify `npx tsc --noEmit`
+- [x] 4.2 Add `src/lib/gateway/shops.ts`: `batchGetShopNames(sellerIds): Map<string,string>` (dedupe, chunk 100, one call per chunk, swallow errors incl. `Unimplemented` -> empty map) and pure `shopLabel(sellerId, displayName)`; verify Vitest cases for fallback "Shop #abc123", short id, empty name, dedupe, one call for two sellers and error swallowed
+- [x] 4.3 `listings.ts`: add `displayName` to `ViewStorefront`, map it in `getStorefront`, pass it in `upsertStorefront`; verify `listings.test.ts`
+- [x] 4.4 `cart.ts`: add `sellerDisplayName` to `ViewCartItem` and resolve names with one batch call after `getCart()`; verify `cart.test.ts` "two sellers -> exactly one batch call" and "batch failure -> items still returned"
+- [x] 4.5 `engagement.ts`: change `listFollowedSellers()` to return `{ sellerId, displayName }[]` (one batch call) and update the `/account/following` caller and `follow.test.ts`; verify `npx vitest run src/lib/gateway`
+- [x] 4.6 Hand the label to the UI phases: use `shopLabel()` in the existing shop header, cart group header and following list call sites that currently print `Shop #...` (remove ad-hoc strings only; no layout work, which stays in the `ui-phase-*` changes); verify `grep -rn "Shop #" src` finds only `shops.ts`
+  - Note: the cart view has no per-shop group header yet (flat list), so only `sellerDisplayName` is exposed there; the header itself belongs to the `ui-phase-*` changes. PDP header, `/shop/<id>` header and following list now use `shopLabel()`.
 - [ ] 4.7 Run the frontend gates; verify `npx tsc --noEmit && npx vitest run && npm run lint`
+  - Not ticked: gates are red on the base branch independent of this change (`tsc`: 10 errors in CheckoutView, AddToCartButton, RecommendationsRow, SearchImpressions, track.test; `vitest`: 5 failures in `src/lib/track.test.ts`; `biome check`: 44 errors). This change adds none: tsc count unchanged (10), vitest failures unchanged (5), all 14 gateway test files pass, files it touched have no new biome findings.
 
 ## 5. E2E - platform-e2e + FEATURES.yaml
 

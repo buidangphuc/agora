@@ -8,9 +8,11 @@ import {
   type CreateListingInput,
   createListing,
   getListing,
+  getStorefront,
   listListings,
   reserveStock,
   suggest,
+  upsertStorefront,
 } from "./listings.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -120,5 +122,43 @@ describe("listings gateway wrapper", () => {
     const res = await reserveStock("l1", 1);
     expect(res.success).toBe(false);
     expect(res.message).toContain("out");
+  });
+});
+
+describe("storefront display name", () => {
+  const protoStorefront = {
+    sellerId: "s1",
+    slug: "shop-a",
+    bannerUrl: "",
+    tagline: "",
+    featuredListingIds: [],
+    theme: "default",
+    displayName: "Tiem Hoa Nho",
+  };
+
+  it("getStorefront maps displayName", async () => {
+    stub({
+      listing: {
+        getStorefront: vi
+          .fn()
+          .mockResolvedValue({ storefront: protoStorefront }),
+      },
+    });
+    const sf = await getStorefront("s1");
+    expect(sf?.displayName).toBe("Tiem Hoa Nho");
+  });
+
+  it("upsertStorefront passes displayName to the RPC", async () => {
+    const upsert = vi.fn().mockResolvedValue({ storefront: protoStorefront });
+    stub({ listing: { upsertStorefront: upsert } });
+    const sf = await upsertStorefront({
+      sellerId: "s1",
+      slug: "shop-a",
+      displayName: "Tiem Hoa Nho",
+    });
+    expect(upsert.mock.calls[0]?.[0].storefront.displayName).toBe(
+      "Tiem Hoa Nho",
+    );
+    expect(sf.displayName).toBe("Tiem Hoa Nho");
   });
 });
