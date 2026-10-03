@@ -64,7 +64,7 @@ export function ShopStorefrontView({
                 <h1 className="text-base font-bold truncate">
                   Shop Chính Hãng #{sellerId.slice(0, 6)}
                 </h1>
-                <span className="rounded bg-white text-red-600 px-1.5 py-0.2 text-[9px] font-extrabold">
+                <span className="rounded bg-white text-red-600 px-1.5 py-0.2 text-xs font-extrabold">
                   Mall
                 </span>
               </div>
