@@ -84,10 +84,10 @@ export function MockPaymentView({
             <div className="mx-auto grid h-44 w-44 place-items-center rounded-lg bg-pink-50 p-3 ring-1 ring-pink-200">
               <div className="text-center">
                 <span className="text-4xl">📱</span>
-                <p className="mt-2 text-[11px] font-bold text-pink-700">
+                <p className="mt-2 text-xs font-bold text-pink-700">
                   QR MOMO DEMO
                 </p>
-                <p className="text-[10px] text-gray-400">Quét để thanh toán</p>
+                <p className="text-xs text-gray-400">Quét để thanh toán</p>
               </div>
             </div>
             <p className="text-xs text-gray-500">
@@ -126,7 +126,7 @@ export function MockPaymentView({
             <div className="py-2 font-mono text-lg tracking-widest">
               •••• •••• •••• 8888
             </div>
-            <div className="flex justify-between text-[11px] text-blue-200">
+            <div className="flex justify-between text-xs text-blue-200">
               <span>CHỦ THẺ: NGUYEN VAN A</span>
               <span>EXP: 12/28</span>
             </div>
