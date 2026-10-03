@@ -128,7 +128,7 @@ export function AssistantChatView() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 min-h-[calc(100vh-140px)] flex flex-col">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 min-h-viewport-main flex flex-col">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white shadow-lg mb-4 flex items-center justify-between">
         <div>
@@ -155,7 +155,7 @@ export function AssistantChatView() {
             key={msg.id}
             className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
           >
-            <div className="flex items-start gap-2.5 max-w-[85%]">
+            <div className="flex items-start gap-2.5 max-w-bubble-wide">
               {msg.sender === "ai" && (
                 <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow">
                   AI
@@ -196,7 +196,7 @@ export function AssistantChatView() {
                               {p.price.toLocaleString()} ₫
                             </span>
                             {p.discount_rate > 0 && (
-                              <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                              <span className="text-xs font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
                                 -{p.discount_rate}%
                               </span>
                             )}
@@ -222,7 +222,7 @@ export function AssistantChatView() {
                   </div>
                 )}
 
-                <div className="text-[10px] text-slate-400 mt-2 text-right">
+                <div className="text-xs text-slate-400 mt-2 text-right">
                   {msg.time}
                 </div>
               </div>
