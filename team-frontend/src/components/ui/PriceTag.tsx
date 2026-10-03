@@ -56,7 +56,7 @@ export function PriceTag({
       className={`inline-flex items-baseline gap-1.5 flex-wrap ${className}`}
     >
       {/* Current Sale Price */}
-      <div className="text-primary-500 flex items-baseline tracking-tight">
+      <div className="text-action-primary flex items-baseline tracking-tight">
         {showCurrencySymbol && (
           <span className={`font-semibold mr-0.5 ${currentSize.symbol}`}>
             ₫
