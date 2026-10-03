@@ -1,7 +1,7 @@
 ## 1. Code — team-frontend: shared foundations
 
-- [ ] 1.1 Add the internal `useDialog` hook (focus trap, Escape, return focus, scroll lock) with tests; verify the Vitest file passes
-- [ ] 1.2 Add `Skeleton`, `Empty`, `Spin` (used by the others) with tests; verify the tests pass and the token lint is clean
+- [x] 1.1 Add the internal `useDialog` hook (focus trap, Escape, return focus, scroll lock) with tests; verify the Vitest file passes
+- [x] 1.2 Add `Skeleton`, `Empty`, `Spin` (used by the others) with tests; verify the tests pass and the token lint is clean
 
 ## 2. Code — team-frontend: existing primitives to the contract
 
