@@ -120,7 +120,9 @@ export function RadioGroup({
               : defaultValue !== undefined
                 ? { defaultChecked: defaultValue === o.value }
                 : {})}
-            onChange={() => onChange?.(o.value)}
+            // Only attach a handler when the caller gave one: a handler prop would
+            // make RadioGroup unusable from server components (RSC serialisation).
+            {...(onChange ? { onChange: () => onChange(o.value) } : {})}
           />
         ))}
       </div>
