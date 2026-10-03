@@ -16,7 +16,7 @@
 - [x] 3.1 Navigation: `Breadcrumb`, `Pagination` (server-compatible links); verify the pagination scenario test passes
 - [x] 3.2 Data Entry: `FormItem`, `Select`, `Checkbox`, `Radio`/`RadioGroup`, `QuantityPicker`, `Rate`; verify the bounds scenario test and per-component tests pass
 - [x] 3.3 Data Display: `Tag`, `Table` (empty/loading/error), `Timeline`, `Avatar`, `Image` (aspect, fallback, lazy); verify the empty-table and image-fallback scenario tests pass
-- [ ] 3.4 Feedback: `Alert`, `Drawer` (on `useDialog`), `Progress`; verify their tests pass
+- [x] 3.4 Feedback: `Alert`, `Drawer` (on `useDialog`), `Progress`; verify their tests pass
 - [ ] 3.5 Export everything from `src/components/ui/index.ts`; verify `npm run check` and `npx next build` pass
 
 ## 4. Code — team-frontend: catalogue
