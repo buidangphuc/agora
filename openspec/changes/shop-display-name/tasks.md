@@ -1,18 +1,20 @@
 ## 1. Code - platform-core (proto first)
 
-- [ ] 1.1 In `packages/proto/platform/listing/v1/listing.proto` add `string display_name = 7` to `Storefront`, the `BatchGetStorefronts` RPC and `ShopSummary`, `BatchGetStorefrontsRequest`, `BatchGetStorefrontsResponse` (additive only, no renumbering); verify `cd packages/proto && buf lint` is clean
-- [ ] 1.2 Check compatibility with the baseline; verify `make -C platform-core breaking` (`buf breaking --against .git#ref=HEAD,subdir=packages/proto`) passes
-- [ ] 1.3 Regenerate stubs (`buf generate`) and publish to consumers per ADR-0001 without hand edits; verify `git diff` shows only generated files changed and the three consumers below build against them
+- [x] 1.1 In `packages/proto/platform/listing/v1/listing.proto` add `string display_name = 7` to `Storefront`, the `BatchGetStorefronts` RPC and `ShopSummary`, `BatchGetStorefrontsRequest`, `BatchGetStorefrontsResponse` (additive only, no renumbering); verify `cd packages/proto && buf lint` is clean
+- [x] 1.2 Check compatibility with the baseline; verify `make -C platform-core breaking` (`buf breaking --against .git#ref=HEAD,subdir=packages/proto`) passes
+- [x] 1.3 Regenerate stubs (`buf generate`) and publish to consumers per ADR-0001 without hand edits; verify `git diff` shows only generated files changed and the three consumers below build against them
+  - Note: vendored listing.proto into team-domain, team-gateway, team-frontend and team-analytics (copies identical to base). Other consumers (team-ai, -payment, -engagement, -chat, -order, -notification, -identity, -search) hold older divergent copies and were left alone; they are additive-compatible and can re-vendor on their next sync.
 
 ## 2. Code - team-domain (owner)
 
-- [ ] 2.1 Regenerate `generated/` from the new proto; verify `go build ./...` and that no generated file was hand-edited
-- [ ] 2.2 Add `DisplayName` to `repository.Storefront`, persist it in the `config` JSONB (in-memory and Postgres repos, no migration); verify repository tests round-trip the name
-- [ ] 2.3 Validate in `StorefrontService.Upsert` (trim, 1-80 runes when non-empty, reject control chars -> `InvalidArgument`; seller id still forced to the principal); verify table tests for trim, too-long, control char, empty and spoofed `seller_id`
-- [ ] 2.4 Map `display_name` in `storefrontFromWire`/`storefrontToWire` so `GetStorefront` returns it; verify handler test "name returned for a storefront"
-- [ ] 2.5 Add `GetBySellers(ctx, ids)` to `StorefrontRepository` (`WHERE seller_id = ANY($1)`, one query) and the `BatchGetStorefronts` handler (dedupe, omit unknown, >100 ids -> `InvalidArgument`); verify tests for two sellers, unknown seller omitted, duplicates and 101 ids, and that the Postgres repo issues a single query
-- [ ] 2.6 Add `listing.shop-display-name` to `team-domain/FEATURES.yaml` (acceptance lines = the spec scenarios, `status: planned`); verify `make -C platform-e2e features-check` parses it
-- [ ] 2.7 Run the service gates; verify `go vet ./... && go test ./...` pass
+- [x] 2.1 Regenerate `generated/` from the new proto; verify `go build ./...` and that no generated file was hand-edited
+- [x] 2.2 Add `DisplayName` to `repository.Storefront`, persist it in the `config` JSONB (in-memory and Postgres repos, no migration); verify repository tests round-trip the name
+- [x] 2.3 Validate in `StorefrontService.Upsert` (trim, 1-80 runes when non-empty, reject control chars -> `InvalidArgument`; seller id still forced to the principal); verify table tests for trim, too-long, control char, empty and spoofed `seller_id`
+- [x] 2.4 Map `display_name` in `storefrontFromWire`/`storefrontToWire` so `GetStorefront` returns it; verify handler test "name returned for a storefront"
+- [x] 2.5 Add `GetBySellers(ctx, ids)` to `StorefrontRepository` (`WHERE seller_id = ANY($1)`, one query) and the `BatchGetStorefronts` handler (dedupe, omit unknown, >100 ids -> `InvalidArgument`); verify tests for two sellers, unknown seller omitted, duplicates and 101 ids, and that the Postgres repo issues a single query
+  - Note: no live Postgres here; "single query" verified by construction (one `WHERE seller_id = ANY($1)`) plus a handler test asserting exactly one repo call.
+- [x] 2.6 Add `listing.shop-display-name` to `team-domain/FEATURES.yaml` (acceptance lines = the spec scenarios, `status: planned`); verify `make -C platform-e2e features-check` parses it
+- [x] 2.7 Run the service gates; verify `go vet ./... && go test ./...` pass
 
 ## 3. Code - team-gateway
 
