@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export interface ImageClientProps {
   src: string;
@@ -28,12 +28,22 @@ export function ImageClient({
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(
     "loading",
   );
+  const imgRef = useRef<HTMLImageElement>(null);
   // A new src starts over.
   const [seen, setSeen] = useState(src);
   if (seen !== src) {
     setSeen(src);
     setStatus("loading");
   }
+
+  // The server-rendered <img> may have loaded or failed before React hydrated,
+  // in which case onLoad / onError never fire: read the result off the element.
+  useEffect(() => {
+    const img = imgRef.current;
+    // Ignore a stale element that still shows the previous src.
+    if (!img || img.getAttribute("src") !== src || !img.complete) return;
+    setStatus(img.naturalWidth > 0 ? "loaded" : "error");
+  }, [src]);
 
   if (status === "error") {
     return (
@@ -52,6 +62,7 @@ export function ImageClient({
         />
       )}
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         loading={loading}

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Image } from "./Image";
 
@@ -65,5 +65,43 @@ describe("Image", () => {
     fireEvent.error(screen.getByAltText("x"));
     rerender(<Image src="/b.jpg" alt="x" aspect="square" />);
     expect(screen.getByAltText("x")).toHaveAttribute("src", "/b.jpg");
+  });
+
+  describe("pictures that settled before hydration", () => {
+    const proto = HTMLImageElement.prototype;
+    const restore: Array<() => void> = [];
+    const stub = (complete: boolean, naturalWidth: number) => {
+      for (const [key, value] of [
+        ["complete", complete],
+        ["naturalWidth", naturalWidth],
+      ] as const) {
+        Object.defineProperty(proto, key, {
+          configurable: true,
+          get: () => value,
+        });
+        restore.push(() => Reflect.deleteProperty(proto, key));
+      }
+    };
+    afterEach(() => {
+      for (const undo of restore.splice(0)) undo();
+    });
+
+    it("an already-failed picture shows the fallback without waiting for onError", () => {
+      stub(true, 0);
+      render(<Image src="/broken.jpg" alt="x" aspect="square" />);
+      expect(screen.queryByAltText("x")).toBeNull();
+      expect(
+        screen.getByRole("img", { name: "Không có ảnh" }),
+      ).toBeInTheDocument();
+    });
+
+    it("an already-loaded picture drops the placeholder without waiting for onLoad", () => {
+      stub(true, 120);
+      const { container } = render(
+        <Image src="/ok.jpg" alt="x" aspect="square" />,
+      );
+      expect(screen.getByAltText("x")).toBeInTheDocument();
+      expect(container.querySelector(".animate-pulse")).toBeNull();
+    });
   });
 });
