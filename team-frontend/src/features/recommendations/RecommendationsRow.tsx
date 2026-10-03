@@ -46,7 +46,7 @@ export async function RecommendationsRow({
           <span>✨</span>
           <span>Gợi ý cho bạn</span>
         </span>
-        <span className="text-[12px] text-gray-400 font-normal">{heading}</span>
+        <span className="text-xs text-gray-400 font-normal">{heading}</span>
       </div>
       <ListingGrid listings={items} placementId={placementId} />
     </section>
