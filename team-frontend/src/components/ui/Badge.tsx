@@ -1,4 +1,5 @@
 import React from "react";
+import { toneStyles } from "./tones";
 
 export type BadgeVariant =
   | "primary"
@@ -17,16 +18,15 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   pill?: boolean;
 }
 
+// Tier 3: component tokens. Count / dot / label roles; new label code uses Tag.
 const variantStyles: Record<BadgeVariant, string> = {
-  primary:
-    "bg-primary-50 text-primary-600 border border-primary-200/60 font-semibold",
-  mall: "bg-danger text-white font-bold tracking-wider uppercase",
-  success:
-    "bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium",
-  warning: "bg-amber-50 text-amber-700 border border-amber-200 font-medium",
-  danger: "bg-rose-50 text-rose-700 border border-rose-200 font-medium",
-  neutral: "bg-gray-100 text-gray-700 border border-gray-200 font-medium",
-  discount: "bg-amber-300 text-primary-600 font-black",
+  primary: `${toneStyles.primary.soft} border font-semibold`,
+  mall: "bg-danger text-text-inverse font-bold tracking-wider uppercase",
+  success: `${toneStyles.success.soft} border font-medium`,
+  warning: `${toneStyles.warning.soft} border font-medium`,
+  danger: `${toneStyles.danger.soft} border font-medium`,
+  neutral: `${toneStyles.neutral.soft} border font-medium`,
+  discount: "bg-promo text-action-primary font-black",
 };
 
 const sizeStyles: Record<BadgeSize, string> = {
@@ -43,7 +43,7 @@ export function Badge({
   pill = false,
   ...props
 }: BadgeProps) {
-  const roundedClass = pill ? "rounded-full" : "rounded-md";
+  const roundedClass = pill ? "rounded-full" : "rounded-lg";
 
   return (
     <span

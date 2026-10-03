@@ -72,7 +72,7 @@ export function PriceTag({
       {/* Strikethrough Original Price */}
       {originalPrice && originalPrice > price && (
         <span
-          className={`text-gray-400 line-through font-normal ${currentSize.original}`}
+          className={`text-text-disabled line-through font-normal ${currentSize.original}`}
         >
           {formatPrice(originalPrice)}
         </span>
@@ -81,7 +81,7 @@ export function PriceTag({
       {/* Discount Badge */}
       {discountPercent !== null && discountPercent > 0 && (
         <span
-          className={`bg-primary-50 text-primary-600 rounded font-bold leading-tight ${currentSize.discount}`}
+          className={`bg-primary-50 text-action-primary rounded-xs font-bold leading-tight ${currentSize.discount}`}
         >
           -{discountPercent}%
         </span>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "./Button";
+import { toneStyles } from "./tones";
 
 export type ResultStatus = "success" | "error" | "info" | "warning" | "404";
 
@@ -12,34 +12,35 @@ export interface ResultProps {
   className?: string;
 }
 
+// Tier 3: component tokens (tones shared with Alert/Tag).
 const statusIcons: Record<
   ResultStatus,
-  { icon: string; bg: string; text: string }
+  { icon: string; bg: string; label: string }
 > = {
   success: {
     icon: "✓",
-    bg: "bg-emerald-50 text-emerald-600 border border-emerald-200",
-    text: "text-emerald-600",
+    bg: `${toneStyles.success.soft} border`,
+    label: "Thành công",
   },
   error: {
     icon: "✕",
-    bg: "bg-rose-50 text-rose-600 border border-rose-200",
-    text: "text-rose-600",
+    bg: `${toneStyles.danger.soft} border`,
+    label: "Lỗi",
   },
   warning: {
     icon: "!",
-    bg: "bg-amber-50 text-amber-600 border border-amber-200",
-    text: "text-amber-600",
+    bg: `${toneStyles.warning.soft} border`,
+    label: "Cảnh báo",
   },
   info: {
-    icon: "ℹ",
-    bg: "bg-blue-50 text-blue-600 border border-blue-200",
-    text: "text-blue-600",
+    icon: "i",
+    bg: `${toneStyles.info.soft} border`,
+    label: "Thông tin",
   },
   "404": {
     icon: "404",
-    bg: "bg-gray-100 text-gray-600 border border-gray-200",
-    text: "text-gray-600",
+    bg: `${toneStyles.neutral.soft} border`,
+    label: "Không tìm thấy",
   },
 };
 
@@ -65,6 +66,8 @@ export function Result({
       {/* Status Icon */}
       <div className="flex justify-center mb-5">
         <div
+          role="img"
+          aria-label={currentStatus.label}
           className={`flex h-18 w-18 items-center justify-center rounded-full text-2xl font-black shadow-xs ${currentStatus.bg}`}
         >
           {currentStatus.icon}
@@ -72,19 +75,19 @@ export function Result({
       </div>
 
       {/* Title & Subtitle */}
-      <h2 className="text-xl font-bold text-gray-900 tracking-tight sm:text-2xl">
+      <h2 className="text-xl font-bold text-text-primary tracking-tight sm:text-2xl">
         {title}
       </h2>
 
       {subTitle && (
-        <p className="mt-2 text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+        <p className="mt-2 text-xs sm:text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
           {subTitle}
         </p>
       )}
 
       {/* Embedded Details Content */}
       {children && (
-        <div className="mt-6 text-left rounded-xl bg-gray-50/80 p-5 border border-gray-200/80">
+        <div className="mt-6 text-left rounded-xl bg-surface-muted p-5 border border-border-subtle">
           {children}
         </div>
       )}

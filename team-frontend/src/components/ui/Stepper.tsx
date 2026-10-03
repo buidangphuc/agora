@@ -25,18 +25,22 @@ export function Stepper({
           const isLast = idx === steps.length - 1;
           const dotColor =
             step.status === "complete"
-              ? "bg-emerald-500 ring-4 ring-emerald-50"
+              ? "bg-success ring-4 ring-accent-success/10"
               : step.status === "current"
-                ? "bg-primary-500 ring-4 ring-primary-50"
+                ? "bg-action-primary ring-4 ring-primary-50"
                 : step.status === "failed"
-                  ? "bg-red-500 ring-4 ring-red-50"
-                  : "bg-gray-300";
+                  ? "bg-danger ring-4 ring-accent-danger/10"
+                  : "bg-border-strong";
 
           return (
-            <li key={step.id} className="relative flex gap-4">
+            <li
+              key={step.id}
+              className="relative flex gap-4"
+              aria-current={step.status === "current" ? "step" : undefined}
+            >
               {!isLast && (
                 <div
-                  className="absolute left-2.5 top-5 -bottom-2 w-0.5 bg-gray-200"
+                  className="absolute left-2.5 top-5 -bottom-2 w-0.5 bg-border-subtle"
                   aria-hidden="true"
                 />
               )}
@@ -44,11 +48,11 @@ export function Stepper({
                 <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
               </div>
               <div className="pt-0.5 pb-2">
-                <p className="text-xs font-semibold text-gray-900">
+                <p className="text-xs font-semibold text-text-primary">
                   {step.title}
                 </p>
                 {step.description && (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-text-secondary mt-0.5">
                     {step.description}
                   </p>
                 )}
@@ -72,28 +76,29 @@ export function Stepper({
           return (
             <li
               key={step.id}
+              aria-current={isCurrent ? "step" : undefined}
               className={`relative flex-1 ${!isLast ? "pr-4 sm:pr-8" : ""}`}
             >
               <div className="flex items-center gap-2">
                 <span
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
                     isComplete
-                      ? "bg-primary-500 text-white"
+                      ? "bg-action-primary text-text-inverse"
                       : isCurrent
-                        ? "border-2 border-primary-500 text-primary-500 bg-white"
-                        : "border-2 border-gray-200 text-gray-400 bg-white"
+                        ? "border-2 border-action-primary text-action-primary bg-surface-card"
+                        : "border-2 border-border-subtle text-text-disabled bg-surface-card"
                   }`}
                 >
                   {isComplete ? "✓" : idx + 1}
                 </span>
-                <div className="hidden sm:block">
+                <div className="sr-only sm:not-sr-only">
                   <span
                     className={`text-xs font-medium ${
                       isCurrent
-                        ? "text-primary-600 font-semibold"
+                        ? "text-action-primary font-semibold"
                         : isComplete
-                          ? "text-gray-900"
-                          : "text-gray-400"
+                          ? "text-text-primary"
+                          : "text-text-disabled"
                     }`}
                   >
                     {step.title}
@@ -102,7 +107,7 @@ export function Stepper({
               </div>
               {!isLast && (
                 <div
-                  className="absolute top-3.5 right-0 left-12 -z-10 hidden sm:block h-0.5 bg-gray-200"
+                  className="absolute top-3.5 right-0 left-12 -z-10 hidden sm:block h-0.5 bg-border-subtle"
                   aria-hidden="true"
                 />
               )}

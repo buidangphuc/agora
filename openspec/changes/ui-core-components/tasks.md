@@ -9,7 +9,7 @@
 - [x] 2.2 Input: label/`htmlFor`, `aria-describedby`, `aria-invalid`; verify the error-announced scenario test passes
 - [x] 2.3 Modal on `useDialog` with `role="dialog"`, `aria-modal`, `aria-labelledby`; verify the focus-trap scenario test passes
 - [x] 2.4 Tabs with tablist roles and arrow keys, plus the server-compatible link variant (`hrefFor`); verify the keyboard and link-tabs scenario tests pass
-- [ ] 2.5 Badge, Card (`loading`), PriceTag, Result, Descriptions, Statistic (`loading`), Stepper (`aria-current`) on Tier 2/3 tokens; verify their tests pass and the token lint is clean
+- [x] 2.5 Badge, Card (`loading`), PriceTag, Result, Descriptions, Statistic (`loading`), Stepper (`aria-current`) on Tier 2/3 tokens; verify their tests pass and the token lint is clean
 
 ## 3. Code — team-frontend: new components
 

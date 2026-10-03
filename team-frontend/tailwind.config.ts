@@ -48,6 +48,9 @@ const accent = {
   promo: "#ffbe00",
   "promo-light": "#ffe97a",
   success: "#00bfa5",
+  // Text-safe shades of promo / success for copy on their own 10% tints (WCAG AA on white).
+  "promo-dark": "#8a5a00",
+  "success-dark": "#007a69",
 };
 
 // Type scale is limited to 12 / 14 / 16 / 20 / 24 px. Tailwind's larger step
