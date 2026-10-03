@@ -127,7 +127,7 @@ export function SellerAnalyticsMock() {
                 key={col.day}
                 className="flex-1 flex flex-col items-center gap-2 h-full justify-end group"
               >
-                <span className="text-[11px] font-bold text-slate-600 group-hover:text-primary transition-colors">
+                <span className="text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">
                   {col.val}M
                 </span>
                 <div
