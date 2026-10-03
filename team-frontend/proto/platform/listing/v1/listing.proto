@@ -38,6 +38,9 @@ service ListingService {
   rpc UpsertStorefront(UpsertStorefrontRequest) returns (UpsertStorefrontResponse);
   // GetStorefront fetches a storefront by seller_id or slug.
   rpc GetStorefront(GetStorefrontRequest) returns (GetStorefrontResponse);
+  // BatchGetStorefronts resolves shop display names for up to 100 seller ids in one call.
+  // Unknown sellers are omitted from the response; duplicates are ignored.
+  rpc BatchGetStorefronts(BatchGetStorefrontsRequest) returns (BatchGetStorefrontsResponse);
 
   // ── Listing Bundles ──
   // A bundle groups several of a seller's listings for a single bundle price.
@@ -94,6 +97,8 @@ message Storefront {
   repeated string featured_listing_ids = 5;
   // Visual theme key (e.g. "default", "dark", "festive").
   string theme = 6;
+  // Seller-chosen public shop name. Trimmed; 1-80 characters when set; empty = unset.
+  string display_name = 7;
 }
 
 message UpsertStorefrontRequest {
@@ -112,6 +117,22 @@ message GetStorefrontRequest {
 
 message GetStorefrontResponse {
   Storefront storefront = 1;
+}
+
+// Compact public view of a shop, used for name lookups.
+message ShopSummary {
+  string seller_id = 1;
+  string display_name = 2;
+  string slug = 3;
+}
+
+message BatchGetStorefrontsRequest {
+  // Max 100 ids; more fails with INVALID_ARGUMENT.
+  repeated string seller_ids = 1;
+}
+
+message BatchGetStorefrontsResponse {
+  repeated ShopSummary shops = 1;
 }
 
 message Variant {
