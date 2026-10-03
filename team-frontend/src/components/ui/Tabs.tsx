@@ -1,11 +1,15 @@
-"use client";
-
-import React, { useState } from "react";
+import Link from "next/link";
+import React from "react";
+import { TabsClient } from "./TabsClient";
+import { type TabsVariant, tabBadge, tabStyles } from "./tabStyles";
 
 export interface TabItem {
   id: string;
   label: string;
   badge?: string | number;
+  /** Panel content (client variant only); renders a role="tabpanel" for this tab. */
+  content?: React.ReactNode;
+  disabled?: boolean;
 }
 
 export interface TabsProps {
@@ -13,10 +17,24 @@ export interface TabsProps {
   activeId?: string;
   defaultActiveId?: string;
   onChange?: (id: string) => void;
-  variant?: "underline" | "pills";
+  variant?: TabsVariant;
   className?: string;
+  /**
+   * Link variant: when given, every tab is a link to `hrefFor(id)` and the tab
+   * state lives in the URL (searchParams). Rendered without client JavaScript,
+   * so it can be used from a server component; `activeId` marks the current
+   * tab with `aria-current="page"`. `onChange`, `defaultActiveId` and
+   * `content` do not apply to this variant.
+   */
+  hrefFor?: (id: string) => string;
 }
 
+/**
+ * Ant Design `Tabs`. With `hrefFor` it is a server-compatible navigation list;
+ * without it, a client island (TabsClient) with arrow-key navigation.
+ * This file intentionally has no "use client" so the link variant can receive
+ * the `hrefFor` function from a server component.
+ */
 export function Tabs({
   items,
   activeId,
@@ -24,86 +42,59 @@ export function Tabs({
   onChange,
   variant = "underline",
   className = "",
+  hrefFor,
 }: TabsProps) {
-  const [internalActive, setInternalActive] = useState(
-    activeId || defaultActiveId || items[0]?.id || "",
-  );
-
-  const currentActive = activeId !== undefined ? activeId : internalActive;
-
-  const handleSelect = (id: string) => {
-    setInternalActive(id);
-    onChange?.(id);
-  };
-
-  if (variant === "pills") {
+  if (!hrefFor) {
     return (
-      <div className={`flex gap-1.5 p-1 bg-gray-100 rounded-lg ${className}`}>
-        {items.map((tab) => {
-          const isActive = tab.id === currentActive;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleSelect(tab.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition cursor-pointer flex items-center gap-1.5 ${
-                isActive
-                  ? "bg-white text-gray-900 shadow-2xs font-semibold"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && (
-                <span
-                  className={`text-xs px-1.5 py-0.2 rounded-full ${
-                    isActive
-                      ? "bg-primary-50 text-primary-600"
-                      : "bg-gray-200 text-gray-600"
-                  }`}
-                >
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <TabsClient
+        items={items}
+        activeId={activeId}
+        defaultActiveId={defaultActiveId}
+        onChange={onChange}
+        variant={variant}
+        className={className}
+      />
     );
   }
 
-  // Underline variant
-  return (
-    <div className={`border-b border-gray-200 ${className}`}>
-      <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+  const styles = tabStyles[variant];
+  const nav = (
+    <nav aria-label="Tabs">
+      <ul className={styles.list}>
         {items.map((tab) => {
-          const isActive = tab.id === currentActive;
+          const isActive = tab.id === activeId;
           return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleSelect(tab.id)}
-              className={`py-3 px-1 border-b-2 font-medium text-xs whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                isActive
-                  ? "border-primary-500 text-primary-600 font-semibold"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && (
-                <span
-                  className={`text-xs px-1.5 py-0.2 rounded-full ${
-                    isActive
-                      ? "bg-primary-100 text-primary-600 font-bold"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {tab.badge}
-                </span>
-              )}
-            </button>
+            <li key={tab.id}>
+              <Link
+                href={hrefFor(tab.id)}
+                aria-current={isActive ? "page" : undefined}
+                className={`${styles.tab} ${isActive ? styles.active : styles.inactive}`}
+              >
+                <span>{tab.label}</span>
+                {tab.badge !== undefined && (
+                  <span
+                    className={`${tabBadge} ${
+                      isActive ? styles.badgeActive : styles.badgeInactive
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </Link>
+            </li>
           );
         })}
-      </nav>
+      </ul>
+    </nav>
+  );
+
+  return (
+    <div className={className}>
+      {variant === "underline" ? (
+        <div className="border-b border-border-subtle">{nav}</div>
+      ) : (
+        nav
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useId } from "react";
+import { useDialog } from "./useDialog";
 
 export interface ModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export interface ModalProps {
   size?: "sm" | "md" | "lg" | "xl";
 }
 
+// Tier 3: component tokens.
 const sizeClasses = {
   sm: "max-w-md",
   md: "max-w-lg",
@@ -19,6 +21,14 @@ const sizeClasses = {
   xl: "max-w-4xl",
 };
 
+const closeFocus =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
+
+/**
+ * Ant Design `Modal`. Native `<dialog open>` carries the implicit dialog role;
+ * `aria-modal` + `aria-labelledby` the title. Focus is trapped, Escape closes
+ * and focus returns to the opener (useDialog).
+ */
 export function Modal({
   isOpen,
   onClose,
@@ -28,26 +38,14 @@ export function Modal({
   footer,
   size = "md",
 }: ModalProps) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useDialog<HTMLDialogElement>({ open: isOpen, onClose });
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/50 backdrop-blur-xs flex items-center justify-center p-4">
       <button
         type="button"
         className="fixed inset-0 cursor-default"
@@ -57,27 +55,39 @@ export function Modal({
       />
 
       <dialog
+        ref={dialogRef}
         open
         aria-modal="true"
-        className={`relative m-0 block p-0 w-full ${sizeClasses[size]} bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all z-10`}
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : "Hộp thoại"}
+        aria-describedby={description ? descriptionId : undefined}
+        className={`relative m-0 block p-0 w-full ${sizeClasses[size]} bg-surface-card text-text-primary rounded-2xl shadow-2xl border border-border-subtle overflow-hidden z-10`}
       >
         {/* Header */}
         {(title || description) && (
-          <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between">
+          <div className="px-6 py-4 border-b border-border-subtle flex items-start justify-between">
             <div>
               {title && (
-                <h3 className="text-base font-semibold text-gray-900 leading-tight">
+                <h3
+                  id={titleId}
+                  className="text-base font-semibold text-text-primary leading-tight"
+                >
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="text-xs text-gray-500 mt-1">{description}</p>
+                <p
+                  id={descriptionId}
+                  className="text-xs text-text-secondary mt-1"
+                >
+                  {description}
+                </p>
               )}
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 rounded-lg p-1.5 hover:bg-gray-100 transition cursor-pointer -mr-2"
+              className={`text-text-disabled hover:text-text-secondary rounded-lg p-1.5 hover:bg-surface-page transition duration-150 cursor-pointer -mr-2 ${closeFocus}`}
               aria-label="Đóng"
             >
               <svg
@@ -85,8 +95,8 @@ export function Modal({
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                aria-hidden="true"
               >
-                <title>Đóng</title>
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -103,7 +113,7 @@ export function Modal({
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2.5">
+          <div className="px-6 py-3.5 bg-surface-muted border-t border-border-subtle flex items-center justify-end gap-2.5">
             {footer}
           </div>
         )}
