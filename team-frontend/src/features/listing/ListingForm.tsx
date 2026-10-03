@@ -215,13 +215,13 @@ export function ListingForm({
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(idx)}
-                    className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-[10px] text-white opacity-90 shadow-sm transition hover:bg-red-700"
+                    className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-xs text-white opacity-90 shadow-sm transition hover:bg-red-700"
                     title="Xóa ảnh"
                   >
                     ✕
                   </button>
                   {idx === 0 && (
-                    <span className="absolute bottom-1 left-1 rounded bg-brand px-1.5 py-0.2 text-[9px] font-bold text-white uppercase">
+                    <span className="absolute bottom-1 left-1 rounded bg-brand px-1.5 py-0.2 text-xs font-bold text-white uppercase">
                       Ảnh bìa
                     </span>
                   )}

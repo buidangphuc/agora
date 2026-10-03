@@ -24,7 +24,7 @@ function AnswerForm({
         type="button"
         data-testid="qa-answer-toggle"
         onClick={() => setOpen(true)}
-        className="mt-1 text-[11px] font-medium text-brand hover:underline"
+        className="mt-1 text-xs font-medium text-brand hover:underline"
       >
         + Trả lời (Shop)
       </button>
@@ -62,20 +62,20 @@ function AnswerForm({
         placeholder="Nhập câu trả lời của shop…"
         className="w-full rounded-lg border border-gray-300 p-2 text-xs text-gray-900 focus:border-brand focus:outline-hidden"
       />
-      {error && <p className="text-[11px] text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           type="button"
           onClick={submit}
           disabled={pending}
-          className="rounded-lg bg-brand px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
+          className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
         >
           {pending ? "Đang gửi..." : "Gửi trả lời"}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded-lg border px-3 py-1.5 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
         >
           Hủy
         </button>
@@ -105,7 +105,7 @@ function QuestionItem({ question }: { question: ViewQuestion }) {
           <span>
             {a.answerText}
             {a.isShopReply && (
-              <span className="ml-1.5 inline-flex items-center rounded-2xs bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+              <span className="ml-1.5 inline-flex items-center rounded-2xs bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700">
                 Shop
               </span>
             )}
@@ -167,8 +167,8 @@ export function QASection({
             placeholder="Đặt câu hỏi cho shop về sản phẩm này…"
             className="w-full rounded-lg border border-gray-300 p-2.5 text-xs text-gray-900 focus:border-brand focus:outline-hidden"
           />
-          {error && <p className="text-[11px] text-red-600">{error}</p>}
-          {ok && <p className="text-[11px] text-emerald-600">{ok}</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          {ok && <p className="text-xs text-emerald-600">{ok}</p>}
           <button
             type="button"
             onClick={ask}

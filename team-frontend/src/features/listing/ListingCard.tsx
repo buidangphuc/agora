@@ -101,7 +101,7 @@ export function ListingCard({
         {/* ── Card Content ── */}
         <div className="flex flex-1 flex-col p-3">
           {/* Title */}
-          <h3 className="line-clamp-2 text-xs font-normal text-gray-800 leading-snug group-hover:text-primary-600 transition min-h-[34px]">
+          <h3 className="line-clamp-2 text-xs font-normal text-gray-800 leading-snug group-hover:text-primary-600 transition min-h-9">
             <TrackLink listingId={listing.id} href={`/listing/${listing.id}`}>
               {listing.title}
             </TrackLink>
@@ -130,16 +130,14 @@ export function ListingCard({
           <div className="mt-auto flex items-center justify-between pt-2.5 text-xs text-gray-500 border-t border-gray-100">
             <div className="flex items-center gap-1">
               <span className="text-amber-400 text-xs">★</span>
-              <span className="text-gray-700 font-semibold text-[11px]">
-                5.0
-              </span>
+              <span className="text-gray-700 font-semibold text-xs">5.0</span>
             </div>
-            <span className="text-gray-400 text-[11px]">
+            <span className="text-gray-400 text-xs">
               {formatSoldCount(soldCount)}
             </span>
           </div>
 
-          <div className="mt-1 text-right text-[11px] text-gray-400">
+          <div className="mt-1 text-right text-xs text-gray-400">
             TP. Hồ Chí Minh
           </div>
         </div>

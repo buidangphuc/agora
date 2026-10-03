@@ -54,7 +54,7 @@ export function ShareButton({ id }: { id: string }) {
             : "🔗 Chia sẻ"}
       </button>
       {shortCode && (
-        <span className="max-w-[180px] truncate font-mono text-[11px] text-gray-400">
+        <span className="max-w-44 truncate font-mono text-xs text-gray-400">
           {shareLink()}
         </span>
       )}

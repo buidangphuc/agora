@@ -121,7 +121,7 @@ export function VariantSelector({
                 >
                   <span>{v.name}</span>
                   {out && (
-                    <span className="ml-1.5 rounded bg-gray-100 px-1 py-0.2 text-[10px] text-gray-500">
+                    <span className="ml-1.5 rounded bg-gray-100 px-1 py-0.2 text-xs text-gray-500">
                       Hết hàng
                     </span>
                   )}
