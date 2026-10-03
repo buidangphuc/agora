@@ -88,7 +88,7 @@ export default function SellerOrderDetailPage({
             <div className="text-lg font-black text-slate-900 tracking-wider font-mono">
               {trackingNumber}
             </div>
-            <div className="inline-block mt-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold rounded">
+            <div className="inline-block mt-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold rounded">
               {status}
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function SellerOrderDetailPage({
         {/* Sender and Receiver */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase">
+            <div className="text-xs font-bold text-slate-400 uppercase">
               Người Gửi (Shop):
             </div>
             <div className="text-xs font-bold text-slate-900 mt-1">
@@ -109,7 +109,7 @@ export default function SellerOrderDetailPage({
             <div className="text-xs text-slate-600">Hotline: 1900 1599</div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase">
+            <div className="text-xs font-bold text-slate-400 uppercase">
               Người Nhận:
             </div>
             <div className="text-xs font-bold text-slate-900 mt-1">

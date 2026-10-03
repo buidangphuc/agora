@@ -141,11 +141,11 @@ export default async function ProductDetailPage({
               />
               <div className="absolute top-2 left-2 z-10">
                 {isMall ? (
-                  <span className="rounded-2xs bg-[#d0011b] px-2 py-0.5 text-[10px] font-black text-white uppercase shadow-xs">
+                  <span className="rounded-2xs bg-danger px-2 py-0.5 text-xs font-black text-white uppercase shadow-xs">
                     Chính Hãng
                   </span>
                 ) : (
-                  <span className="rounded-2xs bg-brand px-2 py-0.5 text-[10px] font-bold text-white uppercase shadow-xs">
+                  <span className="rounded-2xs bg-brand px-2 py-0.5 text-xs font-bold text-white uppercase shadow-xs">
                     Yêu thích+
                   </span>
                 )}
@@ -180,7 +180,7 @@ export default async function ProductDetailPage({
             {/* Title */}
             <h1 className="text-lg sm:text-xl font-medium text-gray-900 leading-snug">
               {isMall && (
-                <span className="mr-2 inline-block rounded-2xs bg-[#d0011b] px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+                <span className="mr-2 inline-block rounded-2xs bg-danger px-1.5 py-0.5 text-xs font-bold text-white uppercase">
                   Mall
                 </span>
               )}
@@ -210,14 +210,14 @@ export default async function ProductDetailPage({
             </div>
 
             {/* Price Box */}
-            <div className="rounded-xs bg-[#fafafa] p-4 flex items-center gap-4 flex-wrap">
+            <div className="rounded-xs bg-surface-muted p-4 flex items-center gap-4 flex-wrap">
               <span className="text-xs text-gray-400 line-through">
                 {formatPrice(originalPrice, listing.currency)}
               </span>
               <span className="text-2xl sm:text-3xl font-bold text-brand">
                 {formatPrice(listing.price, listing.currency)}
               </span>
-              <span className="rounded-2xs bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+              <span className="rounded-2xs bg-brand px-1.5 py-0.5 text-xs font-bold text-white uppercase">
                 20% GIẢM
               </span>
             </div>
@@ -254,7 +254,7 @@ export default async function ProductDetailPage({
                     <span>🚚</span>
                     <span>Miễn phí vận chuyển cho đơn hàng từ 0Đ</span>
                   </p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
+                  <p className="text-xs text-gray-400 mt-0.5">
                     Giao hàng nhanh bởi SPX Express (1-2 ngày)
                   </p>
                 </div>
@@ -309,7 +309,7 @@ export default async function ProductDetailPage({
             </div>
 
             {/* Guarantee Assurance */}
-            <div className="flex items-center gap-6 border-t pt-3 text-[11px] text-gray-500">
+            <div className="flex items-center gap-6 border-t pt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1 text-brand font-medium">
                 <span>🛡️</span>
                 <span>Đảm Bảo Hoàn Tiền</span>
@@ -330,7 +330,7 @@ export default async function ProductDetailPage({
           <div>
             <h3 className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
               <span>Official Store Partner</span>
-              <span className="rounded-2xs bg-[#d0011b] px-1 py-0.2 text-[9px] font-bold text-white uppercase">
+              <span className="rounded-2xs bg-danger px-1 py-0.2 text-xs font-bold text-white uppercase">
                 Mall
               </span>
             </h3>
@@ -369,7 +369,7 @@ export default async function ProductDetailPage({
 
       {/* ── Product Description & Details ── */}
       <div className="rounded-xs bg-white p-6 shadow-2xs space-y-4">
-        <h2 className="rounded-xs bg-[#fafafa] p-3 text-xs font-bold uppercase tracking-wider text-gray-800">
+        <h2 className="rounded-xs bg-surface-muted p-3 text-xs font-bold uppercase tracking-wider text-gray-800">
           CHI TIẾT SẢN PHẨM
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-600 px-3">
@@ -395,7 +395,7 @@ export default async function ProductDetailPage({
           </div>
         </div>
 
-        <h2 className="rounded-xs bg-[#fafafa] p-3 text-xs font-bold uppercase tracking-wider text-gray-800 mt-6">
+        <h2 className="rounded-xs bg-surface-muted p-3 text-xs font-bold uppercase tracking-wider text-gray-800 mt-6">
           MÔ TẢ SẢN PHẨM
         </h2>
         <div className="px-3 text-xs text-gray-700 leading-relaxed whitespace-pre-line">

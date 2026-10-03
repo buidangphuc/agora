@@ -158,7 +158,7 @@ export default async function SearchPage({
               )}
               <Link
                 href="/search"
-                className="text-[11px] text-gray-400 underline hover:text-emerald-700 ml-2"
+                className="text-xs text-gray-400 underline hover:text-emerald-700 ml-2"
               >
                 Xóa tất cả bộ lọc
               </Link>

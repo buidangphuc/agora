@@ -102,7 +102,7 @@ export default async function SellerPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-gray-100 bg-gray-50/50 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+              <thead className="border-b border-gray-100 bg-gray-50/50 text-xs font-semibold uppercase tracking-wider text-gray-500">
                 <tr>
                   <th className="px-6 py-3.5">Tên sản phẩm</th>
                   <th className="px-6 py-3.5">Giá bán</th>
@@ -144,7 +144,7 @@ export default async function SellerPage() {
                             >
                               {l.title}
                             </Link>
-                            <p className="text-[10px] text-gray-400 mt-0.5">
+                            <p className="text-xs text-gray-400 mt-0.5">
                               SKU: #{l.id.slice(0, 8)}
                             </p>
                           </div>

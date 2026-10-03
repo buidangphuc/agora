@@ -41,7 +41,7 @@ export default async function SellerWalletPage() {
           </div>
         ) : (
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-semibold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-5 py-3">Loại</th>
                 <th className="px-5 py-3">Số tiền</th>

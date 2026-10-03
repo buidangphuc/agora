@@ -21,7 +21,7 @@ async function AuthNav() {
   const principal = getPrincipal();
   if (!principal) {
     return (
-      <div className="flex items-center gap-3 text-[13px] text-white whitespace-nowrap">
+      <div className="flex items-center gap-3 text-sm text-white whitespace-nowrap">
         <Link
           href="/register"
           className="hover:text-white/80 font-medium transition"
@@ -40,7 +40,7 @@ async function AuthNav() {
   }
 
   return (
-    <div className="flex items-center gap-3 text-[13px] text-white whitespace-nowrap">
+    <div className="flex items-center gap-3 text-sm text-white whitespace-nowrap">
       <Link href="/account/orders" className="hover:text-white/80 transition">
         Đơn Mua
       </Link>
@@ -68,10 +68,10 @@ async function AuthNav() {
       </Link>
       <span className="text-white/30">|</span>
       <div className="flex items-center gap-1.5 font-semibold">
-        <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-[10px] text-white">
+        <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs text-white">
           👤
         </div>
-        <span className="max-w-[120px] truncate">{principal.name}</span>
+        <span className="max-w-32 truncate">{principal.name}</span>
       </div>
       <form action={logoutAction} className="inline">
         <button
@@ -98,8 +98,8 @@ export default async function RootLayout({
             {/* ── Signature Gradient Header ── */}
             <header className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-white sticky top-0 z-30 shadow-md">
               {/* 1. Top Utility Navigation Bar */}
-              <div className="text-[13px] py-1.5 border-b border-white/10">
-                <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4">
+              <div className="text-sm py-1.5 border-b border-white/10">
+                <div className="mx-auto flex max-w-page items-center justify-between px-4">
                   {/* Left Side Links */}
                   <div className="flex items-center gap-3 text-white/90 whitespace-nowrap">
                     <Link
@@ -219,7 +219,7 @@ export default async function RootLayout({
               </div>
 
               {/* 2. Main Search & Brand Bar */}
-              <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-8 px-4 pt-3.5 pb-2.5">
+              <div className="mx-auto flex max-w-page items-center justify-between gap-8 px-4 pt-3.5 pb-2.5">
                 {/* Logo */}
                 <Link
                   href="/"
@@ -232,7 +232,7 @@ export default async function RootLayout({
                     <span className="font-black text-2xl tracking-tight leading-none">
                       Marketplace
                     </span>
-                    <span className="text-[10px] font-bold tracking-wider text-yellow-200 uppercase mt-0.5">
+                    <span className="text-xs font-bold tracking-wider text-yellow-200 uppercase mt-0.5">
                       AI Polyrepo Platform
                     </span>
                   </div>
@@ -260,7 +260,7 @@ export default async function RootLayout({
                     <path d="M10 19.5c0 .829-.672 1.5-1.5 1.5s-1.5-.671-1.5-1.5c0-.828.672-1.5 1.5-1.5s1.5.672 1.5 1.5zm3.5-1.5c-.828 0-1.5.671-1.5 1.5s.672 1.5 1.5 1.5 1.5-.671 1.5-1.5c0-.828-.672-1.5-1.5-1.5zm1.33-2l.9-5h-10.33l-.4-2h-2v2h1.24l1.6 8h10.45l-.46-3zm-1.83-6l-.54 3h-8.06l-.6-3h9.2z" />
                   </svg>
                   {cart.totalItems > 0 && (
-                    <span className="absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[11px] font-black text-brand shadow-md">
+                    <span className="absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-xs font-black text-brand shadow-md">
                       {cart.totalItems}
                     </span>
                   )}
@@ -270,10 +270,10 @@ export default async function RootLayout({
 
             {/* ── Architectural & Educational Disclaimer Banner ── */}
             <div className="bg-amber-50 border-b border-amber-200 text-slate-800 text-xs py-2.5 px-4 shadow-xs">
-              <div className="mx-auto max-w-[1200px] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="mx-auto max-w-page flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-start sm:items-center gap-2.5">
                   <span className="text-base leading-none">💡</span>
-                  <span className="text-[12px] text-slate-700 leading-relaxed">
+                  <span className="text-xs text-slate-700 leading-relaxed">
                     <strong className="text-amber-950 font-bold">
                       Tuyên bố đồ án & nghiên cứu kiến trúc:
                     </strong>{" "}
@@ -291,14 +291,14 @@ export default async function RootLayout({
                     .
                   </span>
                 </div>
-                <span className="inline-block self-start sm:self-auto text-[10px] bg-amber-200/90 text-amber-950 font-bold px-2 py-0.5 rounded uppercase tracking-wider shrink-0">
+                <span className="inline-block self-start sm:self-auto text-xs bg-amber-200/90 text-amber-950 font-bold px-2 py-0.5 rounded uppercase tracking-wider shrink-0">
                   Polyrepo Showcase
                 </span>
               </div>
             </div>
 
             {/* ── Main Content Area ── */}
-            <main className="mx-auto max-w-[1200px] px-4 py-5 flex-1 w-full">
+            <main className="mx-auto max-w-page px-4 py-5 flex-1 w-full">
               {children}
             </main>
 
@@ -307,7 +307,7 @@ export default async function RootLayout({
 
             {/* ── Footer ── */}
             <footer className="mt-16 border-t-4 border-brand bg-white text-gray-600 text-xs">
-              <div className="mx-auto max-w-[1200px] px-4 py-10 grid grid-cols-2 md:grid-cols-5 gap-8">
+              <div className="mx-auto max-w-page px-4 py-10 grid grid-cols-2 md:grid-cols-5 gap-8">
                 <div>
                   <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
                     CHĂM SÓC KHÁCH HÀNG
@@ -373,7 +373,7 @@ export default async function RootLayout({
                   <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
                     THANH TOÁN
                   </h4>
-                  <div className="grid grid-cols-3 gap-2 text-gray-600 text-[11px] font-medium">
+                  <div className="grid grid-cols-3 gap-2 text-gray-600 text-xs font-medium">
                     <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs font-bold">
                       VietQR
                     </span>
@@ -399,7 +399,7 @@ export default async function RootLayout({
                   <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
                     ĐƠN VỊ VẬN CHUYỂN
                   </h4>
-                  <div className="grid grid-cols-2 gap-2 text-gray-600 text-[11px] font-medium">
+                  <div className="grid grid-cols-2 gap-2 text-gray-600 text-xs font-medium">
                     <span className="p-1.5 border border-gray-200 rounded bg-white text-center font-bold text-brand shadow-2xs">
                       SPX Express
                     </span>
@@ -419,7 +419,7 @@ export default async function RootLayout({
                   <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
                     KIẾN TRÚC HỆ THỐNG
                   </h4>
-                  <div className="space-y-1.5 text-gray-500 text-[11px]">
+                  <div className="space-y-1.5 text-gray-500 text-xs">
                     <p className="font-bold text-slate-800">
                       Polyrepo Microservices
                     </p>
@@ -431,7 +431,7 @@ export default async function RootLayout({
                 </div>
               </div>
 
-              <div className="border-t bg-gray-50 py-6 text-center text-gray-500 text-[11px] space-y-1">
+              <div className="border-t bg-gray-50 py-6 text-center text-gray-500 text-xs space-y-1">
                 <p>
                   © 2026 Marketplace Showcase Polyrepo. Xây dựng phục vụ mục
                   đích học tập & nghiên cứu kiến trúc hệ thống.

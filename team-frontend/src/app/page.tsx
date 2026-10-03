@@ -174,7 +174,7 @@ export default async function HomePage() {
 
           <div className="rounded-2xl bg-gradient-to-r from-amber-500 to-primary-500 p-5 text-white flex flex-col justify-between shadow-preline-card relative overflow-hidden">
             <div className="relative z-10">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white/90">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-white/90">
                 Siêu Hội Hoàn Xu
               </span>
               <h3 className="font-bold text-base mt-1 leading-snug">
@@ -209,7 +209,7 @@ export default async function HomePage() {
               >
                 <span>{hub.icon}</span>
                 {hub.badge && (
-                  <span className="absolute -top-1.5 -right-2 rounded-full bg-red-600 px-1.5 py-0.2 text-[9px] font-black text-white shadow-2xs">
+                  <span className="absolute -top-1.5 -right-2 rounded-full bg-red-600 px-1.5 py-0.2 text-xs font-black text-white shadow-2xs">
                     {hub.badge}
                   </span>
                 )}
@@ -310,12 +310,12 @@ export default async function HomePage() {
                   />
 
                   {/* Flame progress bar */}
-                  <div className="relative mt-2 h-3.5 w-full rounded-full bg-orange-100 overflow-hidden text-[9px] font-black text-white flex items-center justify-center">
+                  <div className="relative mt-2 h-3.5 w-full rounded-full bg-orange-100 overflow-hidden text-xs font-black text-white flex items-center justify-center">
                     <div
                       className="absolute left-0 top-0 h-full bg-gradient-to-r from-red-600 to-primary-500 rounded-full"
                       style={{ width: "82%" }}
                     />
-                    <span className="relative z-10 text-[9px] uppercase tracking-wider drop-shadow-xs">
+                    <span className="relative z-10 text-xs uppercase tracking-wider drop-shadow-xs">
                       🔥 ĐÃ BÁN 82%
                     </span>
                   </div>

@@ -38,7 +38,7 @@ export default function SellerLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row -mx-4 -my-5 p-4 lg:p-6 min-h-[calc(100vh-140px)] bg-gray-50/60">
+    <div className="flex flex-col gap-6 lg:flex-row -mx-4 -my-5 p-4 lg:p-6 min-h-viewport-main bg-gray-50/60">
       {/* ── Seller Sidebar Navigation ── */}
       <aside className="w-full lg:w-64 shrink-0 space-y-4">
         {/* Shop Info Card */}
@@ -74,7 +74,7 @@ export default function SellerLayout({ children }: { children: ReactNode }) {
 
         {/* Navigation Menu */}
         <Card className="rounded-2xl p-3 border-gray-200/80 shadow-preline-card">
-          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          <div className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
             Quản Lý Gian Hàng
           </div>
           <nav className="space-y-1 mt-1 text-xs">
