@@ -178,6 +178,234 @@ features:
       The cart view has no per-shop group header yet; the header assertion lands with the
       ui-phase cart grouping. "Exactly one call" is covered by Vitest (cart.test.ts).
 
+  - id: cart.grouped-by-shop
+    title: Cart groups items by shop with the real shop name
+    persona: buyer
+    priority: P1
+    summary: /cart renders one card per seller whose header shows the shop display name (id fallback only when the name is empty).
+    entry_route: /cart
+    related_routes: ["/shop/{id}"]
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsSeller
+      data: Two sellers with display names, one published listing each, both in the buyer's cart.
+    api:
+      seed: [listing.v1.UpsertStorefront, order.v1.AddToCart]
+      exercised: [order.v1.GetCart, listing.v1.BatchGetStorefronts]
+    ui:
+      key_elements:
+        shop_group: "testid:cart-shop-group"
+    acceptance:
+      - Given a buyer's cart holds items from sellers "Shop Alpha" and "Shop Beta"
+      - When the buyer opens the cart
+      - Then two shop groups are shown, each headed by its real shop name and not "Shop #"
+    tags: [buyer, cart, shop]
+    status: planned
+    covered_by: null
+
+  - id: cart.voucher-modal
+    title: Voucher selection through the VoucherModal
+    persona: buyer
+    priority: P1
+    summary: The voucher selector opens a modal; a valid code applies a server-previewed discount, an invalid one shows its reason in the form.
+    entry_route: /checkout
+    related_routes: ["/cart"]
+    services: [team-frontend, team-gateway, team-promotion, team-order]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address (promo seeding).
+    api:
+      exercised: [promotion.v1.ValidateAndReserve]
+    ui:
+      key_elements:
+        discount_row: "testid:voucher-discount"
+        total_row: "testid:order-total"
+    acceptance:
+      - Given a buyer has a qualifying cart and a saved address
+      - When the buyer applies the voucher code "SAVE10" on the Thanh toán step
+      - Then the discount row shows the server amount and the total is reduced
+      - When the buyer applies the voucher code "BOGUS-NOPE-999"
+      - Then the modal shows the reason and no discount is applied
+    tags: [buyer, promo]
+    status: planned
+    covered_by: null
+    notes: Driven by the updated steps of promo/vouchers.feature (voucher moved into the modal on the Thanh toán step).
+
+  - id: checkout.step-form
+    title: Four-step checkout with URL-driven state
+    persona: buyer
+    priority: P0
+    summary: /checkout is a Địa chỉ, Vận chuyển, Thanh toán, Xác nhận wizard in a distraction-free shell; the step is in ?step=.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-identity]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address (promo seeding).
+    ui:
+      key_elements:
+        stepper: "role:navigation=Progress"
+        continue: "role:link=Tiếp tục"
+    acceptance:
+      - Given a buyer has a cart and a saved address
+      - When the buyer opens the checkout page
+      - Then the stepper is shown and the global search is not
+      - When the buyer continues to the Vận chuyển step and reloads
+      - Then the URL has step=shipping and the Vận chuyển step is still current
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: checkout.address-selector
+    title: Address selection in a modal
+    persona: buyer
+    priority: P1
+    summary: The Địa chỉ step shows the selected address and lets the buyer pick another in a modal, which updates ?addr=.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+      data: Two saved addresses.
+    ui:
+      key_elements:
+        change_address: "role:button=Thay đổi"
+    acceptance:
+      - Given a buyer has two saved addresses
+      - When the buyer opens the checkout page and changes the address in the modal
+      - Then the address card shows the new recipient and the URL addr is the chosen id
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: checkout.payment-options
+    title: Payment method one-of-many, keyboard operable
+    persona: buyer
+    priority: P1
+    summary: The Thanh toán step renders payment methods as radio cards; arrow keys move the single selection and ?pay= follows it.
+    entry_route: /checkout
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address.
+    ui:
+      key_elements:
+        payment_radio: "css:input[name=paymentMethod]"
+    acceptance:
+      - Given the buyer is on the Thanh toán step
+      - When the buyer presses the Down arrow on the selected method
+      - Then exactly one method is selected and the URL pay parameter follows it
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: checkout.double-submit-guard
+    title: Place order cannot create two orders
+    persona: buyer
+    priority: P0
+    summary: Double-clicking Đặt hàng calls the order action once and creates exactly one order.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ListBuyerOrders]
+    ui:
+      key_elements:
+        place_order: "role:button=Đặt hàng"
+    acceptance:
+      - Given the buyer is on the Xác nhận step
+      - When the buyer double-clicks Đặt hàng
+      - Then exactly one order exists for the buyer
+    tags: [buyer, checkout, order]
+    status: planned
+    covered_by: null
+    notes: The same-tick guarantee and the single purchase event are covered by Vitest (PlaceOrderForm.test.tsx).
+
+  - id: checkout.saga-failure-alert
+    title: Order failure shown as a recoverable alert
+    persona: buyer
+    priority: P1
+    summary: A failed order (for example out of stock) shows an error Alert with retry and back-to-cart, without moving the order button or changing the cart.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Another buyer has exhausted the listing stock.
+    ui:
+      key_elements:
+        alert_slot: "testid:saga-alert-slot"
+    acceptance:
+      - Given another buyer exhausts the listing stock
+      - When the buyer places the order from the Xác nhận step
+      - Then an error alert with Thử lại and Quay lại giỏ hàng is shown
+      - And the order button is enabled again, did not move, and the cart is unchanged
+    tags: [buyer, checkout, order]
+    status: planned
+    covered_by: null
+
+  - id: payment.result-outcomes
+    title: Payment outcome shown as a Result
+    persona: buyer
+    priority: P1
+    summary: /checkout/pay/[id] shows the order summary and the mock simulator, then a success or error Result with recovery links.
+    entry_route: /checkout/pay/{order_id}
+    related_routes: ["/account/orders"]
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+      data: Order with a pending mock payment transaction.
+    api:
+      seed: [payment.v1.CreatePayment]
+      exercised: [payment.v1.ProcessMockPayment]
+    acceptance:
+      - Given a buyer has an order awaiting mock payment
+      - When the buyer presses "Thanh toán thành công"
+      - Then a success Result links to the order list
+      - When the buyer presses "Thanh toán thất bại" on another order
+      - Then an error Result offers Thử lại and Đổi phương thức
+    tags: [buyer, payment]
+    status: planned
+    covered_by: null
+    notes: The cancelled-by-saga Alert and the 404 Result are covered by Vitest (page.test.tsx).
+
+  - id: checkout.tracking-events
+    title: Purchase path keeps its analytics events
+    persona: buyer
+    priority: P1
+    summary: begin_checkout fires once per checkout entry, apply_promotion on a voucher preview and purchase once after the order, with unchanged payloads.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-promotion]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address (promo seeding).
+    acceptance:
+      - Given a buyer applies the voucher code "SAVE10" and places the order
+      - Then the page dataLayer holds exactly one begin_checkout, at least one apply_promotion and exactly one purchase
+    tags: [buyer, checkout, tracking]
+    status: planned
+    covered_by: null
+    notes: Event names and payloads are also covered by Vitest (BeginCheckoutBeacon, VoucherModal, PlaceOrderForm tests).
+
+  - id: cart.mobile-layout
+    title: Cart fits a 375px viewport
+    persona: buyer
+    priority: P2
+    summary: At 375px the cart is one column with no horizontal scroll; the quantity control and Mua hàng stay reachable.
+    entry_route: /cart
+    services: [team-frontend, team-order]
+    preconditions:
+      login: buyer
+      data: Cart with an item.
+    acceptance:
+      - Given a buyer has an item in the cart
+      - When the buyer opens the cart at 375px width
+      - Then there is no horizontal overflow and the quantity control and Mua hàng are visible
+    tags: [buyer, cart]
+    status: planned
+    covered_by: null
+
   - id: following.shop-names
     title: Following list shows shop names
     persona: buyer

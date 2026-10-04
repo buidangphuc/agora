@@ -17,6 +17,10 @@ class OrderService(BaseService):
     def get_order(self, order_id: str) -> dict[str, Any]:
         return self.post(ep.ORDER_GET, {"id": order_id})
 
+    def list_buyer_orders(self) -> dict[str, Any]:
+        """The authenticated buyer's orders (response key ``orders``)."""
+        return self.post(ep.ORDER_LIST_BUYER, {})
+
     def get_saga_state(self, order_id: str) -> dict[str, Any]:
         return self.post(ep.ORDER_SAGA_STATE, {"orderId": order_id})
 

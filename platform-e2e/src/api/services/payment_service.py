@@ -23,6 +23,15 @@ class PaymentService(BaseService):
             )
         return create_res
 
+    def create_payment(
+        self, order_id: str, method: str = "PAYMENT_METHOD_MOCK_MOMO"
+    ) -> dict[str, Any]:
+        """Open a pending payment transaction for an order (online method)."""
+        return self.post(
+            "/platform.payment.v1.PaymentService/CreatePayment",
+            {"orderId": order_id, "method": method},
+        )
+
     def refund(self, payment_id: str, amount: int = 5000000, reason: str = "") -> dict[str, Any]:
         return self.post(
             "/platform.payment.v1.PaymentService/RefundPayment",
