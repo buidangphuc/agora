@@ -30,7 +30,7 @@ describe("OrderList", () => {
     );
     expect(screen.getAllByTestId("order-card")).toHaveLength(2);
     expect(
-      screen.getByText("Mã đơn #order-aa", { exact: false }),
+      screen.getByText("Mã đơn: #order-aa", { exact: false }),
     ).toBeInTheDocument();
     expect(screen.getByText("Chờ xử lý")).toBeInTheDocument();
     expect(screen.getByText("Đang giao hàng")).toBeInTheDocument();

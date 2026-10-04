@@ -42,7 +42,7 @@ function OrderRow({
             {shopLabel(order.sellerId, shopName)}
           </p>
           <p className="text-xs text-text-secondary">
-            Mã đơn #{order.id.slice(0, 8)}
+            Mã đơn: #{order.id.slice(0, 8)}
             {order.createdAt && <> · {order.createdAt}</>}
           </p>
         </div>
