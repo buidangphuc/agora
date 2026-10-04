@@ -16,5 +16,6 @@ data/
 docs/
 tests/
 scripts/
+!scripts/gen_proto.py
 *.md
 !README.md

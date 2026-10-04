@@ -20,6 +20,18 @@ RUN --mount=type=cache,target=/tmp/uv-cache \
     uv sync --no-dev \
     $(for e in $UV_EXTRAS; do printf -- '--extra %s ' "$e"; done)
 
+# Proto stage: the gRPC stubs under app/transport/grpc/_pb are generated (git-ignored),
+# so a clean checkout has none. Generate them from the vendored proto/ contract with the
+# same grpcio-tools version pinned in uv.lock; kept out of the app venv.
+FROM python:3.12-slim AS protogen
+WORKDIR /src
+COPY --from=ghcr.io/astral-sh/uv:0.5.4 /uv /usr/local/bin/uv
+RUN --mount=type=cache,target=/tmp/uv-cache UV_CACHE_DIR=/tmp/uv-cache UV_HTTP_TIMEOUT=300 \
+    uv pip install --system "grpcio-tools==1.71.2"
+COPY proto ./proto
+COPY scripts/gen_proto.py ./scripts/gen_proto.py
+RUN python -m scripts.gen_proto
+
 # Runtime stage: minimal image, non-root, healthcheck
 FROM python:3.12-slim AS runtime
 
@@ -34,6 +46,7 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app app ./app
+COPY --from=protogen --chown=app:app /src/app/transport/grpc/_pb ./app/transport/grpc/_pb
 COPY --chown=app:app alembic ./alembic
 COPY --chown=app:app main.py alembic.ini ./
 
