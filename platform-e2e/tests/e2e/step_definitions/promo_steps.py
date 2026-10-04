@@ -41,11 +41,14 @@ def _vnd(text: str) -> int:
     return int(cleaned) if cleaned else -1
 
 
-def _promotion_api(world: World) -> BaseService:
-    """A public gateway client for team-promotion RPCs (no wrapper service exists yet)."""
+def _promotion_api(world: World, token: str | None = None) -> BaseService:
+    """A gateway client for team-promotion RPCs (no wrapper service exists yet).
+
+    The gateway rejects unauthenticated FlashSaleService/CreateCampaign with 401, so
+    callers pass the seeding seller's token."""
     svc = world.state.extra.get("_promo_api")
     if svc is None:
-        svc = BaseService(token=None)
+        svc = BaseService(token=token)
         world.state.extra["_promo_api"] = svc
     return svc
 
@@ -169,7 +172,7 @@ def voucher_error_shown(world: World) -> None:
 @given("a listing with an active flash-sale campaign")
 def listing_with_flash_sale(world: World) -> None:
     listing = _seed_seller_listing(world, 5_000_000)
-    resp = _promotion_api(world).post(
+    resp = _promotion_api(world, world.state.seeded_seller.token).post(
         "/platform.promotion.v1.FlashSaleService/CreateCampaign",
         {
             "listingId": listing.listing_id,
