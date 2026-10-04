@@ -7,12 +7,12 @@
 
 ## 2. Code — team-frontend: /cart
 
-- [ ] 2.1 Rewrite `app/cart/page.tsx` as a server page rendering `Breadcrumb`, `CartGroups` (server: shop `Card`, header with the real shop display name from `shop-display-name` and the "Shop #<6 chars>" fallback for an empty name (depends on that change), rows with `Image` `aspect-square`, `PriceTag`), `OrderSummary`, and `Empty` for an empty cart; keep `getCart()` and `isCheckoutEnabled()` in parallel; verify `/cart` has no `"use client"` page and the empty, two-shop, real-name and empty-name-fallback component tests pass
-- [ ] 2.2 Add islands `CartQuantityControl` (`QuantityPicker` min 1 + remove), `ClearCartButton` ("Xóa tất cả" label preserved) using the Server Actions with pending, disabled and success/error toasts and no client cart copy; verify the pending, failed-update and min-quantity scenario tests pass
-- [ ] 2.3 Add `VoucherModal` (code `FormItem` + available vouchers `Radio` + `Empty`), wired to `previewVoucherAction`, preserving the `apply_promotion` payload and `data-testid="voucher-discount"`; verify the valid, invalid and focus-trap tests pass
-- [ ] 2.4 Disabled "Mua hàng" with explanatory `Alert` when the kill-switch is off; mobile sticky bottom bar; verify the kill-switch test and a 375px render test (no horizontal overflow)
-- [ ] 2.5 Add `app/cart/loading.tsx` (Skeleton shop card + 3 rows + summary) and `app/cart/error.tsx` (`Alert` + "Thử lại"); verify the loading footprint test and error retry test
-- [ ] 2.6 Remove the old client `CartView` state copy; verify no remaining imports and `npx tsc --noEmit` passes
+- [x] 2.1 Rewrite `app/cart/page.tsx` as a server page rendering `Breadcrumb`, `CartGroups` (server: shop `Card`, header with the real shop display name from `shop-display-name` and the "Shop #<6 chars>" fallback for an empty name (depends on that change), rows with `Image` `aspect-square`, `PriceTag`), `OrderSummary`, and `Empty` for an empty cart; keep `getCart()` and `isCheckoutEnabled()` in parallel; verify `/cart` has no `"use client"` page and the empty, two-shop, real-name and empty-name-fallback component tests pass
+- [x] 2.2 Add islands `CartQuantityControl` (`QuantityPicker` min 1 + remove), `ClearCartButton` ("Xóa tất cả" label preserved) using the Server Actions with pending, disabled and success/error toasts and no client cart copy; verify the pending, failed-update and min-quantity scenario tests pass
+- [x] 2.3 Add `VoucherModal` (code `FormItem` + available vouchers `Radio` + `Empty`), wired to `previewVoucherAction`, preserving the `apply_promotion` payload and `data-testid="voucher-discount"`; verify the valid, invalid and focus-trap tests pass
+- [x] 2.4 Disabled "Mua hàng" with explanatory `Alert` when the kill-switch is off; mobile sticky bottom bar; verify the kill-switch test and a 375px render test (no horizontal overflow)
+- [x] 2.5 Add `app/cart/loading.tsx` (Skeleton shop card + 3 rows + summary) and `app/cart/error.tsx` (`Alert` + "Thử lại"); verify the loading footprint test and error retry test
+- [x] 2.6 Remove the old client `CartView` state copy; verify no remaining imports and `npx tsc --noEmit` passes
 
 ## 3. Code — team-frontend: checkout shell and wizard
 
