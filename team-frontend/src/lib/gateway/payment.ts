@@ -189,17 +189,24 @@ function mapWalletEntry(e: {
   };
 }
 
-export async function getWalletBalance(sellerId: string): Promise<number> {
+/** `throwOnError` surfaces a failed call instead of returning 0. */
+export async function getWalletBalance(
+  sellerId: string,
+  opts: { throwOnError?: boolean } = {},
+): Promise<number> {
   try {
     const res = await gateway().payment.getWalletBalance({ sellerId });
     return Number(res.balance);
-  } catch {
+  } catch (err) {
+    if (opts.throwOnError) throw err;
     return 0;
   }
 }
 
+/** `throwOnError` surfaces a failed call instead of returning []. */
 export async function listLedgerEntries(
   sellerId: string,
+  opts: { throwOnError?: boolean } = {},
 ): Promise<ViewWalletEntry[]> {
   try {
     const res = await gateway().payment.listLedgerEntries({
@@ -207,7 +214,8 @@ export async function listLedgerEntries(
       page: { cursor: "", pageSize: 30 },
     });
     return res.entries.map(mapWalletEntry);
-  } catch {
+  } catch (err) {
+    if (opts.throwOnError) throw err;
     return [];
   }
 }

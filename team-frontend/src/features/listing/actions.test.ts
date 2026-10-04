@@ -1,4 +1,5 @@
 import { Code, ConnectError } from "@connectrpc/connect";
+import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { magicListing } from "@/lib/gateway/ai";
@@ -39,23 +40,47 @@ const validListing = {
   currency: "VND",
   status: "published",
   stock: "3",
+  categoryId: "cat1",
 };
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("saveListingAction validation", () => {
-  it("requires a title", async () => {
-    const res = await saveListingAction(initial, form({ price: "100" }));
-    expect(res).toEqual({ ok: false, message: "Tiêu đề bắt buộc." });
+  it("requires a title and maps the error to the field", async () => {
+    const res = await saveListingAction(
+      initial,
+      form({ price: "100", stock: "1", categoryId: "c" }),
+    );
+    expect(res).toEqual({
+      ok: false,
+      message: "Tiêu đề bắt buộc.",
+      error: "Tiêu đề bắt buộc.",
+      fieldErrors: { title: "Tiêu đề bắt buộc." },
+    });
     expect(createListing).not.toHaveBeenCalled();
   });
 
-  it("rejects a negative price", async () => {
+  it("rejects a negative or zero price", async () => {
+    for (const price of ["-5", "0"]) {
+      const res = await saveListingAction(
+        initial,
+        form({ ...validListing, price }),
+      );
+      expect(res.ok).toBe(false);
+      expect(res.fieldErrors).toEqual({ price: "Giá không hợp lệ." });
+    }
+  });
+
+  it("rejects negative stock and a missing category together", async () => {
     const res = await saveListingAction(
       initial,
-      form({ title: "Phone", price: "-5" }),
+      form({ title: "Phone", price: "10", stock: "-1" }),
     );
-    expect(res).toEqual({ ok: false, message: "Giá không hợp lệ." });
+    expect(res.fieldErrors).toEqual({
+      stock: "Tồn kho không hợp lệ.",
+      categoryId: "Chọn ngành hàng.",
+    });
+    expect(createListing).not.toHaveBeenCalled();
   });
 });
 
@@ -97,12 +122,14 @@ describe("saveListingAction create/update", () => {
     expect(res).toEqual({
       ok: false,
       message: "Bạn không có quyền chỉnh sửa sản phẩm này.",
+      error: "Bạn không có quyền chỉnh sửa sản phẩm này.",
+      fieldErrors: undefined,
     });
   });
 });
 
 describe("magicListingAction", () => {
-  it("returns the AI result when a description is generated", async () => {
+  it("returns the AI result on the shared contract", async () => {
     const result = {
       generatedTitle: "T",
       generatedDescription: "D",
@@ -113,15 +140,22 @@ describe("magicListingAction", () => {
     };
     vi.mocked(magicListing).mockResolvedValue(result);
     const res = await magicListingAction("hint");
-    expect(res).toEqual({ ok: true, message: "", result });
+    expect(res).toEqual({ ok: true, data: result });
   });
 
-  it("falls back to a local template when the AI call throws", async () => {
+  it("does not invent a suggestion when the AI call throws", async () => {
     vi.mocked(magicListing).mockRejectedValue(new Error("ai down"));
     const res = await magicListingAction("Laptop");
-    expect(res.ok).toBe(true);
-    expect(res.result?.generatedDescription).toContain("Laptop");
-    expect(res.result?.highlightTags).toContain("Chính Hãng");
+    expect(res).toEqual({
+      ok: false,
+      error: "AI tạm thời không phản hồi. Vui lòng thử lại.",
+    });
+  });
+
+  it("asks for a title instead of using a default one", async () => {
+    const res = await magicListingAction("   ");
+    expect(res.ok).toBe(false);
+    expect(magicListing).not.toHaveBeenCalled();
   });
 });
 
@@ -150,9 +184,18 @@ describe("getUploadUrlAction", () => {
 });
 
 describe("deleteListingAction", () => {
-  it("deletes and revalidates", async () => {
+  it("deletes, revalidates and returns ok", async () => {
     vi.mocked(deleteListing).mockResolvedValue(undefined);
-    await deleteListingAction("l1");
+    const res = await deleteListingAction("l1");
     expect(deleteListing).toHaveBeenCalledWith("l1");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller");
+    expect(res).toEqual({ ok: true });
+  });
+
+  it("returns the error instead of throwing", async () => {
+    vi.mocked(deleteListing).mockRejectedValue(new Error("not yours"));
+    const res = await deleteListingAction("l1");
+    expect(res).toEqual({ ok: false, error: "not yours" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

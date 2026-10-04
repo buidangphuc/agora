@@ -50,8 +50,10 @@ export interface ViewRevenueBreakdown {
   topSkus: ViewTopSku[];
 }
 
+/** `throwOnError` surfaces a failed call instead of returning zeros. */
 export async function getSellerFunnel(
   sellerId: string,
+  opts: { throwOnError?: boolean } = {},
 ): Promise<ViewSellerFunnel> {
   try {
     const res = await analytics().getSellerFunnel({ sellerId });
@@ -61,13 +63,15 @@ export async function getSellerFunnel(
       adds: Number(res.adds),
       orders: Number(res.orders),
     };
-  } catch {
+  } catch (err) {
+    if (opts.throwOnError) throw err;
     return { impressions: 0, views: 0, adds: 0, orders: 0 };
   }
 }
 
 export async function getRevenueBreakdown(
   sellerId: string,
+  opts: { throwOnError?: boolean } = {},
 ): Promise<ViewRevenueBreakdown> {
   try {
     const res = await analytics().getRevenueBreakdown({ sellerId });
@@ -84,7 +88,8 @@ export async function getRevenueBreakdown(
         unitsSold: Number(t.unitsSold),
       })),
     };
-  } catch {
+  } catch (err) {
+    if (opts.throwOnError) throw err;
     return { days: [], topSkus: [] };
   }
 }

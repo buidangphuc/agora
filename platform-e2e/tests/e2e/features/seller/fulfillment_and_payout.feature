@@ -10,3 +10,16 @@ Feature: Seller Order Fulfillment and Wallet Payout
     When I navigate to the "seller analytics" page
     Then I should see the revenue metric cards
     And I should see the seller wallet balance
+
+  @needsSeller
+  Scenario: Payout is disabled and explained at zero balance
+    Given I am logged in as a seller via API
+    When the seller opens the seller wallet page
+    Then the payout button is disabled and says why
+
+  @needsSeller
+  Scenario: Payout asks for confirmation before sending anything
+    Given I am logged in as a seller via API
+    When the seller opens the seller wallet page
+    And the seller starts a payout
+    Then a confirm dialog asks for the payout amount and nothing is sent yet

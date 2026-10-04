@@ -1,73 +1,132 @@
 import { redirect } from "next/navigation";
 
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { PriceTag } from "@/components/ui/PriceTag";
+import { Statistic } from "@/components/ui/Statistic";
+import { Table, type TableColumn } from "@/components/ui/Table";
 import { formatPrice } from "@/components/ui/format";
-import { WalletPayoutButton } from "@/features/seller/WalletPayoutButton";
-import { getWalletBalance, listLedgerEntries } from "@/lib/gateway/payment";
+import { LinkButton } from "@/features/seller/LinkButton";
+import { PayoutButton } from "@/features/seller/PayoutButton";
+import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
+import { SellerPagination } from "@/features/seller/SellerPagination";
+import {
+  type SearchParams,
+  buildListHref,
+  parseListParams,
+  slicePage,
+} from "@/features/seller/listParams";
+import {
+  type ViewWalletEntry,
+  getWalletBalance,
+  listLedgerEntries,
+} from "@/lib/gateway/payment";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function SellerWalletPage() {
+export const metadata = { title: "Ví người bán | Kênh người bán" };
+
+const LEDGER_PAGE_SIZE = 20;
+
+const columns: TableColumn<ViewWalletEntry>[] = [
+  { key: "type", title: "Loại", render: (e) => e.type || "—" },
+  {
+    key: "amount",
+    title: "Số tiền",
+    align: "right",
+    render: (e) => <PriceTag price={e.amount} size="md" />,
+  },
+  { key: "status", title: "Trạng thái", render: (e) => e.status || "—" },
+  { key: "createdAt", title: "Ngày", dataIndex: "createdAt" },
+];
+
+/** Wallet: balance Statistic, payout confirm Modal, ledger Table + ?page= Pagination. */
+export default async function SellerWalletPage({
+  searchParams = {},
+}: { searchParams?: SearchParams }) {
   const me = getPrincipal();
   if (!me || !hasScope("listing.write")) redirect("/login");
 
-  const [balance, entries] = await Promise.all([
-    getWalletBalance(me.id),
-    listLedgerEntries(me.id),
+  const { page } = parseListParams(searchParams);
+  const [balance, entries] = await Promise.allSettled([
+    getWalletBalance(me.id, { throwOnError: true }),
+    listLedgerEntries(me.id, { throwOnError: true }),
   ]);
+  const balanceValue = balance.status === "fulfilled" ? balance.value : null;
+  const ledger = entries.status === "fulfilled" ? entries.value : null;
+  const here = buildListHref("/seller/wallet", { page });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-black text-slate-900">💰 Ví Người Bán</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Số dư khả dụng và lịch sử giao dịch ví.
-          </p>
-          <div className="mt-3 text-3xl font-black text-emerald-600">
-            {formatPrice(balance, "VND")}
-          </div>
-        </div>
-        <WalletPayoutButton sellerId={me.id} balance={balance} />
-      </div>
+    <>
+      <SellerPageHeader
+        title="Ví người bán"
+        description="Số dư khả dụng và lịch sử giao dịch ví."
+      />
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3 text-xs font-semibold text-slate-700">
-          Lịch sử giao dịch ({entries.length})
-        </div>
-        {entries.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-400">
-            Chưa có giao dịch nào.
-          </div>
-        ) : (
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-5 py-3">Loại</th>
-                <th className="px-5 py-3">Số tiền</th>
-                <th className="px-5 py-3">Trạng thái</th>
-                <th className="px-5 py-3">Ngày</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {entries.map((e) => (
-                <tr key={e.id} className="hover:bg-slate-50/60">
-                  <td className="px-5 py-3 font-medium text-slate-800">
-                    {e.type || "—"}
-                  </td>
-                  <td className="px-5 py-3 font-bold text-slate-900">
-                    {formatPrice(e.amount, "VND")}
-                  </td>
-                  <td className="px-5 py-3 text-slate-600">
-                    {e.status || "—"}
-                  </td>
-                  <td className="px-5 py-3 text-slate-500">{e.createdAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+      <Card>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {balanceValue === null ? (
+            <Alert
+              type="error"
+              description="Không tải được số dư ví."
+              className="flex-1"
+              action={
+                <LinkButton href={here} size="sm">
+                  Thử lại
+                </LinkButton>
+              }
+            />
+          ) : (
+            <>
+              <div className="sm:w-72">
+                <Statistic
+                  title="Số dư khả dụng"
+                  value={formatPrice(balanceValue)}
+                />
+              </div>
+              <PayoutButton sellerId={me.id} balance={balanceValue} />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Lịch sử giao dịch{ledger ? ` (${ledger.length})` : ""}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {ledger === null ? (
+            <Alert
+              type="error"
+              description="Không tải được lịch sử giao dịch."
+              action={
+                <LinkButton href={here} size="sm">
+                  Thử lại
+                </LinkButton>
+              }
+            />
+          ) : (
+            <>
+              <Table
+                caption="Lịch sử giao dịch ví"
+                columns={columns}
+                dataSource={slicePage(ledger, page, LEDGER_PAGE_SIZE)}
+                rowKey="id"
+                emptyText="Chưa có giao dịch nào"
+              />
+              <SellerPagination
+                current={page}
+                total={ledger.length}
+                pageSize={LEDGER_PAGE_SIZE}
+                hrefFor={(p) => buildListHref("/seller/wallet", { page: p })}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }

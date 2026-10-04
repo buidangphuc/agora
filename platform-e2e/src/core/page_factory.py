@@ -32,7 +32,10 @@ from src.pages import (
     SellerEditListingPage,
     SellerListingsPage,
     SellerNewListingPage,
+    SellerOrderDetailPage,
     SellerOrdersPage,
+    SellerShopPage,
+    SellerWalletPage,
     ShopProfilePage,
     VouchersPage,
 )
@@ -60,6 +63,9 @@ _REGISTRY: dict[PageName, type[BasePage]] = {
     PageName.SELLER_NEW_LISTING: SellerNewListingPage,
     PageName.SELLER_ORDERS: SellerOrdersPage,
     PageName.SELLER_ANALYTICS: SellerAnalyticsPage,
+    PageName.SELLER_WALLET: SellerWalletPage,
+    PageName.SELLER_SHOP: SellerShopPage,
+    PageName.SELLER_ORDER_DETAIL: SellerOrderDetailPage,
     PageName.ADMIN_COCKPIT: CockpitPage,
 }
 

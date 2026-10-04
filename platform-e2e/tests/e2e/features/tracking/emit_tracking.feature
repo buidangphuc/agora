@@ -41,3 +41,10 @@ Feature: Browsing actions emit tracking events
     Then multiple EventEnvelopes sharing the same event group id are published to the "analytics.events" topic
     And the purchase tracking payload carries transaction id, currency and minor unit prices
 
+  @needsBuyer @needsListing
+  Scenario: Impression and click beacons keep their placement attribution and the seller funnel counts them
+    Given a buyer is logged in
+    And a listing has been seeded via the API
+    When the gateway receives an impression and a click beacon with placement "home.recs" for the listing
+    Then both beacons are published to the "analytics.events" topic carrying placement "home.recs"
+    And the seller analytics funnel counts the impression
