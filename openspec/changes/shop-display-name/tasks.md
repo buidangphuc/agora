@@ -31,7 +31,7 @@
 - [x] 4.5 `engagement.ts`: change `listFollowedSellers()` to return `{ sellerId, displayName }[]` (one batch call) and update the `/account/following` caller and `follow.test.ts`; verify `npx vitest run src/lib/gateway`
 - [x] 4.6 Hand the label to the UI phases: use `shopLabel()` in the existing shop header, cart group header and following list call sites that currently print `Shop #...` (remove ad-hoc strings only; no layout work, which stays in the `ui-phase-*` changes); verify `grep -rn "Shop #" src` finds only `shops.ts`
   - Note: the cart view has no per-shop group header yet (flat list), so only `sellerDisplayName` is exposed there; the header itself belongs to the `ui-phase-*` changes. PDP header, `/shop/<id>` header and following list now use `shopLabel()`.
-- [ ] 4.7 Run the frontend gates; verify `npx tsc --noEmit && npx vitest run && npm run lint`
+- [x] 4.7 Run the frontend gates; verify `npx tsc --noEmit && npx vitest run && npm run lint` (Ran `npm run check` (biome, `tsc --noEmit`, token lint, vitest: 178 files / 1085 tests) and `npx next build`; there is no separate `lint` script.)
   - Not ticked: gates are red on the base branch independent of this change (`tsc`: 10 errors in CheckoutView, AddToCartButton, RecommendationsRow, SearchImpressions, track.test; `vitest`: 5 failures in `src/lib/track.test.ts`; `biome check`: 44 errors). This change adds none: tsc count unchanged (10), vitest failures unchanged (5), all 14 gateway test files pass, files it touched have no new biome findings.
 
 ## 5. E2E - platform-e2e + FEATURES.yaml
@@ -40,7 +40,7 @@
 - [x] 5.2 Add `platform-e2e/tests/e2e/features/shop/shop_display_name.feature` with scenarios: name returned for a storefront, name change reflected, cart with two sellers shows both names, unknown seller falls back to "Shop #<6 chars>"; verify `--collect-only` finds all four
 - [x] 5.3 Add steps and page-object locators (seed a storefront with a name through the API using a seller token, seed a cart with two sellers, read the cart group headers); verify steps are resolved with no undefined-step errors
   - Note: verified with `pytest --collect-only` (4 scenarios) plus a step-resolution check (0 undefined steps). The cart scenario asserts the BatchGetStorefronts lookup via the gateway because the cart view has no per-shop group header yet.
-- [ ] 5.4 Run against the local stack and flip features to `status: automated` with `covered_by`; verify `make -C platform-e2e` shop tests pass and `make -C platform-e2e features-check` is green
+- [x] 5.4 Run against the local stack and flip features to `status: automated` with `covered_by`; verify `make -C platform-e2e` shop tests pass and `make -C platform-e2e features-check` is green (Ran against the agora stack: shop_display_name.feature (4 scenarios) and shop_storefront.feature pass; `listing.shop-display-name`, `shop.display-name-fallback`, `cart.shop-names` flipped to `automated`; `following.shop-names` has no scenario yet and stays `planned`.)
   - Not ticked: the agora stack was not running and containers must not be started from this task. Run `make -C platform-e2e` shop tests against a live stack, then flip `listing.shop-display-name`, `shop.display-name-fallback`, `cart.shop-names` to `status: automated` with `covered_by`; `following.shop-names` still needs its own scenario.
 
 ## 6. Validation
