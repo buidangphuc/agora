@@ -133,7 +133,7 @@ describe("/account/orders/[id] page", () => {
 
 describe("order route boundaries", () => {
   it("no page under the order routes is a client component", () => {
-    const root = join(process.cwd(), "src/app/account/orders");
+    const root = join(process.cwd(), "src/app/(shop)/account/orders");
     const pages: string[] = [];
     const walk = (dir: string) => {
       for (const name of readdirSync(dir)) {

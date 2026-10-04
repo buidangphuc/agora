@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import ShopPage from "@/app/shop/[id]/page";
+import ShopPage from "@/app/(shop)/shop/[id]/page";
 import { getStorefront } from "@/lib/gateway/listings";
 import { shopLabel } from "@/lib/gateway/shops";
 

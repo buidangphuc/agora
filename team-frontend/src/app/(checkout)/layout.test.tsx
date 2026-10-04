@@ -34,19 +34,16 @@ describe("checkout shell", () => {
     ).toBeNull();
   });
 
-  it("hides the consumer chrome with a rule scoped to this layout", () => {
+  it("is its own shell: no injected CSS and no consumer chrome", () => {
     const { container } = render(
       <CheckoutLayout>
         <p>child</p>
       </CheckoutLayout>,
     );
-    const css = container.querySelector("style")?.textContent ?? "";
-    expect(css).toContain("body header:not([data-checkout-shell] header)");
-    expect(css).toContain("body footer:not([data-checkout-shell] footer)");
-    expect(css).toContain("display: none");
-    // React escapes these in a style text child (hydration mismatch)
-    expect(css).not.toMatch(/[>"&']/);
+    expect(container.querySelector("style")).toBeNull();
     expect(container.querySelector("[data-checkout-shell]")).not.toBeNull();
+    expect(container.querySelectorAll("header")).toHaveLength(1);
+    expect(container.querySelectorAll("footer")).toHaveLength(1);
   });
 
   it("completed steps are links that keep the selections; the current step is not", () => {

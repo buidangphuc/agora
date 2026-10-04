@@ -5,26 +5,18 @@ import { CheckoutPendingProvider } from "@/features/order/CheckoutPending";
 import { CheckoutStepper } from "@/features/order/CheckoutStepper";
 
 /**
- * Distraction-free checkout shell: minimal header (logo, Stepper, secure hint)
- * and a secure footer. The root layout (shared, owned elsewhere) still mounts
- * AnalyticsProvider and ToastProvider around this segment; its visible chrome
- * (mega search header, disclaimer banner, big footer) is hidden for this
- * segment only. The rule lives in this layout, so it is dropped with the
- * segment on navigation and /cart keeps the consumer shell. The CSS text avoids
- * `>`, quotes and `&`: React escapes them in a style text child, which would
- * break hydration.
+ * Distraction-free checkout shell (the (checkout) route group): minimal header
+ * (logo, Stepper, secure hint) and a secure footer, with none of the consumer
+ * chrome. The root layout still mounts AnalyticsProvider and ToastProvider
+ * around it.
  */
-const HIDE_CONSUMER_CHROME =
-  "body header:not([data-checkout-shell] header), body footer:not([data-checkout-shell] footer), body div.bg-amber-50 { display: none; }";
-
 export default function CheckoutLayout({ children }: { children: ReactNode }) {
   return (
     <CheckoutPendingProvider>
-      <style>{HIDE_CONSUMER_CHROME}</style>
-      <div
+      <main
         data-checkout-shell=""
         data-testid="checkout-shell"
-        className="space-y-6"
+        className="mx-auto w-full max-w-page flex-1 space-y-6 px-4 py-5"
       >
         <header className="rounded-xl border border-border-subtle bg-surface-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -52,7 +44,7 @@ export default function CheckoutLayout({ children }: { children: ReactNode }) {
             </Link>
           </p>
         </footer>
-      </div>
+      </main>
     </CheckoutPendingProvider>
   );
 }

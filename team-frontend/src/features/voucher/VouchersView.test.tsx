@@ -138,10 +138,10 @@ describe("VouchersView", () => {
       "src/features/voucher/VouchersView.tsx",
       "src/features/voucher/VoucherCard.tsx",
       "src/features/voucher/VoucherManager.tsx",
-      "src/app/vouchers/page.tsx",
-      ...readdirSync(resolve(process.cwd(), "src/app/vouchers"))
+      "src/app/(shop)/vouchers/page.tsx",
+      ...readdirSync(resolve(process.cwd(), "src/app/(shop)/vouchers"))
         .filter((f) => f.endsWith(".tsx") && !f.includes(".test."))
-        .map((f) => `src/app/vouchers/${f}`),
+        .map((f) => `src/app/(shop)/vouchers/${f}`),
     ];
     for (const f of files) {
       const src = readFileSync(resolve(process.cwd(), f), "utf8");

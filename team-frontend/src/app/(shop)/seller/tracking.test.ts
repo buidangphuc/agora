@@ -2,8 +2,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const SRC = resolve(__dirname, "../..");
-const ROOTS = ["app/seller", "app/sell", "features/seller"];
+const SRC = resolve(__dirname, "../../..");
+const ROOTS = ["app/(shop)/seller", "app/(shop)/sell", "features/seller"];
 const FORBIDDEN =
   /TrackLink|TrackImpression|SearchImpressions|AnalyticsProvider|data-track|data-placement|data-impression/;
 

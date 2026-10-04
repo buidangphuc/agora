@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  * hook or data-* attribute other than test ids, the e2e test ids kept, and no
  * emoji status icons.
  */
-const roots = ["src/features/order", "src/app/account/orders"];
+const roots = ["src/features/order", "src/app/(shop)/account/orders"];
 // Checkout files in this folder belong to ui-phase-cart-checkout and legitimately carry
 // checkout tracking (begin_checkout, data-checkout-shell); they are not order screens.
 const EXCLUDE =

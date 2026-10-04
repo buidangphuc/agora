@@ -1,18 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import AccountLoading from "@/app/account/addresses/loading";
-import AccountError from "@/app/account/error";
-import FollowingLoading from "@/app/account/following/loading";
-import ReferralLoading from "@/app/account/referral/loading";
-import SecurityLoading from "@/app/account/security/loading";
-import VerificationLoading from "@/app/account/verification/loading";
-import FavoritesError from "@/app/favorites/error";
-import FavoritesLoading from "@/app/favorites/loading";
-import LoginLoading from "@/app/login/loading";
-import NotificationsError from "@/app/notifications/error";
-import NotificationsLoading from "@/app/notifications/loading";
-import RegisterLoading from "@/app/register/loading";
+import AccountLoading from "@/app/(shop)/account/addresses/loading";
+import AccountError from "@/app/(shop)/account/error";
+import FollowingLoading from "@/app/(shop)/account/following/loading";
+import ReferralLoading from "@/app/(shop)/account/referral/loading";
+import SecurityLoading from "@/app/(shop)/account/security/loading";
+import VerificationLoading from "@/app/(shop)/account/verification/loading";
+import FavoritesError from "@/app/(shop)/favorites/error";
+import FavoritesLoading from "@/app/(shop)/favorites/loading";
+import LoginLoading from "@/app/(shop)/login/loading";
+import NotificationsError from "@/app/(shop)/notifications/error";
+import NotificationsLoading from "@/app/(shop)/notifications/loading";
+import RegisterLoading from "@/app/(shop)/register/loading";
 
 const LOADERS: Record<string, () => React.JSX.Element> = {
   addresses: AccountLoading,

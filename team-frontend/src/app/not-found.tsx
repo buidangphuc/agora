@@ -1,21 +1,15 @@
-import Link from "next/link";
+import { ConsumerShell } from "@/components/shell/ConsumerShell";
+import { NotFoundResult } from "@/components/shell/NotFoundResult";
 
-import { Result } from "@/components/ui/Result";
-
+/**
+ * Root not-found replaces the whole (shop) subtree it was thrown from (including
+ * that group's layout), and also serves URLs that match no route, so it mounts
+ * the consumer chrome itself.
+ */
 export default function NotFound() {
   return (
-    <Result
-      status="404"
-      title="Không tìm thấy trang"
-      subTitle="Trang bạn đang tìm không tồn tại hoặc đã được di chuyển."
-      extra={
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center rounded-lg bg-action-primary px-4 py-2 text-sm font-medium text-text-inverse transition hover:bg-action-primary-hover"
-        >
-          Về trang chủ
-        </Link>
-      }
-    />
+    <ConsumerShell>
+      <NotFoundResult />
+    </ConsumerShell>
   );
 }

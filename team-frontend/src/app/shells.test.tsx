@@ -2,14 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { NotFoundResult } from "@/components/shell/NotFoundResult";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 import ErrorPage from "./error";
-import NotFound from "./not-found";
 
 describe("app exception and loading shells", () => {
   it("not-found shows a 404 result with a link home", () => {
-    render(<NotFound />);
+    render(<NotFoundResult />);
     expect(screen.getByText("404")).toBeInTheDocument();
     expect(screen.getByText("Không tìm thấy trang")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Về trang chủ" })).toHaveAttribute(
