@@ -123,7 +123,9 @@ def voucher_discount_shown(world: World) -> None:
     subtotal = world.state.extra["subtotal"]
     expected_discount = subtotal * _SAVE10_PERCENT // 100
 
-    expect(checkout.voucher_discount).to_be_visible(timeout=timeouts.DEFAULT)
+    # The discount row is always rendered ("-" until the server preview lands), so wait
+    # for an amount rather than for the row.
+    expect(checkout.voucher_discount).to_have_text(re.compile(r"\d"), timeout=timeouts.DEFAULT)
     assert (
         _vnd(checkout.voucher_discount.inner_text()) == expected_discount
     ), f"discount line != {expected_discount}: {checkout.voucher_discount.inner_text()!r}"
@@ -159,8 +161,8 @@ def voucher_error_shown(world: World) -> None:
     expect(checkout.voucher_error).to_be_visible(timeout=timeouts.DEFAULT)
     reason = checkout.voucher_error.inner_text().strip()
     assert reason, "voucher error alert was empty"
-    # No discount line is rendered when the code is invalid.
-    expect(checkout.voucher_discount).to_have_count(0)
+    # The discount row stays on the summary but carries no amount for an invalid code.
+    expect(checkout.voucher_discount).not_to_contain_text(re.compile(r"\d"))
     subtotal = world.state.extra["subtotal"]
     assert (
         _vnd(checkout.order_total.inner_text()) == subtotal
