@@ -2,18 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
+import { errorMessage } from "@/features/account/action-error";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import {
   type AddressInput,
+  type ViewAddress,
   createAddress,
   deleteAddress,
   setDefaultAddress,
   updateAddress,
 } from "@/lib/gateway/addresses";
-
-export interface AddressState {
-  ok: boolean;
-  message: string;
-}
 
 function readAddressInput(formData: FormData): AddressInput {
   return {
@@ -29,57 +27,68 @@ function readAddressInput(formData: FormData): AddressInput {
   };
 }
 
+function isComplete(input: AddressInput): boolean {
+  return Boolean(
+    input.recipientName && input.phone && input.street && input.city,
+  );
+}
+
+function revalidateAddresses() {
+  revalidatePath("/account/addresses");
+  revalidatePath("/checkout");
+}
+
 export async function createAddressAction(
-  _prev: AddressState,
   formData: FormData,
-): Promise<AddressState> {
+): Promise<ActionResult<ViewAddress>> {
   const input = readAddressInput(formData);
-  if (!input.recipientName || !input.phone || !input.street || !input.city) {
-    return { ok: false, message: "Vui lòng điền đầy đủ các trường bắt buộc." };
+  if (!isComplete(input)) {
+    return fail("Vui lòng điền đầy đủ các trường bắt buộc.");
   }
   try {
-    await createAddress(input);
-    revalidatePath("/account/addresses");
-    revalidatePath("/checkout");
-    return { ok: true, message: "Đã thêm địa chỉ thành công." };
+    const address = await createAddress(input);
+    revalidateAddresses();
+    return ok(address);
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Thêm địa chỉ thất bại.",
-    };
+    return fail(errorMessage(err, "Thêm địa chỉ thất bại."));
   }
 }
 
 export async function updateAddressAction(
   id: string,
-  _prev: AddressState,
   formData: FormData,
-): Promise<AddressState> {
+): Promise<ActionResult<ViewAddress>> {
   const input = readAddressInput(formData);
-  if (!input.recipientName || !input.phone || !input.street || !input.city) {
-    return { ok: false, message: "Vui lòng điền đầy đủ các trường bắt buộc." };
+  if (!isComplete(input)) {
+    return fail("Vui lòng điền đầy đủ các trường bắt buộc.");
   }
   try {
-    await updateAddress(id, input);
-    revalidatePath("/account/addresses");
-    revalidatePath("/checkout");
-    return { ok: true, message: "Đã cập nhật địa chỉ thành công." };
+    const address = await updateAddress(id, input);
+    revalidateAddresses();
+    return ok(address);
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Cập nhật thất bại.",
-    };
+    return fail(errorMessage(err, "Cập nhật địa chỉ thất bại."));
   }
 }
 
-export async function deleteAddressAction(id: string): Promise<void> {
-  await deleteAddress(id);
-  revalidatePath("/account/addresses");
-  revalidatePath("/checkout");
+export async function deleteAddressAction(id: string): Promise<ActionResult> {
+  try {
+    await deleteAddress(id);
+    revalidateAddresses();
+    return ok();
+  } catch (err: unknown) {
+    return fail(errorMessage(err, "Xóa địa chỉ thất bại."));
+  }
 }
 
-export async function setDefaultAddressAction(id: string): Promise<void> {
-  await setDefaultAddress(id);
-  revalidatePath("/account/addresses");
-  revalidatePath("/checkout");
+export async function setDefaultAddressAction(
+  id: string,
+): Promise<ActionResult> {
+  try {
+    await setDefaultAddress(id);
+    revalidateAddresses();
+    return ok();
+  } catch (err: unknown) {
+    return fail(errorMessage(err, "Đặt địa chỉ mặc định thất bại."));
+  }
 }

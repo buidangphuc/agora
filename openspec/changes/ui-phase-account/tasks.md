@@ -16,9 +16,9 @@
 
 ## 4. Code — team-frontend: addresses
 
-- [ ] 4.1 Rebuild `AddressManager` as a server-rendered card list plus `AddressActions` client island; default `Tag`, `Empty` state, "Thêm địa chỉ mới" primary `Button`; verify the empty and populated render tests pass
-- [ ] 4.2 Rebuild `AddressModal` on `Modal` + `FormItem` (pending, field help, success/error toast) and replace `window.confirm` with a confirm `Modal`; verify tests for add, cancel-with-Escape (focus returns) and failure toast
-- [ ] 4.3 Wrap `/account/addresses` in `AccountShell`; verify the page test and `identity/addresses.feature` locators pass
+- [x] 4.1 Rebuild `AddressManager` as a server-rendered card list plus `AddressActions` client island; default `Tag`, `Empty` state, "Thêm địa chỉ mới" primary `Button`; verify the empty and populated render tests pass
+- [x] 4.2 Rebuild `AddressModal` on `Modal` + `FormItem` (pending, field help, success/error toast) and replace `window.confirm` with a confirm `Modal`; verify tests for add, cancel-with-Escape (focus returns) and failure toast
+- [x] 4.3 Wrap `/account/addresses` in `AccountShell`; verify the page test and `identity/addresses.feature` locators pass (note: page test passes; identity/addresses.feature locators checked against the new markup, the feature itself needs the stack)
 
 ## 5. Code — team-frontend: security and verification
 
