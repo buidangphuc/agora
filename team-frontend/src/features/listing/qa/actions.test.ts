@@ -18,13 +18,14 @@ describe("askQuestionAction", () => {
     const res = await askQuestionAction("l1", "  còn bảo hành không?  ");
     expect(askQuestion).toHaveBeenCalledWith("l1", "còn bảo hành không?");
     expect(revalidatePath).toHaveBeenCalledWith("/listing/l1");
-    expect(res).toEqual({ ok: true, message: "Đã gửi câu hỏi tới shop!" });
+    expect(res).toEqual({ ok: true });
   });
 
   it("returns the error message when the gateway throws", async () => {
     vi.mocked(askQuestion).mockRejectedValue(new Error("rate limited"));
     const res = await askQuestionAction("l1", "hello");
-    expect(res).toEqual({ ok: false, message: "rate limited" });
+    expect(res).toEqual({ ok: false, error: "rate limited" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 
@@ -34,12 +35,13 @@ describe("answerQuestionAction", () => {
     const res = await answerQuestionAction("l1", "q1", "  còn ạ  ");
     expect(answerQuestion).toHaveBeenCalledWith("q1", "còn ạ", true);
     expect(revalidatePath).toHaveBeenCalledWith("/listing/l1");
-    expect(res).toEqual({ ok: true, message: "Đã gửi câu trả lời!" });
+    expect(res).toEqual({ ok: true });
   });
 
   it("returns the error message when answering fails", async () => {
     vi.mocked(answerQuestion).mockRejectedValue(new Error("nope"));
     const res = await answerQuestionAction("l1", "q1", "hi");
-    expect(res).toEqual({ ok: false, message: "nope" });
+    expect(res).toEqual({ ok: false, error: "nope" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

@@ -20,13 +20,13 @@ function ReviewItem({ review }: { review: ViewReview }) {
     setVoted(true);
     setHelpful((c) => c + 1);
     start(async () => {
-      const res = await markReviewHelpfulAction(review.id);
-      if (res.ok && typeof res.helpfulCount === "number") {
-        setHelpful(res.helpfulCount);
+      const res = await markReviewHelpfulAction(review.id, review.listingId);
+      if (res.ok && res.data) {
+        setHelpful(res.data.helpfulCount);
       } else {
         setVoted(false);
         setHelpful(review.helpfulCount);
-        toast.error(res.message || "Không ghi nhận được lượt hữu ích.");
+        toast.error(res.ok ? "Không ghi nhận được lượt hữu ích." : res.error);
       }
     });
   }

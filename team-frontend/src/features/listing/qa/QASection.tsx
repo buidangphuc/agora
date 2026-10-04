@@ -47,7 +47,7 @@ function AnswerForm({
         setText("");
         setOpen(false);
       } else {
-        setError(res.message || "Gửi câu trả lời thất bại.");
+        setError(res.error);
       }
     });
   }
@@ -143,9 +143,9 @@ export function QASection({
       const res = await askQuestionAction(listingId, question.trim());
       if (res.ok) {
         setQuestion("");
-        setOk(res.message || "Đã gửi câu hỏi tới shop!");
+        setOk("Đã gửi câu hỏi tới shop!");
       } else {
-        setError(res.message || "Gửi câu hỏi thất bại.");
+        setError(res.error);
       }
     });
   }

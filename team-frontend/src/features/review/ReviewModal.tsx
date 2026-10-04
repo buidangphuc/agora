@@ -47,7 +47,7 @@ export function ReviewModal({
         mediaUrls,
       );
       if (!res.ok) {
-        setError(res.message || "Gửi đánh giá thất bại.");
+        setError(res.error);
         return;
       }
       if (onSuccess) onSuccess();
