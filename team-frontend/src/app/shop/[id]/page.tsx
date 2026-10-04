@@ -1,3 +1,4 @@
+import { parseSort } from "@/features/listing/pdp";
 import { ShopStorefrontView } from "@/features/shop/ShopStorefrontView";
 import { isFollowing } from "@/lib/gateway/engagement";
 import {
@@ -5,18 +6,20 @@ import {
   listBundlesBySeller,
   listListings,
 } from "@/lib/gateway/listings";
+import { getShopRatingSummary } from "@/lib/gateway/reviews";
 import { getPrincipal } from "@/lib/gateway/session";
-import { shopLabel } from "@/lib/gateway/shops";
 
 export const dynamic = "force-dynamic";
 
 export default async function ShopPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
   const me = getPrincipal();
-  const [page, following, storefront, bundles] = await Promise.all([
+  const [page, following, storefront, bundles, summary] = await Promise.all([
     listListings({ status: "published" }).catch(() => ({
       items: [],
       nextCursor: "",
@@ -25,6 +28,7 @@ export default async function ShopPage({
     me ? isFollowing(params.id) : Promise.resolve(false),
     getStorefront(params.id),
     listBundlesBySeller(params.id),
+    getShopRatingSummary(params.id),
   ]);
 
   const shopListings = page.items.filter(
@@ -35,11 +39,12 @@ export default async function ShopPage({
     <section className="py-2">
       <ShopStorefrontView
         sellerId={params.id}
-        shopName={shopLabel(params.id, storefront?.displayName)}
         listings={shopListings.length > 0 ? shopListings : page.items}
         loggedIn={me !== null}
         initialFollowing={following}
         storefront={storefront}
+        summary={summary}
+        sort={parseSort(searchParams.sort)}
       />
 
       {/* ── Bundles / combos offered by this shop ── */}
