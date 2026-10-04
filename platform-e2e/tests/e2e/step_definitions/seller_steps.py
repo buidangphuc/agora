@@ -7,7 +7,12 @@ from pytest_bdd import given, then, when
 
 from src.constants import PageName, timeouts
 from src.models import Listing
-from src.pages import SellerAnalyticsPage, SellerListingsPage, SellerNewListingPage
+from src.pages import (
+    SellerAnalyticsPage,
+    SellerListingsPage,
+    SellerNewListingPage,
+    SellerWalletPage,
+)
 from src.utils import data as fake
 from src.utils import get_test_data_manager
 from tests.e2e.flows import login_via_api
@@ -54,5 +59,6 @@ def verify_revenue_metrics(world: World) -> None:
 
 @then("I should see the seller wallet balance")
 def verify_wallet_balance(world: World) -> None:
-    analytics: SellerAnalyticsPage = world.get_page(PageName.SELLER_ANALYTICS)  # type: ignore[assignment]
-    expect(analytics.wallet_balance_text).to_be_visible(timeout=timeouts.DEFAULT)
+    # The wallet balance and payout live on /seller/wallet (not on the analytics page).
+    wallet: SellerWalletPage = world.navigate_to(PageName.SELLER_WALLET)  # type: ignore[assignment]
+    expect(wallet.balance_label).to_be_visible(timeout=timeouts.NAVIGATION)

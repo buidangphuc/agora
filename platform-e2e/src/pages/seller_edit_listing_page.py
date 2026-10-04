@@ -28,6 +28,15 @@ class SellerEditListingPage(BasePage):
     def success_message(self) -> Locator:
         return self.page.get_by_text("thành công", exact=False)
 
+    @property
+    def forbidden_result(self) -> Locator:
+        """403 Result shown when the listing belongs to another seller."""
+        return self.page.get_by_text("Không có quyền chỉnh sửa", exact=True)
+
+    @property
+    def back_to_seller_link(self) -> Locator:
+        return self.page.get_by_role("link", name="Quay lại Kênh người bán")
+
     def is_displayed(self) -> bool:
         return self.title_input.is_visible()
 

@@ -31,4 +31,7 @@ class PageName(str, Enum):
     SELLER_EDIT_LISTING = "seller edit listing"
     SELLER_ORDERS = "seller orders"
     SELLER_ANALYTICS = "seller analytics"
+    SELLER_WALLET = "seller wallet"
+    SELLER_SHOP = "seller shop"
+    SELLER_ORDER_DETAIL = "seller order detail"
     ADMIN_COCKPIT = "admin cockpit"
