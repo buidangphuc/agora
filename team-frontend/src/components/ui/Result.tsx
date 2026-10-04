@@ -1,7 +1,13 @@
 import React from "react";
 import { toneStyles } from "./tones";
 
-export type ResultStatus = "success" | "error" | "info" | "warning" | "404";
+export type ResultStatus =
+  | "success"
+  | "error"
+  | "info"
+  | "warning"
+  | "403"
+  | "404";
 
 export interface ResultProps {
   status: ResultStatus;
@@ -36,6 +42,11 @@ const statusIcons: Record<
     icon: "i",
     bg: `${toneStyles.info.soft} border`,
     label: "Thông tin",
+  },
+  "403": {
+    icon: "403",
+    bg: `${toneStyles.danger.soft} border`,
+    label: "Không có quyền truy cập",
   },
   "404": {
     icon: "404",

@@ -37,6 +37,7 @@ describe("Result", () => {
       "error",
       "info",
       "warning",
+      "403",
       "404",
     ] as const) {
       const { unmount } = render(<Result status={status} title={status} />);
