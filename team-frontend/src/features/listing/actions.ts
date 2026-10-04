@@ -12,8 +12,7 @@ import {
   updateListing,
 } from "@/lib/gateway/listings";
 import { createShareLink } from "@/lib/gateway/sharing";
-
-export type SellField = "title" | "price" | "stock" | "categoryId";
+import { type FieldErrors, validateListingFields } from "./validation";
 
 export interface SellState {
   ok: boolean;
@@ -22,7 +21,7 @@ export interface SellState {
   /** Failure text; the field name `error` of the shared mutation contract. */
   error?: string;
   /** Server-side validation errors keyed by the form field they belong to. */
-  fieldErrors?: Partial<Record<SellField, string>>;
+  fieldErrors?: FieldErrors;
   id?: string;
 }
 
@@ -116,15 +115,7 @@ export async function saveListingAction(
   const id = String(formData.get("id") ?? "").trim();
   const input = readInput(formData);
 
-  const fieldErrors: NonNullable<SellState["fieldErrors"]> = {};
-  if (!input.title) fieldErrors.title = "Tiêu đề bắt buộc.";
-  if (!Number.isFinite(input.price) || input.price <= 0) {
-    fieldErrors.price = "Giá không hợp lệ.";
-  }
-  if (!Number.isFinite(input.stock) || input.stock < 0) {
-    fieldErrors.stock = "Tồn kho không hợp lệ.";
-  }
-  if (!input.categoryId) fieldErrors.categoryId = "Chọn ngành hàng.";
+  const fieldErrors = validateListingFields(input);
   const firstError = Object.values(fieldErrors)[0];
   if (firstError) return failState(firstError, fieldErrors);
 

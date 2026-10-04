@@ -33,7 +33,7 @@ export function DeleteListingModal({
     setError("");
   }
 
-  async function confirm() {
+  async function onConfirm() {
     setError("");
     const res = await run(() => deleteListingAction(id));
     if (res.ok) {
@@ -73,7 +73,7 @@ export function DeleteListingModal({
             >
               Huỷ
             </Button>
-            <Button variant="danger" onClick={confirm} isLoading={pending}>
+            <Button variant="danger" onClick={onConfirm} isLoading={pending}>
               Xoá sản phẩm
             </Button>
           </>

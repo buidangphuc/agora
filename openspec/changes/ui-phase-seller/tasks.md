@@ -14,10 +14,10 @@
 
 ## 3. Code — team-frontend: listing studio
 
-- [ ] 3.1 Convert `ListingForm` fields to controlled state grouped in `Card` sections with `FormItem`, `Input`, `Select`, `Radio`; keep hidden `imageKeys`/`variants` and `saveListingAction`; verify existing create/edit tests still pass
-- [ ] 3.2 Add field validation (title, price > 0, stock >= 0, category) on blur/submit plus server `SellState` mapping to fields, pending submit (`isLoading`, disabled sections), success toast/`Result`, error `Alert` + toast; verify the required-field and pending tests pass
-- [ ] 3.3 Rebuild Magic Listing as a controlled suggestion `Card` with per-field "Áp dụng", no `document.getElementById`, no default title, `Alert` + retry on failure; verify non-destructive apply and failure tests pass
-- [ ] 3.4 Update `/seller/new` and `/seller/[id]/edit` pages (header, 403 `Result`, `not-found`), sticky action bar on mobile, `loading.tsx` skeleton; verify the 403 and 375px sticky bar tests pass
+- [x] 3.1 Convert `ListingForm` fields to controlled state grouped in `Card` sections with `FormItem`, `Input`, `Select`, `Radio`; keep hidden `imageKeys`/`variants` and `saveListingAction`; verify existing create/edit tests still pass
+- [x] 3.2 Add field validation (title, price > 0, stock >= 0, category) on blur/submit plus server `SellState` mapping to fields, pending submit (`isLoading`, disabled sections), success toast/`Result`, error `Alert` + toast; verify the required-field and pending tests pass
+- [x] 3.3 Rebuild Magic Listing as a controlled suggestion `Card` with per-field "Áp dụng", no `document.getElementById`, no default title, `Alert` + retry on failure; verify non-destructive apply and failure tests pass
+- [x] 3.4 Update `/seller/new` and `/seller/[id]/edit` pages (header, 403 `Result`, `not-found`), sticky action bar on mobile, `loading.tsx` skeleton; verify the 403 and 375px sticky bar tests pass
 
 ## 4. Code — team-frontend: orders and order detail
 

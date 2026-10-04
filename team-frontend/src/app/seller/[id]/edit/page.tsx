@@ -1,11 +1,15 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Result } from "@/components/ui/Result";
 import { ListingForm } from "@/features/listing/ListingForm";
+import { LinkButton } from "@/features/seller/LinkButton";
+import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { getListing, listCategories } from "@/lib/gateway/listings";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
+
+export const metadata = { title: "Chỉnh sửa sản phẩm | Kênh người bán" };
 
 export default async function SellerEditPage({
   params,
@@ -16,53 +20,32 @@ export default async function SellerEditPage({
     getListing(params.id),
     listCategories(),
   ]);
-  if (!listing) notFound();
+  if (!listing) {
+    notFound();
+    return null;
+  }
 
   const me = getPrincipal();
   const isOwner = me?.id === listing.sellerId;
 
   if (!isOwner && !me?.scopes.includes("admin")) {
     return (
-      <section className="mx-auto max-w-lg text-center py-12">
-        <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-2xs">
-          <span className="text-3xl">⚠️</span>
-          <h1 className="mt-3 text-base font-bold text-gray-900">
-            Không có quyền chỉnh sửa
-          </h1>
-          <p className="mt-2 text-xs text-gray-500">
-            Bạn không phải là người sở hữu sản phẩm này.
-          </p>
-          <Link
-            href="/seller"
-            className="mt-5 inline-block rounded-lg bg-brand px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-brand-dark"
-          >
-            Quay lại Kênh người bán
-          </Link>
-        </div>
-      </section>
+      <Result
+        status="error"
+        title="Không có quyền chỉnh sửa"
+        subTitle="Bạn không phải là người sở hữu sản phẩm này."
+        extra={<LinkButton href="/seller">Quay lại Kênh người bán</LinkButton>}
+      />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white p-5 rounded-xl shadow-2xs">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">
-            Chỉnh sửa sản phẩm
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Cập nhật thông tin, giá bán và tồn kho cho mã: #
-            {listing.id.slice(0, 8)}
-          </p>
-        </div>
-        <Link
-          href="/seller"
-          className="text-xs font-medium text-brand hover:underline"
-        >
-          ← Quay lại danh sách
-        </Link>
-      </div>
-
+    <>
+      <SellerPageHeader
+        title="Chỉnh sửa sản phẩm"
+        description={`Cập nhật thông tin, giá bán và tồn kho cho mã ${listing.id.slice(0, 8)}.`}
+        action={<LinkButton href="/seller">Quay lại danh sách</LinkButton>}
+      />
       <ListingForm
         listingId={listing.id}
         categories={categories}
@@ -80,6 +63,6 @@ export default async function SellerEditPage({
           variants: listing.variants,
         }}
       />
-    </div>
+    </>
   );
 }
