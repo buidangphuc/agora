@@ -1,8 +1,8 @@
 ## 1. Code — team-frontend: shell, loading and error states
 
-- [ ] 1.1 Add `src/features/account/AccountShell.tsx` (server): `Breadcrumb`, `h1`, left menu on `lg+`, scrollable strip at 375px, `aria-current="page"` from a `current` prop; verify a Vitest test renders it and asserts the active item and the nav landmark label
-- [ ] 1.2 Add `loading.tsx` (shell-matching `Skeleton`) for `/account/addresses`, `/account/security`, `/account/verification`, `/account/referral`, `/account/following`, `/favorites`, `/notifications`, `/login`, `/register`; verify each renders in Vitest and measured CLS on a throttled load is 0
-- [ ] 1.3 Add `error.tsx` (`Result status="error"` + "Thử lại" via `reset()`) for `src/app/account/` and for `/favorites` and `/notifications`; verify a Vitest test calls `reset` on click
+- [x] 1.1 Add `src/features/account/AccountShell.tsx` (server): `Breadcrumb`, `h1`, left menu on `lg+`, scrollable strip at 375px, `aria-current="page"` from a `current` prop; verify a Vitest test renders it and asserts the active item and the nav landmark label
+- [ ] 1.2 Add `loading.tsx` (shell-matching `Skeleton`) for `/account/addresses`, `/account/security`, `/account/verification`, `/account/referral`, `/account/following`, `/favorites`, `/notifications`, `/login`, `/register`; verify each renders in Vitest and measured CLS on a throttled load is 0 (note: skeletons + Vitest render done; CLS measurement needs the running stack)
+- [x] 1.3 Add `error.tsx` (`Result status="error"` + "Thử lại" via `reset()`) for `src/app/account/` and for `/favorites` and `/notifications`; verify a Vitest test calls `reset` on click
 
 ## 2. Code — team-frontend: Server Action contract
 
