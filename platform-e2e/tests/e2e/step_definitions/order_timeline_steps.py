@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+
 from playwright.sync_api import expect
 from pytest_bdd import given, then, when
 
@@ -28,5 +29,8 @@ def buyer_navigates_to_order_detail(world: World) -> None:
 def order_shows_timeline(world: World) -> None:
     expect(world.page).to_have_url(re.compile(r".*/account/orders/.*"), timeout=timeouts.DEFAULT)
     # Stepper steps and product list should be present
-    expect(world.page.locator("body")).to_contain_text("HÀNH TRÌNH ĐƠN HÀNG")
-    expect(world.page.locator("body")).to_contain_text("DANH SÁCH SẢN PHẨM")
+    expect(world.page.locator("body")).to_contain_text("Hành trình đơn hàng")
+    expect(world.page.locator("body")).to_contain_text("Danh sách sản phẩm")
+    expect(world.page.get_by_role("navigation", name="Progress").first).to_be_visible(
+        timeout=timeouts.DEFAULT
+    )

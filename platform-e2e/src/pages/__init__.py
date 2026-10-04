@@ -12,6 +12,7 @@ from .listing_detail_page import ListingDetailPage
 from .login_page import LoginPage
 from .notifications_page import NotificationsPage
 from .order_detail_page import OrderDetailPage
+from .orders_list_page import OrdersListPage
 from .register_page import RegisterPage
 from .search_page import SearchPage
 from .seller_analytics_page import SellerAnalyticsPage
@@ -37,6 +38,7 @@ __all__ = [
     "CartPage",
     "CheckoutPage",
     "OrderDetailPage",
+    "OrdersListPage",
     "VouchersPage",
     "AssistantPage",
     "SellerListingsPage",

@@ -17,6 +17,16 @@ class OrderService(BaseService):
     def get_order(self, order_id: str) -> dict[str, Any]:
         return self.post(ep.ORDER_GET, {"id": order_id})
 
+    def list_buyer_orders(self) -> dict[str, Any]:
+        return self.post(ep.ORDER_LIST_BUYER, {})
+
+    def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
+        """Drive an order to a status (e.g. ORDER_STATUS_COMPLETED); the buyer may do so for own orders."""
+        return self.post(ep.ORDER_UPDATE_STATUS, {"id": order_id, "status": status})
+
+    def cancel_order(self, order_id: str, reason: str = "") -> dict[str, Any]:
+        return self.post(ep.ORDER_CANCEL, {"id": order_id, "reason": reason})
+
     def get_saga_state(self, order_id: str) -> dict[str, Any]:
         return self.post(ep.ORDER_SAGA_STATE, {"orderId": order_id})
 

@@ -8,7 +8,9 @@ Feature: Order Tracking Timeline and RMA Refund
   Scenario: Buyer tracks delivery milestones and submits an RMA refund request
     Given I am logged in as a buyer via API
     And I have an active order with SPX shipment tracking
+    And the order has been delivered
     When I navigate to the "account orders" page
+    And I open the order detail from the list
     Then I should see the order delivery timeline
     When I submit an RMA refund request with reason "changed_mind"
     Then I should see the RMA refund success confirmation
