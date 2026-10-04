@@ -117,8 +117,8 @@ features:
       - Then the shop header reads "Shop #" followed by the first 6 characters of the seller id
       - And when BatchGetStorefronts fails or is Unimplemented the cart still renders every item with the fallback label
     tags: [buyer, shop]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Fallback when the seller has no name"
     notes: >
       Scenario "Fallback when the seller has no name" is written in
       shop/shop_display_name.feature; run pending a live stack. The lookup-failure
@@ -170,8 +170,8 @@ features:
       - Then exactly one BatchGetStorefronts call is made with both seller ids
       - And each cart item carries its own shop name (sellerDisplayName)
     tags: [buyer, cart, shop]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "shop/shop_display_name.feature::A cart with two sellers returns both names in one batch"
     notes: >
       Scenario "A cart with two sellers returns both names in one batch" is written in
       shop/shop_display_name.feature and asserts the batch lookup through the gateway.
@@ -442,7 +442,8 @@ features:
       - Then the page shows a "not found" result with a visible link back to /
       - And the HTTP status is 404
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::Unknown route shows the 404 result"
 
   - id: ui.error-recovery
     title: A thrown page error is recoverable
@@ -463,6 +464,8 @@ features:
       - And clicking it re-renders the segment
     tags: [buyer]
     status: planned
+    notes: >-
+      Needs a server component that throws during render (fault injection); covered by render tests only.
 
   - id: ui.brand-colour-token
     title: The brand colour resolves from the design tokens
@@ -480,7 +483,8 @@ features:
       - Then the header search button's computed background colour is rgb(238, 77, 45)
       - And the --color-action-primary alias resolves to the same colour
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::The brand colour resolves from the design tokens"
 
   - id: ui.alias-override
     title: Changing an alias restyles every user of it
@@ -499,7 +503,8 @@ features:
       - When --color-action-primary is overridden on :root
       - Then every element styled by the action-primary alias renders the overridden colour
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::Changing an alias restyles every user of it"
 
   # ---- ui-core-components (core component set + /dev/ui catalogue). The scenarios
   # ---- drive the dev-only /dev/ui page, so they need only the frontend, no backend.
@@ -737,7 +742,8 @@ features:
       - When /dev/ui is requested
       - Then the response status is 404
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::The catalogue is not shipped to production"
 
   # ---- ui-phase-product-detail (PDP rebuilt on the core components). status:
   # ---- planned until product_detail.feature has run green against the local stack.
@@ -762,8 +768,8 @@ features:
       - Given the feed query fails
       - Then an error Alert with a retry link to / is shown instead of an empty grid
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/shell.feature::Slow block does not block the page"
     notes: >
       e2e scenario "Slow block does not block the page" (frontend/shell.feature) asserts the observable effect (hero
       first, zero layout shift); the slow/failing gateway cases are covered by the unit tests because a server-side
@@ -789,8 +795,8 @@ features:
       - Given the gateway provides no flash-sale campaign
       - Then no flash-sale heading, countdown, "% sold" bar or discount badge is present
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/shell.feature::No fabricated markers on the home page"
     notes: >
       e2e scenario "No fabricated markers on the home page" (frontend/shell.feature); the card-level scenarios are unit tests.
 
@@ -828,8 +834,8 @@ features:
       - Given /search?category=c1 is rendered with CategoryBar variant="pills"
       - Then the pill for c1 has aria-current="true" and "Tất cả" does not
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/search_facets.feature::Filters are shareable URLs"
     notes: >
       e2e scenarios "Filters are shareable URLs", "Active filters can be removed one by one", "Clear all filters",
       "Sort options match what the server honours" (frontend/search_facets.feature) and "Selecting a category navigates by URL"
@@ -855,8 +861,8 @@ features:
       - Given the total is 24 or fewer
       - Then no Pagination is rendered
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/search_facets.feature::Page links preserve the query"
     notes: >
       e2e scenarios "Page links preserve the query" and "Out-of-range page redirects" (frontend/search_facets.feature).
       "Single page hides Pagination" is a unit test.
@@ -911,8 +917,8 @@ features:
       - Given a grid is rendered in a 375px viewport
       - Then it shows 2 columns with no horizontal page scroll and no text smaller than 12px
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/search_mobile.feature::Filters open in a drawer at 375px"
     notes: >
       e2e scenarios "Filters open in a drawer at 375px", "Active count badge" and "Card layout works at 375px"
       (frontend/search_mobile.feature). "Invalid price range is rejected" is a unit test.
@@ -946,8 +952,8 @@ features:
       - Given /vouchers is rendered at 375px
       - Then voucher cards are one per row and the tabs scroll horizontally without page overflow
     tags: [promo, buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/vouchers.feature::Tab state survives reload"
     notes: >
       e2e scenarios "Visitor browses available vouchers", "Tab state survives reload", "Empty tab" (promo/vouchers.feature) and
       "Buyer explores voucher hub" (promo/voucher_hub.feature). The promotion service has no shipping voucher type, so the
@@ -973,8 +979,8 @@ features:
       - When the recommendations row streams in after the hero
       - Then its cards still carry placementId "home_recommendations" on impression and click events
     tags: [tracking, buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "tracking/discovery_tracking_unchanged.feature::Card impression still fires once"
     notes: >
       e2e scenarios "Card impression still fires once", "Card click still records select_item" and
       "Search results still emit a batched impression" (tracking/discovery_tracking_unchanged.feature). The payload snapshot
@@ -1002,8 +1008,8 @@ features:
       - When the buyer opens the cart
       - Then two shop groups are shown, each headed by its real shop name and not "Shop #"
     tags: [buyer, cart, shop]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Cart groups items by shop with the real shop name"
 
   - id: cart.voucher-modal
     title: Voucher selection through the VoucherModal
@@ -1029,8 +1035,8 @@ features:
       - When the buyer applies the voucher code "BOGUS-NOPE-999"
       - Then the modal shows the reason and no discount is applied
     tags: [buyer, promo]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "promo/vouchers.feature::Buyer redeems a valid voucher at checkout"
     notes: Driven by the updated steps of promo/vouchers.feature (voucher moved into the modal on the Thanh toán step).
 
   - id: checkout.step-form
@@ -1054,8 +1060,8 @@ features:
       - When the buyer continues to the Vận chuyển step and reloads
       - Then the URL has step=shipping and the Vận chuyển step is still current
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Checkout step lives in the URL and survives a reload"
 
   - id: checkout.address-selector
     title: Address selection in a modal
@@ -1075,8 +1081,8 @@ features:
       - When the buyer opens the checkout page and changes the address in the modal
       - Then the address card shows the new recipient and the URL addr is the chosen id
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Buyer changes the delivery address in the selector modal"
 
   - id: checkout.payment-options
     title: Payment method one-of-many, keyboard operable
@@ -1096,8 +1102,8 @@ features:
       - When the buyer presses the Down arrow on the selected method
       - Then exactly one method is selected and the URL pay parameter follows it
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Payment method is one-of-many and keyboard operable"
 
   - id: checkout.double-submit-guard
     title: Place order cannot create two orders
@@ -1119,8 +1125,8 @@ features:
       - When the buyer double-clicks Đặt hàng
       - Then exactly one order exists for the buyer
     tags: [buyer, checkout, order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Double-clicking Place order creates exactly one order"
     notes: The same-tick guarantee and the single purchase event are covered by Vitest (PlaceOrderForm.test.tsx).
 
   - id: checkout.saga-failure-alert
@@ -1142,8 +1148,8 @@ features:
       - Then an error alert with Thử lại and Quay lại giỏ hàng is shown
       - And the order button is enabled again, did not move, and the cart is unchanged
     tags: [buyer, checkout, order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::A saga failure is shown as a recoverable alert"
 
   - id: payment.result-outcomes
     title: Payment outcome shown as a Result
@@ -1167,8 +1173,8 @@ features:
       - When the buyer presses "Thanh toán thất bại" on another order
       - Then an error Result offers Thử lại and Đổi phương thức
     tags: [buyer, payment]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Successful mock payment shows a success result"
     notes: The cancelled-by-saga Alert and the 404 Result are covered by Vitest (page.test.tsx).
 
   - id: checkout.tracking-events
@@ -1185,8 +1191,8 @@ features:
       - Given a buyer applies the voucher code "SAVE10" and places the order
       - Then the page dataLayer holds exactly one begin_checkout, at least one apply_promotion and exactly one purchase
     tags: [buyer, checkout, tracking]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::The purchase path still emits begin_checkout, apply_promotion and purchase"
     notes: Event names and payloads are also covered by Vitest (BeginCheckoutBeacon, VoucherModal, PlaceOrderForm tests).
 
   - id: cart.mobile-layout
@@ -1204,8 +1210,8 @@ features:
       - When the buyer opens the cart at 375px width
       - Then there is no horizontal overflow and the quantity control and Mua hàng are visible
     tags: [buyer, cart]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::The cart fits a 375px viewport"
 
   - id: orders.list-status-tabs
     title: Order list status tabs held in the URL
@@ -1233,7 +1239,8 @@ features:
       - And when the buyer opens /account/orders?status=paid&page=2 and reloads, the same tab and page are shown
       - And an unknown status or an out-of-range page falls back to the "all" tab and the last page without an error
     tags: [buyer, order]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::A status tab changes the URL and the list"
 
   - id: orders.list-pagination
     title: Order list pagination
@@ -1258,7 +1265,8 @@ features:
       - Then 10 orders are shown with a Pagination of 2 pages
       - And following the "2" link shows the last order at ?page=2
     tags: [buyer, order]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::Pagination links page through the list"
 
   - id: orders.list-empty-and-recovery
     title: Order list empty state and load-failure recovery
@@ -1283,7 +1291,8 @@ features:
       - And a buyer with no orders sees "Bạn chưa có đơn hàng nào" with a "Mua sắm ngay" link
       - And when the order list request fails an Alert with "Thử lại" is shown instead of the empty state (covered by Vitest page.test.tsx)
     tags: [buyer, order]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::An empty tab offers a way back"
 
   - id: orders.detail-anatomy
     title: Order detail header, progress, descriptions, items and tabs
@@ -1313,6 +1322,8 @@ features:
       - And a CANCELLED order shows the "Đơn hàng đã hủy" Alert instead of the Stepper
     tags: [buyer, order]
     status: planned
+    notes: >-
+      No dedicated e2e scenario yet (the RMA and timeline journeys only touch parts of the detail page).
 
   - id: orders.timeline-saga-failure
     title: Saga failure checkpoint in the order timeline
@@ -1337,7 +1348,8 @@ features:
       - Then the failed and compensated steps render as error items, one with data-testid timeline-failure
       - And an error Alert with a "Mua lại" action is shown above the timeline
     tags: [buyer, order]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::A saga failure is shown as the failure checkpoint"
 
   - id: orders.rma-modal
     title: Return request Modal with validation and feedback
@@ -1367,7 +1379,8 @@ features:
       - Then the submit button shows a pending state, the Modal closes, a success toast shows and the section shows a "Chờ duyệt" badge
       - And "Hủy đơn" on a pending order calls cancelOrderAction and the badge reads "Đã hủy" after revalidation
     tags: [buyer, order]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::The return Modal validates and then submits"
 
   - id: orders.detail-forbidden
     title: Another buyer's order shows a 403 page
@@ -1389,7 +1402,8 @@ features:
       - Then a 403 Result "Bạn không có quyền xem đơn hàng này" is shown with a link to /account/orders
       - And no recipient, item or amount of that order appears
     tags: [buyer, order]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::Another buyer's order shows a 403 page"
 
   - id: orders.mobile-layout
     title: Order screens at a 375px viewport
@@ -1412,7 +1426,8 @@ features:
       - Then document.documentElement.scrollWidth does not exceed the viewport width on both pages
       - And the page view event still fires after reordering and landing on /cart
     tags: [buyer, order, wap]
-    status: planned
+    status: automated
+    covered_by: "frontend/orders_ui.feature::The order screens fit a 375px viewport"
   - id: account.shell-nav
     title: Account pages share a URL-driven settings shell
     persona: buyer
@@ -1434,7 +1449,8 @@ features:
       - "Menu collapses on mobile: at 375px the menu is one scrollable row above the content and the page does not scroll sideways"
       - "Anonymous visitor is redirected: opening /account/addresses without a session redirects to /login with no address data in the response"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/account.feature::The account menu reflects the URL and Back returns to the previous page"
 
   - id: account.address-delete-confirm
     title: Address book with confirmed delete and feedback on every action
@@ -1465,7 +1481,8 @@ features:
       - "A failed mutation reports an error and keeps state: when set-default fails then an error toast is shown, the previous default keeps its Mặc định Tag and the button is enabled again"
       - "Empty address book: with no addresses an Empty block says Bạn chưa có địa chỉ nhận hàng nào. with a Thêm địa chỉ ngay action"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/account.feature::Deleting an address needs confirmation"
 
   - id: account.security-revoke
     title: Security page lists sessions and login history in Tables
@@ -1492,6 +1509,8 @@ features:
       - "Gateway read failure: when the sessions request fails the sessions section shows an inline error Alert with Thử lại and the history section still renders"
     tags: [buyer]
     status: planned
+    notes: >-
+      Scenario 'Revoking a session asks for confirmation first' is written but cannot pass on this branch: team-identity never records a session at login (CreateSession is not called), so the sessions table is always empty.
 
   - id: account.kyc-form-labels
     title: KYC form is fully labelled and status is a Tag
@@ -1517,7 +1536,8 @@ features:
       - "Submitting a KYC document: when a buyer enters a reference and presses Gửi hồ sơ xác minh then the button is pending, a success toast appears, the field is cleared and the status Tag shows the pending status"
       - "Status is not conveyed by colour alone: a Verified status Tag contains the statusText in addition to its colour"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/account.feature::Every KYC control has an accessible name"
 
   - id: account.referral
     title: Referral page with Statistic, Descriptions and Timeline
@@ -1545,6 +1565,8 @@ features:
       - "No rewards yet: with an empty rewards list the Timeline area renders Empty Chưa có phần thưởng nào."
     tags: [buyer]
     status: planned
+    notes: >-
+      No e2e scenario yet.
 
   - id: account.following-tabs
     title: Following page is URL-tabbed with real shop names
@@ -1571,6 +1593,8 @@ features:
       - "Empty follow list: with no followed shops the shops tab shows Empty Bạn chưa theo dõi gian hàng nào. with a Khám phá gian hàng action to /search"
     tags: [buyer]
     status: planned
+    notes: >-
+      No e2e scenario yet.
 
   - id: account.favorites-url-state
     title: Favorites keep URL state and reuse ListingGrid unchanged
@@ -1599,6 +1623,8 @@ features:
       - "Collection management gives feedback: when a buyer creates a collection the create button is pending and disabled, a success toast appears and the new collection is listed"
     tags: [buyer, engagement]
     status: planned
+    notes: >-
+      Only the unknown-collection Result is covered ('An unknown favorites collection shows a not-found result'); the collection filter URL and collection management have no e2e scenario.
 
   - id: account.notifications-tab-url
     title: Notification tabs are URL state and the list is server-rendered
@@ -1627,7 +1653,8 @@ features:
       - "Empty tab: a tab with no notifications shows Empty Chưa có thông báo nào trong mục này."
       - "Saving preferences: when a buyer changes a toggle and presses Lưu the button is pending and a success toast appears; on failure an error toast appears and the toggles keep the unsaved values"
     tags: [buyer, notification]
-    status: planned
+    status: automated
+    covered_by: "frontend/account.feature::The notification tab survives a reload"
 
   - id: auth.login-inline-error
     title: Login and register use validated FormItems with an inline error Alert
@@ -1655,7 +1682,8 @@ features:
       - "Wrong credentials show an inline error: a rejected login shows an error Alert with role=alert reading Tên đăng nhập hoặc mật khẩu không chính xác., keeps the username, clears the password and stays on /login"
       - "Register enforces the minimum lengths: a 2-character username or a 3-character password on /register shows the minimum-length help and does not submit"
     tags: [auth, buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/account.feature::Wrong credentials show an inline error and keep the typed username"
   - id: seller.shell-navigation
     title: Seller shell navigation
     persona: seller
@@ -1682,7 +1710,8 @@ features:
       - Given the seller is on /seller/wallet, then only the "Ví người bán" link has aria-current="page"
       - Given a logged-in buyer without listing.write opens /seller, then a Result explains the seller role is required and links back to /
     tags: [seller]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Sidebar collapses on desktop"
 
   - id: seller.workplace-dashboard
     title: Seller Workplace dashboard
@@ -1707,7 +1736,8 @@ features:
       - Given the seller activates "Ví người bán" in quick actions, then the browser navigates to /seller/wallet
       - Given the seller has no orders, then the recent-orders block shows an Empty with a link to /seller/new
     tags: [seller]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::KPI row and quick actions on desktop"
     notes: >-
       The failed-source and empty-response scenarios need fault injection at the gateway, so they are covered
       by the Vitest page tests (src/app/seller/page.test.tsx); the e2e drives the happy path and the Empty.
@@ -1733,7 +1763,8 @@ features:
       - Given the seller opens /seller?page=abc or /seller?status=bogus, then page 1 renders with the default status and no error
       - Given a filter matches no rows, then the table shows Empty "Không có kết quả" with a "Xoá bộ lọc" link
     tags: [seller]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Product search is reflected in the URL"
     notes: >-
       The 45-listing pagination scenario needs a bulk seed; it is covered by the Vitest page test, the e2e
       covers search, invalid parameters and the no-match Empty.
@@ -1755,7 +1786,8 @@ features:
       - Given the seller confirms the deletion, then the confirm button shows a spinner and is disabled, and after success the Modal closes, a success toast appears and the row is gone
       - Given deleteListingAction returns an error, then the Modal stays open with the error in an Alert, an error toast appears and the confirm button is enabled again
     tags: [seller]
-    status: planned
+    status: automated
+    covered_by: "seller/listing_delete.feature::Delete requires confirmation and Cancel keeps the row"
     notes: The failed-delete scenario needs fault injection; covered by Vitest (DeleteListingModal.test.tsx).
 
   - id: seller.listing-studio-validation
@@ -1782,7 +1814,8 @@ features:
       - Given saveListingAction returns an error, then an Alert at the top shows the message, an error toast appears, the entered values are preserved and submit is enabled
       - Given a seller opens /seller/<id>/edit of a listing owned by another seller, then a 403 Result with a link back to /seller is shown and the form is not rendered
     tags: [seller]
-    status: planned
+    status: automated
+    covered_by: "seller/create-listing.feature::A required-field error blocks the save"
     notes: The pending and server-error scenarios are covered by Vitest (ListingForm.test.tsx).
 
   - id: seller.magic-listing-assist
@@ -1805,7 +1838,8 @@ features:
       - Given the seller activates "Áp dụng tất cả", then the title, description and price fields show the suggestion values and submit sends them
       - Given magicListingAction returns an error, then an Alert with "Thử lại" and an error toast are shown and the seller can still submit manually
     tags: [seller, ai]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Magic Listing suggestions are applied only on request"
     notes: The failure scenario needs fault injection; covered by Vitest (ListingForm.test.tsx).
 
   - id: seller.order-detail
@@ -1832,7 +1866,8 @@ features:
       - Given a seller opens /seller/orders/does-not-exist, then the seller not-found Result links to /seller/orders
       - Given the seller activates "In phiếu", then the print stylesheet hides the sidebar, header actions and toasts and prints the packing slip only
     tags: [seller, order]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Order detail shows the real order and shipping gives feedback"
     notes: The shipping-failure scenario needs fault injection; covered by Vitest (ShipOrderButton.test.tsx).
 
   - id: seller.analytics-range
@@ -1854,7 +1889,8 @@ features:
       - Given the seller opens /seller/analytics, then the dashboard and the revenue metrics summary (Statistic row) are visible
       - Given getSellerFunnel throws, then an Alert with a "Thử lại" link to the same URL is shown and the rest of the page still renders
     tags: [seller, analytics]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_analytics.feature::Range tab updates the URL"
     notes: The failure scenario needs fault injection; covered by Vitest (analytics.test.tsx).
 
   - id: seller.wallet-payout-confirm
@@ -1875,7 +1911,8 @@ features:
       - Given a seller with a positive balance activates "Rút tiền" and confirms, then the confirm button is pending then disabled, a success toast appears and the balance and ledger refresh
       - Given the balance is 0, then the payout Button is disabled with aria-disabled="true" and explains why
     tags: [seller, fintech]
-    status: planned
+    status: automated
+    covered_by: "seller/fulfillment_and_payout.feature::Payout asks for confirmation before sending anything"
     notes: >-
       The positive-balance scenario skips itself when the seeded seller has no wallet balance (no balance
       seeding exists); pending and toast are covered by Vitest (PayoutButton.test.tsx).
@@ -1920,7 +1957,8 @@ features:
       - Given the listing studio is scrolled to the middle at 375px, then the Save button remains visible in the sticky bottom bar
       - Given /seller is opened at 1280px, then the four KPI Statistic cells appear in one row next to the sidebar
     tags: [seller]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::No page-level horizontal scroll at 375px"
 
   - id: seller.shop-profile-name
     title: Seller sets the shop display name
@@ -1942,7 +1980,8 @@ features:
       - Given a seller enters "Nhà Sách An Nhiên" and submits the shop profile form, then a success toast appears and /shop/<sellerId> shows "Nhà Sách An Nhiên"
       - Given a seller submits a blank name or one longer than 80 characters, then no request is sent and the field shows an inline error linked by aria-describedby
     tags: [seller, shop]
-    status: planned
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Saving a new shop name is reflected on the storefront"
   - id: listing.pdp-anatomy
     title: Product detail page follows the Basic Profile anatomy
     persona: buyer
@@ -1983,6 +2022,8 @@ features:
       - "Then the shop card shows \"Chưa có đánh giá\" instead of \"0.0 / 5.0\""
     tags: [buyer, ui]
     status: planned
+    notes: >-
+      No dedicated e2e scenario yet (variant, buy bar, anchor nav, reviews and not-found are covered by their own entries).
 
   - id: listing.pdp-variant-url
     title: Variant selection lives in the URL and drives price and stock
@@ -2011,7 +2052,8 @@ features:
       - "When a variant has stock 0"
       - "Then its radio is disabled with aria-disabled=\"true\", shows an \"Hết hàng\" tag and cannot be selected"
     tags: [buyer, ui]
-    status: planned
+    status: automated
+    covered_by: "frontend/product_detail.feature::Selecting a variant with a different price updates the URL and the price"
 
   - id: listing.pdp-purchase-feedback
     title: Purchase actions give pending, disabled and toast feedback
@@ -2043,7 +2085,8 @@ features:
       - "When the selected variant has stock 0"
       - "Then both actions and the quantity picker are disabled and a warning \"Phân loại này đã hết hàng\" is shown"
     tags: [buyer, ui]
-    status: planned
+    status: automated
+    covered_by: "frontend/product_detail.feature::Add to cart shows a pending state then a success toast"
 
   - id: listing.pdp-mobile-buy-bar
     title: Mobile uses a sticky bottom buy bar
@@ -2072,7 +2115,8 @@ features:
       - "When the buyer scrolls to the bottom of the page at 375px"
       - "Then the last element of the page is fully visible above the buy bar"
     tags: [buyer, ui]
-    status: planned
+    status: automated
+    covered_by: "frontend/product_detail.feature::The buy bar is sticky at 375px and absent at 1280px"
 
   - id: listing.pdp-reviews-url
     title: Review filter and pagination are URL state
@@ -2104,7 +2148,8 @@ features:
       - "When the buyer picks 5 stars, types a comment and submits the review modal"
       - "Then the submit button shows loading and the controls are disabled, then a success toast shows and the new review appears"
     tags: [buyer, ui, engagement]
-    status: planned
+    status: automated
+    covered_by: "buyer/review_ratings_filter.feature::Filtering reviews by stars is shareable through the URL"
 
   - id: listing.pdp-anchor-nav
     title: Detail content is stacked sections with an anchor nav
@@ -2134,7 +2179,8 @@ features:
       - "When a logged-out visitor views the Q&A section"
       - "Then qa-login-prompt links to /login?returnUrl=/listing/<id> and no ask form renders"
     tags: [buyer, ui]
-    status: planned
+    status: automated
+    covered_by: "frontend/product_detail.feature::The anchor nav links to the always-visible sections"
 
   - id: listing.pdp-no-fabricated-data
     title: The PDP shows only real data
@@ -2161,7 +2207,8 @@ features:
       - "When the buyer opens a listing with an active flash-sale campaign"
       - "Then the strike-through shows the regular price, the price tag shows the campaign sale price and the discount percentage is computed from those two values"
     tags: [buyer, ui]
-    status: planned
+    status: automated
+    covered_by: "frontend/product_detail.feature::A listing with no reviews shows no invented numbers"
 
   - id: listing.pdp-not-found
     title: An unknown listing and a failed fetch have recoverable states
@@ -2184,7 +2231,8 @@ features:
       - "When the route is navigated to and loading.tsx is shown, then the page resolves"
       - "Then the gallery stage, title block and anchor nav keep the same top offsets and the measured layout shift is 0"
     tags: [buyer, ui]
-    status: planned
+    status: automated
+    covered_by: "frontend/product_detail.feature::An unknown listing renders the product not-found result"
 
   - id: listing.pdp-ai-recs-hidden
     title: AI summary and similar items stream and hide gracefully
@@ -2219,3 +2267,5 @@ features:
       - "Then one add_to_cart event is sent with value 200000, currency VND and the item id, name, price, quantity and category"
     tags: [buyer, ui, recommendations]
     status: planned
+    notes: >-
+      Scenarios live in recommendations/recommendations.feature, which cannot be collected in the e2e venv (needs pandas and platform-recsys).

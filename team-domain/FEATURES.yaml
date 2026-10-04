@@ -150,8 +150,8 @@ features:
       - An unknown or deleted seller gives an empty name (omitted from the batch response)
       - Duplicates are collapsed and more than 100 ids fails with InvalidArgument
     tags: [seller, shop, contract]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "shop/shop_display_name.feature::The name is returned for a storefront"
     notes: >
       Backend scenarios are covered by team-domain handler tests; the UI-visible
       scenarios live in team-frontend FEATURES (shop.storefront, cart.shop-names, ...).
