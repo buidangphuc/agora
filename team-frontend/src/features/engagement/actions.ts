@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { errorMessage } from "@/features/account/action-error";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import {
   type CheckInResult,
   type ViewCollection,
@@ -45,6 +47,25 @@ export async function createCollectionAction(
       ok: false,
       message: err instanceof Error ? err.message : "Tạo bộ sưu tập thất bại.",
     };
+  }
+}
+
+/**
+ * Create a collection from /favorites. Same gateway call as
+ * createCollectionAction, with the `{ ok, error?, data? }` result shape; the
+ * older action keeps its shape for the listing page's AddToCollectionButton.
+ */
+export async function createCollectionResultAction(
+  name: string,
+): Promise<ActionResult<ViewCollection>> {
+  const trimmed = name.trim();
+  if (!trimmed) return fail("Tên bộ sưu tập không được để trống.");
+  try {
+    const collection = await createCollection(trimmed);
+    revalidatePath("/favorites");
+    return ok(collection);
+  } catch (err: unknown) {
+    return fail(errorMessage(err, "Tạo bộ sưu tập thất bại."));
   }
 }
 

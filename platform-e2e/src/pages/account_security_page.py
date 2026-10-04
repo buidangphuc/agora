@@ -41,5 +41,10 @@ class AccountSecurityPage(BasePage):
     def revoke_button(self) -> Locator:
         return self.page.get_by_role("button", name="Thu hồi").first
 
+    @property
+    def revoke_dialog(self) -> Locator:
+        """The confirm Modal opened by "Thu hồi" (revoke is never immediate)."""
+        return self.page.get_by_role("dialog", name="Thu hồi phiên đăng nhập?")
+
     def is_displayed(self) -> bool:
         return "/account/security" in self.page.url

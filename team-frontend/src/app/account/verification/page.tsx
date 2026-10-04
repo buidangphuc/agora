@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { Descriptions } from "@/components/ui/Descriptions";
+import { Tag } from "@/components/ui/Tag";
+import { AccountShell } from "@/features/account/AccountShell";
 import { SubmitKycForm } from "@/features/account/verification/SubmitKycForm";
+import { statusTone } from "@/features/account/verification/status";
 import { getPrincipal } from "@/lib/gateway/session";
-import {
-  VerificationStatus,
-  getVerificationStatus,
-} from "@/lib/gateway/verification";
+import { getVerificationStatus } from "@/lib/gateway/verification";
 
 export const dynamic = "force-dynamic";
 
@@ -13,63 +15,59 @@ export const metadata = {
   title: "Xác minh tài khoản | Marketplace",
 };
 
-function badgeClass(status: VerificationStatus): string {
-  switch (status) {
-    case VerificationStatus.VERIFIED:
-      return "bg-green-100 text-green-700";
-    case VerificationStatus.PENDING:
-      return "bg-amber-100 text-amber-700";
-    case VerificationStatus.REJECTED:
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-gray-100 text-gray-500";
-  }
-}
-
 export default async function VerificationPage() {
   if (!getPrincipal()) redirect("/login");
 
   const verification = await getVerificationStatus();
 
+  const items = [
+    {
+      key: "status",
+      label: "Trạng thái",
+      children: (
+        <Tag color={statusTone(verification.status)}>
+          {verification.statusText}
+        </Tag>
+      ),
+    },
+    ...(verification.badge
+      ? [
+          {
+            key: "badge",
+            label: "Huy hiệu",
+            children: <Tag color="success">Huy hiệu đã xác minh</Tag>,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <section className="space-y-6 py-2">
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <h1 className="text-lg font-bold text-gray-900">
-          ✅ Xác minh tài khoản
-        </h1>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Gửi giấy tờ để xác minh danh tính (KYC) và nhận huy hiệu tài khoản.
-        </p>
-      </div>
+    <AccountShell
+      current="verification"
+      title="Xác minh tài khoản"
+      description="Gửi giấy tờ để xác minh danh tính (KYC) và nhận huy hiệu tài khoản."
+    >
+      <Card>
+        <CardHeader>
+          <h2 className="text-base font-semibold text-text-primary">
+            Trạng thái hiện tại
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <Descriptions items={items} column={1} />
+        </CardContent>
+      </Card>
 
-      {/* ── Current status ── */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <h2 className="mb-3 text-sm font-bold text-gray-800">
-          Trạng thái hiện tại
-        </h2>
-        <div className="flex items-center gap-3">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeClass(
-              verification.status,
-            )}`}
-          >
-            {verification.statusText}
-          </span>
-          {verification.badge && (
-            <span className="flex items-center gap-1 text-xs font-medium text-blue-600">
-              ✔ Huy hiệu đã xác minh
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Submit KYC ── */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <h2 className="mb-3 text-sm font-bold text-gray-800">
-          Gửi hồ sơ xác minh
-        </h2>
-        <SubmitKycForm />
-      </div>
-    </section>
+      <Card>
+        <CardHeader>
+          <h2 className="text-base font-semibold text-text-primary">
+            Gửi hồ sơ xác minh
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <SubmitKycForm />
+        </CardContent>
+      </Card>
+    </AccountShell>
   );
 }

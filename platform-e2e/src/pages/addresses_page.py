@@ -35,3 +35,22 @@ class AddressesPage(BasePage):
         self.page.fill('input[name="district"]', "Quận 1")
         self.page.fill('input[name="city"]', "TP. HCM")
         self.save_button.click()
+
+    # ── Card list, delete confirmation (ui-phase-account) ────────────────
+    @property
+    def address_cards(self) -> Locator:
+        return self.page.get_by_test_id("address-card")
+
+    def address_card(self, recipient: str) -> Locator:
+        return self.address_cards.filter(has_text=recipient)
+
+    def delete_button(self, recipient: str) -> Locator:
+        return self.address_card(recipient).get_by_role("button", name="Xóa", exact=True)
+
+    @property
+    def confirm_dialog(self) -> Locator:
+        return self.page.get_by_role("dialog", name="Xóa địa chỉ?")
+
+    @property
+    def confirm_delete_button(self) -> Locator:
+        return self.confirm_dialog.get_by_role("button", name="Xóa địa chỉ")

@@ -1,80 +1,101 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
 
-import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardContent } from "@/components/ui/Card";
+import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
+import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, loginAction } from "./actions";
+import { useCredentialForm } from "./useCredentialForm";
+import { validateLogin } from "./validation";
 
-const initial: AuthState = {};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      variant="primary"
-      size="md"
-      isLoading={pending}
-      className="w-full font-semibold shadow-sm"
-    >
-      {pending ? "Đang đăng nhập..." : "Đăng nhập"}
-    </Button>
-  );
-}
+const initial: AuthState = { ok: false };
 
 export function LoginForm() {
   const [state, action] = useFormState(loginAction, initial);
+  const form = useCredentialForm(state, validateLogin);
+
   return (
-    <div className="mx-auto max-w-sm bg-white p-7 rounded-2xl border border-gray-200/90 shadow-preline-card">
-      <div className="mb-6 text-center">
-        <h2 className="text-xl font-bold text-gray-900">Đăng Nhập</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          Truy cập tài khoản Marketplace Polyrepo
-        </p>
-      </div>
-
-      <form action={action} className="space-y-4">
-        <Input
-          label="Tên đăng nhập"
-          id="username"
-          name="username"
-          required
-          autoComplete="username"
-          placeholder="Nhập username của bạn"
-        />
-
-        <Input
-          label="Mật khẩu"
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          placeholder="••••••••"
-        />
-
-        {state.error && (
-          <div className="rounded-lg bg-red-50 p-2.5 text-xs text-red-600 font-medium border border-red-200">
-            {state.error}
-          </div>
-        )}
-
-        <div className="pt-1">
-          <SubmitButton />
+    <Card className="mx-auto w-full max-w-sm">
+      <CardContent className="space-y-5">
+        <div className="space-y-1 text-center">
+          <h2 className="text-xl font-bold text-text-primary">
+            Chào mừng trở lại
+          </h2>
+          <p className="text-sm text-text-secondary">
+            Đăng nhập để tiếp tục mua sắm.
+          </p>
         </div>
 
-        <p className="text-center text-xs text-gray-500 pt-2">
-          Chưa có tài khoản?{" "}
-          <Link
-            href="/register"
-            className="text-primary-600 font-semibold hover:underline"
+        <form
+          action={action}
+          onSubmit={form.onSubmit}
+          noValidate
+          className="space-y-4"
+        >
+          <FormItem
+            label="Tên đăng nhập"
+            required
+            help={form.errors.username}
+            status={form.errors.username ? "error" : undefined}
           >
-            Đăng ký ngay
-          </Link>
-        </p>
-      </form>
-    </div>
+            <Input
+              className="min-h-10"
+              ref={form.usernameRef}
+              id="username"
+              name="username"
+              required
+              autoComplete="username"
+              placeholder="Nhập username của bạn"
+              value={form.username}
+              onChange={(e) => {
+                form.setUsername(e.target.value);
+                form.onChange("username");
+              }}
+              onBlur={() => form.onBlur("username")}
+            />
+          </FormItem>
+
+          <FormItem
+            label="Mật khẩu"
+            required
+            help={form.errors.password}
+            status={form.errors.password ? "error" : undefined}
+          >
+            <Input
+              className="min-h-10"
+              ref={form.passwordRef}
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              onChange={() => form.onChange("password")}
+              onBlur={() => form.onBlur("password")}
+            />
+          </FormItem>
+
+          {state.error && !form.hasFieldErrors && (
+            <Alert type="error" description={state.error} />
+          )}
+
+          <AuthSubmitButton>Đăng nhập</AuthSubmitButton>
+
+          <p className="text-center text-sm text-text-secondary">
+            Chưa có tài khoản?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-action-primary hover:underline"
+            >
+              Đăng ký ngay
+            </Link>
+          </p>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
