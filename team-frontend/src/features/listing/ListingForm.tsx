@@ -111,12 +111,12 @@ export function ListingForm({
     const res = await magicListingAction(titleHint, categoryInput?.value ?? "");
     setAiLoading(false);
 
-    if (!res.ok || !res.result) {
-      setAiError(res.message || "AI tạm thời không phản hồi.");
+    if (!res.ok || !res.data) {
+      setAiError(res.ok ? "AI chưa có gợi ý." : res.error);
       return;
     }
 
-    const r = res.result;
+    const r = res.data;
     if (titleInput && r.generatedTitle) {
       titleInput.value = r.generatedTitle;
       titleInput.dispatchEvent(new Event("input", { bubbles: true }));

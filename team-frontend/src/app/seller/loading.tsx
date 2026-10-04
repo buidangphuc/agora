@@ -1,14 +1,18 @@
-import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  HeaderSkeleton,
+  KpiRowSkeleton,
+  TableCardSkeleton,
+} from "@/features/seller/SellerSkeletons";
 
-/** Segment fallback: header + one content block (pages with their own footprint override it). */
+/** /seller (Workplace) skeleton: header, KPI row, quick actions, two tables. */
 export default function SellerLoading() {
   return (
     <div className="space-y-6" aria-busy="true" data-testid="seller-skeleton">
-      <div className="space-y-3">
-        <Skeleton variant="text" lines={1} className="w-48" />
-        <Skeleton variant="text" lines={2} className="w-80" />
-      </div>
-      <Skeleton variant="text" lines={8} />
+      <HeaderSkeleton />
+      <KpiRowSkeleton />
+      <TableCardSkeleton rows={2} filter={false} />
+      <TableCardSkeleton rows={5} filter={false} />
+      <TableCardSkeleton rows={8} />
     </div>
   );
 }

@@ -6,11 +6,11 @@
 
 ## 2. Code — team-frontend: Workplace and Table List
 
-- [ ] 2.1 Add a shared `parseListParams(searchParams)` helper (q, status, page with safe defaults) and a cursor-walk `getListingsPage(page)` over `listMyListings`; verify unit tests for invalid values and page 3
-- [ ] 2.2 Rebuild `/seller` page: KPI `Statistic` row from real data (no hard-coded 0; a KPI whose source call fails is hidden), quick actions `Card`, recent-orders `Table`; verify the KPI derivation test passes and a test asserts a failed source hides its cell and no hard-coded metric value remains
-- [ ] 2.3 Add `SellerFilterBar` (client, debounced `router.replace`, page reset) and the product `Table` + `Pagination` + `Image` thumbnails (1:1, lazy after first screen) + `Empty`/`Alert` states; verify URL, empty and invalid-param tests pass
-- [ ] 2.4 Replace `DeleteListingButton` with `DeleteListingModal` (confirm `Modal`, pending, `Alert`, toast, `revalidatePath("/seller")`); verify confirm, pending and failure tests pass and no `confirm(` remains
-- [ ] 2.5 Add `loading.tsx` for `/seller` with a skeleton of the same footprint; verify the skeleton and page KPI row heights match in a test
+- [x] 2.1 Add a shared `parseListParams(searchParams)` helper (q, status, page with safe defaults) and a cursor-walk `getListingsPage(page)` over `listMyListings`; verify unit tests for invalid values and page 3
+- [x] 2.2 Rebuild `/seller` page: KPI `Statistic` row from real data (no hard-coded 0; a KPI whose source call fails is hidden), quick actions `Card`, recent-orders `Table`; verify the KPI derivation test passes and a test asserts a failed source hides its cell and no hard-coded metric value remains
+- [x] 2.3 Add `SellerFilterBar` (client, debounced `router.replace`, page reset) and the product `Table` + `Pagination` + `Image` thumbnails (1:1, lazy after first screen) + `Empty`/`Alert` states; verify URL, empty and invalid-param tests pass
+- [x] 2.4 Replace `DeleteListingButton` with `DeleteListingModal` (confirm `Modal`, pending, `Alert`, toast, `revalidatePath("/seller")`); verify confirm, pending and failure tests pass and no `confirm(` remains
+- [x] 2.5 Add `loading.tsx` for `/seller` with a skeleton of the same footprint; verify the skeleton and page KPI row heights match in a test
 
 ## 3. Code — team-frontend: listing studio
 

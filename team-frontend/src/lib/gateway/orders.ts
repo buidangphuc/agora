@@ -184,13 +184,19 @@ export async function listBuyerOrders(
   }
 }
 
+/**
+ * The seller's orders. A failed call yields [] unless `throwOnError` is set
+ * (callers that must tell "no orders" from "could not load").
+ */
 export async function listSellerOrders(
   statusFilter: OrderStatus = OrderStatus.UNSPECIFIED,
+  opts: { throwOnError?: boolean } = {},
 ): Promise<ViewOrder[]> {
   try {
     const res = await gateway().order.listSellerOrders({ statusFilter });
     return res.orders.map(mapOrder);
-  } catch {
+  } catch (err) {
+    if (opts.throwOnError) throw err;
     return [];
   }
 }
