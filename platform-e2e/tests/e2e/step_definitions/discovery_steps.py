@@ -72,7 +72,9 @@ def _seed_indexed_listings(world: World, count: int, prefix: str) -> str:
     try:
         while time.time() < deadline:
             resp = read_model.post(ep.SEARCH_LISTINGS, {"query": keyword})
-            hits = len(resp.get("hits") or [])
+            # `hits` is only the first page (the backend page size is below the seeded count),
+            # so count through the page total.
+            hits = int((resp.get("page") or {}).get("total") or len(resp.get("hits") or []))
             if hits >= count:
                 break
             time.sleep(2)
