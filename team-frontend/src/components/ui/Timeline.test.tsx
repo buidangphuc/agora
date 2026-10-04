@@ -31,6 +31,11 @@ describe("Timeline", () => {
     );
   });
 
+  it("puts an item's testId on its list item", () => {
+    render(<Timeline items={[{ key: "1", title: "A", testId: "evt" }]} />);
+    expect(screen.getByTestId("evt").tagName).toBe("LI");
+  });
+
   it("loading shows a skeleton and is busy", () => {
     const { container } = render(<Timeline items={items} loading />);
     expect(screen.queryByText("Đã đặt hàng")).toBeNull();
