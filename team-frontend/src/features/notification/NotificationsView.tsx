@@ -64,16 +64,18 @@ export function NotificationsView({
 
   return (
     <div className="space-y-4">
-      <Tabs
-        items={NOTIFICATION_TABS.map((t) => ({
-          id: t.id,
-          label: t.label,
-          badge: countOf(t.id),
-        }))}
-        activeId={tab}
-        hrefFor={(id) => hrefFor(id as NotificationTab, 1)}
-        variant="pills"
-      />
+      <div className="overflow-x-auto">
+        <Tabs
+          items={NOTIFICATION_TABS.map((t) => ({
+            id: t.id,
+            label: t.label,
+            badge: countOf(t.id),
+          }))}
+          activeId={tab}
+          hrefFor={(id) => hrefFor(id as NotificationTab, 1)}
+          variant="pills"
+        />
+      </div>
 
       <Card>
         {rows.length === 0 ? (

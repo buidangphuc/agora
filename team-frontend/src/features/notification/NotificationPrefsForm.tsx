@@ -72,6 +72,7 @@ export function NotificationPrefsForm({
             {TYPE_ROWS.map((row) => (
               <Checkbox
                 key={row.key}
+                className="min-h-10 items-center"
                 name={row.key}
                 label={row.label}
                 checked={enabled[row.key]}
@@ -87,6 +88,7 @@ export function NotificationPrefsForm({
 
           <FormItem label="Tần suất tổng hợp">
             <Select
+              className="min-h-10"
               name="digest"
               value={String(digest)}
               onChange={(e) =>

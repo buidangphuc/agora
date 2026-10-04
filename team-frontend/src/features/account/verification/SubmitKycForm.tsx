@@ -44,6 +44,7 @@ export function SubmitKycForm() {
     <form onSubmit={submit} className="space-y-4">
       <FormItem label="Loại giấy tờ">
         <Select
+          className="min-h-10"
           name="docType"
           value={docType}
           onChange={(e) => setDocType(e.target.value)}
@@ -55,6 +56,7 @@ export function SubmitKycForm() {
         help="Nhập số giấy tờ hoặc khóa tệp đã tải lên."
       >
         <Input
+          className="min-h-10"
           name="docRef"
           required
           value={docRef}

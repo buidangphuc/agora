@@ -63,6 +63,7 @@ export function CollectionsManager({
         >
           <div className="flex-1">
             <Input
+              className="min-h-10"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -95,7 +96,7 @@ export function CollectionsManager({
               >
                 <Link
                   href={`/favorites?collection=${c.id}`}
-                  className="min-w-0 truncate text-sm font-medium text-text-primary hover:text-action-primary"
+                  className="flex min-h-10 min-w-0 items-center truncate text-sm font-medium text-text-primary hover:text-action-primary"
                 >
                   {c.name}
                 </Link>

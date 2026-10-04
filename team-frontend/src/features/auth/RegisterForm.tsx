@@ -49,6 +49,7 @@ export function RegisterForm() {
             status={form.errors.username ? "error" : undefined}
           >
             <Input
+              className="min-h-10"
               ref={form.usernameRef}
               id="username"
               name="username"
@@ -71,6 +72,7 @@ export function RegisterForm() {
             status={form.errors.password ? "error" : undefined}
           >
             <Input
+              className="min-h-10"
               ref={form.passwordRef}
               id="password"
               name="password"
@@ -85,6 +87,7 @@ export function RegisterForm() {
 
           <FormItem label="Loại tài khoản">
             <Select
+              className="min-h-10"
               id="role"
               name="role"
               defaultValue="buyer"

@@ -46,6 +46,7 @@ export function RedeemReferralForm() {
         className="flex-1"
       >
         <Input
+          className="min-h-10"
           name="code"
           value={code}
           onChange={(e) => {

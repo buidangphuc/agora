@@ -94,6 +94,7 @@ export function AddressModal({
             status={errors.recipientName ? "error" : undefined}
           >
             <Input
+              className="min-h-10"
               name="recipientName"
               required
               defaultValue={address?.recipientName}
@@ -108,6 +109,7 @@ export function AddressModal({
             status={errors.phone ? "error" : undefined}
           >
             <Input
+              className="min-h-10"
               name="phone"
               type="tel"
               required
@@ -125,6 +127,7 @@ export function AddressModal({
           status={errors.street ? "error" : undefined}
         >
           <Input
+            className="min-h-10"
             name="street"
             required
             defaultValue={address?.street}
@@ -136,6 +139,7 @@ export function AddressModal({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormItem label="Phường / Xã">
             <Input
+              className="min-h-10"
               name="ward"
               defaultValue={address?.ward}
               placeholder="VD: P. Bến Nghé"
@@ -143,6 +147,7 @@ export function AddressModal({
           </FormItem>
           <FormItem label="Quận / Huyện">
             <Input
+              className="min-h-10"
               name="district"
               defaultValue={address?.district}
               placeholder="VD: Quận 1"
@@ -155,6 +160,7 @@ export function AddressModal({
             status={errors.city ? "error" : undefined}
           >
             <Input
+              className="min-h-10"
               name="city"
               required
               defaultValue={address?.city}
