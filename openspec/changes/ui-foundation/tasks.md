@@ -24,6 +24,6 @@
 ## 4. E2E — platform-e2e
 
 - [x] 4.1 Add `team-frontend/FEATURES.yaml` entries for every scenario in this change (`status: planned`); verify `make -C platform-e2e features-check`
-- [ ] 4.2 Add `tests/e2e/features/frontend/ui_foundation.feature` + steps: 404 page, computed brand colour, alias override; verify the scenarios pass and flip to `automated`
+- [x] 4.2 Add `tests/e2e/features/frontend/ui_foundation.feature` + steps: 404 page, computed brand colour, alias override; verify the scenarios pass and flip to `automated` (Ran green against the agora stack (production frontend): 404 page, computed brand colour, alias override, plus the `/dev/ui` 404 scenario; entries flipped to `automated`.)
   - Blocked: authored and collected (`pytest --collect-only`: 3 scenarios). The 404 and brand-colour scenarios passed against a local `next start` (no backend); the alias-override scenario needs a rendered listing (PriceTag), which needs the agora stack (gateway + search + seed), and the stack is not running. FEATURES.yaml entries stay `planned` until it has run green.
 - [x] 4.3 Run `openspec validate ui-foundation --strict`; verify it is valid
