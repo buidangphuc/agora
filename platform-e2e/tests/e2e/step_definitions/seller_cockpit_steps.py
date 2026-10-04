@@ -98,8 +98,8 @@ def collapse_sidebar(world: World) -> None:
 def sidebar_is_collapsed(world: World) -> None:
     page = _workplace(world)
     expect(page.sidebar).to_have_attribute("data-collapsed", "true")
-    box = page.sidebar.bounding_box()
-    assert box is not None and 62 <= box["width"] <= 66, f"sidebar width {box}"
+    # The width animates to the collapsed size, so wait for it instead of sampling once.
+    expect(page.sidebar).to_have_css("width", "64px", timeout=timeouts.DEFAULT)
     expect(page.nav_link("Quản lý đơn hàng")).to_have_attribute("href", "/seller/orders")
 
 
