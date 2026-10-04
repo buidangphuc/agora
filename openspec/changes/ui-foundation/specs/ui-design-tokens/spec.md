@@ -12,7 +12,7 @@ and the lint that keeps component code on tokens.
 brand `primary` 50–950 with `DEFAULT` `#ee4d2d`, a neutral scale 50–900, accents `danger` (`#d0011b`),
 `promo` (`#ffbe00`, light `#ffe97a`) and `success` (`#00bfa5`), the 4px spacing scale, radius `lg` 8px,
 `xl` 12px, `2xl` 16px, the shadows `preline-card` and `preline-hover`, and a type scale limited to 12, 14,
-16, 20 and 24 px.
+16, 20 and 24 px for UI text plus 30 and 36 px display sizes reserved for hero and page-title headings.
 
 #### Scenario: The brand scale resolves from the config
 

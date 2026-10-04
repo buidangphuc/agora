@@ -82,7 +82,7 @@ describe("design tokens", () => {
     }
   });
 
-  it("type scale: no generated font-size is below 12px or off the 12/14/16/20/24 scale", async () => {
+  it("type scale: no generated font-size is below 12px or off the 12/14/16/20/24/30/36 scale", async () => {
     const css = await build(
       "text-xs text-sm text-base text-lg text-xl text-2xl text-3xl text-4xl text-5xl",
     );
@@ -94,7 +94,7 @@ describe("design tokens", () => {
     });
     expect(sizes.size).toBeGreaterThan(0);
     for (const px of sizes) {
-      expect([12, 14, 16, 20, 24]).toContain(px);
+      expect([12, 14, 16, 20, 24, 30, 36]).toContain(px);
     }
   });
 });

@@ -12,7 +12,7 @@ Design principles act as grammar rules to resolve tradeoffs and maintain aesthet
 
 | Principle | Meaning & Concrete Interface Rule | Anti-pattern to Reject |
 |---|---|---|
-| **1. Clarity over Visual Clutter** | Visual hierarchy and whitespace dictate focus. Use 12px/14px/16px baseline type scale. Reserve bright brand color (`#ee4d2d`) for primary calls to action, badges, and pricing. | Cramming 8px/9px micro-text everywhere, rainbow tags, or unspaced element borders. |
+| **1. Clarity over Visual Clutter** | Visual hierarchy and whitespace dictate focus. Use 12px/14px/16px baseline type scale (20/24px for section headings, 30/36px display sizes only for hero and page titles). Reserve bright brand color (`#ee4d2d`) for primary calls to action, badges, and pricing. | Cramming 8px/9px micro-text everywhere, rainbow tags, or unspaced element borders. |
 | **2. Unbreakable & Predictable Commerce** | Every transaction touchpoint (Add to Cart, Variant Selector, Checkout, RMA) must provide immediate feedback (loading spinner, optimistic feedback, or disabled state). | Silent clicks, ambiguous pricing breakdowns, or layout jumping during checkout. |
 | **3. Token-First Guarantee** | No raw hex codes (`#123456`) or arbitrary values (`text-[9px]`, `p-[7px]`) in component code. Every style decision must resolve through the design token hierarchy. | Ad-hoc inline CSS utilities that drift across features. |
 | **4. Zero Layout Shift (CLS = 0)** | Images, feeds, and banners must declare explicit aspect ratios (`aspect-square`, `aspect-2/1`). Dynamic data blocks must use skeleton fallbacks. | Content pushing down when images load or products pop into view. |
@@ -57,8 +57,11 @@ The only place raw values live.
   `600 #4b5563`, `700 #374151`, `800 #1f2937`, `900 #111827`).
 - **Semantic Accents** (`accent.*`):
   - Mall/Danger: `#d0011b` (dark `#b00016`)
-  - Promotion/Discount: `#ffbe00` / `#ffe97a`
-  - Success/Freeship: `#00bfa5`
+  - Promotion/Discount: `#ffbe00` / `#ffe97a` (text on tints `promo-dark` `#8a5a00`)
+  - Success/Freeship: `#00bfa5` (text on tints `success-dark` `#007a69`)
+  - Tinted backgrounds (Alert, Tag, Badge, Result) use Tier 1 scales with an opacity modifier
+    (e.g. `bg-accent-success/10`), because Tier 2 `var()` aliases cannot take one.
+- **Type Scale**: 12/14/16 px body and controls, 20/24 px section headings, 30/36 px display (hero, page title) only.
 - **Spacing Scale (4px Baseline)**: Tailwind default (`1` = 4px, `2` = 8px, `3` = 12px, `4` = 16px, `5` = 20px,
   `6` = 24px, `8` = 32px, `12` = 48px) plus `18` = 72px.
 - **Type Scale**: 12 / 14 / 16 / 20 / 24 px only (`text-xs` 12, `text-sm` 14, `text-base` 16, `text-lg`/`text-xl` 20,
