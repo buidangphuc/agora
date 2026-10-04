@@ -1,10 +1,16 @@
+import Link from "next/link";
 import React from "react";
+import { focusRing } from "./focus";
 
 export interface StepItem {
   id: string | number;
   title: string;
   description?: string;
   status: "complete" | "current" | "upcoming" | "failed";
+  /** Horizontal only: makes the title a link (e.g. back to a completed step). */
+  href?: string;
+  /** With `href`: renders the title as inert (`aria-disabled`) instead of a link. */
+  disabled?: boolean;
 }
 
 export interface StepperProps {
@@ -92,17 +98,36 @@ export function Stepper({
                   {isComplete ? "✓" : idx + 1}
                 </span>
                 <div className="sr-only sm:not-sr-only">
-                  <span
-                    className={`text-xs font-medium ${
+                  {(() => {
+                    const titleClass = `text-xs font-medium ${
                       isCurrent
                         ? "text-action-primary font-semibold"
                         : isComplete
                           ? "text-text-primary"
                           : "text-text-disabled"
-                    }`}
-                  >
-                    {step.title}
-                  </span>
+                    }`;
+                    if (step.href && step.disabled) {
+                      return (
+                        <span
+                          aria-disabled="true"
+                          className={`${titleClass} cursor-not-allowed opacity-50`}
+                        >
+                          {step.title}
+                        </span>
+                      );
+                    }
+                    if (step.href) {
+                      return (
+                        <Link
+                          href={step.href}
+                          className={`${titleClass} rounded-xs hover:underline ${focusRing}`}
+                        >
+                          {step.title}
+                        </Link>
+                      );
+                    }
+                    return <span className={titleClass}>{step.title}</span>;
+                  })()}
                 </div>
               </div>
               {!isLast && (
