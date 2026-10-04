@@ -18,11 +18,22 @@ function formatVnd(n: number): string {
   return `${n.toLocaleString("vi-VN")}₫`;
 }
 
-/** Human label for a price-range facet key like "0-100000" or "5000000-". */
+/**
+ * A price-range facet key: "min-max" (closed) or "min+" / "min-" (open-ended, which is what
+ * team-search emits for the top bucket, e.g. "1000000+").
+ */
+function parsePriceKey(key: string): { min: number; max: number | undefined } {
+  const match = /^(\d+)(?:-(\d*)|\+)?$/.exec(key);
+  if (!match) return { min: 0, max: undefined };
+  return {
+    min: Number(match[1]),
+    max: match[2] ? Number(match[2]) : undefined,
+  };
+}
+
+/** Human label for a price-range facet key like "0-100000" or "1000000+". */
 function priceRangeLabel(key: string): string {
-  const [rawMin, rawMax] = key.split("-");
-  const min = rawMin ? Number(rawMin) : 0;
-  const max = rawMax ? Number(rawMax) : undefined;
+  const { min, max } = parsePriceKey(key);
   if (!max) return `Trên ${formatVnd(min)}`;
   if (min === 0) return `Dưới ${formatVnd(max)}`;
   return `${formatVnd(min)} - ${formatVnd(max)}`;
@@ -33,18 +44,22 @@ function priceRangeValues(key: string): {
   minPrice: number | undefined;
   maxPrice: number | undefined;
 } {
-  const [rawMin, rawMax] = key.split("-");
-  const min = rawMin ? Number(rawMin) : 0;
-  const max = rawMax ? Number(rawMax) : 0;
+  const { min, max } = parsePriceKey(key);
   return {
     minPrice: min > 0 ? min : undefined,
-    maxPrice: max > 0 ? max : undefined,
+    maxPrice: max && max > 0 ? max : undefined,
   };
 }
 
 /** Canonical "min-max" key for the applied price filter (matches the facet keys). */
 function currentPriceKey(min?: number, max?: number): string {
   return `${min ?? 0}-${max ?? ""}`;
+}
+
+/** Facet key in the same "min-max" shape as `currentPriceKey`. */
+function normalizePriceKey(key: string): string {
+  const { min, max } = parsePriceKey(key);
+  return `${min}-${max ?? ""}`;
 }
 
 function Bucket({
@@ -180,7 +195,7 @@ function FilterContent({
         <Group title="Khoảng giá" testId="facet-price_ranges">
           <div className="space-y-0.5">
             {facets.priceRanges.map((b) => {
-              const active = priceKey === b.key;
+              const active = priceKey === normalizePriceKey(b.key);
               return (
                 <Bucket
                   key={b.key}

@@ -17,6 +17,7 @@ const facets = {
   priceRanges: [
     { key: "0-100000", count: 2 },
     { key: "100000-500000", count: 3 },
+    { key: "1000000+", count: 1 },
   ],
   ratings: [{ key: "4", count: 4 }],
   sellers: [{ key: "s1", count: 1 }],
@@ -76,6 +77,30 @@ describe("FilterSidebar", () => {
     expect(bucket).toHaveAttribute("data-active", "true");
     expect(bucket).toHaveAttribute("aria-current", "true");
     expect(bucket).toHaveAttribute("href", "/search?q=ao");
+  });
+
+  it("labels the open-ended top bucket and links it as a minimum price", () => {
+    const { container } = setup({ currentMinPrice: 1000000 });
+    const inline = container.querySelector(".hidden.lg\\:block") as HTMLElement;
+    const bucket = inline.querySelector(
+      '[data-key="1000000+"]',
+    ) as HTMLAnchorElement;
+    expect(bucket.textContent).toContain("Trên 1.000.000₫");
+    expect(bucket.textContent).not.toContain("NaN");
+    expect(bucket).toHaveAttribute("data-active", "true");
+    const other = inline.querySelector(
+      '[data-key="100000-500000"]',
+    ) as HTMLAnchorElement;
+    expect(other).toHaveAttribute("data-active", "false");
+  });
+
+  it("links the open-ended bucket with minPrice only", () => {
+    const { container } = setup();
+    const inline = container.querySelector(".hidden.lg\\:block") as HTMLElement;
+    const bucket = inline.querySelector(
+      '[data-key="1000000+"]',
+    ) as HTMLAnchorElement;
+    expect(bucket).toHaveAttribute("href", "/search?q=ao&minPrice=1000000");
   });
 
   it("shows a count badge on the mobile trigger", () => {
