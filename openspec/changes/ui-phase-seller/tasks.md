@@ -38,9 +38,9 @@
 
 ## 6. Code — team-frontend: cross-cutting
 
-- [ ] 6.1 Replace every raw hex, `text-[..]`/`p-[..]` and sub-12px text in `src/app/seller/**`, `src/app/sell/**`, `src/features/seller/**`, `src/features/listing/ListingForm.tsx`, `src/features/order/SellerOrdersList.tsx` with tokens; verify `node scripts/check-tokens.mjs` is clean
-- [ ] 6.2 Confirm no `TrackLink`, `TrackImpression`, `SearchImpressions`, `AnalyticsProvider` or tracking `data-*` was added, removed or changed (`git diff` over those files is empty) and `/listing/[id]` row links are unchanged; verify the link test passes
-- [ ] 6.3 Run the gate; verify `npm run check` and `npx next build` pass
+- [x] 6.1 Replace every raw hex, `text-[..]`/`p-[..]` and sub-12px text in `src/app/seller/**`, `src/app/sell/**`, `src/features/seller/**`, `src/features/listing/ListingForm.tsx`, `src/features/order/SellerOrdersList.tsx` with tokens; verify `node scripts/check-tokens.mjs` is clean
+- [x] 6.2 Confirm no `TrackLink`, `TrackImpression`, `SearchImpressions`, `AnalyticsProvider` or tracking `data-*` was added, removed or changed (`git diff` over those files is empty) and `/listing/[id]` row links are unchanged; verify the link test passes
+- [x] 6.3 Run the gate; verify `npm run check` and `npx next build` pass
 
 ## 7. E2E — platform-e2e
 
