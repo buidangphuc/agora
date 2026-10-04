@@ -738,3 +738,252 @@ features:
       - Then the response status is 404
     tags: [buyer]
     status: planned
+
+  # ---- ui-phase-account (account/auth screens on the core component set). The
+  # ---- scenarios need the full stack (logged-in buyer through the gateway), so the
+  # ---- entries stay `planned` until they run green against the e2e docker stack.
+  # ---- `acceptance` is one line per spec scenario of openspec/changes/ui-phase-account.
+
+  - id: account.shell-nav
+    title: Account pages share a URL-driven settings shell
+    persona: buyer
+    priority: P1
+    summary: >-
+      The five /account/* settings pages render in AccountShell: breadcrumb, h1 and a menu of links whose current item (aria-current=page) comes from the route; it collapses to one scrollable row on a phone.
+    entry_route: /account/security
+    related_routes: [/account/addresses, /account/verification, /account/referral, /account/following]
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: buyer
+    ui:
+      key_elements:
+        menu: "role:navigation=Menu tài khoản"
+        heading: "role:heading"
+    acceptance:
+      - "The menu reflects the URL: when a signed-in buyer opens /account/security then the Bảo mật item has aria-current=page, the others do not, and the h1 is Bảo mật tài khoản"
+      - "Menu navigation is a real navigation: when the buyer clicks Xác minh and then uses Back, the URL becomes /account/verification and Back returns to /account/security re-rendered"
+      - "Menu collapses on mobile: at 375px the menu is one scrollable row above the content and the page does not scroll sideways"
+      - "Anonymous visitor is redirected: opening /account/addresses without a session redirects to /login with no address data in the response"
+    tags: [buyer]
+    status: planned
+
+  - id: account.address-delete-confirm
+    title: Address book with confirmed delete and feedback on every action
+    persona: buyer
+    priority: P1
+    summary: >-
+      Addresses are cards; create and edit open a Modal form, delete opens a confirm Modal (no window.confirm), and every action shows a pending state and ends with a toast.
+    entry_route: /account/addresses
+    related_routes: [/checkout]
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: buyer
+      seed_tag: needsAddress
+    api:
+      seed:
+        - identity.v1.CreateAddress
+      exercised:
+        - identity.v1.ListAddresses
+        - identity.v1.DeleteAddress
+        - identity.v1.SetDefaultAddress
+    ui:
+      key_elements:
+        address_card: "testid:address-card"
+        confirm_dialog: "role:dialog=Xóa địa chỉ?"
+    acceptance:
+      - "Adding an address: when a buyer submits a valid address in the add Modal then the button is pending, the modal closes, a success toast appears and the new card is listed"
+      - "Delete requires confirmation: when a buyer clicks Xóa on a non-default address then a confirm Modal names the recipient, the address is deleted only after the confirm button, and cancel or Escape leaves the list unchanged and returns focus to Xóa"
+      - "A failed mutation reports an error and keeps state: when set-default fails then an error toast is shown, the previous default keeps its Mặc định Tag and the button is enabled again"
+      - "Empty address book: with no addresses an Empty block says Bạn chưa có địa chỉ nhận hàng nào. with a Thêm địa chỉ ngay action"
+    tags: [buyer]
+    status: planned
+
+  - id: account.security-revoke
+    title: Security page lists sessions and login history in Tables
+    persona: buyer
+    priority: P2
+    summary: >-
+      Sessions and login history are Tables with a result Tag; revoking a session asks for confirmation, shows a pending state and ends with a toast; history paginates via ?page=.
+    entry_route: /account/security
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - identity.v1.ListSessions
+        - identity.v1.RevokeSession
+        - identity.v1.ListLoginHistory
+    ui:
+      key_elements:
+        revoke_button: "role:button=Thu hồi"
+        revoke_dialog: "role:dialog=Thu hồi phiên đăng nhập?"
+    acceptance:
+      - "Revoking a session: when a buyer confirms Thu hồi on an active session then the button is pending, a success toast appears, and that row shows Đã thu hồi with no Revoke button"
+      - "Empty history: with no login history the table renders Empty Chưa có lịch sử đăng nhập."
+      - "Gateway read failure: when the sessions request fails the sessions section shows an inline error Alert with Thử lại and the history section still renders"
+    tags: [buyer]
+    status: planned
+
+  - id: account.kyc-form-labels
+    title: KYC form is fully labelled and status is a Tag
+    persona: buyer
+    priority: P1
+    summary: >-
+      The verification page shows the KYC status as Descriptions with a text Tag (success, promo, danger, neutral) and SubmitKycForm binds every control to its label through FormItem.
+    entry_route: /account/verification
+    services: [team-frontend, team-verification]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - verification.v1.GetVerificationStatus
+        - verification.v1.SubmitKyc
+    ui:
+      key_elements:
+        doc_type: "label:Loại giấy tờ"
+        doc_ref: "label:Mã tham chiếu tài liệu"
+        submit: "role:button=Gửi hồ sơ xác minh"
+    acceptance:
+      - "Every KYC control has an accessible name: the document-type select is named Loại giấy tờ and the reference input is named Mã tham chiếu tài liệu"
+      - "Submitting a KYC document: when a buyer enters a reference and presses Gửi hồ sơ xác minh then the button is pending, a success toast appears, the field is cleared and the status Tag shows the pending status"
+      - "Status is not conveyed by colour alone: a Verified status Tag contains the statusText in addition to its colour"
+    tags: [buyer]
+    status: planned
+
+  - id: account.referral
+    title: Referral page with Statistic, Descriptions and Timeline
+    persona: buyer
+    priority: P2
+    summary: >-
+      The referral page shows the code with a copy button, invited and reward Statistics, a redeem form and the rewards ledger as a Timeline; generate and redeem are Server Actions with pending state and toasts.
+    entry_route: /account/referral
+    services: [team-frontend, team-referral]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - referral.v1.CreateReferralCode
+        - referral.v1.GetMyReferral
+        - referral.v1.RedeemReferral
+        - referral.v1.ListReferralRewards
+    ui:
+      key_elements:
+        generate: "role:button=Tạo mã giới thiệu"
+        redeem_input: "label:Mã của bạn bè"
+    acceptance:
+      - "Generating a code: when a buyer without a code presses Tạo mã then the button is pending, a success toast appears and the code is shown after revalidation"
+      - "Redeeming an invalid code: when the server rejects the code then an error toast is shown and the redeem field shows the server message as help with aria-invalid=true"
+      - "No rewards yet: with an empty rewards list the Timeline area renders Empty Chưa có phần thưởng nào."
+    tags: [buyer]
+    status: planned
+
+  - id: account.following-tabs
+    title: Following page is URL-tabbed with real shop names
+    persona: buyer
+    priority: P1
+    summary: >-
+      /account/following has a summary Statistic and link Tabs on ?tab=shops|items; shop cards show the real shop display name (Shop # plus 6 id characters only when the name is empty) and the product feed loads behind Suspense with a Skeleton.
+    entry_route: /account/following
+    related_routes: ["/shop/{id}", "/listing/{id}"]
+    services: [team-frontend, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - engagement.v1.ListFollowedSellers
+        - listing.v1.BatchGetStorefronts
+    ui:
+      key_elements:
+        tabs: "role:navigation=Tabs"
+    acceptance:
+      - "Tab is held in the URL: opening /account/following?tab=items selects the Sản phẩm tab on first render without client JS"
+      - "Shop cards show the real shop name: a followed shop named Cửa hàng Hoa Mai shows that name and not Shop #"
+      - "Empty shop name falls back: a followed shop with an empty name shows Shop # plus the first 6 characters of its id"
+      - "Empty follow list: with no followed shops the shops tab shows Empty Bạn chưa theo dõi gian hàng nào. with a Khám phá gian hàng action to /search"
+    tags: [buyer]
+    status: planned
+
+  - id: account.favorites-url-state
+    title: Favorites keep URL state and reuse ListingGrid unchanged
+    persona: buyer
+    priority: P1
+    summary: >-
+      /favorites shows the total in a Badge, the collections manager and the favourites in the unchanged ListingGrid, filtered by ?collection= and paginated by ?page=; an unknown collection id renders a 404 Result.
+    entry_route: /favorites
+    related_routes: ["/favorites?collection={id}"]
+    services: [team-frontend, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - engagement.v1.ListFavorites
+        - engagement.v1.ListCollections
+        - engagement.v1.CreateCollection
+        - engagement.v1.ListCollectionItems
+    ui:
+      key_elements:
+        collection_form: "label:Tạo bộ sưu tập"
+        collection_name: "label:Tên bộ sưu tập"
+    acceptance:
+      - "Collection filter in the URL: when a buyer selects a collection the URL becomes /favorites?collection=<id>, the header shows the collection name and reloading shows the same items"
+      - "Unknown collection: opening /favorites?collection=does-not-exist renders a Result that offers Xem tất cả sản phẩm yêu thích"
+      - "Collection management gives feedback: when a buyer creates a collection the create button is pending and disabled, a success toast appears and the new collection is listed"
+    tags: [buyer, engagement]
+    status: planned
+
+  - id: account.notifications-tab-url
+    title: Notification tabs are URL state and the list is server-rendered
+    persona: buyer
+    priority: P1
+    summary: >-
+      /notifications filters by ?tab= and paginates by ?page= (20 per page); the list is server-rendered with only preferences and alert subscriptions as client islands; there is no mark-all-read control because the backend has no mark-as-read RPC.
+    entry_route: /notifications
+    services: [team-frontend, team-notification]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - notification.v1.ListNotifications
+        - notification.v1.GetNotificationPrefs
+        - notification.v1.UpdateNotificationPrefs
+        - notification.v1.ListAlertSubscriptions
+    ui:
+      key_elements:
+        tabs: "role:navigation=Tabs"
+        notification_item: "testid:notification-item"
+        alert_subscription: "testid:alert-subscription"
+    acceptance:
+      - "Tab survives reload and sharing: when a buyer selects the Đơn hàng tab and reloads then the URL contains ?tab=order, the tab is selected and only order notifications are listed"
+      - "No mark-all-read control: with unread items no Đánh dấu đã đọc or equivalent control is rendered"
+      - "Empty tab: a tab with no notifications shows Empty Chưa có thông báo nào trong mục này."
+      - "Saving preferences: when a buyer changes a toggle and presses Lưu the button is pending and a success toast appears; on failure an error toast appears and the toggles keep the unsaved values"
+    tags: [buyer, notification]
+    status: planned
+
+  - id: auth.login-inline-error
+    title: Login and register use validated FormItems with an inline error Alert
+    persona: guest
+    priority: P1
+    summary: >-
+      /login and /register render a centred Card of FormItems (names username, password, role preserved); client validation blocks empty and too-short input, the submit button is pending and inert during the request, and failures show an error Alert with role=alert.
+    entry_route: /login
+    related_routes: [/register]
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: guest
+    api:
+      exercised:
+        - identity.v1.Login
+        - identity.v1.Register
+    ui:
+      key_elements:
+        username: "css:#username"
+        password: "css:#password"
+        submit: "role:button=Đăng nhập"
+    acceptance:
+      - "Required fields are validated before submit: submitting /login with an empty username sends no request, shows help text with aria-invalid=true and moves focus to the username input"
+      - "Pending submit is visible and inert: submitting valid credentials shows a spinner with aria-busy=true, keeps the button width and a second click sends no second request"
+      - "Wrong credentials show an inline error: a rejected login shows an error Alert with role=alert reading Tên đăng nhập hoặc mật khẩu không chính xác., keeps the username, clears the password and stays on /login"
+      - "Register enforces the minimum lengths: a 2-character username or a 3-character password on /register shows the minimum-length help and does not submit"
+    tags: [auth, buyer]
+    status: planned
