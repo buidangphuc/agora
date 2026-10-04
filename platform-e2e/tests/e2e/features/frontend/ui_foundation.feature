@@ -17,3 +17,8 @@ Feature: UI foundation - design tokens and exception shells
     Given the "home" page is open
     When the "--color-action-primary" alias is overridden with "rgb(0, 0, 255)"
     Then every element styled by the action-primary alias renders "rgb(0, 0, 255)"
+
+  # Needs a production build (BASE_URL on `next start` / the container); `next dev` serves it.
+  Scenario: The catalogue is not shipped to production
+    When the visitor opens the unknown route "/dev/ui"
+    Then the response status is 404
