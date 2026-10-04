@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { FormItem } from "@/components/ui/FormItem";
+import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
+import { usePendingAction } from "@/features/account/usePendingAction";
 import { DigestFrequency } from "@/generated/platform/notification/v1/notification_pb.js";
 import type { ViewNotificationPrefs } from "@/lib/gateway/notification";
 import { updateNotificationPrefsAction } from "./actions";
@@ -10,17 +16,17 @@ import { updateNotificationPrefsAction } from "./actions";
 // Notification categories the user can toggle. Keyed by a stable string the
 // backend stores in NotificationPrefs.typeEnabled.
 const TYPE_ROWS: { key: string; label: string }[] = [
-  { key: "ORDER", label: "🏷️ Cập nhật đơn hàng" },
-  { key: "PROMOTION", label: "🎉 Khuyến mãi & ưu đãi" },
-  { key: "CHAT", label: "💬 Tin nhắn từ shop" },
-  { key: "PRICE_DROP", label: "📉 Báo giảm giá" },
-  { key: "BACK_IN_STOCK", label: "📦 Có hàng trở lại" },
+  { key: "ORDER", label: "Cập nhật đơn hàng" },
+  { key: "PROMOTION", label: "Khuyến mãi & ưu đãi" },
+  { key: "CHAT", label: "Tin nhắn từ shop" },
+  { key: "PRICE_DROP", label: "Báo giảm giá" },
+  { key: "BACK_IN_STOCK", label: "Có hàng trở lại" },
 ];
 
-const DIGEST_OPTIONS: { value: DigestFrequency; label: string }[] = [
-  { value: DigestFrequency.OFF, label: "Tắt (thông báo tức thời)" },
-  { value: DigestFrequency.DAILY, label: "Tổng hợp hằng ngày" },
-  { value: DigestFrequency.WEEKLY, label: "Tổng hợp hằng tuần" },
+const DIGEST_OPTIONS = [
+  { value: String(DigestFrequency.OFF), label: "Tắt (thông báo tức thời)" },
+  { value: String(DigestFrequency.DAILY), label: "Tổng hợp hằng ngày" },
+  { value: String(DigestFrequency.WEEKLY), label: "Tổng hợp hằng tuần" },
 ];
 
 export function NotificationPrefsForm({
@@ -36,74 +42,69 @@ export function NotificationPrefsForm({
     return seed;
   });
   const [digest, setDigest] = useState<DigestFrequency>(initial.digestFreq);
-  const [pending, start] = useTransition();
+  const { pending, run } = usePendingAction();
   const toast = useToast();
 
-  function save() {
-    start(async () => {
+  // On failure the toggles keep the unsaved values; nothing is reset here.
+  function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void run(async () => {
       const res = await updateNotificationPrefsAction(enabled, digest);
-      if (res.ok) toast.success("✓ Đã lưu tùy chọn thông báo.");
-      else toast.error(res.message || "Lưu thất bại.");
+      if (res.ok) toast.success("Đã lưu tùy chọn thông báo.");
+      else toast.error(res.error);
     });
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-      <div>
-        <h2 className="flex items-center gap-2 text-base font-bold text-gray-900">
-          <span>⚙️</span>
-          <span>Tùy chọn thông báo</span>
+    <Card>
+      <CardHeader className="flex-col items-start justify-start gap-0">
+        <h2 className="text-base font-semibold text-text-primary">
+          Tùy chọn thông báo
         </h2>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <p className="mt-0.5 text-xs text-text-secondary">
           Chọn loại thông báo bạn muốn nhận và tần suất tổng hợp.
         </p>
-      </div>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={save} className="space-y-4">
+          <fieldset className="space-y-3">
+            <legend className="sr-only">Loại thông báo</legend>
+            {TYPE_ROWS.map((row) => (
+              <Checkbox
+                key={row.key}
+                name={row.key}
+                label={row.label}
+                checked={enabled[row.key]}
+                onChange={(e) =>
+                  setEnabled((prev) => ({
+                    ...prev,
+                    [row.key]: e.target.checked,
+                  }))
+                }
+              />
+            ))}
+          </fieldset>
 
-      <ul className="divide-y divide-gray-100">
-        {TYPE_ROWS.map((row) => (
-          <li
-            key={row.key}
-            className="flex items-center justify-between py-2.5 text-sm text-gray-700"
-          >
-            <span>{row.label}</span>
-            <input
-              type="checkbox"
-              checked={enabled[row.key]}
+          <FormItem label="Tần suất tổng hợp">
+            <Select
+              name="digest"
+              value={String(digest)}
               onChange={(e) =>
-                setEnabled((prev) => ({ ...prev, [row.key]: e.target.checked }))
+                setDigest(Number(e.target.value) as DigestFrequency)
               }
-              className="h-4 w-4 accent-brand"
+              options={DIGEST_OPTIONS}
             />
-          </li>
-        ))}
-      </ul>
+          </FormItem>
 
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <label htmlFor="digest-freq" className="text-sm text-gray-700">
-          Tần suất tổng hợp
-        </label>
-        <select
-          id="digest-freq"
-          value={digest}
-          onChange={(e) => setDigest(Number(e.target.value) as DigestFrequency)}
-          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs"
-        >
-          {DIGEST_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <button
-        type="button"
-        onClick={save}
-        disabled={pending}
-        className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-brand-dark disabled:opacity-60"
-      >
-        {pending ? "Đang lưu..." : "Lưu tùy chọn"}
-      </button>
-    </div>
+          <Button
+            type="submit"
+            isLoading={pending}
+            className="min-h-10 w-full sm:w-auto"
+          >
+            Lưu tùy chọn
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

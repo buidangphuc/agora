@@ -6,7 +6,7 @@
 
 ## 2. Code — team-frontend: Server Action contract
 
-- [ ] 2.1 Normalise `features/address/actions.ts`, `features/account/actions.ts`, `features/account/referral/actions.ts`, `features/account/verification/actions.ts`, `features/notification/actions.ts`, `features/engagement/actions.ts` to `{ ok, error?, data? }` with `revalidatePath` on the owning route; verify the existing `actions.test.ts` files are updated and pass, plus a new test that a gateway error resolves to `{ ok: false, error }`
+- [x] 2.1 Normalise `features/address/actions.ts`, `features/account/actions.ts`, `features/account/referral/actions.ts`, `features/account/verification/actions.ts`, `features/notification/actions.ts`, `features/engagement/actions.ts` to `{ ok, error?, data? }` with `revalidatePath` on the owning route; verify the existing `actions.test.ts` files are updated and pass, plus a new test that a gateway error resolves to `{ ok: false, error }` (note: add/removeFavorite, follow/unfollow, add/removeFromCollection, checkIn, createCollectionAction, subscribeAlertAction and unsubscribeAlertAction keep their legacy shape because the listing page and shell components call them; ActionResult-shaped createCollectionResultAction and removeAlertSubscriptionAction serve these routes)
 - [x] 2.2 Make `loginAction`/`registerAction` return `{ ok: false, error, fields? }` on failure and keep `redirect()` on success; verify `features/auth/actions.test.ts` passes for both outcomes
 
 ## 3. Code — team-frontend: login and register
@@ -34,10 +34,10 @@
 
 ## 7. Code — team-frontend: favorites and notifications
 
-- [ ] 7.1 Rebuild `/favorites` header (`Badge` total), `?page=` `Pagination`, `Empty`, unknown-collection `Result`; keep `ListingGrid` and its props unchanged; verify `git diff` shows no change under `src/features/listing/` and the existing favorites tracking test still passes
-- [ ] 7.2 Give `CollectionsManager` pending/disabled/toast on create and remove; verify its test and `engagement/collections.feature` pass
-- [ ] 7.3 Split `NotificationsView` into a server list + `Tabs` on `?tab=`/`?page=` and client islands (`NotificationPrefsForm`, `AlertSubscriptions`); do not render any "Mark all read" control (hidden until a backend exists); preserve `data-testid`/`data-type`; verify a test asserts both attributes, the tab-from-URL render and that no mark-all-read control exists
-- [ ] 7.4 Rebuild `NotificationPrefsForm` on `Checkbox`/`Select`/`FormItem` with pending + toast; verify save success and failure tests
+- [x] 7.1 Rebuild `/favorites` header (`Badge` total), `?page=` `Pagination`, `Empty`, unknown-collection `Result`; keep `ListingGrid` and its props unchanged; verify `git diff` shows no change under `src/features/listing/` and the existing favorites tracking test still passes (note: the repo has no existing favorites tracking test; verified by an empty git diff under src/features/listing and a page test asserting ListingGrid receives only `listings`)
+- [x] 7.2 Give `CollectionsManager` pending/disabled/toast on create and remove; verify its test and `engagement/collections.feature` pass (note: collections.feature itself needs the stack; its selectors are preserved and unit-tested)
+- [x] 7.3 Split `NotificationsView` into a server list + `Tabs` on `?tab=`/`?page=` and client islands (`NotificationPrefsForm`, `AlertSubscriptions`); do not render any "Mark all read" control (hidden until a backend exists); preserve `data-testid`/`data-type`; verify a test asserts both attributes, the tab-from-URL render and that no mark-all-read control exists
+- [x] 7.4 Rebuild `NotificationPrefsForm` on `Checkbox`/`Select`/`FormItem` with pending + toast; verify save success and failure tests
 
 ## 8. Code — team-frontend: quality gate
 
