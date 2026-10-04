@@ -33,7 +33,11 @@ def reviews_breakdown_visible(world: World) -> None:
     expect(world.page.locator("body")).to_contain_text(
         "ĐÁNH GIÁ SẢN PHẨM", timeout=timeouts.DEFAULT
     )
-    expect(world.page.locator("body")).to_contain_text("/ 5", timeout=timeouts.DEFAULT)
+    # With reviews the average reads "x.y / 5"; a listing with none shows
+    # "Chưa có đánh giá" instead of an invented number (ui-phase-product-detail).
+    expect(world.page.locator("body")).to_contain_text(
+        re.compile(r"/ 5|Chưa có đánh giá"), timeout=timeouts.DEFAULT
+    )
     expect(world.page.get_by_role("button", name="Tất Cả").first).to_be_visible(
         timeout=timeouts.DEFAULT
     )

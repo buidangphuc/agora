@@ -738,3 +738,282 @@ features:
       - Then the response status is 404
     tags: [buyer]
     status: planned
+
+  # ---- ui-phase-product-detail (PDP rebuilt on the core components). status:
+  # ---- planned until product_detail.feature has run green against the local stack.
+  - id: listing.pdp-anatomy
+    title: Product detail page follows the Basic Profile anatomy
+    persona: buyer
+    priority: P1
+    summary: >-
+      The PDP shows a breadcrumb, a header card (gallery + info column), the shop
+      header card, an anchor nav over three stacked sections and the similar-items
+      row, with exactly one h1.
+    entry_route: /listing/{listing_id}
+    related_routes: ["/shop/{seller_id}"]
+    services: [team-frontend, team-domain, team-engagement]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        title: "css:h1"
+        shop_card: "testid:shop-header-card"
+        anchor_nav: "role:navigation[name=Nội dung sản phẩm]"
+    acceptance:
+      - "Given a buyer opens a published listing at a 1280px-wide viewport"
+      - "Then the breadcrumb, the gallery and info column side by side, the shop header card, the anchor nav with the specs, reviews and Q&A sections and the similar-items row appear in that vertical order"
+      - "And exactly one h1 contains the listing title"
+      - "When the buyer views the \"Chi tiết\" section of a listing with stock 12 and a category"
+      - "Then a Descriptions block lists \"Kho hàng: 12 sản phẩm\" and the category followed by the description"
+      - "When the buyer clicks the third thumbnail of a listing with 4 images"
+      - "Then the stage shows the third image and the stage bounding box is unchanged"
+      - "When a listing has no imageKeys and no imageUrl"
+      - "Then the stage renders the Image fallback placeholder and no external stock-photo URL is requested"
+      - "And the stage image is eager and each thumbnail is lazy"
+      - "When the seller's shop display name is \"Cửa hàng Hoa Mai\""
+      - "Then the PDP shop card shows \"Cửa hàng Hoa Mai\" and not \"Shop #\""
+      - "When the shop display name is empty"
+      - "Then the shop card shows \"Shop #\" followed by the first 6 characters of the seller id"
+      - "When a buyer clicks \"Xem Shop\" in the PDP shop card"
+      - "Then the browser navigates to /shop/<sellerId>"
+      - "When the seller has zero reviews"
+      - "Then the shop card shows \"Chưa có đánh giá\" instead of \"0.0 / 5.0\""
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-variant-url
+    title: Variant selection lives in the URL and drives price and stock
+    persona: buyer
+    priority: P1
+    summary: >-
+      Selecting a variant that changes price or stock writes ?variant=<id> and the
+      server derives price, stock, SKU and image from it; a shared URL restores it.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: buyer
+      data: a listing with variants (128GB base price, 256GB higher price, one out-of-stock variant)
+    ui:
+      key_elements:
+        variant_256: "role:radio[name=256GB]"
+        price: "testid:pdp-price"
+    acceptance:
+      - "When the buyer selects variant \"256GB\" whose price differs from the base listing"
+      - "Then the URL gains ?variant=<id of 256GB> without a scroll jump or an extra history entry"
+      - "And the price tag shows the 256GB price and the stock line shows that variant's stock"
+      - "When a buyer opens /listing/<id>?variant=<id of 256GB> directly"
+      - "Then the 256GB radio is checked and the price, stock and SKU show the 256GB values in the first server-rendered markup"
+      - "When a buyer opens /listing/<id>?variant=does-not-exist"
+      - "Then the first in-stock variant is selected and the page renders without an error"
+      - "When a variant has stock 0"
+      - "Then its radio is disabled with aria-disabled=\"true\", shows an \"Hết hàng\" tag and cannot be selected"
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-purchase-feedback
+    title: Purchase actions give pending, disabled and toast feedback
+    persona: buyer
+    priority: P0
+    summary: >-
+      Thêm vào giỏ and Mua ngay show a pending state, disable together, toast the
+      result and use the selected variant; Mua ngay then goes to /checkout.
+    entry_route: /listing/{listing_id}
+    related_routes: [/checkout, /cart]
+    services: [team-frontend, team-domain, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        add_to_cart: "role:button[name=Thêm vào giỏ]"
+        buy_now: "role:button[name=Mua ngay]"
+    acceptance:
+      - "When the buyer clicks \"Thêm vào giỏ\" with quantity 2 on an in-stock variant"
+      - "Then both buttons are disabled with aria-busy on the clicked one while the action runs"
+      - "And a success toast \"Đã thêm 2 sản phẩm vào giỏ hàng\" appears, the buttons re-enable and the cart counter increases"
+      - "When the add action returns { ok: false, error }"
+      - "Then an error toast with that message appears, no add_to_cart event is fired and both buttons are enabled again"
+      - "When the selected variant has stock 3 and the buyer presses \"+\" four times"
+      - "Then the quantity picker value is 3 and the \"+\" control is disabled"
+      - "When the buyer selects variant \"256GB\", sets quantity 1 and clicks \"Mua ngay\""
+      - "Then the cart contains that listing with the 256GB variant id and the browser navigates to /checkout"
+      - "When the selected variant has stock 0"
+      - "Then both actions and the quantity picker are disabled and a warning \"Phân loại này đã hết hàng\" is shown"
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-mobile-buy-bar
+    title: Mobile uses a sticky bottom buy bar
+    persona: buyer
+    priority: P1
+    summary: >-
+      Below 1024px a fixed bottom bar shows the price and both actions and shares
+      state with the inline panel; only one set of buttons is visible per breakpoint.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        buy_bar: "testid:buy-bar"
+    acceptance:
+      - "Given a buyer opens a listing at a 375px-wide viewport and scrolls to the reviews section"
+      - "Then the bottom bar stays visible with the selected variant's price"
+      - "When the buyer clicks \"Thêm vào giỏ\" in the bar"
+      - "Then the item is added with the same pending and toast behaviour as the desktop button"
+      - "When the viewport is 375px wide"
+      - "Then exactly one visible \"Thêm vào giỏ\" button exists, in the bar"
+      - "When the viewport is 1280px wide"
+      - "Then exactly one exists, inline, and no bottom bar is shown"
+      - "When the buyer scrolls to the bottom of the page at 375px"
+      - "Then the last element of the page is fully visible above the buy bar"
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-reviews-url
+    title: Review filter and pagination are URL state
+    persona: buyer
+    priority: P1
+    summary: >-
+      The star filter writes ?rating= and the list pages at 10 via ?rpage=; a filter
+      with no match shows Empty with a way out; helpful votes and the review modal
+      give pending and toast feedback.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-engagement]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: a listing with reviews of several star values
+    ui:
+      key_elements:
+        filter_4: "role:button[name=4 Sao]"
+        helpful: "testid:review-helpful"
+    acceptance:
+      - "When the buyer clicks \"4 Sao\" in the reviews section"
+      - "Then the URL contains rating=4, only 4-star reviews are listed and reloading shows the same list"
+      - "When no 2-star review exists and the buyer opens ?rating=2"
+      - "Then an Empty \"Không có đánh giá 2 sao\" with a \"Xem tất cả\" action is shown and that action removes rating from the URL"
+      - "When the buyer clicks review-helpful on a review and the action succeeds"
+      - "Then the count increases by one and the button is disabled"
+      - "When a listing has 23 reviews and the buyer opens ?rpage=3"
+      - "Then 3 reviews are listed and the pagination marks page 3 as current"
+      - "When the buyer picks 5 stars, types a comment and submits the review modal"
+      - "Then the submit button shows loading and the controls are disabled, then a success toast shows and the new review appears"
+    tags: [buyer, ui, engagement]
+    status: planned
+
+  - id: listing.pdp-anchor-nav
+    title: Detail content is stacked sections with an anchor nav
+    persona: buyer
+    priority: P1
+    summary: >-
+      Specs, reviews and Q&A are always-visible sections with ids; an anchor nav
+      links to them, sticky on desktop and horizontally scrollable on mobile.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain, team-engagement]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        nav: "role:navigation[name=Nội dung sản phẩm]"
+    acceptance:
+      - "When a buyer opens /listing/<id>"
+      - "Then the anchor nav has links #specs, #reviews and #qa matching section ids in the first server-rendered markup"
+      - "And activating \"Đánh giá\" scrolls to #reviews"
+      - "When the page is rendered at 1280px and at 375px"
+      - "Then the anchor nav is sticky at 1280px and at 375px it is not sticky and scrolls horizontally without page overflow"
+      - "When a logged-in buyer types a question and submits"
+      - "Then the submit button shows loading, then a success toast appears, the textarea clears and the question is listed"
+      - "When the question textarea is empty"
+      - "Then the submit button is disabled and no request is made"
+      - "When a logged-out visitor views the Q&A section"
+      - "Then qa-login-prompt links to /login?returnUrl=/listing/<id> and no ask form renders"
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-no-fabricated-data
+    title: The PDP shows only real data
+    persona: guest
+    priority: P1
+    summary: >-
+      No invented rating, sold count, strike-through price, Mall badge, vouchers,
+      shop stats or response rate; a flash-sale listing shows the real discount.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain, team-engagement, team-promotion]
+    preconditions:
+      login: guest
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        rating_row: "testid:pdp-rating"
+        price: "testid:pdp-price"
+    acceptance:
+      - "When the buyer opens a listing with zero reviews that is not on flash sale"
+      - "Then the rating row reads \"Chưa có đánh giá\" and no strike-through price or discount badge exists"
+      - "And the texts \"Đã Bán\", \"Mall\" and \"Official Store Partner\" do not appear"
+      - "When the buyer opens a listing priced above 5,000,000 or whose title contains a brand keyword"
+      - "Then no Mall badge is rendered"
+      - "When the buyer opens a listing with an active flash-sale campaign"
+      - "Then the strike-through shows the regular price, the price tag shows the campaign sale price and the discount percentage is computed from those two values"
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-not-found
+    title: An unknown listing and a failed fetch have recoverable states
+    persona: guest
+    priority: P2
+    summary: >-
+      An unknown listing id renders a product-specific Result 404 with a way home and
+      to search; a non-NotFound failure renders an error Alert with a retry. The HTTP
+      status stays 200 while the root loading.tsx streams (see design Open Question),
+      so the e2e asserts the rendered result, not the status.
+    entry_route: /listing/does-not-exist
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a buyer opens /listing/does-not-exist"
+      - "Then the page shows the Result 404 \"Không tìm thấy sản phẩm\" with \"Về trang chủ\" and \"Tìm sản phẩm khác\" actions"
+      - "When the listing fetch fails with a non-NotFound error"
+      - "Then an error Alert with a \"Thử lại\" button is shown and clicking it re-renders the route"
+      - "When the route is navigated to and loading.tsx is shown, then the page resolves"
+      - "Then the gallery stage, title block and anchor nav keep the same top offsets and the measured layout shift is 0"
+    tags: [buyer, ui]
+    status: planned
+
+  - id: listing.pdp-ai-recs-hidden
+    title: AI summary and similar items stream and hide gracefully
+    persona: buyer
+    priority: P1
+    summary: >-
+      The AI review summary and the similar-items row stream in Suspense with a
+      Skeleton, never delay the page, hide when their service is unavailable and keep
+      the pdp_similar_items attribution.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-ai, team-engagement, team-analytics]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        recommendations: "text:Gợi ý cho bạn"
+    acceptance:
+      - "When team-ai responds slowly to SummarizeReviews"
+      - "Then the header, price and actions are visible before the summary and a Skeleton holds its space until it resolves"
+      - "When SummarizeReviews fails with UNAVAILABLE"
+      - "Then the reviews section renders with no AI block, no error text and no leftover skeleton"
+      - "When the recommendation service is slow"
+      - "Then the page renders fully with a one-row Skeleton in the row's place and no layout shift when the cards arrive"
+      - "When the recommendation service returns UNAVAILABLE"
+      - "Then the page renders without the \"Gợi ý cho bạn\" row and without an error state"
+      - "When a buyer opens a listing and then switches variants and uses the anchor nav"
+      - "Then exactly one view_item event was sent"
+      - "When the similar-items row scrolls into view and the buyer clicks the second card"
+      - "Then impressions with placementId pdp_similar_items and positions 1..n were sent and a select_item with position 2 was sent before navigation"
+      - "When the buyer adds quantity 2 of a listing priced 100000"
+      - "Then one add_to_cart event is sent with value 200000, currency VND and the item id, name, price, quantity and category"
+    tags: [buyer, ui, recommendations]
+    status: planned

@@ -48,3 +48,20 @@ Feature: "Gợi ý cho bạn" recommendations row (surface-recommendations)
     And I navigate to the "home" page
     Then the home page still renders
     And the "Gợi ý cho bạn" row is hidden or empty rather than erroring the page
+
+  # ui-phase-product-detail: the similar-items row streams in a Suspense boundary.
+  @needsBuyer @needsListing
+  Scenario: The PDP row swaps its Skeleton for cards that carry the pdp_similar_items placement
+    Given a buyer is logged in
+    And a listing has been seeded via the API
+    When the buyer opens the seeded listing while recording tracking beacons
+    Then the similar-items Skeleton is gone and the row shows product cards
+    And a pdp_similar_items impression beacon was sent for position 1
+
+  @needsBuyer @needsListing
+  Scenario: An unavailable recommendation service leaves neither the row nor its Skeleton on the PDP
+    Given a buyer is logged in
+    And a listing has been seeded via the API
+    When the recommendation service is unavailable
+    And the buyer opens the seeded listing
+    Then the product page renders without the similar-items row or its Skeleton

@@ -17,8 +17,11 @@ _STATUS_ENUM = {
 
 
 class ListingService(BaseService):
-    def create_listing(self, listing: Listing) -> str:
+    def create_listing(self, listing: Listing, variants: list[dict[str, Any]] | None = None) -> str:
         """Create a listing (requires a seller bearer token). Returns listing id.
+
+        `variants` (optional) are Variant dicts (`name`, `sku`, `price`, `stock`,
+        `imageUrl`); the server assigns their ids.
 
         The RPC wraps the entity: request `{"listing": {...}}`, response
         `{"listing": {"id": ...}}`.
@@ -34,10 +37,17 @@ class ListingService(BaseService):
                 "description": listing.description,
             }
         }
+        if variants:
+            payload["listing"]["variants"] = variants
         data = self.post(ep.LISTING_CREATE, payload)
         listing_id = (data.get("listing") or {}).get("id", "")
         listing.listing_id = listing_id
         return listing_id
+
+    def get_listing(self, listing_id: str) -> dict[str, Any]:
+        """Read a listing back (public scope); used to learn server-assigned variant ids."""
+        data = self.post("/platform.listing.v1.ListingService/GetListing", {"id": listing_id})
+        return data.get("listing") or {}
 
     def delete_listing(self, listing_id: str) -> dict[str, Any]:
         return self.post("/platform.listing.v1.ListingService/DeleteListing", {"id": listing_id})
