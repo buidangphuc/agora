@@ -213,11 +213,17 @@ def another_buyer_exhausts_stock(world: World) -> None:
         sf.set_token(buyer_token)
 
 
+def _document_top(locator) -> float:  # noqa: ANN001
+    """Top of the element in document coordinates: clicking scrolls the page, which changes
+    its viewport-relative `bounding_box` without the layout having shifted."""
+    return locator.evaluate("el => el.getBoundingClientRect().top + window.scrollY")
+
+
 @when("the buyer places the order in the browser")
 def buyer_places_order_in_browser(world: World) -> None:
     checkout = _checkout(world)
     expect(checkout.place_order_button).to_be_enabled(timeout=timeouts.DEFAULT)
-    world.state.extra["cta_box"] = checkout.place_order_button.bounding_box()
+    world.state.extra["cta_top"] = _document_top(checkout.place_order_button)
     checkout.place_order_button.click()
 
 
@@ -233,9 +239,9 @@ def saga_alert_shown(world: World) -> None:
 def cta_unmoved(world: World) -> None:
     checkout = _checkout(world)
     expect(checkout.place_order_button).to_be_enabled(timeout=timeouts.DEFAULT)
-    before = world.state.extra["cta_box"]
-    after = checkout.place_order_button.bounding_box()
-    assert before and after and abs(before["y"] - after["y"]) < 1, (before, after)
+    before = world.state.extra["cta_top"]
+    after = _document_top(checkout.place_order_button)
+    assert abs(before - after) < 1, f"place order button moved from {before} to {after}"
 
 
 @then("the cart still holds the same item")
