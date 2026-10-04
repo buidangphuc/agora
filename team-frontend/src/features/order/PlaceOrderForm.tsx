@@ -128,8 +128,9 @@ export function PlaceOrderForm({
         void placeOrder();
       }}
     >
-      {/* Fixed slot above the actions: the Alert never moves the CTA. */}
-      <div data-testid="saga-alert-slot" className="min-h-24">
+      {/* Fixed slot above the actions: the Alert never moves the CTA. Sized for a title,
+          a two-line server message and the recovery actions (about 140px at 1280px). */}
+      <div data-testid="saga-alert-slot" className="min-h-36">
         {error && (
           <Alert
             type="error"
