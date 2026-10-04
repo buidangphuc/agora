@@ -12,10 +12,10 @@
 
 ## 3. Code — team-frontend: /account/orders
 
-- [ ] 3.1 Rewrite `app/account/orders/page.tsx` as a server component reading `searchParams` (`status`, `page`), using `paginateOrders`; keep the `/login` redirect; verify the page test renders tabs, rows and pagination from fixtures
-- [ ] 3.2 Add `OrderStatusTabs` leaf island (URL-held tab, resets `page`, horizontal scroll at 375px, count `Badge`) and server `Pagination` links; verify the tab-to-URL and invalid-query scenario tests pass
-- [ ] 3.3 Rewrite `BuyerOrdersList` as a server `OrderList` of `Card` rows with `Image` 1:1 thumbnails (lazy below the first card), `PriceTag`, row actions, `Empty` per tab and `Alert` with retry on load failure; keep `ReviewModal` unchanged; render the real shop display name on each row (depends on `shop-display-name`; "Shop #<6 chars>" only for an empty name); verify empty, error, lazy-image, real-name and empty-name-fallback tests pass
-- [ ] 3.4 Add `app/account/orders/loading.tsx` and `error.tsx` with `Skeleton` blocks matching the footprint; verify a render test and a Lighthouse/Playwright CLS check on the route report 0 shift
+- [x] 3.1 Rewrite `app/account/orders/page.tsx` as a server component reading `searchParams` (`status`, `page`), using `paginateOrders`; keep the `/login` redirect; verify the page test renders tabs, rows and pagination from fixtures
+- [x] 3.2 Add `OrderStatusTabs` leaf island (URL-held tab, resets `page`, horizontal scroll at 375px, count `Badge`) and server `Pagination` links; verify the tab-to-URL and invalid-query scenario tests pass
+- [x] 3.3 Rewrite `BuyerOrdersList` as a server `OrderList` of `Card` rows with `Image` 1:1 thumbnails (lazy below the first card), `PriceTag`, row actions, `Empty` per tab and `Alert` with retry on load failure; keep `ReviewModal` unchanged; render the real shop display name on each row (depends on `shop-display-name`; "Shop #<6 chars>" only for an empty name); verify empty, error, lazy-image, real-name and empty-name-fallback tests pass
+- [ ] 3.4 Add `app/account/orders/loading.tsx` and `error.tsx` with `Skeleton` blocks matching the footprint; verify a render test and a Lighthouse/Playwright CLS check on the route report 0 shift (render test done; the CLS check needs the running stack, left unticked)
 
 ## 4. Code — team-frontend: /account/orders/[id]
 
