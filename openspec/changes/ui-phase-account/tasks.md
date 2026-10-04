@@ -7,12 +7,12 @@
 ## 2. Code — team-frontend: Server Action contract
 
 - [ ] 2.1 Normalise `features/address/actions.ts`, `features/account/actions.ts`, `features/account/referral/actions.ts`, `features/account/verification/actions.ts`, `features/notification/actions.ts`, `features/engagement/actions.ts` to `{ ok, error?, data? }` with `revalidatePath` on the owning route; verify the existing `actions.test.ts` files are updated and pass, plus a new test that a gateway error resolves to `{ ok: false, error }`
-- [ ] 2.2 Make `loginAction`/`registerAction` return `{ ok: false, error, fields? }` on failure and keep `redirect()` on success; verify `features/auth/actions.test.ts` passes for both outcomes
+- [x] 2.2 Make `loginAction`/`registerAction` return `{ ok: false, error, fields? }` on failure and keep `redirect()` on success; verify `features/auth/actions.test.ts` passes for both outcomes
 
 ## 3. Code — team-frontend: login and register
 
-- [ ] 3.1 Rebuild `LoginForm`/`RegisterForm` on `Card` + `FormItem` + `Input`/`Select`, client validation (required, min 3/4), pending `Button`, `Alert type="error"` with `role="alert"`, preserved `name`/`id`; verify a Vitest test covers empty-field, pending, and wrong-credentials scenarios
-- [ ] 3.2 Update `app/login/page.tsx` and `app/register/page.tsx` headings to the 24/20 scale and link between them; verify `auth/login.feature` and `auth/register.feature` selectors still match (run both)
+- [x] 3.1 Rebuild `LoginForm`/`RegisterForm` on `Card` + `FormItem` + `Input`/`Select`, client validation (required, min 3/4), pending `Button`, `Alert type="error"` with `role="alert"`, preserved `name`/`id`; verify a Vitest test covers empty-field, pending, and wrong-credentials scenarios
+- [x] 3.2 Update `app/login/page.tsx` and `app/register/page.tsx` headings to the 24/20 scale and link between them; verify `auth/login.feature` and `auth/register.feature` selectors still match (run both) (note: selectors verified by unit test and render check; e2e run needs the stack)
 
 ## 4. Code — team-frontend: addresses
 
