@@ -12,8 +12,8 @@
 
 ## 3. Code — team-frontend: purchase panel and mobile buy bar
 
-- [ ] 3.1 Add `PurchasePanel` (client) with `QuantityPicker` (min 1, max stock), `Button isLoading` for `Thêm vào giỏ` and `Mua ngay`, one shared pending state via context, toasts, selected variant id, `trackEcommerce("add_to_cart")` payload unchanged, `Mua ngay` -> `/checkout`; verify RTL tests for pending/disabled/success/failure/quantity-bound/out-of-stock and that the add event fires once with the same payload as before
-- [ ] 3.2 Add `BuyBar` (client, `<lg` only, fixed bottom, safe-area padding, body bottom padding) sharing the panel context, and hide the inline action row `<lg`; verify an RTL test shows one set of buttons per breakpoint class and the bar reads the selected variant's price
+- [x] 3.1 Add `PurchasePanel` (client) with `QuantityPicker` (min 1, max stock), `Button isLoading` for `Thêm vào giỏ` and `Mua ngay`, one shared pending state via context, toasts, selected variant id, `trackEcommerce("add_to_cart")` payload unchanged, `Mua ngay` -> `/checkout`; verify RTL tests for pending/disabled/success/failure/quantity-bound/out-of-stock and that the add event fires once with the same payload as before
+- [x] 3.2 Add `BuyBar` (client, `<lg` only, fixed bottom, safe-area padding, body bottom padding) sharing the panel context, and hide the inline action row `<lg`; verify an RTL test shows one set of buttons per breakpoint class and the bar reads the selected variant's price
 - [ ] 3.3 Keep `AddToCartButton` as a thin re-export of `PurchasePanel` for existing imports; verify `npx tsc --noEmit` passes and `grep -rn AddToCartButton src` shows no broken import
 
 ## 4. Code — team-frontend: anchor nav, specs, reviews, Q&A
