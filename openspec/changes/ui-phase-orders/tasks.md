@@ -6,7 +6,7 @@
 
 ## 2. Code — team-frontend: shared order components
 
-- [ ] 2.1 Add `OrderStatusBadge` on `Tag` (order and return statuses, tokens only, no emoji) and replace the four inline badge implementations; verify its tone-mapping and unknown-status tests pass
+- [x] 2.1 Add `OrderStatusBadge` on `Tag` (order and return statuses, tokens only, no emoji) and replace the four inline badge implementations; verify its tone-mapping and unknown-status tests pass
 - [x] 2.2 Rebuild `OrderTimeline` on `Timeline` with the shipment header, newest-first checkpoints, saga fallback, failure checkpoint (`timeline-failure`) with error `Alert` and "Mua lại"; keep the existing testids; verify the existing `OrderTimeline.test.tsx` still passes untouched plus new failure/pending scenario tests
 - [x] 2.3 Add `OrderActions` client island (Reorder, Cancel `Modal`, Return trigger) with pending, disabled and toast behaviour; verify unit tests for pending, success and failure of each action
 
@@ -19,17 +19,17 @@
 
 ## 4. Code — team-frontend: /account/orders/[id]
 
-- [ ] 4.1 Rewrite `app/account/orders/[id]/page.tsx` to use `getOrderResult`; render `Result 403`, `Result 404` or `Alert` retry, and skip shipment/saga fetches unless `ok`; verify tests for forbidden (no order fields rendered), not_found and error
-- [ ] 4.2 Rewrite `OrderDetailView` as server composition: header (Breadcrumb, title, `OrderStatusBadge`, `PriceTag`, actions), `Stepper` band (vertical at 375px) or cancelled `Alert`, `Descriptions`, items `Table`, amounts `Descriptions`; verify the detail render tests per status pass
-- [ ] 4.3 Add detail `Tabs` island with `?tab=timeline|returns`, `Suspense` + `Skeleton` around the timeline and returns; verify the tab-in-URL test passes
-- [ ] 4.4 Rebuild `ReturnRequestSection` (Descriptions + `OrderStatusBadge` + `Empty`) and add `ReturnRequestModal` (`FormItem`, `Select`, `Input`, validation, pending, toasts, mock refund); keep testids; verify the existing `ReturnRequestSection.test.tsx` passes and new validation/failure tests pass
-- [ ] 4.5 Replace the fake detail cancel modal (local state + `window.location.reload()`) with `cancelOrderAction` via `OrderActions`; verify a test asserts the action is called once and the badge updates after revalidation
-- [ ] 4.6 Add `app/account/orders/[id]/loading.tsx` and `not-found.tsx`; verify render tests and that no page under the order routes contains `"use client"`
+- [x] 4.1 Rewrite `app/account/orders/[id]/page.tsx` to use `getOrderResult`; render `Result 403`, `Result 404` or `Alert` retry, and skip shipment/saga fetches unless `ok`; verify tests for forbidden (no order fields rendered), not_found and error
+- [x] 4.2 Rewrite `OrderDetailView` as server composition: header (Breadcrumb, title, `OrderStatusBadge`, `PriceTag`, actions), `Stepper` band (vertical at 375px) or cancelled `Alert`, `Descriptions`, items `Table`, amounts `Descriptions`; verify the detail render tests per status pass
+- [x] 4.3 Add detail `Tabs` island with `?tab=timeline|returns`, `Suspense` + `Skeleton` around the timeline and returns; verify the tab-in-URL test passes
+- [x] 4.4 Rebuild `ReturnRequestSection` (Descriptions + `OrderStatusBadge` + `Empty`) and add `ReturnRequestModal` (`FormItem`, `Select`, `Input`, validation, pending, toasts, mock refund); keep testids; verify the existing `ReturnRequestSection.test.tsx` passes and new validation/failure tests pass
+- [x] 4.5 Replace the fake detail cancel modal (local state + `window.location.reload()`) with `cancelOrderAction` via `OrderActions`; verify a test asserts the action is called once and the badge updates after revalidation
+- [x] 4.6 Add `app/account/orders/[id]/loading.tsx` and `not-found.tsx`; verify render tests and that no page under the order routes contains `"use client"`
 
 ## 5. Code — team-frontend: cross-cutting checks
 
-- [ ] 5.1 Run the token lint over `src/features/order/` and `src/app/account/orders/` (no `text-[..px]`, hex, `rounded-2xs`, emoji status icons); verify it is clean
-- [ ] 5.2 Confirm no tracking hook or `data-*` attribute was added, removed or changed (`git diff` over the order files for `Track`, `data-`); verify with a grep-based Vitest guard and `npm run check` plus `npx next build` pass
+- [x] 5.1 Run the token lint over `src/features/order/` and `src/app/account/orders/` (no `text-[..px]`, hex, `rounded-2xs`, emoji status icons); verify it is clean
+- [x] 5.2 Confirm no tracking hook or `data-*` attribute was added, removed or changed (`git diff` over the order files for `Track`, `data-`); verify with a grep-based Vitest guard and `npm run check` plus `npx next build` pass
 
 ## 6. E2E — platform-e2e
 
