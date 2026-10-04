@@ -157,7 +157,8 @@ def url_without_price(world: World) -> None:
     expect(world.page).not_to_have_url(
         re.compile(r".*(minPrice|maxPrice)="), timeout=timeouts.DEFAULT
     )
-    expect(_search(world).active_filters).to_have_count(0, timeout=timeouts.DEFAULT)
+    # The keyword tag stays in the strip, so assert on the price tag rather than on the strip.
+    expect(_search(world).remove_filter_link("Giá")).to_have_count(0, timeout=timeouts.DEFAULT)
 
 
 @when("the buyer clears all filters")
