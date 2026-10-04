@@ -24,20 +24,46 @@ def _detail(world: World) -> ListingDetailPage:
     return world.get_page(PageName.LISTING_DETAIL)  # type: ignore[return-value]
 
 
+# The browser queue flushes with `navigator.sendBeacon(url, Blob)`; Playwright does not expose a
+# Blob body on `request.post_data`, so the beacon is also tapped where it is sent.
+_BEACON_TAP = """
+(() => {
+  const original = navigator.sendBeacon.bind(navigator);
+  navigator.sendBeacon = (url, data) => {
+    try {
+      if (String(url).includes("/api/track") && window.__e2eRecordBeacon) {
+        Promise.resolve(data && data.text ? data.text() : String(data))
+          .then((text) => window.__e2eRecordBeacon(text))
+          .catch(() => {});
+      }
+    } catch (e) {}
+    return original(url, data);
+  };
+})();
+"""
+
+
 def _record_beacons(world: World) -> list[dict]:
     beacons: list[dict] = []
     world.state.extra["beacons"] = beacons
 
-    def on_request(request) -> None:  # noqa: ANN001
-        if "/api/track" not in request.url or not request.post_data:
+    def collect(body: str | None) -> None:
+        if not body:
             return
         try:
-            payload = json.loads(request.post_data)
+            payload = json.loads(body)
         except ValueError:
             return
         beacons.extend(payload if isinstance(payload, list) else [payload])
 
+    def on_request(request) -> None:  # noqa: ANN001
+        # fetch() fallback of the queue: the body is visible on the request itself.
+        if "/api/track" in request.url:
+            collect(request.post_data)
+
     world.page.on("request", on_request)
+    world.page.expose_function("__e2eRecordBeacon", collect)
+    world.page.add_init_script(_BEACON_TAP)
     return beacons
 
 
