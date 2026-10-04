@@ -5,6 +5,8 @@ import { PurchaseProvider } from "@/features/cart/PurchaseContext";
 import { usePurchase } from "@/features/cart/PurchaseContext";
 import type { ViewVariant } from "@/lib/gateway/listings";
 import { setupUser } from "@/test/user";
+import { SelectedPrice } from "./SelectedPrice";
+import { SelectedSku, SelectedStock } from "./SelectedSku";
 import { VariantSelector } from "./VariantSelector";
 
 const replace = vi.fn();
@@ -130,6 +132,29 @@ describe("VariantSelector", () => {
     expect(screen.getByRole("button", { name: "qty:3" })).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "256GB" }));
     expect(screen.getByRole("button", { name: "qty:1" })).toBeInTheDocument();
+  });
+
+  it("updates the price, stock and SKU at once on a selection, before the URL round trip", async () => {
+    const user = setupUser();
+    render(
+      <PurchaseProvider listing={listing} initialVariantId="base">
+        <VariantSelector />
+        <div data-testid="price">
+          <SelectedPrice />
+        </div>
+        <SelectedStock />
+        <SelectedSku />
+      </PurchaseProvider>,
+    );
+    expect(screen.getByTestId("price")).toHaveTextContent(/100/);
+    expect(screen.getByTestId("pdp-spec-stock")).toHaveTextContent(
+      "10 sản phẩm",
+    );
+    await user.click(screen.getByRole("radio", { name: "256GB" }));
+    expect(screen.getByTestId("price")).toHaveTextContent(/150/);
+    expect(screen.getByTestId("pdp-spec-stock")).toHaveTextContent(
+      "4 sản phẩm",
+    );
   });
 
   it("renders nothing for a listing without variants", () => {

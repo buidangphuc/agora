@@ -25,8 +25,11 @@ export interface PurchaseListing {
   stock: number;
   currency: string;
   variants: ViewVariant[];
-  /** Active flash-sale price for the listing, null/undefined when none. */
-  salePrice?: number | null;
+  /**
+   * Active flash-sale campaign, null/undefined when none. `variantId` is ""
+   * when the campaign covers the whole listing, else the one variant it targets.
+   */
+  flashSale?: { variantId: string; salePrice: number } | null;
 }
 
 export type PurchasePending = "add" | "buy" | null;
@@ -35,6 +38,11 @@ export interface PurchaseState {
   listing: PurchaseListing;
   /** The selected variant with its resolved price, stock, sku and image. */
   selected: ResolvedVariant;
+  /**
+   * The real flash-sale price for the selected variant, null when none applies
+   * (it must be below the regular price; it is never computed).
+   */
+  salePrice: number | null;
   /** The price the buyer sees: the flash-sale price when there is one. */
   displayPrice: number;
   quantity: number;
@@ -133,12 +141,20 @@ export function PurchaseProvider({
     [pending, selected, listing, quantity, router, success, error],
   );
 
-  const displayPrice = listing.salePrice ?? selected.price;
+  const flash = listing.flashSale;
+  const salePrice =
+    flash &&
+    (!flash.variantId || flash.variantId === selected.id) &&
+    flash.salePrice < selected.price
+      ? flash.salePrice
+      : null;
+  const displayPrice = salePrice ?? selected.price;
 
   const value = useMemo<PurchaseState>(
     () => ({
       listing,
       selected,
+      salePrice,
       displayPrice,
       quantity,
       setQuantity,
@@ -149,6 +165,7 @@ export function PurchaseProvider({
     [
       listing,
       selected,
+      salePrice,
       displayPrice,
       quantity,
       setQuantity,

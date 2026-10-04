@@ -215,7 +215,10 @@ describe("BuyBar", () => {
       within(screen.getByTestId("buy-bar")).getByText("150.000"),
     ).toBeInTheDocument();
     unmount();
-    renderPanel({ ...listing, salePrice: 90000 }, "b");
+    renderPanel(
+      { ...listing, flashSale: { variantId: "", salePrice: 90000 } },
+      "b",
+    );
     expect(
       within(screen.getByTestId("buy-bar")).getByText("90.000"),
     ).toBeInTheDocument();
