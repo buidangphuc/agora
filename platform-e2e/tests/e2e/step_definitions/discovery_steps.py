@@ -344,7 +344,8 @@ def voucher_seeded(world: World) -> None:
             "/platform.promotion.v1.VoucherService/CreateVoucher",
             {
                 "code": code,
-                "scope": "VOUCHER_SCOPE_SHOP",
+                # /vouchers lists the platform-scoped vouchers (ListVouchers with no seller id).
+                "scope": "VOUCHER_SCOPE_PLATFORM",
                 "discountType": "DISCOUNT_TYPE_PERCENT",
                 "discountValue": "10",
                 "minSpend": "0",
