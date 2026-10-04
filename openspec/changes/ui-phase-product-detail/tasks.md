@@ -34,7 +34,7 @@
 
 ## 6. Code — team-frontend: tracking regression
 
-- [ ] 6.1 Add `src/app/listing/[id]/tracking.test.tsx` asserting one `view_item` per load (not on variant change or anchor navigation), `pdp_similar_items` impression/click attribution fields, and the `add_to_cart` payload; verify the test passes and that `TrackView`, `TrackLink`, `TrackImpression` and `AnalyticsProvider` files have an empty `git diff`
+- [x] 6.1 Add `src/app/listing/[id]/tracking.test.tsx` asserting one `view_item` per load (not on variant change or anchor navigation), `pdp_similar_items` impression/click attribution fields, and the `add_to_cart` payload; verify the test passes and that `TrackView`, `TrackLink`, `TrackImpression` and `AnalyticsProvider` files have an empty `git diff`
 
 ## 7. E2E — platform-e2e
 
