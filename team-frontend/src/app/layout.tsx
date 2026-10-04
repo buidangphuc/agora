@@ -21,14 +21,14 @@ async function AuthNav() {
   const principal = getPrincipal();
   if (!principal) {
     return (
-      <div className="flex items-center gap-3 text-sm text-white whitespace-nowrap">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white">
         <Link
           href="/register"
           className="hover:text-white/80 font-medium transition"
         >
           Đăng Ký
         </Link>
-        <span className="text-white/40">|</span>
+        <span className="hidden text-white/40 sm:inline">|</span>
         <Link
           href="/login"
           className="hover:text-white/80 font-medium transition"
@@ -40,33 +40,33 @@ async function AuthNav() {
   }
 
   return (
-    <div className="flex items-center gap-3 text-sm text-white whitespace-nowrap">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white">
       <Link href="/account/orders" className="hover:text-white/80 transition">
         Đơn Mua
       </Link>
-      <span className="text-white/30">|</span>
+      <span className="hidden text-white/30 sm:inline">|</span>
       <Link
         href="/account/following"
         className="hover:text-white/80 transition"
       >
         Đang Theo Dõi
       </Link>
-      <span className="text-white/30">|</span>
+      <span className="hidden text-white/30 sm:inline">|</span>
       <Link href="/account/referral" className="hover:text-white/80 transition">
         Mời bạn
       </Link>
-      <span className="text-white/30">|</span>
+      <span className="hidden text-white/30 sm:inline">|</span>
       <Link
         href="/account/verification"
         className="hover:text-white/80 transition"
       >
         Xác minh
       </Link>
-      <span className="text-white/30">|</span>
+      <span className="hidden text-white/30 sm:inline">|</span>
       <Link href="/account/security" className="hover:text-white/80 transition">
         Bảo Mật
       </Link>
-      <span className="text-white/30">|</span>
+      <span className="hidden text-white/30 sm:inline">|</span>
       <div className="flex items-center gap-1.5 font-semibold">
         <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs text-white">
           👤
@@ -99,9 +99,9 @@ export default async function RootLayout({
             <header className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-white sticky top-0 z-30 shadow-md">
               {/* 1. Top Utility Navigation Bar */}
               <div className="text-sm py-1.5 border-b border-white/10">
-                <div className="mx-auto flex max-w-page items-center justify-between px-4">
+                <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4">
                   {/* Left Side Links */}
-                  <div className="flex items-center gap-3 text-white/90 whitespace-nowrap">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/90">
                     <Link
                       href="/seller"
                       className="hover:text-white transition font-normal"
@@ -117,7 +117,7 @@ export default async function RootLayout({
                       <span>AI Assistant</span>
                     </Link>
                     <span className="text-white/30">|</span>
-                    <div className="flex items-center gap-1.5">
+                    <div className="hidden items-center gap-1.5 md:flex">
                       <span>Kết nối</span>
                       <a
                         href="https://facebook.com"
@@ -157,7 +157,7 @@ export default async function RootLayout({
                   </div>
 
                   {/* Right Side Links */}
-                  <div className="flex items-center gap-4 text-white/90 whitespace-nowrap">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/90">
                     <Link
                       href="/notifications"
                       className="flex items-center gap-1 hover:text-white transition"
@@ -188,7 +188,7 @@ export default async function RootLayout({
                       </svg>
                       <span>Kho Voucher</span>
                     </Link>
-                    <span className="hover:text-white transition cursor-pointer flex items-center gap-1">
+                    <span className="hover:text-white transition cursor-pointer hidden items-center gap-1 md:flex">
                       <svg
                         className="w-3.5 h-3.5 fill-current"
                         viewBox="0 0 24 24"
@@ -200,7 +200,7 @@ export default async function RootLayout({
                       </svg>
                       <span>Hỗ Trợ</span>
                     </span>
-                    <span className="hover:text-white transition cursor-pointer flex items-center gap-1">
+                    <span className="hover:text-white transition cursor-pointer hidden items-center gap-1 md:flex">
                       <svg
                         className="w-3.5 h-3.5 fill-current"
                         viewBox="0 0 24 24"
@@ -212,14 +212,14 @@ export default async function RootLayout({
                       </svg>
                       <span>Tiếng Việt</span>
                     </span>
-                    <span className="text-white/30">|</span>
+                    <span className="hidden text-white/30 md:inline">|</span>
                     <AuthNav />
                   </div>
                 </div>
               </div>
 
               {/* 2. Main Search & Brand Bar */}
-              <div className="mx-auto flex max-w-page items-center justify-between gap-8 px-4 pt-3.5 pb-2.5">
+              <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3.5 pb-2.5 md:gap-x-8">
                 {/* Logo */}
                 <Link
                   href="/"
@@ -239,7 +239,7 @@ export default async function RootLayout({
                 </Link>
 
                 {/* Search Bar with pills */}
-                <div className="flex-1 max-w-3xl">
+                <div className="order-last w-full min-w-0 max-w-3xl md:order-none md:w-auto md:flex-1">
                   <div className="w-full">
                     <SearchBar />
                   </div>
