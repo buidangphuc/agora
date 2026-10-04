@@ -239,5 +239,21 @@ def verified_badge_shown(world: World) -> None:
 def shop_rating_summary_shown(world: World) -> None:
     detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
     expect(detail.shop_rating_summary).to_be_visible(timeout=timeouts.NAVIGATION)
-    expect(detail.shop_rating_summary).to_contain_text("/ 5.0", timeout=timeouts.DEFAULT)
+    # The rollup counts reviews attributed to the shop, and the seller is only known for a
+    # review tied to a purchase. So the card must mirror the service: a rated state when it
+    # holds reviews, "Chưa có đánh giá" when it holds none, never an invented 5.0.
+    api = _api(world, None)
+    listing_id = world.state.listing.listing_id  # type: ignore[union-attr]
+    seller_id = api.post("/platform.listing.v1.ListingService/GetListing", {"id": listing_id})[
+        "listing"
+    ]["sellerId"]
+    summary = api.post(
+        "/platform.engagement.v1.EngagementService/GetShopRatingSummary", {"sellerId": seller_id}
+    )
+    if int(summary.get("reviewCount") or 0) > 0:
+        expect(detail.shop_rating_summary).to_contain_text("/ 5.0", timeout=timeouts.DEFAULT)
+    else:
+        expect(detail.shop_rating_summary).to_have_text(
+            re.compile(r"Chưa có đánh giá"), timeout=timeouts.DEFAULT
+        )
     world.logger.info("Shop rating summary rendered")
