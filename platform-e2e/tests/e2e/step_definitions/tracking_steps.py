@@ -15,7 +15,7 @@ from pytest_bdd import parsers, then, when
 
 from src.api.services.tracking_service import VIEW
 from src.constants import PageName, timeouts
-from tests.e2e.flows import consume_tracking_events
+from tests.e2e.flows import consume_tracking_events, tracking_event_type
 from tests.e2e.support.world import World
 
 
@@ -235,7 +235,9 @@ def purchase_payload_carries_ecommerce_fields(world: World) -> None:
     tx_id = world.state.extra["transaction_id"]
     envelopes = _envelopes_for_session(world, session_id)
     purchase_envs = [
-        env for env in envelopes if "EVENT_TYPE_PURCHASE" in _as_text(env) or tx_id in _as_text(env)
+        env
+        for env in envelopes
+        if tracking_event_type(env) == "EVENT_TYPE_PURCHASE" or tx_id in _as_text(env)
     ]
     assert len(purchase_envs) >= 1, f"no purchase envelope found for tx {tx_id}"
     text = _as_text(purchase_envs[0])
@@ -278,10 +280,9 @@ def emit_impression_and_click_with_placement(world: World, placement: str) -> No
 def both_beacons_carry_placement(world: World, topic: str, placement: str) -> None:
     session_id = world.state.extra["track_session_id"]
     envelopes = _envelopes_for_session(world, session_id)
-    texts = [_as_text(e) for e in envelopes]
     kinds = {
-        "EVENT_TYPE_IMPRESSION": [t for t in texts if "EVENT_TYPE_IMPRESSION" in t],
-        "EVENT_TYPE_CLICK": [t for t in texts if "EVENT_TYPE_CLICK" in t],
+        kind: [_as_text(e) for e in envelopes if tracking_event_type(e) == kind]
+        for kind in ("EVENT_TYPE_IMPRESSION", "EVENT_TYPE_CLICK")
     }
     for kind, found in kinds.items():
         assert found, f"no {kind} envelope published for session {session_id}"
