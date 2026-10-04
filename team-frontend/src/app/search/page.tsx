@@ -1,183 +1,83 @@
-import Link from "next/link";
+import { Suspense } from "react";
 
-import { ListingGrid } from "@/features/listing/ListingGrid";
-import { FilterSidebar } from "@/features/search/FilterSidebar";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { SavedSearches } from "@/features/search/SavedSearches";
-import { SortBar } from "@/features/search/SortBar";
-import { SearchImpressions } from "@/features/tracking/SearchImpressions";
-import { SortBy } from "@/generated/platform/search/v1/search_pb.js";
-import { listCategories } from "@/lib/gateway/listings";
 import {
-  EMPTY_FACETS,
-  type FacetedSearchResult,
-  listSavedSearches,
-  searchListings,
-} from "@/lib/gateway/search";
+  FilterPanel,
+  ResultCount,
+  SearchResultsBlock,
+} from "@/features/search/SearchBlocks";
+import {
+  FilterSkeleton,
+  ResultsSkeleton,
+} from "@/features/search/SearchSkeletons";
+import { loadCategories, loadSearch, searchKey } from "@/features/search/data";
+import { type RawSearchParams, parseSearchParams } from "@/features/search/url";
+import { listSavedSearches } from "@/lib/gateway/search";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Search List anatomy: header (breadcrumb, title, count), filter column and
+ * results column. All state is in the URL (`q, category, seller, rating,
+ * minPrice, maxPrice, sort, page`). The search runs once (cached per request)
+ * and the filter column, count and results each stream from their own boundary.
+ */
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: {
-    q?: string;
-    category?: string;
-    seller?: string;
-    rating?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    sort?: string;
-  };
+  searchParams: RawSearchParams;
 }) {
-  const q = searchParams.q ?? "";
-  const categoryId = searchParams.category ?? "";
-  const sellerId = searchParams.seller ?? "";
-  const rating = searchParams.rating ?? "";
-  const minRating = rating ? Number(rating) : undefined;
-  const minPrice = searchParams.minPrice
-    ? Number(searchParams.minPrice)
-    : undefined;
-  const maxPrice = searchParams.maxPrice
-    ? Number(searchParams.maxPrice)
-    : undefined;
-  const sort = searchParams.sort ?? "relevance";
-
-  let sortBy = SortBy.RELEVANCE;
-  if (sort === "price_asc") sortBy = SortBy.PRICE_ASC;
-  else if (sort === "price_desc") sortBy = SortBy.PRICE_DESC;
-  else if (sort === "newest") sortBy = SortBy.NEWEST;
-
-  const [categories, result, savedSearches] = await Promise.all([
-    listCategories(),
-    searchListings(q, {
-      categoryId,
-      sellerId,
-      minPrice,
-      maxPrice,
-      minRating,
-      sortBy,
-      status: "published",
-    }).catch(
-      (): FacetedSearchResult => ({
-        items: [],
-        total: 0,
-        facets: EMPTY_FACETS,
-      }),
-    ),
+  const state = parseSearchParams(searchParams);
+  // Start the search now; the boundaries below read the same cached promise.
+  void loadSearch(searchKey(state));
+  const [categories, savedSearches] = await Promise.all([
+    loadCategories(),
     listSavedSearches(),
   ]);
 
-  const selectedCategory = categories.find((c) => c.id === categoryId);
-  const hasActiveFilter =
-    Boolean(selectedCategory) ||
-    Boolean(sellerId) ||
-    Boolean(rating) ||
-    Boolean(minPrice) ||
-    Boolean(maxPrice) ||
-    Boolean(q);
+  const selectedCategory = categories.find((c) => c.id === state.category);
+  const title = selectedCategory
+    ? selectedCategory.name
+    : state.q
+      ? `Kết quả cho “${state.q}”`
+      : "Tất cả sản phẩm";
+  const trail = selectedCategory
+    ? [
+        { label: "Trang chủ", href: "/" },
+        { label: "Tất cả sản phẩm", href: "/search" },
+        { label: selectedCategory.name },
+      ]
+    : [{ label: "Trang chủ", href: "/" }, { label: title }];
 
   return (
-    <section className="py-2">
-      {/* ── Breadcrumb ── */}
-      <nav className="mb-4 flex items-center gap-2 text-xs text-gray-500">
-        <Link href="/" className="hover:text-emerald-700">
-          Trang chủ
-        </Link>
-        <span>&gt;</span>
-        {selectedCategory ? (
-          <>
-            <Link href="/search" className="hover:text-emerald-700">
-              Tất cả danh mục cho thuê
-            </Link>
-            <span>&gt;</span>
-            <span className="font-semibold text-gray-800">
-              {selectedCategory.name}
-            </span>
-          </>
-        ) : q ? (
-          <span className="font-semibold text-gray-800">
-            Kết quả tìm phòng cho &ldquo;{q}&rdquo;
-          </span>
-        ) : (
-          <span className="font-semibold text-gray-800">
-            Tất cả phòng cho thuê
-          </span>
-        )}
-      </nav>
+    <section className="space-y-4 py-2">
+      <header className="space-y-2">
+        <Breadcrumb items={trail} />
+        <h1 className="text-lg font-semibold text-text-primary">{title}</h1>
+        <Suspense
+          fallback={
+            <span className="block h-5 w-32 animate-pulse rounded-xs bg-neutral-200" />
+          }
+        >
+          <ResultCount state={state} />
+        </Suspense>
+      </header>
 
-      {/* ── 2-Column Rental Layout ── */}
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* Left: Saved searches + Facet Filter Sidebar */}
-        <div className="w-full lg:w-64 lg:shrink-0 space-y-4">
-          <SavedSearches currentQuery={q} initialSaved={savedSearches} />
-          <FilterSidebar
-            facets={result.facets}
-            categories={categories}
-            currentCategory={categoryId}
-            currentSeller={sellerId}
-            currentRating={rating}
-            currentMinPrice={minPrice}
-            currentMaxPrice={maxPrice}
-          />
+        {/* Filter column: saved searches + facet filters */}
+        <div className="w-full space-y-4 lg:sticky lg:top-36 lg:w-64 lg:shrink-0 lg:self-start">
+          <SavedSearches currentQuery={state.q} initialSaved={savedSearches} />
+          <Suspense fallback={<FilterSkeleton />}>
+            <FilterPanel state={state} />
+          </Suspense>
         </div>
 
-        {/* Right: Results Area */}
-        <div className="flex-1 min-w-0 space-y-4">
-          {/* Header & Sort Bar */}
-          <SortBar currentSort={sort} totalResults={result.total} />
-
-          {/* Active Filter Badges */}
-          {hasActiveFilter && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-gray-500">Đang lọc theo:</span>
-              {q && (
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800 border border-emerald-200">
-                  Từ khóa: &ldquo;{q}&rdquo;
-                </span>
-              )}
-              {selectedCategory && (
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800 border border-emerald-200">
-                  Loại phòng: {selectedCategory.name}
-                </span>
-              )}
-              {sellerId && (
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800 border border-emerald-200">
-                  Nơi bán: {sellerId}
-                </span>
-              )}
-              {rating && (
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800 border border-emerald-200">
-                  Đánh giá: từ {rating} sao
-                </span>
-              )}
-              {(minPrice || maxPrice) && (
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800 border border-emerald-200">
-                  Giá thuê: {minPrice ? minPrice.toLocaleString() : "0"}đ -{" "}
-                  {maxPrice ? maxPrice.toLocaleString() : "∞"}đ
-                </span>
-              )}
-              <Link
-                href="/search"
-                className="text-xs text-gray-400 underline hover:text-emerald-700 ml-2"
-              >
-                Xóa tất cả bộ lọc
-              </Link>
-            </div>
-          )}
-
-          {/* Fire IMPRESSION beacons for the rendered results (with position). */}
-          <SearchImpressions
-            listingIds={result.items.map((l) => l.id)}
-            query={q}
-          />
-
-          {/* Listings Grid */}
-          <div data-testid="search-results">
-            <ListingGrid
-              listings={result.items}
-              empty="Không tìm thấy phòng cho thuê nào khớp với bộ lọc của bạn."
-            />
-          </div>
+        {/* Results column */}
+        <div className="min-w-0 flex-1">
+          <Suspense fallback={<ResultsSkeleton />}>
+            <SearchResultsBlock state={state} />
+          </Suspense>
         </div>
       </div>
     </section>

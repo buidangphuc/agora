@@ -14,13 +14,13 @@
 
 ## 3. Code — team-frontend: search route
 
-- [ ] 3.1 Add the `page` option to `searchListings` in `src/lib/gateway/search.ts` (walk `next_cursor` up to page 20, page size 24, return `total`), no proto change, and let failures propagate instead of returning empty facets; verify unit tests for page 1, page 3, out-of-range and error pass
-- [ ] 3.2 Rebuild `app/search/page.tsx` to the Search List anatomy (`Breadcrumb`, `h1`, count, filter column, results column) with URL params `q, category, seller, rating, minPrice, maxPrice, sort, page`, `redirect` for out-of-range page, Vietnamese marketplace copy replacing the room-rental text; verify page tests for params parsing, reset-page and redirect pass
-- [ ] 3.3 Rebuild `FilterSidebar` from `FormItem` + `Checkbox`/`Radio` + price `Input`s as `<form method="get">`/links with facet counts, min>max validation, and a mobile `Drawer` ("Bộ lọc" `Button` with count `Badge`, sticky "Áp dụng"); verify the drawer focus, invalid-range and count-badge tests pass
-- [ ] 3.4 Rebuild `SortBar` as link-based `Tabs` (Liên quan, Mới nhất) plus a price `Select`, `aria-current` on the active option, removing the unwired "Bán Chạy" option (hidden until a backend `SortBy` exists); mobile uses a single `Select`; verify the sort tests pass
-- [ ] 3.5 Add active-filter closable `Tag` links and "Xóa tất cả bộ lọc"; add `Pagination` (`hrefFor` preserves params; prev/current/next only at 375px); verify the URL-building tests pass
-- [ ] 3.6 Add `app/search/loading.tsx` and a Suspense around the results with `ListingGridSkeleton`; zero results render `Empty` + "Xóa bộ lọc"; backend failure renders `Alert` + "Thử lại"; keep one `SearchImpressions` and `data-testid="search-results"`; verify the empty, error and tracking-snapshot tests pass
-- [ ] 3.7 Normalise `saveSearchAction`/`deleteSavedSearchAction` to return `{ ok, error?, data? }` (keep `message`), update `SavedSearches` to show pending, disabled and success/error toasts; verify `actions` and component tests pass
+- [x] 3.1 Add the `page` option to `searchListings` in `src/lib/gateway/search.ts` (walk `next_cursor` up to page 20, page size 24, return `total`), no proto change, and let failures propagate instead of returning empty facets; verify unit tests for page 1, page 3, out-of-range and error pass
+- [x] 3.2 Rebuild `app/search/page.tsx` to the Search List anatomy (`Breadcrumb`, `h1`, count, filter column, results column) with URL params `q, category, seller, rating, minPrice, maxPrice, sort, page`, `redirect` for out-of-range page, Vietnamese marketplace copy replacing the room-rental text; verify page tests for params parsing, reset-page and redirect pass
+- [x] 3.3 Rebuild `FilterSidebar` from `FormItem` + `Checkbox`/`Radio` + price `Input`s as `<form method="get">`/links with facet counts, min>max validation, and a mobile `Drawer` ("Bộ lọc" `Button` with count `Badge`, sticky "Áp dụng"); verify the drawer focus, invalid-range and count-badge tests pass
+- [x] 3.4 Rebuild `SortBar` as link-based `Tabs` (Liên quan, Mới nhất) plus a price `Select`, `aria-current` on the active option, removing the unwired "Bán Chạy" option (hidden until a backend `SortBy` exists); mobile uses a single `Select`; verify the sort tests pass
+- [x] 3.5 Add active-filter closable `Tag` links and "Xóa tất cả bộ lọc"; add `Pagination` (`hrefFor` preserves params; prev/current/next only at 375px); verify the URL-building tests pass
+- [x] 3.6 Add `app/search/loading.tsx` and a Suspense around the results with `ListingGridSkeleton`; zero results render `Empty` + "Xóa bộ lọc"; backend failure renders `Alert` + "Thử lại"; keep one `SearchImpressions` and `data-testid="search-results"`; verify the empty, error and tracking-snapshot tests pass
+- [x] 3.7 Normalise `saveSearchAction`/`deleteSavedSearchAction` to return `{ ok, error?, data? }` (keep `message`), update `SavedSearches` to show pending, disabled and success/error toasts; verify `actions` and component tests pass
 
 ## 4. Code — team-frontend: vouchers route
 
