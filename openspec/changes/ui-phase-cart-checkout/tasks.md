@@ -29,9 +29,9 @@
 
 ## 4. Code — team-frontend: /checkout/pay/[id]
 
-- [ ] 4.1 Rewrite `MockPaymentView` into server `Descriptions` summary + client `PaymentSimulator` (mutually exclusive, pending-aware buttons, toasts via `processMockPaymentAction`); verify the pending and exclusivity tests
-- [ ] 4.2 Render `Result` states: success (links to `/account/orders` and `/`), error (Thử lại / Đổi phương thức), cancelled-by-saga (`Result` + `Alert`), keep `/login` redirect; verify one test per state
-- [ ] 4.3 Add `app/checkout/pay/[id]/loading.tsx` and `not-found.tsx` (`Result status="404"`); verify the unknown-id test
+- [x] 4.1 Rewrite `MockPaymentView` into server `Descriptions` summary + client `PaymentSimulator` (mutually exclusive, pending-aware buttons, toasts via `processMockPaymentAction`); verify the pending and exclusivity tests
+- [x] 4.2 Render `Result` states: success (links to `/account/orders` and `/`), error (Thử lại / Đổi phương thức), cancelled-by-saga (`Result` + `Alert`), keep `/login` redirect; verify one test per state
+- [x] 4.3 Add `app/checkout/pay/[id]/loading.tsx` and `not-found.tsx` (`Result status="404"`); verify the unknown-id test
 - [ ] 4.4 Run the token lint, `npm run check` and `npx next build`; verify all pass and the CLS scenarios hold on a local run
 
 ## 5. E2E — platform-e2e
