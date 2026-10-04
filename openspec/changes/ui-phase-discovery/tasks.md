@@ -24,16 +24,16 @@
 
 ## 4. Code — team-frontend: vouchers route
 
-- [ ] 4.1 Rebuild `/vouchers` as server page: banner, `Tabs` as links to `?type=` with counts, `VoucherCard` grid from `listVouchers()` (`Tag`, `Progress` from real used/quota, expiry, "Dùng ngay" link, no "Lưu mã"), `Empty` for empty/failed, `VoucherManager` scope-gated and restyled to tokens only; verify page tests for tab filtering, empty and scope gate pass
-- [ ] 4.2 Delete the static `AVAILABLE_VOUCHERS` usage and any browser voucher wallet from the route (no save button, no browser-side storage); verify a unit test asserts no "Lưu mã"/"Đã lưu" control and no `localStorage` access
-- [ ] 4.3 Normalise `createVoucherAction` to `{ ok, error?, data? }` (keep `message`), keep `revalidatePath("/vouchers")`; verify its unit test passes
-- [ ] 4.4 Add `app/vouchers/loading.tsx`; verify it renders and 375px classes (1 column, scrollable tabs) are asserted in a unit test
+- [x] 4.1 Rebuild `/vouchers` as server page: banner, `Tabs` as links to `?type=` with counts, `VoucherCard` grid from `listVouchers()` (`Tag`, `Progress` from real used/quota, expiry, "Dùng ngay" link, no "Lưu mã"), `Empty` for empty/failed, `VoucherManager` scope-gated and restyled to tokens only; verify page tests for tab filtering, empty and scope gate pass
+- [x] 4.2 Delete the static `AVAILABLE_VOUCHERS` usage and any browser voucher wallet from the route (no save button, no browser-side storage); verify a unit test asserts no "Lưu mã"/"Đã lưu" control and no `localStorage` access
+- [x] 4.3 Normalise `createVoucherAction` to `{ ok, error?, data? }` (keep `message`), keep `revalidatePath("/vouchers")`; verify its unit test passes
+- [x] 4.4 Add `app/vouchers/loading.tsx`; verify it renders and 375px classes (1 column, scrollable tabs) are asserted in a unit test
 
 ## 5. Code — team-frontend: cross-cutting verification
 
-- [ ] 5.0 Grep `src/app/page.tsx`, `src/app/search`, `src/app/vouchers` and `src/features/{listing,search,home,voucher}` for `isMall`, `* 1.25`, `82%`, `localStorage`; verify no matches remain
-- [ ] 5.1 Run the token lint over `src/app/page.tsx`, `src/app/search`, `src/app/vouchers`, `src/features/{listing,search,home,voucher}`; verify no raw hex, `rgb()` or arbitrary values
-- [ ] 5.2 Confirm other phases still compile against the shared components (`/listing/[id]`, `/favorites`, `/shop/[id]`, `RecommendationsRow`); verify `npx tsc --noEmit`, `npx biome check .` and `npx vitest run` pass
+- [x] 5.0 Grep `src/app/page.tsx`, `src/app/search`, `src/app/vouchers` and `src/features/{listing,search,home,voucher}` for `isMall`, `* 1.25`, `82%`, `localStorage`; verify no matches remain
+- [x] 5.1 Run the token lint over `src/app/page.tsx`, `src/app/search`, `src/app/vouchers`, `src/features/{listing,search,home,voucher}`; verify no raw hex, `rgb()` or arbitrary values
+- [x] 5.2 Confirm other phases still compile against the shared components (`/listing/[id]`, `/favorites`, `/shop/[id]`, `RecommendationsRow`); verify `npx tsc --noEmit`, `npx biome check .` and `npx vitest run` pass
 - [ ] 5.3 Verify CLS manually on `/`, `/search` and `/vouchers` with a throttled network (no element shifts after skeleton swap); verify `npx next build && npx next start` serves all three routes
 
 ## 6. E2E — platform-e2e

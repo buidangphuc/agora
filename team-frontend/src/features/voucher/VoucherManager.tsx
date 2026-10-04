@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
+import { FormItem } from "@/components/ui/FormItem";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   DiscountType,
@@ -52,12 +59,14 @@ export function VoucherManager({
         maxDiscount: Number(maxDiscount) || 0,
         quota: Number(quota) || 0,
       });
-      if (!res.ok || !res.voucher) {
-        setFormError(res.message);
-        toast.error(res.message);
+      if (!res.ok || !res.data) {
+        const message = res.ok ? res.message : res.error;
+        setFormError(message);
+        toast.error(message);
         return;
       }
-      setVouchers((prev) => [res.voucher as ViewVoucher, ...prev]);
+      const created = res.data;
+      setVouchers((prev) => [created, ...prev]);
       setCode("");
       toast.success(res.message);
     } finally {
@@ -67,136 +76,126 @@ export function VoucherManager({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-orange-200 bg-white p-5 shadow-xs">
-        <h2 className="border-b pb-3 text-base font-bold text-gray-900 flex items-center gap-2">
-          <span>🎟️</span>
-          <span>Tạo Voucher (Người bán / Sàn)</span>
-        </h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Tạo Voucher (Người bán / Sàn)</CardTitle>
+        </CardHeader>
 
         <form
           onSubmit={handleSubmit}
           aria-label="Create voucher"
-          className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"
+          className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2"
         >
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Mã Voucher
-            <input
+          <FormItem label="Mã Voucher">
+            <Input
               type="text"
               name="code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="VD: SALE50"
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 uppercase focus:border-brand focus:outline-hidden"
+              className="uppercase"
             />
-          </label>
+          </FormItem>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Phạm vi
-            <select
+          <FormItem label="Phạm vi">
+            <Select
               name="scope"
-              value={scope}
+              value={String(scope)}
               onChange={(e) => setScope(Number(e.target.value) as VoucherScope)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-brand focus:outline-hidden"
-            >
-              <option value={VoucherScope.SHOP}>Shop</option>
-              <option value={VoucherScope.PLATFORM}>Toàn sàn</option>
-            </select>
-          </label>
+              options={[
+                { value: String(VoucherScope.SHOP), label: "Shop" },
+                { value: String(VoucherScope.PLATFORM), label: "Toàn sàn" },
+              ]}
+            />
+          </FormItem>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Loại giảm giá
-            <select
+          <FormItem label="Loại giảm giá">
+            <Select
               name="discount_type"
-              value={discountType}
+              value={String(discountType)}
               onChange={(e) =>
                 setDiscountType(Number(e.target.value) as DiscountType)
               }
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-brand focus:outline-hidden"
-            >
-              <option value={DiscountType.PERCENT}>Giảm % (1-100)</option>
-              <option value={DiscountType.FIXED}>Giảm tiền (VND)</option>
-            </select>
-          </label>
+              options={[
+                {
+                  value: String(DiscountType.PERCENT),
+                  label: "Giảm % (1-100)",
+                },
+                { value: String(DiscountType.FIXED), label: "Giảm tiền (VND)" },
+              ]}
+            />
+          </FormItem>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Giá trị giảm
-            <input
+          <FormItem label="Giá trị giảm">
+            <Input
               type="number"
               name="discount_value"
               min="0"
               value={discountValue}
               onChange={(e) => setDiscountValue(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-brand focus:outline-hidden"
             />
-          </label>
+          </FormItem>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Đơn tối thiểu (VND)
-            <input
+          <FormItem label="Đơn tối thiểu (VND)">
+            <Input
               type="number"
               name="min_spend"
               min="0"
               value={minSpend}
               onChange={(e) => setMinSpend(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-brand focus:outline-hidden"
             />
-          </label>
+          </FormItem>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Giảm tối đa (VND, 0 = không giới hạn)
-            <input
+          <FormItem label="Giảm tối đa (VND, 0 = không giới hạn)">
+            <Input
               type="number"
               name="max_discount"
               min="0"
               value={maxDiscount}
               onChange={(e) => setMaxDiscount(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-brand focus:outline-hidden"
             />
-          </label>
+          </FormItem>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-            Số lượng (quota)
-            <input
+          <FormItem label="Số lượng (quota)">
+            <Input
               type="number"
               name="quota"
               min="0"
               value={quota}
               onChange={(e) => setQuota(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-brand focus:outline-hidden"
             />
-          </label>
+          </FormItem>
 
           <div className="flex items-end">
-            <button
+            <Button
               type="submit"
               aria-label="Create voucher"
-              disabled={submitting}
-              className="w-full rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-brand-dark disabled:opacity-50"
+              isLoading={submitting}
+              className="w-full"
             >
-              {submitting ? "Đang tạo..." : "Tạo Voucher"}
-            </button>
+              Tạo Voucher
+            </Button>
           </div>
-        </form>
-        {formError && (
-          <p className="mt-2 text-xs text-red-500" role="alert">
-            {formError}
-          </p>
-        )}
-      </div>
 
-      <div className="rounded-xl border bg-white p-5 shadow-xs">
-        <h2 className="border-b pb-3 text-base font-bold text-gray-900">
-          Danh sách Voucher ({vouchers.length})
-        </h2>
+          {formError && (
+            <div className="sm:col-span-2">
+              <Alert type="error" description={formError} />
+            </div>
+          )}
+        </form>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Danh sách Voucher ({vouchers.length})</CardTitle>
+        </CardHeader>
         {vouchers.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400">
-            Chưa có voucher nào. Hãy tạo voucher đầu tiên.
-          </p>
+          <Empty description="Chưa có voucher nào. Hãy tạo voucher đầu tiên." />
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto p-5">
+            <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b text-gray-400">
+                <tr className="border-b border-border-subtle text-text-secondary">
                   <th className="py-2 pr-3 font-medium">Mã</th>
                   <th className="py-2 pr-3 font-medium">Loại</th>
                   <th className="py-2 pr-3 font-medium">Giá trị</th>
@@ -211,9 +210,11 @@ export function VoucherManager({
                     key={v.id || v.code}
                     data-testid="voucher-row"
                     data-code={v.code}
-                    className="border-b border-gray-50 text-gray-700"
+                    className="border-b border-border-subtle text-text-primary"
                   >
-                    <td className="py-2 pr-3 font-bold text-brand">{v.code}</td>
+                    <td className="py-2 pr-3 font-semibold text-action-primary">
+                      {v.code}
+                    </td>
                     <td className="py-2 pr-3">{v.discountTypeText}</td>
                     <td className="py-2 pr-3">
                       {v.discountType === DiscountType.PERCENT
@@ -233,7 +234,7 @@ export function VoucherManager({
             </table>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
