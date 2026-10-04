@@ -7,6 +7,7 @@ display-name and follow steps are reused from their own modules.
 from __future__ import annotations
 
 import re
+import time
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
@@ -16,6 +17,8 @@ from src.constants import timeouts
 from src.models import Listing
 from src.utils import data as fake
 from tests.e2e.support.world import World
+
+_INDEX_WAIT_S = 45
 
 
 def _seller_token(world: World) -> str:
@@ -70,6 +73,13 @@ def _ordered_ids(world: World) -> list[str]:
 def _assert_cheaper_first(world: World) -> None:
     ids = world.state.extra["shop_sort_ids"]
     order = _ordered_ids(world)
+    # The storefront reads the search index, which lags the listing write: reload until
+    # both seeded listings are indexed.
+    deadline = time.monotonic() + _INDEX_WAIT_S
+    while not (ids["low"] in order and ids["high"] in order) and time.monotonic() < deadline:
+        world.page.wait_for_timeout(2_000)
+        world.page.reload(wait_until="domcontentloaded")
+        order = _ordered_ids(world)
     assert ids["low"] in order and ids["high"] in order, f"seeded listings missing from {order}"
     assert order.index(ids["low"]) < order.index(
         ids["high"]
