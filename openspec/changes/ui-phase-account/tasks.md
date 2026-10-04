@@ -29,8 +29,8 @@
 
 ## 6. Code — team-frontend: referral and following
 
-- [ ] 6.1 Rebuild `/account/referral` with `Statistic`, `Descriptions`, copy `Button`, `Timeline` ledger and `Empty`; `GenerateReferralCodeButton` and `RedeemReferralForm` on `Button isLoading`/`FormItem`; verify tests for generate, invalid redeem, empty rewards
-- [ ] 6.2 Rebuild `/account/following` with summary `Card`, `Tabs` as links on `?tab=`, `Avatar`/`Image` shop cards showing the real shop display name (depends on `shop-display-name`; "Shop #<6 chars>" only for an empty name), Suspense + `Skeleton` for the product feed, `Empty` states; verify `?tab=items` renders the items tab selected without JS and tests cover the real name and the empty-name fallback
+- [x] 6.1 Rebuild `/account/referral` with `Statistic`, `Descriptions`, copy `Button`, `Timeline` ledger and `Empty`; `GenerateReferralCodeButton` and `RedeemReferralForm` on `Button isLoading`/`FormItem`; verify tests for generate, invalid redeem, empty rewards
+- [x] 6.2 Rebuild `/account/following` with summary `Card`, `Tabs` as links on `?tab=`, `Avatar`/`Image` shop cards showing the real shop display name (depends on `shop-display-name`; "Shop #<6 chars>" only for an empty name), Suspense + `Skeleton` for the product feed, `Empty` states; verify `?tab=items` renders the items tab selected without JS and tests cover the real name and the empty-name fallback (note: link-variant Tabs mark the selected tab with aria-current="page", not aria-selected)
 
 ## 7. Code — team-frontend: favorites and notifications
 
