@@ -1,8 +1,8 @@
 ## 1. Code — team-frontend: seller shell
 
-- [ ] 1.1 Add `SellerSidebar` (client: collapse toggle, `usePathname` active link with `aria-current`, `localStorage` preference), `SellerNavDrawer` (on `Drawer`, closes on navigation) and `SellerPageHeader` (server: `Breadcrumb`, title, primary action slot); verify Vitest covers collapse, active link and Drawer close
-- [ ] 1.2 Rebuild `src/app/seller/layout.tsx` on them (shop card with `Avatar`/`Tag` and the real shop display name from `shop-display-name`, "Shop #<6 chars>" only for an empty name; depends on that change, no emoji icon text, scope-gate `Result`, redirect to `/login` when unauthenticated); verify the 403, collapse, 375px Drawer, real-name and empty-name-fallback tests pass
-- [ ] 1.3 Add segment `loading.tsx`, `error.tsx` (`Result` + `reset` + link to `/seller`) and `not-found.tsx` under `src/app/seller/`; verify a test renders each
+- [x] 1.1 Add `SellerSidebar` (client: collapse toggle, `usePathname` active link with `aria-current`, `localStorage` preference), `SellerNavDrawer` (on `Drawer`, closes on navigation) and `SellerPageHeader` (server: `Breadcrumb`, title, primary action slot); verify Vitest covers collapse, active link and Drawer close
+- [x] 1.2 Rebuild `src/app/seller/layout.tsx` on them (shop card with `Avatar`/`Tag` and the real shop display name from `shop-display-name`, "Shop #<6 chars>" only for an empty name; depends on that change, no emoji icon text, scope-gate `Result`, redirect to `/login` when unauthenticated); verify the 403, collapse, 375px Drawer, real-name and empty-name-fallback tests pass
+- [x] 1.3 Add segment `loading.tsx`, `error.tsx` (`Result` + `reset` + link to `/seller`) and `not-found.tsx` under `src/app/seller/`; verify a test renders each
 
 ## 2. Code — team-frontend: Workplace and Table List
 
