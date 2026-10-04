@@ -48,7 +48,7 @@ export function AddToCartButton({
           router.push("/cart");
         }
       } else {
-        error(res.message || "Thêm vào giỏ hàng thất bại.");
+        error(res.error || "Thêm vào giỏ hàng thất bại.");
       }
     } catch {
       error("Có lỗi xảy ra khi thêm vào giỏ hàng.");

@@ -37,4 +37,32 @@ describe("Stepper", () => {
     render(<Stepper steps={steps} />);
     expect(screen.getByText("Thanh toán")).toBeInTheDocument();
   });
+
+  it("renders a step title as a link only when it has an href, inert when disabled", () => {
+    render(
+      <Stepper
+        steps={[
+          { id: 1, title: "Địa chỉ", status: "complete", href: "/c?step=a" },
+          {
+            id: 2,
+            title: "Vận chuyển",
+            status: "complete",
+            href: "/c?step=b",
+            disabled: true,
+          },
+          { id: 3, title: "Thanh toán", status: "current" },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Địa chỉ" })).toHaveAttribute(
+      "href",
+      "/c?step=a",
+    );
+    expect(screen.queryByRole("link", { name: "Vận chuyển" })).toBeNull();
+    expect(screen.getByText("Vận chuyển")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.queryByRole("link", { name: "Thanh toán" })).toBeNull();
+  });
 });

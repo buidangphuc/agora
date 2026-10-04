@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import {
   addToCart,
   clearCart,
@@ -9,9 +10,10 @@ import {
   updateCartItem,
 } from "@/lib/gateway/cart";
 
-export interface CartActionResult {
-  ok: boolean;
-  message?: string;
+export type CartActionResult = ActionResult;
+
+function messageOf(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
 }
 
 export async function addToCartAction(
@@ -23,13 +25,9 @@ export async function addToCartAction(
     await addToCart(listingId, variantId, quantity);
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return { ok: true, message: "Đã thêm vào giỏ hàng thành công!" };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Thêm vào giỏ hàng thất bại.",
-    };
+    return fail(messageOf(err, "Thêm vào giỏ hàng thất bại."));
   }
 }
 
@@ -41,12 +39,9 @@ export async function updateCartItemAction(
     await updateCartItem(itemId, quantity);
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return { ok: true };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Cập nhật thất bại.",
-    };
+    return fail(messageOf(err, "Cập nhật thất bại."));
   }
 }
 
@@ -57,12 +52,9 @@ export async function removeFromCartAction(
     await removeFromCart(itemId);
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return { ok: true };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Xóa sản phẩm thất bại.",
-    };
+    return fail(messageOf(err, "Xóa sản phẩm thất bại."));
   }
 }
 
@@ -71,11 +63,8 @@ export async function clearCartAction(): Promise<CartActionResult> {
     await clearCart();
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return { ok: true };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Dọn giỏ hàng thất bại.",
-    };
+    return fail(messageOf(err, "Dọn giỏ hàng thất bại."));
   }
 }

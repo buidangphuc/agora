@@ -30,16 +30,13 @@ describe("addToCartAction", () => {
     const res = await addToCartAction("l1", "v1", 3);
     expect(addToCart).toHaveBeenCalledWith("l1", "v1", 3);
     expect(revalidatePath).toHaveBeenCalledWith("/cart");
-    expect(res).toEqual({
-      ok: true,
-      message: "Đã thêm vào giỏ hàng thành công!",
-    });
+    expect(res).toEqual({ ok: true });
   });
 
   it("returns the error message when the gateway throws", async () => {
     vi.mocked(addToCart).mockRejectedValue(new Error("out of stock"));
     const res = await addToCartAction("l1");
-    expect(res).toEqual({ ok: false, message: "out of stock" });
+    expect(res).toEqual({ ok: false, error: "out of stock" });
   });
 });
 
@@ -54,7 +51,13 @@ describe("other cart actions", () => {
   it("removeFromCartAction returns error shape on failure", async () => {
     vi.mocked(removeFromCart).mockRejectedValue(new Error("gone"));
     const res = await removeFromCartAction("ci1");
-    expect(res).toEqual({ ok: false, message: "gone" });
+    expect(res).toEqual({ ok: false, error: "gone" });
+  });
+
+  it("updateCartItemAction returns the fallback error for a non-Error throw", async () => {
+    vi.mocked(updateCartItem).mockRejectedValue("boom");
+    const res = await updateCartItemAction("ci1", 2);
+    expect(res).toEqual({ ok: false, error: "Cập nhật thất bại." });
   });
 
   it("clearCartAction clears and revalidates", async () => {

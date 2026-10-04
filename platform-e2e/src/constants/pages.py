@@ -18,6 +18,7 @@ class PageName(str, Enum):
     SHOP_PROFILE = "shop profile"
     CART = "cart"
     CHECKOUT = "checkout"
+    PAYMENT_RESULT = "payment result"
     ACCOUNT_ORDERS = "account orders"
     ORDER_DETAIL = "order detail"
     FAVORITES = "favorites"

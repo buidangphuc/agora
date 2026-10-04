@@ -102,11 +102,16 @@ def promo_buyer_qualifying_cart(world: World) -> None:
 
 @when(parsers.parse('the buyer applies the voucher code "{code}" at checkout'))
 def buyer_applies_voucher(world: World, code: str) -> None:
+    # The voucher selector lives on the Thanh toán step of the checkout wizard.
     world.navigate_to(PageName.CHECKOUT)
     checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
-    expect(checkout.voucher_input).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(checkout.stepper).to_be_visible(timeout=timeouts.NAVIGATION)
+    checkout.continue_to("payment")
+    checkout.voucher_open_button.click()
+    expect(checkout.voucher_input).to_be_visible(timeout=timeouts.DEFAULT)
     world.state.extra["applied_code"] = code
-    checkout.apply_voucher(code)
+    checkout.voucher_input.fill(code)
+    checkout.apply_voucher_button.click()
 
 
 @then("the voucher discount is shown and the order total is reduced")
@@ -132,6 +137,7 @@ def voucher_discount_shown(world: World) -> None:
 @then("placing the order creates the order")
 def placing_order_creates_order(world: World) -> None:
     checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
+    checkout.continue_to("confirm")  # the voucher is kept in ?voucher= across steps
     expect(checkout.place_order_button).to_be_enabled(timeout=timeouts.DEFAULT)
     checkout.place_order_button.click()
     # COD success routes to /account/orders?success=1; a mock-pay method routes to /checkout/pay.

@@ -16,12 +16,12 @@ def buyer_views_the_cart(world: World) -> None:
 
 @then("the buyer can increase the item quantity")
 def buyer_increases_quantity(world: World) -> None:
-    plus_btn = world.page.get_by_role("button", name="+").first
+    plus_btn = world.page.get_by_role("button", name="Tăng số lượng").first
     expect(plus_btn).to_be_visible(timeout=timeouts.DEFAULT)
     plus_btn.click()
     world.page.wait_for_load_state("networkidle")
     # Verify subtotal or price is rendered
-    expect(world.page.locator("body")).to_contain_text("TÓM TẮT ĐƠN HÀNG", timeout=timeouts.DEFAULT)
+    expect(world.page.locator("body")).to_contain_text("Tóm tắt đơn hàng", timeout=timeouts.DEFAULT)
 
 
 @when("the buyer clears all items from the cart")

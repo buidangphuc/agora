@@ -73,13 +73,34 @@ async function withShopNames(cart: ViewCart): Promise<ViewCart> {
   };
 }
 
+const EMPTY_CART: ViewCart = {
+  userId: "",
+  items: [],
+  subtotal: 0,
+  totalItems: 0,
+};
+
+/**
+ * The caller's cart without shop names: one GetCart RPC. Use it where only the
+ * items or the item count matter (root layout badge, checkout). Any RPC error
+ * yields an empty cart.
+ */
 export async function getCart(): Promise<ViewCart> {
   try {
     const res = await gateway().cart.getCart({});
-    return await withShopNames(mapCart(res.cart));
+    return mapCart(res.cart);
   } catch {
-    return { userId: "", items: [], subtotal: 0, totalItems: 0 };
+    return { ...EMPTY_CART };
   }
+}
+
+/**
+ * The cart with `sellerDisplayName` resolved (one extra batch call), for pages
+ * that render a shop header (/cart). A failed name lookup keeps the cart and
+ * leaves the names empty (render via shopLabel()).
+ */
+export async function getCartWithShopNames(): Promise<ViewCart> {
+  return withShopNames(await getCart());
 }
 
 /**
