@@ -16,16 +16,16 @@
 
 ## 3. Code — team-frontend: checkout shell and wizard
 
-- [ ] 3.1 Add the checkout shell (`app/checkout/layout.tsx` or `(checkout)` route group) with minimal header, `Stepper` and secure footer, hiding mega search and bottom nav while keeping `AnalyticsProvider` and `ToastProvider`; verify the shell render test and that `/cart` still renders the consumer shell
-- [ ] 3.2 Rewrite `app/checkout/page.tsx` as a server page: keep `/login` redirect, kill-switch `Result`, empty-cart redirect to `/cart`; parse and validate searchParams; render the active step panel; verify redirect and skip-ahead tests
-- [ ] 3.3 Address step: `Descriptions` card + `AddressSelectorModal` (`Radio` cards, "Mặc định" `Tag`, reuse `AddressModal` form, `Empty` when none, Next disabled); verify the change-address, add-address and no-address tests
-- [ ] 3.4 Shipping step: single pre-selected standard option with `PriceTag` or "Freeship" `Tag` from `shipping.ts`; verify the free-shipping test
-- [ ] 3.5 Payment step: `PaymentOptionsGrid` (`Radio` cards, keyboard arrows, default COD, `?pay=`), emoji icons replaced by token icon slots; verify the one-of-many and keyboard tests
-- [ ] 3.6 `OrderSummary` (`Card` + `Descriptions` + `PriceTag`) with fixed rows, `data-testid="voucher-discount"` and `order-total`, desktop sticky column, mobile bottom bar + `Drawer`; verify the total-math and mobile-drawer tests
-- [ ] 3.7 Confirm step with `PlaceOrderButton`: synchronous in-flight `useRef` lock, `Button isLoading disabled`, form `onSubmit` through the same guard, locked after `ok:true`, released after failure, Back/Stepper disabled while pending; verify the double-click, Enter, pending, locked-after-success and re-enabled-after-failure tests (mock `checkoutAction`, assert exactly one call)
-- [ ] 3.8 Saga failure `Alert` slot with "Thử lại" and "Quay lại giỏ hàng", kept above actions without moving the CTA; verify the out-of-stock test
-- [ ] 3.9 `BeginCheckoutBeacon` island firing `begin_checkout` once per entry, `purchase` after `ok:true` with the unchanged payload, `apply_promotion` unchanged; verify the tracking tests (one `begin_checkout` across four steps, one `purchase` after a double click)
-- [ ] 3.10 Add `app/checkout/loading.tsx` and `app/checkout/error.tsx`; remove the old `CheckoutView.tsx`; verify `npx tsc --noEmit` passes and no `text-[` arbitrary values remain in the files of this change
+- [x] 3.1 Add the checkout shell (`app/checkout/layout.tsx` or `(checkout)` route group) with minimal header, `Stepper` and secure footer, hiding mega search and bottom nav while keeping `AnalyticsProvider` and `ToastProvider`; verify the shell render test and that `/cart` still renders the consumer shell
+- [x] 3.2 Rewrite `app/checkout/page.tsx` as a server page: keep `/login` redirect, kill-switch `Result`, empty-cart redirect to `/cart`; parse and validate searchParams; render the active step panel; verify redirect and skip-ahead tests
+- [x] 3.3 Address step: `Descriptions` card + `AddressSelectorModal` (`Radio` cards, "Mặc định" `Tag`, reuse `AddressModal` form, `Empty` when none, Next disabled); verify the change-address, add-address and no-address tests
+- [x] 3.4 Shipping step: single pre-selected standard option with `PriceTag` or "Freeship" `Tag` from `shipping.ts`; verify the free-shipping test
+- [x] 3.5 Payment step: `PaymentOptionsGrid` (`Radio` cards, keyboard arrows, default COD, `?pay=`), emoji icons replaced by token icon slots; verify the one-of-many and keyboard tests
+- [x] 3.6 `OrderSummary` (`Card` + `Descriptions` + `PriceTag`) with fixed rows, `data-testid="voucher-discount"` and `order-total`, desktop sticky column, mobile bottom bar + `Drawer`; verify the total-math and mobile-drawer tests
+- [x] 3.7 Confirm step with `PlaceOrderButton`: synchronous in-flight `useRef` lock, `Button isLoading disabled`, form `onSubmit` through the same guard, locked after `ok:true`, released after failure, Back/Stepper disabled while pending; verify the double-click, Enter, pending, locked-after-success and re-enabled-after-failure tests (mock `checkoutAction`, assert exactly one call)
+- [x] 3.8 Saga failure `Alert` slot with "Thử lại" and "Quay lại giỏ hàng", kept above actions without moving the CTA; verify the out-of-stock test
+- [x] 3.9 `BeginCheckoutBeacon` island firing `begin_checkout` once per entry, `purchase` after `ok:true` with the unchanged payload, `apply_promotion` unchanged; verify the tracking tests (one `begin_checkout` across four steps, one `purchase` after a double click)
+- [x] 3.10 Add `app/checkout/loading.tsx` and `app/checkout/error.tsx`; remove the old `CheckoutView.tsx`; verify `npx tsc --noEmit` passes and no `text-[` arbitrary values remain in the files of this change
 
 ## 4. Code — team-frontend: /checkout/pay/[id]
 
