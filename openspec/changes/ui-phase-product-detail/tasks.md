@@ -21,7 +21,7 @@
 - [ ] 4.1 Build the body as stacked sections `#specs`, `#reviews`, `#qa` (each with its `id`, all rendered, reviews and Q&A lists in their own `Suspense` with a `Skeleton`) and an anchor nav of links to them, sticky on desktop; no `Tabs` and no `?tab=` parsing; verify an RTL test finds the three anchor links with the matching section ids, all three sections in the first server markup, and sticky classes on `lg`
 - [ ] 4.2 Build the "Chi tiết" section: `Descriptions` specs (category, stock, ship-from, SKU) + description; verify a render test asserts "Kho hàng: 12 sản phẩm" in a `Descriptions`
 - [ ] 4.3 Rework `ReviewSection` into server markup + client leaves: `Rate`, `Progress` breakdown, `?rating=` filter links, `Avatar`, `Image` photos (64px, lazy), `Tag` verified, `ReviewHelpfulButton` with pending + toast, `Pagination` (`?rpage=`, 10 per page), `Empty` states, "ĐÁNH GIÁ SẢN PHẨM" heading and "Tất cả" filter text kept; verify tests for filter URL, empty filter recovery, pagination page 3 of 23, helpful success and revert-on-failure, and preserved `data-testid`s
-- [ ] 4.4 Update `ReviewModal` to the `Rate` input, `Button isLoading`, success toast and inline `Alert` on error; verify an RTL test of pending -> success and of the error path
+- [x] 4.4 Update `ReviewModal` to the `Rate` input, `Button isLoading`, success toast and inline `Alert` on error; verify an RTL test of pending -> success and of the error path
 - [ ] 4.5 Rework `QASection` with `Avatar`, `Tag` "Shop", `Button isLoading`, disabled-when-empty, toast + `Alert`, `Empty` with ask action, login prompt kept; verify RTL tests for each state and preserved `data-testid`s
 
 ## 5. Code — team-frontend: streaming, shop header, exception routes
