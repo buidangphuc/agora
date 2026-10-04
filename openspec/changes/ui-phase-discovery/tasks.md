@@ -8,9 +8,9 @@
 
 ## 2. Code — team-frontend: home route
 
-- [ ] 2.1 Split `app/page.tsx` into server blocks `Hero`, `ServiceHubs` (neutral tiles, 12px labels), `CategoryGridBlock`, `FlashSaleBlock` (renders nothing while no real campaign source exists), `FeedBlock`; delete the Mall row, each awaiting its own data inside `<Suspense>` with a matching skeleton, keeping `LoyaltyWidget`, `RecentlyViewedRow`, `RecommendationsRow` and `AiAssistantModal`; verify block render tests (slow block streams, empty recommendations block hides, feed failure shows `Alert` + retry) pass
-- [ ] 2.2 Hero uses `Image aspect="2/1"` and a single primary CTA; remove all `text-[...]` and rainbow hub colours; verify `node scripts/check-tokens.mjs` is clean for `src/app/page.tsx` and `src/features/home`
-- [ ] 2.3 Add `app/loading.tsx` (hero, hubs, category and grid skeletons); verify it renders in a unit test and `npx next build` passes
+- [x] 2.1 Split `app/page.tsx` into server blocks `Hero`, `ServiceHubs` (neutral tiles, 12px labels), `CategoryGridBlock`, `FlashSaleBlock` (renders nothing while no real campaign source exists), `FeedBlock`; delete the Mall row, each awaiting its own data inside `<Suspense>` with a matching skeleton, keeping `LoyaltyWidget`, `RecentlyViewedRow`, `RecommendationsRow` and `AiAssistantModal`; verify block render tests (slow block streams, empty recommendations block hides, feed failure shows `Alert` + retry) pass
+- [x] 2.2 Hero uses `Image aspect="2/1"` and a single primary CTA; remove all `text-[...]` and rainbow hub colours; verify `node scripts/check-tokens.mjs` is clean for `src/app/page.tsx` and `src/features/home`
+- [x] 2.3 Add `app/loading.tsx` (hero, hubs, category and grid skeletons); verify it renders in a unit test and `npx next build` passes
 
 ## 3. Code — team-frontend: search route
 
