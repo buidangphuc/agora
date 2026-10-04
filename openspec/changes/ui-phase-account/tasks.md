@@ -22,10 +22,10 @@
 
 ## 5. Code — team-frontend: security and verification
 
-- [ ] 5.1 Rebuild `/account/security` with `Table` sessions and history, `Tag` result, `Empty`, inline `Alert` + retry per section, `Pagination` via `?page=`; verify tests for empty, failure and revoke
-- [ ] 5.2 Rebuild `RevokeSessionButton` with confirm `Modal`, pending and toast; verify the revoke scenario test passes
-- [ ] 5.3 Rebuild `/account/verification`: `Descriptions` + status `Tag` (Verified/Pending/Rejected/Not submitted) with text; verify a test per status
-- [ ] 5.4 Fix `SubmitKycForm` a11y: `FormItem` labels bound with `htmlFor`/`id`, `Select`, `Input` with help as `aria-describedby`, submit disabled until the reference is non-empty, pending + toast; verify with `getByLabelText("Loại giấy tờ")` and `getByLabelText("Mã tham chiếu tài liệu")` in Vitest (no new test dependency)
+- [x] 5.1 Rebuild `/account/security` with `Table` sessions and history, `Tag` result, `Empty`, inline `Alert` + retry per section, `Pagination` via `?page=`; verify tests for empty, failure and revoke
+- [x] 5.2 Rebuild `RevokeSessionButton` with confirm `Modal`, pending and toast; verify the revoke scenario test passes
+- [x] 5.3 Rebuild `/account/verification`: `Descriptions` + status `Tag` (Verified/Pending/Rejected/Not submitted) with text; verify a test per status
+- [x] 5.4 Fix `SubmitKycForm` a11y: `FormItem` labels bound with `htmlFor`/`id`, `Select`, `Input` with help as `aria-describedby`, submit disabled until the reference is non-empty, pending + toast; verify with `getByLabelText("Loại giấy tờ")` and `getByLabelText("Mã tham chiếu tài liệu")` in Vitest (no new test dependency)
 
 ## 6. Code — team-frontend: referral and following
 

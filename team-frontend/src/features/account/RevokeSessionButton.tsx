@@ -1,43 +1,85 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/ToastProvider";
 import { revokeSessionAction } from "./actions";
+import { usePendingAction } from "./usePendingAction";
 
 /**
- * Revoke one active session. Wired to team-identity SessionService through the
- * gateway via a server action. Thin — styling to be revamped later.
+ * Revoke one active session. Asks for confirmation in a Modal, shows a pending
+ * state on the confirm button and ends with a toast; the Server Action
+ * revalidates /account/security, which then renders the row as revoked.
  */
-export function RevokeSessionButton({ sessionId }: { sessionId: string }) {
+export function RevokeSessionButton({
+  sessionId,
+  device,
+}: {
+  sessionId: string;
+  device?: string;
+}) {
+  const [open, setOpen] = useState(false);
   const [revoked, setRevoked] = useState(false);
-  const [pending, start] = useTransition();
+  const { pending, run } = usePendingAction();
   const toast = useToast();
 
   function revoke() {
-    start(async () => {
+    void run(async () => {
       const res = await revokeSessionAction(sessionId);
       if (res.ok) {
         setRevoked(true);
-        toast.success("✓ Đã thu hồi phiên đăng nhập.");
+        setOpen(false);
+        toast.success("Đã thu hồi phiên đăng nhập.");
       } else {
-        toast.error(res.message || "Có lỗi xảy ra.");
+        toast.error(res.error);
       }
     });
   }
 
-  if (revoked) {
-    return <span className="text-xs text-gray-400">Đã thu hồi</span>;
-  }
+  if (revoked) return <Tag className="whitespace-nowrap">Đã thu hồi</Tag>;
 
   return (
-    <button
-      type="button"
-      onClick={revoke}
-      disabled={pending}
-      className="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-    >
-      {pending ? "Đang thu hồi..." : "Thu hồi"}
-    </button>
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="min-h-10 text-danger"
+        onClick={() => setOpen(true)}
+      >
+        Thu hồi
+      </Button>
+      <Modal
+        isOpen={open}
+        onClose={pending ? () => {} : () => setOpen(false)}
+        title="Thu hồi phiên đăng nhập?"
+        description={
+          device
+            ? `Thiết bị ${device} sẽ bị đăng xuất khỏi tài khoản.`
+            : "Thiết bị này sẽ bị đăng xuất khỏi tài khoản."
+        }
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => setOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button variant="danger" isLoading={pending} onClick={revoke}>
+              Thu hồi phiên
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-secondary">
+          Người dùng trên thiết bị này cần đăng nhập lại để tiếp tục.
+        </p>
+      </Modal>
+    </>
   );
 }
