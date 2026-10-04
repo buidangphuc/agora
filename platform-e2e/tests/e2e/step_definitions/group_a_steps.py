@@ -158,6 +158,7 @@ def return_request_approved(world: World) -> None:
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
     create_order_via_api(world, buyer, listing_id)
     world.service_factory.payment.mock_pay(world.state.order_id, 5_000_000, success=True)
+    _wait_until_paid(world, world.state.order_id)  # a return needs a paid order
     res = world.service_factory.order.create_return_request(
         order_id=world.state.order_id,
         reason="Sản phẩm lỗi",
