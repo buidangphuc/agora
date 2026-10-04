@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
@@ -75,8 +76,11 @@ describe("checkoutAction", () => {
 });
 
 describe("updateOrderStatusAction", () => {
-  it("succeeds and revalidates", async () => {
-    vi.mocked(updateOrderStatus).mockResolvedValue({} as never);
+  it("returns ok with the new state and revalidates list and detail", async () => {
+    vi.mocked(updateOrderStatus).mockResolvedValue({
+      status: OrderStatus.SHIPPED,
+      trackingNumber: "TRK1",
+    } as never);
     const res = await updateOrderStatusAction(
       "o1",
       OrderStatus.SHIPPED,
@@ -87,13 +91,19 @@ describe("updateOrderStatusAction", () => {
       OrderStatus.SHIPPED,
       "TRK1",
     );
-    expect(res.ok).toBe(true);
+    expect(res).toEqual({
+      ok: true,
+      data: { status: OrderStatus.SHIPPED, trackingNumber: "TRK1" },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/orders/o1");
   });
 
-  it("returns error message on failure", async () => {
+  it("returns { ok: false, error } on failure and revalidates nothing", async () => {
     vi.mocked(updateOrderStatus).mockRejectedValue(new Error("bad state"));
     const res = await updateOrderStatusAction("o1", OrderStatus.SHIPPED);
-    expect(res).toEqual({ ok: false, message: "bad state" });
+    expect(res).toEqual({ ok: false, error: "bad state" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 

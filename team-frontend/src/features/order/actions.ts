@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
 import {
   type ViewOrderReturn,
@@ -73,21 +74,26 @@ export async function checkoutAction(
   }
 }
 
+/**
+ * Seller moves an order along (ship, ...). Shared mutation contract: returns
+ * `{ ok, error?, data? }` and revalidates the seller list and the detail page.
+ */
 export async function updateOrderStatusAction(
   orderId: string,
   status: OrderStatus,
   trackingNumber?: string,
-): Promise<OrderActionResult> {
+): Promise<ActionResult<{ status: OrderStatus; trackingNumber: string }>> {
   try {
-    await updateOrderStatus(orderId, status, trackingNumber);
+    const order = await updateOrderStatus(orderId, status, trackingNumber);
     revalidatePath("/account/orders");
     revalidatePath("/seller/orders");
-    return { ok: true, message: "Cập nhật trạng thái đơn hàng thành công!" };
+    revalidatePath(`/seller/orders/${orderId}`);
+    return ok({
+      status: order?.status ?? status,
+      trackingNumber: order?.trackingNumber ?? trackingNumber ?? "",
+    });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Cập nhật thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Cập nhật thất bại.");
   }
 }
 

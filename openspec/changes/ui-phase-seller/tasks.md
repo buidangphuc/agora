@@ -21,10 +21,10 @@
 
 ## 4. Code — team-frontend: orders and order detail
 
-- [ ] 4.1 Rebuild `/seller/orders`: server page reading `?status=&q=&page=`, link `Tabs` with counts, `Table`, `Pagination`, row actions (Chi tiết, Xác nhận gửi) via a small client `ShipOrderButton` island; delete `useState` filtering from `SellerOrdersList`; verify the tab-in-URL reload test passes
-- [ ] 4.2 Make `updateOrderStatusAction` return `{ ok, error?, data? }` and `revalidatePath("/seller/orders")` and `/seller/orders/[id]`; verify the action tests pass
-- [ ] 4.3 Rebuild `/seller/orders/[id]` as a server Advanced Profile on `getOrder` + `getShipmentTracking` (header `Descriptions`, status `Statistic`, `Stepper`, `Tabs` items/shipment with `Table`/`Timeline`, recipient `Descriptions`), ship confirm `Modal`, `PrintButton` + print stylesheet, `not-found` for unknown/not-owned; verify tests for real data, ship pending/failure and not-found pass
-- [ ] 4.4 Add `loading.tsx` for both order routes; verify skeleton tests
+- [x] 4.1 Rebuild `/seller/orders`: server page reading `?status=&q=&page=`, link `Tabs` with counts, `Table`, `Pagination`, row actions (Chi tiết, Xác nhận gửi) via a small client `ShipOrderButton` island; delete `useState` filtering from `SellerOrdersList`; verify the tab-in-URL reload test passes
+- [x] 4.2 Make `updateOrderStatusAction` return `{ ok, error?, data? }` and `revalidatePath("/seller/orders")` and `/seller/orders/[id]`; verify the action tests pass
+- [x] 4.3 Rebuild `/seller/orders/[id]` as a server Advanced Profile on `getOrder` + `getShipmentTracking` (header `Descriptions`, status `Statistic`, `Stepper`, `Tabs` items/shipment with `Table`/`Timeline`, recipient `Descriptions`), ship confirm `Modal`, `PrintButton` + print stylesheet, `not-found` for unknown/not-owned; verify tests for real data, ship pending/failure and not-found pass
+- [x] 4.4 Add `loading.tsx` for both order routes; verify skeleton tests
 
 ## 5. Code — team-frontend: analytics, wallet, plans, ads, bundles
 
