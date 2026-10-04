@@ -25,6 +25,7 @@ type fakeDomainClient struct {
 
 	reservedIDs  map[string]int // reservation_id -> effective decrement count
 	failReserve  map[string]bool
+	declineStock map[string]bool // listing ids team-domain declines with Success=false and no error
 	releasedIDs  []string
 	releasedLIDs []string
 	releaseCtxOK bool // true if every ReleaseStock ran under a non-cancelled ctx
@@ -33,7 +34,7 @@ type fakeDomainClient struct {
 }
 
 func newFakeDomain() *fakeDomainClient {
-	return &fakeDomainClient{reservedIDs: map[string]int{}, failReserve: map[string]bool{}, releaseCtxOK: true}
+	return &fakeDomainClient{reservedIDs: map[string]int{}, failReserve: map[string]bool{}, declineStock: map[string]bool{}, releaseCtxOK: true}
 }
 
 func (f *fakeDomainClient) GetListing(_ context.Context, _ *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
@@ -45,6 +46,10 @@ func (f *fakeDomainClient) ReserveStock(_ context.Context, req *listingv1.Reserv
 	defer f.mu.Unlock()
 	if f.failReserve[req.GetListingId()] {
 		return &listingv1.ReserveStockResponse{Success: false, Message: "out of stock"}, errors.New("insufficient stock")
+	}
+	if f.declineStock[req.GetListingId()] {
+		// What team-domain really returns when stock is short: a normal response, no error.
+		return &listingv1.ReserveStockResponse{Success: false, Message: "insufficient stock"}, nil
 	}
 	f.reservedIDs[req.GetReservationId()]++ // idempotent: unique ids == effective decrements
 	return &listingv1.ReserveStockResponse{Success: true}, nil
@@ -216,6 +221,26 @@ func TestCreateOrders_RetryUsesSameReservationID_SingleDecrement(t *testing.T) {
 
 	if got := domain.uniqueDecrements(); got != 1 {
 		t.Fatalf("expected exactly 1 effective stock decrement across retries, got %d", got)
+	}
+}
+
+// team-domain reports insufficient stock as Success=false with no transport error; checkout
+// must treat that as a failed hold, not create an order that oversells the listing.
+func TestCreateOrders_DeclinedReserveFailsCheckoutWithoutOrder(t *testing.T) {
+	ctx := context.Background()
+	domain := newFakeDomain()
+	domain.declineStock["lst_1"] = true
+	orderRepo := newFakeOrderRepo()
+	saga := repository.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
+	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
+
+	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "")
+	if !errors.Is(err, service.ErrInsufficientStock) {
+		t.Fatalf("expected ErrInsufficientStock, got %v", err)
+	}
+	if orderRepo.count() != 0 {
+		t.Fatalf("expected no order, got %d", orderRepo.count())
 	}
 }
 

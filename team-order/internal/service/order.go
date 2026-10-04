@@ -202,12 +202,17 @@ func (s *OrderService) CreateOrdersFromCart(
 				return failAndCompensate(fmt.Errorf("persist reservation: %w", cerr))
 			}
 
-			_, rerr := s.domainClient.ReserveStock(ctx, &listingv1.ReserveStockRequest{
+			resp, rerr := s.domainClient.ReserveStock(ctx, &listingv1.ReserveStockRequest{
 				ListingId:     it.ListingID,
 				VariantId:     it.VariantID,
 				Quantity:      it.Quantity,
 				ReservationId: resID,
 			})
+			// team-domain reports "insufficient stock" as a normal response with
+			// Success=false and no transport error, so both outcomes are a failed hold.
+			if rerr == nil && !resp.GetSuccess() {
+				rerr = fmt.Errorf("reserve stock declined: %s", resp.GetMessage())
+			}
 			if rerr != nil {
 				s.logger.WarnContext(ctx, "stock reservation failed",
 					slog.String("listing_id", it.ListingID),
