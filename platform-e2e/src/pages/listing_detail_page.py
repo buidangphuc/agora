@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from functools import cached_property
 
 from playwright.sync_api import Locator
@@ -26,7 +27,11 @@ class ListingDetailPage(BasePage):
 
     @property
     def add_to_cart_button(self) -> Locator:
-        return self.page.get_by_role("button", name="Thêm Vào Giỏ Hàng")
+        # Label is "Thêm vào giỏ"; matched case-insensitively so the old
+        # "Thêm Vào Giỏ Hàng" capitalisation never matters. The inline row and the
+        # mobile bar are both in the DOM, but only one is visible per breakpoint
+        # and role queries ignore the hidden one.
+        return self.page.get_by_role("button", name=re.compile(r"Thêm vào giỏ", re.IGNORECASE))
 
     # ── Flash-sale slot (team-promotion live-stock meter on the PDP) ──────
     @property
@@ -46,7 +51,58 @@ class ListingDetailPage(BasePage):
 
     @property
     def buy_now_button(self) -> Locator:
-        return self.page.get_by_role("button", name="Mua Ngay")
+        return self.page.get_by_role("button", name=re.compile(r"Mua ngay", re.IGNORECASE))
+
+    # ── ui-phase-product-detail: variants, quantity, buy bar, anchors ────
+    @property
+    def price(self) -> Locator:
+        """The header price block (selected variant / flash-sale price)."""
+        return self.page.get_by_test_id("pdp-price")
+
+    @property
+    def rating_row(self) -> Locator:
+        return self.page.get_by_test_id("pdp-rating")
+
+    @property
+    def stock_line(self) -> Locator:
+        return self.page.get_by_test_id("pdp-stock")
+
+    def variant_chip(self, name: str) -> Locator:
+        """The clickable chip (label) of a variant; the radio itself is visually hidden."""
+        return self.page.locator("fieldset label").filter(has_text=name).first
+
+    def variant_radio(self, name: str) -> Locator:
+        return self.page.get_by_role("radio", name=re.compile(re.escape(name)))
+
+    @property
+    def quantity_input(self) -> Locator:
+        return self.page.get_by_role("spinbutton", name="Số lượng")
+
+    @property
+    def quantity_increase(self) -> Locator:
+        return self.page.get_by_role("button", name="Tăng số lượng")
+
+    @property
+    def buy_bar(self) -> Locator:
+        return self.page.get_by_test_id("buy-bar")
+
+    @property
+    def anchor_nav(self) -> Locator:
+        return self.page.get_by_role("navigation", name="Nội dung sản phẩm")
+
+    def anchor_link(self, label: str) -> Locator:
+        return self.anchor_nav.get_by_role("link", name=label)
+
+    @property
+    def not_found_title(self) -> Locator:
+        return self.page.get_by_role("heading", name="Không tìm thấy sản phẩm")
+
+    @property
+    def review_filter_buttons(self) -> Locator:
+        return self.page.get_by_test_id("review-filter")
+
+    def toast(self, text: str) -> Locator:
+        return self.page.get_by_text(text, exact=False)
 
     # ── Wishlist collections slot (team-engagement) ──────────────────────
     @property

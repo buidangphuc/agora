@@ -1,9 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Image } from "@/components/ui/Image";
+import { Modal } from "@/components/ui/Modal";
+import { Rate } from "@/components/ui/Rate";
+import { useToast } from "@/components/ui/ToastProvider";
 import { createReviewAction } from "./actions";
 
+const RATING_LABELS: Record<number, string> = {
+  5: "Tuyệt vời (5/5)",
+  4: "Hài lòng (4/5)",
+  3: "Bình thường (3/5)",
+  2: "Không hài lòng (2/5)",
+  1: "Rất tệ (1/5)",
+};
+
+const fieldClass =
+  "mt-1.5 w-full rounded-lg border border-border-strong bg-surface-card p-2.5 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50 disabled:cursor-not-allowed";
+
+/**
+ * "Viết đánh giá": a Modal with a `Rate` input, a comment and optional photo
+ * links. Submit shows `isLoading` and disables the controls, then a success
+ * toast and close; a failure keeps the modal open with an inline `Alert`.
+ */
 export function ReviewModal({
   listingId,
   orderId,
@@ -17,14 +39,18 @@ export function ReviewModal({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const formId = useId();
+  const commentId = useId();
+  const mediaId = useId();
+  const toast = useToast();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [mediaInput, setMediaInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Photo URLs, one per line — uses the same stored media URLs the listing
-  // gallery renders (no new upload widget introduced here).
+  // Photo URLs, one per line: the same stored media URLs the listing gallery
+  // renders (no upload widget is introduced here).
   const mediaUrls = mediaInput
     .split(/[\n,]/)
     .map((s) => s.trim())
@@ -32,6 +58,7 @@ export function ReviewModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     if (!comment.trim()) {
       setError("Vui lòng nhập nội dung đánh giá.");
       return;
@@ -47,10 +74,11 @@ export function ReviewModal({
         mediaUrls,
       );
       if (!res.ok) {
-        setError(res.message || "Gửi đánh giá thất bại.");
+        setError(res.error);
         return;
       }
-      if (onSuccess) onSuccess();
+      toast.success("Đánh giá sản phẩm thành công!");
+      onSuccess?.();
       onClose();
     } catch {
       setError("Có lỗi xảy ra khi gửi đánh giá.");
@@ -60,134 +88,101 @@ export function ReviewModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-center justify-between border-b pb-3">
-          <h2 className="text-base font-bold text-gray-900">
-            ⭐ Đánh giá sản phẩm
-          </h2>
-          <button
-            type="button"
+    <Modal
+      isOpen
+      onClose={() => {
+        if (!submitting) onClose();
+      }}
+      title="Đánh giá sản phẩm"
+      description={productTitle ? `Sản phẩm: ${productTitle}` : undefined}
+      footer={
+        <>
+          <Button
+            variant="outline"
+            size="md"
+            disabled={submitting}
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
           >
-            ✕
-          </button>
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            form={formId}
+            variant="primary"
+            size="md"
+            isLoading={submitting}
+          >
+            Hoàn thành
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <div className="text-sm font-medium text-text-primary">
+            Chất lượng sản phẩm
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <Rate
+              value={rating}
+              onChange={setRating}
+              size="lg"
+              disabled={submitting}
+              label="Chất lượng sản phẩm"
+            />
+            <span className="text-sm font-medium text-text-secondary">
+              {RATING_LABELS[rating]}
+            </span>
+          </div>
         </div>
 
-        {productTitle && (
-          <p className="mt-3 line-clamp-1 text-xs text-gray-500">
-            Sản phẩm: <strong className="text-gray-800">{productTitle}</strong>
-          </p>
-        )}
+        <div>
+          <label
+            htmlFor={commentId}
+            className="block text-sm font-medium text-text-primary"
+          >
+            Nhận xét chi tiết
+          </label>
+          <textarea
+            id={commentId}
+            rows={4}
+            value={comment}
+            disabled={submitting}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Hãy chia sẻ trải nghiệm về sản phẩm, chất lượng đóng gói và thời gian giao hàng nhé..."
+            className={fieldClass}
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {/* Star Selector */}
-          <div>
-            <div className="block text-xs font-semibold text-gray-700">
-              Chất lượng sản phẩm
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  className={`text-2xl transition hover:scale-110 ${
-                    star <= rating ? "text-amber-400" : "text-gray-200"
-                  }`}
-                >
-                  ★
-                </button>
+        <div>
+          <label
+            htmlFor={mediaId}
+            className="block text-sm font-medium text-text-primary"
+          >
+            Ảnh đánh giá (tùy chọn)
+          </label>
+          <textarea
+            id={mediaId}
+            rows={2}
+            value={mediaInput}
+            disabled={submitting}
+            onChange={(e) => setMediaInput(e.target.value)}
+            placeholder="Dán link ảnh, mỗi ảnh một dòng…"
+            className={fieldClass}
+          />
+          {mediaUrls.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {mediaUrls.map((url) => (
+                <div key={url} className="h-12 w-12 shrink-0">
+                  <Image src={url} alt="Xem trước ảnh" aspect="square" />
+                </div>
               ))}
-              <span className="ml-2 text-xs font-medium text-amber-600">
-                {rating === 5
-                  ? "Tuyệt vời (5/5)"
-                  : rating === 4
-                    ? "Hài lòng (4/5)"
-                    : rating === 3
-                      ? "Bình thường (3/5)"
-                      : rating === 2
-                        ? "Không hài lòng (2/5)"
-                        : "Rất tệ (1/5)"}
-              </span>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Comment */}
-          <div>
-            <label
-              htmlFor="review-comment-input"
-              className="block text-xs font-semibold text-gray-700"
-            >
-              Nhận xét chi tiết
-            </label>
-            <textarea
-              id="review-comment-input"
-              required
-              rows={4}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Hãy chia sẻ trải nghiệm về sản phẩm, chất lượng đóng gói và thời gian giao hàng nhé..."
-              className="mt-1.5 w-full rounded-lg border border-gray-300 p-2.5 text-xs text-gray-900 focus:border-brand focus:outline-hidden"
-            />
-          </div>
-
-          {/* Photos (optional) */}
-          <div>
-            <label
-              htmlFor="review-media-input"
-              className="block text-xs font-semibold text-gray-700"
-            >
-              Ảnh đánh giá (tùy chọn)
-            </label>
-            <textarea
-              id="review-media-input"
-              rows={2}
-              value={mediaInput}
-              onChange={(e) => setMediaInput(e.target.value)}
-              placeholder="Dán link ảnh, mỗi ảnh một dòng…"
-              className="mt-1.5 w-full rounded-lg border border-gray-300 p-2.5 text-xs text-gray-900 focus:border-brand focus:outline-hidden"
-            />
-            {mediaUrls.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {mediaUrls.map((url) => (
-                  <div
-                    key={url}
-                    className="h-12 w-12 overflow-hidden rounded-xs border bg-gray-50"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt="preview"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {error && <p className="text-xs text-red-600">{error}</p>}
-
-          <div className="flex justify-end gap-2 border-t pt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-brand px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-brand-dark disabled:opacity-60"
-            >
-              {submitting ? "Đang gửi..." : "Hoàn thành"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {error && <Alert type="error" title={error} />}
+      </form>
+    </Modal>
   );
 }

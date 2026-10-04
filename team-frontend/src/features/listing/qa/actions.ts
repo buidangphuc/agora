@@ -2,21 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { answerQuestion, askQuestion } from "@/lib/gateway/engagement";
+
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message !== "" ? err.message : fallback;
+}
 
 export async function askQuestionAction(
   listingId: string,
   questionText: string,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<ActionResult> {
   try {
     await askQuestion(listingId, questionText.trim());
     revalidatePath(`/listing/${listingId}`);
-    return { ok: true, message: "Đã gửi câu hỏi tới shop!" };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Gửi câu hỏi thất bại.",
-    };
+    return fail(errorMessage(err, "Gửi câu hỏi thất bại."));
   }
 }
 
@@ -25,15 +27,12 @@ export async function answerQuestionAction(
   questionId: string,
   answerText: string,
   isShopReply = true,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<ActionResult> {
   try {
     await answerQuestion(questionId, answerText.trim(), isShopReply);
     revalidatePath(`/listing/${listingId}`);
-    return { ok: true, message: "Đã gửi câu trả lời!" };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Gửi câu trả lời thất bại.",
-    };
+    return fail(errorMessage(err, "Gửi câu trả lời thất bại."));
   }
 }
