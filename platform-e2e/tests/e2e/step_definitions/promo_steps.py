@@ -17,7 +17,7 @@ from config.settings import get_settings
 from src.api.services import BaseService
 from src.constants import PageName, timeouts
 from src.models import Listing, User
-from src.pages import CheckoutPage, ListingDetailPage, VouchersPage
+from src.pages import CheckoutPage, ListingDetailPage
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
 from tests.e2e.support.world import World
@@ -196,14 +196,3 @@ def flash_sale_meter_shown(world: World) -> None:
     # Sale price rendered in the banner (formatPrice -> '₫499.000').
     expect(detail.flash_sale_banner).to_contain_text("499.000", timeout=timeouts.DEFAULT)
     world.logger.info(f"Flash-sale meter: remaining={remaining}/{_FLASH_STOCK_CAP}")
-
-
-# ── Vouchers hub (existing coverage, kept) ───────────────────────────────
-@then("the vouchers hub lists available vouchers")
-def vouchers_hub_lists(world: World) -> None:
-    page: VouchersPage = world.get_page(PageName.VOUCHERS)  # type: ignore[assignment]
-    assert page.is_displayed()
-    expect(world.page.get_by_role("button", name="Tất cả voucher", exact=False)).to_be_visible(
-        timeout=timeouts.DEFAULT
-    )
-    assert page.save_voucher_buttons.count() >= 1, "no savable vouchers on the hub"

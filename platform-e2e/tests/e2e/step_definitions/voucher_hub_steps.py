@@ -8,6 +8,7 @@ from playwright.sync_api import expect
 from pytest_bdd import then, when
 
 from src.constants import PageName, timeouts
+from src.pages import VouchersPage
 from tests.e2e.support.world import World
 
 
@@ -23,5 +24,7 @@ def vouchers_page_displayed(world: World) -> None:
 
 @then("available promotional vouchers are rendered")
 def promotional_vouchers_rendered(world: World) -> None:
-    voucher_btn = world.page.get_by_role("button", name="Lưu mã").first
-    expect(voucher_btn).to_be_visible(timeout=timeouts.DEFAULT)
+    page: VouchersPage = world.get_page(PageName.VOUCHERS)  # type: ignore[assignment]
+    expect(page.voucher_cards.first).to_be_visible(timeout=timeouts.DEFAULT)
+    # There is no claim backend: the hub lists vouchers but offers no "Lưu mã" control.
+    expect(page.save_voucher_buttons).to_have_count(0)

@@ -59,10 +59,10 @@ features:
     ui:
       key_elements:
         heading: "text:Kho Voucher"
-        save_button: "role:button=Lưu mã"
+        voucher_card: "testid:voucher-card"
     acceptance:
       - Given the vouchers page is open
-      - Then the vouchers hub lists available vouchers
+      - Then the vouchers hub lists the vouchers returned by team-promotion and offers no "Lưu mã" button
     tags: [buyer]
     status: automated
     covered_by: "promo/vouchers.feature::Visitor browses available vouchers"
@@ -738,3 +738,246 @@ features:
       - Then the response status is 404
     tags: [buyer]
     status: planned
+
+  # ── ui-phase-discovery: home, search and vouchers rebuilt on the core components ──
+  # Acceptance lines mirror the spec scenarios of openspec/changes/ui-phase-discovery.
+  # Everything is `planned`: the scenarios exist in platform-e2e but have not been run
+  # against the local stack yet (flip to `automated` + covered_by when green).
+  - id: discovery.home-streaming
+    title: Home streams independent blocks
+    persona: guest
+    priority: P1
+    summary: The hero, hubs and category grid paint first; the feed, recommendations and recently viewed stream in without layout shift.
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    ui:
+      key_elements:
+        hero_cta: "role:link=Mua ngay"
+        category_links: "role:navigation=Danh mục sản phẩm"
+    acceptance:
+      - Given the feed query takes several seconds while categories resolve immediately
+      - Then the hero, hubs and category grid are visible first and the feed shows card skeletons until its data arrives
+      - Given the recommendations or recently-viewed query fails or returns no items
+      - Then that block is not rendered and every other block still renders
+      - Given the feed query fails
+      - Then an error Alert with a retry link to / is shown instead of an empty grid
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenario "Slow block does not block the page" (frontend/shell.feature) asserts the observable effect (hero
+      first, zero layout shift); the slow/failing gateway cases are covered by the unit tests because a server-side
+      fetch cannot be slowed from the browser.
+
+  - id: discovery.no-fabricated-data
+    title: Discovery routes show only real data
+    persona: guest
+    priority: P1
+    summary: No fake ratings, sold counts, strike-through prices, discount or MALL badges, flash-sale countdown or "% sold" bars.
+    entry_route: /
+    related_routes: [/search, /vouchers]
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given / is rendered with listings that have no review, discount or campaign data
+      - Then the document has no strike-through price, no "-NN%" badge, no "ĐÃ BÁN" text, no countdown, no MALL badge and no star rating
+      - Given a listing costs more than 5,000,000 or its title contains a brand keyword
+      - Then its card shows no MALL badge and exactly one price
+      - Given /search and /vouchers are rendered
+      - Then the sort options exclude "Bán Chạy" and no voucher card has a "Lưu mã" button
+      - Given the gateway provides no flash-sale campaign
+      - Then no flash-sale heading, countdown, "% sold" bar or discount badge is present
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenario "No fabricated markers on the home page" (frontend/shell.feature); the card-level scenarios are unit tests.
+
+  - id: discovery.search-url-state
+    title: Search state lives in the URL
+    persona: guest
+    priority: P1
+    summary: Filters, sort and category are shareable URLs; active filters are removable tags; changing a filter resets the page.
+    entry_route: /search
+    related_routes: [/]
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+      data: Seeded listings across categories and price ranges are indexed.
+    api:
+      exercised: [search.v1.SearchListings]
+    ui:
+      key_elements:
+        facet_bucket: "testid:facet-bucket"
+        active_filters: "testid:active-filters"
+        clear_all: "role:link=Xóa tất cả bộ lọc"
+    acceptance:
+      - When a buyer selects the "100000-500000" price bucket and sort "price_asc"
+      - Then the URL contains minPrice=100000&maxPrice=500000&sort=price_asc and a new tab shows the same results and selected state
+      - When a buyer on /search?q=ao&page=3 selects a rating filter
+      - Then the new URL has no page and shows the first page of the filtered results
+      - Given /search?q=ao&category=c1&rating=4 is rendered
+      - Then three removable tags are shown and removing the category tag navigates to /search?q=ao&rating=4
+      - When at least one filter is active and the buyer activates "Xóa tất cả bộ lọc"
+      - Then the URL becomes /search keeping q and all tags disappear
+      - Given the SortBar is rendered
+      - Then it offers only Liên quan, Mới nhất, Giá thấp đến cao and Giá cao đến thấp, and the active one is marked
+      - When a visitor activates the "Điện thoại" category on the home grid
+      - Then the browser navigates to /search?category=<that id>
+      - Given /search?category=c1 is rendered with CategoryBar variant="pills"
+      - Then the pill for c1 has aria-current="true" and "Tất cả" does not
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenarios "Filters are shareable URLs", "Active filters can be removed one by one", "Clear all filters",
+      "Sort options match what the server honours" (frontend/search_facets.feature) and "Selecting a category navigates by URL"
+      (frontend/shell.feature). "Changing a filter resets the page" and "Current category is announced" are unit-tested.
+
+  - id: discovery.search-pagination
+    title: Search results are paginated by URL
+    persona: guest
+    priority: P1
+    summary: At most 24 results per page; page links preserve the other params; a page past the end redirects to the last page.
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+      data: More than 24 matching listings are indexed.
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - Given /search?q=ao&sort=newest has 60 results
+      - Then Pagination shows pages 1-3 as links such as /search?q=ao&sort=newest&page=2 with page 1 marked aria-current="page"
+      - When a visitor opens /search?q=ao&page=99 and only 3 pages exist
+      - Then the response redirects to /search?q=ao&page=3
+      - Given the total is 24 or fewer
+      - Then no Pagination is rendered
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenarios "Page links preserve the query" and "Out-of-range page redirects" (frontend/search_facets.feature).
+      "Single page hides Pagination" is a unit test.
+
+  - id: discovery.search-states
+    title: Search loading, empty and error states
+    persona: guest
+    priority: P1
+    summary: A zero-result search shows Empty with a clear-filters action; a backend failure shows an error Alert with retry, never "no results".
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - When a filter change triggers navigation
+      - Then the results column shows 24 card skeletons in the same grid and the sidebar remains
+      - Given /search?q=zzzzzz returns no hits
+      - Then Empty shows "Không tìm thấy sản phẩm" and a "Xóa bộ lọc" button linking to /search
+      - When the search call throws
+      - Then an error Alert with a "Thử lại" link to the same URL is shown, the header and filter column still render and no Empty is shown
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenarios "Zero results" and "Backend failure is not a silent empty" (frontend/search_facets.feature). The failure is
+      forced with an invalid session cookie (server-side fetches cannot be intercepted); verify the gateway rejects it.
+      "Loading skeleton matches the grid" is a unit test.
+
+  - id: discovery.search-mobile-filters
+    title: Search filters usable at 375px
+    persona: guest
+    priority: P1
+    summary: Below 1024px the filters sit behind a "Bộ lọc" button with a count badge and open in a Drawer; the grid stays at two columns.
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+      data: Seeded listings are indexed.
+    ui:
+      key_elements:
+        filter_button: "role:button=Bộ lọc"
+        filter_drawer: "role:dialog=Bộ lọc"
+    acceptance:
+      - Given a visitor at 375px opens /search and taps "Bộ lọc"
+      - Then a Drawer opens with the category, price, rating and seller filters, focus moves into it and Escape closes it and returns focus to the button
+      - When the buyer enters min 500000 and max 100000 and submits
+      - Then the max field shows an error, the URL does not change and the submit button is not left loading
+      - Given two filters are active at 375px
+      - Then the "Bộ lọc" button shows a badge with 2
+      - Given a grid is rendered in a 375px viewport
+      - Then it shows 2 columns with no horizontal page scroll and no text smaller than 12px
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenarios "Filters open in a drawer at 375px", "Active count badge" and "Card layout works at 375px"
+      (frontend/search_mobile.feature). "Invalid price range is rejected" is a unit test.
+
+  - id: discovery.voucher-tabs
+    title: Vouchers hub shows real vouchers with URL tabs
+    persona: guest
+    priority: P2
+    summary: /vouchers renders the vouchers returned by team-promotion under ?type= tabs; no "Lưu mã", no browser wallet.
+    entry_route: /vouchers
+    services: [team-frontend, team-gateway, team-promotion]
+    preconditions:
+      login: guest
+      data: A voucher seeded through the gateway with a seller token (CreateVoucher).
+    api:
+      seed: [promotion.v1.CreateVoucher]
+      exercised: [promotion.v1.ListVouchers]
+    ui:
+      key_elements:
+        voucher_card: "testid:voucher-card"
+        tabs: "role:navigation=Tabs"
+    acceptance:
+      - When a visitor selects "Freeship" and reloads the page
+      - Then the URL is /vouchers?type=shipping and the Freeship tab is still selected
+      - Given a tab has no vouchers
+      - Then Empty is shown with a "Xem sản phẩm" action linking to /search
+      - Given /vouchers renders vouchers
+      - Then no card has a "Lưu mã" or "Đã lưu" control and nothing is read from or written to localStorage
+      - When a principal without listing.write opens /vouchers
+      - Then VoucherManager is not rendered
+      - Given /vouchers is rendered at 375px
+      - Then voucher cards are one per row and the tabs scroll horizontally without page overflow
+    tags: [promo, buyer]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenarios "Visitor browses available vouchers", "Tab state survives reload", "Empty tab" (promo/vouchers.feature) and
+      "Buyer explores voucher hub" (promo/voucher_hub.feature). The promotion service has no shipping voucher type, so the
+      Freeship tab is always empty; confirm the seed tag name for CreateVoucher with the platform-e2e owners.
+
+  - id: discovery.tracking-unchanged
+    title: Discovery tracking hooks unchanged
+    persona: buyer
+    priority: P1
+    summary: The rebuilt cards and search page emit the same view_item_list / select_item events with position and placement.
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    preconditions:
+      login: buyer
+      data: Seeded listings are indexed.
+    acceptance:
+      - Given a ListingCard with placementId, impressionId, modelVersion and position 3 scrolls into view
+      - Then exactly one view_item_list event is sent with itemId, placementId, impressionId, modelVersion and index 3
+      - When a visitor clicks the image or the title of a card
+      - Then a select_item event with the same attribution is sent before navigation to /listing/<id>
+      - Given /search?q=ao renders 24 results
+      - Then one view_item_list event with itemListId "search_results", the query and 24 indexed items is sent
+      - When the recommendations row streams in after the hero
+      - Then its cards still carry placementId "home_recommendations" on impression and click events
+    tags: [tracking, buyer]
+    status: planned
+    covered_by: null
+    notes: >
+      e2e scenarios "Card impression still fires once", "Card click still records select_item" and
+      "Search results still emit a batched impression" (tracking/discovery_tracking_unchanged.feature). The payload snapshot
+      and the recommendations attribution are unit tests (ListingCard.test.tsx).
