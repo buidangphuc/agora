@@ -2,9 +2,9 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { setupUser } from "@/test/user";
-import ListingError from "./error";
+import ListingError from "../error";
+import ListingNotFound from "../not-found";
 import Loading from "./loading";
-import ListingNotFound from "./not-found";
 
 describe("loading.tsx", () => {
   it("renders Skeletons with the footprints of the final anatomy (gallery 1:1)", () => {

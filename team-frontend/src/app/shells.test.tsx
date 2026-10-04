@@ -2,8 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
+
 import ErrorPage from "./error";
-import Loading from "./loading";
 import NotFound from "./not-found";
 
 describe("app exception and loading shells", () => {
@@ -26,7 +27,7 @@ describe("app exception and loading shells", () => {
   });
 
   it("loading renders a skeleton that reserves the page layout", () => {
-    render(<Loading />);
+    render(<PageSkeleton />);
     const shell = screen.getByTestId("page-skeleton");
     expect(shell).toHaveAttribute("aria-busy", "true");
     expect(shell.querySelectorAll(".animate-pulse").length).toBeGreaterThan(5);

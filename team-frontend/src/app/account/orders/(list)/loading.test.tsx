@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { setupUser } from "@/test/user";
 
-import OrdersError from "./error";
+import OrdersError from "../error";
 import OrdersLoading from "./loading";
 
 describe("orders list route states", () => {

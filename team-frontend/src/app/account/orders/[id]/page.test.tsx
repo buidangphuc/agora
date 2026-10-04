@@ -14,7 +14,7 @@ import {
 } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 
-import OrderNotFound from "./not-found";
+import OrderNotFound from "../not-found";
 import BuyerOrderDetailPage from "./page";
 
 vi.mock("@/lib/gateway/orders", () => ({

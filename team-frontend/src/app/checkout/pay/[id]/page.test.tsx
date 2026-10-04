@@ -12,8 +12,8 @@ import type { ViewPaymentTransaction } from "@/lib/gateway/payment";
 import { getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
+import PaymentNotFound from "../not-found";
 import PaymentLoading from "./loading";
-import PaymentNotFound from "./not-found";
 import MockPaymentPage from "./page";
 
 class Signal extends Error {}

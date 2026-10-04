@@ -13,9 +13,10 @@ import {
 } from "@/features/payment/PaymentSimulator";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentStatus } from "@/generated/platform/payment/v1/payment_pb.js";
-import { getOrder } from "@/lib/gateway/orders";
 import { getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
+
+import { loadOrder } from "./data";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function MockPaymentPage({
   const me = getPrincipal();
   if (!me) redirect("/login");
 
-  const order = await getOrder(params.id);
+  const order = await loadOrder(params.id);
   if (!order) notFound();
 
   const transaction = await getPayment(undefined, params.id);

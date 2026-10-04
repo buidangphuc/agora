@@ -12,8 +12,9 @@ import {
 import { ReturnStateProvider } from "@/features/order/ReturnState";
 import { parseDetailTab } from "@/features/order/detailTab";
 import { linkButton } from "@/features/order/linkStyles";
-import { getOrderResult } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
+
+import { loadOrderResult } from "./data";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function BuyerOrderDetailPage({
 
   // Resolve ownership first: nothing else (shipment, saga, items) is fetched
   // or rendered unless the order is the caller's own.
-  const res = await getOrderResult(params.id);
+  const res = await loadOrderResult(params.id);
 
   if (res.kind === "forbidden") {
     return (

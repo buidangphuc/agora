@@ -9,8 +9,8 @@ import {
   listSellerOrders,
 } from "@/lib/gateway/orders";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
-import SellerOrderDetailLoading from "./[id]/loading";
-import SellerOrderDetailPage from "./[id]/page";
+import SellerOrderDetailLoading from "../[id]/loading";
+import SellerOrderDetailPage from "../[id]/page";
 import SellerOrdersLoading from "./loading";
 import SellerOrdersPage from "./page";
 

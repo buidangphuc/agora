@@ -7,26 +7,12 @@ import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { ShipOrderButton } from "@/features/seller/ShipOrderButton";
 import { isShippable } from "@/features/seller/status";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import {
-  type ViewOrder,
-  getOrder,
-  getShipmentTracking,
-  listSellerOrders,
-} from "@/lib/gateway/orders";
+import { getShipmentTracking } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 
-export const dynamic = "force-dynamic";
+import { isOwnedBy, loadSellerOrder } from "./data";
 
-/**
- * Seller view of one order: getOrder first; if the gateway does not let a
- * seller principal read it, fall back to the seller's own order list.
- */
-async function loadOrder(id: string): Promise<ViewOrder | null> {
-  const direct = await getOrder(id);
-  if (direct) return direct;
-  const mine = await listSellerOrders(OrderStatus.UNSPECIFIED);
-  return mine.find((o) => o.id === id) ?? null;
-}
+export const dynamic = "force-dynamic";
 
 /** Profile > Advanced Profile on real order data. */
 export default async function SellerOrderDetailPage({
@@ -37,12 +23,8 @@ export default async function SellerOrderDetailPage({
   searchParams?: { tab?: string };
 }) {
   const me = getPrincipal();
-  const order = await loadOrder(params.id);
-  const owned =
-    order !== null &&
-    me !== null &&
-    (order.sellerId === me.id || me.scopes.includes("admin"));
-  if (!order || !owned) {
+  const order = await loadSellerOrder(params.id);
+  if (!order || !isOwnedBy(order, me)) {
     notFound();
     return null;
   }

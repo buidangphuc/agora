@@ -1,6 +1,9 @@
 /**
- * Root loading shell (Ant Design Skeleton pattern): reserves the page container
- * so content swaps in without layout shift.
+ * Generic page skeleton (Ant Design Skeleton pattern): reserves the page
+ * container so content swaps in without layout shift. Routes without a bespoke
+ * skeleton re-export it from their own segment `loading.tsx`; it must NOT live
+ * at the app root, where its Suspense boundary would stream a 200 status before
+ * any page can call notFound().
  */
 const TILES = [
   "t1",
@@ -17,7 +20,7 @@ const TILES = [
   "t12",
 ];
 
-export default function Loading() {
+export function PageSkeleton() {
   return (
     <div
       className="space-y-4"

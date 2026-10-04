@@ -26,7 +26,7 @@ import { ReviewSection } from "@/features/review/ReviewSection";
 import { ShopHeaderCard } from "@/features/shop/ShopHeaderCard";
 import { TrackView } from "@/features/tracking/TrackView";
 import { listCollections, recordView } from "@/lib/gateway/engagement";
-import { getCategory, getListing, getStorefront } from "@/lib/gateway/listings";
+import { getCategory, getStorefront } from "@/lib/gateway/listings";
 import { AlertType, listAlertSubscriptions } from "@/lib/gateway/notification";
 import { getActiveFlashSale } from "@/lib/gateway/promotion";
 import {
@@ -36,6 +36,8 @@ import {
 } from "@/lib/gateway/reviews";
 import { getPrincipal } from "@/lib/gateway/session";
 import { getImageUrl } from "@/lib/media";
+
+import { loadListing } from "./data";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +50,7 @@ export default async function ProductDetailPage({
 }) {
   // getListing returns null only for gRPC NotFound; any other error throws and
   // reaches error.tsx.
-  const listing = await getListing(params.id);
+  const listing = await loadListing(params.id);
   if (!listing) notFound();
 
   const query = parsePdpParams(searchParams);

@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import SellerLoading from "./(dashboard)/loading";
 import SellerError from "./error";
-import SellerLoading from "./loading";
 import SellerNotFound from "./not-found";
 
 describe("seller segment states", () => {

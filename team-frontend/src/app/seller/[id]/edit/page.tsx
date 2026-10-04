@@ -4,8 +4,10 @@ import { Result } from "@/components/ui/Result";
 import { ListingForm } from "@/features/listing/ListingForm";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
-import { getListing, listCategories } from "@/lib/gateway/listings";
+import { listCategories } from "@/lib/gateway/listings";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
+
+import { loadListing } from "./data";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +19,7 @@ export default async function SellerEditPage({
   if (!hasScope("listing.write")) redirect("/login");
 
   const [listing, categories] = await Promise.all([
-    getListing(params.id),
+    loadListing(params.id),
     listCategories(),
   ]);
   if (!listing) {
