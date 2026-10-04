@@ -28,13 +28,13 @@
 
 ## 5. Code — team-frontend: analytics, wallet, plans, ads, bundles
 
-- [ ] 5.1 Rebuild `/seller/analytics` (`Statistic` row, funnel `Progress` rows, revenue `Table`, `?range` `Tabs`, `Alert`/`Empty`); delete `SellerAnalyticsMock`; verify range and failure tests pass and no mock import remains
-- [ ] 5.2 Rebuild `/seller/wallet` (balance `Statistic`, payout confirm `Modal`, ledger `Table` + `Pagination` via `?page=`) and make `requestWalletPayoutAction` return `{ ok, error?, data? }`; verify payout pending, zero-balance disabled and revalidate tests pass
-- [ ] 5.3 Rebuild `/seller/plans` (plan `Card` grid, current `Tag`) and `subscribeAction` on the shared contract; verify current-plan and toast tests pass
-- [ ] 5.4 Rebuild `/seller/ads` and `/seller/bundles` forms on `FormItem`/`Select`/`Checkbox`/`Input`, tables on `Table`, actions `createAdCampaignAction` / `createBundleAction` on the shared contract with pending/disabled/toast; verify the error-field and success tests pass
-- [ ] 5.5 Keep `/sell` as a server redirect to `/seller/new`; verify a test asserts the redirect
+- [x] 5.1 Rebuild `/seller/analytics` (`Statistic` row, funnel `Progress` rows, revenue `Table`, `?range` `Tabs`, `Alert`/`Empty`); delete `SellerAnalyticsMock`; verify range and failure tests pass and no mock import remains
+- [x] 5.2 Rebuild `/seller/wallet` (balance `Statistic`, payout confirm `Modal`, ledger `Table` + `Pagination` via `?page=`) and make `requestWalletPayoutAction` return `{ ok, error?, data? }`; verify payout pending, zero-balance disabled and revalidate tests pass
+- [x] 5.3 Rebuild `/seller/plans` (plan `Card` grid, current `Tag`) and `subscribeAction` on the shared contract; verify current-plan and toast tests pass
+- [x] 5.4 Rebuild `/seller/ads` and `/seller/bundles` forms on `FormItem`/`Select`/`Checkbox`/`Input`, tables on `Table`, actions `createAdCampaignAction` / `createBundleAction` on the shared contract with pending/disabled/toast; verify the error-field and success tests pass
+- [x] 5.5 Keep `/sell` as a server redirect to `/seller/new`; verify a test asserts the redirect
 
-- [ ] 5.6 Add `/seller/shop` shop profile form (display name `FormItem`, `upsertStorefrontAction` returning `ActionResult`, gateway wrapper for `UpsertStorefront`) and a sidebar link; depends on `shop-display-name`; verify Vitest covers save, blank and >80-char validation, and the name shows on `/shop/<id>`
+- [x] 5.6 Add `/seller/shop` shop profile form (display name `FormItem`, `upsertStorefrontAction` returning `ActionResult`, gateway wrapper for `UpsertStorefront`) and a sidebar link; depends on `shop-display-name`; verify Vitest covers save, blank and >80-char validation, and the name shows on `/shop/<id>`
 
 ## 6. Code — team-frontend: cross-cutting
 

@@ -396,8 +396,14 @@ export interface ViewStorefront {
   displayName: string;
 }
 
+/**
+ * The seller's storefront, or null when there is none. Any failure also yields
+ * null unless `throwOnError` is set (then only NotFound yields null), for
+ * callers that must not mistake an outage for "no storefront".
+ */
 export async function getStorefront(
   sellerId: string,
+  opts: { throwOnError?: boolean } = {},
 ): Promise<ViewStorefront | null> {
   try {
     const res = await gateway().listing.getStorefront({ sellerId });
@@ -412,7 +418,13 @@ export async function getStorefront(
       theme: s.theme,
       displayName: s.displayName,
     };
-  } catch {
+  } catch (err) {
+    if (
+      opts.throwOnError &&
+      !(err instanceof ConnectError && err.code === Code.NotFound)
+    ) {
+      throw err;
+    }
     return null;
   }
 }

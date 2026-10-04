@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
-
+import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
 import { subscribeAction } from "./actions";
+import { usePending } from "./usePending";
 
-/** Subscribe the current seller to a plan (mock). Thin. */
+/**
+ * Subscribe the seller to a plan. The current plan is disabled; the Server
+ * Action revalidates /seller/plans so the "Gói hiện tại" tag moves.
+ */
 export function SubscribeButton({
   planId,
   current,
@@ -13,30 +16,24 @@ export function SubscribeButton({
   planId: string;
   current: boolean;
 }) {
-  const [pending, start] = useTransition();
-  const [subscribed, setSubscribed] = useState(current);
+  const { pending, run } = usePending();
   const toast = useToast();
 
-  function go() {
-    start(async () => {
-      const res = await subscribeAction(planId);
-      if (res.ok) {
-        setSubscribed(true);
-        toast.success("✓ Đã đăng ký gói.");
-      } else {
-        toast.error(res.message || "Đăng ký gói thất bại.");
-      }
-    });
+  async function subscribe() {
+    const res = await run(() => subscribeAction(planId));
+    if (res.ok) toast.success("Đã đăng ký gói");
+    else toast.error(res.error);
   }
 
   return (
-    <button
-      type="button"
-      onClick={go}
-      disabled={pending || subscribed}
-      className="w-full rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-brand-dark disabled:opacity-50"
+    <Button
+      variant="outline"
+      className="w-full"
+      disabled={current}
+      isLoading={pending}
+      onClick={subscribe}
     >
-      {subscribed ? "✓ Gói hiện tại" : pending ? "Đang đăng ký..." : "Đăng ký"}
-    </button>
+      {current ? "Gói hiện tại" : "Đăng ký"}
+    </Button>
   );
 }

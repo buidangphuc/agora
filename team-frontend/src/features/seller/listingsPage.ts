@@ -1,4 +1,8 @@
-import { type ListingPage, listMyListings } from "@/lib/gateway/listings";
+import {
+  type ListingPage,
+  type ViewListing,
+  listMyListings,
+} from "@/lib/gateway/listings";
 
 export const LISTINGS_PAGE_SIZE = 20;
 
@@ -20,4 +24,23 @@ export async function getListingsPage(
     cursor = skipped.nextCursor;
   }
   return listMyListings({ cursor, pageSize });
+}
+
+/**
+ * Every listing of the seller (for pickers such as ads and bundles), walking
+ * the cursor up to `maxPages` pages so a large catalogue is still selectable.
+ */
+export async function getAllListings(
+  maxPages = 10,
+  pageSize = LISTINGS_PAGE_SIZE,
+): Promise<ViewListing[]> {
+  const all: ViewListing[] = [];
+  let cursor = "";
+  for (let i = 0; i < maxPages; i++) {
+    const page = await listMyListings({ cursor, pageSize });
+    all.push(...page.items);
+    if (page.nextCursor === "") break;
+    cursor = page.nextCursor;
+  }
+  return all;
 }

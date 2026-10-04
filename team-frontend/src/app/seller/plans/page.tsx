@@ -1,12 +1,20 @@
 import { redirect } from "next/navigation";
 
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
+import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
+import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { SubscribeButton } from "@/features/seller/SubscribeButton";
 import { getEntitlements, listPlans } from "@/lib/gateway/promotion";
 import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Gói đăng ký | Kênh người bán" };
+
+/** Plan Card grid; the current plan carries a "Gói hiện tại" Tag and a disabled button. */
 export default async function SellerPlansPage() {
   const me = getPrincipal();
   if (!me || !hasScope("listing.write")) redirect("/login");
@@ -17,54 +25,54 @@ export default async function SellerPlansPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-black text-slate-900">
-          ⭐ Gói Đăng Ký Người Bán
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Gói hiện tại:{" "}
-          <span className="font-bold text-brand">{entitlements.tierText}</span>
-        </p>
-      </div>
+    <>
+      <SellerPageHeader
+        title="Gói đăng ký"
+        description={`Gói hiện tại: ${entitlements.tierText}`}
+      />
 
       {plans.length === 0 ? (
-        <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-xs text-slate-400 shadow-sm">
-          Chưa có gói đăng ký nào.
-        </div>
+        <Alert type="info" description="Chưa có gói đăng ký nào để chọn." />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => {
             const current = plan.tier === entitlements.tier;
             return (
-              <div
+              <Card
                 key={plan.id}
-                className={`flex flex-col rounded-2xl border bg-white p-5 shadow-sm ${
-                  current ? "border-brand" : "border-slate-100"
-                }`}
+                className={current ? "border-action-primary" : ""}
               >
-                <h2 className="text-base font-bold text-slate-900">
-                  {plan.tierText}
-                </h2>
-                <div className="mt-1 text-2xl font-black text-slate-900">
-                  {formatPrice(plan.price, "VND")}
-                </div>
-                <ul className="mt-3 flex-1 space-y-1.5 text-xs text-slate-600">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5">
-                      <span className="text-emerald-500">✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-4">
+                <CardContent className="flex h-full flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-text-primary">
+                      {plan.tierText}
+                    </h2>
+                    {current && <Tag color="primary">Gói hiện tại</Tag>}
+                  </div>
+                  <p className="text-2xl font-bold text-action-primary">
+                    {formatPrice(plan.price)}
+                  </p>
+                  {plan.features.length === 0 ? (
+                    <Empty description="Chưa có mô tả quyền lợi" />
+                  ) : (
+                    <ul className="flex-1 space-y-1.5 text-sm text-text-secondary">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2">
+                          <span aria-hidden="true" className="text-success">
+                            ✓
+                          </span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <SubscribeButton planId={plan.id} current={current} />
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }

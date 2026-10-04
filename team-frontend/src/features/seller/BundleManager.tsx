@@ -1,34 +1,79 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { FormItem } from "@/components/ui/FormItem";
+import { Input } from "@/components/ui/Input";
+import { PriceTag } from "@/components/ui/PriceTag";
+import { Table, type TableColumn } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ViewBundle } from "@/lib/gateway/listings";
 import { createBundleAction } from "./actions";
+import { usePending } from "./usePending";
 
 interface SellerListingOption {
   id: string;
   title: string;
 }
 
+type Field = "title" | "items" | "price";
+
+/** Client-side rules, the same texts as createBundleAction. */
+export function validateBundle(
+  title: string,
+  selected: number,
+  price: number,
+): Partial<Record<Field, string>> {
+  const errors: Partial<Record<Field, string>> = {};
+  if (!title.trim()) errors.title = "Nhập tên combo.";
+  if (selected < 2) errors.items = "Chọn ít nhất 2 sản phẩm cho combo.";
+  if (!(price > 0)) errors.price = "Giá combo phải lớn hơn 0.";
+  return errors;
+}
+
+const bundleColumns: TableColumn<ViewBundle>[] = [
+  { key: "title", title: "Combo", dataIndex: "title" },
+  {
+    key: "count",
+    title: "Số sản phẩm",
+    align: "right",
+    render: (b) => b.listingIds.length,
+  },
+  {
+    key: "price",
+    title: "Giá combo",
+    align: "right",
+    render: (b) => <PriceTag price={b.bundlePrice} size="md" />,
+  },
+  { key: "createdAt", title: "Ngày tạo", dataIndex: "createdAt" },
+];
+
 /**
- * Thin bundle manager: pick ≥2 of the seller's listings, set a bundle price, and
- * create a combo. Wired to team-listing through the gateway via a server action.
- * Styling to be revamped later.
+ * Bundle manager: pick >= 2 of the seller's listings, set a bundle price and
+ * create a combo. The list comes from the server (`bundles`), so it refreshes
+ * through revalidatePath after a successful create.
  */
 export function BundleManager({
   listings,
-  initialBundles,
+  bundles,
 }: {
   listings: SellerListingOption[];
-  initialBundles: ViewBundle[];
+  bundles: ViewBundle[];
 }) {
-  const [bundles, setBundles] = useState(initialBundles);
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const [pending, start] = useTransition();
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const { pending, run } = usePending();
   const toast = useToast();
+
+  const errors = validateBundle(title, selected.length, Number(price));
+  const shown = (field: Field) => (submitted ? errors[field] : undefined);
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -36,101 +81,107 @@ export function BundleManager({
     );
   }
 
-  function submit() {
-    start(async () => {
-      const res = await createBundleAction(title, selected, Number(price) || 0);
-      if (res.ok && res.bundle) {
-        setBundles((prev) => [res.bundle as ViewBundle, ...prev]);
-        setTitle("");
-        setPrice("");
-        setSelected([]);
-        toast.success("✓ Đã tạo combo.");
-      } else {
-        toast.error(res.message || "Có lỗi xảy ra.");
-      }
-    });
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitted(true);
+    setError("");
+    if (Object.keys(errors).length > 0) return;
+    const res = await run(() =>
+      createBundleAction(title, selected, Number(price)),
+    );
+    if (res.ok) {
+      setTitle("");
+      setPrice("");
+      setSelected([]);
+      setSubmitted(false);
+      toast.success("Đã tạo combo");
+    } else {
+      setError(res.error);
+      toast.error(res.error);
+    }
   }
 
   return (
-    <div className="space-y-4">
-      {/* Create form */}
-      <div className="rounded-xs border border-gray-200 bg-white p-4 shadow-2xs space-y-3">
-        <h2 className="text-sm font-bold text-gray-800">Tạo combo mới</h2>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Tên combo"
-          className="w-full rounded-xs border border-gray-300 px-3 py-2 text-xs outline-none focus:border-brand"
-        />
-        <input
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          type="number"
-          min={0}
-          placeholder="Giá combo (VND)"
-          className="w-full rounded-xs border border-gray-300 px-3 py-2 text-xs outline-none focus:border-brand"
-        />
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-600">
-            Chọn sản phẩm ({selected.length} đã chọn)
-          </p>
-          {listings.length === 0 ? (
-            <p className="text-xs text-gray-400">Shop chưa có sản phẩm nào.</p>
-          ) : (
-            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xs border border-gray-100 p-2">
-              {listings.map((l) => (
-                <li key={l.id}>
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(l.id)}
-                      onChange={() => toggle(l.id)}
-                    />
-                    <span className="truncate">{l.title}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={pending}
-          className="rounded-xs bg-brand px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-dark disabled:opacity-50"
-        >
-          {pending ? "Đang tạo..." : "Tạo combo"}
-        </button>
-      </div>
-
-      {/* Existing bundles */}
-      <div className="rounded-xs border border-gray-200 bg-white p-4 shadow-2xs">
-        <h2 className="mb-3 text-sm font-bold text-gray-800">
-          Combo hiện có ({bundles.length})
-        </h2>
-        {bundles.length === 0 ? (
-          <p className="text-xs text-gray-400">Chưa có combo nào.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {bundles.map((b) => (
-              <li
-                key={b.id}
-                className="flex items-center justify-between gap-3 py-2.5 text-xs"
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tạo combo mới</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={submit} noValidate className="space-y-4">
+            <fieldset disabled={pending} className="m-0 space-y-4 border-0 p-0">
+              <FormItem
+                label="Tên combo"
+                required
+                status={shown("title") ? "error" : undefined}
+                help={shown("title")}
               >
-                <div>
-                  <p className="font-medium text-gray-800">{b.title}</p>
-                  <p className="text-gray-400">
-                    {b.listingIds.length} sản phẩm · {b.createdAt}
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </FormItem>
+              <FormItem
+                label="Giá combo (₫)"
+                required
+                status={shown("price") ? "error" : undefined}
+                help={shown("price")}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                />
+              </FormItem>
+              <FormItem
+                group
+                label={`Chọn sản phẩm (${selected.length} đã chọn)`}
+                required
+                status={shown("items") ? "error" : undefined}
+                help={shown("items")}
+              >
+                {listings.length === 0 ? (
+                  <p className="text-sm text-text-secondary">
+                    Shop chưa có sản phẩm nào.
                   </p>
-                </div>
-                <span className="font-bold text-brand">
-                  {b.bundlePrice.toLocaleString("vi-VN")} VND
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                ) : (
+                  <ul className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-border-subtle p-3">
+                    {listings.map((l) => (
+                      <li key={l.id}>
+                        <Checkbox
+                          label={l.title}
+                          checked={selected.includes(l.id)}
+                          onChange={() => toggle(l.id)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </FormItem>
+            </fieldset>
+            {error && <Alert type="error" description={error} />}
+            <Button type="submit" isLoading={pending}>
+              Tạo combo
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Combo hiện có ({bundles.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table
+            caption="Combo hiện có"
+            columns={bundleColumns}
+            dataSource={bundles}
+            rowKey="id"
+            emptyText="Chưa có combo nào"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
