@@ -24,8 +24,7 @@ describe("ReturnRequestSection", () => {
   it("submits a return request and then shows its status", async () => {
     vi.mocked(createReturnRequestAction).mockResolvedValue({
       ok: true,
-      message: "Đã gửi",
-      returnRequest: {
+      data: {
         id: "r1",
         orderId: "o1",
         reason: "hỏng",
@@ -56,7 +55,7 @@ describe("ReturnRequestSection", () => {
   it("renders an existing return and can run the mock refund", async () => {
     vi.mocked(mockRefundAction).mockResolvedValue({
       ok: true,
-      returnRequest: {
+      data: {
         id: "r1",
         orderId: "o1",
         reason: "hỏng",

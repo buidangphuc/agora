@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
 import {
   type ViewOrderReturn,
@@ -91,36 +92,37 @@ export async function updateOrderStatusAction(
   }
 }
 
+/** Revalidate the buyer list and the detail page of one order. */
+function revalidateBuyerOrder(orderId: string) {
+  revalidatePath("/account/orders");
+  revalidatePath(`/account/orders/${orderId}`);
+}
+
 export async function cancelOrderAction(
   orderId: string,
   reason?: string,
-): Promise<OrderActionResult> {
+): Promise<ActionResult> {
   try {
     await cancelOrder(orderId, reason);
-    revalidatePath("/account/orders");
+    revalidateBuyerOrder(orderId);
     revalidatePath("/seller/orders");
-    return { ok: true, message: "Đã hủy đơn hàng thành công." };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Hủy đơn hàng thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Hủy đơn hàng thất bại.");
   }
 }
 
 /** Re-add all items of a past order back into the cart ("Mua lại"). */
 export async function reorderAction(
   orderId: string,
-): Promise<{ ok: boolean; totalItems?: number; message?: string }> {
+): Promise<ActionResult<{ totalItems: number }>> {
   try {
     const cart = await reorder(orderId);
     revalidatePath("/cart");
-    return { ok: true, totalItems: cart.totalItems };
+    revalidateBuyerOrder(orderId);
+    return ok({ totalItems: cart.totalItems });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Mua lại thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Mua lại thất bại.");
   }
 }
 
@@ -158,22 +160,16 @@ export async function processMockPaymentAction(
   }
 }
 
-export interface ReturnActionResult {
-  ok: boolean;
-  message?: string;
-  returnRequest?: ViewOrderReturn;
-}
-
 export async function createReturnRequestAction(
   orderId: string,
   reason: string,
   refundAmount: number,
-): Promise<ReturnActionResult> {
+): Promise<ActionResult<ViewOrderReturn>> {
   if (!reason.trim()) {
-    return { ok: false, message: "Vui lòng nhập lý do trả hàng." };
+    return fail("Vui lòng nhập lý do trả hàng.");
   }
   if (!(refundAmount > 0)) {
-    return { ok: false, message: "Số tiền hoàn phải lớn hơn 0." };
+    return fail("Số tiền hoàn phải lớn hơn 0.");
   }
   try {
     const returnRequest = await createReturnRequest(
@@ -181,18 +177,12 @@ export async function createReturnRequestAction(
       reason.trim(),
       refundAmount,
     );
-    revalidatePath(`/account/orders/${orderId}`);
-    return {
-      ok: true,
-      returnRequest,
-      message: "Đã gửi yêu cầu trả hàng / hoàn tiền.",
-    };
+    revalidateBuyerOrder(orderId);
+    return ok(returnRequest);
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
-    };
+    return fail(
+      err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
+    );
   }
 }
 
@@ -205,23 +195,16 @@ export async function mockRefundAction(
   returnId: string,
   orderId: string,
   amount: number,
-): Promise<ReturnActionResult> {
+): Promise<ActionResult<ViewOrderReturn>> {
   try {
     const returnRequest = await updateReturnStatus(
       returnId,
       ReturnStatus.REFUNDED,
     );
     await refundPayment(orderId, amount);
-    revalidatePath(`/account/orders/${orderId}`);
-    return {
-      ok: true,
-      returnRequest,
-      message: "Hoàn tiền (mô phỏng) thành công.",
-    };
+    revalidateBuyerOrder(orderId);
+    return ok(returnRequest);
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Hoàn tiền thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Hoàn tiền thất bại.");
   }
 }

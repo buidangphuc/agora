@@ -43,11 +43,11 @@ export function ReturnRequestSection({
     if (pending) return;
     start(async () => {
       const res = await createReturnRequestAction(orderId, reason, amount);
-      if (res.ok && res.returnRequest) {
-        setRet(res.returnRequest);
-        toast.success(res.message || "Đã gửi yêu cầu trả hàng.");
-      } else {
-        toast.error(res.message || "Gửi yêu cầu thất bại.");
+      if (res.ok && res.data) {
+        setRet(res.data);
+        toast.success("Đã gửi yêu cầu trả hàng / hoàn tiền.");
+      } else if (!res.ok) {
+        toast.error(res.error);
       }
     });
   }
@@ -56,11 +56,11 @@ export function ReturnRequestSection({
     if (pending || !ret) return;
     start(async () => {
       const res = await mockRefundAction(ret.id, orderId, ret.refundAmount);
-      if (res.ok && res.returnRequest) {
-        setRet(res.returnRequest);
-        toast.success(res.message || "Hoàn tiền thành công.");
-      } else {
-        toast.error(res.message || "Hoàn tiền thất bại.");
+      if (res.ok && res.data) {
+        setRet(res.data);
+        toast.success("Hoàn tiền (mô phỏng) thành công.");
+      } else if (!res.ok) {
+        toast.error(res.error);
       }
     });
   }

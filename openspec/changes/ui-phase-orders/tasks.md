@@ -1,8 +1,8 @@
 ## 1. Code — team-frontend: data and actions
 
-- [ ] 1.1 Add `getOrderResult(id)` to `src/lib/gateway/orders.ts` returning `ok | forbidden | not_found | error` from the `ConnectError` code, keep `getOrder`; verify a Vitest file covers the four outcomes
-- [ ] 1.2 Convert `cancelOrderAction`, `reorderAction`, `createReturnRequestAction`, `mockRefundAction` to `{ ok, error?, data? }` with `revalidatePath` for the list and the detail; update `actions.test.ts` and `returns.actions.test.ts`; verify the tests pass
-- [ ] 1.3 Add a pure helper `paginateOrders(orders, status, page)` (filter, counts, clamp, slice 10) with tests for invalid status, out-of-range page and counts; verify the tests pass
+- [x] 1.1 Add `getOrderResult(id)` to `src/lib/gateway/orders.ts` returning `ok | forbidden | not_found | error` from the `ConnectError` code, keep `getOrder`; verify a Vitest file covers the four outcomes
+- [x] 1.2 Convert `cancelOrderAction`, `reorderAction`, `createReturnRequestAction`, `mockRefundAction` to `{ ok, error?, data? }` with `revalidatePath` for the list and the detail; update `actions.test.ts` and `returns.actions.test.ts`; verify the tests pass
+- [x] 1.3 Add a pure helper `paginateOrders(orders, status, page)` (filter, counts, clamp, slice 10) with tests for invalid status, out-of-range page and counts; verify the tests pass
 
 ## 2. Code — team-frontend: shared order components
 

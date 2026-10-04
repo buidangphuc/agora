@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
@@ -9,7 +10,9 @@ import {
   cancelOrder,
   createOrder,
   getOrder,
+  getOrderResult,
   listBuyerOrders,
+  listBuyerOrdersResult,
   updateOrderStatus,
 } from "./orders.js";
 
@@ -116,6 +119,58 @@ describe("orders gateway wrapper", () => {
   it("getOrder returns null when the order is absent", async () => {
     stubOrder({ getOrder: vi.fn().mockResolvedValue({ order: undefined }) });
     await expect(getOrder("o1")).resolves.toBeNull();
+  });
+
+  it("getOrderResult returns ok with the mapped order", async () => {
+    stubOrder({ getOrder: vi.fn().mockResolvedValue({ order: protoOrder }) });
+    const res = await getOrderResult("o1");
+    expect(res.kind).toBe("ok");
+    if (res.kind === "ok") expect(res.order.id).toBe("o1");
+  });
+
+  it("getOrderResult maps PermissionDenied to forbidden", async () => {
+    stubOrder({
+      getOrder: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("no", Code.PermissionDenied)),
+    });
+    await expect(getOrderResult("o1")).resolves.toEqual({ kind: "forbidden" });
+  });
+
+  it("getOrderResult maps NotFound and an empty response to not_found", async () => {
+    stubOrder({
+      getOrder: vi
+        .fn()
+        .mockRejectedValueOnce(new ConnectError("gone", Code.NotFound))
+        .mockResolvedValueOnce({ order: undefined }),
+    });
+    await expect(getOrderResult("o1")).resolves.toEqual({ kind: "not_found" });
+    await expect(getOrderResult("o1")).resolves.toEqual({ kind: "not_found" });
+  });
+
+  it("getOrderResult maps any other failure to error", async () => {
+    stubOrder({
+      getOrder: vi
+        .fn()
+        .mockRejectedValueOnce(new ConnectError("down", Code.Unavailable))
+        .mockRejectedValueOnce(new Error("boom")),
+    });
+    await expect(getOrderResult("o1")).resolves.toEqual({ kind: "error" });
+    await expect(getOrderResult("o1")).resolves.toEqual({ kind: "error" });
+  });
+
+  it("listBuyerOrdersResult distinguishes a failed load from no orders", async () => {
+    stubOrder({
+      listBuyerOrders: vi
+        .fn()
+        .mockResolvedValueOnce({ orders: [] })
+        .mockRejectedValueOnce(new Error("down")),
+    });
+    await expect(listBuyerOrdersResult()).resolves.toEqual({
+      ok: true,
+      orders: [],
+    });
+    await expect(listBuyerOrdersResult()).resolves.toEqual({ ok: false });
   });
 
   it("listBuyerOrders defaults the status filter and maps results", async () => {

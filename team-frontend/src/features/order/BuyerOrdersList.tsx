@@ -96,7 +96,7 @@ export function BuyerOrdersList({
         toast.success("✓ Đã thêm lại sản phẩm vào giỏ hàng.");
         router.push("/cart");
       } else {
-        toast.error(res.message || "Có lỗi xảy ra.");
+        toast.error(res.error);
       }
     });
   }
