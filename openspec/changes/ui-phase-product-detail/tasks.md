@@ -6,8 +6,8 @@
 
 ## 2. Code — team-frontend: gallery, price and variants
 
-- [ ] 2.1 Add `ImageGallery` (client): `Image` stage 1:1 eager, 64px lazy thumbnails, click/Enter/Space/arrow selection with `aria-current`, fallback placeholder, variant image override; verify an RTL test covers thumbnail swap with an unchanged bounding box, fallback on empty images, and eager-vs-lazy attributes
-- [ ] 2.2 Rewrite `VariantSelector` (client) over `Radio` button style: disabled out-of-stock with "Hết hàng" `Tag`, `router.replace(url, { scroll: false })` for `?variant=`, quantity reset on change; verify an RTL test covers URL write, disabled variant, and no write when price and stock equal the base
+- [x] 2.1 Add `ImageGallery` (client): `Image` stage 1:1 eager, 64px lazy thumbnails, click/Enter/Space/arrow selection with `aria-current`, fallback placeholder, variant image override; verify an RTL test covers thumbnail swap with an unchanged bounding box, fallback on empty images, and eager-vs-lazy attributes
+- [x] 2.2 Rewrite `VariantSelector` (client) over `Radio` button style: disabled out-of-stock with "Hết hàng" `Tag`, `router.replace(url, { scroll: false })` for `?variant=`, quantity reset on change; verify an RTL test covers URL write, disabled variant, and no write when price and stock equal the base
 - [ ] 2.3 Render price, stock line and SKU from `resolveVariant` using `PriceTag` and `Descriptions`-style info rows in `page.tsx`, with the strike-through only for a real flash-sale price; verify a render test for a variant with a different price and for a flash-sale listing
 
 ## 3. Code — team-frontend: purchase panel and mobile buy bar
