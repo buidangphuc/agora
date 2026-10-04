@@ -7,8 +7,8 @@
 ## 2. Code — team-frontend: shared order components
 
 - [ ] 2.1 Add `OrderStatusBadge` on `Tag` (order and return statuses, tokens only, no emoji) and replace the four inline badge implementations; verify its tone-mapping and unknown-status tests pass
-- [ ] 2.2 Rebuild `OrderTimeline` on `Timeline` with the shipment header, newest-first checkpoints, saga fallback, failure checkpoint (`timeline-failure`) with error `Alert` and "Mua lại"; keep the existing testids; verify the existing `OrderTimeline.test.tsx` still passes untouched plus new failure/pending scenario tests
-- [ ] 2.3 Add `OrderActions` client island (Reorder, Cancel `Modal`, Return trigger) with pending, disabled and toast behaviour; verify unit tests for pending, success and failure of each action
+- [x] 2.2 Rebuild `OrderTimeline` on `Timeline` with the shipment header, newest-first checkpoints, saga fallback, failure checkpoint (`timeline-failure`) with error `Alert` and "Mua lại"; keep the existing testids; verify the existing `OrderTimeline.test.tsx` still passes untouched plus new failure/pending scenario tests
+- [x] 2.3 Add `OrderActions` client island (Reorder, Cancel `Modal`, Return trigger) with pending, disabled and toast behaviour; verify unit tests for pending, success and failure of each action
 
 ## 3. Code — team-frontend: /account/orders
 

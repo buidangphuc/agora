@@ -1,60 +1,44 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Descriptions } from "@/components/ui/Descriptions";
+import { Empty } from "@/components/ui/Empty";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { ViewOrderReturn } from "@/lib/gateway/orders";
-import { createReturnRequestAction, mockRefundAction } from "./actions";
+import { OrderStatusBadge } from "./OrderStatusBadge";
+import { ReturnRequestModal } from "./ReturnRequestModal";
+import { useReturnState } from "./ReturnState";
+import { mockRefundAction } from "./actions";
+import { usePendingAction } from "./usePendingAction";
 
-function StatusBadge({ ret }: { ret: ViewOrderReturn }) {
-  const tone =
-    ret.status === ReturnStatus.REFUNDED
-      ? "bg-emerald-50 text-emerald-700"
-      : ret.status === ReturnStatus.REJECTED
-        ? "bg-red-50 text-red-700"
-        : "bg-amber-50 text-amber-700";
-  return (
-    <span
-      data-testid="return-status"
-      className={`inline-flex rounded-2xs px-2 py-0.5 text-xs font-semibold ${tone}`}
-    >
-      {ret.statusText}
-    </span>
-  );
-}
-
+/**
+ * The returns tab body: the existing return as Descriptions plus its status,
+ * or Empty. The request form lives in `ReturnRequestModal`, opened from the
+ * order header (or from the Empty action when `canRequest`).
+ */
 export function ReturnRequestSection({
   orderId,
   orderTotal,
   initialReturn = null,
+  canRequest = false,
 }: {
   orderId: string;
   orderTotal: number;
   initialReturn?: ViewOrderReturn | null;
+  /** Offer the request action inside the empty state. */
+  canRequest?: boolean;
 }) {
   const toast = useToast();
-  const [ret, setRet] = useState<ViewOrderReturn | null>(initialReturn);
-  const [reason, setReason] = useState("");
-  const [amount, setAmount] = useState<number>(orderTotal);
-  const [pending, start] = useTransition();
-
-  function submit() {
-    if (pending) return;
-    start(async () => {
-      const res = await createReturnRequestAction(orderId, reason, amount);
-      if (res.ok && res.data) {
-        setRet(res.data);
-        toast.success("Đã gửi yêu cầu trả hàng / hoàn tiền.");
-      } else if (!res.ok) {
-        toast.error(res.error);
-      }
-    });
-  }
+  const [ret, setRet] = useReturnState(initialReturn);
+  const [open, setOpen] = useState(false);
+  const [pending, run] = usePendingAction();
 
   function refund() {
     if (pending || !ret) return;
-    start(async () => {
+    void run(async () => {
       const res = await mockRefundAction(ret.id, orderId, ret.refundAmount);
       if (res.ok && res.data) {
         setRet(res.data);
@@ -71,91 +55,60 @@ export function ReturnRequestSection({
     ret.status !== ReturnStatus.REJECTED;
 
   return (
-    <div
-      data-testid="return-section"
-      className="mt-6 rounded-2xl border bg-white p-6 shadow-xs"
-    >
-      <div className="border-b pb-4">
-        <h2 className="text-lg font-bold text-gray-900">
-          TRẢ HÀNG / HOÀN TIỀN
-        </h2>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Gửi yêu cầu trả hàng cho đơn này. Hoàn tiền là mô phỏng (demo).
-        </p>
-      </div>
-
+    <div data-testid="return-section" className="space-y-4">
       {ret ? (
-        <div className="mt-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Trạng thái:</span>
-            <StatusBadge ret={ret} />
-          </div>
-          <p className="text-xs text-gray-700">
-            <span className="text-gray-500">Lý do:</span> {ret.reason}
-          </p>
-          <p className="text-xs text-gray-700">
-            <span className="text-gray-500">Số tiền hoàn:</span>{" "}
-            {ret.refundAmount.toLocaleString("vi-VN")}₫
-          </p>
+        <>
+          <Descriptions
+            title="Yêu cầu trả hàng"
+            extra={
+              <OrderStatusBadge
+                kind="return"
+                status={ret.status}
+                label={ret.statusText}
+                data-testid="return-status"
+              />
+            }
+            column={1}
+            items={[
+              { key: "reason", label: "Lý do", children: ret.reason },
+              {
+                key: "amount",
+                label: "Số tiền hoàn",
+                children: `${ret.refundAmount.toLocaleString("vi-VN")}₫`,
+              },
+            ]}
+          />
           {canRefund && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               data-testid="return-refund"
+              isLoading={pending}
               onClick={refund}
-              disabled={pending}
-              className="rounded-lg bg-orange-50 px-4 py-2 text-xs font-semibold text-brand transition hover:bg-orange-100 disabled:opacity-60"
             >
-              {pending ? "Đang xử lý…" : "Hoàn tiền (mô phỏng)"}
-            </button>
+              Hoàn tiền (mô phỏng)
+            </Button>
           )}
-        </div>
+        </>
       ) : (
-        <div className="mt-5 space-y-3">
-          <div>
-            <label
-              htmlFor="return-reason"
-              className="mb-1 block text-xs font-medium text-gray-600"
-            >
-              Lý do trả hàng
-            </label>
-            <textarea
-              id="return-reason"
-              data-testid="return-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border px-3 py-2 text-xs text-gray-800 focus:border-brand focus:outline-none"
-              placeholder="Sản phẩm bị lỗi, giao sai mẫu…"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="return-amount"
-              className="mb-1 block text-xs font-medium text-gray-600"
-            >
-              Số tiền hoàn (₫)
-            </label>
-            <input
-              id="return-amount"
-              data-testid="return-amount"
-              type="number"
-              min={0}
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full rounded-lg border px-3 py-2 text-xs text-gray-800 focus:border-brand focus:outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            data-testid="return-submit"
-            onClick={submit}
-            disabled={pending}
-            className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
-          >
-            {pending ? "Đang gửi…" : "Gửi yêu cầu trả hàng"}
-          </button>
-        </div>
+        <Empty
+          description="Chưa có yêu cầu trả hàng"
+          action={
+            canRequest ? (
+              <Button variant="outline" onClick={() => setOpen(true)}>
+                Yêu cầu trả hàng
+              </Button>
+            ) : undefined
+          }
+        />
       )}
+
+      <ReturnRequestModal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        orderId={orderId}
+        orderTotal={orderTotal}
+        onCreated={setRet}
+      />
     </div>
   );
 }
