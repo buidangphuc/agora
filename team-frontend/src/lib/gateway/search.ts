@@ -42,7 +42,14 @@ export interface FacetedSearchResult {
   items: ViewListing[];
   total: number;
   facets: ViewFacets;
+  /** The page actually returned (1-based); less than the requested page when it was out of range. */
+  page: number;
+  pageSize: number;
 }
+
+/** Results per page and the deepest page `searchListings` will walk to. */
+export const SEARCH_PAGE_SIZE = 24;
+export const SEARCH_MAX_PAGE = 20;
 
 export const EMPTY_FACETS: ViewFacets = {
   categories: [],
@@ -75,6 +82,8 @@ export interface SearchOptions {
   maxPrice?: number;
   minRating?: number;
   sortBy?: SortBy;
+  /** 1-based page; resolved by walking next_cursor (capped at SEARCH_MAX_PAGE). */
+  page?: number;
 }
 
 /**
@@ -93,7 +102,12 @@ export async function searchListings(
   if (opts.categoryId) filters.category_id = opts.categoryId;
   if (opts.sellerId) filters.seller_id = opts.sellerId;
 
-  const res = await gateway().search.searchListings({
+  const wanted = Math.min(
+    SEARCH_MAX_PAGE,
+    Math.max(1, Math.floor(opts.page ?? 1) || 1),
+  );
+  const search = gateway().search;
+  const request = {
     query,
     filters,
     categoryId: opts.categoryId ?? "",
@@ -105,19 +119,50 @@ export async function searchListings(
       : 0n,
     minRating: opts.minRating ? Math.max(0, Math.round(opts.minRating)) : 0,
     sortBy: opts.sortBy ?? SortBy.UNSPECIFIED,
+  };
+
+  // The RPC pages by opaque cursor: walk next_cursor to the wanted page. When
+  // the cursor runs out first, the last page that exists is returned (the
+  // caller compares `page` with what it asked for and redirects).
+  let cursor = "";
+  let page = 1;
+  let res = await search.searchListings({
+    ...request,
+    page: { cursor, pageSize: SEARCH_PAGE_SIZE },
   });
+  while (page < wanted && res.page?.nextCursor) {
+    cursor = res.page.nextCursor;
+    page += 1;
+    res = await search.searchListings({
+      ...request,
+      page: { cursor, pageSize: SEARCH_PAGE_SIZE },
+    });
+  }
 
   const resolved = await Promise.all(
     res.hits.map((h) => getListing(h.listingId)),
   );
+  const items = resolved.filter(
+    (l): l is ViewListing =>
+      l !== null && (l.status === "published" || !l.status),
+  );
+
+  // `total` is best-effort (-1 when unknown): fall back to a lower bound that
+  // still lets Pagination show a "next" link.
+  const reported = Number(res.page?.total ?? -1n);
+  const total =
+    reported >= 0
+      ? reported
+      : (page - 1) * SEARCH_PAGE_SIZE +
+        res.hits.length +
+        (res.page?.nextCursor ? 1 : 0);
 
   return {
-    items: resolved.filter(
-      (l): l is ViewListing =>
-        l !== null && (l.status === "published" || !l.status),
-    ),
-    total: Number(res.page?.total ?? 0n),
+    items,
+    total,
     facets: mapFacets(res.facets),
+    page,
+    pageSize: SEARCH_PAGE_SIZE,
   };
 }
 

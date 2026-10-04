@@ -23,5 +23,18 @@ Feature: Voucher redemption and flash-sale storefront
     Then the flash-sale meter shows the sale price and remaining stock
 
   Scenario: Visitor browses available vouchers
+    Given a voucher has been seeded via the gateway
+    And the "vouchers" page is open
+    Then the vouchers hub lists the seeded voucher
+    And no voucher card offers a "Lưu mã" button
+
+  Scenario: Tab state survives reload
+    Given a voucher has been seeded via the gateway
+    And the "vouchers" page is open
+    When the visitor selects the "Giảm %" voucher tab
+    Then the voucher URL carries type "percent" and that tab is still selected after a reload
+
+  Scenario: Empty tab
     Given the "vouchers" page is open
-    Then the vouchers hub lists available vouchers
+    When the visitor selects the "Freeship" voucher tab
+    Then an Empty state offers a link to the product search

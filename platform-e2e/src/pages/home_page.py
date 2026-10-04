@@ -29,6 +29,15 @@ class HomePage(BasePage):
         return self.page.get_by_text("Danh Mục", exact=False)
 
     @property
+    def category_links(self) -> Locator:
+        """Category grid tiles: plain links to /search?category=<id>."""
+        return self.page.get_by_role("navigation", name="Danh mục sản phẩm").get_by_role("link")
+
+    @property
+    def hero_cta(self) -> Locator:
+        return self.page.get_by_role("link", name="Mua ngay")
+
+    @property
     def cart_link(self) -> Locator:
         return self.page.locator('a[href="/cart"]')
 

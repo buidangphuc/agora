@@ -23,15 +23,16 @@ SETTINGS = get_settings()
 @then("the search results sort bar displays the sorting controls")
 def search_sort_bar_visible(world: World) -> None:
     expect(world.page.locator("body")).to_contain_text("Sắp xếp theo:", timeout=timeouts.DEFAULT)
-    expect(world.page.get_by_role("button", name="Mới Nhất")).to_be_visible(
+    # Sort options are link Tabs (URL state), not buttons.
+    expect(world.page.get_by_role("link", name="Mới nhất", exact=True)).to_be_visible(
         timeout=timeouts.DEFAULT
     )
 
 
 @when("the buyer sorts search results by newest")
 def buyer_sorts_by_newest(world: World) -> None:
-    newest_btn = world.page.get_by_role("button", name="Mới Nhất")
-    newest_btn.click()
+    newest = world.page.get_by_role("link", name="Mới nhất", exact=True)
+    newest.click()
     world.page.wait_for_load_state("networkidle")
 
 

@@ -64,6 +64,52 @@ class SearchPage(BasePage):
         m = re.search(r"\((\d+)\)", text)
         return int(m.group(1)) if m else -1
 
+    # ── Discovery rework: sort, active filters, pagination, states, mobile ──
+    @property
+    def active_filters(self) -> Locator:
+        return self.page.get_by_test_id("active-filters")
+
+    def remove_filter_link(self, label_prefix: str) -> Locator:
+        """The "×" link of an active-filter tag, e.g. 'Giá' -> aria-label 'Bỏ lọc Giá: ...'."""
+        return self.active_filters.get_by_role("link", name=re.compile(f"^Bỏ lọc {label_prefix}"))
+
+    @property
+    def clear_all_link(self) -> Locator:
+        return self.page.get_by_role("link", name="Xóa tất cả bộ lọc")
+
+    def sort_link(self, label: str) -> Locator:
+        return self.page.get_by_role("link", name=label, exact=True)
+
+    @property
+    def pagination(self) -> Locator:
+        """The numbered pager (desktop). The compact 375px pager is a second, hidden nav."""
+        return self.page.get_by_role("navigation", name="Phân trang").first
+
+    def page_link(self, number: int) -> Locator:
+        return self.pagination.get_by_role("link", name=f"Trang {number}")
+
+    @property
+    def error_alert(self) -> Locator:
+        return self.page.get_by_role("alert").filter(has_text="Không tải được kết quả tìm kiếm")
+
+    @property
+    def retry_link(self) -> Locator:
+        return self.page.get_by_role("link", name="Thử lại")
+
+    @property
+    def clear_filters_button(self) -> Locator:
+        """Zero-results action ("Xóa bộ lọc"), a link to /search."""
+        return self.page.get_by_role("link", name="Xóa bộ lọc", exact=True)
+
+    @property
+    def filter_button(self) -> Locator:
+        """Mobile trigger of the filter Drawer; the count Badge is part of its name."""
+        return self.page.get_by_role("button", name=re.compile("^Bộ lọc"))
+
+    @property
+    def filter_drawer(self) -> Locator:
+        return self.page.get_by_role("dialog", name="Bộ lọc")
+
     _DISTINCT_RESULTS_JS = (
         'Array.from(document.querySelectorAll(\'[data-testid="search-results"] '
         "a[href^=\"/listing/\"]')).reduce((s, e) => s.add(e.getAttribute('href')), new Set()).size"
