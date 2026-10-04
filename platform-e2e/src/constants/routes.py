@@ -20,6 +20,7 @@ NOTIFICATIONS = "/notifications"
 CHAT = "/chat"
 ASSISTANT = "/assistant"
 ACCOUNT_ORDERS = "/account/orders"
+ACCOUNT_ORDER_DETAIL = "/account/orders/{order_id}"
 ACCOUNT_ADDRESSES = "/account/addresses"
 
 # Seller area (gated: requires principal + `listing.write` scope)

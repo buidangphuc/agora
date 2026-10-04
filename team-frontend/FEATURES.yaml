@@ -1209,3 +1209,210 @@ features:
       e2e scenarios "Card impression still fires once", "Card click still records select_item" and
       "Search results still emit a batched impression" (tracking/discovery_tracking_unchanged.feature). The payload snapshot
       and the recommendations attribution are unit tests (ListingCard.test.tsx).
+  # ── ui-phase-orders: /account/orders and /account/orders/[id] ──────────
+  - id: orders.list-status-tabs
+    title: Order list status tabs held in the URL
+    persona: buyer
+    priority: P1
+    summary: Selecting a status tab on /account/orders updates ?status= and filters the list; the tab survives reload.
+    entry_route: /account/orders
+    related_routes: ["/account/orders?status=completed"]
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with one pending, one delivered and one cancelled order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.UpdateOrderStatus, order.v1.CancelOrder]
+      exercised: [order.v1.ListBuyerOrders]
+    ui:
+      key_elements:
+        tabs: "role:navigation=Tabs"
+        order_card: "testid:order-card"
+    acceptance:
+      - Given a buyer with orders in several statuses opens /account/orders
+      - When the buyer selects the "Đã giao" tab
+      - Then the URL becomes /account/orders?status=completed, only completed orders are listed and page is reset to 1
+      - And when the buyer opens /account/orders?status=paid&page=2 and reloads, the same tab and page are shown
+      - And an unknown status or an out-of-range page falls back to the "all" tab and the last page without an error
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.list-pagination
+    title: Order list pagination
+    persona: buyer
+    priority: P2
+    summary: The order list shows 10 orders per page with Pagination links that carry ?page=.
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with 11 orders.
+    api:
+      seed: [order.v1.CreateOrder]
+      exercised: [order.v1.ListBuyerOrders]
+    ui:
+      key_elements:
+        pagination: "role:navigation=Phân trang"
+    acceptance:
+      - Given a buyer has 11 orders
+      - When the buyer opens /account/orders
+      - Then 10 orders are shown with a Pagination of 2 pages
+      - And following the "2" link shows the last order at ?page=2
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.list-empty-and-recovery
+    title: Order list empty state and load-failure recovery
+    persona: buyer
+    priority: P2
+    summary: An empty tab shows Empty with a link back to all orders; a failed load shows an Alert with retry, never the empty state.
+    entry_route: /account/orders
+    related_routes: ["/account/orders?status=cancelled"]
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with one pending order and no cancelled order.
+    api:
+      seed: [order.v1.CreateOrder]
+      exercised: [order.v1.ListBuyerOrders]
+    acceptance:
+      - Given a buyer with no cancelled orders opens /account/orders?status=cancelled
+      - Then an Empty block for that tab is shown with a "Xem tất cả đơn hàng" link to the all tab
+      - When the buyer follows the link
+      - Then the all tab lists the order
+      - And a buyer with no orders sees "Bạn chưa có đơn hàng nào" with a "Mua sắm ngay" link
+      - And when the order list request fails an Alert with "Thử lại" is shown instead of the empty state (covered by Vitest page.test.tsx)
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.detail-anatomy
+    title: Order detail header, progress, descriptions, items and tabs
+    persona: buyer
+    priority: P1
+    summary: The order detail shows breadcrumb, id, status badge, total, a Stepper, recipient/payment descriptions, an items table and Hành trình / Trả hàng tabs.
+    entry_route: /account/orders/{order_id}
+    related_routes: ["/account/orders"]
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with a shipped order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.CreateShipment]
+      exercised: [order.v1.GetOrder, order.v1.GetShipmentTracking, order.v1.GetSagaState]
+    ui:
+      key_elements:
+        stepper: "role:navigation=Progress"
+        timeline: "testid:order-timeline"
+    acceptance:
+      - Given a buyer opens the detail of their SHIPPED order
+      - Then the header shows the breadcrumb, the order id, a status badge and the total
+      - And the Stepper marks "Đang vận chuyển" as the current step
+      - And the recipient and payment descriptions and the items table are visible
+      - And the "Hành trình" tab is active and selecting "Trả hàng / Hoàn tiền" adds ?tab=returns
+      - And a CANCELLED order shows the "Đơn hàng đã hủy" Alert instead of the Stepper
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.timeline-saga-failure
+    title: Saga failure checkpoint in the order timeline
+    persona: buyer
+    priority: P1
+    summary: A compensated order shows the failed saga step as an error checkpoint with a "Mua lại" recovery action.
+    entry_route: /account/orders/{order_id}
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer order whose payment step was forced to fail.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.ForceFailSaga]
+      exercised: [order.v1.GetSagaState]
+    ui:
+      key_elements:
+        failure_item: "testid:timeline-failure"
+    acceptance:
+      - Given a buyer's order whose payment step failed and was compensated
+      - When the buyer opens the order detail
+      - Then the failed and compensated steps render as error items, one with data-testid timeline-failure
+      - And an error Alert with a "Mua lại" action is shown above the timeline
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.rma-modal
+    title: Return request Modal with validation and feedback
+    persona: buyer
+    priority: P1
+    summary: The "Yêu cầu trả hàng" header action opens a Modal with a required reason and a bounded amount; submit calls the real action.
+    entry_route: /account/orders/{order_id}
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with a delivered (COMPLETED) order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+      exercised: [order.v1.CreateReturnRequest]
+    ui:
+      key_elements:
+        reason: "testid:return-reason"
+        amount: "testid:return-amount"
+        submit: "testid:return-submit"
+        status: "testid:return-status"
+    acceptance:
+      - Given a buyer opens the detail of a COMPLETED order
+      - When the buyer opens "Yêu cầu trả hàng" and submits without a reason
+      - Then the reason FormItem shows an inline error, no request is sent and the Modal stays open
+      - When the buyer chooses a reason and submits
+      - Then the submit button shows a pending state, the Modal closes, a success toast shows and the section shows a "Chờ duyệt" badge
+      - And "Hủy đơn" on a pending order calls cancelOrderAction and the badge reads "Đã hủy" after revalidation
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.detail-forbidden
+    title: Another buyer's order shows a 403 page
+    persona: buyer
+    priority: P1
+    summary: Opening an order that belongs to another buyer renders a 403 Result and no order data; a missing order renders 404.
+    entry_route: /account/orders/{order_id}
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: An order owned by a different buyer. Needs team-order GetOrder to return PermissionDenied (see design open question 1); if it returns NotFound the 403 is covered by Vitest only.
+    api:
+      seed: [order.v1.CreateOrder]
+      exercised: [order.v1.GetOrder]
+    acceptance:
+      - Given an order owned by buyer B and buyer A signed in
+      - When buyer A opens /account/orders/<id>
+      - Then a 403 Result "Bạn không có quyền xem đơn hàng này" is shown with a link to /account/orders
+      - And no recipient, item or amount of that order appears
+    tags: [buyer, order]
+    status: planned
+
+  - id: orders.mobile-layout
+    title: Order screens at a 375px viewport
+    persona: buyer
+    priority: P2
+    summary: The order list and detail have no horizontal page scroll at 375px; the tab bar scrolls inside its own container.
+    entry_route: /account/orders
+    related_routes: ["/account/orders/{order_id}"]
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with a pending, a delivered and a cancelled order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.UpdateOrderStatus, order.v1.CancelOrder]
+      exercised: [order.v1.ListBuyerOrders, order.v1.GetOrder]
+    acceptance:
+      - Given a buyer with several orders and a 375px wide viewport
+      - When the buyer opens /account/orders and then an order detail
+      - Then document.documentElement.scrollWidth does not exceed the viewport width on both pages
+      - And the page view event still fires after reordering and landing on /cart
+    tags: [buyer, order, wap]
+    status: planned

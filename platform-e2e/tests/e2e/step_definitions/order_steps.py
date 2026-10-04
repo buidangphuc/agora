@@ -33,16 +33,24 @@ def verify_order_timeline(world: World) -> None:
     expect(order_page.timeline_container).to_be_visible(timeout=timeouts.DEFAULT)
 
 
+@given("the order has been delivered")
+def order_has_been_delivered(world: World) -> None:
+    """The buyer may drive their own order to COMPLETED; returns are offered only then."""
+    buyer = world.state.current_user or get_test_data_manager().get_user_by_role("buyer")
+    world.service_factory.set_token(buyer.token)
+    world.service_factory.order.update_order_status(world.state.order_id, "ORDER_STATUS_COMPLETED")
+
+
 @when(parsers.parse('I submit an RMA refund request with reason "{reason}"'))
 def submit_rma_refund_request(world: World, reason: str) -> None:
+    # No visibility guard: if the trigger is missing the scenario must fail, not pass vacuously.
     order_page: OrderDetailPage = world.get_page(PageName.ORDER_DETAIL)  # type: ignore[assignment]
-    if order_page.rma_refund_button.is_visible():
-        order_page.open_rma_modal()
-        order_page.submit_rma_request(reason)
+    expect(order_page.rma_refund_button).to_be_visible(timeout=timeouts.DEFAULT)
+    order_page.open_rma_modal()
+    order_page.submit_rma_request(reason)
 
 
 @then("I should see the RMA refund success confirmation")
 def verify_rma_success(world: World) -> None:
     order_page: OrderDetailPage = world.get_page(PageName.ORDER_DETAIL)  # type: ignore[assignment]
-    if order_page.rma_success_alert.is_visible():
-        expect(order_page.rma_success_alert).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(order_page.rma_status).to_be_visible(timeout=timeouts.DEFAULT)

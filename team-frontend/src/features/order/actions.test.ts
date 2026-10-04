@@ -1,7 +1,9 @@
+import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { reorder } from "@/lib/gateway/cart";
 import {
   cancelOrder,
   createOrder,
@@ -14,9 +16,12 @@ import {
   checkoutAction,
   createPaymentAction,
   processMockPaymentAction,
+  reorderAction,
   updateOrderStatusAction,
 } from "./actions";
 
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/gateway/cart", () => ({ reorder: vi.fn() }));
 vi.mock("@/lib/gateway/orders", () => ({
   createOrder: vi.fn(),
   updateOrderStatus: vi.fn(),
@@ -101,11 +106,40 @@ describe("updateOrderStatusAction", () => {
 });
 
 describe("cancelOrderAction", () => {
-  it("cancels with a reason", async () => {
+  it("cancels with a reason and revalidates the list and the detail", async () => {
     vi.mocked(cancelOrder).mockResolvedValue({} as never);
     const res = await cancelOrderAction("o1", "changed mind");
     expect(cancelOrder).toHaveBeenCalledWith("o1", "changed mind");
-    expect(res.ok).toBe(true);
+    expect(res).toEqual({ ok: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("returns the error shape without throwing or revalidating", async () => {
+    vi.mocked(cancelOrder).mockRejectedValue(new Error("invalid status"));
+    const res = await cancelOrderAction("o1");
+    expect(res).toEqual({ ok: false, error: "invalid status" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("reorderAction", () => {
+  it("returns the item count as data and revalidates", async () => {
+    vi.mocked(reorder).mockResolvedValue({ totalItems: 3 } as never);
+    const res = await reorderAction("o1");
+    expect(reorder).toHaveBeenCalledWith("o1");
+    expect(res).toEqual({ ok: true, data: { totalItems: 3 } });
+    expect(revalidatePath).toHaveBeenCalledWith("/cart");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("returns the error shape when the gateway throws", async () => {
+    vi.mocked(reorder).mockRejectedValue(new Error("empty"));
+    await expect(reorderAction("o1")).resolves.toEqual({
+      ok: false,
+      error: "empty",
+    });
   });
 });
 

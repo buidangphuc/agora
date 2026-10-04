@@ -14,6 +14,8 @@ export interface TimelineItem {
   tone?: Tone;
   /** Marks the latest event (`aria-current="step"`). */
   current?: boolean;
+  /** `data-testid` of the item, for e2e hooks. */
+  testId?: string;
 }
 
 export interface TimelineProps {
@@ -68,6 +70,7 @@ export function Timeline({
           <li
             key={item.key}
             aria-current={item.current ? "step" : undefined}
+            data-testid={item.testId}
             className="relative flex gap-4"
           >
             {!isLast && (

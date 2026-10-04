@@ -1,5 +1,7 @@
 import "server-only";
 
+import { Code, ConnectError } from "@connectrpc/connect";
+
 import {
   type Order,
   type OrderItem,
@@ -173,6 +175,28 @@ export async function getOrder(id: string): Promise<ViewOrder | null> {
   }
 }
 
+/** Outcome of loading one order, so a page can tell 403 / 404 / failure apart. */
+export type OrderResult =
+  | { kind: "ok"; order: ViewOrder }
+  | { kind: "forbidden" }
+  | { kind: "not_found" }
+  | { kind: "error" };
+
+export async function getOrderResult(id: string): Promise<OrderResult> {
+  try {
+    const res = await gateway().order.getOrder({ id });
+    return res.order
+      ? { kind: "ok", order: mapOrder(res.order) }
+      : { kind: "not_found" };
+  } catch (err) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.PermissionDenied) return { kind: "forbidden" };
+      if (err.code === Code.NotFound) return { kind: "not_found" };
+    }
+    return { kind: "error" };
+  }
+}
+
 export async function listBuyerOrders(
   statusFilter: OrderStatus = OrderStatus.UNSPECIFIED,
 ): Promise<ViewOrder[]> {
@@ -181,6 +205,20 @@ export async function listBuyerOrders(
     return res.orders.map(mapOrder);
   } catch {
     return [];
+  }
+}
+
+/** Like listBuyerOrders, but a failed load is distinguishable from "no orders". */
+export async function listBuyerOrdersResult(): Promise<
+  { ok: true; orders: ViewOrder[] } | { ok: false }
+> {
+  try {
+    const res = await gateway().order.listBuyerOrders({
+      statusFilter: OrderStatus.UNSPECIFIED,
+    });
+    return { ok: true, orders: res.orders.map(mapOrder) };
+  } catch {
+    return { ok: false };
   }
 }
 

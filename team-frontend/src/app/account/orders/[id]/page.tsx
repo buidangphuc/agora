@@ -1,38 +1,95 @@
-import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Result } from "@/components/ui/Result";
 import { OrderDetailView } from "@/features/order/OrderDetailView";
-import { OrderTimeline } from "@/features/order/OrderTimeline";
-import { ReturnRequestSection } from "@/features/order/ReturnRequestSection";
 import {
-  getOrder,
-  getSagaState,
-  getShipmentTracking,
-} from "@/lib/gateway/orders";
+  OrderTimelineSection,
+  OrderTimelineSkeleton,
+} from "@/features/order/OrderTimelineSection";
+import { ReturnStateProvider } from "@/features/order/ReturnState";
+import { parseDetailTab } from "@/features/order/detailTab";
+import { linkButton } from "@/features/order/linkStyles";
+import { getOrderResult } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
+const backLink = (
+  <Link href="/account/orders" className={linkButton.outlineMd}>
+    Về đơn hàng của tôi
+  </Link>
+);
+
 export default async function BuyerOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { tab?: string };
 }) {
   const me = getPrincipal();
   if (!me) redirect("/login");
 
-  const order = await getOrder(params.id);
-  if (!order) notFound();
+  // Resolve ownership first: nothing else (shipment, saga, items) is fetched
+  // or rendered unless the order is the caller's own.
+  const res = await getOrderResult(params.id);
 
-  const [shipment, sagaSteps] = await Promise.all([
-    getShipmentTracking(order.id),
-    getSagaState(order.id),
-  ]);
+  if (res.kind === "forbidden") {
+    return (
+      <Result
+        status="403"
+        title="Bạn không có quyền xem đơn hàng này"
+        subTitle="Đơn hàng này thuộc về một tài khoản khác."
+        extra={backLink}
+      />
+    );
+  }
+  if (res.kind === "not_found") {
+    return (
+      <Result
+        status="404"
+        title="Không tìm thấy đơn hàng"
+        subTitle="Đơn hàng không tồn tại hoặc đã bị xóa."
+        extra={backLink}
+      />
+    );
+  }
+  if (res.kind === "error") {
+    return (
+      <section className="mx-auto max-w-4xl py-2">
+        <Alert
+          type="error"
+          title="Không tải được đơn hàng"
+          description="Đã có lỗi khi tải đơn hàng này. Vui lòng thử lại."
+          action={
+            <Link
+              href={`/account/orders/${params.id}`}
+              className={linkButton.outline}
+            >
+              Thử lại
+            </Link>
+          }
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="py-2">
-      <OrderDetailView order={order} />
-      <OrderTimeline shipment={shipment} sagaSteps={sagaSteps} />
-      <ReturnRequestSection orderId={order.id} orderTotal={order.totalAmount} />
+      <ReturnStateProvider>
+        <OrderDetailView
+          order={res.order}
+          tab={parseDetailTab(searchParams.tab)}
+          timeline={
+            <Suspense fallback={<OrderTimelineSkeleton />}>
+              <OrderTimelineSection orderId={res.order.id} />
+            </Suspense>
+          }
+        />
+      </ReturnStateProvider>
     </section>
   );
 }
