@@ -738,3 +738,295 @@ features:
       - Then the response status is 404
     tags: [buyer]
     status: planned
+
+  # ---- ui-phase-seller (seller cockpit: shell, Workplace, Table Lists, listing studio,
+  # ---- order detail, analytics, wallet, route states). Each acceptance group maps 1:1
+  # ---- to a scenario of openspec/changes/ui-phase-seller/specs/ui-seller/spec.md.
+
+  - id: seller.shell-navigation
+    title: Seller shell navigation
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/** renders in a collapsible sidebar (64px / 256px) that becomes a Drawer below 768px, with
+      aria-current on the active link, a shop card showing the real shop name (Shop # + 6 chars of the
+      seller id only when unset) and a 403 Result for a principal without listing.write.
+    entry_route: /seller
+    related_routes: [/seller/orders, /seller/wallet]
+    services: [team-frontend, team-identity, team-domain]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        collapse_toggle: "role:button=Thu gọn thanh bên"
+        menu_button: "role:button=Mở menu người bán"
+        shop_name: "testid:seller-shop-name"
+    acceptance:
+      - Given a seller at a 1280px viewport, when they click the collapse toggle, then the sidebar is 64px wide, labels are hidden but each link keeps its accessible name
+      - Given a seller at a 375px viewport, when they tap the menu button, then a Drawer lists the seller links and choosing "Quản lý đơn hàng" navigates to /seller/orders and closes it
+      - Given the shop display name is "Cửa hàng Hoa Mai", then the shop card shows it and not "Shop #"
+      - Given the shop display name is empty, then the shop card shows "Shop #" followed by the first 6 characters of the seller id
+      - Given the seller is on /seller/wallet, then only the "Ví người bán" link has aria-current="page"
+      - Given a logged-in buyer without listing.write opens /seller, then a Result explains the seller role is required and links back to /
+    tags: [seller]
+    status: planned
+
+  - id: seller.workplace-dashboard
+    title: Seller Workplace dashboard
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller shows a KPI Statistic row derived from real gateway data (a KPI whose source fails is hidden,
+      never zeroed), a quick-actions card and a recent-orders table.
+    entry_route: /seller
+    related_routes: [/seller/wallet]
+    services: [team-frontend, team-domain, team-order]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        kpi_row: "testid:kpi-row"
+    acceptance:
+      - Given a seller with published listings, when they open /seller, then the KPI row shows total, published and low-stock values derived from the fetched data
+      - Given the call that feeds a KPI fails, then that Statistic cell is not rendered, no placeholder 0 appears and the other KPIs still render
+      - Given the Workplace is rendered with an empty gateway response, then every Statistic shows a value derived from that response and no fixed number from source code
+      - Given the seller activates "Ví người bán" in quick actions, then the browser navigates to /seller/wallet
+      - Given the seller has no orders, then the recent-orders block shows an Empty with a link to /seller/new
+    tags: [seller]
+    status: planned
+    notes: >-
+      The failed-source and empty-response scenarios need fault injection at the gateway, so they are covered
+      by the Vitest page tests (src/app/seller/page.test.tsx); the e2e drives the happy path and the Empty.
+
+  - id: seller.product-table-filters
+    title: Product table with URL filters and pagination
+    persona: seller
+    priority: P1
+    summary: >-
+      The product Table List reads q / status / page from the URL, paginates by 20 and falls back to defaults
+      for invalid values; the filter bar is the only client island.
+    entry_route: /seller
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        search_box: "role:searchbox=Tìm sản phẩm"
+    acceptance:
+      - Given the seller types "iphone" in the product search box, then the URL becomes /seller?q=iphone with the page reset and only matching rows are shown
+      - Given a seller with 45 listings opens /seller?page=2, then rows 21-40 are shown and Pagination marks page 2 current with Previous and Next pointing at page=1 and page=3
+      - Given the seller opens /seller?page=abc or /seller?status=bogus, then page 1 renders with the default status and no error
+      - Given a filter matches no rows, then the table shows Empty "Không có kết quả" with a "Xoá bộ lọc" link
+    tags: [seller]
+    status: planned
+    notes: >-
+      The 45-listing pagination scenario needs a bulk seed; it is covered by the Vitest page test, the e2e
+      covers search, invalid parameters and the no-match Empty.
+
+  - id: seller.listing-delete-confirm
+    title: Deleting a listing asks for confirmation
+    persona: seller
+    priority: P1
+    summary: >-
+      The Xoá row action opens a confirm Modal naming the listing; confirm shows pending then a success toast
+      and the row disappears; a failed delete keeps the Modal open with an Alert.
+    entry_route: /seller
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    acceptance:
+      - Given the seller activates Xoá on a row, then a Modal opens focused on the cancel button and the listing is not deleted until confirmed
+      - Given the seller confirms the deletion, then the confirm button shows a spinner and is disabled, and after success the Modal closes, a success toast appears and the row is gone
+      - Given deleteListingAction returns an error, then the Modal stays open with the error in an Alert, an error toast appears and the confirm button is enabled again
+    tags: [seller]
+    status: planned
+    notes: The failed-delete scenario needs fault injection; covered by Vitest (DeleteListingModal.test.tsx).
+
+  - id: seller.listing-studio-validation
+    title: Listing studio validation and pending submit
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/new and /seller/[id]/edit validate title, price > 0, stock >= 0 and category inline, submit
+      with a pending, non-repeatable button and a success toast, and refuse another seller's listing with a
+      403 Result.
+    entry_route: /seller/new
+    related_routes: ["/seller/{id}/edit"]
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        title_input: "#title"
+        submit_button: "role:button=Đăng bán ngay"
+    acceptance:
+      - Given the seller submits the form with an empty title, then the title field shows an error linked by aria-describedby, the input has aria-invalid="true" and no request is sent
+      - Given the seller submits a valid form, then the submit button shows a spinner with unchanged width and is disabled, and on success a toast "Đã lưu" appears
+      - Given the seller creates a listing with valid data, then a success state offers "Xem danh sách" and the new listing appears on /seller
+      - Given saveListingAction returns an error, then an Alert at the top shows the message, an error toast appears, the entered values are preserved and submit is enabled
+      - Given a seller opens /seller/<id>/edit of a listing owned by another seller, then a 403 Result with a link back to /seller is shown and the form is not rendered
+    tags: [seller]
+    status: planned
+    notes: The pending and server-error scenarios are covered by Vitest (ListingForm.test.tsx).
+
+  - id: seller.magic-listing-assist
+    title: Magic Listing is a controlled, non-destructive assist
+    persona: seller
+    priority: P2
+    summary: >-
+      Magic Listing shows its suggestion in a Card and changes the form only when the seller applies a field
+      or all of them; a failure shows an Alert with retry and the form stays editable.
+    entry_route: /seller/new
+    services: [team-frontend, team-ai]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        generate: "role:button=Tạo gợi ý"
+        apply_all: "role:button=Áp dụng tất cả"
+    acceptance:
+      - Given the seller typed a title and a description and runs Magic Listing, then a suggestion card appears and the typed values are unchanged until "Áp dụng" is activated
+      - Given the seller activates "Áp dụng tất cả", then the title, description and price fields show the suggestion values and submit sends them
+      - Given magicListingAction returns an error, then an Alert with "Thử lại" and an error toast are shown and the seller can still submit manually
+    tags: [seller, ai]
+    status: planned
+    notes: The failure scenario needs fault injection; covered by Vitest (ListingForm.test.tsx).
+
+  - id: seller.order-detail
+    title: Seller order detail on real data
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/orders/[id] is a server Advanced Profile on getOrder and getShipmentTracking, with a ship
+      confirm Modal, a print stylesheet and a not-found state for unknown or foreign orders.
+    entry_route: "/seller/orders/{id}"
+    related_routes: [/seller/orders]
+    services: [team-frontend, team-order]
+    preconditions:
+      login: seller
+      seed_tag: needsOrder
+    ui:
+      key_elements:
+        packing_slip: "testid:packing-slip"
+        ship_button: "role:button=Bàn giao vận chuyển"
+    acceptance:
+      - Given a seller opens /seller/orders/<id> for one of their orders, then the recipient, items and totals match that order and no hard-coded sample buyer or product appears
+      - Given the seller confirms "Bàn giao vận chuyển" on a paid order, then the confirm button is pending then disabled, a success toast appears and the status Tag and Stepper show Shipped after revalidation
+      - Given updateOrderStatusAction returns an error, then an error toast and an Alert with the error are shown and the order status is unchanged
+      - Given a seller opens /seller/orders/does-not-exist, then the seller not-found Result links to /seller/orders
+      - Given the seller activates "In phiếu", then the print stylesheet hides the sidebar, header actions and toasts and prints the packing slip only
+    tags: [seller, order]
+    status: planned
+    notes: The shipping-failure scenario needs fault injection; covered by Vitest (ShipOrderButton.test.tsx).
+
+  - id: seller.analytics-range
+    title: Analytics page with a URL range
+    persona: seller
+    priority: P2
+    summary: >-
+      /seller/analytics shows a Statistic row, funnel Progress rows and a revenue Table; the range Tabs
+      (7d / 30d / 90d) live in ?range= and a failed read shows an Alert with retry.
+    entry_route: /seller/analytics
+    services: [team-frontend, team-analytics]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        kpi_row: "testid:kpi-row"
+    acceptance:
+      - Given the seller selects "30 ngày", then the URL contains range=30d and the revenue table and totals cover the last 30 days
+      - Given the seller opens /seller/analytics, then the dashboard and the revenue metrics summary (Statistic row) are visible
+      - Given getSellerFunnel throws, then an Alert with a "Thử lại" link to the same URL is shown and the rest of the page still renders
+    tags: [seller, analytics]
+    status: planned
+    notes: The failure scenario needs fault injection; covered by Vitest (analytics.test.tsx).
+
+  - id: seller.wallet-payout-confirm
+    title: Wallet payout asks for confirmation
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/wallet shows the balance and a ledger Table; Rút tiền opens a confirm Modal, is disabled with an
+      explanation at zero balance and reports pending then a toast.
+    entry_route: /seller/wallet
+    services: [team-frontend, team-payment]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        payout_button: "role:button=Rút tiền"
+    acceptance:
+      - Given a seller with a positive balance activates "Rút tiền" and confirms, then the confirm button is pending then disabled, a success toast appears and the balance and ledger refresh
+      - Given the balance is 0, then the payout Button is disabled with aria-disabled="true" and explains why
+    tags: [seller, fintech]
+    status: planned
+    notes: >-
+      The positive-balance scenario skips itself when the seeded seller has no wallet balance (no balance
+      seeding exists); pending and toast are covered by Vitest (PayoutButton.test.tsx).
+
+  - id: seller.route-states
+    title: Seller routes define loading, empty, error and not-found states
+    persona: seller
+    priority: P2
+    summary: >-
+      Every seller route has a loading skeleton with the page footprint, an error Result with retry, a
+      not-found Result and Empty / Alert states for tables.
+    entry_route: /seller
+    services: [team-frontend]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given /seller is requested while its data is pending, then a skeleton with the KPI row and table rows is shown and the content height does not shift
+      - Given a seller page throws during render, then error.tsx shows a Result with "Thử lại" calling reset and a link to /seller
+      - Given a seller has no listings, then the product table area shows Empty "Shop chưa có sản phẩm" with a "Thêm sản phẩm" link
+      - Given listMyListings throws, then an Alert with a retry link is shown above an empty table instead of a raw error string
+    tags: [seller]
+    status: planned
+    notes: >-
+      Skeleton timing, route errors and gateway failures need fault injection or slow responses; they are
+      covered by Vitest (states.test.tsx, page.test.tsx). The e2e drives the empty product state.
+
+  - id: seller.responsive-375
+    title: Seller layouts at 375px
+    persona: seller
+    priority: P1
+    summary: >-
+      At 375px the seller pages have no horizontal page scroll and the listing form keeps its Save button in a
+      sticky bottom bar; at 1280px the KPI row is four-up beside the sidebar.
+    entry_route: /seller
+    related_routes: [/seller/orders, "/seller/orders/{id}", /seller/new]
+    services: [team-frontend]
+    preconditions:
+      login: seller
+      seed_tag: needsOrder
+    acceptance:
+      - Given /seller, /seller/orders and /seller/orders/<id> are opened at a 375px viewport, then document.documentElement.scrollWidth equals the viewport width
+      - Given the listing studio is scrolled to the middle at 375px, then the Save button remains visible in the sticky bottom bar
+      - Given /seller is opened at 1280px, then the four KPI Statistic cells appear in one row next to the sidebar
+    tags: [seller]
+    status: planned
+
+  - id: seller.shop-profile-name
+    title: Seller sets the shop display name
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/shop is a Basic Form with the shop display name; it validates 1-80 characters inline and saves
+      through UpsertStorefront, so the name shows on /shop/<id>.
+    entry_route: /seller/shop
+    related_routes: ["/shop/{id}"]
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        name_input: "label:Tên gian hàng"
+        save_button: "role:button=Lưu thay đổi"
+    acceptance:
+      - Given a seller enters "Nhà Sách An Nhiên" and submits the shop profile form, then a success toast appears and /shop/<sellerId> shows "Nhà Sách An Nhiên"
+      - Given a seller submits a blank name or one longer than 80 characters, then no request is sent and the field shows an inline error linked by aria-describedby
+    tags: [seller, shop]
+    status: planned
