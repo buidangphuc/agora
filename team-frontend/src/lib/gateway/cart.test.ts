@@ -4,6 +4,7 @@ import {
   addToCart,
   clearCart,
   getCart,
+  getCartWithShopNames,
   removeFromCart,
   updateCartItem,
 } from "./cart.js";
@@ -119,7 +120,7 @@ describe("cart gateway wrapper", () => {
       { getCart: vi.fn().mockResolvedValue({ cart: twoSellers }) },
       batch,
     );
-    const view = await getCart();
+    const view = await getCartWithShopNames();
     expect(batch).toHaveBeenCalledTimes(1);
     expect(batch).toHaveBeenCalledWith({ sellerIds: ["s1", "s2"] });
     expect(view.items.map((i) => i.sellerDisplayName)).toEqual([
@@ -129,6 +130,17 @@ describe("cart gateway wrapper", () => {
     ]);
   });
 
+  it("getCart alone makes no shop-name lookup", async () => {
+    const batch = vi.fn();
+    stubCart(
+      { getCart: vi.fn().mockResolvedValue({ cart: sampleCart }) },
+      batch,
+    );
+    const view = await getCart();
+    expect(batch).not.toHaveBeenCalled();
+    expect(view.items[0]?.sellerDisplayName).toBe("");
+  });
+
   it("batch failure -> items still returned with empty names", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const batch = vi.fn().mockRejectedValue(new Error("[unimplemented]"));
@@ -136,7 +148,7 @@ describe("cart gateway wrapper", () => {
       { getCart: vi.fn().mockResolvedValue({ cart: sampleCart }) },
       batch,
     );
-    const view = await getCart();
+    const view = await getCartWithShopNames();
     expect(view.items).toHaveLength(1);
     expect(view.items[0]?.sellerDisplayName).toBe("");
   });
@@ -151,7 +163,7 @@ describe("cart gateway wrapper", () => {
       },
       batch,
     );
-    await getCart();
+    await getCartWithShopNames();
     expect(batch).not.toHaveBeenCalled();
   });
 

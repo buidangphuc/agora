@@ -39,7 +39,7 @@ export function MockPaymentView({
         }, 2000);
       } else {
         setStatus(PaymentStatus.FAILED);
-        setResultMessage(res.message || "Thanh toán thất bại.");
+        setResultMessage(res.error || "Thanh toán thất bại.");
       }
     } catch {
       setResultMessage("Có lỗi xảy ra khi xử lý thanh toán giả lập.");

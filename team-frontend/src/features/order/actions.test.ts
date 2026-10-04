@@ -40,11 +40,9 @@ describe("checkoutAction", () => {
       undefined,
     );
     expect(createPayment).not.toHaveBeenCalled();
-    expect(res).toMatchObject({
+    expect(res).toEqual({
       ok: true,
-      orderIds: ["o1"],
-      paymentUrl: undefined,
-      message: "Đặt hàng thành công!",
+      data: { orderIds: ["o1"], paymentUrl: undefined },
     });
   });
 
@@ -56,21 +54,26 @@ describe("checkoutAction", () => {
     });
     const res = await checkoutAction("addr1", ["it1"], PaymentMethod.MOCK_MOMO);
     expect(createPayment).toHaveBeenCalledWith("o1", PaymentMethod.MOCK_MOMO);
-    expect(res.paymentUrl).toBe("http://pay");
+    expect(res).toEqual({
+      ok: true,
+      data: { orderIds: ["o1"], paymentUrl: "http://pay" },
+    });
   });
 
   it("still succeeds when payment initiation fails (falls back)", async () => {
     vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
     vi.mocked(createPayment).mockRejectedValue(new Error("pay down"));
     const res = await checkoutAction("addr1", ["it1"], PaymentMethod.MOCK_MOMO);
-    expect(res.ok).toBe(true);
-    expect(res.paymentUrl).toBeUndefined();
+    expect(res).toEqual({
+      ok: true,
+      data: { orderIds: ["o1"], paymentUrl: undefined },
+    });
   });
 
   it("returns an error shape when order creation fails", async () => {
     vi.mocked(createOrder).mockRejectedValue(new Error("no stock"));
     const res = await checkoutAction("addr1", ["it1"], PaymentMethod.COD);
-    expect(res).toEqual({ ok: false, message: "no stock" });
+    expect(res).toEqual({ ok: false, error: "no stock" });
   });
 });
 
@@ -113,7 +116,7 @@ describe("payment actions", () => {
       paymentUrl: "http://pay",
     });
     const res = await createPaymentAction("o1", PaymentMethod.MOCK_BANK);
-    expect(res).toEqual({ ok: true, paymentUrl: "http://pay" });
+    expect(res).toEqual({ ok: true, data: { paymentUrl: "http://pay" } });
   });
 
   it("processMockPaymentAction reflects the transaction success flag", async () => {
@@ -123,12 +126,22 @@ describe("payment actions", () => {
       message: "paid",
     });
     const res = await processMockPaymentAction("tx1", true);
-    expect(res).toEqual({ ok: true, message: "paid" });
+    expect(res).toEqual({ ok: true, data: { message: "paid" } });
   });
 
   it("processMockPaymentAction returns error shape on throw", async () => {
     vi.mocked(processMockPayment).mockRejectedValue(new Error("gateway"));
     const res = await processMockPaymentAction("tx1", false);
-    expect(res).toEqual({ ok: false, message: "gateway" });
+    expect(res).toEqual({ ok: false, error: "gateway" });
+  });
+
+  it("processMockPaymentAction maps a failed simulation to an error", async () => {
+    vi.mocked(processMockPayment).mockResolvedValue({
+      transaction: {} as never,
+      success: false,
+      message: "card declined",
+    });
+    const res = await processMockPaymentAction("tx1", false);
+    expect(res).toEqual({ ok: false, error: "card declined" });
   });
 });

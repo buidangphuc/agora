@@ -1,9 +1,9 @@
 ## 1. Code — team-frontend: shared pieces and server-side logic
 
-- [ ] 1.1 Extract `computeShippingFee` to pure `src/features/order/shipping.ts` with Vitest cases (free >= 500000, HCM/HN 20000, other 35000); verify the tests pass and output is identical to today's rule
-- [ ] 1.2 Add checkout search-param parser/validator `src/features/order/checkoutParams.ts` (`step`, `addr`, `pay`, `voucher`; unknown step -> address; earliest-incomplete-step redirect target); verify the Vitest file covers the skip-ahead and stale-address cases
-- [ ] 1.3 Migrate every action in `features/cart/actions.ts` (including `addToCartAction`, also used by the PDP; address actions are owned by ui-phase-account) and `features/order/actions.ts` to the shared `ActionResult<T>` from `src/lib/action-result.ts` (ui-foundation), updating `actions.test.ts`; verify `npx vitest run src/features/cart src/features/order src/features/address`
-- [ ] 1.4 Add `groupByShop(items)` pure helper (group by `sellerId`, stable order, per-shop subtotal); verify its test with two sellers
+- [x] 1.1 Extract `computeShippingFee` to pure `src/features/order/shipping.ts` with Vitest cases (free >= 500000, HCM/HN 20000, other 35000); verify the tests pass and output is identical to today's rule
+- [x] 1.2 Add checkout search-param parser/validator `src/features/order/checkoutParams.ts` (`step`, `addr`, `pay`, `voucher`; unknown step -> address; earliest-incomplete-step redirect target); verify the Vitest file covers the skip-ahead and stale-address cases
+- [x] 1.3 Migrate every action in `features/cart/actions.ts` (including `addToCartAction`, also used by the PDP; address actions are owned by ui-phase-account) and `features/order/actions.ts` to the shared `ActionResult<T>` from `src/lib/action-result.ts` (ui-foundation), updating `actions.test.ts`; verify `npx vitest run src/features/cart src/features/order src/features/address`
+- [x] 1.4 Add `groupByShop(items)` pure helper (group by `sellerId`, stable order, per-shop subtotal); verify its test with two sellers
 
 ## 2. Code — team-frontend: /cart
 

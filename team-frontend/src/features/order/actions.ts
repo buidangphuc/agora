@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
 import {
   type ViewOrderReturn,
@@ -27,12 +28,17 @@ export interface OrderActionResult {
   paymentUrl?: string;
 }
 
+export interface CheckoutData {
+  orderIds: string[];
+  paymentUrl?: string;
+}
+
 export async function checkoutAction(
   addressId?: string,
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
   voucherCode?: string,
-): Promise<OrderActionResult> {
+): Promise<ActionResult<CheckoutData>> {
   try {
     const orders = await createOrder(
       addressId,
@@ -59,17 +65,9 @@ export async function checkoutAction(
       }
     }
 
-    return {
-      ok: true,
-      orderIds,
-      paymentUrl,
-      message: "Đặt hàng thành công!",
-    };
+    return ok({ orderIds, paymentUrl });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Đặt hàng thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Đặt hàng thất bại.");
   }
 }
 
@@ -127,34 +125,32 @@ export async function reorderAction(
 export async function createPaymentAction(
   orderId: string,
   method: PaymentMethod,
-): Promise<{ ok: boolean; paymentUrl?: string; message?: string }> {
+): Promise<ActionResult<{ paymentUrl: string }>> {
   try {
     const res = await createPayment(orderId, method);
-    return { ok: true, paymentUrl: res.paymentUrl };
+    return ok({ paymentUrl: res.paymentUrl });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Khởi tạo thanh toán thất bại.",
-    };
+    return fail(
+      err instanceof Error ? err.message : "Khởi tạo thanh toán thất bại.",
+    );
   }
 }
 
 export async function processMockPaymentAction(
   transactionId: string,
   simulateSuccess: boolean,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<ActionResult<{ message: string }>> {
   try {
     const res = await processMockPayment(transactionId, simulateSuccess);
     revalidatePath("/account/orders");
     revalidatePath("/seller/orders");
-    return { ok: res.success, message: res.message };
+    return res.success
+      ? ok({ message: res.message })
+      : fail(res.message || "Thanh toán thất bại.");
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Xử lý thanh toán thất bại.",
-    };
+    return fail(
+      err instanceof Error ? err.message : "Xử lý thanh toán thất bại.",
+    );
   }
 }
 

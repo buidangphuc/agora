@@ -73,7 +73,7 @@ export function VariantSelector({
           setTimeout(() => setFeedback(""), 3000);
         }
       } else {
-        const errorMsg = res.message || "Không thể thêm vào giỏ hàng.";
+        const errorMsg = res.error || "Không thể thêm vào giỏ hàng.";
         setFeedback(errorMsg);
         toast.error(errorMsg);
       }

@@ -13,6 +13,7 @@ import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCart } from "@/lib/gateway/cart";
 import { getImageUrl } from "@/lib/media";
 import { checkoutAction } from "./actions";
+import { computeShippingFee } from "./shipping";
 
 const PAYMENT_OPTIONS = [
   {
@@ -40,25 +41,6 @@ const PAYMENT_OPTIONS = [
     icon: "💳",
   },
 ];
-
-function computeShippingFee(
-  city: string,
-  subtotal: number,
-): { fee: number; isFree: boolean } {
-  if (subtotal >= 500000) {
-    return { fee: 0, isFree: true };
-  }
-  const cityUpper = city.toUpperCase();
-  if (
-    cityUpper.includes("HỒ CHÍ MINH") ||
-    cityUpper.includes("HCM") ||
-    cityUpper.includes("HÀ NỘI") ||
-    cityUpper.includes("HN")
-  ) {
-    return { fee: 20000, isFree: false };
-  }
-  return { fee: 35000, isFree: false };
-}
 
 export function CheckoutView({
   cart,
@@ -182,13 +164,13 @@ export function CheckoutView({
         appliedCode || undefined,
       );
       if (!res.ok) {
-        setError(res.message || "Đặt hàng thất bại.");
+        setError(res.error || "Đặt hàng thất bại.");
         return;
       }
 
       // Track purchase event
       trackEcommerce("purchase", {
-        transactionId: res.orderIds?.[0] || `order-${Date.now()}`,
+        transactionId: res.data?.orderIds[0] || `order-${Date.now()}`,
         currency: "VND",
         value: finalTotal,
         coupon: appliedCode || undefined,
@@ -203,8 +185,8 @@ export function CheckoutView({
         })),
       });
 
-      if (res.paymentUrl) {
-        router.push(res.paymentUrl);
+      if (res.data?.paymentUrl) {
+        router.push(res.data.paymentUrl);
       } else {
         router.push("/account/orders?success=1");
       }
