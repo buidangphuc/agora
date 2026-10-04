@@ -58,7 +58,7 @@ func (r *PostgresListingRepository) Get(ctx context.Context, id string) (Listing
 
 // loadVariants reads a listing's variants over any DBTX (pool or tx).
 func loadVariants(ctx context.Context, q DBTX, listingID string) ([]Variant, error) {
-	const sql = `SELECT id, listing_id, name, sku, price, stock, image_url FROM listing_variants WHERE listing_id = $1 ORDER BY id`
+	const sql = `SELECT id, listing_id, name, sku, price, stock, image_url FROM listing_variants WHERE listing_id = $1 ORDER BY created_at, id`
 	rows, err := q.Query(ctx, sql, listingID)
 	if err != nil {
 		return nil, fmt.Errorf("load variants for %q: %w", listingID, err)
@@ -169,8 +169,10 @@ func createListing(ctx context.Context, q DBTX, l Listing) (Listing, error) {
 		if vID == "" {
 			vID = uuid.NewString()
 		}
-		const vq = `INSERT INTO listing_variants (id, listing_id, name, sku, price, stock, image_url)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		// clock_timestamp() (not the transaction's now()) gives each variant its own created_at,
+		// so loadVariants can return them in the order the seller listed them.
+		const vq = `INSERT INTO listing_variants (id, listing_id, name, sku, price, stock, image_url, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, clock_timestamp(), clock_timestamp())`
 		if _, err := q.Exec(ctx, vq, vID, l.ID, v.Name, v.SKU, v.Price, v.Stock, v.ImageURL); err != nil {
 			return Listing{}, fmt.Errorf("create variant for listing %q: %w", l.ID, err)
 		}
@@ -216,8 +218,10 @@ func updateListing(ctx context.Context, q DBTX, l Listing) (Listing, error) {
 		if vID == "" {
 			vID = uuid.NewString()
 		}
-		const vq = `INSERT INTO listing_variants (id, listing_id, name, sku, price, stock, image_url)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		// clock_timestamp() (not the transaction's now()) gives each variant its own created_at,
+		// so loadVariants can return them in the order the seller listed them.
+		const vq = `INSERT INTO listing_variants (id, listing_id, name, sku, price, stock, image_url, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, clock_timestamp(), clock_timestamp())`
 		if _, err := q.Exec(ctx, vq, vID, l.ID, v.Name, v.SKU, v.Price, v.Stock, v.ImageURL); err != nil {
 			return Listing{}, fmt.Errorf("insert variant for %q: %w", l.ID, err)
 		}
