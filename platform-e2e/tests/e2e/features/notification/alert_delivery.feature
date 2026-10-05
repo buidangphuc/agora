@@ -15,3 +15,8 @@ Feature: Alert notification delivery
     Given a buyer subscribed to a "back_in_stock" alert on a seeded listing
     When the seller restocks the out-of-stock listing
     Then a "back_in_stock" notification appears in the notifications center
+
+  Scenario: Two buyers do not see each other's notifications
+    Given two buyers where only the first is subscribed to a "price_drop" alert on a listing
+    When the seller lowers the listing price
+    Then only the first buyer receives a "price_drop" notification for that listing

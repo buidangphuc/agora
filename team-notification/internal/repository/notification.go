@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,6 +11,10 @@ import (
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
 )
+
+// ErrNotFound is returned by MarkAsRead when no notification with that id
+// belongs to the caller (it may not exist, or it may be another user's).
+var ErrNotFound = errors.New("notification not found")
 
 type NotificationRepository interface {
 	CreateNotification(ctx context.Context, n *notificationv1.Notification) (*notificationv1.Notification, error)
@@ -79,8 +84,14 @@ func (r *PostgresNotificationRepo) MarkAsRead(ctx context.Context, id, userID st
 		_, err := r.pool.Exec(ctx, "UPDATE notifications SET is_read = true WHERE user_id = $1", userID)
 		return err
 	}
-	_, err := r.pool.Exec(ctx, "UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2", id, userID)
-	return err
+	tag, err := r.pool.Exec(ctx, "UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2", id, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *PostgresNotificationRepo) GetUnreadCount(ctx context.Context, userID string) (int32, error) {

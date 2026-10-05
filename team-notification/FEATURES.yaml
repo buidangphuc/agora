@@ -91,3 +91,26 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "notification/unread_badge.feature::Unread notification count is reflected on header"
+
+  - id: notification.per-user-isolation
+    title: Notifications are private to each user
+    persona: buyer
+    priority: P0
+    summary: Each user has their own inbox, alert subscriptions and preferences; one buyer never sees another's.
+    entry_route: /notifications
+    services: [team-notification, team-domain, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised:
+        - notification.v1.SubscribeAlert
+        - notification.v1.ListNotifications
+        - notification.v1.ListAlertSubscriptions
+        - listing.v1.UpdateListing
+    acceptance:
+      - Given two buyers where only the first is subscribed to a price-drop alert
+      - When the seller lowers the listing price
+      - Then only the first buyer receives the notification, and the second buyer's inbox and subscriptions stay empty
+    tags: [buyer]
+    status: planned
