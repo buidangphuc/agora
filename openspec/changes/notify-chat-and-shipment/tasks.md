@@ -23,4 +23,4 @@
 ## 6. E2E — platform-e2e
 
 - [ ] 6.1 Remove the strict xfail markers from "Seller reply notifies the buyer" and "Shipping the order notifies the buyer", add a chat-pref-disabled scenario; verify green against the agora stack (3 runs) and FEATURES entries `automated`
-- [ ] 6.2 Run `openspec validate notify-chat-and-shipment --strict`; verify it is valid
+- [x] 6.2 Run `openspec validate notify-chat-and-shipment --strict`; verify it is valid

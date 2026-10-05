@@ -115,3 +115,62 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "notification/alert_delivery.feature::Two buyers do not see each other's notifications"
+
+  - id: notification.chat-message
+    title: Chat message notifies the other participant
+    persona: buyer
+    priority: P1
+    summary: When a seller replies in a chat thread, the buyer gets one CHAT notification linking to the thread; the sender is never notified of their own message.
+    entry_route: /notifications
+    related_routes: ["/chat/{thread_id}"]
+    services: [team-notification, team-chat, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.GetOrCreateThread, chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer who asked the seller a question in a chat thread
+      - When the seller replies
+      - Then within 30 s the buyer has one CHAT notification linking to that thread, and the seller has none for their own reply
+    tags: [buyer, seller]
+    status: planned
+
+  - id: notification.chat-preferences
+    title: Chat notifications respect preferences
+    persona: buyer
+    priority: P1
+    summary: A buyer who disabled CHAT notifications gets none when the seller replies.
+    entry_route: /notifications
+    services: [team-notification, team-chat, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [notification.v1.UpdateNotificationPrefs, chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer who disabled NOTIFICATION_TYPE_CHAT
+      - When the seller replies in the thread
+      - Then no CHAT notification is created for the buyer
+    tags: [buyer, seller]
+    status: planned
+
+  - id: notification.order-shipped
+    title: Shipping an order notifies the buyer
+    persona: buyer
+    priority: P1
+    summary: When the seller creates a shipment, the buyer gets one ORDER notification naming the carrier and tracking code and linking to the order.
+    entry_route: /notifications
+    related_routes: ["/account/orders/{order_id}"]
+    services: [team-notification, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [order.v1.CreateShipment, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer with an order awaiting fulfillment
+      - When the seller creates a shipment with a tracking code
+      - Then within 30 s the buyer has one ORDER notification linking to the order and containing the tracking code
+    tags: [buyer, seller]
+    status: planned

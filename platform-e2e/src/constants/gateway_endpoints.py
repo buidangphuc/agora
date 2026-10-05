@@ -86,3 +86,4 @@ CHAT_SEND_MESSAGE = "/platform.chat.v1.ChatService/SendMessage"
 
 # platform.notification.v1
 NOTIFICATION_LIST = "/platform.notification.v1.NotificationService/ListNotifications"
+NOTIFICATION_UPDATE_PREFS = "/platform.notification.v1.NotificationService/UpdateNotificationPrefs"
