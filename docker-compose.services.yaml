@@ -17,7 +17,8 @@ services:
   # Redpanda (dev-container) does not reliably auto-create on first produce, so the
   # payment-event topics are created explicitly before the producers run: the
   # team-payment outbox relayer produces PaymentSettled to payment.events, and the
-  # team-order consumer parks poison records on payment.events.dlq (AD1/AD4).
+  # team-order consumer parks poison records on payment.events.dlq (AD1/AD4), and
+  # the team-order outbox relayer produces OrderPaidEvent to order.events (ADR-0013).
   # One-shot: waits for the shared broker to be healthy, then creates the topics
   # idempotently (|| true tolerates re-runs). team-payment/team-order depend on it.
   redpanda-init:
@@ -30,7 +31,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq promotion.events listing.events listing.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events promotion.events listing.events listing.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -280,6 +281,15 @@ services:
       - PAYMENT_EVENTS_TOPIC=payment.events
       - ORDER_PAYMENT_CONSUMER_GROUP=team-order.payment
       - PAYMENT_EVENTS_DLQ_TOPIC=payment.events.dlq
+      # order.events outbox relayer (ADR-0013): publishes OrderPaidEvent (line
+      # items) written in the same tx as the PAID transition. Same OUTBOX_* names
+      # as team-domain; needs KAFKA_ENABLED=true above.
+      - ORDER_EVENTS_TOPIC=order.events
+      - OUTBOX_ENABLED=true
+      - OUTBOX_POLL_INTERVAL=1s
+      - OUTBOX_BATCH_SIZE=100
+      - OUTBOX_CLAIM_LOCK_SECONDS=60
+      - OUTBOX_MAX_ATTEMPTS=10
       - UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061
       - GRPC_PORT=50055
       - ENV=local

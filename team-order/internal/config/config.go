@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Settings struct {
@@ -16,6 +17,8 @@ type Settings struct {
 	Upstream      Upstream
 	Observability Observability
 	FeatureFlags  FeatureFlags
+	Kafka         Kafka
+	Outbox        Outbox
 }
 
 type Runtime struct {
@@ -34,7 +37,7 @@ type Server struct {
 type Database struct {
 	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
 	URL      string `env:"DATABASE_URL" default:""`
-	MaxConns int32  `env:"DB_MAX_CONns" default:"10"`
+	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
 }
 
 type Upstream struct {
@@ -56,6 +59,51 @@ type FeatureFlags struct {
 	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
 	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
 	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
+}
+
+// Kafka wires the payment.events consumer and the order.events producer. With
+// KAFKA_ENABLED=false neither runs: outbox rows are still recorded with each PAID
+// transition but never relayed.
+type Kafka struct {
+	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
+	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+	ConsumerGroup string `env:"ORDER_PAYMENT_CONSUMER_GROUP" default:"team-order.payment"`
+	PaymentTopic  string `env:"PAYMENT_EVENTS_TOPIC" default:"payment.events"`
+	PaymentDLQ    string `env:"PAYMENT_EVENTS_DLQ_TOPIC" default:"payment.events.dlq"`
+	OrderTopic    string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
+}
+
+// Outbox tunes the transactional-outbox relayer that publishes order.events
+// (ADR-0002, ADR-0013). Names match team-domain's Outbox group. The relayer runs
+// only when OUTBOX_ENABLED and KAFKA_ENABLED are both true and Postgres is on.
+type Outbox struct {
+	Enabled          bool   `env:"OUTBOX_ENABLED" default:"true"`
+	PollInterval     string `env:"OUTBOX_POLL_INTERVAL" default:"1s"` // Go duration
+	BatchSize        int    `env:"OUTBOX_BATCH_SIZE" default:"100"`
+	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
+	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+}
+
+// KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
+func (s *Settings) KafkaBrokers() []string {
+	parts := strings.Split(s.Kafka.Brokers, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// OutboxPollInterval parses OUTBOX_POLL_INTERVAL, defaulting to 1s when unset or
+// unparseable.
+func (s *Settings) OutboxPollInterval() time.Duration {
+	d, err := time.ParseDuration(strings.TrimSpace(s.Outbox.PollInterval))
+	if err != nil || d <= 0 {
+		return time.Second
+	}
+	return d
 }
 
 func LoadSettings() (*Settings, error) {

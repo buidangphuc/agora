@@ -42,6 +42,10 @@ ON CONFLICT (event_id) DO NOTHING`
 
 // EnqueueTx enqueues an outbox row within an active pgx transaction.
 func (r *PgOutboxRepository) EnqueueTx(ctx context.Context, tx pgx.Tx, row OutboxRow) error {
+	return enqueueOutboxTx(ctx, tx, row)
+}
+
+func enqueueOutboxTx(ctx context.Context, tx pgx.Tx, row OutboxRow) error {
 	q := `
 INSERT INTO order_outbox_events (
     event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, created_at
@@ -123,6 +127,18 @@ WHERE event_id = $1`
 	_, err := r.pool.Exec(ctx, q, eventID, fmt.Sprintf("%d milliseconds", retryDelay.Milliseconds()), errStr)
 	if err != nil {
 		return fmt.Errorf("mark failed %q: %w", eventID, err)
+	}
+	return nil
+}
+
+func (r *PgOutboxRepository) MarkParked(ctx context.Context, eventID string, errStr string) error {
+	q := `
+UPDATE order_outbox_events
+SET status = 'failed', attempts = attempts + 1, locked_until = NULL, error = $2
+WHERE event_id = $1`
+
+	if _, err := r.pool.Exec(ctx, q, eventID, errStr); err != nil {
+		return fmt.Errorf("park %q: %w", eventID, err)
 	}
 	return nil
 }

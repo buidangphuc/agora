@@ -78,19 +78,50 @@ type OrderRepository interface {
 	UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error)
 }
 
-type OrderPaidHook func(ctx context.Context, order Order) error
+// PaidOutboxBuilder turns an order that has just transitioned to PAID into the
+// outbox row to persist alongside that transition (ADR-0013). order.UpdatedAt is
+// the transition timestamp. The builder is injected (internal/events owns the
+// envelope/contract) so the repository stays free of an events dependency.
+type PaidOutboxBuilder func(order Order) (OutboxRow, error)
+
+// OrderRepoOption customizes an order repository.
+type OrderRepoOption func(*orderRepoConfig)
+
+type orderRepoConfig struct {
+	paidOutbox PaidOutboxBuilder
+	outbox     OutboxRepository // in-memory repo only
+}
+
+// WithPaidOutbox makes every first transition to PAID write an outbox row built
+// by b in the SAME transaction as the status update. If building or enqueueing
+// the row fails, the status change is rolled back too.
+func WithPaidOutbox(b PaidOutboxBuilder) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.paidOutbox = b }
+}
+
+// WithInMemoryOutbox sets the outbox store the in-memory repository writes to,
+// atomically with the status change. Ignored by the Postgres repository, which
+// always writes to order_outbox_events in its own transaction.
+func WithInMemoryOutbox(o OutboxRepository) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.outbox = o }
+}
+
+func newOrderRepoConfig(opts []OrderRepoOption) orderRepoConfig {
+	var c orderRepoConfig
+	for _, o := range opts {
+		o(&c)
+	}
+	return c
+}
 
 type PostgresOrderRepository struct {
 	pool       *pgxpool.Pool
-	onPaidHook OrderPaidHook
+	paidOutbox PaidOutboxBuilder
 }
 
-func NewPostgresOrderRepository(pool *pgxpool.Pool) *PostgresOrderRepository {
-	return &PostgresOrderRepository{pool: pool}
-}
-
-func (r *PostgresOrderRepository) SetOnPaidHook(hook OrderPaidHook) {
-	r.onPaidHook = hook
+func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
+	cfg := newOrderRepoConfig(opts)
+	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox}
 }
 
 const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount`
@@ -158,9 +189,18 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 	return order, nil
 }
 
+// rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
+type rowQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 func (r *PostgresOrderRepository) loadItems(ctx context.Context, orderID string) ([]OrderItem, error) {
-	const q = `SELECT ` + orderItemColumns + ` FROM order_items WHERE order_id = $1`
-	rows, err := r.pool.Query(ctx, q, orderID)
+	return loadOrderItems(ctx, r.pool, orderID)
+}
+
+func loadOrderItems(ctx context.Context, q rowQuerier, orderID string) ([]OrderItem, error) {
+	const sqlQ = `SELECT ` + orderItemColumns + ` FROM order_items WHERE order_id = $1`
+	rows, err := q.Query(ctx, sqlQ, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -273,6 +313,22 @@ func (r *PostgresOrderRepository) ListSellerOrders(ctx context.Context, sellerID
 }
 
 func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Order{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock the row so concurrent transitions serialize and "first transition to
+	// PAID" is decided against a stable previous status.
+	var prev int32
+	if err := tx.QueryRow(ctx, `SELECT status FROM orders WHERE id = $1 FOR UPDATE`, id).Scan(&prev); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Order{}, ErrOrderNotFound
+		}
+		return Order{}, fmt.Errorf("lock order %q: %w", id, err)
+	}
+
 	var q string
 	var args []any
 	if trackingNumber != "" {
@@ -284,22 +340,33 @@ func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id stri
 	}
 
 	var o Order
-	if err := scanOrder(r.pool.QueryRow(ctx, q, args...), &o); err != nil {
+	if err := scanOrder(tx.QueryRow(ctx, q, args...), &o); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			return Order{}, ErrOrderNotFound
 		}
 		return Order{}, fmt.Errorf("update order status: %w", err)
 	}
-	items, err := r.loadItems(ctx, o.ID)
+	items, err := loadOrderItems(ctx, tx, o.ID)
 	if err != nil {
 		return Order{}, err
 	}
 	o.Items = items
 
-	if status == OrderStatusPaid && r.onPaidHook != nil {
-		_ = r.onPaidHook(ctx, o)
+	// Domain-fact event (ADR-0013): the order.events row commits or rolls back
+	// with the status change. Only the first transition to PAID emits.
+	if status == OrderStatusPaid && OrderStatus(prev) != OrderStatusPaid && r.paidOutbox != nil {
+		row, err := r.paidOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)
+		}
+		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			return Order{}, err
+		}
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit tx: %w", err)
+	}
 	return o, nil
 }
 
@@ -307,15 +374,13 @@ func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id stri
 type InMemoryOrderRepository struct {
 	mu         sync.RWMutex
 	orders     map[string]Order
-	onPaidHook OrderPaidHook
+	paidOutbox PaidOutboxBuilder
+	outbox     OutboxRepository
 }
 
-func NewInMemoryOrderRepository() *InMemoryOrderRepository {
-	return &InMemoryOrderRepository{orders: make(map[string]Order)}
-}
-
-func (r *InMemoryOrderRepository) SetOnPaidHook(hook OrderPaidHook) {
-	r.onPaidHook = hook
+func NewInMemoryOrderRepository(opts ...OrderRepoOption) *InMemoryOrderRepository {
+	cfg := newOrderRepoConfig(opts)
+	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox, outbox: cfg.outbox}
 }
 
 func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {
@@ -387,16 +452,25 @@ func (r *InMemoryOrderRepository) UpdateOrderStatus(ctx context.Context, id stri
 	if !ok {
 		return Order{}, ErrOrderNotFound
 	}
+	prev := o.Status
 	o.Status = status
 	if trackingNumber != "" {
 		o.TrackingNumber = trackingNumber
 	}
 	o.UpdatedAt = time.Now()
-	r.orders[id] = o
 
-	if status == OrderStatusPaid && r.onPaidHook != nil {
-		_ = r.onPaidHook(ctx, o)
+	// Mirror the Postgres repo: the outbox row and the status change are one unit.
+	// The order is only stored after the row is enqueued, so a failure leaves the
+	// order untouched (the in-memory analogue of a transaction rollback).
+	if status == OrderStatusPaid && prev != OrderStatusPaid && r.paidOutbox != nil && r.outbox != nil {
+		row, err := r.paidOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return Order{}, err
+		}
 	}
-
+	r.orders[id] = o
 	return o, nil
 }
