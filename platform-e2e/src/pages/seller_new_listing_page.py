@@ -78,6 +78,8 @@ class SellerNewListingPage(BasePage):
 
         from src.constants import timeouts
 
+        # Wait for hydration: a fill or submit before it is lost or posts natively.
+        self.wait_until_interactive(self.submit_button)
         self.title_input.fill(listing.title)
         self.category_select.select_option(listing.category_id)
         self.price_input.fill(str(listing.price))

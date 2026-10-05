@@ -41,6 +41,8 @@ class SellerEditListingPage(BasePage):
         return self.title_input.is_visible()
 
     def update_title(self, new_title: str) -> None:
+        # Wait for hydration: a fill or submit before it is lost or posts natively.
+        self.wait_until_interactive(self.submit_button)
         self.title_input.fill(new_title)
         self.submit_button.click()
         expect(self.success_message).to_be_visible(timeout=timeouts.NAVIGATION)
