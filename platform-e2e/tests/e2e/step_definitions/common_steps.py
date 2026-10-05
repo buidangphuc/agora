@@ -36,3 +36,15 @@ def logged_in_as_buyer_api(world: World) -> None:
         "buyer"
     )
     login_via_api(world, buyer)
+
+
+@given("an admin is logged in")
+def logged_in_as_admin_api(world: World) -> None:
+    """The admin seeded by team-identity (EnsureAdmin) and listed in test-data users.json."""
+    login_via_api(world, get_test_data_manager().get_user_by_role("admin"))
+
+
+@given("no one is logged in")
+def nobody_logged_in(world: World) -> None:
+    world.service_factory.set_token(None)
+    world.state.current_user = None

@@ -5,5 +5,6 @@ Feature: Admin Cockpit Health Radar
   So that I can verify cluster health and observability signals
 
   Scenario: Admin inspects live telemetry on Cockpit
+    Given an admin is logged in
     When the admin opens the cockpit HUD
     Then the telemetry summary cards display throughput and latency metrics

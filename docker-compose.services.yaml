@@ -473,6 +473,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=team-gateway
       - PROMETHEUS_URL=http://prometheus:9090
+      - JAEGER_QUERY_URL=http://jaeger:16686
+      - JAEGER_UI_URL=http://localhost:16686
     ports:
       - "8080:8080"
 

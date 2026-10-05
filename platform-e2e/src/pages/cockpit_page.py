@@ -17,6 +17,11 @@ class CockpitPage(BasePage):
         return self.page.locator("div.grid").first
 
     @property
+    def forbidden_result(self) -> Locator:
+        # The 403 Result a signed-in non-admin gets instead of the HUD.
+        return self.page.get_by_text("Cần tài khoản Quản trị", exact=False)
+
+    @property
     def service_status_badges(self) -> Locator:
         return self.page.get_by_text("SERVING", exact=False)
 

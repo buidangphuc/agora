@@ -409,19 +409,98 @@ features:
     persona: admin
     priority: P2
     summary: >-
-      No order-domain or trace source exists yet, so total_orders_24h and
-      total_revenue_24h are null and recent_traces is empty; the HUD shows an
-      honest "Chưa có dữ liệu" state instead of placeholder figures.
+      total_orders_24h and total_revenue_24h come from team-analytics order facts
+      and recent_traces from Jaeger; each is null/empty when its source is
+      unavailable, and the HUD shows an honest "Chưa có dữ liệu" state instead of
+      placeholder figures (never the old 1,420 orders / 384,500,000 ₫).
     entry_route: /admin/cockpit
-    services: [team-frontend, team-gateway]
+    services: [team-frontend, team-gateway, team-analytics]
     preconditions:
       login: admin
     acceptance:
       - When the cockpit response is produced
-      - Then total_orders_24h and total_revenue_24h are null and no fabricated traces are returned
+      - Then total_orders_24h and total_revenue_24h are real figures or null and no fabricated rows are returned
     tags: [admin, observability]
     status: automated
     covered_by: "ops-cockpit/cockpit_metrics.feature::Orders, revenue and traces are never fabricated"
+    notes: >
+      Scenario text changed with ops-cockpit-real-data (was "are null"); re-run against
+      the stack before trusting the automated status.
+
+  - id: ops.cockpit-anonymous-401
+    title: Anonymous request to the cockpit endpoint is rejected
+    persona: guest
+    priority: P1
+    summary: >-
+      GET /api/admin/metrics without a token answers 401 before any upstream
+      (Prometheus, team-analytics, Jaeger) is queried.
+    entry_route: /admin/cockpit
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - When GET /api/admin/metrics is called without a token
+      - Then the gateway returns 401
+    tags: [admin, observability, authz]
+    status: planned
+    notes: >
+      Written in ops/cockpit_real_data.feature ("Anonymous request is rejected"); flips to automated, with covered_by,
+      after it passes against the stack.
+
+  - id: ops.cockpit-buyer-403
+    title: A buyer cannot open the cockpit
+    persona: buyer
+    priority: P1
+    summary: >-
+      A signed-in buyer (no admin scope) gets 403 from GET /api/admin/metrics, and
+      /admin/cockpit renders the admin-required 403 result instead of the HUD.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [admin.metrics]
+    ui:
+      key_elements:
+        forbidden: "text:Cần tài khoản Quản trị"
+    acceptance:
+      - When a signed-in buyer calls GET /api/admin/metrics
+      - Then the gateway returns 403
+      - And when the buyer opens /admin/cockpit the page renders a 403 result and no metrics
+    tags: [buyer, admin, authz]
+    status: planned
+    notes: >
+      Written in ops/cockpit_real_data.feature ("A buyer cannot open the cockpit"); flips to automated, with covered_by,
+      after it passes against the stack.
+
+  - id: ops.cockpit-paid-order-24h
+    title: A paid order shows up in the 24h figures
+    persona: admin
+    priority: P1
+    summary: >-
+      A buyer places and pays an order of 2 x 150,000 ₫; once order.events is ingested
+      into order_facts, the admin cockpit's 24h order count rises by 1, GMV by 300,000
+      and the order is first in recent_orders (within 30 s).
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, team-analytics, team-order, team-payment, team-identity]
+    preconditions:
+      login: admin
+      seed_tag: needsListing
+      data: Requires Redpanda, the team-order outbox relayer and the team-analytics consumer running.
+    api:
+      exercised: [analytics.v1.GetPlatformOrderSummary, analytics.v1.ListRecentOrders]
+    acceptance:
+      - Given an admin has noted the 24h order figures
+      - When a buyer places and pays an order of 2 x 150000 VND
+      - Then within 30 seconds total_orders_24h has increased by 1 and total_revenue_24h by 300000
+      - And recent_orders lists that order id first
+    tags: [admin, observability, order]
+    status: planned
+    notes: >
+      Written in ops/cockpit_real_data.feature ("A paid order shows up in the 24h figures"); flips to automated, with covered_by,
+      after it passes against the stack.
 
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
   # ---- ui_foundation.feature scenarios have run green against the local stack.

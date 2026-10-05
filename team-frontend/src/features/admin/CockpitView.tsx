@@ -2,18 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 
-// Every figure on this page comes from the gateway (Prometheus via
-// GET /api/admin/metrics, or the ops:orders SSE room). When a source has no
-// data the widget says so — it never falls back to a placeholder number.
+// Every figure on this page comes from the gateway's GET /api/admin/metrics
+// (Prometheus telemetry, team-analytics order facts, Jaeger traces). The first
+// payload is fetched server-side with the session token and passed in as
+// `initial`; refreshes go through the same-origin route handler, which forwards
+// the token (the browser never holds it). When a source has no data the widget
+// says so — it never falls back to a placeholder number.
 
-const GATEWAY_URL =
-  process.env.NEXT_PUBLIC_GATEWAY_URL?.trim() || "http://localhost:8080";
+const METRICS_URL = "/api/admin/metrics";
+const POLL_MS = 3000;
 
 const JAEGER_URL = "http://localhost:16686";
 const KAFKA_UI_URL = "http://localhost:8088";
 const GRAFANA_URL = "http://localhost:3001";
 
 const NO_DATA = "—";
+const NO_DATA_TEXT = "Chưa có dữ liệu";
 
 export interface ServiceHealth {
   name: string;
@@ -28,9 +32,18 @@ export interface ServiceHealth {
 export interface TraceSummary {
   trace_id: string;
   operation: string;
-  duration: string;
-  status: string;
+  span_count: number;
+  duration_ms: number;
+  started_at: string;
   jaeger_url: string;
+}
+
+export interface RecentOrder {
+  order_id: string;
+  seller_id: string;
+  /** Minor units (₫). */
+  total: number;
+  paid_at: string;
 }
 
 export interface CockpitData {
@@ -41,14 +54,8 @@ export interface CockpitData {
   total_orders_24h: number | null;
   total_revenue_24h: number | null;
   services: ServiceHealth[] | null;
+  recent_orders: RecentOrder[] | null;
   recent_traces: TraceSummary[] | null;
-}
-
-interface LiveOrder {
-  id: string;
-  user: string | null;
-  amount: number | null;
-  time: string;
 }
 
 function num(v: number | null | undefined, digits: number, unit = ""): string {
@@ -58,7 +65,8 @@ function num(v: number | null | undefined, digits: number, unit = ""): string {
 
 function count(v: number | null | undefined): string {
   if (typeof v !== "number" || !Number.isFinite(v)) return NO_DATA;
-  return v.toLocaleString();
+  // Fixed locale: the server render and the browser must format identically.
+  return v.toLocaleString("en-US");
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -69,21 +77,36 @@ const STATUS_STYLE: Record<string, string> = {
   UNKNOWN: "bg-slate-900 text-slate-500 border-slate-700",
 };
 
-export function CockpitView() {
-  const [data, setData] = useState<CockpitData | null>(null);
-  const [loaded, setLoaded] = useState(false);
+/** HH:MM:SS (UTC) of an RFC 3339 timestamp, or a dash if it does not parse. */
+function clock(ts: string | undefined): string {
+  const d = ts ? new Date(ts) : null;
+  return d && !Number.isNaN(d.getTime())
+    ? `${d.toISOString().slice(11, 19)} UTC`
+    : NO_DATA;
+}
+
+export function CockpitView({ initial }: { initial: CockpitData | null }) {
+  const [data, setData] = useState<CockpitData | null>(initial);
+  const [loaded, setLoaded] = useState(initial !== null);
   const [fetchFailed, setFetchFailed] = useState(false);
-  const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const fetchMetrics = async () => {
       try {
-        const res = await fetch(`${GATEWAY_URL}/api/admin/metrics`);
+        const res = await fetch(METRICS_URL, { cache: "no-store" });
+        if (res.status === 401 || res.status === 403) {
+          if (cancelled) return;
+          setData(null);
+          setDenied(true);
+          return;
+        }
         if (!res.ok) throw new Error(`status ${res.status}`);
         const json = (await res.json()) as CockpitData;
         if (cancelled) return;
         setData(json);
+        setDenied(false);
         setFetchFailed(false);
       } catch {
         if (cancelled) return;
@@ -94,50 +117,27 @@ export function CockpitView() {
       }
     };
 
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 3000);
-
-    // Live orders: ops:orders SSE room, fed from the order.events topic. Rows
-    // are shown only for real OrderPlaced events — no placeholders.
-    let evtSource: EventSource | null = null;
-    try {
-      evtSource = new EventSource(
-        `${GATEWAY_URL}/api/events/live?room=ops:orders`,
-      );
-      evtSource.onmessage = (e) => {
-        try {
-          const parsed = JSON.parse(e.data);
-          const d = parsed?.data;
-          if (parsed?.event !== "OrderPlaced" || !d?.order_id) return;
-          setLiveOrders((prev) => [
-            {
-              id: String(d.order_id),
-              user: typeof d.buyer === "string" ? d.buyer : null,
-              amount: typeof d.amount === "number" ? d.amount : null,
-              time: new Date().toLocaleTimeString(),
-            },
-            ...prev.slice(0, 7),
-          ]);
-        } catch {}
-      };
-    } catch {}
-
+    // The server already rendered `initial`; the first poll waits one interval.
+    if (initial === null) fetchMetrics();
+    const interval = setInterval(fetchMetrics, POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
-      if (evtSource) evtSource.close();
     };
-  }, []);
+  }, [initial]);
 
   const promUp = data?.prometheus_available !== false && data !== null;
   const services = data?.services ?? [];
   const traces = data?.recent_traces ?? [];
+  const orders = data?.recent_orders ?? [];
 
-  const banner = fetchFailed
-    ? "Không kết nối được gateway — chưa có số liệu."
-    : loaded && data && data.prometheus_available === false
-      ? "Prometheus không khả dụng — chưa có số liệu telemetry."
-      : null;
+  const banner = denied
+    ? "Phiên đăng nhập hết hạn hoặc tài khoản không có quyền admin."
+    : fetchFailed
+      ? "Không kết nối được gateway — chưa có số liệu."
+      : loaded && data && data.prometheus_available === false
+        ? "Prometheus không khả dụng — chưa có số liệu telemetry."
+        : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans">
@@ -235,7 +235,7 @@ export function CockpitView() {
 
         <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl shadow-lg">
           <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-            24h Completed Orders
+            24h Paid Orders
           </div>
           <div className="text-2xl font-black text-amber-400 mt-1 flex items-baseline gap-2">
             {count(data?.total_orders_24h)}{" "}
@@ -243,7 +243,7 @@ export function CockpitView() {
           </div>
           {typeof data?.total_orders_24h !== "number" && (
             <div className="text-xs text-slate-500 mt-1">
-              Chưa có dữ liệu (chưa có nguồn số liệu đơn hàng)
+              Chưa có dữ liệu (team-analytics chưa khả dụng)
             </div>
           )}
         </div>
@@ -258,7 +258,7 @@ export function CockpitView() {
           </div>
           {typeof data?.total_revenue_24h !== "number" && (
             <div className="text-xs text-slate-500 mt-1">
-              Chưa có dữ liệu (chưa có nguồn doanh thu)
+              Chưa có dữ liệu (team-analytics chưa khả dụng)
             </div>
           )}
         </div>
@@ -349,46 +349,44 @@ export function CockpitView() {
           </p>
         </div>
 
-        {/* Live Order Ticker */}
-        <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+        {/* Recent paid orders (team-analytics order_facts, polled) */}
+        <div
+          data-testid="cockpit_orders"
+          className="bg-slate-900/90 border border-slate-800 p-5 rounded-xl flex flex-col justify-between"
+        >
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                ⚡ Live Orders Stream (SSE)
+                ⚡ Đơn hàng gần đây
               </h2>
               <span className="text-xs bg-slate-800 text-slate-300 border border-slate-600 px-2 py-0.5 rounded font-bold">
-                ops:orders
+                order_facts
               </span>
             </div>
 
-            {liveOrders.length === 0 ? (
+            {orders.length === 0 ? (
               <p className="py-6 text-center text-xs text-slate-500">
-                Chưa có đơn hàng nào được ghi nhận.
+                {NO_DATA_TEXT}
               </p>
             ) : (
               <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                {liveOrders.map((o) => (
+                {orders.map((o) => (
                   <div
-                    key={o.id}
+                    key={o.order_id}
                     className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs hover:border-slate-700 transition-all"
                   >
                     <div>
                       <div className="font-semibold text-slate-200 flex items-center gap-1.5">
                         <span className="text-emerald-400 font-bold">
-                          🛒 {o.id}
-                        </span>
-                        <span className="text-xs text-slate-500 font-mono">
-                          ({o.time})
+                          🛒 {o.order_id}
                         </span>
                       </div>
-                      {o.user && (
-                        <div className="text-xs text-slate-400">{o.user}</div>
-                      )}
+                      <div className="text-xs text-slate-500 font-mono">
+                        {clock(o.paid_at)}
+                      </div>
                     </div>
                     <div className="text-right font-mono font-bold text-amber-400">
-                      {typeof o.amount === "number"
-                        ? `${o.amount.toLocaleString()} ₫`
-                        : NO_DATA}
+                      {count(o.total)} ₫
                     </div>
                   </div>
                 ))}
@@ -397,9 +395,9 @@ export function CockpitView() {
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-500 text-center">
-            Kafka Topic:{" "}
+            Nguồn:{" "}
             <code className="text-slate-400 font-mono">order.events</code> →
-            Edge SSE
+            team-analytics (làm mới mỗi {POLL_MS / 1000}s)
           </div>
         </div>
       </div>
@@ -410,11 +408,14 @@ export function CockpitView() {
           🕵️ Distributed Traces Inspection (W3C TraceContext)
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Mở Jaeger để xem span latency xuyên Gateway → gRPC Services → Kafka.
+          Trace gần đây của team-gateway (1 giờ qua) từ Jaeger.
         </p>
 
         {traces.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div
+            data-testid="cockpit_traces"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"
+          >
             {traces.map((t) => (
               <a
                 key={t.trace_id}
@@ -427,7 +428,10 @@ export function CockpitView() {
                   {t.trace_id}
                 </div>
                 <div className="mt-1">{t.operation}</div>
-                <div className="text-slate-500 font-mono">{t.duration}</div>
+                <div className="text-slate-500 font-mono">
+                  {t.span_count} spans · {num(t.duration_ms, 1, " ms")} ·{" "}
+                  {clock(t.started_at)}
+                </div>
               </a>
             ))}
           </div>
@@ -445,8 +449,7 @@ export function CockpitView() {
         </div>
         {traces.length === 0 && (
           <p className="mt-3 text-xs text-slate-500">
-            Chưa có danh sách trace gần đây (chưa có nguồn) — dùng liên kết
-            Jaeger ở trên.
+            {NO_DATA_TEXT} — dùng liên kết Jaeger ở trên.
           </p>
         )}
       </div>

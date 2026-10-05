@@ -9,7 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
+
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	analyticsv1 "github.com/buidangphuc/team-gateway/generated/platform/analytics/v1"
 )
 
 // ServiceHealth is one cockpit row. RPS is a plain number (an absent rate series
@@ -31,8 +36,9 @@ type ServiceHealth struct {
 // CockpitMetricsResponse is the shaped cockpit payload. PrometheusAvailable is
 // false when PROMETHEUS_URL is unset/unreachable — consumers must then render an
 // unavailable state rather than the (meaningless) zero RPS. TotalOrders24h and
-// TotalRevenue24h are always null until an order-domain source exists (nothing
-// is invented). RecentTraces is always empty: no trace source is wired.
+// TotalRevenue24h come from team-analytics' order_facts and are null when it is
+// unavailable (never 0-as-real); RecentOrders is empty then. RecentTraces comes
+// from the Jaeger query API and is empty when Jaeger is unset/unreachable.
 type CockpitMetricsResponse struct {
 	Timestamp           string          `json:"timestamp"`
 	PrometheusAvailable bool            `json:"prometheus_available"`
@@ -41,15 +47,27 @@ type CockpitMetricsResponse struct {
 	TotalOrders24h      *int            `json:"total_orders_24h"`
 	TotalRevenue24h     *int64          `json:"total_revenue_24h"`
 	Services            []ServiceHealth `json:"services"`
+	RecentOrders        []RecentOrder   `json:"recent_orders"`
 	RecentTraces        []TraceSummary  `json:"recent_traces"`
 }
 
+// RecentOrder is one paid order as reported by team-analytics (minor units, no
+// buyer PII). The gateway copies it; it computes nothing.
+type RecentOrder struct {
+	OrderID  string `json:"order_id"`
+	SellerID string `json:"seller_id"`
+	Total    int64  `json:"total"`
+	PaidAt   string `json:"paid_at"`
+}
+
+// TraceSummary is one recent gateway trace from Jaeger.
 type TraceSummary struct {
-	TraceID   string `json:"trace_id"`
-	Operation string `json:"operation"`
-	Duration  string `json:"duration"`
-	Status    string `json:"status"`
-	JaegerURL string `json:"jaeger_url"`
+	TraceID    string  `json:"trace_id"`
+	Operation  string  `json:"operation"`
+	SpanCount  int     `json:"span_count"`
+	DurationMs float64 `json:"duration_ms"`
+	StartedAt  string  `json:"started_at"`
+	JaegerURL  string  `json:"jaeger_url"`
 }
 
 // serviceRow describes one cockpit row: the friendly service name + port the HUD
@@ -95,46 +113,111 @@ const (
 	degradedThresholdErrRate = 0.05 // error-rate at/above which a row is DEGRADED
 )
 
-// CockpitHandler serves the Admin Cockpit HUD (GET /api/admin/metrics). It runs
-// a fixed, hardcoded PromQL set against Prometheus server-side and shapes the
-// results into CockpitMetricsResponse. It never proxies arbitrary PromQL and
-// never returns raw Prometheus payloads to the browser (Rule 2, thin proxy).
-type CockpitHandler struct {
-	promURL string
-	http    *http.Client
+// CockpitConfig carries the cockpit's fixed upstream endpoints. Each empty
+// value disables that source (its figures render as unavailable, never random).
+type CockpitConfig struct {
+	PrometheusURL  string // PROMETHEUS_URL
+	JaegerQueryURL string // JAEGER_QUERY_URL (server-side only)
+	JaegerUIURL    string // JAEGER_UI_URL (browser-facing base for trace links)
 }
 
-// NewCockpitHandler builds the handler. An empty promURL puts it in degraded
-// mode (zeroed values, never random) so the local stack renders without Prometheus.
-func NewCockpitHandler(promURL string) *CockpitHandler {
+const (
+	// adminScope is the scope identity grants the admin role; the cockpit needs it.
+	adminScope = "admin"
+	// Fixed cockpit queries: the browser supplies none of these.
+	ordersWindow = 24 * time.Hour
+	recentOrders = 5
+)
+
+// CockpitHandler serves the Admin Cockpit HUD (GET /api/admin/metrics). It
+// requires the `admin` scope (verified once by the edge), runs a fixed,
+// hardcoded PromQL set against Prometheus, asks team-analytics for the order
+// figures and Jaeger for recent traces, and shapes the results into
+// CockpitMetricsResponse. It never proxies arbitrary queries and never returns
+// raw upstream payloads to the browser (Rule 2, thin proxy).
+type CockpitHandler struct {
+	edge      *Edge
+	cfg       CockpitConfig
+	analytics analyticsv1.AnalyticsQueryServiceClient // nil → orders unavailable
+	http      *http.Client
+}
+
+// NewCockpitHandler builds the handler. Empty URLs / a nil analytics client put
+// the matching source in degraded mode so the local stack renders without it.
+func NewCockpitHandler(e *Edge, cfg CockpitConfig, analytics analyticsv1.AnalyticsQueryServiceClient) *CockpitHandler {
 	return &CockpitHandler{
-		promURL: promURL,
-		http:    &http.Client{Timeout: 2 * time.Second},
+		edge:      e,
+		cfg:       cfg,
+		analytics: analytics,
+		http:      &http.Client{Timeout: 2 * time.Second},
 	}
 }
 
-// ServeHTTP produces the cockpit response. Prometheus-sourced per-service RPS /
-// p95 / p99 / error-rate when reachable; a valid, zeroed, same-shape response
-// when PROMETHEUS_URL is empty or Prometheus is unreachable.
+// ServeHTTP gates on the admin scope, then produces the cockpit response. No
+// token → 401, a token without `admin` → 403, both before any upstream call.
 func (h *CockpitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	p, err := h.edge.resolve(r.Header)
+	if err != nil {
+		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+		writeCockpitError(w, http.StatusUnauthorized, "invalid or expired bearer token")
+		return
+	}
+	if p.ptype == "anonymous" {
+		w.Header().Set("WWW-Authenticate", "Bearer")
+		writeCockpitError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	if !hasScope(p.scopes, adminScope) {
+		writeCockpitError(w, http.StatusForbidden, "insufficient_scope: admin required")
+		return
+	}
 
-	resp := h.buildResponse(r.Context())
+	ctx := withPrincipal(r.Context(), p)
+	resp := h.buildResponse(ctx, r.Header)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsResponse {
+func writeCockpitError(w http.ResponseWriter, code int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+func hasScope(scopes []string, want string) bool {
+	for _, s := range scopes {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// buildResponse fans the three independent sources out concurrently; each one
+// degrades on its own.
+func (h *CockpitHandler) buildResponse(ctx context.Context, header http.Header) CockpitMetricsResponse {
 	resp := CockpitMetricsResponse{
-		Timestamp: time.Now().Format(time.RFC3339),
-		// TotalOrders24h / TotalRevenue24h stay nil (JSON null): team-order emits
-		// Kafka events, not a Prometheus counter, and the gateway must not compute
-		// business numbers (Rule 2). Nothing is invented until an order-domain
-		// source exists.
+		Timestamp:    time.Now().Format(time.RFC3339),
+		RecentOrders: []RecentOrder{},
 		RecentTraces: []TraceSummary{},
 	}
 
-	snap, ok := h.snapshot(ctx)
+	var (
+		wg   sync.WaitGroup
+		snap promSnapshot
+		ok   bool
+	)
+	wg.Add(3)
+	go func() { defer wg.Done(); snap, ok = h.snapshot(ctx) }()
+	go func() { defer wg.Done(); h.fillOrders(ctx, header, &resp) }()
+	go func() {
+		defer wg.Done()
+		if traces := h.recentTraces(ctx); traces != nil {
+			resp.RecentTraces = traces
+		}
+	}()
+	wg.Wait()
 	resp.PrometheusAvailable = ok
 
 	services := make([]ServiceHealth, 0, len(cockpitRoster))
@@ -180,6 +263,57 @@ func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsRespon
 		resp.AvgLatencyMs = &avg
 	}
 	return resp
+}
+
+// fillOrders copies team-analytics' admin RPC results into resp, forwarding the
+// caller's principal (analytics enforces `admin` again). On any failure the
+// matching fields stay null/empty — the gateway never computes or invents them.
+func (h *CockpitHandler) fillOrders(ctx context.Context, header http.Header, resp *CockpitMetricsResponse) {
+	if h.analytics == nil {
+		return
+	}
+	out := h.edge.outgoing(ctx, header)
+
+	var sum *analyticsv1.GetPlatformOrderSummaryResponse
+	var list *analyticsv1.ListRecentOrdersResponse
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_ = h.edge.callRead(out, func(c context.Context) error {
+			var e error
+			sum, e = h.analytics.GetPlatformOrderSummary(c, &analyticsv1.GetPlatformOrderSummaryRequest{
+				Window: durationpb.New(ordersWindow),
+			})
+			return e
+		})
+	}()
+	go func() {
+		defer wg.Done()
+		_ = h.edge.callRead(out, func(c context.Context) error {
+			var e error
+			list, e = h.analytics.ListRecentOrders(c, &analyticsv1.ListRecentOrdersRequest{Limit: recentOrders})
+			return e
+		})
+	}()
+	wg.Wait()
+
+	if sum != nil {
+		n := int(sum.GetOrderCount())
+		gmv := sum.GetGmv()
+		resp.TotalOrders24h = &n
+		resp.TotalRevenue24h = &gmv
+	}
+	if list != nil {
+		for _, o := range list.GetOrders() {
+			resp.RecentOrders = append(resp.RecentOrders, RecentOrder{
+				OrderID:  o.GetOrderId(),
+				SellerID: o.GetSellerId(),
+				Total:    o.GetTotal(),
+				PaidAt:   o.GetPaidAt().AsTime().UTC().Format(time.RFC3339),
+			})
+		}
+	}
 }
 
 // foldRow collapses a row's (possibly several) rpc_service series into one
@@ -235,7 +369,7 @@ type promSnapshot struct {
 // snapshot runs the fixed query set. Returns ok=false (→ degraded/zeroed shape,
 // never random) when PROMETHEUS_URL is unset or Prometheus is unreachable.
 func (h *CockpitHandler) snapshot(ctx context.Context) (promSnapshot, bool) {
-	if h.promURL == "" {
+	if h.cfg.PrometheusURL == "" {
 		return promSnapshot{}, false
 	}
 	rps, err := h.queryVector(ctx, fmt.Sprintf(
@@ -278,7 +412,7 @@ type promQueryResponse struct {
 // queryVector runs one instant PromQL query and returns rpc_service → sample.
 // Samples that are NaN/absent are skipped so idle series read as zero, not junk.
 func (h *CockpitHandler) queryVector(ctx context.Context, query string) (map[string]float64, error) {
-	endpoint := h.promURL + "/api/v1/query?query=" + url.QueryEscape(query)
+	endpoint := h.cfg.PrometheusURL + "/api/v1/query?query=" + url.QueryEscape(query)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
