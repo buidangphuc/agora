@@ -219,7 +219,8 @@ func hashToken(raw string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// EnsureAdmin seeds a default admin account if none exists (dev convenience).
+// EnsureAdmin creates the named admin account if it does not exist. Callers
+// supply the credentials (SEED_ADMIN_*); an existing account is left untouched.
 func (s *AuthService) EnsureAdmin(ctx context.Context, username, password string) error {
 	if _, err := s.repo.GetByUsername(ctx, username); err == nil {
 		return nil // already exists

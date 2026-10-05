@@ -21,6 +21,7 @@ type Settings struct {
 	Outbox        Outbox
 	JWT           JWT
 	Observability Observability
+	SeedAdmin     SeedAdmin
 }
 
 type Runtime struct {
@@ -73,6 +74,18 @@ type JWT struct {
 	TTLSeconds   int    `env:"JWT_TTL_SECONDS" default:"3600"`
 }
 
+// MinSeedAdminPasswordLen is the shortest SEED_ADMIN_PASSWORD accepted.
+const MinSeedAdminPasswordLen = 12
+
+// SeedAdmin opts in to creating a first admin account at startup. It is OFF by
+// default and the password has no default: the service never ships a built-in
+// credential. Deployment manifests must not enable it (see platform-gitops check).
+type SeedAdmin struct {
+	Enabled  bool   `env:"SEED_ADMIN_ENABLED" default:"false"`
+	Username string `env:"SEED_ADMIN_USERNAME" default:"admin"`
+	Password string `env:"SEED_ADMIN_PASSWORD" default:""`
+}
+
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
@@ -99,6 +112,14 @@ func (s *Settings) Validate() error {
 	}
 	if strings.TrimSpace(s.JWT.KID) == "" {
 		return errors.New("JWT_KID is required")
+	}
+	if s.SeedAdmin.Enabled {
+		if strings.TrimSpace(s.SeedAdmin.Username) == "" {
+			return errors.New("SEED_ADMIN_USERNAME must not be empty when SEED_ADMIN_ENABLED=true")
+		}
+		if len(s.SeedAdmin.Password) < MinSeedAdminPasswordLen {
+			return fmt.Errorf("SEED_ADMIN_PASSWORD is required and must be at least %d characters when SEED_ADMIN_ENABLED=true", MinSeedAdminPasswordLen)
+		}
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)

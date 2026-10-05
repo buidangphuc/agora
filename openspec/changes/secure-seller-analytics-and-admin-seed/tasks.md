@@ -5,8 +5,8 @@
 
 ## 2. Code — team-identity
 
-- [ ] 2.1 Config `SEED_ADMIN_ENABLED`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` with fail-fast validation; `main.go` seeds only when enabled; verify config tests (disabled, enabled without password, short password, valid) and the env-example sync test
-- [ ] 2.2 README: document the seed env and how to rotate or remove a pre-existing `admin` / `admin123` user; verify the README section exists
+- [x] 2.1 Config `SEED_ADMIN_ENABLED`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` with fail-fast validation; `main.go` seeds only when enabled; verify config tests (disabled, enabled without password, short password, valid) and the env-example sync test
+- [x] 2.2 README: document the seed env and how to rotate or remove a pre-existing `admin` / `admin123` user; verify the README section exists
 
 ## 3. Config — compose and gitops
 
