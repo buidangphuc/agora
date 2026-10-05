@@ -51,19 +51,26 @@ func (s *OutboxStore) ClaimPending(ctx context.Context, batch, lockSeconds int) 
 	if lockSeconds <= 0 {
 		return nil, errors.New("lockSeconds must be positive")
 	}
+	// UPDATE ... RETURNING does not preserve the subquery's ORDER BY, so the claimed
+	// rows are re-sorted in the outer SELECT; otherwise two events for the same
+	// aggregate in one batch could be produced newest-first.
 	const q = `
-		UPDATE outbox_events
-		SET locked_until = now() + ($2 * interval '1 second')
-		WHERE event_id IN (
-			SELECT event_id FROM outbox_events
-			WHERE status = 'pending'
-			  AND available_at <= now()
-			  AND (locked_until IS NULL OR locked_until <= now())
-			ORDER BY available_at, created_at
-			FOR UPDATE SKIP LOCKED
-			LIMIT $1
+		WITH claimed AS (
+			UPDATE outbox_events
+			SET locked_until = now() + ($2 * interval '1 second')
+			WHERE event_id IN (
+				SELECT event_id FROM outbox_events
+				WHERE status = 'pending'
+				  AND available_at <= now()
+				  AND (locked_until IS NULL OR locked_until <= now())
+				ORDER BY available_at, created_at
+				FOR UPDATE SKIP LOCKED
+				LIMIT $1
+			)
+			RETURNING event_id, aggregate_id, payload, attempts, available_at, created_at
 		)
-		RETURNING event_id, aggregate_id, payload, attempts`
+		SELECT event_id, aggregate_id, payload, attempts FROM claimed
+		ORDER BY available_at, created_at, event_id`
 	rows, err := s.pool.Query(ctx, q, batch, lockSeconds)
 	if err != nil {
 		return nil, fmt.Errorf("claim pending outbox rows: %w", err)
