@@ -47,8 +47,8 @@ type Server struct {
 
 // Kafka configures the analytics-events consumer (ADR-0002).
 type Kafka struct {
-	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+	Enabled        bool   `env:"KAFKA_ENABLED" default:"false"`
+	Brokers        string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
 	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
@@ -66,6 +66,12 @@ type Warehouse struct {
 	BigQueryProject string `env:"BIGQUERY_PROJECT" default:""`
 	BigQueryDataset string `env:"BIGQUERY_DATASET" default:"analytics"`
 	BigQueryTable   string `env:"BIGQUERY_TABLE" default:"tracking_events"`
+
+	// Offline-training export (DuckDB only): every ParquetExportIntervalSeconds the
+	// tracking_events table is written to ParquetExportPath (atomic replace) for
+	// platform-recsys. 0 disables it.
+	ParquetExportPath            string `env:"PARQUET_EXPORT_PATH" default:""`
+	ParquetExportIntervalSeconds int    `env:"PARQUET_EXPORT_INTERVAL_SECONDS" default:"0"`
 }
 
 // Batch bounds the accumulate→flush loop: flush on whichever comes first, batch
@@ -108,6 +114,9 @@ func (s *Settings) Validate() error {
 	}
 	if s.Batch.FlushIntervalSeconds < 0 {
 		return fmt.Errorf("BATCH_FLUSH_INTERVAL_SECONDS must be >= 0: %d", s.Batch.FlushIntervalSeconds)
+	}
+	if s.Warehouse.ParquetExportIntervalSeconds < 0 {
+		return fmt.Errorf("PARQUET_EXPORT_INTERVAL_SECONDS must be >= 0: %d", s.Warehouse.ParquetExportIntervalSeconds)
 	}
 	switch s.Warehouse.Driver {
 	case DriverDuckDB:

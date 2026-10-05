@@ -584,7 +584,11 @@ services:
       - KAFKA_CONSUMER_GROUP=team-analytics
       - KAFKA_ANALYTICS_TOPIC=analytics.events
       - WAREHOUSE_DRIVER=duckdb
-      - DUCKDB_PATH=/tmp/analytics.duckdb
+      # On the volume so tracking events survive restarts; the export feeds the
+      # platform-recsys training job (serve-trained-recs-locally).
+      - DUCKDB_PATH=/data/analytics.duckdb
+      - PARQUET_EXPORT_PATH=/data/tracking_events.parquet
+      - PARQUET_EXPORT_INTERVAL_SECONDS=300
     volumes:
       - analytics_data:/data
 
