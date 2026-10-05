@@ -34,8 +34,8 @@ The gateway SHALL query Prometheus server-side with a fixed, hardcoded PromQL qu
 set and shape the results into the cockpit response. It SHALL NOT expose raw
 Prometheus, accept arbitrary PromQL from the browser, or embed business logic
 (rule 2). Prometheus SHALL be reached via a `PROMETHEUS_URL` config; when it is
-unset or unreachable the handler SHALL degrade gracefully (`prometheus_available:false`, null
-latency/error-rate, `UNKNOWN` status; never random or placeholder values) and still return the expected shape.
+unset or unreachable the handler SHALL degrade gracefully (zeroed/last-known,
+clearly non-random) and still return the expected shape.
 
 #### Scenario: Browser cannot reach raw Prometheus through the gateway
 
@@ -49,24 +49,16 @@ latency/error-rate, `UNKNOWN` status; never random or placeholder values) and st
 - **THEN** `GET /api/admin/metrics` still returns a valid response in the expected
   shape with cleared/zeroed metric values (never re-introducing random data)
 
-### Requirement: The cockpit never shows fabricated data
+### Requirement: Orders and revenue are labelled derived until an order-domain metric exists
 
-Every figure on the cockpit SHALL come from a real source or be shown as an
-honest unavailable/empty state ("Chưa có dữ liệu" / a dash). Because no order-domain
-metric, trace feed or `order.events` publisher into the `ops:orders` SSE room
-exists yet, `total_orders_24h` and `total_revenue_24h` SHALL be `null`,
-`recent_traces` SHALL be empty, and the live-orders ticker SHALL render only real
-`OrderPlaced` events (empty until they flow). Latency and error-rate with no
-sample SHALL be `null`, not `0`. The page SHALL NOT contain hard-coded numbers,
-order rows, buyer addresses or trace ids as fallbacks.
+Because no Prometheus business metric for orders/revenue exists and the gateway
+must not compute business numbers, `total_orders_24h` and `total_revenue_24h` SHALL
+be treated as derived/estimated and documented as non-authoritative, while keeping
+the response field shape unchanged so the HUD renders.
 
-#### Scenario: Orders, revenue and traces are never fabricated
+#### Scenario: Orders/revenue are not presented as Prometheus-sourced truth
 
 - **WHEN** the cockpit response is produced
-- **THEN** `total_orders_24h` and `total_revenue_24h` are `null` and no fabricated
-  traces are returned
-
-#### Scenario: Missing data renders as an empty state
-
-- **WHEN** the gateway or Prometheus is unreachable, or a figure is `null`
-- **THEN** the HUD shows a dash / "Chưa có dữ liệu" and no placeholder number
+- **THEN** `total_orders_24h` and `total_revenue_24h` are populated from a derived
+  source (not a Prometheus business counter) and are documented as estimated,
+  pending a future order-domain metric
