@@ -399,30 +399,29 @@ features:
       login: admin
     acceptance:
       - Given PROMETHEUS_URL is unset or Prometheus is unreachable
-      - Then GET /api/admin/metrics still returns a valid response in the expected shape with cleared/zeroed metric values, never re-introducing random data
+      - Then GET /api/admin/metrics still returns a valid response in the expected shape with null/unavailable metric values, never random or placeholder data
     tags: [admin, observability]
     status: automated
     covered_by: "ops-cockpit/cockpit_metrics.feature::Prometheus unavailable degrades gracefully"
 
   - id: ops.cockpit-orders-revenue-derived
-    title: Orders/revenue are not presented as Prometheus-sourced truth
+    title: Orders, revenue and traces are never fabricated
     persona: admin
     priority: P2
     summary: >-
-      Because no Prometheus business metric for orders/revenue exists,
-      total_orders_24h and total_revenue_24h are populated from a derived source
-      (not a Prometheus business counter) and documented as estimated, pending a
-      future order-domain metric, while keeping the response field shape.
+      No order-domain or trace source exists yet, so total_orders_24h and
+      total_revenue_24h are null and recent_traces is empty; the HUD shows an
+      honest "Chưa có dữ liệu" state instead of placeholder figures.
     entry_route: /admin/cockpit
     services: [team-frontend, team-gateway]
     preconditions:
       login: admin
     acceptance:
       - When the cockpit response is produced
-      - Then total_orders_24h and total_revenue_24h are populated from a derived source (not a Prometheus business counter) and are documented as estimated, pending a future order-domain metric
+      - Then total_orders_24h and total_revenue_24h are null and no fabricated traces are returned
     tags: [admin, observability]
     status: automated
-    covered_by: "ops-cockpit/cockpit_metrics.feature::Orders/revenue are not presented as Prometheus-sourced truth"
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Orders, revenue and traces are never fabricated"
 
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
   # ---- ui_foundation.feature scenarios have run green against the local stack.

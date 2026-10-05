@@ -123,10 +123,15 @@ def shape_and_numeric(world: World) -> None:
         ), "metric value must be numeric and non-negative"
 
 
-@then("total_orders_24h and total_revenue_24h are present as derived, non-authoritative values")
-def orders_revenue_derived(world: World) -> None:
+@then("total_orders_24h and total_revenue_24h are null and no fabricated traces are returned")
+def orders_revenue_not_fabricated(world: World) -> None:
     metrics = world.state.extra["metrics"]
+    # No order-domain or trace source exists yet: the gateway must say "no data"
+    # (null / empty) rather than invent figures such as the old 1420 / 384500000.
     assert "total_orders_24h" in metrics, "total_orders_24h missing from response shape"
     assert "total_revenue_24h" in metrics, "total_revenue_24h missing from response shape"
-    assert isinstance(metrics["total_orders_24h"], Number)
-    assert isinstance(metrics["total_revenue_24h"], Number)
+    assert metrics["total_orders_24h"] is None, "orders must be null until a real source exists"
+    assert metrics["total_revenue_24h"] is None, "revenue must be null until a real source exists"
+    assert not metrics.get(
+        "recent_traces"
+    ), "recent_traces must be empty until a real source exists"
