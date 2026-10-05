@@ -130,6 +130,8 @@ def step_is_current(world: World, step: str) -> None:
 @when(parsers.parse('the buyer changes the delivery address to "{recipient}"'))
 def buyer_changes_address(world: World, recipient: str) -> None:
     checkout = _checkout(world)
+    # The opener is server-rendered; a click before hydration is dropped.
+    checkout.wait_until_interactive(checkout.change_address_button)
     checkout.change_address_button.click()
     expect(checkout.dialog).to_be_visible(timeout=timeouts.DEFAULT)
     checkout.address_option(recipient).check()
