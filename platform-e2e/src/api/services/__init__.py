@@ -2,6 +2,7 @@
 
 from .address_service import AddressService
 from .ai_service import AiService
+from .analytics_service import AnalyticsService
 from .auth_service import AuthService
 from .base_service import BaseService, GatewayError
 from .cart_service import CartService
@@ -19,6 +20,7 @@ __all__ = [
     "BaseService",
     "GatewayError",
     "AddressService",
+    "AnalyticsService",
     "AuthService",
     "ListingService",
     "SearchService",

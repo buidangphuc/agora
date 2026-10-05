@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -50,5 +51,62 @@ func TestValidateRequiresPrivateKeyAndKID(t *testing.T) {
 	s.JWT.KID = "dev-2026"
 	if err := s.Validate(); err != nil {
 		t.Fatalf("expected valid settings, got %v", err)
+	}
+}
+
+func seedSettings(enabled bool, user, pw string) *Settings {
+	s := &Settings{}
+	s.Server.Port = 50053
+	s.JWT.JWKSHTTPPort = 50063
+	s.JWT.TTLSeconds = 3600
+	s.JWT.PrivateKey = "pem"
+	s.JWT.KID = "k"
+	s.SeedAdmin = SeedAdmin{Enabled: enabled, Username: user, Password: pw}
+	return s
+}
+
+func TestSeedAdminValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		s       *Settings
+		wantErr string
+	}{
+		{"disabled ignores password", seedSettings(false, "admin", ""), ""},
+		{"enabled without password", seedSettings(true, "admin", ""), "SEED_ADMIN_PASSWORD"},
+		{"enabled short password", seedSettings(true, "admin", "elevenchars"), "SEED_ADMIN_PASSWORD"},
+		{"enabled empty username", seedSettings(true, " ", "a-long-enough-password"), "SEED_ADMIN_USERNAME"},
+		{"enabled valid", seedSettings(true, "admin", "twelve-chars"), ""},
+	}
+	for _, c := range cases {
+		err := c.s.Validate()
+		switch {
+		case c.wantErr == "" && err != nil:
+			t.Errorf("%s: unexpected error %v", c.name, err)
+		case c.wantErr != "" && (err == nil || !strings.Contains(err.Error(), c.wantErr)):
+			t.Errorf("%s: err = %v, want mention of %s", c.name, err, c.wantErr)
+		}
+	}
+}
+
+func TestSeedAdminDefaultsOff(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("JWT_PRIVATE_KEY", "pem")
+	t.Setenv("JWT_KID", "k")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.SeedAdmin.Enabled || s.SeedAdmin.Password != "" || s.SeedAdmin.Username != "admin" {
+		t.Errorf("seed defaults = %+v, want disabled, empty password, username admin", s.SeedAdmin)
+	}
+}
+
+func TestSeedAdminLoadFailsFast(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("JWT_PRIVATE_KEY", "pem")
+	t.Setenv("JWT_KID", "k")
+	t.Setenv("SEED_ADMIN_ENABLED", "true")
+	if _, err := LoadSettings(); err == nil || !strings.Contains(err.Error(), "SEED_ADMIN_PASSWORD") {
+		t.Fatalf("LoadSettings err = %v, want SEED_ADMIN_PASSWORD error", err)
 	}
 }

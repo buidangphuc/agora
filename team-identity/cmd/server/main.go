@@ -79,9 +79,12 @@ func run() error {
 	}
 	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second).WithSessions(sessionRepo)
 
-	// Seed a default admin (dev convenience).
-	if err := authSvc.EnsureAdmin(ctx, "admin", "admin123"); err != nil {
-		logger.Warn("seed admin", slog.Any("err", err))
+	// Seed the first admin only when explicitly enabled; the password comes from
+	// SEED_ADMIN_PASSWORD (validated in config) and is never logged.
+	if settings.SeedAdmin.Enabled {
+		if err := authSvc.EnsureAdmin(ctx, settings.SeedAdmin.Username, settings.SeedAdmin.Password); err != nil {
+			logger.Warn("seed admin", slog.String("username", settings.SeedAdmin.Username), slog.Any("err", err))
+		}
 	}
 
 	srv := grpcserver.Build(

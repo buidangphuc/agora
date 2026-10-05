@@ -204,6 +204,11 @@ services:
       - OUTBOX_BATCH_SIZE=100
       - OUTBOX_CLAIM_LOCK_SECONDS=60
       - OUTBOX_MAX_ATTEMPTS=10
+      # Local-only first-admin seed (dev password; override via SEED_ADMIN_PASSWORD).
+      # Deployment manifests must NOT enable this (platform-gitops check).
+      - SEED_ADMIN_ENABLED=true
+      - SEED_ADMIN_USERNAME=admin
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin-dev-password-123}
 
   team-domain:
     build:

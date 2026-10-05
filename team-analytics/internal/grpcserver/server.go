@@ -20,7 +20,7 @@ import (
 // Health service (+ optional reflection) and, when queryServer is non-nil, the
 // read-only AnalyticsQueryService. A unary interceptor attaches the gateway-forwarded
 // Principal (ADR-0003) so admin-scoped RPCs can call interceptor.RequireScopes; the
-// seller RPCs stay scoped by their explicit seller_id argument.
+// seller RPCs enforce ownership-or-admin via requireSellerAccess (internal/query).
 func Build(s *config.Settings, healthSrv *health.Server, queryServer analyticsv1.AnalyticsQueryServiceServer) *grpc.Server {
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.UnaryServerInterceptor()))
 
