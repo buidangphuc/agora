@@ -26,6 +26,12 @@ function gateway() {
   return makeClients(getToken());
 }
 
+// Public reads: retry once without the bearer if the gateway rejects a stale
+// session (it answers Unauthenticated to any invalid token, even on public RPCs).
+function publicGateway() {
+  return makeClients(getToken(), { anonymousFallback: true });
+}
+
 export interface ViewFacetBucket {
   key: string;
   count: number;
@@ -106,7 +112,7 @@ export async function searchListings(
     SEARCH_MAX_PAGE,
     Math.max(1, Math.floor(opts.page ?? 1) || 1),
   );
-  const search = gateway().search;
+  const search = publicGateway().search;
   const request = {
     query,
     filters,

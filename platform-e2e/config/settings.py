@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # `checkout-enabled` per scenario (the JS provider uses :8080, not gRPC :9000).
     flipt_url: str = Field(default="http://localhost:8080")
 
+    # Fault injection (discovery.search-states): compose container_name of team-search,
+    # stopped for the "Backend failure" scenario and restarted in teardown.
+    search_container: str = Field(default="team-search-svc")
+
     # Timeouts (ms) — keep close to Playwright defaults; do not hardcode long sleeps.
     action_timeout_ms: int = Field(default=10_000)
     navigation_timeout_ms: int = Field(default=30_000)
@@ -76,6 +80,7 @@ def get_settings() -> Settings:
         kafka_brokers=os.getenv("KAFKA_BROKERS", "localhost:9092"),
         kafka_analytics_topic=os.getenv("KAFKA_ANALYTICS_TOPIC", "analytics.events"),
         flipt_url=os.getenv("FLIPT_URL", "http://localhost:8080"),
+        search_container=os.getenv("SEARCH_CONTAINER", "team-search-svc"),
     )
 
 

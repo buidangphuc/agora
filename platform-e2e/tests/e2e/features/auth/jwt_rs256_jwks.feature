@@ -32,8 +32,8 @@ Feature: RS256 JWT signing and JWKS verification
   Scenario: Gateway rejects a token not signed by a current JWKS key
     Given a bearer token whose kid is absent from the JWKS
     When a request reaches the gateway with that token
-    Then the gateway does not accept it as an authenticated principal
-    And the caller is treated as anonymous with PUBLIC_SCOPES
+    Then the gateway answers Unauthenticated on public and protected routes alike
+    And the request is not forwarded upstream
 
   Scenario: A token signed by a rotated-in key verifies
     Given team-identity has published a new signing key with a new kid alongside the previous key

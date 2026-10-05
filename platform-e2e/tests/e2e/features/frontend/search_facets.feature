@@ -56,10 +56,13 @@ Feature: Faceted search filters
     When the buyer opens the search results for that keyword
     Then an Empty state offers a clear-filters action linking to the search page
 
-  # Server-side fetches cannot be intercepted from the browser: an invalid session cookie is
-  # the deterministic way to make the frontend's SearchListings call fail.
+  # Server-side fetches cannot be intercepted from the browser, and an invalid session is no
+  # longer a fault: the gateway answers 401 to a bad bearer and the frontend drops stale cookies
+  # and retries public reads anonymously. The failure is therefore real: team-search is stopped
+  # for the scenario (restored afterwards), so the gateway's upstream call fails with Unavailable.
+  @destructive
   Scenario: Backend failure is not a silent empty
     Given a keyword that matches no listing
-    And the search backend rejects the visitor's session
+    And the search service is stopped
     When the buyer opens the search results for that keyword
     Then an error Alert with a retry link is shown instead of an empty result

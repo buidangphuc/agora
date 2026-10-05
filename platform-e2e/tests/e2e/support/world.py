@@ -8,6 +8,8 @@ by a pytest fixture.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from playwright.sync_api import BrowserContext, Page
 
 from config.settings import get_settings
@@ -29,6 +31,7 @@ class World:
         self.service_factory = ServiceFactory()
         self.state = ScenarioState()
         self._current_page: BasePage | None = None
+        self._cleanups: list[Callable[[], None]] = []
 
     # ── Page navigation / tracking ───────────────────────────────────────
     def navigate_to(self, name: PageName | str, **params: str) -> BasePage:
@@ -71,5 +74,14 @@ class World:
         except Exception:  # noqa: BLE001 - best-effort; never fail setup on this
             pass
 
+    def add_cleanup(self, fn: Callable[[], None]) -> None:
+        """Register teardown (runs LIFO in `cleanup`, even if the scenario failed)."""
+        self._cleanups.append(fn)
+
     def cleanup(self) -> None:
+        while self._cleanups:
+            try:
+                self._cleanups.pop()()
+            except Exception as exc:  # noqa: BLE001 - keep tearing down the rest
+                self.logger.info(f"cleanup failed: {exc}")
         self.service_factory.close()

@@ -8,6 +8,12 @@ function gateway() {
   return makeClients(getToken());
 }
 
+// Public reads: retry once without the bearer if the gateway rejects a stale
+// session (it answers Unauthenticated to any invalid token, even on public RPCs).
+function publicGateway() {
+  return makeClients(getToken(), { anonymousFallback: true });
+}
+
 export interface ViewReview {
   id: string;
   listingId: string;
@@ -95,7 +101,9 @@ export async function getShopRatingSummary(
   sellerId: string,
 ): Promise<ViewShopRatingSummary> {
   try {
-    const res = await gateway().engagement.getShopRatingSummary({ sellerId });
+    const res = await publicGateway().engagement.getShopRatingSummary({
+      sellerId,
+    });
     const b = res.breakdown;
     return {
       sellerId: res.sellerId || sellerId,
@@ -124,7 +132,7 @@ export async function listReviews(
   ratingFilter = 0,
 ): Promise<ViewReview[]> {
   try {
-    const res = await gateway().engagement.listReviews({
+    const res = await publicGateway().engagement.listReviews({
       listingId,
       ratingFilter,
     });
@@ -138,7 +146,7 @@ export async function getListingRatingSummary(
   listingId: string,
 ): Promise<ViewRatingSummary> {
   try {
-    const res = await gateway().engagement.getListingRatingSummary({
+    const res = await publicGateway().engagement.getListingRatingSummary({
       listingId,
     });
     const b = res.breakdown;

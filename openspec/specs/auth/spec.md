@@ -44,8 +44,9 @@ material (never the private key).
 reading the token's `kid`, and (c) matching it to a public key in a JWKS keyset it fetches from
 `team-identity` (`JWKS_URL`) and caches. The gateway SHALL hold no signing secret; the shared
 `JWT_SECRET` verification path SHALL be removed. A token that verifies resolves to its
-`Principal`; a token that does not verify resolves to the anonymous principal with `PUBLIC_SCOPES`
-(unchanged edge behavior). The forwarded `x-principal-{id,type,scopes}` metadata is unchanged.
+`Principal`; a request with no token resolves to the anonymous principal with `PUBLIC_SCOPES`; a
+token that is present but does not verify SHALL be rejected with `Unauthenticated` (HTTP 401) on
+every route, public ones included (RFC 6750 §3.1), and never downgraded to anonymous. The forwarded `x-principal-{id,type,scopes}` metadata is unchanged.
 
 #### Scenario: A valid RS256 token from identity is accepted
 
@@ -58,8 +59,14 @@ reading the token's `kid`, and (c) matching it to a public key in a JWKS keyset 
 - **WHEN** a request reaches the gateway with a bearer token whose signature does not match any
   public key currently in the JWKS (e.g. a token whose `kid` is absent from the JWKS, or one signed
   by a key the JWKS does not publish)
-- **THEN** the gateway does not accept it as an authenticated principal and treats the caller as
-  anonymous with `PUBLIC_SCOPES` (the request is not forwarded with a spoofed identity)
+- **THEN** the gateway answers `Unauthenticated` (401, with a `WWW-Authenticate: Bearer
+  error="invalid_token"` challenge) on public and protected routes alike, and the request is not
+  forwarded upstream; the same holds for a malformed, expired or garbage token
+
+#### Scenario: A request without a token is anonymous
+
+- **WHEN** a request reaches the gateway with no `Authorization` bearer
+- **THEN** it resolves to the anonymous principal with `PUBLIC_SCOPES`
 
 ### Requirement: Gateway honors key rotation via multiple JWKS keys
 

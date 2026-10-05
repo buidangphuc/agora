@@ -25,16 +25,25 @@ import { PaymentService } from "@/generated/platform/payment/v1/payment_connect.
 import { RecommendationService } from "@/generated/platform/recommendation/v1/recommendation_connect.js";
 import { SearchService } from "@/generated/platform/search/v1/search_connect.js";
 
-import { authInterceptor } from "./auth.js";
+import { anonymousFallbackInterceptor, authInterceptor } from "./auth.js";
 import { gatewayConfig } from "./config.js";
 
 // makeClients builds the typed gateway clients, attaching `token` as the bearer
-// (omit for anonymous calls — the gateway grants public scopes).
-export function makeClients(token?: string) {
+// (omit for anonymous calls — the gateway grants public scopes). The gateway
+// rejects a bearer it cannot verify with Unauthenticated, even on public RPCs;
+// public read call-sites pass `{ anonymousFallback: true }` to retry once without
+// the bearer, so a stale session degrades to anonymous browsing.
+export function makeClients(
+  token?: string,
+  opts: { anonymousFallback?: boolean } = {},
+) {
   const transport = createConnectTransport({
     baseUrl: gatewayConfig.gatewayUrl,
     httpVersion: "1.1",
-    interceptors: [authInterceptor({ token })],
+    interceptors: [
+      authInterceptor({ token }),
+      ...(opts.anonymousFallback ? [anonymousFallbackInterceptor()] : []),
+    ],
   });
   return {
     search: createPromiseClient(SearchService, transport),

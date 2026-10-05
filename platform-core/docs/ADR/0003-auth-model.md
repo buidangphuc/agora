@@ -31,8 +31,12 @@ static shared-secret bearer; this ADR now specifies real login + authorization.
   upstream services as trusted metadata (`x-principal-id`, `x-principal-type`,
   `x-principal-scopes`). It builds that metadata fresh from verified claims and
   never forwards client-supplied `x-principal-*`, so it can't be spoofed. No
-  token / an invalid token → an **anonymous** Principal with `PUBLIC_SCOPES`
-  (browse + search), so read paths stay public and writes require a role.
+  token → an **anonymous** Principal with `PUBLIC_SCOPES` (browse + search), so
+  read paths stay public and writes require a role. A token that is **present
+  but invalid** (malformed, bad signature, unknown `kid`, expired) is answered
+  `Unauthenticated` (HTTP 401, `WWW-Authenticate: Bearer error="invalid_token"`)
+  on every route, public ones included (RFC 6750 §3.1) — it is never silently
+  downgraded to anonymous. Clients must not send a token they know is expired.
 - **Services stay mechanism-agnostic.** team-domain / team-search read the
   forwarded Principal from metadata and enforce `RequireScopes` — no JWT library,
   no credential parsing. This is the ADR's "services only ever see a resolved
