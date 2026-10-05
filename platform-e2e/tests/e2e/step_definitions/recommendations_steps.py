@@ -89,6 +89,43 @@ def _probe_gateway(world: World, *, seed_listing_id: str = "", context: str) -> 
         world.state.extra["recs_error"] = exc
 
 
+# ── Gateway routing ────────────────────────────────────────────────────────
+@when("the frontend calls Recommend through the gateway with the caller's session")
+def call_recommend_with_session(world: World) -> None:
+    # The buyer token set by "a buyer is logged in" is the session the frontend's
+    # server components use; the call goes through the same gateway route.
+    try:
+        world.state.extra["recs_response"] = world.service_factory.recommendation.recommend(
+            context=CONTEXT_HOMEPAGE, limit=10
+        )
+        world.state.extra["recs_error"] = None
+    except GatewayError as exc:
+        world.state.extra["recs_response"] = {}
+        world.state.extra["recs_error"] = exc
+
+
+@then("the gateway forwards the request to team-ai over gRPC with the x-principal-* metadata")
+def gateway_forwards_with_principal(world: World) -> None:
+    # team-ai answers only for a forwarded principal holding listing.read (no
+    # principal → UNAUTHENTICATED, no scope → PERMISSION_DENIED), so a successful
+    # response proves the gateway forwarded the caller's x-principal-* metadata.
+    err = world.state.extra["recs_error"]
+    assert err is None, f"gateway Recommend failed: {err}"
+    assert world.state.extra["recs_response"].get("items"), "team-ai returned no items"
+
+
+@then("the gateway returns team-ai's product list unchanged with no gateway-side business logic")
+def gateway_returns_list_unchanged(world: World) -> None:
+    res = world.state.extra["recs_response"]
+    items = res["items"]
+    # team-ai's own ordering survives the hop: ranks 1..n in order, scores best-first,
+    # and the model_version is the trained generation team-ai stamped.
+    assert [it.get("rank") for it in items] == list(range(1, len(items) + 1)), items
+    scores = [float(it.get("score", 0.0)) for it in items]
+    assert scores == sorted(scores, reverse=True), scores
+    assert res.get("modelVersion", "").startswith("als-"), res.get("modelVersion")
+
+
 # ── UI assertions ──────────────────────────────────────────────────────────
 @then('the "Gợi ý cho bạn" recommendations row is populated with product cards')
 def row_populated(world: World) -> None:

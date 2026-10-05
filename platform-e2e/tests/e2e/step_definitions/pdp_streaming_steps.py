@@ -97,6 +97,9 @@ def skeleton_gone_cards_shown(world: World) -> None:
 
 @then("a pdp_similar_items impression beacon was sent for position 1")
 def similar_items_impression_sent(world: World) -> None:
+    # Impressions are viewability-gated and the row sits below the fold, so bring
+    # the first card into view (as the home-row journey step does).
+    _detail(world).recommendations.cards.first.scroll_into_view_if_needed()
     beacons: list[dict] = world.state.extra["beacons"]
     deadline = time.monotonic() + _FLUSH_WAIT_S + 6
     while time.monotonic() < deadline:

@@ -304,8 +304,10 @@ features:
       the gateway using the caller's session. The RPC returns listing ids +
       scores only; the frontend hydrates each id into a product card through the
       existing gateway listing client. Server-only — the browser never calls
-      team-ai directly (Rule 1). When the service is UNAVAILABLE
-      (RECS_ENABLED=false) the row is hidden and the page still renders.
+      team-ai directly (Rule 1). On the local stack team-ai serves the ALS model
+      the platform-recsys job trains from the exported tracking events
+      (serve-trained-recs-locally). When the service is UNAVAILABLE the row is
+      hidden and the page still renders.
     entry_route: /
     related_routes: ["/listing/{id}"]
     services: [team-ai, team-gateway, team-frontend]
@@ -322,7 +324,7 @@ features:
       - And when the recommendation service returns UNAVAILABLE the page still renders and the row is hidden
     tags: [buyer, recommendations]
     status: automated
-    covered_by: "recommendations/recommendations.feature::Recommendations are unavailable without breaking the page"
+    covered_by: "recommendations/recommendations.feature::Logged-in buyer sees a recommendations row sourced from team-ai"
 
   - id: ops.cockpit-reflects-activity
     title: Cockpit reflects real request activity
