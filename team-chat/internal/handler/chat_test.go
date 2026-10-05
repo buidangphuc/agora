@@ -180,6 +180,46 @@ func TestChatHandler_SendMessageAndEventEmission(t *testing.T) {
 	}
 }
 
+// The published event carries the recipient (the participant who did not send),
+// while the RPC response stays unchanged.
+func TestChatHandler_SendMessageEventCarriesRecipient(t *testing.T) {
+	h, _, publisher, _ := setupTestHandler()
+	buyerCtx := contextWithUser("buyer-1")
+	sellerCtx := contextWithUser("seller-1")
+	res, err := h.GetOrCreateThread(buyerCtx, &chatv1.GetOrCreateThreadRequest{SellerId: "seller-1", ListingId: "listing-1"})
+	if err != nil {
+		t.Fatalf("create thread: %v", err)
+	}
+	threadID := res.GetThread().GetId()
+
+	buyerRes, err := h.SendMessage(buyerCtx, &chatv1.SendMessageRequest{ThreadId: threadID, Content: "hỏi"})
+	if err != nil {
+		t.Fatalf("buyer send: %v", err)
+	}
+	sellerRes, err := h.SendMessage(sellerCtx, &chatv1.SendMessageRequest{ThreadId: threadID, Content: "đáp"})
+	if err != nil {
+		t.Fatalf("seller send: %v", err)
+	}
+
+	publisher.mu.Lock()
+	defer publisher.mu.Unlock()
+	if len(publisher.publishedMsgs) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(publisher.publishedMsgs))
+	}
+	if got := publisher.publishedMsgs[0].GetRecipientId(); got != "seller-1" {
+		t.Errorf("buyer message recipient = %q, want seller-1", got)
+	}
+	if got := publisher.publishedMsgs[1].GetRecipientId(); got != "buyer-1" {
+		t.Errorf("seller message recipient = %q, want buyer-1", got)
+	}
+	if publisher.publishedMsgs[1].GetSenderId() != "seller-1" {
+		t.Errorf("event lost sender id")
+	}
+	if buyerRes.GetMessage().GetRecipientId() != "" || sellerRes.GetMessage().GetRecipientId() != "" {
+		t.Errorf("RPC responses must not carry recipient_id")
+	}
+}
+
 func TestChatHandler_ListThreads(t *testing.T) {
 	h, _, _, _ := setupTestHandler()
 	buyerCtx := contextWithUser("buyer-1")

@@ -89,3 +89,30 @@ func TestOrderFactsFromNonOrderEnvelope(t *testing.T) {
 	assert.False(t, ok)
 	assert.Nil(t, records)
 }
+
+// OrderShipped shares order.events with OrderPaidEvent; the order-facts decoder
+// must skip it without error so the consumer's offset advances.
+func TestOrderFactsSkipsOrderShipped(t *testing.T) {
+	payload, err := proto.Marshal(&orderv1.OrderShipped{
+		OrderId: "order-1", BuyerId: "buyer-1", SellerId: "seller-1",
+		Carrier: "GHN", TrackingCode: "GHN-1", ShippedAt: timestamppb.Now(),
+	})
+	require.NoError(t, err)
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId: "evt-shipped",
+		Type:    "platform.order.v1.OrderShipped",
+		Payload: payload,
+	})
+	require.NoError(t, err)
+
+	records, ok, err := consumer.OrderFactsFromEnvelope(value)
+	require.NoError(t, err)
+	assert.False(t, ok)
+	assert.Nil(t, records)
+
+	// The tracking decoder must not treat it as an error either (a poison record
+	// is only logged when BOTH decoders fail).
+	_, trOK, trErr := consumer.RecordFromEnvelope(value)
+	assert.NoError(t, trErr)
+	assert.False(t, trOK)
+}

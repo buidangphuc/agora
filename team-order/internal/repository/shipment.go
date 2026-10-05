@@ -46,6 +46,45 @@ type Shipment struct {
 	Checkpoints  []ShipmentCheckpoint
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+
+	// BuyerID and SellerID are NOT persisted on the shipment row. The caller fills
+	// them from the order so the OrderShipped outbox row can name the buyer to notify.
+	BuyerID  string
+	SellerID string
+}
+
+// ShipmentOutboxBuilder turns a shipment that is being created into the outbox row
+// to persist in the SAME transaction (ADR-0013). Injected by internal/events so the
+// repository stays free of an events dependency (same shape as PaidOutboxBuilder).
+type ShipmentOutboxBuilder func(s Shipment) (OutboxRow, error)
+
+// ShipmentRepoOption customizes a shipment repository.
+type ShipmentRepoOption func(*shipmentRepoConfig)
+
+type shipmentRepoConfig struct {
+	shippedOutbox ShipmentOutboxBuilder
+	outbox        OutboxRepository // in-memory repo only
+}
+
+// WithShipmentOutbox makes every CreateShipment write an outbox row built by b in
+// the SAME transaction as the shipment insert. If building or enqueueing the row
+// fails, the shipment is rolled back too.
+func WithShipmentOutbox(b ShipmentOutboxBuilder) ShipmentRepoOption {
+	return func(c *shipmentRepoConfig) { c.shippedOutbox = b }
+}
+
+// WithInMemoryShipmentOutbox sets the outbox store the in-memory repository writes
+// to, atomically with the shipment. Ignored by the Postgres repository.
+func WithInMemoryShipmentOutbox(o OutboxRepository) ShipmentRepoOption {
+	return func(c *shipmentRepoConfig) { c.outbox = o }
+}
+
+func newShipmentRepoConfig(opts []ShipmentRepoOption) shipmentRepoConfig {
+	var c shipmentRepoConfig
+	for _, o := range opts {
+		o(&c)
+	}
+	return c
 }
 
 type ShipmentRepository interface {
@@ -58,11 +97,13 @@ type ShipmentRepository interface {
 }
 
 type PostgresShipmentRepository struct {
-	pool *pgxpool.Pool
+	pool          *pgxpool.Pool
+	shippedOutbox ShipmentOutboxBuilder
 }
 
-func NewPostgresShipmentRepository(pool *pgxpool.Pool) *PostgresShipmentRepository {
-	return &PostgresShipmentRepository{pool: pool}
+func NewPostgresShipmentRepository(pool *pgxpool.Pool, opts ...ShipmentRepoOption) *PostgresShipmentRepository {
+	cfg := newShipmentRepoConfig(opts)
+	return &PostgresShipmentRepository{pool: pool, shippedOutbox: cfg.shippedOutbox}
 }
 
 const shipmentColumns = `id, order_id, carrier, tracking_code, status, created_at, updated_at`
@@ -133,6 +174,18 @@ func (r *PostgresShipmentRepository) CreateShipment(ctx context.Context, s Shipm
 			VALUES ($1, $2, $3, $4, $5, $6)`
 		if _, err := tx.Exec(ctx, qCp, cp.ID, cp.ShipmentID, cp.Timestamp, cp.Location, cp.Description, cp.CreatedAt); err != nil {
 			return Shipment{}, fmt.Errorf("insert checkpoint: %w", err)
+		}
+	}
+
+	// The OrderShipped outbox row commits with the shipment (ADR-0013); a build or
+	// enqueue failure rolls the shipment back too.
+	if r.shippedOutbox != nil {
+		row, err := r.shippedOutbox(s)
+		if err != nil {
+			return Shipment{}, fmt.Errorf("build order shipped outbox row: %w", err)
+		}
+		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			return Shipment{}, err
 		}
 	}
 
@@ -229,19 +282,24 @@ func (r *PostgresShipmentRepository) UpdateShipmentStatus(ctx context.Context, i
 
 // InMemoryShipmentRepository
 type InMemoryShipmentRepository struct {
-	mu          sync.RWMutex
-	shipments   map[string]Shipment
-	checkpoints map[string][]ShipmentCheckpoint
+	mu            sync.RWMutex
+	shipments     map[string]Shipment
+	checkpoints   map[string][]ShipmentCheckpoint
+	shippedOutbox ShipmentOutboxBuilder
+	outbox        OutboxRepository
 }
 
-func NewInMemoryShipmentRepository() *InMemoryShipmentRepository {
+func NewInMemoryShipmentRepository(opts ...ShipmentRepoOption) *InMemoryShipmentRepository {
+	cfg := newShipmentRepoConfig(opts)
 	return &InMemoryShipmentRepository{
-		shipments:   make(map[string]Shipment),
-		checkpoints: make(map[string][]ShipmentCheckpoint),
+		shipments:     make(map[string]Shipment),
+		checkpoints:   make(map[string][]ShipmentCheckpoint),
+		shippedOutbox: cfg.shippedOutbox,
+		outbox:        cfg.outbox,
 	}
 }
 
-func (r *InMemoryShipmentRepository) CreateShipment(_ context.Context, s Shipment) (Shipment, error) {
+func (r *InMemoryShipmentRepository) CreateShipment(ctx context.Context, s Shipment) (Shipment, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -264,6 +322,18 @@ func (r *InMemoryShipmentRepository) CreateShipment(_ context.Context, s Shipmen
 			cp.Timestamp = time.Now()
 		}
 		cp.CreatedAt = time.Now()
+	}
+
+	// Mirror the Postgres repo: shipment and outbox row are one unit. Nothing is
+	// stored unless the row was enqueued (the in-memory analogue of a rollback).
+	if r.shippedOutbox != nil && r.outbox != nil {
+		row, err := r.shippedOutbox(s)
+		if err != nil {
+			return Shipment{}, fmt.Errorf("build order shipped outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return Shipment{}, err
+		}
 	}
 
 	r.shipments[s.ID] = s

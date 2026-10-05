@@ -452,12 +452,13 @@ def verify_probabilistic_forecast_quantiles(world: World) -> None:
 #     SHIPPED one qualifies (service/order.go CreateReturnRequest);
 #   * UpdateReturnStatus only changes the return's own status - it does not
 #     call team-payment, so approval starts no refund;
-#   * team-chat only publishes chat.events to the SSE edge, and team-notification
-#     only consumes listing.events, so neither a chat reply nor a shipment
-#     creates a notification (those are the xfail scenarios in the feature).
+#   * team-chat publishes each message to chat.events (with the other participant
+#     as recipient_id) and CreateShipment writes OrderShipped to order.events;
+#     team-notification consumes both and creates the CHAT / ORDER notification
+#     for that one user, unless they switched that type off.
 # ============================================================================
 
-_NOTIFICATION_POLL_SECONDS = 10
+_NOTIFICATION_POLL_SECONDS = 30
 
 
 def _buyer(world: World):
@@ -561,29 +562,82 @@ def buyer_sees_seller_reply(world: World) -> None:
     assert int(thread.get("unreadCountBuyer", 0)) >= 1, f"buyer sees no unread: {thread}"
 
 
-def _poll_buyer_notification(world: World, kind: str, needle: str) -> list[dict]:
-    """Bounded poll of the buyer's ListNotifications for a `kind` notification
-    mentioning `needle` in its title, body or link."""
-    _act_as(world, _buyer(world))
+def _find_notifications(world: World, user, kind: str, needle: str) -> list[dict]:
+    """The `user`'s notifications of `kind` mentioning `needle` in title, body or link."""
+    _act_as(world, user)
+    return [
+        n
+        for n in world.service_factory.notification.list_notifications()
+        if n.get("type") == kind
+        and needle in f"{n.get('title', '')} {n.get('body', '')} {n.get('linkUrl', '')}"
+    ]
+
+
+def _poll_notification(world: World, user, kind: str, needle: str) -> list[dict]:
+    """Bounded poll for a `kind` notification of `user` mentioning `needle`."""
     deadline = time.time() + _NOTIFICATION_POLL_SECONDS
     while True:
-        found = [
-            n
-            for n in world.service_factory.notification.list_notifications()
-            if n.get("type") == kind
-            and needle in f"{n.get('title', '')} {n.get('body', '')} {n.get('linkUrl', '')}"
-        ]
+        found = _find_notifications(world, user, kind, needle)
         if found or time.time() >= deadline:
             return found
         time.sleep(2)
 
 
+def _poll_buyer_notification(world: World, kind: str, needle: str) -> list[dict]:
+    return _poll_notification(world, _buyer(world), kind, needle)
+
+
 @then("the buyer has a chat notification for the seller's reply")
 def buyer_has_chat_notification(world: World) -> None:
-    found = _poll_buyer_notification(
-        world, "NOTIFICATION_TYPE_CHAT", world.state.extra["chat_reply"]
-    )
+    thread_id = world.state.extra["chat_thread_id"]
+    found = _poll_buyer_notification(world, "NOTIFICATION_TYPE_CHAT", f"/chat/{thread_id}")
     assert found, "no NOTIFICATION_TYPE_CHAT notification for the buyer after the seller's reply"
+    assert len(found) == 1, f"expected exactly one chat notification for the buyer: {found}"
+    assert found[0].get("body") == world.state.extra["chat_reply"], found[0]
+
+
+@then("the seller has no chat notification for their own reply")
+def seller_has_no_chat_notification_for_own_reply(world: World) -> None:
+    # The buyer's inquiry notifies the seller; the seller's own reply must not.
+    found = _find_notifications(
+        world, _seller(world), "NOTIFICATION_TYPE_CHAT", world.state.extra["chat_reply"]
+    )
+    assert not found, f"the seller was notified of their own message: {found}"
+
+
+@given("the buyer has disabled chat notifications")
+def buyer_disabled_chat_notifications(world: World) -> None:
+    _act_as(world, _buyer(world))
+    prefs = world.service_factory.notification.set_type_enabled("NOTIFICATION_TYPE_CHAT", False)
+    assert prefs.get("typeEnabled", {}).get("NOTIFICATION_TYPE_CHAT") is False, prefs
+
+
+@when("the buyer sends a follow-up chat message")
+def buyer_sends_follow_up_chat_message(world: World) -> None:
+    text = f"Cảm ơn shop, mình chờ nhận hàng nhé! ({uuid.uuid4().hex[:6]})"
+    _act_as(world, _buyer(world))
+    msg = world.service_factory.chat.send_message(world.state.extra["chat_thread_id"], text)
+    assert msg.get("id"), f"SendMessage returned no message: {msg}"
+    world.state.extra["chat_follow_up"] = text
+
+
+@then("the seller has a chat notification for the follow-up")
+def seller_has_chat_notification_for_follow_up(world: World) -> None:
+    found = _poll_notification(
+        world, _seller(world), "NOTIFICATION_TYPE_CHAT", world.state.extra["chat_follow_up"]
+    )
+    assert found, "the seller got no chat notification for the buyer's follow-up"
+
+
+@then("the buyer has no chat notification for the seller's reply")
+def buyer_has_no_chat_notification(world: World) -> None:
+    found = _find_notifications(
+        world,
+        _buyer(world),
+        "NOTIFICATION_TYPE_CHAT",
+        f"/chat/{world.state.extra['chat_thread_id']}",
+    )
+    assert not found, f"a chat notification was created despite the disabled preference: {found}"
 
 
 @when("the seller fulfills the shipment with tracking information")
@@ -618,6 +672,8 @@ def buyer_has_shipment_notification(world: World) -> None:
         world, "NOTIFICATION_TYPE_ORDER", world.state.extra["tracking_code"]
     )
     assert found, "no NOTIFICATION_TYPE_ORDER notification for the buyer after the shipment"
+    assert len(found) == 1, f"expected exactly one order notification: {found}"
+    assert found[0].get("linkUrl") == f"/account/orders/{world.state.order_id}", found[0]
 
 
 @when("the buyer submits an RMA return request for the order")

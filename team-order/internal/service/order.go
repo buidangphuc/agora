@@ -514,6 +514,8 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 		TrackingCode: trackingCode,
 		Status:       repository.ShipmentStatusPending,
 		Checkpoints:  []repository.ShipmentCheckpoint{initialCheckpoint},
+		BuyerID:      order.BuyerID,
+		SellerID:     order.SellerID,
 	}
 
 	created, err := s.shipmentRepo.CreateShipment(ctx, shipment)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
 	"github.com/buidangphuc/team-chat/internal/events"
@@ -40,4 +42,20 @@ func TestNewKafkaPublisher_InvalidBrokers(t *testing.T) {
 		t.Fatal("expected non-nil publisher")
 	}
 	pub.Close()
+}
+
+// The envelope payload round-trips a ChatMessage including recipient_id.
+func TestChatMessagePayloadCarriesRecipient(t *testing.T) {
+	in := &chatv1.ChatMessage{Id: "m1", ThreadId: "t1", SenderId: "seller-1", RecipientId: "buyer-1", Content: "hi"}
+	b, err := proto.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out chatv1.ChatMessage
+	if err := proto.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.GetRecipientId() != "buyer-1" {
+		t.Fatalf("recipient_id = %q, want buyer-1", out.GetRecipientId())
+	}
 }

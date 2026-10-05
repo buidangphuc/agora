@@ -55,6 +55,10 @@ message ChatMessage {
   MessageType message_type = 7;
   string listing_id = 8;          // set for LISTING_CARD messages
   string payload = 9;             // JSON blob for rich payloads (card/quick-reply data)
+  // The thread participant who did NOT send this message. Populated only on the
+  // chat.events payload so consumers (team-notification) need no call back to
+  // team-chat; empty on RPC responses.
+  string recipient_id = 10;
 }
 
 message GetOrCreateThreadRequest {

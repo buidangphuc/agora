@@ -118,7 +118,8 @@ func run() error {
 		// same transaction (ADR-0013); the relayer below publishes it.
 		orderRepo = repository.NewPostgresOrderRepository(res.Pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow))
 		returnRepo = repository.NewPostgresReturnRepository(res.Pool)
-		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool)
+		// OrderShipped is written to the outbox in the shipment's own transaction.
+		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool, repository.WithShipmentOutbox(events.BuildShippedOutboxRow))
 	} else {
 		cartRepo = repository.NewInMemoryCartRepository()
 		orderRepo = repository.NewInMemoryOrderRepository()

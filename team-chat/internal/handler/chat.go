@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
@@ -260,9 +261,17 @@ func (h *ChatHandler) SendMessage(
 
 	wireMsg := toWireMessage(msg)
 
-	// Emit event to Kafka for real-time SSE push (Edge)
+	// Emit event to Kafka: the gateway's real-time SSE push and team-notification's
+	// chat notifications. The event (not the RPC response) carries recipient_id, the
+	// thread participant who did not send it, so consumers need no call back here.
+	eventMsg := proto.Clone(wireMsg).(*chatv1.ChatMessage)
+	if thread, err := h.svc.GetThread(ctx, msg.ThreadID, principal.GetId()); err != nil {
+		h.logger.WarnContext(ctx, "chat event without recipient: thread lookup failed", slog.Any("err", err), slog.String("thread_id", msg.ThreadID))
+	} else {
+		eventMsg.RecipientId = recipientOf(thread, principal.GetId())
+	}
 	reqID, _ := interceptor.RequestIDFromContext(ctx)
-	if err := h.publisher.PublishMessageSent(ctx, wireMsg, principal, reqID); err != nil {
+	if err := h.publisher.PublishMessageSent(ctx, eventMsg, principal, reqID); err != nil {
 		h.logger.WarnContext(ctx, "failed to emit chat event", slog.Any("err", err), slog.String("thread_id", req.GetThreadId()))
 	}
 
@@ -341,6 +350,14 @@ func toWireThread(t repository.ChatThread) *chatv1.ChatThread {
 		CreatedAt:         timestamppb.New(t.CreatedAt),
 		UpdatedAt:         timestamppb.New(t.UpdatedAt),
 	}
+}
+
+// recipientOf returns the thread participant who is not senderID.
+func recipientOf(t repository.ChatThread, senderID string) string {
+	if t.BuyerID == senderID {
+		return t.SellerID
+	}
+	return t.BuyerID
 }
 
 func toWireMessage(m repository.ChatMessage) *chatv1.ChatMessage {
