@@ -12,6 +12,9 @@ Feature: Admin cockpit shows live per-service metrics from Prometheus
     Then the observability HUD is visible
     And the cockpit metrics show a non-zero Prometheus-sourced RPS for the search service
 
+  # Needs an idle stack: other workers' traffic between the two reads moves the
+  # real RPS, so it runs in the serial lane only.
+  @destructive
   Scenario: Idle stack trends toward zero, not a random baseline
     Given an admin is logged in
     When the cockpit metrics are read twice with no traffic in between
