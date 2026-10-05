@@ -15,15 +15,15 @@ import (
 )
 
 type Resources struct {
-	Pool      *pgxpool.Pool
-	Health    *health.Server
-	Publisher events.ChatPublisher
+	Pool   *pgxpool.Pool
+	Health *health.Server
+	// Producer feeds the outbox relayer; nil when Kafka is disabled or unreachable.
+	Producer *events.KafkaProducer
 }
 
 func OpenResources(ctx context.Context, cfg *config.Settings, logger *slog.Logger) (*Resources, error) {
 	res := &Resources{
-		Health:    health.NewServer(),
-		Publisher: events.NoopPublisher{},
+		Health: health.NewServer(),
 	}
 	res.Health.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
@@ -50,11 +50,11 @@ func OpenResources(ctx context.Context, cfg *config.Settings, logger *slog.Logge
 	}
 
 	if cfg.Events.KafkaEnabled {
-		pub, err := events.NewKafkaPublisher(cfg.KafkaBrokers(), cfg.Events.ChatTopic)
+		prod, err := events.NewKafkaProducer(cfg.KafkaBrokers())
 		if err != nil {
-			logger.Warn("connect kafka failed, falling back to noop", slog.Any("err", err))
+			logger.Warn("connect kafka failed, chat.events relayer disabled", slog.Any("err", err))
 		} else {
-			res.Publisher = pub
+			res.Producer = prod
 			logger.Info("connected to kafka for chat events", slog.String("topic", cfg.Events.ChatTopic))
 		}
 	}
@@ -63,8 +63,8 @@ func OpenResources(ctx context.Context, cfg *config.Settings, logger *slog.Logge
 }
 
 func CloseResources(ctx context.Context, res *Resources) error {
-	if res.Publisher != nil {
-		res.Publisher.Close()
+	if res.Producer != nil {
+		res.Producer.Close()
 	}
 	if res.Pool != nil {
 		res.Pool.Close()

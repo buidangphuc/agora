@@ -8,12 +8,10 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
-	"github.com/buidangphuc/team-chat/internal/events"
 	"github.com/buidangphuc/team-chat/internal/interceptor"
 	"github.com/buidangphuc/team-chat/internal/repository"
 	"github.com/buidangphuc/team-chat/internal/service"
@@ -21,22 +19,20 @@ import (
 
 type ChatHandler struct {
 	chatv1.UnimplementedChatServiceServer
-	svc       *service.ChatService
-	publisher events.ChatPublisher
-	logger    *slog.Logger
+	svc    *service.ChatService
+	logger *slog.Logger
 }
 
-func NewChatHandler(svc *service.ChatService, publisher events.ChatPublisher, logger *slog.Logger) *ChatHandler {
-	if publisher == nil {
-		publisher = events.NoopPublisher{}
-	}
+// NewChatHandler builds the gRPC handler. chat.events are not emitted here: the
+// repository writes them to the outbox in the message transaction and the relayer
+// publishes them.
+func NewChatHandler(svc *service.ChatService, logger *slog.Logger) *ChatHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ChatHandler{
-		svc:       svc,
-		publisher: publisher,
-		logger:    logger,
+		svc:    svc,
+		logger: logger,
 	}
 }
 
@@ -261,20 +257,6 @@ func (h *ChatHandler) SendMessage(
 
 	wireMsg := toWireMessage(msg)
 
-	// Emit event to Kafka: the gateway's real-time SSE push and team-notification's
-	// chat notifications. The event (not the RPC response) carries recipient_id, the
-	// thread participant who did not send it, so consumers need no call back here.
-	eventMsg := proto.Clone(wireMsg).(*chatv1.ChatMessage)
-	if thread, err := h.svc.GetThread(ctx, msg.ThreadID, principal.GetId()); err != nil {
-		h.logger.WarnContext(ctx, "chat event without recipient: thread lookup failed", slog.Any("err", err), slog.String("thread_id", msg.ThreadID))
-	} else {
-		eventMsg.RecipientId = recipientOf(thread, principal.GetId())
-	}
-	reqID, _ := interceptor.RequestIDFromContext(ctx)
-	if err := h.publisher.PublishMessageSent(ctx, eventMsg, principal, reqID); err != nil {
-		h.logger.WarnContext(ctx, "failed to emit chat event", slog.Any("err", err), slog.String("thread_id", req.GetThreadId()))
-	}
-
 	return &chatv1.SendMessageResponse{
 		Message: wireMsg,
 	}, nil
@@ -350,14 +332,6 @@ func toWireThread(t repository.ChatThread) *chatv1.ChatThread {
 		CreatedAt:         timestamppb.New(t.CreatedAt),
 		UpdatedAt:         timestamppb.New(t.UpdatedAt),
 	}
-}
-
-// recipientOf returns the thread participant who is not senderID.
-func recipientOf(t repository.ChatThread, senderID string) string {
-	if t.BuyerID == senderID {
-		return t.SellerID
-	}
-	return t.BuyerID
 }
 
 func toWireMessage(m repository.ChatMessage) *chatv1.ChatMessage {

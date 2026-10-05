@@ -156,6 +156,9 @@ func (s *ChatService) SendRichMessage(
 		MessageType: messageType,
 		ListingID:   listingID,
 		Payload:     payload,
+		// The event (not the RPC response) carries the recipient, the thread
+		// participant who did not send it, so consumers need no call back here.
+		RecipientID: recipientOf(thread, senderID),
 	}
 
 	saved, err := s.repo.SaveMessage(ctx, msg)
@@ -206,4 +209,12 @@ func (s *ChatService) MarkThreadRead(ctx context.Context, threadID, userID strin
 		return ErrUnauthorizedChat
 	}
 	return s.repo.MarkThreadRead(ctx, threadID, userID)
+}
+
+// recipientOf returns the thread participant who is not senderID.
+func recipientOf(t repository.ChatThread, senderID string) string {
+	if t.BuyerID == senderID {
+		return t.SellerID
+	}
+	return t.BuyerID
 }

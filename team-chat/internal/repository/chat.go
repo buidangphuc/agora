@@ -41,6 +41,45 @@ type ChatMessage struct {
 	MessageType int32  // 0=TEXT, 1=LISTING_CARD, 2=QUICK_REPLY (mirrors chatv1.MessageType)
 	ListingID   string // set for LISTING_CARD messages
 	Payload     string // JSON blob for rich payloads (card/quick-reply data)
+
+	// RecipientID is the thread participant who did not send the message. It is
+	// carried into the outbox event so consumers need no call back here; it is not
+	// persisted on the message row.
+	RecipientID string
+}
+
+// MessageOutboxBuilder turns a just-saved message into the chat.events outbox row
+// committed in the SAME transaction as the message. A builder error aborts the
+// whole save (no message, no event).
+type MessageOutboxBuilder func(ctx context.Context, msg ChatMessage) (OutboxRow, error)
+
+// ChatRepoOption configures a chat repository.
+type ChatRepoOption func(*chatRepoConfig)
+
+type chatRepoConfig struct {
+	messageOutbox MessageOutboxBuilder
+	outbox        OutboxRepository // in-memory repo only
+}
+
+// WithMessageOutbox makes every saved message write an outbox row built by b in
+// the same transaction as the message.
+func WithMessageOutbox(b MessageOutboxBuilder) ChatRepoOption {
+	return func(c *chatRepoConfig) { c.messageOutbox = b }
+}
+
+// WithInMemoryOutbox sets the outbox store the in-memory repository enqueues to,
+// atomically with the message. Ignored by the Postgres repository, which always
+// writes to chat_outbox_events in its own transaction.
+func WithInMemoryOutbox(o OutboxRepository) ChatRepoOption {
+	return func(c *chatRepoConfig) { c.outbox = o }
+}
+
+func newChatRepoConfig(opts []ChatRepoOption) chatRepoConfig {
+	var c chatRepoConfig
+	for _, o := range opts {
+		o(&c)
+	}
+	return c
 }
 
 type ChatRepository interface {
@@ -68,11 +107,13 @@ func defaultQuickReplies() []string {
 // ── Postgres Implementation ──────────────────────────────────────────
 
 type PostgresChatRepository struct {
-	pool *pgxpool.Pool
+	pool          *pgxpool.Pool
+	messageOutbox MessageOutboxBuilder
 }
 
-func NewPostgresChatRepository(pool *pgxpool.Pool) *PostgresChatRepository {
-	return &PostgresChatRepository{pool: pool}
+func NewPostgresChatRepository(pool *pgxpool.Pool, opts ...ChatRepoOption) *PostgresChatRepository {
+	cfg := newChatRepoConfig(opts)
+	return &PostgresChatRepository{pool: pool, messageOutbox: cfg.messageOutbox}
 }
 
 const threadColumns = `id, buyer_id, seller_id, listing_id, listing_title, listing_image_url, last_message_text, last_message_at, unread_count_buyer, unread_count_seller, created_at, updated_at`
@@ -198,6 +239,17 @@ func (r *PostgresChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 		return ChatMessage{}, fmt.Errorf("update thread on message: %w", err)
 	}
 
+	// The event row commits or rolls back with the message (ADR-0013).
+	if r.messageOutbox != nil {
+		row, err := r.messageOutbox(ctx, msg)
+		if err != nil {
+			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
+		}
+		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			return ChatMessage{}, err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return ChatMessage{}, err
 	}
@@ -293,14 +345,16 @@ func (r *PostgresChatRepository) MarkThreadRead(ctx context.Context, threadID, u
 // ── InMemory Implementation ───────────────────────────────────────────
 
 type InMemoryChatRepository struct {
+	cfg          chatRepoConfig
 	mu           sync.RWMutex
 	threads      map[string]ChatThread
 	messages     map[string][]ChatMessage
 	quickReplies map[string][]string // sellerID -> canned replies
 }
 
-func NewInMemoryChatRepository() *InMemoryChatRepository {
+func NewInMemoryChatRepository(opts ...ChatRepoOption) *InMemoryChatRepository {
 	return &InMemoryChatRepository{
+		cfg:          newChatRepoConfig(opts),
 		threads:      make(map[string]ChatThread),
 		messages:     make(map[string][]ChatMessage),
 		quickReplies: make(map[string][]string),
@@ -389,7 +443,7 @@ func (r *InMemoryChatRepository) ListThreadsForUser(_ context.Context, userID st
 	return userThreads[offset:end], total, nil
 }
 
-func (r *InMemoryChatRepository) SaveMessage(_ context.Context, msg ChatMessage) (ChatMessage, error) {
+func (r *InMemoryChatRepository) SaveMessage(ctx context.Context, msg ChatMessage) (ChatMessage, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -397,6 +451,17 @@ func (r *InMemoryChatRepository) SaveMessage(_ context.Context, msg ChatMessage)
 		msg.ID = uuid.NewString()
 	}
 	msg.CreatedAt = time.Now()
+	// Build and enqueue the event before storing anything, so a failure leaves
+	// neither the message nor an event (mirrors the Postgres transaction).
+	if r.cfg.messageOutbox != nil && r.cfg.outbox != nil {
+		row, err := r.cfg.messageOutbox(ctx, msg)
+		if err != nil {
+			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
+		}
+		if err := r.cfg.outbox.Enqueue(ctx, row); err != nil {
+			return ChatMessage{}, err
+		}
+	}
 	r.messages[msg.ThreadID] = append(r.messages[msg.ThreadID], msg)
 
 	if t, ok := r.threads[msg.ThreadID]; ok {

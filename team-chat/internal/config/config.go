@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type ServerConfig struct {
@@ -46,6 +47,17 @@ type EventsConfig struct {
 	ChatTopic    string
 }
 
+// OutboxConfig tunes the chat.events outbox relayer. Names match team-order's
+// Outbox group. The relayer runs only when Enabled, Kafka is enabled and
+// Postgres is on.
+type OutboxConfig struct {
+	Enabled          bool
+	PollInterval     time.Duration
+	BatchSize        int
+	ClaimLockSeconds int
+	MaxAttempts      int
+}
+
 type UpstreamConfig struct {
 	ListingAddr string
 }
@@ -56,6 +68,7 @@ type Settings struct {
 	Postgres      PostgresConfig
 	Database      DatabaseConfig
 	Events        EventsConfig
+	Outbox        OutboxConfig
 	Observability ObservabilityConfig
 	Upstream      UpstreamConfig
 }
@@ -79,6 +92,15 @@ func LoadSettings() (*Settings, error) {
 	otelEndpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	kafkaEnabled, _ := strconv.ParseBool(getEnv("KAFKA_ENABLED", "false"))
 
+	outboxEnabled, _ := strconv.ParseBool(getEnv("OUTBOX_ENABLED", "true"))
+	pollInterval, err := time.ParseDuration(strings.TrimSpace(getEnv("OUTBOX_POLL_INTERVAL", "1s")))
+	if err != nil || pollInterval <= 0 {
+		pollInterval = time.Second
+	}
+	batchSize, _ := strconv.Atoi(getEnv("OUTBOX_BATCH_SIZE", "100"))
+	claimLock, _ := strconv.Atoi(getEnv("OUTBOX_CLAIM_LOCK_SECONDS", "60"))
+	maxAttempts, _ := strconv.Atoi(getEnv("OUTBOX_MAX_ATTEMPTS", "10"))
+
 	return &Settings{
 		Server: ServerConfig{
 			Host:              getEnv("SERVER_HOST", "0.0.0.0"),
@@ -100,6 +122,13 @@ func LoadSettings() (*Settings, error) {
 			KafkaEnabled: kafkaEnabled,
 			Brokers:      getEnv("KAFKA_BROKERS", "localhost:9092"),
 			ChatTopic:    getEnv("KAFKA_CHAT_TOPIC", "chat.events"),
+		},
+		Outbox: OutboxConfig{
+			Enabled:          outboxEnabled,
+			PollInterval:     pollInterval,
+			BatchSize:        batchSize,
+			ClaimLockSeconds: claimLock,
+			MaxAttempts:      maxAttempts,
 		},
 		Observability: ObservabilityConfig{
 			Enabled:      otelEndpoint != "",

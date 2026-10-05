@@ -18,6 +18,7 @@ import (
 
 	"github.com/buidangphuc/team-chat/internal/bootstrap"
 	"github.com/buidangphuc/team-chat/internal/config"
+	"github.com/buidangphuc/team-chat/internal/events"
 	"github.com/buidangphuc/team-chat/internal/grpcserver"
 	"github.com/buidangphuc/team-chat/internal/handler"
 	"github.com/buidangphuc/team-chat/internal/observability"
@@ -66,9 +67,37 @@ func run() error {
 		}
 	}()
 
-	chatRepo := repository.NewPostgresChatRepository(res.Pool)
+	// Every stored message writes its chat.events outbox row in the same transaction
+	// (ADR-0013); the relayer below publishes it, so a Kafka outage delays but never
+	// loses a notification.
+	chatRepo := repository.NewPostgresChatRepository(res.Pool, repository.WithMessageOutbox(events.BuildMessageOutboxRow))
 	chatSvc := service.NewChatService(chatRepo, logger)
-	h := handler.NewChatHandler(chatSvc, res.Publisher, logger)
+	h := handler.NewChatHandler(chatSvc, logger)
+
+	if res.Pool != nil && res.Producer != nil && settings.Outbox.Enabled {
+		relayer := events.NewRelayer(
+			repository.NewPgOutboxRepository(res.Pool),
+			res.Producer,
+			events.RelayerConfig{
+				Topic:        settings.Events.ChatTopic,
+				PollInterval: settings.Outbox.PollInterval,
+				BatchSize:    settings.Outbox.BatchSize,
+				LockDuration: time.Duration(settings.Outbox.ClaimLockSeconds) * time.Second,
+				MaxAttempts:  settings.Outbox.MaxAttempts,
+			},
+			logger,
+		)
+		go func() {
+			logger.Info("chat.events outbox relayer starting",
+				slog.String("topic", settings.Events.ChatTopic),
+				slog.Duration("poll_interval", settings.Outbox.PollInterval),
+				slog.Int("batch_size", settings.Outbox.BatchSize))
+			relayer.Run(ctx)
+		}()
+	} else {
+		logger.Warn("chat.events outbox relayer not running: rows are recorded but not published",
+			slog.Bool("kafka_producer", res.Producer != nil), slog.Bool("outbox_enabled", settings.Outbox.Enabled))
+	}
 	srv := grpcserver.Build(settings, h, res.Health, logger)
 
 	addr := net.JoinHostPort(settings.Server.Host, strconv.Itoa(settings.Server.Port))

@@ -1,10 +1,12 @@
-// Package events publishes domain events to Kafka (ADR-0002). team-chat emits
-// chat events wrapped in a platform.events.v1.EventEnvelope, keyed by thread id for per-thread ordering.
+// Package events publishes domain events to Kafka (ADR-0002, ADR-0013). team-chat
+// writes a chat.events EventEnvelope to its outbox in the message transaction; a
+// Relayer then produces it to Kafka keyed by thread id for per-thread ordering.
 package events
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -12,8 +14,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
-	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-chat/generated/platform/events/v1"
+	"github.com/buidangphuc/team-chat/internal/interceptor"
+	"github.com/buidangphuc/team-chat/internal/repository"
 )
 
 // Discriminator types carried in EventEnvelope.Type
@@ -21,29 +24,80 @@ const (
 	ChatMessageSentType = "platform.chat.v1.ChatMessage"
 )
 
-// ChatPublisher emits domain events. Handlers depend on this interface.
-type ChatPublisher interface {
-	PublishMessageSent(ctx context.Context, msg *chatv1.ChatMessage, principal *commonv1.Principal, requestID string) error
-	Close()
+// ChatEventsTopic is the default Kafka topic for chat events.
+const ChatEventsTopic = "chat.events"
+
+// chatMessageNamespace seeds deterministic event ids so a message maps onto exactly
+// one outbox row (ON CONFLICT DO NOTHING) and one consumer-side dedupe key.
+var chatMessageNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-chat/chat.events/ChatMessage"))
+
+// ChatMessageEventID is the stable EventEnvelope.event_id for a message's event.
+func ChatMessageEventID(messageID string) string {
+	return uuid.NewSHA1(chatMessageNamespace, []byte(messageID)).String()
 }
 
-// NoopPublisher is used when KAFKA_ENABLED=false: writes still succeed, nothing is emitted.
-type NoopPublisher struct{}
-
-func (NoopPublisher) PublishMessageSent(context.Context, *chatv1.ChatMessage, *commonv1.Principal, string) error {
-	return nil
+// BuildMessageOutboxRow is the repository.MessageOutboxBuilder for team-chat: it
+// wraps the message (with recipient_id) in an EventEnvelope keyed by thread id,
+// ready to commit in the same transaction as the message. The caller's principal
+// and request id are read from ctx.
+func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (repository.OutboxRow, error) {
+	occurredAt := msg.CreatedAt
+	if occurredAt.IsZero() {
+		occurredAt = time.Now()
+	}
+	payload, err := proto.Marshal(&chatv1.ChatMessage{
+		Id:          msg.ID,
+		ThreadId:    msg.ThreadID,
+		SenderId:    msg.SenderID,
+		SenderName:  msg.SenderName,
+		Content:     msg.Content,
+		CreatedAt:   timestamppb.New(occurredAt),
+		MessageType: chatv1.MessageType(msg.MessageType),
+		ListingId:   msg.ListingID,
+		Payload:     msg.Payload,
+		RecipientId: msg.RecipientID,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal ChatMessage: %w", err)
+	}
+	reqID, _ := interceptor.RequestIDFromContext(ctx)
+	eventID := ChatMessageEventID(msg.ID)
+	envelope := &eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       ChatMessageSentType,
+		OccurredAt: timestamppb.New(occurredAt.UTC()),
+		RequestId:  reqID,
+		Payload:    payload,
+	}
+	if p, ok := interceptor.PrincipalFromContext(ctx); ok {
+		envelope.Principal = p
+	}
+	value, err := proto.Marshal(envelope)
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "ChatThread",
+		AggregateID:   msg.ThreadID,
+		EventType:     ChatMessageSentType,
+		Payload:       value,
+		RequestID:     reqID,
+	}, nil
 }
 
-func (NoopPublisher) Close() {}
+// KafkaPublisher sends byte payloads to a Kafka topic. The Relayer depends on it.
+type KafkaPublisher interface {
+	Publish(ctx context.Context, topic, key string, payload []byte) error
+}
 
-// KafkaPublisher publishes to a Kafka/Redpanda topic via franz-go.
-type KafkaPublisher struct {
+// KafkaProducer is the franz-go backed KafkaPublisher.
+type KafkaProducer struct {
 	client *kgo.Client
-	topic  string
 }
 
-// NewKafkaPublisher dials the brokers and returns a publisher for topic.
-func NewKafkaPublisher(brokers []string, topic string) (*KafkaPublisher, error) {
+// NewKafkaProducer dials the brokers for producing.
+func NewKafkaProducer(brokers []string) (*KafkaProducer, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ProducerLinger(0),
@@ -51,52 +105,23 @@ func NewKafkaPublisher(brokers []string, topic string) (*KafkaPublisher, error) 
 	if err != nil {
 		return nil, fmt.Errorf("kafka client: %w", err)
 	}
-	return &KafkaPublisher{client: client, topic: topic}, nil
+	return &KafkaProducer{client: client}, nil
 }
 
-func (p *KafkaPublisher) produceEnvelope(ctx context.Context, key, eventType string, payload []byte, principal *commonv1.Principal, requestID string) error {
-	envelope := &eventsv1.EventEnvelope{
-		EventId:    uuid.NewString(),
-		Type:       eventType,
-		OccurredAt: timestamppb.Now(),
-		Principal:  principal,
-		RequestId:  requestID,
-		Payload:    payload,
-	}
-	value, err := proto.Marshal(envelope)
-	if err != nil {
-		return fmt.Errorf("marshal EventEnvelope: %w", err)
-	}
-	rec := &kgo.Record{Topic: p.topic, Key: []byte(key), Value: value}
+// Publish produces payload to topic keyed by key and waits for the ack.
+func (p *KafkaProducer) Publish(ctx context.Context, topic, key string, payload []byte) error {
+	rec := &kgo.Record{Topic: topic, Key: []byte(key), Value: payload}
 	if err := p.client.ProduceSync(ctx, rec).FirstErr(); err != nil {
-		return fmt.Errorf("produce %s to %s: %w", eventType, p.topic, err)
+		return fmt.Errorf("produce to %s: %w", topic, err)
 	}
 	return nil
 }
 
-// PublishMessageSent wraps the ChatMessage in an EventEnvelope and produces it synchronously.
-func (p *KafkaPublisher) PublishMessageSent(
-	ctx context.Context,
-	msg *chatv1.ChatMessage,
-	principal *commonv1.Principal,
-	requestID string,
-) error {
-	payload, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("marshal ChatMessage: %w", err)
-	}
-	return p.produceEnvelope(ctx, msg.GetThreadId(), ChatMessageSentType, payload, principal, requestID)
-}
-
-// Close flushes and shuts down the client.
-func (p *KafkaPublisher) Close() {
-	if p.client != nil {
+// Close flushes and shuts the client down.
+func (p *KafkaProducer) Close() {
+	if p != nil && p.client != nil {
 		p.client.Close()
 	}
 }
 
-// compile-time assertions.
-var (
-	_ ChatPublisher = (*KafkaPublisher)(nil)
-	_ ChatPublisher = NoopPublisher{}
-)
+var _ KafkaPublisher = (*KafkaProducer)(nil)
