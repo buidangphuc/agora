@@ -76,6 +76,7 @@ describe("loginAction", () => {
     expect(res).toEqual({
       ok: false,
       error: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+      username: "x",
     });
     expect(redirect).not.toHaveBeenCalled();
   });
@@ -89,6 +90,7 @@ describe("loginAction", () => {
     expect(res).toEqual({
       ok: false,
       error: "Không thể kết nối đến máy chủ xác thực.",
+      username: "x",
     });
   });
 
@@ -101,6 +103,7 @@ describe("loginAction", () => {
     expect(res).toEqual({
       ok: false,
       error: "Không nhận được phiên đăng nhập.",
+      username: "x",
     });
   });
 });
@@ -176,6 +179,7 @@ describe("registerAction", () => {
     expect(res).toEqual({
       ok: false,
       error: "Tên đăng nhập đã tồn tại.",
+      username: "alice",
       fields: { username: "Tên đăng nhập đã tồn tại." },
     });
   });

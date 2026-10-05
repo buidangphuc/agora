@@ -7,7 +7,12 @@ import type { AuthState } from "./actions";
 // React 18's react-dom has no form-action hooks (Next bundles a canary React
 // at runtime), so the tests drive the forms through controllable stand-ins.
 const mocked = vi.hoisted(() => ({
-  state: { ok: false } as { ok: boolean; error?: string; fields?: object },
+  state: { ok: false } as {
+    ok: boolean;
+    error?: string;
+    fields?: object;
+    username?: string;
+  },
   pending: false,
 }));
 
@@ -84,11 +89,27 @@ describe("LoginForm", () => {
     mocked.state = {
       ok: false,
       error: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+      username: "alice",
     };
     rerender(<LoginForm />);
 
     expect(screen.getByLabelText(/Tên đăng nhập/)).toHaveValue("alice");
     expect(screen.getByLabelText(/Mật khẩu/)).toHaveValue("");
+  });
+
+  it("restores the submitted username even if the form was reset", () => {
+    const { rerender } = render(<LoginForm />);
+    const username = screen.getByLabelText(/Tên đăng nhập/) as HTMLInputElement;
+    username.value = "";
+    mocked.state = { ok: false, error: "Sai.", username: "bob" };
+    rerender(<LoginForm />);
+    expect(username).toHaveValue("bob");
+  });
+
+  it("keeps a username typed before hydration (the input is uncontrolled)", () => {
+    render(<LoginForm />);
+    const username = screen.getByLabelText(/Tên đăng nhập/);
+    expect(username).not.toHaveAttribute("value");
   });
 
   it("preserves the field names and links to register", () => {

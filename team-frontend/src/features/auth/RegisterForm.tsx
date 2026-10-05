@@ -56,11 +56,7 @@ export function RegisterForm() {
               required
               autoComplete="username"
               placeholder="Chọn tên đăng nhập"
-              value={form.username}
-              onChange={(e) => {
-                form.setUsername(e.target.value);
-                form.onChange("username");
-              }}
+              onChange={() => form.onChange("username")}
               onBlur={() => form.onBlur("username")}
             />
           </FormItem>

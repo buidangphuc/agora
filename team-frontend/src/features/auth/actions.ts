@@ -25,10 +25,19 @@ export interface AuthState {
   ok: boolean;
   error?: string;
   fields?: CredentialErrors;
+  // The username that was submitted, so the form can restore it after a
+  // failure without keeping the input controlled (see useCredentialForm).
+  username?: string;
 }
 
-function failure(error: string, fields?: CredentialErrors): AuthState {
-  return fields ? { ok: false, error, fields } : { ok: false, error };
+function failure(
+  username: string,
+  error: string,
+  fields?: CredentialErrors,
+): AuthState {
+  return fields
+    ? { ok: false, error, fields, username }
+    : { ok: false, error, username };
 }
 
 function setSession(token: string) {
@@ -49,7 +58,11 @@ export async function loginAction(
 
   const missing = validateLogin({ username, password });
   if (Object.keys(missing).length > 0) {
-    return failure("Vui lòng nhập đầy đủ thông tin đăng nhập.", missing);
+    return failure(
+      username,
+      "Vui lòng nhập đầy đủ thông tin đăng nhập.",
+      missing,
+    );
   }
 
   let token = "";
@@ -64,15 +77,19 @@ export async function loginAction(
         err.code === Code.Unauthenticated ||
         err.code === Code.InvalidArgument
       ) {
-        return failure("Tên đăng nhập hoặc mật khẩu không chính xác.");
+        return failure(
+          username,
+          "Tên đăng nhập hoặc mật khẩu không chính xác.",
+        );
       }
       return failure(
+        username,
         `Đăng nhập không thành công: ${err.rawMessage || "Lỗi dịch vụ xác thực"}`,
       );
     }
-    return failure("Không thể kết nối đến máy chủ xác thực.");
+    return failure(username, "Không thể kết nối đến máy chủ xác thực.");
   }
-  if (!token) return failure("Không nhận được phiên đăng nhập.");
+  if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   setSession(token);
   redirect("/");
 }
@@ -87,7 +104,11 @@ export async function registerAction(
 
   const invalid = validateRegister({ username, password });
   if (Object.keys(invalid).length > 0) {
-    return failure("Tên đăng nhập ≥ 3 ký tự, mật khẩu ≥ 4 ký tự.", invalid);
+    return failure(
+      username,
+      "Tên đăng nhập ≥ 3 ký tự, mật khẩu ≥ 4 ký tự.",
+      invalid,
+    );
   }
 
   let token = "";
@@ -98,13 +119,13 @@ export async function registerAction(
     token = res.result?.token ?? "";
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.AlreadyExists) {
-      return failure("Tên đăng nhập đã tồn tại.", {
+      return failure(username, "Tên đăng nhập đã tồn tại.", {
         username: "Tên đăng nhập đã tồn tại.",
       });
     }
-    return failure(`Đăng ký lỗi: ${String(err)}`);
+    return failure(username, `Đăng ký lỗi: ${String(err)}`);
   }
-  if (!token) return failure("Không nhận được phiên đăng nhập.");
+  if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   setSession(token);
   redirect("/");
 }

@@ -50,11 +50,7 @@ export function LoginForm() {
               required
               autoComplete="username"
               placeholder="Nhập username của bạn"
-              value={form.username}
-              onChange={(e) => {
-                form.setUsername(e.target.value);
-                form.onChange("username");
-              }}
+              onChange={() => form.onChange("username")}
               onBlur={() => form.onBlur("username")}
             />
           </FormItem>

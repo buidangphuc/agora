@@ -10,16 +10,17 @@ import type {
 } from "./validation";
 
 /**
- * Client-side state shared by LoginForm and RegisterForm: controlled username
- * (kept after a failed attempt), uncontrolled password (cleared), validation on
- * submit and on blur, field help from the server, and focus on the first
- * invalid control.
+ * Client-side state shared by LoginForm and RegisterForm: uncontrolled username
+ * (restored from the server result after a failed attempt) and password
+ * (cleared), validation on submit and on blur, field help from the server, and
+ * focus on the first invalid control. Both inputs stay uncontrolled so React
+ * hydration never overwrites what the user typed before the page was
+ * interactive.
  */
 export function useCredentialForm(
   state: AuthState,
   validate: (values: CredentialValues) => CredentialErrors,
 ) {
-  const [username, setUsername] = useState("");
   const [errors, setErrors] = useState<CredentialErrors>({});
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -29,6 +30,9 @@ export function useCredentialForm(
     if (state.ok || !state.error) return;
     setErrors(state.fields ?? {});
     if (passwordRef.current) passwordRef.current.value = "";
+    if (usernameRef.current && state.username !== undefined) {
+      usernameRef.current.value = state.username;
+    }
   }, [state]);
 
   function values(): CredentialValues {
@@ -57,8 +61,6 @@ export function useCredentialForm(
   }
 
   return {
-    username,
-    setUsername,
     errors,
     usernameRef,
     passwordRef,
