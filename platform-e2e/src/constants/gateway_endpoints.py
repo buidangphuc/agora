@@ -58,6 +58,7 @@ ORDER_CANCEL = "/platform.order.v1.OrderService/CancelOrder"
 ORDER_SAGA_STATE = "/platform.order.v1.OrderService/GetSagaState"
 ORDER_FORCE_FAIL_SAGA = "/platform.order.v1.OrderService/ForceFailSaga"
 ORDER_RETURN_CREATE = "/platform.order.v1.OrderService/CreateReturnRequest"
+ORDER_RETURN_GET = "/platform.order.v1.OrderService/GetReturnRequest"
 ORDER_RETURN_UPDATE = "/platform.order.v1.OrderService/UpdateReturnStatus"
 ORDER_SHIPMENT_CREATE = "/platform.order.v1.OrderService/CreateShipment"
 ORDER_SHIPMENT_TRACKING = "/platform.order.v1.OrderService/GetShipmentTracking"
@@ -76,3 +77,12 @@ ENGAGEMENT_QA_LIST = "/platform.engagement.v1.EngagementService/ListQuestionsByL
 ENGAGEMENT_DISPUTE_CREATE = "/platform.engagement.v1.EngagementService/CreateDispute"
 ENGAGEMENT_DISPUTE_GET = "/platform.engagement.v1.EngagementService/GetDispute"
 ENGAGEMENT_DISPUTE_RESOLVE = "/platform.engagement.v1.EngagementService/ResolveDispute"
+
+# platform.chat.v1 (buyer <-> seller 1:1 messaging, team-chat)
+CHAT_GET_OR_CREATE_THREAD = "/platform.chat.v1.ChatService/GetOrCreateThread"
+CHAT_LIST_THREADS = "/platform.chat.v1.ChatService/ListThreads"
+CHAT_GET_THREAD_MESSAGES = "/platform.chat.v1.ChatService/GetThreadMessages"
+CHAT_SEND_MESSAGE = "/platform.chat.v1.ChatService/SendMessage"
+
+# platform.notification.v1
+NOTIFICATION_LIST = "/platform.notification.v1.NotificationService/ListNotifications"

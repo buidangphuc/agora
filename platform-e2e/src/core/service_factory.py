@@ -15,9 +15,11 @@ from src.api.services import (
     AuthService,
     BaseService,
     CartService,
+    ChatService,
     EngagementService,
     ListingService,
     MetricsService,
+    NotificationService,
     OrderService,
     PaymentService,
     RecommendationService,
@@ -34,6 +36,8 @@ _SERVICES: tuple[type[BaseService], ...] = (
     ListingService,
     SearchService,
     CartService,
+    ChatService,
+    NotificationService,
     OrderService,
     PaymentService,
     EngagementService,
@@ -83,6 +87,14 @@ class ServiceFactory:
     @property
     def cart(self) -> CartService:
         return self.get(CartService)
+
+    @property
+    def chat(self) -> ChatService:
+        return self.get(ChatService)
+
+    @property
+    def notification(self) -> NotificationService:
+        return self.get(NotificationService)
 
     @property
     def order(self) -> OrderService:

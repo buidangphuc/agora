@@ -43,6 +43,10 @@ class OrderService(BaseService):
             {"orderId": order_id, "reason": reason, "refundAmount": refund_amount},
         )
 
+    def get_return_request(self, return_id: str) -> dict[str, Any]:
+        """The ``returnRequest`` object (buyer or seller of the order may read it)."""
+        return self.post(ep.ORDER_RETURN_GET, {"id": return_id}).get("returnRequest", {})
+
     def update_return_status(self, return_id: str, status: str) -> dict[str, Any]:
         return self.post(
             ep.ORDER_RETURN_UPDATE,

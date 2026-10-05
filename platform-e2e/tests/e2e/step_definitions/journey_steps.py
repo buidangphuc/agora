@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import time
 import uuid
 
 from playwright.sync_api import expect
@@ -304,156 +305,219 @@ def verify_probabilistic_forecast_quantiles(world: World) -> None:
 
 # ============================================================================
 # Journey 3: Post-Purchase Chat, Notification & RMA Journey
+#
+# Every step drives the real gateway as the buyer or the seller and every Then
+# reads state back through a read RPC. What the backend does today (verified in
+# the services, see the feature file notes):
+#   * @needsOrder seeds a COD order that stays ORDER_STATUS_PENDING;
+#   * CreateShipment (seller) works on any order status and moves it to SHIPPED
+#     with the tracking code (team-order service/order.go CreateShipment);
+#   * a return may be opened on any non-PENDING, non-CANCELLED order, so a
+#     SHIPPED one qualifies (service/order.go CreateReturnRequest);
+#   * UpdateReturnStatus only changes the return's own status - it does not
+#     call team-payment, so approval starts no refund;
+#   * team-chat only publishes chat.events to the SSE edge, and team-notification
+#     only consumes listing.events, so neither a chat reply nor a shipment
+#     creates a notification (those are the xfail scenarios in the feature).
 # ============================================================================
+
+_NOTIFICATION_POLL_SECONDS = 10
+
+
+def _buyer(world: World):
+    buyer = world.state.extra.get("seeded_buyer")
+    assert buyer and buyer.token, "no seeded buyer; tag the scenario @needsBuyer"
+    return buyer
+
+
+def _seller(world: World):
+    seller = world.state.seeded_seller
+    assert seller and seller.token, "no seeded seller; tag the scenario @needsSeller"
+    return seller
+
+
+def _act_as(world: World, user) -> None:
+    """Switch every gateway client to this account's token."""
+    world.service_factory.set_token(user.token)
+    world.state.current_user = user
+
+
+def _order(world: World) -> dict:
+    """GetOrder as the buyer (who owns it)."""
+    _act_as(world, _buyer(world))
+    resp = world.service_factory.order.get_order(world.state.order_id)
+    order = resp.get("order", {})
+    assert order.get("id") == world.state.order_id, f"GetOrder returned the wrong order: {resp}"
+    return order
+
+
+def _thread_messages(world: World, user) -> list[dict]:
+    _act_as(world, user)
+    return world.service_factory.chat.get_thread_messages(world.state.extra["chat_thread_id"])
+
+
+@given("the buyer who placed the order is logged in")
+def seeded_buyer_logged_in(world: World) -> None:
+    # The order belongs to the @needsBuyer account, not to a shared test-data buyer.
+    _act_as(world, _buyer(world))
 
 
 @given("an order has been placed and is pending fulfillment")
 def order_placed_pending_fulfillment_step(world: World) -> None:
-    order_id = world.state.order_id or world.state.extra.get("order_id")
-    if not order_id:
-        order_id = f"ord-{uuid.uuid4()}"
-        try:
-            order_res = world.service_factory.order.create_order(
-                {"paymentMethod": "PAYMENT_METHOD_COD"}
-            )
-            orders = order_res.get("orders", [])
-            order_id = (
-                orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
-            )
-        except Exception as exc:  # noqa: BLE001
-            world.logger.warning(f"Order creation in given step: {exc}")
-        world.state.order_id = order_id
-        world.state.extra["order_id"] = order_id
-
-    world.state.extra["order_status"] = "PENDING"
-    world.logger.info(f"Pending order {order_id} initialized")
+    assert world.state.order_id, "the @needsOrder hook did not create an order"
+    order = _order(world)
+    assert order.get("status") == "ORDER_STATUS_PENDING", f"unexpected order status: {order}"
+    assert order.get("buyerId") == _buyer(world).user_id, f"order is not the buyer's: {order}"
+    assert order.get("sellerId") == _seller(world).user_id, f"order is not the seller's: {order}"
 
 
 @when("the buyer sends a chat inquiry to the seller regarding the order")
 def buyer_sends_chat_inquiry_to_seller(world: World) -> None:
-    order_id = world.state.order_id
-    message_text = f"Xin chào Shop, đơn hàng {order_id} của tôi dự kiến khi nào giao?"
-    world.state.extra["last_chat_message"] = message_text
-    world.state.extra["chat_thread"] = [
-        {
-            "sender_role": "buyer",
-            "text": message_text,
-            "order_id": order_id,
-            "created_at": "2026-09-20T10:00:00Z",
-        }
-    ]
+    order = _order(world)
+    listing_id = (order.get("items") or [{}])[0].get("listingId", "")
+    text = f"Xin chào Shop, đơn hàng {world.state.order_id} của tôi dự kiến khi nào giao?"
+    chat = world.service_factory.chat
+    thread = chat.get_or_create_thread(order["sellerId"], listing_id)
+    assert thread.get("id"), f"GetOrCreateThread returned no thread: {thread}"
+    msg = chat.send_message(thread["id"], text)
+    assert msg.get("id"), f"SendMessage returned no message: {msg}"
+    world.state.extra["chat_thread_id"] = thread["id"]
+    world.state.extra["chat_inquiry"] = text
 
 
 @then("the chat message is delivered in the conversation thread")
 def chat_message_delivered_in_thread(world: World) -> None:
-    thread = world.state.extra.get("chat_thread", [])
-    assert len(thread) >= 1, "Chat thread has no messages"
-    assert thread[0]["text"] == world.state.extra["last_chat_message"]
-    world.logger.info("Buyer inquiry delivered successfully in chat thread")
+    text = world.state.extra["chat_inquiry"]
+    buyer, seller = _buyer(world), _seller(world)
+    # The seller sees the buyer's inquiry in the thread, and as an unread thread.
+    messages = _thread_messages(world, seller)
+    inquiry = [m for m in messages if m.get("content") == text]
+    assert inquiry, f"seller's thread has no inquiry: {messages}"
+    assert inquiry[0].get("senderId") == buyer.user_id, f"wrong sender: {inquiry[0]}"
+    threads = {t["id"]: t for t in world.service_factory.chat.list_threads()}
+    thread = threads.get(world.state.extra["chat_thread_id"])
+    assert thread, f"seller's ListThreads does not include the thread: {list(threads)}"
+    assert thread.get("lastMessageText") == text, f"thread preview is stale: {thread}"
+    assert int(thread.get("unreadCountSeller", 0)) >= 1, f"seller sees no unread: {thread}"
 
 
 @when("the seller replies to the buyer inquiry")
 def seller_replies_to_buyer(world: World) -> None:
-    reply_text = "Chào bạn, đơn hàng đã đóng gói xong và đang chờ bàn giao cho bên vận chuyển SPX Express hôm nay ạ!"
-    world.state.extra["chat_thread"].append(
-        {
-            "sender_role": "seller",
-            "text": reply_text,
-            "created_at": "2026-09-20T10:05:00Z",
-        }
+    reply = "Chào bạn, đơn hàng đã đóng gói xong và đang chờ bàn giao cho SPX Express hôm nay ạ!"
+    _act_as(world, _seller(world))
+    msg = world.service_factory.chat.send_message(world.state.extra["chat_thread_id"], reply)
+    assert msg.get("id"), f"SendMessage returned no message: {msg}"
+    world.state.extra["chat_reply"] = reply
+
+
+@then("the buyer sees the seller's reply in the conversation thread")
+def buyer_sees_seller_reply(world: World) -> None:
+    reply = world.state.extra["chat_reply"]
+    seller = _seller(world)
+    messages = _thread_messages(world, _buyer(world))
+    got = [m for m in messages if m.get("content") == reply]
+    assert got, f"buyer's thread has no seller reply: {messages}"
+    assert got[0].get("senderId") == seller.user_id, f"wrong sender: {got[0]}"
+    ordered = [m.get("content") for m in messages]
+    assert ordered.index(reply) > ordered.index(world.state.extra["chat_inquiry"]), ordered
+    threads = {t["id"]: t for t in world.service_factory.chat.list_threads()}
+    thread = threads.get(world.state.extra["chat_thread_id"], {})
+    assert int(thread.get("unreadCountBuyer", 0)) >= 1, f"buyer sees no unread: {thread}"
+
+
+def _poll_buyer_notification(world: World, kind: str, needle: str) -> list[dict]:
+    """Bounded poll of the buyer's ListNotifications for a `kind` notification
+    mentioning `needle` in its title, body or link."""
+    _act_as(world, _buyer(world))
+    deadline = time.time() + _NOTIFICATION_POLL_SECONDS
+    while True:
+        found = [
+            n
+            for n in world.service_factory.notification.list_notifications()
+            if n.get("type") == kind
+            and needle in f"{n.get('title', '')} {n.get('body', '')} {n.get('linkUrl', '')}"
+        ]
+        if found or time.time() >= deadline:
+            return found
+        time.sleep(2)
+
+
+@then("the buyer has a chat notification for the seller's reply")
+def buyer_has_chat_notification(world: World) -> None:
+    found = _poll_buyer_notification(
+        world, "NOTIFICATION_TYPE_CHAT", world.state.extra["chat_reply"]
     )
-    world.state.extra["notifications"] = [
-        {
-            "type": "chat_message",
-            "title": "Tin nhắn mới từ Người Bán",
-            "body": reply_text,
-            "read": False,
-        }
-    ]
-
-
-@then("the buyer receives a real-time message notification")
-def buyer_receives_message_notification_step(world: World) -> None:
-    notifs = world.state.extra.get("notifications", [])
-    chat_notifs = [n for n in notifs if n["type"] == "chat_message"]
-    assert len(chat_notifs) >= 1, "No chat notification received"
-    assert "Người Bán" in chat_notifs[0]["title"]
-    world.logger.info("In-app chat notification verified")
+    assert found, "no NOTIFICATION_TYPE_CHAT notification for the buyer after the seller's reply"
 
 
 @when("the seller fulfills the shipment with tracking information")
 def seller_fulfills_shipment_with_tracking(world: World) -> None:
-    order_id = world.state.order_id
     tracking_code = f"SPX-VN-{uuid.uuid4().hex[:8].upper()}"
-    world.state.extra["tracking_code"] = tracking_code
-    try:
-        world.service_factory.order.create_shipment(
-            order_id=order_id, carrier="SPX Express", tracking_code=tracking_code
-        )
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Shipment creation API: {exc}")
-
-    world.state.extra["order_status"] = "SHIPPED"
-    world.state.extra["notifications"].append(
-        {
-            "type": "order_shipped",
-            "title": "Đơn hàng đang trên đường giao",
-            "body": f"Mã vận đơn SPX Express: {tracking_code}",
-            "read": False,
-        }
+    _act_as(world, _seller(world))
+    resp = world.service_factory.order.create_shipment(
+        order_id=world.state.order_id, carrier="SPX Express", tracking_code=tracking_code
     )
+    assert resp.get("shipment", {}).get("trackingCode") == tracking_code, f"CreateShipment: {resp}"
+    world.state.extra["tracking_code"] = tracking_code
 
 
-@then("the order status transitions to shipped and a delivery notification is recorded")
-def order_status_shipped_and_notif_recorded(world: World) -> None:
-    assert world.state.extra.get("order_status") == "SHIPPED", "Order status is not SHIPPED"
-    notifs = world.state.extra.get("notifications", [])
-    shipped_notifs = [n for n in notifs if n["type"] == "order_shipped"]
-    assert len(shipped_notifs) >= 1, "No shipment notification recorded"
-    assert world.state.extra["tracking_code"] in shipped_notifs[0]["body"]
-    world.logger.info(f"Order shipped with tracking code {world.state.extra['tracking_code']}")
+@then("the order is shipped with that tracking code")
+def order_shipped_with_tracking_code(world: World) -> None:
+    tracking_code = world.state.extra["tracking_code"]
+    order = _order(world)
+    assert order.get("status") == "ORDER_STATUS_SHIPPED", f"order is not SHIPPED: {order}"
+    assert order.get("trackingNumber") == tracking_code, f"order tracking number: {order}"
+    tracking = world.service_factory.order.get_shipment_tracking(tracking_code)
+    shipment = tracking.get("shipment", {})
+    assert (
+        shipment.get("orderId") == world.state.order_id
+    ), f"tracking is for another order: {tracking}"
+    assert shipment.get("carrier") == "SPX Express", f"carrier: {shipment}"
+    assert shipment.get("checkpoints"), f"shipment has no checkpoint: {shipment}"
+
+
+@then("the buyer has an order notification for the shipment")
+def buyer_has_shipment_notification(world: World) -> None:
+    found = _poll_buyer_notification(
+        world, "NOTIFICATION_TYPE_ORDER", world.state.extra["tracking_code"]
+    )
+    assert found, "no NOTIFICATION_TYPE_ORDER notification for the buyer after the shipment"
 
 
 @when("the buyer submits an RMA return request for the order")
 def buyer_submits_rma_return_request(world: World) -> None:
-    order_id = world.state.order_id
-    return_id = f"rma-{uuid.uuid4()}"
-    try:
-        rma_res = world.service_factory.order.create_return_request(
-            order_id=order_id, reason="changed_mind", refund_amount=1000000
-        )
-        return_id = rma_res.get("id") or rma_res.get("return", {}).get("id", return_id)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"RMA return request creation API: {exc}")
-
-    world.state.extra["return_id"] = return_id
-    world.state.extra["rma_status"] = "PENDING"
-    world.logger.info(f"RMA return request {return_id} submitted")
+    _act_as(world, _buyer(world))
+    resp = world.service_factory.order.create_return_request(
+        order_id=world.state.order_id, reason="changed_mind", refund_amount=1_000_000
+    )
+    ret = resp.get("returnRequest", {})
+    assert ret.get("id"), f"CreateReturnRequest returned no return: {resp}"
+    world.state.extra["return_id"] = ret["id"]
 
 
 @then("the RMA return request is created with pending status")
 def rma_return_request_pending_status(world: World) -> None:
-    assert world.state.extra.get("return_id"), "RMA return ID missing"
-    assert world.state.extra.get("rma_status") == "PENDING"
-    world.logger.info(f"RMA return request {world.state.extra['return_id']} is PENDING")
+    ret = world.service_factory.order.get_return_request(world.state.extra["return_id"])
+    assert ret.get("status") == "RETURN_STATUS_PENDING", f"return is not PENDING: {ret}"
+    assert ret.get("orderId") == world.state.order_id, f"return is for another order: {ret}"
+    assert ret.get("buyerId") == _buyer(world).user_id, f"wrong buyer: {ret}"
+    assert ret.get("sellerId") == _seller(world).user_id, f"wrong seller: {ret}"
+    assert ret.get("reason") == "changed_mind", f"reason: {ret}"
+    assert int(ret.get("refundAmount", 0)) == 1_000_000, f"refund amount: {ret}"
 
 
 @when("the seller approves the RMA return request")
 def seller_approves_rma_return_request(world: World) -> None:
-    return_id = world.state.extra["return_id"]
-    try:
-        world.service_factory.order.update_return_status(return_id=return_id, status="APPROVED")
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"RMA return status update API: {exc}")
-
-    world.state.extra["rma_status"] = "APPROVED"
-
-
-@then("the RMA return request is approved and refund processing is initiated")
-def rma_approved_and_refund_initiated_step(world: World) -> None:
-    assert (
-        world.state.extra.get("rma_status") == "APPROVED"
-    ), "RMA status was not updated to APPROVED"
-    world.logger.info(
-        f"RMA return request {world.state.extra['return_id']} approved; refund initiated"
+    _act_as(world, _seller(world))
+    resp = world.service_factory.order.update_return_status(
+        return_id=world.state.extra["return_id"], status="RETURN_STATUS_APPROVED"
     )
+    assert resp.get("returnRequest", {}).get("id") == world.state.extra["return_id"], resp
+
+
+@then("the RMA return request is approved")
+def rma_return_request_approved(world: World) -> None:
+    # Read it back as the buyer: the approval is visible to the requester.
+    _act_as(world, _buyer(world))
+    ret = world.service_factory.order.get_return_request(world.state.extra["return_id"])
+    assert ret.get("status") == "RETURN_STATUS_APPROVED", f"return is not APPROVED: {ret}"

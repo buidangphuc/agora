@@ -6,9 +6,11 @@ from .analytics_service import AnalyticsService
 from .auth_service import AuthService
 from .base_service import BaseService, GatewayError
 from .cart_service import CartService
+from .chat_service import ChatService
 from .engagement_service import EngagementService
 from .listing_service import ListingService
 from .metrics_service import MetricsService
+from .notification_service import NotificationService
 from .order_service import OrderService
 from .payment_service import PaymentService
 from .recommendation_service import RecommendationService
@@ -26,6 +28,8 @@ __all__ = [
     "SearchService",
     "SessionService",
     "CartService",
+    "ChatService",
+    "NotificationService",
     "OrderService",
     "PaymentService",
     "EngagementService",
