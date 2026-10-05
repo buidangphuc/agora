@@ -24,6 +24,12 @@ function gateway() {
   return makeClients(getToken());
 }
 
+// Public reads: retry once without the bearer if the gateway rejects a stale
+// session (it answers Unauthenticated to any invalid token, even on public RPCs).
+function publicGateway() {
+  return makeClients(getToken(), { anonymousFallback: true });
+}
+
 export interface ViewCategory {
   id: string;
   name: string;
@@ -138,7 +144,7 @@ function mapListing(l: Listing): ViewListing {
 export async function listListings(
   opts: { status?: string; cursor?: string; pageSize?: number } = {},
 ): Promise<ListingPage> {
-  const res = await gateway().listing.listListings({
+  const res = await publicGateway().listing.listListings({
     status: opts.status ?? "",
     page: { cursor: opts.cursor ?? "", pageSize: opts.pageSize ?? 12 },
   });
@@ -166,7 +172,7 @@ export async function listMyListings(
 /** Fetch one listing, or null if it no longer exists. */
 export async function getListing(id: string): Promise<ViewListing | null> {
   try {
-    const res = await gateway().listing.getListing({ id });
+    const res = await publicGateway().listing.getListing({ id });
     return res.listing ? mapListing(res.listing) : null;
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.NotFound) return null;
@@ -199,7 +205,7 @@ export async function searchListings(
   filters.status = opts.status ?? "published";
   if (opts.categoryId) filters.category_id = opts.categoryId;
 
-  const res = await gateway().search.searchListings({
+  const res = await publicGateway().search.searchListings({
     query,
     filters,
     categoryId: opts.categoryId ?? "",
@@ -222,14 +228,14 @@ export async function searchListings(
 /** Type-ahead suggestions (listing titles). */
 export async function suggest(query: string, limit = 8): Promise<string[]> {
   if (!query.trim()) return [];
-  const res = await gateway().search.suggest({ query, limit });
+  const res = await publicGateway().search.suggest({ query, limit });
   return res.suggestions;
 }
 
 /** Fetch categories tree or list. */
 export async function listCategories(parentId = ""): Promise<ViewCategory[]> {
   try {
-    const res = await gateway().listing.listCategories({ parentId });
+    const res = await publicGateway().listing.listCategories({ parentId });
     return res.categories.map((c) => ({
       id: c.id,
       name: c.name,
@@ -246,7 +252,7 @@ export async function listCategories(parentId = ""): Promise<ViewCategory[]> {
 /** Fetch single category by id. */
 export async function getCategory(id: string): Promise<ViewCategory | null> {
   try {
-    const res = await gateway().listing.getCategory({ id });
+    const res = await publicGateway().listing.getCategory({ id });
     if (!res.category) return null;
     return {
       id: res.category.id,
@@ -406,7 +412,7 @@ export async function getStorefront(
   opts: { throwOnError?: boolean } = {},
 ): Promise<ViewStorefront | null> {
   try {
-    const res = await gateway().listing.getStorefront({ sellerId });
+    const res = await publicGateway().listing.getStorefront({ sellerId });
     const s = res.storefront;
     if (!s) return null;
     return {
@@ -502,7 +508,7 @@ export async function createBundle(
 
 export async function getBundle(id: string): Promise<ViewBundle | null> {
   try {
-    const res = await gateway().listing.getBundle({ id });
+    const res = await publicGateway().listing.getBundle({ id });
     return res.bundle ? mapBundle(res.bundle) : null;
   } catch {
     return null;
@@ -513,7 +519,7 @@ export async function listBundlesBySeller(
   sellerId: string,
 ): Promise<ViewBundle[]> {
   try {
-    const res = await gateway().listing.listBundlesBySeller({ sellerId });
+    const res = await publicGateway().listing.listBundlesBySeller({ sellerId });
     return res.bundles.map(mapBundle);
   } catch {
     return [];

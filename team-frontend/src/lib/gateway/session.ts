@@ -8,10 +8,21 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-export const SESSION_COOKIE = "session";
+import { isUsableToken } from "./token-expiry.js";
 
+import { SESSION_COOKIE } from "./session-cookie.js";
+
+export { SESSION_COOKIE };
+
+/**
+ * The bearer to send to the Gateway, or undefined for anonymous. An expired or
+ * malformed cookie is treated as no token: the Gateway rejects a presented-but-
+ * invalid bearer with 401 even on public RPCs, so we must not send one. (RSC
+ * cannot write cookies; src/middleware.ts clears the stale cookie.)
+ */
 export function getToken(): string | undefined {
-  return cookies().get(SESSION_COOKIE)?.value || undefined;
+  const raw = cookies().get(SESSION_COOKIE)?.value;
+  return raw && isUsableToken(raw) ? raw : undefined;
 }
 
 export interface SessionPrincipal {

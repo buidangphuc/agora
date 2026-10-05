@@ -20,7 +20,7 @@ export async function batchGetShopNames(
   const unique = [...new Set([...sellerIds].filter((id) => id !== ""))];
   if (unique.length === 0) return names;
 
-  const client = makeClients(getToken()).listing;
+  const client = makeClients(getToken(), { anonymousFallback: true }).listing;
   for (let i = 0; i < unique.length; i += BATCH_LIMIT) {
     const chunk = unique.slice(i, i + BATCH_LIMIT);
     try {

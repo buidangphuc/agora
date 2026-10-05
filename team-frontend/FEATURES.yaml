@@ -890,7 +890,8 @@ features:
     covered_by: null
     notes: >
       e2e scenarios "Zero results" and "Backend failure is not a silent empty" (frontend/search_facets.feature). The failure is
-      forced with an invalid session cookie (server-side fetches cannot be intercepted); verify the gateway rejects it.
+      forced by stopping team-search for the scenario (@destructive; restored in teardown). An invalid session cookie is no longer
+      a fault: the gateway answers 401 to a bad bearer, the frontend drops stale cookies and retries public reads anonymously.
       "Loading skeleton matches the grid" is a unit test.
 
   - id: discovery.search-mobile-filters
