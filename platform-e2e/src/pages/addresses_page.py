@@ -27,6 +27,8 @@ class AddressesPage(BasePage):
         return self.page.get_by_text(name, exact=False)
 
     def add_address(self, recipient: str, phone: str) -> None:
+        # The opener is server-rendered; a click before hydration is dropped.
+        self.wait_until_interactive(self.add_button)
         self.add_button.click()
         self.page.fill('input[name="recipientName"]', recipient)
         self.page.fill('input[name="phone"]', phone)

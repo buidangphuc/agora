@@ -150,7 +150,9 @@ def open_addresses(world: World) -> None:
 @when("the buyer asks to delete the second address")
 def ask_to_delete_second(world: World) -> None:
     _, second = world.state.extra["address_names"]
-    AddressesPage(world.page).delete_button(second).click()
+    page = AddressesPage(world.page)
+    page.wait_until_interactive(page.delete_button(second))
+    page.delete_button(second).click()
 
 
 @then("a confirmation dialog names the recipient of the second address")
