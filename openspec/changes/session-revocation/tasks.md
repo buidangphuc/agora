@@ -18,5 +18,5 @@
 
 ## 4. E2E — platform-e2e
 
-- [ ] 4.1 Scenarios: revoked token gets 401 within 5 s; revocation survives a gateway restart (`@destructive`); new session shows device and IP; spoofed forwarded IP is ignored; FEATURES.yaml entries; verify green against the agora stack and flip to `automated`
+- [x] 4.1 Scenarios: revoked token gets 401 within 5 s; revocation survives a gateway restart (`@destructive`); new session shows device and IP; spoofed forwarded IP is ignored; FEATURES.yaml entries; verify green against the agora stack and flip to `automated`
 - [x] 4.2 Run `openspec validate session-revocation --strict`; verify it is valid

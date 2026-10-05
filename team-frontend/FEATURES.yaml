@@ -444,7 +444,8 @@ features:
       - When GET /api/admin/metrics is called without a token
       - Then the gateway returns 401
     tags: [admin, observability, authz]
-    status: planned
+    status: automated
+    covered_by: "ops/cockpit_real_data.feature::Anonymous request is rejected"
     notes: >
       Written in ops/cockpit_real_data.feature ("Anonymous request is rejected"); flips to automated, with covered_by,
       after it passes against the stack.
@@ -470,7 +471,8 @@ features:
       - Then the gateway returns 403
       - And when the buyer opens /admin/cockpit the page renders a 403 result and no metrics
     tags: [buyer, admin, authz]
-    status: planned
+    status: automated
+    covered_by: "ops/cockpit_real_data.feature::A buyer cannot open the cockpit"
     notes: >
       Written in ops/cockpit_real_data.feature ("A buyer cannot open the cockpit"); flips to automated, with covered_by,
       after it passes against the stack.
@@ -497,7 +499,8 @@ features:
       - Then within 30 seconds total_orders_24h has increased by 1 and total_revenue_24h by 300000
       - And recent_orders lists that order id first
     tags: [admin, observability, order]
-    status: planned
+    status: automated
+    covered_by: "ops/cockpit_real_data.feature::A paid order shows up in the 24h figures"
     notes: >
       Written in ops/cockpit_real_data.feature ("A paid order shows up in the 24h figures"); flips to automated, with covered_by,
       after it passes against the stack.
@@ -1590,7 +1593,7 @@ features:
     status: automated
     covered_by: "frontend/account_security.feature::Revoking a session asks for confirmation first"
     notes: >-
-      Scenario 'Revoking a session asks for confirmation first' is written but cannot pass on this branch: team-identity never records a session at login (CreateSession is not called), so the sessions table is always empty.
+      Scenario 'Revoking a session asks for confirmation first' runs green: team-identity records a session at every login (fix/sessions), and session-revocation enforces the revoke at the gateway.
 
   - id: account.kyc-form-labels
     title: KYC form is fully labelled and status is a Tag

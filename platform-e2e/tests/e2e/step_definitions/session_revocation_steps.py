@@ -121,11 +121,13 @@ def open_security(world: World) -> None:
 @then("the newest session lists this browser's user agent and a non-empty IP")
 def session_shows_device_and_ip(world: World) -> None:
     ua = world.state.extra["browser_ua"]
-    # The UI shows `device` as the row's primary text and `IP: <ip> · ...` beneath it.
-    expect(world.page.get_by_text(ua, exact=False).first).to_be_visible(timeout=timeouts.DEFAULT)
-    body = world.page.locator("body").inner_text()
-    match = re.search(r"IP:\s*([0-9a-fA-F:.]+)\s*·", body)
-    assert match, f"no 'IP: <address> ·' found on the security page: {body[:600]!r}"
+    # Desktop shows the IP in its own column; below `sm` it moves to an `IP: ... ·` meta
+    # line. Read the row that carries this browser's user agent, at any width.
+    row = world.page.locator("tr", has_text=ua).first
+    expect(row).to_be_visible(timeout=timeouts.DEFAULT)
+    row_text = row.inner_text()
+    match = re.search(r"\b(\d{1,3}(?:\.\d{1,3}){3}|[0-9a-fA-F]*:[0-9a-fA-F:]+)\b", row_text)
+    assert match, f"no IP address in the session row: {row_text!r}"
 
     # Cross-check the stored record through the API (what identity actually saved).
     cookie = next(c for c in world.context.cookies() if c["name"] == "session")

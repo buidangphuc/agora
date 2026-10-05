@@ -103,6 +103,7 @@ features:
       - When it logs in sending X-Forwarded-For and x-client-ip of 1.2.3.4
       - Then the recorded session IP is the socket address, not 1.2.3.4
     tags: [auth]
-    status: planned
+    status: automated
+    covered_by: "auth/session_revocation.feature::A client cannot spoof the recorded session IP"
     notes: >-
       Scenario "A client cannot spoof the recorded session IP" in auth/session_revocation.feature.
