@@ -1,6 +1,6 @@
 ## 1. Contract — platform-core
 
-- [ ] 1.1 Add the identity `GetPublicProfiles` RPC and messages additively; verify `buf lint` and `buf breaking` against feat/ui-system, vendor to team-identity and team-notification, regenerate
+- [x] 1.1 Add the identity `GetPublicProfiles` RPC and messages additively; verify `buf lint` and `buf breaking` against feat/ui-system, vendor to team-identity and team-notification, regenerate
 
 ## 2. Code — team-identity
 
