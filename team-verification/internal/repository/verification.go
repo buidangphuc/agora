@@ -30,6 +30,10 @@ const (
 // ErrNotFound is returned when no submission matches the given id.
 var ErrNotFound = errors.New("kyc submission not found")
 
+// ErrAlreadyReviewed is returned when a review targets a submission that is no
+// longer PENDING: a decision is final and concurrent reviews cannot overwrite it.
+var ErrAlreadyReviewed = errors.New("kyc submission already reviewed")
+
 // Submission is one KYC record. reviewed_at is nil until a reviewer acts.
 type Submission struct {
 	ID         string
@@ -52,8 +56,9 @@ type KycRepository interface {
 	// GetLatestByUser returns the user's most recent submission, or ErrNotFound
 	// when the user has never submitted.
 	GetLatestByUser(ctx context.Context, userID string) (*Submission, error)
-	// UpdateStatus sets the status (and reviewed_at) for a submission, returning
-	// the stored value, or ErrNotFound.
+	// UpdateStatus sets the status (and reviewed_at) of a PENDING submission,
+	// returning the stored value; ErrAlreadyReviewed if it is no longer PENDING,
+	// ErrNotFound if it does not exist.
 	UpdateStatus(ctx context.Context, id string, status Status, reviewedAt time.Time) (*Submission, error)
 }
 
@@ -96,12 +101,21 @@ func (r *PostgresKycRepo) GetLatestByUser(ctx context.Context, userID string) (*
 }
 
 func (r *PostgresKycRepo) UpdateStatus(ctx context.Context, id string, status Status, reviewedAt time.Time) (*Submission, error) {
+	// The PENDING guard makes the decision final and concurrent reviews safe: only
+	// one UPDATE can match, the other sees no row.
 	const q = `
 		UPDATE kyc_submissions
 		SET status = $2, reviewed_at = $3
-		WHERE id = $1
+		WHERE id = $1 AND status = $4
 		RETURNING id, user_id, doc_type, doc_ref, status, reviewed_at, created_at`
-	return r.scanRow(r.pool.QueryRow(ctx, q, id, string(status), reviewedAt))
+	sub, err := r.scanRow(r.pool.QueryRow(ctx, q, id, string(status), reviewedAt, string(StatusPending)))
+	if !errors.Is(err, ErrNotFound) {
+		return sub, err
+	}
+	if _, getErr := r.GetByID(ctx, id); getErr == nil {
+		return nil, ErrAlreadyReviewed
+	}
+	return nil, ErrNotFound
 }
 
 func (r *PostgresKycRepo) queryOne(ctx context.Context, q, arg string) (*Submission, error) {
@@ -177,6 +191,9 @@ func (r *InMemoryKycRepo) UpdateStatus(_ context.Context, id string, status Stat
 	s, ok := r.byID[id]
 	if !ok {
 		return nil, ErrNotFound
+	}
+	if s.Status != StatusPending {
+		return nil, ErrAlreadyReviewed
 	}
 	s.Status = status
 	rt := reviewedAt

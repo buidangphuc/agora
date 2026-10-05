@@ -195,3 +195,24 @@ func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "meh"})
 	wantCode(t, err, codes.InvalidArgument)
 }
+
+// A decision is final: a second review (or a concurrent one that loses) gets
+// FailedPrecondition and leaves the first decision in place.
+func TestReviewIsFinal(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, buyer("alice"))
+	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
+		t.Fatalf("first review: %v", err)
+	}
+	_, err := h.ReviewKyc(admin("admin_2"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("second review: want FailedPrecondition, got %v", err)
+	}
+	st, err := h.GetVerificationStatus(buyer("alice"), &verificationv1.GetVerificationStatusRequest{})
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if st.GetStatus() != verificationv1.VerificationStatus_VERIFICATION_STATUS_VERIFIED {
+		t.Fatalf("first decision overwritten: %v", st.GetStatus())
+	}
+}

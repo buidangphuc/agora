@@ -110,6 +110,8 @@ func mapErr(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, repository.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, repository.ErrAlreadyReviewed):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Errorf(codes.Internal, "%v", err)
 	}
