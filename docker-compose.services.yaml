@@ -18,7 +18,9 @@ services:
   # payment-event topics are created explicitly before the producers run: the
   # team-payment outbox relayer produces PaymentSettled to payment.events, and the
   # team-order consumer parks poison records on payment.events.dlq (AD1/AD4), and
-  # the team-order outbox relayer produces OrderPaidEvent to order.events (ADR-0013).
+  # the team-order outbox relayer produces OrderPaidEvent and OrderShipped to order.events
+  # (ADR-0013), team-chat produces ChatMessage to chat.events, and team-notification
+  # consumes both (poison records park on <topic>.dlq).
   # One-shot: waits for the shared broker to be healthy, then creates the topics
   # idempotently (|| true tolerates re-runs). team-payment/team-order depend on it.
   redpanda-init:
@@ -31,7 +33,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events promotion.events listing.events listing.events.dlq identity.events -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -368,9 +370,15 @@ services:
     depends_on:
       team-chat-migrate:
         condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://chat_svc:chat_pass@postgres:5432/chat_db?sslmode=disable
+      # chat.events producer: ChatMessage (with recipient_id) feeds team-notification
+      - KAFKA_ENABLED=true
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_CHAT_TOPIC=chat.events
       # team-chat builds its DB config from POSTGRES_* (default host postgres-chat);
       # point it at the shared instance.
       - POSTGRES_HOST=postgres
@@ -396,6 +404,14 @@ services:
       - LISTING_EVENTS_TOPIC=listing.events
       - NOTIFICATION_LISTING_CONSUMER_GROUP=team-notification.listing
       - LISTING_EVENTS_DLQ_TOPIC=listing.events.dlq
+      # chat.events consumer: CHAT notification for the other thread participant
+      - CHAT_EVENTS_TOPIC=chat.events
+      - NOTIFICATION_CHAT_CONSUMER_GROUP=team-notification.chat
+      - CHAT_EVENTS_DLQ_TOPIC=chat.events.dlq
+      # order.events consumer: ORDER notification on OrderShipped
+      - ORDER_EVENTS_TOPIC=order.events
+      - NOTIFICATION_ORDER_CONSUMER_GROUP=team-notification.order
+      - ORDER_EVENTS_DLQ_TOPIC=order.events.dlq
       - GRPC_PORT=50058
       - ENV=local
 

@@ -349,10 +349,14 @@ enum DigestFrequency {
 |---|---|---|
 | `GRPC_PORT` | `50058` | gRPC server listening port |
 | `DATABASE_URL` | `postgres://notification_svc:notification_pass@localhost:5441/notification_db?sslmode=disable` | PostgreSQL connection string |
-| `KAFKA_BROKER` | `localhost:19092` | Kafka / Redpanda bootstrap broker address |
-| `KAFKA_GROUP_ID`| `team-notification-service` | Consumer group ID for event subscription |
-| `KAFKA_LISTING_TOPIC`| `listing.events` | Kafka topic for catalog changes |
-| `KAFKA_DLQ_TOPIC` | `listing.events.dlq` | Dead Letter Queue topic for poison records |
+| `KAFKA_ENABLED` | `false` | Gates all Kafka consumers (they also need Postgres) |
+| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated Kafka / Redpanda brokers |
+| `LISTING_EVENTS_TOPIC` / `LISTING_EVENTS_DLQ_TOPIC` | `listing.events` / `listing.events.dlq` | Price-drop and back-in-stock alerts |
+| `NOTIFICATION_LISTING_CONSUMER_GROUP` | `team-notification.listing` | Consumer group for `listing.events` |
+| `CHAT_EVENTS_TOPIC` / `CHAT_EVENTS_DLQ_TOPIC` | `chat.events` / `chat.events.dlq` | CHAT notification for the other thread participant |
+| `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | Consumer group for `chat.events` |
+| `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | ORDER notification on `OrderShipped` (other order events ignored) |
+| `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | Consumer group for `order.events` |
 
 ---
 

@@ -61,21 +61,21 @@ func main() {
 	// there) and Kafka is enabled. Cancelled by ctx on shutdown.
 	kcfg := bootstrap.KafkaConfigFromEnv()
 	if pool != nil && kcfg.Enabled {
-		lk, err := bootstrap.NewListingKafka(kcfg)
-		if err != nil {
-			logger.Warn("listing consumer disabled: kafka client init failed", "err", err)
-		} else {
-			defer lk.Close()
-			listingConsumer := consumer.NewListingConsumer(repo, alertSubs, logger)
-			go func() {
-				logger.Info("listing consumer starting",
-					"topic", kcfg.Topic, "group", kcfg.ConsumerGroup)
-				if err := listingConsumer.Run(ctx, lk.Reader(), lk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic}); err != nil &&
-					!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-					logger.Error("listing consumer stopped with error", "err", err)
-				}
-			}()
-		}
+		startConsumer(ctx, logger, "listing", kcfg, func() consumerRun {
+			return consumer.NewListingConsumer(repo, alertSubs, logger).Run
+		})
+
+		// chat.events + order.events (notify-chat-and-shipment): a CHAT notification
+		// for the other thread participant and an ORDER notification when a shipment
+		// is created, each deduped by event_id and gated by the recipient's
+		// notification preferences. Same offset/DLQ discipline as the listing consumer.
+		prefsSvc := service.NewPrefsService(repository.NewPostgresNotificationPrefsRepo(pool))
+		startConsumer(ctx, logger, "chat", bootstrap.ChatKafkaConfigFromEnv(), func() consumerRun {
+			return consumer.NewChatConsumer(repo, prefsSvc, logger).Run
+		})
+		startConsumer(ctx, logger, "order", bootstrap.OrderKafkaConfigFromEnv(), func() consumerRun {
+			return consumer.NewOrderConsumer(repo, prefsSvc, logger).Run
+		})
 	}
 
 	go func() {
@@ -91,4 +91,27 @@ func main() {
 
 	logger.Info("shutting down team-notification...")
 	srv.Stop()
+}
+
+// consumerRun is a consumer's Run method.
+type consumerRun func(ctx context.Context, reader consumer.RecordReader, dlq consumer.DeadLetterProducer, cfg consumer.RunConfig) error
+
+// startConsumer joins kcfg's consumer group and runs the consumer built by mk in
+// the background until ctx is cancelled. A Kafka init failure disables just that
+// consumer. The Kafka handles are closed when the process exits.
+func startConsumer(ctx context.Context, logger *slog.Logger, name string, kcfg bootstrap.KafkaConfig, mk func() consumerRun) {
+	tk, err := bootstrap.NewTopicKafka(kcfg)
+	if err != nil {
+		logger.Warn(name+" consumer disabled: kafka client init failed", "err", err)
+		return
+	}
+	run := mk()
+	go func() {
+		defer tk.Close()
+		logger.Info(name+" consumer starting", "topic", kcfg.Topic, "group", kcfg.ConsumerGroup)
+		if err := run(ctx, tk.Reader(), tk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic}); err != nil &&
+			!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			logger.Error(name+" consumer stopped with error", "err", err)
+		}
+	}()
 }
