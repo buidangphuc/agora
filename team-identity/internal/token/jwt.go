@@ -21,6 +21,10 @@ type Claims struct {
 	Name   string   `json:"name"`
 	Type   string   `json:"typ"` // "user" | "service" | "anonymous"
 	Scopes []string `json:"scopes"`
+	// SessionID (`sid`) ties the token to a row in team-identity's sessions
+	// table so a revoked session can be recognised. Empty for tokens minted
+	// without a session (service tokens, legacy callers).
+	SessionID string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -58,11 +62,17 @@ func (s *Signer) PublicKey() *rsa.PublicKey { return &s.key.PublicKey }
 // Sign issues an RS256-signed token for a subject with the given scopes, stamping
 // the signer's `kid` in the JWT header.
 func (s *Signer) Sign(subject, name, principalType string, scopes []string, ttl time.Duration) (string, error) {
+	return s.SignWithSession(subject, name, principalType, scopes, "", ttl)
+}
+
+// SignWithSession is Sign plus a `sid` claim carrying the session id.
+func (s *Signer) SignWithSession(subject, name, principalType string, scopes []string, sessionID string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		Name:   name,
-		Type:   principalType,
-		Scopes: scopes,
+		Name:      name,
+		Type:      principalType,
+		Scopes:    scopes,
+		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   subject,
 			IssuedAt:  jwt.NewNumericDate(now),

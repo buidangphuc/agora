@@ -77,7 +77,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build token signer: %w", err)
 	}
-	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second)
+	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second).WithSessions(sessionRepo)
 
 	// Seed a default admin (dev convenience).
 	if err := authSvc.EnsureAdmin(ctx, "admin", "admin123"); err != nil {
