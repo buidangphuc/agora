@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
+	"github.com/buidangphuc/team-identity/internal/service"
 )
 
 const (
@@ -103,4 +104,15 @@ func RequirePrincipal(ctx context.Context) (*commonv1.Principal, error) {
 		return nil, status.Error(codes.Unauthenticated, "authentication required")
 	}
 	return p, nil
+}
+
+// ClientFromContext reads the gateway-computed x-client-ip / x-client-user-agent
+// metadata. Audit-only (session/login records): never part of the principal and
+// never used for authorization. Missing values are empty.
+func ClientFromContext(ctx context.Context) service.ClientInfo {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return service.ClientInfo{}
+	}
+	return service.ClientInfo{IP: firstMD(md, "x-client-ip"), UserAgent: firstMD(md, "x-client-user-agent")}
 }

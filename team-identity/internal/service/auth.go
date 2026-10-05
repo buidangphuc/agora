@@ -42,10 +42,32 @@ type AuthResult struct {
 	Scopes   []string
 }
 
+// ClientInfo is the caller's device/IP as forwarded by the gateway
+// (x-client-user-agent / x-client-ip). Audit-only: never used for authorization.
+type ClientInfo struct {
+	IP        string
+	UserAgent string
+}
+
+type clientCtxKey struct{}
+
+// WithClient attaches ClientInfo to ctx for Register/Login to record on the session.
+func WithClient(ctx context.Context, c ClientInfo) context.Context {
+	return context.WithValue(ctx, clientCtxKey{}, c)
+}
+
 type AuthService struct {
-	repo   repository.UserRepository
-	signer *token.Signer
-	ttl    time.Duration
+	repo     repository.UserRepository
+	sessions repository.SessionRepository // nil: no session is recorded
+	signer   *token.Signer
+	ttl      time.Duration
+}
+
+// WithSessions makes Register/Login record a session row and stamp its id into
+// the token as `sid`.
+func (s *AuthService) WithSessions(r repository.SessionRepository) *AuthService {
+	s.sessions = r
+	return s
 }
 
 func NewAuthService(repo repository.UserRepository, signer *token.Signer, ttl time.Duration) *AuthService {
@@ -73,7 +95,7 @@ func (s *AuthService) Register(ctx context.Context, username, password, role str
 	if err != nil {
 		return AuthResult{}, err
 	}
-	return s.issue(created)
+	return s.issue(ctx, created)
 }
 
 // Login verifies credentials and issues a token.
@@ -88,12 +110,21 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
 		return AuthResult{}, ErrInvalidCredentials
 	}
-	return s.issue(u)
+	return s.issue(ctx, u)
 }
 
-func (s *AuthService) issue(u repository.User) (AuthResult, error) {
+func (s *AuthService) issue(ctx context.Context, u repository.User) (AuthResult, error) {
 	scopes := authz.ScopesForRoles(u.Roles)
-	signed, err := s.signer.Sign(u.ID, u.Username, "user", scopes, s.ttl)
+	sid := ""
+	if s.sessions != nil {
+		c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
+		sess, err := s.sessions.CreateSession(ctx, repository.Session{UserID: u.ID, Device: clip(c.UserAgent, 256), IP: clip(c.IP, 64)})
+		if err != nil {
+			return AuthResult{}, err
+		}
+		sid = sess.ID
+	}
+	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, sid, s.ttl)
 	if err != nil {
 		return AuthResult{}, err
 	}
@@ -209,4 +240,11 @@ func (s *AuthService) EnsureAdmin(ctx context.Context, username, password string
 		return nil
 	}
 	return err
+}
+
+func clip(v string, n int) string {
+	if len(v) > n {
+		return v[:n]
+	}
+	return v
 }
