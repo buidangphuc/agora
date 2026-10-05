@@ -27,3 +27,11 @@ def test_price_drop_delivery() -> None:
 )
 def test_back_in_stock_delivery() -> None:
     pass
+
+
+@scenario(
+    "notification/alert_delivery.feature",
+    "Two buyers do not see each other's notifications",
+)
+def test_notifications_are_per_user() -> None:
+    pass
