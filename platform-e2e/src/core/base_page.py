@@ -39,6 +39,23 @@ class BasePage(ABC):
     def navigate(self, **params: str) -> None:
         self.page.goto(self.url(**params), wait_until="domcontentloaded")
 
+    def wait_until_interactive(
+        self, locator: Locator, timeout: float = timeouts.NAVIGATION
+    ) -> None:
+        """Wait until React has hydrated `locator`'s element, i.e. its handlers are attached.
+
+        Server-rendered markup is visible and "enabled" before hydration, but a click
+        on it is silently dropped (no handler yet), so a plain `expect(...).to_be_visible()`
+        is not a readiness signal for client-side controls. React tags every hydrated
+        DOM node with a `__reactProps$<id>` key, which is the observable state to wait on.
+        """
+        handle = locator.first.element_handle(timeout=timeout)
+        self.page.wait_for_function(
+            "el => Object.keys(el).some(k => k.startsWith('__reactProps$'))",
+            arg=handle,
+            timeout=timeout,
+        )
+
     @abstractmethod
     def is_displayed(self) -> bool:
         """Return True when a hallmark element of this page is visible."""

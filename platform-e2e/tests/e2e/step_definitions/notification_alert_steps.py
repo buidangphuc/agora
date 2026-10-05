@@ -136,7 +136,9 @@ def buyer_viewing_listing_for_alerts(world: World) -> None:
 def enable_alert_toggle(world: World, kind: str) -> None:
     detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
     toggle = detail.alert_toggle(kind)
-    expect(toggle).to_be_visible(timeout=timeouts.NAVIGATION)
+    # The toggle is server-rendered; a click before hydration is dropped, which left
+    # data-active at "false" forever under parallel load. Wait for it to be interactive.
+    detail.wait_until_interactive(toggle)
     if toggle.get_attribute("data-active") != "true":
         toggle.click()
 
