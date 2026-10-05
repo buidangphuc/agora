@@ -21,6 +21,11 @@ ADDRESS_LIST = "/platform.identity.v1.AddressService/ListAddresses"
 SESSION_LIST = "/platform.identity.v1.SessionService/ListSessions"
 SESSION_REVOKE = "/platform.identity.v1.SessionService/RevokeSession"
 
+# platform.analytics.v1 (seller RPCs: owner or admin only — secure-seller-analytics-and-admin-seed)
+ANALYTICS_SELLER_FUNNEL = "/platform.analytics.v1.AnalyticsQueryService/GetSellerFunnel"
+ANALYTICS_REVENUE_BREAKDOWN = "/platform.analytics.v1.AnalyticsQueryService/GetRevenueBreakdown"
+ANALYTICS_DEMAND_FORECAST = "/platform.analytics.v1.AnalyticsQueryService/GetDemandForecast"
+
 # platform.listing.v1
 LISTING_CREATE = "/platform.listing.v1.ListingService/CreateListing"
 LISTING_GET = "/platform.listing.v1.ListingService/GetListing"
