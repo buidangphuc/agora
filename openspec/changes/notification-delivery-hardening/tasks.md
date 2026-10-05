@@ -8,7 +8,7 @@
 
 ## 3. Code — team-chat
 
-- [ ] 3.1 Migration for `chat_outbox_events`, outbox store with the ordered claim query and its Postgres ordering test; verify `go test ./...`
+- [x] 3.1 Migration for `chat_outbox_events`, outbox store with the ordered claim query and its Postgres ordering test; verify `go test ./...`
 - [ ] 3.2 SendMessage writes the event to the outbox in the message transaction; relayer to `chat.events` started in main with `OUTBOX_*`/`KAFKA_*` env; verify a rollback test and the relayer unit tests
 
 ## 4. Code — team-notification
