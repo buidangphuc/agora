@@ -10,8 +10,8 @@
 
 ## 3. Config — compose and gitops
 
-- [ ] 3.1 Local compose enables seeding with a dev password from env; e2e `users.json` reads the admin password from env with the same dev default; verify the compose file parses and `features.py --strict` passes
-- [ ] 3.2 platform-gitops check that fails on `SEED_ADMIN_ENABLED=true` or a `SEED_ADMIN_PASSWORD` literal in team-identity manifests; verify it passes on the current manifests and fails on a crafted bad sample
+- [x] 3.1 Local compose enables seeding with a dev password from env; e2e `users.json` reads the admin password from env with the same dev default; verify the compose file parses and `features.py --strict` passes
+- [x] 3.2 platform-gitops check that fails on `SEED_ADMIN_ENABLED=true` or a `SEED_ADMIN_PASSWORD` literal in team-identity manifests; verify it passes on the current manifests and fails on a crafted bad sample
 
 ## 4. E2E — platform-e2e
 
