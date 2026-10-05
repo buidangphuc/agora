@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AUTHORIZATION_HEADER,
+  FORWARDED_FOR_HEADER,
   REQUEST_ID_HEADER,
+  USER_AGENT_HEADER,
   anonymousFallbackInterceptor,
   authInterceptor,
 } from "./auth.js";
@@ -45,6 +47,28 @@ describe("authInterceptor", () => {
     expect(req.header.has(AUTHORIZATION_HEADER)).toBe(false);
     // still forwards the request
     expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("forwards the browser ip and user agent when a client context is given", async () => {
+    const next = vi.fn(async (req) => req);
+    const req = makeReq();
+
+    await authInterceptor({
+      client: { ip: "203.0.113.7", userAgent: "Mozilla/5.0" },
+    })(next)(req);
+
+    expect(req.header.get(FORWARDED_FOR_HEADER)).toBe("203.0.113.7");
+    expect(req.header.get(USER_AGENT_HEADER)).toBe("Mozilla/5.0");
+  });
+
+  it("sends neither header without a client context", async () => {
+    const next = vi.fn(async (req) => req);
+    const req = makeReq();
+
+    await authInterceptor({ token: "t" })(next)(req);
+
+    expect(req.header.has(FORWARDED_FOR_HEADER)).toBe(false);
+    expect(req.header.has(USER_AGENT_HEADER)).toBe(false);
   });
 
   it("generates an x-request-id when none is supplied", async () => {

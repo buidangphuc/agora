@@ -1,5 +1,5 @@
 import { Code, ConnectError } from "@connectrpc/connect";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -102,6 +102,33 @@ describe("loginAction", () => {
       ok: false,
       error: "Không nhận được phiên đăng nhập.",
     });
+  });
+});
+
+describe("client context forwarding", () => {
+  it("passes the browser ip and user agent to the gateway on login and register", async () => {
+    vi.mocked(headers).mockReturnValue(
+      new Map([
+        ["x-forwarded-for", "203.0.113.7"],
+        ["user-agent", "Mozilla/5.0 test"],
+      ]) as never,
+    );
+    stubAuth({
+      login: vi.fn().mockResolvedValue({ result: { token: "t" } }),
+      register: vi.fn().mockResolvedValue({ result: { token: "t" } }),
+    });
+
+    await loginAction(initial, form({ username: "alice", password: "pw" }));
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", role: "buyer" }),
+    );
+
+    const want = {
+      client: { ip: "203.0.113.7", userAgent: "Mozilla/5.0 test" },
+    };
+    expect(makeClients).toHaveBeenNthCalledWith(1, undefined, want);
+    expect(makeClients).toHaveBeenNthCalledWith(2, undefined, want);
   });
 });
 

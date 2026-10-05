@@ -6,12 +6,23 @@
  */
 import { Code, ConnectError, type Interceptor } from "@connectrpc/connect";
 
+import type { ClientContext } from "./client-context.js";
+
 export const AUTHORIZATION_HEADER = "authorization";
 export const REQUEST_ID_HEADER = "x-request-id";
+export const FORWARDED_FOR_HEADER = "x-forwarded-for";
+export const USER_AGENT_HEADER = "user-agent";
 
 export interface RequestContext {
   token?: string;
   requestId?: string;
+  /**
+   * The browser's IP / user agent, for calls that create a session (login,
+   * register). Sent as X-Forwarded-For / User-Agent: the gateway honours the former
+   * only from this server (its TRUSTED_PROXIES) and stamps both on the call so
+   * identity records the real device. Omit everywhere else.
+   */
+  client?: ClientContext;
 }
 
 export function authInterceptor(ctx: RequestContext = {}): Interceptor {
@@ -19,6 +30,12 @@ export function authInterceptor(ctx: RequestContext = {}): Interceptor {
     const token = ctx.token?.trim();
     if (token) {
       req.header.set(AUTHORIZATION_HEADER, `bearer ${token}`);
+    }
+    if (ctx.client?.ip) {
+      req.header.set(FORWARDED_FOR_HEADER, ctx.client.ip);
+    }
+    if (ctx.client?.userAgent) {
+      req.header.set(USER_AGENT_HEADER, ctx.client.userAgent);
     }
     if (!req.header.has(REQUEST_ID_HEADER)) {
       req.header.set(
