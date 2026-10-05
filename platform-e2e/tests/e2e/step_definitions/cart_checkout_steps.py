@@ -274,6 +274,9 @@ def buyer_presses_payment_button(world: World, label: str) -> None:
         if label == "Thanh toán thành công"
         else payment.simulate_failure_button
     )
+    # The buttons are server-rendered and visible before React hydrates them; a
+    # click before hydration is dropped, so wait for the handler first.
+    payment.wait_until_interactive(button)
     button.click()
 
 
