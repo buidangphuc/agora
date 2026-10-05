@@ -597,11 +597,18 @@ def payout_confirm_dialog(world: World) -> None:
 
 
 # ── Shop profile ─────────────────────────────────────────────────────────
-@when(parsers.parse('the seller saves the shop name "{name}"'))
-def save_shop_name(world: World, name: str) -> None:
+def _open_shop_form(world: World) -> SellerShopPage:
+    """Open /seller/shop and wait for hydration: a fill or save before it is lost."""
     world.page.set_viewport_size(DESKTOP)
     page: SellerShopPage = world.navigate_to(PageName.SELLER_SHOP)  # type: ignore[assignment]
     expect(page.name_input).to_be_visible(timeout=timeouts.NAVIGATION)
+    page.wait_until_interactive(page.save_button)
+    return page
+
+
+@when(parsers.parse('the seller saves the shop name "{name}"'))
+def save_shop_name(world: World, name: str) -> None:
+    page = _open_shop_form(world)
     page.name_input.fill(name)
     page.save_button.click()
     world.state.extra["saved_shop_name"] = name
@@ -622,9 +629,7 @@ def public_shop_shows_name(world: World, name: str) -> None:
 
 @when("the seller submits a blank shop name")
 def submit_blank_shop_name(world: World) -> None:
-    world.page.set_viewport_size(DESKTOP)
-    page: SellerShopPage = world.navigate_to(PageName.SELLER_SHOP)  # type: ignore[assignment]
-    expect(page.name_input).to_be_visible(timeout=timeouts.NAVIGATION)
+    page = _open_shop_form(world)
     page.name_input.fill("   ")
     page.save_button.click()
 
@@ -638,7 +643,7 @@ def shop_name_required_error(world: World) -> None:
 
 @when("the seller submits a shop name of 81 characters")
 def submit_long_shop_name(world: World) -> None:
-    page: SellerShopPage = world.navigate_to(PageName.SELLER_SHOP)  # type: ignore[assignment]
+    page = _open_shop_form(world)
     page.name_input.fill("x" * 81)
     page.save_button.click()
 
