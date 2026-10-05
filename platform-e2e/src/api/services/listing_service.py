@@ -49,6 +49,14 @@ class ListingService(BaseService):
         data = self.post("/platform.listing.v1.ListingService/GetListing", {"id": listing_id})
         return data.get("listing") or {}
 
+    def update_listing(self, listing_id: str, **changes: Any) -> dict[str, Any]:
+        """Full-replacement UpdateListing: read the current listing, apply `changes`
+        (proto JSON field names, e.g. `price`, `stock`), write it back. Needs the owner's token."""
+        current = self.get_listing(listing_id)
+        current.update(changes)
+        data = self.post("/platform.listing.v1.ListingService/UpdateListing", {"listing": current})
+        return data.get("listing") or {}
+
     def delete_listing(self, listing_id: str) -> dict[str, Any]:
         return self.post("/platform.listing.v1.ListingService/DeleteListing", {"id": listing_id})
 

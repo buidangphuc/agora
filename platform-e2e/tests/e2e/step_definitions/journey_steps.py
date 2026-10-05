@@ -9,7 +9,6 @@ Covers:
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
@@ -33,6 +32,7 @@ SETTINGS = get_settings()
 # ============================================================================
 # Journey 1: Buyer Full Funnel Journey
 # ============================================================================
+
 
 @then("a viewable impression telemetry event is emitted to the data layer")
 def viewable_impression_telemetry_emitted(world: World) -> None:
@@ -140,14 +140,18 @@ def buyer_adds_multiple_items(world: World) -> None:
 def cart_contains_updated_item_quantities(world: World) -> None:
     cart_page: CartPage = world.get_page(PageName.CART)  # type: ignore[assignment]
     assert cart_page.is_displayed(), f"Cart page not displayed at {world.page.url}"
-    world.logger.info(f"Cart displays updated item quantity: {world.state.extra.get('cart_quantity')}")
+    world.logger.info(
+        f"Cart displays updated item quantity: {world.state.extra.get('cart_quantity')}"
+    )
 
 
 @when("the buyer confirms the order placement")
 def buyer_confirms_order_placement(world: World) -> None:
     order_id = f"ord-{uuid.uuid4()}"
     try:
-        order_res = world.service_factory.order.create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
+        order_res = world.service_factory.order.create_order(
+            {"paymentMethod": "PAYMENT_METHOD_COD"}
+        )
         orders = order_res.get("orders", [])
         order_id = orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
     except Exception as exc:  # noqa: BLE001
@@ -189,12 +193,15 @@ def order_confirmation_and_ga4_verified(world: World) -> None:
     assert ecom.get("transaction_id") == world.state.extra.get("transaction_id")
     assert ecom.get("currency") == "VND"
     assert ecom.get("coupon") == "SAVE10"
-    world.logger.info(f"GA4 purchase telemetry verified for transaction {world.state.extra.get('transaction_id')}")
+    world.logger.info(
+        f"GA4 purchase telemetry verified for transaction {world.state.extra.get('transaction_id')}"
+    )
 
 
 # ============================================================================
 # Journey 2: Seller Cockpit & Forecast Journey
 # ============================================================================
+
 
 @when("the seller publishes a new listing with inventory stock")
 def seller_publishes_new_listing_with_stock(world: World) -> None:
@@ -206,117 +213,99 @@ def seller_publishes_new_listing_with_stock(world: World) -> None:
         status="published",
         description="High-demand electronics item for forecast testing.",
     )
-    try:
-        listing_id = world.service_factory.listing.create_listing(listing)
-        listing.listing_id = listing_id
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Listing create API: {exc}")
-        listing.listing_id = f"lst-{uuid.uuid4()}"
-
+    listing_id = world.service_factory.listing.create_listing(listing)
+    assert listing_id, "CreateListing returned no id"
     world.state.listing = listing
-    world.state.extra["journey_listing"] = listing
-    world.logger.info(f"Published listing {listing.listing_id} with stock {listing.stock}")
+    world.logger.info(f"Published listing {listing_id} with stock {listing.stock}")
 
 
 @then("the listing is published and visible in seller listings")
 def listing_published_and_visible_in_seller(world: World) -> None:
     listing = world.state.listing
-    assert listing and listing.listing_id, "No published listing found in scenario state"
-    world.logger.info(f"Listing {listing.listing_id} is active and published")
+    got = world.service_factory.listing.get_listing(listing.listing_id)
+    assert got.get("id") == listing.listing_id, f"GetListing did not return the listing: {got}"
+    assert got.get("title") == listing.title
+    assert got.get("status") == "LISTING_STATUS_PUBLISHED", f"status is {got.get('status')}"
 
 
 @when("the seller updates the listing price and inventory stock")
 def seller_updates_price_and_inventory(world: World) -> None:
-    listing = world.state.listing
-    assert listing is not None, "No active listing in state"
-    listing.price = 1_350_000
-    listing.stock = 150
-    world.state.extra["updated_price"] = 1_350_000
-    world.state.extra["updated_stock"] = 150
+    world.service_factory.listing.update_listing(
+        world.state.listing.listing_id, price=1_350_000, stock=150
+    )
 
 
 @then("the updated listing details are saved successfully")
 def updated_listing_details_saved(world: World) -> None:
-    assert world.state.extra["updated_price"] == 1_350_000
-    assert world.state.extra["updated_stock"] == 150
-    world.logger.info("Listing updates successfully saved")
+    got = world.service_factory.listing.get_listing(world.state.listing.listing_id)
+    # Connect JSON encodes int64 as strings.
+    assert int(got.get("price", 0)) == 1_350_000, f"price is {got.get('price')}"
+    assert int(got.get("stock", 0)) == 150, f"stock is {got.get('stock')}"
+
+
+def _seller_id(world: World) -> str:
+    seller = world.state.current_user or world.state.seeded_seller
+    seller_id = seller.user_id if seller else ""
+    assert seller_id, "seller has no token; log in before querying analytics"
+    return seller_id
+
+
+_FUNNEL_STAGES = ("impressions", "views", "adds", "begin_checkouts", "orders", "purchases")
 
 
 @when("the seller queries the conversion funnel analytics")
 def seller_queries_conversion_funnel_analytics(world: World) -> None:
-    seller = world.state.current_user or world.state.seeded_seller
-    seller_id = seller.username if seller else "seller-journey"
-    
-    # Query conversion funnel
-    world.state.extra["seller_funnel"] = {
-        "seller_id": seller_id,
-        "impressions": 2500,
-        "views": 800,
-        "adds": 210,
-        "begin_checkouts": 140,
-        "orders": 95,
-        "purchases": 95,
-    }
+    resp = world.service_factory.analytics.funnel_response(_seller_id(world))
+    assert resp.status_code == 200, f"GetSellerFunnel: {resp.status_code} {resp.text}"
+    world.state.extra["seller_funnel"] = resp.json()
 
 
 @then("the conversion funnel reports impressions, views, adds, checkouts, and orders")
 def verify_conversion_funnel_counts(world: World) -> None:
-    funnel = world.state.extra["seller_funnel"]
-    assert funnel["impressions"] >= funnel["views"] >= funnel["adds"] >= funnel["begin_checkouts"] >= funnel["orders"]
-    assert funnel["impressions"] == 2500
-    assert funnel["views"] == 800
-    assert funnel["adds"] == 210
-    assert funnel["begin_checkouts"] == 140
-    assert funnel["orders"] == 95
-    world.logger.info(f"Funnel conversion verified: {funnel['impressions']} -> {funnel['views']} -> {funnel['adds']} -> {funnel['orders']}")
+    raw = world.state.extra["seller_funnel"]
+    # proto3 JSON omits zero values; int64 values arrive as strings.
+    camel = {"begin_checkouts": "beginCheckouts"}
+    funnel = {k: int(raw.get(camel.get(k, k), raw.get(k, 0))) for k in _FUNNEL_STAGES}
+    assert all(v >= 0 for v in funnel.values()), f"negative funnel count: {funnel}"
+    world.logger.info(f"Seller funnel from team-analytics: {funnel}")
 
 
 @when("the seller queries probabilistic demand forecast for the listing")
 def seller_queries_probabilistic_demand_forecast(world: World) -> None:
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-fc-1"
-    seller = world.state.current_user or world.state.seeded_seller
-    seller_id = seller.username if seller else "seller-journey"
-
-    # Construct 14-day probabilistic forecast with P10/P50/P90
-    daily_forecasts: list[dict[str, Any]] = []
-    base_demand = 12.0
-    for i in range(14):
-        p10 = round(max(0.0, base_demand - 3.2), 2)
-        p50 = round(base_demand, 2)
-        p90 = round(base_demand + 4.1, 2)
-        daily_forecasts.append({"day": i + 1, "p10": p10, "p50": p50, "p90": p90})
-
-    lead_time_days = 3
-    lead_time_demand = sum(d["p50"] for d in daily_forecasts[:lead_time_days])
-    safety_stock = round(1.65 * (daily_forecasts[0]["p90"] - daily_forecasts[0]["p50"]), 2)
-    reorder_point = round(lead_time_demand + safety_stock, 2)
-
-    world.state.extra["demand_forecast"] = {
-        "seller_id": seller_id,
-        "listing_id": listing_id,
-        "daily_forecasts": daily_forecasts,
-        "safety_stock": safety_stock,
-        "suggested_reorder_point": reorder_point,
-        "model_version": "lgbm_quantile_v1",
-    }
+    listing_id = world.state.listing.listing_id
+    resp = world.service_factory.analytics.forecast_response(
+        _seller_id(world), listing_id, horizon_days=14, lead_time_days=3, service_level=0.95
+    )
+    assert resp.status_code == 200, f"GetDemandForecast: {resp.status_code} {resp.text}"
+    world.state.extra["demand_forecast"] = resp.json()
 
 
-@then("the forecast returns 14-day P10, P50, and P90 quantile distributions with safety stock and reorder point")
+@then(
+    "the forecast returns 14-day P10, P50, and P90 quantile distributions with safety stock and reorder point"
+)
 def verify_probabilistic_forecast_quantiles(world: World) -> None:
     fc = world.state.extra["demand_forecast"]
-    daily = fc["daily_forecasts"]
-    assert len(daily) == 14, f"Expected 14 daily forecasts, got {len(daily)}"
+    assert fc.get("listingId") == world.state.listing.listing_id, f"wrong listing: {fc}"
+    daily = fc.get("dailyForecasts", [])
+    assert len(daily) == 14, f"Expected 14 daily forecasts, got {len(daily)}: {fc}"
     for df in daily:
-        assert df["p10"] <= df["p50"] <= df["p90"], f"Quantile monotonic invariant violated: {df}"
-    assert fc["safety_stock"] > 0, "Safety stock must be positive"
-    assert fc["suggested_reorder_point"] > fc["safety_stock"], "Reorder point must exceed safety stock"
-    assert fc["model_version"] == "lgbm_quantile_v1", "Model version mismatch"
-    world.logger.info(f"Demand forecast verified with ROP={fc['suggested_reorder_point']} and SS={fc['safety_stock']}")
+        p10, p50, p90 = (float(df.get(k, 0)) for k in ("p10", "p50", "p90"))
+        assert 0 <= p10 <= p50 <= p90, f"Quantile monotonic invariant violated: {df}"
+    safety = float(fc.get("safetyStock", 0))
+    reorder = float(fc.get("suggestedReorderPoint", 0))
+    assert safety >= 0, f"negative safety stock: {fc}"
+    assert reorder >= safety, f"reorder point below safety stock: {fc}"
+    assert fc.get("modelVersion"), f"no model version: {fc}"
+    world.logger.info(
+        f"Forecast {fc.get('modelVersion')} cold_start={fc.get('isColdStart', False)} "
+        f"ROP={reorder} SS={safety}"
+    )
 
 
 # ============================================================================
 # Journey 3: Post-Purchase Chat, Notification & RMA Journey
 # ============================================================================
+
 
 @given("an order has been placed and is pending fulfillment")
 def order_placed_pending_fulfillment_step(world: World) -> None:
@@ -324,9 +313,13 @@ def order_placed_pending_fulfillment_step(world: World) -> None:
     if not order_id:
         order_id = f"ord-{uuid.uuid4()}"
         try:
-            order_res = world.service_factory.order.create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
+            order_res = world.service_factory.order.create_order(
+                {"paymentMethod": "PAYMENT_METHOD_COD"}
+            )
             orders = order_res.get("orders", [])
-            order_id = orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
+            order_id = (
+                orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
+            )
         except Exception as exc:  # noqa: BLE001
             world.logger.warning(f"Order creation in given step: {exc}")
         world.state.order_id = order_id
@@ -458,5 +451,9 @@ def seller_approves_rma_return_request(world: World) -> None:
 
 @then("the RMA return request is approved and refund processing is initiated")
 def rma_approved_and_refund_initiated_step(world: World) -> None:
-    assert world.state.extra.get("rma_status") == "APPROVED", "RMA status was not updated to APPROVED"
-    world.logger.info(f"RMA return request {world.state.extra['return_id']} approved; refund initiated")
+    assert (
+        world.state.extra.get("rma_status") == "APPROVED"
+    ), "RMA status was not updated to APPROVED"
+    world.logger.info(
+        f"RMA return request {world.state.extra['return_id']} approved; refund initiated"
+    )

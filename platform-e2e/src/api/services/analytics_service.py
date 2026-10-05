@@ -21,9 +21,21 @@ class AnalyticsService(BaseService):
     def revenue_response(self, seller_id: str) -> httpx.Response:
         return self.send("POST", ep.ANALYTICS_REVENUE_BREAKDOWN, json_body={"seller_id": seller_id})
 
-    def forecast_response(self, seller_id: str, listing_id: str = "e2e-listing") -> httpx.Response:
-        return self.send(
-            "POST",
-            ep.ANALYTICS_DEMAND_FORECAST,
-            json_body={"seller_id": seller_id, "listing_id": listing_id, "horizon_days": 7},
-        )
+    def forecast_response(
+        self,
+        seller_id: str,
+        listing_id: str = "e2e-listing",
+        horizon_days: int = 7,
+        lead_time_days: int = 0,
+        service_level: float = 0.0,
+    ) -> httpx.Response:
+        body: dict[str, object] = {
+            "seller_id": seller_id,
+            "listing_id": listing_id,
+            "horizon_days": horizon_days,
+        }
+        if lead_time_days:
+            body["lead_time_days"] = lead_time_days
+        if service_level:
+            body["service_level"] = service_level
+        return self.send("POST", ep.ANALYTICS_DEMAND_FORECAST, json_body=body)
