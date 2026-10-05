@@ -1,6 +1,6 @@
 ## 1. Contract — platform-core
 
-- [ ] 1.1 Add `GetPlatformOrderSummary` and `ListRecentOrders` (+ messages) to `platform/analytics/v1/analytics.proto`, additive only; verify `buf lint` and `buf breaking` against feat/ui-system pass, then vendor byte-identical copies to team-analytics and team-gateway and regenerate
+- [x] 1.1 Add `GetPlatformOrderSummary` and `ListRecentOrders` (+ messages) to `platform/analytics/v1/analytics.proto`, additive only; verify `buf lint` and `buf breaking` against feat/ui-system pass, then vendor byte-identical copies to team-analytics and team-gateway and regenerate
 
 ## 2. Code — team-analytics
 
