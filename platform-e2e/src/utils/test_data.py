@@ -2,12 +2,15 @@
 
 Singleton that reads `test-data/<env>/*.json`, caches parsed files, and exposes
 typed lookups. Seeded accounts (`shopee_tech_mall`, `khach_hang_shopee`, ...) come
-from `users.json`; their password matches the seed script's `SEED_PASSWORD`.
+from `users.json`; their password matches the seed script's `SEED_PASSWORD`. The admin's
+credentials come from env `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` (default in
+users.json = the compose dev password).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -58,7 +61,13 @@ class TestDataManager:
 
 
 def _to_user(raw: dict) -> User:
-    return User(username=raw["username"], password=raw["password"], role=raw["role"])
+    username, password = raw["username"], raw["password"]
+    if raw["role"] == "admin":
+        # The admin is seeded by team-identity from SEED_ADMIN_* (compose sets a dev
+        # default); read the same env here so a non-default password still logs in.
+        username = os.environ.get("SEED_ADMIN_USERNAME") or username
+        password = os.environ.get("SEED_ADMIN_PASSWORD") or password
+    return User(username=username, password=password, role=raw["role"])
 
 
 @lru_cache(maxsize=1)
