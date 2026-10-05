@@ -51,6 +51,7 @@ class RecommendationService:
         retrieve_timeout_ms: int = 25,
         model_version: str = "serving-fallback",
         collection_ok: bool = True,
+        collection_recheck_s: float = 30.0,
     ) -> None:
         self._backend = backend
         self._cache = cache
@@ -64,17 +65,44 @@ class RecommendationService:
         self._retrieve_timeout_ms = retrieve_timeout_ms
         self._model_version = model_version
         self._collection_ok = collection_ok
+        # A failed startup check is not final: the training job may create the
+        # collection (or Qdrant may come back) after team-ai started, so re-check
+        # at most every collection_recheck_s while it is failing.
+        self._collection_recheck_s = collection_recheck_s
+        self._collection_checked_at = time.monotonic()
 
-    async def recommend(self, query: RecommendQuery) -> RecommendResult:
+    async def _ensure_collection_ok(self) -> None:
+        if self._collection_ok:
+            return
+        now = time.monotonic()
+        if now - self._collection_checked_at >= self._collection_recheck_s:
+            self._collection_checked_at = now
+            try:
+                self._collection_ok = await self._backend.collection_ok()
+            except Exception as exc:
+                logger.warning("recs.collection_recheck.failed err={}", exc)
+            if self._collection_ok:
+                logger.info("recs.collection_recheck.ok")
         if not self._collection_ok:
             raise ServiceUnavailableError("recommendation collection contract mismatch")
 
+    async def recommend(self, query: RecommendQuery) -> RecommendResult:
+        await self._ensure_collection_ok()
+
         start_time = time.perf_counter()
-        placement_id = query.placement_id or ("similar_items" if query.seed_listing_id and not query.user_id else "home_feed")
+        placement_id = query.placement_id or (
+            "similar_items"
+            if query.seed_listing_id and not query.user_id
+            else "home_feed"
+        )
         config = self._registry.get(placement_id)
         limit = query.limit or config.result_limit or self._result_top_k
         active_model_version = self._model_version
-        if self._model_version == "serving-fallback" and hasattr(self._cache, "get_model_version") and callable(self._cache.get_model_version):
+        if (
+            self._model_version == "serving-fallback"
+            and hasattr(self._cache, "get_model_version")
+            and callable(self._cache.get_model_version)
+        ):
             try:
                 cached_version = await self._cache.get_model_version()
                 if cached_version:
@@ -123,16 +151,21 @@ class RecommendationService:
                 source = "popular"
                 status = "fallback"
 
-            ladder_history.append({
-                "tier": tier,
-                "strategy": strategy,
-                "candidates_found": len(candidates),
-            })
+            ladder_history.append(
+                {
+                    "tier": tier,
+                    "strategy": strategy,
+                    "candidates_found": len(candidates),
+                }
+            )
 
             if len(candidates) >= min_candidates:
-                items, rank_status, hit_count, rank_source = await self._rank_candidates(
-                    candidates, query, config, limit
-                )
+                (
+                    items,
+                    rank_status,
+                    hit_count,
+                    rank_source,
+                ) = await self._rank_candidates(candidates, query, config, limit)
                 if rank_status == "degraded":
                     status = "degraded"
 
@@ -207,11 +240,20 @@ class RecommendationService:
         if use_fs and self._feature_store is not None:
             try:
                 candidate_ids = [c.listing_id for c in candidates if c.listing_id]
-                item_features = await self._feature_store.get_item_features_batch(candidate_ids)
+                item_features = await self._feature_store.get_item_features_batch(
+                    candidate_ids
+                )
                 hit_count = len(item_features)
             except Exception as exc:
-                logger.warning("Feature store lookup failed: {}, degrading to cosine", exc)
-                return rank_and_filter(candidates, query, limit), "degraded", 0, "degraded_cosine"
+                logger.warning(
+                    "Feature store lookup failed: {}, degrading to cosine", exc
+                )
+                return (
+                    rank_and_filter(candidates, query, limit),
+                    "degraded",
+                    0,
+                    "degraded_cosine",
+                )
 
         # 2. Ranking dispatch
         if ranking_model == "gbdt":
@@ -226,7 +268,12 @@ class RecommendationService:
                 return ranked, "ok", hit_count, "gbdt"
             except Exception as exc:
                 logger.warning("GBDT ranker failed: {}, degrading to cosine", exc)
-                return rank_and_filter(candidates, query, limit), "degraded", hit_count, "degraded_cosine"
+                return (
+                    rank_and_filter(candidates, query, limit),
+                    "degraded",
+                    hit_count,
+                    "degraded_cosine",
+                )
         else:
             return rank_and_filter(candidates, query, limit), "ok", hit_count, "cosine"
 
