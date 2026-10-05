@@ -53,7 +53,7 @@ func userCtx(id string) context.Context {
 
 func TestBuildMessageOutboxRow(t *testing.T) {
 	msg := repository.ChatMessage{
-		ID: "m1", ThreadID: "t1", SenderID: "seller-1", RecipientID: "buyer-1",
+		ID: "m1", ThreadID: "t1", SenderID: "seller-1", RecipientID: "buyer-1", SellerID: "seller-1",
 		Content: "hi", CreatedAt: time.Unix(1700000000, 0),
 	}
 	row, err := events.BuildMessageOutboxRow(userCtx("seller-1"), msg)
@@ -74,7 +74,7 @@ func TestBuildMessageOutboxRow(t *testing.T) {
 	if err := proto.Unmarshal(env.GetPayload(), &out); err != nil {
 		t.Fatal(err)
 	}
-	if out.GetRecipientId() != "buyer-1" || out.GetSenderId() != "seller-1" || out.GetThreadId() != "t1" {
+	if out.GetSellerId() != "seller-1" || out.GetRecipientId() != "buyer-1" || out.GetSenderId() != "seller-1" || out.GetThreadId() != "t1" {
 		t.Fatalf("payload = %+v", &out)
 	}
 	// The id is stable per message so a retried enqueue collapses onto one row.

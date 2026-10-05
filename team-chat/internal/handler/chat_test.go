@@ -227,8 +227,14 @@ func TestChatHandler_SendMessageEventCarriesRecipient(t *testing.T) {
 	if got := published[1].GetRecipientId(); got != "buyer-1" {
 		t.Errorf("seller message recipient = %q, want buyer-1", got)
 	}
+	if published[0].GetSellerId() != "seller-1" || published[1].GetSellerId() != "seller-1" {
+		t.Errorf("event must carry the thread's seller id, got %q / %q", published[0].GetSellerId(), published[1].GetSellerId())
+	}
 	if published[1].GetSenderId() != "seller-1" {
 		t.Errorf("event lost sender id")
+	}
+	if buyerRes.GetMessage().GetSellerId() != "" || sellerRes.GetMessage().GetSellerId() != "" {
+		t.Errorf("RPC responses must not carry seller_id")
 	}
 	if buyerRes.GetMessage().GetRecipientId() != "" || sellerRes.GetMessage().GetRecipientId() != "" {
 		t.Errorf("RPC responses must not carry recipient_id")

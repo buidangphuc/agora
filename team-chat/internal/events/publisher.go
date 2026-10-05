@@ -56,6 +56,7 @@ func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (rep
 		ListingId:   msg.ListingID,
 		Payload:     msg.Payload,
 		RecipientId: msg.RecipientID,
+		SellerId:    msg.SellerID,
 	})
 	if err != nil {
 		return repository.OutboxRow{}, fmt.Errorf("marshal ChatMessage: %w", err)

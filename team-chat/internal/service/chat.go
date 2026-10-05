@@ -159,6 +159,7 @@ func (s *ChatService) SendRichMessage(
 		// The event (not the RPC response) carries the recipient, the thread
 		// participant who did not send it, so consumers need no call back here.
 		RecipientID: recipientOf(thread, senderID),
+		SellerID:    thread.SellerID,
 	}
 
 	saved, err := s.repo.SaveMessage(ctx, msg)

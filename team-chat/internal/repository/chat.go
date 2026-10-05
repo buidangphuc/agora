@@ -46,6 +46,9 @@ type ChatMessage struct {
 	// carried into the outbox event so consumers need no call back here; it is not
 	// persisted on the message row.
 	RecipientID string
+	// SellerID is the thread's seller, carried into the event so consumers can name
+	// the shop when the sender is the seller. Not persisted on the message row.
+	SellerID string
 }
 
 // MessageOutboxBuilder turns a just-saved message into the chat.events outbox row
