@@ -332,6 +332,9 @@ def submit_empty_new_listing(world: World) -> None:
     world.page.set_viewport_size(DESKTOP)
     page: SellerNewListingPage = world.navigate_to(PageName.SELLER_NEW_LISTING)  # type: ignore[assignment]
     expect(page.title_input).to_be_visible(timeout=timeouts.DEFAULT)
+    # Before hydration the submit posts natively (a GET with the empty fields)
+    # and no inline error appears, so wait for the handlers first.
+    page.wait_until_interactive(page.submit_button)
     page.submit_button.click()
 
 
