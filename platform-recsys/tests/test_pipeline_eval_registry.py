@@ -23,13 +23,15 @@ def _create_sample_df():
         ("u3", "l3", "add_to_cart", now - timedelta(hours=1)),
         ("u3", "l1", "view", now),
     ]
-    return pd.DataFrame({
-        "event_type": [x[2] for x in interactions],
-        "principal_id": [x[0] for x in interactions],
-        "anonymous_id": ["" for _ in interactions],
-        "listing_id": [x[1] for x in interactions],
-        "occurred_at": [x[3] for x in interactions],
-    })
+    return pd.DataFrame(
+        {
+            "event_type": [x[2] for x in interactions],
+            "principal_id": [x[0] for x in interactions],
+            "anonymous_id": ["" for _ in interactions],
+            "listing_id": [x[1] for x in interactions],
+            "occurred_at": [x[3] for x in interactions],
+        }
+    )
 
 
 def test_pipeline_evaluates_and_promotes_initial_model(tmp_path, monkeypatch):
@@ -105,5 +107,52 @@ def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypat
 
     assert summary["decision"] == "rejected"
     # Verify qdrant and redis loads were NOT called on rejected model
+    qdrant_mock.assert_not_called()
+    redis_mock.assert_not_called()
+    # The summary carries the comparison the gate made (auditable from the run).
+    assert summary["primary_metric"] == "ndcg@10"
+    assert summary["incumbent_version"] == "champ-v1"
+    assert summary["incumbent_value"] == 1.0
+    assert summary["candidate_value"] == summary["metrics"]["ndcg@10"]
+
+
+def test_pipeline_without_a_holdout_is_not_a_candidate(tmp_path, monkeypatch):
+    """One event per user leaves no test events: nothing is registered, gated or published."""
+    now = datetime.now(timezone.utc)
+    df = pd.DataFrame(
+        {
+            "event_type": ["view", "view", "view"],
+            "principal_id": ["u1", "u2", "u3"],
+            "anonymous_id": ["", "", ""],
+            "listing_id": ["l1", "l2", "l3"],
+            "occurred_at": [now, now, now],
+        }
+    )
+    parquet_file = tmp_path / "tracking_events.parquet"
+    df.to_parquet(parquet_file, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    settings = Settings(
+        spark_master="local[1]",
+        warehouse_driver="duckdb",
+        warehouse_parquet_path=str(parquet_file),
+        als_max_iter=2,
+        als_rank=4,
+        top_n=5,
+    )
+    registry = ModelRegistry()
+
+    import recsys.load.qdrant as qdrant_load
+    import recsys.load.redis_cache as redis_cache
+
+    qdrant_mock = MagicMock()
+    redis_mock = MagicMock()
+    monkeypatch.setattr(qdrant_load, "load_vectors", qdrant_mock)
+    monkeypatch.setattr(redis_cache, "load_cache", redis_mock)
+
+    summary = run(settings=settings, registry=registry)
+
+    assert summary["decision"] == "skipped"
+    assert "no usable holdout" in summary["reason"]
+    assert registry.get_model(summary["model_version"]) is None
+    assert registry.get_champion_version() is None
     qdrant_mock.assert_not_called()
     redis_mock.assert_not_called()

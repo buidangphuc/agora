@@ -120,6 +120,22 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
         metrics = eval_results
         log.info("model evaluation metrics: %s", metrics)
 
+        # A run that could not be evaluated is not a candidate: nothing is
+        # registered, the gate is not consulted and nothing is published.
+        if not metrics.get("test_events"):
+            summary = {
+                "model_version": model_version,
+                "decision": "skipped",
+                "reason": "no usable holdout: the temporal split left no test events, "
+                "so no evaluation was possible",
+                "metrics": metrics,
+                "items": len(item_ids),
+                "users": len(user_ids),
+                "popular": len(popular),
+            }
+            log.info("candidate model %s not evaluated: %s", model_version, summary["reason"])
+            return summary
+
         # ── Model Registry & Promotion Gate ──────────────────────────────────────
         if registry is None:
             redis_client = None
@@ -147,6 +163,8 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
             status="candidate",
         )
         registry.register_model(metadata)
+        incumbent_version = registry.get_champion_version()
+        incumbent = registry.get_model(incumbent_version) if incumbent_version else None
         promoted, reason = registry.evaluate_and_promote(
             model_version,
             primary_metric=settings.promotion_primary_metric,
@@ -159,6 +177,13 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
             "model_version": model_version,
             "decision": "promoted" if promoted else "rejected",
             "reason": reason,
+            # The comparison the gate made, auditable from the run's own output.
+            "primary_metric": settings.promotion_primary_metric,
+            "candidate_value": metrics.get(settings.promotion_primary_metric),
+            "incumbent_version": incumbent_version,
+            "incumbent_value": (
+                incumbent.metrics.get(settings.promotion_primary_metric) if incumbent else None
+            ),
             "metrics": metrics,
             "items": len(item_ids),
             "users": len(user_ids),
