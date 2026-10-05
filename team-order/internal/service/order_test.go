@@ -294,3 +294,33 @@ func TestOrderService_Shipment(t *testing.T) {
 		}
 	})
 }
+
+// The shipment outbox builder receives the order's buyer and seller, so the
+// OrderShipped event can name the user to notify.
+func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
+	orderRepo := &mockOrderServiceRepo{
+		orders: map[string]repository.Order{
+			"ord_parties": {ID: "ord_parties", BuyerID: "buyer_9", SellerID: "seller_9", Status: repository.OrderStatusPaid},
+		},
+	}
+	outbox := repository.NewInMemoryOutboxRepository()
+	var seen repository.Shipment
+	shipmentRepo := repository.NewInMemoryShipmentRepository(
+		repository.WithShipmentOutbox(func(sh repository.Shipment) (repository.OutboxRow, error) {
+			seen = sh
+			return repository.OutboxRow{EventID: "e1", AggregateID: sh.OrderID}, nil
+		}),
+		repository.WithInMemoryShipmentOutbox(outbox),
+	)
+	s := service.NewOrderService(orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
+
+	if _, err := s.CreateShipment(context.Background(), "ord_parties", "GHN", "GHN-1"); err != nil {
+		t.Fatalf("CreateShipment: %v", err)
+	}
+	if seen.BuyerID != "buyer_9" || seen.SellerID != "seller_9" {
+		t.Errorf("builder saw buyer/seller %q/%q, want buyer_9/seller_9", seen.BuyerID, seen.SellerID)
+	}
+	if len(outbox.EnqueuedRows()) != 1 {
+		t.Errorf("expected 1 outbox row, got %d", len(outbox.EnqueuedRows()))
+	}
+}

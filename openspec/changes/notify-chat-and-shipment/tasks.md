@@ -4,7 +4,7 @@
 
 ## 2. Code — team-order
 
-- [ ] 2.1 `CreateShipment` writes the `OrderShipped` outbox row in the same transaction; verify a unit test for the row and a rollback test (Postgres test skips without `TEST_DATABASE_URL`), `go test ./...`
+- [x] 2.1 `CreateShipment` writes the `OrderShipped` outbox row in the same transaction; verify a unit test for the row and a rollback test (Postgres test skips without `TEST_DATABASE_URL`), `go test ./...`
 
 ## 3. Code — team-chat
 

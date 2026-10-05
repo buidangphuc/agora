@@ -18,6 +18,9 @@ import (
 // OrderPaidEventType is the fully-qualified proto type for OrderPaidEvent.
 const OrderPaidEventType = "platform.order.v1.OrderPaidEvent"
 
+// OrderShippedEventType is the fully-qualified proto type for OrderShipped.
+const OrderShippedEventType = "platform.order.v1.OrderShipped"
+
 // OrderEventsTopic is the Kafka topic for order lifecycle events.
 const OrderEventsTopic = "order.events"
 
@@ -97,6 +100,53 @@ func BuildPaidOutboxRow(order repository.Order) (repository.OutboxRow, error) {
 		AggregateID:   order.ID,
 		EventType:     OrderPaidEventType,
 		Payload:       payload,
+	}, nil
+}
+
+// orderShippedNamespace seeds deterministic OrderShipped event ids (one per shipment).
+var orderShippedNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/OrderShipped"))
+
+// OrderShippedEventID is the stable EventEnvelope.event_id for a shipment's OrderShipped fact.
+func OrderShippedEventID(shipmentID string) string {
+	return uuid.NewSHA1(orderShippedNamespace, []byte(shipmentID)).String()
+}
+
+// BuildShippedOutboxRow is the repository.ShipmentOutboxBuilder for team-order: it
+// wraps OrderShipped in an EventEnvelope keyed by order_id, ready to commit in the
+// same transaction as the shipment. s.BuyerID/SellerID come from the order.
+func BuildShippedOutboxRow(s repository.Shipment) (repository.OutboxRow, error) {
+	shippedAt := s.CreatedAt
+	if shippedAt.IsZero() {
+		shippedAt = time.Now()
+	}
+	shippedAt = shippedAt.UTC()
+	eventID := OrderShippedEventID(s.ID)
+	payload, err := proto.Marshal(&orderv1.OrderShipped{
+		OrderId:      s.OrderID,
+		BuyerId:      s.BuyerID,
+		SellerId:     s.SellerID,
+		Carrier:      s.Carrier,
+		TrackingCode: s.TrackingCode,
+		ShippedAt:    timestamppb.New(shippedAt),
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal OrderShipped: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       OrderShippedEventType,
+		OccurredAt: timestamppb.New(shippedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   s.OrderID,
+		EventType:     OrderShippedEventType,
+		Payload:       value,
 	}, nil
 }
 
