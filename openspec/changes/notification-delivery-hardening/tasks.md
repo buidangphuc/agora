@@ -18,5 +18,5 @@
 
 ## 5. E2E — platform-e2e
 
-- [ ] 5.1 Scenarios: a seller reply names the shop; a price drop after a team-notification restart is detected (`@destructive`, restarts the container named by `NOTIFICATION_CONTAINER`); a message sent while chat's relayer cannot publish is delivered later if feasible without stopping shared infra; FEATURES entries; verify green against the agora stack (3 runs) and flip to `automated`
+- [x] 5.1 Scenarios: a seller reply names the shop; a price drop after a team-notification restart is detected (`@destructive`, restarts the container named by `NOTIFICATION_CONTAINER`); a message sent while chat's relayer cannot publish is delivered later if feasible without stopping shared infra; FEATURES entries; verify green against the agora stack (3 runs) and flip to `automated`
 - [x] 5.2 Run `openspec validate notification-delivery-hardening --strict`; verify it is valid

@@ -197,8 +197,8 @@ features:
       - When the seller replies in a chat thread
       - Then the buyer's chat notification title contains the shop name
     tags: [buyer, seller]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "notification/delivery_hardening.feature::A seller reply names the shop"
     notes: >
       Scenario authored in notification/delivery_hardening.feature ("A seller reply names
       the shop"); flip to automated after the stack run. The lookup-failure fallback is
@@ -221,8 +221,8 @@ features:
       - When team-notification restarts and the seller lowers the price to 500,000
       - Then the buyer receives the price-drop notification
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "notification/delivery_hardening.feature::A price drop after a team-notification restart is still detected"
     notes: >
       Scenario authored in notification/delivery_hardening.feature ("A price drop after a
       team-notification restart is still detected", @destructive, restarts the container
@@ -246,8 +246,8 @@ features:
       - When the seller replies and Kafka recovers
       - Then the buyer receives exactly one chat notification
     tags: [buyer, seller]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Seller reply notifies the buyer"
     notes: >
       No e2e scenario: it needs Redpanda (shared by every service) stopped. Covered by
       relayer unit tests (TestRelayerDeliversAfterKafkaRecovers) and the Postgres
