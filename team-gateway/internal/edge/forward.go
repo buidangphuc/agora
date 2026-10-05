@@ -66,20 +66,31 @@ func NewEdge(verifier *token.Verifier, publicScopes []string, callTimeout time.D
 	}
 }
 
-// resolve verifies the bearer JWT (if any) into a Principal; no/invalid token →
-// anonymous with the configured public scopes.
-func (e *Edge) resolve(header http.Header) resolvedPrincipal {
+// errInvalidToken marks a bearer credential that was presented but did not
+// verify (malformed, bad signature, unknown kid, expired).
+var errInvalidToken = errors.New("invalid or expired bearer token")
+
+// resolve turns the Authorization header into a Principal (RFC 6750 §3.1):
+//   - no bearer credential        → anonymous with the configured public scopes;
+//   - a bearer that verifies      → the token's Principal;
+//   - a bearer that does not      → errInvalidToken. A presented-but-bad token is
+//     never silently downgraded to anonymous; callers must answer Unauthenticated.
+func (e *Edge) resolve(header http.Header) (resolvedPrincipal, error) {
 	p := resolvedPrincipal{id: "anonymous", ptype: "anonymous", scopes: e.publicScopes}
-	if tok := bearerToken(header.Get("Authorization")); tok != "" {
-		if claims, err := e.verifier.Verify(tok); err == nil {
-			p.id = claims.Subject
-			if claims.Type != "" {
-				p.ptype = claims.Type
-			}
-			p.scopes = claims.Scopes
-		}
+	tok, present := bearerCredential(header.Get("Authorization"))
+	if !present {
+		return p, nil
 	}
-	return p
+	claims, err := e.verifier.Verify(tok)
+	if err != nil {
+		return p, errInvalidToken
+	}
+	p.id = claims.Subject
+	if claims.Type != "" {
+		p.ptype = claims.Type
+	}
+	p.scopes = claims.Scopes
+	return p, nil
 }
 
 // outgoing builds the outbound gRPC context carrying the resolved Principal +
@@ -87,7 +98,12 @@ func (e *Edge) resolve(header http.Header) resolvedPrincipal {
 func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context {
 	p, ok := principalFrom(ctx)
 	if !ok {
-		p = e.resolve(header)
+		// Reached only when the auth interceptor did not run (direct forwarder
+		// use). Fail closed: an invalid token gets no scopes at all.
+		var err error
+		if p, err = e.resolve(header); err != nil {
+			p.scopes = nil
+		}
 	}
 	rid := requestIDFrom(ctx)
 	if rid == "" {
@@ -147,6 +163,18 @@ func withRequestID(ctx context.Context, id string) context.Context {
 func requestIDFrom(ctx context.Context) string {
 	id, _ := ctx.Value(requestIDKey).(string)
 	return id
+}
+
+// bearerCredential reports whether the header carries a Bearer credential and
+// returns its token. An empty "Bearer" value counts as present-but-invalid.
+// Other schemes (Basic, ...) are not ours to judge and read as "no credential".
+func bearerCredential(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	scheme, rest, _ := strings.Cut(raw, " ")
+	if !strings.EqualFold(scheme, "bearer") {
+		return "", false
+	}
+	return strings.TrimSpace(rest), true
 }
 
 func bearerToken(raw string) string {

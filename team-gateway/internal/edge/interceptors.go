@@ -129,7 +129,15 @@ func (e *Edge) requestIDInterceptor() connect.UnaryInterceptorFunc {
 func (e *Edge) authInterceptor() connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			ctx = withPrincipal(ctx, e.resolve(req.Header()))
+			p, err := e.resolve(req.Header())
+			if err != nil {
+				// RFC 6750 §3.1: a presented-but-invalid token is a 401 on every
+				// route, public ones included — never a silent anonymous downgrade.
+				cerr := connect.NewError(connect.CodeUnauthenticated, err)
+				cerr.Meta().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+				return nil, cerr
+			}
+			ctx = withPrincipal(ctx, p)
 			return next(ctx, req)
 		}
 	}

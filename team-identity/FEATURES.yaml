@@ -210,7 +210,7 @@ features:
     title: Gateway rejects a token not signed by a current JWKS key
     persona: guest
     priority: P1
-    summary: A token whose kid is absent from the JWKS resolves to the anonymous principal.
+    summary: A token whose kid is absent from the JWKS is rejected as Unauthenticated (401) on every route, never downgraded to anonymous.
     entry_route: /login
     services: [team-identity, team-gateway]
     preconditions:
@@ -218,7 +218,7 @@ features:
     acceptance:
       - Given a bearer token whose kid is absent from the JWKS
       - When a request reaches the gateway with that token
-      - Then it is not accepted as authenticated and the caller is anonymous with PUBLIC_SCOPES
+      - Then the gateway answers Unauthenticated on public and protected routes alike and does not forward the request
     tags: [auth, jwt]
     status: automated
     covered_by: "auth/jwt_rs256_jwks.feature::Gateway rejects a token not signed by a current JWKS key"
