@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	commonv1 "github.com/buidangphuc/team-verification/generated/platform/common/v1"
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
 	"github.com/buidangphuc/team-verification/internal/interceptor"
 	"github.com/buidangphuc/team-verification/internal/repository"
@@ -23,11 +24,17 @@ func NewVerificationHandler(svc *service.VerificationService) *VerificationHandl
 	return &VerificationHandler{svc: svc}
 }
 
-// SubmitKyc submits a KYC document reference for the authenticated caller. The
-// user id comes from the forwarded principal (auth-scoped, never from the body).
+const adminScope = "admin"
+
+// SubmitKyc submits a KYC document reference for the authenticated end user. The
+// owner is the forwarded principal id (never the body); anonymous callers are
+// Unauthenticated and service principals PermissionDenied.
 func (h *VerificationHandler) SubmitKyc(ctx context.Context, req *verificationv1.SubmitKycRequest) (*verificationv1.SubmitKycResponse, error) {
-	userID := interceptor.UserIDOrDemo(ctx)
-	sub, err := h.svc.Submit(ctx, userID, req.GetDocType(), req.GetDocRef())
+	p, err := interceptor.UserPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sub, err := h.svc.Submit(ctx, p.GetId(), req.GetDocType(), req.GetDocRef())
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -37,13 +44,26 @@ func (h *VerificationHandler) SubmitKyc(ctx context.Context, req *verificationv1
 	}, nil
 }
 
-// GetVerificationStatus reports a user's status and badge eligibility. When a
-// user_id is supplied it is honored (admin/lookup); otherwise the caller's own
-// forwarded principal is used, so a user can always read their own status.
+// GetVerificationStatus reports a user's status and badge eligibility. An empty
+// user_id (or the caller's own id) returns the caller's own status; any other
+// user_id requires the admin scope.
 func (h *VerificationHandler) GetVerificationStatus(ctx context.Context, req *verificationv1.GetVerificationStatusRequest) (*verificationv1.GetVerificationStatusResponse, error) {
+	p, err := interceptor.AuthenticatedPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
 	userID := req.GetUserId()
-	if userID == "" {
-		userID = interceptor.UserIDOrDemo(ctx)
+	switch {
+	case userID == "" || userID == p.GetId():
+		// Own status is only meaningful for an end user.
+		if p.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER {
+			return nil, status.Error(codes.PermissionDenied, "user principal required")
+		}
+		userID = p.GetId()
+	default:
+		if err := interceptor.RequireScopes(ctx, adminScope); err != nil {
+			return nil, err
+		}
 	}
 	st, badge, err := h.svc.GetStatus(ctx, userID)
 	if err != nil {
@@ -55,8 +75,23 @@ func (h *VerificationHandler) GetVerificationStatus(ctx context.Context, req *ve
 	}, nil
 }
 
-// ReviewKyc applies a reviewer's approve/reject decision (mock admin action).
+// ReviewKyc applies an approve/reject decision. Admin scope only, and a reviewer
+// may never review their own submission.
 func (h *VerificationHandler) ReviewKyc(ctx context.Context, req *verificationv1.ReviewKycRequest) (*verificationv1.ReviewKycResponse, error) {
+	p, err := interceptor.AuthenticatedPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := interceptor.RequireScopes(ctx, adminScope); err != nil {
+		return nil, err
+	}
+	sub, err := h.svc.Get(ctx, req.GetId())
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	if sub.UserID == p.GetId() {
+		return nil, status.Error(codes.PermissionDenied, "reviewers cannot review their own submission")
+	}
 	st, err := h.svc.Review(ctx, req.GetId(), req.GetDecision())
 	if err != nil {
 		return nil, mapErr(err)

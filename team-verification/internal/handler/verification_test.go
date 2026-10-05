@@ -4,12 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
 	"github.com/buidangphuc/team-verification/internal/handler"
+	"github.com/buidangphuc/team-verification/internal/interceptor"
 	"github.com/buidangphuc/team-verification/internal/repository"
 	"github.com/buidangphuc/team-verification/internal/service"
 )
@@ -19,43 +21,54 @@ func newHandler() *handler.VerificationHandler {
 	return handler.NewVerificationHandler(svc)
 }
 
-// ctxAs forwards a principal id the way the gateway would, so the handler
-// resolves an auth-scoped user rather than the demo fallback.
-func ctxAs(userID string) context.Context {
-	return metadata.NewIncomingContext(
-		context.Background(),
-		metadata.Pairs("x-principal-id", userID),
-	)
+// ctxAs resolves a principal exactly as the gRPC server does: forwarded
+// x-principal-* metadata run through the real unary interceptor.
+func ctxAs(id, ptype, scopes string) context.Context {
+	md := metadata.Pairs("x-principal-id", id, "x-principal-type", ptype, "x-principal-scopes", scopes)
+	in := metadata.NewIncomingContext(context.Background(), md)
+	var out context.Context
+	_, _ = interceptor.UnaryServerInterceptor()(in, nil, &grpc.UnaryServerInfo{},
+		func(c context.Context, _ any) (any, error) { out = c; return nil, nil })
+	return out
 }
 
-// Full gRPC path: submit -> PENDING, approve -> VERIFIED + badge, scoped to the
-// forwarded principal.
-func TestHandlerSubmitReviewFlow(t *testing.T) {
-	h := newHandler()
-	ctx := ctxAs("seller_1")
+func buyer(id string) context.Context { return ctxAs(id, "user", "listing.read,search:read") }
+func admin(id string) context.Context { return ctxAs(id, "user", "listing.read,admin") }
 
-	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{
-		DocType: "national_id",
-		DocRef:  "mock-ref-1",
-	})
+func anonymous() context.Context { return ctxAs("anonymous", "anonymous", "listing.read") }
+
+func service1() context.Context { return ctxAs("svc", "service", "admin") }
+
+func wantCode(t *testing.T, err error, want codes.Code) {
+	t.Helper()
+	if got := status.Code(err); got != want {
+		t.Fatalf("expected %v, got %v (%v)", want, got, err)
+	}
+}
+
+func submit(t *testing.T, h *handler.VerificationHandler, ctx context.Context) string {
+	t.Helper()
+	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "mock-ref"})
 	if err != nil {
 		t.Fatalf("SubmitKyc: %v", err)
 	}
-	if sub.GetStatus() != verificationv1.VerificationStatus_VERIFICATION_STATUS_PENDING {
-		t.Fatalf("expected PENDING, got %v", sub.GetStatus())
-	}
+	return sub.GetId()
+}
 
-	// Before review: status PENDING, no badge.
-	st, err := h.GetVerificationStatus(ctx, &verificationv1.GetVerificationStatusRequest{})
+// Submit -> PENDING, an admin approves -> VERIFIED + badge for the owner.
+func TestHandlerSubmitReviewFlow(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, buyer("seller_1"))
+
+	st, err := h.GetVerificationStatus(buyer("seller_1"), &verificationv1.GetVerificationStatusRequest{})
 	if err != nil {
 		t.Fatalf("GetVerificationStatus: %v", err)
 	}
-	if st.GetBadge() {
-		t.Fatalf("expected no badge before review")
+	if st.GetBadge() || st.GetStatus() != verificationv1.VerificationStatus_VERIFICATION_STATUS_PENDING {
+		t.Fatalf("expected PENDING/no badge, got %v badge=%v", st.GetStatus(), st.GetBadge())
 	}
 
-	// Approve.
-	rev, err := h.ReviewKyc(ctx, &verificationv1.ReviewKycRequest{Id: sub.GetId(), Decision: "approve"})
+	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -63,8 +76,8 @@ func TestHandlerSubmitReviewFlow(t *testing.T) {
 		t.Fatalf("expected VERIFIED, got %v", rev.GetStatus())
 	}
 
-	// After review: VERIFIED + badge, looked up by explicit user_id.
-	st2, err := h.GetVerificationStatus(ctx, &verificationv1.GetVerificationStatusRequest{UserId: "seller_1"})
+	// Owner passes their own id explicitly: still their own status.
+	st2, err := h.GetVerificationStatus(buyer("seller_1"), &verificationv1.GetVerificationStatusRequest{UserId: "seller_1"})
 	if err != nil {
 		t.Fatalf("GetVerificationStatus: %v", err)
 	}
@@ -73,24 +86,112 @@ func TestHandlerSubmitReviewFlow(t *testing.T) {
 	}
 }
 
+func TestTwoUsersDoNotSeeEachOthersStatus(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, buyer("alice"))
+	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
+		t.Fatalf("ReviewKyc: %v", err)
+	}
+
+	bob, err := h.GetVerificationStatus(buyer("bob"), &verificationv1.GetVerificationStatusRequest{})
+	if err != nil {
+		t.Fatalf("bob status: %v", err)
+	}
+	if bob.GetBadge() {
+		t.Fatalf("bob must not inherit alice's verified badge")
+	}
+	alice, err := h.GetVerificationStatus(buyer("alice"), &verificationv1.GetVerificationStatusRequest{})
+	if err != nil || !alice.GetBadge() {
+		t.Fatalf("alice should be verified, got %v err=%v", alice, err)
+	}
+}
+
+func TestAnonymousAndNoPrincipalAreUnauthenticated(t *testing.T) {
+	h := newHandler()
+	for name, ctx := range map[string]context.Context{"anonymous": anonymous(), "no principal": context.Background()} {
+		_, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s submit: expected Unauthenticated, got %v", name, err)
+		}
+		_, err = h.GetVerificationStatus(ctx, &verificationv1.GetVerificationStatusRequest{})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s status: expected Unauthenticated, got %v", name, err)
+		}
+		_, err = h.ReviewKyc(ctx, &verificationv1.ReviewKycRequest{Id: "x", Decision: "approve"})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s review: expected Unauthenticated, got %v", name, err)
+		}
+	}
+}
+
+func TestServicePrincipalCannotSubmit(t *testing.T) {
+	_, err := newHandler().SubmitKyc(service1(), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
+	wantCode(t, err, codes.PermissionDenied)
+}
+
+func TestBuyerCannotReview(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, buyer("alice"))
+	// Not even their own submission.
+	_, err := h.ReviewKyc(buyer("alice"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
+	wantCode(t, err, codes.PermissionDenied)
+	_, err = h.ReviewKyc(buyer("bob"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
+	wantCode(t, err, codes.PermissionDenied)
+	got, _ := h.GetVerificationStatus(buyer("alice"), &verificationv1.GetVerificationStatusRequest{})
+	if got.GetBadge() {
+		t.Fatalf("denied review must not change status")
+	}
+}
+
+func TestAdminCanReviewSomeoneElse(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, buyer("alice"))
+	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
+	if err != nil {
+		t.Fatalf("ReviewKyc: %v", err)
+	}
+	if rev.GetStatus() != verificationv1.VerificationStatus_VERIFICATION_STATUS_REJECTED {
+		t.Fatalf("expected REJECTED, got %v", rev.GetStatus())
+	}
+}
+
+func TestAdminCannotReviewOwnSubmission(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, admin("admin_1"))
+	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
+	wantCode(t, err, codes.PermissionDenied)
+	st, _ := h.GetVerificationStatus(admin("admin_1"), &verificationv1.GetVerificationStatusRequest{})
+	if st.GetBadge() {
+		t.Fatalf("self-review must not verify the submitter")
+	}
+}
+
+func TestStatusForAnotherUser(t *testing.T) {
+	h := newHandler()
+	id := submit(t, h, buyer("alice"))
+	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
+		t.Fatalf("ReviewKyc: %v", err)
+	}
+	req := &verificationv1.GetVerificationStatusRequest{UserId: "alice"}
+
+	st, err := h.GetVerificationStatus(admin("admin_1"), req)
+	if err != nil || !st.GetBadge() {
+		t.Fatalf("admin should read alice's status, got %v err=%v", st, err)
+	}
+	_, err = h.GetVerificationStatus(buyer("bob"), req)
+	wantCode(t, err, codes.PermissionDenied)
+}
+
 // Reviewing a non-existent submission surfaces gRPC NotFound.
 func TestHandlerReviewMissingIsNotFound(t *testing.T) {
-	h := newHandler()
-	_, err := h.ReviewKyc(context.Background(), &verificationv1.ReviewKycRequest{Id: "kyc_missing", Decision: "approve"})
-	if status.Code(err) != codes.NotFound {
-		t.Fatalf("expected NotFound, got %v", err)
-	}
+	_, err := newHandler().ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: "kyc_missing", Decision: "approve"})
+	wantCode(t, err, codes.NotFound)
 }
 
 // An invalid review decision surfaces gRPC InvalidArgument.
 func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 	h := newHandler()
-	sub, err := h.SubmitKyc(ctxAs("u"), &verificationv1.SubmitKycRequest{DocType: "passport", DocRef: "r"})
-	if err != nil {
-		t.Fatalf("SubmitKyc: %v", err)
-	}
-	_, err = h.ReviewKyc(context.Background(), &verificationv1.ReviewKycRequest{Id: sub.GetId(), Decision: "meh"})
-	if status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected InvalidArgument, got %v", err)
-	}
+	id := submit(t, h, buyer("u"))
+	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "meh"})
+	wantCode(t, err, codes.InvalidArgument)
 }
