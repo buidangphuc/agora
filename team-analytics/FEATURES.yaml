@@ -143,7 +143,8 @@ features:
       - When the seller requests GetSellerFunnel for their own id
       - Then the gateway returns 200 with the funnel
     tags: [analytics, seller, authz]
-    status: planned
+    status: automated
+    covered_by: "analytics/seller_analytics_access.feature::A seller reads their own funnel"
     notes: >
       Written in analytics/seller_analytics_access.feature ("A seller reads their own funnel"); flip to
       automated, with covered_by, after it passes against the stack
@@ -164,7 +165,8 @@ features:
       - When seller A requests GetRevenueBreakdown with seller B's id
       - Then the gateway returns 403 and no revenue figures
     tags: [analytics, seller, authz]
-    status: planned
+    status: automated
+    covered_by: "analytics/seller_analytics_access.feature::A seller cannot read another seller's revenue"
     notes: >
       Written in analytics/seller_analytics_access.feature ("A seller cannot read another seller's revenue"); flip to
       automated, with covered_by, after it passes against the stack
@@ -184,7 +186,8 @@ features:
       - When GetDemandForecast is called through the gateway with no token
       - Then the gateway returns 401
     tags: [analytics, seller, authz]
-    status: planned
+    status: automated
+    covered_by: "analytics/seller_analytics_access.feature::An anonymous caller cannot read a forecast"
     notes: >
       Written in analytics/seller_analytics_access.feature ("An anonymous caller cannot read a forecast"); flip to
       automated, with covered_by, after it passes against the stack
@@ -205,7 +208,8 @@ features:
       - When the admin requests GetSellerFunnel for any seller's id
       - Then the gateway returns 200 with the funnel
     tags: [analytics, seller, authz]
-    status: planned
+    status: automated
+    covered_by: "analytics/seller_analytics_access.feature::An admin reads any seller's funnel"
     notes: >
       Written in analytics/seller_analytics_access.feature ("An admin reads any seller's funnel"); flip to
       automated, with covered_by, after it passes against the stack
