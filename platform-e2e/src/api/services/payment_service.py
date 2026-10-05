@@ -78,6 +78,11 @@ class PaymentService(BaseService):
             {"sellerId": seller_id},
         )
 
+    def wallet_balance(self) -> int:
+        """The caller's own ledger balance (Connect JSON omits a zero balance)."""
+        res = self.post(_PAYMENT + "GetWalletBalance", {})
+        return int(res.get("balance") or 0)
+
     # ── Raw responses for the wallet access scenarios (no raise on 4xx) ──
     def wallet_response(self, seller_id: str) -> httpx.Response:
         return self.send("POST", _PAYMENT + "GetSellerWallet", json_body={"sellerId": seller_id})

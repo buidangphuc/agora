@@ -11,8 +11,8 @@ state comes from the `needsSeller` / `needsListing` / `needsOrder` tags.
 from __future__ import annotations
 
 import re
+import time
 
-import pytest
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
@@ -558,11 +558,30 @@ def payout_disabled(world: World) -> None:
     expect(page.zero_balance_hint).to_be_visible()
 
 
+@given("the buyer has paid the seeded order to the seller")
+def buyer_paid_seeded_order(world: World) -> None:
+    # A settled payment credits the order's seller in the wallet ledger, which is
+    # what makes the payout button usable; wait for the credit before the UI reads it.
+    buyer = world.state.extra["seeded_buyer"]
+    seller = world.state.seeded_seller
+    assert seller and seller.token, "scenario must be tagged @needsSeller @needsOrder"
+    world.service_factory.set_token(buyer.token)
+    world.service_factory.payment.mock_pay(world.state.order_id, 5_000_000, success=True)
+    world.service_factory.set_token(seller.token)
+    deadline = time.monotonic() + 20.0
+    while time.monotonic() < deadline:
+        balance = int(world.service_factory.payment.wallet_balance() or 0)
+        if balance > 0:
+            return
+        time.sleep(0.5)
+    raise AssertionError("the paid order never credited the seller's wallet ledger")
+
+
 @when("the seller starts a payout")
 def start_payout(world: World) -> None:
     page = _wallet(world)
-    if page.payout_button.is_disabled():
-        pytest.skip("the seeded seller has no wallet balance to withdraw on this stack")
+    expect(page.payout_button).to_be_enabled(timeout=timeouts.NAVIGATION)
+    page.wait_until_interactive(page.payout_button)
     page.payout_button.click()
 
 
