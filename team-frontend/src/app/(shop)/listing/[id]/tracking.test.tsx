@@ -34,6 +34,7 @@ vi.mock("@/lib/gateway/listings", () => ({
   getStorefront: vi.fn(),
 }));
 vi.mock("@/lib/gateway/engagement", () => ({
+  isFavorite: vi.fn().mockResolvedValue(false),
   listCollections: vi.fn().mockResolvedValue([]),
   recordView: vi.fn().mockResolvedValue(undefined),
 }));

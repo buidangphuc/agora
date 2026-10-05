@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FABRICATED_PDP_TEXT } from "@/features/listing/fabricatedText";
+import { isFavorite } from "@/lib/gateway/engagement";
 import { getCategory, getListing, getStorefront } from "@/lib/gateway/listings";
 import { getActiveFlashSale } from "@/lib/gateway/promotion";
 import {
@@ -9,6 +10,7 @@ import {
   getShopRatingSummary,
   listReviews,
 } from "@/lib/gateway/reviews";
+import { getPrincipal } from "@/lib/gateway/session";
 import ProductDetailPage from "./page";
 import {
   makeListing,
@@ -33,6 +35,7 @@ vi.mock("@/lib/gateway/listings", () => ({
   getStorefront: vi.fn(),
 }));
 vi.mock("@/lib/gateway/engagement", () => ({
+  isFavorite: vi.fn().mockResolvedValue(false),
   listCollections: vi.fn().mockResolvedValue([]),
   recordView: vi.fn().mockResolvedValue(undefined),
 }));
@@ -57,7 +60,9 @@ vi.mock("@/features/engagement/AddToCollectionButton", () => ({
   AddToCollectionButton: () => null,
 }));
 vi.mock("@/features/engagement/FavoriteButton", () => ({
-  FavoriteButton: () => null,
+  FavoriteButton: ({ initial }: { initial: boolean }) => (
+    <span data-testid="favorite-button" data-initial={String(initial)} />
+  ),
 }));
 vi.mock("@/features/listing/ShareButton", () => ({ ShareButton: () => null }));
 vi.mock("@/features/chat/ChatWithSellerButton", () => ({
@@ -360,5 +365,32 @@ describe("ProductDetailPage: variant from the URL", () => {
     const gone = screen.getByRole("radio", { name: /512GB/ });
     expect(gone).toBeDisabled();
     expect(gone).toHaveAttribute("aria-disabled", "true");
+  });
+});
+
+describe("ProductDetailPage: saved favorite", () => {
+  it("shows a filled heart for a listing the signed-in buyer already favorited", async () => {
+    vi.mocked(getPrincipal).mockReturnValueOnce({
+      id: "u-1",
+      name: "b",
+      scopes: [],
+    } as never);
+    vi.mocked(isFavorite).mockResolvedValueOnce(true);
+    await renderPage();
+    expect(isFavorite).toHaveBeenCalledWith("L");
+    expect(screen.getByTestId("favorite-button")).toHaveAttribute(
+      "data-initial",
+      "true",
+    );
+  });
+
+  it("does not ask for favorite state for an anonymous visitor", async () => {
+    vi.mocked(isFavorite).mockClear();
+    await renderPage();
+    expect(isFavorite).not.toHaveBeenCalled();
+    expect(screen.getByTestId("favorite-button")).toHaveAttribute(
+      "data-initial",
+      "false",
+    );
   });
 });

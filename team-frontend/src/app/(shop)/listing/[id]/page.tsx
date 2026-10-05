@@ -25,7 +25,11 @@ import { RecommendationsSkeleton } from "@/features/recommendations/Recommendati
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { ShopHeaderCard } from "@/features/shop/ShopHeaderCard";
 import { TrackView } from "@/features/tracking/TrackView";
-import { listCollections, recordView } from "@/lib/gateway/engagement";
+import {
+  isFavorite,
+  listCollections,
+  recordView,
+} from "@/lib/gateway/engagement";
 import { getCategory, getStorefront } from "@/lib/gateway/listings";
 import { AlertType, listAlertSubscriptions } from "@/lib/gateway/notification";
 import { getActiveFlashSale } from "@/lib/gateway/promotion";
@@ -73,6 +77,7 @@ export default async function ProductDetailPage({
     category,
     collections,
     alertSubs,
+    favorited,
   ] = await Promise.all([
     getActiveFlashSale(params.id),
     getListingRatingSummary(params.id),
@@ -83,6 +88,8 @@ export default async function ProductDetailPage({
       : Promise.resolve(null),
     loggedIn ? listCollections() : Promise.resolve([]),
     loggedIn ? listAlertSubscriptions() : Promise.resolve([]),
+    // Saved-favorite state, so the heart is filled after a reload.
+    loggedIn ? isFavorite(params.id) : Promise.resolve(false),
     // Best-effort: record this view so it shows up in "Vừa xem" (recently
     // viewed). Never throws; its result is ignored.
     recordView(params.id),
@@ -150,7 +157,7 @@ export default async function ProductDetailPage({
               <ImageGallery
                 images={images}
                 alt={listing.title}
-                overlay={<FavoriteButton id={listing.id} initial={false} />}
+                overlay={<FavoriteButton id={listing.id} initial={favorited} />}
               />
             </div>
 
