@@ -17,11 +17,14 @@ def favorite_first_result(world: World) -> None:
     search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
     expect(search.results.cards.first).to_be_visible(timeout=timeouts.DEFAULT)
     heart = world.page.get_by_role("button", name="Yêu thích").first
+    search.wait_until_interactive(heart)
     heart.click()
-    # Optimistic toggle flips the label to "Bỏ thích" once the action fires.
-    expect(world.page.get_by_role("button", name="Bỏ thích").first).to_be_visible(
-        timeout=timeouts.DEFAULT
-    )
+    # Optimistic toggle flips the label to "Bỏ thích" at once; the button stays
+    # disabled until the server action returns, and leaving the page earlier
+    # cancels the save, so wait for it to be enabled again.
+    favorited = world.page.get_by_role("button", name="Bỏ thích").first
+    expect(favorited).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(favorited).to_be_enabled(timeout=timeouts.DEFAULT)
 
 
 @then("the product appears in the buyer's favorites")
@@ -32,8 +35,6 @@ def product_in_favorites(world: World) -> None:
 
 @then("the empty favorites placeholder is displayed")
 def empty_favorites_placeholder_displayed(world: World) -> None:
-    page: FavoritesPage = world.get_page(PageName.FAVORITES)  # type: ignore[assignment]
     expect(world.page.get_by_text("chưa có sản phẩm yêu thích", exact=False)).to_be_visible(
         timeout=timeouts.DEFAULT
     )
-
