@@ -18,7 +18,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pandas as pd
 from playwright.sync_api import expect
 from pytest_bdd import given, then, when
 
@@ -31,15 +30,43 @@ from src.constants import PageName, timeouts
 from src.pages.components import RecommendationsRowComponent
 from tests.e2e.support.world import World
 
-# Ensure platform-recsys package is importable
+# The offline pipeline steps need `pandas` and the `platform-recsys` package, which the
+# shared e2e venv does not ship. They are imported inside the helpers below, so importing
+# this module (UI/gateway steps, other journeys) only needs the e2e dependencies.
 _PLATFORM_RECSYS_DIR = Path(__file__).resolve().parents[4] / "platform-recsys"
-if str(_PLATFORM_RECSYS_DIR) not in sys.path:
-    sys.path.insert(0, str(_PLATFORM_RECSYS_DIR))
 
-from recsys.config import Settings  # noqa: E402
-from recsys.pipeline import run as run_recsys_pipeline  # noqa: E402
-from recsys.registry.metadata import ModelMetadata  # noqa: E402
-from recsys.registry.registry import ModelRegistry  # noqa: E402
+
+def _ensure_recsys_importable() -> None:
+    if str(_PLATFORM_RECSYS_DIR) not in sys.path:
+        sys.path.insert(0, str(_PLATFORM_RECSYS_DIR))
+
+
+def _settings(**kwargs):
+    _ensure_recsys_importable()
+    from recsys.config import Settings
+
+    return Settings(**kwargs)
+
+
+def _registry():
+    _ensure_recsys_importable()
+    from recsys.registry.registry import ModelRegistry
+
+    return ModelRegistry()
+
+
+def _model_metadata(**kwargs):
+    _ensure_recsys_importable()
+    from recsys.registry.metadata import ModelMetadata
+
+    return ModelMetadata(**kwargs)
+
+
+def _run_pipeline(**kwargs):
+    _ensure_recsys_importable()
+    from recsys.pipeline import run
+
+    return run(**kwargs)
 
 
 def _row(world: World) -> RecommendationsRowComponent:
@@ -162,6 +189,7 @@ def row_hidden_or_populated_never_errored(world: World) -> None:
 
 
 def _patch_loaders_if_needed() -> None:
+    _ensure_recsys_importable()
     import recsys.load.qdrant as qdrant_load
     import recsys.load.redis_cache as redis_cache
 
@@ -172,6 +200,8 @@ def _patch_loaders_if_needed() -> None:
 
 
 def _create_sample_parquet(tmp_dir: Path, interactions=None) -> Path:
+    import pandas as pd
+
     if interactions is None:
         now = datetime.now(timezone.utc)
         interactions = [
@@ -186,13 +216,15 @@ def _create_sample_parquet(tmp_dir: Path, interactions=None) -> Path:
             ("u3", "l3", "add_to_cart", now - timedelta(hours=1)),
             ("u3", "l1", "view", now),
         ]
-    df = pd.DataFrame({
-        "event_type": [x[2] for x in interactions],
-        "principal_id": [x[0] for x in interactions],
-        "anonymous_id": ["" for _ in interactions],
-        "listing_id": [x[1] for x in interactions],
-        "occurred_at": [x[3] for x in interactions],
-    })
+    df = pd.DataFrame(
+        {
+            "event_type": [x[2] for x in interactions],
+            "principal_id": [x[0] for x in interactions],
+            "anonymous_id": ["" for _ in interactions],
+            "listing_id": [x[1] for x in interactions],
+            "occurred_at": [x[3] for x in interactions],
+        }
+    )
     parquet_path = tmp_dir / "tracking_events.parquet"
     df.to_parquet(parquet_path, coerce_timestamps="ms", allow_truncated_timestamps=True)
     return parquet_path
@@ -202,7 +234,7 @@ def _create_sample_parquet(tmp_dir: Path, interactions=None) -> Path:
 def offline_batch_pipeline(world: World) -> None:
     tmp_dir = Path(tempfile.mkdtemp())
     parquet_path = _create_sample_parquet(tmp_dir)
-    settings = Settings(
+    settings = _settings(
         spark_master="local[1]",
         warehouse_driver="duckdb",
         warehouse_parquet_path=str(parquet_path),
@@ -210,7 +242,7 @@ def offline_batch_pipeline(world: World) -> None:
         als_rank=4,
         top_n=5,
     )
-    registry = ModelRegistry()
+    registry = _registry()
     world.state.extra["settings"] = settings
     world.state.extra["registry"] = registry
 
@@ -220,7 +252,7 @@ def als_training_scored(world: World) -> None:
     settings = world.state.extra["settings"]
     registry = world.state.extra["registry"]
     _patch_loaders_if_needed()
-    summary = run_recsys_pipeline(settings=settings, registry=registry)
+    summary = _run_pipeline(settings=settings, registry=registry)
     world.state.extra["summary"] = summary
 
 
@@ -243,7 +275,7 @@ def interaction_window_no_test_events(world: World) -> None:
         ("u3", "l3", "view", now),
     ]
     parquet_path = _create_sample_parquet(tmp_dir, interactions=interactions)
-    settings = Settings(
+    settings = _settings(
         spark_master="local[1]",
         warehouse_driver="duckdb",
         warehouse_parquet_path=str(parquet_path),
@@ -251,7 +283,7 @@ def interaction_window_no_test_events(world: World) -> None:
         als_rank=4,
         top_n=5,
     )
-    registry = ModelRegistry()
+    registry = _registry()
     world.state.extra["settings"] = settings
     world.state.extra["registry"] = registry
 
@@ -261,7 +293,7 @@ def evaluation_stage_runs(world: World) -> None:
     settings = world.state.extra["settings"]
     registry = world.state.extra["registry"]
     _patch_loaders_if_needed()
-    summary = run_recsys_pipeline(settings=settings, registry=registry)
+    summary = _run_pipeline(settings=settings, registry=registry)
     world.state.extra["summary"] = summary
 
 
@@ -274,8 +306,8 @@ def no_candidate_registered(world: World) -> None:
 
 @given("an incumbent champion model in the registry")
 def incumbent_champion_in_registry(world: World) -> None:
-    registry = ModelRegistry()
-    champ = ModelMetadata(
+    registry = _registry()
+    champ = _model_metadata(
         model_version="champ-v1",
         model_name="recsys-als",
         model_type="als",
@@ -287,7 +319,7 @@ def incumbent_champion_in_registry(world: World) -> None:
 
     tmp_dir = Path(tempfile.mkdtemp())
     parquet_path = _create_sample_parquet(tmp_dir)
-    settings = Settings(
+    settings = _settings(
         spark_master="local[1]",
         warehouse_driver="duckdb",
         warehouse_parquet_path=str(parquet_path),
@@ -305,7 +337,7 @@ def candidate_evaluates_below_tolerance(world: World) -> None:
     settings = world.state.extra["settings"]
     registry = world.state.extra["registry"]
     _patch_loaders_if_needed()
-    summary = run_recsys_pipeline(settings=settings, registry=registry)
+    summary = _run_pipeline(settings=settings, registry=registry)
     world.state.extra["summary"] = summary
 
 
@@ -326,8 +358,8 @@ def champion_key_unchanged(world: World) -> None:
 
 @given("a candidate model rejected by the promotion gate")
 def rejected_candidate_model(world: World) -> None:
-    registry = ModelRegistry()
-    champ = ModelMetadata(
+    registry = _registry()
+    champ = _model_metadata(
         model_version="champ-v1",
         model_name="recsys-als",
         model_type="als",
@@ -339,7 +371,7 @@ def rejected_candidate_model(world: World) -> None:
 
     tmp_dir = Path(tempfile.mkdtemp())
     parquet_path = _create_sample_parquet(tmp_dir)
-    settings = Settings(
+    settings = _settings(
         spark_master="local[1]",
         warehouse_driver="duckdb",
         warehouse_parquet_path=str(parquet_path),
@@ -357,7 +389,7 @@ def pipeline_run_finishes(world: World) -> None:
     settings = world.state.extra["settings"]
     registry = world.state.extra["registry"]
     _patch_loaders_if_needed()
-    summary = run_recsys_pipeline(settings=settings, registry=registry)
+    summary = _run_pipeline(settings=settings, registry=registry)
     world.state.extra["summary"] = summary
 
 
@@ -373,10 +405,10 @@ def active_model_version_unchanged(world: World) -> None:
 
 @given("an empty model registry with no existing champion")
 def empty_model_registry(world: World) -> None:
-    registry = ModelRegistry()
+    registry = _registry()
     tmp_dir = Path(tempfile.mkdtemp())
     parquet_path = _create_sample_parquet(tmp_dir)
-    settings = Settings(
+    settings = _settings(
         spark_master="local[1]",
         warehouse_driver="duckdb",
         warehouse_parquet_path=str(parquet_path),
@@ -393,7 +425,7 @@ def initial_pipeline_run_completes(world: World) -> None:
     settings = world.state.extra["settings"]
     registry = world.state.extra["registry"]
     _patch_loaders_if_needed()
-    summary = run_recsys_pipeline(settings=settings, registry=registry)
+    summary = _run_pipeline(settings=settings, registry=registry)
     world.state.extra["summary"] = summary
 
 
@@ -410,10 +442,10 @@ def initial_model_promoted(world: World) -> None:
 
 @given("an offline pipeline execution")
 def offline_pipeline_execution(world: World) -> None:
-    registry = ModelRegistry()
+    registry = _registry()
     tmp_dir = Path(tempfile.mkdtemp())
     parquet_path = _create_sample_parquet(tmp_dir)
-    settings = Settings(
+    settings = _settings(
         spark_master="local[1]",
         warehouse_driver="duckdb",
         warehouse_parquet_path=str(parquet_path),
@@ -430,7 +462,7 @@ def pipeline_completes_gating(world: World) -> None:
     settings = world.state.extra["settings"]
     registry = world.state.extra["registry"]
     _patch_loaders_if_needed()
-    summary = run_recsys_pipeline(settings=settings, registry=registry)
+    summary = _run_pipeline(settings=settings, registry=registry)
     world.state.extra["summary"] = summary
 
 
@@ -441,4 +473,3 @@ def summary_reports_all_fields(world: World) -> None:
     assert "metrics" in s and isinstance(s["metrics"], dict)
     assert "decision" in s and s["decision"] in ("promoted", "rejected")
     assert "reason" in s and len(s["reason"]) > 0
-

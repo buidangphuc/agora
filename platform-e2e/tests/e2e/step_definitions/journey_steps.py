@@ -8,20 +8,24 @@ Covers:
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 
 from playwright.sync_api import expect
-from pytest_bdd import given, parsers, then, when
+from pytest_bdd import given, then, when
 
 from config.settings import get_settings
+from src.api.services import BaseService
 from src.api.services.sharing_service import SharingService
-from src.api.services.tracking_service import IMPRESSION
 from src.constants import PageName, timeouts
+from src.constants import gateway_endpoints as ep
 from src.models import Listing
 from src.pages import (
     CartPage,
+    CheckoutPage,
     ListingDetailPage,
+    OrdersListPage,
     SearchPage,
 )
 from src.utils import data as fake
@@ -32,171 +36,303 @@ SETTINGS = get_settings()
 
 # ============================================================================
 # Journey 1: Buyer Full Funnel Journey
+#
+# Every step drives the running stack: the Next.js UI through Playwright and the
+# gateway API for the read-backs, as the @needsBuyer account the browser is logged
+# in as. Every Then reads state back from the system (see the feature file notes).
 # ============================================================================
 
+_INDEX_WAIT_SECONDS = 60
+_FAVORITE_WAIT_SECONDS = 10
+_PURCHASE_VOUCHER = "SAVE10"
+_RECS_PLACEMENT = "home_recommendations"
 
-@then("a viewable impression telemetry event is emitted to the data layer")
-def viewable_impression_telemetry_emitted(world: World) -> None:
-    session_id = f"e2e-sess-{uuid.uuid4()}"
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-seeded"
-    try:
-        world.service_factory.tracking.emit(
-            IMPRESSION,
-            listing_id=listing_id,
-            session_id=session_id,
-            page="/",
-        )
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Best-effort tracking emission: {exc}")
 
-    # Push and assert in browser dataLayer
-    world.page.evaluate(
-        """([lid, sess]) => {
-            window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push({
-                event: 'view_item_list',
-                ecommerce: {
-                    item_list_id: 'recommendations_feed',
-                    item_list_name: 'Gợi ý cho bạn',
-                    items: [{ item_id: lid, index: 1 }]
-                },
-                session_id: sess
-            });
-        }""",
-        [listing_id, session_id],
+def _digits(text: str) -> int:
+    """All digits of a rendered amount, e.g. '5.000.000 VND' -> 5000000."""
+    cleaned = re.sub(r"\D", "", text or "")
+    assert cleaned, f"no amount in {text!r}"
+    return int(cleaned)
+
+
+def _data_layer_events(world: World, name: str) -> list[dict]:
+    events = world.page.evaluate("() => (window.dataLayer || []).filter((e) => e && e.event)")
+    return [e for e in events if e.get("event") == name]
+
+
+def _impression_item_ids(events: list[dict], placement: str | None = None) -> set[str]:
+    ids = set()
+    for event in events:
+        for item in (event.get("ecommerce") or {}).get("items", []):
+            if placement is None or item.get("item_list_id") == placement:
+                ids.add(item.get("item_id"))
+    return ids
+
+
+def _card_listing_ids(cards) -> set[str]:  # noqa: ANN001
+    hrefs = cards.evaluate_all("els => els.map((e) => e.getAttribute('href') || '')")
+    return {h.rsplit("/", 1)[-1] for h in hrefs if h.startswith("/listing/")}
+
+
+def _seeded_listing_id(world: World) -> str:
+    listing = world.state.listing
+    assert listing and listing.listing_id, "no seeded listing; tag the scenario @needsListing"
+    return listing.listing_id
+
+
+@then("a viewable impression event is emitted to the data layer for a home listing card")
+def home_listing_card_impression(world: World) -> None:
+    cards = world.page.locator('a[href^="/listing/"]')
+    expect(cards.first).to_be_visible(timeout=timeouts.NAVIGATION)
+    cards.first.scroll_into_view_if_needed()
+    # The impression fires from an IntersectionObserver once the card is in view.
+    world.page.wait_for_function(
+        "() => (window.dataLayer || []).some((e) => e && e.event === 'view_item_list')",
+        timeout=timeouts.DEFAULT,
     )
-    dl = world.page.evaluate("() => window.dataLayer || []")
-    impressions = [e for e in dl if isinstance(e, dict) and e.get("event") == "view_item_list"]
-    assert len(impressions) >= 1, "No view_item_list impression event found in window.dataLayer"
-    world.state.extra["track_session_id"] = session_id
-    world.logger.info(f"Impression event emitted for session {session_id}")
+    ids = _impression_item_ids(_data_layer_events(world, "view_item_list"))
+    on_page = _card_listing_ids(cards)
+    assert ids, "view_item_list events carry no item"
+    assert ids <= on_page, f"impression for a listing that is not on the page: {ids - on_page}"
 
 
-@when(parsers.parse('the buyer searches for "{term}" with hybrid search and applies filters'))
-def buyer_hybrid_search_with_filters(world: World, term: str) -> None:
-    world.state.search_term = term
-    search_page: SearchPage = world.navigate_to(PageName.SEARCH)  # type: ignore[assignment]
-    search_page.navigate_query(term)
-    world.state.extra["filter_category"] = "cat-electronics"
-    world.state.extra["filter_price_range"] = "100000-5000000"
+@when("the buyer searches for the seeded listing and filters by its price range")
+def buyer_searches_seeded_listing_and_filters_price(world: World) -> None:
+    listing = world.state.listing
+    listing_id = _seeded_listing_id(world)
+    # The seeded title ends with a random number: a near-unique keyword on a shared stack.
+    keyword = listing.title.split()[-1]
+    index = world.service_factory.get(BaseService)
+    deadline = time.time() + _INDEX_WAIT_SECONDS
+    while True:
+        hits = index.post(ep.SEARCH_LISTINGS, {"query": keyword}).get("hits") or []
+        if listing_id in {h.get("listingId") for h in hits} or time.time() >= deadline:
+            break
+        time.sleep(2)
+    assert listing_id in {h.get("listingId") for h in hits}, (
+        f"seeded listing {listing_id} is not in the search index for {keyword!r} "
+        f"after {_INDEX_WAIT_SECONDS}s"
+    )
+    world.state.search_term = keyword
+
+    world.get_page(PageName.HOME).search_for(keyword)  # type: ignore[attr-defined]
+    search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    # Facet keys are "<min>-<max>" or "<min>+"; click the bucket the listing's price falls in.
+    keys = (
+        search.facet_group("price_ranges")
+        .locator("[data-key]")
+        .evaluate_all("els => els.map((e) => e.getAttribute('data-key'))")
+    )
+    price = listing.price
+    in_range = []
+    for key in keys:
+        low, _, high = key.replace("+", "-").partition("-")
+        if int(low) <= price and (not high or price < int(high)):
+            in_range.append(key)
+    assert in_range, f"no price facet bucket holds {price}: {keys}"
+    key = in_range[0]
+    search.facet_bucket(key).click()
+    world.state.extra["price_bucket"] = key
+    world.page.wait_for_url(
+        re.compile(rf".*minPrice={key.split('-')[0].rstrip('+')}.*"), timeout=timeouts.NAVIGATION
+    )
 
 
-@then("the search results grid updates matching the filtered criteria")
-def search_results_grid_updates_matching_criteria(world: World) -> None:
-    search_page: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
-    assert search_page.is_displayed(), f"Search page not displayed at {world.page.url}"
-    world.logger.info(f"Search results filtered successfully for term '{world.state.search_term}'")
+@then("the filtered search results include the seeded listing")
+def filtered_results_include_seeded_listing(world: World) -> None:
+    search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
+    key = world.state.extra["price_bucket"]
+    expect(search.facet_bucket(key)).to_have_attribute(
+        "data-active", "true", timeout=timeouts.DEFAULT
+    )
+    link = search.results_wrapper.locator(f'a[href="/listing/{_seeded_listing_id(world)}"]').first
+    expect(link).to_be_visible(timeout=timeouts.DEFAULT)
+    assert search.result_count() > 0, "the filtered search rendered no results"
 
 
-@then("the product detail page displays product details")
-def pdp_displays_product_details(world: World) -> None:
+@when("the buyer opens the seeded listing from the search results")
+def buyer_opens_seeded_listing_from_results(world: World) -> None:
+    listing_id = _seeded_listing_id(world)
+    search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
+    search.results_wrapper.locator(f'a[href="/listing/{listing_id}"]').first.click()
+    world.page.wait_for_url(re.compile(rf".*/listing/{listing_id}$"), timeout=timeouts.NAVIGATION)
+
+
+@then("the product detail page displays the seeded listing's title and price")
+def pdp_displays_seeded_listing(world: World) -> None:
     detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
+    stored = world.service_factory.listing.get_listing(_seeded_listing_id(world))
+    assert stored.get("title"), f"GetListing returned no listing: {stored}"
+    expect(detail.title).to_have_text(stored["title"], timeout=timeouts.DEFAULT)
+    expect(detail.price).to_be_visible(timeout=timeouts.DEFAULT)
+    assert _digits(detail.price.inner_text()) == int(
+        stored["price"]
+    ), f"PDP price {detail.price.inner_text()!r} != stored price {stored['price']}"
     expect(detail.add_to_cart_button).to_be_visible(timeout=timeouts.DEFAULT)
-    world.logger.info("PDP product details and action buttons verified")
 
 
 @when("the buyer favorites the listing and generates a share link")
-def buyer_favorites_and_generates_share_link(world: World) -> None:
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-e2e-1"
-    # Call engagement favorite service
-    try:
-        world.service_factory.engagement.toggle_favorite(listing_id)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Engagement toggle favorite: {exc}")
-
-    # Generate share link
-    short_code = f"s-{uuid.uuid4().hex[:6]}"
-    try:
-        share_svc = world.service_factory.get(SharingService)
-        res = share_svc.create_share_link("listing", listing_id)
-        short_code = res.get("shortCode") or short_code
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Sharing service create link: {exc}")
-
-    world.state.extra["short_code"] = short_code
-    world.state.extra["is_favorited"] = True
-
-
-@then("the product is marked as favorite and a valid share link is created")
-def product_favorite_and_share_link_verified(world: World) -> None:
-    assert world.state.extra.get("is_favorited") is True, "Listing was not marked as favorite"
-    short_code = world.state.extra.get("short_code")
-    assert short_code, "Short share code was not generated"
-    world.logger.info(f"Product favorited and share link generated with code '{short_code}'")
-
-
-@when("the buyer adds multiple items to the cart")
-def buyer_adds_multiple_items(world: World) -> None:
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-e2e-1"
-    try:
-        world.service_factory.cart.add_to_cart(listing_id=listing_id, quantity=2)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Cart add_to_cart: {exc}")
-
-    world.navigate_to(PageName.CART)
-    world.state.extra["cart_quantity"] = 2
-
-
-@then("the cart contains the updated item quantities")
-def cart_contains_updated_item_quantities(world: World) -> None:
-    cart_page: CartPage = world.get_page(PageName.CART)  # type: ignore[assignment]
-    assert cart_page.is_displayed(), f"Cart page not displayed at {world.page.url}"
-    world.logger.info(
-        f"Cart displays updated item quantity: {world.state.extra.get('cart_quantity')}"
+def buyer_favorites_and_shares(world: World) -> None:
+    page = world.page
+    page.get_by_role("button", name="Yêu thích", exact=True).first.click()
+    expect(page.get_by_text("Đã thêm sản phẩm vào mục Yêu Thích")).to_be_visible(
+        timeout=timeouts.DEFAULT
     )
+    page.get_by_role("button", name=re.compile("Chia sẻ")).click()
+    shown = page.get_by_text(re.compile(r"/s/[A-Za-z0-9_-]+$")).first
+    expect(shown).to_be_visible(timeout=timeouts.DEFAULT)
+    world.state.extra["share_url"] = shown.inner_text().strip()
+
+
+@then("the listing is a favorite of the buyer and the share link resolves to the listing")
+def listing_favorited_and_share_link_resolves(world: World) -> None:
+    listing_id = _seeded_listing_id(world)
+    deadline = time.time() + _FAVORITE_WAIT_SECONDS
+    while True:
+        favorites = world.service_factory.engagement.list_favorites().get("listingIds") or []
+        if listing_id in favorites or time.time() >= deadline:
+            break
+        time.sleep(1)
+    assert listing_id in favorites, f"ListFavorites does not contain {listing_id}: {favorites}"
+
+    share_url = world.state.extra["share_url"]
+    short_code = share_url.rsplit("/s/", 1)[-1]
+    resolved = world.service_factory.get(SharingService).resolve_share_link(short_code)
+    assert resolved.get("targetType") == "listing", f"share link target: {resolved}"
+    assert resolved.get("targetId") == listing_id, f"share link points elsewhere: {resolved}"
+
+    # Open the link like a recipient would: it must land on the listing page.
+    recipient = world.context.new_page()
+    try:
+        recipient.goto(share_url, wait_until="domcontentloaded")
+        expect(recipient).to_have_url(
+            re.compile(rf".*/listing/{listing_id}$"), timeout=timeouts.NAVIGATION
+        )
+    finally:
+        recipient.close()
+
+
+@when("the buyer adds the listing to the cart and raises its quantity to 2")
+def buyer_adds_listing_and_raises_quantity(world: World) -> None:
+    detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
+    detail.add_to_cart_button.click()
+    expect(world.page.get_by_text("Đã thêm 1 sản phẩm vào giỏ hàng")).to_be_visible(
+        timeout=timeouts.DEFAULT
+    )
+    cart: CartPage = world.navigate_to(PageName.CART)  # type: ignore[assignment]
+    quantity = world.page.get_by_role("spinbutton", name=f"Số lượng: {world.state.listing.title}")
+    expect(quantity).to_have_attribute("aria-valuenow", "1", timeout=timeouts.NAVIGATION)
+    cart.increase_quantity_button.click()
+    expect(quantity).to_have_attribute("aria-valuenow", "2", timeout=timeouts.DEFAULT)
+
+
+@then("the cart holds 2 units of the listing")
+def cart_holds_two_units(world: World) -> None:
+    listing = world.state.listing
+    cart = world.service_factory.cart.get_cart().get("cart", {})
+    items = cart.get("items") or []
+    assert len(items) == 1, f"expected one cart line, got {items}"
+    line = items[0]
+    assert line.get("listingId") == listing.listing_id, f"wrong cart line: {line}"
+    assert int(line.get("quantity", 0)) == 2, f"cart quantity: {line}"
+    assert int(line.get("unitPrice", 0)) == listing.price, f"cart unit price: {line}"
+    subtotal = int(cart.get("subtotal", 0))
+    assert subtotal == 2 * listing.price, f"cart subtotal {subtotal}"
+    world.state.extra["subtotal"] = subtotal  # the voucher step compares against it
+
+    page_cart: CartPage = world.get_page(PageName.CART)  # type: ignore[assignment]
+    quantity = world.page.get_by_role("spinbutton", name=f"Số lượng: {listing.title}")
+    expect(quantity).to_have_attribute("aria-valuenow", "2", timeout=timeouts.DEFAULT)
+    shown = f"{subtotal:,}".replace(",", ".")  # the UI groups thousands with dots
+    expect(page_cart.order_summary).to_contain_text(shown, timeout=timeouts.DEFAULT)
 
 
 @when("the buyer confirms the order placement")
 def buyer_confirms_order_placement(world: World) -> None:
-    order_id = f"ord-{uuid.uuid4()}"
-    try:
-        order_res = world.service_factory.order.create_order(
-            {"paymentMethod": "PAYMENT_METHOD_COD"}
-        )
-        orders = order_res.get("orders", [])
-        order_id = orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Order creation API: {exc}")
+    checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
+    checkout.continue_to("confirm")  # the voucher stays in ?voucher= across the steps
+    expect(checkout.place_order_button).to_be_enabled(timeout=timeouts.DEFAULT)
+    checkout.place_order_button.click()
+    # COD routes to the buyer's order list; a mock-pay method would route to /checkout/pay.
+    world.page.wait_for_url(re.compile(r".*/account/orders.*success=1.*"), timeout=timeouts.LONG)
 
+
+@then("the order is placed with the voucher discount and listed for the buyer")
+def order_placed_with_discount_and_listed(world: World) -> None:
+    buyer, seller = _buyer(world), _seller(world)
+    listing = world.state.listing
+    orders = world.service_factory.order.list_buyer_orders().get("orders") or []
+    assert len(orders) == 1, f"the buyer should have exactly the one new order: {orders}"
+    order_id = orders[0]["id"]
+    order = world.service_factory.order.get_order(order_id).get("order", {})
+    assert order.get("id") == order_id, f"GetOrder returned the wrong order: {order}"
     world.state.order_id = order_id
     world.state.extra["order_id"] = order_id
-    tx_id = f"tx-{order_id}"
-    world.state.extra["transaction_id"] = tx_id
 
-    # Push purchase to GA4 dataLayer
-    world.page.evaluate(
-        """([tx, val]) => {
-            window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push({
-                event: 'purchase',
-                ecommerce: {
-                    transaction_id: tx,
-                    value: val,
-                    currency: 'VND',
-                    shipping_tier: 'SPX_STANDARD',
-                    payment_type: 'COD',
-                    coupon: 'SAVE10',
-                    items: [{ item_id: 'lst-seeded', price: 900000, quantity: 1 }]
-                }
-            });
-        }""",
-        [tx_id, 900000],
+    subtotal = world.state.extra["subtotal"]
+    discount = subtotal * 10 // 100  # SAVE10: platform voucher, 10%, uncapped
+    assert order.get("buyerId") == buyer.user_id, f"order is not the buyer's: {order}"
+    assert order.get("sellerId") == seller.user_id, f"order is not the seller's: {order}"
+    assert order.get("status") == "ORDER_STATUS_PENDING", f"order status: {order}"
+    assert order.get("paymentMethod") == "PAYMENT_METHOD_COD", f"payment method: {order}"
+    assert order.get("voucherCode") == _PURCHASE_VOUCHER, f"voucher code: {order}"
+    assert int(order.get("itemsSubtotal", 0)) == subtotal, f"items subtotal: {order}"
+    assert int(order.get("discountAmount", 0)) == discount, f"discount: {order}"
+    assert int(order.get("totalAmount", 0)) == subtotal - discount, f"total: {order}"
+    lines = order.get("items") or []
+    assert [(i.get("listingId"), int(i.get("quantity", 0))) for i in lines] == [
+        (listing.listing_id, 2)
+    ], f"order items: {lines}"
+    assert (
+        order.get("shippingAddress", {}).get("id") == world.state.extra["address_id"]
+    ), f"shipping address: {order.get('shippingAddress')}"
+    world.state.extra["order_total"] = int(order["totalAmount"])
+
+    # The buyer's order list in the UI shows that same order.
+    orders_page: OrdersListPage = world.get_page(PageName.ACCOUNT_ORDERS)  # type: ignore[assignment]
+    expect(orders_page.order_cards.first).to_be_visible(timeout=timeouts.DEFAULT)
+    detail = world.page.locator(f'a[href="/account/orders/{order_id}"]')
+    expect(detail.first).to_be_visible(timeout=timeouts.DEFAULT)
+
+
+@then("a purchase event for that order is pushed to the GA4 dataLayer")
+def purchase_event_pushed_for_order(world: World) -> None:
+    listing = world.state.listing
+    purchases = _data_layer_events(world, "purchase")
+    assert len(purchases) == 1, f"expected exactly one purchase event, got {purchases}"
+    ecommerce = purchases[0].get("ecommerce") or {}
+    assert (
+        ecommerce.get("transaction_id") == world.state.order_id
+    ), f"transaction_id {ecommerce.get('transaction_id')!r} is not the order id {world.state.order_id}"
+    assert ecommerce.get("currency") == "VND", f"currency: {ecommerce}"
+    assert ecommerce.get("value") == world.state.extra["order_total"], f"value: {ecommerce}"
+    assert ecommerce.get("coupon") == _PURCHASE_VOUCHER, f"coupon: {ecommerce}"
+    items = ecommerce.get("items") or []
+    assert [(i.get("item_id"), i.get("quantity")) for i in items] == [
+        (listing.listing_id, 2)
+    ], f"purchase items: {items}"
+
+
+@then('the "Gợi ý cho bạn" row on the home page shows product cards')
+def home_recommendations_row_shows_cards(world: World) -> None:
+    row = world.get_page(PageName.HOME).recommendations  # type: ignore[attr-defined]
+    expect(row.heading).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(row.cards.first).to_be_visible(timeout=timeouts.DEFAULT)
+
+
+@then("a viewable impression event is emitted to the data layer for the recommendations row")
+def recommendations_row_impression(world: World) -> None:
+    row = world.get_page(PageName.HOME).recommendations  # type: ignore[attr-defined]
+    row.cards.first.scroll_into_view_if_needed()
+    world.page.wait_for_function(
+        """(placement) => (window.dataLayer || []).some((e) => e && e.event === 'view_item_list'
+            && ((e.ecommerce || {}).items || []).some((i) => i.item_list_id === placement))""",
+        arg=_RECS_PLACEMENT,
+        timeout=timeouts.DEFAULT,
     )
-
-
-@then("the order confirmation is displayed and a purchase event is pushed to the GA4 dataLayer")
-def order_confirmation_and_ga4_verified(world: World) -> None:
-    dl = world.page.evaluate("() => window.dataLayer || []")
-    purchases = [e for e in dl if isinstance(e, dict) and e.get("event") == "purchase"]
-    assert len(purchases) >= 1, "No purchase event found in window.dataLayer"
-    last_purchase = purchases[-1]
-    ecom = last_purchase.get("ecommerce", {})
-    assert ecom.get("transaction_id") == world.state.extra.get("transaction_id")
-    assert ecom.get("currency") == "VND"
-    assert ecom.get("coupon") == "SAVE10"
-    world.logger.info(
-        f"GA4 purchase telemetry verified for transaction {world.state.extra.get('transaction_id')}"
-    )
+    ids = _impression_item_ids(_data_layer_events(world, "view_item_list"), _RECS_PLACEMENT)
+    assert ids <= _card_listing_ids(row.cards), "impression for a listing that is not in the row"
 
 
 # ============================================================================
