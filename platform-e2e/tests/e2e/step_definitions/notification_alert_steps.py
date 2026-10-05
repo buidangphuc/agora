@@ -215,9 +215,8 @@ def notification_appears(world: World, kind: str) -> None:
     found = _poll_for_notification(world, kind, listing_id, _DELIVERY_POLL_SECONDS)
     assert found, (
         f"no {kind} notification for listing {listing_id} within "
-        f"{_DELIVERY_POLL_SECONDS}s — team-domain emits platform.listing.v1.ListingChanged "
-        f"but team-notification's consumer only reacts to ListingPricingChanged/"
-        f"ListingStockChanged, so the alert is never created"
+        f"{_DELIVERY_POLL_SECONDS}s — check the team-domain outbox relayed the listing's "
+        f"ListingChanged events in order and team-notification consumed them"
     )
     world.navigate_to(PageName.NOTIFICATIONS)
     page: NotificationsPage = world.get_page(PageName.NOTIFICATIONS)  # type: ignore[assignment]
