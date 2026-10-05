@@ -16,4 +16,4 @@
 ## 4. E2E — platform-e2e
 
 - [ ] 4.1 Scenarios: seller reads own funnel; seller cannot read another seller's revenue (403); anonymous forecast (401); admin reads any seller; FEATURES.yaml entries; verify green against the agora stack and flip to `automated`
-- [ ] 4.2 Run `openspec validate secure-seller-analytics-and-admin-seed --strict`; verify it is valid
+- [x] 4.2 Run `openspec validate secure-seller-analytics-and-admin-seed --strict`; verify it is valid
