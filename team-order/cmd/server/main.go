@@ -196,9 +196,10 @@ func run() error {
 			go func() {
 				logger.Info("payment consumer starting",
 					slog.String("topic", kcfg.Topic), slog.String("group", kcfg.ConsumerGroup))
-				if err := paymentConsumer.Run(ctx, pk.Reader(), pk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic}); err != nil &&
-					!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-					logger.Error("payment consumer stopped with error", slog.Any("err", err))
+				err := paymentConsumer.Run(ctx, pk.Reader(), pk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic})
+				// Run only returns on shutdown; any other exit leaves orders unpaid.
+				if ctx.Err() == nil {
+					logger.Error("payment consumer stopped while the service is running", slog.Any("err", err))
 				}
 			}()
 		}

@@ -2,6 +2,8 @@ package consumer_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -209,4 +211,55 @@ func waitFor(t *testing.T, cond func() bool) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatal("condition not met in time")
+}
+
+// failingReader returns transient fetch errors (one wrapping a deadline, as a
+// Kafka request timeout does) before handing out its records.
+type failingReader struct {
+	fakeReader
+	failures []error
+}
+
+func (r *failingReader) Fetch(ctx context.Context) (consumer.Record, error) {
+	if len(r.failures) > 0 {
+		err := r.failures[0]
+		r.failures = r.failures[1:]
+		return consumer.Record{}, err
+	}
+	return r.fakeReader.Fetch(ctx)
+}
+
+// A fetch error wrapping context.DeadlineExceeded while the consumer's own
+// context is alive must not stop the loop (it used to, silently).
+func TestPaymentConsumer_Run_TransientFetchErrorsDoNotStopTheLoop(t *testing.T) {
+	store := &countingOrderStore{orders: map[string]repository.Order{
+		"ord_1": {ID: "ord_1", Status: repository.OrderStatusPending},
+	}}
+	c := consumer.NewPaymentConsumer(store, nil, nil)
+	good := envelopeFor(t, "evt_ok", &paymentv1.PaymentSettled{OrderId: "ord_1", Status: paymentv1.PaymentStatus_PAYMENT_STATUS_PAID})
+	goodBytes, _ := proto.Marshal(good)
+	reader := &failingReader{
+		fakeReader: fakeReader{records: []consumer.Record{{Key: "ord_1", Value: goodBytes}}},
+		failures:   []error{fmt.Errorf("fetch: %w", context.DeadlineExceeded), errors.New("broker unavailable")},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- c.Run(ctx, reader, &fakeDLQ{}, consumer.RunConfig{MaxAttempts: 1, BaseBackoff: 1, FetchRetryBackoff: time.Millisecond})
+	}()
+
+	waitFor(t, func() bool { return len(reader.committed) == 1 })
+	select {
+	case err := <-done:
+		t.Fatalf("loop stopped on a transient error: %v", err)
+	default:
+	}
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("want context.Canceled on shutdown, got %v", err)
+	}
+	if store.updates != 1 {
+		t.Fatalf("want the record applied once after the errors, got %d", store.updates)
+	}
 }
