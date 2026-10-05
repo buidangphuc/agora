@@ -10,12 +10,15 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Settings struct {
 	Runtime       Runtime
 	Server        Server
 	Database      Database
+	Events        Events
+	Outbox        Outbox
 	JWT           JWT
 	Observability Observability
 }
@@ -38,6 +41,26 @@ type Database struct {
 	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
 	URL      string `env:"DATABASE_URL" default:""`
 	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
+}
+
+// Events configures the Kafka producer behind the outbox relayer (ADR-0002):
+// identity publishes SessionRevoked on IdentityTopic so the gateway can enforce
+// revocations (ADR-0003 addendum). With KafkaEnabled=false nothing is produced.
+type Events struct {
+	KafkaEnabled  bool   `env:"KAFKA_ENABLED" default:"false"`
+	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+	IdentityTopic string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
+}
+
+// Outbox configures the transactional-outbox relayer (same names as team-domain).
+// Revokes always record an outbox row in the same DB transaction; the relayer only
+// runs when OUTBOX_ENABLED and KAFKA_ENABLED are both true.
+type Outbox struct {
+	Enabled          bool   `env:"OUTBOX_ENABLED" default:"true"`
+	PollInterval     string `env:"OUTBOX_POLL_INTERVAL" default:"1s"` // Go duration, e.g. 1s, 500ms
+	BatchSize        int    `env:"OUTBOX_BATCH_SIZE" default:"100"`
+	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
+	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
 }
 
 // JWT holds the RSA signing material identity mints RS256 tokens with, plus the
@@ -87,6 +110,28 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("JWT_TTL_SECONDS must be > 0: %d", s.JWT.TTLSeconds)
 	}
 	return nil
+}
+
+// KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
+func (s *Settings) KafkaBrokers() []string {
+	parts := strings.Split(s.Events.Brokers, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// OutboxPollInterval parses OUTBOX_POLL_INTERVAL, defaulting to 1s when unset or
+// unparseable.
+func (s *Settings) OutboxPollInterval() time.Duration {
+	d, err := time.ParseDuration(strings.TrimSpace(s.Outbox.PollInterval))
+	if err != nil || d <= 0 {
+		return time.Second
+	}
+	return d
 }
 
 func (s *Settings) IsProd() bool {

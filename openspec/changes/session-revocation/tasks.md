@@ -5,9 +5,9 @@
 
 ## 2. Code — team-identity
 
-- [ ] 2.1 Migration for `identity_outbox_events` and an outbox store with the ordered claim query; verify the Postgres ordering test pattern (skips without `TEST_DATABASE_URL`) and `go test ./...`
-- [ ] 2.2 `RevokeSession` updates the session and inserts the outbox row in one transaction; verify a test that a failed outbox write rolls back the revoke
-- [ ] 2.3 Relayer to `identity.events` started in main (`KAFKA_ENABLED`, `OUTBOX_*` env, `.env.example`, compose env); verify relayer unit tests and the env-example sync test
+- [x] 2.1 Migration for `identity_outbox_events` and an outbox store with the ordered claim query; verify the Postgres ordering test pattern (skips without `TEST_DATABASE_URL`) and `go test ./...`
+- [x] 2.2 `RevokeSession` updates the session and inserts the outbox row in one transaction; verify a test that a failed outbox write rolls back the revoke
+- [x] 2.3 Relayer to `identity.events` started in main (`KAFKA_ENABLED`, `OUTBOX_*` env, `.env.example`, compose env); verify relayer unit tests and the env-example sync test
 
 ## 3. Code — team-gateway
 

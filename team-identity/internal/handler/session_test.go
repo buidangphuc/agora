@@ -3,12 +3,17 @@ package handler_test
 import (
 	"context"
 	"testing"
+	"time"
+
+	"google.golang.org/protobuf/proto"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
+	eventsv1 "github.com/buidangphuc/team-identity/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
+	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/handler"
 	"github.com/buidangphuc/team-identity/internal/interceptor"
 	"github.com/buidangphuc/team-identity/internal/repository"
@@ -155,5 +160,61 @@ func TestSessionHandler_AnonymousAndBadInput(t *testing.T) {
 	}
 	if len(res.GetEvents()) != 0 {
 		t.Fatalf("want 0 events, got %d", len(res.GetEvents()))
+	}
+}
+
+// A revoke writes a SessionRevoked outbox row (key = user id, expiry = created_at
+// + token TTL) alongside the revoke.
+func TestSessionHandler_RevokeEnqueuesSessionRevoked(t *testing.T) {
+	repo := repository.NewInMemorySessionRepository()
+	h := handler.NewSessionHandler(repo, nil).WithTokenTTL(time.Hour)
+	s1, _ := repo.CreateSession(context.Background(), repository.Session{UserID: "user-1", Device: "iPhone"})
+
+	if _, err := h.RevokeSession(principalContext("user-1"), &identityv1.RevokeSessionRequest{SessionId: s1.ID}); err != nil {
+		t.Fatalf("RevokeSession: %v", err)
+	}
+	rows := repo.OutboxRows()
+	if len(rows) != 1 {
+		t.Fatalf("want 1 outbox row, got %d", len(rows))
+	}
+	r := rows[0]
+	if r.AggregateID != "user-1" || r.EventType != events.SessionRevokedEventType || r.EventID == "" {
+		t.Fatalf("unexpected row: %+v", r)
+	}
+	var env eventsv1.EventEnvelope
+	if err := proto.Unmarshal(r.Payload, &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	if env.GetEventId() != r.EventID {
+		t.Fatalf("envelope event_id %q != row event_id %q", env.GetEventId(), r.EventID)
+	}
+	var ev identityv1.SessionRevoked
+	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	wantExp := s1.CreatedAt.Add(time.Hour)
+	if ev.GetSessionId() != s1.ID || ev.GetUserId() != "user-1" || ev.GetExpiresAt().AsTime().Sub(wantExp).Abs() > time.Millisecond {
+		t.Fatalf("unexpected payload %+v, want expiry %v", &ev, wantExp)
+	}
+}
+
+// A failed outbox write rolls the revoke back: the session stays active and the
+// caller gets an error (no half-committed revoke the gateway would never hear of).
+func TestSessionHandler_FailedOutboxWriteRollsBackRevoke(t *testing.T) {
+	repo := repository.NewInMemorySessionRepository()
+	repo.FailOutbox = true
+	h := handler.NewSessionHandler(repo, nil).WithTokenTTL(time.Hour)
+	s1, _ := repo.CreateSession(context.Background(), repository.Session{UserID: "user-1"})
+
+	_, err := h.RevokeSession(principalContext("user-1"), &identityv1.RevokeSessionRequest{SessionId: s1.ID})
+	if status.Code(err) != codes.Internal {
+		t.Fatalf("want Internal on outbox failure, got %v", err)
+	}
+	got, _ := repo.ListSessions(context.Background(), "user-1")
+	if len(got) != 1 || got[0].Revoked {
+		t.Fatalf("session must remain un-revoked after a failed outbox write, got %+v", got)
+	}
+	if n := len(repo.OutboxRows()); n != 0 {
+		t.Fatalf("no outbox row may be left behind, got %d", n)
 	}
 }

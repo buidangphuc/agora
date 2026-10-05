@@ -15,6 +15,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/buidangphuc/team-identity/internal/config"
+	"github.com/buidangphuc/team-identity/internal/events"
+	"github.com/buidangphuc/team-identity/internal/repository"
 )
 
 func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger) (*Resources, error) {
@@ -28,6 +30,24 @@ func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger)
 		return nil, err
 	}
 	res.Pool = pool
+	res.Outbox = repository.NewOutboxStore(pool)
+
+	// Event publisher (ADR-0002): real Kafka when enabled, else a no-op. The
+	// relayer only runs with both a real producer and OUTBOX_ENABLED; with Kafka
+	// off, revokes still record their outbox rows but nothing is relayed.
+	if s.Events.KafkaEnabled {
+		pub, err := events.NewKafkaPublisher(s.KafkaBrokers(), s.Events.IdentityTopic)
+		if err != nil {
+			_ = CloseResources(context.Background(), res)
+			return nil, err
+		}
+		res.Publisher = pub
+		if s.Outbox.Enabled {
+			res.startRelayer(s, pub, logger)
+		}
+	} else {
+		res.Publisher = events.NoopPublisher{}
+	}
 
 	res.Health.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	res.startDBHealthCheck(logger)
@@ -38,9 +58,23 @@ func CloseResources(_ context.Context, res *Resources) error {
 	if res == nil {
 		return nil
 	}
+	// Stop the relayer first: it produces via the publisher and reads the pool,
+	// both torn down below. Wait for it to drain its current pass.
+	if res.stopRelayer != nil {
+		res.stopRelayer()
+		if res.relayerDone != nil {
+			<-res.relayerDone
+			res.relayerDone = nil
+		}
+		res.stopRelayer = nil
+	}
 	if res.stopHealth != nil {
 		res.stopHealth()
 		res.stopHealth = nil
+	}
+	if res.Publisher != nil {
+		res.Publisher.Close()
+		res.Publisher = nil
 	}
 	if res.Pool != nil {
 		res.Pool.Close()
@@ -92,5 +126,25 @@ func (res *Resources) startDBHealthCheck(logger *slog.Logger) {
 				res.Health.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 			}
 		}
+	}()
+}
+
+// startRelayer launches the transactional-outbox relayer in its own goroutine. It
+// is cancelled by CloseResources, which also waits on relayerDone so the current
+// pass drains.
+func (res *Resources) startRelayer(s *config.Settings, producer events.RawProducer, logger *slog.Logger) {
+	ctx, cancel := context.WithCancel(context.Background())
+	res.stopRelayer = cancel
+	res.relayerDone = make(chan struct{})
+
+	relayer := events.NewRelayer(res.Outbox, producer, logger, events.RelayerConfig{
+		PollInterval: s.OutboxPollInterval(),
+		BatchSize:    s.Outbox.BatchSize,
+		LockSeconds:  s.Outbox.ClaimLockSeconds,
+		MaxAttempts:  s.Outbox.MaxAttempts,
+	})
+	go func() {
+		defer close(res.relayerDone)
+		relayer.Run(ctx)
 	}()
 }
