@@ -67,7 +67,11 @@ ON CONFLICT (event_id) DO NOTHING`
 }
 
 func (r *PgOutboxRepository) ClaimPending(ctx context.Context, limit int, leaseDuration time.Duration) ([]PendingEvent, error) {
+	// UPDATE ... RETURNING does not preserve the subquery's ORDER BY, so the claimed
+	// rows are re-sorted in the outer SELECT; otherwise two events for the same
+	// aggregate in one batch could be produced newest-first.
 	q := `
+WITH claimed AS (
 UPDATE order_outbox_events
 SET locked_until = now() + $1::interval
 WHERE event_id IN (
@@ -80,7 +84,10 @@ WHERE event_id IN (
     LIMIT $2
     FOR UPDATE SKIP LOCKED
 )
-RETURNING event_id, aggregate_id, payload, attempts`
+RETURNING event_id, aggregate_id, payload, attempts, created_at
+)
+SELECT event_id, aggregate_id, payload, attempts FROM claimed
+ORDER BY created_at, event_id`
 
 	rows, err := r.pool.Query(ctx, q, fmt.Sprintf("%d milliseconds", leaseDuration.Milliseconds()), limit)
 	if err != nil {
