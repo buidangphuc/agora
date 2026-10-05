@@ -17,6 +17,7 @@ import (
 	"github.com/buidangphuc/team-notification/internal/handler"
 	"github.com/buidangphuc/team-notification/internal/repository"
 	"github.com/buidangphuc/team-notification/internal/service"
+	"github.com/buidangphuc/team-notification/internal/upstream"
 )
 
 func main() {
@@ -78,8 +79,18 @@ func main() {
 		// is created, each deduped by event_id and gated by the recipient's
 		// notification preferences. Same offset/DLQ discipline as the listing consumer.
 		prefsSvc := service.NewPrefsService(repository.NewPostgresNotificationPrefsRepo(pool))
+		// The chat consumer names the sender via team-domain (shop) and team-identity
+		// (user), as a service principal. Connections are lazy and every failure
+		// falls back to a neutral label, so an upstream outage never blocks delivery.
+		chatConsumer := consumer.NewChatConsumer(repo, prefsSvc, logger, consumer.WithUserEventDeduper(dedupe))
+		if upstreams, err := upstream.Dial(cfg.DomainAddr, cfg.IdentityAddr, logger); err != nil {
+			logger.Warn("sender name lookup disabled", "err", err)
+		} else {
+			defer upstreams.Close()
+			chatConsumer.WithOptions(consumer.WithSenderNameResolver(upstreams.Resolver))
+		}
 		startConsumer(ctx, logger, "chat", bootstrap.ChatKafkaConfigFromEnv(), func() consumerRun {
-			return consumer.NewChatConsumer(repo, prefsSvc, logger, consumer.WithUserEventDeduper(dedupe)).Run
+			return chatConsumer.Run
 		})
 		startConsumer(ctx, logger, "order", bootstrap.OrderKafkaConfigFromEnv(), func() consumerRun {
 			return consumer.NewOrderConsumer(repo, prefsSvc, logger, consumer.WithUserEventDeduper(dedupe)).Run
