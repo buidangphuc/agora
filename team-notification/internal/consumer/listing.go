@@ -442,6 +442,10 @@ func (c *ListingConsumer) Run(ctx context.Context, reader RecordReader, dlq Dead
 	return runLoop(ctx, c.logger, c.HandleRaw, reader, dlq, cfg)
 }
 
+// fetchRetryBackoff spaces out retries after a failed fetch so a broker outage
+// does not spin the loop.
+var fetchRetryBackoff = time.Second
+
 // runLoop is the shared consume loop for every team-notification consumer. Per
 // record it applies handle with bounded in-process retries; on a permanent error
 // or once retries are exhausted it produces the record to the DLQ. Crucially it
@@ -455,10 +459,19 @@ func runLoop(ctx context.Context, logger *slog.Logger, handle func(context.Conte
 		}
 		rec, err := reader.Fetch(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
+			// Stop only when our own context is done. A fetch error that merely
+			// wraps a deadline (a Kafka request timing out under load) is transient:
+			// returning on it silently killed the consumer while the process kept
+			// running.
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-			logger.WarnContext(ctx, "fetch record failed", slog.Any("err", err))
+			logger.WarnContext(ctx, "fetch record failed; retrying", slog.Any("err", err))
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(fetchRetryBackoff):
+			}
 			continue
 		}
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -128,9 +127,11 @@ func startConsumer(ctx context.Context, logger *slog.Logger, name string, kcfg b
 	go func() {
 		defer tk.Close()
 		logger.Info(name+" consumer starting", "topic", kcfg.Topic, "group", kcfg.ConsumerGroup)
-		if err := run(ctx, tk.Reader(), tk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic}); err != nil &&
-			!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-			logger.Error(name+" consumer stopped with error", "err", err)
+		err := run(ctx, tk.Reader(), tk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic})
+		// The loop only returns on shutdown. Any other exit leaves the service up
+		// without this consumer, so make it loud.
+		if ctx.Err() == nil {
+			logger.Error(name+" consumer stopped while the service is running", "err", err)
 		}
 	}()
 }
