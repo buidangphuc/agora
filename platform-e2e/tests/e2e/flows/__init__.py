@@ -1,6 +1,6 @@
 """Reusable multi-step flows (API + UI orchestration) shared across step files."""
 
-from .auth_flow import login_via_api, login_via_ui
+from .auth_flow import login_via_api, login_via_ui, scenario_buyer
 from .engagement_flow import submit_product_question_via_api, toggle_favorite_via_api
 from .flipt_flow import set_checkout_flag
 from .order_events_flow import consume_order_paid_events, decode_order_paid_envelope
@@ -19,6 +19,7 @@ from .wallet_flow import request_seller_payout_via_api
 
 __all__ = [
     "login_via_api",
+    "scenario_buyer",
     "login_via_ui",
     "seed_listing",
     "seed_seller_account",

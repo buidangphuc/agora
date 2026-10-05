@@ -19,6 +19,7 @@ from src.api.services import AuthService, CartService, ListingService
 from src.constants import timeouts
 from src.models import Listing
 from src.pages.shop_profile_page import ShopProfilePage
+from tests.e2e.flows import scenario_buyer
 from tests.e2e.step_definitions.follow_seller_steps import _principal_id
 from tests.e2e.support.world import World
 
@@ -66,7 +67,6 @@ def second_seller_sets_name(world: World, name: str) -> None:
 
 @given("a buyer has one listing from each seller in the cart")
 def buyer_cart_two_sellers(world: World) -> None:
-    from src.utils import get_test_data_manager
 
     tokens = [world.state.seeded_seller.token, world.state.extra["second_seller_token"]]
     sellers = []
@@ -83,7 +83,7 @@ def buyer_cart_two_sellers(world: World) -> None:
         sellers.append((_principal_id(token), listing.listing_id))
     world.state.extra["cart_seller_ids"] = [sid for sid, _ in sellers]
 
-    buyer = get_test_data_manager().get_user_by_role("buyer")
+    buyer = scenario_buyer(world)
     buyer_token = world.service_factory.auth.login(buyer.username, buyer.password)
     cart = CartService(token=buyer_token)
     cart.clear_cart()

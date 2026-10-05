@@ -20,8 +20,7 @@ from src.constants import PageName, timeouts
 from src.pages import CartPage, CheckoutPage
 from src.pages.payment_result_page import PaymentResultPage
 from src.utils import data as fake
-from src.utils import get_test_data_manager
-from tests.e2e.flows import create_order_via_api, login_via_api
+from tests.e2e.flows import create_order_via_api, login_via_api, scenario_buyer
 from tests.e2e.flows.auth_flow import SESSION_COOKIE
 from tests.e2e.support.world import World
 
@@ -253,7 +252,7 @@ def cart_unchanged(world: World) -> None:
 # ── Payment page outcomes ────────────────────────────────────────────────
 @given("a buyer has an order awaiting mock payment")
 def buyer_order_awaiting_payment(world: World) -> None:
-    buyer = get_test_data_manager().get_user_by_role("buyer")
+    buyer = scenario_buyer(world)
     login_via_api(world, buyer)
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
     create_order_via_api(world, buyer, listing_id)

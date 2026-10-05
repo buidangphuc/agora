@@ -10,7 +10,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName
 from src.utils import get_test_data_manager
-from tests.e2e.flows import login_via_api
+from tests.e2e.flows import login_via_api, scenario_buyer
 from tests.e2e.support.world import World
 
 
@@ -32,9 +32,7 @@ def named_page_displayed(world: World, page_name: str) -> None:
 
 @given("I am logged in as a buyer via API")
 def logged_in_as_buyer_api(world: World) -> None:
-    buyer = world.state.extra.get("seeded_buyer") or get_test_data_manager().get_user_by_role(
-        "buyer"
-    )
+    buyer = scenario_buyer(world)
     login_via_api(world, buyer)
 
 

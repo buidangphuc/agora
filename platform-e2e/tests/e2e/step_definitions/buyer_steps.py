@@ -7,14 +7,13 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName, timeouts
 from src.pages import CartPage, CheckoutPage, ListingDetailPage, SearchPage
-from src.utils import get_test_data_manager
-from tests.e2e.flows import login_via_api
+from tests.e2e.flows import login_via_api, scenario_buyer
 from tests.e2e.support.world import World
 
 
 @given("a buyer is logged in")
 def buyer_logged_in(world: World) -> None:
-    buyer = get_test_data_manager().get_user_by_role("buyer")
+    buyer = scenario_buyer(world)
     login_via_api(world, buyer)
 
 

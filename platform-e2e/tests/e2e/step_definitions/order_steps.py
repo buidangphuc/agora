@@ -8,19 +8,24 @@ from pytest_bdd import given, parsers, then, when
 from src.constants import PageName, timeouts
 from src.pages import OrderDetailPage
 from src.utils import get_test_data_manager
-from tests.e2e.flows import create_order_via_api, create_shipment_via_api, login_via_api
+from tests.e2e.flows import (
+    create_order_via_api,
+    create_shipment_via_api,
+    login_via_api,
+    scenario_buyer,
+)
 from tests.e2e.support.world import World
 
 
 @given("I am logged in as a buyer via API")
 def logged_in_as_buyer_api(world: World) -> None:
-    buyer = get_test_data_manager().get_user_by_role("buyer")
+    buyer = scenario_buyer(world)
     login_via_api(world, buyer)
 
 
 @given("I have an active order with SPX shipment tracking")
 def active_order_with_tracking(world: World) -> None:
-    buyer = world.state.current_user or get_test_data_manager().get_user_by_role("buyer")
+    buyer = world.state.current_user or scenario_buyer(world)
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
     create_order_via_api(world, buyer, listing_id)
     seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
@@ -36,7 +41,7 @@ def verify_order_timeline(world: World) -> None:
 @given("the order has been delivered")
 def order_has_been_delivered(world: World) -> None:
     """The buyer may drive their own order to COMPLETED; returns are offered only then."""
-    buyer = world.state.current_user or get_test_data_manager().get_user_by_role("buyer")
+    buyer = world.state.current_user or scenario_buyer(world)
     world.service_factory.set_token(buyer.token)
     world.service_factory.order.update_order_status(world.state.order_id, "ORDER_STATUS_COMPLETED")
 

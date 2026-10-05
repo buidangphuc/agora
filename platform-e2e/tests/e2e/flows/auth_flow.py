@@ -32,6 +32,26 @@ def login_via_api(world, user: User) -> User:
     return user
 
 
+def scenario_buyer(world) -> User:
+    """The buyer this scenario owns: the @needsBuyer account, else one registered now.
+
+    Never the shared test-data buyer: scenarios run in parallel, and a shared account
+    lets one scenario's cart or orders leak into another's assertions.
+    """
+    existing = world.state.extra.get("seeded_buyer")
+    if existing:
+        return existing
+    from src.utils import data as fake
+
+    username = fake.unique_username("buyer")
+    password = world.settings.seed_password
+    token = world.service_factory.auth.register(username, password, "buyer")
+    user = User(username=username, password=password, role="buyer", token=token)
+    world.state.extra["seeded_buyer"] = user
+    world.logger.info(f"Registered scenario buyer {username}")
+    return user
+
+
 def login_via_ui(world, username: str, password: str) -> None:
     """Drive the real login form (used to test the login flow itself)."""
     login_page = world.navigate_to(PageName.LOGIN)
