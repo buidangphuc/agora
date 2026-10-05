@@ -416,3 +416,32 @@ features:
     status: automated
     covered_by: "analytics/order_facts.feature::Relayer publishes pending order events to Kafka"
 
+  - id: order.events-published-on-paid
+    title: A paid order is published to order.events with its line items
+    persona: buyer
+    priority: P1
+    summary: >-
+      When an order transitions to PAID, team-order commits an outbox row in the same
+      transaction as the status change; its relayer publishes an OrderPaidEvent
+      (order id, buyer, line items with listing/variant/seller/quantity/unit price)
+      wrapped in an EventEnvelope, keyed by order_id, to the order.events topic
+      (ADR-0013). Unlike the analytics/order_facts.feature scenarios, which simulate
+      the pipeline in-process, this asserts the envelope on the real broker.
+    entry_route: /
+    services: [team-order, team-payment, team-analytics]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    acceptance:
+      - Given a buyer has a pending order
+      - When the buyer completes the demo payment
+      - Then the order status becomes PAID
+      - And exactly one OrderPaidEvent envelope for the order is published to the order.events topic
+      - And its payload carries the order id as the key and the order's line items
+    tags: [order, outbox, integration]
+    status: planned
+    notes: >
+      Scenario: order/order_events_published.feature::Paying an order publishes an
+      OrderPaidEvent with its line items. Flip to automated and set covered_by after a
+      stack run (team-order needs KAFKA_ENABLED=true and the order.events topic from
+      redpanda-init).

@@ -35,6 +35,9 @@ type OutboxRepository interface {
 	ClaimPending(ctx context.Context, limit int, leaseDuration time.Duration) ([]PendingEvent, error)
 	MarkPublished(ctx context.Context, eventID string) error
 	MarkFailed(ctx context.Context, eventID string, errStr string, retryDelay time.Duration) error
+	// MarkParked gives up on a row after the relayer's max attempts: status
+	// 'failed', never claimed again until an operator resets it.
+	MarkParked(ctx context.Context, eventID string, errStr string) error
 }
 
 // InMemoryOutboxRepository is a deterministic fake for unit tests.
@@ -43,12 +46,16 @@ type InMemoryOutboxRepository struct {
 	rows      []OutboxRow
 	published []string
 	failed    map[string]string
+	attempts  map[string]int
+	parked    map[string]string
 }
 
 // NewInMemoryOutboxRepository constructs an in-memory outbox store.
 func NewInMemoryOutboxRepository() *InMemoryOutboxRepository {
 	return &InMemoryOutboxRepository{
-		failed: make(map[string]string),
+		failed:   make(map[string]string),
+		attempts: make(map[string]int),
+		parked:   make(map[string]string),
 	}
 }
 
@@ -70,12 +77,12 @@ func (r *InMemoryOutboxRepository) ClaimPending(ctx context.Context, limit int, 
 
 	var pending []PendingEvent
 	for _, row := range r.rows {
-		if !pubSet[row.EventID] {
+		if _, dead := r.parked[row.EventID]; !pubSet[row.EventID] && !dead {
 			pending = append(pending, PendingEvent{
 				EventID:     row.EventID,
 				AggregateID: row.AggregateID,
 				Payload:     row.Payload,
-				Attempts:    0,
+				Attempts:    r.attempts[row.EventID],
 			})
 			if len(pending) >= limit {
 				break
@@ -96,6 +103,14 @@ func (r *InMemoryOutboxRepository) MarkFailed(ctx context.Context, eventID strin
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.failed[eventID] = errStr
+	r.attempts[eventID]++
+	return nil
+}
+
+func (r *InMemoryOutboxRepository) MarkParked(ctx context.Context, eventID string, errStr string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.parked[eventID] = errStr
 	return nil
 }
 
