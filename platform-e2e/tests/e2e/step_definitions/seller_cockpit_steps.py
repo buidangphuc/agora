@@ -105,7 +105,9 @@ def sidebar_is_collapsed(world: World) -> None:
 
 @when("the seller taps the menu button")
 def tap_menu_button(world: World) -> None:
-    _workplace(world).menu_button.click()
+    page = _workplace(world)
+    page.wait_until_interactive(page.menu_button)
+    page.menu_button.click()
 
 
 @then("a navigation dialog lists the seller links and no sidebar is shown inline")
@@ -285,7 +287,9 @@ def open_my_listings(world: World) -> None:
 @when("the seller starts deleting the listing")
 def start_delete(world: World) -> None:
     title = world.state.listing.title  # type: ignore[union-attr]
-    _workplace(world).delete_button(title).click()
+    page = _workplace(world)
+    page.wait_until_interactive(page.delete_button(title))
+    page.delete_button(title).click()
 
 
 @then("a confirm dialog names the listing and the listing is not deleted yet")
