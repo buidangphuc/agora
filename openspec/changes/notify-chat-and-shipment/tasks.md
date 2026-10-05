@@ -8,7 +8,7 @@
 
 ## 3. Code — team-chat
 
-- [ ] 3.1 The published message event carries the recipient (or participants); verify a publisher test and `go test ./...`
+- [x] 3.1 The published message event carries the recipient (or participants); verify a publisher test and `go test ./...`
 
 ## 4. Code — team-notification
 
