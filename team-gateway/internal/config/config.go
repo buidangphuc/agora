@@ -21,6 +21,7 @@ type Settings struct {
 	Auth          Auth
 	Edge          Edge
 	Events        Events
+	Identity      IdentityEvents
 	Observability Observability
 }
 
@@ -88,6 +89,11 @@ type Edge struct {
 	JaegerQueryURL string `env:"JAEGER_QUERY_URL" default:"http://jaeger:16686"`
 	// JaegerUIURL is the browser-facing Jaeger UI base used to build trace links.
 	JaegerUIURL string `env:"JAEGER_UI_URL" default:"http://localhost:16686"`
+	// TrustedProxies lists the peers whose X-Forwarded-For the edge believes when
+	// computing the client IP forwarded to services as x-client-ip: comma-separated
+	// CIDRs, bare IPs or hostnames (resolved periodically, e.g. the frontend's
+	// service name). Empty (default) trusts nobody: the socket peer address is used.
+	TrustedProxies string `env:"TRUSTED_PROXIES" default:""`
 }
 
 // Events configures the edge telemetry producer (ADR-0002) that emits browsing
@@ -98,6 +104,15 @@ type Events struct {
 	KafkaEnabled   bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers        string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
+}
+
+// IdentityEvents configures the revocation consumer (ADR-0003 addendum): the
+// gateway reads identity.events (SessionRevoked) into an in-memory session
+// denylist. It reuses KAFKA_ENABLED / KAFKA_BROKERS from Events. The consumer
+// takes no group (every replica reads every partition from the earliest offset)
+// and is best-effort: Kafka being down never stops the gateway starting.
+type IdentityEvents struct {
+	Topic string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
 }
 
 type Observability struct {

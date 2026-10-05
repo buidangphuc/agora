@@ -31,7 +31,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events promotion.events listing.events listing.events.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events promotion.events listing.events listing.events.dlq identity.events -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -183,6 +183,8 @@ services:
     depends_on:
       team-identity-migrate:
         condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://identity_svc:identity_pass@postgres:5432/identity_db?sslmode=disable
@@ -191,6 +193,17 @@ services:
       - JWKS_HTTP_PORT=50063
       - GRPC_PORT=50053
       - ENV=local
+      # SessionRevoked outbox relayer (ADR-0003 addendum): RevokeSession writes the
+      # event in the same tx; the relayer publishes it to identity.events so the
+      # gateway denies the revoked session's token. Same OUTBOX_* names as team-domain.
+      - KAFKA_ENABLED=true
+      - KAFKA_BROKERS=redpanda:9092
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      - OUTBOX_ENABLED=true
+      - OUTBOX_POLL_INTERVAL=1s
+      - OUTBOX_BATCH_SIZE=100
+      - OUTBOX_CLAIM_LOCK_SECONDS=60
+      - OUTBOX_MAX_ATTEMPTS=10
 
   team-domain:
     build:
@@ -469,6 +482,14 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events
+      # Session revocation (ADR-0003 addendum): consume identity.events into the
+      # in-memory sid denylist (no consumer group; earliest offset on start).
+      - IDENTITY_EVENTS_TOPIC=identity.events
+      # Trusted client context (ADR-0003 addendum): the frontend's Next.js server is
+      # the gateway's peer for browser traffic, so ONLY it (by service name,
+      # re-resolved) may supply X-Forwarded-For. Everything else (e.g. the e2e
+      # runner on the same network) is untrusted: its XFF is ignored.
+      - TRUSTED_PROXIES=team-frontend-svc
       - OTEL_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=team-gateway

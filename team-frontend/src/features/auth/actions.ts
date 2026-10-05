@@ -1,10 +1,11 @@
 "use server";
 
 import { Code, ConnectError } from "@connectrpc/connect";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { makeClients } from "@/lib/gateway/client";
+import { clientContextFrom } from "@/lib/gateway/client-context";
 import { SESSION_COOKIE } from "@/lib/gateway/session";
 
 import {
@@ -53,7 +54,9 @@ export async function loginAction(
 
   let token = "";
   try {
-    const res = await makeClients().auth.login({ username, password });
+    const res = await makeClients(undefined, {
+      client: clientContextFrom(headers()),
+    }).auth.login({ username, password });
     token = res.result?.token ?? "";
   } catch (err) {
     if (err instanceof ConnectError) {
@@ -89,7 +92,9 @@ export async function registerAction(
 
   let token = "";
   try {
-    const res = await makeClients().auth.register({ username, password, role });
+    const res = await makeClients(undefined, {
+      client: clientContextFrom(headers()),
+    }).auth.register({ username, password, role });
     token = res.result?.token ?? "";
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.AlreadyExists) {

@@ -88,7 +88,7 @@ func run() error {
 		settings,
 		handler.NewAuthHandler(authSvc),
 		handler.NewAddressHandler(addrRepo, logger),
-		handler.NewSessionHandler(sessionRepo, logger),
+		handler.NewSessionHandler(sessionRepo, logger).WithTokenTTL(time.Duration(settings.JWT.TTLSeconds)*time.Second),
 		res.Health,
 		logger,
 	)

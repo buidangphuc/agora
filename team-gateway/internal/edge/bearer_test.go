@@ -24,6 +24,7 @@ import (
 	searchv1 "github.com/buidangphuc/team-gateway/generated/platform/search/v1"
 	"github.com/buidangphuc/team-gateway/generated/platform/search/v1/searchv1connect"
 	"github.com/buidangphuc/team-gateway/internal/edge"
+	"github.com/buidangphuc/team-gateway/internal/revocation"
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
 
@@ -66,9 +67,16 @@ func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
 
 func mint(t *testing.T, key *rsa.PrivateKey, kid string, exp time.Time) string {
 	t.Helper()
+	return mintSID(t, key, kid, exp, "")
+}
+
+// mintSID is mint with a `sid` (session id) claim.
+func mintSID(t *testing.T, key *rsa.PrivateKey, kid string, exp time.Time, sid string) string {
+	t.Helper()
 	claims := &token.Claims{
-		Type:   "user",
-		Scopes: []string{"order.read", "search:read"},
+		Type:      "user",
+		Scopes:    []string{"order.read", "search:read"},
+		SessionID: sid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "user-1",
 			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
@@ -88,6 +96,7 @@ type bearerFixture struct {
 	srv         *httptest.Server
 	search, ord *upstreamSpy
 	key         *rsa.PrivateKey
+	denylist    *revocation.Denylist
 }
 
 func newBearerFixture(t *testing.T) *bearerFixture {
@@ -105,8 +114,9 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	}))
 	t.Cleanup(jwks.Close)
 
-	f := &bearerFixture{search: &upstreamSpy{}, ord: &upstreamSpy{}, key: key}
-	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000)
+	f := &bearerFixture{search: &upstreamSpy{}, ord: &upstreamSpy{}, key: key, denylist: revocation.NewDenylist()}
+	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000).
+		WithRevocations(f.denylist)
 	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
 	mux := http.NewServeMux()
 	sp, sh := searchv1connect.NewSearchServiceHandler(edge.NewSearchForwarder(spySearch{spy: f.search}, e), opts)
@@ -202,5 +212,46 @@ func TestBearerResolution(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A token whose `sid` is denylisted is a 401 on every route (public and protected),
+// with the same invalid_token challenge as any other bad bearer, and never reaches
+// upstream. Other sessions of the same user, and sid-less tokens, keep working.
+func TestRevokedSessionIsRejected(t *testing.T) {
+	f := newBearerFixture(t)
+	exp := time.Now().Add(time.Hour)
+	liveTok := "Bearer " + mintSID(t, f.key, "kid-1", exp, "sid-live")
+	noSIDTok := "Bearer " + mint(t, f.key, "kid-1", exp)
+
+	for _, route := range []string{"public", "protected"} {
+		t.Run(route, func(t *testing.T) {
+			sid := "sid-revoked-" + route
+			revokedTok := "Bearer " + mintSID(t, f.key, "kid-1", exp, sid)
+			// Before the revoke event arrives the token still works (fail open).
+			if code, ce := f.call(t, route, revokedTok); code != 0 {
+				t.Fatalf("before revoke: code = %v (%v), want ok", code, ce)
+			}
+			f.denylist.Add(sid, exp)
+
+			spy := f.spy(route)
+			spy.calls, spy.md = 0, nil
+			code, ce := f.call(t, route, revokedTok)
+			if code != connect.CodeUnauthenticated {
+				t.Fatalf("revoked sid: code = %v, want Unauthenticated", code)
+			}
+			if got := ce.Meta().Get("WWW-Authenticate"); got != `Bearer error="invalid_token"` {
+				t.Errorf("WWW-Authenticate = %q, want Bearer error=\"invalid_token\"", got)
+			}
+			if spy.calls != 0 {
+				t.Errorf("a revoked token must not reach upstream, got %d calls", spy.calls)
+			}
+
+			for name, tok := range map[string]string{"other session": liveTok, "no sid": noSIDTok} {
+				if code, ce := f.call(t, route, tok); code != 0 {
+					t.Errorf("%s: code = %v (%v), want ok", name, code, ce)
+				}
+			}
+		})
 	}
 }

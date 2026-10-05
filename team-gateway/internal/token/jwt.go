@@ -19,6 +19,10 @@ type Claims struct {
 	Name   string   `json:"name"`
 	Type   string   `json:"typ"` // "user" | "service" | "anonymous"
 	Scopes []string `json:"scopes"`
+	// SessionID is the `sid` claim: the id of the identity session the token was
+	// issued for. Empty on service tokens. The edge checks it against the
+	// revocation denylist (ADR-0003 addendum).
+	SessionID string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 

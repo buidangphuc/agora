@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Fault injection (discovery.search-states): compose container_name of team-search,
     # stopped for the "Backend failure" scenario and restarted in teardown.
     search_container: str = Field(default="team-search-svc")
+    # Fault injection (session-revocation): compose container_name of team-gateway,
+    # restarted for the "revocation survives a gateway restart" scenario.
+    gateway_container: str = Field(default="team-gateway-svc")
 
     # Timeouts (ms) — keep close to Playwright defaults; do not hardcode long sleeps.
     action_timeout_ms: int = Field(default=10_000)
@@ -85,6 +88,7 @@ def get_settings() -> Settings:
         kafka_order_topic=os.getenv("KAFKA_ORDER_TOPIC", "order.events"),
         flipt_url=os.getenv("FLIPT_URL", "http://localhost:8080"),
         search_container=os.getenv("SEARCH_CONTAINER", "team-search-svc"),
+        gateway_container=os.getenv("GATEWAY_CONTAINER", "team-gateway-svc"),
     )
 
 

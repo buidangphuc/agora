@@ -47,8 +47,10 @@ type SessionRepository interface {
 	// ListSessions returns the user's sessions, newest activity first.
 	ListSessions(ctx context.Context, userID string) ([]Session, error)
 	// RevokeSession marks the given session revoked; ErrSessionNotFound if the
-	// session is missing or owned by another user.
-	RevokeSession(ctx context.Context, sessionID, userID string) error
+	// session is missing or owned by another user. When ev is non-nil the outbox
+	// row it builds from the revoked session is inserted in the SAME transaction:
+	// if building or writing it fails, the revoke is rolled back.
+	RevokeSession(ctx context.Context, sessionID, userID string, ev EnqueueFn) error
 	// RecordLogin appends a login attempt to the user's history.
 	RecordLogin(ctx context.Context, e LoginEvent) (LoginEvent, error)
 	// ListLoginHistory returns a page of the user's login history (newest first)
@@ -111,14 +113,32 @@ func (r *PostgresSessionRepository) ListSessions(ctx context.Context, userID str
 	return items, rows.Err()
 }
 
-func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID, userID string) error {
-	const q = `UPDATE sessions SET revoked = true WHERE id = $1 AND user_id = $2`
-	res, err := r.pool.Exec(ctx, q, sessionID, userID)
+func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID, userID string, ev EnqueueFn) error {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const q = `UPDATE sessions SET revoked = true WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
+	var s Session
+	if err := scanSession(tx.QueryRow(ctx, q, sessionID, userID), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrSessionNotFound
+		}
 		return fmt.Errorf("revoke session: %w", err)
 	}
-	if res.RowsAffected() == 0 {
-		return ErrSessionNotFound
+	if ev != nil {
+		row, err := ev(s)
+		if err != nil {
+			return err
+		}
+		if err := enqueueTx(ctx, tx, row); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
 	}
 	return nil
 }
@@ -178,6 +198,11 @@ type InMemorySessionRepository struct {
 	sessions map[string]Session
 	logins   []LoginEvent
 	seq      int64
+	outbox   []OutboxRow
+
+	// FailOutbox makes the outbox write of a revoke fail, exercising the
+	// rollback path (the session must stay un-revoked and no row is recorded).
+	FailOutbox bool
 }
 
 func NewInMemorySessionRepository() *InMemorySessionRepository {
@@ -221,7 +246,7 @@ func (r *InMemorySessionRepository) ListSessions(_ context.Context, userID strin
 	return items, nil
 }
 
-func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, userID string) error {
+func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, userID string, ev EnqueueFn) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s, ok := r.sessions[sessionID]
@@ -229,8 +254,27 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 		return ErrSessionNotFound
 	}
 	s.Revoked = true
+	// Mirror the Postgres transaction: build/record the outbox row first and only
+	// then commit the revoke, so a failing outbox write leaves the session intact.
+	if ev != nil {
+		row, err := ev(s)
+		if err != nil {
+			return err
+		}
+		if r.FailOutbox {
+			return errors.New("simulated outbox write failure")
+		}
+		r.outbox = append(r.outbox, row)
+	}
 	r.sessions[sessionID] = s
 	return nil
+}
+
+// OutboxRows returns a copy of the outbox rows recorded by revokes, for assertions.
+func (r *InMemorySessionRepository) OutboxRows() []OutboxRow {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]OutboxRow(nil), r.outbox...)
 }
 
 func (r *InMemorySessionRepository) RecordLogin(_ context.Context, e LoginEvent) (LoginEvent, error) {

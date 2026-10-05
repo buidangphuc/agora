@@ -5,13 +5,18 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
+
+	"github.com/google/uuid"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
+	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/interceptor"
 	"github.com/buidangphuc/team-identity/internal/repository"
 )
@@ -27,8 +32,9 @@ const (
 type SessionHandler struct {
 	identityv1.UnimplementedSessionServiceServer
 
-	repo   repository.SessionRepository
-	logger *slog.Logger
+	repo     repository.SessionRepository
+	logger   *slog.Logger
+	tokenTTL time.Duration // 0: revokes record no outbox event
 }
 
 func NewSessionHandler(repo repository.SessionRepository, logger *slog.Logger) *SessionHandler {
@@ -36,6 +42,14 @@ func NewSessionHandler(repo repository.SessionRepository, logger *slog.Logger) *
 		logger = slog.Default()
 	}
 	return &SessionHandler{repo: repo, logger: logger}
+}
+
+// WithTokenTTL makes RevokeSession publish a SessionRevoked event (in the same
+// transaction as the revoke) whose expiry is the session's creation time plus ttl —
+// the latest instant a token bound to that session can still be valid.
+func (h *SessionHandler) WithTokenTTL(ttl time.Duration) *SessionHandler {
+	h.tokenTTL = ttl
+	return h
 }
 
 func (h *SessionHandler) ListSessions(
@@ -68,7 +82,27 @@ func (h *SessionHandler) RevokeSession(
 	if req.GetSessionId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "session_id is required")
 	}
-	if err := h.repo.RevokeSession(ctx, req.GetSessionId(), principal.GetId()); err != nil {
+	var enqueue repository.EnqueueFn
+	if h.tokenTTL > 0 {
+		requestID := requestIDFrom(ctx)
+		enqueue = func(revoked repository.Session) (repository.OutboxRow, error) {
+			eventID := uuid.NewString()
+			payload, err := events.BuildSessionRevokedEnvelope(eventID, revoked.ID, revoked.UserID,
+				revoked.CreatedAt.Add(h.tokenTTL), principal, requestID)
+			if err != nil {
+				return repository.OutboxRow{}, err
+			}
+			return repository.OutboxRow{
+				EventID:       eventID,
+				AggregateType: "Session",
+				AggregateID:   revoked.UserID,
+				EventType:     events.SessionRevokedEventType,
+				Payload:       payload,
+				RequestID:     requestID,
+			}, nil
+		}
+	}
+	if err := h.repo.RevokeSession(ctx, req.GetSessionId(), principal.GetId(), enqueue); err != nil {
 		if errors.Is(err, repository.ErrSessionNotFound) {
 			return nil, status.Error(codes.NotFound, "session not found")
 		}
@@ -111,6 +145,16 @@ func (h *SessionHandler) ListLoginHistory(
 			Total:      total,
 		},
 	}, nil
+}
+
+// requestIDFrom reads the gateway-forwarded x-request-id (trace continuity only).
+func requestIDFrom(ctx context.Context) string {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if v := md.Get("x-request-id"); len(v) > 0 {
+			return v[0]
+		}
+	}
+	return ""
 }
 
 // pageSize clamps the requested page size to a sane server default/maximum.
