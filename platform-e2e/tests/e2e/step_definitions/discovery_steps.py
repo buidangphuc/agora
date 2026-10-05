@@ -23,7 +23,7 @@ from src.constants import gateway_endpoints as ep
 from src.models import Listing, User
 from src.pages import HomePage, SearchPage, VouchersPage
 from src.utils import data as fake
-from tests.e2e.flows import login_via_api
+from tests.e2e.flows import login_via_api, stop_container, wait_for_search
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -242,16 +242,16 @@ def zero_results_empty(world: World) -> None:
     assert search.error_alert.count() == 0
 
 
-@given("the search backend rejects the visitor's session")
-def search_backend_rejects_session(world: World) -> None:
-    """Force `searchListings` to throw: an invalid bearer makes the gateway refuse the call.
+@given("the search service is stopped")
+def search_service_stopped(world: World) -> None:
+    """Force `searchListings` to fail for real: stop team-search for this scenario.
 
-    (Server-side fetches cannot be intercepted from the browser, so a bad session cookie is
-    the deterministic way to make the frontend's SearchService call fail.)
+    The container is restarted (and search verified healthy through the gateway) in the
+    scenario teardown, even when the scenario fails. Not safe under parallel workers: the
+    scenario is tagged `@destructive` — run it serially.
     """
-    world.context.add_cookies(
-        [{"name": "session", "value": "not.a.jwt", "url": world.settings.base_url}]
-    )
+    restore = stop_container(SETTINGS.search_container)
+    world.add_cleanup(lambda: (restore(), wait_for_search(SETTINGS.gateway_url)))
 
 
 @then("an error Alert with a retry link is shown instead of an empty result")
@@ -325,12 +325,10 @@ def no_horizontal_scroll(world: World) -> None:
 @then("every product card is laid out in two columns")
 def two_columns(world: World) -> None:
     expect(_search(world).results_wrapper).to_be_visible()
-    columns = world.page.evaluate(
-        """() => {
+    columns = world.page.evaluate("""() => {
             const grid = document.querySelector('[data-testid="search-results"] .grid');
             return grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0;
-        }"""
-    )
+        }""")
     assert columns == 2, f"expected 2 grid columns at 375px, got {columns}"
 
 
