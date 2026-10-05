@@ -20,6 +20,7 @@ func Build(
 	authHandler *handler.AuthHandler,
 	addrHandler *handler.AddressHandler,
 	sessionHandler *handler.SessionHandler,
+	profileHandler *handler.ProfileHandler,
 	healthSrv *health.Server,
 	logger *slog.Logger,
 ) *grpc.Server {
@@ -38,6 +39,9 @@ func Build(
 	}
 	if sessionHandler != nil {
 		identityv1.RegisterSessionServiceServer(srv, sessionHandler)
+	}
+	if profileHandler != nil {
+		identityv1.RegisterPublicProfileServiceServer(srv, profileHandler)
 	}
 
 	if healthSrv == nil {

@@ -64,7 +64,7 @@ func startServerWithSessions(
 	addrHandler := handler.NewAddressHandler(addrRepo, logger)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, logger)
 
-	srv := grpcserver.Build(cfg, authHandler, addrHandler, sessionHandler, nil, logger)
+	srv := grpcserver.Build(cfg, authHandler, addrHandler, sessionHandler, nil, nil, logger)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {

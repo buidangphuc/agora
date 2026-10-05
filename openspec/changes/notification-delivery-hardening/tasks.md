@@ -4,7 +4,7 @@
 
 ## 2. Code — team-identity
 
-- [ ] 2.1 Implement `GetPublicProfiles` for service principals only (users get PermissionDenied), returning display names, max 100 ids; verify unit tests and `go test ./...`
+- [x] 2.1 Implement `GetPublicProfiles` for service principals only (users get PermissionDenied), returning display names, max 100 ids; verify unit tests and `go test ./...`
 
 ## 3. Code — team-chat
 

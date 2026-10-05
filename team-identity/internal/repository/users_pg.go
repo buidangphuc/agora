@@ -72,6 +72,30 @@ func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (User, 
 	return out, nil
 }
 
+// GetByIDs loads the users with the given ids in one query. Unknown ids are
+// omitted. Only id and username are selected: this backs the public-profile
+// lookup and must not read credentials.
+func (r *PostgresUserRepository) GetByIDs(ctx context.Context, ids []string) ([]User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	const q = `SELECT id, username FROM users WHERE id = ANY($1)`
+	rows, err := r.pool.Query(ctx, q, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get users by ids: %w", err)
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
 // UpdatePassword updates user password hash.
 func (r *PostgresUserRepository) UpdatePassword(ctx context.Context, userID, newPasswordHash string) error {
 	const q = `UPDATE users SET password_hash = $2 WHERE id = $1`
