@@ -12,6 +12,7 @@ from .order_service import OrderService
 from .payment_service import PaymentService
 from .recommendation_service import RecommendationService
 from .search_service import SearchService
+from .session_service import SessionService
 from .tracking_service import TrackingService
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "AuthService",
     "ListingService",
     "SearchService",
+    "SessionService",
     "CartService",
     "OrderService",
     "PaymentService",

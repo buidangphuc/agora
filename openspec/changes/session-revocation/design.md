@@ -21,9 +21,27 @@ pattern (with the batch-ordering fix); identity has none yet.
 4. **Topic and key**: `identity.events`, key = user id, envelope
    `platform.events.v1.EventEnvelope` with type `platform.identity.v1.SessionRevoked`.
 5. **Client context**: set in the gateway's `outgoing()`, which already rebuilds
-   metadata from scratch, so an inbound `x-client-*` header can never pass through.
-   `X-Forwarded-For` is honoured only when the peer is in `TRUSTED_PROXIES` (CIDR list,
-   empty by default).
+   metadata from scratch, so an inbound `x-client-*` header can never pass through. The
+   edge computes the values once per request in the auth interceptor (the only place
+   the socket peer address is known) and carries them in the context.
+   - `x-client-ip` is the socket peer. `X-Forwarded-For` is honoured only when the peer
+     is in `TRUSTED_PROXIES` (CIDRs, bare IPs or hostnames; default empty), and then the
+     rightmost entry that is not itself a trusted proxy is the client — entries to its
+     left are client-controlled and ignored. An unparseable chain falls back to the peer.
+   - `x-client-user-agent` is the request's `User-Agent`, clipped to 256 bytes. It needs
+     no trust decision (a client can already set it freely; it is audit data).
+   - **Frontend hop** (refinement): in the stack the gateway's peer for browser traffic is
+     the Next.js server. On login and register only, the frontend forwards the browser's
+     `User-Agent` and an `X-Forwarded-For` it derives itself: the entry
+     `TRUSTED_PROXY_HOPS` places from the right (default 1), never the leftmost, validated
+     as an IP. The gateway trusts that header only because the frontend is listed in
+     `TRUSTED_PROXIES`. Compose sets `TRUSTED_PROXIES=team-frontend-svc`; hostnames are
+     re-resolved every 30 s and an unresolvable one trusts nobody, so only the frontend
+     container (not the whole docker network, which also holds the e2e runner) is trusted.
+   - Residual: with no proxy in front of Next.js (the local stack) a browser that sends its
+     own `X-Forwarded-For` to the frontend controls the IP recorded for its own session.
+     Production puts a load balancer that overwrites/appends the header in front, and the
+     value is audit-only, never authorization.
 
 ## Risks / Trade-offs
 

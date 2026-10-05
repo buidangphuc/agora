@@ -18,6 +18,8 @@ AUTH_REGISTER = "/platform.identity.v1.AuthService/Register"
 AUTH_LOGIN = "/platform.identity.v1.AuthService/Login"
 ADDRESS_CREATE = "/platform.identity.v1.AddressService/CreateAddress"
 ADDRESS_LIST = "/platform.identity.v1.AddressService/ListAddresses"
+SESSION_LIST = "/platform.identity.v1.SessionService/ListSessions"
+SESSION_REVOKE = "/platform.identity.v1.SessionService/RevokeSession"
 
 # platform.listing.v1
 LISTING_CREATE = "/platform.listing.v1.ListingService/CreateListing"

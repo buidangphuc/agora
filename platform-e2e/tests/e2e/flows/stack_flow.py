@@ -52,3 +52,25 @@ def wait_for_search(gateway_url: str, timeout_s: float = 60.0) -> None:
             last = str(exc)
         time.sleep(1)
     raise TimeoutError(f"search did not recover through the gateway within {timeout_s}s ({last})")
+
+
+def restart_container(name: str) -> None:
+    """`docker restart <name>` (the process comes back with empty in-memory state)."""
+    _docker("restart", name)
+
+
+def wait_for_gateway(gateway_url: str, timeout_s: float = 60.0) -> None:
+    """Block until the gateway answers /healthz again."""
+    url = f"{gateway_url.rstrip('/')}/healthz"
+    deadline = time.monotonic() + timeout_s
+    last = "no response"
+    while time.monotonic() < deadline:
+        try:
+            r = httpx.get(url, timeout=5)
+            if r.status_code == httpx.codes.OK:
+                return
+            last = f"HTTP {r.status_code}"
+        except httpx.HTTPError as exc:
+            last = str(exc)
+        time.sleep(1)
+    raise TimeoutError(f"gateway did not become healthy within {timeout_s}s ({last})")

@@ -240,3 +240,76 @@ features:
     tags: [auth, jwks]
     status: automated
     covered_by: "auth/jwt_rs256_jwks.feature::A token signed by a rotated-in key verifies"
+
+  - id: auth.session-revocation
+    title: A revoked session's token stops working within 5 seconds
+    persona: buyer
+    priority: P1
+    summary: >-
+      Revoking a session writes a SessionRevoked outbox row in the same transaction;
+      the relayer publishes it to identity.events and the gateway denylists the sid, so
+      the revoked device's token is answered 401 on every route while the buyer's current
+      session keeps working. The gateway still verifies each token locally.
+    entry_route: /account/security
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.Login, identity.v1.ListSessions, identity.v1.RevokeSession]
+    acceptance:
+      - Given a buyer signed in on two devices
+      - When the buyer revokes the other device's session from the current device
+      - Then within 5 s the other device's token gets 401 on a protected and a public route
+      - And the current device's token still works
+    tags: [auth, buyer]
+    status: planned
+    notes: >-
+      Scenario written in auth/session_revocation.feature ("A revoked session's token stops
+      working within 5 seconds"); flip to automated after a run against the stack.
+
+  - id: auth.session-revocation-survives-restart
+    title: A revocation survives a gateway restart
+    persona: buyer
+    priority: P1
+    summary: >-
+      The gateway keeps no revocation state on disk: on start it replays identity.events from
+      the earliest offset (no consumer group), so a restarted gateway still rejects a
+      revoked, unexpired token.
+    entry_route: /account/security
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RevokeSession]
+    acceptance:
+      - Given a revoked session whose token has not yet expired
+      - When the gateway container is restarted
+      - Then the revoked token is rejected with 401 once the topic has been replayed
+    tags: [auth, buyer, destructive]
+    status: planned
+    notes: >-
+      @destructive: restarts the container named by GATEWAY_CONTAINER (default
+      team-gateway-svc); run serially. Scenario "A revocation survives a gateway restart".
+
+  - id: auth.session-device-and-ip
+    title: A new session shows the device and IP it was created from
+    persona: buyer
+    priority: P2
+    summary: >-
+      The frontend forwards the browser's user agent and IP (X-Forwarded-For, trusted only
+      from the frontend via the gateway's TRUSTED_PROXIES); the gateway stamps
+      x-client-user-agent / x-client-ip and identity records them on the session.
+    entry_route: /account/security
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.Login, identity.v1.ListSessions]
+    acceptance:
+      - Given a registered buyer
+      - When the buyer logs in through the login form
+      - Then the security page lists a session with the browser's user agent and a non-empty IP
+    tags: [auth, buyer]
+    status: planned
+    notes: >-
+      Scenario "A new session shows the device and IP it was created from".
