@@ -12,24 +12,36 @@ import (
 	"time"
 )
 
+// ServiceHealth is one cockpit row. RPS is a plain number (an absent rate series
+// genuinely means no calls). The latency and error-rate fields are pointers: nil
+// serialises to JSON null and means "no sample in the window / source
+// unavailable" — never a fabricated 0. Status is one of HEALTHY, DEGRADED, IDLE
+// (reachable, no traffic), NO_DATA (no gateway-side series for this row) or
+// UNKNOWN (Prometheus unreachable).
 type ServiceHealth struct {
-	Name       string  `json:"name"`
-	Port       int     `json:"port"`
-	Status     string  `json:"status"`
-	RPS        float64 `json:"rps"`
-	P95Latency float64 `json:"p95_latency_ms"`
-	P99Latency float64 `json:"p99_latency_ms"`
-	ErrorRate  float64 `json:"error_rate"`
+	Name       string   `json:"name"`
+	Port       int      `json:"port"`
+	Status     string   `json:"status"`
+	RPS        float64  `json:"rps"`
+	P95Latency *float64 `json:"p95_latency_ms"`
+	P99Latency *float64 `json:"p99_latency_ms"`
+	ErrorRate  *float64 `json:"error_rate"`
 }
 
+// CockpitMetricsResponse is the shaped cockpit payload. PrometheusAvailable is
+// false when PROMETHEUS_URL is unset/unreachable — consumers must then render an
+// unavailable state rather than the (meaningless) zero RPS. TotalOrders24h and
+// TotalRevenue24h are always null until an order-domain source exists (nothing
+// is invented). RecentTraces is always empty: no trace source is wired.
 type CockpitMetricsResponse struct {
-	Timestamp       string          `json:"timestamp"`
-	TotalRPS        float64         `json:"total_rps"`
-	AvgLatencyMs    float64         `json:"avg_latency_ms"`
-	TotalOrders24h  int             `json:"total_orders_24h"`
-	TotalRevenue24h int64           `json:"total_revenue_24h"`
-	Services        []ServiceHealth `json:"services"`
-	RecentTraces    []TraceSummary  `json:"recent_traces"`
+	Timestamp           string          `json:"timestamp"`
+	PrometheusAvailable bool            `json:"prometheus_available"`
+	TotalRPS            float64         `json:"total_rps"`
+	AvgLatencyMs        *float64        `json:"avg_latency_ms"`
+	TotalOrders24h      *int            `json:"total_orders_24h"`
+	TotalRevenue24h     *int64          `json:"total_revenue_24h"`
+	Services            []ServiceHealth `json:"services"`
+	RecentTraces        []TraceSummary  `json:"recent_traces"`
 }
 
 type TraceSummary struct {
@@ -64,7 +76,7 @@ var cockpitRoster = []serviceRow{
 	{name: "team-order", port: 50055, rpcServices: []string{"platform.order.v1.CartService", "platform.order.v1.OrderService"}},
 	{name: "team-payment", port: 50056, rpcServices: []string{"platform.payment.v1.PaymentService"}},
 	{name: "team-chat", port: 50057, rpcServices: []string{"platform.chat.v1.ChatService"}},
-	{name: "team-notification", port: 50058, rpcServices: nil}, // not dialled by the edge: server-side metric is a follow-up
+	{name: "team-notification", port: 50058, rpcServices: []string{"platform.notification.v1.NotificationService"}},
 	{name: "team-ai", port: 8000, rpcServices: []string{"platform.ai.v1.AIService"}},
 }
 
@@ -81,15 +93,6 @@ const (
 	rpcStatusLabel = "rpc_grpc_status_code"
 
 	degradedThresholdErrRate = 0.05 // error-rate at/above which a row is DEGRADED
-)
-
-// derived, non-authoritative business figures — team-order emits Kafka events,
-// not a Prometheus counter, and the gateway must not compute business numbers
-// (Rule 2). These stay estimated/last-known (never random) until a real
-// order-domain metric lands (see replace-cockpit-mock-metrics non-goals).
-const (
-	derivedOrders24h  = 1420
-	derivedRevenue24h = 384_500_000
 )
 
 // CockpitHandler serves the Admin Cockpit HUD (GET /api/admin/metrics). It runs
@@ -123,13 +126,16 @@ func (h *CockpitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsResponse {
 	resp := CockpitMetricsResponse{
-		Timestamp:       time.Now().Format(time.RFC3339),
-		TotalOrders24h:  derivedOrders24h,  // derived/estimated (documented above)
-		TotalRevenue24h: derivedRevenue24h, // derived/estimated (documented above)
-		RecentTraces:    recentTraces(),
+		Timestamp: time.Now().Format(time.RFC3339),
+		// TotalOrders24h / TotalRevenue24h stay nil (JSON null): team-order emits
+		// Kafka events, not a Prometheus counter, and the gateway must not compute
+		// business numbers (Rule 2). Nothing is invented until an order-domain
+		// source exists.
+		RecentTraces: []TraceSummary{},
 	}
 
 	snap, ok := h.snapshot(ctx)
+	resp.PrometheusAvailable = ok
 
 	services := make([]ServiceHealth, 0, len(cockpitRoster))
 	var totalRPS, sumP95 float64
@@ -138,15 +144,17 @@ func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsRespon
 		sh := ServiceHealth{Name: row.name, Port: row.port, Status: "UNKNOWN"}
 		if ok {
 			if len(row.rpcServices) == 0 {
-				// No gateway-client series for this row. Status reflects that the
-				// stack is reachable but this row is not gateway-sourced yet.
-				sh.Status = "IDLE"
+				// No gateway-client series for this row (the edge itself, or a
+				// service it does not dial): honestly "no data", not idle.
+				sh.Status = "NO_DATA"
 			} else {
 				sh = foldRow(row, snap)
 				if sh.RPS > 0 {
 					totalRPS += sh.RPS
-					sumP95 += sh.P95Latency
-					active++
+					if sh.P95Latency != nil {
+						sumP95 += *sh.P95Latency
+						active++
+					}
 				}
 			}
 		}
@@ -159,7 +167,8 @@ func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsRespon
 	if ok && len(services) > 0 && services[0].Name == "team-gateway" {
 		services[0].RPS = totalRPS
 		if active > 0 {
-			services[0].P95Latency = sumP95 / float64(active)
+			avg := sumP95 / float64(active)
+			services[0].P95Latency = &avg
 		}
 		services[0].Status = "HEALTHY"
 	}
@@ -167,7 +176,8 @@ func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsRespon
 	resp.Services = services
 	resp.TotalRPS = totalRPS
 	if active > 0 {
-		resp.AvgLatencyMs = sumP95 / float64(active)
+		avg := sumP95 / float64(active)
+		resp.AvgLatencyMs = &avg
 	}
 	return resp
 }
@@ -180,26 +190,36 @@ func (h *CockpitHandler) buildResponse(ctx context.Context) CockpitMetricsRespon
 func foldRow(row serviceRow, snap promSnapshot) ServiceHealth {
 	sh := ServiceHealth{Name: row.name, Port: row.port}
 	var errWeighted float64
+	var seen bool
 	for _, svc := range row.rpcServices {
-		rps := snap.rps[svc]
-		sh.RPS += rps
-		if p := snap.p95[svc]; p > sh.P95Latency {
-			sh.P95Latency = p
+		rps, has := snap.rps[svc]
+		if has {
+			seen = true
 		}
-		if p := snap.p99[svc]; p > sh.P99Latency {
-			sh.P99Latency = p
+		sh.RPS += rps
+		if p, ok := snap.p95[svc]; ok && (sh.P95Latency == nil || p > *sh.P95Latency) {
+			sh.P95Latency = &p
+		}
+		if p, ok := snap.p99[svc]; ok && (sh.P99Latency == nil || p > *sh.P99Latency) {
+			sh.P99Latency = &p
 		}
 		errWeighted += snap.errRate[svc] * rps
 	}
-	if sh.RPS > 0 {
-		sh.ErrorRate = errWeighted / sh.RPS
-		if sh.ErrorRate >= degradedThresholdErrRate {
+	switch {
+	case !seen:
+		sh.Status = "NO_DATA" // the series has never been scraped for this row
+	case sh.RPS > 0:
+		// An absent error-rate series with traffic means zero errors (the
+		// numerator vector is empty), so 0 is a real value here.
+		er := errWeighted / sh.RPS
+		sh.ErrorRate = &er
+		if er >= degradedThresholdErrRate {
 			sh.Status = "DEGRADED"
 		} else {
 			sh.Status = "HEALTHY"
 		}
-	} else {
-		sh.Status = "IDLE" // reachable but no traffic in the window → trends to zero
+	default:
+		sh.Status = "IDLE" // reachable but no traffic in the window → error-rate undefined (null)
 	}
 	return sh
 }
@@ -302,16 +322,4 @@ func (h *CockpitHandler) queryVector(ctx context.Context, query string) (map[str
 		out[svc] = v
 	}
 	return out, nil
-}
-
-// recentTraces returns Jaeger deep-links for the trace panel. These are
-// non-authoritative illustrative links (deriving them from live Jaeger/trace
-// data is out of scope — see replace-cockpit-mock-metrics non-goals); they open
-// the real Jaeger UI. No random data.
-func recentTraces() []TraceSummary {
-	return []TraceSummary{
-		{TraceID: "4bf92f3577b34da6a3ce929d0e0e4736", Operation: "CheckoutSaga -> ReserveStock -> ChargePayment", Duration: "—", Status: "linked", JaegerURL: "http://localhost:16686/trace/4bf92f3577b34da6a3ce929d0e0e4736"},
-		{TraceID: "0af7651916cd43dd8448eb211c80319c", Operation: "AIService.ShoppingAssistant (RAG Embeddings)", Duration: "—", Status: "linked", JaegerURL: "http://localhost:16686/trace/0af7651916cd43dd8448eb211c80319c"},
-		{TraceID: "b7d5119cabbc424aa69327574e1472d6", Operation: "SearchService.Search (OpenSearch Read-Model)", Duration: "—", Status: "linked", JaegerURL: "http://localhost:16686/trace/b7d5119cabbc424aa69327574e1472d6"},
-	}
 }

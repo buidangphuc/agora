@@ -24,6 +24,6 @@ Feature: Admin cockpit shows live per-service metrics from Prometheus
     When the cockpit endpoint is called
     Then the response keeps the expected cockpit shape with numeric, non-random metric values
 
-  Scenario: Orders/revenue are not presented as Prometheus-sourced truth
+  Scenario: Orders, revenue and traces are never fabricated
     When the cockpit endpoint is called
-    Then total_orders_24h and total_revenue_24h are present as derived, non-authoritative values
+    Then total_orders_24h and total_revenue_24h are null and no fabricated traces are returned
