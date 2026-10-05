@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     # Fault injection (session-revocation): compose container_name of team-gateway,
     # restarted for the "revocation survives a gateway restart" scenario.
     gateway_container: str = Field(default="team-gateway-svc")
+    # Fault injection (notification-delivery-hardening): compose container_name of
+    # team-notification, restarted for the "price drop after a restart" scenario.
+    notification_container: str = Field(default="team-notification-svc")
 
     # Timeouts (ms) — keep close to Playwright defaults; do not hardcode long sleeps.
     action_timeout_ms: int = Field(default=10_000)
@@ -89,6 +92,7 @@ def get_settings() -> Settings:
         flipt_url=os.getenv("FLIPT_URL", "http://localhost:8080"),
         search_container=os.getenv("SEARCH_CONTAINER", "team-search-svc"),
         gateway_container=os.getenv("GATEWAY_CONTAINER", "team-gateway-svc"),
+        notification_container=os.getenv("NOTIFICATION_CONTAINER", "team-notification-svc"),
     )
 
 
