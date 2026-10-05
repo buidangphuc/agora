@@ -66,8 +66,11 @@ def open_security_directly(world: World) -> None:
 @when("the buyer asks to revoke a session")
 def ask_to_revoke(world: World) -> None:
     # The API login in the Given step created at least one active session.
-    expect(_page(world).revoke_button).to_be_visible(timeout=timeouts.DEFAULT)
-    _page(world).revoke_button.click()
+    page = _page(world)
+    expect(page.revoke_button).to_be_visible(timeout=timeouts.DEFAULT)
+    # Server-rendered button: a click before hydration is dropped.
+    page.wait_until_interactive(page.revoke_button)
+    page.revoke_button.click()
 
 
 @then("a confirmation dialog asks to revoke the session")
