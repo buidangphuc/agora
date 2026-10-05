@@ -29,6 +29,12 @@ LEGACY_STUB_RPS = 124.0
 # Figures the first cockpit fabricated; they must never reappear.
 LEGACY_FABRICATED_ORDERS = 1420
 LEGACY_FABRICATED_REVENUE = 384_500_000
+# The gateway pushes its RED metrics to the OTel collector on the SDK's default 60 s
+# periodic-reader interval and Prometheus scrapes the collector every 5 s, so traffic
+# only becomes a non-zero rate once the next export lands (up to ~65 s later). Any
+# earlier traffic inside the 1 m rate window hides this, which is why the scenario
+# only fails when the stack is quiet (e.g. at the start of a parallel run).
+METRICS_PIPELINE_LAG_S = 90.0
 # The paid-order scenario allows the consumer batch interval plus ingestion lag.
 ORDER_FACTS_LAG_S = 30.0
 PAID_STATES = ("ORDER_STATUS_PAID", "PAID", "ORDER_STATUS_CONFIRMED", "CONFIRMED")
@@ -81,10 +87,21 @@ def hud_visible(world: World) -> None:
 
 @then("the cockpit metrics show a non-zero Prometheus-sourced RPS for the search service")
 def search_rps_non_zero(world: World) -> None:
+    svc = world.service_factory.metrics
+    deadline = time.monotonic() + METRICS_PIPELINE_LAG_S
     metrics = world.state.extra["metrics"]
-    row = world.service_factory.metrics.service_row(metrics, SEARCH_SERVICE)
-    assert row, "no search service row in cockpit metrics"
-    assert _rps(row) > 0.0, "search RPS should be non-zero after real traffic"
+    while True:
+        row = svc.service_row(metrics, SEARCH_SERVICE)
+        assert row, "no search service row in cockpit metrics"
+        if _rps(row) > 0.0:
+            return
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(3.0)
+        metrics = svc.get_cockpit_metrics()
+    raise AssertionError(
+        f"search RPS stayed 0 for {METRICS_PIPELINE_LAG_S:.0f}s after real traffic: {row}"
+    )
 
 
 @then("the search service RPS is stable across the two reads rather than a random baseline")
