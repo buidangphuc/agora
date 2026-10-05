@@ -1,7 +1,7 @@
 ## 1. Contract — platform-core
 
-- [ ] 1.1 Add `SessionRevoked { session_id, user_id, expires_at }` (identity proto) additively; verify `buf lint` and `buf breaking` against feat/ui-system, vendor to team-identity and team-gateway, regenerate
-- [ ] 1.2 Provision the `identity.events` topic (redpanda-init in compose) and document it in `platform-core/docs` and an ADR-0003 addendum; verify the compose config renders
+- [x] 1.1 Add `SessionRevoked { session_id, user_id, expires_at }` (identity proto) additively; verify `buf lint` and `buf breaking` against feat/ui-system, vendor to team-identity and team-gateway, regenerate
+- [x] 1.2 Provision the `identity.events` topic (redpanda-init in compose) and document it in `platform-core/docs` and an ADR-0003 addendum; verify the compose config renders
 
 ## 2. Code — team-identity
 
