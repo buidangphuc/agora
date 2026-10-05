@@ -21,7 +21,9 @@ def click_ai_generate(world: World) -> None:
     # Magic Listing needs a typed title (it never invents one) and shows a
     # suggestion card; the form changes only when the seller applies it.
     page: SellerNewListingPage = world.get_page(PageName.SELLER_NEW_LISTING)  # type: ignore[assignment]
+    page.wait_until_interactive(page.title_input)
     page.title_input.fill("Laptop Dell XPS 13 9340 Chính Hãng")
+    expect(page.magic_generate).to_be_enabled(timeout=timeouts.DEFAULT)
     page.magic_generate.click()
     expect(page.magic_suggestion).to_be_visible(timeout=timeouts.LONG)
 

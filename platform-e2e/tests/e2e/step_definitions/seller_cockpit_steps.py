@@ -395,6 +395,9 @@ def type_title_and_description(world: World, title: str, description: str) -> No
     world.page.set_viewport_size(DESKTOP)
     page: SellerNewListingPage = world.navigate_to(PageName.SELLER_NEW_LISTING)  # type: ignore[assignment]
     expect(page.title_input).to_be_visible(timeout=timeouts.DEFAULT)
+    # The title is a controlled input: a fill before hydration is lost from React
+    # state and the AI button stays disabled, so wait for the handlers first.
+    page.wait_until_interactive(page.title_input)
     page.title_input.fill(title)
     page.description_input.fill(description)
     world.state.extra["typed_description"] = description
@@ -403,6 +406,7 @@ def type_title_and_description(world: World, title: str, description: str) -> No
 @when("the seller runs the AI suggestion")
 def run_ai_suggestion(world: World) -> None:
     page = _new_listing(world)
+    expect(page.magic_generate).to_be_enabled(timeout=timeouts.DEFAULT)
     page.magic_generate.click()
     expect(page.magic_suggestion).to_be_visible(timeout=timeouts.LONG)
 
