@@ -20,4 +20,4 @@
 ## 5. E2E — platform-e2e
 
 - [ ] 5.1 Cockpit scenarios log in as the seeded admin; add anonymous-401, buyer-403 and "paid order shows in the 24h figures" scenarios with FEATURES.yaml entries; verify they pass against the agora stack and flip to `automated`
-- [ ] 5.2 Run `openspec validate ops-cockpit-real-data --strict`; verify it is valid
+- [x] 5.2 Run `openspec validate ops-cockpit-real-data --strict`; verify it is valid
