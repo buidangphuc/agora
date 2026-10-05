@@ -152,6 +152,7 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
             primary_metric=settings.promotion_primary_metric,
             min_relative_improvement=settings.promotion_min_relative_improvement,
             min_coverage_ratio=settings.promotion_min_coverage_ratio,
+            force=settings.promotion_force,
         )
 
         summary: dict = {

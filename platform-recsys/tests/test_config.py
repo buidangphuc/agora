@@ -54,3 +54,8 @@ def test_bigquery_requires_coordinates():
 def test_invalid_driver_rejected():
     with pytest.raises(ValueError):
         config.load_settings(environ={"WAREHOUSE_DRIVER": "postgres"})
+
+
+def test_promotion_force_is_off_by_default_and_parsed():
+    assert config.load_settings(environ={}).promotion_force is False
+    assert config.load_settings(environ={"PROMOTION_FORCE": "true"}).promotion_force is True

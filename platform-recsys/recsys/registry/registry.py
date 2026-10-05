@@ -71,7 +71,10 @@ class ModelRegistry:
             return False, f"Candidate model {candidate_version} not found in registry"
 
         champion_ver = self.get_champion_version()
-        if champion_ver is None or force:
+        if force:
+            self._set_champion(candidate)
+            return True, f"Model {candidate_version} promoted by force (gate skipped)"
+        if champion_ver is None:
             # First model becomes champion automatically
             self._set_champion(candidate)
             return True, f"Model {candidate_version} set as initial champion (no prior champion)"

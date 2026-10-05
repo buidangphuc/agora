@@ -73,3 +73,23 @@ def test_registry_challenger_promotion_gate() -> None:
     assert promoted is False
     assert registry.get_champion_version() == "tt_v1"  # still tt_v1
     assert registry.get_model("als_v2_bad").status == "rejected"
+
+
+def test_force_promotes_a_candidate_the_gate_would_reject() -> None:
+    """PROMOTION_FORCE path: an equal-scoring retrain is rejected unless forced."""
+    registry = ModelRegistry()
+    for v in ("als_v1", "als_v2", "als_v3"):
+        registry.register_model(
+            ModelMetadata(
+                model_name="als",
+                model_version=v,
+                model_type="als",
+                metrics={"ndcg@10": 0.5, "coverage@10": 0.8},
+            )
+        )
+    assert registry.evaluate_and_promote("als_v1")[0] is True
+    assert registry.evaluate_and_promote("als_v2", min_relative_improvement=0.01)[0] is False
+    promoted, reason = registry.evaluate_and_promote("als_v3", min_relative_improvement=0.01, force=True)
+    assert promoted is True
+    assert "by force" in reason
+    assert registry.get_champion_version() == "als_v3"
