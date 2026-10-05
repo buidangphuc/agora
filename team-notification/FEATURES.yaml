@@ -113,4 +113,5 @@ features:
       - When the seller lowers the listing price
       - Then only the first buyer receives the notification, and the second buyer's inbox and subscriptions stay empty
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "notification/alert_delivery.feature::Two buyers do not see each other's notifications"
