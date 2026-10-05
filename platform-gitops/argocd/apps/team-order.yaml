@@ -38,6 +38,20 @@ spec:
               memory: 256Mi
           env:
             UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
+            UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
+            UPSTREAM_IDENTITY_ADDR: "team-identity:50053"
+            # PaymentSettled consumer (AD4/AD1) + order.events outbox relayer (ADR-0013).
+            KAFKA_ENABLED: "true"
+            KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+            PAYMENT_EVENTS_TOPIC: "payment.events"
+            ORDER_PAYMENT_CONSUMER_GROUP: "team-order.payment"
+            PAYMENT_EVENTS_DLQ_TOPIC: "payment.events.dlq"
+            ORDER_EVENTS_TOPIC: "order.events"
+            OUTBOX_ENABLED: "true"
+            OUTBOX_POLL_INTERVAL: "1s"
+            OUTBOX_BATCH_SIZE: "100"
+            OUTBOX_CLAIM_LOCK_SECONDS: "60"
+            OUTBOX_MAX_ATTEMPTS: "10"
             FLIPT_ADDR: "flipt:9000"
             FEATURE_FLAGS_ENABLED: "true"
           secrets:

@@ -38,6 +38,8 @@ spec:
               memory: 256Mi
           env:
             KAFKA_ENABLED: "true"
+            KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+            KAFKA_CHAT_TOPIC: "chat.events"
           secrets:
             enabled: true
   syncPolicy:

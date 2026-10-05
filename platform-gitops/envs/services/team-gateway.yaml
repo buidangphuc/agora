@@ -34,8 +34,25 @@ env:
   UPSTREAM_PAYMENT_ADDR: "team-payment:50056"
   UPSTREAM_CHAT_ADDR: "team-chat:50057"
   UPSTREAM_AI_ADDR: "team-ai:50060"
+  UPSTREAM_RECOMMENDATION_ADDR: "team-ai:50060"
   UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
   UPSTREAM_NOTIFICATION_ADDR: "team-notification:50058"
+  UPSTREAM_ANALYTICS_ADDR: "team-analytics:50059"   # cockpit orders (Service added in platform/team-analytics)
+  UPSTREAM_REFERRAL_ADDR: "team-referral:50062"
+  UPSTREAM_VERIFICATION_ADDR: "team-verification:50064"
+  UPSTREAM_SHARING_ADDR: "team-sharing:50065"
+  UPSTREAM_AUDIT_ADDR: "team-audit:50066"
+  KAFKA_ENABLED: "true"
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+  KAFKA_ANALYTICS_TOPIC: "analytics.events"
+  # Session revocation (ADR-0003 addendum): identity.events -> in-memory sid denylist.
+  IDENTITY_EVENTS_TOPIC: "identity.events"
+  # Only the in-cluster frontend (Next.js server) may supply X-Forwarded-For; resolved
+  # by Service name and re-resolved every 30s. Never list an untrusted network.
+  TRUSTED_PROXIES: "team-frontend"
+  # JAEGER_QUERY_URL / JAEGER_UI_URL intentionally unset: gitops runs no Jaeger, so the
+  # cockpit recent_traces list stays empty (fail-soft, 2s timeout). Set both once a
+  # Jaeger query service is deployed.
   # Edge verification (ADR-0006): fetch team-identity's public keys from its JWKS
   # and verify RS256 by kid. The gateway holds NO signing secret.
   JWKS_URL: "http://team-identity:50063/.well-known/jwks.json"

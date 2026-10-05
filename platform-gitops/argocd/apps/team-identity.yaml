@@ -32,6 +32,17 @@ spec:
           jwksPort: 50063          # second Service+container port so the edge can reach http://team-identity:50063/.well-known/jwks.json (ADR-0006)
           env:
             JWKS_HTTP_PORT: "50063"   # serves GET /.well-known/jwks.json (public keys; ADR-0006)
+            # SessionRevoked outbox relayer (ADR-0003 addendum): publishes to identity.events.
+            KAFKA_ENABLED: "true"
+            KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+            IDENTITY_EVENTS_TOPIC: "identity.events"
+            OUTBOX_ENABLED: "true"
+            OUTBOX_POLL_INTERVAL: "1s"
+            OUTBOX_BATCH_SIZE: "100"
+            OUTBOX_CLAIM_LOCK_SECONDS: "60"
+            OUTBOX_MAX_ATTEMPTS: "10"
+            # First-admin seed is intentionally NOT configured here (default off; enforced by
+            # scripts/check_identity_seed.py). Create the first admin out of band.
           resources:
             requests:
               cpu: 50m
