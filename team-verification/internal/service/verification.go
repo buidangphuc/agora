@@ -74,6 +74,14 @@ func (s *VerificationService) GetStatus(ctx context.Context, userID string) (rep
 	return sub.Status, badgeFor(sub.Status), nil
 }
 
+// Get returns a submission by id (NotFound propagates from the repository).
+func (s *VerificationService) Get(ctx context.Context, id string) (*repository.Submission, error) {
+	if id == "" {
+		return nil, ErrEmptyID
+	}
+	return s.repo.GetByID(ctx, id)
+}
+
 // Review applies a reviewer's decision to a submission. Mock admin action:
 // "approve" -> VERIFIED, "reject" -> REJECTED, stamping reviewed_at. Returns the
 // resulting status. NotFound propagates from the repository.

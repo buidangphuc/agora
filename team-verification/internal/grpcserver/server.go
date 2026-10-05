@@ -5,12 +5,13 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
 	"github.com/buidangphuc/team-verification/internal/handler"
+	"github.com/buidangphuc/team-verification/internal/interceptor"
 )
 
 type Server struct {
@@ -19,7 +20,7 @@ type Server struct {
 }
 
 func New(port int, verificationHandler *handler.VerificationHandler) *Server {
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.UnaryServerInterceptor()))
 	verificationv1.RegisterVerificationServiceServer(srv, verificationHandler)
 	reflection.Register(srv)
 	healthSrv := health.NewServer()
