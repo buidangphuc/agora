@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # TrackingEvent envelopes so the e2e can consume + assert them.
     kafka_brokers: str = Field(default="localhost:9092")
     kafka_analytics_topic: str = Field(default="analytics.events")
+    # Order domain facts (ADR-0013): team-order's outbox relayer produces
+    # OrderPaidEvent envelopes here.
+    kafka_order_topic: str = Field(default="order.events")
     # Feature flags (wire-openfeature): Flipt REST/HTTP endpoint used to toggle
     # `checkout-enabled` per scenario (the JS provider uses :8080, not gRPC :9000).
     flipt_url: str = Field(default="http://localhost:8080")
@@ -75,6 +78,7 @@ def get_settings() -> Settings:
         seed_password=os.getenv("SEED_PASSWORD", "pass123"),
         kafka_brokers=os.getenv("KAFKA_BROKERS", "localhost:9092"),
         kafka_analytics_topic=os.getenv("KAFKA_ANALYTICS_TOPIC", "analytics.events"),
+        kafka_order_topic=os.getenv("KAFKA_ORDER_TOPIC", "order.events"),
         flipt_url=os.getenv("FLIPT_URL", "http://localhost:8080"),
     )
 
