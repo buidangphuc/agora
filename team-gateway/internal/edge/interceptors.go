@@ -138,6 +138,7 @@ func (e *Edge) authInterceptor() connect.UnaryInterceptorFunc {
 				return nil, cerr
 			}
 			ctx = withPrincipal(ctx, p)
+			ctx = withClient(ctx, e.clientInfoFor(req.Peer().Addr, req.Header()))
 			return next(ctx, req)
 		}
 	}

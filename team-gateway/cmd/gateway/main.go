@@ -124,6 +124,18 @@ func run() error {
 		settings.Edge.RateLimitBurst,
 	)
 
+	// Trusted client context: x-client-ip is the socket peer, or the X-Forwarded-For
+	// client only when the peer is listed in TRUSTED_PROXIES (ADR-0003 addendum).
+	trusted, err := edge.ParseTrustedProxies(settings.Edge.TrustedProxies, nil)
+	if err != nil {
+		return err
+	}
+	e.WithTrustedProxies(trusted)
+	go trusted.Run(ctx, 30*time.Second)
+	if settings.Edge.TrustedProxies == "" {
+		logger.Info("TRUSTED_PROXIES empty: X-Forwarded-For is ignored; client IP is the socket peer")
+	}
+
 	// Session revocation (ADR-0003 addendum): identity.events → in-memory denylist
 	// of revoked session ids, checked by the edge after local JWT verification.
 	// Best-effort by design: the consumer runs in the background and Kafka being

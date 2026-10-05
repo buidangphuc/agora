@@ -485,6 +485,11 @@ services:
       # Session revocation (ADR-0003 addendum): consume identity.events into the
       # in-memory sid denylist (no consumer group; earliest offset on start).
       - IDENTITY_EVENTS_TOPIC=identity.events
+      # Trusted client context (ADR-0003 addendum): the frontend's Next.js server is
+      # the gateway's peer for browser traffic, so ONLY it (by service name,
+      # re-resolved) may supply X-Forwarded-For. Everything else (e.g. the e2e
+      # runner on the same network) is untrusted: its XFF is ignored.
+      - TRUSTED_PROXIES=team-frontend-svc
       - OTEL_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=team-gateway

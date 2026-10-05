@@ -83,6 +83,11 @@ type Edge struct {
 	// PromQL set (GET /api/v1/query). Read-only, never exposed to the browser.
 	// Empty/unreachable → the handler degrades to zeroed values (never random).
 	PrometheusURL string `env:"PROMETHEUS_URL" default:"http://prometheus:9090"`
+	// TrustedProxies lists the peers whose X-Forwarded-For the edge believes when
+	// computing the client IP forwarded to services as x-client-ip: comma-separated
+	// CIDRs, bare IPs or hostnames (resolved periodically, e.g. the frontend's
+	// service name). Empty (default) trusts nobody: the socket peer address is used.
+	TrustedProxies string `env:"TRUSTED_PROXIES" default:""`
 }
 
 // Events configures the edge telemetry producer (ADR-0002) that emits browsing

@@ -49,6 +49,7 @@ type resolvedPrincipal struct {
 type Edge struct {
 	verifier     *token.Verifier
 	revocations  SessionRevocations
+	trusted      *TrustedProxies
 	publicScopes []string
 	callTimeout  time.Duration
 	retryMax     int
@@ -150,6 +151,20 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 	md.Set(mdPrincipalType, p.ptype)
 	md.Set(mdPrincipalScopes, strings.Join(p.scopes, ","))
 	md.Set(mdRequestID, rid)
+	// Client context is built here from edge-observed values only, never copied
+	// from inbound headers, so a client-supplied x-client-* cannot pass through.
+	ci, ok := clientFrom(ctx)
+	if !ok {
+		// Auth interceptor did not run (direct forwarder use): no peer address is
+		// known, so forward no IP — only the user agent.
+		ci = clientInfo{userAgent: clip(header.Get("User-Agent"), maxClientUALen)}
+	}
+	if ci.ip != "" {
+		md.Set(mdClientIP, ci.ip)
+	}
+	if ci.userAgent != "" {
+		md.Set(mdClientUserAgent, ci.userAgent)
+	}
 	return metadata.NewOutgoingContext(ctx, md)
 }
 
