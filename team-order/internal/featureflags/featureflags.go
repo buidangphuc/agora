@@ -11,6 +11,7 @@ package featureflags
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/open-feature/go-sdk/openfeature"
 )
@@ -55,6 +56,8 @@ type Client struct {
 	ofClient *openfeature.Client
 	logger   *slog.Logger
 	enabled  bool
+	// evalTimeout bounds one evaluation (zero = bounded only by the caller's ctx).
+	evalTimeout time.Duration
 }
 
 var _ Evaluator = (*Client)(nil)
@@ -85,9 +88,10 @@ func New(ctx context.Context, cfg Config, logger *slog.Logger) (*Client, error) 
 	}
 	logger.Info("feature flags enabled via Flipt provider", slog.String("flipt_addr", cfg.FliptAddr))
 	return &Client{
-		ofClient: openfeature.NewClient(clientName),
-		logger:   logger,
-		enabled:  true,
+		ofClient:    openfeature.NewClient(clientName),
+		logger:      logger,
+		enabled:     true,
+		evalTimeout: time.Duration(cfg.EvalTimeoutMS) * time.Millisecond,
 	}, nil
 }
 
@@ -113,6 +117,14 @@ func NewWithClient(ofClient *openfeature.Client, logger *slog.Logger) *Client {
 func (c *Client) BooleanEnabled(ctx context.Context, flag string, defaultValue bool) bool {
 	if c == nil || c.ofClient == nil {
 		return defaultValue
+	}
+	// Bound the evaluation. The provider talks to Flipt over gRPC, so without its own
+	// deadline a stalled call holds the whole request budget (the gateway's 5 s) and
+	// CreateOrder surfaces as 504 deadline_exceeded instead of failing open here.
+	if c.evalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.evalTimeout)
+		defer cancel()
 	}
 	evalCtx := openfeature.NewEvaluationContext("system", map[string]interface{}{})
 	val, err := c.ofClient.BooleanValue(ctx, flag, defaultValue, evalCtx)
