@@ -14,8 +14,10 @@ belong in step definitions, never here.
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page, expect
 
 from config.settings import get_settings
@@ -48,13 +50,24 @@ class BasePage(ABC):
         on it is silently dropped (no handler yet), so a plain `expect(...).to_be_visible()`
         is not a readiness signal for client-side controls. React tags every hydrated
         DOM node with a `__reactProps$<id>` key, which is the observable state to wait on.
+
+        The locator is re-resolved on every check: hydration or a streamed re-render can
+        replace the server node, and a handle to the old node would never be tagged.
         """
-        handle = locator.first.element_handle(timeout=timeout)
-        self.page.wait_for_function(
-            "el => Object.keys(el).some(k => k.startsWith('__reactProps$'))",
-            arg=handle,
-            timeout=timeout,
-        )
+        deadline = time.monotonic() + timeout / 1000
+        while True:
+            remaining = (deadline - time.monotonic()) * 1000
+            if remaining <= 0:
+                raise TimeoutError(f"{locator} was not hydrated within {timeout} ms")
+            try:
+                if locator.first.evaluate(
+                    "el => Object.keys(el).some(k => k.startsWith('__reactProps$'))",
+                    timeout=remaining,
+                ):
+                    return
+            except PlaywrightError:
+                pass  # detached between resolve and evaluate; re-resolve
+            self.page.wait_for_timeout(100)
 
     @abstractmethod
     def is_displayed(self) -> bool:
