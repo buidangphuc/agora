@@ -20,7 +20,8 @@ features:
       - When the buyer approves their own KYC submission
       - Then the gateway returns 403 and the buyer's status is still not verified
     tags: [buyer, security]
-    status: planned
+    status: automated
+    covered_by: "services/verification_access.feature::A buyer cannot approve their own KYC"
 
   - id: verification.admin-approves-seller
     title: An admin approves a seller's KYC
@@ -38,4 +39,5 @@ features:
       - When the admin approves the seller's KYC submission
       - Then the gateway returns 200 and the seller's status is verified
     tags: [admin, security]
-    status: planned
+    status: automated
+    covered_by: "services/verification_access.feature::An admin approves a seller's KYC"
