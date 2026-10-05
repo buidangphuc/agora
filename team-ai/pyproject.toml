@@ -46,6 +46,8 @@ ai = [
   "openai>=1.69.0,<3.0.0",
 ]
 aws = ["aioboto3>=13.0.0,<14.0.0"]
+# Trained recommendations (RECS_BACKEND=qdrant): the ALS item-vector reader.
+recs = ["qdrant-client>=1.19,<2.0"]
 mongo = ["motor>=3.6.0,<4.0.0", "pymongo>=4.9.0,<5.0.0"]
 rabbitmq = ["aio-pika>=9.4.0,<10.0.0"]
 
