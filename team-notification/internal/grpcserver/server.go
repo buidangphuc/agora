@@ -5,12 +5,13 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
 	"github.com/buidangphuc/team-notification/internal/handler"
+	"github.com/buidangphuc/team-notification/internal/interceptor"
 )
 
 type Server struct {
@@ -19,7 +20,7 @@ type Server struct {
 }
 
 func New(port int, notiHandler *handler.NotificationHandler) *Server {
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.UnaryServerInterceptor()))
 	notificationv1.RegisterNotificationServiceServer(srv, notiHandler)
 	reflection.Register(srv)
 	healthSrv := health.NewServer()

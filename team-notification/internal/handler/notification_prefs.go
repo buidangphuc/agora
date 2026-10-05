@@ -11,13 +11,6 @@ import (
 	"github.com/buidangphuc/team-notification/internal/service"
 )
 
-// prefsUserID resolves the caller's identity. In production this is read from
-// the principal in context (ADR-0003); mirror notification.go's placeholder
-// until the interceptor is wired so preferences attach to the same demo user.
-func (h *NotificationHandler) prefsUserID(_ context.Context) string {
-	return "khach_hang_shopee"
-}
-
 // mapPrefsErr turns a service validation error into the right gRPC status.
 func mapPrefsErr(err error) error {
 	switch {
@@ -33,7 +26,11 @@ func (h *NotificationHandler) GetNotificationPrefs(ctx context.Context, _ *notif
 	if h.prefs == nil {
 		return nil, status.Error(codes.Unimplemented, "notification prefs not enabled")
 	}
-	prefs, err := h.prefs.Get(ctx, h.prefsUserID(ctx))
+	userID, err := callerUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	prefs, err := h.prefs.Get(ctx, userID)
 	if err != nil {
 		return nil, mapPrefsErr(err)
 	}
@@ -44,7 +41,11 @@ func (h *NotificationHandler) UpdateNotificationPrefs(ctx context.Context, req *
 	if h.prefs == nil {
 		return nil, status.Error(codes.Unimplemented, "notification prefs not enabled")
 	}
-	prefs, err := h.prefs.Update(ctx, h.prefsUserID(ctx), req.GetPrefs())
+	userID, err := callerUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	prefs, err := h.prefs.Update(ctx, userID, req.GetPrefs())
 	if err != nil {
 		return nil, mapPrefsErr(err)
 	}

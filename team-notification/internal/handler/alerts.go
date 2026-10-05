@@ -11,13 +11,6 @@ import (
 	"github.com/buidangphuc/team-notification/internal/service"
 )
 
-// alertUserID resolves the caller's identity. In production this is read from the
-// principal in context (ADR-0003); mirror notification.go's placeholder until the
-// interceptor is wired so alert subscriptions attach to the same demo user.
-func (h *NotificationHandler) alertUserID(_ context.Context) string {
-	return "khach_hang_shopee"
-}
-
 // mapAlertErr turns a service validation error into the right gRPC status.
 func mapAlertErr(err error) error {
 	switch {
@@ -35,7 +28,11 @@ func (h *NotificationHandler) SubscribeAlert(ctx context.Context, req *notificat
 	if h.alerts == nil {
 		return nil, status.Error(codes.Unimplemented, "alert subscriptions not enabled")
 	}
-	sub, err := h.alerts.Subscribe(ctx, h.alertUserID(ctx), req.GetListingId(), req.GetType())
+	userID, err := callerUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sub, err := h.alerts.Subscribe(ctx, userID, req.GetListingId(), req.GetType())
 	if err != nil {
 		return nil, mapAlertErr(err)
 	}
@@ -46,7 +43,11 @@ func (h *NotificationHandler) UnsubscribeAlert(ctx context.Context, req *notific
 	if h.alerts == nil {
 		return nil, status.Error(codes.Unimplemented, "alert subscriptions not enabled")
 	}
-	if err := h.alerts.Unsubscribe(ctx, h.alertUserID(ctx), req.GetSubscriptionId()); err != nil {
+	userID, err := callerUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.alerts.Unsubscribe(ctx, userID, req.GetSubscriptionId()); err != nil {
 		return nil, mapAlertErr(err)
 	}
 	return &notificationv1.UnsubscribeAlertResponse{}, nil
@@ -56,7 +57,11 @@ func (h *NotificationHandler) ListAlertSubscriptions(ctx context.Context, _ *not
 	if h.alerts == nil {
 		return nil, status.Error(codes.Unimplemented, "alert subscriptions not enabled")
 	}
-	subs, err := h.alerts.List(ctx, h.alertUserID(ctx))
+	userID, err := callerUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	subs, err := h.alerts.List(ctx, userID)
 	if err != nil {
 		return nil, mapAlertErr(err)
 	}
