@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # Fault injection (notification-delivery-hardening): compose container_name of
     # team-notification, restarted for the "price drop after a restart" scenario.
     notification_container: str = Field(default="team-notification-svc")
+    # Offline recsys job (pipeline_eval_registry.feature): the platform-recsys image
+    # is run with `docker run` on the compose stack's network.
+    recsys_image: str = Field(default="platform-recsys:local")
+    stack_network: str = Field(default="platform-core_default")
 
     # Timeouts (ms) — keep close to Playwright defaults; do not hardcode long sleeps.
     action_timeout_ms: int = Field(default=10_000)
@@ -93,6 +97,8 @@ def get_settings() -> Settings:
         search_container=os.getenv("SEARCH_CONTAINER", "team-search-svc"),
         gateway_container=os.getenv("GATEWAY_CONTAINER", "team-gateway-svc"),
         notification_container=os.getenv("NOTIFICATION_CONTAINER", "team-notification-svc"),
+        recsys_image=os.getenv("RECSYS_IMAGE", "platform-recsys:local"),
+        stack_network=os.getenv("STACK_NETWORK", "platform-core_default"),
     )
 
 
