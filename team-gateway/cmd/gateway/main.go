@@ -143,7 +143,11 @@ func run() error {
 
 	// h2c lets gRPC clients speak HTTP/2 cleartext; the same handler serves
 	// gRPC-web and JSON over HTTP/1.1 for browsers and native apps.
-	handler := h2c.NewHandler(corsMW.Handler(edge.NewMux(clients, e, analytics, settings.Edge.PrometheusURL, logger)), &http2.Server{})
+	handler := h2c.NewHandler(corsMW.Handler(edge.NewMux(clients, e, analytics, edge.CockpitConfig{
+		PrometheusURL:  settings.Edge.PrometheusURL,
+		JaegerQueryURL: settings.Edge.JaegerQueryURL,
+		JaegerUIURL:    settings.Edge.JaegerUIURL,
+	}, logger)), &http2.Server{})
 	addr := net.JoinHostPort(settings.Server.Host, strconv.Itoa(settings.Server.Port))
 	srv := &http.Server{Addr: addr, Handler: handler}
 

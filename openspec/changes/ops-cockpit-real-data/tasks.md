@@ -8,9 +8,9 @@
 
 ## 3. Code — team-gateway
 
-- [ ] 3.1 Require the `admin` scope on `GET /api/admin/metrics` (401 without a token, 403 without `admin`, no upstream call); verify gateway tests for anonymous, buyer and admin
-- [ ] 3.2 Fill `total_orders_24h`, `total_revenue_24h`, `recent_orders` from team-analytics, `null`/empty when unavailable; verify tests with a fake analytics client (ok and unavailable)
-- [ ] 3.3 Add the fixed Jaeger query (`JAEGER_QUERY_URL`, timeout 2 s) for `recent_traces`, empty when unavailable; verify tests with an httptest Jaeger (ok, down); update `.env.example` and compose env
+- [x] 3.1 Require the `admin` scope on `GET /api/admin/metrics` (401 without a token, 403 without `admin`, no upstream call); verify gateway tests for anonymous, buyer and admin
+- [x] 3.2 Fill `total_orders_24h`, `total_revenue_24h`, `recent_orders` from team-analytics, `null`/empty when unavailable; verify tests with a fake analytics client (ok and unavailable)
+- [x] 3.3 Add the fixed Jaeger query (`JAEGER_QUERY_URL`, timeout 2 s) for `recent_traces`, empty when unavailable; verify tests with an httptest Jaeger (ok, down); update `.env.example` and compose env
 
 ## 4. Code — team-frontend
 

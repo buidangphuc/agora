@@ -82,6 +82,12 @@ type Edge struct {
 	// PromQL set (GET /api/v1/query). Read-only, never exposed to the browser.
 	// Empty/unreachable → the handler degrades to zeroed values (never random).
 	PrometheusURL string `env:"PROMETHEUS_URL" default:"http://prometheus:9090"`
+	// JaegerQueryURL is the Jaeger query API the cockpit asks for recent
+	// team-gateway traces (fixed query, 2 s timeout). Server-side only. Empty or
+	// unreachable → recent_traces is empty.
+	JaegerQueryURL string `env:"JAEGER_QUERY_URL" default:"http://jaeger:16686"`
+	// JaegerUIURL is the browser-facing Jaeger UI base used to build trace links.
+	JaegerUIURL string `env:"JAEGER_UI_URL" default:"http://localhost:16686"`
 }
 
 // Events configures the edge telemetry producer (ADR-0002) that emits browsing

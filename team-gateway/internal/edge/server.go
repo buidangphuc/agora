@@ -32,7 +32,7 @@ import (
 // chain (request-id, auth, logging, rate-limit). Handlers forward to upstream
 // gRPC services — no business logic here (Rule 2). analytics is the edge
 // telemetry producer backing POST /api/track (Kafka when enabled, else no-op).
-func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublisher, prometheusURL string, logger *slog.Logger) *http.ServeMux {
+func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublisher, cockpit CockpitConfig, logger *slog.Logger) *http.ServeMux {
 	opts := connect.WithInterceptors(e.Interceptors(logger)...)
 	mux := http.NewServeMux()
 
@@ -140,10 +140,11 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	mux.HandleFunc("POST /api/track", HandleTrack(e, analytics, logger))
 
 	// Real-time SSE Multiplexing & Cockpit Metrics (Golden Demo Spine).
-	// The cockpit handler queries Prometheus server-side with a fixed PromQL set
-	// and shapes the result — it never exposes raw Prometheus to the browser.
+	// The cockpit handler is admin-gated; it queries Prometheus (fixed PromQL),
+	// team-analytics (admin RPCs) and Jaeger (fixed query) server-side and shapes
+	// the results — it never exposes raw upstream payloads to the browser.
 	mux.HandleFunc("/api/events/live", HandleSSE)
-	mux.Handle("/api/admin/metrics", NewCockpitHandler(prometheusURL))
+	mux.Handle("/api/admin/metrics", NewCockpitHandler(e, cockpit, clients.AnalyticsQuery))
 
 	return mux
 }
