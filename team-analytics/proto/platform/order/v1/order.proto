@@ -366,3 +366,13 @@ message OrderPaidEvent {
   google.protobuf.Timestamp paid_at = 6;
 }
 
+// OrderShipped is emitted (via the outbox, to order.events) when a seller creates
+// a shipment for an order. Consumed by team-notification to notify the buyer.
+message OrderShipped {
+  string order_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  string carrier = 4;
+  string tracking_code = 5;
+  google.protobuf.Timestamp shipped_at = 6;
+}

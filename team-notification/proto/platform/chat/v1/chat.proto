@@ -13,9 +13,21 @@ service ChatService {
   rpc GetThreadMessages(GetThreadMessagesRequest) returns (GetThreadMessagesResponse);
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
   rpc MarkThreadRead(MarkThreadReadRequest) returns (MarkThreadReadResponse);
+  // Full-text search across the caller's own messages (participant-scoped).
+  rpc SearchMessages(SearchMessagesRequest) returns (SearchMessagesResponse);
 
   // ── AI Token Streaming (Seeded) ──
   rpc StreamChat(StreamChatRequest) returns (stream StreamChatResponse);
+
+  // Canned quick-reply suggestions a seller has configured for buyers.
+  rpc ListQuickReplies(ListQuickRepliesRequest) returns (ListQuickRepliesResponse);
+}
+
+// Rich-message kind. Zero value TEXT keeps plain messages backward compatible.
+enum MessageType {
+  MESSAGE_TYPE_TEXT = 0;
+  MESSAGE_TYPE_LISTING_CARD = 1;
+  MESSAGE_TYPE_QUICK_REPLY = 2;
 }
 
 message ChatThread {
@@ -40,6 +52,13 @@ message ChatMessage {
   string sender_name = 4;
   string content = 5;
   google.protobuf.Timestamp created_at = 6;
+  MessageType message_type = 7;
+  string listing_id = 8;          // set for LISTING_CARD messages
+  string payload = 9;             // JSON blob for rich payloads (card/quick-reply data)
+  // The thread participant who did NOT send this message. Populated only on the
+  // chat.events payload so consumers (team-notification) need no call back to
+  // team-chat; empty on RPC responses.
+  string recipient_id = 10;
 }
 
 message GetOrCreateThreadRequest {
@@ -73,10 +92,21 @@ message GetThreadMessagesResponse {
 message SendMessageRequest {
   string thread_id = 1;
   string content = 2;
+  MessageType message_type = 3;
+  string listing_id = 4;          // set for LISTING_CARD messages
+  string payload = 5;             // JSON blob for rich payloads (card/quick-reply data)
 }
 
 message SendMessageResponse {
   ChatMessage message = 1;
+}
+
+message ListQuickRepliesRequest {
+  string seller_id = 1;
+}
+
+message ListQuickRepliesResponse {
+  repeated string quick_replies = 1;
 }
 
 message MarkThreadReadRequest {
@@ -84,6 +114,16 @@ message MarkThreadReadRequest {
 }
 
 message MarkThreadReadResponse {}
+
+message SearchMessagesRequest {
+  string query = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message SearchMessagesResponse {
+  repeated ChatMessage messages = 1;
+  platform.common.v1.PageResponse page = 2;
+}
 
 // ── AI Seed messages ──
 message StreamChatRequest {

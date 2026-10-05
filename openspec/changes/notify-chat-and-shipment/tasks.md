@@ -1,6 +1,6 @@
 ## 1. Contract — platform-core
 
-- [ ] 1.1 Add `OrderShipped` to the order proto and, if needed, the chat recipient field or `MessageSent` event, additively; verify `buf lint` and `buf breaking` against feat/ui-system, vendor byte-identically to team-order, team-chat, team-notification and team-analytics, regenerate
+- [x] 1.1 Add `OrderShipped` to the order proto and, if needed, the chat recipient field or `MessageSent` event, additively; verify `buf lint` and `buf breaking` against feat/ui-system, vendor byte-identically to team-order, team-chat, team-notification and team-analytics, regenerate
 
 ## 2. Code — team-order
 
