@@ -134,7 +134,8 @@ features:
       - When the seller replies
       - Then within 30 s the buyer has one CHAT notification linking to that thread, and the seller has none for their own reply
     tags: [buyer, seller]
-    status: planned
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Seller reply notifies the buyer"
 
   - id: notification.chat-preferences
     title: Chat notifications respect preferences
@@ -153,7 +154,8 @@ features:
       - When the seller replies in the thread
       - Then no CHAT notification is created for the buyer
     tags: [buyer, seller]
-    status: planned
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Chat notifications respect preferences"
 
   - id: notification.order-shipped
     title: Shipping an order notifies the buyer
@@ -173,4 +175,5 @@ features:
       - When the seller creates a shipment with a tracking code
       - Then within 30 s the buyer has one ORDER notification linking to the order and containing the tracking code
     tags: [buyer, seller]
-    status: planned
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Shipping the order notifies the buyer"
