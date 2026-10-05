@@ -886,8 +886,8 @@ features:
       - When the search call throws
       - Then an error Alert with a "Thử lại" link to the same URL is shown, the header and filter column still render and no Empty is shown
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/search_facets.feature::Backend failure is not a silent empty"
     notes: >
       e2e scenarios "Zero results" and "Backend failure is not a silent empty" (frontend/search_facets.feature). The failure is
       forced by stopping team-search for the scenario (@destructive; restored in teardown). An invalid session cookie is no longer
@@ -1509,7 +1509,8 @@ features:
       - "Empty history: with no login history the table renders Empty Chưa có lịch sử đăng nhập."
       - "Gateway read failure: when the sessions request fails the sessions section shows an inline error Alert with Thử lại and the history section still renders"
     tags: [buyer]
-    status: planned
+    status: automated
+    covered_by: "frontend/account_security.feature::Revoking a session asks for confirmation first"
     notes: >-
       Scenario 'Revoking a session asks for confirmation first' is written but cannot pass on this branch: team-identity never records a session at login (CreateSession is not called), so the sessions table is always empty.
 
