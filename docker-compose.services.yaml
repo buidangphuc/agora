@@ -536,6 +536,9 @@ services:
     build:
       context: ./team-ai
       dockerfile: Dockerfile
+      args:
+        # qdrant-client for the trained-recommendations reader (RECS_BACKEND=qdrant).
+        UV_EXTRAS: recs
     image: team-ai:local
     container_name: team-ai-svc
     environment:
@@ -555,11 +558,11 @@ services:
       - REDIS_PORT=6379
       - CHAT_BACKEND=mock
       # Recommendations (serve-recommendations-teamai) — reuses GRPC_PORT, no new
-      # port. Off by default; flip RECS_ENABLED=true once build-als-training-job
-      # has populated the Qdrant collection + Redis pre-computed lists. Use
-      # RECS_BACKEND=memory for offline/dev without real infra.
-      - RECS_ENABLED=false
-      - RECS_BACKEND=memory
+      # port. Served from what the platform-recsys job (below, profile "jobs")
+      # writes to Qdrant + Redis; until it has run, Recommend answers empty and the
+      # home row stays hidden. RECS_BACKEND=memory is the offline/dev fixture.
+      - RECS_ENABLED=true
+      - RECS_BACKEND=qdrant
       - RECS_QDRANT_URL=http://qdrant:6333
       - RECS_QDRANT_COLLECTION=item_als_vectors
       - RECS_CACHE_PREFIX=recs
@@ -569,6 +572,28 @@ services:
     ports:
       - "8001:8000"
       - "50060:50060"
+
+  # Offline ALS training job (serve-trained-recs-locally) — a batch, not a server:
+  #   docker compose --profile jobs run --rm platform-recsys
+  # Reads the Parquet that team-analytics exports to the shared volume and writes
+  # item/user vectors to Qdrant and the recs:v1:* lists to Redis for team-ai.
+  platform-recsys:
+    build:
+      context: ./platform-recsys
+      dockerfile: Dockerfile
+    image: platform-recsys:local
+    profiles: ["jobs"]
+    environment:
+      - WAREHOUSE_DRIVER=duckdb
+      - WAREHOUSE_PARQUET_PATH=/data/tracking_events.parquet
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - analytics_data:/data:ro
+    depends_on:
+      - qdrant
+      - redis
 
   team-analytics:
     build:
