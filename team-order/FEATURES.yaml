@@ -439,9 +439,9 @@ features:
       - And exactly one OrderPaidEvent envelope for the order is published to the order.events topic
       - And its payload carries the order id as the key and the order's line items
     tags: [order, outbox, integration]
-    status: planned
+    status: automated
+    covered_by: "order/order_events_published.feature::Paying an order publishes an OrderPaidEvent with its line items"
     notes: >
-      Scenario: order/order_events_published.feature::Paying an order publishes an
-      OrderPaidEvent with its line items. Flip to automated and set covered_by after a
-      stack run (team-order needs KAFKA_ENABLED=true and the order.events topic from
-      redpanda-init).
+      Ran green against the agora stack (2026-10-05): the paid order's outbox row is
+      published and the envelope is read back from order.events. Needs team-order with
+      KAFKA_ENABLED=true / OUTBOX_ENABLED=true and the order.events topic.
