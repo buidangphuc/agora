@@ -14,7 +14,6 @@ import (
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	"github.com/buidangphuc/team-chat/internal/config"
-	"github.com/buidangphuc/team-chat/internal/events"
 	"github.com/buidangphuc/team-chat/internal/grpcserver"
 	"github.com/buidangphuc/team-chat/internal/handler"
 	"github.com/buidangphuc/team-chat/internal/repository"
@@ -29,7 +28,7 @@ func startServer(t *testing.T) chatv1.ChatServiceClient {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	repo := repository.NewInMemoryChatRepository()
 	svc := service.NewChatService(repo, logger)
-	h := handler.NewChatHandler(svc, events.NoopPublisher{}, logger)
+	h := handler.NewChatHandler(svc, logger)
 	srv := grpcserver.Build(s, h, nil, logger)
 
 	lis, err := net.Listen("tcp", "localhost:0")

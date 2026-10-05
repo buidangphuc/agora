@@ -4,47 +4,63 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"sync"
 	"testing"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
+	eventsv1 "github.com/buidangphuc/team-chat/generated/platform/events/v1"
+	"github.com/buidangphuc/team-chat/internal/events"
 	"github.com/buidangphuc/team-chat/internal/handler"
 	"github.com/buidangphuc/team-chat/internal/interceptor"
 	"github.com/buidangphuc/team-chat/internal/repository"
 	"github.com/buidangphuc/team-chat/internal/service"
 )
 
-type mockChatPublisher struct {
-	mu            sync.Mutex
-	publishedMsgs []*chatv1.ChatMessage
+// eventProbe reads the chat.events outbox rows the repository wrote while saving
+// messages: the handler no longer publishes directly.
+type eventProbe struct {
+	outbox *repository.InMemoryOutboxRepository
 }
 
-func (m *mockChatPublisher) PublishMessageSent(_ context.Context, msg *chatv1.ChatMessage, _ *commonv1.Principal, _ string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.publishedMsgs = append(m.publishedMsgs, msg)
-	return nil
+func (p *eventProbe) count() int { return len(p.outbox.EnqueuedRows()) }
+
+func (p *eventProbe) messages(t *testing.T) []*chatv1.ChatMessage {
+	t.Helper()
+	var out []*chatv1.ChatMessage
+	for _, row := range p.outbox.EnqueuedRows() {
+		var env eventsv1.EventEnvelope
+		if err := proto.Unmarshal(row.Payload, &env); err != nil {
+			t.Fatalf("unmarshal envelope: %v", err)
+		}
+		if env.GetType() != events.ChatMessageSentType || env.GetEventId() != row.EventID {
+			t.Fatalf("envelope type/id = %q/%q, row id %q", env.GetType(), env.GetEventId(), row.EventID)
+		}
+		var msg chatv1.ChatMessage
+		if err := proto.Unmarshal(env.GetPayload(), &msg); err != nil {
+			t.Fatalf("unmarshal message: %v", err)
+		}
+		if row.AggregateID != msg.GetThreadId() {
+			t.Fatalf("outbox key %q, want thread id %q", row.AggregateID, msg.GetThreadId())
+		}
+		out = append(out, &msg)
+	}
+	return out
 }
 
-func (m *mockChatPublisher) Close() {}
-
-func (m *mockChatPublisher) count() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return len(m.publishedMsgs)
-}
-
-func setupTestHandler() (*handler.ChatHandler, *service.ChatService, *mockChatPublisher, repository.ChatRepository) {
+func setupTestHandler() (*handler.ChatHandler, *service.ChatService, *eventProbe, repository.ChatRepository) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	repo := repository.NewInMemoryChatRepository()
+	outbox := repository.NewInMemoryOutboxRepository()
+	repo := repository.NewInMemoryChatRepository(
+		repository.WithMessageOutbox(events.BuildMessageOutboxRow),
+		repository.WithInMemoryOutbox(outbox),
+	)
 	svc := service.NewChatService(repo, logger)
-	publisher := &mockChatPublisher{}
-	h := handler.NewChatHandler(svc, publisher, logger)
-	return h, svc, publisher, repo
+	h := handler.NewChatHandler(svc, logger)
+	return h, svc, &eventProbe{outbox: outbox}, repo
 }
 
 func contextWithUser(userID string) context.Context {
@@ -201,19 +217,24 @@ func TestChatHandler_SendMessageEventCarriesRecipient(t *testing.T) {
 		t.Fatalf("seller send: %v", err)
 	}
 
-	publisher.mu.Lock()
-	defer publisher.mu.Unlock()
-	if len(publisher.publishedMsgs) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(publisher.publishedMsgs))
+	published := publisher.messages(t)
+	if len(published) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(published))
 	}
-	if got := publisher.publishedMsgs[0].GetRecipientId(); got != "seller-1" {
+	if got := published[0].GetRecipientId(); got != "seller-1" {
 		t.Errorf("buyer message recipient = %q, want seller-1", got)
 	}
-	if got := publisher.publishedMsgs[1].GetRecipientId(); got != "buyer-1" {
+	if got := published[1].GetRecipientId(); got != "buyer-1" {
 		t.Errorf("seller message recipient = %q, want buyer-1", got)
 	}
-	if publisher.publishedMsgs[1].GetSenderId() != "seller-1" {
+	if published[0].GetSellerId() != "seller-1" || published[1].GetSellerId() != "seller-1" {
+		t.Errorf("event must carry the thread's seller id, got %q / %q", published[0].GetSellerId(), published[1].GetSellerId())
+	}
+	if published[1].GetSenderId() != "seller-1" {
 		t.Errorf("event lost sender id")
+	}
+	if buyerRes.GetMessage().GetSellerId() != "" || sellerRes.GetMessage().GetSellerId() != "" {
+		t.Errorf("RPC responses must not carry seller_id")
 	}
 	if buyerRes.GetMessage().GetRecipientId() != "" || sellerRes.GetMessage().GetRecipientId() != "" {
 		t.Errorf("RPC responses must not carry recipient_id")

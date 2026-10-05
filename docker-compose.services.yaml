@@ -379,6 +379,14 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CHAT_TOPIC=chat.events
+      # chat.events outbox relayer: SendMessage writes the event in the message tx
+      # (chat_outbox_events) and the relayer publishes it, so a Kafka hiccup delays
+      # but never loses a notification. Same OUTBOX_* names as team-order.
+      - OUTBOX_ENABLED=true
+      - OUTBOX_POLL_INTERVAL=1s
+      - OUTBOX_BATCH_SIZE=100
+      - OUTBOX_CLAIM_LOCK_SECONDS=60
+      - OUTBOX_MAX_ATTEMPTS=10
       # team-chat builds its DB config from POSTGRES_* (default host postgres-chat);
       # point it at the shared instance.
       - POSTGRES_HOST=postgres
@@ -412,6 +420,10 @@ services:
       - ORDER_EVENTS_TOPIC=order.events
       - NOTIFICATION_ORDER_CONSUMER_GROUP=team-notification.order
       - ORDER_EVENTS_DLQ_TOPIC=order.events.dlq
+      # Chat sender names: shop display name from team-domain, user display name from
+      # team-identity (service principal; any failure falls back to a neutral label).
+      - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
+      - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
       - GRPC_PORT=50058
       - ENV=local
 

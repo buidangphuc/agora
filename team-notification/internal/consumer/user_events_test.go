@@ -52,7 +52,7 @@ func shippedEnvelope(t *testing.T, eventID string, e *orderv1.OrderShipped) []by
 func sellerReply() *chatv1.ChatMessage {
 	return &chatv1.ChatMessage{
 		Id: "m1", ThreadId: "thread-1", SenderId: "seller-1", SenderName: "User sell01",
-		RecipientId: "buyer-1", Content: "Dạ còn hàng bạn nhé",
+		RecipientId: "buyer-1", SellerId: "seller-1", Content: "Dạ còn hàng bạn nhé",
 	}
 }
 
@@ -79,7 +79,8 @@ func TestChat_NotifiesRecipientOnly(t *testing.T) {
 	if n.GetLinkUrl() != "/chat/thread-1" {
 		t.Errorf("link = %q", n.GetLinkUrl())
 	}
-	if n.GetTitle() != "Tin nhắn mới từ User sell01" {
+	// No resolver wired: the placeholder sender_name is not shown, the neutral label is.
+	if n.GetTitle() != "Tin nhắn mới từ Người dùng" {
 		t.Errorf("title = %q", n.GetTitle())
 	}
 	if n.GetBody() != "Dạ còn hàng bạn nhé" {

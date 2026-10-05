@@ -33,6 +33,17 @@ type PrefsReader interface {
 	Get(ctx context.Context, userID string) (*notificationv1.NotificationPrefs, error)
 }
 
+// SenderNameResolver names a chat sender. sellerID is the thread's seller (the shop
+// name is used when it equals senderID). It returns "" when the name is unknown or
+// the lookup failed; it must be bounded by its own timeout and must not fail the
+// notification.
+type SenderNameResolver interface {
+	ResolveSenderName(ctx context.Context, senderID, sellerID string) string
+}
+
+// neutralSenderLabel is shown when no sender name can be resolved.
+const neutralSenderLabel = "Người dùng"
+
 // userEventHandler holds what the chat and order consumers share: dedupe by
 // event_id, preference gating and creating one notification for one user.
 type userEventHandler struct {
@@ -123,11 +134,32 @@ func (h *userEventHandler) notify(ctx context.Context, n *notificationv1.Notific
 // ChatConsumer turns a sent chat message into one CHAT notification for the thread
 // participant who did not send it. team-chat puts that participant in
 // ChatMessage.recipient_id, so no call back to team-chat is needed.
-type ChatConsumer struct{ h userEventHandler }
+type ChatConsumer struct {
+	h     userEventHandler
+	names SenderNameResolver
+}
+
+// ChatOption customizes a ChatConsumer beyond the options shared with the order
+// consumer.
+type ChatOption func(*ChatConsumer)
+
+// WithSenderNameResolver injects the sender display-name lookup. Without one the
+// title uses the neutral label.
+func WithSenderNameResolver(r SenderNameResolver) ChatOption {
+	return func(c *ChatConsumer) { c.names = r }
+}
 
 // NewChatConsumer builds the chat.events consumer.
 func NewChatConsumer(notif NotificationCreator, prefs PrefsReader, logger *slog.Logger, opts ...UserEventOption) *ChatConsumer {
 	return &ChatConsumer{h: newUserEventHandler(chatConsumerName, notif, prefs, logger, opts)}
+}
+
+// WithOptions applies chat-specific options and returns the consumer.
+func (c *ChatConsumer) WithOptions(opts ...ChatOption) *ChatConsumer {
+	for _, o := range opts {
+		o(c)
+	}
+	return c
 }
 
 // HandleRaw applies one Kafka record value (a marshalled EventEnvelope).
@@ -162,9 +194,13 @@ func (c *ChatConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEn
 		if recipient == m.GetSenderId() {
 			return nil // never notify a sender of their own message
 		}
-		label := strings.TrimSpace(m.GetSenderName())
-		if label == "" {
-			label = "người dùng"
+		// The event's sender_name is a placeholder ("User xxxxxx"); name the sender
+		// from the owning services, falling back to a neutral label on any failure.
+		label := neutralSenderLabel
+		if c.names != nil {
+			if name := strings.TrimSpace(c.names.ResolveSenderName(ctx, m.GetSenderId(), m.GetSellerId())); name != "" {
+				label = name
+			}
 		}
 		return c.h.notify(ctx, &notificationv1.Notification{
 			UserId:  recipient,

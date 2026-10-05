@@ -47,6 +47,12 @@ type UserRepository interface {
 	MarkResetTokenUsed(ctx context.Context, tokenHash string) error
 }
 
+// ProfileReader is the narrow read port behind GetPublicProfiles. Unknown ids
+// are simply absent from the result.
+type ProfileReader interface {
+	GetByIDs(ctx context.Context, ids []string) ([]User, error)
+}
+
 // InMemoryUserRepository is a fake store for tests.
 type InMemoryUserRepository struct {
 	mu     sync.RWMutex
@@ -94,6 +100,18 @@ func (r *InMemoryUserRepository) GetByID(_ context.Context, id string) (User, er
 	return u, nil
 }
 
+func (r *InMemoryUserRepository) GetByIDs(_ context.Context, ids []string) ([]User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]User, 0, len(ids))
+	for _, id := range ids {
+		if u, ok := r.byID[id]; ok {
+			out = append(out, u)
+		}
+	}
+	return out, nil
+}
+
 func (r *InMemoryUserRepository) UpdatePassword(_ context.Context, userID, newPasswordHash string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -136,4 +154,7 @@ func (r *InMemoryUserRepository) MarkResetTokenUsed(_ context.Context, tokenHash
 	return nil
 }
 
-var _ UserRepository = (*InMemoryUserRepository)(nil)
+var (
+	_ UserRepository = (*InMemoryUserRepository)(nil)
+	_ ProfileReader  = (*InMemoryUserRepository)(nil)
+)

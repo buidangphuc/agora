@@ -59,6 +59,10 @@ message ChatMessage {
   // chat.events payload so consumers (team-notification) need no call back to
   // team-chat; empty on RPC responses.
   string recipient_id = 10;
+  // The seller of the thread this message belongs to. Populated only on the
+  // chat.events payload so consumers can tell whether the sender is the shop
+  // (and name it) without a call back to team-chat; empty on RPC responses.
+  string seller_id = 11;
 }
 
 message GetOrCreateThreadRequest {
