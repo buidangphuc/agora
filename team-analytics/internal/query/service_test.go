@@ -1,7 +1,6 @@
 package query_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -42,7 +41,7 @@ func TestGetSellerFunnel_HappyPath(t *testing.T) {
 	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 
-	resp, err := svc.GetSellerFunnel(context.Background(), &analyticsv1.GetSellerFunnelRequest{
+	resp, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
 		SellerId: "seller-1", From: ts(from), To: ts(to),
 	})
 	if err != nil {
@@ -68,7 +67,7 @@ func TestGetRevenueBreakdown_HappyPath(t *testing.T) {
 	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 
-	resp, err := svc.GetRevenueBreakdown(context.Background(), &analyticsv1.GetRevenueBreakdownRequest{
+	resp, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{
 		SellerId: "seller-1", From: ts(from), To: ts(to),
 	})
 	if err != nil {
@@ -105,7 +104,7 @@ func TestEmptyRange(t *testing.T) {
 	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	f, err := svc.GetSellerFunnel(context.Background(), &analyticsv1.GetSellerFunnelRequest{
+	f, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
 		SellerId: "seller-1", From: ts(from), To: ts(to),
 	})
 	if err != nil {
@@ -115,7 +114,7 @@ func TestEmptyRange(t *testing.T) {
 		t.Errorf("funnel = %+v, want all zero", f)
 	}
 
-	b, err := svc.GetRevenueBreakdown(context.Background(), &analyticsv1.GetRevenueBreakdownRequest{
+	b, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{
 		SellerId: "seller-1", From: ts(from), To: ts(to),
 	})
 	if err != nil {
@@ -131,7 +130,7 @@ func TestEmptyRange(t *testing.T) {
 func TestSellerIsolation(t *testing.T) {
 	svc := query.NewService(newRepo())
 
-	f, err := svc.GetSellerFunnel(context.Background(), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-2"})
+	f, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-2"})
 	if err != nil {
 		t.Fatalf("GetSellerFunnel: %v", err)
 	}
@@ -139,7 +138,7 @@ func TestSellerIsolation(t *testing.T) {
 		t.Errorf("seller-2 funnel = %+v, want impressions=1 orders=1", f)
 	}
 
-	b, err := svc.GetRevenueBreakdown(context.Background(), &analyticsv1.GetRevenueBreakdownRequest{SellerId: "seller-2"})
+	b, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{SellerId: "seller-2"})
 	if err != nil {
 		t.Fatalf("GetRevenueBreakdown: %v", err)
 	}
@@ -159,10 +158,10 @@ func TestSellerIsolation(t *testing.T) {
 func TestMissingSellerID(t *testing.T) {
 	svc := query.NewService(newRepo())
 
-	if _, err := svc.GetSellerFunnel(context.Background(), &analyticsv1.GetSellerFunnelRequest{SellerId: "  "}); status.Code(err) != codes.InvalidArgument {
+	if _, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "  "}); status.Code(err) != codes.InvalidArgument {
 		t.Errorf("GetSellerFunnel empty seller: err = %v, want InvalidArgument", err)
 	}
-	if _, err := svc.GetRevenueBreakdown(context.Background(), &analyticsv1.GetRevenueBreakdownRequest{}); status.Code(err) != codes.InvalidArgument {
+	if _, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{}); status.Code(err) != codes.InvalidArgument {
 		t.Errorf("GetRevenueBreakdown missing seller: err = %v, want InvalidArgument", err)
 	}
 }
@@ -170,14 +169,14 @@ func TestMissingSellerID(t *testing.T) {
 // A nil repository must be reported as Unavailable, not panic.
 func TestNilRepository(t *testing.T) {
 	svc := query.NewService(nil)
-	if _, err := svc.GetSellerFunnel(context.Background(), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-1"}); status.Code(err) != codes.Unavailable {
+	if _, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-1"}); status.Code(err) != codes.Unavailable {
 		t.Errorf("nil repo funnel: err = %v, want Unavailable", err)
 	}
 }
 
 func TestGetDemandForecast_HappyPath(t *testing.T) {
 	svc := query.NewService(newRepo())
-	resp, err := svc.GetDemandForecast(context.Background(), &analyticsv1.GetDemandForecastRequest{
+	resp, err := svc.GetDemandForecast(adminCtx(t), &analyticsv1.GetDemandForecastRequest{
 		SellerId:     "seller-1",
 		ListingId:    "lst-a",
 		HorizonDays:  14,
@@ -199,4 +198,3 @@ func TestGetDemandForecast_HappyPath(t *testing.T) {
 		t.Errorf("safety_stock = %v, want > 0", resp.GetSafetyStock())
 	}
 }
-

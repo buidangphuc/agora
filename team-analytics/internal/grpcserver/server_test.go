@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/config"
@@ -75,6 +76,7 @@ func TestAnalyticsQueryServiceRegistered(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	ctx = metadata.AppendToOutgoingContext(ctx, "x-principal-id", "seller-1", "x-principal-type", "user")
 	resp, err := analyticsv1.NewAnalyticsQueryServiceClient(conn).
 		GetSellerFunnel(ctx, &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-1"})
 	if err != nil {

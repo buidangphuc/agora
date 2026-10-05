@@ -1,7 +1,7 @@
 ## 1. Code — team-analytics
 
-- [ ] 1.1 Add `requireSellerAccess` and call it first in `GetSellerFunnel`, `GetRevenueBreakdown` and `GetDemandForecast`; verify unit tests for owner, other seller (PermissionDenied), anonymous (Unauthenticated) and admin, with `go build/vet/test ./...`
-- [ ] 1.2 Confirm by grep that no service principal calls these RPCs; record the result in the commit body
+- [x] 1.1 Add `requireSellerAccess` and call it first in `GetSellerFunnel`, `GetRevenueBreakdown` and `GetDemandForecast`; verify unit tests for owner, other seller (PermissionDenied), anonymous (Unauthenticated) and admin, with `go build/vet/test ./...`
+- [x] 1.2 Confirm by grep that no service principal calls these RPCs; record the result in the commit body
 
 ## 2. Code — team-identity
 
