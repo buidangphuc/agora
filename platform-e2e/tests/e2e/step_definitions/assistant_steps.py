@@ -13,7 +13,11 @@ from tests.e2e.support.world import World
 @when("the buyer asks the assistant a question")
 def ask_assistant(world: World) -> None:
     page: AssistantPage = world.get_page(PageName.ASSISTANT)  # type: ignore[assignment]
+    # Controlled input: wait for hydration so the typed text reaches React state
+    # and "Gửi" is enabled before it is clicked.
+    page.wait_until_interactive(page.chat_input)
     page.chat_input.fill("Tìm laptop dưới 20 triệu")
+    expect(page.send_button).to_be_enabled(timeout=timeouts.DEFAULT)
     page.send_button.click()
 
 
