@@ -187,6 +187,56 @@ func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID
 	}, nil
 }
 
+// PlatformOrderSummary sums every order row with OccurredAt >= since.
+func (m *MemoryRepository) PlatformOrderSummary(_ context.Context, since time.Time) (OrderSummary, error) {
+	var s OrderSummary
+	orders := map[string]struct{}{}
+	for _, e := range m.events {
+		if e.OrderID == "" || e.OccurredAt.UTC().Before(since) {
+			continue
+		}
+		orders[e.OrderID] = struct{}{}
+		s.GMV += e.Revenue
+	}
+	s.OrderCount = int64(len(orders))
+	return s, nil
+}
+
+// RecentOrders groups order rows by order id, newest first.
+func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]RecentOrder, error) {
+	byID := map[string]*RecentOrder{}
+	for _, e := range m.events {
+		if e.OrderID == "" {
+			continue
+		}
+		o := byID[e.OrderID]
+		if o == nil {
+			o = &RecentOrder{OrderID: e.OrderID, SellerID: e.SellerID, PaidAt: e.OccurredAt.UTC()}
+			byID[e.OrderID] = o
+		}
+		o.Total += e.Revenue
+		if e.SellerID < o.SellerID {
+			o.SellerID = e.SellerID
+		}
+		if t := e.OccurredAt.UTC(); t.After(o.PaidAt) {
+			o.PaidAt = t
+		}
+	}
+	out := make([]RecentOrder, 0, len(byID))
+	for _, o := range byID {
+		out = append(out, *o)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].PaidAt.Equal(out[j].PaidAt) {
+			return out[i].PaidAt.After(out[j].PaidAt)
+		}
+		return out[i].OrderID < out[j].OrderID
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 // compile-time assertion that the fake satisfies the seam.
 var _ Repository = (*MemoryRepository)(nil)
-

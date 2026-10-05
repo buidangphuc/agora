@@ -4,7 +4,7 @@
 
 ## 2. Code — team-analytics
 
-- [ ] 2.1 Implement both RPCs over `order_facts` with `RequireScopes(ctx, "admin")`; verify unit tests for counts, GMV, window edge, empty table and a non-admin principal (PermissionDenied) pass with `go test ./...`
+- [x] 2.1 Implement both RPCs over `order_facts` with `RequireScopes(ctx, "admin")`; verify unit tests for counts, GMV, window edge, empty table and a non-admin principal (PermissionDenied) pass with `go test ./...`
 
 ## 3. Code — team-gateway
 
