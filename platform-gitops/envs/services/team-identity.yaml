@@ -42,7 +42,7 @@ secrets:
 # team-order (address validation). Deployed envs only (local exempt per ADR-0010).
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway, team-order]
+  allowFrom: [team-gateway, team-order, team-notification]
 # NOTE: 50063 is now exposed in-cluster via the chart's optional `jwksPort` (set
 # above): charts/service renders a second `jwks` containerPort + Service port so the
 # gateway can reach http://team-identity:50063. Local dev reaches it via docker-compose.

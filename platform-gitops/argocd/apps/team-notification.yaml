@@ -50,6 +50,8 @@ spec:
             ORDER_EVENTS_TOPIC: "order.events"
             NOTIFICATION_ORDER_CONSUMER_GROUP: "team-notification.order"
             ORDER_EVENTS_DLQ_TOPIC: "order.events.dlq"
+            UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
+            UPSTREAM_IDENTITY_ADDR: "team-identity:50053"
           secrets:
             enabled: true
   syncPolicy:

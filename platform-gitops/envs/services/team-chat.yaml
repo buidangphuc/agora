@@ -19,6 +19,11 @@ env:
   KAFKA_ENABLED: "true"
   KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
   KAFKA_CHAT_TOPIC: "chat.events"
+  OUTBOX_ENABLED: "true"
+  OUTBOX_POLL_INTERVAL: "1s"
+  OUTBOX_BATCH_SIZE: "100"
+  OUTBOX_CLAIM_LOCK_SECONDS: "60"
+  OUTBOX_MAX_ATTEMPTS: "10"
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50057; only the
