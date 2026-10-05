@@ -422,12 +422,17 @@ func (c RunConfig) withDefaults() RunConfig {
 	return c
 }
 
-// Run consumes until ctx is cancelled. Per record it applies the handler with
-// bounded in-process retries; on a permanent error or once retries are exhausted
-// it produces the record to the DLQ. Crucially it commits the offset ONLY after
-// the record is either applied or DLQ'd — it never advances past an unprocessed
-// record (AD1).
+// Run consumes until ctx is cancelled; see runLoop for the delivery discipline.
 func (c *ListingConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
+	return runLoop(ctx, c.logger, c.HandleRaw, reader, dlq, cfg)
+}
+
+// runLoop is the shared consume loop for every team-notification consumer. Per
+// record it applies handle with bounded in-process retries; on a permanent error
+// or once retries are exhausted it produces the record to the DLQ. Crucially it
+// commits the offset ONLY after the record is either applied or DLQ'd — it never
+// advances past an unprocessed record (AD1).
+func runLoop(ctx context.Context, logger *slog.Logger, handle func(context.Context, []byte) error, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
 	cfg = cfg.withDefaults()
 	for {
 		if ctx.Err() != nil {
@@ -438,27 +443,27 @@ func (c *ListingConsumer) Run(ctx context.Context, reader RecordReader, dlq Dead
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
-			c.logger.WarnContext(ctx, "fetch record failed", slog.Any("err", err))
+			logger.WarnContext(ctx, "fetch record failed", slog.Any("err", err))
 			continue
 		}
 
-		if perr := c.processWithRetry(ctx, rec, dlq, cfg); perr != nil {
+		if perr := processWithRetry(ctx, logger, handle, rec, dlq, cfg); perr != nil {
 			// Could not process AND could not DLQ: do NOT commit — leave the offset so
 			// the record is redelivered (never lose it).
-			c.logger.ErrorContext(ctx, "record neither applied nor DLQ'd; not committing",
+			logger.ErrorContext(ctx, "record neither applied nor DLQ'd; not committing",
 				slog.Any("err", perr))
 			continue
 		}
 		if err := reader.Commit(ctx, rec); err != nil {
-			c.logger.WarnContext(ctx, "commit offset failed; record may redeliver", slog.Any("err", err))
+			logger.WarnContext(ctx, "commit offset failed; record may redeliver", slog.Any("err", err))
 		}
 	}
 }
 
-func (c *ListingConsumer) processWithRetry(ctx context.Context, rec Record, dlq DeadLetterProducer, cfg RunConfig) error {
+func processWithRetry(ctx context.Context, logger *slog.Logger, handle func(context.Context, []byte) error, rec Record, dlq DeadLetterProducer, cfg RunConfig) error {
 	var lastErr error
 	for attempt := 1; attempt <= cfg.MaxAttempts; attempt++ {
-		err := c.HandleRaw(ctx, rec.Value)
+		err := handle(ctx, rec.Value)
 		if err == nil {
 			return nil
 		}
@@ -474,7 +479,7 @@ func (c *ListingConsumer) processWithRetry(ctx context.Context, rec Record, dlq 
 			}
 		}
 	}
-	c.logger.WarnContext(ctx, "routing record to DLQ",
+	logger.WarnContext(ctx, "routing record to DLQ",
 		slog.String("dlq_topic", cfg.DLQTopic), slog.Any("err", lastErr))
 	if err := dlq.Produce(ctx, cfg.DLQTopic, rec); err != nil {
 		return fmt.Errorf("produce to DLQ: %w (original: %v)", err, lastErr)

@@ -12,8 +12,8 @@
 
 ## 4. Code — team-notification
 
-- [ ] 4.1 `chat.events` consumer: CHAT notification for the non-sender, dedupe, prefs; verify unit tests (recipient, sender not notified, redelivery once, disabled pref skips)
-- [ ] 4.2 `order.events` consumer: ORDER notification on `OrderShipped` for the buyer, ignore other types, dedupe, prefs; verify unit tests including an `OrderPaidEvent` being ignored
+- [x] 4.1 `chat.events` consumer: CHAT notification for the non-sender, dedupe, prefs; verify unit tests (recipient, sender not notified, redelivery once, disabled pref skips)
+- [x] 4.2 `order.events` consumer: ORDER notification on `OrderShipped` for the buyer, ignore other types, dedupe, prefs; verify unit tests including an `OrderPaidEvent` being ignored
 - [ ] 4.3 Wire both consumers in main with env (topics, groups) and compose; verify the env-example sync test and `go build ./...`
 
 ## 5. Code — team-analytics
