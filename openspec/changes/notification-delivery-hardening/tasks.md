@@ -13,7 +13,7 @@
 
 ## 4. Code — team-notification
 
-- [ ] 4.1 Migration and Postgres implementations of the dedupe ledger and listing last-seen stores, wired for all consumers; verify Postgres tests (skip without `TEST_DATABASE_URL`) and unit tests
+- [x] 4.1 Migration and Postgres implementations of the dedupe ledger and listing last-seen stores, wired for all consumers; verify Postgres tests (skip without `TEST_DATABASE_URL`) and unit tests
 - [ ] 4.2 Sender display-name resolution (team-domain storefront for the seller, identity profiles otherwise, timeout and fallback); verify unit tests for seller, buyer and lookup failure
 
 ## 5. E2E — platform-e2e

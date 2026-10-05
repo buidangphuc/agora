@@ -61,8 +61,16 @@ func main() {
 	// there) and Kafka is enabled. Cancelled by ctx on shutdown.
 	kcfg := bootstrap.KafkaConfigFromEnv()
 	if pool != nil && kcfg.Enabled {
+		// Consumer state is durable (processed_events, listing_last_seen): a restart
+		// or redeploy neither re-notifies a redelivered event nor loses the baseline
+		// needed to detect a price drop or a restock.
+		dedupe := repository.NewPostgresProcessedEventRepo(pool)
 		startConsumer(ctx, logger, "listing", kcfg, func() consumerRun {
-			return consumer.NewListingConsumer(repo, alertSubs, logger).Run
+			return consumer.NewListingConsumer(repo, alertSubs, logger,
+				consumer.WithDeduper(dedupe),
+				consumer.WithPriceStateStore(repository.NewPostgresListingPriceStore(pool)),
+				consumer.WithStockStateStore(repository.NewPostgresListingStockStore(pool)),
+			).Run
 		})
 
 		// chat.events + order.events (notify-chat-and-shipment): a CHAT notification
@@ -71,10 +79,10 @@ func main() {
 		// notification preferences. Same offset/DLQ discipline as the listing consumer.
 		prefsSvc := service.NewPrefsService(repository.NewPostgresNotificationPrefsRepo(pool))
 		startConsumer(ctx, logger, "chat", bootstrap.ChatKafkaConfigFromEnv(), func() consumerRun {
-			return consumer.NewChatConsumer(repo, prefsSvc, logger).Run
+			return consumer.NewChatConsumer(repo, prefsSvc, logger, consumer.WithUserEventDeduper(dedupe)).Run
 		})
 		startConsumer(ctx, logger, "order", bootstrap.OrderKafkaConfigFromEnv(), func() consumerRun {
-			return consumer.NewOrderConsumer(repo, prefsSvc, logger).Run
+			return consumer.NewOrderConsumer(repo, prefsSvc, logger, consumer.WithUserEventDeduper(dedupe)).Run
 		})
 	}
 
