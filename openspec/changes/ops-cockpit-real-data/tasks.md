@@ -14,8 +14,8 @@
 
 ## 4. Code — team-frontend
 
-- [ ] 4.1 `/admin/cockpit`: server-side session check (anonymous → `/login`, non-admin → 403 `Result`) and server-side fetch with the token; client refresh through a route handler that forwards the token; verify Vitest for the three cases and `npm run check && npx next build`
-- [ ] 4.2 Render orders, GMV, recent orders and traces from the response, "Chưa có dữ liệu" when null/empty; remove the unused `ops:orders` SSE wiring; verify Vitest that no hard-coded value renders
+- [x] 4.1 `/admin/cockpit`: server-side session check (anonymous → `/login`, non-admin → 403 `Result`) and server-side fetch with the token; client refresh through a route handler that forwards the token; verify Vitest for the three cases and `npm run check && npx next build`
+- [x] 4.2 Render orders, GMV, recent orders and traces from the response, "Chưa có dữ liệu" when null/empty; remove the unused `ops:orders` SSE wiring; verify Vitest that no hard-coded value renders
 
 ## 5. E2E — platform-e2e
 

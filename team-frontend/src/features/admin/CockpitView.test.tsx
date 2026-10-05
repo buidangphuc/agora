@@ -1,13 +1,7 @@
-import {
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CockpitView } from "./CockpitView";
+import { type CockpitData, CockpitView } from "./CockpitView";
 
 // Values the old view fabricated when data was missing. None may ever render
 // from a missing/empty source.
@@ -28,14 +22,7 @@ const FABRICATED = [
   "10 Autonomous Services",
 ];
 
-class FakeEventSource {
-  static last: FakeEventSource | null = null;
-  onmessage: ((e: { data: string }) => void) | null = null;
-  close = vi.fn();
-  constructor(public url: string) {
-    FakeEventSource.last = this;
-  }
-}
+const eventSource = vi.fn();
 
 function mockFetch(impl: () => Promise<Partial<Response>>) {
   vi.stubGlobal("fetch", vi.fn(impl));
@@ -47,18 +34,40 @@ function expectNoFabricated() {
 }
 
 beforeEach(() => {
-  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("EventSource", eventSource);
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  FakeEventSource.last = null;
+  eventSource.mockClear();
 });
+
+const EMPTY: CockpitData = {
+  timestamp: "2026-10-05T00:00:00Z",
+  prometheus_available: false,
+  total_rps: 0,
+  avg_latency_ms: null,
+  total_orders_24h: null,
+  total_revenue_24h: null,
+  services: [
+    {
+      name: "team-order",
+      port: 50055,
+      status: "UNKNOWN",
+      rps: 0,
+      p95_latency_ms: null,
+      p99_latency_ms: null,
+      error_rate: null,
+    },
+  ],
+  recent_orders: [],
+  recent_traces: [],
+};
 
 describe("CockpitView without data", () => {
   it("renders no hard-coded numbers before the first response", () => {
     mockFetch(() => new Promise(() => {}));
-    render(<CockpitView />);
+    render(<CockpitView initial={null} />);
     expectNoFabricated();
     const cards = screen.getByTestId("cockpit_metrics");
     expect(within(cards).getAllByText("—").length).toBeGreaterThanOrEqual(4);
@@ -66,126 +75,153 @@ describe("CockpitView without data", () => {
 
   it("shows an unavailable state when the gateway is unreachable", async () => {
     mockFetch(() => Promise.reject(new Error("network")));
-    render(<CockpitView />);
+    render(<CockpitView initial={null} />);
     await screen.findByText(/Không kết nối được gateway/);
     expectNoFabricated();
     expect(screen.getByText("Chưa có dữ liệu service.")).toBeTruthy();
   });
 
-  it("shows no numbers when Prometheus is down and orders/revenue are null", async () => {
-    mockFetch(() =>
-      Promise.resolve({
-        ok: true,
-        json: async () => ({
-          timestamp: "2026-10-05T00:00:00Z",
-          prometheus_available: false,
-          total_rps: 0,
-          avg_latency_ms: null,
-          total_orders_24h: null,
-          total_revenue_24h: null,
-          services: [
-            {
-              name: "team-order",
-              port: 50055,
-              status: "UNKNOWN",
-              rps: 0,
-              p95_latency_ms: null,
-              p99_latency_ms: null,
-              error_rate: null,
-            },
-          ],
-          recent_traces: [],
-        }),
-      }),
-    );
-    render(<CockpitView />);
-    await screen.findByText(/Prometheus không khả dụng/);
+  it("shows no numbers when every source is down (server-fetched payload)", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={EMPTY} />);
     expectNoFabricated();
     const cards = screen.getByTestId("cockpit_metrics");
     expect(cards.textContent).not.toMatch(/\d+\.\d/);
+    expect(cards.textContent).not.toMatch(/\d,\d{3}/);
     const health = screen.getByTestId("cockpit_health");
     const row = within(health).getByText("team-order").closest("tr");
     expect(row?.textContent).not.toMatch(/\d+(\.\d+)?\s*(ms|%)/);
-    expect(screen.getAllByText(/Chưa có dữ liệu/).length).toBeGreaterThan(0);
+    expect(
+      within(screen.getByTestId("cockpit_orders")).getByText("Chưa có dữ liệu"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("cockpit_traces")).toBeNull();
+    expect(screen.getAllByText(/Chưa có dữ liệu/).length).toBeGreaterThan(2);
+    expect(screen.getByText(/Prometheus không khả dụng/)).toBeTruthy();
   });
 
-  it("shows an empty live-orders state and only real SSE orders", async () => {
-    mockFetch(() => Promise.reject(new Error("network")));
-    render(<CockpitView />);
-    expect(
-      screen.getByText("Chưa có đơn hàng nào được ghi nhận."),
-    ).toBeTruthy();
-    expect(FakeEventSource.last?.url).toContain("room=ops:orders");
+  it("does not open the unused ops:orders SSE stream", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={EMPTY} />);
+    expect(eventSource).not.toHaveBeenCalled();
+    expect(screen.queryByText(/ops:orders/)).toBeNull();
+    expect(screen.queryByText(/SSE/)).toBeNull();
+  });
 
-    // An order event without an id is not rendered (no invented ids/amounts).
-    FakeEventSource.last?.onmessage?.({
-      data: JSON.stringify({ event: "OrderPlaced", data: {} }),
-    });
-    expect(
-      screen.getByText("Chưa có đơn hàng nào được ghi nhận."),
-    ).toBeTruthy();
-
-    FakeEventSource.last?.onmessage?.({
-      data: JSON.stringify({
-        event: "OrderPlaced",
-        data: { order_id: "ord_real_1", amount: 1000 },
-      }),
-    });
-    await waitFor(() => expect(screen.getByText(/ord_real_1/)).toBeTruthy());
-    expect(screen.queryByText(/buyer_/)).toBeNull();
+  it("says so when the session is rejected on refresh", async () => {
+    mockFetch(() => Promise.resolve({ ok: false, status: 403 }));
+    render(<CockpitView initial={null} />);
+    await screen.findByText(/không có quyền admin/);
+    expectNoFabricated();
   });
 });
 
 describe("CockpitView with real data", () => {
-  it("renders Prometheus values and honest per-row nulls", async () => {
-    mockFetch(() =>
-      Promise.resolve({
-        ok: true,
-        json: async () => ({
-          timestamp: "2026-10-05T00:00:00Z",
-          prometheus_available: true,
-          total_rps: 3.5,
-          avg_latency_ms: 12.3,
-          total_orders_24h: null,
-          total_revenue_24h: null,
-          services: [
-            {
-              name: "team-search",
-              port: 50052,
-              status: "HEALTHY",
-              rps: 3.5,
-              p95_latency_ms: 12.3,
-              p99_latency_ms: 20,
-              error_rate: 0.1,
-            },
-            {
-              name: "team-chat",
-              port: 50057,
-              status: "IDLE",
-              rps: 0,
-              p95_latency_ms: null,
-              p99_latency_ms: null,
-              error_rate: null,
-            },
-          ],
-          recent_traces: [],
-        }),
-      }),
-    );
-    render(<CockpitView />);
-    await screen.findByText("team-search");
+  const REAL: CockpitData = {
+    ...EMPTY,
+    prometheus_available: true,
+    total_rps: 3.5,
+    avg_latency_ms: 12.3,
+    total_orders_24h: 7,
+    total_revenue_24h: 2100000,
+    services: [
+      {
+        name: "team-search",
+        port: 50052,
+        status: "HEALTHY",
+        rps: 3.5,
+        p95_latency_ms: 12.3,
+        p99_latency_ms: 20,
+        error_rate: 0.1,
+      },
+      {
+        name: "team-chat",
+        port: 50057,
+        status: "IDLE",
+        rps: 0,
+        p95_latency_ms: null,
+        p99_latency_ms: null,
+        error_rate: null,
+      },
+    ],
+    recent_orders: [
+      {
+        order_id: "ord-real-9",
+        seller_id: "s-1",
+        total: 300000,
+        paid_at: "2026-10-05T08:30:15Z",
+      },
+    ],
+    recent_traces: [
+      {
+        trace_id: "abc123def456",
+        operation: "POST /api/orders",
+        span_count: 4,
+        duration_ms: 512.3,
+        started_at: "2026-10-05T08:29:00Z",
+        jaeger_url: "http://localhost:16686/trace/abc123def456",
+      },
+    ],
+  };
+
+  it("renders Prometheus values and honest per-row nulls", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={REAL} />);
     const cards = screen.getByTestId("cockpit_metrics");
     expect(cards.textContent).toContain("3.5");
     expect(cards.textContent).toContain("12.3");
-    expect(cards.textContent).toContain("Chưa có dữ liệu");
     const health = screen.getByTestId("cockpit_health");
     expect(within(health).getByText("10.00%")).toBeTruthy();
     expectNoFabricated();
   });
 
-  it("points external links at the real agora ports", async () => {
-    mockFetch(() => Promise.reject(new Error("network")));
-    render(<CockpitView />);
+  it("renders the order count, GMV, recent orders and traces from the payload", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={REAL} />);
+    const cards = screen.getByTestId("cockpit_metrics");
+    expect(cards.textContent).toContain("7");
+    expect(cards.textContent).toContain("2,100,000");
+    expect(cards.textContent).not.toContain("Chưa có dữ liệu");
+
+    const orders = screen.getByTestId("cockpit_orders");
+    expect(within(orders).getByText(/ord-real-9/)).toBeTruthy();
+    expect(orders.textContent).toContain("300,000");
+    expect(orders.textContent).toContain("08:30:15 UTC");
+
+    const traces = screen.getByTestId("cockpit_traces");
+    expect(within(traces).getByText("POST /api/orders")).toBeTruthy();
+    expect(traces.textContent).toContain("4 spans");
+    expect(traces.textContent).toContain("512.3 ms");
+    expect(within(traces).getByRole("link").getAttribute("href")).toBe(
+      "http://localhost:16686/trace/abc123def456",
+    );
+    expectNoFabricated();
+  });
+
+  it("renders a legitimate zero as 0, not as missing", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(
+      <CockpitView
+        initial={{ ...REAL, total_orders_24h: 0, total_revenue_24h: 0 }}
+      />,
+    );
+    const cards = screen.getByTestId("cockpit_metrics");
+    expect(cards.textContent).toContain("0 đơn");
+    expect(cards.textContent).not.toContain("Chưa có dữ liệu");
+  });
+
+  it("refreshes through the same-origin route handler, not the gateway", async () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<CockpitView initial={null} />);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/admin/metrics",
+      expect.anything(),
+    );
+  });
+
+  it("points external links at the real agora ports", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={EMPTY} />);
     const hrefs = screen
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
