@@ -483,8 +483,9 @@ features:
     priority: P1
     summary: >-
       A buyer places and pays an order of 2 x 150,000 ₫; once order.events is ingested
-      into order_facts, the admin cockpit's 24h order count rises by 1, GMV by 300,000
-      and the order is first in recent_orders (within 30 s).
+      into order_facts, the admin cockpit's 24h order count rises by at least 1, GMV by at
+      least 300,000 (other orders may be paid concurrently) and the order is in
+      recent_orders with a total of 300,000 (within 30 s).
     entry_route: /admin/cockpit
     services: [team-frontend, team-gateway, team-analytics, team-order, team-payment, team-identity]
     preconditions:
@@ -496,8 +497,8 @@ features:
     acceptance:
       - Given an admin has noted the 24h order figures
       - When a buyer places and pays an order of 2 x 150000 VND
-      - Then within 30 seconds total_orders_24h has increased by 1 and total_revenue_24h by 300000
-      - And recent_orders lists that order id first
+      - Then within 30 seconds total_orders_24h has increased by at least 1 and total_revenue_24h by at least 300000
+      - And recent_orders lists that order id with a total of 300000
     tags: [admin, observability, order]
     status: automated
     covered_by: "ops/cockpit_real_data.feature::A paid order shows up in the 24h figures"

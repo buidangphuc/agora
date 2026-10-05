@@ -23,6 +23,6 @@ Feature: Only admins read the cockpit, and its order figures come from real paid
     Given an admin is logged in
     And the 24h order figures are noted
     When a buyer places and pays an order of 2 x 150000 VND
-    Then within 30 seconds total_orders_24h has increased by 1
-    And total_revenue_24h has increased by 300000
-    And the first recent order is that order
+    Then within 30 seconds total_orders_24h has increased by at least 1
+    And total_revenue_24h has increased by at least 300000
+    And the recent orders include that order with a total of 300000

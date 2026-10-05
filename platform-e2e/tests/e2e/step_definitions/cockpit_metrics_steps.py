@@ -226,8 +226,12 @@ def buyer_places_and_pays(world: World, qty: int, price: int) -> None:
     world.state.extra["paid_order_id"] = order_id
 
 
-@then(parsers.parse("within 30 seconds total_orders_24h has increased by {n:d}"))
+@then(parsers.parse("within 30 seconds total_orders_24h has increased by at least {n:d}"))
 def orders_increased(world: World, n: int) -> None:
+    # Other scenarios pay orders concurrently (xdist workers share the stack), so the
+    # figures are a floor: this order must be counted, never exactly "+n". The poll
+    # waits for *this* order to be ingested, which is the observable proof that its
+    # own contribution has landed in both the count and the GMV.
     order_id = world.state.extra["paid_order_id"]
     deadline = time.monotonic() + ORDER_FACTS_LAG_S
     metrics: dict = {}
@@ -238,21 +242,20 @@ def orders_increased(world: World, n: int) -> None:
         time.sleep(1.0)
     world.state.extra["metrics"] = metrics
     delta = (metrics.get("total_orders_24h") or 0) - world.state.extra["orders_before"]
-    assert delta == n, f"total_orders_24h grew by {delta}, expected {n}"
+    assert delta >= n, f"total_orders_24h grew by {delta}, expected at least {n}"
 
 
-@then(parsers.parse("total_revenue_24h has increased by {amount:d}"))
+@then(parsers.parse("total_revenue_24h has increased by at least {amount:d}"))
 def revenue_increased(world: World, amount: int) -> None:
     metrics = world.state.extra["metrics"]
     delta = (metrics.get("total_revenue_24h") or 0) - world.state.extra["revenue_before"]
-    assert delta == amount, f"total_revenue_24h grew by {delta}, expected {amount}"
+    assert delta >= amount, f"total_revenue_24h grew by {delta}, expected at least {amount}"
 
 
-@then("the first recent order is that order")
-def first_recent_order(world: World) -> None:
+@then(parsers.parse("the recent orders include that order with a total of {amount:d}"))
+def recent_orders_include_order(world: World, amount: int) -> None:
     recent = world.state.extra["metrics"].get("recent_orders") or []
     order_id = world.state.extra["paid_order_id"]
-    assert recent, "recent_orders is empty"
-    assert (
-        recent[0]["order_id"] == order_id
-    ), f"first recent order is {recent[0]}, expected {order_id}"
+    mine = [o for o in recent if o.get("order_id") == order_id]
+    assert mine, f"order {order_id} is not in recent_orders within the window: {recent}"
+    assert mine[0].get("total") == amount, f"recent order is {mine[0]}, expected total {amount}"
