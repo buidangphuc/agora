@@ -96,17 +96,9 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 // ── Seller Wallet RPCs ────────────────────────────────────────────────
 
 func (h *PaymentHandler) GetSellerWallet(ctx context.Context, req *paymentv1.GetSellerWalletRequest) (*paymentv1.GetSellerWalletResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
 	if err != nil {
 		return nil, err
-	}
-
-	sellerID := req.GetSellerId()
-	if sellerID == "" {
-		sellerID = principal.GetId()
-	}
-	if sellerID == "" {
-		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
 	}
 
 	wallet, err := h.svc.GetSellerWallet(ctx, sellerID)
@@ -120,17 +112,9 @@ func (h *PaymentHandler) GetSellerWallet(ctx context.Context, req *paymentv1.Get
 }
 
 func (h *PaymentHandler) RequestPayout(ctx context.Context, req *paymentv1.RequestPayoutRequest) (*paymentv1.RequestPayoutResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), false)
 	if err != nil {
 		return nil, err
-	}
-
-	sellerID := req.GetSellerId()
-	if sellerID == "" {
-		sellerID = principal.GetId()
-	}
-	if sellerID == "" {
-		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
 	}
 	if req.GetAmount() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
@@ -156,17 +140,9 @@ func (h *PaymentHandler) RequestPayout(ctx context.Context, req *paymentv1.Reque
 }
 
 func (h *PaymentHandler) ListPayoutHistory(ctx context.Context, req *paymentv1.ListPayoutHistoryRequest) (*paymentv1.ListPayoutHistoryResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
 	if err != nil {
 		return nil, err
-	}
-
-	sellerID := req.GetSellerId()
-	if sellerID == "" {
-		sellerID = principal.GetId()
-	}
-	if sellerID == "" {
-		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
 	}
 
 	payouts, err := h.svc.ListPayoutHistory(ctx, sellerID)
