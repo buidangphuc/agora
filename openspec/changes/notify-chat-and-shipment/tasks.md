@@ -18,7 +18,7 @@
 
 ## 5. Code — team-analytics
 
-- [ ] 5.1 Confirm the order consumer skips `OrderShipped` and advances; verify a unit test
+- [x] 5.1 Confirm the order consumer skips `OrderShipped` and advances; verify a unit test
 
 ## 6. E2E — platform-e2e
 
