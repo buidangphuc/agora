@@ -84,12 +84,15 @@ def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypat
     )
 
     registry = ModelRegistry()
-    # Seed an outstanding champion with NDCG=1.0
+    # Seed an outstanding champion with NDCG=1.0, measured under the same protocol
+    # (a champion from another protocol is not comparable and would be replaced).
+    from recsys.evals.holdout import EVAL_PROTOCOL
+
     champion = ModelMetadata(
         model_version="champ-v1",
         model_name="recsys-als",
         model_type="als",
-        metrics={"ndcg@10": 1.0, "coverage@10": 1.0},
+        metrics={"ndcg@10": 1.0, "coverage@10": 1.0, "eval_protocol": EVAL_PROTOCOL},
         status="champion",
     )
     registry.register_model(champion)
@@ -156,3 +159,45 @@ def test_pipeline_without_a_holdout_is_not_a_candidate(tmp_path, monkeypatch):
     assert registry.get_champion_version() is None
     qdrant_mock.assert_not_called()
     redis_mock.assert_not_called()
+
+
+def test_evaluation_model_never_trains_on_the_holdout(tmp_path, monkeypatch):
+    """Regression for the leaky protocol: the evaluation model's training triples must
+    not contain any held-out (user, listing) pair, and metrics carry the protocol."""
+    from pyspark.sql import SparkSession
+
+    import recsys.pipeline as pipeline
+    from recsys.evals.holdout import EVAL_PROTOCOL
+    from recsys.warehouse import read_tracking_events
+
+    parquet_file = tmp_path / "tracking_events.parquet"
+    _create_sample_df().to_parquet(parquet_file, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    settings = Settings(
+        spark_master="local[1]",
+        warehouse_driver="duckdb",
+        warehouse_parquet_path=str(parquet_file),
+        als_max_iter=2,
+        als_rank=4,
+        top_n=5,
+    )
+    seen_pairs: list[set] = []
+    real_build = pipeline.build_triples
+
+    def recording_build(df, s):
+        triples = real_build(df, s)
+        seen_pairs.append({(r["user_key"], r["listing_id"]) for r in triples.collect()})
+        return triples
+
+    monkeypatch.setattr(pipeline, "build_triples", recording_build)
+    spark = SparkSession.builder.master("local[1]").appName("leak-test").getOrCreate()
+    try:
+        metrics = pipeline.evaluate_generation(read_tracking_events(spark, settings), settings)
+    finally:
+        spark.stop()
+
+    # Targets: each user's most recently discovered listing (see _create_sample_df).
+    heldout = {("u1", "l3"), ("u2", "l3"), ("u3", "l1")}
+    (eval_training,) = seen_pairs
+    assert not heldout & eval_training, heldout & eval_training
+    assert metrics["eval_protocol"] == EVAL_PROTOCOL
+    assert metrics["test_events"] == 3

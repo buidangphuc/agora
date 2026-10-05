@@ -13,6 +13,7 @@ import logging
 from . import recommend
 from .config import Settings, load_settings
 from .evals.evaluator import ModelEvaluator
+from .evals.holdout import EVAL_PROTOCOL, leave_last_new_item_out
 from .interactions import build_triples, index_interactions
 from .load import qdrant as qdrant_load
 from .load import redis_cache
@@ -60,6 +61,81 @@ def timestamped_interactions(events):
     ).filter(F.col("listing_id") != "")
 
 
+def evaluate_generation(events, settings: Settings) -> dict:
+    """Score this generation's training recipe on a holdout it never saw.
+
+    The published model is trained on every event. Evaluation instead fits a second ALS
+    model on the per-user training split (leave-last-new-item-out, evals.holdout), so
+    the held-out pairs and anything after them are not in its training data. It ranks
+    each test user's unseen items only. The returned metrics carry EVAL_PROTOCOL.
+    """
+    from pyspark.sql import functions as F  # noqa: PLC0415
+
+    evaluator = ModelEvaluator(k_values=[5, 10, 20])
+    raw_interactions = []
+    try:
+        raw_interactions = [
+            {
+                "user_id": r["user_id"],
+                "listing_id": r["listing_id"],
+                "timestamp": float(r["timestamp"] if r["timestamp"] is not None else 0.0),
+            }
+            for r in timestamped_interactions(events).collect()
+        ]
+    except Exception as exc:
+        log.warning("could not extract raw timestamped events: %s", exc)
+
+    holdout = leave_last_new_item_out(raw_interactions)
+    if not holdout.actual:
+        metrics = evaluator.evaluate(
+            actual_dict={},
+            predicted_dict={},
+            split_strategy=EVAL_PROTOCOL,
+            train_events_count=holdout.train_events,
+            test_events_count=0,
+        )
+        return {**metrics, "eval_protocol": EVAL_PROTOCOL}
+
+    # Drop each test user's events from the moment they discovered the target.
+    user_key = F.when(F.col("principal_id") != "", F.col("principal_id")).otherwise(
+        F.when(F.col("anonymous_id") != "", F.col("anonymous_id"))
+    )
+    cutoffs = events.sparkSession.createDataFrame(list(holdout.cutoffs.items()), ["_uk", "_cut"])
+    train_events = (
+        events.withColumn("_uk", user_key)
+        .withColumn("_ts", F.unix_timestamp(F.col("occurred_at").cast("timestamp")).cast("double"))
+        .join(cutoffs, on="_uk", how="left")
+        .filter(F.col("_cut").isNull() | (F.col("_ts") < F.col("_cut")))
+        .drop("_uk", "_ts", "_cut")
+    )
+    eval_triples = build_triples(train_events, settings)
+    artifacts = train_als(index_interactions(eval_triples, settings), settings)
+    item_ids, item_vecs = _collect_factors(artifacts.item_factors, "listing_id")
+    user_ids, user_vecs = _collect_factors(artifacts.user_factors, "user_key")
+
+    test_users = set(holdout.actual)
+    seen: dict[str, set[str]] = {}
+    for r in (
+        eval_triples.filter(F.col("user_key").isin(sorted(test_users)))
+        .select("user_key", "listing_id")
+        .collect()
+    ):
+        seen.setdefault(r["user_key"], set()).add(r["listing_id"])
+    ranked = recommend.top_n_unseen(
+        user_ids, user_vecs, item_ids, item_vecs, max(settings.top_n, 20), seen, only_users=test_users
+    )
+    metrics = evaluator.evaluate(
+        actual_dict=holdout.actual,
+        predicted_dict={u: [lid for lid, _ in recs] for u, recs in ranked.items()},
+        all_catalog_items=item_ids,
+        split_strategy=EVAL_PROTOCOL,
+        cutoff_timestamp=holdout.cutoff_timestamp,
+        train_events_count=holdout.train_events,
+        test_events_count=holdout.test_events,
+    )
+    return {**metrics, "eval_protocol": EVAL_PROTOCOL}
+
+
 def run(settings: Settings | None = None, registry: ModelRegistry | None = None) -> dict:
     """Run the full pipeline. Returns a summary dict of what was produced."""
     settings = settings or load_settings()
@@ -93,31 +169,8 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
         user_recs = recommend.top_n_for_users(user_ids, user_vecs, item_ids, item_vecs, settings.top_n)
         item_recs = recommend.similar_items(item_ids, item_vecs, settings.top_n)
 
-        # ── Evaluation & Holdout Split ──────────────────────────────────────────
-        predicted_dict = {u: [lid for lid, _ in recs] for u, recs in user_recs.items()}
-
-        raw_interactions = []
-        try:
-            raw_rows = timestamped_interactions(events).collect()
-            raw_interactions = [
-                {
-                    "user_id": r["user_id"],
-                    "listing_id": r["listing_id"],
-                    "timestamp": float(r["timestamp"] if r["timestamp"] is not None else 0.0),
-                }
-                for r in raw_rows
-            ]
-        except Exception as exc:
-            log.warning("could not extract raw timestamped events: %s", exc)
-
-        evaluator = ModelEvaluator(k_values=[5, 10, 20])
-        eval_results = evaluator.evaluate(
-            predicted_dict=predicted_dict,
-            raw_interactions=raw_interactions,
-            all_catalog_items=item_ids,
-            split_k=1,
-        )
-        metrics = eval_results
+        # ── Evaluation (leakage-free, on a separately trained model) ────────────
+        metrics = evaluate_generation(events, settings)
         log.info("model evaluation metrics: %s", metrics)
 
         # A run that could not be evaluated is not a candidate: nothing is

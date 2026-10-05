@@ -17,6 +17,10 @@
 - [ ] 4.1 Remove the strict xfail on "Home page shows AI recommendations with viewable impressions"; verify green against the agora stack (3 runs), FEATURES entries
 - [x] 4.2 Run `openspec validate serve-trained-recs-locally --strict`; verify it is valid
 
+## 5. Leakage-free evaluation — platform-recsys
+
+- [x] 5.1 Per-user leave-last-new-item-out holdout, a separately trained evaluation model, seen-item exclusion, `eval_protocol` stamp, and a gate that does not compare across protocols; verify a Spark test that the evaluation training set holds no target pair, the holdout unit tests, the registry test, and a run on the agora stack
+
 ## Notes (found while applying)
 
 - team-ai also never registered RecommendationService: the proto was not vendored, and the servicer used a guessed contract (`recommendations` field, string context, unknown scope). Fixed as part of 2.1 and gated on `listing.read`.

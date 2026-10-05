@@ -42,3 +42,47 @@ from them (`RECS_ENABLED=true`, Qdrant backend).
   the home page
 - **THEN** the "Gợi ý cho bạn" row shows product cards for real listings, sourced from
   team-ai
+
+## MODIFIED Requirements
+
+### Requirement: The training run SHALL evaluate the generation it produced
+
+Every pipeline run SHALL score its training recipe against a temporal holdout drawn from the
+same interaction window, using the existing `ModelEvaluator`. It SHALL record the resulting
+metrics against that run's `model_version`, stamped with the evaluation protocol. The holdout
+SHALL NOT leak into the scored model:
+- for each user with at least two distinct listings, the target is the most recently
+  discovered listing;
+- the evaluation model is trained only on that user's events before the discovery;
+- the scored ranking excludes the user's training items.
+
+The published model MAY be trained on every event. A run that cannot produce metrics SHALL NOT
+be treated as a promotable candidate. The promotion gate SHALL NOT compare metrics produced
+under different evaluation protocols.
+
+#### Scenario: A run produces ranking metrics for the generation it trained
+
+- **WHEN** the pipeline completes ALS training over a warehouse with enough interactions to form
+  a holdout
+- **THEN** the run reports `ndcg@10` and `coverage@10` for that generation
+- **AND** the reported metrics are attributed to the run's own `model_version`, not to a
+  previous run's
+
+#### Scenario: A run with no usable holdout is not a candidate
+
+- **WHEN** the interaction window yields no test events after the temporal split
+- **THEN** the run records that no evaluation was possible
+- **AND** no candidate is registered, so the promotion gate is not consulted
+
+#### Scenario: The evaluation model never trains on its targets
+
+- **WHEN** a run evaluates its training recipe
+- **THEN** no held-out (user, listing) pair, and none of that user's later events, is in the
+  evaluation model's training data
+- **AND** the metrics carry the evaluation protocol identifier
+
+#### Scenario: Metrics from another evaluation protocol are not compared
+
+- **WHEN** the incumbent champion's metrics were produced under a different evaluation protocol
+- **THEN** the gate does not compare the two values, and the candidate becomes the champion with
+  a reason that names both protocols
