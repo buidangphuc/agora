@@ -45,7 +45,9 @@ export function ImageClient({
     setStatus(img.naturalWidth > 0 ? "loaded" : "error");
   }, [src]);
 
-  if (status === "error") {
+  // An empty src can never load: render the fallback in the first (server)
+  // paint so a broken <img> never swaps for it later (layout shift).
+  if (status === "error" || !src) {
     return (
       <div className="absolute inset-0 flex items-center justify-center">
         {fallback}

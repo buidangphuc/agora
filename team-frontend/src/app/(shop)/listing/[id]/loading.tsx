@@ -14,7 +14,11 @@ export default function Loading() {
       aria-live="polite"
       data-testid="pdp-skeleton"
     >
-      <Skeleton variant="text" lines={1} className="w-1/3" />
+      {/* Breadcrumb footprint: one text-xs line at lg, two wrapped lines below. */}
+      <div className="space-y-1.5" data-testid="pdp-skeleton-breadcrumb">
+        <div className="h-4 w-2/3 animate-pulse rounded-xs bg-neutral-200 lg:w-1/3" />
+        <div className="h-4 w-1/2 animate-pulse rounded-xs bg-neutral-200 lg:hidden" />
+      </div>
 
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">

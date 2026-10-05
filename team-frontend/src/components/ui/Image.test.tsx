@@ -32,6 +32,14 @@ describe("Image", () => {
     expect(box).toHaveClass("aspect-square");
   });
 
+  it("renders the fallback in the first paint for an empty src (no broken img swap)", () => {
+    const html = renderToStaticMarkup(
+      <Image src="" alt="Áo" aspect="square" />,
+    );
+    expect(html).not.toContain("<img");
+    expect(html).toContain("Không có ảnh");
+  });
+
   it("shows a pulse placeholder until the picture loads", () => {
     const { container } = render(<Image src="/a.jpg" alt="Áo" aspect="4/3" />);
     expect(container.querySelector(".animate-pulse")).not.toBeNull();
