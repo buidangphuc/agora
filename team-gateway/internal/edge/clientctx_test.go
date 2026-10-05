@@ -94,3 +94,10 @@ func TestClientContextClipsUserAgent(t *testing.T) {
 		t.Fatalf("user agent length = %d, want clipped to 256", len(ua[0]))
 	}
 }
+
+func TestClientContextSanitizesNonASCIIUserAgent(t *testing.T) {
+	_, ua := clientMD(t, "", map[string]string{"User-Agent": "Brow\u00e9ser/1"})
+	if len(ua) != 1 || ua[0] != "Brow?ser/1" {
+		t.Fatalf("user agent = %v, want non-ASCII replaced", ua)
+	}
+}

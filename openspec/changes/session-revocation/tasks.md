@@ -14,9 +14,9 @@
 - [x] 3.1 `identity.events` consumer (no shared group, earliest on start) feeding an in-memory `sid` denylist with expiry pruning; verify unit tests for add, expiry, replay and duplicate events
 - [x] 3.2 The auth path rejects a denylisted `sid` with 401 (`WWW-Authenticate: Bearer error="invalid_token"`); verify bearer tests for a revoked sid on a public and a protected route
 - [x] 3.3 `outgoing()` sets `x-client-ip` / `x-client-user-agent` (clipped), `X-Forwarded-For` only from `TRUSTED_PROXIES`; verify tests for direct, trusted-proxy and spoofed inputs
-- [ ] 3.4 Run `auth-scope-reviewer` and `contract-boundary-reviewer` over the diff; verify no BLOCKING finding
+- [x] 3.4 Run `auth-scope-reviewer` and `contract-boundary-reviewer` over the diff; verify no BLOCKING finding
 
 ## 4. E2E — platform-e2e
 
 - [ ] 4.1 Scenarios: revoked token gets 401 within 5 s; revocation survives a gateway restart (`@destructive`); new session shows device and IP; spoofed forwarded IP is ignored; FEATURES.yaml entries; verify green against the agora stack and flip to `automated`
-- [ ] 4.2 Run `openspec validate session-revocation --strict`; verify it is valid
+- [x] 4.2 Run `openspec validate session-revocation --strict`; verify it is valid

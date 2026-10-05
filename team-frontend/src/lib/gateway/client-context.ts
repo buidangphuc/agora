@@ -44,9 +44,11 @@ export function clientContextFrom(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (forwarded.length > 0) {
-    const idx = Math.max(0, forwarded.length - proxyHops(env));
-    const candidate = forwarded[idx] ?? "";
+  // A chain shorter than the hop count means a proxy did not append: the only entry
+  // would be client-controlled, so forward no IP and let the gateway use our peer.
+  const hops = proxyHops(env);
+  if (forwarded.length >= hops) {
+    const candidate = forwarded[forwarded.length - hops] ?? "";
     if (isIP(candidate) !== 0) out.ip = candidate;
   }
 

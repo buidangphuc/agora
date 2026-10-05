@@ -28,10 +28,10 @@ describe("clientContextFrom", () => {
     expect(clientContextFrom(h, { TRUSTED_PROXY_HOPS: "2" }).ip).toBe(
       "203.0.113.7",
     );
-    // Fewer entries than hops: the leftmost, never an out-of-range read.
-    expect(clientContextFrom(h, { TRUSTED_PROXY_HOPS: "9" }).ip).toBe(
-      "1.2.3.4",
-    );
+    // Fewer entries than hops: no IP at all (never the client-controlled leftmost).
+    expect(
+      clientContextFrom(h, { TRUSTED_PROXY_HOPS: "9" }).ip,
+    ).toBeUndefined();
   });
 
   it("drops a value that is not an IP address", () => {
