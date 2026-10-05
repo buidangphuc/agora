@@ -207,6 +207,8 @@ def doc_ref_named(world: World, name: str) -> None:
 def submit_disabled_until_reference(world: World) -> None:
     page = VerificationPage(world.page)
     expect(page.submit_button).to_be_disabled()
+    # Controlled input: a fill before hydration never reaches React state.
+    page.wait_until_interactive(page.doc_ref_input)
     page.doc_ref_input.fill("E2E-REF-0001")
     expect(page.submit_button).to_be_enabled()
 
