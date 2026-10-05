@@ -482,6 +482,9 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events
+      # Session revocation (ADR-0003 addendum): consume identity.events into the
+      # in-memory sid denylist (no consumer group; earliest offset on start).
+      - IDENTITY_EVENTS_TOPIC=identity.events
       - OTEL_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=team-gateway

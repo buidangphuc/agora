@@ -25,6 +25,7 @@ import (
 	"github.com/buidangphuc/team-gateway/internal/edge"
 	"github.com/buidangphuc/team-gateway/internal/events"
 	"github.com/buidangphuc/team-gateway/internal/observability"
+	"github.com/buidangphuc/team-gateway/internal/revocation"
 	"github.com/buidangphuc/team-gateway/internal/token"
 	"github.com/buidangphuc/team-gateway/internal/upstream"
 )
@@ -123,6 +124,13 @@ func run() error {
 		settings.Edge.RateLimitBurst,
 	)
 
+	// Session revocation (ADR-0003 addendum): identity.events → in-memory denylist
+	// of revoked session ids, checked by the edge after local JWT verification.
+	// Best-effort by design: the consumer runs in the background and Kafka being
+	// down never stops the gateway starting (revocations just are not enforced,
+	// logged, and visible on gateway_revocation_consumer_up).
+	startRevocations(ctx, settings, e, logger)
+
 	// Edge telemetry producer (ADR-0002): a real Kafka producer when enabled,
 	// else a no-op so beacons are accepted without a broker. Pure edge concern
 	// (validate → stamp principal → produce); no business logic (Rule 2).
@@ -174,6 +182,23 @@ func run() error {
 		}
 		return <-serveErr
 	}
+}
+
+// startRevocations wires the revocation denylist into the edge and starts the
+// identity.events consumer. With KAFKA_ENABLED=false there is no source, so the
+// edge fails open (no revocation enforcement) and says so once at startup.
+func startRevocations(ctx context.Context, settings *config.Settings, e *edge.Edge, logger *slog.Logger) {
+	if !settings.Events.KafkaEnabled {
+		logger.Warn("session revocation disabled (KAFKA_ENABLED=false): revoked tokens stay valid until they expire")
+		return
+	}
+	list := revocation.NewDenylist()
+	consumer := revocation.NewConsumer(settings.KafkaBrokers(), settings.Identity.Topic, list, logger)
+	e.WithRevocations(list)
+	if err := revocation.RegisterMetrics(consumer); err != nil {
+		logger.Warn("revocation metrics not registered", slog.Any("err", err))
+	}
+	go consumer.Run(ctx)
 }
 
 // newAnalyticsPublisher builds the edge telemetry producer: a Kafka producer

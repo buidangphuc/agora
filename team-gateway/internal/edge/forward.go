@@ -48,10 +48,39 @@ type resolvedPrincipal struct {
 // timeout + retry, and the rate limiter.
 type Edge struct {
 	verifier     *token.Verifier
+	revocations  SessionRevocations
 	publicScopes []string
 	callTimeout  time.Duration
 	retryMax     int
 	limiter      *rateLimiter
+}
+
+// SessionRevocations answers whether a session id was revoked (ADR-0003 addendum).
+// Satisfied by *revocation.Denylist; nil means "no revocation source" and every
+// session is treated as live (fail open).
+type SessionRevocations interface {
+	Revoked(sessionID string) bool
+}
+
+// WithRevocations makes the edge reject any token whose `sid` is revoked. It is
+// optional and set once at startup, before the edge serves.
+func (e *Edge) WithRevocations(r SessionRevocations) *Edge {
+	e.revocations = r
+	return e
+}
+
+// verifyToken verifies a bearer token locally (signature, expiry) and then checks
+// its session against the revocation denylist. Both failures read as an invalid
+// token; there is no call to identity.
+func (e *Edge) verifyToken(tok string) (*token.Claims, error) {
+	claims, err := e.verifier.Verify(tok)
+	if err != nil {
+		return nil, err
+	}
+	if claims.SessionID != "" && e.revocations != nil && e.revocations.Revoked(claims.SessionID) {
+		return nil, errSessionRevoked
+	}
+	return claims, nil
 }
 
 // NewEdge builds the edge helper. The verifier checks RS256 tokens against
@@ -70,6 +99,11 @@ func NewEdge(verifier *token.Verifier, publicScopes []string, callTimeout time.D
 // verify (malformed, bad signature, unknown kid, expired).
 var errInvalidToken = errors.New("invalid or expired bearer token")
 
+// errSessionRevoked marks a token whose session was revoked. It is reported to the
+// client exactly like any invalid token (resolve maps every verify failure to
+// errInvalidToken).
+var errSessionRevoked = errors.New("session revoked")
+
 // resolve turns the Authorization header into a Principal (RFC 6750 §3.1):
 //   - no bearer credential        → anonymous with the configured public scopes;
 //   - a bearer that verifies      → the token's Principal;
@@ -81,7 +115,7 @@ func (e *Edge) resolve(header http.Header) (resolvedPrincipal, error) {
 	if !present {
 		return p, nil
 	}
-	claims, err := e.verifier.Verify(tok)
+	claims, err := e.verifyToken(tok)
 	if err != nil {
 		return p, errInvalidToken
 	}

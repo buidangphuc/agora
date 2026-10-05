@@ -205,7 +205,7 @@ func (e *Edge) beaconPrincipal(r *http.Request) *commonv1.Principal {
 		return p
 	}
 
-	claims, err := e.verifier.Verify(tok)
+	claims, err := e.verifyToken(tok)
 	if err != nil {
 		return p
 	}

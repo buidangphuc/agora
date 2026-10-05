@@ -21,6 +21,7 @@ type Settings struct {
 	Auth          Auth
 	Edge          Edge
 	Events        Events
+	Identity      IdentityEvents
 	Observability Observability
 }
 
@@ -92,6 +93,15 @@ type Events struct {
 	KafkaEnabled   bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers        string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
+}
+
+// IdentityEvents configures the revocation consumer (ADR-0003 addendum): the
+// gateway reads identity.events (SessionRevoked) into an in-memory session
+// denylist. It reuses KAFKA_ENABLED / KAFKA_BROKERS from Events. The consumer
+// takes no group (every replica reads every partition from the earliest offset)
+// and is best-effort: Kafka being down never stops the gateway starting.
+type IdentityEvents struct {
+	Topic string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
 }
 
 type Observability struct {
