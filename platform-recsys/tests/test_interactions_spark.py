@@ -48,3 +48,25 @@ def test_build_triples_drops_empty_listing_and_sums_weight(spark):
     assert triples[("user-1", "listing-a")] == 3.0
     assert ("user-1", "") not in triples  # empty listing dropped
     assert ("anon-9", "listing-b") in triples  # fell back to anonymous_id
+
+
+def test_timestamped_interactions_reads_timestamp_ntz(spark):
+    """The DuckDB export stores occurred_at as TIMESTAMP_NTZ; the evaluation rows
+    must still carry epoch seconds (a CAST to DOUBLE is an analysis error there)."""
+    from datetime import datetime
+
+    from pyspark.sql import functions as F
+
+    from recsys.pipeline import timestamped_interactions
+
+    rows = [
+        ("view", "listing-a", "", "user-1", datetime(2026, 10, 5, 2, 34, 0)),
+        ("view", "", "anon-1", "", datetime(2026, 10, 5, 3, 0, 0)),  # no listing: dropped
+        ("click", "listing-b", "anon-2", "", datetime(2026, 10, 5, 4, 0, 0)),
+    ]
+    df = _events(spark, rows).withColumn("occurred_at", F.col("occurred_at").cast("timestamp_ntz"))
+    got = sorted(
+        (r["user_id"], r["listing_id"], r["timestamp"]) for r in timestamped_interactions(df).collect()
+    )
+    assert [(u, lid) for u, lid, _ in got] == [("anon-2", "listing-b"), ("user-1", "listing-a")]
+    assert all(ts > 1.7e9 for _, _, ts in got)

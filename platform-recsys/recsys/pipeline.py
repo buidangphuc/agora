@@ -37,6 +37,29 @@ def _collect_factors(factors_df, id_col: str):
     return ids, vectors
 
 
+def timestamped_interactions(events):
+    """(user_id, listing_id, timestamp) rows for the offline evaluation split.
+
+    occurred_at is TIMESTAMP_NTZ in the DuckDB export (and may be a string or
+    TIMESTAMP elsewhere): cast it to TIMESTAMP before taking epoch seconds. A
+    direct CAST(... AS DOUBLE) is an analysis error on TIMESTAMP_NTZ, which used to
+    leave the evaluation set empty.
+    """
+    from pyspark.sql import functions as F  # noqa: PLC0415
+
+    user_key_expr = F.coalesce(
+        F.when(F.col("principal_id") != "", F.col("principal_id")),
+        F.when(F.col("anonymous_id") != "", F.col("anonymous_id")),
+        F.lit("anonymous"),
+    ).alias("user_id")
+    ts = F.unix_timestamp(F.col("occurred_at").cast("timestamp")).cast("double")
+    return events.select(
+        user_key_expr,
+        F.col("listing_id").alias("listing_id"),
+        F.coalesce(ts, F.lit(0.0)).alias("timestamp"),
+    ).filter(F.col("listing_id") != "")
+
+
 def run(settings: Settings | None = None, registry: ModelRegistry | None = None) -> dict:
     """Run the full pipeline. Returns a summary dict of what was produced."""
     settings = settings or load_settings()
@@ -71,27 +94,11 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
         item_recs = recommend.similar_items(item_ids, item_vecs, settings.top_n)
 
         # ── Evaluation & Holdout Split ──────────────────────────────────────────
-        predicted_dict = {
-            u: [lid for lid, _ in recs]
-            for u, recs in user_recs.items()
-        }
+        predicted_dict = {u: [lid for lid, _ in recs] for u, recs in user_recs.items()}
 
         raw_interactions = []
         try:
-            user_key_expr = F.coalesce(
-                F.when(F.col("principal_id") != "", F.col("principal_id")),
-                F.when(F.col("anonymous_id") != "", F.col("anonymous_id")),
-                F.lit("anonymous"),
-            ).alias("user_id")
-            raw_rows = events.select(
-                user_key_expr,
-                F.col("listing_id").alias("listing_id"),
-                F.coalesce(
-                    F.unix_timestamp(F.col("occurred_at")).cast("double"),
-                    F.col("occurred_at").cast("double"),
-                    F.lit(0.0),
-                ).alias("timestamp"),
-            ).filter(F.col("listing_id") != "").collect()
+            raw_rows = timestamped_interactions(events).collect()
             raw_interactions = [
                 {
                     "user_id": r["user_id"],
@@ -118,6 +125,7 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
             redis_client = None
             try:
                 from redis import Redis  # noqa: PLC0415
+
                 redis_client = Redis(
                     host=settings.redis_host,
                     port=settings.redis_port,
