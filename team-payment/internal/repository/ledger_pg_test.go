@@ -26,7 +26,9 @@ func TestAppendDebitConcurrent_Postgres(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot connect to Postgres (%v); skipping", err)
 	}
-	defer pool.Close()
+	// Registered first so it runs last: t.Cleanup is LIFO, and the reset cleanup
+	// below still needs the pool (a defer would close it before cleanups run).
+	t.Cleanup(pool.Close)
 	if err := pool.Ping(ctx); err != nil {
 		t.Skipf("Postgres unreachable (%v); skipping", err)
 	}
