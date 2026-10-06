@@ -19,6 +19,7 @@ import (
 
 	"github.com/buidangphuc/team-engagement/internal/bootstrap"
 	"github.com/buidangphuc/team-engagement/internal/config"
+	"github.com/buidangphuc/team-engagement/internal/consumer"
 	"github.com/buidangphuc/team-engagement/internal/grpcserver"
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/observability"
@@ -91,7 +92,8 @@ func run() error {
 	disputeSvc := service.NewDisputeService(disputeRepo, logger)
 	collectionRepo := repository.NewPostgresCollectionRepository(res.Pool)
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
-	h := handler.NewEngagementHandler(repository.NewPostgresRepository(res.Pool), reviewSvc, qaSvc, disputeSvc, collectionSvc)
+	engagementRepo := repository.NewPostgresRepository(res.Pool)
+	h := handler.NewEngagementHandler(engagementRepo, reviewSvc, qaSvc, disputeSvc, collectionSvc)
 	srv := grpcserver.Build(settings, h, res.Health, logger)
 
 	addr := net.JoinHostPort(settings.Server.Host, strconv.Itoa(settings.Server.Port))
@@ -110,7 +112,39 @@ func run() error {
 		serveErr <- nil
 	}()
 
+	// listing.events consumer: fills the follow feed. A fatal consumer error (a
+	// record that can neither be handled nor parked to the DLQ) stops the service
+	// so the orchestrator restarts it and the group resumes from its last commit.
+	consumerErr := make(chan error, 1)
+	if settings.Kafka.Enabled {
+		cons, err := consumer.New(settings.KafkaBrokers(), settings.Kafka.ConsumerGroup, settings.Kafka.ListingTopic)
+		if err != nil {
+			return fmt.Errorf("kafka consumer: %w", err)
+		}
+		defer cons.Close()
+		logger.Info("follow-feed consumer started",
+			slog.String("topic", settings.Kafka.ListingTopic),
+			slog.String("group", settings.Kafka.ConsumerGroup))
+		go func() {
+			// Run returns nil on shutdown; only an unexpected stop is reported.
+			if err := cons.Run(ctx, consumer.ListingEventHandler(engagementRepo), logger); err != nil || ctx.Err() == nil {
+				consumerErr <- err
+			}
+		}()
+	} else {
+		logger.Info("KAFKA_ENABLED=false; follow feed is not fed from listing.events")
+	}
+
 	select {
+	case err := <-consumerErr:
+		if err == nil {
+			err = errors.New("follow-feed consumer stopped")
+		} else {
+			err = fmt.Errorf("follow-feed consumer: %w", err)
+		}
+		gracefulStop(srv, settings.Server.ShutdownGrace)
+		<-serveErr
+		return err
 	case err := <-serveErr:
 		return err
 	case <-ctx.Done():

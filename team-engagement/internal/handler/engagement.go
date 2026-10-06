@@ -204,6 +204,9 @@ func (h *EngagementHandler) ListFollowedListings(
 	}
 	ids, next, total, err := h.repo.ListFollowedListings(ctx, userID(ctx), cursor, pageSize)
 	if err != nil {
+		if errors.Is(err, repository.ErrInvalidCursor) {
+			return nil, status.Error(codes.InvalidArgument, "invalid cursor")
+		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 	return &engagementv1.ListFollowedListingsResponse{

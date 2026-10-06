@@ -18,6 +18,7 @@ type Settings struct {
 	Database      Database
 	Observability Observability
 	Upstream      Upstream
+	Kafka         Kafka
 }
 
 type Runtime struct {
@@ -52,6 +53,27 @@ type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:""`
 }
 
+// Kafka configures the listing.events consumer that fills the follow-feed source
+// (seller_listings). Off by default; the consumer group starts from the earliest
+// offset so a fresh deployment backfills the feed.
+type Kafka struct {
+	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
+	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-engagement-feed"`
+	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+}
+
+// KafkaBrokers splits KAFKA_BROKERS into seed addresses.
+func (s *Settings) KafkaBrokers() []string {
+	var out []string
+	for _, p := range strings.Split(s.Kafka.Brokers, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func LoadSettings() (*Settings, error) {
 	s := &Settings{}
 	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
@@ -66,6 +88,9 @@ func LoadSettings() (*Settings, error) {
 func (s *Settings) Validate() error {
 	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
 		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
+	}
+	if s.Kafka.Enabled && (len(s.KafkaBrokers()) == 0 || strings.TrimSpace(s.Kafka.ListingTopic) == "" || strings.TrimSpace(s.Kafka.ConsumerGroup) == "") {
+		return errors.New("KAFKA_BROKERS, KAFKA_LISTING_TOPIC and KAFKA_CONSUMER_GROUP are required when KAFKA_ENABLED=true")
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
