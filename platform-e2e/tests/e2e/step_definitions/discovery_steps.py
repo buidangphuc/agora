@@ -23,6 +23,7 @@ from src.constants import gateway_endpoints as ep
 from src.models import Listing, User
 from src.pages import HomePage, SearchPage, VouchersPage
 from src.utils import data as fake
+from src.utils import get_test_data_manager
 from tests.e2e.flows import login_via_api, stop_container, wait_for_search
 from tests.e2e.support.world import World
 
@@ -336,8 +337,10 @@ def two_columns(world: World) -> None:
 @given("a voucher has been seeded via the gateway")
 def voucher_seeded(world: World) -> None:
     sf = world.service_factory
-    seller = fake.unique_username("voucher_seller")
-    token = sf.auth.register(seller, SETTINGS.seed_password, "seller")
+    # Platform vouchers need the `admin` scope; use the seeded admin (team-identity
+    # EnsureAdmin). Token only — the scenario's own session/cookie is left untouched.
+    admin = get_test_data_manager().get_user_by_role("admin")
+    token = sf.auth.login(admin.username, admin.password)
     code = f"E2E{uuid.uuid4().hex[:8].upper()}"
     api = BaseService(token=token)
     try:
