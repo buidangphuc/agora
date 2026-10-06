@@ -5,7 +5,10 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/team-payment/internal/repository"
 	"github.com/buidangphuc/team-payment/internal/service"
@@ -175,5 +178,64 @@ func TestWalletService_NotConfigured(t *testing.T) {
 
 	if _, err := svc.GetWalletBalance(ctx, "seller-1"); !errors.Is(err, service.ErrLedgerNotConfigured) {
 		t.Errorf("want ErrLedgerNotConfigured, got %v", err)
+	}
+}
+
+// slowBalanceLedger widens the window between a balance read and the following
+// write so that a check-then-append payout path reliably interleaves. The atomic
+// AppendDebit path never calls Balance, so it is unaffected.
+type slowBalanceLedger struct {
+	*repository.InMemoryLedgerRepository
+}
+
+func (l slowBalanceLedger) Balance(ctx context.Context, sellerID string) (int64, error) {
+	b, err := l.InMemoryLedgerRepository.Balance(ctx, sellerID)
+	time.Sleep(20 * time.Millisecond)
+	return b, err
+}
+
+// Concurrent payouts must never overdraw: with a 1000 balance and 20 racing
+// payouts of 100, exactly 10 succeed and the rest are insufficient-balance.
+func TestWalletService_ConcurrentPayoutsDoNotOverdraw(t *testing.T) {
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ledger := slowBalanceLedger{repository.NewInMemoryLedgerRepository()}
+	svc := service.NewPaymentService(nil, nil, nil, logger, service.WithLedgerRepo(ledger))
+	if _, err := svc.CreditWallet(ctx, "seller-1", 1000, repository.LedgerTypeOrderSettlement); err != nil {
+		t.Fatalf("seed credit: %v", err)
+	}
+
+	const workers = 20
+	var ok, insufficient atomic.Int32
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := svc.RequestWalletPayout(ctx, "seller-1", 100)
+			switch {
+			case err == nil:
+				ok.Add(1)
+			case errors.Is(err, repository.ErrInsufficientBalance):
+				insufficient.Add(1)
+			default:
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if ok.Load() != 10 || insufficient.Load() != 10 {
+		t.Fatalf("ok=%d insufficient=%d, want 10/10", ok.Load(), insufficient.Load())
+	}
+	balance, err := ledger.InMemoryLedgerRepository.Balance(ctx, "seller-1")
+	if err != nil {
+		t.Fatalf("balance: %v", err)
+	}
+	if balance != 0 {
+		t.Fatalf("balance = %d, want 0 (never negative)", balance)
 	}
 }
