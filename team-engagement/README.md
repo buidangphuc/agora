@@ -35,7 +35,7 @@ Defined in `proto/platform/engagement/v1/engagement.proto` (vendored, see Gotcha
 
 Verified purchase (`CreateReview`): only when `UPSTREAM_ORDER_ADDR` is set **and** the request has an `order_id`, the service calls `team-order` `GetOrder` (`internal/upstream/order.go`). `verified_purchase = true` requires the order's `buyer_id` to equal the caller, status `ORDER_STATUS_COMPLETED`, and the order to contain the listing. The order's `seller_id` is stored on the review. If the address is empty, no `order_id` is given, or the upstream call fails, the review is saved unverified (upstream errors are logged as a warning, never returned).
 
-Consumes: `team-order` `GetOrder` only (gRPC). No other upstream.
+Consumes: `team-order` `GetOrder` only (gRPC), called as the service principal `service-team-engagement` (type `service`, scope `order.read`; team-order requires a principal). No other upstream.
 
 ## 2. Events
 

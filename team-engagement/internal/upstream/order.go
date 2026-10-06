@@ -9,9 +9,33 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 )
+
+// Service principal team-engagement presents to team-order. GetOrder requires a principal
+// and allows a service principal holding order.read; the caller's user principal
+// is deliberately not forwarded (the order may belong to someone else).
+const (
+	servicePrincipalID     = "service-team-engagement"
+	servicePrincipalType   = "service"
+	servicePrincipalScopes = "order.read"
+)
+
+// serviceMetadata returns the outgoing x-principal-* metadata for team-order calls.
+func serviceMetadata() metadata.MD {
+	return metadata.Pairs(
+		"x-principal-id", servicePrincipalID,
+		"x-principal-type", servicePrincipalType,
+		"x-principal-scopes", servicePrincipalScopes,
+	)
+}
+
+// servicePrincipalInterceptor replaces any outgoing principal with the service one.
+func servicePrincipalInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	return invoker(metadata.NewOutgoingContext(ctx, serviceMetadata()), method, req, reply, cc, opts...)
+}
 
 // OrderClient verifies purchases against team-order over gRPC.
 type OrderClient struct {
@@ -25,7 +49,7 @@ func NewOrderClient(addr string) (*OrderClient, error) {
 	if addr == "" {
 		return nil, nil
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(servicePrincipalInterceptor))
 	if err != nil {
 		return nil, fmt.Errorf("dial team-order at %s: %w", addr, err)
 	}
