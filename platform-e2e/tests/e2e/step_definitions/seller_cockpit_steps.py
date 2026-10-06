@@ -11,7 +11,6 @@ state comes from the `needsSeller` / `needsListing` / `needsOrder` tags.
 from __future__ import annotations
 
 import re
-import time
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
@@ -29,7 +28,7 @@ from src.pages import (
     SellerWalletPage,
 )
 from src.utils import data as fake
-from tests.e2e.flows import seed_listing
+from tests.e2e.flows import seed_listing, settle_seeded_order_to_seller
 from tests.e2e.step_definitions.follow_seller_steps import _principal_id
 from tests.e2e.support.world import World
 
@@ -565,19 +564,7 @@ def payout_disabled(world: World) -> None:
 def buyer_paid_seeded_order(world: World) -> None:
     # A settled payment credits the order's seller in the wallet ledger, which is
     # what makes the payout button usable; wait for the credit before the UI reads it.
-    buyer = world.state.extra["seeded_buyer"]
-    seller = world.state.seeded_seller
-    assert seller and seller.token, "scenario must be tagged @needsSeller @needsOrder"
-    world.service_factory.set_token(buyer.token)
-    world.service_factory.payment.mock_pay(world.state.order_id, 5_000_000, success=True)
-    world.service_factory.set_token(seller.token)
-    deadline = time.monotonic() + 20.0
-    while time.monotonic() < deadline:
-        balance = int(world.service_factory.payment.wallet_balance() or 0)
-        if balance > 0:
-            return
-        time.sleep(0.5)
-    raise AssertionError("the paid order never credited the seller's wallet ledger")
+    settle_seeded_order_to_seller(world)
 
 
 @when("the seller starts a payout")

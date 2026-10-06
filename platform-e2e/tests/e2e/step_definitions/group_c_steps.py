@@ -7,7 +7,7 @@ from pytest_bdd import given, then, when
 
 from src.constants import PageName, timeouts
 from src.utils import get_test_data_manager
-from tests.e2e.flows import create_order_via_api, login_via_api
+from tests.e2e.flows import create_order_via_api, login_via_api, settle_seeded_order_to_seller
 from tests.e2e.support.world import World
 
 
@@ -137,10 +137,15 @@ def review_and_rating_appear(world: World) -> None:
 
 @given("a seller has a positive wallet balance")
 def seller_has_positive_wallet_balance(world: World) -> None:
-    seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
+    # The wallet ledger is the single source of truth: a seller only has a balance once a
+    # paid order has settled to them, so seed (and wait for) that first (@needsSeller @needsOrder).
+    settle_seeded_order_to_seller(world)
+    seller = world.state.seeded_seller
     login_via_api(world, seller)
     wallet = world.service_factory.payment.get_seller_wallet("")  # "" = the caller's own wallet
-    assert wallet is not None
+    balance = int(wallet.get("wallet", {}).get("balance") or 0)
+    assert balance > 0, f"settled order left the seller without a wallet balance: {wallet}"
+    world.state.extra["seller_wallet_balance"] = balance
 
 
 @when("the seller requests a payout")
@@ -149,7 +154,7 @@ def seller_requests_payout(world: World) -> None:
     world.service_factory.set_token(seller.token)
     res = world.service_factory.payment.request_payout(
         seller_id="",  # the caller's own wallet; the user id, never the username
-        amount=1_000_000,
+        amount=min(1_000_000, int(world.state.extra.get("seller_wallet_balance") or 1_000_000)),
         bank_code="VCB",
         account_number="0123456789",
         account_name="NGUYEN VAN SELLER",
