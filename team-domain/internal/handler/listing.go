@@ -319,6 +319,11 @@ func (h *ListingHandler) ReserveStock(
 	ctx context.Context,
 	req *listingv1.ReserveStockRequest,
 ) (*listingv1.ReserveStockResponse, error) {
+	// Internal inventory mutation: only the order service (service principal with
+	// listing.write) may call it; end users are denied even if forwarded.
+	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+		return nil, err
+	}
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
@@ -351,6 +356,11 @@ func (h *ListingHandler) ReleaseStock(
 	ctx context.Context,
 	req *listingv1.ReleaseStockRequest,
 ) (*listingv1.ReleaseStockResponse, error) {
+	// Internal inventory mutation: only the order service (service principal with
+	// listing.write) may call it; end users are denied even if forwarded.
+	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+		return nil, err
+	}
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
