@@ -170,12 +170,21 @@ def return_request_approved(world: World) -> None:
 
 @when("the refund is processed")
 def refund_is_processed(world: World) -> None:
+    # Only the order's seller (or an admin) may refund; the buyer approved nothing.
+    seller = world.state.seeded_seller
+    assert seller and seller.token, "scenario must seed the order's seller (@needsOrder)"
     order_id = world.state.order_id
-    world.state.extra["refund_res"] = world.service_factory.payment.refund(
-        payment_id=order_id,
-        amount=5_000_000,
-        reason="Approved return refund",
-    )
+    buyer = world.state.extra.get("seeded_buyer")
+    world.service_factory.set_token(seller.token)
+    try:
+        world.state.extra["refund_res"] = world.service_factory.payment.refund(
+            payment_id=order_id,
+            amount=5_000_000,
+            reason="Approved return refund",
+        )
+    finally:
+        if buyer is not None:
+            world.service_factory.set_token(buyer.token)
 
 
 @then("the buyer is refunded and the transaction is recorded")
