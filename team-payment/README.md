@@ -24,9 +24,9 @@ principal, id `anonymous` and type ANONYMOUS with `Unauthenticated`.
 | `GetPayment` | Authenticated; the transaction's buyer (user principal) or a principal with scope `admin` (`requireBuyerOrAdmin`), else `PermissionDenied` | By `id` or `order_id`. |
 | `ProcessMockPayment` | Authenticated; same buyer-or-admin rule as `GetPayment` | `simulate_success=true` settles to PAID, `false` sets FAILED. Already PAID returns success without re-settling. |
 | `RefundPayment` | Authenticated; the order's seller (user principal, seller id resolved via `team-order.GetOrder`) or a principal with scope `admin`, else `PermissionDenied` | Only PAID transactions; `amount` must be > 0 and <= transaction amount. Sets status REFUNDED. `payment_id` may also be an order id. |
-| `GetSellerWallet` | `sellerAccess`, admin read allowed | Legacy balance model (see Data). |
-| `RequestPayout` | `sellerAccess`, owner only | Legacy model; requires `bank_code`, `account_number`, `account_name`. |
-| `ListPayoutHistory` | `sellerAccess`, admin read allowed | Legacy model. |
+| `GetSellerWallet` | `sellerAccess`, admin read allowed | Balance = `SUM(wallet_ledger.amount)`, currency VND. Same data as `GetWalletBalance`. |
+| `RequestPayout` | `sellerAccess`, owner only | Requires `bank_code`, `account_number`, `account_name`. Debits the ledger through the same atomic step as `RequestWalletPayout` (insufficient balance gives `FailedPrecondition`), then stores the bank details in `payout_requests` linked by `ledger_entry_id`. |
+| `ListPayoutHistory` | `sellerAccess`, admin read allowed | Reads `payout_requests`. |
 | `GetWalletBalance` | `sellerAccess`, admin read allowed | Ledger model: `SUM(wallet_ledger.amount)`. |
 | `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor, page size default 20 and max 100. |
 | `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check and debit are one atomic step (Postgres: per-seller `pg_advisory_xact_lock` in one transaction; in-memory: mutex). Insufficient balance gives `FailedPrecondition`. |
@@ -72,21 +72,24 @@ startup.
 | Migration | Tables | Used by |
 |---|---|---|
 | `0001_initial` | `payment_transactions` (status 1 PENDING, 2 PAID, 3 FAILED, 4 REFUNDED) | payment RPCs |
-| `0002_seller_wallet` | `seller_wallets` (mutable `balance`), `payout_requests` (bank details), `wallet_transactions` | legacy wallet: `GetSellerWallet`, `RequestPayout`, `ListPayoutHistory` |
+| `0002_seller_wallet` | `payout_requests` (bank details), plus legacy `seller_wallets` and `wallet_transactions` (no longer read or written) | `RequestPayout`, `ListPayoutHistory` |
 | `0003_payment_outbox` | `payment_outbox_events` | settle + relayer |
-| `0004_wallet_ledger` | `wallet_ledger` (single-entry signed rows: `type`, `amount`, `status`) | ledger: `GetWalletBalance`, `ListLedgerEntries`, `RequestWalletPayout`, settlement credit |
+| `0004_wallet_ledger` | `wallet_ledger` (single-entry signed rows: `type`, `amount`, `status`) | `GetSellerWallet`, `GetWalletBalance`, `ListLedgerEntries`, `RequestPayout`, `RequestWalletPayout`, settlement credit |
+| `0005_payout_ledger_link` | `payout_requests.ledger_entry_id` (nullable) | links a payout request to its ledger debit |
 
-There are **two coexisting wallet models**:
+The **wallet ledger is the single source of truth** for seller money:
 
-- **Legacy** (`seller_wallets` + `payout_requests` + `wallet_transactions`): mutable balance;
-  `RequestPayout` debits it, creates the payout request (the only place bank details are stored)
-  and writes a `wallet_transactions` row.
 - **Ledger** (`wallet_ledger`): append-only, single-entry signed rows (not double-entry, no bank
   fields). Balance is computed as `SUM(amount)`. Entry types: `ORDER_SETTLEMENT`, `PAYOUT`,
   `REFUND_DEDUCTION`; statuses `PENDING`, `COMPLETED`, `REJECTED`.
+- **`payout_requests`** only records bank details and status for a payout, linked to the ledger
+  debit that funded it (`ledger_entry_id`). If recording fails after the debit, a compensating
+  credit is appended.
+- **Legacy** `seller_wallets` and `wallet_transactions` are no longer read, written or seeded.
+  The tables and their data are left in place.
 
-Settlement credits only the ledger (`creditSellerWallet` -> `CreditWallet`, `ORDER_SETTLEMENT`,
-COMPLETED). It never touches `seller_wallets`.
+Settlement credits the ledger (`creditSellerWallet` -> `CreditWallet`, `ORDER_SETTLEMENT`,
+COMPLETED). A seller has no balance until a paid order settles to them.
 
 ## Configuration
 
@@ -187,8 +190,6 @@ from `COPY . .`, so `generated/` must exist in the build context.
   here; change `platform-core` and re-sync (ADR-0001).
 - `generated/` is gitignored. Regenerate with `buf generate` (`buf.gen.yaml` uses remote plugins,
   so it needs network access).
-- Which wallet RPC reads which model matters: `GetSellerWallet` and `GetWalletBalance` can return
-  different numbers for the same seller.
 - Settlement is not one transaction: `status = PAID` plus the outbox row commit atomically, but
   the ledger credit happens afterwards, best-effort. A failure is logged and the order stays paid.
 - With `DATABASE_ENABLED=false` everything is in memory and lost on restart, and there is no
@@ -197,10 +198,6 @@ from `COPY . .`, so `generated/` must exist in the build context.
 
 ## Known gaps
 
-- **Legacy `seller_wallets` balance is never credited by settlement (design decision pending).**
-  Only `wallet_ledger` is credited, so `GetSellerWallet` shows a balance that settled orders never
-  increase, and the legacy `RequestPayout` can only draw on a balance nothing fills. Whether to
-  retire the legacy model or bridge it is undecided; no code change yet.
 - `RefundPayment` only sets status REFUNDED. It writes no ledger entry (the `REFUND_DEDUCTION`
   type is defined but never written), does not reverse the seller credit, emits no event, and a
   partial `amount` still marks the whole transaction REFUNDED.
