@@ -88,7 +88,11 @@ def complete_order_as_seller(
     assert seller and seller.token, "no seeded seller; tag the scenario @needsListing"
     world.service_factory.set_token(seller.token)
     try:
-        world.service_factory.order.update_order_status(order_id, "ORDER_STATUS_SHIPPED")
+        order = world.service_factory.order.get_order(order_id).get("order", {})
+        # A scenario may already have shipped it (CreateShipment); SHIPPED -> SHIPPED
+        # is not a valid transition, so only ship what is not shipped yet.
+        if order.get("status") != "ORDER_STATUS_SHIPPED":
+            world.service_factory.order.update_order_status(order_id, "ORDER_STATUS_SHIPPED")
         world.service_factory.order.update_order_status(order_id, "ORDER_STATUS_COMPLETED")
     finally:
         if restore_token:
