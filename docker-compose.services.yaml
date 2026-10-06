@@ -548,6 +548,9 @@ services:
       - OTEL_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=team-gateway
+      # Local only: export metrics every 10 s (SDK default 60 s) so the admin cockpit
+      # reflects traffic quickly; the PeriodicReader reads this standard variable.
+      - OTEL_METRIC_EXPORT_INTERVAL=10000
       - PROMETHEUS_URL=http://prometheus:9090
       - JAEGER_QUERY_URL=http://jaeger:16686
       - JAEGER_UI_URL=http://localhost:16686
