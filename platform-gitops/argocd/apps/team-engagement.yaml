@@ -38,6 +38,10 @@ spec:
               memory: 256Mi
           env:
             UPSTREAM_ORDER_ADDR: "team-order:50055"
+            KAFKA_ENABLED: "true"
+            KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+            KAFKA_CONSUMER_GROUP: "team-engagement-feed"
+            KAFKA_LISTING_TOPIC: "listing.events"
           secrets:
             enabled: true
   syncPolicy:
