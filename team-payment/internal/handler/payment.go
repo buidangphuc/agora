@@ -43,6 +43,9 @@ func (h *PaymentHandler) CreatePayment(ctx context.Context, req *paymentv1.Creat
 		if errors.Is(err, service.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
+		if errors.Is(err, service.ErrNotOrderBuyer) {
+			return nil, status.Error(codes.PermissionDenied, "only the order's buyer can pay for it")
+		}
 		if errors.Is(err, service.ErrInvalidOrderState) {
 			return nil, status.Error(codes.FailedPrecondition, "order is not in pending state")
 		}

@@ -119,6 +119,31 @@ func TestPaymentHandler_Payments(t *testing.T) {
 	})
 }
 
+func TestPaymentHandler_CreatePaymentOwnership(t *testing.T) {
+	h, _, _, _ := setupHandlerTest()
+	req := &paymentv1.CreatePaymentRequest{OrderId: "order-1", Method: paymentv1.PaymentMethod_PAYMENT_METHOD_COD}
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", context.Background(), codes.Unauthenticated},
+		{"other user", principalCtx("buyer-2", user), codes.PermissionDenied},
+		{"seller of the order", principalCtx("seller-1", user), codes.PermissionDenied},
+		{"owner", principalCtx("buyer-1", user), codes.OK},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := h.CreatePayment(tc.ctx, req)
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+		})
+	}
+}
+
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	h, _, walletRepo, _ := setupHandlerTest()
 

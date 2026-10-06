@@ -19,6 +19,7 @@ import (
 var (
 	ErrOrderNotFound       = errors.New("order not found for payment")
 	ErrInvalidOrderState   = errors.New("order is not in pending state")
+	ErrNotOrderBuyer       = errors.New("caller is not the buyer of this order")
 	ErrTransactionNotFound = repository.ErrTransactionNotFound
 	ErrWalletNotFound      = repository.ErrWalletNotFound
 	ErrPayoutNotFound      = repository.ErrPayoutNotFound
@@ -81,7 +82,7 @@ func NewPaymentService(
 func (s *PaymentService) CreatePayment(
 	ctx context.Context,
 	orderID string,
-	buyerID string,
+	callerID string,
 	method repository.PaymentMethod,
 ) (repository.PaymentTransaction, string, error) {
 	if orderID == "" {
@@ -96,6 +97,12 @@ func (s *PaymentService) CreatePayment(
 	order := orderResp.GetOrder()
 	if order == nil {
 		return repository.PaymentTransaction{}, "", ErrOrderNotFound
+	}
+	// Only the order's buyer may open a payment for it. The transaction's buyer is
+	// the order's buyer as reported by team-order, never the request's claim.
+	buyerID := order.GetBuyerId()
+	if buyerID == "" || buyerID != callerID {
+		return repository.PaymentTransaction{}, "", ErrNotOrderBuyer
 	}
 	if order.GetStatus() != orderv1.OrderStatus_ORDER_STATUS_PENDING {
 		return repository.PaymentTransaction{}, "", ErrInvalidOrderState
