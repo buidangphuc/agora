@@ -210,6 +210,56 @@ func seedTx(t *testing.T, repo *repository.InMemoryPaymentRepository) repository
 	return tx
 }
 
+// TestPaymentHandler_RefundAccess: refunds are for the order's seller or an admin
+// only; the buyer, other users, service principals and anonymous callers are
+// rejected and the payment stays PAID.
+func TestPaymentHandler_RefundAccess(t *testing.T) {
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", context.Background(), codes.Unauthenticated},
+		{"buyer", principalCtx("buyer-1", user), codes.PermissionDenied},
+		{"other user", principalCtx("seller-2", user), codes.PermissionDenied},
+		{"service principal", principalCtx("seller-1", svc), codes.PermissionDenied},
+		{"order's seller", principalCtx("seller-1", user), codes.OK},
+		{"admin", principalCtx("admin-1", user, "admin"), codes.OK},
+	}
+	for _, tc := range tests {
+		for _, byOrderID := range []bool{false, true} {
+			name := tc.name
+			if byOrderID {
+				name += "/by-order-id"
+			}
+			t.Run(name, func(t *testing.T) {
+				h, repo, _, orders := setupHandlerTest()
+				orders.orders["order-1"].SellerId = "seller-1"
+				seeded := seedTx(t, repo)
+				if _, err := repo.UpdateTransactionStatus(context.Background(), seeded.ID, repository.PaymentStatusPaid, "ref"); err != nil {
+					t.Fatalf("mark paid: %v", err)
+				}
+				ref := seeded.ID
+				if byOrderID {
+					ref = "order-1"
+				}
+				_, err := h.RefundPayment(tc.ctx, &paymentv1.RefundPaymentRequest{PaymentId: ref, Amount: 1000, Reason: "r"})
+				if got := status.Code(err); got != tc.want {
+					t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+				}
+				after, _ := repo.GetTransaction(context.Background(), seeded.ID)
+				refunded := after.Status == repository.PaymentStatusRefunded
+				if refunded != (tc.want == codes.OK) {
+					t.Fatalf("refunded = %v for %s", refunded, tc.name)
+				}
+			})
+		}
+	}
+}
+
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	h, _, walletRepo, _ := setupHandlerTest()
 
@@ -292,7 +342,7 @@ func TestPaymentHandler_RefundPayment(t *testing.T) {
 	principal := &commonv1.Principal{
 		Id:     "admin-1",
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:write", "payment:read"},
+		Scopes: []string{"admin"},
 	}
 	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
 

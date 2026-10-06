@@ -203,7 +203,7 @@ func (h *PaymentHandler) ListPayoutHistory(ctx context.Context, req *paymentv1.L
 }
 
 func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.RefundPaymentRequest) (*paymentv1.RefundPaymentResponse, error) {
-	_, err := interceptor.RequirePrincipal(ctx)
+	principal, err := interceptor.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,30 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
 
-	tx, success, msg, err := h.svc.RefundPayment(ctx, req.GetPaymentId(), req.GetAmount(), req.GetReason())
+	// Refunds are a seller/admin action (the same rule team-order applies to
+	// approving a return): the order's seller, or a principal with the admin scope.
+	target, err := h.svc.FindTransaction(ctx, req.GetPaymentId())
+	if err != nil {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
+			return nil, status.Error(codes.NotFound, "transaction not found")
+		}
+		return nil, status.Errorf(codes.Internal, "refund payment: %v", err)
+	}
+	if !slices.Contains(principal.GetScopes(), "admin") {
+		sellerID, err := h.svc.OrderSellerID(ctx, target.OrderID)
+		if err != nil {
+			if errors.Is(err, service.ErrOrderNotFound) {
+				return nil, status.Error(codes.NotFound, "order not found")
+			}
+			return nil, status.Errorf(codes.Internal, "resolve order seller: %v", err)
+		}
+		if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER ||
+			sellerID == "" || principal.GetId() != sellerID {
+			return nil, status.Error(codes.PermissionDenied, "only the order's seller or an admin can refund a payment")
+		}
+	}
+
+	tx, success, msg, err := h.svc.RefundPayment(ctx, target.ID, req.GetAmount(), req.GetReason())
 	if err != nil {
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")

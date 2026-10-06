@@ -244,6 +244,31 @@ func (s *PaymentService) settlePaid(ctx context.Context, tx repository.PaymentTr
 
 // ── Refund Payment ───────────────────────────────────────────────────
 
+// FindTransaction resolves a payment reference that is either a transaction id or
+// an order id (the form the RMA flow uses).
+func (s *PaymentService) FindTransaction(ctx context.Context, paymentID string) (repository.PaymentTransaction, error) {
+	tx, err := s.paymentRepo.GetTransaction(ctx, paymentID)
+	if err != nil {
+		tx, err = s.paymentRepo.GetTransactionByOrderID(ctx, paymentID)
+		if err != nil {
+			return repository.PaymentTransaction{}, ErrTransactionNotFound
+		}
+	}
+	return tx, nil
+}
+
+// OrderSellerID returns the seller of an order as reported by team-order.
+func (s *PaymentService) OrderSellerID(ctx context.Context, orderID string) (string, error) {
+	resp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
+	}
+	if resp.GetOrder() == nil {
+		return "", ErrOrderNotFound
+	}
+	return resp.GetOrder().GetSellerId(), nil
+}
+
 func (s *PaymentService) RefundPayment(
 	ctx context.Context,
 	paymentID string,
@@ -257,12 +282,9 @@ func (s *PaymentService) RefundPayment(
 		return repository.PaymentTransaction{}, false, "", ErrInvalidAmount
 	}
 
-	tx, err := s.paymentRepo.GetTransaction(ctx, paymentID)
+	tx, err := s.FindTransaction(ctx, paymentID)
 	if err != nil {
-		tx, err = s.paymentRepo.GetTransactionByOrderID(ctx, paymentID)
-		if err != nil {
-			return repository.PaymentTransaction{}, false, "", ErrTransactionNotFound
-		}
+		return repository.PaymentTransaction{}, false, "", err
 	}
 
 	if tx.Status != repository.PaymentStatusPaid {
