@@ -91,3 +91,164 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "notification/unread_badge.feature::Unread notification count is reflected on header"
+
+  - id: notification.per-user-isolation
+    title: Notifications are private to each user
+    persona: buyer
+    priority: P0
+    summary: Each user has their own inbox, alert subscriptions and preferences; one buyer never sees another's.
+    entry_route: /notifications
+    services: [team-notification, team-domain, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised:
+        - notification.v1.SubscribeAlert
+        - notification.v1.ListNotifications
+        - notification.v1.ListAlertSubscriptions
+        - listing.v1.UpdateListing
+    acceptance:
+      - Given two buyers where only the first is subscribed to a price-drop alert
+      - When the seller lowers the listing price
+      - Then only the first buyer receives the notification, and the second buyer's inbox and subscriptions stay empty
+    tags: [buyer]
+    status: automated
+    covered_by: "notification/alert_delivery.feature::Two buyers do not see each other's notifications"
+
+  - id: notification.chat-message
+    title: Chat message notifies the other participant
+    persona: buyer
+    priority: P1
+    summary: When a seller replies in a chat thread, the buyer gets one CHAT notification linking to the thread; the sender is never notified of their own message.
+    entry_route: /notifications
+    related_routes: ["/chat/{thread_id}"]
+    services: [team-notification, team-chat, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.GetOrCreateThread, chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer who asked the seller a question in a chat thread
+      - When the seller replies
+      - Then within 30 s the buyer has one CHAT notification linking to that thread, and the seller has none for their own reply
+    tags: [buyer, seller]
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Seller reply notifies the buyer"
+
+  - id: notification.chat-preferences
+    title: Chat notifications respect preferences
+    persona: buyer
+    priority: P1
+    summary: A buyer who disabled CHAT notifications gets none when the seller replies.
+    entry_route: /notifications
+    services: [team-notification, team-chat, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [notification.v1.UpdateNotificationPrefs, chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer who disabled NOTIFICATION_TYPE_CHAT
+      - When the seller replies in the thread
+      - Then no CHAT notification is created for the buyer
+    tags: [buyer, seller]
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Chat notifications respect preferences"
+
+  - id: notification.order-shipped
+    title: Shipping an order notifies the buyer
+    persona: buyer
+    priority: P1
+    summary: When the seller creates a shipment, the buyer gets one ORDER notification naming the carrier and tracking code and linking to the order.
+    entry_route: /notifications
+    related_routes: ["/account/orders/{order_id}"]
+    services: [team-notification, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [order.v1.CreateShipment, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer with an order awaiting fulfillment
+      - When the seller creates a shipment with a tracking code
+      - Then within 30 s the buyer has one ORDER notification linking to the order and containing the tracking code
+    tags: [buyer, seller]
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Shipping the order notifies the buyer"
+
+  # ---- notification-delivery-hardening (planned until the stack run flips them) ----
+  - id: notification.chat-sender-name
+    title: Chat notifications name the sender
+    persona: buyer
+    priority: P1
+    summary: A seller's reply notifies the buyer with the shop display name in the title; when the lookup fails the notification still arrives with a neutral label.
+    entry_route: /notifications
+    related_routes: ["/chat/{thread_id}"]
+    services: [team-notification, team-chat, team-domain, team-identity]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.SendMessage, listing.v1.BatchGetStorefronts, identity.v1.GetPublicProfiles, notification.v1.ListNotifications]
+    acceptance:
+      - Given a seller whose shop display name is "Nhà Sách An Nhiên"
+      - When the seller replies in a chat thread
+      - Then the buyer's chat notification title contains the shop name
+    tags: [buyer, seller]
+    status: automated
+    covered_by: "notification/delivery_hardening.feature::A seller reply names the shop"
+    notes: >
+      Scenario authored in notification/delivery_hardening.feature ("A seller reply names
+      the shop"); flip to automated after the stack run. The lookup-failure fallback is
+      covered by unit tests (upstream/names_test.go, consumer/sender_name_test.go).
+
+  - id: notification.state-survives-restart
+    title: Consumer state survives a team-notification restart
+    persona: buyer
+    priority: P1
+    summary: The dedupe ledger and last-seen price/stock live in Postgres, so a price drop after a restart is still detected and a redelivered event notifies once.
+    entry_route: /notifications
+    services: [team-notification, team-domain, team-frontend]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [notification.v1.SubscribeAlert, listing.v1.UpdateListing, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer subscribed to a price-drop alert on a listing last seen at 2,000,000
+      - When team-notification restarts and the seller lowers the price to 500,000
+      - Then the buyer receives the price-drop notification
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "notification/delivery_hardening.feature::A price drop after a team-notification restart is still detected"
+    notes: >
+      Scenario authored in notification/delivery_hardening.feature ("A price drop after a
+      team-notification restart is still detected", @destructive, restarts the container
+      named by NOTIFICATION_CONTAINER). Redelivery-after-restart is covered by the Postgres
+      consumer tests.
+
+  - id: notification.chat-outbox-delivery
+    title: A chat message sent while Kafka is down is delivered later
+    persona: buyer
+    priority: P2
+    summary: team-chat writes chat.events through an outbox, so a message stored while the relayer cannot publish still notifies the buyer once after recovery.
+    entry_route: /notifications
+    services: [team-chat, team-notification]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given the chat.events relayer cannot reach Kafka
+      - When the seller replies and Kafka recovers
+      - Then the buyer receives exactly one chat notification
+    tags: [buyer, seller]
+    status: automated
+    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Seller reply notifies the buyer"
+    notes: >
+      No e2e scenario: it needs Redpanda (shared by every service) stopped. Covered by
+      relayer unit tests (TestRelayerDeliversAfterKafkaRecovers) and the Postgres
+      atomicity/ordering tests in team-chat.

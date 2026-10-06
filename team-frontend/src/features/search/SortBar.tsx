@@ -1,80 +1,98 @@
-"use client";
+import { Tabs } from "@/components/ui/Tabs";
+import { SortSelect } from "./SortSelect";
+import { type SearchState, type SortKey, buildSearchHref } from "./url";
 
-import { useRouter, useSearchParams } from "next/navigation";
+const TAB_SORTS: { id: SortKey; label: string }[] = [
+  { id: "relevance", label: "Liên quan" },
+  { id: "newest", label: "Mới nhất" },
+];
 
+const PRICE_SORTS: { id: SortKey; label: string }[] = [
+  { id: "price_asc", label: "Giá thấp đến cao" },
+  { id: "price_desc", label: "Giá cao đến thấp" },
+];
+
+/**
+ * Sort controls. Desktop: link `Tabs` (Liên quan, Mới nhất) plus a price
+ * `Select`; mobile: one `Select` with all four. Only sorts the server honours
+ * are offered ("Bán chạy" stays hidden until a backend SortBy exists).
+ */
 export function SortBar({
   currentSort = "relevance",
   totalResults = 0,
+  state,
 }: {
   currentSort?: string;
   totalResults?: number;
+  /** Current URL state, so sort links keep the other params (additive). */
+  state?: SearchState;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  function handleSort(sortValue: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("sort", sortValue);
-    router.push(`/search?${params.toString()}`);
-  }
+  const base: SearchState = state ?? {
+    q: "",
+    category: "",
+    seller: "",
+    rating: "",
+    sort: "relevance",
+    page: 1,
+  };
+  const hrefs = Object.fromEntries(
+    [...TAB_SORTS, ...PRICE_SORTS].map((s) => [
+      s.id,
+      buildSearchHref(base, { sort: s.id }),
+    ]),
+  );
+  const active = (
+    [...TAB_SORTS, ...PRICE_SORTS].some((s) => s.id === currentSort)
+      ? currentSort
+      : "relevance"
+  ) as SortKey;
+  const priceActive = PRICE_SORTS.some((s) => s.id === active);
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xs bg-[#ededed] p-3 text-xs">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-gray-600 font-medium mr-1">Sắp xếp theo:</span>
-        <button
-          type="button"
-          onClick={() => handleSort("relevance")}
-          className={`rounded-xs px-4 py-1.5 font-medium transition ${
-            currentSort === "relevance"
-              ? "bg-brand text-white shadow-2xs"
-              : "bg-white text-gray-800 hover:bg-gray-50"
-          }`}
-        >
-          Liên Quan
-        </button>
+    <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-card p-3 shadow-preline-card sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="hidden text-sm text-text-secondary sm:inline">
+          Sắp xếp theo:
+        </span>
 
-        <button
-          type="button"
-          onClick={() => handleSort("newest")}
-          className={`rounded-xs px-4 py-1.5 font-medium transition ${
-            currentSort === "newest"
-              ? "bg-brand text-white shadow-2xs"
-              : "bg-white text-gray-800 hover:bg-gray-50"
-          }`}
-        >
-          Mới Nhất
-        </button>
+        {/* Desktop: tabs + price select */}
+        <div className="hidden items-center gap-2 sm:flex">
+          <Tabs
+            variant="pills"
+            items={TAB_SORTS.map((s) => ({ id: s.id, label: s.label }))}
+            activeId={priceActive ? undefined : active}
+            hrefFor={(id) => hrefs[id] ?? "/search"}
+          />
+          <SortSelect
+            label="Sắp xếp theo giá"
+            placeholder="Giá"
+            className="w-44"
+            value={priceActive ? active : ""}
+            hrefs={hrefs}
+            options={PRICE_SORTS.map((s) => ({ value: s.id, label: s.label }))}
+          />
+        </div>
 
-        <button
-          type="button"
-          onClick={() => handleSort("sales")}
-          className={`rounded-xs px-4 py-1.5 font-medium transition ${
-            currentSort === "sales"
-              ? "bg-brand text-white shadow-2xs"
-              : "bg-white text-gray-800 hover:bg-gray-50"
-          }`}
-        >
-          Bán Chạy
-        </button>
-
-        <select
-          value={currentSort.startsWith("price_") ? currentSort : ""}
-          onChange={(e) => {
-            if (e.target.value) handleSort(e.target.value);
-          }}
-          className="rounded-xs border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 outline-none focus:border-brand"
-        >
-          <option value="">Giá: Mặc định</option>
-          <option value="price_asc">Giá: Thấp đến Cao</option>
-          <option value="price_desc">Giá: Cao đến Thấp</option>
-        </select>
+        {/* Mobile: one select with every option */}
+        <SortSelect
+          label="Sắp xếp"
+          className="w-full sm:hidden"
+          value={active}
+          hrefs={hrefs}
+          options={[...TAB_SORTS, ...PRICE_SORTS].map((s) => ({
+            value: s.id,
+            label: s.label,
+          }))}
+        />
       </div>
 
-      <div className="text-xs text-gray-500">
+      <p className="text-sm text-text-secondary">
         Tìm thấy{" "}
-        <strong className="text-brand font-bold">{totalResults}</strong> kết quả
-      </div>
+        <strong className="font-semibold text-action-primary">
+          {totalResults}
+        </strong>{" "}
+        kết quả
+      </p>
     </div>
   );
 }

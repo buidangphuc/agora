@@ -1,42 +1,284 @@
-"use client";
+import Link from "next/link";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
-
+import { Card } from "@/components/ui/Card";
+import { Rate } from "@/components/ui/Rate";
+import { focusRing } from "@/components/ui/focus";
 import type { ViewCategory } from "@/lib/gateway/listings";
 import type { ViewFacets } from "@/lib/gateway/search";
+import { FilterDrawer } from "./FilterDrawer";
+import { PriceRangeForm } from "./PriceRangeForm";
+import {
+  type SearchState,
+  activeFilterCount,
+  buildSearchHref,
+  parseSearchParams,
+} from "./url";
 
 function formatVnd(n: number): string {
   return `${n.toLocaleString("vi-VN")}₫`;
 }
 
-/** Human label for a price-range facet key like "0-100000" or "5000000-". */
+/**
+ * A price-range facet key: "min-max" (closed) or "min+" / "min-" (open-ended, which is what
+ * team-search emits for the top bucket, e.g. "1000000+").
+ */
+function parsePriceKey(key: string): { min: number; max: number | undefined } {
+  const match = /^(\d+)(?:-(\d*)|\+)?$/.exec(key);
+  if (!match) return { min: 0, max: undefined };
+  return {
+    min: Number(match[1]),
+    max: match[2] ? Number(match[2]) : undefined,
+  };
+}
+
+/** Human label for a price-range facet key like "0-100000" or "1000000+". */
 function priceRangeLabel(key: string): string {
-  const [rawMin, rawMax] = key.split("-");
-  const min = rawMin ? Number(rawMin) : 0;
-  const max = rawMax ? Number(rawMax) : undefined;
+  const { min, max } = parsePriceKey(key);
   if (!max) return `Trên ${formatVnd(min)}`;
   if (min === 0) return `Dưới ${formatVnd(max)}`;
   return `${formatVnd(min)} - ${formatVnd(max)}`;
 }
 
-/** Parse a price-range facet key into {minPrice, maxPrice} query values. */
-function priceRangeParams(key: string): {
-  minPrice?: string;
-  maxPrice?: string;
+/** Parse a price-range facet key into the minPrice / maxPrice URL values. */
+function priceRangeValues(key: string): {
+  minPrice: number | undefined;
+  maxPrice: number | undefined;
 } {
-  const [rawMin, rawMax] = key.split("-");
+  const { min, max } = parsePriceKey(key);
   return {
-    minPrice: rawMin && Number(rawMin) > 0 ? rawMin : undefined,
-    maxPrice: rawMax ? rawMax : undefined,
+    minPrice: min > 0 ? min : undefined,
+    maxPrice: max && max > 0 ? max : undefined,
   };
 }
 
-/** Canonical "min-max" key for the currently applied price filter. */
+/** Canonical "min-max" key for the applied price filter (matches the facet keys). */
 function currentPriceKey(min?: number, max?: number): string {
   return `${min ?? 0}-${max ?? ""}`;
 }
 
+/** Facet key in the same "min-max" shape as `currentPriceKey`. */
+function normalizePriceKey(key: string): string {
+  const { min, max } = parsePriceKey(key);
+  return `${min}-${max ?? ""}`;
+}
+
+function Bucket({
+  href,
+  dataKey,
+  label,
+  count,
+  active,
+}: {
+  href: string;
+  dataKey: string;
+  label: React.ReactNode;
+  count: number;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      data-testid="facet-bucket"
+      data-key={dataKey}
+      data-active={active ? "true" : "false"}
+      aria-current={active ? "true" : undefined}
+      className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm transition duration-150 ${focusRing} ${
+        active
+          ? "bg-primary-50 font-semibold text-action-primary"
+          : "text-text-primary hover:bg-surface-muted hover:text-action-primary"
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={`grid h-4 w-4 shrink-0 place-items-center rounded-xs border text-xs leading-none ${
+            active
+              ? "border-action-primary bg-action-primary text-text-inverse"
+              : "border-border-strong bg-surface-card"
+          }`}
+        >
+          {active ? "✓" : ""}
+        </span>
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="shrink-0 text-xs text-text-secondary">({count})</span>
+    </Link>
+  );
+}
+
+function Group({
+  title,
+  testId,
+  children,
+}: {
+  title: string;
+  testId?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      data-testid={testId}
+      className="space-y-1.5 border-t border-border-subtle pt-3 first:border-t-0 first:pt-0"
+    >
+      <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+export interface FilterSidebarProps {
+  facets: ViewFacets;
+  categories: ViewCategory[];
+  currentCategory?: string;
+  currentSeller?: string;
+  currentRating?: string;
+  currentMinPrice?: number;
+  currentMaxPrice?: number;
+  /** Keyword and sort to carry through every filter link (additive). */
+  currentQuery?: string;
+  currentSort?: string;
+  /** sellerId -> shop name for the seller facet (additive); falls back to the id. */
+  sellerNames?: Record<string, string>;
+}
+
+function FilterContent({
+  facets,
+  categories,
+  state,
+  sellerNames,
+  idPrefix,
+  showSubmit,
+}: {
+  facets: ViewFacets;
+  categories: ViewCategory[];
+  state: SearchState;
+  sellerNames: Record<string, string>;
+  idPrefix: string;
+  showSubmit: boolean;
+}) {
+  const href = (changes: Parameters<typeof buildSearchHref>[1]) =>
+    buildSearchHref(state, changes);
+  const categoryName = (id: string) =>
+    categories.find((c) => c.id === id)?.name || id;
+  const priceKey = currentPriceKey(state.minPrice, state.maxPrice);
+
+  const hidden: Record<string, string> = {};
+  if (state.q) hidden.q = state.q;
+  if (state.category) hidden.category = state.category;
+  if (state.seller) hidden.seller = state.seller;
+  if (state.rating) hidden.rating = state.rating;
+  if (state.sort !== "relevance") hidden.sort = state.sort;
+
+  return (
+    <div className="space-y-4">
+      {facets.categories.length > 0 && (
+        <Group title="Danh mục" testId="facet-categories">
+          <div className="max-h-64 space-y-0.5 overflow-y-auto">
+            {facets.categories.map((b) => {
+              const active = state.category === b.key;
+              return (
+                <Bucket
+                  key={b.key}
+                  href={href({ category: active ? "" : b.key })}
+                  dataKey={b.key}
+                  label={categoryName(b.key)}
+                  count={b.count}
+                  active={active}
+                />
+              );
+            })}
+          </div>
+        </Group>
+      )}
+
+      {facets.priceRanges.length > 0 && (
+        <Group title="Khoảng giá" testId="facet-price_ranges">
+          <div className="space-y-0.5">
+            {facets.priceRanges.map((b) => {
+              const active = priceKey === normalizePriceKey(b.key);
+              return (
+                <Bucket
+                  key={b.key}
+                  href={href(
+                    active
+                      ? { minPrice: undefined, maxPrice: undefined }
+                      : priceRangeValues(b.key),
+                  )}
+                  dataKey={b.key}
+                  label={priceRangeLabel(b.key)}
+                  count={b.count}
+                  active={active}
+                />
+              );
+            })}
+          </div>
+        </Group>
+      )}
+
+      <Group title="Tự nhập giá">
+        <PriceRangeForm
+          id={`${idPrefix}-price-form`}
+          hidden={hidden}
+          minPrice={state.minPrice}
+          maxPrice={state.maxPrice}
+          showSubmit={showSubmit}
+        />
+      </Group>
+
+      {facets.ratings.length > 0 && (
+        <Group title="Đánh giá" testId="facet-ratings">
+          <div className="space-y-0.5">
+            {facets.ratings.map((b) => {
+              const star = Math.max(0, Math.min(5, Number(b.key) || 0));
+              const active = state.rating === b.key;
+              return (
+                <Bucket
+                  key={b.key}
+                  href={href({ rating: active ? "" : b.key })}
+                  dataKey={b.key}
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      <Rate readOnly size="sm" value={star} />
+                      <span>{star === 5 ? "5 sao" : `từ ${star} sao`}</span>
+                    </span>
+                  }
+                  count={b.count}
+                  active={active}
+                />
+              );
+            })}
+          </div>
+        </Group>
+      )}
+
+      {facets.sellers.length > 0 && (
+        <Group title="Nơi bán" testId="facet-sellers">
+          <div className="space-y-0.5">
+            {facets.sellers.map((b) => {
+              const active = state.seller === b.key;
+              return (
+                <Bucket
+                  key={b.key}
+                  href={href({ seller: active ? "" : b.key })}
+                  dataKey={b.key}
+                  label={sellerNames[b.key] ?? b.key}
+                  count={b.count}
+                  active={active}
+                />
+              );
+            })}
+          </div>
+        </Group>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Search filters: facet buckets as plain links (work without JavaScript, URL
+ * state, counts beside each bucket) plus a custom price-range form. From 1024px
+ * up it is an inline card; below it hides behind a "Bộ lọc" button + Drawer.
+ */
 export function FilterSidebar({
   facets,
   categories,
@@ -45,257 +287,60 @@ export function FilterSidebar({
   currentRating,
   currentMinPrice,
   currentMaxPrice,
-}: {
-  facets: ViewFacets;
-  categories: ViewCategory[];
-  currentCategory?: string;
-  currentSeller?: string;
-  currentRating?: string;
-  currentMinPrice?: number;
-  currentMaxPrice?: number;
-}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [minPriceInput, setMinPriceInput] = useState<string>(
-    currentMinPrice ? String(currentMinPrice) : "",
-  );
-  const [maxPriceInput, setMaxPriceInput] = useState<string>(
-    currentMaxPrice ? String(currentMaxPrice) : "",
-  );
-
-  const categoryName = (id: string) =>
-    categories.find((c) => c.id === id)?.name ?? id;
-
-  function updateFilter(updates: Record<string, string | undefined>) {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [key, val] of Object.entries(updates)) {
-      if (val === undefined || val === "") {
-        params.delete(key);
-      } else {
-        params.set(key, val);
-      }
-    }
-    router.push(`/search?${params.toString()}`);
-  }
-
-  function handleApplyPrice(e: React.FormEvent) {
-    e.preventDefault();
-    updateFilter({
-      minPrice: minPriceInput.trim() ? minPriceInput.trim() : undefined,
-      maxPrice: maxPriceInput.trim() ? maxPriceInput.trim() : undefined,
-    });
-  }
-
-  function handleClearAll() {
-    setMinPriceInput("");
-    setMaxPriceInput("");
-    router.push("/search");
-  }
-
-  const priceKey = currentPriceKey(currentMinPrice, currentMaxPrice);
+  currentQuery,
+  currentSort,
+  sellerNames = {},
+}: FilterSidebarProps) {
+  const state: SearchState = {
+    ...parseSearchParams({
+      q: currentQuery,
+      category: currentCategory,
+      seller: currentSeller,
+      rating: currentRating,
+      sort: currentSort,
+    }),
+    minPrice: currentMinPrice,
+    maxPrice: currentMaxPrice,
+  };
   const hasAnyFacet =
     facets.categories.length > 0 ||
     facets.priceRanges.length > 0 ||
     facets.ratings.length > 0 ||
     facets.sellers.length > 0;
 
-  // A single clickable facet bucket exposing its key + count to e2e.
-  function Bucket({
-    active,
-    label,
-    count,
-    dataKey,
-    onToggle,
-  }: {
-    active: boolean;
-    label: string;
-    count: number;
-    dataKey: string;
-    onToggle: () => void;
-  }) {
-    return (
-      <button
-        type="button"
-        data-testid="facet-bucket"
-        data-key={dataKey}
-        data-active={active ? "true" : "false"}
-        aria-pressed={active}
-        onClick={onToggle}
-        className={`flex w-full items-center justify-between gap-2 py-1 px-1 rounded text-left transition ${
-          active ? "font-bold text-brand" : "text-gray-700 hover:text-brand"
-        }`}
-      >
-        <span className="flex items-center gap-1.5 truncate">
-          {active && <span aria-hidden>✓</span>}
-          <span className="truncate">{label}</span>
-        </span>
-        <span className="shrink-0 text-[11px] text-gray-400">({count})</span>
-      </button>
-    );
-  }
-
   return (
-    <aside
-      data-testid="search-facets"
-      className="w-full space-y-4 lg:w-56 shrink-0 text-xs"
-    >
-      {/* ── Categories ── */}
-      {facets.categories.length > 0 && (
-        <div
-          data-testid="facet-categories"
-          className="rounded-xs bg-white p-3 shadow-2xs"
-        >
-          <h3 className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-800 border-b pb-2">
-            <span>☰</span>
-            <span>Danh Mục</span>
-          </h3>
-          <div className="mt-2.5 space-y-1 max-h-64 overflow-y-auto">
-            {facets.categories.map((b) => (
-              <Bucket
-                key={b.key}
-                dataKey={b.key}
-                label={categoryName(b.key)}
-                count={b.count}
-                active={currentCategory === b.key}
-                onToggle={() =>
-                  updateFilter({
-                    category: currentCategory === b.key ? undefined : b.key,
-                  })
-                }
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-xs bg-white p-3 shadow-2xs space-y-4">
-        <h3 className="font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1 border-b pb-2">
-          <span>🔍</span>
-          <span>Bộ Lọc Tìm Kiếm</span>
-        </h3>
-
-        {/* ── Price ranges (facet) ── */}
-        {facets.priceRanges.length > 0 && (
-          <div data-testid="facet-price_ranges">
-            <h4 className="font-semibold text-gray-700 mb-2">Khoảng Giá</h4>
-            <div className="space-y-1">
-              {facets.priceRanges.map((b) => {
-                const p = priceRangeParams(b.key);
-                return (
-                  <Bucket
-                    key={b.key}
-                    dataKey={b.key}
-                    label={priceRangeLabel(b.key)}
-                    count={b.count}
-                    active={priceKey === b.key}
-                    onToggle={() => {
-                      const active = priceKey === b.key;
-                      setMinPriceInput(active ? "" : (p.minPrice ?? ""));
-                      setMaxPriceInput(active ? "" : (p.maxPrice ?? ""));
-                      updateFilter(
-                        active
-                          ? { minPrice: undefined, maxPrice: undefined }
-                          : { minPrice: p.minPrice, maxPrice: p.maxPrice },
-                      );
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Custom price form ── */}
-        <form onSubmit={handleApplyPrice} className="border-t pt-3 space-y-2">
-          <div className="font-semibold text-gray-700">Tự Nhập Giá (₫)</div>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              placeholder="₫ TỪ"
-              value={minPriceInput}
-              onChange={(e) => setMinPriceInput(e.target.value)}
-              className="w-full rounded-xs border border-gray-300 p-1 text-xs text-gray-800 placeholder-gray-400 focus:border-brand focus:outline-hidden"
-            />
-            <span className="text-gray-400">-</span>
-            <input
-              type="number"
-              placeholder="₫ ĐẾN"
-              value={maxPriceInput}
-              onChange={(e) => setMaxPriceInput(e.target.value)}
-              className="w-full rounded-xs border border-gray-300 p-1 text-xs text-gray-800 placeholder-gray-400 focus:border-brand focus:outline-hidden"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full rounded-xs bg-brand py-1.5 font-bold uppercase tracking-wider text-white hover:bg-brand-dark transition shadow-2xs"
-          >
-            ÁP DỤNG
-          </button>
-        </form>
-
-        {/* ── Ratings (facet) ── */}
-        {facets.ratings.length > 0 && (
-          <div data-testid="facet-ratings" className="border-t pt-3 space-y-1">
-            <h4 className="font-semibold text-gray-700 mb-1.5">Đánh Giá</h4>
-            {facets.ratings.map((b) => {
-              const star = Math.max(0, Math.min(5, Number(b.key) || 0));
-              return (
-                <Bucket
-                  key={b.key}
-                  dataKey={b.key}
-                  label={`${"★".repeat(star)}${"☆".repeat(5 - star)} ${
-                    star === 5 ? "5 sao" : `từ ${star} sao`
-                  }`}
-                  count={b.count}
-                  active={currentRating === b.key}
-                  onToggle={() =>
-                    updateFilter({
-                      rating: currentRating === b.key ? undefined : b.key,
-                    })
-                  }
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── Sellers (facet) ── */}
-        {facets.sellers.length > 0 && (
-          <div data-testid="facet-sellers" className="border-t pt-3 space-y-1">
-            <h4 className="font-semibold text-gray-700 mb-1.5">Nơi Bán</h4>
-            {facets.sellers.map((b) => (
-              <Bucket
-                key={b.key}
-                dataKey={b.key}
-                label={b.key}
-                count={b.count}
-                active={currentSeller === b.key}
-                onToggle={() =>
-                  updateFilter({
-                    seller: currentSeller === b.key ? undefined : b.key,
-                  })
-                }
-              />
-            ))}
-          </div>
-        )}
-
-        {/* ── Clear all ── */}
-        <button
-          type="button"
-          onClick={handleClearAll}
-          className="w-full rounded-xs border border-gray-300 py-1.5 font-bold uppercase tracking-wider text-gray-700 hover:border-brand hover:text-brand transition"
-        >
-          XÓA TẤT CẢ
-        </button>
+    <aside data-testid="search-facets" className="w-full">
+      <div className="hidden lg:block">
+        <Card className="p-4">
+          <FilterContent
+            facets={facets}
+            categories={categories}
+            state={state}
+            sellerNames={sellerNames}
+            idPrefix="inline"
+            showSubmit
+          />
+          {!hasAnyFacet && (
+            <p className="mt-3 text-xs text-text-secondary">
+              Chưa có bộ lọc nào cho kết quả này.
+            </p>
+          )}
+        </Card>
       </div>
 
-      {!hasAnyFacet && (
-        <p className="px-1 text-[11px] text-gray-400">
-          Chưa có bộ lọc nào cho kết quả này.
-        </p>
-      )}
+      <FilterDrawer
+        activeCount={activeFilterCount(state)}
+        formId="drawer-price-form"
+      >
+        <FilterContent
+          facets={facets}
+          categories={categories}
+          state={state}
+          sellerNames={sellerNames}
+          idPrefix="drawer"
+          showSubmit={false}
+        />
+      </FilterDrawer>
     </aside>
   );
 }

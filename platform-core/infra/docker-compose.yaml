@@ -15,7 +15,9 @@ services:
       retries: 10
 
   qdrant:
-    image: qdrant/qdrant:v1.9.0
+    # Matches qdrant-client 1.19 (team-ai RAG + recs, platform-recsys); the client
+    # rejects a server more than one minor version apart.
+    image: qdrant/qdrant:v1.19.0
     ports: ["6333:6333", "6334:6334"] # 6333 http, 6334 grpc
     volumes:
       - qdrant_data:/qdrant/storage

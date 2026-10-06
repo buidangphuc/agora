@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
+
 from src.api.services.base_service import BaseService
+
+_PAYMENT = "/platform.payment.v1.PaymentService/"
 
 
 class PaymentService(BaseService):
@@ -22,6 +26,15 @@ class PaymentService(BaseService):
                 {"transactionId": tx_id, "simulateSuccess": success},
             )
         return create_res
+
+    def create_payment(
+        self, order_id: str, method: str = "PAYMENT_METHOD_MOCK_MOMO"
+    ) -> dict[str, Any]:
+        """Open a pending payment transaction for an order (online method)."""
+        return self.post(
+            "/platform.payment.v1.PaymentService/CreatePayment",
+            {"orderId": order_id, "method": method},
+        )
 
     def refund(self, payment_id: str, amount: int = 5000000, reason: str = "") -> dict[str, Any]:
         return self.post(
@@ -63,4 +76,29 @@ class PaymentService(BaseService):
         return self.post(
             "/platform.payment.v1.PaymentService/ListPayoutHistory",
             {"sellerId": seller_id},
+        )
+
+    def wallet_balance(self) -> int:
+        """The caller's own ledger balance (Connect JSON omits a zero balance)."""
+        res = self.post(_PAYMENT + "GetWalletBalance", {})
+        return int(res.get("balance") or 0)
+
+    # ── Raw responses for the wallet access scenarios (no raise on 4xx) ──
+    def wallet_response(self, seller_id: str) -> httpx.Response:
+        return self.send("POST", _PAYMENT + "GetSellerWallet", json_body={"sellerId": seller_id})
+
+    def ledger_response(self, seller_id: str) -> httpx.Response:
+        return self.send("POST", _PAYMENT + "ListLedgerEntries", json_body={"sellerId": seller_id})
+
+    def payout_response(self, seller_id: str, amount: int = 1000) -> httpx.Response:
+        return self.send(
+            "POST",
+            _PAYMENT + "RequestPayout",
+            json_body={
+                "sellerId": seller_id,
+                "amount": amount,
+                "bankCode": "VCB",
+                "accountNumber": "0000000000",
+                "accountName": "E2E ATTACKER",
+            },
         )

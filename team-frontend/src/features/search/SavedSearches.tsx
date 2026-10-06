@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/ToastProvider";
+import { focusRing } from "@/components/ui/focus";
 import type { ViewSavedSearch } from "@/lib/gateway/search";
 import { deleteSavedSearchAction, saveSearchAction } from "./actions";
 
 /**
- * Thin "Tìm kiếm đã lưu" panel: save the current query and re-run / delete saved
- * ones. Wired to team-search through the gateway via server actions. Styling to
- * be revamped later.
+ * "Tìm kiếm đã lưu" panel: save the current query and re-run / delete saved
+ * ones, through team-search via server actions. Saving shows a pending state
+ * (button `isLoading`, width kept), is disabled while pending or without a
+ * keyword, and ends in a success or error toast.
  */
 export function SavedSearches({
   currentQuery,
@@ -22,66 +26,93 @@ export function SavedSearches({
   initialSaved: ViewSavedSearch[];
 }) {
   const [saved, setSaved] = useState(initialSaved);
-  const [pending, start] = useTransition();
+  // Explicit flags: React 18's useTransition does not track async callbacks.
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const toast = useToast();
 
-  function save() {
-    start(async () => {
+  async function save() {
+    setSaving(true);
+    try {
       const res = await saveSearchAction(currentQuery, currentFiltersJson);
-      if (res.ok && res.saved) {
-        setSaved((prev) => [res.saved as ViewSavedSearch, ...prev]);
-        toast.success("✓ Đã lưu tìm kiếm.");
-      } else {
-        toast.error(res.message || "Có lỗi xảy ra.");
+      if (res.ok && res.data) {
+        const created = res.data;
+        setSaved((prev) => [
+          created,
+          ...prev.filter((s) => s.id !== created.id),
+        ]);
+        toast.success("Đã lưu tìm kiếm.");
+      } else if (!res.ok) {
+        toast.error(res.error || "Có lỗi xảy ra.");
       }
-    });
+    } catch {
+      toast.error("Có lỗi xảy ra.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function remove(id: string) {
+  async function remove(id: string) {
+    const before = saved;
     setSaved((prev) => prev.filter((s) => s.id !== id));
-    start(async () => {
+    setRemoving(true);
+    try {
       const res = await deleteSavedSearchAction(id);
-      if (!res.ok) toast.error(res.message || "Có lỗi xảy ra.");
-    });
+      if (res.ok) {
+        toast.success("Đã xóa tìm kiếm.");
+      } else {
+        setSaved(before);
+        toast.error(res.error || "Có lỗi xảy ra.");
+      }
+    } catch {
+      setSaved(before);
+      toast.error("Có lỗi xảy ra.");
+    } finally {
+      setRemoving(false);
+    }
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-semibold text-gray-800">Tìm kiếm đã lưu</span>
-        <button
-          type="button"
+    <Card className="p-3 text-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-semibold text-text-primary">Tìm kiếm đã lưu</span>
+        <Button
+          size="sm"
+          variant="outline"
           onClick={save}
-          disabled={pending || !currentQuery.trim()}
-          className="rounded-md bg-brand px-2.5 py-1 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+          isLoading={saving}
+          disabled={!currentQuery.trim()}
         >
-          + Lưu tìm kiếm này
-        </button>
+          Lưu tìm kiếm này
+        </Button>
       </div>
       {saved.length === 0 ? (
-        <p className="text-gray-400">Chưa có tìm kiếm nào được lưu.</p>
+        <p className="text-xs text-text-secondary">
+          Chưa có tìm kiếm nào được lưu.
+        </p>
       ) : (
         <ul className="space-y-1">
           {saved.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-2">
               <Link
                 href={`/search?q=${encodeURIComponent(s.query)}`}
-                className="truncate text-emerald-700 hover:underline"
+                className={`truncate rounded-xs text-action-primary hover:underline ${focusRing}`}
               >
                 {s.query || "(tất cả)"}
               </Link>
-              <button
-                type="button"
+              <Button
+                size="xs"
+                variant="ghost"
                 onClick={() => remove(s.id)}
-                disabled={pending}
-                className="shrink-0 text-gray-400 hover:text-red-600 disabled:opacity-50"
+                disabled={removing}
+                aria-label={`Xóa tìm kiếm ${s.query}`}
               >
                 Xóa
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }

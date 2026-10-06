@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -16,6 +17,9 @@ import (
 
 // OrderPaidEventType is the fully-qualified proto type for OrderPaidEvent.
 const OrderPaidEventType = "platform.order.v1.OrderPaidEvent"
+
+// OrderShippedEventType is the fully-qualified proto type for OrderShipped.
+const OrderShippedEventType = "platform.order.v1.OrderShipped"
 
 // OrderEventsTopic is the Kafka topic for order lifecycle events.
 const OrderEventsTopic = "order.events"
@@ -64,6 +68,86 @@ func BuildOrderPaidEnvelope(
 		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
 	return value, nil
+}
+
+// orderPaidNamespace seeds deterministic event ids so a re-emitted PAID fact for
+// the same order collapses onto one outbox row (ON CONFLICT DO NOTHING) and one
+// consumer-side dedupe key.
+var orderPaidNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/OrderPaid"))
+
+// OrderPaidEventID is the stable EventEnvelope.event_id for an order's PAID fact.
+func OrderPaidEventID(orderID string) string {
+	return uuid.NewSHA1(orderPaidNamespace, []byte(orderID)).String()
+}
+
+// BuildPaidOutboxRow is the repository.PaidOutboxBuilder for team-order: it wraps
+// the order's OrderPaidEvent (with line items) in an EventEnvelope, keyed by
+// order_id, ready to commit in the same transaction as the PAID transition.
+// order.UpdatedAt is the transition time and becomes occurred_at / paid_at.
+func BuildPaidOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+	occurredAt := order.UpdatedAt
+	if occurredAt.IsZero() {
+		occurredAt = time.Now()
+	}
+	eventID := OrderPaidEventID(order.ID)
+	payload, err := BuildOrderPaidEnvelope(eventID, order, occurredAt.UTC(), "")
+	if err != nil {
+		return repository.OutboxRow{}, err
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   order.ID,
+		EventType:     OrderPaidEventType,
+		Payload:       payload,
+	}, nil
+}
+
+// orderShippedNamespace seeds deterministic OrderShipped event ids (one per shipment).
+var orderShippedNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/OrderShipped"))
+
+// OrderShippedEventID is the stable EventEnvelope.event_id for a shipment's OrderShipped fact.
+func OrderShippedEventID(shipmentID string) string {
+	return uuid.NewSHA1(orderShippedNamespace, []byte(shipmentID)).String()
+}
+
+// BuildShippedOutboxRow is the repository.ShipmentOutboxBuilder for team-order: it
+// wraps OrderShipped in an EventEnvelope keyed by order_id, ready to commit in the
+// same transaction as the shipment. s.BuyerID/SellerID come from the order.
+func BuildShippedOutboxRow(s repository.Shipment) (repository.OutboxRow, error) {
+	shippedAt := s.CreatedAt
+	if shippedAt.IsZero() {
+		shippedAt = time.Now()
+	}
+	shippedAt = shippedAt.UTC()
+	eventID := OrderShippedEventID(s.ID)
+	payload, err := proto.Marshal(&orderv1.OrderShipped{
+		OrderId:      s.OrderID,
+		BuyerId:      s.BuyerID,
+		SellerId:     s.SellerID,
+		Carrier:      s.Carrier,
+		TrackingCode: s.TrackingCode,
+		ShippedAt:    timestamppb.New(shippedAt),
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal OrderShipped: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       OrderShippedEventType,
+		OccurredAt: timestamppb.New(shippedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   s.OrderID,
+		EventType:     OrderShippedEventType,
+		Payload:       value,
+	}, nil
 }
 
 // KafkaPublisher sends byte payloads to a Kafka topic.

@@ -18,7 +18,10 @@ Feature: Checkout emergency kill-switch (OpenFeature + Flipt)
     When the buyer opens the cart page
     Then the browser receives resolved markup with no Flipt address or flag SDK
 
-  @needsBuyer @needsListing @killswitch
+  # checkout-enabled is one Flipt flag shared by every scenario on the stack. While it is
+  # OFF, any concurrent CreateOrder (other workers' checkouts, the ON scenarios below)
+  # is rejected, so the scenarios that turn it OFF are @destructive (serial lane only).
+  @needsBuyer @needsListing @killswitch @destructive
   Scenario: Kill-switch off blocks checkout end-to-end
     Given a buyer has an item in the cart
     When "checkout-enabled" is turned OFF in Flipt
@@ -35,7 +38,7 @@ Feature: Checkout emergency kill-switch (OpenFeature + Flipt)
     Then the checkout entry point is shown in the UI
     And the buyer can place the order through the gateway to team-order
 
-  @needsBuyer @needsListing @killswitch
+  @needsBuyer @needsListing @killswitch @destructive
   Scenario: Toggling takes effect without a redeploy
     Given a buyer has an item in the cart
     When "checkout-enabled" is turned OFF in Flipt

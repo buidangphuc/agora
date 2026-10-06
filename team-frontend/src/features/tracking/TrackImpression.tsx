@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { trackEcommerce } from "@/lib/analytics";
+import { useEffect, useRef } from "react";
 
 interface TrackImpressionProps {
   readonly listingId: string;
@@ -82,10 +82,22 @@ export function TrackImpression({
     return () => {
       observer.disconnect();
     };
-  }, [listingId, placementId, impressionId, modelVersion, position, query, price, category, properties]);
+  }, [
+    listingId,
+    placementId,
+    impressionId,
+    modelVersion,
+    position,
+    query,
+    price,
+    category,
+    properties,
+  ]);
 
   if (!children) {
-    return <div ref={ref} className="h-0 w-0 pointer-events-none" aria-hidden />;
+    return (
+      <div ref={ref} className="h-0 w-0 pointer-events-none" aria-hidden />
+    );
   }
 
   return <div ref={ref}>{children}</div>;

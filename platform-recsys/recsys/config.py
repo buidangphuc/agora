@@ -119,6 +119,9 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("promotion_primary_metric", "PROMOTION_PRIMARY_METRIC", "ndcg@10", _as_str),
     ("promotion_min_relative_improvement", "PROMOTION_MIN_RELATIVE_IMPROVEMENT", "0.01", _as_float),
     ("promotion_min_coverage_ratio", "PROMOTION_MIN_COVERAGE_RATIO", "0.8", _as_float),
+    # Operator override: promote (and publish) this run even if the gate rejects it,
+    # e.g. to repopulate Qdrant/Redis after they were reset. Never set it on a schedule.
+    ("promotion_force", "PROMOTION_FORCE", "false", _as_bool),
     # Provenance stamped on every artifact; empty ⇒ derive from the run clock.
     ("model_version", "MODEL_VERSION", "", _as_str),
 ]
@@ -161,6 +164,7 @@ class Settings:
     promotion_primary_metric: str = "ndcg@10"
     promotion_min_relative_improvement: float = 0.01
     promotion_min_coverage_ratio: float = 0.8
+    promotion_force: bool = False
     model_version: str = ""
 
     # ── Derived helpers ──────────────────────────────────────────────────────

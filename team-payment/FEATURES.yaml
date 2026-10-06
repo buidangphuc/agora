@@ -90,3 +90,88 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "payment/refund.feature::Refund payment is processed on approved return"
+
+  - id: payment.seller-reads-own-wallet
+    title: A seller reads their own wallet
+    persona: seller
+    priority: P0
+    summary: >-
+      GetSellerWallet for the caller's own seller id is served.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a signed-in seller
+      - When the seller requests their wallet
+      - Then the wallet call returns 200
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::A seller reads their own wallet"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+  - id: payment.buyer-cannot-pay-out-seller-wallet
+    title: A buyer cannot request a payout from a seller's wallet
+    persona: buyer
+    priority: P0
+    summary: >-
+      RequestPayout with another seller's id is denied by team-payment (403) and no payout is booked.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given a signed-in seller and a signed-in buyer
+      - When the buyer requests a payout from the seller's wallet to their own bank account
+      - Then the wallet call returns 403 and the seller's payout history has no payout
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::A buyer cannot request a payout from a seller's wallet"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+  - id: payment.user-cannot-read-other-ledger
+    title: A user cannot read another seller's ledger
+    persona: buyer
+    priority: P0
+    summary: >-
+      ListLedgerEntries with another seller's id is denied with 403.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given a signed-in seller and a signed-in buyer
+      - When the buyer requests the seller's ledger
+      - Then the wallet call returns 403
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::A user cannot read another seller's ledger"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+  - id: payment.admin-reads-but-cannot-pay-out
+    title: An admin reads a seller's wallet but cannot pay it out
+    persona: admin
+    priority: P0
+    summary: >-
+      An admin may read any seller's wallet; payouts are owner-only, so an admin's RequestPayout is denied with 403.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given a signed-in seller and an admin
+      - When the admin requests the seller's wallet, then a payout
+      - Then the read returns 200 and the payout returns 403
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::An admin reads a seller's wallet but cannot pay it out"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.

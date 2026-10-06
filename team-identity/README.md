@@ -327,7 +327,7 @@ Scopes are computed deterministically from the user's assigned roles:
 
 | Role | Assigned System Scopes | Notes |
 |---|---|---|
-| `admin` | `listing.read`, `listing.write`, `search:read`, `search:write`, `engagement:read`, `engagement:write`, `admin` | Seeded via `EnsureAdmin` (`admin`/`admin123`) |
+| `admin` | `listing.read`, `listing.write`, `search:read`, `search:write`, `engagement:read`, `engagement:write`, `admin` | Opt-in seed via `SEED_ADMIN_*` (see 8.1); no built-in password |
 | `seller` | `listing.read`, `listing.write`, `search:read`, `search:write`, `engagement:read`, `engagement:write` | Self-assignable upon registration |
 | `buyer` | `listing.read`, `search:read`, `search:write`, `engagement:read`, `engagement:write` | Default registration role |
 
@@ -368,9 +368,38 @@ Tokens minted by `team-identity` carry:
 | `JWT_KID` | `string` | `""` | Key ID stamped in JWT headers (e.g. `identity-key-2026`) |
 | `JWKS_HTTP_PORT` | `int` | `50063` | Listening port for HTTP JWKS server |
 | `JWT_TTL_SECONDS` | `int` | `3600` | Access token lifespan in seconds (default 1 hour) |
+| `SEED_ADMIN_ENABLED` | `bool` | `false` | Create a first admin at startup (see 8.1) |
+| `SEED_ADMIN_USERNAME` | `string` | `admin` | Username of the seeded admin |
+| `SEED_ADMIN_PASSWORD` | `string` | `""` | Password of the seeded admin; required (>= 12 chars) when seeding is enabled |
 | `OTEL_ENABLED` | `bool` | `false` | Enable OpenTelemetry tracing exporter |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `string` | `""` | OTLP gRPC collector endpoint (`localhost:4317`) |
 | `OTEL_SERVICE_NAME` | `string` | `team-identity` | Service name stamped in distributed traces |
+
+### 8.1 Admin seed (`SEED_ADMIN_*`)
+
+team-identity ships **no** built-in credential. By default no admin exists. To create the
+first admin, start the service once with `SEED_ADMIN_ENABLED=true`, `SEED_ADMIN_USERNAME`
+(default `admin`) and `SEED_ADMIN_PASSWORD` (no default, at least 12 characters). With
+seeding enabled and a missing or short password the process exits at startup with an error
+naming `SEED_ADMIN_PASSWORD`. Seeding creates the user only if it does not exist yet; it
+never overwrites an existing password. The local compose stack enables it with a dev-only
+password; deployment manifests must not (platform-gitops has a check). In deployed
+environments create the first admin by enabling it once with a secret, then turn it off.
+
+**Existing `admin` / `admin123` row.** Earlier versions seeded `admin` / `admin123`
+unconditionally, and that row stays in an existing database after upgrade. Rotate or remove
+it (psql against `identity_db`; `users` has `username`, `password_hash`, `roles`):
+
+```bash
+# Remove it (then re-seed with a strong password if you still need an admin):
+psql "$DATABASE_URL" -c "DELETE FROM users WHERE username = 'admin';"
+
+# Or rotate in place (bcrypt hash, cost 10; any bcrypt tool works, e.g. htpasswd):
+HASH=$(htpasswd -bnBC 10 "" 'a-new-strong-password' | tr -d ':\n' | sed 's/^\$2y/$2a/')
+psql "$DATABASE_URL" -v h="$HASH" -c "UPDATE users SET password_hash = :'h' WHERE username = 'admin';"
+```
+
+Outstanding tokens for that user stay valid until they expire (`JWT_TTL_SECONDS`).
 
 ---
 

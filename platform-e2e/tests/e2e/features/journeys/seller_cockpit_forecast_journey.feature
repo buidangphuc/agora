@@ -6,7 +6,7 @@ Feature: Seller Cockpit, Analytics Funnel and Demand Forecast Journey
 
   @needsSeller
   Scenario: Seller publishes listing, monitors conversion funnel analytics, and queries demand forecast
-    Given a seller is logged in
+    Given a seeded seller is logged in
     When the seller publishes a new listing with inventory stock
     Then the listing is published and visible in seller listings
     When the seller updates the listing price and inventory stock

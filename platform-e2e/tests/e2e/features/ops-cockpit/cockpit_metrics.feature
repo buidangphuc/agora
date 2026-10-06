@@ -5,7 +5,8 @@ Feature: Admin Cockpit shows live per-service metrics from Prometheus
   error-rate) instead of the old math/rand stub. The gateway runs a fixed,
   hardcoded PromQL set server-side and shapes it into the frozen
   CockpitMetricsResponse — raw Prometheus is never exposed to the browser, and
-  orders/revenue are labelled derived pending a real order-domain metric.
+  orders/revenue come from team-analytics order facts and traces from Jaeger; each is
+  null/empty when its source is unavailable, never fabricated. Admin-only.
 
   @needsAdmin
   Scenario: Cockpit reflects real request activity
@@ -38,8 +39,7 @@ Feature: Admin Cockpit shows live per-service metrics from Prometheus
     And the metric values are cleared or zeroed, never re-introducing random data
 
   @needsAdmin
-  Scenario: Orders/revenue are not presented as Prometheus-sourced truth
+  Scenario: Orders, revenue and traces are never fabricated
     Given an admin is logged in
     When the cockpit response is produced
-    Then total_orders_24h and total_revenue_24h are populated from a derived source, not a Prometheus business counter
-    And they are documented as estimated, pending a future order-domain metric
+    Then total_orders_24h and total_revenue_24h are real figures or null and no fabricated rows are returned

@@ -20,6 +20,7 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/bootstrap"
 	"github.com/buidangphuc/team-analytics/internal/config"
 	"github.com/buidangphuc/team-analytics/internal/consumer"
+	"github.com/buidangphuc/team-analytics/internal/export"
 	"github.com/buidangphuc/team-analytics/internal/grpcserver"
 	"github.com/buidangphuc/team-analytics/internal/observability"
 	"github.com/buidangphuc/team-analytics/internal/query"
@@ -91,6 +92,13 @@ func run() error {
 		slog.Int("batch_max_size", settings.Batch.MaxSize),
 		slog.Int("flush_interval_seconds", settings.Batch.FlushIntervalSeconds),
 	)
+
+	if w, ok := res.Writer.(*duckdb.Writer); ok && export.Enabled(settings.Warehouse.ParquetExportPath, settings.Warehouse.ParquetExportIntervalSeconds) {
+		interval := time.Duration(settings.Warehouse.ParquetExportIntervalSeconds) * time.Second
+		logger.Info("parquet export enabled",
+			slog.String("path", settings.Warehouse.ParquetExportPath), slog.Duration("interval", interval))
+		go export.Run(ctx, w, settings.Warehouse.ParquetExportPath, interval, logger)
+	}
 
 	flushInterval := time.Duration(settings.Batch.FlushIntervalSeconds) * time.Second
 	return cons.Run(ctx, res.Writer, settings.Batch.MaxSize, flushInterval, logger)

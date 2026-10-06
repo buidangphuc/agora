@@ -177,6 +177,19 @@ message RevokeSessionRequest {
 
 message RevokeSessionResponse {}
 
+// SessionRevoked is the event published on Kafka topic `identity.events` (key = user
+// id, wrapped in platform.events.v1.EventEnvelope with type
+// "platform.identity.v1.SessionRevoked") when a user revokes one of their sessions.
+// The gateway keeps `session_id` in an in-memory denylist until `expires_at` (the
+// revoked token's expiry) and rejects any token whose `sid` claim matches.
+message SessionRevoked {
+  string session_id = 1;
+  string user_id = 2;
+  // Expiry of the longest-lived token that can carry this session id; after this
+  // instant the denylist entry is redundant and may be dropped.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
 // A recorded login attempt (successful or failed) against the caller's account.
 message LoginEvent {
   string id = 1;
@@ -193,4 +206,29 @@ message ListLoginHistoryRequest {
 message ListLoginHistoryResponse {
   repeated LoginEvent events = 1;
   platform.common.v1.PageResponse page = 2;
+}
+
+// PublicProfileService resolves public display names for other users. It is an
+// internal, service-to-service surface: callers MUST be service principals
+// carrying the identity.read scope (e.g. team-notification naming a chat sender).
+// User principals are rejected with PERMISSION_DENIED.
+service PublicProfileService {
+  // GetPublicProfiles returns the public profile of each known user id. Unknown
+  // ids are omitted and duplicates ignored. Max 100 ids (INVALID_ARGUMENT above).
+  rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
+}
+
+message GetPublicProfilesRequest {
+  repeated string user_ids = 1;
+}
+
+// PublicProfile is the only user data exposed to other services: the id and the
+// name to show. display_name is the username unless a display name exists.
+message PublicProfile {
+  string user_id = 1;
+  string display_name = 2;
+}
+
+message GetPublicProfilesResponse {
+  repeated PublicProfile profiles = 1;
 }

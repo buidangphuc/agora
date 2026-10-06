@@ -1,0 +1,43 @@
+# Feature manifest for team-verification (mock KYC).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-verification
+owner: verification-team
+
+features:
+  - id: verification.buyer-cannot-self-approve
+    title: A buyer cannot approve their own KYC
+    persona: buyer
+    priority: P1
+    summary: ReviewKyc needs the admin scope; a buyer (even the submitter) is denied and stays unverified.
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [verification.v1.SubmitKyc, verification.v1.ReviewKyc, verification.v1.GetVerificationStatus]
+    acceptance:
+      - Given a signed-in buyer with a pending KYC submission
+      - When the buyer approves their own KYC submission
+      - Then the gateway returns 403 and the buyer's status is still not verified
+    tags: [buyer, security]
+    status: automated
+    covered_by: "services/verification_access.feature::A buyer cannot approve their own KYC"
+
+  - id: verification.admin-approves-seller
+    title: An admin approves a seller's KYC
+    persona: admin
+    priority: P1
+    summary: An admin with the admin scope approves another user's pending KYC and the user becomes verified.
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.SubmitKyc, verification.v1.ReviewKyc, verification.v1.GetVerificationStatus]
+    acceptance:
+      - Given a seller with a pending KYC submission and an admin logged in
+      - When the admin approves the seller's KYC submission
+      - Then the gateway returns 200 and the seller's status is verified
+    tags: [admin, security]
+    status: automated
+    covered_by: "services/verification_access.feature::An admin approves a seller's KYC"

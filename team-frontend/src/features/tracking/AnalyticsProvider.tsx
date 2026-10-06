@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
 import { initGTM } from "@/lib/analytics/destinations/gtm";
+import { type ReactNode, useEffect } from "react";
 
 export function AnalyticsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {

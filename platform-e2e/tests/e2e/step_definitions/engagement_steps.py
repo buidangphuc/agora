@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
@@ -129,7 +131,12 @@ def buyer_adds_listing_to_collection(world: World, name: str) -> None:
     token = world.state.current_user.token
     cid = world.state.extra["collection_id"]
     listing_id = world.state.listing.listing_id
+    # The server action completes after the click returns; poll briefly for the write.
+    deadline = time.monotonic() + 5
     ids = _collection_item_ids(world, token, cid)
+    while listing_id not in ids and time.monotonic() < deadline:
+        time.sleep(0.25)
+        ids = _collection_item_ids(world, token, cid)
     assert listing_id in ids, f"listing {listing_id} not added to collection (items={ids})"
     world.logger.info(f"Added listing {listing_id} to collection {name!r}")
 

@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "biome check . && tsc --noEmit && vitest run"
+    "check": "biome check . && tsc --noEmit && node scripts/check-tokens.mjs && vitest run"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^1.10.0",

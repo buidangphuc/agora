@@ -220,6 +220,8 @@ type RunConfig struct {
 	DLQTopic    string        // e.g. "payment.events.dlq"
 	MaxAttempts int           // in-process attempts before DLQ (default 5)
 	BaseBackoff time.Duration // first retry delay; doubles per attempt (default 200ms)
+	// FetchRetryBackoff spaces out retries after a failed fetch (default 1s).
+	FetchRetryBackoff time.Duration
 }
 
 func (c RunConfig) withDefaults() RunConfig {
@@ -231,6 +233,9 @@ func (c RunConfig) withDefaults() RunConfig {
 	}
 	if c.BaseBackoff <= 0 {
 		c.BaseBackoff = 200 * time.Millisecond
+	}
+	if c.FetchRetryBackoff <= 0 {
+		c.FetchRetryBackoff = time.Second
 	}
 	return c
 }
@@ -248,10 +253,18 @@ func (c *PaymentConsumer) Run(ctx context.Context, reader RecordReader, dlq Dead
 		}
 		rec, err := reader.Fetch(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
+			// Stop only when our own context is done. A fetch error that merely
+			// wraps a deadline (a Kafka request timing out under load) is transient;
+			// returning on it silently stopped the consumer and left orders PENDING.
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-			c.logger.WarnContext(ctx, "fetch record failed", slog.Any("err", err))
+			c.logger.WarnContext(ctx, "fetch record failed; retrying", slog.Any("err", err))
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(cfg.FetchRetryBackoff):
+			}
 			continue
 		}
 

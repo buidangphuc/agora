@@ -29,10 +29,17 @@ class LoginPage(BasePage):
         # Server-action error text rendered in a red <p>.
         return self.page.get_by_text("không chính xác", exact=False)
 
+    @property
+    def error_alert(self) -> Locator:
+        """The inline error Alert. Filtered by text because Next's route announcer is also role=alert."""
+        return self.page.get_by_role("alert").filter(has_text="không chính xác")
+
     def is_displayed(self) -> bool:
         return self.username_input.is_visible()
 
     def login(self, username: str, password: str) -> None:
+        # Wait for hydration: a fill or submit before it is lost or posts natively.
+        self.wait_until_interactive(self.submit_button)
         self.username_input.fill(username)
         self.password_input.fill(password)
         self.submit_button.click()

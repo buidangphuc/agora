@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import { trackEcommerce } from "@/lib/analytics";
+import { useEffect } from "react";
 
 /**
  * Fires a single batched `view_item_list` ecommerce event for the rendered search results,
@@ -19,12 +19,11 @@ export function SearchImpressions({
 
     trackEcommerce("view_item_list", {
       query,
-      itemListId: "search_results",
-      itemListName: "Search Results",
       items: listingIds.map((listingId, index) => ({
         itemId: listingId,
         index: index + 1,
         itemListId: "search_results",
+        itemListName: "Search Results",
       })),
     });
   }, [listingIds, query]);

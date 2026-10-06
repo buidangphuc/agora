@@ -7,6 +7,7 @@ run only against the local stack (broker + `kafka-python`); see tracking_flow.py
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from playwright.sync_api import expect
@@ -14,7 +15,7 @@ from pytest_bdd import parsers, then, when
 
 from src.api.services.tracking_service import VIEW
 from src.constants import PageName, timeouts
-from tests.e2e.flows import consume_tracking_events
+from tests.e2e.flows import consume_tracking_events, tracking_event_type
 from tests.e2e.support.world import World
 
 
@@ -141,7 +142,9 @@ def envelope_principal_identifies_buyer(world: World) -> None:
     assert envelopes, "no envelope produced for the authenticated beacon"
     text = _as_text(envelopes[0])
     buyer = world.state.current_user
-    assert (buyer.username in text or "listing.read" in text or "engagement:write" in text), "envelope principal does not identify the buyer"
+    assert (
+        buyer.username in text or "listing.read" in text or "engagement:write" in text
+    ), "envelope principal does not identify the buyer"
     world.state.extra["last_envelope_text"] = text
 
 
@@ -162,7 +165,9 @@ def browsing_completes_normally(world: World) -> None:
 
 @then("no user-visible error is shown")
 def no_user_visible_error(world: World) -> None:
-    error_banner = world.page.locator(".bg-red-900, .bg-red-500, [role='alert']:has-text('Lỗi'), [role='alert']:has-text('Error')")
+    error_banner = world.page.locator(
+        ".bg-red-900, .bg-red-500, [role='alert']:has-text('Lỗi'), [role='alert']:has-text('Error')"
+    )
     assert (
         error_banner.count() == 0 or not error_banner.first.is_visible()
     ), "a user-visible error was shown during a best-effort tracked action"
@@ -229,9 +234,80 @@ def purchase_payload_carries_ecommerce_fields(world: World) -> None:
     session_id = world.state.extra["track_session_id"]
     tx_id = world.state.extra["transaction_id"]
     envelopes = _envelopes_for_session(world, session_id)
-    purchase_envs = [env for env in envelopes if "EVENT_TYPE_PURCHASE" in _as_text(env) or tx_id in _as_text(env)]
+    purchase_envs = [
+        env
+        for env in envelopes
+        if tracking_event_type(env) == "EVENT_TYPE_PURCHASE" or tx_id in _as_text(env)
+    ]
     assert len(purchase_envs) >= 1, f"no purchase envelope found for tx {tx_id}"
     text = _as_text(purchase_envs[0])
     assert tx_id in text, "transaction id missing"
     assert "VND" in text, "currency missing"
 
+
+# ── Placement attribution regression (ui-phase-seller 7.4) ────────────────
+@when(
+    parsers.parse(
+        'the gateway receives an impression and a click beacon with placement "{placement}" for the listing'
+    )
+)
+def emit_impression_and_click_with_placement(world: World, placement: str) -> None:
+    listing = world.state.listing
+    session_id = f"e2e-sess-{uuid.uuid4()}"
+    impression_id = f"imp-{uuid.uuid4()}"
+    common = {
+        "listingId": listing.listing_id,  # type: ignore[union-attr]
+        "sessionId": session_id,
+        "path": "/",
+        "position": 1,
+        "placementId": placement,
+        "impressionId": impression_id,
+        "modelVersion": "e2e-v1",
+    }
+    status = world.service_factory.tracking.emit_batch(
+        [{"type": "impression", **common}, {"type": "click", **common}]
+    )
+    assert status in (200, 202, 204), f"batch beacon should be accepted, got {status}"
+    world.state.extra["track_session_id"] = session_id
+    world.state.extra["impression_id"] = impression_id
+
+
+@then(
+    parsers.parse(
+        'both beacons are published to the "{topic}" topic carrying placement "{placement}"'
+    )
+)
+def both_beacons_carry_placement(world: World, topic: str, placement: str) -> None:
+    session_id = world.state.extra["track_session_id"]
+    envelopes = _envelopes_for_session(world, session_id)
+    kinds = {
+        kind: [_as_text(e) for e in envelopes if tracking_event_type(e) == kind]
+        for kind in ("EVENT_TYPE_IMPRESSION", "EVENT_TYPE_CLICK")
+    }
+    for kind, found in kinds.items():
+        assert found, f"no {kind} envelope published for session {session_id}"
+        assert placement in found[0], f"{kind} lost its placement {placement!r}: {found[0][:300]}"
+        assert world.state.extra["impression_id"] in found[0], f"{kind} lost its impression id"
+
+
+@then("the seller analytics funnel counts the impression")
+def seller_funnel_counts_impression(world: World) -> None:
+    # The seeded seller owns the listing; the Analysis page reads the same
+    # getSellerFunnel the beacons feed (eventually consistent, so poll by reload).
+    from tests.e2e.flows import login_via_api
+
+    seller = world.state.seeded_seller
+    assert seller, "listing seed must have created a seller"
+    login_via_api(world, seller)
+    analytics = world.navigate_to(PageName.SELLER_ANALYTICS)
+    # The "Lượt hiển thị" Statistic cell shows the funnel impressions.
+    cell = analytics.kpi_row.locator("div", has_text="Lượt hiển thị").first  # type: ignore[attr-defined]
+    for _ in range(6):
+        try:
+            expect(cell).to_have_text(
+                re.compile(r"Lượt hiển thị\s*[1-9]"), timeout=timeouts.DEFAULT
+            )
+            return
+        except AssertionError:
+            world.page.reload(wait_until="domcontentloaded")
+    raise AssertionError("seller funnel never counted the impression")

@@ -8,12 +8,24 @@ module (and the whole recommend pipeline) imports without the [ai] extra.
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING, Protocol
 
 from app.modules.business.recommend.schemas import Candidate
 
 if TYPE_CHECKING:
     from app.core.config import Settings
+
+
+# Point ids in the trained collections are uuid5(namespace, listing_id); the listing
+# id itself is in the payload. MUST equal platform-recsys recsys/load/qdrant.py
+# `_NS` (pinned by tests on both sides).
+POINT_ID_NAMESPACE = uuid.UUID("6f7a1e2c-9b3d-4c5a-8e21-0d9f4a2b1c00")
+
+
+def point_id(listing_id: str) -> str:
+    """The Qdrant point id platform-recsys stores for ``listing_id``."""
+    return str(uuid.uuid5(POINT_ID_NAMESPACE, listing_id))
 
 
 class RetrievalBackend(Protocol):
@@ -140,14 +152,22 @@ class QdrantRetrievalBackend:
             return []
 
         def _query() -> list[Candidate]:
+            from qdrant_client import models
+
             client = self._get_client()
-            hits = client.recommend(
+            # The collection is keyed by the producer's uuid5 point id, not the raw
+            # listing id; the seed itself is excluded from the results by Qdrant.
+            res = client.query_points(
                 collection_name=self._collection,
-                positive=[seed_listing_id],
+                query=models.RecommendQuery(
+                    recommend=models.RecommendInput(
+                        positive=[point_id(seed_listing_id)]
+                    )
+                ),
                 limit=top_k,
                 with_payload=True,
             )
-            return [_hit_to_candidate(h) for h in hits]
+            return [_hit_to_candidate(h) for h in res.points]
 
         return await asyncio.to_thread(_query)
 
@@ -166,10 +186,11 @@ class QdrantRetrievalBackend:
         return await asyncio.to_thread(_scroll)
 
 
-def _hit_to_candidate(hit: object) -> Candidate:  # pragma: no cover - live Qdrant
+def _hit_to_candidate(hit: object) -> Candidate:
+    # The candidate id is the payload listing id; the point id is a uuid5 of it.
     payload = getattr(hit, "payload", None) or {}
     return Candidate(
-        listing_id=str(getattr(hit, "id", payload.get("listing_id", ""))),
+        listing_id=str(payload.get("listing_id") or getattr(hit, "id", "")),
         score=float(getattr(hit, "score", 0.0) or 0.0),
         in_stock=bool(payload.get("in_stock", True)),
         category_id=str(payload.get("category_id", "")),

@@ -186,6 +186,55 @@ WHERE seller_id = ?
 	}, nil
 }
 
+// PlatformOrderSummary counts distinct paid orders and sums GMV over order_facts
+// for occurred_at >= since, across all sellers.
+func (r *DuckDBRepository) PlatformOrderSummary(ctx context.Context, since time.Time) (OrderSummary, error) {
+	q := fmt.Sprintf(`
+SELECT
+  COUNT(DISTINCT order_id)                AS orders,
+  COALESCE(SUM(quantity * unit_price), 0) AS gmv
+FROM %s
+WHERE occurred_at >= ?`, warehouse.OrderFactsTableName)
+
+	var s OrderSummary
+	if err := r.db.QueryRowContext(ctx, q, since.UTC()).Scan(&s.OrderCount, &s.GMV); err != nil {
+		return OrderSummary{}, fmt.Errorf("platform order summary query: %w", err)
+	}
+	return s, nil
+}
+
+// RecentOrders returns the latest paid orders, one row per order.
+func (r *DuckDBRepository) RecentOrders(ctx context.Context, limit int) ([]RecentOrder, error) {
+	q := fmt.Sprintf(`
+SELECT
+  order_id,
+  MIN(seller_id)                AS seller_id,
+  SUM(quantity * unit_price)    AS total,
+  MAX(occurred_at)              AS paid_at
+FROM %s
+GROUP BY order_id
+ORDER BY paid_at DESC, order_id ASC
+LIMIT ?`, warehouse.OrderFactsTableName)
+
+	rows, err := r.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, fmt.Errorf("recent orders query: %w", err)
+	}
+	defer rows.Close()
+	var out []RecentOrder
+	for rows.Next() {
+		var o RecentOrder
+		if err := rows.Scan(&o.OrderID, &o.SellerID, &o.Total, &o.PaidAt); err != nil {
+			return nil, fmt.Errorf("scan recent order: %w", err)
+		}
+		o.PaidAt = o.PaidAt.UTC()
+		out = append(out, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate recent orders: %w", err)
+	}
+	return out, nil
+}
+
 // compile-time assertion that the adapter satisfies the seam.
 var _ Repository = (*DuckDBRepository)(nil)
-

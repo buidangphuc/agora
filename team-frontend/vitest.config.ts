@@ -7,6 +7,9 @@ import { defineConfig } from "vitest/config";
 // under Vitest we alias it to the package's own empty.js so gateway/action
 // modules (which all `import "server-only"`) load cleanly.
 export default defineConfig({
+  // Next compiles JSX with the automatic runtime (tsconfig keeps jsx: preserve),
+  // so tests must do the same or components without `import React` throw.
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

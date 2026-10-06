@@ -3,6 +3,7 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { type ViewMagicListing, magicListing } from "@/lib/gateway/ai";
 import {
   createListing,
@@ -11,11 +12,24 @@ import {
   updateListing,
 } from "@/lib/gateway/listings";
 import { createShareLink } from "@/lib/gateway/sharing";
+import { type FieldErrors, validateListingFields } from "./validation";
 
 export interface SellState {
   ok: boolean;
+  /** Success confirmation, or the failure text (mirrored in `error`). */
   message: string;
+  /** Failure text; the field name `error` of the shared mutation contract. */
+  error?: string;
+  /** Server-side validation errors keyed by the form field they belong to. */
+  fieldErrors?: FieldErrors;
   id?: string;
+}
+
+function failState(
+  message: string,
+  fieldErrors?: SellState["fieldErrors"],
+): SellState {
+  return { ok: false, message, error: message, fieldErrors };
 }
 
 function readInput(formData: FormData) {
@@ -51,41 +65,27 @@ function readInput(formData: FormData) {
   };
 }
 
-export interface MagicListingState {
-  ok: boolean;
-  message: string;
-  result?: ViewMagicListing;
-}
-
-/** Server Action: generate SEO title/description/price via team-ai (through the gateway). */
+/**
+ * Server Action: generate SEO title/description/price via team-ai (through the
+ * gateway). There is no local fallback: when the AI call fails the seller gets
+ * an error and keeps editing by hand (no invented suggestions).
+ */
 export async function magicListingAction(
   titleHint: string,
   categoryHint = "",
   imageUrl = "",
-): Promise<MagicListingState> {
-  const hint = titleHint.trim() || "Sản phẩm công nghệ cao cấp";
+): Promise<ActionResult<ViewMagicListing>> {
+  const hint = titleHint.trim();
+  if (!hint) return fail("Nhập tên sản phẩm trước khi dùng gợi ý AI.");
   try {
     const result = await magicListing(hint, categoryHint, imageUrl);
-    if (result?.generatedDescription) {
-      return { ok: true, message: "", result };
+    if (result?.generatedDescription || result?.generatedTitle) {
+      return ok(result);
     }
-  } catch {}
-
-  // Fallback AI generation
-  return {
-    ok: true,
-    message: "",
-    result: {
-      generatedTitle: hint.includes("Chính Hãng")
-        ? hint
-        : `${hint} - Hàng Chính Hãng Bảo Hành 12 Tháng`,
-      generatedDescription: `✨ Mô tả sản phẩm: ${hint}\n- Hàng mới 100% nguyên seal fullbox.\n- Thiết kế hiện đại, độ hoàn thiện cao, công nghệ tiên tiến.\n- Cam kết chính hãng 100%, bảo hành tiêu chuẩn 12 tháng, 1 đổi 1 trong 30 ngày nếu có lỗi nhà sản xuất.\n- Giao hàng siêu tốc trong 2h tại nội thành.`,
-      suggestedCategoryId: categoryHint || "electronics",
-      suggestedPriceMin: 12500000,
-      suggestedPriceMax: 15000000,
-      highlightTags: ["Chính Hãng", "Freeship", "Bảo Hành 12T", "Bán Chạy"],
-    },
-  };
+    return fail("AI chưa có gợi ý cho sản phẩm này.");
+  } catch {
+    return fail("AI tạm thời không phản hồi. Vui lòng thử lại.");
+  }
 }
 
 /** Server Action: get a presigned S3 PUT URL for uploading an image. */
@@ -114,10 +114,10 @@ export async function saveListingAction(
 ): Promise<SellState> {
   const id = String(formData.get("id") ?? "").trim();
   const input = readInput(formData);
-  if (!input.title) return { ok: false, message: "Tiêu đề bắt buộc." };
-  if (!Number.isFinite(input.price) || input.price < 0) {
-    return { ok: false, message: "Giá không hợp lệ." };
-  }
+
+  const fieldErrors = validateListingFields(input);
+  const firstError = Object.values(fieldErrors)[0];
+  if (firstError) return failState(firstError, fieldErrors);
 
   try {
     if (id) {
@@ -142,20 +142,26 @@ export async function saveListingAction(
     };
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.PermissionDenied) {
-      return {
-        ok: false,
-        message: "Bạn không có quyền chỉnh sửa sản phẩm này.",
-      };
+      return failState("Bạn không có quyền chỉnh sửa sản phẩm này.");
     }
-    return { ok: false, message: `Lỗi: ${String(err)}` };
+    return failState(`Lỗi: ${String(err)}`);
   }
 }
 
 /** Server Action: delete listing. */
-export async function deleteListingAction(id: string): Promise<void> {
-  await deleteListing(id);
+export async function deleteListingAction(id: string): Promise<ActionResult> {
+  try {
+    await deleteListing(id);
+  } catch (err) {
+    return fail(
+      err instanceof Error && err.message
+        ? err.message
+        : "Xoá sản phẩm thất bại.",
+    );
+  }
   revalidatePath("/");
   revalidatePath("/seller");
+  return ok();
 }
 
 /**
@@ -172,7 +178,8 @@ export async function createShareLinkAction(
   } catch (err: unknown) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Tạo liên kết chia sẻ thất bại.",
+      message:
+        err instanceof Error ? err.message : "Tạo liên kết chia sẻ thất bại.",
     };
   }
 }

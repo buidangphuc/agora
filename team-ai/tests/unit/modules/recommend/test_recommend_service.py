@@ -223,6 +223,24 @@ async def test_collection_mismatch_raises_unavailable():
         await svc.recommend(RecommendQuery(user_id="u1"))
 
 
+async def test_collection_mismatch_recovers_once_the_collection_exists():
+    """A failed startup check is re-checked (throttled), not kept forever."""
+    backend = FakeBackend(popular=[Candidate("pop-1", 5.0)])
+    backend.ok = False
+    backend.collection_ok = lambda: _ok(backend)  # type: ignore[method-assign]
+    svc = _service(backend, _cache(None), collection_ok=False, collection_recheck_s=0)
+
+    with pytest.raises(ServiceUnavailableError):
+        await svc.recommend(RecommendQuery(user_id="u1"))
+    backend.ok = True  # e.g. the training job created the collection
+    result = await svc.recommend(RecommendQuery(user_id="u1"))
+    assert [i.listing_id for i in result.items] == ["pop-1"]
+
+
+async def _ok(backend) -> bool:
+    return backend.ok
+
+
 async def test_limit_overrides_result_top_k():
     backend = FakeBackend(
         popular=[Candidate(f"pop-{i}", float(10 - i)) for i in range(10)]

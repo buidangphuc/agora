@@ -59,10 +59,10 @@ features:
     ui:
       key_elements:
         heading: "text:Kho Voucher"
-        save_button: "role:button=Lưu mã"
+        voucher_card: "testid:voucher-card"
     acceptance:
       - Given the vouchers page is open
-      - Then the vouchers hub lists available vouchers
+      - Then the vouchers hub lists the vouchers returned by team-promotion and offers no "Lưu mã" button
     tags: [buyer]
     status: automated
     covered_by: "promo/vouchers.feature::Visitor browses available vouchers"
@@ -85,9 +85,45 @@ features:
       - When the buyer opens a seller shop page
       - Then the shop profile header displays the store rating and product catalog
       - And the buyer can toggle following the shop
+      - When a seller has set the display name "Tiem Hoa Nho", then the shop header and the product detail shop header show "Tiem Hoa Nho" and link to /shop/<sellerId>
+      - When the seller renames the shop to "Tiem Hoa Lon", then the next page load shows "Tiem Hoa Lon" without a cache purge
     tags: [buyer, shop]
     status: automated
     covered_by: "shop/shop_storefront.feature::Buyer explores public seller shop storefront"
+    notes: >
+      The two display-name acceptance lines are covered by planned scenarios in
+      shop/shop_display_name.feature ("The name is returned for a storefront",
+      "A name change is reflected"); they have not been run yet (stack was not up).
+
+  - id: shop.display-name-fallback
+    title: Shop label falls back to the seller id prefix
+    persona: buyer
+    priority: P2
+    summary: When a seller has no display name, or the name lookup fails, the UI shows "Shop #<first 6 chars of sellerId>".
+    entry_route: "/shop/{id}"
+    related_routes: [/cart, /account/following]
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+      data: A seeded seller that has not created a storefront.
+    api:
+      exercised: [listing.v1.GetStorefront, listing.v1.BatchGetStorefronts]
+    ui:
+      key_elements:
+        shop_name: "h1"
+    acceptance:
+      - Given a seller with no display name
+      - When a visitor opens the seller's shop page
+      - Then the shop header reads "Shop #" followed by the first 6 characters of the seller id
+      - And when BatchGetStorefronts fails or is Unimplemented the cart still renders every item with the fallback label
+    tags: [buyer, shop]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Fallback when the seller has no name"
+    notes: >
+      Scenario "Fallback when the seller has no name" is written in
+      shop/shop_display_name.feature; run pending a live stack. The lookup-failure
+      line is covered by Vitest (cart.test.ts) because failing the gateway call is not
+      reproducible through the UI.
 
   - id: cart.item-management
     title: Cart quantity and item clearing
@@ -114,6 +150,57 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "buyer/cart_management.feature::Buyer modifies item quantity in cart"
+
+  - id: cart.shop-names
+    title: Cart resolves shop names in one batch
+    persona: buyer
+    priority: P2
+    summary: A cart with items from two sellers resolves both shop names with a single BatchGetStorefronts call.
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Two sellers with display names, one published listing each, both in the buyer's cart.
+    api:
+      seed: [listing.v1.UpsertStorefront, order.v1.AddToCart]
+      exercised: [order.v1.GetCart, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given a buyer's cart holds items from sellers "Shop Alpha" and "Shop Beta"
+      - When the cart page loads
+      - Then exactly one BatchGetStorefronts call is made with both seller ids
+      - And each cart item carries its own shop name (sellerDisplayName)
+    tags: [buyer, cart, shop]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::A cart with two sellers returns both names in one batch"
+    notes: >
+      Scenario "A cart with two sellers returns both names in one batch" is written in
+      shop/shop_display_name.feature and asserts the batch lookup through the gateway.
+      The cart view has no per-shop group header yet; the header assertion lands with the
+      ui-phase cart grouping. "Exactly one call" is covered by Vitest (cart.test.ts).
+
+  - id: following.shop-names
+    title: Following list shows shop names
+    persona: buyer
+    priority: P2
+    summary: /account/following resolves the followed sellers' names with one batch call.
+    entry_route: /account/following
+    services: [team-frontend, team-gateway, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+      data: Buyer follows three sellers, some with display names.
+    api:
+      exercised: [engagement.v1.ListFollowedSellers, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given a buyer follows three sellers
+      - When the buyer opens /account/following
+      - Then one ListFollowedSellers call and one BatchGetStorefronts call are made
+      - And each row shows the seller's display name, or "Shop #<6 chars>" when it has none
+    tags: [buyer, shop]
+    status: planned
+    covered_by: null
+    notes: >
+      No platform-e2e scenario yet (needs three seeded followed sellers); the one-batch
+      behaviour is covered by Vitest (follow.test.ts). Follow-up for the e2e wave.
 
   - id: chat.floating-bubble
     title: Floating chat messenger bubble
@@ -217,8 +304,10 @@ features:
       the gateway using the caller's session. The RPC returns listing ids +
       scores only; the frontend hydrates each id into a product card through the
       existing gateway listing client. Server-only — the browser never calls
-      team-ai directly (Rule 1). When the service is UNAVAILABLE
-      (RECS_ENABLED=false) the row is hidden and the page still renders.
+      team-ai directly (Rule 1). On the local stack team-ai serves the ALS model
+      the platform-recsys job trains from the exported tracking events
+      (serve-trained-recs-locally). When the service is UNAVAILABLE the row is
+      hidden and the page still renders.
     entry_route: /
     related_routes: ["/listing/{id}"]
     services: [team-ai, team-gateway, team-frontend]
@@ -235,7 +324,7 @@ features:
       - And when the recommendation service returns UNAVAILABLE the page still renders and the row is hidden
     tags: [buyer, recommendations]
     status: automated
-    covered_by: "recommendations/recommendations.feature::Recommendations are unavailable without breaking the page"
+    covered_by: "recommendations/recommendations.feature::Logged-in buyer sees a recommendations row sourced from team-ai"
 
   - id: ops.cockpit-reflects-activity
     title: Cockpit reflects real request activity
@@ -312,27 +401,1957 @@ features:
       login: admin
     acceptance:
       - Given PROMETHEUS_URL is unset or Prometheus is unreachable
-      - Then GET /api/admin/metrics still returns a valid response in the expected shape with cleared/zeroed metric values, never re-introducing random data
+      - Then GET /api/admin/metrics still returns a valid response in the expected shape with null/unavailable metric values, never random or placeholder data
     tags: [admin, observability]
     status: automated
     covered_by: "ops-cockpit/cockpit_metrics.feature::Prometheus unavailable degrades gracefully"
 
   - id: ops.cockpit-orders-revenue-derived
-    title: Orders/revenue are not presented as Prometheus-sourced truth
+    title: Orders, revenue and traces are never fabricated
     persona: admin
     priority: P2
     summary: >-
-      Because no Prometheus business metric for orders/revenue exists,
-      total_orders_24h and total_revenue_24h are populated from a derived source
-      (not a Prometheus business counter) and documented as estimated, pending a
-      future order-domain metric, while keeping the response field shape.
+      total_orders_24h and total_revenue_24h come from team-analytics order facts
+      and recent_traces from Jaeger; each is null/empty when its source is
+      unavailable, and the HUD shows an honest "Chưa có dữ liệu" state instead of
+      placeholder figures (never the old 1,420 orders / 384,500,000 ₫).
     entry_route: /admin/cockpit
-    services: [team-frontend, team-gateway]
+    services: [team-frontend, team-gateway, team-analytics]
     preconditions:
       login: admin
     acceptance:
       - When the cockpit response is produced
-      - Then total_orders_24h and total_revenue_24h are populated from a derived source (not a Prometheus business counter) and are documented as estimated, pending a future order-domain metric
+      - Then total_orders_24h and total_revenue_24h are real figures or null and no fabricated rows are returned
     tags: [admin, observability]
     status: automated
-    covered_by: "ops-cockpit/cockpit_metrics.feature::Orders/revenue are not presented as Prometheus-sourced truth"
+    covered_by: "ops-cockpit/cockpit_metrics.feature::Orders, revenue and traces are never fabricated"
+    notes: >
+      Scenario text changed with ops-cockpit-real-data (was "are null"); re-run against
+      the stack before trusting the automated status.
+
+  - id: ops.cockpit-anonymous-401
+    title: Anonymous request to the cockpit endpoint is rejected
+    persona: guest
+    priority: P1
+    summary: >-
+      GET /api/admin/metrics without a token answers 401 before any upstream
+      (Prometheus, team-analytics, Jaeger) is queried.
+    entry_route: /admin/cockpit
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - When GET /api/admin/metrics is called without a token
+      - Then the gateway returns 401
+    tags: [admin, observability, authz]
+    status: automated
+    covered_by: "ops/cockpit_real_data.feature::Anonymous request is rejected"
+    notes: >
+      Written in ops/cockpit_real_data.feature ("Anonymous request is rejected"); flips to automated, with covered_by,
+      after it passes against the stack.
+
+  - id: ops.cockpit-buyer-403
+    title: A buyer cannot open the cockpit
+    persona: buyer
+    priority: P1
+    summary: >-
+      A signed-in buyer (no admin scope) gets 403 from GET /api/admin/metrics, and
+      /admin/cockpit renders the admin-required 403 result instead of the HUD.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [admin.metrics]
+    ui:
+      key_elements:
+        forbidden: "text:Cần tài khoản Quản trị"
+    acceptance:
+      - When a signed-in buyer calls GET /api/admin/metrics
+      - Then the gateway returns 403
+      - And when the buyer opens /admin/cockpit the page renders a 403 result and no metrics
+    tags: [buyer, admin, authz]
+    status: automated
+    covered_by: "ops/cockpit_real_data.feature::A buyer cannot open the cockpit"
+    notes: >
+      Written in ops/cockpit_real_data.feature ("A buyer cannot open the cockpit"); flips to automated, with covered_by,
+      after it passes against the stack.
+
+  - id: ops.cockpit-paid-order-24h
+    title: A paid order shows up in the 24h figures
+    persona: admin
+    priority: P1
+    summary: >-
+      A buyer places and pays an order of 2 x 150,000 ₫; once order.events is ingested
+      into order_facts, the admin cockpit's 24h order count rises by at least 1, GMV by at
+      least 300,000 (other orders may be paid concurrently) and the order is in
+      recent_orders with a total of 300,000 (within 30 s).
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, team-analytics, team-order, team-payment, team-identity]
+    preconditions:
+      login: admin
+      seed_tag: needsListing
+      data: Requires Redpanda, the team-order outbox relayer and the team-analytics consumer running.
+    api:
+      exercised: [analytics.v1.GetPlatformOrderSummary, analytics.v1.ListRecentOrders]
+    acceptance:
+      - Given an admin has noted the 24h order figures
+      - When a buyer places and pays an order of 2 x 150000 VND
+      - Then within 30 seconds total_orders_24h has increased by at least 1 and total_revenue_24h by at least 300000
+      - And recent_orders lists that order id with a total of 300000
+    tags: [admin, observability, order]
+    status: automated
+    covered_by: "ops/cockpit_real_data.feature::A paid order shows up in the 24h figures"
+    notes: >
+      Written in ops/cockpit_real_data.feature ("A paid order shows up in the 24h figures"); flips to automated, with covered_by,
+      after it passes against the stack.
+
+  # ---- ui-foundation (design tokens + Exception shells). status: planned until the
+  # ---- ui_foundation.feature scenarios have run green against the local stack.
+  - id: ui.not-found
+    title: Unknown route shows the 404 result
+    persona: guest
+    priority: P2
+    summary: >-
+      An unknown URL renders the Exception 404 result with a visible link back to
+      the home page and an HTTP 404 status (src/app/not-found.tsx).
+    entry_route: /does-not-exist
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor opens /does-not-exist
+      - Then the page shows a "not found" result with a visible link back to /
+      - And the HTTP status is 404
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::Unknown route shows the 404 result"
+
+  - id: ui.error-recovery
+    title: A thrown page error is recoverable
+    persona: guest
+    priority: P2
+    summary: >-
+      When a server component throws during render, src/app/error.tsx shows the
+      error result with a "Thử lại" button that re-renders the segment. Needs a
+      fault-injection hook (none exists), so it is covered by the Vitest shell test
+      until a test route is added.
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a server component throws during render
+      - Then the error result is shown with a "Thử lại" (retry) button
+      - And clicking it re-renders the segment
+    tags: [buyer]
+    status: planned
+    notes: >-
+      Needs a server component that throws during render (fault injection); covered by render tests only.
+
+  - id: ui.brand-colour-token
+    title: The brand colour resolves from the design tokens
+    persona: guest
+    priority: P2
+    summary: >-
+      A primary action on the storefront renders the brand colour from the Tier 1
+      primary scale (rgb(238, 77, 45)).
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the home page is open
+      - Then the header search button's computed background colour is rgb(238, 77, 45)
+      - And the --color-action-primary alias resolves to the same colour
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::The brand colour resolves from the design tokens"
+
+  - id: ui.alias-override
+    title: Changing an alias restyles every user of it
+    persona: guest
+    priority: P2
+    summary: >-
+      Overriding --color-action-primary on :root restyles every component that
+      consumes the alias (primary Button, sale PriceTag) with no component change.
+    entry_route: /
+    services: [team-frontend, team-search]
+    preconditions:
+      login: guest
+      data: At least one listing must render so a PriceTag is on the page.
+    acceptance:
+      - Given the home page is open
+      - When --color-action-primary is overridden on :root
+      - Then every element styled by the action-primary alias renders the overridden colour
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::Changing an alias restyles every user of it"
+
+  # ---- ui-core-components (core component set + /dev/ui catalogue). The scenarios
+  # ---- drive the dev-only /dev/ui page, so they need only the frontend, no backend.
+
+  - id: ui.button-loading
+    title: A loading button keeps its width and blocks clicks
+    persona: guest
+    priority: P2
+    summary: >-
+      Button isLoading swaps the label for a spinner overlay without changing the button width, sets aria-busy and ignores clicks.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the idle and loading "Thêm vào giỏ" buttons are compared
+      - Then both have the same rendered width, the loading one has aria-busy=true and a spinner, and clicking it does nothing
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::A loading button keeps its width and blocks clicks"
+
+  - id: ui.disabled-inert
+    title: Disabled is announced and inert
+    persona: guest
+    priority: P2
+    summary: >-
+      A disabled interactive component carries aria-disabled=true and ignores pointer and keyboard activation.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the disabled button has the disabled attribute and aria-disabled=true
+      - And clicking it or pressing Enter/Space on it changes nothing
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Disabled is announced and inert"
+
+  - id: ui.focus-ring-keyboard
+    title: Focus ring shows for keyboard users only
+    persona: guest
+    priority: P2
+    summary: >-
+      The 2px focus-ring alias ring is drawn on keyboard focus (Tab) and not on mouse click.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the user tabs to a button
+      - Then a focus ring (box-shadow in the focus-ring colour) is drawn
+      - When the same button is clicked with the mouse
+      - Then no focus ring is drawn
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Focus ring shows for keyboard users only"
+
+  - id: ui.empty-table
+    title: An empty table shows Empty, not a blank area
+    persona: guest
+    priority: P2
+    summary: >-
+      A Table with no rows still renders its column headers and an Empty block with the configured description.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the empty table shows its headers and the "Chưa có sản phẩm" Empty description
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::An empty table shows Empty, not a blank area"
+
+  - id: ui.statistic-loading-stable
+    title: A loading statistic does not shift layout
+    persona: guest
+    priority: P2
+    summary: >-
+      Switching a Statistic between loading and a value keeps its bounding box height.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the loading toggle switches the statistics from skeleton to values
+      - Then each statistic card's height is unchanged
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::A loading statistic does not shift layout"
+
+  - id: ui.modal-focus-trap
+    title: Modal traps focus and restores it
+    persona: guest
+    priority: P2
+    summary: >-
+      Opening a Modal moves focus inside, Tab cycles inside only, Escape closes it and focus returns to the opener.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When the user opens the modal and presses Tab repeatedly
+      - Then focus never leaves the dialog
+      - When the user presses Escape
+      - Then the dialog closes and focus is back on the opening button
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Modal traps focus and restores it"
+
+  - id: ui.tabs-keyboard
+    title: Tabs are keyboard navigable
+    persona: guest
+    priority: P2
+    summary: >-
+      ArrowRight on the focused tab selects the next tab and shows its panel.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - When focus is on the first tab and the user presses ArrowRight
+      - Then the second tab is selected and its panel is shown
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Tabs are keyboard navigable"
+
+  - id: ui.link-tabs-url
+    title: Link tabs keep their state in the URL
+    persona: guest
+    priority: P2
+    summary: >-
+      Tabs with hrefFor render links whose active tab is aria-current=page, and the browser back button restores the previous tab.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the link tabs are anchors and the active one has aria-current=page
+      - When another link tab is clicked and the user goes back
+      - Then the previous tab is current again
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Link tabs keep their state in the URL"
+
+  - id: ui.input-error-announced
+    title: Input errors are announced
+    persona: guest
+    priority: P2
+    summary: >-
+      An Input with an error sets aria-invalid=true and its accessible description contains the error text.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the errored email input has aria-invalid=true and its description is the error message
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Input errors are announced"
+
+  - id: ui.quantity-bounds
+    title: QuantityPicker respects its bounds
+    persona: guest
+    priority: P2
+    summary: >-
+      With min=1 max=3 showing 3 the increment button is disabled, typing 5 clamps to 3 and decrement stays enabled.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the quantity picker at its max has a disabled increment button
+      - When 5 is typed into it
+      - Then the value is 3 and the decrement button is enabled
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::QuantityPicker respects its bounds"
+
+  - id: ui.pagination-links
+    title: Pagination works without client JavaScript
+    persona: guest
+    priority: P2
+    summary: >-
+      Pagination renders plain links to pages 1-5 with the current page marked aria-current=page.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then pagination links to pages 1 to 5 are present and page 2 has aria-current=page
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Pagination works without client JavaScript"
+
+  - id: ui.image-fallback
+    title: Image reserves its box and falls back
+    persona: guest
+    priority: P2
+    summary: >-
+      An Image with aspect=square keeps a square box before and after a failed load and shows the fallback placeholder.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given the /dev/ui catalogue is open
+      - Then the broken image shows the fallback placeholder in a square box
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_components.feature::Image reserves its box and falls back"
+
+  - id: ui.catalogue-not-in-production
+    title: The catalogue is not shipped to production
+    persona: guest
+    priority: P2
+    summary: >-
+      /dev/ui returns HTTP 404 in a production build. Needs a production build served by next start; verified by hand and by the next.config rewrite unit test, so it stays planned until the e2e stack can run a production frontend.
+    entry_route: /dev/ui
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given a production build of team-frontend is running
+      - When /dev/ui is requested
+      - Then the response status is 404
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_foundation.feature::The catalogue is not shipped to production"
+
+  # ---- ui-phase-product-detail (PDP rebuilt on the core components). status:
+  # ---- planned until product_detail.feature has run green against the local stack.
+  - id: discovery.home-streaming
+    title: Home streams independent blocks
+    persona: guest
+    priority: P1
+    summary: The hero, hubs and category grid paint first; the feed, recommendations and recently viewed stream in without layout shift.
+    entry_route: /
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    ui:
+      key_elements:
+        hero_cta: "role:link=Mua ngay"
+        category_links: "role:navigation=Danh mục sản phẩm"
+    acceptance:
+      - Given the feed query takes several seconds while categories resolve immediately
+      - Then the hero, hubs and category grid are visible first and the feed shows card skeletons until its data arrives
+      - Given the recommendations or recently-viewed query fails or returns no items
+      - Then that block is not rendered and every other block still renders
+      - Given the feed query fails
+      - Then an error Alert with a retry link to / is shown instead of an empty grid
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/shell.feature::Slow block does not block the page"
+    notes: >
+      e2e scenario "Slow block does not block the page" (frontend/shell.feature) asserts the observable effect (hero
+      first, zero layout shift); the slow/failing gateway cases are covered by the unit tests because a server-side
+      fetch cannot be slowed from the browser.
+
+  - id: discovery.no-fabricated-data
+    title: Discovery routes show only real data
+    persona: guest
+    priority: P1
+    summary: No fake ratings, sold counts, strike-through prices, discount or MALL badges, flash-sale countdown or "% sold" bars.
+    entry_route: /
+    related_routes: [/search, /vouchers]
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - Given / is rendered with listings that have no review, discount or campaign data
+      - Then the document has no strike-through price, no "-NN%" badge, no "ĐÃ BÁN" text, no countdown, no MALL badge and no star rating
+      - Given a listing costs more than 5,000,000 or its title contains a brand keyword
+      - Then its card shows no MALL badge and exactly one price
+      - Given /search and /vouchers are rendered
+      - Then the sort options exclude "Bán Chạy" and no voucher card has a "Lưu mã" button
+      - Given the gateway provides no flash-sale campaign
+      - Then no flash-sale heading, countdown, "% sold" bar or discount badge is present
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/shell.feature::No fabricated markers on the home page"
+    notes: >
+      e2e scenario "No fabricated markers on the home page" (frontend/shell.feature); the card-level scenarios are unit tests.
+
+  - id: discovery.search-url-state
+    title: Search state lives in the URL
+    persona: guest
+    priority: P1
+    summary: Filters, sort and category are shareable URLs; active filters are removable tags; changing a filter resets the page.
+    entry_route: /search
+    related_routes: [/]
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+      data: Seeded listings across categories and price ranges are indexed.
+    api:
+      exercised: [search.v1.SearchListings]
+    ui:
+      key_elements:
+        facet_bucket: "testid:facet-bucket"
+        active_filters: "testid:active-filters"
+        clear_all: "role:link=Xóa tất cả bộ lọc"
+    acceptance:
+      - When a buyer selects the "100000-500000" price bucket and sort "price_asc"
+      - Then the URL contains minPrice=100000&maxPrice=500000&sort=price_asc and a new tab shows the same results and selected state
+      - When a buyer on /search?q=ao&page=3 selects a rating filter
+      - Then the new URL has no page and shows the first page of the filtered results
+      - Given /search?q=ao&category=c1&rating=4 is rendered
+      - Then three removable tags are shown and removing the category tag navigates to /search?q=ao&rating=4
+      - When at least one filter is active and the buyer activates "Xóa tất cả bộ lọc"
+      - Then the URL becomes /search keeping q and all tags disappear
+      - Given the SortBar is rendered
+      - Then it offers only Liên quan, Mới nhất, Giá thấp đến cao and Giá cao đến thấp, and the active one is marked
+      - When a visitor activates the "Điện thoại" category on the home grid
+      - Then the browser navigates to /search?category=<that id>
+      - Given /search?category=c1 is rendered with CategoryBar variant="pills"
+      - Then the pill for c1 has aria-current="true" and "Tất cả" does not
+    tags: [buyer, search]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Filters are shareable URLs"
+    notes: >
+      e2e scenarios "Filters are shareable URLs", "Active filters can be removed one by one", "Clear all filters",
+      "Sort options match what the server honours" (frontend/search_facets.feature) and "Selecting a category navigates by URL"
+      (frontend/shell.feature). "Changing a filter resets the page" and "Current category is announced" are unit-tested.
+
+  - id: discovery.search-pagination
+    title: Search results are paginated by URL
+    persona: guest
+    priority: P1
+    summary: At most 24 results per page; page links preserve the other params; a page past the end redirects to the last page.
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+      data: More than 24 matching listings are indexed.
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - Given /search?q=ao&sort=newest has 60 results
+      - Then Pagination shows pages 1-3 as links such as /search?q=ao&sort=newest&page=2 with page 1 marked aria-current="page"
+      - When a visitor opens /search?q=ao&page=99 and only 3 pages exist
+      - Then the response redirects to /search?q=ao&page=3
+      - Given the total is 24 or fewer
+      - Then no Pagination is rendered
+    tags: [buyer, search]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Page links preserve the query"
+    notes: >
+      e2e scenarios "Page links preserve the query" and "Out-of-range page redirects" (frontend/search_facets.feature).
+      "Single page hides Pagination" is a unit test.
+
+  - id: discovery.search-states
+    title: Search loading, empty and error states
+    persona: guest
+    priority: P1
+    summary: A zero-result search shows Empty with a clear-filters action; a backend failure shows an error Alert with retry, never "no results".
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - When a filter change triggers navigation
+      - Then the results column shows 24 card skeletons in the same grid and the sidebar remains
+      - Given /search?q=zzzzzz returns no hits
+      - Then Empty shows "Không tìm thấy sản phẩm" and a "Xóa bộ lọc" button linking to /search
+      - When the search call throws
+      - Then an error Alert with a "Thử lại" link to the same URL is shown, the header and filter column still render and no Empty is shown
+    tags: [buyer, search]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Backend failure is not a silent empty"
+    notes: >
+      e2e scenarios "Zero results" and "Backend failure is not a silent empty" (frontend/search_facets.feature). The failure is
+      forced by stopping team-search for the scenario (@destructive; restored in teardown). An invalid session cookie is no longer
+      a fault: the gateway answers 401 to a bad bearer, the frontend drops stale cookies and retries public reads anonymously.
+      "Loading skeleton matches the grid" is a unit test.
+
+  - id: discovery.search-mobile-filters
+    title: Search filters usable at 375px
+    persona: guest
+    priority: P1
+    summary: Below 1024px the filters sit behind a "Bộ lọc" button with a count badge and open in a Drawer; the grid stays at two columns.
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search]
+    preconditions:
+      login: buyer
+      data: Seeded listings are indexed.
+    ui:
+      key_elements:
+        filter_button: "role:button=Bộ lọc"
+        filter_drawer: "role:dialog=Bộ lọc"
+    acceptance:
+      - Given a visitor at 375px opens /search and taps "Bộ lọc"
+      - Then a Drawer opens with the category, price, rating and seller filters, focus moves into it and Escape closes it and returns focus to the button
+      - When the buyer enters min 500000 and max 100000 and submits
+      - Then the max field shows an error, the URL does not change and the submit button is not left loading
+      - Given two filters are active at 375px
+      - Then the "Bộ lọc" button shows a badge with 2
+      - Given a grid is rendered in a 375px viewport
+      - Then it shows 2 columns with no horizontal page scroll and no text smaller than 12px
+    tags: [buyer, search]
+    status: automated
+    covered_by: "frontend/search_mobile.feature::Filters open in a drawer at 375px"
+    notes: >
+      e2e scenarios "Filters open in a drawer at 375px", "Active count badge" and "Card layout works at 375px"
+      (frontend/search_mobile.feature). "Invalid price range is rejected" is a unit test.
+
+  - id: discovery.voucher-tabs
+    title: Vouchers hub shows real vouchers with URL tabs
+    persona: guest
+    priority: P2
+    summary: /vouchers renders the vouchers returned by team-promotion under ?type= tabs; no "Lưu mã", no browser wallet.
+    entry_route: /vouchers
+    services: [team-frontend, team-gateway, team-promotion]
+    preconditions:
+      login: guest
+      data: A voucher seeded through the gateway with a seller token (CreateVoucher).
+    api:
+      seed: [promotion.v1.CreateVoucher]
+      exercised: [promotion.v1.ListVouchers]
+    ui:
+      key_elements:
+        voucher_card: "testid:voucher-card"
+        tabs: "role:navigation=Tabs"
+    acceptance:
+      - When a visitor selects "Freeship" and reloads the page
+      - Then the URL is /vouchers?type=shipping and the Freeship tab is still selected
+      - Given a tab has no vouchers
+      - Then Empty is shown with a "Xem sản phẩm" action linking to /search
+      - Given /vouchers renders vouchers
+      - Then no card has a "Lưu mã" or "Đã lưu" control and nothing is read from or written to localStorage
+      - When a principal without listing.write opens /vouchers
+      - Then VoucherManager is not rendered
+      - Given /vouchers is rendered at 375px
+      - Then voucher cards are one per row and the tabs scroll horizontally without page overflow
+    tags: [promo, buyer]
+    status: automated
+    covered_by: "promo/vouchers.feature::Tab state survives reload"
+    notes: >
+      e2e scenarios "Visitor browses available vouchers", "Tab state survives reload", "Empty tab" (promo/vouchers.feature) and
+      "Buyer explores voucher hub" (promo/voucher_hub.feature). The promotion service has no shipping voucher type, so the
+      Freeship tab is always empty; confirm the seed tag name for CreateVoucher with the platform-e2e owners.
+
+  - id: discovery.tracking-unchanged
+    title: Discovery tracking hooks unchanged
+    persona: buyer
+    priority: P1
+    summary: The rebuilt cards and search page emit the same view_item_list / select_item events with position and placement.
+    entry_route: /search
+    services: [team-frontend, team-gateway, team-search, team-analytics]
+    preconditions:
+      login: buyer
+      data: Seeded listings are indexed.
+    acceptance:
+      - Given a ListingCard with placementId, impressionId, modelVersion and position 3 scrolls into view
+      - Then exactly one view_item_list event is sent with itemId, placementId, impressionId, modelVersion and index 3
+      - When a visitor clicks the image or the title of a card
+      - Then a select_item event with the same attribution is sent before navigation to /listing/<id>
+      - Given /search?q=ao renders 24 results
+      - Then one view_item_list event with itemListId "search_results", the query and 24 indexed items is sent
+      - When the recommendations row streams in after the hero
+      - Then its cards still carry placementId "home_recommendations" on impression and click events
+    tags: [tracking, buyer]
+    status: automated
+    covered_by: "tracking/discovery_tracking_unchanged.feature::Card impression still fires once"
+    notes: >
+      e2e scenarios "Card impression still fires once", "Card click still records select_item" and
+      "Search results still emit a batched impression" (tracking/discovery_tracking_unchanged.feature). The payload snapshot
+      and the recommendations attribution are unit tests (ListingCard.test.tsx).
+  - id: cart.grouped-by-shop
+    title: Cart groups items by shop with the real shop name
+    persona: buyer
+    priority: P1
+    summary: /cart renders one card per seller whose header shows the shop display name (id fallback only when the name is empty).
+    entry_route: /cart
+    related_routes: ["/shop/{id}"]
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsSeller
+      data: Two sellers with display names, one published listing each, both in the buyer's cart.
+    api:
+      seed: [listing.v1.UpsertStorefront, order.v1.AddToCart]
+      exercised: [order.v1.GetCart, listing.v1.BatchGetStorefronts]
+    ui:
+      key_elements:
+        shop_group: "testid:cart-shop-group"
+    acceptance:
+      - Given a buyer's cart holds items from sellers "Shop Alpha" and "Shop Beta"
+      - When the buyer opens the cart
+      - Then two shop groups are shown, each headed by its real shop name and not "Shop #"
+    tags: [buyer, cart, shop]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Cart groups items by shop with the real shop name"
+
+  - id: cart.voucher-modal
+    title: Voucher selection through the VoucherModal
+    persona: buyer
+    priority: P1
+    summary: The voucher selector opens a modal; a valid code applies a server-previewed discount, an invalid one shows its reason in the form.
+    entry_route: /checkout
+    related_routes: ["/cart"]
+    services: [team-frontend, team-gateway, team-promotion, team-order]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address (promo seeding).
+    api:
+      exercised: [promotion.v1.ValidateAndReserve]
+    ui:
+      key_elements:
+        discount_row: "testid:voucher-discount"
+        total_row: "testid:order-total"
+    acceptance:
+      - Given a buyer has a qualifying cart and a saved address
+      - When the buyer applies the voucher code "SAVE10" on the Thanh toán step
+      - Then the discount row shows the server amount and the total is reduced
+      - When the buyer applies the voucher code "BOGUS-NOPE-999"
+      - Then the modal shows the reason and no discount is applied
+    tags: [buyer, promo]
+    status: automated
+    covered_by: "promo/vouchers.feature::Buyer redeems a valid voucher at checkout"
+    notes: Driven by the updated steps of promo/vouchers.feature (voucher moved into the modal on the Thanh toán step).
+
+  - id: checkout.step-form
+    title: Four-step checkout with URL-driven state
+    persona: buyer
+    priority: P0
+    summary: /checkout is a Địa chỉ, Vận chuyển, Thanh toán, Xác nhận wizard in a distraction-free shell; the step is in ?step=.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-identity]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address (promo seeding).
+    ui:
+      key_elements:
+        stepper: "role:navigation=Progress"
+        continue: "role:link=Tiếp tục"
+    acceptance:
+      - Given a buyer has a cart and a saved address
+      - When the buyer opens the checkout page
+      - Then the stepper is shown and the global search is not
+      - When the buyer continues to the Vận chuyển step and reloads
+      - Then the URL has step=shipping and the Vận chuyển step is still current
+    tags: [buyer, checkout]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Checkout step lives in the URL and survives a reload"
+
+  - id: checkout.address-selector
+    title: Address selection in a modal
+    persona: buyer
+    priority: P1
+    summary: The Địa chỉ step shows the selected address and lets the buyer pick another in a modal, which updates ?addr=.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+      data: Two saved addresses.
+    ui:
+      key_elements:
+        change_address: "role:button=Thay đổi"
+    acceptance:
+      - Given a buyer has two saved addresses
+      - When the buyer opens the checkout page and changes the address in the modal
+      - Then the address card shows the new recipient and the URL addr is the chosen id
+    tags: [buyer, checkout]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Buyer changes the delivery address in the selector modal"
+
+  - id: checkout.payment-options
+    title: Payment method one-of-many, keyboard operable
+    persona: buyer
+    priority: P1
+    summary: The Thanh toán step renders payment methods as radio cards; arrow keys move the single selection and ?pay= follows it.
+    entry_route: /checkout
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address.
+    ui:
+      key_elements:
+        payment_radio: "css:input[name=paymentMethod]"
+    acceptance:
+      - Given the buyer is on the Thanh toán step
+      - When the buyer presses the Down arrow on the selected method
+      - Then exactly one method is selected and the URL pay parameter follows it
+    tags: [buyer, checkout]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Payment method is one-of-many and keyboard operable"
+
+  - id: checkout.double-submit-guard
+    title: Place order cannot create two orders
+    persona: buyer
+    priority: P0
+    summary: Double-clicking Đặt hàng calls the order action once and creates exactly one order.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ListBuyerOrders]
+    ui:
+      key_elements:
+        place_order: "role:button=Đặt hàng"
+    acceptance:
+      - Given the buyer is on the Xác nhận step
+      - When the buyer double-clicks Đặt hàng
+      - Then exactly one order exists for the buyer
+    tags: [buyer, checkout, order]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Double-clicking Place order creates exactly one order"
+    notes: The same-tick guarantee and the single purchase event are covered by Vitest (PlaceOrderForm.test.tsx).
+
+  - id: checkout.saga-failure-alert
+    title: Order failure shown as a recoverable alert
+    persona: buyer
+    priority: P1
+    summary: A failed order (for example out of stock) shows an error Alert with retry and back-to-cart, without moving the order button or changing the cart.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Another buyer has exhausted the listing stock.
+    ui:
+      key_elements:
+        alert_slot: "testid:saga-alert-slot"
+    acceptance:
+      - Given another buyer exhausts the listing stock
+      - When the buyer places the order from the Xác nhận step
+      - Then an error alert with Thử lại and Quay lại giỏ hàng is shown
+      - And the order button is enabled again, did not move, and the cart is unchanged
+    tags: [buyer, checkout, order]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::A saga failure is shown as a recoverable alert"
+
+  - id: payment.result-outcomes
+    title: Payment outcome shown as a Result
+    persona: buyer
+    priority: P1
+    summary: /checkout/pay/[id] shows the order summary and the mock simulator, then a success or error Result with recovery links.
+    entry_route: /checkout/pay/{order_id}
+    related_routes: ["/account/orders"]
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+      data: Order with a pending mock payment transaction.
+    api:
+      seed: [payment.v1.CreatePayment]
+      exercised: [payment.v1.ProcessMockPayment]
+    acceptance:
+      - Given a buyer has an order awaiting mock payment
+      - When the buyer presses "Thanh toán thành công"
+      - Then a success Result links to the order list
+      - When the buyer presses "Thanh toán thất bại" on another order
+      - Then an error Result offers Thử lại and Đổi phương thức
+    tags: [buyer, payment]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::Successful mock payment shows a success result"
+    notes: The cancelled-by-saga Alert and the 404 Result are covered by Vitest (page.test.tsx).
+
+  - id: checkout.tracking-events
+    title: Purchase path keeps its analytics events
+    persona: buyer
+    priority: P1
+    summary: begin_checkout fires once per checkout entry, apply_promotion on a voucher preview and purchase once after the order, with unchanged payloads.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-promotion]
+    preconditions:
+      login: buyer
+      data: Qualifying cart and a saved address (promo seeding).
+    acceptance:
+      - Given a buyer applies the voucher code "SAVE10" and places the order
+      - Then the page dataLayer holds exactly one begin_checkout, at least one apply_promotion and exactly one purchase
+    tags: [buyer, checkout, tracking]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::The purchase path still emits begin_checkout, apply_promotion and purchase"
+    notes: Event names and payloads are also covered by Vitest (BeginCheckoutBeacon, VoucherModal, PlaceOrderForm tests).
+
+  - id: cart.mobile-layout
+    title: Cart fits a 375px viewport
+    persona: buyer
+    priority: P2
+    summary: At 375px the cart is one column with no horizontal scroll; the quantity control and Mua hàng stay reachable.
+    entry_route: /cart
+    services: [team-frontend, team-order]
+    preconditions:
+      login: buyer
+      data: Cart with an item.
+    acceptance:
+      - Given a buyer has an item in the cart
+      - When the buyer opens the cart at 375px width
+      - Then there is no horizontal overflow and the quantity control and Mua hàng are visible
+    tags: [buyer, cart]
+    status: automated
+    covered_by: "buyer/cart_checkout.feature::The cart fits a 375px viewport"
+
+  - id: orders.list-status-tabs
+    title: Order list status tabs held in the URL
+    persona: buyer
+    priority: P1
+    summary: Selecting a status tab on /account/orders updates ?status= and filters the list; the tab survives reload.
+    entry_route: /account/orders
+    related_routes: ["/account/orders?status=completed"]
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with one pending, one delivered and one cancelled order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.UpdateOrderStatus, order.v1.CancelOrder]
+      exercised: [order.v1.ListBuyerOrders]
+    ui:
+      key_elements:
+        tabs: "role:navigation=Tabs"
+        order_card: "testid:order-card"
+    acceptance:
+      - Given a buyer with orders in several statuses opens /account/orders
+      - When the buyer selects the "Đã giao" tab
+      - Then the URL becomes /account/orders?status=completed, only completed orders are listed and page is reset to 1
+      - And when the buyer opens /account/orders?status=paid&page=2 and reloads, the same tab and page are shown
+      - And an unknown status or an out-of-range page falls back to the "all" tab and the last page without an error
+    tags: [buyer, order]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::A status tab changes the URL and the list"
+
+  - id: orders.list-pagination
+    title: Order list pagination
+    persona: buyer
+    priority: P2
+    summary: The order list shows 10 orders per page with Pagination links that carry ?page=.
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with 11 orders.
+    api:
+      seed: [order.v1.CreateOrder]
+      exercised: [order.v1.ListBuyerOrders]
+    ui:
+      key_elements:
+        pagination: "role:navigation=Phân trang"
+    acceptance:
+      - Given a buyer has 11 orders
+      - When the buyer opens /account/orders
+      - Then 10 orders are shown with a Pagination of 2 pages
+      - And following the "2" link shows the last order at ?page=2
+    tags: [buyer, order]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::Pagination links page through the list"
+
+  - id: orders.list-empty-and-recovery
+    title: Order list empty state and load-failure recovery
+    persona: buyer
+    priority: P2
+    summary: An empty tab shows Empty with a link back to all orders; a failed load shows an Alert with retry, never the empty state.
+    entry_route: /account/orders
+    related_routes: ["/account/orders?status=cancelled"]
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with one pending order and no cancelled order.
+    api:
+      seed: [order.v1.CreateOrder]
+      exercised: [order.v1.ListBuyerOrders]
+    acceptance:
+      - Given a buyer with no cancelled orders opens /account/orders?status=cancelled
+      - Then an Empty block for that tab is shown with a "Xem tất cả đơn hàng" link to the all tab
+      - When the buyer follows the link
+      - Then the all tab lists the order
+      - And a buyer with no orders sees "Bạn chưa có đơn hàng nào" with a "Mua sắm ngay" link
+      - And when the order list request fails an Alert with "Thử lại" is shown instead of the empty state (covered by Vitest page.test.tsx)
+    tags: [buyer, order]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::An empty tab offers a way back"
+
+  - id: orders.detail-anatomy
+    title: Order detail header, progress, descriptions, items and tabs
+    persona: buyer
+    priority: P1
+    summary: The order detail shows breadcrumb, id, status badge, total, a Stepper, recipient/payment descriptions, an items table and Hành trình / Trả hàng tabs.
+    entry_route: /account/orders/{order_id}
+    related_routes: ["/account/orders"]
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with a shipped order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.CreateShipment]
+      exercised: [order.v1.GetOrder, order.v1.GetShipmentTracking, order.v1.GetSagaState]
+    ui:
+      key_elements:
+        stepper: "role:navigation=Progress"
+        timeline: "testid:order-timeline"
+    acceptance:
+      - Given a buyer opens the detail of their SHIPPED order
+      - Then the header shows the breadcrumb, the order id, a status badge and the total
+      - And the Stepper marks "Đang vận chuyển" as the current step
+      - And the recipient and payment descriptions and the items table are visible
+      - And the "Hành trình" tab is active and selecting "Trả hàng / Hoàn tiền" adds ?tab=returns
+      - And a CANCELLED order shows the "Đơn hàng đã hủy" Alert instead of the Stepper
+    tags: [buyer, order]
+    status: planned
+    notes: >-
+      No dedicated e2e scenario yet (the RMA and timeline journeys only touch parts of the detail page).
+
+  - id: orders.timeline-saga-failure
+    title: Saga failure checkpoint in the order timeline
+    persona: buyer
+    priority: P1
+    summary: A compensated order shows the failed saga step as an error checkpoint with a "Mua lại" recovery action.
+    entry_route: /account/orders/{order_id}
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer order whose payment step was forced to fail.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.ForceFailSaga]
+      exercised: [order.v1.GetSagaState]
+    ui:
+      key_elements:
+        failure_item: "testid:timeline-failure"
+    acceptance:
+      - Given a buyer's order whose payment step failed and was compensated
+      - When the buyer opens the order detail
+      - Then the failed and compensated steps render as error items, one with data-testid timeline-failure
+      - And an error Alert with a "Mua lại" action is shown above the timeline
+    tags: [buyer, order]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::A saga failure is shown as the failure checkpoint"
+
+  - id: orders.rma-modal
+    title: Return request Modal with validation and feedback
+    persona: buyer
+    priority: P1
+    summary: The "Yêu cầu trả hàng" header action opens a Modal with a required reason and a bounded amount; submit calls the real action.
+    entry_route: /account/orders/{order_id}
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with a delivered (COMPLETED) order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.UpdateOrderStatus]
+      exercised: [order.v1.CreateReturnRequest]
+    ui:
+      key_elements:
+        reason: "testid:return-reason"
+        amount: "testid:return-amount"
+        submit: "testid:return-submit"
+        status: "testid:return-status"
+    acceptance:
+      - Given a buyer opens the detail of a COMPLETED order
+      - When the buyer opens "Yêu cầu trả hàng" and submits without a reason
+      - Then the reason FormItem shows an inline error, no request is sent and the Modal stays open
+      - When the buyer chooses a reason and submits
+      - Then the submit button shows a pending state, the Modal closes, a success toast shows and the section shows a "Chờ duyệt" badge
+      - And "Hủy đơn" on a pending order calls cancelOrderAction and the badge reads "Đã hủy" after revalidation
+    tags: [buyer, order]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::The return Modal validates and then submits"
+
+  - id: orders.detail-forbidden
+    title: Another buyer's order shows a 403 page
+    persona: buyer
+    priority: P1
+    summary: Opening an order that belongs to another buyer renders a 403 Result and no order data; a missing order renders 404.
+    entry_route: /account/orders/{order_id}
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: An order owned by a different buyer. Needs team-order GetOrder to return PermissionDenied (see design open question 1); if it returns NotFound the 403 is covered by Vitest only.
+    api:
+      seed: [order.v1.CreateOrder]
+      exercised: [order.v1.GetOrder]
+    acceptance:
+      - Given an order owned by buyer B and buyer A signed in
+      - When buyer A opens /account/orders/<id>
+      - Then a 403 Result "Bạn không có quyền xem đơn hàng này" is shown with a link to /account/orders
+      - And no recipient, item or amount of that order appears
+    tags: [buyer, order]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::Another buyer's order shows a 403 page"
+
+  - id: orders.mobile-layout
+    title: Order screens at a 375px viewport
+    persona: buyer
+    priority: P2
+    summary: The order list and detail have no horizontal page scroll at 375px; the tab bar scrolls inside its own container.
+    entry_route: /account/orders
+    related_routes: ["/account/orders/{order_id}"]
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: A buyer with a pending, a delivered and a cancelled order.
+    api:
+      seed: [order.v1.CreateOrder, order.v1.UpdateOrderStatus, order.v1.CancelOrder]
+      exercised: [order.v1.ListBuyerOrders, order.v1.GetOrder]
+    acceptance:
+      - Given a buyer with several orders and a 375px wide viewport
+      - When the buyer opens /account/orders and then an order detail
+      - Then document.documentElement.scrollWidth does not exceed the viewport width on both pages
+      - And the page view event still fires after reordering and landing on /cart
+    tags: [buyer, order, wap]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::The order screens fit a 375px viewport"
+  - id: account.shell-nav
+    title: Account pages share a URL-driven settings shell
+    persona: buyer
+    priority: P1
+    summary: >-
+      The five /account/* settings pages render in AccountShell: breadcrumb, h1 and a menu of links whose current item (aria-current=page) comes from the route; it collapses to one scrollable row on a phone.
+    entry_route: /account/security
+    related_routes: [/account/addresses, /account/verification, /account/referral, /account/following]
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: buyer
+    ui:
+      key_elements:
+        menu: "role:navigation=Menu tài khoản"
+        heading: "role:heading"
+    acceptance:
+      - "The menu reflects the URL: when a signed-in buyer opens /account/security then the Bảo mật item has aria-current=page, the others do not, and the h1 is Bảo mật tài khoản"
+      - "Menu navigation is a real navigation: when the buyer clicks Xác minh and then uses Back, the URL becomes /account/verification and Back returns to /account/security re-rendered"
+      - "Menu collapses on mobile: at 375px the menu is one scrollable row above the content and the page does not scroll sideways"
+      - "Anonymous visitor is redirected: opening /account/addresses without a session redirects to /login with no address data in the response"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::The account menu reflects the URL and Back returns to the previous page"
+
+  - id: account.address-delete-confirm
+    title: Address book with confirmed delete and feedback on every action
+    persona: buyer
+    priority: P1
+    summary: >-
+      Addresses are cards; create and edit open a Modal form, delete opens a confirm Modal (no window.confirm), and every action shows a pending state and ends with a toast.
+    entry_route: /account/addresses
+    related_routes: [/checkout]
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: buyer
+      seed_tag: needsAddress
+    api:
+      seed:
+        - identity.v1.CreateAddress
+      exercised:
+        - identity.v1.ListAddresses
+        - identity.v1.DeleteAddress
+        - identity.v1.SetDefaultAddress
+    ui:
+      key_elements:
+        address_card: "testid:address-card"
+        confirm_dialog: "role:dialog=Xóa địa chỉ?"
+    acceptance:
+      - "Adding an address: when a buyer submits a valid address in the add Modal then the button is pending, the modal closes, a success toast appears and the new card is listed"
+      - "Delete requires confirmation: when a buyer clicks Xóa on a non-default address then a confirm Modal names the recipient, the address is deleted only after the confirm button, and cancel or Escape leaves the list unchanged and returns focus to Xóa"
+      - "A failed mutation reports an error and keeps state: when set-default fails then an error toast is shown, the previous default keeps its Mặc định Tag and the button is enabled again"
+      - "Empty address book: with no addresses an Empty block says Bạn chưa có địa chỉ nhận hàng nào. with a Thêm địa chỉ ngay action"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::Deleting an address needs confirmation"
+
+  - id: account.security-revoke
+    title: Security page lists sessions and login history in Tables
+    persona: buyer
+    priority: P2
+    summary: >-
+      Sessions and login history are Tables with a result Tag; revoking a session asks for confirmation, shows a pending state and ends with a toast; history paginates via ?page=.
+    entry_route: /account/security
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - identity.v1.ListSessions
+        - identity.v1.RevokeSession
+        - identity.v1.ListLoginHistory
+    ui:
+      key_elements:
+        revoke_button: "role:button=Thu hồi"
+        revoke_dialog: "role:dialog=Thu hồi phiên đăng nhập?"
+    acceptance:
+      - "Revoking a session: when a buyer confirms Thu hồi on an active session then the button is pending, a success toast appears, and that row shows Đã thu hồi with no Revoke button"
+      - "Empty history: with no login history the table renders Empty Chưa có lịch sử đăng nhập."
+      - "Gateway read failure: when the sessions request fails the sessions section shows an inline error Alert with Thử lại and the history section still renders"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_security.feature::Revoking a session asks for confirmation first"
+    notes: >-
+      Scenario 'Revoking a session asks for confirmation first' runs green: team-identity records a session at every login (fix/sessions), and session-revocation enforces the revoke at the gateway.
+
+  - id: account.kyc-form-labels
+    title: KYC form is fully labelled and status is a Tag
+    persona: buyer
+    priority: P1
+    summary: >-
+      The verification page shows the KYC status as Descriptions with a text Tag (success, promo, danger, neutral) and SubmitKycForm binds every control to its label through FormItem.
+    entry_route: /account/verification
+    services: [team-frontend, team-verification]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - verification.v1.GetVerificationStatus
+        - verification.v1.SubmitKyc
+    ui:
+      key_elements:
+        doc_type: "label:Loại giấy tờ"
+        doc_ref: "label:Mã tham chiếu tài liệu"
+        submit: "role:button=Gửi hồ sơ xác minh"
+    acceptance:
+      - "Every KYC control has an accessible name: the document-type select is named Loại giấy tờ and the reference input is named Mã tham chiếu tài liệu"
+      - "Submitting a KYC document: when a buyer enters a reference and presses Gửi hồ sơ xác minh then the button is pending, a success toast appears, the field is cleared and the status Tag shows the pending status"
+      - "Status is not conveyed by colour alone: a Verified status Tag contains the statusText in addition to its colour"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::Every KYC control has an accessible name"
+
+  - id: account.referral
+    title: Referral page with Statistic, Descriptions and Timeline
+    persona: buyer
+    priority: P2
+    summary: >-
+      The referral page shows the code with a copy button, invited and reward Statistics, a redeem form and the rewards ledger as a Timeline; generate and redeem are Server Actions with pending state and toasts.
+    entry_route: /account/referral
+    services: [team-frontend, team-referral]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - referral.v1.CreateReferralCode
+        - referral.v1.GetMyReferral
+        - referral.v1.RedeemReferral
+        - referral.v1.ListReferralRewards
+    ui:
+      key_elements:
+        generate: "role:button=Tạo mã giới thiệu"
+        redeem_input: "label:Mã của bạn bè"
+    acceptance:
+      - "Generating a code: when a buyer without a code presses Tạo mã then the button is pending, a success toast appears and the code is shown after revalidation"
+      - "Redeeming an invalid code: when the server rejects the code then an error toast is shown and the redeem field shows the server message as help with aria-invalid=true"
+      - "No rewards yet: with an empty rewards list the Timeline area renders Empty Chưa có phần thưởng nào."
+    tags: [buyer]
+    status: planned
+    notes: >-
+      No e2e scenario yet.
+
+  - id: account.following-tabs
+    title: Following page is URL-tabbed with real shop names
+    persona: buyer
+    priority: P1
+    summary: >-
+      /account/following has a summary Statistic and link Tabs on ?tab=shops|items; shop cards show the real shop display name (Shop # plus 6 id characters only when the name is empty) and the product feed loads behind Suspense with a Skeleton.
+    entry_route: /account/following
+    related_routes: ["/shop/{id}", "/listing/{id}"]
+    services: [team-frontend, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - engagement.v1.ListFollowedSellers
+        - listing.v1.BatchGetStorefronts
+    ui:
+      key_elements:
+        tabs: "role:navigation=Tabs"
+    acceptance:
+      - "Tab is held in the URL: opening /account/following?tab=items selects the Sản phẩm tab on first render without client JS"
+      - "Shop cards show the real shop name: a followed shop named Cửa hàng Hoa Mai shows that name and not Shop #"
+      - "Empty shop name falls back: a followed shop with an empty name shows Shop # plus the first 6 characters of its id"
+      - "Empty follow list: with no followed shops the shops tab shows Empty Bạn chưa theo dõi gian hàng nào. with a Khám phá gian hàng action to /search"
+    tags: [buyer]
+    status: planned
+    notes: >-
+      No e2e scenario yet.
+
+  - id: account.favorites-url-state
+    title: Favorites keep URL state and reuse ListingGrid unchanged
+    persona: buyer
+    priority: P1
+    summary: >-
+      /favorites shows the total in a Badge, the collections manager and the favourites in the unchanged ListingGrid, filtered by ?collection= and paginated by ?page=; an unknown collection id renders a 404 Result.
+    entry_route: /favorites
+    related_routes: ["/favorites?collection={id}"]
+    services: [team-frontend, team-engagement, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - engagement.v1.ListFavorites
+        - engagement.v1.ListCollections
+        - engagement.v1.CreateCollection
+        - engagement.v1.ListCollectionItems
+    ui:
+      key_elements:
+        collection_form: "label:Tạo bộ sưu tập"
+        collection_name: "label:Tên bộ sưu tập"
+    acceptance:
+      - "Collection filter in the URL: when a buyer selects a collection the URL becomes /favorites?collection=<id>, the header shows the collection name and reloading shows the same items"
+      - "Unknown collection: opening /favorites?collection=does-not-exist renders a Result that offers Xem tất cả sản phẩm yêu thích"
+      - "Collection management gives feedback: when a buyer creates a collection the create button is pending and disabled, a success toast appears and the new collection is listed"
+    tags: [buyer, engagement]
+    status: planned
+    notes: >-
+      Only the unknown-collection Result is covered ('An unknown favorites collection shows a not-found result'); the collection filter URL and collection management have no e2e scenario.
+
+  - id: account.notifications-tab-url
+    title: Notification tabs are URL state and the list is server-rendered
+    persona: buyer
+    priority: P1
+    summary: >-
+      /notifications filters by ?tab= and paginates by ?page= (20 per page); the list is server-rendered with only preferences and alert subscriptions as client islands; there is no mark-all-read control because the backend has no mark-as-read RPC.
+    entry_route: /notifications
+    services: [team-frontend, team-notification]
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+        - notification.v1.ListNotifications
+        - notification.v1.GetNotificationPrefs
+        - notification.v1.UpdateNotificationPrefs
+        - notification.v1.ListAlertSubscriptions
+    ui:
+      key_elements:
+        tabs: "role:navigation=Tabs"
+        notification_item: "testid:notification-item"
+        alert_subscription: "testid:alert-subscription"
+    acceptance:
+      - "Tab survives reload and sharing: when a buyer selects the Đơn hàng tab and reloads then the URL contains ?tab=order, the tab is selected and only order notifications are listed"
+      - "No mark-all-read control: with unread items no Đánh dấu đã đọc or equivalent control is rendered"
+      - "Empty tab: a tab with no notifications shows Empty Chưa có thông báo nào trong mục này."
+      - "Saving preferences: when a buyer changes a toggle and presses Lưu the button is pending and a success toast appears; on failure an error toast appears and the toggles keep the unsaved values"
+    tags: [buyer, notification]
+    status: automated
+    covered_by: "frontend/account.feature::The notification tab survives a reload"
+
+  - id: auth.login-inline-error
+    title: Login and register use validated FormItems with an inline error Alert
+    persona: guest
+    priority: P1
+    summary: >-
+      /login and /register render a centred Card of FormItems (names username, password, role preserved); client validation blocks empty and too-short input, the submit button is pending and inert during the request, and failures show an error Alert with role=alert.
+    entry_route: /login
+    related_routes: [/register]
+    services: [team-frontend, team-identity]
+    preconditions:
+      login: guest
+    api:
+      exercised:
+        - identity.v1.Login
+        - identity.v1.Register
+    ui:
+      key_elements:
+        username: "css:#username"
+        password: "css:#password"
+        submit: "role:button=Đăng nhập"
+    acceptance:
+      - "Required fields are validated before submit: submitting /login with an empty username sends no request, shows help text with aria-invalid=true and moves focus to the username input"
+      - "Pending submit is visible and inert: submitting valid credentials shows a spinner with aria-busy=true, keeps the button width and a second click sends no second request"
+      - "Wrong credentials show an inline error: a rejected login shows an error Alert with role=alert reading Tên đăng nhập hoặc mật khẩu không chính xác., keeps the username, clears the password and stays on /login"
+      - "Register enforces the minimum lengths: a 2-character username or a 3-character password on /register shows the minimum-length help and does not submit"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "frontend/account.feature::Wrong credentials show an inline error and keep the typed username"
+  - id: seller.shell-navigation
+    title: Seller shell navigation
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/** renders in a collapsible sidebar (64px / 256px) that becomes a Drawer below 768px, with
+      aria-current on the active link, a shop card showing the real shop name (Shop # + 6 chars of the
+      seller id only when unset) and a 403 Result for a principal without listing.write.
+    entry_route: /seller
+    related_routes: [/seller/orders, /seller/wallet]
+    services: [team-frontend, team-identity, team-domain]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        collapse_toggle: "role:button=Thu gọn thanh bên"
+        menu_button: "role:button=Mở menu người bán"
+        shop_name: "testid:seller-shop-name"
+    acceptance:
+      - Given a seller at a 1280px viewport, when they click the collapse toggle, then the sidebar is 64px wide, labels are hidden but each link keeps its accessible name
+      - Given a seller at a 375px viewport, when they tap the menu button, then a Drawer lists the seller links and choosing "Quản lý đơn hàng" navigates to /seller/orders and closes it
+      - Given the shop display name is "Cửa hàng Hoa Mai", then the shop card shows it and not "Shop #"
+      - Given the shop display name is empty, then the shop card shows "Shop #" followed by the first 6 characters of the seller id
+      - Given the seller is on /seller/wallet, then only the "Ví người bán" link has aria-current="page"
+      - Given a logged-in buyer without listing.write opens /seller, then a Result explains the seller role is required and links back to /
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Sidebar collapses on desktop"
+
+  - id: seller.workplace-dashboard
+    title: Seller Workplace dashboard
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller shows a KPI Statistic row derived from real gateway data (a KPI whose source fails is hidden,
+      never zeroed), a quick-actions card and a recent-orders table.
+    entry_route: /seller
+    related_routes: [/seller/wallet]
+    services: [team-frontend, team-domain, team-order]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        kpi_row: "testid:kpi-row"
+    acceptance:
+      - Given a seller with published listings, when they open /seller, then the KPI row shows total, published and low-stock values derived from the fetched data
+      - Given the call that feeds a KPI fails, then that Statistic cell is not rendered, no placeholder 0 appears and the other KPIs still render
+      - Given the Workplace is rendered with an empty gateway response, then every Statistic shows a value derived from that response and no fixed number from source code
+      - Given the seller activates "Ví người bán" in quick actions, then the browser navigates to /seller/wallet
+      - Given the seller has no orders, then the recent-orders block shows an Empty with a link to /seller/new
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::KPI row and quick actions on desktop"
+    notes: >-
+      The failed-source and empty-response scenarios need fault injection at the gateway, so they are covered
+      by the Vitest page tests (src/app/seller/page.test.tsx); the e2e drives the happy path and the Empty.
+
+  - id: seller.product-table-filters
+    title: Product table with URL filters and pagination
+    persona: seller
+    priority: P1
+    summary: >-
+      The product Table List reads q / status / page from the URL, paginates by 20 and falls back to defaults
+      for invalid values; the filter bar is the only client island.
+    entry_route: /seller
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        search_box: "role:searchbox=Tìm sản phẩm"
+    acceptance:
+      - Given the seller types "iphone" in the product search box, then the URL becomes /seller?q=iphone with the page reset and only matching rows are shown
+      - Given a seller with 45 listings opens /seller?page=2, then rows 21-40 are shown and Pagination marks page 2 current with Previous and Next pointing at page=1 and page=3
+      - Given the seller opens /seller?page=abc or /seller?status=bogus, then page 1 renders with the default status and no error
+      - Given a filter matches no rows, then the table shows Empty "Không có kết quả" with a "Xoá bộ lọc" link
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Product search is reflected in the URL"
+    notes: >-
+      The 45-listing pagination scenario needs a bulk seed; it is covered by the Vitest page test, the e2e
+      covers search, invalid parameters and the no-match Empty.
+
+  - id: seller.listing-delete-confirm
+    title: Deleting a listing asks for confirmation
+    persona: seller
+    priority: P1
+    summary: >-
+      The Xoá row action opens a confirm Modal naming the listing; confirm shows pending then a success toast
+      and the row disappears; a failed delete keeps the Modal open with an Alert.
+    entry_route: /seller
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+      seed_tag: needsListing
+    acceptance:
+      - Given the seller activates Xoá on a row, then a Modal opens focused on the cancel button and the listing is not deleted until confirmed
+      - Given the seller confirms the deletion, then the confirm button shows a spinner and is disabled, and after success the Modal closes, a success toast appears and the row is gone
+      - Given deleteListingAction returns an error, then the Modal stays open with the error in an Alert, an error toast appears and the confirm button is enabled again
+    tags: [seller]
+    status: automated
+    covered_by: "seller/listing_delete.feature::Delete requires confirmation and Cancel keeps the row"
+    notes: The failed-delete scenario needs fault injection; covered by Vitest (DeleteListingModal.test.tsx).
+
+  - id: seller.listing-studio-validation
+    title: Listing studio validation and pending submit
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/new and /seller/[id]/edit validate title, price > 0, stock >= 0 and category inline, submit
+      with a pending, non-repeatable button and a success toast, and refuse another seller's listing with a
+      403 Result.
+    entry_route: /seller/new
+    related_routes: ["/seller/{id}/edit"]
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        title_input: "#title"
+        submit_button: "role:button=Đăng bán ngay"
+    acceptance:
+      - Given the seller submits the form with an empty title, then the title field shows an error linked by aria-describedby, the input has aria-invalid="true" and no request is sent
+      - Given the seller submits a valid form, then the submit button shows a spinner with unchanged width and is disabled, and on success a toast "Đã lưu" appears
+      - Given the seller creates a listing with valid data, then a success state offers "Xem danh sách" and the new listing appears on /seller
+      - Given saveListingAction returns an error, then an Alert at the top shows the message, an error toast appears, the entered values are preserved and submit is enabled
+      - Given a seller opens /seller/<id>/edit of a listing owned by another seller, then a 403 Result with a link back to /seller is shown and the form is not rendered
+    tags: [seller]
+    status: automated
+    covered_by: "seller/create-listing.feature::A required-field error blocks the save"
+    notes: The pending and server-error scenarios are covered by Vitest (ListingForm.test.tsx).
+
+  - id: seller.magic-listing-assist
+    title: Magic Listing is a controlled, non-destructive assist
+    persona: seller
+    priority: P2
+    summary: >-
+      Magic Listing shows its suggestion in a Card and changes the form only when the seller applies a field
+      or all of them; a failure shows an Alert with retry and the form stays editable.
+    entry_route: /seller/new
+    services: [team-frontend, team-ai]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        generate: "role:button=Tạo gợi ý"
+        apply_all: "role:button=Áp dụng tất cả"
+    acceptance:
+      - Given the seller typed a title and a description and runs Magic Listing, then a suggestion card appears and the typed values are unchanged until "Áp dụng" is activated
+      - Given the seller activates "Áp dụng tất cả", then the title, description and price fields show the suggestion values and submit sends them
+      - Given magicListingAction returns an error, then an Alert with "Thử lại" and an error toast are shown and the seller can still submit manually
+    tags: [seller, ai]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Magic Listing suggestions are applied only on request"
+    notes: The failure scenario needs fault injection; covered by Vitest (ListingForm.test.tsx).
+
+  - id: seller.order-detail
+    title: Seller order detail on real data
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/orders/[id] is a server Advanced Profile on getOrder and getShipmentTracking, with a ship
+      confirm Modal, a print stylesheet and a not-found state for unknown or foreign orders.
+    entry_route: "/seller/orders/{id}"
+    related_routes: [/seller/orders]
+    services: [team-frontend, team-order]
+    preconditions:
+      login: seller
+      seed_tag: needsOrder
+    ui:
+      key_elements:
+        packing_slip: "testid:packing-slip"
+        ship_button: "role:button=Bàn giao vận chuyển"
+    acceptance:
+      - Given a seller opens /seller/orders/<id> for one of their orders, then the recipient, items and totals match that order and no hard-coded sample buyer or product appears
+      - Given the seller confirms "Bàn giao vận chuyển" on a paid order, then the confirm button is pending then disabled, a success toast appears and the status Tag and Stepper show Shipped after revalidation
+      - Given updateOrderStatusAction returns an error, then an error toast and an Alert with the error are shown and the order status is unchanged
+      - Given a seller opens /seller/orders/does-not-exist, then the seller not-found Result links to /seller/orders
+      - Given the seller activates "In phiếu", then the print stylesheet hides the sidebar, header actions and toasts and prints the packing slip only
+    tags: [seller, order]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Order detail shows the real order and shipping gives feedback"
+    notes: The shipping-failure scenario needs fault injection; covered by Vitest (ShipOrderButton.test.tsx).
+
+  - id: seller.analytics-range
+    title: Analytics page with a URL range
+    persona: seller
+    priority: P2
+    summary: >-
+      /seller/analytics shows a Statistic row, funnel Progress rows and a revenue Table; the range Tabs
+      (7d / 30d / 90d) live in ?range= and a failed read shows an Alert with retry.
+    entry_route: /seller/analytics
+    services: [team-frontend, team-analytics]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        kpi_row: "testid:kpi-row"
+    acceptance:
+      - Given the seller selects "30 ngày", then the URL contains range=30d and the revenue table and totals cover the last 30 days
+      - Given the seller opens /seller/analytics, then the dashboard and the revenue metrics summary (Statistic row) are visible
+      - Given getSellerFunnel throws, then an Alert with a "Thử lại" link to the same URL is shown and the rest of the page still renders
+    tags: [seller, analytics]
+    status: automated
+    covered_by: "seller/seller_analytics.feature::Range tab updates the URL"
+    notes: The failure scenario needs fault injection; covered by Vitest (analytics.test.tsx).
+
+  - id: seller.wallet-payout-confirm
+    title: Wallet payout asks for confirmation
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/wallet shows the balance and a ledger Table; Rút tiền opens a confirm Modal, is disabled with an
+      explanation at zero balance and reports pending then a toast.
+    entry_route: /seller/wallet
+    services: [team-frontend, team-payment]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        payout_button: "role:button=Rút tiền"
+    acceptance:
+      - Given a seller with a positive balance activates "Rút tiền" and confirms, then the confirm button is pending then disabled, a success toast appears and the balance and ledger refresh
+      - Given the balance is 0, then the payout Button is disabled with aria-disabled="true" and explains why
+    tags: [seller, fintech]
+    status: automated
+    covered_by: "seller/fulfillment_and_payout.feature::Payout asks for confirmation before sending anything"
+    notes: >-
+      The positive-balance scenario skips itself when the seeded seller has no wallet balance (no balance
+      seeding exists); pending and toast are covered by Vitest (PayoutButton.test.tsx).
+
+  - id: seller.route-states
+    title: Seller routes define loading, empty, error and not-found states
+    persona: seller
+    priority: P2
+    summary: >-
+      Every seller route has a loading skeleton with the page footprint, an error Result with retry, a
+      not-found Result and Empty / Alert states for tables.
+    entry_route: /seller
+    services: [team-frontend]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given /seller is requested while its data is pending, then a skeleton with the KPI row and table rows is shown and the content height does not shift
+      - Given a seller page throws during render, then error.tsx shows a Result with "Thử lại" calling reset and a link to /seller
+      - Given a seller has no listings, then the product table area shows Empty "Shop chưa có sản phẩm" with a "Thêm sản phẩm" link
+      - Given listMyListings throws, then an Alert with a retry link is shown above an empty table instead of a raw error string
+    tags: [seller]
+    status: planned
+    notes: >-
+      Skeleton timing, route errors and gateway failures need fault injection or slow responses; they are
+      covered by Vitest (states.test.tsx, page.test.tsx). The e2e drives the empty product state.
+
+  - id: seller.responsive-375
+    title: Seller layouts at 375px
+    persona: seller
+    priority: P1
+    summary: >-
+      At 375px the seller pages have no horizontal page scroll and the listing form keeps its Save button in a
+      sticky bottom bar; at 1280px the KPI row is four-up beside the sidebar.
+    entry_route: /seller
+    related_routes: [/seller/orders, "/seller/orders/{id}", /seller/new]
+    services: [team-frontend]
+    preconditions:
+      login: seller
+      seed_tag: needsOrder
+    acceptance:
+      - Given /seller, /seller/orders and /seller/orders/<id> are opened at a 375px viewport, then document.documentElement.scrollWidth equals the viewport width
+      - Given the listing studio is scrolled to the middle at 375px, then the Save button remains visible in the sticky bottom bar
+      - Given /seller is opened at 1280px, then the four KPI Statistic cells appear in one row next to the sidebar
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::No page-level horizontal scroll at 375px"
+
+  - id: seller.shop-profile-name
+    title: Seller sets the shop display name
+    persona: seller
+    priority: P1
+    summary: >-
+      /seller/shop is a Basic Form with the shop display name; it validates 1-80 characters inline and saves
+      through UpsertStorefront, so the name shows on /shop/<id>.
+    entry_route: /seller/shop
+    related_routes: ["/shop/{id}"]
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: seller
+    ui:
+      key_elements:
+        name_input: "label:Tên gian hàng"
+        save_button: "role:button=Lưu thay đổi"
+    acceptance:
+      - Given a seller enters "Nhà Sách An Nhiên" and submits the shop profile form, then a success toast appears and /shop/<sellerId> shows "Nhà Sách An Nhiên"
+      - Given a seller submits a blank name or one longer than 80 characters, then no request is sent and the field shows an inline error linked by aria-describedby
+    tags: [seller, shop]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Saving a new shop name is reflected on the storefront"
+  - id: listing.pdp-anatomy
+    title: Product detail page follows the Basic Profile anatomy
+    persona: buyer
+    priority: P1
+    summary: >-
+      The PDP shows a breadcrumb, a header card (gallery + info column), the shop
+      header card, an anchor nav over three stacked sections and the similar-items
+      row, with exactly one h1.
+    entry_route: /listing/{listing_id}
+    related_routes: ["/shop/{seller_id}"]
+    services: [team-frontend, team-domain, team-engagement]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        title: "css:h1"
+        shop_card: "testid:shop-header-card"
+        anchor_nav: "role:navigation[name=Nội dung sản phẩm]"
+    acceptance:
+      - "Given a buyer opens a published listing at a 1280px-wide viewport"
+      - "Then the breadcrumb, the gallery and info column side by side, the shop header card, the anchor nav with the specs, reviews and Q&A sections and the similar-items row appear in that vertical order"
+      - "And exactly one h1 contains the listing title"
+      - "When the buyer views the \"Chi tiết\" section of a listing with stock 12 and a category"
+      - "Then a Descriptions block lists \"Kho hàng: 12 sản phẩm\" and the category followed by the description"
+      - "When the buyer clicks the third thumbnail of a listing with 4 images"
+      - "Then the stage shows the third image and the stage bounding box is unchanged"
+      - "When a listing has no imageKeys and no imageUrl"
+      - "Then the stage renders the Image fallback placeholder and no external stock-photo URL is requested"
+      - "And the stage image is eager and each thumbnail is lazy"
+      - "When the seller's shop display name is \"Cửa hàng Hoa Mai\""
+      - "Then the PDP shop card shows \"Cửa hàng Hoa Mai\" and not \"Shop #\""
+      - "When the shop display name is empty"
+      - "Then the shop card shows \"Shop #\" followed by the first 6 characters of the seller id"
+      - "When a buyer clicks \"Xem Shop\" in the PDP shop card"
+      - "Then the browser navigates to /shop/<sellerId>"
+      - "When the seller has zero reviews"
+      - "Then the shop card shows \"Chưa có đánh giá\" instead of \"0.0 / 5.0\""
+    tags: [buyer, ui]
+    status: planned
+    notes: >-
+      No dedicated e2e scenario yet (variant, buy bar, anchor nav, reviews and not-found are covered by their own entries).
+
+  - id: listing.pdp-variant-url
+    title: Variant selection lives in the URL and drives price and stock
+    persona: buyer
+    priority: P1
+    summary: >-
+      Selecting a variant that changes price or stock writes ?variant=<id> and the
+      server derives price, stock, SKU and image from it; a shared URL restores it.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: buyer
+      data: a listing with variants (128GB base price, 256GB higher price, one out-of-stock variant)
+    ui:
+      key_elements:
+        variant_256: "role:radio[name=256GB]"
+        price: "testid:pdp-price"
+    acceptance:
+      - "When the buyer selects variant \"256GB\" whose price differs from the base listing"
+      - "Then the URL gains ?variant=<id of 256GB> without a scroll jump or an extra history entry"
+      - "And the price tag shows the 256GB price and the stock line shows that variant's stock"
+      - "When a buyer opens /listing/<id>?variant=<id of 256GB> directly"
+      - "Then the 256GB radio is checked and the price, stock and SKU show the 256GB values in the first server-rendered markup"
+      - "When a buyer opens /listing/<id>?variant=does-not-exist"
+      - "Then the first in-stock variant is selected and the page renders without an error"
+      - "When a variant has stock 0"
+      - "Then its radio is disabled with aria-disabled=\"true\", shows an \"Hết hàng\" tag and cannot be selected"
+    tags: [buyer, ui]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Selecting a variant with a different price updates the URL and the price"
+
+  - id: listing.pdp-purchase-feedback
+    title: Purchase actions give pending, disabled and toast feedback
+    persona: buyer
+    priority: P0
+    summary: >-
+      Thêm vào giỏ and Mua ngay show a pending state, disable together, toast the
+      result and use the selected variant; Mua ngay then goes to /checkout.
+    entry_route: /listing/{listing_id}
+    related_routes: [/checkout, /cart]
+    services: [team-frontend, team-domain, team-order]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        add_to_cart: "role:button[name=Thêm vào giỏ]"
+        buy_now: "role:button[name=Mua ngay]"
+    acceptance:
+      - "When the buyer clicks \"Thêm vào giỏ\" with quantity 2 on an in-stock variant"
+      - "Then both buttons are disabled with aria-busy on the clicked one while the action runs"
+      - "And a success toast \"Đã thêm 2 sản phẩm vào giỏ hàng\" appears, the buttons re-enable and the cart counter increases"
+      - "When the add action returns { ok: false, error }"
+      - "Then an error toast with that message appears, no add_to_cart event is fired and both buttons are enabled again"
+      - "When the selected variant has stock 3 and the buyer presses \"+\" four times"
+      - "Then the quantity picker value is 3 and the \"+\" control is disabled"
+      - "When the buyer selects variant \"256GB\", sets quantity 1 and clicks \"Mua ngay\""
+      - "Then the cart contains that listing with the 256GB variant id and the browser navigates to /checkout"
+      - "When the selected variant has stock 0"
+      - "Then both actions and the quantity picker are disabled and a warning \"Phân loại này đã hết hàng\" is shown"
+    tags: [buyer, ui]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Add to cart shows a pending state then a success toast"
+
+  - id: listing.pdp-mobile-buy-bar
+    title: Mobile uses a sticky bottom buy bar
+    persona: buyer
+    priority: P1
+    summary: >-
+      Below 1024px a fixed bottom bar shows the price and both actions and shares
+      state with the inline panel; only one set of buttons is visible per breakpoint.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        buy_bar: "testid:buy-bar"
+    acceptance:
+      - "Given a buyer opens a listing at a 375px-wide viewport and scrolls to the reviews section"
+      - "Then the bottom bar stays visible with the selected variant's price"
+      - "When the buyer clicks \"Thêm vào giỏ\" in the bar"
+      - "Then the item is added with the same pending and toast behaviour as the desktop button"
+      - "When the viewport is 375px wide"
+      - "Then exactly one visible \"Thêm vào giỏ\" button exists, in the bar"
+      - "When the viewport is 1280px wide"
+      - "Then exactly one exists, inline, and no bottom bar is shown"
+      - "When the buyer scrolls to the bottom of the page at 375px"
+      - "Then the last element of the page is fully visible above the buy bar"
+    tags: [buyer, ui]
+    status: automated
+    covered_by: "frontend/product_detail.feature::The buy bar is sticky at 375px and absent at 1280px"
+
+  - id: listing.pdp-reviews-url
+    title: Review filter and pagination are URL state
+    persona: buyer
+    priority: P1
+    summary: >-
+      The star filter writes ?rating= and the list pages at 10 via ?rpage=; a filter
+      with no match shows Empty with a way out; helpful votes and the review modal
+      give pending and toast feedback.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-engagement]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: a listing with reviews of several star values
+    ui:
+      key_elements:
+        filter_4: "role:button[name=4 Sao]"
+        helpful: "testid:review-helpful"
+    acceptance:
+      - "When the buyer clicks \"4 Sao\" in the reviews section"
+      - "Then the URL contains rating=4, only 4-star reviews are listed and reloading shows the same list"
+      - "When no 2-star review exists and the buyer opens ?rating=2"
+      - "Then an Empty \"Không có đánh giá 2 sao\" with a \"Xem tất cả\" action is shown and that action removes rating from the URL"
+      - "When the buyer clicks review-helpful on a review and the action succeeds"
+      - "Then the count increases by one and the button is disabled"
+      - "When a listing has 23 reviews and the buyer opens ?rpage=3"
+      - "Then 3 reviews are listed and the pagination marks page 3 as current"
+      - "When the buyer picks 5 stars, types a comment and submits the review modal"
+      - "Then the submit button shows loading and the controls are disabled, then a success toast shows and the new review appears"
+    tags: [buyer, ui, engagement]
+    status: automated
+    covered_by: "buyer/review_ratings_filter.feature::Filtering reviews by stars is shareable through the URL"
+
+  - id: listing.pdp-anchor-nav
+    title: Detail content is stacked sections with an anchor nav
+    persona: buyer
+    priority: P1
+    summary: >-
+      Specs, reviews and Q&A are always-visible sections with ids; an anchor nav
+      links to them, sticky on desktop and horizontally scrollable on mobile.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain, team-engagement]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        nav: "role:navigation[name=Nội dung sản phẩm]"
+    acceptance:
+      - "When a buyer opens /listing/<id>"
+      - "Then the anchor nav has links #specs, #reviews and #qa matching section ids in the first server-rendered markup"
+      - "And activating \"Đánh giá\" scrolls to #reviews"
+      - "When the page is rendered at 1280px and at 375px"
+      - "Then the anchor nav is sticky at 1280px and at 375px it is not sticky and scrolls horizontally without page overflow"
+      - "When a logged-in buyer types a question and submits"
+      - "Then the submit button shows loading, then a success toast appears, the textarea clears and the question is listed"
+      - "When the question textarea is empty"
+      - "Then the submit button is disabled and no request is made"
+      - "When a logged-out visitor views the Q&A section"
+      - "Then qa-login-prompt links to /login?returnUrl=/listing/<id> and no ask form renders"
+    tags: [buyer, ui]
+    status: automated
+    covered_by: "frontend/product_detail.feature::The anchor nav links to the always-visible sections"
+
+  - id: listing.pdp-no-fabricated-data
+    title: The PDP shows only real data
+    persona: guest
+    priority: P1
+    summary: >-
+      No invented rating, sold count, strike-through price, Mall badge, vouchers,
+      shop stats or response rate; a flash-sale listing shows the real discount.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-domain, team-engagement, team-promotion]
+    preconditions:
+      login: guest
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        rating_row: "testid:pdp-rating"
+        price: "testid:pdp-price"
+    acceptance:
+      - "When the buyer opens a listing with zero reviews that is not on flash sale"
+      - "Then the rating row reads \"Chưa có đánh giá\" and no strike-through price or discount badge exists"
+      - "And the texts \"Đã Bán\", \"Mall\" and \"Official Store Partner\" do not appear"
+      - "When the buyer opens a listing priced above 5,000,000 or whose title contains a brand keyword"
+      - "Then no Mall badge is rendered"
+      - "When the buyer opens a listing with an active flash-sale campaign"
+      - "Then the strike-through shows the regular price, the price tag shows the campaign sale price and the discount percentage is computed from those two values"
+    tags: [buyer, ui]
+    status: automated
+    covered_by: "frontend/product_detail.feature::A listing with no reviews shows no invented numbers"
+
+  - id: listing.pdp-not-found
+    title: An unknown listing and a failed fetch have recoverable states
+    persona: guest
+    priority: P2
+    summary: >-
+      An unknown listing id renders a product-specific Result 404 with a way home and
+      to search; a non-NotFound failure renders an error Alert with a retry. The HTTP
+      status stays 200 while the root loading.tsx streams (see design Open Question),
+      so the e2e asserts the rendered result, not the status.
+    entry_route: /listing/does-not-exist
+    services: [team-frontend, team-domain]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a buyer opens /listing/does-not-exist"
+      - "Then the page shows the Result 404 \"Không tìm thấy sản phẩm\" with \"Về trang chủ\" and \"Tìm sản phẩm khác\" actions"
+      - "When the listing fetch fails with a non-NotFound error"
+      - "Then an error Alert with a \"Thử lại\" button is shown and clicking it re-renders the route"
+      - "When the route is navigated to and loading.tsx is shown, then the page resolves"
+      - "Then the gallery stage, title block and anchor nav keep the same top offsets and the measured layout shift is 0"
+    tags: [buyer, ui]
+    status: automated
+    covered_by: "frontend/product_detail.feature::An unknown listing renders the product not-found result"
+
+  - id: listing.pdp-ai-recs-hidden
+    title: AI summary and similar items stream and hide gracefully
+    persona: buyer
+    priority: P1
+    summary: >-
+      The AI review summary and the similar-items row stream in Suspense with a
+      Skeleton, never delay the page, hide when their service is unavailable and keep
+      the pdp_similar_items attribution.
+    entry_route: /listing/{listing_id}
+    services: [team-frontend, team-ai, team-engagement, team-analytics]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    ui:
+      key_elements:
+        recommendations: "text:Gợi ý cho bạn"
+    acceptance:
+      - "When team-ai responds slowly to SummarizeReviews"
+      - "Then the header, price and actions are visible before the summary and a Skeleton holds its space until it resolves"
+      - "When SummarizeReviews fails with UNAVAILABLE"
+      - "Then the reviews section renders with no AI block, no error text and no leftover skeleton"
+      - "When the recommendation service is slow"
+      - "Then the page renders fully with a one-row Skeleton in the row's place and no layout shift when the cards arrive"
+      - "When the recommendation service returns UNAVAILABLE"
+      - "Then the page renders without the \"Gợi ý cho bạn\" row and without an error state"
+      - "When a buyer opens a listing and then switches variants and uses the anchor nav"
+      - "Then exactly one view_item event was sent"
+      - "When the similar-items row scrolls into view and the buyer clicks the second card"
+      - "Then impressions with placementId pdp_similar_items and positions 1..n were sent and a select_item with position 2 was sent before navigation"
+      - "When the buyer adds quantity 2 of a listing priced 100000"
+      - "Then one add_to_cart event is sent with value 200000, currency VND and the item id, name, price, quantity and category"
+    tags: [buyer, ui, recommendations]
+    status: planned
+    notes: >-
+      Scenarios live in recommendations/recommendations.feature, which cannot be collected in the e2e venv (needs pandas and platform-recsys).

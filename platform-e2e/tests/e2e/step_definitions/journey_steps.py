@@ -8,20 +8,24 @@ Covers:
 
 from __future__ import annotations
 
+import re
+import time
 import uuid
-from typing import Any
 
 from playwright.sync_api import expect
-from pytest_bdd import given, parsers, then, when
+from pytest_bdd import given, then, when
 
 from config.settings import get_settings
+from src.api.services import BaseService
 from src.api.services.sharing_service import SharingService
-from src.api.services.tracking_service import IMPRESSION
 from src.constants import PageName, timeouts
+from src.constants import gateway_endpoints as ep
 from src.models import Listing
 from src.pages import (
     CartPage,
+    CheckoutPage,
     ListingDetailPage,
+    OrdersListPage,
     SearchPage,
 )
 from src.utils import data as fake
@@ -32,169 +36,309 @@ SETTINGS = get_settings()
 
 # ============================================================================
 # Journey 1: Buyer Full Funnel Journey
+#
+# Every step drives the running stack: the Next.js UI through Playwright and the
+# gateway API for the read-backs, as the @needsBuyer account the browser is logged
+# in as. Every Then reads state back from the system (see the feature file notes).
 # ============================================================================
 
-@then("a viewable impression telemetry event is emitted to the data layer")
-def viewable_impression_telemetry_emitted(world: World) -> None:
-    session_id = f"e2e-sess-{uuid.uuid4()}"
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-seeded"
-    try:
-        world.service_factory.tracking.emit(
-            IMPRESSION,
-            listing_id=listing_id,
-            session_id=session_id,
-            page="/",
-        )
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Best-effort tracking emission: {exc}")
+_INDEX_WAIT_SECONDS = 60
+_FAVORITE_WAIT_SECONDS = 10
+_PURCHASE_VOUCHER = "SAVE10"
+_RECS_PLACEMENT = "home_recommendations"
 
-    # Push and assert in browser dataLayer
-    world.page.evaluate(
-        """([lid, sess]) => {
-            window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push({
-                event: 'view_item_list',
-                ecommerce: {
-                    item_list_id: 'recommendations_feed',
-                    item_list_name: 'Gợi ý cho bạn',
-                    items: [{ item_id: lid, index: 1 }]
-                },
-                session_id: sess
-            });
-        }""",
-        [listing_id, session_id],
+
+def _digits(text: str) -> int:
+    """All digits of a rendered amount, e.g. '5.000.000 VND' -> 5000000."""
+    cleaned = re.sub(r"\D", "", text or "")
+    assert cleaned, f"no amount in {text!r}"
+    return int(cleaned)
+
+
+def _data_layer_events(world: World, name: str) -> list[dict]:
+    events = world.page.evaluate("() => (window.dataLayer || []).filter((e) => e && e.event)")
+    return [e for e in events if e.get("event") == name]
+
+
+def _impression_item_ids(events: list[dict], placement: str | None = None) -> set[str]:
+    ids = set()
+    for event in events:
+        for item in (event.get("ecommerce") or {}).get("items", []):
+            if placement is None or item.get("item_list_id") == placement:
+                ids.add(item.get("item_id"))
+    return ids
+
+
+def _card_listing_ids(cards) -> set[str]:  # noqa: ANN001
+    hrefs = cards.evaluate_all("els => els.map((e) => e.getAttribute('href') || '')")
+    return {h.rsplit("/", 1)[-1] for h in hrefs if h.startswith("/listing/")}
+
+
+def _seeded_listing_id(world: World) -> str:
+    listing = world.state.listing
+    assert listing and listing.listing_id, "no seeded listing; tag the scenario @needsListing"
+    return listing.listing_id
+
+
+@then("a viewable impression event is emitted to the data layer for a home listing card")
+def home_listing_card_impression(world: World) -> None:
+    cards = world.page.locator('a[href^="/listing/"]')
+    expect(cards.first).to_be_visible(timeout=timeouts.NAVIGATION)
+    cards.first.scroll_into_view_if_needed()
+    # The impression fires from an IntersectionObserver once the card is in view.
+    world.page.wait_for_function(
+        "() => (window.dataLayer || []).some((e) => e && e.event === 'view_item_list')",
+        timeout=timeouts.DEFAULT,
     )
-    dl = world.page.evaluate("() => window.dataLayer || []")
-    impressions = [e for e in dl if isinstance(e, dict) and e.get("event") == "view_item_list"]
-    assert len(impressions) >= 1, "No view_item_list impression event found in window.dataLayer"
-    world.state.extra["track_session_id"] = session_id
-    world.logger.info(f"Impression event emitted for session {session_id}")
+    ids = _impression_item_ids(_data_layer_events(world, "view_item_list"))
+    on_page = _card_listing_ids(cards)
+    assert ids, "view_item_list events carry no item"
+    assert ids <= on_page, f"impression for a listing that is not on the page: {ids - on_page}"
 
 
-@when(parsers.parse('the buyer searches for "{term}" with hybrid search and applies filters'))
-def buyer_hybrid_search_with_filters(world: World, term: str) -> None:
-    world.state.search_term = term
-    search_page: SearchPage = world.navigate_to(PageName.SEARCH)  # type: ignore[assignment]
-    search_page.navigate_query(term)
-    world.state.extra["filter_category"] = "cat-electronics"
-    world.state.extra["filter_price_range"] = "100000-5000000"
+@when("the buyer searches for the seeded listing and filters by its price range")
+def buyer_searches_seeded_listing_and_filters_price(world: World) -> None:
+    listing = world.state.listing
+    listing_id = _seeded_listing_id(world)
+    # The seeded title ends with a random number: a near-unique keyword on a shared stack.
+    keyword = listing.title.split()[-1]
+    index = world.service_factory.get(BaseService)
+    deadline = time.time() + _INDEX_WAIT_SECONDS
+    while True:
+        hits = index.post(ep.SEARCH_LISTINGS, {"query": keyword}).get("hits") or []
+        if listing_id in {h.get("listingId") for h in hits} or time.time() >= deadline:
+            break
+        time.sleep(2)
+    assert listing_id in {h.get("listingId") for h in hits}, (
+        f"seeded listing {listing_id} is not in the search index for {keyword!r} "
+        f"after {_INDEX_WAIT_SECONDS}s"
+    )
+    world.state.search_term = keyword
+
+    world.get_page(PageName.HOME).search_for(keyword)  # type: ignore[attr-defined]
+    search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
+    expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
+    # Facet keys are "<min>-<max>" or "<min>+"; click the bucket the listing's price falls in.
+    keys = (
+        search.facet_group("price_ranges")
+        .locator("[data-key]")
+        .evaluate_all("els => els.map((e) => e.getAttribute('data-key'))")
+    )
+    price = listing.price
+    in_range = []
+    for key in keys:
+        low, _, high = key.replace("+", "-").partition("-")
+        if int(low) <= price and (not high or price < int(high)):
+            in_range.append(key)
+    assert in_range, f"no price facet bucket holds {price}: {keys}"
+    key = in_range[0]
+    search.facet_bucket(key).click()
+    world.state.extra["price_bucket"] = key
+    world.page.wait_for_url(
+        re.compile(rf".*minPrice={key.split('-')[0].rstrip('+')}.*"), timeout=timeouts.NAVIGATION
+    )
 
 
-@then("the search results grid updates matching the filtered criteria")
-def search_results_grid_updates_matching_criteria(world: World) -> None:
-    search_page: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
-    assert search_page.is_displayed(), f"Search page not displayed at {world.page.url}"
-    world.logger.info(f"Search results filtered successfully for term '{world.state.search_term}'")
+@then("the filtered search results include the seeded listing")
+def filtered_results_include_seeded_listing(world: World) -> None:
+    search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
+    key = world.state.extra["price_bucket"]
+    expect(search.facet_bucket(key)).to_have_attribute(
+        "data-active", "true", timeout=timeouts.DEFAULT
+    )
+    link = search.results_wrapper.locator(f'a[href="/listing/{_seeded_listing_id(world)}"]').first
+    expect(link).to_be_visible(timeout=timeouts.DEFAULT)
+    assert search.result_count() > 0, "the filtered search rendered no results"
 
 
-@then("the product detail page displays product details")
-def pdp_displays_product_details(world: World) -> None:
+@when("the buyer opens the seeded listing from the search results")
+def buyer_opens_seeded_listing_from_results(world: World) -> None:
+    listing_id = _seeded_listing_id(world)
+    search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
+    search.results_wrapper.locator(f'a[href="/listing/{listing_id}"]').first.click()
+    world.page.wait_for_url(re.compile(rf".*/listing/{listing_id}$"), timeout=timeouts.NAVIGATION)
+
+
+@then("the product detail page displays the seeded listing's title and price")
+def pdp_displays_seeded_listing(world: World) -> None:
     detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
+    stored = world.service_factory.listing.get_listing(_seeded_listing_id(world))
+    assert stored.get("title"), f"GetListing returned no listing: {stored}"
+    expect(detail.title).to_have_text(stored["title"], timeout=timeouts.DEFAULT)
+    expect(detail.price).to_be_visible(timeout=timeouts.DEFAULT)
+    assert _digits(detail.price.inner_text()) == int(
+        stored["price"]
+    ), f"PDP price {detail.price.inner_text()!r} != stored price {stored['price']}"
     expect(detail.add_to_cart_button).to_be_visible(timeout=timeouts.DEFAULT)
-    world.logger.info("PDP product details and action buttons verified")
 
 
 @when("the buyer favorites the listing and generates a share link")
-def buyer_favorites_and_generates_share_link(world: World) -> None:
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-e2e-1"
-    # Call engagement favorite service
+def buyer_favorites_and_shares(world: World) -> None:
+    page = world.page
+    page.get_by_role("button", name="Yêu thích", exact=True).first.click()
+    expect(page.get_by_text("Đã thêm sản phẩm vào mục Yêu Thích")).to_be_visible(
+        timeout=timeouts.DEFAULT
+    )
+    page.get_by_role("button", name=re.compile("Chia sẻ")).click()
+    shown = page.get_by_text(re.compile(r"/s/[A-Za-z0-9_-]+$")).first
+    expect(shown).to_be_visible(timeout=timeouts.DEFAULT)
+    world.state.extra["share_url"] = shown.inner_text().strip()
+
+
+@then("the listing is a favorite of the buyer and the share link resolves to the listing")
+def listing_favorited_and_share_link_resolves(world: World) -> None:
+    listing_id = _seeded_listing_id(world)
+    deadline = time.time() + _FAVORITE_WAIT_SECONDS
+    while True:
+        favorites = world.service_factory.engagement.list_favorites().get("listingIds") or []
+        if listing_id in favorites or time.time() >= deadline:
+            break
+        time.sleep(1)
+    assert listing_id in favorites, f"ListFavorites does not contain {listing_id}: {favorites}"
+
+    share_url = world.state.extra["share_url"]
+    short_code = share_url.rsplit("/s/", 1)[-1]
+    resolved = world.service_factory.get(SharingService).resolve_share_link(short_code)
+    assert resolved.get("targetType") == "listing", f"share link target: {resolved}"
+    assert resolved.get("targetId") == listing_id, f"share link points elsewhere: {resolved}"
+
+    # Open the link like a recipient would: it must land on the listing page.
+    recipient = world.context.new_page()
     try:
-        world.service_factory.engagement.toggle_favorite(listing_id)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Engagement toggle favorite: {exc}")
-
-    # Generate share link
-    short_code = f"s-{uuid.uuid4().hex[:6]}"
-    try:
-        share_svc = world.service_factory.get(SharingService)
-        res = share_svc.create_share_link("listing", listing_id)
-        short_code = res.get("shortCode") or short_code
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Sharing service create link: {exc}")
-
-    world.state.extra["short_code"] = short_code
-    world.state.extra["is_favorited"] = True
+        recipient.goto(share_url, wait_until="domcontentloaded")
+        expect(recipient).to_have_url(
+            re.compile(rf".*/listing/{listing_id}$"), timeout=timeouts.NAVIGATION
+        )
+    finally:
+        recipient.close()
 
 
-@then("the product is marked as favorite and a valid share link is created")
-def product_favorite_and_share_link_verified(world: World) -> None:
-    assert world.state.extra.get("is_favorited") is True, "Listing was not marked as favorite"
-    short_code = world.state.extra.get("short_code")
-    assert short_code, "Short share code was not generated"
-    world.logger.info(f"Product favorited and share link generated with code '{short_code}'")
+@when("the buyer adds the listing to the cart and raises its quantity to 2")
+def buyer_adds_listing_and_raises_quantity(world: World) -> None:
+    detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
+    detail.add_to_cart_button.click()
+    expect(world.page.get_by_text("Đã thêm 1 sản phẩm vào giỏ hàng")).to_be_visible(
+        timeout=timeouts.DEFAULT
+    )
+    cart: CartPage = world.navigate_to(PageName.CART)  # type: ignore[assignment]
+    quantity = world.page.get_by_role("spinbutton", name=f"Số lượng: {world.state.listing.title}")
+    expect(quantity).to_have_attribute("aria-valuenow", "1", timeout=timeouts.NAVIGATION)
+    cart.increase_quantity_button.click()
+    expect(quantity).to_have_attribute("aria-valuenow", "2", timeout=timeouts.DEFAULT)
 
 
-@when("the buyer adds multiple items to the cart")
-def buyer_adds_multiple_items(world: World) -> None:
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-e2e-1"
-    try:
-        world.service_factory.cart.add_to_cart(listing_id=listing_id, quantity=2)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Cart add_to_cart: {exc}")
+@then("the cart holds 2 units of the listing")
+def cart_holds_two_units(world: World) -> None:
+    listing = world.state.listing
+    cart = world.service_factory.cart.get_cart().get("cart", {})
+    items = cart.get("items") or []
+    assert len(items) == 1, f"expected one cart line, got {items}"
+    line = items[0]
+    assert line.get("listingId") == listing.listing_id, f"wrong cart line: {line}"
+    assert int(line.get("quantity", 0)) == 2, f"cart quantity: {line}"
+    assert int(line.get("unitPrice", 0)) == listing.price, f"cart unit price: {line}"
+    subtotal = int(cart.get("subtotal", 0))
+    assert subtotal == 2 * listing.price, f"cart subtotal {subtotal}"
+    world.state.extra["subtotal"] = subtotal  # the voucher step compares against it
 
-    world.navigate_to(PageName.CART)
-    world.state.extra["cart_quantity"] = 2
-
-
-@then("the cart contains the updated item quantities")
-def cart_contains_updated_item_quantities(world: World) -> None:
-    cart_page: CartPage = world.get_page(PageName.CART)  # type: ignore[assignment]
-    assert cart_page.is_displayed(), f"Cart page not displayed at {world.page.url}"
-    world.logger.info(f"Cart displays updated item quantity: {world.state.extra.get('cart_quantity')}")
+    page_cart: CartPage = world.get_page(PageName.CART)  # type: ignore[assignment]
+    quantity = world.page.get_by_role("spinbutton", name=f"Số lượng: {listing.title}")
+    expect(quantity).to_have_attribute("aria-valuenow", "2", timeout=timeouts.DEFAULT)
+    shown = f"{subtotal:,}".replace(",", ".")  # the UI groups thousands with dots
+    expect(page_cart.order_summary).to_contain_text(shown, timeout=timeouts.DEFAULT)
 
 
 @when("the buyer confirms the order placement")
 def buyer_confirms_order_placement(world: World) -> None:
-    order_id = f"ord-{uuid.uuid4()}"
-    try:
-        order_res = world.service_factory.order.create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
-        orders = order_res.get("orders", [])
-        order_id = orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Order creation API: {exc}")
+    checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
+    checkout.continue_to("confirm")  # the voucher stays in ?voucher= across the steps
+    expect(checkout.place_order_button).to_be_enabled(timeout=timeouts.DEFAULT)
+    checkout.place_order_button.click()
+    # COD routes to the buyer's order list; a mock-pay method would route to /checkout/pay.
+    world.page.wait_for_url(re.compile(r".*/account/orders.*success=1.*"), timeout=timeouts.LONG)
 
+
+@then("the order is placed with the voucher discount and listed for the buyer")
+def order_placed_with_discount_and_listed(world: World) -> None:
+    buyer, seller = _buyer(world), _seller(world)
+    listing = world.state.listing
+    orders = world.service_factory.order.list_buyer_orders().get("orders") or []
+    assert len(orders) == 1, f"the buyer should have exactly the one new order: {orders}"
+    order_id = orders[0]["id"]
+    order = world.service_factory.order.get_order(order_id).get("order", {})
+    assert order.get("id") == order_id, f"GetOrder returned the wrong order: {order}"
     world.state.order_id = order_id
     world.state.extra["order_id"] = order_id
-    tx_id = f"tx-{order_id}"
-    world.state.extra["transaction_id"] = tx_id
 
-    # Push purchase to GA4 dataLayer
-    world.page.evaluate(
-        """([tx, val]) => {
-            window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push({
-                event: 'purchase',
-                ecommerce: {
-                    transaction_id: tx,
-                    value: val,
-                    currency: 'VND',
-                    shipping_tier: 'SPX_STANDARD',
-                    payment_type: 'COD',
-                    coupon: 'SAVE10',
-                    items: [{ item_id: 'lst-seeded', price: 900000, quantity: 1 }]
-                }
-            });
-        }""",
-        [tx_id, 900000],
+    subtotal = world.state.extra["subtotal"]
+    discount = subtotal * 10 // 100  # SAVE10: platform voucher, 10%, uncapped
+    assert order.get("buyerId") == buyer.user_id, f"order is not the buyer's: {order}"
+    assert order.get("sellerId") == seller.user_id, f"order is not the seller's: {order}"
+    assert order.get("status") == "ORDER_STATUS_PENDING", f"order status: {order}"
+    assert order.get("paymentMethod") == "PAYMENT_METHOD_COD", f"payment method: {order}"
+    assert order.get("voucherCode") == _PURCHASE_VOUCHER, f"voucher code: {order}"
+    assert int(order.get("itemsSubtotal", 0)) == subtotal, f"items subtotal: {order}"
+    assert int(order.get("discountAmount", 0)) == discount, f"discount: {order}"
+    assert int(order.get("totalAmount", 0)) == subtotal - discount, f"total: {order}"
+    lines = order.get("items") or []
+    assert [(i.get("listingId"), int(i.get("quantity", 0))) for i in lines] == [
+        (listing.listing_id, 2)
+    ], f"order items: {lines}"
+    assert (
+        order.get("shippingAddress", {}).get("id") == world.state.extra["address_id"]
+    ), f"shipping address: {order.get('shippingAddress')}"
+    world.state.extra["order_total"] = int(order["totalAmount"])
+
+    # The buyer's order list in the UI shows that same order.
+    orders_page: OrdersListPage = world.get_page(PageName.ACCOUNT_ORDERS)  # type: ignore[assignment]
+    expect(orders_page.order_cards.first).to_be_visible(timeout=timeouts.DEFAULT)
+    detail = world.page.locator(f'a[href="/account/orders/{order_id}"]')
+    expect(detail.first).to_be_visible(timeout=timeouts.DEFAULT)
+
+
+@then("a purchase event for that order is pushed to the GA4 dataLayer")
+def purchase_event_pushed_for_order(world: World) -> None:
+    listing = world.state.listing
+    purchases = _data_layer_events(world, "purchase")
+    assert len(purchases) == 1, f"expected exactly one purchase event, got {purchases}"
+    ecommerce = purchases[0].get("ecommerce") or {}
+    assert (
+        ecommerce.get("transaction_id") == world.state.order_id
+    ), f"transaction_id {ecommerce.get('transaction_id')!r} is not the order id {world.state.order_id}"
+    assert ecommerce.get("currency") == "VND", f"currency: {ecommerce}"
+    assert ecommerce.get("value") == world.state.extra["order_total"], f"value: {ecommerce}"
+    assert ecommerce.get("coupon") == _PURCHASE_VOUCHER, f"coupon: {ecommerce}"
+    items = ecommerce.get("items") or []
+    assert [(i.get("item_id"), i.get("quantity")) for i in items] == [
+        (listing.listing_id, 2)
+    ], f"purchase items: {items}"
+
+
+@then('the "Gợi ý cho bạn" row on the home page shows product cards')
+def home_recommendations_row_shows_cards(world: World) -> None:
+    row = world.get_page(PageName.HOME).recommendations  # type: ignore[attr-defined]
+    expect(row.heading).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(row.cards.first).to_be_visible(timeout=timeouts.DEFAULT)
+
+
+@then("a viewable impression event is emitted to the data layer for the recommendations row")
+def recommendations_row_impression(world: World) -> None:
+    row = world.get_page(PageName.HOME).recommendations  # type: ignore[attr-defined]
+    row.cards.first.scroll_into_view_if_needed()
+    world.page.wait_for_function(
+        """(placement) => (window.dataLayer || []).some((e) => e && e.event === 'view_item_list'
+            && ((e.ecommerce || {}).items || []).some((i) => i.item_list_id === placement))""",
+        arg=_RECS_PLACEMENT,
+        timeout=timeouts.DEFAULT,
     )
-
-
-@then("the order confirmation is displayed and a purchase event is pushed to the GA4 dataLayer")
-def order_confirmation_and_ga4_verified(world: World) -> None:
-    dl = world.page.evaluate("() => window.dataLayer || []")
-    purchases = [e for e in dl if isinstance(e, dict) and e.get("event") == "purchase"]
-    assert len(purchases) >= 1, "No purchase event found in window.dataLayer"
-    last_purchase = purchases[-1]
-    ecom = last_purchase.get("ecommerce", {})
-    assert ecom.get("transaction_id") == world.state.extra.get("transaction_id")
-    assert ecom.get("currency") == "VND"
-    assert ecom.get("coupon") == "SAVE10"
-    world.logger.info(f"GA4 purchase telemetry verified for transaction {world.state.extra.get('transaction_id')}")
+    ids = _impression_item_ids(_data_layer_events(world, "view_item_list"), _RECS_PLACEMENT)
+    assert ids <= _card_listing_ids(row.cards), "impression for a listing that is not in the row"
 
 
 # ============================================================================
 # Journey 2: Seller Cockpit & Forecast Journey
 # ============================================================================
+
 
 @when("the seller publishes a new listing with inventory stock")
 def seller_publishes_new_listing_with_stock(world: World) -> None:
@@ -206,257 +350,366 @@ def seller_publishes_new_listing_with_stock(world: World) -> None:
         status="published",
         description="High-demand electronics item for forecast testing.",
     )
-    try:
-        listing_id = world.service_factory.listing.create_listing(listing)
-        listing.listing_id = listing_id
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Listing create API: {exc}")
-        listing.listing_id = f"lst-{uuid.uuid4()}"
-
+    listing_id = world.service_factory.listing.create_listing(listing)
+    assert listing_id, "CreateListing returned no id"
     world.state.listing = listing
-    world.state.extra["journey_listing"] = listing
-    world.logger.info(f"Published listing {listing.listing_id} with stock {listing.stock}")
+    world.logger.info(f"Published listing {listing_id} with stock {listing.stock}")
 
 
 @then("the listing is published and visible in seller listings")
 def listing_published_and_visible_in_seller(world: World) -> None:
     listing = world.state.listing
-    assert listing and listing.listing_id, "No published listing found in scenario state"
-    world.logger.info(f"Listing {listing.listing_id} is active and published")
+    got = world.service_factory.listing.get_listing(listing.listing_id)
+    assert got.get("id") == listing.listing_id, f"GetListing did not return the listing: {got}"
+    assert got.get("title") == listing.title
+    assert got.get("status") == "LISTING_STATUS_PUBLISHED", f"status is {got.get('status')}"
 
 
 @when("the seller updates the listing price and inventory stock")
 def seller_updates_price_and_inventory(world: World) -> None:
-    listing = world.state.listing
-    assert listing is not None, "No active listing in state"
-    listing.price = 1_350_000
-    listing.stock = 150
-    world.state.extra["updated_price"] = 1_350_000
-    world.state.extra["updated_stock"] = 150
+    world.service_factory.listing.update_listing(
+        world.state.listing.listing_id, price=1_350_000, stock=150
+    )
 
 
 @then("the updated listing details are saved successfully")
 def updated_listing_details_saved(world: World) -> None:
-    assert world.state.extra["updated_price"] == 1_350_000
-    assert world.state.extra["updated_stock"] == 150
-    world.logger.info("Listing updates successfully saved")
+    got = world.service_factory.listing.get_listing(world.state.listing.listing_id)
+    # Connect JSON encodes int64 as strings.
+    assert int(got.get("price", 0)) == 1_350_000, f"price is {got.get('price')}"
+    assert int(got.get("stock", 0)) == 150, f"stock is {got.get('stock')}"
+
+
+def _seller_id(world: World) -> str:
+    seller = world.state.current_user or world.state.seeded_seller
+    seller_id = seller.user_id if seller else ""
+    assert seller_id, "seller has no token; log in before querying analytics"
+    return seller_id
+
+
+_FUNNEL_STAGES = ("impressions", "views", "adds", "begin_checkouts", "orders", "purchases")
 
 
 @when("the seller queries the conversion funnel analytics")
 def seller_queries_conversion_funnel_analytics(world: World) -> None:
-    seller = world.state.current_user or world.state.seeded_seller
-    seller_id = seller.username if seller else "seller-journey"
-    
-    # Query conversion funnel
-    world.state.extra["seller_funnel"] = {
-        "seller_id": seller_id,
-        "impressions": 2500,
-        "views": 800,
-        "adds": 210,
-        "begin_checkouts": 140,
-        "orders": 95,
-        "purchases": 95,
-    }
+    resp = world.service_factory.analytics.funnel_response(_seller_id(world))
+    assert resp.status_code == 200, f"GetSellerFunnel: {resp.status_code} {resp.text}"
+    world.state.extra["seller_funnel"] = resp.json()
 
 
 @then("the conversion funnel reports impressions, views, adds, checkouts, and orders")
 def verify_conversion_funnel_counts(world: World) -> None:
-    funnel = world.state.extra["seller_funnel"]
-    assert funnel["impressions"] >= funnel["views"] >= funnel["adds"] >= funnel["begin_checkouts"] >= funnel["orders"]
-    assert funnel["impressions"] == 2500
-    assert funnel["views"] == 800
-    assert funnel["adds"] == 210
-    assert funnel["begin_checkouts"] == 140
-    assert funnel["orders"] == 95
-    world.logger.info(f"Funnel conversion verified: {funnel['impressions']} -> {funnel['views']} -> {funnel['adds']} -> {funnel['orders']}")
+    raw = world.state.extra["seller_funnel"]
+    # proto3 JSON omits zero values; int64 values arrive as strings.
+    camel = {"begin_checkouts": "beginCheckouts"}
+    funnel = {k: int(raw.get(camel.get(k, k), raw.get(k, 0))) for k in _FUNNEL_STAGES}
+    assert all(v >= 0 for v in funnel.values()), f"negative funnel count: {funnel}"
+    world.logger.info(f"Seller funnel from team-analytics: {funnel}")
 
 
 @when("the seller queries probabilistic demand forecast for the listing")
 def seller_queries_probabilistic_demand_forecast(world: World) -> None:
-    listing_id = world.state.listing.listing_id if world.state.listing else "lst-fc-1"
-    seller = world.state.current_user or world.state.seeded_seller
-    seller_id = seller.username if seller else "seller-journey"
-
-    # Construct 14-day probabilistic forecast with P10/P50/P90
-    daily_forecasts: list[dict[str, Any]] = []
-    base_demand = 12.0
-    for i in range(14):
-        p10 = round(max(0.0, base_demand - 3.2), 2)
-        p50 = round(base_demand, 2)
-        p90 = round(base_demand + 4.1, 2)
-        daily_forecasts.append({"day": i + 1, "p10": p10, "p50": p50, "p90": p90})
-
-    lead_time_days = 3
-    lead_time_demand = sum(d["p50"] for d in daily_forecasts[:lead_time_days])
-    safety_stock = round(1.65 * (daily_forecasts[0]["p90"] - daily_forecasts[0]["p50"]), 2)
-    reorder_point = round(lead_time_demand + safety_stock, 2)
-
-    world.state.extra["demand_forecast"] = {
-        "seller_id": seller_id,
-        "listing_id": listing_id,
-        "daily_forecasts": daily_forecasts,
-        "safety_stock": safety_stock,
-        "suggested_reorder_point": reorder_point,
-        "model_version": "lgbm_quantile_v1",
-    }
+    listing_id = world.state.listing.listing_id
+    resp = world.service_factory.analytics.forecast_response(
+        _seller_id(world), listing_id, horizon_days=14, lead_time_days=3, service_level=0.95
+    )
+    assert resp.status_code == 200, f"GetDemandForecast: {resp.status_code} {resp.text}"
+    world.state.extra["demand_forecast"] = resp.json()
 
 
-@then("the forecast returns 14-day P10, P50, and P90 quantile distributions with safety stock and reorder point")
+@then(
+    "the forecast returns 14-day P10, P50, and P90 quantile distributions with safety stock and reorder point"
+)
 def verify_probabilistic_forecast_quantiles(world: World) -> None:
     fc = world.state.extra["demand_forecast"]
-    daily = fc["daily_forecasts"]
-    assert len(daily) == 14, f"Expected 14 daily forecasts, got {len(daily)}"
+    assert fc.get("listingId") == world.state.listing.listing_id, f"wrong listing: {fc}"
+    daily = fc.get("dailyForecasts", [])
+    assert len(daily) == 14, f"Expected 14 daily forecasts, got {len(daily)}: {fc}"
     for df in daily:
-        assert df["p10"] <= df["p50"] <= df["p90"], f"Quantile monotonic invariant violated: {df}"
-    assert fc["safety_stock"] > 0, "Safety stock must be positive"
-    assert fc["suggested_reorder_point"] > fc["safety_stock"], "Reorder point must exceed safety stock"
-    assert fc["model_version"] == "lgbm_quantile_v1", "Model version mismatch"
-    world.logger.info(f"Demand forecast verified with ROP={fc['suggested_reorder_point']} and SS={fc['safety_stock']}")
+        p10, p50, p90 = (float(df.get(k, 0)) for k in ("p10", "p50", "p90"))
+        assert 0 <= p10 <= p50 <= p90, f"Quantile monotonic invariant violated: {df}"
+    safety = float(fc.get("safetyStock", 0))
+    reorder = float(fc.get("suggestedReorderPoint", 0))
+    assert safety >= 0, f"negative safety stock: {fc}"
+    assert reorder >= safety, f"reorder point below safety stock: {fc}"
+    assert fc.get("modelVersion"), f"no model version: {fc}"
+    world.logger.info(
+        f"Forecast {fc.get('modelVersion')} cold_start={fc.get('isColdStart', False)} "
+        f"ROP={reorder} SS={safety}"
+    )
 
 
 # ============================================================================
 # Journey 3: Post-Purchase Chat, Notification & RMA Journey
+#
+# Every step drives the real gateway as the buyer or the seller and every Then
+# reads state back through a read RPC. What the backend does today (verified in
+# the services, see the feature file notes):
+#   * @needsOrder seeds a COD order that stays ORDER_STATUS_PENDING;
+#   * CreateShipment (seller) works on any order status and moves it to SHIPPED
+#     with the tracking code (team-order service/order.go CreateShipment);
+#   * a return may be opened on any non-PENDING, non-CANCELLED order, so a
+#     SHIPPED one qualifies (service/order.go CreateReturnRequest);
+#   * UpdateReturnStatus only changes the return's own status - it does not
+#     call team-payment, so approval starts no refund;
+#   * team-chat publishes each message to chat.events (with the other participant
+#     as recipient_id) and CreateShipment writes OrderShipped to order.events;
+#     team-notification consumes both and creates the CHAT / ORDER notification
+#     for that one user, unless they switched that type off.
 # ============================================================================
+
+_NOTIFICATION_POLL_SECONDS = 30
+
+
+def _buyer(world: World):
+    buyer = world.state.extra.get("seeded_buyer")
+    assert buyer and buyer.token, "no seeded buyer; tag the scenario @needsBuyer"
+    return buyer
+
+
+def _seller(world: World):
+    seller = world.state.seeded_seller
+    assert seller and seller.token, "no seeded seller; tag the scenario @needsSeller"
+    return seller
+
+
+def _act_as(world: World, user) -> None:
+    """Switch every gateway client to this account's token."""
+    world.service_factory.set_token(user.token)
+    world.state.current_user = user
+
+
+def _order(world: World) -> dict:
+    """GetOrder as the buyer (who owns it)."""
+    _act_as(world, _buyer(world))
+    resp = world.service_factory.order.get_order(world.state.order_id)
+    order = resp.get("order", {})
+    assert order.get("id") == world.state.order_id, f"GetOrder returned the wrong order: {resp}"
+    return order
+
+
+def _thread_messages(world: World, user) -> list[dict]:
+    _act_as(world, user)
+    return world.service_factory.chat.get_thread_messages(world.state.extra["chat_thread_id"])
+
+
+@given("the buyer who placed the order is logged in")
+def seeded_buyer_logged_in(world: World) -> None:
+    # The order belongs to the @needsBuyer account, not to a shared test-data buyer.
+    _act_as(world, _buyer(world))
+
 
 @given("an order has been placed and is pending fulfillment")
 def order_placed_pending_fulfillment_step(world: World) -> None:
-    order_id = world.state.order_id or world.state.extra.get("order_id")
-    if not order_id:
-        order_id = f"ord-{uuid.uuid4()}"
-        try:
-            order_res = world.service_factory.order.create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
-            orders = order_res.get("orders", [])
-            order_id = orders[0].get("id") if orders else order_res.get("order", {}).get("id", order_id)
-        except Exception as exc:  # noqa: BLE001
-            world.logger.warning(f"Order creation in given step: {exc}")
-        world.state.order_id = order_id
-        world.state.extra["order_id"] = order_id
-
-    world.state.extra["order_status"] = "PENDING"
-    world.logger.info(f"Pending order {order_id} initialized")
+    assert world.state.order_id, "the @needsOrder hook did not create an order"
+    order = _order(world)
+    assert order.get("status") == "ORDER_STATUS_PENDING", f"unexpected order status: {order}"
+    assert order.get("buyerId") == _buyer(world).user_id, f"order is not the buyer's: {order}"
+    assert order.get("sellerId") == _seller(world).user_id, f"order is not the seller's: {order}"
 
 
 @when("the buyer sends a chat inquiry to the seller regarding the order")
 def buyer_sends_chat_inquiry_to_seller(world: World) -> None:
-    order_id = world.state.order_id
-    message_text = f"Xin chào Shop, đơn hàng {order_id} của tôi dự kiến khi nào giao?"
-    world.state.extra["last_chat_message"] = message_text
-    world.state.extra["chat_thread"] = [
-        {
-            "sender_role": "buyer",
-            "text": message_text,
-            "order_id": order_id,
-            "created_at": "2026-09-20T10:00:00Z",
-        }
-    ]
+    order = _order(world)
+    listing_id = (order.get("items") or [{}])[0].get("listingId", "")
+    text = f"Xin chào Shop, đơn hàng {world.state.order_id} của tôi dự kiến khi nào giao?"
+    chat = world.service_factory.chat
+    thread = chat.get_or_create_thread(order["sellerId"], listing_id)
+    assert thread.get("id"), f"GetOrCreateThread returned no thread: {thread}"
+    msg = chat.send_message(thread["id"], text)
+    assert msg.get("id"), f"SendMessage returned no message: {msg}"
+    world.state.extra["chat_thread_id"] = thread["id"]
+    world.state.extra["chat_inquiry"] = text
 
 
 @then("the chat message is delivered in the conversation thread")
 def chat_message_delivered_in_thread(world: World) -> None:
-    thread = world.state.extra.get("chat_thread", [])
-    assert len(thread) >= 1, "Chat thread has no messages"
-    assert thread[0]["text"] == world.state.extra["last_chat_message"]
-    world.logger.info("Buyer inquiry delivered successfully in chat thread")
+    text = world.state.extra["chat_inquiry"]
+    buyer, seller = _buyer(world), _seller(world)
+    # The seller sees the buyer's inquiry in the thread, and as an unread thread.
+    messages = _thread_messages(world, seller)
+    inquiry = [m for m in messages if m.get("content") == text]
+    assert inquiry, f"seller's thread has no inquiry: {messages}"
+    assert inquiry[0].get("senderId") == buyer.user_id, f"wrong sender: {inquiry[0]}"
+    threads = {t["id"]: t for t in world.service_factory.chat.list_threads()}
+    thread = threads.get(world.state.extra["chat_thread_id"])
+    assert thread, f"seller's ListThreads does not include the thread: {list(threads)}"
+    assert thread.get("lastMessageText") == text, f"thread preview is stale: {thread}"
+    assert int(thread.get("unreadCountSeller", 0)) >= 1, f"seller sees no unread: {thread}"
 
 
 @when("the seller replies to the buyer inquiry")
 def seller_replies_to_buyer(world: World) -> None:
-    reply_text = "Chào bạn, đơn hàng đã đóng gói xong và đang chờ bàn giao cho bên vận chuyển SPX Express hôm nay ạ!"
-    world.state.extra["chat_thread"].append(
-        {
-            "sender_role": "seller",
-            "text": reply_text,
-            "created_at": "2026-09-20T10:05:00Z",
-        }
-    )
-    world.state.extra["notifications"] = [
-        {
-            "type": "chat_message",
-            "title": "Tin nhắn mới từ Người Bán",
-            "body": reply_text,
-            "read": False,
-        }
+    reply = "Chào bạn, đơn hàng đã đóng gói xong và đang chờ bàn giao cho SPX Express hôm nay ạ!"
+    _act_as(world, _seller(world))
+    msg = world.service_factory.chat.send_message(world.state.extra["chat_thread_id"], reply)
+    assert msg.get("id"), f"SendMessage returned no message: {msg}"
+    world.state.extra["chat_reply"] = reply
+
+
+@then("the buyer sees the seller's reply in the conversation thread")
+def buyer_sees_seller_reply(world: World) -> None:
+    reply = world.state.extra["chat_reply"]
+    seller = _seller(world)
+    messages = _thread_messages(world, _buyer(world))
+    got = [m for m in messages if m.get("content") == reply]
+    assert got, f"buyer's thread has no seller reply: {messages}"
+    assert got[0].get("senderId") == seller.user_id, f"wrong sender: {got[0]}"
+    ordered = [m.get("content") for m in messages]
+    assert ordered.index(reply) > ordered.index(world.state.extra["chat_inquiry"]), ordered
+    threads = {t["id"]: t for t in world.service_factory.chat.list_threads()}
+    thread = threads.get(world.state.extra["chat_thread_id"], {})
+    assert int(thread.get("unreadCountBuyer", 0)) >= 1, f"buyer sees no unread: {thread}"
+
+
+def _find_notifications(world: World, user, kind: str, needle: str) -> list[dict]:
+    """The `user`'s notifications of `kind` mentioning `needle` in title, body or link."""
+    _act_as(world, user)
+    return [
+        n
+        for n in world.service_factory.notification.list_notifications()
+        if n.get("type") == kind
+        and needle in f"{n.get('title', '')} {n.get('body', '')} {n.get('linkUrl', '')}"
     ]
 
 
-@then("the buyer receives a real-time message notification")
-def buyer_receives_message_notification_step(world: World) -> None:
-    notifs = world.state.extra.get("notifications", [])
-    chat_notifs = [n for n in notifs if n["type"] == "chat_message"]
-    assert len(chat_notifs) >= 1, "No chat notification received"
-    assert "Người Bán" in chat_notifs[0]["title"]
-    world.logger.info("In-app chat notification verified")
+def _poll_notification(world: World, user, kind: str, needle: str) -> list[dict]:
+    """Bounded poll for a `kind` notification of `user` mentioning `needle`."""
+    deadline = time.time() + _NOTIFICATION_POLL_SECONDS
+    while True:
+        found = _find_notifications(world, user, kind, needle)
+        if found or time.time() >= deadline:
+            return found
+        time.sleep(2)
+
+
+def _poll_buyer_notification(world: World, kind: str, needle: str) -> list[dict]:
+    return _poll_notification(world, _buyer(world), kind, needle)
+
+
+@then("the buyer has a chat notification for the seller's reply")
+def buyer_has_chat_notification(world: World) -> None:
+    thread_id = world.state.extra["chat_thread_id"]
+    found = _poll_buyer_notification(world, "NOTIFICATION_TYPE_CHAT", f"/chat/{thread_id}")
+    assert found, "no NOTIFICATION_TYPE_CHAT notification for the buyer after the seller's reply"
+    assert len(found) == 1, f"expected exactly one chat notification for the buyer: {found}"
+    assert found[0].get("body") == world.state.extra["chat_reply"], found[0]
+
+
+@then("the seller has no chat notification for their own reply")
+def seller_has_no_chat_notification_for_own_reply(world: World) -> None:
+    # The buyer's inquiry notifies the seller; the seller's own reply must not.
+    found = _find_notifications(
+        world, _seller(world), "NOTIFICATION_TYPE_CHAT", world.state.extra["chat_reply"]
+    )
+    assert not found, f"the seller was notified of their own message: {found}"
+
+
+@given("the buyer has disabled chat notifications")
+def buyer_disabled_chat_notifications(world: World) -> None:
+    _act_as(world, _buyer(world))
+    prefs = world.service_factory.notification.set_type_enabled("NOTIFICATION_TYPE_CHAT", False)
+    assert prefs.get("typeEnabled", {}).get("NOTIFICATION_TYPE_CHAT") is False, prefs
+
+
+@when("the buyer sends a follow-up chat message")
+def buyer_sends_follow_up_chat_message(world: World) -> None:
+    text = f"Cảm ơn shop, mình chờ nhận hàng nhé! ({uuid.uuid4().hex[:6]})"
+    _act_as(world, _buyer(world))
+    msg = world.service_factory.chat.send_message(world.state.extra["chat_thread_id"], text)
+    assert msg.get("id"), f"SendMessage returned no message: {msg}"
+    world.state.extra["chat_follow_up"] = text
+
+
+@then("the seller has a chat notification for the follow-up")
+def seller_has_chat_notification_for_follow_up(world: World) -> None:
+    found = _poll_notification(
+        world, _seller(world), "NOTIFICATION_TYPE_CHAT", world.state.extra["chat_follow_up"]
+    )
+    assert found, "the seller got no chat notification for the buyer's follow-up"
+
+
+@then("the buyer has no chat notification for the seller's reply")
+def buyer_has_no_chat_notification(world: World) -> None:
+    found = _find_notifications(
+        world,
+        _buyer(world),
+        "NOTIFICATION_TYPE_CHAT",
+        f"/chat/{world.state.extra['chat_thread_id']}",
+    )
+    assert not found, f"a chat notification was created despite the disabled preference: {found}"
 
 
 @when("the seller fulfills the shipment with tracking information")
 def seller_fulfills_shipment_with_tracking(world: World) -> None:
-    order_id = world.state.order_id
     tracking_code = f"SPX-VN-{uuid.uuid4().hex[:8].upper()}"
-    world.state.extra["tracking_code"] = tracking_code
-    try:
-        world.service_factory.order.create_shipment(
-            order_id=order_id, carrier="SPX Express", tracking_code=tracking_code
-        )
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"Shipment creation API: {exc}")
-
-    world.state.extra["order_status"] = "SHIPPED"
-    world.state.extra["notifications"].append(
-        {
-            "type": "order_shipped",
-            "title": "Đơn hàng đang trên đường giao",
-            "body": f"Mã vận đơn SPX Express: {tracking_code}",
-            "read": False,
-        }
+    _act_as(world, _seller(world))
+    resp = world.service_factory.order.create_shipment(
+        order_id=world.state.order_id, carrier="SPX Express", tracking_code=tracking_code
     )
+    assert resp.get("shipment", {}).get("trackingCode") == tracking_code, f"CreateShipment: {resp}"
+    world.state.extra["tracking_code"] = tracking_code
 
 
-@then("the order status transitions to shipped and a delivery notification is recorded")
-def order_status_shipped_and_notif_recorded(world: World) -> None:
-    assert world.state.extra.get("order_status") == "SHIPPED", "Order status is not SHIPPED"
-    notifs = world.state.extra.get("notifications", [])
-    shipped_notifs = [n for n in notifs if n["type"] == "order_shipped"]
-    assert len(shipped_notifs) >= 1, "No shipment notification recorded"
-    assert world.state.extra["tracking_code"] in shipped_notifs[0]["body"]
-    world.logger.info(f"Order shipped with tracking code {world.state.extra['tracking_code']}")
+@then("the order is shipped with that tracking code")
+def order_shipped_with_tracking_code(world: World) -> None:
+    tracking_code = world.state.extra["tracking_code"]
+    order = _order(world)
+    assert order.get("status") == "ORDER_STATUS_SHIPPED", f"order is not SHIPPED: {order}"
+    assert order.get("trackingNumber") == tracking_code, f"order tracking number: {order}"
+    tracking = world.service_factory.order.get_shipment_tracking(tracking_code)
+    shipment = tracking.get("shipment", {})
+    assert (
+        shipment.get("orderId") == world.state.order_id
+    ), f"tracking is for another order: {tracking}"
+    assert shipment.get("carrier") == "SPX Express", f"carrier: {shipment}"
+    assert shipment.get("checkpoints"), f"shipment has no checkpoint: {shipment}"
+
+
+@then("the buyer has an order notification for the shipment")
+def buyer_has_shipment_notification(world: World) -> None:
+    found = _poll_buyer_notification(
+        world, "NOTIFICATION_TYPE_ORDER", world.state.extra["tracking_code"]
+    )
+    assert found, "no NOTIFICATION_TYPE_ORDER notification for the buyer after the shipment"
+    assert len(found) == 1, f"expected exactly one order notification: {found}"
+    assert found[0].get("linkUrl") == f"/account/orders/{world.state.order_id}", found[0]
 
 
 @when("the buyer submits an RMA return request for the order")
 def buyer_submits_rma_return_request(world: World) -> None:
-    order_id = world.state.order_id
-    return_id = f"rma-{uuid.uuid4()}"
-    try:
-        rma_res = world.service_factory.order.create_return_request(
-            order_id=order_id, reason="changed_mind", refund_amount=1000000
-        )
-        return_id = rma_res.get("id") or rma_res.get("return", {}).get("id", return_id)
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"RMA return request creation API: {exc}")
-
-    world.state.extra["return_id"] = return_id
-    world.state.extra["rma_status"] = "PENDING"
-    world.logger.info(f"RMA return request {return_id} submitted")
+    _act_as(world, _buyer(world))
+    resp = world.service_factory.order.create_return_request(
+        order_id=world.state.order_id, reason="changed_mind", refund_amount=1_000_000
+    )
+    ret = resp.get("returnRequest", {})
+    assert ret.get("id"), f"CreateReturnRequest returned no return: {resp}"
+    world.state.extra["return_id"] = ret["id"]
 
 
 @then("the RMA return request is created with pending status")
 def rma_return_request_pending_status(world: World) -> None:
-    assert world.state.extra.get("return_id"), "RMA return ID missing"
-    assert world.state.extra.get("rma_status") == "PENDING"
-    world.logger.info(f"RMA return request {world.state.extra['return_id']} is PENDING")
+    ret = world.service_factory.order.get_return_request(world.state.extra["return_id"])
+    assert ret.get("status") == "RETURN_STATUS_PENDING", f"return is not PENDING: {ret}"
+    assert ret.get("orderId") == world.state.order_id, f"return is for another order: {ret}"
+    assert ret.get("buyerId") == _buyer(world).user_id, f"wrong buyer: {ret}"
+    assert ret.get("sellerId") == _seller(world).user_id, f"wrong seller: {ret}"
+    assert ret.get("reason") == "changed_mind", f"reason: {ret}"
+    assert int(ret.get("refundAmount", 0)) == 1_000_000, f"refund amount: {ret}"
 
 
 @when("the seller approves the RMA return request")
 def seller_approves_rma_return_request(world: World) -> None:
-    return_id = world.state.extra["return_id"]
-    try:
-        world.service_factory.order.update_return_status(return_id=return_id, status="APPROVED")
-    except Exception as exc:  # noqa: BLE001
-        world.logger.warning(f"RMA return status update API: {exc}")
-
-    world.state.extra["rma_status"] = "APPROVED"
+    _act_as(world, _seller(world))
+    resp = world.service_factory.order.update_return_status(
+        return_id=world.state.extra["return_id"], status="RETURN_STATUS_APPROVED"
+    )
+    assert resp.get("returnRequest", {}).get("id") == world.state.extra["return_id"], resp
 
 
-@then("the RMA return request is approved and refund processing is initiated")
-def rma_approved_and_refund_initiated_step(world: World) -> None:
-    assert world.state.extra.get("rma_status") == "APPROVED", "RMA status was not updated to APPROVED"
-    world.logger.info(f"RMA return request {world.state.extra['return_id']} approved; refund initiated")
+@then("the RMA return request is approved")
+def rma_return_request_approved(world: World) -> None:
+    # Read it back as the buyer: the approval is visible to the requester.
+    _act_as(world, _buyer(world))
+    ret = world.service_factory.order.get_return_request(world.state.extra["return_id"])
+    assert ret.get("status") == "RETURN_STATUS_APPROVED", f"return is not APPROVED: {ret}"

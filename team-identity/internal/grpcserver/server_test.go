@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"log/slog"
 	"net"
@@ -58,12 +59,12 @@ func startServerWithSessions(
 		Server: config.Server{Host: "localhost", Port: 0},
 		JWT:    config.JWT{KID: "test-kid", JWKSHTTPPort: 50063, TTLSeconds: 3600},
 	}
-	authSvc := service.NewAuthService(userRepo, testSigner(t), time.Hour)
+	authSvc := service.NewAuthService(userRepo, testSigner(t), time.Hour).WithSessions(sessionRepo)
 	authHandler := handler.NewAuthHandler(authSvc)
 	addrHandler := handler.NewAddressHandler(addrRepo, logger)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, logger)
 
-	srv := grpcserver.Build(cfg, authHandler, addrHandler, sessionHandler, nil, logger)
+	srv := grpcserver.Build(cfg, authHandler, addrHandler, sessionHandler, nil, nil, logger)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -315,4 +316,83 @@ func TestSessionService_GRPC_SelfScoped(t *testing.T) {
 	if _, err := sessionClient.ListSessions(anonCtx, &identityv1.ListSessionsRequest{}); status.Code(err) != codes.Unauthenticated {
 		t.Fatalf("want Unauthenticated for anonymous, got %v", err)
 	}
+}
+
+// Regression: login/register never recorded a session, so ListSessions was
+// always empty and nothing could be revoked.
+func TestLoginRecordsSession_ListAndRevoke(t *testing.T) {
+	sessionRepo := repository.NewInMemorySessionRepository()
+	authClient, _, sessionClient := startServerWithSessions(t,
+		repository.NewInMemoryUserRepository(), repository.NewInMemoryAddressRepository(), sessionRepo)
+
+	bg, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	clientCtx := metadata.AppendToOutgoingContext(bg, "x-client-ip", "203.0.113.7", "x-client-user-agent", "Mozilla/5.0 test")
+
+	reg, err := authClient.Register(clientCtx, &identityv1.RegisterRequest{Username: "sess_user", Password: "password123", Role: "buyer"})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	login, err := authClient.Login(clientCtx, &identityv1.LoginRequest{Username: "sess_user", Password: "password123"})
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	uid := login.GetResult().GetPrincipal().GetId()
+
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(login.GetResult().GetToken(), claims); err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+	sid, _ := claims["sid"].(string)
+	if sid == "" {
+		t.Fatal("token has no sid claim")
+	}
+	if rsid, _ := parseSID(t, reg.GetResult().GetToken()), 0; rsid == "" || rsid == sid {
+		t.Fatalf("register token sid %q must be set and differ from login sid %q", rsid, sid)
+	}
+
+	ctx, cancel2 := principalCtx(t, uid)
+	defer cancel2()
+	list, err := sessionClient.ListSessions(ctx, &identityv1.ListSessionsRequest{})
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(list.GetSessions()) != 2 {
+		t.Fatalf("want 2 sessions (register + login), got %d", len(list.GetSessions()))
+	}
+	var found *identityv1.Session
+	for _, s := range list.GetSessions() {
+		if s.GetId() == sid {
+			found = s
+		}
+	}
+	if found == nil || found.GetIp() != "203.0.113.7" || found.GetDevice() != "Mozilla/5.0 test" || found.GetRevoked() {
+		t.Fatalf("login session not recorded as expected: %+v", found)
+	}
+
+	// Another user's principal cannot revoke it; the owner can.
+	other, cancel3 := principalCtx(t, "someone-else")
+	defer cancel3()
+	if _, err := sessionClient.RevokeSession(other, &identityv1.RevokeSessionRequest{SessionId: sid}); status.Code(err) != codes.NotFound {
+		t.Fatalf("want NotFound for non-owner, got %v", err)
+	}
+	if _, err := sessionClient.RevokeSession(ctx, &identityv1.RevokeSessionRequest{SessionId: sid}); err != nil {
+		t.Fatalf("RevokeSession: %v", err)
+	}
+	after, _ := sessionClient.ListSessions(ctx, &identityv1.ListSessionsRequest{})
+	for _, s := range after.GetSessions() {
+		if s.GetId() == sid && !s.GetRevoked() {
+			t.Fatal("session not marked revoked")
+		}
+	}
+}
+
+func parseSID(t *testing.T, tok string) string {
+	t.Helper()
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(tok, claims); err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+	sid, _ := claims["sid"].(string)
+	return sid
 }

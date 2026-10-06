@@ -17,6 +17,7 @@ import (
 	"github.com/buidangphuc/team-order/internal/bootstrap"
 	"github.com/buidangphuc/team-order/internal/config"
 	"github.com/buidangphuc/team-order/internal/consumer"
+	"github.com/buidangphuc/team-order/internal/events"
 	"github.com/buidangphuc/team-order/internal/grpcserver"
 	"github.com/buidangphuc/team-order/internal/handler"
 	"github.com/buidangphuc/team-order/internal/repository"
@@ -113,9 +114,12 @@ func run() error {
 	var shipmentRepo repository.ShipmentRepository
 	if res.Pool != nil {
 		cartRepo = repository.NewPostgresCartRepository(res.Pool)
-		orderRepo = repository.NewPostgresOrderRepository(res.Pool)
+		// Every first transition to PAID writes its order.events outbox row in the
+		// same transaction (ADR-0013); the relayer below publishes it.
+		orderRepo = repository.NewPostgresOrderRepository(res.Pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow))
 		returnRepo = repository.NewPostgresReturnRepository(res.Pool)
-		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool)
+		// OrderShipped is written to the outbox in the shipment's own transaction.
+		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool, repository.WithShipmentOutbox(events.BuildShippedOutboxRow))
 	} else {
 		cartRepo = repository.NewInMemoryCartRepository()
 		orderRepo = repository.NewInMemoryOrderRepository()
@@ -144,7 +148,39 @@ func run() error {
 	// PaymentSettled on "payment.events", idempotently, with a DLQ for poison
 	// records (AD1). Only when Postgres is present (dedupe ledger lives there) and
 	// Kafka is enabled. Cancelled by ctx on shutdown.
-	kcfg := bootstrap.KafkaConfigFromEnv()
+	kcfg := bootstrap.KafkaConfigFromSettings(settings)
+
+	// order.events outbox relayer (ADR-0013): drains pending OrderPaid rows to
+	// Kafka, keyed by order_id. Needs Postgres (the outbox lives there), Kafka and
+	// OUTBOX_ENABLED; otherwise rows are recorded but not relayed.
+	if res.Pool != nil && kcfg.Enabled && settings.Outbox.Enabled {
+		producer, err := bootstrap.NewOrderEventsProducer(kcfg)
+		if err != nil {
+			logger.Warn("order.events relayer disabled: kafka client init failed", slog.Any("err", err))
+		} else {
+			defer producer.Close()
+			relayer := events.NewRelayer(
+				repository.NewPgOutboxRepository(res.Pool),
+				producer,
+				events.RelayerConfig{
+					Topic:        kcfg.OrderTopic,
+					PollInterval: settings.OutboxPollInterval(),
+					BatchSize:    settings.Outbox.BatchSize,
+					LockDuration: time.Duration(settings.Outbox.ClaimLockSeconds) * time.Second,
+					MaxAttempts:  settings.Outbox.MaxAttempts,
+				},
+				logger,
+			)
+			go func() {
+				logger.Info("order.events outbox relayer starting",
+					slog.String("topic", kcfg.OrderTopic),
+					slog.Duration("poll_interval", settings.OutboxPollInterval()),
+					slog.Int("batch_size", settings.Outbox.BatchSize))
+				relayer.Run(ctx)
+			}()
+		}
+	}
+
 	if res.Pool != nil && kcfg.Enabled {
 		pk, err := bootstrap.NewPaymentKafka(kcfg)
 		if err != nil {
@@ -160,9 +196,10 @@ func run() error {
 			go func() {
 				logger.Info("payment consumer starting",
 					slog.String("topic", kcfg.Topic), slog.String("group", kcfg.ConsumerGroup))
-				if err := paymentConsumer.Run(ctx, pk.Reader(), pk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic}); err != nil &&
-					!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-					logger.Error("payment consumer stopped with error", slog.Any("err", err))
+				err := paymentConsumer.Run(ctx, pk.Reader(), pk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.DLQTopic})
+				// Run only returns on shutdown; any other exit leaves orders unpaid.
+				if ctx.Err() == nil {
+					logger.Error("payment consumer stopped while the service is running", slog.Any("err", err))
 				}
 			}()
 		}

@@ -32,6 +32,8 @@ class RegisterPage(BasePage):
         return self.username_input.is_visible()
 
     def register(self, username: str, password: str, role: str = "buyer") -> None:
+        # Wait for hydration: a fill or submit before it is lost or posts natively.
+        self.wait_until_interactive(self.submit_button)
         self.username_input.fill(username)
         self.password_input.fill(password)
         self.role_select.select_option(role)

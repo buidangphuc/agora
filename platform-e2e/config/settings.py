@@ -51,9 +51,26 @@ class Settings(BaseSettings):
     # TrackingEvent envelopes so the e2e can consume + assert them.
     kafka_brokers: str = Field(default="localhost:9092")
     kafka_analytics_topic: str = Field(default="analytics.events")
+    # Order domain facts (ADR-0013): team-order's outbox relayer produces
+    # OrderPaidEvent envelopes here.
+    kafka_order_topic: str = Field(default="order.events")
     # Feature flags (wire-openfeature): Flipt REST/HTTP endpoint used to toggle
     # `checkout-enabled` per scenario (the JS provider uses :8080, not gRPC :9000).
     flipt_url: str = Field(default="http://localhost:8080")
+
+    # Fault injection (discovery.search-states): compose container_name of team-search,
+    # stopped for the "Backend failure" scenario and restarted in teardown.
+    search_container: str = Field(default="team-search-svc")
+    # Fault injection (session-revocation): compose container_name of team-gateway,
+    # restarted for the "revocation survives a gateway restart" scenario.
+    gateway_container: str = Field(default="team-gateway-svc")
+    # Fault injection (notification-delivery-hardening): compose container_name of
+    # team-notification, restarted for the "price drop after a restart" scenario.
+    notification_container: str = Field(default="team-notification-svc")
+    # Offline recsys job (pipeline_eval_registry.feature): the platform-recsys image
+    # is run with `docker run` on the compose stack's network.
+    recsys_image: str = Field(default="platform-recsys:local")
+    stack_network: str = Field(default="platform-core_default")
 
     # Timeouts (ms) — keep close to Playwright defaults; do not hardcode long sleeps.
     action_timeout_ms: int = Field(default=10_000)
@@ -75,7 +92,13 @@ def get_settings() -> Settings:
         seed_password=os.getenv("SEED_PASSWORD", "pass123"),
         kafka_brokers=os.getenv("KAFKA_BROKERS", "localhost:9092"),
         kafka_analytics_topic=os.getenv("KAFKA_ANALYTICS_TOPIC", "analytics.events"),
+        kafka_order_topic=os.getenv("KAFKA_ORDER_TOPIC", "order.events"),
         flipt_url=os.getenv("FLIPT_URL", "http://localhost:8080"),
+        search_container=os.getenv("SEARCH_CONTAINER", "team-search-svc"),
+        gateway_container=os.getenv("GATEWAY_CONTAINER", "team-gateway-svc"),
+        notification_container=os.getenv("NOTIFICATION_CONTAINER", "team-notification-svc"),
+        recsys_image=os.getenv("RECSYS_IMAGE", "platform-recsys:local"),
+        stack_network=os.getenv("STACK_NETWORK", "platform-core_default"),
     )
 
 

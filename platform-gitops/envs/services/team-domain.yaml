@@ -27,4 +27,4 @@ secrets:
 # (local docker-compose is a single trusted network — exempt per ADR-0010).
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway, team-order]
+  allowFrom: [team-gateway, team-order, team-notification]

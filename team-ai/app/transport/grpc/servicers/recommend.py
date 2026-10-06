@@ -31,6 +31,14 @@ if TYPE_CHECKING:
 
 RecommendationProvider = Callable[[], "RecommendationService | None"]
 
+# RecommendationContext → placement (config/placements.yaml); unset/unknown
+# contexts leave the placement to the module's own default.
+_PLACEMENT_BY_CONTEXT = {
+    recommendation_pb2.RECOMMENDATION_CONTEXT_HOMEPAGE: "home_feed",
+    recommendation_pb2.RECOMMENDATION_CONTEXT_SIMILAR_ITEMS: "similar_items",
+    recommendation_pb2.RECOMMENDATION_CONTEXT_CART: "cart_cross_sell",
+}
+
 
 class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServicer):
     def __init__(self, provider: RecommendationProvider) -> None:
@@ -41,7 +49,10 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
         request: recommendation_pb2.RecommendRequest,
         context: grpc.aio.ServicerContext,
     ) -> recommendation_pb2.RecommendResponse:
-        await ensure_scopes(context, "recommendations:read")
+        # Recommendations are listing ids for anyone who may browse listings
+        # (anonymous visitors included), so the public read scope the gateway
+        # forwards gates them; no identity role grants a dedicated scope.
+        await ensure_scopes(context, "listing.read")
 
         service = self._provider()
         if service is None:
@@ -53,10 +64,11 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
 
         query = RecommendQuery(
             user_id=request.user_id,
-            anonymous_id=getattr(request, "anonymous_id", ""),
+            anonymous_id=request.anonymous_id,
             seed_listing_id=request.seed_listing_id,
-            context=getattr(request, "context", ""),
-            limit=getattr(request, "limit", 0),
+            context=recommendation_pb2.RecommendationContext.Name(request.context),
+            limit=request.limit,
+            placement_id=_PLACEMENT_BY_CONTEXT.get(request.context, ""),
         )
         try:
             result = await service.recommend(query)
@@ -65,7 +77,7 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
             raise AssertionError("unreachable") from exc
 
         return recommendation_pb2.RecommendResponse(
-            recommendations=[
+            items=[
                 recommendation_pb2.RecommendedItem(
                     listing_id=item.listing_id,
                     score=item.score,

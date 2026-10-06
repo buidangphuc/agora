@@ -7,10 +7,10 @@ Two shapes:
     the gateway (team-domain emits a listing event), then the notification should
     appear after async propagation (bounded poll).
 
-Alert subscriptions and notifications are keyed to team-notification's demo user
-(handler placeholder `khach_hang_shopee`, ADR-0003 principal wiring pending), so
-assertions are scoped to the freshly-seeded listing id to stay independent of
-other scenarios sharing that demo user.
+Alert subscriptions and notifications are owned per user (team-notification
+resolves the owner from the gateway-forwarded principal, ADR-0003), so every
+call here is made with the acting buyer's own token. Each scenario registers a
+fresh buyer, which gives it a private inbox and keeps it parallel-safe.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from pytest_bdd import given, parsers, then, when
 from config.settings import get_settings
 from src.api.services import BaseService
 from src.constants import PageName, timeouts
+from src.constants import gateway_endpoints as ep
 from src.models import Listing, User
 from src.pages import NotificationsPage
 from src.pages.listing_detail_page import ListingDetailPage
@@ -101,12 +102,15 @@ def _update_listing(world: World, seller_token: str, listing_id: str, **changes)
     return svc.post("/platform.listing.v1.ListingService/UpdateListing", {"listing": cur})
 
 
-def _poll_for_notification(world: World, kind: str, listing_id: str, seconds: int) -> bool:
-    """Bounded poll of ListNotifications for a notification of `kind` linking to the
-    listing. Returns True as soon as one appears."""
+def _poll_for_notification(
+    world: World, kind: str, listing_id: str, seconds: int, token: str | None = None
+) -> bool:
+    """Bounded poll of ListNotifications, as the buyer owning `token` (default: the
+    current user), for a notification of `kind` linking to the listing. Returns True
+    as soon as one appears."""
     want_type = _NOTIF_ENUM[kind]
     link = f"/listing/{listing_id}"
-    svc = _api(world, world.state.current_user.token)
+    svc = _api(world, token or world.state.current_user.token)
     deadline = time.time() + seconds
     while time.time() < deadline:
         resp = svc.post(
@@ -132,7 +136,9 @@ def buyer_viewing_listing_for_alerts(world: World) -> None:
 def enable_alert_toggle(world: World, kind: str) -> None:
     detail: ListingDetailPage = world.get_page(PageName.LISTING_DETAIL)  # type: ignore[assignment]
     toggle = detail.alert_toggle(kind)
-    expect(toggle).to_be_visible(timeout=timeouts.NAVIGATION)
+    # The toggle is server-rendered; a click before hydration is dropped, which left
+    # data-active at "false" forever under parallel load. Wait for it to be interactive.
+    detail.wait_until_interactive(toggle)
     if toggle.get_attribute("data-active") != "true":
         toggle.click()
 
@@ -215,10 +221,51 @@ def notification_appears(world: World, kind: str) -> None:
     found = _poll_for_notification(world, kind, listing_id, _DELIVERY_POLL_SECONDS)
     assert found, (
         f"no {kind} notification for listing {listing_id} within "
-        f"{_DELIVERY_POLL_SECONDS}s — team-domain emits platform.listing.v1.ListingChanged "
-        f"but team-notification's consumer only reacts to ListingPricingChanged/"
-        f"ListingStockChanged, so the alert is never created"
+        f"{_DELIVERY_POLL_SECONDS}s — check the team-domain outbox relayed the listing's "
+        f"ListingChanged events in order and team-notification consumed them"
     )
     world.navigate_to(PageName.NOTIFICATIONS)
     page: NotificationsPage = world.get_page(PageName.NOTIFICATIONS)  # type: ignore[assignment]
     expect(page.notifications_of_type(kind).first).to_be_visible(timeout=timeouts.NAVIGATION)
+
+
+# ── Per-user isolation ───────────────────────────────────────────────────
+def _register_buyer(world: World, prefix: str) -> User:
+    """Register a fresh buyer without disturbing the current browser session."""
+    name = fake.unique_username(prefix)
+    token = world.service_factory.auth.register(name, SETTINGS.seed_password, "buyer")
+    return User(username=name, password=SETTINGS.seed_password, role="buyer", token=token)
+
+
+@given(
+    parsers.parse('two buyers where only the first is subscribed to a "{kind}" alert on a listing')
+)
+def two_buyers_one_subscribed(world: World, kind: str) -> None:
+    _seller, listing = _seed_seller_and_listing(world, price=2_000_000, stock=5)
+    first = _register_buyer(world, "alert_buyer_a")
+    second = _register_buyer(world, "alert_buyer_b")
+    _subscribe_alert(world, first.token, listing.listing_id, kind)
+    world.state.extra.update(alert_kind=kind, buyer_a=first, buyer_b=second)
+
+
+@then(parsers.parse('only the first buyer receives a "{kind}" notification for that listing'))
+def only_first_buyer_notified(world: World, kind: str) -> None:
+    listing_id = world.state.listing.listing_id
+    first: User = world.state.extra["buyer_a"]
+    second: User = world.state.extra["buyer_b"]
+    assert _poll_for_notification(
+        world, kind, listing_id, _DELIVERY_POLL_SECONDS, token=first.token
+    ), f"first buyer got no {kind} notification for {listing_id} within {_DELIVERY_POLL_SECONDS}s"
+    # The first buyer has it, so the fan-out has run: the second buyer must still
+    # see nothing, in their inbox or in their subscriptions.
+    assert not _poll_for_notification(
+        world, kind, listing_id, 0, token=second.token
+    ), "second buyer can see the first buyer's notification"
+    inbox = _api(world, second.token).post(ep.NOTIFICATION_LIST, {"pageSize": 50})
+    assert not any(
+        n.get("linkUrl") == f"/listing/{listing_id}" for n in inbox.get("notifications", [])
+    ), f"second buyer's inbox leaks the first buyer's notifications: {inbox}"
+    subs = _api(world, second.token).post(
+        "/platform.notification.v1.NotificationService/ListAlertSubscriptions", {}
+    )
+    assert not subs.get("subscriptions"), f"second buyer sees subscriptions: {subs}"

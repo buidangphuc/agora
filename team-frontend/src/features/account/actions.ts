@@ -2,19 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { revokeSession } from "@/lib/gateway/sessions";
+import { errorMessage } from "./action-error";
 
 export async function revokeSessionAction(
   sessionId: string,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<ActionResult> {
   try {
     await revokeSession(sessionId);
     revalidatePath("/account/security");
-    return { ok: true };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Thu hồi phiên thất bại.",
-    };
+    return fail(errorMessage(err, "Thu hồi phiên thất bại."));
   }
 }

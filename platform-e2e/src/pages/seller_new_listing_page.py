@@ -37,6 +37,34 @@ class SellerNewListingPage(BasePage):
     def submit_button(self) -> Locator:
         return self.page.get_by_role("button", name="Đăng bán ngay")
 
+    @property
+    def title_error(self) -> Locator:
+        return self.page.get_by_text("Tiêu đề bắt buộc.", exact=True)
+
+    @property
+    def saved_toast(self) -> Locator:
+        return self.page.get_by_text("Đã lưu", exact=True)
+
+    @property
+    def success_result(self) -> Locator:
+        return self.page.get_by_role("heading", name="Đã đăng bán sản phẩm")
+
+    # ── Magic Listing assist ─────────────────────────────────────────────
+    @property
+    def magic_generate(self) -> Locator:
+        return self.page.get_by_role("button", name="Tạo gợi ý")
+
+    @property
+    def magic_suggestion(self) -> Locator:
+        return self.page.get_by_test_id("magic-suggestion")
+
+    @property
+    def magic_apply_all(self) -> Locator:
+        return self.page.get_by_role("button", name="Áp dụng tất cả")
+
+    def magic_apply(self, field: str) -> Locator:
+        return self.page.get_by_role("button", name=f"Áp dụng: {field}")
+
     def is_displayed(self) -> bool:
         return self.title_input.is_visible()
 
@@ -50,6 +78,8 @@ class SellerNewListingPage(BasePage):
 
         from src.constants import timeouts
 
+        # Wait for hydration: a fill or submit before it is lost or posts natively.
+        self.wait_until_interactive(self.submit_button)
         self.title_input.fill(listing.title)
         self.category_select.select_option(listing.category_id)
         self.price_input.fill(str(listing.price))

@@ -1,39 +1,74 @@
-import { formatPrice, formatSoldCount } from "@/components/ui/format";
+import { Card } from "@/components/ui/Card";
+import { Image } from "@/components/ui/Image";
+import { PriceTag } from "@/components/ui/PriceTag";
+import { Rate } from "@/components/ui/Rate";
+import { Tag } from "@/components/ui/Tag";
 import { FavoriteButton } from "@/features/engagement/FavoriteButton";
 import { TrackImpression } from "@/features/tracking/TrackImpression";
 import { TrackLink } from "@/features/tracking/TrackLink";
 import type { ViewListing } from "@/lib/gateway/listings";
 import { getImageUrl } from "@/lib/media";
+import { EAGER_IMAGE_COUNT } from "./gridClass";
 
+/** Real review aggregate of a listing, when the gateway provides one. */
+export interface ListingReviewSummary {
+  average: number;
+  count: number;
+}
+
+/** Same 1:1 box as Image, for a listing without a picture. */
+function NoImage() {
+  return (
+    <div className="flex aspect-square w-full items-center justify-center bg-surface-page text-text-disabled">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-8 w-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        role="img"
+        aria-label="Không có ảnh"
+      >
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <circle cx="9" cy="10" r="1.5" />
+        <path d="M21 16l-5-5-8 8" />
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * The single product tile of the discovery routes. Only real data is shown:
+ * the real price, a rating only for a review aggregate with count > 0, and a
+ * Freeship tag only when the caller knows the listing ships free. The tracking
+ * tree (TrackImpression > TrackLink on image and title) is unchanged.
+ */
 export function ListingCard({
   listing,
   placementId,
   impressionId,
   modelVersion,
   position,
+  review,
+  freeShip = false,
 }: {
   listing: ViewListing;
   placementId?: string;
   impressionId?: string;
   modelVersion?: string;
   position?: number;
+  /** Real review aggregate; omitted or count 0 renders no rating. */
+  review?: ListingReviewSummary;
+  /** True only when the listing actually ships free. */
+  freeShip?: boolean;
 }) {
   const imageSrc =
     listing.imageKeys && listing.imageKeys.length > 0
       ? getImageUrl(listing.imageKeys[0])
       : listing.imageUrl;
-
-  const isMall =
-    listing.price > 5000000 ||
-    listing.title.toLowerCase().includes("chính hãng") ||
-    listing.title.toLowerCase().includes("apple") ||
-    listing.title.toLowerCase().includes("sony") ||
-    listing.title.toLowerCase().includes("philips") ||
-    listing.title.toLowerCase().includes("nike");
-
-  // Discount percentage calculation
-  const originalPrice = Math.round(listing.price * 1.25);
-  const soldCount = listing.stock > 0 ? 120 + ((listing.stock * 3) % 850) : 85;
+  const eager = position !== undefined && position <= EAGER_IMAGE_COUNT;
 
   return (
     <TrackImpression
@@ -43,9 +78,8 @@ export function ListingCard({
       modelVersion={modelVersion}
       position={position}
     >
-      <article className="group relative flex flex-col overflow-hidden rounded-xs border border-gray-200/80 bg-white shadow-shopee transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-shopee-hover">
-        {/* ── 1:1 Aspect Ratio Image & Official Badges ── */}
-        <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
+      <Card hoverable className="group relative flex h-full flex-col">
+        <div className="relative">
           <TrackLink
             listingId={listing.id}
             placementId={placementId}
@@ -53,102 +87,48 @@ export function ListingCard({
             modelVersion={modelVersion}
             position={position}
             href={`/listing/${listing.id}`}
-            className="block h-full w-full"
+            className="block w-full"
           >
             {imageSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={imageSrc}
                 alt={listing.title}
-                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                loading="lazy"
+                aspect="square"
+                loading={eager ? "eager" : "lazy"}
+                className="rounded-b-none"
               />
+            ) : (
+              <NoImage />
+            )}
+          </TrackLink>
 
-          ) : (
-            <div className="grid h-full w-full place-items-center text-gray-300 bg-gray-50">
-              <span className="text-3xl">🛍️</span>
-            </div>
-          )}
-        </TrackLink>
-
-        {/* Mall / Favorite Badge */}
-        <div className="absolute top-0 left-0 z-10">
-          {isMall ? (
-            <span className="rounded-br-xs bg-[#d0011b] px-1.5 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider shadow-2xs">
-              Mall
-            </span>
-          ) : (
-            <span className="rounded-br-xs bg-brand px-1.5 py-0.5 text-[9px] font-semibold text-white uppercase tracking-wider shadow-2xs">
-              Yêu thích+
-            </span>
-          )}
+          {/* Favorite heart button */}
+          <div className="absolute bottom-2 right-2 z-10">
+            <FavoriteButton id={listing.id} initial={false} />
+          </div>
         </div>
 
-        {/* Discount Badge */}
-        <div className="absolute top-0 right-0 z-10 flex flex-col items-center bg-[#ffe97a]/95 px-1 py-0.5 text-center text-[#ee4d2d] font-bold shadow-2xs">
-          <span className="text-[10px] leading-tight font-extrabold">-20%</span>
-          <span className="text-[8px] font-black uppercase text-white bg-[#ee4d2d] px-0.5 rounded-2xs mt-0.5">
-            GIẢM
-          </span>
-        </div>
+        <div className="flex flex-1 flex-col gap-2 p-3">
+          <h3 className="line-clamp-2 min-h-10 text-sm font-normal leading-5 text-text-primary transition duration-150 group-hover:text-action-primary">
+            <TrackLink listingId={listing.id} href={`/listing/${listing.id}`}>
+              {listing.title}
+            </TrackLink>
+          </h3>
 
-        {/* Favorite heart button */}
-        <div className="absolute bottom-2 right-2 z-10">
-          <FavoriteButton id={listing.id} initial={false} />
-        </div>
-      </div>
-
-      {/* ── Card Content ── */}
-      <div className="flex flex-1 flex-col p-2">
-        {/* Title */}
-        <h3 className="line-clamp-2 text-[12px] leading-4 text-[#222222] font-normal group-hover:text-brand transition min-h-[32px]">
-          <TrackLink listingId={listing.id} href={`/listing/${listing.id}`}>
-            {isMall && (
-              <span className="mr-1 inline-block rounded-2xs bg-[#d0011b] px-1 py-0.2 text-[9px] font-bold text-white uppercase leading-none">
-                Mall
+          {/* Reserved meta row: the card keeps one height with or without data. */}
+          <div className="flex min-h-5 flex-wrap items-center gap-2 text-xs text-text-secondary">
+            {freeShip && <Tag color="success">Freeship</Tag>}
+            {review !== undefined && review.count > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Rate readOnly size="sm" value={review.average} />
+                <span>({review.count})</span>
               </span>
             )}
-            {listing.title}
-          </TrackLink>
-        </h3>
-
-        {/* Shopee Promo Tags */}
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          <span className="rounded-2xs border border-red-400 bg-red-50/80 px-1 py-0.2 text-[9px] font-medium text-red-600">
-            Giảm ₫50k
-          </span>
-          <span className="rounded-2xs bg-emerald-50 px-1 py-0.2 text-[9px] font-medium text-emerald-700">
-            Freeship Xtra
-          </span>
-        </div>
-
-        {/* Price & Strikethrough */}
-        <div className="mt-2 flex items-baseline gap-1.5">
-          <span className="text-[11px] text-gray-400 line-through">
-            {formatPrice(originalPrice, listing.currency)}
-          </span>
-          <span className="text-[15px] font-semibold text-brand">
-            {formatPrice(listing.price, listing.currency)}
-          </span>
-        </div>
-
-        {/* Rating & Sold count */}
-        <div className="mt-auto flex items-center justify-between pt-2 text-[11px] text-gray-500 border-t border-gray-100">
-          <div className="flex items-center gap-1">
-            <span className="text-yellow-400 text-xs">★</span>
-            <span className="text-gray-700 font-medium">5.0</span>
           </div>
-          <span className="text-gray-500 font-normal">
-            {formatSoldCount(soldCount)}
-          </span>
-        </div>
 
-        {/* Location */}
-        <div className="mt-1 text-right text-[10px] text-gray-400 font-normal">
-          TP. Hồ Chí Minh
+          <PriceTag price={listing.price} size="md" className="mt-auto" />
         </div>
-      </div>
-    </article>
+      </Card>
     </TrackImpression>
   );
 }

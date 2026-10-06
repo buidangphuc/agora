@@ -80,19 +80,22 @@ type Deduper interface {
 // StockStateStore remembers the last-seen stock per listing so the consumer can
 // detect a 0 → positive transition from a ListingChanged snapshot, which only
 // carries the current level. Get returns (level, known); known is false the first
-// time a listing is seen.
+// time a listing is seen. An error is transient (the record is retried, never
+// treated as "unknown", which would silently reset the baseline).
 type StockStateStore interface {
-	Get(listingID string) (int32, bool)
-	Set(listingID string, stock int32)
+	Get(ctx context.Context, listingID string) (int32, bool, error)
+	Set(ctx context.Context, listingID string, stock int32) error
 }
 
 // PriceStateStore remembers the last-seen price per listing so the consumer can
 // detect a price drop from a ListingChanged snapshot, which carries only the
 // current price (not an old/new delta). Get returns (price, known); known is false
 // the first time a listing is seen, so a first-ever snapshot never fires a drop.
+// An error is transient (the record is retried, never treated as "unknown", which
+// would silently reset the baseline).
 type PriceStateStore interface {
-	Get(listingID string) (int64, bool)
-	Set(listingID string, price int64)
+	Get(ctx context.Context, listingID string) (int64, bool, error)
+	Set(ctx context.Context, listingID string, price int64) error
 }
 
 // ListingConsumer applies listing.events to notifications idempotently.
@@ -229,7 +232,10 @@ func (c *ListingConsumer) handleListingChanged(ctx context.Context, payload []by
 
 	// ── Price drop: current price strictly below the last-seen price. ──
 	curPrice := l.GetPrice()
-	prevPrice, priceKnown := c.price.Get(listingID)
+	prevPrice, priceKnown, err := c.price.Get(ctx, listingID)
+	if err != nil {
+		return fmt.Errorf("read last-seen price for %q: %w", listingID, err)
+	}
 	if priceKnown && curPrice < prevPrice {
 		if err := c.notifySubscribers(ctx, listingID, notificationv1.AlertType_ALERT_TYPE_PRICE_DROP,
 			notificationv1.NotificationType_NOTIFICATION_TYPE_PRICE_DROP,
@@ -242,11 +248,16 @@ func (c *ListingConsumer) handleListingChanged(ctx context.Context, payload []by
 		}
 	}
 	// Record the current price (fired or not, first-seen included) for future diffs.
-	c.price.Set(listingID, curPrice)
+	if err := c.price.Set(ctx, listingID, curPrice); err != nil {
+		return fmt.Errorf("record last-seen price for %q: %w", listingID, err)
+	}
 
 	// ── Back in stock: 0 → positive transition. ──
 	curStock := l.GetStock()
-	prevStock, stockKnown := c.stock.Get(listingID)
+	prevStock, stockKnown, err := c.stock.Get(ctx, listingID)
+	if err != nil {
+		return fmt.Errorf("read last-seen stock for %q: %w", listingID, err)
+	}
 	if stockKnown && prevStock == 0 && curStock > 0 {
 		if err := c.notifySubscribers(ctx, listingID, notificationv1.AlertType_ALERT_TYPE_BACK_IN_STOCK,
 			notificationv1.NotificationType_NOTIFICATION_TYPE_BACK_IN_STOCK,
@@ -259,7 +270,9 @@ func (c *ListingConsumer) handleListingChanged(ctx context.Context, payload []by
 		}
 	}
 	// Record the current level (fired or not, first-seen included) for future diffs.
-	c.stock.Set(listingID, curStock)
+	if err := c.stock.Set(ctx, listingID, curStock); err != nil {
+		return fmt.Errorf("record last-seen stock for %q: %w", listingID, err)
+	}
 	return nil
 }
 
@@ -340,17 +353,18 @@ func NewInMemoryStockStateStore() *InMemoryStockStateStore {
 	return &InMemoryStockStateStore{last: make(map[string]int32)}
 }
 
-func (s *InMemoryStockStateStore) Get(listingID string) (int32, bool) {
+func (s *InMemoryStockStateStore) Get(_ context.Context, listingID string) (int32, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, ok := s.last[listingID]
-	return v, ok
+	return v, ok, nil
 }
 
-func (s *InMemoryStockStateStore) Set(listingID string, stock int32) {
+func (s *InMemoryStockStateStore) Set(_ context.Context, listingID string, stock int32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.last[listingID] = stock
+	return nil
 }
 
 // ── In-memory last-seen-price store ──
@@ -368,17 +382,18 @@ func NewInMemoryPriceStateStore() *InMemoryPriceStateStore {
 	return &InMemoryPriceStateStore{last: make(map[string]int64)}
 }
 
-func (s *InMemoryPriceStateStore) Get(listingID string) (int64, bool) {
+func (s *InMemoryPriceStateStore) Get(_ context.Context, listingID string) (int64, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, ok := s.last[listingID]
-	return v, ok
+	return v, ok, nil
 }
 
-func (s *InMemoryPriceStateStore) Set(listingID string, price int64) {
+func (s *InMemoryPriceStateStore) Set(_ context.Context, listingID string, price int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.last[listingID] = price
+	return nil
 }
 
 // ── Transport loop (AD1 offset discipline) ──
@@ -422,12 +437,21 @@ func (c RunConfig) withDefaults() RunConfig {
 	return c
 }
 
-// Run consumes until ctx is cancelled. Per record it applies the handler with
-// bounded in-process retries; on a permanent error or once retries are exhausted
-// it produces the record to the DLQ. Crucially it commits the offset ONLY after
-// the record is either applied or DLQ'd — it never advances past an unprocessed
-// record (AD1).
+// Run consumes until ctx is cancelled; see runLoop for the delivery discipline.
 func (c *ListingConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
+	return runLoop(ctx, c.logger, c.HandleRaw, reader, dlq, cfg)
+}
+
+// fetchRetryBackoff spaces out retries after a failed fetch so a broker outage
+// does not spin the loop.
+var fetchRetryBackoff = time.Second
+
+// runLoop is the shared consume loop for every team-notification consumer. Per
+// record it applies handle with bounded in-process retries; on a permanent error
+// or once retries are exhausted it produces the record to the DLQ. Crucially it
+// commits the offset ONLY after the record is either applied or DLQ'd — it never
+// advances past an unprocessed record (AD1).
+func runLoop(ctx context.Context, logger *slog.Logger, handle func(context.Context, []byte) error, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
 	cfg = cfg.withDefaults()
 	for {
 		if ctx.Err() != nil {
@@ -435,30 +459,39 @@ func (c *ListingConsumer) Run(ctx context.Context, reader RecordReader, dlq Dead
 		}
 		rec, err := reader.Fetch(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
+			// Stop only when our own context is done. A fetch error that merely
+			// wraps a deadline (a Kafka request timing out under load) is transient:
+			// returning on it silently killed the consumer while the process kept
+			// running.
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-			c.logger.WarnContext(ctx, "fetch record failed", slog.Any("err", err))
+			logger.WarnContext(ctx, "fetch record failed; retrying", slog.Any("err", err))
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(fetchRetryBackoff):
+			}
 			continue
 		}
 
-		if perr := c.processWithRetry(ctx, rec, dlq, cfg); perr != nil {
+		if perr := processWithRetry(ctx, logger, handle, rec, dlq, cfg); perr != nil {
 			// Could not process AND could not DLQ: do NOT commit — leave the offset so
 			// the record is redelivered (never lose it).
-			c.logger.ErrorContext(ctx, "record neither applied nor DLQ'd; not committing",
+			logger.ErrorContext(ctx, "record neither applied nor DLQ'd; not committing",
 				slog.Any("err", perr))
 			continue
 		}
 		if err := reader.Commit(ctx, rec); err != nil {
-			c.logger.WarnContext(ctx, "commit offset failed; record may redeliver", slog.Any("err", err))
+			logger.WarnContext(ctx, "commit offset failed; record may redeliver", slog.Any("err", err))
 		}
 	}
 }
 
-func (c *ListingConsumer) processWithRetry(ctx context.Context, rec Record, dlq DeadLetterProducer, cfg RunConfig) error {
+func processWithRetry(ctx context.Context, logger *slog.Logger, handle func(context.Context, []byte) error, rec Record, dlq DeadLetterProducer, cfg RunConfig) error {
 	var lastErr error
 	for attempt := 1; attempt <= cfg.MaxAttempts; attempt++ {
-		err := c.HandleRaw(ctx, rec.Value)
+		err := handle(ctx, rec.Value)
 		if err == nil {
 			return nil
 		}
@@ -474,7 +507,7 @@ func (c *ListingConsumer) processWithRetry(ctx context.Context, rec Record, dlq 
 			}
 		}
 	}
-	c.logger.WarnContext(ctx, "routing record to DLQ",
+	logger.WarnContext(ctx, "routing record to DLQ",
 		slog.String("dlq_topic", cfg.DLQTopic), slog.Any("err", lastErr))
 	if err := dlq.Produce(ctx, cfg.DLQTopic, rec); err != nil {
 		return fmt.Errorf("produce to DLQ: %w (original: %v)", err, lastErr)

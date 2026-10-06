@@ -1,8 +1,9 @@
 // Package token verifies the platform's RS256 JWTs at the edge (ADR-0006).
 // team-identity is the issuer; the gateway holds no signing material and instead
 // verifies each token against the RSA public key it fetches from identity's JWKS,
-// selected by the token's `kid`. A token that does not verify resolves to the
-// anonymous principal upstream (unchanged edge behavior).
+// selected by the token's `kid`. A token that does not verify is rejected by the
+// edge as Unauthenticated (RFC 6750 §3.1); only the *absence* of a token resolves
+// to the anonymous principal.
 package token
 
 import (
@@ -18,6 +19,10 @@ type Claims struct {
 	Name   string   `json:"name"`
 	Type   string   `json:"typ"` // "user" | "service" | "anonymous"
 	Scopes []string `json:"scopes"`
+	// SessionID is the `sid` claim: the id of the identity session the token was
+	// issued for. Empty on service tokens. The edge checks it against the
+	// revocation denylist (ADR-0003 addendum).
+	SessionID string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 

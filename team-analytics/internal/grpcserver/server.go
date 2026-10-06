@@ -13,15 +13,16 @@ import (
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/config"
+	"github.com/buidangphuc/team-analytics/internal/interceptor"
 )
 
 // Build constructs a ready-but-unstarted gRPC server exposing the standard gRPC
 // Health service (+ optional reflection) and, when queryServer is non-nil, the
-// read-only AnalyticsQueryService. No unary/stream interceptors are wired: the
-// query RPCs are read-only aggregations scoped by an explicit seller_id
-// argument (no principal-bearing mutating surface to protect here).
+// read-only AnalyticsQueryService. A unary interceptor attaches the gateway-forwarded
+// Principal (ADR-0003) so admin-scoped RPCs can call interceptor.RequireScopes; the
+// seller RPCs enforce ownership-or-admin via requireSellerAccess (internal/query).
 func Build(s *config.Settings, healthSrv *health.Server, queryServer analyticsv1.AnalyticsQueryServiceServer) *grpc.Server {
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.UnaryServerInterceptor()))
 
 	if healthSrv == nil {
 		healthSrv = health.NewServer()

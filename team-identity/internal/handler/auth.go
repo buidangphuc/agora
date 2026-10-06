@@ -30,7 +30,7 @@ func (h *AuthHandler) Register(
 	ctx context.Context,
 	req *identityv1.RegisterRequest,
 ) (*identityv1.RegisterResponse, error) {
-	res, err := h.svc.Register(ctx, req.GetUsername(), req.GetPassword(), req.GetRole())
+	res, err := h.svc.Register(withClient(ctx), req.GetUsername(), req.GetPassword(), req.GetRole())
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -41,7 +41,7 @@ func (h *AuthHandler) Login(
 	ctx context.Context,
 	req *identityv1.LoginRequest,
 ) (*identityv1.LoginResponse, error) {
-	res, err := h.svc.Login(ctx, req.GetUsername(), req.GetPassword())
+	res, err := h.svc.Login(withClient(ctx), req.GetUsername(), req.GetPassword())
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -86,6 +86,11 @@ func (h *AuthHandler) ResetPassword(
 		return nil, mapErr(err)
 	}
 	return &identityv1.ResetPasswordResponse{Success: true}, nil
+}
+
+// withClient copies the gateway's audit-only client context into ctx.
+func withClient(ctx context.Context) context.Context {
+	return service.WithClient(ctx, interceptor.ClientFromContext(ctx))
 }
 
 func toResult(r service.AuthResult) *identityv1.AuthResult {

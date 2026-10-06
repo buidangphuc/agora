@@ -48,10 +48,40 @@ type resolvedPrincipal struct {
 // timeout + retry, and the rate limiter.
 type Edge struct {
 	verifier     *token.Verifier
+	revocations  SessionRevocations
+	trusted      *TrustedProxies
 	publicScopes []string
 	callTimeout  time.Duration
 	retryMax     int
 	limiter      *rateLimiter
+}
+
+// SessionRevocations answers whether a session id was revoked (ADR-0003 addendum).
+// Satisfied by *revocation.Denylist; nil means "no revocation source" and every
+// session is treated as live (fail open).
+type SessionRevocations interface {
+	Revoked(sessionID string) bool
+}
+
+// WithRevocations makes the edge reject any token whose `sid` is revoked. It is
+// optional and set once at startup, before the edge serves.
+func (e *Edge) WithRevocations(r SessionRevocations) *Edge {
+	e.revocations = r
+	return e
+}
+
+// verifyToken verifies a bearer token locally (signature, expiry) and then checks
+// its session against the revocation denylist. Both failures read as an invalid
+// token; there is no call to identity.
+func (e *Edge) verifyToken(tok string) (*token.Claims, error) {
+	claims, err := e.verifier.Verify(tok)
+	if err != nil {
+		return nil, err
+	}
+	if claims.SessionID != "" && e.revocations != nil && e.revocations.Revoked(claims.SessionID) {
+		return nil, errSessionRevoked
+	}
+	return claims, nil
 }
 
 // NewEdge builds the edge helper. The verifier checks RS256 tokens against
@@ -66,20 +96,36 @@ func NewEdge(verifier *token.Verifier, publicScopes []string, callTimeout time.D
 	}
 }
 
-// resolve verifies the bearer JWT (if any) into a Principal; no/invalid token →
-// anonymous with the configured public scopes.
-func (e *Edge) resolve(header http.Header) resolvedPrincipal {
+// errInvalidToken marks a bearer credential that was presented but did not
+// verify (malformed, bad signature, unknown kid, expired).
+var errInvalidToken = errors.New("invalid or expired bearer token")
+
+// errSessionRevoked marks a token whose session was revoked. It is reported to the
+// client exactly like any invalid token (resolve maps every verify failure to
+// errInvalidToken).
+var errSessionRevoked = errors.New("session revoked")
+
+// resolve turns the Authorization header into a Principal (RFC 6750 §3.1):
+//   - no bearer credential        → anonymous with the configured public scopes;
+//   - a bearer that verifies      → the token's Principal;
+//   - a bearer that does not      → errInvalidToken. A presented-but-bad token is
+//     never silently downgraded to anonymous; callers must answer Unauthenticated.
+func (e *Edge) resolve(header http.Header) (resolvedPrincipal, error) {
 	p := resolvedPrincipal{id: "anonymous", ptype: "anonymous", scopes: e.publicScopes}
-	if tok := bearerToken(header.Get("Authorization")); tok != "" {
-		if claims, err := e.verifier.Verify(tok); err == nil {
-			p.id = claims.Subject
-			if claims.Type != "" {
-				p.ptype = claims.Type
-			}
-			p.scopes = claims.Scopes
-		}
+	tok, present := bearerCredential(header.Get("Authorization"))
+	if !present {
+		return p, nil
 	}
-	return p
+	claims, err := e.verifyToken(tok)
+	if err != nil {
+		return p, errInvalidToken
+	}
+	p.id = claims.Subject
+	if claims.Type != "" {
+		p.ptype = claims.Type
+	}
+	p.scopes = claims.Scopes
+	return p, nil
 }
 
 // outgoing builds the outbound gRPC context carrying the resolved Principal +
@@ -87,7 +133,12 @@ func (e *Edge) resolve(header http.Header) resolvedPrincipal {
 func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context {
 	p, ok := principalFrom(ctx)
 	if !ok {
-		p = e.resolve(header)
+		// Reached only when the auth interceptor did not run (direct forwarder
+		// use). Fail closed: an invalid token gets no scopes at all.
+		var err error
+		if p, err = e.resolve(header); err != nil {
+			p.scopes = nil
+		}
 	}
 	rid := requestIDFrom(ctx)
 	if rid == "" {
@@ -100,6 +151,20 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 	md.Set(mdPrincipalType, p.ptype)
 	md.Set(mdPrincipalScopes, strings.Join(p.scopes, ","))
 	md.Set(mdRequestID, rid)
+	// Client context is built here from edge-observed values only, never copied
+	// from inbound headers, so a client-supplied x-client-* cannot pass through.
+	ci, ok := clientFrom(ctx)
+	if !ok {
+		// Auth interceptor did not run (direct forwarder use): no peer address is
+		// known, so forward no IP — only the user agent.
+		ci = clientInfo{userAgent: clip(header.Get("User-Agent"), maxClientUALen)}
+	}
+	if ci.ip != "" {
+		md.Set(mdClientIP, ci.ip)
+	}
+	if ci.userAgent != "" {
+		md.Set(mdClientUserAgent, ci.userAgent)
+	}
 	return metadata.NewOutgoingContext(ctx, md)
 }
 
@@ -147,6 +212,18 @@ func withRequestID(ctx context.Context, id string) context.Context {
 func requestIDFrom(ctx context.Context) string {
 	id, _ := ctx.Value(requestIDKey).(string)
 	return id
+}
+
+// bearerCredential reports whether the header carries a Bearer credential and
+// returns its token. An empty "Bearer" value counts as present-but-invalid.
+// Other schemes (Basic, ...) are not ours to judge and read as "no credential".
+func bearerCredential(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	scheme, rest, _ := strings.Cut(raw, " ")
+	if !strings.EqualFold(scheme, "bearer") {
+		return "", false
+	}
+	return strings.TrimSpace(rest), true
 }
 
 func bearerToken(raw string) string {

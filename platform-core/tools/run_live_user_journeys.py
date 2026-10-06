@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -30,6 +31,16 @@ try:
 except ImportError:
     requests = None
 
+
+
+def _jwt_subject(token: str, fallback: str) -> str:
+    """Return the JWT `sub` (the user id services key data by); fall back in dry-run."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload)).get("sub") or fallback
+    except (IndexError, ValueError):
+        return fallback
 
 class Colors:
     HEADER = "\033[95m"
@@ -78,6 +89,7 @@ class JourneyRunner:
         self.verbose = verbose
         self.session = requests.Session() if requests else None
         self.tokens: Dict[str, str] = {}
+        self.user_ids: Dict[str, str] = {}
         self.created_listings: List[Dict[str, Any]] = []
         self.cart_items: List[Dict[str, Any]] = []
         self.order_id: Optional[str] = None
@@ -152,6 +164,7 @@ class JourneyRunner:
             status, res = self.post_rpc("identity.v1.AuthService", "Login", {"username": username, "password": password})
             token = res.get("token", f"mock-token-{username}")
             self.tokens[username] = token
+            self.user_ids[username] = _jwt_subject(token, username)
             log_success(f"Seller authenticated: {Colors.BOLD}{shop_name}{Colors.END} (@{username})")
 
             # 2. Submit KYC verification
@@ -403,7 +416,7 @@ class JourneyRunner:
         _, f_res = self.post_rpc(
             "analytics.v1.AnalyticsQueryService",
             "GetSellerFunnel",
-            {"seller_id": seller_user},
+            {"seller_id": self.user_ids.get(seller_user, seller_user)},
             token=self.tokens[seller_user],
         )
         log_success(f"Seller Funnel: {f_res.get('impressions', 120)} impressions → {f_res.get('views', 45)} views → {f_res.get('adds', 12)} adds → {f_res.get('begin_checkouts', 8)} checkouts → {f_res.get('orders', 6)} orders")
@@ -413,7 +426,7 @@ class JourneyRunner:
             "analytics.v1.AnalyticsQueryService",
             "GetDemandForecast",
             {
-                "seller_id": seller_user,
+                "seller_id": self.user_ids.get(seller_user, seller_user),
                 "listing_id": target_item["id"],
                 "horizon_days": 14,
                 "lead_time_days": 3,

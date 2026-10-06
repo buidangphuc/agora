@@ -10,6 +10,18 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
+	commonv1 "github.com/buidangphuc/team-analytics/generated/platform/common/v1"
+	"github.com/buidangphuc/team-analytics/internal/interceptor"
+)
+
+const (
+	// scopeAdmin gates the platform-wide order RPCs; it spans every seller.
+	scopeAdmin = "admin"
+	// defaultOrderWindow is the summary window when the caller sends none.
+	defaultOrderWindow = 24 * time.Hour
+	// defaultRecentOrders / maxRecentOrders bound ListRecentOrders.
+	defaultRecentOrders = 10
+	maxRecentOrders     = 100
 )
 
 // defaultTopSKULimit caps top-SKU rows when a caller does not (the RPC has no
@@ -33,8 +45,31 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
+// requireSellerAccess gates the per-seller RPCs. It runs before any other work so
+// an unauthorised caller learns nothing (not even whether the repo is wired).
+// Anonymous or absent principal -> Unauthenticated; the admin scope -> allowed;
+// a user principal whose id equals sellerID -> allowed; anything else (another
+// user, a service principal without admin) -> PermissionDenied.
+func requireSellerAccess(ctx context.Context, sellerID string) error {
+	p, ok := interceptor.PrincipalFromContext(ctx)
+	if !ok || p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS || p.GetId() == "" {
+		return status.Error(codes.Unauthenticated, "authentication required")
+	}
+	if err := interceptor.RequireScopes(ctx, scopeAdmin); err == nil {
+		return nil
+	}
+	sellerID = strings.TrimSpace(sellerID)
+	if p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_USER && sellerID != "" && p.GetId() == sellerID {
+		return nil
+	}
+	return status.Error(codes.PermissionDenied, "not allowed to read this seller's analytics")
+}
+
 // GetSellerFunnel returns impression→view→add→order counts for a seller.
 func (s *Service) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSellerFunnelRequest) (*analyticsv1.GetSellerFunnelResponse, error) {
+	if err := requireSellerAccess(ctx, req.GetSellerId()); err != nil {
+		return nil, err
+	}
 	if s.repo == nil {
 		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
@@ -60,6 +95,9 @@ func (s *Service) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSelle
 
 // GetRevenueBreakdown returns per-day revenue and the top SKUs for a seller.
 func (s *Service) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetRevenueBreakdownRequest) (*analyticsv1.GetRevenueBreakdownResponse, error) {
+	if err := requireSellerAccess(ctx, req.GetSellerId()); err != nil {
+		return nil, err
+	}
 	if s.repo == nil {
 		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
@@ -98,6 +136,9 @@ func (s *Service) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetR
 
 // GetDemandForecast serves probabilistic daily demand forecasts and restock points.
 func (s *Service) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDemandForecastRequest) (*analyticsv1.GetDemandForecastResponse, error) {
+	if err := requireSellerAccess(ctx, req.GetSellerId()); err != nil {
+		return nil, err
+	}
 	if s.repo == nil {
 		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
@@ -174,6 +215,55 @@ func (s *Service) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDem
 	return resp, nil
 }
 
+// GetPlatformOrderSummary returns the platform-wide distinct paid-order count and
+// GMV over the trailing window (default 24h). Admin only.
+func (s *Service) GetPlatformOrderSummary(ctx context.Context, req *analyticsv1.GetPlatformOrderSummaryRequest) (*analyticsv1.GetPlatformOrderSummaryResponse, error) {
+	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+		return nil, err
+	}
+	if s.repo == nil {
+		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
+	}
+	win := defaultOrderWindow
+	if d := req.GetWindow(); d != nil && d.AsDuration() > 0 {
+		win = d.AsDuration()
+	}
+	sum, err := s.repo.PlatformOrderSummary(ctx, time.Now().UTC().Add(-win))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "platform order summary: %v", err)
+	}
+	return &analyticsv1.GetPlatformOrderSummaryResponse{OrderCount: sum.OrderCount, Gmv: sum.GMV}, nil
+}
+
+// ListRecentOrders returns the latest paid orders, newest first. Admin only; no
+// buyer PII is read or returned.
+func (s *Service) ListRecentOrders(ctx context.Context, req *analyticsv1.ListRecentOrdersRequest) (*analyticsv1.ListRecentOrdersResponse, error) {
+	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+		return nil, err
+	}
+	if s.repo == nil {
+		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
+	}
+	limit := int(req.GetLimit())
+	if limit <= 0 || limit > maxRecentOrders {
+		limit = defaultRecentOrders
+	}
+	orders, err := s.repo.RecentOrders(ctx, limit)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "recent orders: %v", err)
+	}
+	resp := &analyticsv1.ListRecentOrdersResponse{Orders: make([]*analyticsv1.RecentOrder, 0, len(orders))}
+	for _, o := range orders {
+		resp.Orders = append(resp.Orders, &analyticsv1.RecentOrder{
+			OrderId:  o.OrderID,
+			SellerId: o.SellerID,
+			Total:    o.Total,
+			PaidAt:   timestamppb.New(o.PaidAt),
+		})
+	}
+	return resp, nil
+}
+
 // window converts the optional request timestamps into a concrete [from, to]
 // range. A missing `from` opens the lower bound (zero time); a missing `to`
 // opens the upper bound (farFuture). A from > to window yields no rows, which
@@ -192,4 +282,3 @@ func window(from, to *timestamppb.Timestamp) (time.Time, time.Time) {
 
 // compile-time assertion that the servicer satisfies the generated interface.
 var _ analyticsv1.AnalyticsQueryServiceServer = (*Service)(nil)
-

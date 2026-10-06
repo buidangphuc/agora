@@ -73,3 +73,48 @@ def test_registry_challenger_promotion_gate() -> None:
     assert promoted is False
     assert registry.get_champion_version() == "tt_v1"  # still tt_v1
     assert registry.get_model("als_v2_bad").status == "rejected"
+
+
+def test_force_promotes_a_candidate_the_gate_would_reject() -> None:
+    """PROMOTION_FORCE path: an equal-scoring retrain is rejected unless forced."""
+    registry = ModelRegistry()
+    for v in ("als_v1", "als_v2", "als_v3"):
+        registry.register_model(
+            ModelMetadata(
+                model_name="als",
+                model_version=v,
+                model_type="als",
+                metrics={"ndcg@10": 0.5, "coverage@10": 0.8},
+            )
+        )
+    assert registry.evaluate_and_promote("als_v1")[0] is True
+    assert registry.evaluate_and_promote("als_v2", min_relative_improvement=0.01)[0] is False
+    promoted, reason = registry.evaluate_and_promote("als_v3", min_relative_improvement=0.01, force=True)
+    assert promoted is True
+    assert "by force" in reason
+    assert registry.get_champion_version() == "als_v3"
+
+
+def test_champion_from_another_eval_protocol_is_not_compared() -> None:
+    """Leaky pre-v1 metrics must not block (or be beaten by) honest v1 metrics."""
+    registry = ModelRegistry()
+    old = ModelMetadata(
+        model_name="als",
+        model_version="als_old",
+        model_type="als",
+        metrics={"ndcg@10": 0.75, "coverage@10": 0.8},
+    )
+    new = ModelMetadata(
+        model_name="als",
+        model_version="als_new",
+        model_type="als",
+        metrics={"ndcg@10": 0.05, "coverage@10": 0.3, "eval_protocol": "leave-last-new-item-v1"},
+    )
+    registry.register_model(old)
+    registry.register_model(new)
+    assert registry.evaluate_and_promote("als_old")[0] is True
+    promoted, reason = registry.evaluate_and_promote("als_new", min_relative_improvement=0.01)
+    assert promoted is True
+    assert "not comparable" in reason
+    assert registry.get_champion_version() == "als_new"
+    assert registry.get_model("als_old").status == "archived"

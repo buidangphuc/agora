@@ -1,6 +1,8 @@
+import { Card } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
 import type { ViewListing } from "@/lib/gateway/listings";
-
 import { ListingCard } from "./ListingCard";
+import { LISTING_GRID_CLASS } from "./gridClass";
 
 export function ListingGrid({
   listings,
@@ -17,18 +19,26 @@ export function ListingGrid({
 }) {
   if (listings.length === 0) {
     return (
-      <div className="rounded-xs border border-gray-100 bg-white p-12 text-center shadow-shopee">
-        <p className="text-4xl">🔍</p>
-        <p className="mt-3 text-sm font-semibold text-gray-700">{empty}</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Hãy thử tìm kiếm với từ khóa khác hoặc điều chỉnh lại bộ lọc giá/danh
-          mục.
-        </p>
-      </div>
+      <Card>
+        <Empty
+          description={
+            <>
+              <span className="block font-semibold text-text-primary">
+                {empty}
+              </span>
+              <span className="mt-1 block text-xs">
+                Hãy thử từ khóa khác hoặc thay đổi bộ lọc để tìm sản phẩm bạn
+                muốn.
+              </span>
+            </>
+          }
+        />
+      </Card>
     );
   }
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+    <div className={LISTING_GRID_CLASS}>
       {listings.map((l, index) => (
         <ListingCard
           key={l.id}
@@ -42,4 +52,3 @@ export function ListingGrid({
     </div>
   );
 }
-

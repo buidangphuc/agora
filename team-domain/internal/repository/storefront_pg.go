@@ -28,6 +28,7 @@ type storefrontConfig struct {
 	Tagline            string   `json:"tagline,omitempty"`
 	FeaturedListingIDs []string `json:"featured_listing_ids,omitempty"`
 	Theme              string   `json:"theme,omitempty"`
+	DisplayName        string   `json:"display_name,omitempty"`
 }
 
 func encodeConfig(s Storefront) ([]byte, error) {
@@ -36,6 +37,7 @@ func encodeConfig(s Storefront) ([]byte, error) {
 		Tagline:            s.Tagline,
 		FeaturedListingIDs: s.FeaturedListingIDs,
 		Theme:              s.Theme,
+		DisplayName:        s.DisplayName,
 	})
 }
 
@@ -55,6 +57,7 @@ func scanStorefront(row pgx.Row, s *Storefront) error {
 	s.Tagline = cfg.Tagline
 	s.FeaturedListingIDs = cfg.FeaturedListingIDs
 	s.Theme = cfg.Theme
+	s.DisplayName = cfg.DisplayName
 	return nil
 }
 
@@ -93,6 +96,32 @@ func (r *PostgresStorefrontRepository) GetBySeller(ctx context.Context, sellerID
 func (r *PostgresStorefrontRepository) GetBySlug(ctx context.Context, slug string) (Storefront, error) {
 	const q = `SELECT ` + storefrontColumns + ` FROM storefronts WHERE slug = $1`
 	return r.getOne(ctx, q, slug)
+}
+
+// GetBySellers loads the storefronts for the given seller ids with a single
+// query. Sellers without a storefront are simply absent from the result.
+func (r *PostgresStorefrontRepository) GetBySellers(ctx context.Context, sellerIDs []string) ([]Storefront, error) {
+	if len(sellerIDs) == 0 {
+		return nil, nil
+	}
+	const q = `SELECT ` + storefrontColumns + ` FROM storefronts WHERE seller_id = ANY($1)`
+	rows, err := r.pool.Query(ctx, q, sellerIDs)
+	if err != nil {
+		return nil, fmt.Errorf("batch get storefronts: %w", err)
+	}
+	defer rows.Close()
+	out := make([]Storefront, 0, len(sellerIDs))
+	for rows.Next() {
+		var s Storefront
+		if err := scanStorefront(rows, &s); err != nil {
+			return nil, fmt.Errorf("batch get storefronts: %w", err)
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("batch get storefronts: %w", err)
+	}
+	return out, nil
 }
 
 func (r *PostgresStorefrontRepository) getOne(ctx context.Context, q, arg string) (Storefront, error) {

@@ -71,7 +71,10 @@ class ModelRegistry:
             return False, f"Candidate model {candidate_version} not found in registry"
 
         champion_ver = self.get_champion_version()
-        if champion_ver is None or force:
+        if force:
+            self._set_champion(candidate)
+            return True, f"Model {candidate_version} promoted by force (gate skipped)"
+        if champion_ver is None:
             # First model becomes champion automatically
             self._set_champion(candidate)
             return True, f"Model {candidate_version} set as initial champion (no prior champion)"
@@ -80,6 +83,21 @@ class ModelRegistry:
         if champion is None:
             self._set_champion(candidate)
             return True, f"Model {candidate_version} promoted (prior champion metadata missing)"
+
+        champ_protocol = champion.metrics.get("eval_protocol")
+        cand_protocol = candidate.metrics.get("eval_protocol")
+        if champ_protocol != cand_protocol:
+            # Numbers from different evaluation protocols are not comparable (e.g. the
+            # pre-v1 protocol trained on its own holdout); the candidate, measured
+            # under the current protocol, replaces the champion.
+            champion.status = "archived"
+            self.register_model(champion)
+            self._set_champion(candidate)
+            return True, (
+                f"Model {candidate_version} promoted: champion {champion_ver} was evaluated "
+                f"under protocol {champ_protocol or 'unversioned'}, not {cand_protocol}, "
+                "so the metrics are not comparable"
+            )
 
         passed, reason = ModelEvaluator.compare_models(
             baseline_metrics=champion.metrics,

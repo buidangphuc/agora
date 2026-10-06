@@ -47,6 +47,37 @@ def top_n_for_users(
     return out
 
 
+def top_n_unseen(
+    user_ids: list[str],
+    user_vectors: list[list[float]],
+    item_ids: list[str],
+    item_vectors: list[list[float]],
+    top_n: int,
+    seen: dict[str, set[str]],
+    only_users: set[str] | None = None,
+) -> dict[str, list[tuple[str, float]]]:
+    """Like top_n_for_users, but never ranks an item the user already interacted with.
+
+    Used by the offline evaluation, where a seen item can never be the held-out target.
+    ``only_users`` restricts scoring to the users being evaluated.
+    """
+    if not user_ids or not item_ids:
+        return {}
+    i_ids, items = _stack(item_ids, item_vectors)
+    col = {iid: j for j, iid in enumerate(i_ids)}
+    out: dict[str, list[tuple[str, float]]] = {}
+    for uid, uvec in zip(user_ids, user_vectors, strict=False):
+        if only_users is not None and uid not in only_users:
+            continue
+        row = items @ np.asarray(uvec, dtype=float)
+        for iid in seen.get(uid, ()):
+            if iid in col:
+                row[col[iid]] = -np.inf
+        order = np.argsort(-row)
+        out[uid] = [(i_ids[j], float(row[j])) for j in order[:top_n] if np.isfinite(row[j])]
+    return out
+
+
 def similar_items(
     item_ids: list[str],
     item_vectors: list[list[float]],

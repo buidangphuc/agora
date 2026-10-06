@@ -1,124 +1,73 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
+import { Progress } from "@/components/ui/Progress";
+import { ListingCard } from "@/features/listing/ListingCard";
 import type { ViewListing } from "@/lib/gateway/listings";
-import { getImageUrl } from "@/lib/media";
+import { CountdownClock } from "./CountdownClock";
 
-export function FlashSaleSection({ listings }: { listings: ViewListing[] }) {
-  const [timeLeft, setTimeLeft] = useState({
-    hours: 2,
-    minutes: 45,
-    seconds: 30,
-  });
+/** Real per-item campaign figures; items without an entry get no progress bar. */
+export interface FlashSaleStock {
+  sold: number;
+  stock: number;
+}
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        }
-        if (prev.minutes > 0) {
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        }
-        if (prev.hours > 0) {
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        }
-        return { hours: 3, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+/**
+ * Flash-sale block, rendered only from REAL campaign data: the listings, a
+ * real `endsAt` (the countdown mounts only with it) and real sold/stock per
+ * item (the Progress bar shows only for those). Renders nothing for an empty
+ * list. A server component: only CountdownClock ships client code.
+ */
+export function FlashSaleSection({
+  listings,
+  endsAt,
+  stockById,
+}: {
+  listings: ViewListing[];
+  endsAt?: string | number;
+  stockById?: Record<string, FlashSaleStock>;
+}) {
   if (listings.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-orange-100 bg-white p-4 shadow-xs">
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-center justify-between border-b pb-3.5">
+    <section
+      id="flash-sale"
+      className="scroll-mt-24 space-y-4 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-preline-card"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-extrabold tracking-wide text-brand flex items-center gap-1">
-            <span>⚡</span>
-            <span>FLASH SALE</span>
-          </span>
-          <div className="flex items-center gap-1 text-xs font-bold text-white">
-            <span className="rounded bg-gray-900 px-1.5 py-0.5">
-              {String(timeLeft.hours).padStart(2, "0")}
-            </span>
-            <span className="text-gray-800">:</span>
-            <span className="rounded bg-gray-900 px-1.5 py-0.5">
-              {String(timeLeft.minutes).padStart(2, "0")}
-            </span>
-            <span className="text-gray-800">:</span>
-            <span className="rounded bg-gray-900 px-1.5 py-0.5">
-              {String(timeLeft.seconds).padStart(2, "0")}
-            </span>
-          </div>
+          <h2 className="text-xl font-semibold text-action-primary">
+            Flash Sale
+          </h2>
+          {endsAt !== undefined && <CountdownClock endsAt={endsAt} />}
         </div>
-
         <Link
           href="/search"
-          className="text-xs font-semibold text-brand hover:underline"
+          className="text-sm font-medium text-action-primary hover:underline"
         >
-          Xem tất cả &gt;
+          Xem tất cả
         </Link>
       </div>
 
-      {/* ── Deals Grid ── */}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:pb-0 md:grid-cols-4 lg:grid-cols-6">
         {listings.slice(0, 6).map((l, i) => {
-          const discount = 25 + ((i * 7) % 35);
-          const soldProgress = 40 + ((i * 12) % 55);
-          const imageSrc =
-            l.imageKeys && l.imageKeys.length > 0
-              ? getImageUrl(l.imageKeys[0])
-              : l.imageUrl;
-
+          const figures = stockById?.[l.id];
           return (
-            <Link
+            <li
               key={l.id}
-              href={`/listing/${l.id}`}
-              className="group flex flex-col overflow-hidden rounded-md border border-gray-100 p-2 transition hover:-translate-y-0.5 hover:border-brand hover:shadow-sm"
+              className="w-40 shrink-0 snap-start space-y-2 sm:w-auto"
             >
-              <div className="relative aspect-square w-full overflow-hidden rounded bg-gray-50">
-                {imageSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imageSrc}
-                    alt={l.title}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-2xl text-gray-300">
-                    ⚡
-                  </div>
-                )}
-                <div className="absolute top-0 right-0 rounded-bl bg-yellow-400 px-1 text-[9px] font-extrabold text-red-600">
-                  -{discount}%
-                </div>
-              </div>
-
-              <div className="mt-2 text-center">
-                <div className="text-sm font-bold text-brand">
-                  ₫{l.price.toLocaleString("vi-VN")}
-                </div>
-
-                {/* Progress bar */}
-                <div className="relative mt-1.5 h-3.5 w-full overflow-hidden rounded-full bg-red-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500"
-                    style={{ width: `${soldProgress}%` }}
-                  />
-                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold uppercase text-white">
-                    🔥 ĐÃ BÁN {soldProgress}
-                  </span>
-                </div>
-              </div>
-            </Link>
+              <ListingCard listing={l} position={i + 1} />
+              {figures !== undefined && figures.stock > 0 && (
+                <Progress
+                  size="sm"
+                  label="Đã bán"
+                  percent={(figures.sold / figures.stock) * 100}
+                />
+              )}
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }

@@ -18,3 +18,7 @@ def seller_navigates_to_seller_orders(world: World) -> None:
 def seller_orders_displays_tabs(world: World) -> None:
     expect(world.page).to_have_url(re.compile(r".*/seller/orders.*"), timeout=timeouts.DEFAULT)
     expect(world.page.locator("body")).to_contain_text("Quản lý đơn hàng", timeout=timeouts.DEFAULT)
+    # Status tabs are links (Tất cả / Chờ xử lý / Đang giao / Hoàn thành) in a "Tabs" nav.
+    tabs = world.page.get_by_role("navigation", name="Tabs")
+    expect(tabs.get_by_role("link", name="Tất cả")).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(tabs.get_by_role("link", name="Đang giao")).to_be_visible()

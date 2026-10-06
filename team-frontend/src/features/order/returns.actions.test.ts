@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
@@ -6,6 +7,7 @@ import { refundPayment } from "@/lib/gateway/payment";
 
 import { createReturnRequestAction, mockRefundAction } from "./actions";
 
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/gateway/orders", () => ({
   createReturnRequest: vi.fn(),
   updateReturnStatus: vi.fn(),
@@ -41,13 +43,15 @@ describe("createReturnRequestAction", () => {
     const res = await createReturnRequestAction("o1", " hỏng ", 1000);
     expect(createReturnRequest).toHaveBeenCalledWith("o1", "hỏng", 1000);
     expect(res.ok).toBe(true);
-    expect(res.returnRequest?.id).toBe("r1");
+    expect(res.ok && res.data?.id).toBe("r1");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
   });
 
   it("returns an error shape when the gateway throws", async () => {
     vi.mocked(createReturnRequest).mockRejectedValue(new Error("boom"));
     const res = await createReturnRequestAction("o1", "hỏng", 1000);
-    expect(res).toEqual({ ok: false, message: "boom" });
+    expect(res).toEqual({ ok: false, error: "boom" });
   });
 });
 
@@ -74,13 +78,14 @@ describe("mockRefundAction", () => {
     );
     expect(refundPayment).toHaveBeenCalledWith("o1", 1000);
     expect(res.ok).toBe(true);
-    expect(res.returnRequest?.status).toBe(ReturnStatus.REFUNDED);
+    expect(res.ok && res.data?.status).toBe(ReturnStatus.REFUNDED);
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
   });
 
   it("returns an error shape when the status update fails", async () => {
     vi.mocked(updateReturnStatus).mockRejectedValue(new Error("nope"));
     const res = await mockRefundAction("r1", "o1", 1000);
-    expect(res).toEqual({ ok: false, message: "nope" });
+    expect(res).toEqual({ ok: false, error: "nope" });
     expect(refundPayment).not.toHaveBeenCalled();
   });
 });

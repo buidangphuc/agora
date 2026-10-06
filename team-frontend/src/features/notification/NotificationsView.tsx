@@ -1,8 +1,12 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
 
+import { Card } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
+import { Pagination } from "@/components/ui/Pagination";
+import { Tabs } from "@/components/ui/Tabs";
+import { Tag } from "@/components/ui/Tag";
+import { focusRing } from "@/components/ui/focus";
+import { PAGE_SIZE, paginate } from "@/features/account/pagination";
 import { NotificationType } from "@/generated/platform/notification/v1/notification_pb.js";
 import type {
   ViewNotification,
@@ -13,146 +17,118 @@ import {
   AlertSubscriptions,
 } from "./AlertSubscriptions";
 import { NotificationPrefsForm } from "./NotificationPrefsForm";
+import {
+  NOTIFICATION_TABS,
+  type NotificationTab,
+  groupLabel,
+  groupOf,
+} from "./categories";
 
-function typeMeta(type: NotificationType): {
-  icon: string;
-  group: "order" | "chat" | "alert" | "system";
-} {
-  switch (type) {
-    case NotificationType.ORDER:
-      return { icon: "🏷️", group: "order" };
-    case NotificationType.CHAT:
-      return { icon: "💬", group: "chat" };
-    case NotificationType.PROMOTION:
-      return { icon: "🎉", group: "alert" };
-    case NotificationType.PRICE_DROP:
-      return { icon: "📉", group: "alert" };
-    case NotificationType.BACK_IN_STOCK:
-      return { icon: "📦", group: "alert" };
-    default:
-      return { icon: "📜", group: "system" };
-  }
+function hrefFor(tab: NotificationTab, page: number): string {
+  const params = new URLSearchParams();
+  if (tab !== "all") params.set("tab", tab);
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/notifications?${query}` : "/notifications";
 }
 
-const TABS: { key: string; label: string }[] = [
-  { key: "all", label: "Tất cả" },
-  { key: "order", label: "🏷️ Đơn hàng" },
-  { key: "chat", label: "💬 Tin nhắn" },
-  { key: "alert", label: "🔔 Giá & Kho hàng" },
-  { key: "system", label: "📜 Hệ thống" },
-];
-
+/**
+ * Notification center. Server-rendered: the tab and page come from the URL and
+ * the list is filtered here, so only the preferences form and the alert
+ * subscriptions are client islands. There is no "mark all read" control: the
+ * backend has no mark-as-read RPC yet and read state is never simulated.
+ */
 export function NotificationsView({
   notifications,
   subscriptions,
   prefs,
+  tab,
+  page,
 }: {
   notifications: ViewNotification[];
   subscriptions: AlertSubscriptionRow[];
   prefs: ViewNotificationPrefs;
+  tab: NotificationTab;
+  page: number;
 }) {
-  const [tab, setTab] = useState<string>("all");
-  const [items, setItems] = useState<ViewNotification[]>(notifications);
-
-  function handleMarkAllRead() {
-    setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  }
+  const countOf = (id: NotificationTab) =>
+    id === "all"
+      ? notifications.length
+      : notifications.filter((n) => groupOf(n.type) === id).length;
 
   const filtered =
-    tab === "all" ? items : items.filter((n) => typeMeta(n.type).group === tab);
+    tab === "all"
+      ? notifications
+      : notifications.filter((n) => groupOf(n.type) === tab);
+  const { rows, page: current } = paginate(filtered, page);
 
   return (
-    <div className="space-y-6">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between border-b bg-white p-5 rounded-2xl shadow-2xs">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <span>🔔</span>
-            <span>Trung tâm thông báo</span>
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Cập nhật đơn hàng, khuyến mãi, biến động giá và tình trạng kho hàng
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleMarkAllRead}
-          className="text-xs font-semibold text-red-600 hover:underline"
-        >
-          ✓ Đánh dấu tất cả đã đọc
-        </button>
+    <div className="space-y-4">
+      <div className="overflow-x-auto">
+        <Tabs
+          items={NOTIFICATION_TABS.map((t) => ({
+            id: t.id,
+            label: t.label,
+            badge: countOf(t.id),
+          }))}
+          activeId={tab}
+          hrefFor={(id) => hrefFor(id as NotificationTab, 1)}
+          variant="pills"
+        />
       </div>
 
-      {/* ── Notification preferences (per-type toggles + digest) ── */}
-      <NotificationPrefsForm initial={prefs} />
-
-      {/* ── Alert subscriptions management ── */}
-      <AlertSubscriptions initial={subscriptions} />
-
-      {/* ── Tabs ── */}
-      <div className="flex flex-wrap border-b border-gray-200 bg-white p-2 rounded-xl shadow-2xs text-xs font-semibold text-gray-600 gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`py-2 px-4 rounded-lg transition ${
-              tab === t.key
-                ? "bg-red-600 text-white font-bold shadow-2xs"
-                : "hover:bg-gray-100"
-            }`}
-          >
-            {t.key === "all" ? `Tất cả (${items.length})` : t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Notification List ── */}
-      {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-xs text-gray-400 shadow-2xs">
-          Chưa có thông báo nào trong mục này.
-        </div>
-      ) : (
-        <div className="divide-y rounded-2xl border border-gray-100 bg-white shadow-2xs overflow-hidden">
-          {filtered.map((n) => {
-            const meta = typeMeta(n.type);
-            return (
-              <Link
-                key={n.id}
-                href={n.linkUrl || "#"}
-                data-testid="notification-item"
-                data-type={
-                  NotificationType[n.type]?.toLowerCase?.() ?? "system"
-                }
-                className={`flex items-start gap-4 p-4 transition hover:bg-gray-50/80 ${
-                  !n.isRead ? "bg-red-50/30" : ""
-                }`}
-              >
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100 text-lg text-red-600">
-                  {meta.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-bold text-gray-900">
-                      {n.title}
-                    </h3>
-                    <span className="text-[10px] text-gray-400 shrink-0">
-                      {n.createdAt}
-                    </span>
+      <Card>
+        {rows.length === 0 ? (
+          <Empty description="Chưa có thông báo nào trong mục này." />
+        ) : (
+          <ul className="divide-y divide-border-subtle">
+            {rows.map((n) => (
+              <li key={n.id}>
+                <Link
+                  href={n.linkUrl || "#"}
+                  data-testid="notification-item"
+                  data-type={
+                    NotificationType[n.type]?.toLowerCase?.() ?? "system"
+                  }
+                  className={`flex items-start gap-3 p-4 transition duration-150 hover:bg-surface-muted ${focusRing} ${
+                    n.isRead ? "" : "bg-primary-50"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold text-text-primary">
+                        {n.title}
+                      </h3>
+                      <Tag>{groupLabel(groupOf(n.type))}</Tag>
+                    </div>
+                    <p className="text-sm text-text-secondary">{n.body}</p>
+                    <p className="text-xs text-text-disabled">{n.createdAt}</p>
                   </div>
-                  <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                    {n.body}
-                  </p>
-                </div>
-                {!n.isRead && (
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-600 self-center" />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+                  {!n.isRead && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-action-primary"
+                      />
+                      <span className="sr-only">Chưa đọc</span>
+                    </>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Pagination
+        current={current}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        hrefFor={(p) => hrefFor(tab, p)}
+      />
+
+      <AlertSubscriptions initial={subscriptions} />
+      <NotificationPrefsForm initial={prefs} />
     </div>
   );
 }

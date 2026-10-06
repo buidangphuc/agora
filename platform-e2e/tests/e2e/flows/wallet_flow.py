@@ -13,7 +13,7 @@ def request_seller_payout_via_api(
     """Request a bank payout from seller wallet."""
     world.service_factory.set_token(seller.token)
     res = world.service_factory.payment.request_payout(
-        seller_id=seller.username,
+        seller_id="",  # the caller's own wallet; the user id, never the username
         amount=amount,
         bank_code=bank_code,
         account_number=account_number,

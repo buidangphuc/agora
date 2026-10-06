@@ -11,12 +11,15 @@ from typing import TypeVar
 from src.api.services import (
     AddressService,
     AiService,
+    AnalyticsService,
     AuthService,
     BaseService,
     CartService,
+    ChatService,
     EngagementService,
     ListingService,
     MetricsService,
+    NotificationService,
     OrderService,
     PaymentService,
     RecommendationService,
@@ -28,10 +31,13 @@ T = TypeVar("T", bound=BaseService)
 
 _SERVICES: tuple[type[BaseService], ...] = (
     AddressService,
+    AnalyticsService,
     AuthService,
     ListingService,
     SearchService,
     CartService,
+    ChatService,
+    NotificationService,
     OrderService,
     PaymentService,
     EngagementService,
@@ -63,6 +69,10 @@ class ServiceFactory:
         return self.get(AddressService)
 
     @property
+    def analytics(self) -> AnalyticsService:
+        return self.get(AnalyticsService)
+
+    @property
     def auth(self) -> AuthService:
         return self.get(AuthService)
 
@@ -77,6 +87,14 @@ class ServiceFactory:
     @property
     def cart(self) -> CartService:
         return self.get(CartService)
+
+    @property
+    def chat(self) -> ChatService:
+        return self.get(ChatService)
+
+    @property
+    def notification(self) -> NotificationService:
+        return self.get(NotificationService)
 
     @property
     def order(self) -> OrderService:

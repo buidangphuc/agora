@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import {
   type CreateVoucherInput,
   type ViewVoucher,
@@ -31,11 +32,10 @@ export async function previewVoucherAction(
   return previewVoucher(code, cartSubtotal, sellerId);
 }
 
-export interface CreateVoucherResult {
-  ok: boolean;
+/** ActionResult plus the legacy `message` field (kept so existing callers still work). */
+export type CreateVoucherResult = ActionResult<ViewVoucher> & {
   message: string;
-  voucher?: ViewVoucher;
-}
+};
 
 /**
  * Server Action: a seller/admin creates a voucher through the gateway
@@ -47,11 +47,9 @@ export async function createVoucherAction(
   try {
     const voucher = await createVoucher(input);
     revalidatePath("/vouchers");
-    return { ok: true, message: "Tạo voucher thành công!", voucher };
+    return { ...ok(voucher), message: "Tạo voucher thành công!" };
   } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Tạo voucher thất bại.",
-    };
+    const error = err instanceof Error ? err.message : "Tạo voucher thất bại.";
+    return { ...fail(error), message: error };
   }
 }

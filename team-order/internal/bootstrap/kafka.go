@@ -2,38 +2,70 @@ package bootstrap
 
 import (
 	"context"
-	"os"
-	"strconv"
-	"strings"
+	"fmt"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 
+	"github.com/buidangphuc/team-order/internal/config"
 	"github.com/buidangphuc/team-order/internal/consumer"
+	"github.com/buidangphuc/team-order/internal/events"
 )
 
-// KafkaConfig is the payment-events consumer wiring, read from the environment.
-// team-order's Settings does not model Kafka, and its config package is outside
-// this wave's write-set; these keys are registered in the compose/gitops env in
-// the integration wave (Part B). Enabled gates the whole consumer.
+// KafkaConfig is the Kafka wiring for the payment.events consumer and the
+// order.events producer. Enabled gates both.
 type KafkaConfig struct {
 	Enabled       bool
 	Brokers       []string
 	ConsumerGroup string
-	Topic         string
+	Topic         string // payment.events (consumed)
 	DLQTopic      string
+	OrderTopic    string // order.events (produced by the outbox relayer)
 }
 
-// KafkaConfigFromEnv reads the PaymentSettled consumer settings, applying the
-// same defaults the topic/DLQ conventions expect (AD1/AD4).
-func KafkaConfigFromEnv() KafkaConfig {
+// KafkaConfigFromSettings derives the Kafka wiring from the loaded Settings.
+func KafkaConfigFromSettings(s *config.Settings) KafkaConfig {
 	return KafkaConfig{
-		Enabled:       envBool("KAFKA_ENABLED", false),
-		Brokers:       envList("KAFKA_BROKERS", "localhost:9092"),
-		ConsumerGroup: envStr("ORDER_PAYMENT_CONSUMER_GROUP", "team-order.payment"),
-		Topic:         envStr("PAYMENT_EVENTS_TOPIC", "payment.events"),
-		DLQTopic:      envStr("PAYMENT_EVENTS_DLQ_TOPIC", "payment.events.dlq"),
+		Enabled:       s.Kafka.Enabled,
+		Brokers:       s.KafkaBrokers(),
+		ConsumerGroup: s.Kafka.ConsumerGroup,
+		Topic:         s.Kafka.PaymentTopic,
+		DLQTopic:      s.Kafka.PaymentDLQ,
+		OrderTopic:    s.Kafka.OrderTopic,
 	}
 }
+
+// OrderEventsProducer is a franz-go events.KafkaPublisher for the outbox relayer.
+// The outbox stores the whole marshalled EventEnvelope, so it is produced as-is,
+// keyed by order_id for per-order ordering.
+type OrderEventsProducer struct {
+	client *kgo.Client
+}
+
+// NewOrderEventsProducer dials the brokers for producing.
+func NewOrderEventsProducer(cfg KafkaConfig) (*OrderEventsProducer, error) {
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(cfg.Brokers...),
+		kgo.ProducerLinger(0),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("kafka client: %w", err)
+	}
+	return &OrderEventsProducer{client: client}, nil
+}
+
+// Publish produces payload to topic keyed by key and waits for the ack.
+func (p *OrderEventsProducer) Publish(ctx context.Context, topic, key string, payload []byte) error {
+	rec := &kgo.Record{Topic: topic, Key: []byte(key), Value: payload}
+	if err := p.client.ProduceSync(ctx, rec).FirstErr(); err != nil {
+		return fmt.Errorf("produce to %s: %w", topic, err)
+	}
+	return nil
+}
+
+// Close flushes and shuts the client down.
+func (p *OrderEventsProducer) Close() { p.client.Close() }
+
+var _ events.KafkaPublisher = (*OrderEventsProducer)(nil)
 
 // PaymentKafka holds the franz-go handles backing the PaymentSettled consumer: a
 // consumer-group reader on payment.events with auto-commit DISABLED (so offsets
@@ -130,34 +162,4 @@ type kafkaDLQ struct {
 func (d *kafkaDLQ) Produce(ctx context.Context, topic string, rec consumer.Record) error {
 	kr := &kgo.Record{Topic: topic, Key: []byte(rec.Key), Value: rec.Value}
 	return d.client.ProduceSync(ctx, kr).FirstErr()
-}
-
-// ── small env helpers (bootstrap-local; team-order config has no Kafka group) ──
-
-func envStr(key, def string) string {
-	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
-		return v
-	}
-	return def
-}
-
-func envBool(key string, def bool) bool {
-	if v, ok := os.LookupEnv(key); ok {
-		if b, err := strconv.ParseBool(strings.TrimSpace(v)); err == nil {
-			return b
-		}
-	}
-	return def
-}
-
-func envList(key, def string) []string {
-	raw := envStr(key, def)
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }

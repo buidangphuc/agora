@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,25 +18,33 @@ import (
 
 // ── Seller Wallet Ledger RPCs ─────────────────────────────────────────
 
-// resolveSellerID returns the effective seller id: an explicit request seller_id,
-// otherwise the authenticated principal's own id. Requires authentication.
-func (h *PaymentHandler) resolveSellerID(ctx context.Context, requested string) (string, error) {
+// sellerAccess is the ownership gate for every wallet RPC. The request seller_id is
+// never trusted on its own: only a user principal may act on its own wallet (an
+// empty seller_id means "my wallet"). Reads (adminRead) are also allowed for a
+// principal holding the admin scope; payouts are owner-only, so no one else can
+// move a seller's money. Service principals are not owners.
+func sellerAccess(ctx context.Context, requested string, adminRead bool) (string, error) {
 	principal, err := interceptor.RequirePrincipal(ctx)
 	if err != nil {
 		return "", err
 	}
-	sellerID := requested
-	if sellerID == "" {
-		sellerID = principal.GetId()
+	isUser := principal.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	if requested == "" || requested == principal.GetId() {
+		if isUser {
+			return principal.GetId(), nil
+		}
+		if requested == "" {
+			return "", status.Error(codes.InvalidArgument, "seller_id is required")
+		}
 	}
-	if sellerID == "" {
-		return "", status.Error(codes.InvalidArgument, "seller_id is required")
+	if adminRead && requested != "" && slices.Contains(principal.GetScopes(), "admin") {
+		return requested, nil
 	}
-	return sellerID, nil
+	return "", status.Error(codes.PermissionDenied, "not allowed to access this seller's wallet")
 }
 
 func (h *PaymentHandler) GetWalletBalance(ctx context.Context, req *paymentv1.GetWalletBalanceRequest) (*paymentv1.GetWalletBalanceResponse, error) {
-	sellerID, err := h.resolveSellerID(ctx, req.GetSellerId())
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +58,7 @@ func (h *PaymentHandler) GetWalletBalance(ctx context.Context, req *paymentv1.Ge
 }
 
 func (h *PaymentHandler) ListLedgerEntries(ctx context.Context, req *paymentv1.ListLedgerEntriesRequest) (*paymentv1.ListLedgerEntriesResponse, error) {
-	sellerID, err := h.resolveSellerID(ctx, req.GetSellerId())
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +86,7 @@ func (h *PaymentHandler) ListLedgerEntries(ctx context.Context, req *paymentv1.L
 }
 
 func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1.RequestWalletPayoutRequest) (*paymentv1.RequestWalletPayoutResponse, error) {
-	sellerID, err := h.resolveSellerID(ctx, req.GetSellerId())
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), false)
 	if err != nil {
 		return nil, err
 	}

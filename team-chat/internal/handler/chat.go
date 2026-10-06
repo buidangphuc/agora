@@ -12,7 +12,6 @@ import (
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
-	"github.com/buidangphuc/team-chat/internal/events"
 	"github.com/buidangphuc/team-chat/internal/interceptor"
 	"github.com/buidangphuc/team-chat/internal/repository"
 	"github.com/buidangphuc/team-chat/internal/service"
@@ -20,22 +19,20 @@ import (
 
 type ChatHandler struct {
 	chatv1.UnimplementedChatServiceServer
-	svc       *service.ChatService
-	publisher events.ChatPublisher
-	logger    *slog.Logger
+	svc    *service.ChatService
+	logger *slog.Logger
 }
 
-func NewChatHandler(svc *service.ChatService, publisher events.ChatPublisher, logger *slog.Logger) *ChatHandler {
-	if publisher == nil {
-		publisher = events.NoopPublisher{}
-	}
+// NewChatHandler builds the gRPC handler. chat.events are not emitted here: the
+// repository writes them to the outbox in the message transaction and the relayer
+// publishes them.
+func NewChatHandler(svc *service.ChatService, logger *slog.Logger) *ChatHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ChatHandler{
-		svc:       svc,
-		publisher: publisher,
-		logger:    logger,
+		svc:    svc,
+		logger: logger,
 	}
 }
 
@@ -259,12 +256,6 @@ func (h *ChatHandler) SendMessage(
 	}
 
 	wireMsg := toWireMessage(msg)
-
-	// Emit event to Kafka for real-time SSE push (Edge)
-	reqID, _ := interceptor.RequestIDFromContext(ctx)
-	if err := h.publisher.PublishMessageSent(ctx, wireMsg, principal, reqID); err != nil {
-		h.logger.WarnContext(ctx, "failed to emit chat event", slog.Any("err", err), slog.String("thread_id", req.GetThreadId()))
-	}
 
 	return &chatv1.SendMessageResponse{
 		Message: wireMsg,

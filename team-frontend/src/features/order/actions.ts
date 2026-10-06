@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
 import {
   type ViewOrderReturn,
@@ -27,12 +28,17 @@ export interface OrderActionResult {
   paymentUrl?: string;
 }
 
+export interface CheckoutData {
+  orderIds: string[];
+  paymentUrl?: string;
+}
+
 export async function checkoutAction(
   addressId?: string,
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
   voucherCode?: string,
-): Promise<OrderActionResult> {
+): Promise<ActionResult<CheckoutData>> {
   try {
     const orders = await createOrder(
       addressId,
@@ -59,121 +65,111 @@ export async function checkoutAction(
       }
     }
 
-    return {
-      ok: true,
-      orderIds,
-      paymentUrl,
-      message: "Đặt hàng thành công!",
-    };
+    return ok({ orderIds, paymentUrl });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Đặt hàng thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Đặt hàng thất bại.");
   }
 }
 
+/**
+ * Seller moves an order along (ship, ...). Shared mutation contract: returns
+ * `{ ok, error?, data? }` and revalidates the seller list and the detail page.
+ */
 export async function updateOrderStatusAction(
   orderId: string,
   status: OrderStatus,
   trackingNumber?: string,
-): Promise<OrderActionResult> {
+): Promise<ActionResult<{ status: OrderStatus; trackingNumber: string }>> {
   try {
-    await updateOrderStatus(orderId, status, trackingNumber);
+    const order = await updateOrderStatus(orderId, status, trackingNumber);
     revalidatePath("/account/orders");
     revalidatePath("/seller/orders");
-    return { ok: true, message: "Cập nhật trạng thái đơn hàng thành công!" };
+    revalidatePath(`/seller/orders/${orderId}`);
+    return ok({
+      status: order?.status ?? status,
+      trackingNumber: order?.trackingNumber ?? trackingNumber ?? "",
+    });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Cập nhật thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Cập nhật thất bại.");
   }
+}
+
+/** Revalidate the buyer list and the detail page of one order. */
+function revalidateBuyerOrder(orderId: string) {
+  revalidatePath("/account/orders");
+  revalidatePath(`/account/orders/${orderId}`);
 }
 
 export async function cancelOrderAction(
   orderId: string,
   reason?: string,
-): Promise<OrderActionResult> {
+): Promise<ActionResult> {
   try {
     await cancelOrder(orderId, reason);
-    revalidatePath("/account/orders");
+    revalidateBuyerOrder(orderId);
     revalidatePath("/seller/orders");
-    return { ok: true, message: "Đã hủy đơn hàng thành công." };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Hủy đơn hàng thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Hủy đơn hàng thất bại.");
   }
 }
 
 /** Re-add all items of a past order back into the cart ("Mua lại"). */
 export async function reorderAction(
   orderId: string,
-): Promise<{ ok: boolean; totalItems?: number; message?: string }> {
+): Promise<ActionResult<{ totalItems: number }>> {
   try {
     const cart = await reorder(orderId);
     revalidatePath("/cart");
-    return { ok: true, totalItems: cart.totalItems };
+    revalidateBuyerOrder(orderId);
+    return ok({ totalItems: cart.totalItems });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Mua lại thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Mua lại thất bại.");
   }
 }
 
 export async function createPaymentAction(
   orderId: string,
   method: PaymentMethod,
-): Promise<{ ok: boolean; paymentUrl?: string; message?: string }> {
+): Promise<ActionResult<{ paymentUrl: string }>> {
   try {
     const res = await createPayment(orderId, method);
-    return { ok: true, paymentUrl: res.paymentUrl };
+    return ok({ paymentUrl: res.paymentUrl });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Khởi tạo thanh toán thất bại.",
-    };
+    return fail(
+      err instanceof Error ? err.message : "Khởi tạo thanh toán thất bại.",
+    );
   }
 }
 
 export async function processMockPaymentAction(
   transactionId: string,
   simulateSuccess: boolean,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<ActionResult<{ message: string }>> {
   try {
     const res = await processMockPayment(transactionId, simulateSuccess);
     revalidatePath("/account/orders");
     revalidatePath("/seller/orders");
-    return { ok: res.success, message: res.message };
+    return res.success
+      ? ok({ message: res.message })
+      : fail(res.message || "Thanh toán thất bại.");
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Xử lý thanh toán thất bại.",
-    };
+    return fail(
+      err instanceof Error ? err.message : "Xử lý thanh toán thất bại.",
+    );
   }
-}
-
-export interface ReturnActionResult {
-  ok: boolean;
-  message?: string;
-  returnRequest?: ViewOrderReturn;
 }
 
 export async function createReturnRequestAction(
   orderId: string,
   reason: string,
   refundAmount: number,
-): Promise<ReturnActionResult> {
+): Promise<ActionResult<ViewOrderReturn>> {
   if (!reason.trim()) {
-    return { ok: false, message: "Vui lòng nhập lý do trả hàng." };
+    return fail("Vui lòng nhập lý do trả hàng.");
   }
   if (!(refundAmount > 0)) {
-    return { ok: false, message: "Số tiền hoàn phải lớn hơn 0." };
+    return fail("Số tiền hoàn phải lớn hơn 0.");
   }
   try {
     const returnRequest = await createReturnRequest(
@@ -181,18 +177,12 @@ export async function createReturnRequestAction(
       reason.trim(),
       refundAmount,
     );
-    revalidatePath(`/account/orders/${orderId}`);
-    return {
-      ok: true,
-      returnRequest,
-      message: "Đã gửi yêu cầu trả hàng / hoàn tiền.",
-    };
+    revalidateBuyerOrder(orderId);
+    return ok(returnRequest);
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
-    };
+    return fail(
+      err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
+    );
   }
 }
 
@@ -205,23 +195,16 @@ export async function mockRefundAction(
   returnId: string,
   orderId: string,
   amount: number,
-): Promise<ReturnActionResult> {
+): Promise<ActionResult<ViewOrderReturn>> {
   try {
     const returnRequest = await updateReturnStatus(
       returnId,
       ReturnStatus.REFUNDED,
     );
     await refundPayment(orderId, amount);
-    revalidatePath(`/account/orders/${orderId}`);
-    return {
-      ok: true,
-      returnRequest,
-      message: "Hoàn tiền (mô phỏng) thành công.",
-    };
+    revalidateBuyerOrder(orderId);
+    return ok(returnRequest);
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Hoàn tiền thất bại.",
-    };
+    return fail(err instanceof Error ? err.message : "Hoàn tiền thất bại.");
   }
 }

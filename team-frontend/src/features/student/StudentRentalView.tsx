@@ -161,7 +161,7 @@ export function StudentRentalView({
               }`}
             >
               <span>📍 {u.name}</span>
-              <span className="text-[10px] opacity-75">({u.count})</span>
+              <span className="text-xs opacity-75">({u.count})</span>
             </button>
           ))}
         </div>
@@ -227,7 +227,7 @@ export function StudentRentalView({
             <Link
               key={pt.label}
               href={`/search?category=cat-thue-can-ho&maxPrice=${pt.max}${pt.min ? `&minPrice=${pt.min}` : ""}`}
-              className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] hover:border-emerald-500 hover:text-emerald-600 transition"
+              className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs hover:border-emerald-500 hover:text-emerald-600 transition"
             >
               {pt.label}
             </Link>
@@ -416,7 +416,7 @@ export function StudentRentalView({
               )}
             </div>
 
-            <div className="text-[11px] text-emerald-200/80 border-t border-white/10 pt-3">
+            <div className="text-xs text-emerald-200/80 border-t border-white/10 pt-3">
               💡 Tiết kiệm: Khi ở ghép 2 - 3 bạn, chi phí phòng và điện nước
               giảm hơn <strong>50% - 65%</strong> mỗi tháng.
             </div>

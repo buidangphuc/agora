@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/Button";
 
 const TRENDING_KEYWORDS = [
   "iPhone 15 Pro Max",
@@ -15,100 +16,175 @@ const TRENDING_KEYWORDS = [
   "Nồi Chiên Philips",
 ];
 
+const SUGGEST_DEBOUNCE_MS = 200;
+
+// WAI-ARIA combobox pattern: a text input controlling a listbox of options.
+// A native <select>/<option> cannot sit beside a text input, so the roles are
+// declared here (the lint rule that prefers native elements does not apply).
+const LISTBOX = { role: "listbox", tabIndex: -1 } as const;
+const OPTION = { role: "option", tabIndex: -1 } as const;
+
+/**
+ * Header search combobox. Submits to /search?q=<term>; suggestions come from
+ * /api/suggest (debounced 200ms) and a failed request just hides them. An
+ * empty input shows trending keywords when focused. Keyboard: ArrowUp/Down
+ * move through the options, Enter submits the active one (or the typed text),
+ * Escape closes. An empty submit does nothing.
+ */
 export function SearchBar() {
   const router = useRouter();
+  const listId = useId();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const [active, setActive] = useState(-1);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const latest = useRef(0);
 
-  function handleSearch(term: string) {
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const typed = query.trim();
+  const options = typed ? suggestions : TRENDING_KEYWORDS;
+  const showList = isOpen && options.length > 0;
+  const optionId = (i: number) => `${listId}-opt-${i}`;
+
+  function submit(term: string) {
     const q = term.trim();
     if (!q) return;
     setIsOpen(false);
+    setActive(-1);
     router.push(`/search?q=${encodeURIComponent(q)}`);
   }
 
-  function handleChange(val: string) {
-    setQuery(val);
-    if (!val.trim()) {
+  function handleChange(value: string) {
+    setQuery(value);
+    setActive(-1);
+    setIsOpen(true);
+    clearTimeout(timer.current);
+    const term = value.trim();
+    latest.current += 1;
+    const ticket = latest.current;
+    if (!term) {
       setSuggestions([]);
       return;
     }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
+    timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/suggest?q=${encodeURIComponent(val.trim())}`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data.suggestions || []);
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(term)}`);
+        if (ticket !== latest.current) return;
+        if (!res.ok) {
+          setSuggestions([]);
+          return;
         }
+        const data = (await res.json()) as { suggestions?: string[] };
+        if (ticket === latest.current) setSuggestions(data.suggestions ?? []);
       } catch {
-        setSuggestions([]);
+        // Suggestions are best-effort: hide them, keep the input working.
+        if (ticket === latest.current) setSuggestions([]);
       }
-    }, 200);
+    }, SUGGEST_DEBOUNCE_MS);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setIsOpen(true);
+      if (options.length > 0) setActive((i) => (i + 1) % options.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (options.length > 0) {
+        setActive((i) => (i <= 0 ? options.length - 1 : i - 1));
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+      setActive(-1);
+    } else if (e.key === "Enter" && showList && active >= 0) {
+      e.preventDefault();
+      submit(options[active] ?? query);
+    }
   }
 
   return (
-    <div className="relative w-full">
-      {/* Search Input Box */}
+    <div
+      className="relative w-full"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setIsOpen(false);
+      }}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          handleSearch(query);
+          submit(query);
         }}
-        className="flex items-center rounded-sm bg-white p-1 shadow-sm"
+        className="flex items-center gap-1 rounded-lg border border-transparent bg-surface-card p-1 shadow-sm transition duration-150 focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-focus-ring"
       >
+        <svg
+          className="ml-3 mr-1 h-4 w-4 shrink-0 text-text-disabled"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
         <input
+          role="combobox"
+          aria-label="Tìm kiếm sản phẩm"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            showList && active >= 0 ? optionId(active) : undefined
+          }
+          autoComplete="off"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          onBlur={() => setTimeout(() => setIsOpen(false), 150)}
-          placeholder="Tìm kiếm sản phẩm, danh mục, thương hiệu..."
-          className="flex-1 bg-transparent px-3 py-1.5 text-xs text-gray-900 outline-none placeholder-gray-400"
+          onKeyDown={handleKeyDown}
+          placeholder="Tìm kiếm sản phẩm, thương hiệu, hoặc deal hời hôm nay..."
+          className="min-h-9 min-w-0 flex-1 bg-transparent px-1 text-sm text-text-primary outline-none placeholder:text-text-disabled"
         />
-        <button
-          type="submit"
-          className="flex items-center justify-center rounded-xs bg-brand px-6 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand-dark transition"
-        >
-          🔍 Tìm Kiếm
-        </button>
+        <Button type="submit" size="md">
+          Tìm Kiếm
+        </Button>
       </form>
 
-      {/* Suggested Keywords Strip */}
-      <div className="mt-1.5 flex flex-wrap gap-2.5 text-[11px] text-white/90">
-        {TRENDING_KEYWORDS.map((kw) => (
-          <Link
-            key={kw}
-            href={`/search?q=${encodeURIComponent(kw)}`}
-            className="hover:text-yellow-200 transition"
-          >
-            {kw}
-          </Link>
-        ))}
-      </div>
-
-      {/* Autocomplete Dropdown */}
-      {isOpen && suggestions.length > 0 && (
-        <ul className="absolute z-40 mt-1 w-full overflow-hidden rounded-md border border-gray-100 bg-white shadow-xl">
-          {suggestions.map((s) => (
-            <li key={s}>
-              <button
-                type="button"
-                onMouseDown={() => handleSearch(s)}
-                className="flex w-full items-center justify-between px-4 py-2 text-left text-xs text-gray-800 hover:bg-orange-50 hover:text-brand"
+      {showList && (
+        <div className="absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border border-border-subtle bg-surface-card py-1 shadow-preline-hover">
+          {!typed && (
+            <p className="px-4 pb-1 pt-2 text-xs font-medium text-text-secondary">
+              Tìm kiếm phổ biến
+            </p>
+          )}
+          <div id={listId} aria-label="Gợi ý tìm kiếm" {...LISTBOX}>
+            {options.map((s, i) => (
+              <div
+                key={s}
+                id={optionId(i)}
+                aria-selected={i === active}
+                {...OPTION}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => submit(s)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submit(s);
+                }}
+                className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 px-4 text-left text-sm text-text-primary transition duration-150 ${
+                  i === active ? "bg-primary-50" : "hover:bg-surface-muted"
+                }`}
               >
-                <span>🔍 {s}</span>
-                <span className="text-[10px] text-brand font-semibold">
-                  Tìm kiếm sản phẩm
+                <span className="truncate font-medium">{s}</span>
+                <span className="shrink-0 text-xs font-semibold text-action-primary">
+                  Tìm kiếm
                 </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

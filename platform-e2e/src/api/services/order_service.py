@@ -17,6 +17,17 @@ class OrderService(BaseService):
     def get_order(self, order_id: str) -> dict[str, Any]:
         return self.post(ep.ORDER_GET, {"id": order_id})
 
+    def list_buyer_orders(self) -> dict[str, Any]:
+        """The authenticated buyer's orders (response key ``orders``)."""
+        return self.post(ep.ORDER_LIST_BUYER, {})
+
+    def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
+        """Drive an order to a status (e.g. ORDER_STATUS_COMPLETED); the buyer may do so for own orders."""
+        return self.post(ep.ORDER_UPDATE_STATUS, {"id": order_id, "status": status})
+
+    def cancel_order(self, order_id: str, reason: str = "") -> dict[str, Any]:
+        return self.post(ep.ORDER_CANCEL, {"id": order_id, "reason": reason})
+
     def get_saga_state(self, order_id: str) -> dict[str, Any]:
         return self.post(ep.ORDER_SAGA_STATE, {"orderId": order_id})
 
@@ -31,6 +42,10 @@ class OrderService(BaseService):
             ep.ORDER_RETURN_CREATE,
             {"orderId": order_id, "reason": reason, "refundAmount": refund_amount},
         )
+
+    def get_return_request(self, return_id: str) -> dict[str, Any]:
+        """The ``returnRequest`` object (buyer or seller of the order may read it)."""
+        return self.post(ep.ORDER_RETURN_GET, {"id": return_id}).get("returnRequest", {})
 
     def update_return_status(self, return_id: str, status: str) -> dict[str, Any]:
         return self.post(

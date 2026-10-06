@@ -42,6 +42,10 @@ ON CONFLICT (event_id) DO NOTHING`
 
 // EnqueueTx enqueues an outbox row within an active pgx transaction.
 func (r *PgOutboxRepository) EnqueueTx(ctx context.Context, tx pgx.Tx, row OutboxRow) error {
+	return enqueueOutboxTx(ctx, tx, row)
+}
+
+func enqueueOutboxTx(ctx context.Context, tx pgx.Tx, row OutboxRow) error {
 	q := `
 INSERT INTO order_outbox_events (
     event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, created_at
@@ -63,7 +67,11 @@ ON CONFLICT (event_id) DO NOTHING`
 }
 
 func (r *PgOutboxRepository) ClaimPending(ctx context.Context, limit int, leaseDuration time.Duration) ([]PendingEvent, error) {
+	// UPDATE ... RETURNING does not preserve the subquery's ORDER BY, so the claimed
+	// rows are re-sorted in the outer SELECT; otherwise two events for the same
+	// aggregate in one batch could be produced newest-first.
 	q := `
+WITH claimed AS (
 UPDATE order_outbox_events
 SET locked_until = now() + $1::interval
 WHERE event_id IN (
@@ -76,7 +84,10 @@ WHERE event_id IN (
     LIMIT $2
     FOR UPDATE SKIP LOCKED
 )
-RETURNING event_id, aggregate_id, payload, attempts`
+RETURNING event_id, aggregate_id, payload, attempts, created_at
+)
+SELECT event_id, aggregate_id, payload, attempts FROM claimed
+ORDER BY created_at, event_id`
 
 	rows, err := r.pool.Query(ctx, q, fmt.Sprintf("%d milliseconds", leaseDuration.Milliseconds()), limit)
 	if err != nil {
@@ -123,6 +134,18 @@ WHERE event_id = $1`
 	_, err := r.pool.Exec(ctx, q, eventID, fmt.Sprintf("%d milliseconds", retryDelay.Milliseconds()), errStr)
 	if err != nil {
 		return fmt.Errorf("mark failed %q: %w", eventID, err)
+	}
+	return nil
+}
+
+func (r *PgOutboxRepository) MarkParked(ctx context.Context, eventID string, errStr string) error {
+	q := `
+UPDATE order_outbox_events
+SET status = 'failed', attempts = attempts + 1, locked_until = NULL, error = $2
+WHERE event_id = $1`
+
+	if _, err := r.pool.Exec(ctx, q, eventID, errStr); err != nil {
+		return fmt.Errorf("park %q: %w", eventID, err)
 	}
 	return nil
 }

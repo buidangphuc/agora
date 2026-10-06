@@ -1,65 +1,97 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
 
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardContent } from "@/components/ui/Card";
+import { FormItem } from "@/components/ui/FormItem";
+import { Input } from "@/components/ui/Input";
+import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, loginAction } from "./actions";
+import { useCredentialForm } from "./useCredentialForm";
+import { validateLogin } from "./validation";
 
-const initial: AuthState = {};
-const label = "block text-sm font-medium text-gray-700";
-const field =
-  "mt-1 w-full rounded-md border px-3 py-2 outline-none focus:border-brand";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="w-full rounded-md bg-brand px-5 py-2 font-medium text-white hover:bg-brand-dark disabled:opacity-60"
-    >
-      {pending ? "Đang đăng nhập..." : "Đăng nhập"}
-    </button>
-  );
-}
+const initial: AuthState = { ok: false };
 
 export function LoginForm() {
   const [state, action] = useFormState(loginAction, initial);
+  const form = useCredentialForm(state, validateLogin);
+
   return (
-    <form action={action} className="mx-auto max-w-sm space-y-4">
-      <div>
-        <label className={label} htmlFor="username">
-          Tên đăng nhập
-        </label>
-        <input
-          id="username"
-          name="username"
-          required
-          className={field}
-          autoComplete="username"
-        />
-      </div>
-      <div>
-        <label className={label} htmlFor="password">
-          Mật khẩu
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          className={field}
-          autoComplete="current-password"
-        />
-      </div>
-      {state.error && <p className="text-red-600">{state.error}</p>}
-      <SubmitButton />
-      <p className="text-center text-sm text-gray-500">
-        Chưa có tài khoản?{" "}
-        <Link href="/register" className="text-brand hover:underline">
-          Đăng ký
-        </Link>
-      </p>
-    </form>
+    <Card className="mx-auto w-full max-w-sm">
+      <CardContent className="space-y-5">
+        <div className="space-y-1 text-center">
+          <h2 className="text-xl font-bold text-text-primary">
+            Chào mừng trở lại
+          </h2>
+          <p className="text-sm text-text-secondary">
+            Đăng nhập để tiếp tục mua sắm.
+          </p>
+        </div>
+
+        <form
+          action={action}
+          onSubmit={form.onSubmit}
+          noValidate
+          className="space-y-4"
+        >
+          <FormItem
+            label="Tên đăng nhập"
+            required
+            help={form.errors.username}
+            status={form.errors.username ? "error" : undefined}
+          >
+            <Input
+              className="min-h-10"
+              ref={form.usernameRef}
+              id="username"
+              name="username"
+              required
+              autoComplete="username"
+              placeholder="Nhập username của bạn"
+              onChange={() => form.onChange("username")}
+              onBlur={() => form.onBlur("username")}
+            />
+          </FormItem>
+
+          <FormItem
+            label="Mật khẩu"
+            required
+            help={form.errors.password}
+            status={form.errors.password ? "error" : undefined}
+          >
+            <Input
+              className="min-h-10"
+              ref={form.passwordRef}
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              onChange={() => form.onChange("password")}
+              onBlur={() => form.onBlur("password")}
+            />
+          </FormItem>
+
+          {state.error && !form.hasFieldErrors && (
+            <Alert type="error" description={state.error} />
+          )}
+
+          <AuthSubmitButton>Đăng nhập</AuthSubmitButton>
+
+          <p className="text-center text-sm text-text-secondary">
+            Chưa có tài khoản?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-action-primary hover:underline"
+            >
+              Đăng ký ngay
+            </Link>
+          </p>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

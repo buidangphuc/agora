@@ -4,6 +4,7 @@ import {
   addToCart,
   clearCart,
   getCart,
+  getCartWithShopNames,
   removeFromCart,
   updateCartItem,
 } from "./cart.js";
@@ -24,7 +25,12 @@ type CartRpcs = {
   clearCart: ReturnType<typeof vi.fn>;
 };
 
-function stubCart(rpcs: Partial<CartRpcs> = {}) {
+function stubCart(
+  rpcs: Partial<CartRpcs> = {},
+  batchGetStorefronts: ReturnType<typeof vi.fn> = vi
+    .fn()
+    .mockResolvedValue({ shops: [] }),
+) {
   const cart: CartRpcs = {
     getCart: vi.fn(),
     addToCart: vi.fn(),
@@ -33,8 +39,11 @@ function stubCart(rpcs: Partial<CartRpcs> = {}) {
     clearCart: vi.fn(),
     ...rpcs,
   };
-  vi.mocked(makeClients).mockReturnValue({ cart } as never);
-  return cart;
+  vi.mocked(makeClients).mockReturnValue({
+    cart,
+    listing: { batchGetStorefronts },
+  } as never);
+  return Object.assign(cart, { batchGetStorefronts });
 }
 
 const sampleCart = {
@@ -86,9 +95,76 @@ describe("cart gateway wrapper", () => {
           variantName: "Red",
           imageUrl: "img.png",
           sellerId: "s1",
+          sellerDisplayName: "",
         },
       ],
     });
+  });
+
+  it("two sellers -> exactly one batch call and each item gets its name", async () => {
+    const batch = vi.fn().mockResolvedValue({
+      shops: [
+        { sellerId: "s1", displayName: "Shop Alpha", slug: "a" },
+        { sellerId: "s2", displayName: "Shop Beta", slug: "b" },
+      ],
+    });
+    const twoSellers = {
+      ...sampleCart,
+      items: [
+        { ...sampleCart.items[0], id: "ci1", sellerId: "s1" },
+        { ...sampleCart.items[0], id: "ci2", sellerId: "s2" },
+        { ...sampleCart.items[0], id: "ci3", sellerId: "s1" },
+      ],
+    };
+    stubCart(
+      { getCart: vi.fn().mockResolvedValue({ cart: twoSellers }) },
+      batch,
+    );
+    const view = await getCartWithShopNames();
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(batch).toHaveBeenCalledWith({ sellerIds: ["s1", "s2"] });
+    expect(view.items.map((i) => i.sellerDisplayName)).toEqual([
+      "Shop Alpha",
+      "Shop Beta",
+      "Shop Alpha",
+    ]);
+  });
+
+  it("getCart alone makes no shop-name lookup", async () => {
+    const batch = vi.fn();
+    stubCart(
+      { getCart: vi.fn().mockResolvedValue({ cart: sampleCart }) },
+      batch,
+    );
+    const view = await getCart();
+    expect(batch).not.toHaveBeenCalled();
+    expect(view.items[0]?.sellerDisplayName).toBe("");
+  });
+
+  it("batch failure -> items still returned with empty names", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const batch = vi.fn().mockRejectedValue(new Error("[unimplemented]"));
+    stubCart(
+      { getCart: vi.fn().mockResolvedValue({ cart: sampleCart }) },
+      batch,
+    );
+    const view = await getCartWithShopNames();
+    expect(view.items).toHaveLength(1);
+    expect(view.items[0]?.sellerDisplayName).toBe("");
+  });
+
+  it("an empty cart makes no batch call", async () => {
+    const batch = vi.fn();
+    stubCart(
+      {
+        getCart: vi
+          .fn()
+          .mockResolvedValue({ cart: { ...sampleCart, items: [] } }),
+      },
+      batch,
+    );
+    await getCartWithShopNames();
+    expect(batch).not.toHaveBeenCalled();
   });
 
   it("getCart normalizes any RPC error to an empty cart", async () => {

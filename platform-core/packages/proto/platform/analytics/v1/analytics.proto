@@ -9,6 +9,7 @@ syntax = "proto3";
 // this payload carries only anonymous_id/session_id (no PII by design).
 package platform.analytics.v1;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 // AnalyticsQueryService serves aggregated read-model queries over the warehouse
@@ -21,6 +22,12 @@ service AnalyticsQueryService {
   rpc GetRevenueBreakdown(GetRevenueBreakdownRequest) returns (GetRevenueBreakdownResponse);
   // Probabilistic demand & restock forecast for a seller SKU over horizon [ADR-0013].
   rpc GetDemandForecast(GetDemandForecastRequest) returns (GetDemandForecastResponse);
+  // Platform-wide paid-order count and GMV over a trailing window, from order_facts.
+  // Admin-only (scope "admin"): it spans every seller, unlike the seller-scoped RPCs above.
+  rpc GetPlatformOrderSummary(GetPlatformOrderSummaryRequest) returns (GetPlatformOrderSummaryResponse);
+  // Latest paid orders across the platform, newest first, from order_facts. Admin-only
+  // (scope "admin"); carries no buyer PII.
+  rpc ListRecentOrders(ListRecentOrdersRequest) returns (ListRecentOrdersResponse);
 }
 
 message GetSellerFunnelRequest {
@@ -87,6 +94,30 @@ message GetDemandForecastResponse {
   bool is_cold_start = 7;
 }
 
+message GetPlatformOrderSummaryRequest {
+  // Trailing window ending now; unset or non-positive defaults to 24h.
+  google.protobuf.Duration window = 1;
+}
+
+message GetPlatformOrderSummaryResponse {
+  int64 order_count = 1;   // distinct paid orders in the window
+  int64 gmv = 2;           // SUM(quantity * unit_price), minor units
+}
+
+message ListRecentOrdersRequest {
+  int32 limit = 1;         // 1..100; unset or out of range defaults to 10
+}
+
+message RecentOrder {
+  string order_id = 1;
+  string seller_id = 2;    // first seller on the order when it spans several
+  int64 total = 3;         // SUM(quantity * unit_price), minor units
+  google.protobuf.Timestamp paid_at = 4;
+}
+
+message ListRecentOrdersResponse {
+  repeated RecentOrder orders = 1;
+}
 
 // EventType distinguishes the behavioral signals a single TrackingEvent can
 // represent, so producers need no new message type per interaction.

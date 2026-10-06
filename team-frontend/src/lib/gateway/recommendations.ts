@@ -36,6 +36,12 @@ function gateway() {
   return makeClients(getToken());
 }
 
+// Public reads: retry once without the bearer if the gateway rejects a stale
+// session (it answers Unauthenticated to any invalid token, even on public RPCs).
+function publicGateway() {
+  return makeClients(getToken(), { anonymousFallback: true });
+}
+
 export interface RecommendationsOptions {
   /** Anchor listing for item-to-item contexts (PDP "similar items"). */
   seedListingId?: string;
@@ -57,7 +63,7 @@ export async function getRecommendations(
   const principal = getPrincipal();
   const limit = opts.limit ?? 10;
   try {
-    const res = await gateway().recommendation.recommend({
+    const res = await publicGateway().recommendation.recommend({
       userId: principal?.id ?? "",
       anonymousId: "",
       seedListingId: opts.seedListingId ?? "",

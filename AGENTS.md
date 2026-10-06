@@ -209,6 +209,7 @@ so many changes/agents run in parallel (each change is an isolated
 
 - `platform-core/docs/ROADMAP.md` — core ecommerce feature plan (phases 3–7).
 - `platform-core/docs/ARCHITECTURE.md` — the 3 rules + protocol-per-hop.
+- `platform-core/docs/UI_SYSTEM_DESIGN.md` — 3-tier design tokens, component taxonomy & Next.js SSR frontend architecture.
 - `platform-core/docs/AGENT_GUIDE.md` — contract workflow + merge gate.
 - `platform-core/docs/ADR/000{1..5}-*.md` — proto distribution, async broker,
   auth model, observability, search read-model.

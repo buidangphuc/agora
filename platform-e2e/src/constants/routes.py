@@ -20,6 +20,7 @@ NOTIFICATIONS = "/notifications"
 CHAT = "/chat"
 ASSISTANT = "/assistant"
 ACCOUNT_ORDERS = "/account/orders"
+ACCOUNT_ORDER_DETAIL = "/account/orders/{order_id}"
 ACCOUNT_ADDRESSES = "/account/addresses"
 
 # Seller area (gated: requires principal + `listing.write` scope)
@@ -28,6 +29,9 @@ SELLER_NEW = "/seller/new"
 SELLER_EDIT = "/seller/{listing_id}/edit"
 SELLER_ORDERS = "/seller/orders"
 SELLER_ANALYTICS = "/seller/analytics"
+SELLER_WALLET = "/seller/wallet"
+SELLER_SHOP = "/seller/shop"
+SELLER_ORDER_DETAIL = "/seller/orders/{order_id}"
 
 # Admin
 ADMIN_COCKPIT = "/admin/cockpit"

@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -399,5 +400,52 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 	if !cond() {
 		t.Fatalf("condition not met in time")
+	}
+}
+
+// failingReader returns transient errors (including one that wraps a deadline,
+// as a Kafka request timeout does) before handing out its records.
+type failingReader struct {
+	fakeReader
+	failures []error
+}
+
+func (r *failingReader) Fetch(ctx context.Context) (Record, error) {
+	if len(r.failures) > 0 {
+		err := r.failures[0]
+		r.failures = r.failures[1:]
+		return Record{}, err
+	}
+	return r.fakeReader.Fetch(ctx)
+}
+
+// A fetch error that wraps context.DeadlineExceeded while the consumer's own
+// context is alive must not stop the loop (it used to, silently).
+func TestRun_TransientFetchErrorsDoNotStopTheLoop(t *testing.T) {
+	old := fetchRetryBackoff
+	fetchRetryBackoff = time.Millisecond
+	defer func() { fetchRetryBackoff = old }()
+
+	notif := &fakeNotif{}
+	subs := &fakeSubs{byKey: map[string][]*notificationv1.AlertSubscription{}}
+	c := newConsumer(notif, subs)
+	reader := &failingReader{
+		fakeReader: fakeReader{recs: []Record{{Key: "k", Value: priceEnvelope(t, "evt_1", "listing_1", 100)}}},
+		failures:   []error{fmt.Errorf("fetch: %w", context.DeadlineExceeded), errors.New("broker unavailable")},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- c.Run(ctx, reader, &fakeDLQ{}, RunConfig{DLQTopic: "dlq", MaxAttempts: 1}) }()
+
+	waitFor(t, func() bool { return len(reader.commit) == 1 })
+	select {
+	case err := <-done:
+		t.Fatalf("loop stopped on a transient error: %v", err)
+	default:
+	}
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("want context.Canceled on shutdown, got %v", err)
 	}
 }

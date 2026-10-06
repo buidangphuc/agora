@@ -17,7 +17,7 @@ from config.settings import get_settings
 from src.api.services import BaseService
 from src.constants import PageName, timeouts
 from src.models import Listing, User
-from src.pages import CheckoutPage, ListingDetailPage, VouchersPage
+from src.pages import CheckoutPage, ListingDetailPage
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
 from tests.e2e.support.world import World
@@ -41,11 +41,14 @@ def _vnd(text: str) -> int:
     return int(cleaned) if cleaned else -1
 
 
-def _promotion_api(world: World) -> BaseService:
-    """A public gateway client for team-promotion RPCs (no wrapper service exists yet)."""
+def _promotion_api(world: World, token: str | None = None) -> BaseService:
+    """A gateway client for team-promotion RPCs (no wrapper service exists yet).
+
+    The gateway rejects unauthenticated FlashSaleService/CreateCampaign with 401, so
+    callers pass the seeding seller's token."""
     svc = world.state.extra.get("_promo_api")
     if svc is None:
-        svc = BaseService(token=None)
+        svc = BaseService(token=token)
         world.state.extra["_promo_api"] = svc
     return svc
 
@@ -102,11 +105,16 @@ def promo_buyer_qualifying_cart(world: World) -> None:
 
 @when(parsers.parse('the buyer applies the voucher code "{code}" at checkout'))
 def buyer_applies_voucher(world: World, code: str) -> None:
+    # The voucher selector lives on the Thanh toán step of the checkout wizard.
     world.navigate_to(PageName.CHECKOUT)
     checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
-    expect(checkout.voucher_input).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(checkout.stepper).to_be_visible(timeout=timeouts.NAVIGATION)
+    checkout.continue_to("payment")
+    checkout.voucher_open_button.click()
+    expect(checkout.voucher_input).to_be_visible(timeout=timeouts.DEFAULT)
     world.state.extra["applied_code"] = code
-    checkout.apply_voucher(code)
+    checkout.voucher_input.fill(code)
+    checkout.apply_voucher_button.click()
 
 
 @then("the voucher discount is shown and the order total is reduced")
@@ -115,7 +123,9 @@ def voucher_discount_shown(world: World) -> None:
     subtotal = world.state.extra["subtotal"]
     expected_discount = subtotal * _SAVE10_PERCENT // 100
 
-    expect(checkout.voucher_discount).to_be_visible(timeout=timeouts.DEFAULT)
+    # The discount row is always rendered ("-" until the server preview lands), so wait
+    # for an amount rather than for the row.
+    expect(checkout.voucher_discount).to_have_text(re.compile(r"\d"), timeout=timeouts.DEFAULT)
     assert (
         _vnd(checkout.voucher_discount.inner_text()) == expected_discount
     ), f"discount line != {expected_discount}: {checkout.voucher_discount.inner_text()!r}"
@@ -132,6 +142,7 @@ def voucher_discount_shown(world: World) -> None:
 @then("placing the order creates the order")
 def placing_order_creates_order(world: World) -> None:
     checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
+    checkout.continue_to("confirm")  # the voucher is kept in ?voucher= across steps
     expect(checkout.place_order_button).to_be_enabled(timeout=timeouts.DEFAULT)
     checkout.place_order_button.click()
     # COD success routes to /account/orders?success=1; a mock-pay method routes to /checkout/pay.
@@ -150,8 +161,8 @@ def voucher_error_shown(world: World) -> None:
     expect(checkout.voucher_error).to_be_visible(timeout=timeouts.DEFAULT)
     reason = checkout.voucher_error.inner_text().strip()
     assert reason, "voucher error alert was empty"
-    # No discount line is rendered when the code is invalid.
-    expect(checkout.voucher_discount).to_have_count(0)
+    # The discount row stays on the summary but carries no amount for an invalid code.
+    expect(checkout.voucher_discount).not_to_contain_text(re.compile(r"\d"))
     subtotal = world.state.extra["subtotal"]
     assert (
         _vnd(checkout.order_total.inner_text()) == subtotal
@@ -163,7 +174,7 @@ def voucher_error_shown(world: World) -> None:
 @given("a listing with an active flash-sale campaign")
 def listing_with_flash_sale(world: World) -> None:
     listing = _seed_seller_listing(world, 5_000_000)
-    resp = _promotion_api(world).post(
+    resp = _promotion_api(world, world.state.seeded_seller.token).post(
         "/platform.promotion.v1.FlashSaleService/CreateCampaign",
         {
             "listingId": listing.listing_id,
@@ -196,14 +207,3 @@ def flash_sale_meter_shown(world: World) -> None:
     # Sale price rendered in the banner (formatPrice -> '₫499.000').
     expect(detail.flash_sale_banner).to_contain_text("499.000", timeout=timeouts.DEFAULT)
     world.logger.info(f"Flash-sale meter: remaining={remaining}/{_FLASH_STOCK_CAP}")
-
-
-# ── Vouchers hub (existing coverage, kept) ───────────────────────────────
-@then("the vouchers hub lists available vouchers")
-def vouchers_hub_lists(world: World) -> None:
-    page: VouchersPage = world.get_page(PageName.VOUCHERS)  # type: ignore[assignment]
-    assert page.is_displayed()
-    expect(world.page.get_by_role("button", name="Tất cả voucher", exact=False)).to_be_visible(
-        timeout=timeouts.DEFAULT
-    )
-    assert page.save_voucher_buttons.count() >= 1, "no savable vouchers on the hub"

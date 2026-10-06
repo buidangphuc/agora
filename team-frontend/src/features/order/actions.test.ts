@@ -1,7 +1,9 @@
+import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import { reorder } from "@/lib/gateway/cart";
 import {
   cancelOrder,
   createOrder,
@@ -14,9 +16,12 @@ import {
   checkoutAction,
   createPaymentAction,
   processMockPaymentAction,
+  reorderAction,
   updateOrderStatusAction,
 } from "./actions";
 
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/gateway/cart", () => ({ reorder: vi.fn() }));
 vi.mock("@/lib/gateway/orders", () => ({
   createOrder: vi.fn(),
   updateOrderStatus: vi.fn(),
@@ -40,11 +45,9 @@ describe("checkoutAction", () => {
       undefined,
     );
     expect(createPayment).not.toHaveBeenCalled();
-    expect(res).toMatchObject({
+    expect(res).toEqual({
       ok: true,
-      orderIds: ["o1"],
-      paymentUrl: undefined,
-      message: "Đặt hàng thành công!",
+      data: { orderIds: ["o1"], paymentUrl: undefined },
     });
   });
 
@@ -56,27 +59,35 @@ describe("checkoutAction", () => {
     });
     const res = await checkoutAction("addr1", ["it1"], PaymentMethod.MOCK_MOMO);
     expect(createPayment).toHaveBeenCalledWith("o1", PaymentMethod.MOCK_MOMO);
-    expect(res.paymentUrl).toBe("http://pay");
+    expect(res).toEqual({
+      ok: true,
+      data: { orderIds: ["o1"], paymentUrl: "http://pay" },
+    });
   });
 
   it("still succeeds when payment initiation fails (falls back)", async () => {
     vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
     vi.mocked(createPayment).mockRejectedValue(new Error("pay down"));
     const res = await checkoutAction("addr1", ["it1"], PaymentMethod.MOCK_MOMO);
-    expect(res.ok).toBe(true);
-    expect(res.paymentUrl).toBeUndefined();
+    expect(res).toEqual({
+      ok: true,
+      data: { orderIds: ["o1"], paymentUrl: undefined },
+    });
   });
 
   it("returns an error shape when order creation fails", async () => {
     vi.mocked(createOrder).mockRejectedValue(new Error("no stock"));
     const res = await checkoutAction("addr1", ["it1"], PaymentMethod.COD);
-    expect(res).toEqual({ ok: false, message: "no stock" });
+    expect(res).toEqual({ ok: false, error: "no stock" });
   });
 });
 
 describe("updateOrderStatusAction", () => {
-  it("succeeds and revalidates", async () => {
-    vi.mocked(updateOrderStatus).mockResolvedValue({} as never);
+  it("returns ok with the new state and revalidates list and detail", async () => {
+    vi.mocked(updateOrderStatus).mockResolvedValue({
+      status: OrderStatus.SHIPPED,
+      trackingNumber: "TRK1",
+    } as never);
     const res = await updateOrderStatusAction(
       "o1",
       OrderStatus.SHIPPED,
@@ -87,22 +98,57 @@ describe("updateOrderStatusAction", () => {
       OrderStatus.SHIPPED,
       "TRK1",
     );
-    expect(res.ok).toBe(true);
+    expect(res).toEqual({
+      ok: true,
+      data: { status: OrderStatus.SHIPPED, trackingNumber: "TRK1" },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/seller/orders/o1");
   });
 
-  it("returns error message on failure", async () => {
+  it("returns { ok: false, error } on failure and revalidates nothing", async () => {
     vi.mocked(updateOrderStatus).mockRejectedValue(new Error("bad state"));
     const res = await updateOrderStatusAction("o1", OrderStatus.SHIPPED);
-    expect(res).toEqual({ ok: false, message: "bad state" });
+    expect(res).toEqual({ ok: false, error: "bad state" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 
 describe("cancelOrderAction", () => {
-  it("cancels with a reason", async () => {
+  it("cancels with a reason and revalidates the list and the detail", async () => {
     vi.mocked(cancelOrder).mockResolvedValue({} as never);
     const res = await cancelOrderAction("o1", "changed mind");
     expect(cancelOrder).toHaveBeenCalledWith("o1", "changed mind");
-    expect(res.ok).toBe(true);
+    expect(res).toEqual({ ok: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("returns the error shape without throwing or revalidating", async () => {
+    vi.mocked(cancelOrder).mockRejectedValue(new Error("invalid status"));
+    const res = await cancelOrderAction("o1");
+    expect(res).toEqual({ ok: false, error: "invalid status" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("reorderAction", () => {
+  it("returns the item count as data and revalidates", async () => {
+    vi.mocked(reorder).mockResolvedValue({ totalItems: 3 } as never);
+    const res = await reorderAction("o1");
+    expect(reorder).toHaveBeenCalledWith("o1");
+    expect(res).toEqual({ ok: true, data: { totalItems: 3 } });
+    expect(revalidatePath).toHaveBeenCalledWith("/cart");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("returns the error shape when the gateway throws", async () => {
+    vi.mocked(reorder).mockRejectedValue(new Error("empty"));
+    await expect(reorderAction("o1")).resolves.toEqual({
+      ok: false,
+      error: "empty",
+    });
   });
 });
 
@@ -113,7 +159,7 @@ describe("payment actions", () => {
       paymentUrl: "http://pay",
     });
     const res = await createPaymentAction("o1", PaymentMethod.MOCK_BANK);
-    expect(res).toEqual({ ok: true, paymentUrl: "http://pay" });
+    expect(res).toEqual({ ok: true, data: { paymentUrl: "http://pay" } });
   });
 
   it("processMockPaymentAction reflects the transaction success flag", async () => {
@@ -123,12 +169,22 @@ describe("payment actions", () => {
       message: "paid",
     });
     const res = await processMockPaymentAction("tx1", true);
-    expect(res).toEqual({ ok: true, message: "paid" });
+    expect(res).toEqual({ ok: true, data: { message: "paid" } });
   });
 
   it("processMockPaymentAction returns error shape on throw", async () => {
     vi.mocked(processMockPayment).mockRejectedValue(new Error("gateway"));
     const res = await processMockPaymentAction("tx1", false);
-    expect(res).toEqual({ ok: false, message: "gateway" });
+    expect(res).toEqual({ ok: false, error: "gateway" });
+  });
+
+  it("processMockPaymentAction maps a failed simulation to an error", async () => {
+    vi.mocked(processMockPayment).mockResolvedValue({
+      transaction: {} as never,
+      success: false,
+      message: "card declined",
+    });
+    const res = await processMockPaymentAction("tx1", false);
+    expect(res).toEqual({ ok: false, error: "card declined" });
   });
 });

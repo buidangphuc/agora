@@ -41,3 +41,20 @@ Feature: Browsing actions emit tracking events
     Then multiple EventEnvelopes sharing the same event group id are published to the "analytics.events" topic
     And the purchase tracking payload carries transaction id, currency and minor unit prices
 
+  @needsBuyer @needsListing
+  Scenario: Impression and click beacons keep their placement attribution and the seller funnel counts them
+    Given a buyer is logged in
+    And a listing has been seeded via the API
+    When the gateway receives an impression and a click beacon with placement "home.recs" for the listing
+    Then both beacons are published to the "analytics.events" topic carrying placement "home.recs"
+    And the seller analytics funnel counts the impression
+
+  # ui-phase-product-detail: the redesign must not add or drop view events.
+  @needsSeller
+  Scenario: A variant change and an anchor-nav click send no further view event from the browser
+    Given a buyer is logged in
+    And a seeded listing with variants "128GB" at 1000000 and "256GB" at 1500000
+    When the buyer opens the variant listing while recording tracking beacons
+    And the buyer selects the variant "256GB"
+    And the buyer follows the anchor link "Đánh giá"
+    Then exactly one view beacon for the listing was sent from the browser

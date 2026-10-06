@@ -6,6 +6,7 @@ syntax = "proto3";
 // services never see credentials — only the resolved Principal.
 package platform.identity.v1;
 
+import "google/protobuf/timestamp.proto";
 import "platform/common/v1/common.proto";
 
 // Public auth surface: no Principal/scope is required to call these (they are
@@ -13,6 +14,9 @@ import "platform/common/v1/common.proto";
 service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message RegisterRequest {
@@ -41,6 +45,34 @@ message RegisterResponse {
 
 message LoginResponse {
   AuthResult result = 1;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+}
+
+message RequestPasswordResetRequest {
+  string username = 1;
+}
+
+message RequestPasswordResetResponse {
+  string reset_token = 1;
+  int64 expires_at = 2;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {
+  bool success = 1;
 }
 
 // AddressService manages shipping addresses for registered buyers.
@@ -112,4 +144,91 @@ message SetDefaultAddressRequest {
 
 message SetDefaultAddressResponse {
   Address address = 1;
+}
+
+// SessionService exposes a signed-in user's active sessions and login history.
+// Requires valid user authentication (Principal) — these operate on the caller's
+// own account.
+service SessionService {
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  rpc ListLoginHistory(ListLoginHistoryRequest) returns (ListLoginHistoryResponse);
+}
+
+// An active authenticated session (device/browser) for the caller.
+message Session {
+  string id = 1;
+  string device = 2;
+  string ip = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_seen = 5;
+  bool revoked = 6;
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+message RevokeSessionResponse {}
+
+// SessionRevoked is the event published on Kafka topic `identity.events` (key = user
+// id, wrapped in platform.events.v1.EventEnvelope with type
+// "platform.identity.v1.SessionRevoked") when a user revokes one of their sessions.
+// The gateway keeps `session_id` in an in-memory denylist until `expires_at` (the
+// revoked token's expiry) and rejects any token whose `sid` claim matches.
+message SessionRevoked {
+  string session_id = 1;
+  string user_id = 2;
+  // Expiry of the longest-lived token that can carry this session id; after this
+  // instant the denylist entry is redundant and may be dropped.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// A recorded login attempt (successful or failed) against the caller's account.
+message LoginEvent {
+  string id = 1;
+  string ip = 2;
+  string user_agent = 3;
+  bool success = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListLoginHistoryRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListLoginHistoryResponse {
+  repeated LoginEvent events = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// PublicProfileService resolves public display names for other users. It is an
+// internal, service-to-service surface: callers MUST be service principals
+// carrying the identity.read scope (e.g. team-notification naming a chat sender).
+// User principals are rejected with PERMISSION_DENIED.
+service PublicProfileService {
+  // GetPublicProfiles returns the public profile of each known user id. Unknown
+  // ids are omitted and duplicates ignored. Max 100 ids (INVALID_ARGUMENT above).
+  rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
+}
+
+message GetPublicProfilesRequest {
+  repeated string user_ids = 1;
+}
+
+// PublicProfile is the only user data exposed to other services: the id and the
+// name to show. display_name is the username unless a display name exists.
+message PublicProfile {
+  string user_id = 1;
+  string display_name = 2;
+}
+
+message GetPublicProfilesResponse {
+  repeated PublicProfile profiles = 1;
 }

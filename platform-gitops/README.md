@@ -14,3 +14,9 @@ envs/local/values.yaml   image tags (CI bumps these), host, replicas, resources
 
 Local git host: Gitea (`http://gitea.localtest.me`, repo `ci/platform-gitops`).
 ArgoCD reads it in-cluster at `http://gitea-http.gitea.svc:3000/ci/platform-gitops.git`.
+
+## Checks
+
+`python3 scripts/check_identity_seed.py` fails if any manifest enables team-identity's
+admin seed (`SEED_ADMIN_ENABLED` truthy) or carries a `SEED_ADMIN_PASSWORD` literal.
+Run it before pushing; there is no CI wired into this repo yet.

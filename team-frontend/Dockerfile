@@ -5,6 +5,10 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* values are inlined at build time. Empty (the default) keeps GTM disabled; the
+# e2e stack sets a placeholder id so AnalyticsProvider initialises window.dataLayer.
+ARG NEXT_PUBLIC_GTM_ID=""
+ENV NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}
 RUN npm run build
 
 FROM node:22-slim AS run

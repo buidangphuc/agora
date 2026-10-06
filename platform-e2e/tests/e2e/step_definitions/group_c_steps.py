@@ -139,7 +139,7 @@ def review_and_rating_appear(world: World) -> None:
 def seller_has_positive_wallet_balance(world: World) -> None:
     seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
     login_via_api(world, seller)
-    wallet = world.service_factory.payment.get_seller_wallet(seller.username)
+    wallet = world.service_factory.payment.get_seller_wallet("")  # "" = the caller's own wallet
     assert wallet is not None
 
 
@@ -148,7 +148,7 @@ def seller_requests_payout(world: World) -> None:
     seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
     world.service_factory.set_token(seller.token)
     res = world.service_factory.payment.request_payout(
-        seller_id=seller.username,
+        seller_id="",  # the caller's own wallet; the user id, never the username
         amount=1_000_000,
         bank_code="VCB",
         account_number="0123456789",
@@ -161,6 +161,6 @@ def seller_requests_payout(world: World) -> None:
 def payout_appears_in_payout_history(world: World) -> None:
     seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
     world.service_factory.set_token(seller.token)
-    history = world.service_factory.payment.list_payout_history(seller.username)
+    history = world.service_factory.payment.list_payout_history("")
     payouts = history.get("payouts", [])
-    assert len(payouts) > 0 or world.state.extra.get("payout_res") is not None
+    assert payouts, f"no payout in history after {world.state.extra.get('payout_res')}"

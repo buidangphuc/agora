@@ -90,6 +90,9 @@ see `ADR/0001-proto-distribution.md`.
   Scope checks gate RPCs. JWT/cookie is an open extension.
 - **Observability** (`ADR/0004`): OpenTelemetry. Interceptors propagate W3C
   `traceparent` + a bridged `x-request-id` on every hop. Exporter is swappable.
+- **UI System Design & Frontend Architecture** (`UI_SYSTEM_DESIGN.md`): W3C DTCG
+  3-tier token hierarchy (Core → Semantic → Component), Next.js 14 App Router
+  SSR-first principles, primitive component library, and zero layout-shift rules.
 - **DB-per-service** (Rule 3), **fixed stack** (see README).
 
 ## What is intentionally NOT here (Phase 0)

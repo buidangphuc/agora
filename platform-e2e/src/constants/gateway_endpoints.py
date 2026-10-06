@@ -18,6 +18,13 @@ AUTH_REGISTER = "/platform.identity.v1.AuthService/Register"
 AUTH_LOGIN = "/platform.identity.v1.AuthService/Login"
 ADDRESS_CREATE = "/platform.identity.v1.AddressService/CreateAddress"
 ADDRESS_LIST = "/platform.identity.v1.AddressService/ListAddresses"
+SESSION_LIST = "/platform.identity.v1.SessionService/ListSessions"
+SESSION_REVOKE = "/platform.identity.v1.SessionService/RevokeSession"
+
+# platform.analytics.v1 (seller RPCs: owner or admin only — secure-seller-analytics-and-admin-seed)
+ANALYTICS_SELLER_FUNNEL = "/platform.analytics.v1.AnalyticsQueryService/GetSellerFunnel"
+ANALYTICS_REVENUE_BREAKDOWN = "/platform.analytics.v1.AnalyticsQueryService/GetRevenueBreakdown"
+ANALYTICS_DEMAND_FORECAST = "/platform.analytics.v1.AnalyticsQueryService/GetDemandForecast"
 
 # platform.listing.v1
 LISTING_CREATE = "/platform.listing.v1.ListingService/CreateListing"
@@ -27,6 +34,9 @@ LISTING_LIST_MINE = "/platform.listing.v1.ListingService/ListMyListings"
 LISTING_CATEGORIES = "/platform.listing.v1.ListingService/ListCategories"
 LISTING_RESERVE_STOCK = "/platform.listing.v1.ListingService/ReserveStock"
 LISTING_RELEASE_STOCK = "/platform.listing.v1.ListingService/ReleaseStock"
+LISTING_UPSERT_STOREFRONT = "/platform.listing.v1.ListingService/UpsertStorefront"
+LISTING_GET_STOREFRONT = "/platform.listing.v1.ListingService/GetStorefront"
+LISTING_BATCH_GET_STOREFRONTS = "/platform.listing.v1.ListingService/BatchGetStorefronts"
 
 # platform.search.v1
 SEARCH_LISTINGS = "/platform.search.v1.SearchService/SearchListings"
@@ -42,9 +52,13 @@ CART_UPDATE = "/platform.order.v1.CartService/UpdateCartItem"
 CART_CLEAR = "/platform.order.v1.CartService/ClearCart"
 ORDER_CREATE = "/platform.order.v1.OrderService/CreateOrder"
 ORDER_GET = "/platform.order.v1.OrderService/GetOrder"
+ORDER_LIST_BUYER = "/platform.order.v1.OrderService/ListBuyerOrders"
+ORDER_UPDATE_STATUS = "/platform.order.v1.OrderService/UpdateOrderStatus"
+ORDER_CANCEL = "/platform.order.v1.OrderService/CancelOrder"
 ORDER_SAGA_STATE = "/platform.order.v1.OrderService/GetSagaState"
 ORDER_FORCE_FAIL_SAGA = "/platform.order.v1.OrderService/ForceFailSaga"
 ORDER_RETURN_CREATE = "/platform.order.v1.OrderService/CreateReturnRequest"
+ORDER_RETURN_GET = "/platform.order.v1.OrderService/GetReturnRequest"
 ORDER_RETURN_UPDATE = "/platform.order.v1.OrderService/UpdateReturnStatus"
 ORDER_SHIPMENT_CREATE = "/platform.order.v1.OrderService/CreateShipment"
 ORDER_SHIPMENT_TRACKING = "/platform.order.v1.OrderService/GetShipmentTracking"
@@ -63,3 +77,13 @@ ENGAGEMENT_QA_LIST = "/platform.engagement.v1.EngagementService/ListQuestionsByL
 ENGAGEMENT_DISPUTE_CREATE = "/platform.engagement.v1.EngagementService/CreateDispute"
 ENGAGEMENT_DISPUTE_GET = "/platform.engagement.v1.EngagementService/GetDispute"
 ENGAGEMENT_DISPUTE_RESOLVE = "/platform.engagement.v1.EngagementService/ResolveDispute"
+
+# platform.chat.v1 (buyer <-> seller 1:1 messaging, team-chat)
+CHAT_GET_OR_CREATE_THREAD = "/platform.chat.v1.ChatService/GetOrCreateThread"
+CHAT_LIST_THREADS = "/platform.chat.v1.ChatService/ListThreads"
+CHAT_GET_THREAD_MESSAGES = "/platform.chat.v1.ChatService/GetThreadMessages"
+CHAT_SEND_MESSAGE = "/platform.chat.v1.ChatService/SendMessage"
+
+# platform.notification.v1
+NOTIFICATION_LIST = "/platform.notification.v1.NotificationService/ListNotifications"
+NOTIFICATION_UPDATE_PREFS = "/platform.notification.v1.NotificationService/UpdateNotificationPrefs"

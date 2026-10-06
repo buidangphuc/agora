@@ -1,24 +1,23 @@
-import type { ViewReviewSummary } from "@/lib/gateway/ai";
+import { Card } from "@/components/ui/Card";
+import { Tag } from "@/components/ui/Tag";
+import { type ViewReviewSummary, summarizeReviews } from "@/lib/gateway/ai";
+import type { ViewReview } from "@/lib/gateway/reviews";
 
-/**
- * AI-generated summary of a listing's reviews (team-ai SummarizeReviews via the
- * gateway). Presentational — data is fetched server-side. Thin.
- */
-export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
+/** The AI summary card. Presentational. */
+export function AiReviewSummaryCard({
+  summary,
+}: {
+  summary: ViewReviewSummary;
+}) {
   return (
-    <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 to-blue-50/40 p-5 shadow-2xs">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-indigo-900">
-        <span>✨</span>
+    <Card data-testid="ai-review-summary" className="p-5">
+      <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-text-primary">
         <span>Tóm tắt đánh giá bằng AI</span>
-        {summary.sentiment && (
-          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
-            {summary.sentiment}
-          </span>
-        )}
+        {summary.sentiment && <Tag color="info">{summary.sentiment}</Tag>}
       </h3>
 
       {summary.summary && (
-        <p className="mt-2 text-xs leading-relaxed text-gray-700">
+        <p className="mt-2 text-sm leading-relaxed text-text-secondary">
           {summary.summary}
         </p>
       )}
@@ -26,8 +25,10 @@ export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {summary.pros.length > 0 && (
           <div>
-            <p className="text-[11px] font-bold text-emerald-700">👍 Ưu điểm</p>
-            <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
+            <p className="text-sm font-semibold text-accent-success-dark">
+              Ưu điểm
+            </p>
+            <ul className="mt-1 space-y-0.5 text-sm text-text-secondary">
               {summary.pros.map((p) => (
                 <li key={p}>• {p}</li>
               ))}
@@ -36,8 +37,8 @@ export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
         )}
         {summary.cons.length > 0 && (
           <div>
-            <p className="text-[11px] font-bold text-red-600">👎 Hạn chế</p>
-            <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
+            <p className="text-sm font-semibold text-danger">Hạn chế</p>
+            <ul className="mt-1 space-y-0.5 text-sm text-text-secondary">
               {summary.cons.map((c) => (
                 <li key={c}>• {c}</li>
               ))}
@@ -45,6 +46,32 @@ export function AiReviewSummary({ summary }: { summary: ViewReviewSummary }) {
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
+}
+
+/**
+ * AI-generated summary of a listing's reviews (team-ai SummarizeReviews via the
+ * gateway). An async server component rendered inside a Suspense boundary, so a
+ * slow team-ai never delays the page's first byte. Renders nothing when the
+ * listing has no reviews or the service is unavailable or fails.
+ */
+export async function AiReviewSummary({
+  listingId,
+  reviewsPromise,
+}: {
+  listingId: string;
+  /** Shared with the review list so the reviews are fetched once. */
+  reviewsPromise: Promise<ViewReview[]>;
+}) {
+  const summary = await reviewsPromise
+    .then((reviews) =>
+      summarizeReviews(
+        listingId,
+        reviews.map((r) => ({ rating: r.rating, comment: r.comment })),
+      ),
+    )
+    .catch(() => null);
+  if (!summary) return null;
+  return <AiReviewSummaryCard summary={summary} />;
 }

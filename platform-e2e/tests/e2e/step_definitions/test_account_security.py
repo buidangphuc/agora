@@ -57,6 +57,39 @@ def security_sections_render(world: World) -> None:
     world.logger.info("Account security sections rendered (sessions + login history)")
 
 
+@when("the buyer opens the account security page directly")
+def open_security_directly(world: World) -> None:
+    _page(world).navigate()
+    expect(_page(world).heading).to_be_visible(timeout=timeouts.NAVIGATION)
+
+
+@when("the buyer asks to revoke a session")
+def ask_to_revoke(world: World) -> None:
+    # The API login in the Given step created at least one active session.
+    page = _page(world)
+    expect(page.revoke_button).to_be_visible(timeout=timeouts.DEFAULT)
+    # Server-rendered button: a click before hydration is dropped.
+    page.wait_until_interactive(page.revoke_button)
+    page.revoke_button.click()
+
+
+@then("a confirmation dialog asks to revoke the session")
+def revoke_confirmation_shown(world: World) -> None:
+    expect(_page(world).revoke_dialog).to_be_visible(timeout=timeouts.DEFAULT)
+
+
+@when("the buyer dismisses the dialog with Escape")
+def dismiss_revoke_dialog(world: World) -> None:
+    world.page.keyboard.press("Escape")
+
+
+@then("the dialog is closed and the session can still be revoked")
+def dialog_closed_session_remains(world: World) -> None:
+    page = _page(world)
+    expect(page.revoke_dialog).to_have_count(0, timeout=timeouts.DEFAULT)
+    expect(page.revoke_button).to_be_visible()
+
+
 @when("an anonymous visitor opens the account security page")
 def anon_opens_security(world: World) -> None:
     _page(world).navigate()

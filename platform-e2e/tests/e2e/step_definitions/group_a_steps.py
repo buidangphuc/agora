@@ -2,11 +2,35 @@
 
 from __future__ import annotations
 
+import time
+
 from pytest_bdd import given, then, when
 
 from src.utils import get_test_data_manager
 from tests.e2e.flows import create_order_via_api, create_shipment_via_api, login_via_api
 from tests.e2e.support.world import World
+
+_PAID_STATES = (
+    "ORDER_STATUS_PAID",
+    "PAID",
+    "ORDER_STATUS_CONFIRMED",
+    "CONFIRMED",
+    "ORDER_STATUS_SHIPPED",
+    "SHIPPED",
+)
+
+
+def _wait_until_paid(world: World, order_id: str, timeout_s: float = 20.0) -> dict:
+    """The order turns PAID when team-order consumes PaymentSettled from Kafka, which lags
+    the MockPay response; poll instead of reading the order once."""
+    order: dict = {}
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        order = world.service_factory.order.get_order(order_id).get("order", {})
+        if order.get("status") in _PAID_STATES:
+            break
+        time.sleep(0.5)
+    return order
 
 
 @given("a buyer has a pending order")
@@ -33,20 +57,8 @@ def buyer_completes_demo_payment(world: World) -> None:
 @then("the order status becomes PAID")
 def verify_order_status_paid(world: World) -> None:
     order_id = world.state.order_id
-    res = world.service_factory.order.get_order(order_id)
-    order = res.get("order", {})
-    assert (
-        order.get("status")
-        in (
-            "ORDER_STATUS_PAID",
-            "PAID",
-            "ORDER_STATUS_CONFIRMED",
-            "CONFIRMED",
-            "ORDER_STATUS_SHIPPED",
-            "SHIPPED",
-        )
-        or res.get("id") == order_id
-    )
+    order = _wait_until_paid(world, order_id)
+    assert order.get("status") in _PAID_STATES, f"order {order_id} is {order.get('status')!r}"
 
 
 @when("the buyer places the order")
@@ -105,6 +117,7 @@ def buyer_submits_return_request(world: World) -> None:
     )
     world.service_factory.set_token(buyer.token)
     world.service_factory.payment.mock_pay(order_id, 5_000_000, success=True)
+    _wait_until_paid(world, order_id)  # a return needs a paid order
     res = world.service_factory.order.create_return_request(
         order_id=order_id,
         reason="Sản phẩm lỗi kỹ thuật",
@@ -145,6 +158,7 @@ def return_request_approved(world: World) -> None:
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
     create_order_via_api(world, buyer, listing_id)
     world.service_factory.payment.mock_pay(world.state.order_id, 5_000_000, success=True)
+    _wait_until_paid(world, world.state.order_id)  # a return needs a paid order
     res = world.service_factory.order.create_return_request(
         order_id=world.state.order_id,
         reason="Sản phẩm lỗi",

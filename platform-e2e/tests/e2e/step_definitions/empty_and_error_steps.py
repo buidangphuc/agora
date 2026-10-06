@@ -17,7 +17,7 @@ def search_results_show_empty_state(world: World) -> None:
 
 @then("suggested search tips are displayed")
 def suggested_search_tips_displayed(world: World) -> None:
-    tips = world.page.get_by_text("Hãy thử tìm kiếm với từ khóa khác", exact=False)
+    tips = world.page.get_by_text("Hãy thử từ khóa khác", exact=False)
     expect(tips).to_be_visible(timeout=timeouts.DEFAULT)
 
 

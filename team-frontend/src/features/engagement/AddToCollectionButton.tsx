@@ -75,7 +75,7 @@ export function AddToCollectionButton({
 
       {open && (
         <div className="absolute z-20 mt-2 w-60 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
             Chọn bộ sưu tập
           </p>
           {collections.length === 0 ? (
@@ -96,9 +96,7 @@ export function AddToCollectionButton({
                       <span>📂</span>
                       <span>{c.name}</span>
                     </span>
-                    <span className="text-[10px] text-gray-400">
-                      {c.itemCount}
-                    </span>
+                    <span className="text-xs text-gray-400">{c.itemCount}</span>
                   </button>
                 </li>
               ))}

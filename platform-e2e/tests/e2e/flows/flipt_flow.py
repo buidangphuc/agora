@@ -30,7 +30,11 @@ def set_checkout_flag(enabled: bool) -> bool:
     """Set `checkout-enabled` to `enabled` in Flipt. Returns the applied state.
 
     Ensures the boolean flag exists (creating it on first run), then updates its
-    `enabled` state. Idempotent: re-running with the same value is a no-op flip.
+    `enabled` state. Idempotent: when the flag already has the wanted value nothing
+    is written. Flipt keeps its flags in SQLite, so every UpdateFlag takes the write
+    lock and stalls the Boolean evaluations of concurrent CreateOrders (measured 2-7 s
+    on both sides); the ON scenarios run in parallel with all other checkouts and must
+    not cause that when the flag is already ON.
     """
     base = f"/api/v1/namespaces/{NAMESPACE}/flags"
     payload = {
@@ -41,6 +45,9 @@ def set_checkout_flag(enabled: bool) -> bool:
         "enabled": enabled,
     }
     with _client() as client:
+        current = client.get(f"{base}/{FLAG_KEY}")
+        if current.status_code == httpx.codes.OK and current.json().get("enabled") is enabled:
+            return enabled
         # Update in place; create it if this env has never seen the flag.
         resp = client.put(f"{base}/{FLAG_KEY}", json=payload)
         if resp.status_code == httpx.codes.NOT_FOUND:

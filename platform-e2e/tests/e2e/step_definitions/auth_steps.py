@@ -7,7 +7,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName, timeouts
 from src.pages import LoginPage
-from src.utils import get_test_data_manager
+from tests.e2e.flows import scenario_buyer
 from tests.e2e.support.world import World
 
 
@@ -18,7 +18,7 @@ def login_page_open(world: World) -> None:
 
 @when("the user logs in as the seeded buyer")
 def login_seeded_buyer(world: World) -> None:
-    buyer = get_test_data_manager().get_user_by_role("buyer")
+    buyer = scenario_buyer(world)
     page: LoginPage = world.get_page(PageName.LOGIN)  # type: ignore[assignment]
     page.login(buyer.username, buyer.password)
 

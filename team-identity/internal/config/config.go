@@ -10,14 +10,18 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Settings struct {
 	Runtime       Runtime
 	Server        Server
 	Database      Database
+	Events        Events
+	Outbox        Outbox
 	JWT           JWT
 	Observability Observability
+	SeedAdmin     SeedAdmin
 }
 
 type Runtime struct {
@@ -40,6 +44,26 @@ type Database struct {
 	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
 }
 
+// Events configures the Kafka producer behind the outbox relayer (ADR-0002):
+// identity publishes SessionRevoked on IdentityTopic so the gateway can enforce
+// revocations (ADR-0003 addendum). With KafkaEnabled=false nothing is produced.
+type Events struct {
+	KafkaEnabled  bool   `env:"KAFKA_ENABLED" default:"false"`
+	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+	IdentityTopic string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
+}
+
+// Outbox configures the transactional-outbox relayer (same names as team-domain).
+// Revokes always record an outbox row in the same DB transaction; the relayer only
+// runs when OUTBOX_ENABLED and KAFKA_ENABLED are both true.
+type Outbox struct {
+	Enabled          bool   `env:"OUTBOX_ENABLED" default:"true"`
+	PollInterval     string `env:"OUTBOX_POLL_INTERVAL" default:"1s"` // Go duration, e.g. 1s, 500ms
+	BatchSize        int    `env:"OUTBOX_BATCH_SIZE" default:"100"`
+	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
+	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+}
+
 // JWT holds the RSA signing material identity mints RS256 tokens with, plus the
 // port of the small HTTP listener that publishes the matching public key(s) as a
 // JWKS the edge fetches (ADR-0006). The private key never leaves this service.
@@ -48,6 +72,18 @@ type JWT struct {
 	KID          string `env:"JWT_KID" default:""`         // key id stamped in each token header
 	JWKSHTTPPort int    `env:"JWKS_HTTP_PORT" default:"50063"`
 	TTLSeconds   int    `env:"JWT_TTL_SECONDS" default:"3600"`
+}
+
+// MinSeedAdminPasswordLen is the shortest SEED_ADMIN_PASSWORD accepted.
+const MinSeedAdminPasswordLen = 12
+
+// SeedAdmin opts in to creating a first admin account at startup. It is OFF by
+// default and the password has no default: the service never ships a built-in
+// credential. Deployment manifests must not enable it (see platform-gitops check).
+type SeedAdmin struct {
+	Enabled  bool   `env:"SEED_ADMIN_ENABLED" default:"false"`
+	Username string `env:"SEED_ADMIN_USERNAME" default:"admin"`
+	Password string `env:"SEED_ADMIN_PASSWORD" default:""`
 }
 
 type Observability struct {
@@ -77,6 +113,14 @@ func (s *Settings) Validate() error {
 	if strings.TrimSpace(s.JWT.KID) == "" {
 		return errors.New("JWT_KID is required")
 	}
+	if s.SeedAdmin.Enabled {
+		if strings.TrimSpace(s.SeedAdmin.Username) == "" {
+			return errors.New("SEED_ADMIN_USERNAME must not be empty when SEED_ADMIN_ENABLED=true")
+		}
+		if len(s.SeedAdmin.Password) < MinSeedAdminPasswordLen {
+			return fmt.Errorf("SEED_ADMIN_PASSWORD is required and must be at least %d characters when SEED_ADMIN_ENABLED=true", MinSeedAdminPasswordLen)
+		}
+	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
 	}
@@ -87,6 +131,28 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("JWT_TTL_SECONDS must be > 0: %d", s.JWT.TTLSeconds)
 	}
 	return nil
+}
+
+// KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
+func (s *Settings) KafkaBrokers() []string {
+	parts := strings.Split(s.Events.Brokers, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// OutboxPollInterval parses OUTBOX_POLL_INTERVAL, defaulting to 1s when unset or
+// unparseable.
+func (s *Settings) OutboxPollInterval() time.Duration {
+	d, err := time.ParseDuration(strings.TrimSpace(s.Outbox.PollInterval))
+	if err != nil || d <= 0 {
+		return time.Second
+	}
+	return d
 }
 
 func (s *Settings) IsProd() bool {

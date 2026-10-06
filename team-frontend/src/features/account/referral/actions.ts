@@ -2,39 +2,33 @@
 
 import { revalidatePath } from "next/cache";
 
+import { errorMessage } from "@/features/account/action-error";
+import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { createReferralCode, redeemReferral } from "@/lib/gateway/referral";
 
-export async function ensureReferralCodeAction(): Promise<{
-  ok: boolean;
-  code?: string;
-  message?: string;
-}> {
+export async function ensureReferralCodeAction(): Promise<
+  ActionResult<{ code: string }>
+> {
   try {
     const code = await createReferralCode();
     revalidatePath("/account/referral");
-    return { ok: true, code };
+    return ok({ code });
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Tạo mã giới thiệu thất bại.",
-    };
+    return fail(errorMessage(err, "Tạo mã giới thiệu thất bại."));
   }
 }
 
 export async function redeemReferralAction(
   code: string,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<ActionResult> {
   if (!code.trim()) {
-    return { ok: false, message: "Vui lòng nhập mã giới thiệu." };
+    return fail("Vui lòng nhập mã giới thiệu.");
   }
   try {
     await redeemReferral(code);
     revalidatePath("/account/referral");
-    return { ok: true };
+    return ok();
   } catch (err: unknown) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Nhập mã giới thiệu thất bại.",
-    };
+    return fail(errorMessage(err, "Nhập mã giới thiệu thất bại."));
   }
 }

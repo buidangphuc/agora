@@ -7,4 +7,5 @@ Feature: AI magic listing
     Given a seeded seller is logged in
     When the seller opens the new listing form
     And the seller clicks the AI generate button
+    And the seller applies all AI suggestions
     Then the description field is filled by AI

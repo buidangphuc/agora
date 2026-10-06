@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
+import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/ToastProvider";
+import { usePendingAction } from "@/features/account/usePendingAction";
 import { AlertType } from "@/generated/platform/notification/v1/notification_pb.js";
-import { unsubscribeAlertAction } from "./actions";
+import { removeAlertSubscriptionAction } from "./actions";
 
 export interface AlertSubscriptionRow {
   id: string;
@@ -14,14 +19,25 @@ export interface AlertSubscriptionRow {
   title: string;
 }
 
-function typeLabel(type: AlertType): { icon: string; text: string } {
+function typeLabel(type: AlertType): string {
   switch (type) {
     case AlertType.PRICE_DROP:
-      return { icon: "📉", text: "Giảm giá" };
+      return "Giảm giá";
     case AlertType.BACK_IN_STOCK:
-      return { icon: "📦", text: "Có hàng lại" };
+      return "Có hàng lại";
     default:
-      return { icon: "🔔", text: "Thông báo" };
+      return "Thông báo";
+  }
+}
+
+function dataType(type: AlertType): string {
+  switch (type) {
+    case AlertType.PRICE_DROP:
+      return "price_drop";
+    case AlertType.BACK_IN_STOCK:
+      return "back_in_stock";
+    default:
+      return "unknown";
   }
 }
 
@@ -35,80 +51,69 @@ export function AlertSubscriptions({
   initial: AlertSubscriptionRow[];
 }) {
   const [rows, setRows] = useState<AlertSubscriptionRow[]>(initial);
-  const [pending, start] = useTransition();
+  const [removing, setRemoving] = useState<string | null>(null);
+  const { pending, run } = usePendingAction();
   const toast = useToast();
 
   function remove(id: string, listingId: string) {
-    start(async () => {
-      const res = await unsubscribeAlertAction(id, listingId);
+    setRemoving(id);
+    void run(async () => {
+      const res = await removeAlertSubscriptionAction(id, listingId);
       if (res.ok) {
         setRows((prev) => prev.filter((r) => r.id !== id));
         toast.info("Đã hủy theo dõi thông báo.");
       } else {
-        toast.error(res.message || "Hủy thông báo thất bại.");
+        toast.error(res.error);
       }
-    });
+    }).finally(() => setRemoving(null));
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs space-y-3">
-      <div>
-        <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-          <span>🔔</span>
-          <span>Thông báo đang theo dõi</span>
+    <Card>
+      <CardHeader className="flex-col items-start justify-start gap-0">
+        <h2 className="text-base font-semibold text-text-primary">
+          Thông báo đang theo dõi
         </h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Sản phẩm bạn đã bật báo giảm giá hoặc có hàng lại
+        <p className="mt-0.5 text-xs text-text-secondary">
+          Sản phẩm bạn đã bật báo giảm giá hoặc có hàng lại.
         </p>
-      </div>
-
+      </CardHeader>
       {rows.length === 0 ? (
-        <p className="text-xs text-gray-400 py-2">
-          Bạn chưa theo dõi thông báo cho sản phẩm nào. Mở một sản phẩm và bật
-          "Báo tôi khi giảm giá / có hàng lại".
-        </p>
+        <Empty description='Bạn chưa theo dõi thông báo cho sản phẩm nào. Mở một sản phẩm và bật "Báo tôi khi giảm giá / có hàng lại".' />
       ) : (
-        <ul className="divide-y divide-gray-100">
-          {rows.map((r) => {
-            const label = typeLabel(r.type);
-            return (
+        <CardContent className="py-2">
+          <ul className="divide-y divide-border-subtle">
+            {rows.map((r) => (
               <li
                 key={r.id}
                 data-testid="alert-subscription"
-                data-type={
-                  r.type === AlertType.PRICE_DROP
-                    ? "price_drop"
-                    : r.type === AlertType.BACK_IN_STOCK
-                      ? "back_in_stock"
-                      : "unknown"
-                }
-                className="flex items-center justify-between gap-3 py-2.5"
+                data-type={dataType(r.type)}
+                className="flex items-center justify-between gap-3 py-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 space-y-1">
                   <Link
                     href={`/listing/${r.listingId}`}
-                    className="block truncate text-sm font-medium text-gray-800 hover:text-brand"
+                    className="block truncate text-sm font-medium text-text-primary hover:text-action-primary"
                   >
                     {r.title}
                   </Link>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
-                    <span>{label.icon}</span>
-                    <span>{label.text}</span>
-                  </span>
+                  <Tag>{typeLabel(r.type)}</Tag>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-10 shrink-0"
+                  isLoading={pending && removing === r.id}
                   disabled={pending}
                   onClick={() => remove(r.id, r.listingId)}
-                  className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-red-300 hover:text-red-600 disabled:opacity-60"
                 >
                   Hủy
-                </button>
+                </Button>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
+import { trackEcommerce } from "@/lib/analytics";
 import Link from "next/link";
 import type { ComponentProps, MouseEvent } from "react";
-import { trackEcommerce } from "@/lib/analytics";
 
 type TrackLinkProps = ComponentProps<typeof Link> & {
   /** Listing this link points at; carried on the click beacon. */

@@ -1,152 +1,61 @@
-"use client";
-
-import { useState } from "react";
-
+import { Card, CardContent } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
+import { Tag } from "@/components/ui/Tag";
 import type { ViewAddress } from "@/lib/gateway/addresses";
-import { AddressModal } from "./AddressModal";
-import { deleteAddressAction, setDefaultAddressAction } from "./actions";
+import { AddAddressButton, AddressActions } from "./AddressActions";
 
-export function AddressManager({
-  addresses,
-}: {
-  addresses: ViewAddress[];
-}) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<ViewAddress | null>(
-    null,
-  );
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+function fullAddress(addr: ViewAddress): string {
+  return [addr.street, addr.ward, addr.district, addr.city]
+    .filter(Boolean)
+    .join(", ");
+}
 
-  function handleOpenCreate() {
-    setEditingAddress(null);
-    setModalOpen(true);
-  }
-
-  function handleOpenEdit(addr: ViewAddress) {
-    setEditingAddress(addr);
-    setModalOpen(true);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Bạn có chắc chắn muốn xóa địa chỉ này?")) return;
-    setDeletingId(id);
-    try {
-      await deleteAddressAction(id);
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  async function handleSetDefault(id: string) {
-    await setDefaultAddressAction(id);
-  }
-
+/**
+ * Address book: a server-rendered card list. Only the buttons that open
+ * modals or mutate (AddAddressButton, AddressActions) are client islands.
+ */
+export function AddressManager({ addresses }: { addresses: ViewAddress[] }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Địa chỉ của tôi
-          </h2>
-          <p className="text-xs text-gray-500">
-            Quản lý danh sách địa chỉ giao nhận hàng của bạn.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleOpenCreate}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-dark"
-        >
-          + Thêm địa chỉ mới
-        </button>
+      <div className="flex justify-end">
+        <AddAddressButton className="w-full sm:w-auto" />
       </div>
 
       {addresses.length === 0 ? (
-        <div className="rounded-xl border border-dashed bg-white p-8 text-center text-gray-500">
-          <p className="text-3xl">📍</p>
-          <p className="mt-2 text-sm">Bạn chưa có địa chỉ nhận hàng nào.</p>
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="mt-3 text-sm font-medium text-brand hover:underline"
-          >
-            Thêm địa chỉ ngay
-          </button>
-        </div>
+        <Card>
+          <Empty
+            description="Bạn chưa có địa chỉ nhận hàng nào."
+            action={
+              <AddAddressButton label="Thêm địa chỉ ngay" variant="outline" />
+            }
+          />
+        </Card>
       ) : (
-        <div className="grid gap-3">
+        <ul className="space-y-3">
           {addresses.map((addr) => (
-            <div
-              key={addr.id}
-              className={`relative rounded-xl border p-4 transition ${
-                addr.isDefault
-                  ? "border-brand/40 bg-orange-50/20 shadow-xs"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900">
-                      {addr.recipientName}
-                    </span>
-                    <span className="text-xs text-gray-400">|</span>
-                    <span className="text-sm text-gray-600">{addr.phone}</span>
-                    {addr.isDefault && (
-                      <span className="rounded bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
-                        Mặc định
+            <li key={addr.id} data-testid="address-card">
+              <Card>
+                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-base font-semibold text-text-primary">
+                        {addr.recipientName}
                       </span>
-                    )}
+                      <span className="text-sm text-text-secondary">
+                        {addr.phone}
+                      </span>
+                      {addr.isDefault && <Tag color="primary">Mặc định</Tag>}
+                    </div>
+                    <p className="text-sm text-text-primary">
+                      {fullAddress(addr)}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-700">
-                    {addr.street}
-                    {addr.ward ? `, ${addr.ward}` : ""}
-                    {addr.district ? `, ${addr.district}` : ""}
-                    {`, ${addr.city}`}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(addr)}
-                    className="text-xs font-medium text-blue-600 hover:underline"
-                  >
-                    Sửa
-                  </button>
-                  {!addr.isDefault && (
-                    <>
-                      <span className="text-gray-300">·</span>
-                      <button
-                        type="button"
-                        disabled={deletingId === addr.id}
-                        onClick={() => handleDelete(addr.id)}
-                        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-40"
-                      >
-                        {deletingId === addr.id ? "Đang xóa..." : "Xóa"}
-                      </button>
-                      <span className="text-gray-300">·</span>
-                      <button
-                        type="button"
-                        onClick={() => handleSetDefault(addr.id)}
-                        className="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        Thiết lập mặc định
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
+                  <AddressActions address={addr} />
+                </CardContent>
+              </Card>
+            </li>
           ))}
-        </div>
-      )}
-
-      {modalOpen && (
-        <AddressModal
-          address={editingAddress}
-          onClose={() => setModalOpen(false)}
-        />
+        </ul>
       )}
     </div>
   );

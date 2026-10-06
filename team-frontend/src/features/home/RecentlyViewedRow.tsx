@@ -21,16 +21,16 @@ export async function RecentlyViewedRow({ limit = 12 }: { limit?: number }) {
   if (items.length === 0) return null;
 
   return (
-    <section className="space-y-3">
-      <div className="rounded-xs bg-white p-3 shadow-shopee border-b-2 border-brand flex items-center justify-between">
-        <span className="font-bold text-sm text-brand uppercase tracking-wider flex items-center gap-1.5">
-          <span>👀</span>
-          <span>Vừa xem</span>
-        </span>
-        <span className="text-[12px] text-gray-400 font-normal">
+    <section aria-labelledby="recently-viewed-title" className="space-y-4">
+      <h2
+        id="recently-viewed-title"
+        className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-surface-card px-5 py-4 text-lg font-semibold text-text-primary shadow-preline-card"
+      >
+        Vừa xem
+        <span className="text-xs font-normal text-text-secondary">
           Sản phẩm bạn đã xem gần đây
         </span>
-      </div>
+      </h2>
       <ListingGrid listings={items} />
     </section>
   );

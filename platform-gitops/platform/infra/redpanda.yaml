@@ -50,3 +50,43 @@ spec:
   ports:
     - { name: kafka, port: 9092, targetPort: 9092 }
     - { name: admin, port: 9644, targetPort: 9644 }
+---
+# Topic provisioning, mirroring docker-compose.services.yaml `redpanda-init`. ArgoCD
+# PostSync hook: re-runs on every sync once the broker is Healthy; `rpk topic create`
+# is idempotent for existing topics (errors tolerated per topic). Event topics follow
+# <domain>.events with a .dlq park for consumers that dead-letter poison records.
+#   payment.events   produced by team-payment (outbox)      consumed by team-order (+ .dlq)
+#   order.events     produced by team-order (outbox)        consumed by team-notification, team-analytics (+ .dlq)
+#   chat.events      produced by team-chat                  consumed by team-notification (+ .dlq)
+#   listing.events   produced by team-domain (outbox)       consumed by team-search indexer, team-notification (+ .dlq)
+#   identity.events  produced by team-identity (outbox)     consumed by team-gateway (revocation denylist)
+#   promotion.events, analytics.events — producers/consumers per their services
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redpanda-init
+  namespace: marketplace
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: rpk
+          image: redpandadata/redpanda:v24.1.7
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              BROKERS=redpanda.marketplace.svc:9092
+              for t in payment.events payment.events.dlq \
+                       order.events order.events.dlq \
+                       chat.events chat.events.dlq \
+                       listing.events listing.events.dlq \
+                       identity.events promotion.events analytics.events; do
+                rpk topic create "$t" -X brokers="$BROKERS" -p 1 -r 1 || true
+              done
+              rpk topic list -X brokers="$BROKERS"

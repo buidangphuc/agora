@@ -166,7 +166,7 @@ export function AiAssistantModal({
       {/* AI Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="flex flex-col h-[600px] w-full max-w-2xl rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="flex flex-col h-modal w-full max-w-2xl rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
             {/* Header */}
             <div className="flex items-center justify-between bg-gradient-to-r from-brand to-orange-600 p-4 text-white">
               <div className="flex items-center gap-2.5">
@@ -177,7 +177,7 @@ export function AiAssistantModal({
                   <h3 className="font-bold text-sm">
                     Marketplace AI Shopping Assistant
                   </h3>
-                  <p className="text-[11px] text-orange-100">
+                  <p className="text-xs text-orange-100">
                     Trợ lý tìm kiếm ngữ nghĩa & gợi ý sản phẩm thông minh bằng
                     AI
                   </p>
@@ -208,7 +208,7 @@ export function AiAssistantModal({
 
               {/* Suggestions pills */}
               <div className="space-y-1.5 pl-11">
-                <p className="text-[11px] font-semibold text-gray-500">
+                <p className="text-xs font-semibold text-gray-500">
                   Câu hỏi gợi ý:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -217,7 +217,7 @@ export function AiAssistantModal({
                       key={q}
                       type="button"
                       onClick={() => handleSearch(q)}
-                      className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-medium text-brand border border-brand/30 hover:bg-brand hover:text-white transition"
+                      className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-brand border border-brand/30 hover:bg-brand hover:text-white transition"
                     >
                       {q}
                     </button>
@@ -268,7 +268,7 @@ export function AiAssistantModal({
                               />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <span className="inline-block rounded-xs bg-emerald-50 px-1.5 py-0.2 text-[9px] font-bold text-emerald-700">
+                              <span className="inline-block rounded-xs bg-emerald-50 px-1.5 py-0.2 text-xs font-bold text-emerald-700">
                                 ⭐ {matchScore}% Khớp ý định
                               </span>
                               <h4 className="line-clamp-2 text-xs font-bold text-gray-900 mt-1">
@@ -280,7 +280,7 @@ export function AiAssistantModal({
                             </div>
                           </div>
 
-                          <div className="mt-2.5 rounded-lg bg-gray-50 p-2 text-[10px] text-gray-600 leading-tight border border-gray-100">
+                          <div className="mt-2.5 rounded-lg bg-gray-50 p-2 text-xs text-gray-600 leading-tight border border-gray-100">
                             💡 <strong>Lý do chọn:</strong> {reason}
                           </div>
 

@@ -341,7 +341,7 @@ To prevent client impersonation, `team-gateway` strips any client-supplied `x-pr
 | `SHUTDOWN_GRACE_SECONDS` | `float` | `10` | Grace period for draining active connections |
 | `JWKS_URL` | `string` | `http://localhost:50063/.well-known/jwks.json` | JWKS endpoint of `team-identity` |
 | `JWKS_CACHE_TTL` | `int` | `300` | In-memory JWKS public key cache TTL (seconds) |
-| `PUBLIC_SCOPES` | `string` | `listing.read,search:read` | Scopes granted to anonymous unauthenticated callers |
+| `PUBLIC_SCOPES` | `string` | `listing.read,search:read` | Scopes granted to callers that send **no** token. A token that is present but invalid/expired gets `Unauthenticated` (401), never these scopes |
 | `RATE_LIMIT_RPS` | `float` | `20` | Token bucket refill rate (requests/sec) per key |
 | `RATE_LIMIT_BURST` | `int` | `40` | Maximum token bucket burst capacity |
 | `CALL_TIMEOUT_SECONDS` | `float` | `5` | Context timeout for upstream gRPC calls |

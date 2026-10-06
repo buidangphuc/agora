@@ -39,3 +39,16 @@ class NotificationsPage(BasePage):
     def notifications_of_type(self, notif_type: str) -> Locator:
         """Notification rows by data-type, e.g. "price_drop" | "back_in_stock"."""
         return self.page.locator(f'[data-testid="notification-item"][data-type="{notif_type}"]')
+
+    # ── URL-held tabs (ui-phase-account): `?tab=all|order|chat|alert|system` ──
+    @property
+    def tabs(self) -> Locator:
+        return self.page.get_by_role("navigation", name="Tabs")
+
+    def tab(self, label: str) -> Locator:
+        """A tab link by its visible label (the count badge is part of the name)."""
+        return self.tabs.get_by_role("link", name=label)
+
+    @property
+    def current_tab(self) -> Locator:
+        return self.tabs.locator('a[aria-current="page"]')

@@ -15,8 +15,7 @@ export function ShareButton({ id }: { id: string }) {
   const toast = useToast();
 
   function shareLink(): string {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
     return `${origin}/s/${shortCode}`;
   }
 
@@ -48,10 +47,14 @@ export function ShareButton({ id }: { id: string }) {
         disabled={pending}
         className="rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
       >
-        {pending ? "Đang tạo..." : shortCode ? "📋 Sao chép liên kết" : "🔗 Chia sẻ"}
+        {pending
+          ? "Đang tạo..."
+          : shortCode
+            ? "📋 Sao chép liên kết"
+            : "🔗 Chia sẻ"}
       </button>
       {shortCode && (
-        <span className="max-w-[180px] truncate font-mono text-[11px] text-gray-400">
+        <span className="max-w-44 truncate font-mono text-xs text-gray-400">
           {shareLink()}
         </span>
       )}

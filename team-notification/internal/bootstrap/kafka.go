@@ -11,9 +11,10 @@ import (
 	"github.com/buidangphuc/team-notification/internal/consumer"
 )
 
-// KafkaConfig is the listing.events consumer wiring, read from the environment.
-// Enabled gates the whole consumer; the topic/DLQ/group defaults follow the
-// platform topic conventions (ADR-0002 / AD1).
+// KafkaConfig is one topic consumer's wiring, read from the environment. Enabled
+// gates the whole consumer; the topic/DLQ/group defaults follow the platform topic
+// conventions (ADR-0002 / AD1). team-notification runs one consumer per topic
+// (listing.events, chat.events, order.events), each in its own consumer group.
 type KafkaConfig struct {
 	Enabled       bool
 	Brokers       []string
@@ -33,17 +34,42 @@ func KafkaConfigFromEnv() KafkaConfig {
 	}
 }
 
-// ListingKafka holds the franz-go handles backing the listing.events consumer: a
-// consumer-group reader on listing.events with auto-commit DISABLED (so offsets
-// advance only after a record is applied or DLQ'd, AD1) and a producer for the
-// DLQ topic.
-type ListingKafka struct {
+// ChatKafkaConfigFromEnv reads the chat.events consumer settings. Brokers and the
+// enable flag are shared with the listing consumer.
+func ChatKafkaConfigFromEnv() KafkaConfig {
+	c := KafkaConfigFromEnv()
+	c.ConsumerGroup = envStr("NOTIFICATION_CHAT_CONSUMER_GROUP", "team-notification.chat")
+	c.Topic = envStr("CHAT_EVENTS_TOPIC", "chat.events")
+	c.DLQTopic = envStr("CHAT_EVENTS_DLQ_TOPIC", "chat.events.dlq")
+	return c
+}
+
+// OrderKafkaConfigFromEnv reads the order.events consumer settings. Brokers and
+// the enable flag are shared with the listing consumer.
+func OrderKafkaConfigFromEnv() KafkaConfig {
+	c := KafkaConfigFromEnv()
+	c.ConsumerGroup = envStr("NOTIFICATION_ORDER_CONSUMER_GROUP", "team-notification.order")
+	c.Topic = envStr("ORDER_EVENTS_TOPIC", "order.events")
+	c.DLQTopic = envStr("ORDER_EVENTS_DLQ_TOPIC", "order.events.dlq")
+	return c
+}
+
+// TopicKafka holds the franz-go handles backing one topic consumer: a
+// consumer-group reader with auto-commit DISABLED (so offsets advance only after a
+// record is applied or DLQ'd, AD1) and a producer for the DLQ topic.
+type TopicKafka struct {
 	reader *kafkaReader
 	dlq    *kafkaDLQ
 }
 
+// ListingKafka is the TopicKafka behind the listing.events consumer.
+type ListingKafka = TopicKafka
+
 // NewListingKafka dials the brokers and joins the consumer group.
-func NewListingKafka(cfg KafkaConfig) (*ListingKafka, error) {
+func NewListingKafka(cfg KafkaConfig) (*ListingKafka, error) { return NewTopicKafka(cfg) }
+
+// NewTopicKafka dials the brokers and joins cfg's consumer group on cfg.Topic.
+func NewTopicKafka(cfg KafkaConfig) (*TopicKafka, error) {
 	consumerClient, err := kgo.NewClient(
 		kgo.SeedBrokers(cfg.Brokers...),
 		kgo.ConsumerGroup(cfg.ConsumerGroup),
@@ -61,20 +87,20 @@ func NewListingKafka(cfg KafkaConfig) (*ListingKafka, error) {
 		consumerClient.Close()
 		return nil, err
 	}
-	return &ListingKafka{
+	return &TopicKafka{
 		reader: &kafkaReader{client: consumerClient},
 		dlq:    &kafkaDLQ{client: dlqClient},
 	}, nil
 }
 
 // Reader returns the consumer.RecordReader over listing.events.
-func (k *ListingKafka) Reader() consumer.RecordReader { return k.reader }
+func (k *TopicKafka) Reader() consumer.RecordReader { return k.reader }
 
 // DLQ returns the consumer.DeadLetterProducer for parked records.
-func (k *ListingKafka) DLQ() consumer.DeadLetterProducer { return k.dlq }
+func (k *TopicKafka) DLQ() consumer.DeadLetterProducer { return k.dlq }
 
 // Close flushes and shuts both clients down.
-func (k *ListingKafka) Close() {
+func (k *TopicKafka) Close() {
 	k.reader.client.Close()
 	k.dlq.client.Close()
 }

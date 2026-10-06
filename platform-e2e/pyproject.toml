@@ -44,6 +44,7 @@ markers = [
     "shop: public seller storefront and shop journeys",
     "search: catalog search and filtering journeys",
     "chat: buyer seller messaging and threads",
+    "destructive: stops a real stack service, turns off a stack-wide switch (checkout-enabled) or needs an idle stack for the scenario (restored in teardown); never run in parallel",
     "killswitch: checkout-enabled emergency kill-switch scenarios",
     "wap: mobile/WAP emulation scenarios",
     "needsSeller: Before-seeds a seller account via the gateway API",

@@ -82,3 +82,28 @@ features:
     tags: [buyer, tracking]
     status: automated
     covered_by: "tracking/emit_tracking.feature::A browsing action still succeeds when the event cannot be delivered"
+
+  - id: gateway.client-ip-not-spoofable
+    title: A client cannot spoof the recorded session IP
+    persona: guest
+    priority: P1
+    summary: >-
+      The gateway builds x-client-ip / x-client-user-agent from what it observed and
+      overwrites any inbound value; X-Forwarded-For is honoured only from a peer listed in
+      TRUSTED_PROXIES (the frontend). An untrusted client claiming another IP is recorded
+      with its socket address.
+    entry_route: /login
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: guest
+    api:
+      exercised: [identity.v1.Login, identity.v1.ListSessions]
+    acceptance:
+      - Given an untrusted client
+      - When it logs in sending X-Forwarded-For and x-client-ip of 1.2.3.4
+      - Then the recorded session IP is the socket address, not 1.2.3.4
+    tags: [auth]
+    status: automated
+    covered_by: "auth/session_revocation.feature::A client cannot spoof the recorded session IP"
+    notes: >-
+      Scenario "A client cannot spoof the recorded session IP" in auth/session_revocation.feature.

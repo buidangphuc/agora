@@ -1,13 +1,10 @@
 """Binds notification/alert_delivery.feature.
 
 These scenarios drive the real async alert-delivery flow (subscribe -> seller
-changes price/stock -> notification appears). The flow is currently broken in the
-backend: team-domain publishes platform.listing.v1.ListingChanged on
-listing.events, while team-notification's consumer only reacts to
-ListingPricingChanged / ListingStockChanged (which nothing produces), so no
-notification is ever created. The scenarios are therefore marked xfail — they
-document the expected behaviour and self-heal (xpass) once the producer/consumer
-contract is reconciled.
+changes price/stock -> notification appears). team-notification self-diffs each
+platform.listing.v1.ListingChanged snapshot against the last price/stock it saw,
+so it needs the listing's events in creation order (the outbox relayers keep
+that order within a claimed batch).
 """
 
 from pytest_bdd import scenario
@@ -29,4 +26,12 @@ def test_price_drop_delivery() -> None:
     "Back-in-stock notification after the seller restocks",
 )
 def test_back_in_stock_delivery() -> None:
+    pass
+
+
+@scenario(
+    "notification/alert_delivery.feature",
+    "Two buyers do not see each other's notifications",
+)
+def test_notifications_are_per_user() -> None:
     pass

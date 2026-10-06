@@ -1,8 +1,12 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   AUTHORIZATION_HEADER,
+  FORWARDED_FOR_HEADER,
   REQUEST_ID_HEADER,
+  USER_AGENT_HEADER,
+  anonymousFallbackInterceptor,
   authInterceptor,
 } from "./auth.js";
 
@@ -45,6 +49,28 @@ describe("authInterceptor", () => {
     expect(next).toHaveBeenCalledOnce();
   });
 
+  it("forwards the browser ip and user agent when a client context is given", async () => {
+    const next = vi.fn(async (req) => req);
+    const req = makeReq();
+
+    await authInterceptor({
+      client: { ip: "203.0.113.7", userAgent: "Mozilla/5.0" },
+    })(next)(req);
+
+    expect(req.header.get(FORWARDED_FOR_HEADER)).toBe("203.0.113.7");
+    expect(req.header.get(USER_AGENT_HEADER)).toBe("Mozilla/5.0");
+  });
+
+  it("sends neither header without a client context", async () => {
+    const next = vi.fn(async (req) => req);
+    const req = makeReq();
+
+    await authInterceptor({ token: "t" })(next)(req);
+
+    expect(req.header.has(FORWARDED_FOR_HEADER)).toBe(false);
+    expect(req.header.has(USER_AGENT_HEADER)).toBe(false);
+  });
+
   it("generates an x-request-id when none is supplied", async () => {
     const next = vi.fn(async (req) => req);
     const req = makeReq();
@@ -65,5 +91,61 @@ describe("authInterceptor", () => {
     req2.header.set(REQUEST_ID_HEADER, "already-here");
     await authInterceptor({ requestId: "ignored" })(next)(req2);
     expect(req2.header.get(REQUEST_ID_HEADER)).toBe("already-here");
+  });
+});
+
+describe("anonymousFallbackInterceptor", () => {
+  const unauthenticated = () =>
+    new ConnectError("bad token", Code.Unauthenticated);
+
+  // Mirror the real chain: auth sets the header, fallback sits inside it.
+  async function run(
+    token: string | undefined,
+    transport: (req: { header: Headers }) => Promise<unknown>,
+  ) {
+    const req = makeReq();
+    const fallback = anonymousFallbackInterceptor()(transport as never);
+    return authInterceptor({ token })(fallback as never)(req);
+  }
+
+  it("retries once without the bearer when the gateway answers Unauthenticated", async () => {
+    const seen: (string | null)[] = [];
+    const transport = vi.fn(async (req: { header: Headers }) => {
+      seen.push(req.header.get(AUTHORIZATION_HEADER));
+      if (req.header.has(AUTHORIZATION_HEADER)) throw unauthenticated();
+      return "ok";
+    });
+    await expect(run("stale", transport)).resolves.toBe("ok");
+    expect(seen).toEqual(["bearer stale", null]);
+  });
+
+  it("does not retry other errors", async () => {
+    const transport = vi.fn(async () => {
+      throw new ConnectError("down", Code.Unavailable);
+    });
+    await expect(run("t", transport)).rejects.toMatchObject({
+      code: Code.Unavailable,
+    });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry an anonymous call that is itself Unauthenticated", async () => {
+    const transport = vi.fn(async () => {
+      throw unauthenticated();
+    });
+    await expect(run(undefined, transport)).rejects.toMatchObject({
+      code: Code.Unauthenticated,
+    });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces the error if the anonymous retry also fails (single retry)", async () => {
+    const transport = vi.fn(async () => {
+      throw unauthenticated();
+    });
+    await expect(run("t", transport)).rejects.toMatchObject({
+      code: Code.Unauthenticated,
+    });
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 });

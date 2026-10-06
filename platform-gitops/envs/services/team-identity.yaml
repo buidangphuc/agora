@@ -23,6 +23,17 @@ env:
   # JWKS HTTP listener (ADR-0006): identity is otherwise gRPC-only. It publishes
   # its RSA public key(s) at GET /.well-known/jwks.json on this port for the edge.
   JWKS_HTTP_PORT: "50063"
+  # SessionRevoked outbox relayer (ADR-0003 addendum): publishes to identity.events.
+  KAFKA_ENABLED: "true"
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+  IDENTITY_EVENTS_TOPIC: "identity.events"
+  OUTBOX_ENABLED: "true"
+  OUTBOX_POLL_INTERVAL: "1s"
+  OUTBOX_BATCH_SIZE: "100"
+  OUTBOX_CLAIM_LOCK_SECONDS: "60"
+  OUTBOX_MAX_ATTEMPTS: "10"
+  # First-admin seed is intentionally NOT configured here (default off; enforced by
+  # scripts/check_identity_seed.py). Create the first admin out of band.
 secrets:
   enabled: true      # DATABASE_URL + RS256 signing key from Vault (svc/team-identity + shared/jwt)
   jwtShared: true    # now the RS256 PRIVATE key + kid (JWT_PRIVATE_KEY, JWT_KID); identity-only
@@ -31,7 +42,7 @@ secrets:
 # team-order (address validation). Deployed envs only (local exempt per ADR-0010).
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway, team-order]
+  allowFrom: [team-gateway, team-order, team-notification]
 # NOTE: 50063 is now exposed in-cluster via the chart's optional `jwksPort` (set
 # above): charts/service renders a second `jwks` containerPort + Service port so the
 # gateway can reach http://team-identity:50063. Local dev reaches it via docker-compose.

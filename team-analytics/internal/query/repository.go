@@ -74,6 +74,20 @@ type ForecastResult struct {
 	DailyForecast []DailyPoint
 }
 
+// OrderSummary is the platform-wide paid-order aggregate over a window.
+type OrderSummary struct {
+	OrderCount int64 // distinct paid orders
+	GMV        int64 // SUM(quantity * unit_price), minor units
+}
+
+// RecentOrder is one paid order, aggregated over its line items.
+type RecentOrder struct {
+	OrderID  string
+	SellerID string // first seller on the order when it spans several
+	Total    int64  // minor units
+	PaidAt   time.Time
+}
+
 // Repository is the read-only warehouse seam the query service depends on. Two
 // implementations exist: DuckDBRepository (real SQL over tracking_events) and
 // MemoryRepository (in-memory, used by the unit tests so they need no live
@@ -87,5 +101,9 @@ type Repository interface {
 	RevenueBreakdown(ctx context.Context, sellerID string, from, to time.Time, topN int) (Breakdown, error)
 	// DemandForecast returns probabilistic demand quantiles (p10, p50, p90) for a listing over horizonDays.
 	DemandForecast(ctx context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error)
+	// PlatformOrderSummary aggregates every seller's paid orders with
+	// occurred_at >= since. An empty table yields the zero summary.
+	PlatformOrderSummary(ctx context.Context, since time.Time) (OrderSummary, error)
+	// RecentOrders returns up to limit paid orders, newest first.
+	RecentOrders(ctx context.Context, limit int) ([]RecentOrder, error)
 }
-
