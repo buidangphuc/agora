@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	sharingv1 "github.com/buidangphuc/team-sharing/generated/platform/sharing/v1"
+	"github.com/buidangphuc/team-sharing/internal/interceptor"
 	"github.com/buidangphuc/team-sharing/internal/service"
 )
 
@@ -35,7 +36,7 @@ func mapErr(err error) error {
 }
 
 func (h *SharingHandler) CreateShareLink(ctx context.Context, req *sharingv1.CreateShareLinkRequest) (*sharingv1.CreateShareLinkResponse, error) {
-	link, err := h.svc.CreateShareLink(ctx, req.GetTargetType(), req.GetTargetId(), req.GetUtm())
+	link, err := h.svc.CreateShareLink(ctx, interceptor.CallerID(ctx), req.GetTargetType(), req.GetTargetId(), req.GetUtm())
 	if err != nil {
 		return nil, mapErr(err)
 	}

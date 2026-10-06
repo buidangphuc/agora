@@ -50,9 +50,9 @@ func NewShareService(repo repository.ShareLinkRepository) *ShareService {
 
 // CreateShareLink mints a short code for the given target, stamps the UTM map and
 // a synthesized OG preview, and stores it. target_type/target_id are required;
-// utm may be nil (stored as empty). The caller (anonymous allowed) is accepted
-// but the link itself is a public artifact.
-func (s *ShareService) CreateShareLink(ctx context.Context, targetType, targetID string, utm map[string]string) (*repository.ShareLink, error) {
+// utm may be nil (stored as empty). createdBy is the authenticated principal id
+// ("" for anonymous callers); the link itself is a public artifact.
+func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetType, targetID string, utm map[string]string) (*repository.ShareLink, error) {
 	if targetType == "" {
 		return nil, ErrEmptyTargetType
 	}
@@ -71,6 +71,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, targetType, targetID
 			ShortCode:     code,
 			TargetType:    targetType,
 			TargetID:      targetID,
+			CreatedBy:     createdBy,
 			UTM:           utm,
 			OgTitle:       title,
 			OgDescription: desc,

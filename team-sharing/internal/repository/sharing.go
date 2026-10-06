@@ -24,6 +24,7 @@ type ShareLink struct {
 	ShortCode     string
 	TargetType    string
 	TargetID      string
+	CreatedBy     string // authenticated creator principal id; "" when anonymous
 	UTM           map[string]string
 	OgTitle       string
 	OgDescription string
@@ -62,14 +63,14 @@ func (r *PostgresShareLinkRepo) Create(ctx context.Context, link *ShareLink) (*S
 	}
 	const q = `
 		INSERT INTO share_links
-			(short_code, target_type, target_id, utm, og_title, og_description, og_image_url, click_count, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, NOW())
+			(short_code, target_type, target_id, utm, og_title, og_description, og_image_url, created_by, click_count, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW())
 		ON CONFLICT (short_code) DO NOTHING
 		RETURNING created_at`
 	var createdAt time.Time
 	err = r.pool.QueryRow(ctx, q,
 		link.ShortCode, link.TargetType, link.TargetID, raw,
-		link.OgTitle, link.OgDescription, link.OgImageURL,
+		link.OgTitle, link.OgDescription, link.OgImageURL, link.CreatedBy,
 	).Scan(&createdAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// ON CONFLICT DO NOTHING returned no row → the code was taken.
@@ -89,14 +90,14 @@ func (r *PostgresShareLinkRepo) Resolve(ctx context.Context, shortCode string) (
 		UPDATE share_links
 		SET click_count = click_count + 1
 		WHERE short_code = $1
-		RETURNING short_code, target_type, target_id, utm, og_title, og_description, og_image_url, click_count, created_at`
+		RETURNING short_code, target_type, target_id, utm, og_title, og_description, og_image_url, created_by, click_count, created_at`
 	var (
 		link ShareLink
 		raw  []byte
 	)
 	err := r.pool.QueryRow(ctx, q, shortCode).Scan(
 		&link.ShortCode, &link.TargetType, &link.TargetID, &raw,
-		&link.OgTitle, &link.OgDescription, &link.OgImageURL,
+		&link.OgTitle, &link.OgDescription, &link.OgImageURL, &link.CreatedBy,
 		&link.ClickCount, &link.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {

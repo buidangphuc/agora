@@ -20,7 +20,7 @@ func TestCreateResolveRoundtrip(t *testing.T) {
 	ctx := context.Background()
 
 	utm := map[string]string{"utm_source": "zalo", "utm_medium": "social"}
-	created, err := svc.CreateShareLink(ctx, "listing", "listing_123", utm)
+	created, err := svc.CreateShareLink(ctx, "", "listing", "listing_123", utm)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestResolveIncrementsClickCount(t *testing.T) {
 	svc := newService()
 	ctx := context.Background()
 
-	created, err := svc.CreateShareLink(ctx, "storefront", "shop_9", nil)
+	created, err := svc.CreateShareLink(ctx, "", "storefront", "shop_9", nil)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -80,10 +80,10 @@ func TestCreateAndResolveValidation(t *testing.T) {
 	svc := newService()
 	ctx := context.Background()
 
-	if _, err := svc.CreateShareLink(ctx, "", "id", nil); !errors.Is(err, service.ErrEmptyTargetType) {
+	if _, err := svc.CreateShareLink(ctx, "", "", "id", nil); !errors.Is(err, service.ErrEmptyTargetType) {
 		t.Fatalf("expected ErrEmptyTargetType, got %v", err)
 	}
-	if _, err := svc.CreateShareLink(ctx, "listing", "", nil); !errors.Is(err, service.ErrEmptyTargetID) {
+	if _, err := svc.CreateShareLink(ctx, "", "listing", "", nil); !errors.Is(err, service.ErrEmptyTargetID) {
 		t.Fatalf("expected ErrEmptyTargetID, got %v", err)
 	}
 	if _, err := svc.ResolveShareLink(ctx, ""); !errors.Is(err, service.ErrEmptyShortCode) {
@@ -97,7 +97,7 @@ func TestCreateWithNilUTM(t *testing.T) {
 	svc := newService()
 	ctx := context.Background()
 
-	created, err := svc.CreateShareLink(ctx, "listing", "l1", nil)
+	created, err := svc.CreateShareLink(ctx, "", "listing", "l1", nil)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -110,5 +110,19 @@ func TestCreateWithNilUTM(t *testing.T) {
 	}
 	if len(got.UTM) != 0 {
 		t.Fatalf("expected empty UTM, got %+v", got.UTM)
+	}
+}
+
+func TestCreateShareLinkRecordsCreator(t *testing.T) {
+	ctx := context.Background()
+	svc := service.NewShareService(repository.NewInMemoryShareLinkRepo())
+
+	owned, err := svc.CreateShareLink(ctx, "user-7", "listing", "l1", nil)
+	if err != nil || owned.CreatedBy != "user-7" {
+		t.Fatalf("owned link: %+v err=%v", owned, err)
+	}
+	anon, err := svc.CreateShareLink(ctx, "", "listing", "l1", nil)
+	if err != nil || anon.CreatedBy != "" {
+		t.Fatalf("anonymous link: %+v err=%v", anon, err)
 	}
 }
