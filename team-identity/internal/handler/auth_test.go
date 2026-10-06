@@ -113,7 +113,7 @@ func TestChangePassword_PrincipalGate(t *testing.T) {
 func TestAuthHandler(t *testing.T) {
 	repo := repository.NewInMemoryUserRepository()
 	svc := service.NewAuthService(repo, testSigner(t), time.Hour)
-	h := handler.NewAuthHandler(svc)
+	h := handler.NewAuthHandler(svc).WithExposeResetToken(true) // tests consume the token
 	ctx := context.Background()
 
 	t.Run("Register handler", func(t *testing.T) {
@@ -221,6 +221,39 @@ func TestAuthHandler(t *testing.T) {
 		}
 		if loginRes.Result.Username != "reset_handler_user" {
 			t.Errorf("expected reset_handler_user, got %s", loginRes.Result.Username)
+		}
+	})
+}
+
+func TestRequestPasswordReset_TokenHiddenByDefault(t *testing.T) {
+	repo := repository.NewInMemoryUserRepository()
+	svc := service.NewAuthService(repo, testSigner(t), time.Hour)
+	ctx := context.Background()
+	reg := handler.NewAuthHandler(svc)
+	if _, err := reg.Register(ctx, &identityv1.RegisterRequest{Username: "rp_user", Password: "password123", Role: "buyer"}); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("default hides token", func(t *testing.T) {
+		res, err := reg.RequestPasswordReset(ctx, &identityv1.RequestPasswordResetRequest{Username: "rp_user"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.ResetToken != "" {
+			t.Fatal("reset token must not be returned unless explicitly enabled")
+		}
+		if res.ExpiresAt <= 0 {
+			t.Error("expires_at should still be set")
+		}
+	})
+
+	t.Run("dev flag exposes token", func(t *testing.T) {
+		res, err := reg.WithExposeResetToken(true).RequestPasswordReset(ctx, &identityv1.RequestPasswordResetRequest{Username: "rp_user"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.ResetToken == "" {
+			t.Fatal("expected token when PASSWORD_RESET_EXPOSE_TOKEN is on")
 		}
 	})
 }

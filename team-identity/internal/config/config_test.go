@@ -110,3 +110,24 @@ func TestSeedAdminLoadFailsFast(t *testing.T) {
 		t.Fatalf("LoadSettings err = %v, want SEED_ADMIN_PASSWORD error", err)
 	}
 }
+
+func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("JWT_PRIVATE_KEY", "pem")
+	t.Setenv("JWT_KID", "k")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.PasswordReset.ExposeToken {
+		t.Fatal("PASSWORD_RESET_EXPOSE_TOKEN must default to false")
+	}
+	t.Setenv("PASSWORD_RESET_EXPOSE_TOKEN", "true")
+	if _, err := LoadSettings(); err != nil {
+		t.Fatalf("local env should allow it: %v", err)
+	}
+	t.Setenv("ENV", "prod")
+	if _, err := LoadSettings(); err == nil || !strings.Contains(err.Error(), "PASSWORD_RESET_EXPOSE_TOKEN") {
+		t.Fatalf("prod must refuse it, got %v", err)
+	}
+}

@@ -60,7 +60,7 @@ func startServerWithSessions(
 		JWT:    config.JWT{KID: "test-kid", JWKSHTTPPort: 50063, TTLSeconds: 3600},
 	}
 	authSvc := service.NewAuthService(userRepo, testSigner(t), time.Hour).WithSessions(sessionRepo)
-	authHandler := handler.NewAuthHandler(authSvc)
+	authHandler := handler.NewAuthHandler(authSvc).WithExposeResetToken(true)
 	addrHandler := handler.NewAddressHandler(addrRepo, logger)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, logger)
 

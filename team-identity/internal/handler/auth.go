@@ -20,6 +20,15 @@ import (
 type AuthHandler struct {
 	identityv1.UnimplementedAuthServiceServer
 	svc *service.AuthService
+
+	exposeResetToken bool // dev/e2e only: return the raw reset token in the response
+}
+
+// WithExposeResetToken makes RequestPasswordReset return the raw reset token.
+// Off by default: the token is a bearer credential for the account.
+func (h *AuthHandler) WithExposeResetToken(on bool) *AuthHandler {
+	h.exposeResetToken = on
+	return h
 }
 
 func NewAuthHandler(svc *service.AuthService) *AuthHandler {
@@ -77,10 +86,11 @@ func (h *AuthHandler) RequestPasswordReset(
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return &identityv1.RequestPasswordResetResponse{
-		ResetToken: token,
-		ExpiresAt:  expiresAt.Unix(),
-	}, nil
+	resp := &identityv1.RequestPasswordResetResponse{ExpiresAt: expiresAt.Unix()}
+	if h.exposeResetToken {
+		resp.ResetToken = token
+	}
+	return resp, nil
 }
 
 func (h *AuthHandler) ResetPassword(
