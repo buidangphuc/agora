@@ -1,302 +1,200 @@
-# team-search — Search & Discovery Read-Model Microservice
+# team-search
 
-`team-search` is the high-performance **search and discovery read-model** microservice in the Agora marketplace architecture. Operating under the **CQRS pattern (ADR-0005)**, it consumes product lifecycle events asynchronously from Kafka (`listing.events`) emitted by `team-domain` and projects them into an optimized **OpenSearch** cluster.
+Search and discovery read-model for the Agora marketplace (Go). It owns the OpenSearch index
+`listings`, a projection built by consuming `listing.events` (CQRS, ADR-0005), and the
+`platform.search.v1.SearchService` gRPC API: lexical, semantic and hybrid (RRF) listing search,
+facets, prefix suggest, and per-user saved searches. Saved searches live in this service's own
+Postgres database (`search_db`) when `DATABASE_ENABLED=true`, and in memory otherwise.
 
-It provides sub-millisecond lexical full-text search, dense k-NN vector semantic search, hybrid multi-strategy retrieval with Reciprocal Rank Fusion (RRF), prefix autocomplete, dynamic multi-facet aggregation, and saved search queries via gRPC.
+Two binaries ship in one image (`Dockerfile`):
 
----
-
-## 1. Service Overview & Responsibilities
-
-- **CQRS Read-Model Projection**: Maintains an eventually-consistent, rebuildable read-projection in OpenSearch. Replaying the `listing.events` Kafka topic reconstructs the search index without querying source OLTP databases.
-- **Hybrid Multi-Strategy Retrieval**:
-  - **Lexical BM25**: Multi-match scoring over `title^2` and `description` with keyword filtering and numeric range checks.
-  - **Dense Vector Search**: Lucene-backed HNSW k-NN vector search on 384-dimensional embeddings generated via `platform-modelserve` (Text Embeddings Inference / TEI).
-  - **Reciprocal Rank Fusion (RRF)**: In-process score merging combining ranked candidate lists from lexical and semantic pipelines.
-  - **Fail-Open Resilience**: Graceful degradation to lexical search if semantic embedding services or vector queries experience latency spikes or outages.
-- **Dynamic Faceting & Aggregations**: Concurrent calculation of category terms, seller terms, structured price range buckets, and cumulative review rating floors over filtered hit sets.
-- **Type-Ahead Autocomplete**: Fast prefix auto-completion powered by OpenSearch `search_as_you_type` (`bool_prefix` on `title`, `title._2gram`, `title._3gram`).
-- **Saved Searches**: Management and retrieval of user-saved search queries and filter presets.
-- **Dual Process Architecture**:
-  1. `cmd/server`: gRPC query server on `:50052` serving `platform.search.v1.SearchService` and `SavedSearchService`.
-  2. `cmd/indexer`: Kafka consumer worker (`team-search-indexer` group) indexing and updating listings in real-time.
-
----
-
-## 2. Technology Stack & Key Libraries
-
-| Component / Layer | Technology / Library | Version / Details |
-|---|---|---|
-| **Language & Runtime** | Go | 1.22 |
-| **Search & Read Store** | OpenSearch / `opensearch-go/v2` | `v2.3.0` (HNSW k-NN vector + Lexical engine) |
-| **Messaging & Events** | Franz-go (`twmb/franz-go`) | `v1.18.0` (Kafka consumer for `listing.events`) |
-| **RPC Framework** | gRPC Go / Protobuf | `v1.66.0` / `v1.34.2` (`platform.search.v1`) |
-| **ML / Embeddings Integration** | HTTP Client to `platform-modelserve` | 384-dim dense embeddings (TEI) + Cross-Encoder reranker |
-| **Observability** | OpenTelemetry Go (`otel`, `otelgrpc`) | `v1.28.0` (Traces exported via OTLP/gRPC `:4317`) |
-| **Logging** | Structured Logger (`log/slog`) | JSON formatted logging with span context correlation |
-
----
-
-## 3. System Architecture Diagram
-
-```mermaid
-flowchart TD
-    subgraph Clients["Clients & Edge"]
-        Gateway["team-gateway (:8080)"]
-    end
-
-    subgraph KafkaIngress["Event Ingress (Kafka)"]
-        TopicListing["Topic: listing.events"]
-    end
-
-    subgraph TeamSearch["team-search Service (:50052)"]
-        subgraph IndexerProcess["cmd/indexer (Kafka Consumer)"]
-            KConsumer["Franz-go Consumer (team-search-indexer)"]
-            EnvelopeHandler["ListingEventHandlerWithEmbedder"]
-            VersionGuard["Monotonic Version Guard (occurred_at)"]
-        end
-
-        subgraph ServerProcess["cmd/server (gRPC Query Server)"]
-            GRPCServer["gRPC Server (:50052)"]
-            SearchHandler["SearchHandler (platform.search.v1)"]
-            SavedSearchHandler["SavedSearchHandler"]
-            RetrievalEngine["Retrieval Engine"]
-            FusionModule["RRF Fusion & Paging"]
-        end
-    end
-
-    subgraph ExternalServices["External Dependencies"]
-        ModelServe["platform-modelserve (:8100 / TEI)"]
-        OpenSearchNode["OpenSearch Cluster (:9200)"]
-        IndexListings[("Index: listings (HNSW + BM25)")]
-    end
-
-    Gateway -->|gRPC: SearchListings / Suggest| GRPCServer
-    GRPCServer --> SearchHandler
-    GRPCServer --> SavedSearchHandler
-    SearchHandler --> RetrievalEngine
-
-    RetrievalEngine -->|Generate Query Vector| ModelServe
-    RetrievalEngine -->|BM25 Query + Facet Aggs| OpenSearchNode
-    RetrievalEngine -->|k-NN Vector Query| OpenSearchNode
-    RetrievalEngine --> FusionModule
-
-    TopicListing -->|Consume Events| KConsumer
-    KConsumer --> EnvelopeHandler
-    EnvelopeHandler --> VersionGuard
-    EnvelopeHandler -.->|Vectorize Text| ModelServe
-    VersionGuard -->|Upsert / PartialUpdate / Delete| OpenSearchNode
-    OpenSearchNode --- IndexListings
-```
-
----
-
-## 4. Internal Package Structure
-
-```
-team-search/
-├── cmd/
-│   ├── indexer/                # Kafka consumer daemon (cmd/indexer/main.go)
-│   └── server/                 # gRPC query server daemon (cmd/server/main.go)
-├── internal/
-│   ├── bootstrap/              # OpenSearch client initialization & lifecycle management
-│   ├── config/                 # Environment variables parsing and configuration gate
-│   ├── consumer/               # Kafka consumer loop and event dispatchers
-│   │   ├── consumer.go         # Franz-go consumer worker pool & lifecycle
-│   │   └── listing.go          # ListingChanged / ListingPricingChanged event handlers
-│   ├── grpcserver/             # gRPC server construction, interceptors, reflection & health
-│   ├── handler/                # gRPC service implementation
-│   │   ├── search.go           # SearchListings & Suggest RPC handlers
-│   │   └── saved_search.go     # SavedSearch CRUD RPC handlers
-│   ├── index/                  # OpenSearch interaction layer
-│   │   └── opensearch.go       # Schema mapping, EnsureIndex, Upsert, PartialUpdate, Delete, Search, Suggest
-│   ├── interceptor/            # Auth metadata extraction (x-principal-*) & tracing interceptors
-│   ├── observability/          # OpenTelemetry tracer & structured slog wrappers
-│   ├── repository/             # Saved searches repository
-│   └── retrieval/              # Hybrid retrieval & ranking engine
-│       ├── embed_client.go     # HTTP client for text vectorization via platform-modelserve
-│       ├── engine.go           # Multi-strategy search orchestrator & fail-open logic
-│       ├── fusion.go           # Reciprocal Rank Fusion (RRF) algorithm implementation
-│       └── rerank_client.go    # Cross-encoder reranking client
-├── proto/                      # Vendored protobuf definitions from platform-core
-└── generated/                  # Generated Go protobuf code
-```
-
----
-
-## 5. OpenSearch Index Schema & Mappings
-
-The read-model index `listings` is provisioned automatically on boot by `EnsureIndex` with Lucene HNSW k-NN vectors and full-text analyzers:
-
-```json
-{
-  "settings": {
-    "index": {
-      "knn": true
-    },
-    "analysis": {
-      "analyzer": {
-        "default": { "type": "standard" }
-      }
-    }
-  },
-  "mappings": {
-    "properties": {
-      "id":             { "type": "keyword" },
-      "title":          { "type": "search_as_you_type" },
-      "description":    { "type": "text" },
-      "status":         { "type": "keyword" },
-      "currency":       { "type": "keyword" },
-      "price":          { "type": "long" },
-      "category_id":    { "type": "keyword" },
-      "seller_id":      { "type": "keyword" },
-      "rating":         { "type": "float" },
-      "version":        { "type": "long" },
-      "embedding": {
-        "type": "knn_vector",
-        "dimension": 384,
-        "method": {
-          "name": "hnsw",
-          "engine": "lucene",
-          "space_type": "cosinesimil"
-        }
-      },
-      "vector_pending": { "type": "boolean" }
-    }
-  }
-}
-```
-
----
-
-## 6. Key Workflows & Retrieval Engine
-
-### A. CQRS Event Consumption (`listing.events`)
-1. **Event Unmarshaling**: `ListingEventHandlerWithEmbedder` reads `platform.events.v1.EventEnvelope`.
-2. **Version Guard (AD2)**: Derives monotonic version from `occurred_at` (nanoseconds timestamp). Stale or out-of-order events are rejected by OpenSearch external versioning or painless script guards.
-3. **Selective Partial Updates**:
-   - `ListingChanged`: Full document upsert or document deletion. Text is vectorized synchronously via `EmbedClient`; if unavailable, `vector_pending: true` is flagged without stalling ingestion.
-   - `ListingBaseInfoChanged`: Painless script updates `title`, `description`, `category_id`, `status`, and re-embeds text.
-   - `ListingPricingChanged`: Scripted partial update on `price` and `currency` without re-indexing text.
-   - `ListingStatusChanged`: Updates status; if `REJECTED`, removes document from index.
-
-### B. Hybrid Retrieval (Lexical + Dense Vector) & RRF Fusion
-1. **Query Planning**: Based on `SearchMode` (Lexical, Semantic, or Hybrid):
-   - **Lexical**: Constructs OpenSearch `bool` query with `multi_match` over `title^2` and `description` + term filters.
-   - **Semantic**: Calls `platform-modelserve` (`POST /embed`) to encode the query into a 384-dim vector, then runs a `knn` vector query against `embedding`.
-   - **Hybrid**: Concurrently executes Lexical BM25 and Semantic k-NN vector queries up to `HybridFusionWindow` (default: 200 items).
-2. **Reciprocal Rank Fusion (RRF)**: Merges ranked candidate lists from both strategies:
-   $$\text{RRF}(d) = \sum_{s \in \{\text{lexical}, \text{semantic}\}} \frac{w_s}{k + r_s(d)}$$
-   where $k = 60$, $w_s$ is strategy weight (default: 1.0), and $r_s(d)$ is the 1-based rank position.
-3. **Fail-Open Resilience**: If semantic vectorization exceeds timeout (1.5s) or returns an error, the engine automatically falls back to pure BM25 lexical search.
-4. **Deep Paging**: Offsets beyond `HybridFusionWindow` automatically fallback to BM25 to avoid heavy memory allocation during fusion.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Gateway as team-gateway
-    participant Engine as Retrieval Engine
-    participant ModelServe as platform-modelserve (TEI)
-    participant OpenSearch as OpenSearch Node
-
-    Gateway->>Engine: SearchListings(query="smartphone", mode=HYBRID)
-    par Lexical Candidate Retrieval
-        Engine->>OpenSearch: BM25 Query (multi_match + aggs)
-        OpenSearch-->>Engine: Lexical Candidates & Facets
-    and Semantic Candidate Retrieval
-        Engine->>ModelServe: POST /embed (query="smartphone")
-        alt Embedding Success
-            ModelServe-->>Engine: 384-dim Query Vector
-            Engine->>OpenSearch: k-NN Vector Query (embedding + filters)
-            OpenSearch-->>Engine: Semantic Candidates
-        else Timeout / Failure
-            ModelServe-->>Engine: Error / Timeout (Fail-Open)
-        end
-    end
-    alt Both Strategies Succeeded
-        Engine->>Engine: Apply RRF Fusion (k=60)
-    else Semantic Failed
-        Engine->>Engine: Degrade to Lexical Candidate List
-    end
-    Engine-->>Gateway: SearchListingsResponse (Hits, Total, Facets)
-```
-
-### C. Autocomplete Suggestions & Dynamic Facets
-- **Prefix Autocomplete**: `Suggest` queries the `search_as_you_type` field using `bool_prefix` over `title`, `title._2gram`, and `title._3gram`, deduplicating hits instantly.
-- **Facet Aggregations**: Computed concurrently with search hits over the exact post-filter match set:
-  - `categories`: Terms aggregation on `category_id` (size: 50).
-  - `sellers`: Terms aggregation on `seller_id` (size: 50).
-  - `price_ranges`: Keyed range aggregation (`0-100k`, `100k-500k`, `500k-1M`, `1M+`).
-  - `ratings`: Filter aggregations for overlapping review floors ($\ge 4.0, \ge 3.0, \ge 2.0, \ge 1.0$).
-
----
-
-## 7. Configuration & Environment Variables
-
-| Variable | Type | Default | Description |
+| Binary | Entry | Role | Compose service |
 |---|---|---|---|
-| `ENV` | `string` | `local` | Environment mode (`local`, `dev`, `prod`) |
-| `LOG_LEVEL` | `string` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
-| `LOG_JSON` | `bool` | `true` | Log format in JSON |
-| `GRPC_HOST` | `string` | `0.0.0.0` | Bind host for gRPC server |
-| `GRPC_PORT` | `int` | `50052` | gRPC server listening port |
-| `GRPC_REFLECTION_ENABLED` | `bool` | `true` | Enable gRPC reflection |
-| `SHUTDOWN_GRACE_SECONDS` | `float` | `10` | Server shutdown drain timeout |
-| `OPENSEARCH_URL` | `string` | `http://localhost:9200` | OpenSearch cluster endpoint |
-| `OPENSEARCH_INDEX` | `string` | `listings` | Target index name |
-| `KAFKA_ENABLED` | `bool` | `false` | Enable Kafka consumer (required for `cmd/indexer`) |
-| `KAFKA_BROKERS` | `string` | `localhost:9092` | Comma-separated Kafka broker addresses |
-| `KAFKA_CONSUMER_GROUP` | `string` | `team-search-indexer` | Kafka consumer group name |
-| `KAFKA_LISTING_TOPIC` | `string` | `listing.events` | Ingest topic name |
-| `MODELSERVE_URL` | `string` | `http://localhost:8100` | Platform modelserve URL for text vectorization |
-| `ENABLE_HYBRID_SEARCH` | `bool` | `true` | Enable dense vector + lexical hybrid search |
-| `HYBRID_RRF_K` | `int` | `60` | Reciprocal Rank Fusion smoothing parameter |
-| `HYBRID_FUSION_WINDOW` | `int` | `200` | Max candidate pool size retrieved per strategy for fusion |
-| `OTEL_ENABLED` | `bool` | `false` | Enable OpenTelemetry tracing |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `string` | `""` | OTLP gRPC collector endpoint (`localhost:4317`) |
-| `OTEL_SERVICE_NAME` | `string` | `team-search` | Tracing service name |
+| `/server` (default) | `cmd/server` | gRPC query API on `:50052` | `team-search` (container `team-search-svc`) |
+| `/indexer` | `cmd/indexer` | Kafka consumer that writes the index; requires `KAFKA_ENABLED=true` | `team-search-indexer` |
 
----
+The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`.
 
-## 8. How to Run & Verify
+## Contract
 
-### Local Development
+Source: `proto/platform/search/v1/search.proto` (vendored). Authorization is read from the
+gateway-forwarded `x-principal-id` / `x-principal-type` / `x-principal-scopes` metadata
+(ADR-0003); this service does not verify JWTs. A missing principal gives `Unauthenticated`, a
+missing scope gives `PermissionDenied`.
+
+| RPC | Required scope | Notes |
+|---|---|---|
+| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters, category, price range, min rating, sort; returns hits and facets |
+| `Suggest` | `search:read` | Prefix completion over titles; default limit 5, max 20 |
+| `SaveSearch` | `search:write` | Needs a non-empty `query` or at least one filter; `filters_json` must be a JSON object of string values |
+| `ListSavedSearches` | `search:read` | Caller's own searches, newest first |
+| `DeleteSavedSearch` | `search:write` | Owner-scoped; another user's id returns `NotFound` |
+| `RunSavedSearch` | `search:read` | Owner-scoped; re-runs the saved query and filters (first page, size 10) |
+
+Behaviour of `SearchListings`:
+
+- Page size default 10, max 50; the cursor is an integer offset.
+- Default mode is HYBRID when `ENABLE_HYBRID_SEARCH=true` and the query is non-empty, otherwise LEXICAL.
+- Lexical: `multi_match` over `title^2` and `description` plus term, price and rating filters.
+- Semantic: embeds the query through modelserve `POST /embed`, then runs a `knn` query on `embedding`.
+- Hybrid: runs lexical and semantic concurrently (pool = `from + size`, at least 50, capped at
+  `HYBRID_FUSION_WINDOW`), then fuses by RRF: `sum(w_s / (k + rank_s))`, with `k = HYBRID_RRF_K`
+  and weights `HYBRID_LEXICAL_WEIGHT` / `HYBRID_SEMANTIC_WEIGHT`.
+- Fail-open: the query embed is bounded to 1.5 s. If it errors, times out, or semantic returns
+  zero hits, the lexical list is returned. If lexical errors or returns zero hits, the semantic
+  list is returned. Both failing returns an error. In SEMANTIC mode an embed or kNN failure
+  falls back to lexical.
+- Offsets at or beyond `HYBRID_FUSION_WINDOW` skip fusion and use plain lexical paging.
+- Optional reranker (`ENABLE_RERANKER=true`): reorders the top 20 fused candidates through
+  modelserve `/rerank`; on error the fused order is kept.
+- Facets (`categories`, `sellers`, `price_ranges`, `ratings`) are computed over the filtered
+  lexical set; see `facetAggs` in `internal/index/opensearch.go` for buckets.
+
+Consumes: modelserve over HTTP (`MODEL_SERVER_URL`: `/embed`, and `/rerank` when enabled). No
+upstream gRPC calls.
+
+## Events
+
+| Direction | Topic | Type | Key |
+|---|---|---|---|
+| Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
+| Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
+
+Handling (`internal/consumer/listing.go`):
+
+- Version guard: the document version is the envelope `occurred_at` in nanoseconds; upserts use
+  OpenSearch external versioning, so stale or redelivered events are rejected.
+- `ListingChanged`: upsert, or delete when `CHANGE_TYPE_DELETED`. Title and description are
+  embedded synchronously; on embed failure the document is indexed with `vector_pending=true`.
+- `ListingBaseInfoChanged`: partial update of title, description, category, seller, status, and
+  re-embed; delete on `CHANGE_TYPE_DELETED`.
+- `ListingPricingChanged`: partial update of `price` (promotional price if on sale) and `currency`.
+- `ListingStatusChanged`: delete on `REJECTED`, otherwise partial update of `status`.
+- Offsets are committed only after a record is handled or parked. Up to 5 attempts per record
+  with exponential backoff (100 ms base, 30 s cap), then the DLQ. If the DLQ write fails the
+  indexer exits without committing.
+
+## Data
+
+- OpenSearch index `listings` (`OPENSEARCH_INDEX`), owned by this service and rebuildable by
+  replaying the topic. `EnsureIndex` creates it at startup in both binaries; the mapping
+  (including the 384-dimension `knn_vector`, lucene HNSW, cosine) is in `internal/index/opensearch.go`.
+- Postgres `search_db`, table `saved_searches` (`id`, `user_id`, `query`, `filters` JSONB,
+  `created_at`; index on `(user_id, created_at DESC)`), from `migrations/0001_saved_searches.{up,down}.sql`.
+- Migrations are not applied by the service. In root compose, the `team-search-migrate`
+  one-shot (golang-migrate) runs them and `team-search` depends on it. Standalone, run
+  golang-migrate against `DATABASE_URL`.
+- `DATABASE_ENABLED=true` uses the Postgres repository (pgx; the DB is pinged at startup and
+  the server fails to start if it is unreachable). `false` uses an in-memory repository and logs
+  a warning: saved searches are lost on restart and not shared between replicas.
+
+## Configuration
+
+Source of truth: `internal/config/config.go`. `make check-env` (`TestEnvExampleInSync`) fails
+if `.env.example` and the config structs drift in either direction.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `ENV` | `local` | `prod`/`production` counts as prod |
+| `LOG_LEVEL` | `info` | |
+| `LOG_JSON` | `true` | |
+| `GRPC_HOST` | `0.0.0.0` | |
+| `GRPC_PORT` | `50052` | |
+| `GRPC_REFLECTION_ENABLED` | `true` | |
+| `SHUTDOWN_GRACE_SECONDS` | `10` | |
+| `OPENSEARCH_URL` | `http://localhost:9200` | required non-empty |
+| `OPENSEARCH_INDEX` | `listings` | |
+| `MODEL_SERVER_URL` | `http://localhost:8100` | modelserve base URL (embed, rerank); 2 s HTTP client timeout |
+| `EMBEDDING_DIM` | `384` | Declared but not read by any non-test code; the index mapping hardcodes 384 |
+| `ENABLE_HYBRID_SEARCH` | `true` | |
+| `ENABLE_RERANKER` | `false` | |
+| `HYBRID_FUSION_WINDOW` | `200` | |
+| `HYBRID_RRF_K` | `60` | |
+| `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
+| `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
+| `KAFKA_ENABLED` | `false` | the indexer refuses to start unless true; the server does not use Kafka |
+| `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
+| `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
+| `KAFKA_LISTING_TOPIC` | `listing.events` | |
+| `DATABASE_ENABLED` | `false` | Postgres vs in-memory saved searches; used by the server only |
+| `DATABASE_URL` | `""` | required when `DATABASE_ENABLED=true`; `.env.example` supplies a local value |
+| `OTEL_ENABLED` | `false` | |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` sets `http://localhost:4317`; the code default is empty |
+| `OTEL_SERVICE_NAME` | `team-search` | |
+
+## Run locally
+
+Whole stack (root of the repo): `docker compose up -d --build`. This starts `team-search-migrate`,
+`team-search` and `team-search-indexer` with `DATABASE_ENABLED=true`, OpenSearch and Redpanda.
+The root compose files do not define a modelserve service, and `MODEL_SERVER_URL` is not set
+for team-search there, so embeds fail and hybrid search degrades to lexical (new documents are
+indexed with `vector_pending=true`). To get semantic results, run `platform-modelserve`
+(`platform-modelserve/docker-compose.local.yaml`, port 8100) and point `MODEL_SERVER_URL` at it.
+No `--profile jobs` is needed for this service.
+
+Standalone:
 
 ```bash
-# 1. Start OpenSearch and Redpanda from platform-core infra
-cd ../platform-core/infra && docker compose -p platform-core up -d opensearch redpanda
-
-# 2. Configure environment
-cd ../../team-search
+docker compose -f docker-compose.local.yaml up -d   # OpenSearch 2.15 on :9200 only
+# Redpanda: from platform-core/infra, or use the root stack
 cp .env.example .env
-
-# 3. Start indexer daemon (consume Kafka -> OpenSearch)
-KAFKA_ENABLED=true make indexer
-
-# 4. Start gRPC Search Server (:50052)
-make server
+make proto                                          # generated/ is gitignored
+KAFKA_ENABLED=true make indexer                     # Kafka -> OpenSearch
+make server                                         # gRPC on :50052
 ```
 
-### Verification via grpcurl
+Smoke test (scopes are trusted metadata, so send them yourself):
 
 ```bash
-# Search listings with hybrid retrieval
-grpcurl -plaintext -H 'x-principal-scopes: search:read' \
-  -d '{"query":"laptop","min_price":5000000,"sort_by":2}' \
+grpcurl -plaintext -H 'x-principal-scopes: search:read' -d '{"query":"laptop"}' \
   localhost:50052 platform.search.v1.SearchService/SearchListings
-
-# Autocomplete suggestions
-grpcurl -plaintext -H 'x-principal-scopes: search:read' \
-  -d '{"query":"lap","limit":5}' \
-  localhost:50052 platform.search.v1.SearchService/Suggest
-
-# Health check
 grpcurl -plaintext localhost:50052 grpc.health.v1.Health/Check
 ```
 
-### Quality Gate
+## Build, test and lint
 
-```bash
-make check      # Runs check-env, gofmt, go vet, and unit/integration tests
-```
+| Command | What it does |
+|---|---|
+| `make proto` | `buf generate` into `generated/` (needs `buf`); then `go mod tidy` |
+| `make server` / `make indexer` | `go run` the binaries |
+| `make test` | `go test ./...` |
+| `make check-env` | `.env.example` vs config drift gate |
+| `make check` | merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
 
+`go.mod` is Go 1.22; `franz-go` is pinned to v1.18.0 because newer tags require Go 1.25. The
+Docker build uses `golang:1.22`.
+
+## Spec and verification
+
+- Feature manifest: `FEATURES.yaml` in this repo (`search.query`, `search.suggest`,
+  `search.sort-filtering`, `search.facets`, `search.hybrid-retrieval`), all `status: automated`,
+  mapped to feature files in `platform-e2e/tests/e2e/features/` (for example
+  `buyer/search_and_discovery.feature`, `search/hybrid_retrieval.feature`).
+- Verify coverage: `make -C platform-e2e features-check`; for an OpenSpec change,
+  `make -C platform-e2e spec-check CHANGE=<id>`.
+- Changes are proposed and archived through OpenSpec (`openspec/changes/<id>`) per the root
+  README lifecycle. The saved-search RPCs have no `FEATURES.yaml` entry.
+
+## Gotchas
+
+- `generated/` is gitignored; run `make proto` before building or testing, or the packages do not compile.
+- `proto/` is vendored from platform-core (ADR-0001). Never edit it here; change the contract in platform-core and re-vendor.
+- Compose passes `DATABASE_*` to the indexer too, but the indexer never opens Postgres.
+- The index mapping is created once; changing it (for example the vector dimension) needs a new index and a replay of the topic.
+- Hybrid search fails open quietly (plain `log.Printf`); a missing modelserve shows up as lexical-only results, not errors.
+
+## Known gaps
+
+- `SearchListings` and `RunSavedSearch` add no implicit `status=PUBLISHED` filter; unless the
+  caller passes `filters`, any indexed status (for example DRAFT) can be returned. `Suggest`
+  is not restricted by status either.
+- `EMBEDDING_DIM` is inert (the mapping and `.env.example` agree on 384 only by convention).
+- `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
+- Root compose has no modelserve and does not set `MODEL_SERVER_URL` for team-search (see Run locally).
+- Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
+- With `DATABASE_ENABLED=false`, saved searches are in memory only.
+
+## References
+
+- Repo rules and ports: [`../AGENTS.md`](../AGENTS.md); lifecycle: [`../README.md`](../README.md)
+- ADRs in `../platform-core/docs/ADR/`: 0001 proto distribution, 0002 async broker, 0003 auth model, 0004 observability, 0005 search read-model, 0011 model serving
