@@ -1,6 +1,9 @@
 """Audit service: write an audit event and query the audit log back.
 
 Gateway Connect/JSON RPCs for platform.audit.v1.AuditService.
+
+WriteAuditEvent needs an authenticated caller; for a user principal the server stores
+the caller's own id and ignores `actor_id`. QueryAuditLog needs an admin token.
 """
 
 from __future__ import annotations

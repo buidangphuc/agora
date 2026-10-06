@@ -17,7 +17,8 @@ Feature: New backend services API round-trips
   Scenario: A written audit event is returned by QueryAuditLog
     Given an authenticated seller
     When an audit event is written for the seller
-    Then querying the audit log returns that event
+    Then the seeded admin querying the audit log sees that event
+    And the stored actor is the seller's own id, not the client-supplied one
 
   Scenario: Submitting KYC yields a PENDING verification status
     Given an authenticated buyer
