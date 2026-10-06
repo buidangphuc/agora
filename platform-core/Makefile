@@ -32,7 +32,9 @@ lint-proto: tools ## Lint proto only
 .PHONY: breaking
 breaking: tools ## Fail on breaking changes vs committed HEAD (no-op before first commit)
 	@if git rev-parse HEAD >/dev/null 2>&1; then \
-	  cd $(PROTO_DIR) && buf breaking --against '.git#ref=HEAD,subdir=packages/proto' \
+	  top=$$(git rev-parse --show-toplevel) && \
+	  sub=$$(git rev-parse --show-prefix) && \
+	  cd $(PROTO_DIR) && buf breaking --against "$$top/.git#ref=HEAD,subdir=$${sub}$(PROTO_DIR)" \
 	    && echo "✓ no breaking changes"; \
 	else \
 	  echo "· no git HEAD yet — skipping breaking-check (first commit)"; \
