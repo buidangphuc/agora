@@ -518,7 +518,7 @@ func (h *EngagementHandler) GetDispute(
 func (h *EngagementHandler) ResolveDispute(
 	ctx context.Context, req *engagementv1.ResolveDisputeRequest,
 ) (*engagementv1.ResolveDisputeResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
+	if err := interceptor.RequireScopes(ctx, "engagement:write", "admin"); err != nil {
 		return nil, err
 	}
 	if req.GetDisputeId() == "" {

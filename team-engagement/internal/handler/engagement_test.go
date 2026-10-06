@@ -309,8 +309,22 @@ func TestEngagementHandler(t *testing.T) {
 		adminCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 			Id:     "admin_1",
 			Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-			Scopes: []string{"engagement:write"},
+			Scopes: []string{"engagement:write", "admin"},
 		})
+
+		// Non-admin (buyer with engagement:write only) and anonymous cannot resolve
+		if _, err = h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
+			DisputeId: dispID,
+			Status:    engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
+		}); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("expected PermissionDenied for non-admin, got %v", err)
+		}
+		if _, err = h.ResolveDispute(context.Background(), &engagementv1.ResolveDisputeRequest{
+			DisputeId: dispID,
+			Status:    engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
+		}); status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("expected Unauthenticated for anonymous, got %v", err)
+		}
 		resRes, err := h.ResolveDispute(adminCtx, &engagementv1.ResolveDisputeRequest{
 			DisputeId:  dispID,
 			Status:     engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
