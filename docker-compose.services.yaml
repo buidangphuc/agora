@@ -84,6 +84,16 @@ services:
       - -database=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - up
 
+  team-search-migrate:
+    <<: *migrate-defaults
+    container_name: team-search-migrate
+    volumes:
+      - ./team-search/migrations:/migrations:ro
+    command:
+      - -path=/migrations
+      - -database=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
+      - up
+
   team-payment-migrate:
     <<: *migrate-defaults
     container_name: team-payment-migrate
@@ -236,6 +246,9 @@ services:
       dockerfile: Dockerfile
     image: team-search:local
     container_name: team-search-svc
+    depends_on:
+      team-search-migrate:
+        condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
