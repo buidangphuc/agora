@@ -21,7 +21,6 @@ var (
 	ErrInvalidOrderState   = errors.New("order is not in pending state")
 	ErrNotOrderBuyer       = errors.New("caller is not the buyer of this order")
 	ErrTransactionNotFound = repository.ErrTransactionNotFound
-	ErrWalletNotFound      = repository.ErrWalletNotFound
 	ErrPayoutNotFound      = repository.ErrPayoutNotFound
 	ErrInsufficientBalance = repository.ErrInsufficientBalance
 	ErrInvalidAmount       = repository.ErrInvalidAmount
@@ -306,16 +305,35 @@ func (s *PaymentService) RefundPayment(
 
 // ── Seller Wallet & Payout ───────────────────────────────────────────
 
+// walletCurrency is the only currency the wallet ledger is kept in.
+const walletCurrency = "VND"
+
+// GetSellerWallet returns the seller's wallet view. The balance is the wallet
+// ledger's SUM(amount): the ledger is the single source of truth for seller money.
 func (s *PaymentService) GetSellerWallet(ctx context.Context, sellerID string) (repository.SellerWallet, error) {
 	if sellerID == "" {
 		return repository.SellerWallet{}, errors.New("seller id is required")
 	}
-	if s.walletRepo == nil {
-		return repository.SellerWallet{}, errors.New("wallet repository not configured")
+	if s.ledgerRepo == nil {
+		return repository.SellerWallet{}, ErrLedgerNotConfigured
 	}
-	return s.walletRepo.GetOrCreateWallet(ctx, sellerID)
+	balance, err := s.ledgerRepo.Balance(ctx, sellerID)
+	if err != nil {
+		return repository.SellerWallet{}, err
+	}
+	return repository.SellerWallet{
+		ID:        sellerID,
+		SellerID:  sellerID,
+		Balance:   balance,
+		Currency:  walletCurrency,
+		UpdatedAt: time.Now(),
+	}, nil
 }
 
+// RequestPayout debits the wallet ledger through the same atomic AppendDebit as
+// RequestWalletPayout (balance check + debit under the per-seller lock), then records
+// the bank details in payout_requests linked to the ledger entry. A payout can never
+// exceed the ledger balance (ErrInsufficientBalance).
 func (s *PaymentService) RequestPayout(
 	ctx context.Context,
 	sellerID string,
@@ -337,36 +355,34 @@ func (s *PaymentService) RequestPayout(
 		return repository.PayoutRequest{}, errors.New("wallet repository not configured")
 	}
 
-	// 1. Deduct balance from seller wallet
-	wallet, err := s.walletRepo.UpdateWalletBalance(ctx, sellerID, -amount)
+	// 1. Atomic balance check + debit on the ledger.
+	entry, err := s.RequestWalletPayout(ctx, sellerID, amount)
 	if err != nil {
 		return repository.PayoutRequest{}, err
 	}
 
-	// 2. Create payout request
-	payout := repository.PayoutRequest{
+	// 2. Record the bank details, linked to the ledger debit.
+	savedPayout, err := s.walletRepo.CreatePayoutRequest(ctx, repository.PayoutRequest{
 		SellerID:      sellerID,
 		Amount:        amount,
 		BankCode:      bankCode,
 		AccountNumber: accountNumber,
 		AccountName:   accountName,
 		Status:        repository.PayoutStatusPending,
-	}
-
-	savedPayout, err := s.walletRepo.CreatePayoutRequest(ctx, payout)
+		LedgerEntryID: entry.ID,
+	})
 	if err != nil {
-		// Rollback wallet balance if payout request fails
-		_, _ = s.walletRepo.UpdateWalletBalance(ctx, sellerID, amount)
+		// The ledger is append-only: undo the debit with a compensating credit.
+		if _, rbErr := s.ledgerRepo.AppendEntry(ctx, repository.LedgerEntry{
+			SellerID: sellerID,
+			Type:     repository.LedgerTypePayout,
+			Amount:   amount,
+			Status:   repository.LedgerStatusRejected,
+		}); rbErr != nil {
+			s.logger.Error("payout compensation failed", "seller_id", sellerID, "ledger_entry_id", entry.ID, "err", rbErr)
+		}
 		return repository.PayoutRequest{}, fmt.Errorf("create payout request: %w", err)
 	}
-
-	// 3. Record wallet transaction
-	_, _ = s.walletRepo.CreateWalletTransaction(ctx, repository.WalletTransaction{
-		WalletID:    wallet.ID,
-		Amount:      -amount,
-		Type:        repository.WalletTxTypePayout,
-		ReferenceID: savedPayout.ID,
-	})
 
 	return savedPayout, nil
 }

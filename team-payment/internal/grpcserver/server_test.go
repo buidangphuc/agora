@@ -55,7 +55,7 @@ func principalCtx(t *testing.T, userID string) (context.Context, context.CancelF
 	return metadata.NewOutgoingContext(ctx, md), cancel
 }
 
-func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderClient, repository.PaymentRepository, repository.WalletRepository) {
+func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderClient, repository.PaymentRepository, repository.LedgerRepository) {
 	t.Helper()
 
 	mockOrder := &mockOrderClient{
@@ -81,7 +81,8 @@ func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderCl
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	paymentRepo := repository.NewInMemoryPaymentRepository()
 	walletRepo := repository.NewInMemoryWalletRepository()
-	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, mockOrder, logger)
+	ledgerRepo := repository.NewInMemoryLedgerRepository()
+	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, mockOrder, logger, service.WithLedgerRepo(ledgerRepo))
 	paymentHdl := handler.NewPaymentHandler(paymentSvc, logger)
 
 	cfg := &config.Settings{
@@ -106,7 +107,7 @@ func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderCl
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 
-	return paymentv1.NewPaymentServiceClient(conn), mockOrder, paymentRepo, walletRepo
+	return paymentv1.NewPaymentServiceClient(conn), mockOrder, paymentRepo, ledgerRepo
 }
 
 func TestPaymentFlow_Success(t *testing.T) {
@@ -243,7 +244,7 @@ func TestPaymentFlow_SimulateFailure(t *testing.T) {
 }
 
 func TestSellerWallet_FullFlow(t *testing.T) {
-	client, _, _, walletRepo := setupTestServer(t)
+	client, _, _, ledgerRepo := setupTestServer(t)
 	ctx, cancel := principalCtx(t, "seller-99")
 	defer cancel()
 
@@ -261,10 +262,13 @@ func TestSellerWallet_FullFlow(t *testing.T) {
 		t.Fatalf("want seller_id seller-99, got %s", walletResp.GetWallet().GetSellerId())
 	}
 
-	// 2. Simulate order settlement: credit seller wallet directly in repo
-	_, err = walletRepo.UpdateWalletBalance(ctx, "seller-99", 1500000)
+	// 2. Simulate order settlement: credit the wallet ledger directly
+	_, err = ledgerRepo.AppendEntry(ctx, repository.LedgerEntry{
+		SellerID: "seller-99", Type: repository.LedgerTypeOrderSettlement,
+		Amount: 1500000, Status: repository.LedgerStatusCompleted,
+	})
 	if err != nil {
-		t.Fatalf("UpdateWalletBalance: %v", err)
+		t.Fatalf("credit ledger: %v", err)
 	}
 
 	// 3. Verify balance updated

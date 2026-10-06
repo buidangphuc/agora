@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -53,6 +55,25 @@ func setupService() (*service.PaymentService, *repository.InMemoryPaymentReposit
 	}
 	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger)
 	return svc, paymentRepo, walletRepo, orderClient
+}
+
+// setupWalletService wires a service with BOTH the payout-request store and the wallet
+// ledger (the single source of truth for seller money).
+func setupWalletService() (*service.PaymentService, *repository.InMemoryWalletRepository, *repository.InMemoryLedgerRepository) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	walletRepo := repository.NewInMemoryWalletRepository()
+	ledger := repository.NewInMemoryLedgerRepository()
+	svc := service.NewPaymentService(repository.NewInMemoryPaymentRepository(), walletRepo, &mockOrderClient{orders: map[string]*orderv1.Order{}}, logger, service.WithLedgerRepo(ledger))
+	return svc, walletRepo, ledger
+}
+
+func credit(t *testing.T, ledger *repository.InMemoryLedgerRepository, seller string, amount int64) {
+	t.Helper()
+	if _, err := ledger.AppendEntry(context.Background(), repository.LedgerEntry{
+		SellerID: seller, Type: repository.LedgerTypeOrderSettlement, Amount: amount, Status: repository.LedgerStatusCompleted,
+	}); err != nil {
+		t.Fatalf("credit: %v", err)
+	}
 }
 
 // ── Payment Processing Tests ─────────────────────────────────────────
@@ -404,37 +425,39 @@ func TestService_RefundPayment(t *testing.T) {
 func TestService_GetSellerWallet(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("first access creates new wallet", func(t *testing.T) {
-		svc, _, _, _ := setupService()
+	t.Run("no ledger entries means zero balance in VND", func(t *testing.T) {
+		svc, _, _ := setupWalletService()
 		w, err := svc.GetSellerWallet(ctx, "seller-new")
 		if err != nil {
 			t.Fatalf("GetSellerWallet failed: %v", err)
 		}
-		if w.SellerID != "seller-new" {
-			t.Errorf("want seller-new, got %s", w.SellerID)
-		}
-		if w.Balance != 0 {
-			t.Errorf("want balance 0, got %d", w.Balance)
+		if w.SellerID != "seller-new" || w.Balance != 0 || w.Currency != "VND" {
+			t.Errorf("unexpected wallet: %+v", w)
 		}
 	})
 
-	t.Run("existing wallet returned with correct balance", func(t *testing.T) {
-		svc, _, walletRepo, _ := setupService()
-		_, _ = walletRepo.UpdateWalletBalance(ctx, "seller-existing", 1500000)
+	t.Run("balance equals the ledger sum", func(t *testing.T) {
+		svc, _, ledger := setupWalletService()
+		credit(t, ledger, "seller-existing", 1500000)
+		credit(t, ledger, "seller-existing", 250000)
+		credit(t, ledger, "other-seller", 999)
+		if _, err := svc.RequestWalletPayout(ctx, "seller-existing", 100000); err != nil {
+			t.Fatalf("payout: %v", err)
+		}
 
 		w, err := svc.GetSellerWallet(ctx, "seller-existing")
 		if err != nil {
 			t.Fatalf("GetSellerWallet failed: %v", err)
 		}
-		if w.Balance != 1500000 {
-			t.Errorf("want balance 1500000, got %d", w.Balance)
+		sum, _ := ledger.Balance(ctx, "seller-existing")
+		if sum != 1650000 || w.Balance != sum {
+			t.Errorf("want wallet balance == ledger sum 1650000, got wallet %d ledger %d", w.Balance, sum)
 		}
 	})
 
 	t.Run("empty seller id error", func(t *testing.T) {
-		svc, _, _, _ := setupService()
-		_, err := svc.GetSellerWallet(ctx, "")
-		if err == nil {
+		svc, _, _ := setupWalletService()
+		if _, err := svc.GetSellerWallet(ctx, ""); err == nil {
 			t.Fatal("expected error for empty seller id")
 		}
 	})
@@ -443,70 +466,100 @@ func TestService_GetSellerWallet(t *testing.T) {
 func TestService_RequestPayout(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("success payout request deducts balance", func(t *testing.T) {
-		svc, _, walletRepo, _ := setupService()
-		// Credit seller wallet with 1,000,000 VND
-		_, _ = walletRepo.UpdateWalletBalance(ctx, "seller-payout-1", 1000000)
+	t.Run("payout debits the ledger and links the bank details to the entry", func(t *testing.T) {
+		svc, walletRepo, ledger := setupWalletService()
+		credit(t, ledger, "seller-payout-1", 1000000)
 
 		payout, err := svc.RequestPayout(ctx, "seller-payout-1", 400000, "VCB", "1234567890", "NGUYEN VAN A")
 		if err != nil {
 			t.Fatalf("RequestPayout failed: %v", err)
 		}
-		if payout.ID == "" {
-			t.Fatal("expected non-empty payout ID")
+		if payout.ID == "" || payout.Amount != 400000 || payout.Status != repository.PayoutStatusPending {
+			t.Errorf("unexpected payout: %+v", payout)
 		}
-		if payout.Amount != 400000 {
-			t.Errorf("want amount 400000, got %d", payout.Amount)
+		if bal, _ := ledger.Balance(ctx, "seller-payout-1"); bal != 600000 {
+			t.Errorf("want ledger balance 600000, got %d", bal)
 		}
-		if payout.Status != repository.PayoutStatusPending {
-			t.Errorf("want PENDING status, got %v", payout.Status)
+		entries, _, _ := ledger.ListEntries(ctx, "seller-payout-1", 0, 10)
+		var debit *repository.LedgerEntry
+		for i := range entries {
+			if entries[i].Amount == -400000 {
+				debit = &entries[i]
+			}
 		}
-
-		// Verify wallet balance is deducted (1,000,000 - 400,000 = 600,000)
-		wallet, err := walletRepo.GetWalletBySellerID(ctx, "seller-payout-1")
-		if err != nil {
-			t.Fatalf("GetWalletBySellerID failed: %v", err)
+		if debit == nil || debit.Type != repository.LedgerTypePayout || debit.Status != repository.LedgerStatusPending {
+			t.Fatalf("missing PENDING payout debit: %+v", entries)
 		}
-		if wallet.Balance != 600000 {
-			t.Errorf("want balance 600000, got %d", wallet.Balance)
+		if payout.LedgerEntryID != debit.ID {
+			t.Errorf("payout.LedgerEntryID = %q, want %q", payout.LedgerEntryID, debit.ID)
 		}
-
-		// Verify wallet transaction created
-		txs, err := walletRepo.ListWalletTransactions(ctx, wallet.ID)
-		if err != nil {
-			t.Fatalf("ListWalletTransactions failed: %v", err)
-		}
-		if len(txs) != 1 {
-			t.Fatalf("want 1 transaction, got %d", len(txs))
-		}
-		if txs[0].Amount != -400000 || txs[0].Type != repository.WalletTxTypePayout {
-			t.Errorf("mismatched wallet transaction: %+v", txs[0])
+		stored, err := walletRepo.GetPayoutRequest(ctx, payout.ID)
+		if err != nil || stored.LedgerEntryID != debit.ID || stored.BankCode != "VCB" {
+			t.Errorf("stored payout not linked: %+v err=%v", stored, err)
 		}
 	})
 
-	t.Run("insufficient wallet balance error", func(t *testing.T) {
-		svc, _, walletRepo, _ := setupService()
-		_, _ = walletRepo.UpdateWalletBalance(ctx, "seller-payout-2", 100000)
+	t.Run("payout is limited by the ledger balance", func(t *testing.T) {
+		svc, walletRepo, ledger := setupWalletService()
+		credit(t, ledger, "seller-payout-2", 100000)
 
 		_, err := svc.RequestPayout(ctx, "seller-payout-2", 500000, "VCB", "1234567890", "NGUYEN VAN A")
 		if !errors.Is(err, repository.ErrInsufficientBalance) {
 			t.Fatalf("expected ErrInsufficientBalance, got %v", err)
 		}
+		if bal, _ := ledger.Balance(ctx, "seller-payout-2"); bal != 100000 {
+			t.Errorf("expected ledger balance to remain 100000, got %d", bal)
+		}
+		if list, _ := walletRepo.ListPayoutRequestsBySellerID(ctx, "seller-payout-2"); len(list) != 0 {
+			t.Errorf("no payout request may be recorded, got %d", len(list))
+		}
+	})
 
-		// Verify balance did not change
-		wallet, _ := walletRepo.GetWalletBySellerID(ctx, "seller-payout-2")
-		if wallet.Balance != 100000 {
-			t.Errorf("expected balance to remain 100000, got %d", wallet.Balance)
+	t.Run("seller who never earned anything cannot pay out", func(t *testing.T) {
+		svc, _, _ := setupWalletService()
+		_, err := svc.RequestPayout(ctx, "seller-broke", 1, "VCB", "1234567890", "NGUYEN VAN A")
+		if !errors.Is(err, repository.ErrInsufficientBalance) {
+			t.Fatalf("expected ErrInsufficientBalance, got %v", err)
+		}
+	})
+
+	t.Run("concurrent RequestPayout and RequestWalletPayout cannot overdraw", func(t *testing.T) {
+		svc, _, ledger := setupWalletService()
+		credit(t, ledger, "seller-race", 1000)
+
+		const workers = 40
+		var wg sync.WaitGroup
+		var ok int32
+		for i := 0; i < workers; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				var err error
+				if i%2 == 0 {
+					_, err = svc.RequestPayout(ctx, "seller-race", 100, "VCB", "123", "ACC")
+				} else {
+					_, err = svc.RequestWalletPayout(ctx, "seller-race", 100)
+				}
+				if err == nil {
+					atomic.AddInt32(&ok, 1)
+				} else if !errors.Is(err, repository.ErrInsufficientBalance) {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}(i)
+		}
+		wg.Wait()
+		bal, _ := ledger.Balance(ctx, "seller-race")
+		if ok != 10 || bal != 0 {
+			t.Fatalf("want exactly 10 successful payouts and balance 0, got %d successes, balance %d", ok, bal)
 		}
 	})
 
 	t.Run("invalid amount error", func(t *testing.T) {
-		svc, _, _, _ := setupService()
+		svc, _, _ := setupWalletService()
 		_, err := svc.RequestPayout(ctx, "seller-payout-3", 0, "VCB", "1234567890", "NGUYEN VAN A")
 		if !errors.Is(err, service.ErrInvalidAmount) {
 			t.Fatalf("expected ErrInvalidAmount for 0 amount, got %v", err)
 		}
-
 		_, err = svc.RequestPayout(ctx, "seller-payout-3", -50000, "VCB", "1234567890", "NGUYEN VAN A")
 		if !errors.Is(err, service.ErrInvalidAmount) {
 			t.Fatalf("expected ErrInvalidAmount for negative amount, got %v", err)
@@ -514,27 +567,21 @@ func TestService_RequestPayout(t *testing.T) {
 	})
 
 	t.Run("missing bank info error", func(t *testing.T) {
-		svc, _, _, _ := setupService()
-		_, err := svc.RequestPayout(ctx, "seller-payout-4", 100000, "", "1234567890", "NGUYEN VAN A")
-		if err == nil {
-			t.Fatal("expected error for empty bank code")
+		svc, _, ledger := setupWalletService()
+		credit(t, ledger, "seller-payout-4", 1000000)
+		for _, c := range [][3]string{{"", "1", "A"}, {"VCB", "", "A"}, {"VCB", "1", ""}} {
+			if _, err := svc.RequestPayout(ctx, "seller-payout-4", 100000, c[0], c[1], c[2]); err == nil {
+				t.Fatalf("expected error for %v", c)
+			}
 		}
-
-		_, err = svc.RequestPayout(ctx, "seller-payout-4", 100000, "VCB", "", "NGUYEN VAN A")
-		if err == nil {
-			t.Fatal("expected error for empty account number")
-		}
-
-		_, err = svc.RequestPayout(ctx, "seller-payout-4", 100000, "VCB", "1234567890", "")
-		if err == nil {
-			t.Fatal("expected error for empty account name")
+		if bal, _ := ledger.Balance(ctx, "seller-payout-4"); bal != 1000000 {
+			t.Errorf("rejected requests must not debit, balance %d", bal)
 		}
 	})
 
 	t.Run("missing seller id error", func(t *testing.T) {
-		svc, _, _, _ := setupService()
-		_, err := svc.RequestPayout(ctx, "", 100000, "VCB", "1234567890", "NGUYEN VAN A")
-		if err == nil {
+		svc, _, _ := setupWalletService()
+		if _, err := svc.RequestPayout(ctx, "", 100000, "VCB", "1234567890", "NGUYEN VAN A"); err == nil {
 			t.Fatal("expected error for empty seller id")
 		}
 	})
@@ -544,42 +591,32 @@ func TestService_ListPayoutHistory(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list multiple payouts", func(t *testing.T) {
-		svc, _, walletRepo, _ := setupService()
-		_, _ = walletRepo.UpdateWalletBalance(ctx, "seller-hist", 2000000)
+		svc, _, ledger := setupWalletService()
+		credit(t, ledger, "seller-hist", 2000000)
 
-		_, err := svc.RequestPayout(ctx, "seller-hist", 300000, "VCB", "111", "ACC 1")
-		if err != nil {
+		if _, err := svc.RequestPayout(ctx, "seller-hist", 300000, "VCB", "111", "ACC 1"); err != nil {
 			t.Fatalf("payout 1 failed: %v", err)
 		}
-		_, err = svc.RequestPayout(ctx, "seller-hist", 500000, "TCB", "222", "ACC 2")
-		if err != nil {
+		if _, err := svc.RequestPayout(ctx, "seller-hist", 500000, "TCB", "222", "ACC 2"); err != nil {
 			t.Fatalf("payout 2 failed: %v", err)
 		}
-
 		history, err := svc.ListPayoutHistory(ctx, "seller-hist")
-		if err != nil {
-			t.Fatalf("ListPayoutHistory failed: %v", err)
-		}
-		if len(history) != 2 {
-			t.Fatalf("want 2 payouts, got %d", len(history))
+		if err != nil || len(history) != 2 {
+			t.Fatalf("want 2 payouts, got %d err=%v", len(history), err)
 		}
 	})
 
 	t.Run("empty history for new seller", func(t *testing.T) {
-		svc, _, _, _ := setupService()
+		svc, _, _ := setupWalletService()
 		history, err := svc.ListPayoutHistory(ctx, "seller-no-history")
-		if err != nil {
-			t.Fatalf("ListPayoutHistory failed: %v", err)
-		}
-		if len(history) != 0 {
-			t.Errorf("want 0 payouts, got %d", len(history))
+		if err != nil || len(history) != 0 {
+			t.Errorf("want 0 payouts, got %d err=%v", len(history), err)
 		}
 	})
 
 	t.Run("empty seller id error", func(t *testing.T) {
-		svc, _, _, _ := setupService()
-		_, err := svc.ListPayoutHistory(ctx, "")
-		if err == nil {
+		svc, _, _ := setupWalletService()
+		if _, err := svc.ListPayoutHistory(ctx, ""); err == nil {
 			t.Fatal("expected error for empty seller id")
 		}
 	})

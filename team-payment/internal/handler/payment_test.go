@@ -38,10 +38,11 @@ func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.Upda
 	return nil, service.ErrOrderNotFound
 }
 
-func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRepository, *repository.InMemoryWalletRepository, *mockOrderClient) {
+func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRepository, *repository.InMemoryLedgerRepository, *mockOrderClient) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	paymentRepo := repository.NewInMemoryPaymentRepository()
 	walletRepo := repository.NewInMemoryWalletRepository()
+	ledger := repository.NewInMemoryLedgerRepository()
 	orderClient := &mockOrderClient{
 		orders: map[string]*orderv1.Order{
 			"order-1": {
@@ -53,9 +54,9 @@ func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRep
 			},
 		},
 	}
-	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger)
+	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, service.WithLedgerRepo(ledger))
 	h := handler.NewPaymentHandler(svc, logger)
-	return h, paymentRepo, walletRepo, orderClient
+	return h, paymentRepo, ledger, orderClient
 }
 
 func TestPaymentHandler_Payments(t *testing.T) {
@@ -261,7 +262,7 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 }
 
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
-	h, _, walletRepo, _ := setupHandlerTest()
+	h, _, ledger, _ := setupHandlerTest()
 
 	principal := &commonv1.Principal{
 		Id:     "seller-1",
@@ -286,8 +287,11 @@ func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	})
 
 	t.Run("RequestPayout and ListPayoutHistory", func(t *testing.T) {
-		// Credit seller wallet
-		_, _ = walletRepo.UpdateWalletBalance(ctx, "seller-1", 1000000)
+		// Settlement credit on the ledger
+		_, _ = ledger.AppendEntry(ctx, repository.LedgerEntry{
+			SellerID: "seller-1", Type: repository.LedgerTypeOrderSettlement,
+			Amount: 1000000, Status: repository.LedgerStatusCompleted,
+		})
 
 		// Request Payout
 		payoutRes, err := h.RequestPayout(ctx, &paymentv1.RequestPayoutRequest{

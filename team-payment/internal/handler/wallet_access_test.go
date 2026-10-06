@@ -30,9 +30,6 @@ func TestWalletRPCAccess(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ledger := repository.NewInMemoryLedgerRepository()
 	wallets := repository.NewInMemoryWalletRepository()
-	if _, err := wallets.UpdateWalletBalance(context.Background(), "seller-1", 1_000_000); err != nil {
-		t.Fatalf("seed wallet: %v", err)
-	}
 	svc := service.NewPaymentService(nil, wallets, nil, logger,
 		service.WithLedgerRepo(ledger))
 	h := handler.NewPaymentHandler(svc, logger)
