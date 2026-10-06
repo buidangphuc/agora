@@ -144,6 +144,72 @@ func TestPaymentHandler_CreatePaymentOwnership(t *testing.T) {
 	}
 }
 
+// TestPaymentHandler_TransactionAccess: GetPayment and ProcessMockPayment trust
+// neither the request ids nor the metadata alone; only the order's buyer or an
+// admin may read or settle a transaction.
+func TestPaymentHandler_TransactionAccess(t *testing.T) {
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", context.Background(), codes.Unauthenticated},
+		{"gateway anonymous principal", principalCtx("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS), codes.Unauthenticated},
+		{"other user", principalCtx("buyer-2", user), codes.PermissionDenied},
+		{"order's seller", principalCtx("seller-1", user), codes.PermissionDenied},
+		{"service principal", principalCtx("buyer-1", svc), codes.PermissionDenied},
+		{"owner", principalCtx("buyer-1", user), codes.OK},
+		{"admin", principalCtx("admin-1", user, "admin"), codes.OK},
+	}
+	for _, tc := range tests {
+		t.Run("GetPayment/"+tc.name, func(t *testing.T) {
+			h, repo, _, _ := setupHandlerTest()
+			seeded := seedTx(t, repo)
+			_, err := h.GetPayment(tc.ctx, &paymentv1.GetPaymentRequest{Id: seeded.ID})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("by id: code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+			_, err = h.GetPayment(tc.ctx, &paymentv1.GetPaymentRequest{OrderId: "order-1"})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("by order: code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+		})
+		t.Run("ProcessMockPayment/"+tc.name, func(t *testing.T) {
+			h, repo, _, _ := setupHandlerTest()
+			seeded := seedTx(t, repo)
+			_, err := h.ProcessMockPayment(tc.ctx, &paymentv1.ProcessMockPaymentRequest{
+				TransactionId: seeded.ID, SimulateSuccess: true,
+			})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+			after, gerr := repo.GetTransaction(context.Background(), seeded.ID)
+			if gerr != nil {
+				t.Fatalf("reload: %v", gerr)
+			}
+			settled := after.Status == repository.PaymentStatusPaid
+			if settled != (tc.want == codes.OK) {
+				t.Fatalf("settled = %v for %s", settled, tc.name)
+			}
+		})
+	}
+}
+
+func seedTx(t *testing.T, repo *repository.InMemoryPaymentRepository) repository.PaymentTransaction {
+	t.Helper()
+	tx, err := repo.CreateTransaction(context.Background(), repository.PaymentTransaction{
+		OrderID: "order-1", BuyerID: "buyer-1", Amount: 100000, Currency: "VND",
+		Method: repository.PaymentMethodMockBank, Status: repository.PaymentStatusPending,
+	})
+	if err != nil {
+		t.Fatalf("seed tx: %v", err)
+	}
+	return tx
+}
+
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	h, _, walletRepo, _ := setupHandlerTest()
 

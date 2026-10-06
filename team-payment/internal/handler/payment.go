@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-payment/internal/interceptor"
 	"github.com/buidangphuc/team-payment/internal/repository"
@@ -58,7 +60,26 @@ func (h *PaymentHandler) CreatePayment(ctx context.Context, req *paymentv1.Creat
 	}, nil
 }
 
+// requireBuyerOrAdmin gates the transaction RPCs. A transaction's buyer is the
+// order's buyer (CreatePayment records the buyer team-order reports), so only
+// that user, or a principal holding the admin scope, may read or settle it.
+// Service principals are not buyers.
+func requireBuyerOrAdmin(principal *commonv1.Principal, buyerID string) error {
+	if slices.Contains(principal.GetScopes(), "admin") {
+		return nil
+	}
+	if principal.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_USER &&
+		buyerID != "" && principal.GetId() == buyerID {
+		return nil
+	}
+	return status.Error(codes.PermissionDenied, "not allowed to access this payment")
+}
+
 func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPaymentRequest) (*paymentv1.GetPaymentResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if req.GetId() == "" && req.GetOrderId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction id or order id required")
 	}
@@ -70,6 +91,9 @@ func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPayme
 		}
 		return nil, status.Errorf(codes.Internal, "get payment: %v", err)
 	}
+	if err := requireBuyerOrAdmin(principal, tx.BuyerID); err != nil {
+		return nil, err
+	}
 
 	return &paymentv1.GetPaymentResponse{
 		Transaction: toWireTransaction(tx),
@@ -77,8 +101,23 @@ func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPayme
 }
 
 func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.ProcessMockPaymentRequest) (*paymentv1.ProcessMockPaymentResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if req.GetTransactionId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id is required")
+	}
+
+	existing, err := h.svc.GetPayment(ctx, req.GetTransactionId(), "")
+	if err != nil {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
+			return nil, status.Error(codes.NotFound, "transaction not found")
+		}
+		return nil, status.Errorf(codes.Internal, "get payment: %v", err)
+	}
+	if err := requireBuyerOrAdmin(principal, existing.BuyerID); err != nil {
+		return nil, err
 	}
 
 	tx, success, msg, err := h.svc.ProcessMockPayment(ctx, req.GetTransactionId(), req.GetSimulateSuccess())
