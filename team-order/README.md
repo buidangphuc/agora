@@ -22,7 +22,7 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 | RPC | Authorization / behaviour |
 |---|---|
 | `CreateOrder` | authenticated. Evaluates Flipt flag `checkout-enabled` first (off -> `FailedPrecondition`). Runs the purchase saga below. Returns one order per seller. |
-| `GetOrder` | buyer or seller of the order. If no principal is present the ownership check is skipped (see Known gaps). |
+| `GetOrder` | Principal required (`Unauthenticated` otherwise). Allowed: the order's buyer or seller, an admin scope, or a `service` principal with `order.read` (used by team-payment and team-engagement); others get `PermissionDenied`. |
 | `ListBuyerOrders`, `ListSellerOrders` | authenticated; lists the caller's orders, optional status filter |
 | `UpdateOrderStatus` | `RequirePrincipal`; the order's seller or admin only (`PermissionDenied` otherwise; buyers cancel via `CancelOrder`). Only PENDING or PAID -> SHIPPED and SHIPPED -> COMPLETED are allowed (`sellerTransitions` in `service/order.go`); any other transition, including to PAID or CANCELLED, returns `FailedPrecondition`. |
 | `CancelOrder` | authenticated; buyer only. Releases stock per item, then sets CANCELLED. Rejects orders already CANCELLED or COMPLETED. |
@@ -180,7 +180,6 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 
 ## Known gaps
 
-- `GetOrder` skips the ownership check when no principal is present (team-payment and team-engagement call it without metadata, so it cannot simply be tightened), and denies any principal that is not the buyer or seller (no admin or service-scope exception).
 - `CalculateShippingFee` and `GetShipmentTracking` are unauthenticated.
 - Scopes `order.read` / `order.write` are not enforced here; authorization is only the id and admin-scope checks above. Principal metadata is trusted as forwarded.
 - `GetSagaState` is synthesized from the order status with fixed text and timestamps; it does not read `order_sagas` or `order_reservations`. `ForceFailSaga` ignores `fail_step` and cancels any order that is not already CANCELLED or COMPLETED.

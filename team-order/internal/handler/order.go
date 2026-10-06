@@ -122,6 +122,12 @@ func (h *OrderHandler) GetOrder(ctx context.Context, req *orderv1.GetOrderReques
 	if req.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "order id is required")
 	}
+	// A principal is mandatory: payment/engagement call this over gRPC with a
+	// service principal (order.read), everyone else is a gateway-forwarded user.
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
 	o, err := h.svc.GetOrder(ctx, req.GetId())
 	if err != nil {
 		if errors.Is(err, repository.ErrOrderNotFound) {
@@ -129,10 +135,8 @@ func (h *OrderHandler) GetOrder(ctx context.Context, req *orderv1.GetOrderReques
 		}
 		return nil, status.Errorf(codes.Internal, "get order: %v", err)
 	}
-	if principal, ok := interceptor.PrincipalFromContext(ctx); ok && principal != nil && principal.GetId() != "" {
-		if o.BuyerID != principal.GetId() && o.SellerID != principal.GetId() {
-			return nil, status.Error(codes.PermissionDenied, "cannot view another user's order")
-		}
+	if !canViewOrder(principal, o) {
+		return nil, status.Error(codes.PermissionDenied, "cannot view another user's order")
 	}
 	return &orderv1.GetOrderResponse{Order: toWireOrder(o)}, nil
 }
@@ -606,6 +610,22 @@ func toWireShipment(s repository.Shipment) *orderv1.Shipment {
 		CreatedAt:    timestamppb.New(s.CreatedAt),
 		UpdatedAt:    timestamppb.New(s.UpdatedAt),
 	}
+}
+
+// canViewOrder: the order's buyer or seller, an admin, or a SERVICE principal
+// holding order.read.
+func canViewOrder(p *commonv1.Principal, o repository.Order) bool {
+	if isAdminOrUser(p, o.BuyerID, o.SellerID) {
+		return true
+	}
+	if p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE {
+		for _, s := range p.GetScopes() {
+			if s == "order.read" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isAdminOrUser(principal *commonv1.Principal, allowedUserIDs ...string) bool {

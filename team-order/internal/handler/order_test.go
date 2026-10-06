@@ -395,3 +395,42 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 		}
 	})
 }
+
+func TestOrderHandler_GetOrder_Authz(t *testing.T) {
+	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1"},
+	}}
+	h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+	principal := func(id string, typ commonv1.PrincipalType, scopes ...string) context.Context {
+		return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: id, Type: typ, Scopes: scopes})
+	}
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"no principal", context.Background(), codes.Unauthenticated},
+		{"anonymous", principal("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS), codes.Unauthenticated},
+		{"buyer", principal("buyer_1", user), codes.OK},
+		{"seller", principal("seller_1", user), codes.OK},
+		{"other user", principal("user_9", user, "order.read"), codes.PermissionDenied},
+		{"admin", principal("admin_1", user, "admin"), codes.OK},
+		{"service with order.read", principal("service-team-payment", svc, "order.read"), codes.OK},
+		{"service without order.read", principal("service-x", svc, "listing.read"), codes.PermissionDenied},
+		{"user claiming order.read is not a service", principal("user_9", user, "order.read"), codes.PermissionDenied},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := h.GetOrder(tc.ctx, &orderv1.GetOrderRequest{Id: "ord_1"})
+			if status.Code(err) != tc.want {
+				t.Fatalf("want %v, got %v", tc.want, err)
+			}
+			if tc.want == codes.OK && res.GetOrder().GetId() != "ord_1" {
+				t.Fatalf("wrong order: %v", res)
+			}
+		})
+	}
+}
