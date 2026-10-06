@@ -103,3 +103,39 @@ func RequirePrincipal(ctx context.Context) (*commonv1.Principal, error) {
 	}
 	return p, nil
 }
+
+const (
+	// ScopeAdmin marks platform administrators (granted by team-identity to the admin role).
+	ScopeAdmin = "admin"
+	// ScopeListingWrite is granted to seller and admin roles, never to buyers.
+	ScopeListingWrite = "listing.write"
+)
+
+// HasScope reports whether p carries the given scope.
+func HasScope(p *commonv1.Principal, scope string) bool {
+	for _, s := range p.GetScopes() {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAdmin reports whether p carries the admin scope.
+func IsAdmin(p *commonv1.Principal) bool { return HasScope(p, ScopeAdmin) }
+
+// RequireSeller allows seller and admin principals (listing.write or admin scope).
+func RequireSeller(p *commonv1.Principal) error {
+	if IsAdmin(p) || HasScope(p, ScopeListingWrite) {
+		return nil
+	}
+	return status.Error(codes.PermissionDenied, "seller or admin role required")
+}
+
+// RequireAdmin allows only admin principals.
+func RequireAdmin(p *commonv1.Principal) error {
+	if IsAdmin(p) {
+		return nil
+	}
+	return status.Error(codes.PermissionDenied, "admin role required")
+}
