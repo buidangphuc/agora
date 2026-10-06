@@ -320,3 +320,78 @@ func TestOrderHandler_Shipment(t *testing.T) {
 		t.Errorf("expected orderId ord_ship, got %s", trackResp.GetShipment().GetOrderId())
 	}
 }
+
+func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
+	newHandler := func(st repository.OrderStatus) *handler.OrderHandler {
+		repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+			"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: st},
+		}}
+		return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+	}
+	req := func(to orderv1.OrderStatus) *orderv1.UpdateOrderStatusRequest {
+		return &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: to}
+	}
+	adminCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+		Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"},
+	})
+	anonCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+		Id: "anonymous", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS,
+	})
+
+	t.Run("no principal denied", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(context.Background(), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("want Unauthenticated, got %v", err)
+		}
+	})
+	t.Run("anonymous principal denied", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(anonCtx, req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("want Unauthenticated, got %v", err)
+		}
+	})
+	t.Run("buyer denied", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("buyer_1", "buyer"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("other user denied", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_2", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("seller ships paid order", func(t *testing.T) {
+		res, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.GetOrder().GetStatus() != orderv1.OrderStatus_ORDER_STATUS_SHIPPED {
+			t.Fatalf("want SHIPPED, got %v", res.GetOrder().GetStatus())
+		}
+	})
+	t.Run("admin completes shipped order", func(t *testing.T) {
+		if _, err := newHandler(repository.OrderStatusShipped).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	t.Run("seller cannot set PAID", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+	t.Run("admin cannot set PAID", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+	t.Run("invalid transition rejected", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+}
