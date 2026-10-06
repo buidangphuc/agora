@@ -22,7 +22,6 @@ import (
 	"github.com/buidangphuc/team-search/internal/grpcserver"
 	"github.com/buidangphuc/team-search/internal/handler"
 	"github.com/buidangphuc/team-search/internal/observability"
-	"github.com/buidangphuc/team-search/internal/repository"
 )
 
 func main() {
@@ -60,10 +59,13 @@ func run() error {
 	}
 	defer func() { _ = bootstrap.CloseResources(context.Background(), res) }()
 
-	// Saved searches use an in-memory store by default so the service runs with
-	// no extra infra. Swap in repository.NewPostgresSavedSearchRepository(db)
-	// once a Postgres handle is opened in bootstrap (migrations/0001_saved_searches).
-	savedRepo := repository.NewInMemorySavedSearchRepository()
+	// Saved searches use Postgres when DATABASE_ENABLED=true, otherwise an
+	// in-memory store so the service runs with no extra infra.
+	savedRepo, closeSaved, err := bootstrap.OpenSavedSearchRepository(ctx, settings, logger)
+	if err != nil {
+		return fmt.Errorf("open saved-search repository: %w", err)
+	}
+	defer closeSaved()
 	h := handler.NewSearchHandlerWithEngine(res.Index, res.Engine, savedRepo)
 	srv := grpcserver.Build(settings, h, res.Health, logger)
 
