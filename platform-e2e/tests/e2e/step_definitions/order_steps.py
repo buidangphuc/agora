@@ -9,6 +9,7 @@ from src.constants import PageName, timeouts
 from src.pages import OrderDetailPage
 from src.utils import get_test_data_manager
 from tests.e2e.flows import (
+    complete_order_as_seller,
     create_order_via_api,
     create_shipment_via_api,
     login_via_api,
@@ -40,10 +41,10 @@ def verify_order_timeline(world: World) -> None:
 
 @given("the order has been delivered")
 def order_has_been_delivered(world: World) -> None:
-    """The buyer may drive their own order to COMPLETED; returns are offered only then."""
+    """The seller ships then completes the order; returns are offered only then."""
     buyer = world.state.current_user or scenario_buyer(world)
-    world.service_factory.set_token(buyer.token)
-    world.service_factory.order.update_order_status(world.state.order_id, "ORDER_STATUS_COMPLETED")
+    seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
+    complete_order_as_seller(world, seller, world.state.order_id, restore_token=buyer.token)
 
 
 @when(parsers.parse('I submit an RMA refund request with reason "{reason}"'))
