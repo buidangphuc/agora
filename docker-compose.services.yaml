@@ -347,6 +347,8 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - PROMOTION_EVENTS_TOPIC=promotion.events
+      # CreateCampaign checks listing ownership against team-domain (fails closed if unset).
+      - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - GRPC_PORT=50061
       - ENV=local
 
