@@ -41,7 +41,8 @@ principal, id `anonymous` and type ANONYMOUS with `Unauthenticated`.
 **Consumes (upstream):** `team-order` `OrderService.GetOrder` at `UPSTREAM_ORDER_ADDR`, used for
 (1) the `PENDING` check and amount/currency in `CreatePayment`, and (2) resolving the order's
 `seller_id` for the wallet credit after a successful settle (best-effort, logged on failure). The
-call does not forward the caller's principal metadata.
+call does not forward the caller's principal: `internal/upstream/order.go` sends the service principal
+`service-team-payment` (type `service`, scope `order.read`), which team-order's `GetOrder` requires.
 
 ## Events
 
