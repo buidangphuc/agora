@@ -1,289 +1,235 @@
-# Agora — AI-First Marketplace Platform
+# Agora — an ASDLC for scaling a polyrepo with AI agents
 
-A production-shaped, **event-driven microservices** marketplace (Shopee/Amazon scale architecture) built as a polyrepo of 20 independently deployable services. Browsers and mobile clients interact exclusively through a single Connect/gRPC edge; write-side services emit business events to Kafka via the Transactional Outbox pattern, while dedicated read-side services consume events to maintain query-optimized projections (CQRS). Ships with an AI/RAG shopping assistant, probabilistic seller demand forecasting, Next.js 14 SSR storefront, and automated BDD end-to-end test suites.
+**Agora is a working reference for an _Agentic Software Development Life Cycle_ (ASDLC).**
+It is a standard for letting AI coding agents build and maintain a large multi-service system
+without the system drifting, breaking its own rules, or passing tests that prove nothing.
 
-> **Stack Matrix:** Go 1.22 · Python 3.11/FastAPI · TypeScript / Next.js 14 App Router · gRPC & Connect-Go · Kafka (Redpanda) · PostgreSQL 16 (DB-per-service) · OpenSearch 2.11 · Qdrant Vector DB · Redis · DuckDB Columnar Lakehouse · Hugging Face TEI / vLLM · Docker Compose · ArgoCD / Helm GitOps
+The marketplace itself (24 repositories: Go gRPC services, a Next.js storefront, Kafka/CQRS,
+a recommender pipeline) is the **testbed**. It is big and coupled enough that unstructured
+"prompt and hope" development fails quickly. What this repository shows is the lifecycle, the
+guardrails and the evidence that keep agent output correct as it scales.
+
+| | |
+|---|---|
+| Repositories coordinated | **24** (`team-*` services, `platform-*` platforms) |
+| Commits on the current integration branch | **327**, of which **286** are agent co-authored |
+| Requirement changes run through the lifecycle | **59** OpenSpec changes (23 archived, 36 in flight) · **13** capability specs |
+| Capabilities with a machine-readable contract | **205** `FEATURES.yaml` entries, **187 automated (91%)** |
+| End-to-end suite | **89** `.feature` files · **237** scenarios in the parallel lane + a serial destructive lane, against the real stack |
+| Guardrails | **11** skills · **2** reviewer sub-agents · **3** hooks · **2** drift/plan validators · **14** ADRs |
 
 ---
 
-## 1. Global High-Level System Architecture
+## 1. Why an ASDLC
+
+Agents scale the **output** of engineering: more code, more repos and more changes per day.
+They do not scale **correctness** on their own. Without a lifecycle, a polyrepo fails in
+predictable ways:
+
+| Failure mode | What it looks like | Where this ASDLC stops it |
+|---|---|---|
+| Layer drift | A service exists but is missing from compose or the port map; a proto changed but consumers were not regenerated | `repo_doctor` + the `drift-check` hook (§3) |
+| Boundary violations | The frontend calls a service directly; a service reads another service's DB | Rules in `AGENTS.md` + the `contract-boundary-reviewer` agent |
+| Contract forks | Generated code edited by hand to "make it compile" | The `guard-generated` PreToolUse hook blocks the edit |
+| Unverified claims | "Done" with no test, or tests written after the fact to match the code | Spec scenario ↔ `FEATURES.yaml` ↔ `.feature` mapping; archive is gated on green e2e |
+| Tests that test mocks | Green suites that never touch the system | Black-box rule: e2e runs the real stack and the real job images (§5) |
+| Flakes hiding bugs | "Retry until green" | Flake triage protocol: repeated parallel runs, root cause, one fix per commit |
+| Silent spec drift | Implementation diverges and nobody updates the requirement | MODIFIED spec deltas are part of the same change |
+
+## 2. The lifecycle
 
 ```mermaid
-flowchart TD
-  subgraph Client_Layer["Client & User Interfaces"]
-    Web["Web Browser / Mobile App"]
-    NextSSR["team-frontend (Next.js 14 SSR :3000)<br/>• Consumer Storefront & Discovery<br/>• Seller Management Cockpit<br/>• Connect-ES & httpOnly Session Cookie"]
-  end
-
-  subgraph Edge_Security["Edge & Security Layer"]
-    GW["team-gateway (Connect Edge :8080)<br/>• Single Public Entrypoint<br/>• RS256 JWT & JWKS Verifier (Zero Shared Secrets)<br/>• Token Bucket Rate Limiter & CORS<br/>• Principal Enrichment (x-principal-*)<br/>• Telemetry Beacon Ingestion"]
-  end
-
-  subgraph Identity_Auth["Identity & Trust Service"]
-    ID["team-identity (:50053 gRPC / :50063 JWKS)<br/>• RS256 Private Key Signer (Vault)<br/>• JWKS Public Key Endpoint<br/>• Role -> Scope Mapping (buyer/seller/admin)<br/>• Sessions & Password Reset"]
-  end
-
-  subgraph Core_Domains["Core Business Domain Services (Write-Side / gRPC)"]
-    DOM["team-domain (:50051)<br/>• Catalog & Listings<br/>• Stock Reservations<br/>• Transactional Outbox"]
-    ORD["team-order (:50055)<br/>• Cart & Checkout<br/>• Distributed Saga Coordinator<br/>• RMA Returns Management"]
-    PAY["team-payment (:50056)<br/>• Transaction Ledger<br/>• Escrow Holding<br/>• Seller Wallet Payouts"]
-    PRO["team-promotion (:50061)<br/>• Voucher Engine (Reserve/Commit)<br/>• Flash-Sale Campaigns"]
-    ENG["team-engagement (:50054)<br/>• Reviews & Ratings<br/>• Favorites & Wishlist<br/>• Community Q&A & Disputes"]
-    CHT["team-chat (:50057)<br/>• Real-Time Messaging<br/>• Buyer-Seller Chat Threads"]
-    NOT["team-notification (:50058)<br/>• In-App Notifications<br/>• Price-Drop & Order Alerts"]
-    AUX["team-referral (:50062) · team-verification (:50064)<br/>team-sharing (:50065) · team-audit (:50066)"]
-  end
-
-  subgraph Event_Bus["Asynchronous Event Streaming (Kafka / Redpanda :19092)"]
-    K_List["listing.events<br/>(ListingCreated, ListingUpdated, StockReserved)"]
-    K_Order["order.events<br/>(OrderPlaced, OrderPaid, OrderShipped, OrderCancelled)"]
-    K_Promo["promotion.events<br/>(VoucherClaimed, VoucherRedeemed)"]
-    K_Pay["payment.events<br/>(PaymentAuthorized, PaymentSettled, RefundIssued)"]
-    K_Tele["analytics.events<br/>(Impressions, PDP Views, Cart Adds, Checkouts)"]
-  end
-
-  subgraph Read_Models["CQRS Read Models, Search & Analytics"]
-    SRC["team-search (:50052)<br/>• OpenSearch 2.11 Read Projection<br/>• Hybrid BM25 + Dense Vector Search<br/>• Reciprocal Rank Fusion (RRF)<br/>• Facets & Autocomplete Suggester"]
-    ANA["team-analytics (:50059)<br/>• DuckDB Columnar Parquet Warehouse<br/>• 5-Step Conversion Funnel Metrics<br/>• Probabilistic Demand Forecast (P10/P50/P90)"]
-  end
-
-  subgraph AI_MLOps["AI & Recommendation Ecosystem"]
-    AI["team-ai (:8000 FastAPI)<br/>• RAG Shopping Assistant<br/>• Magic Listing Generator<br/>• Review Summarization"]
-    RECSYS["platform-recsys<br/>• Offline ALS Matrix Factorization<br/>• Two-Tower Deep Retrieval<br/>• Candidate Indexing into Qdrant"]
-    MODELS["platform-modelserve (:8100 Router)<br/>• TEI Embeddings (:8101)<br/>• TEI Rerank (:8102)<br/>• vLLM Generator (:8103)"]
-  end
-
-  subgraph Persistence["Isolated DB-per-Service Storage Tier"]
-    PG_ID[("PostgreSQL<br/>identity_db :5435")]
-    PG_DOM[("PostgreSQL<br/>listing_db :5433")]
-    PG_ORD[("PostgreSQL<br/>order_db :5437")]
-    PG_PAY[("PostgreSQL<br/>payment_db :5438")]
-    PG_PRO[("PostgreSQL<br/>promotion_db :5440")]
-    PG_ENG[("PostgreSQL<br/>engagement_db :5436")]
-    PG_NOT[("PostgreSQL<br/>notification_db :5441")]
-    OS_DB[("OpenSearch<br/>:9200")]
-    QD_DB[("Qdrant Vector<br/>:6333")]
-    REDIS_DB[("Redis Cache<br/>:6379")]
-    PARQUET_DB[("Parquet Lakehouse<br/>data/analytics/*.parquet")]
-  end
-
-  %% Ingress flows
-  Web --> NextSSR
-  Web -->|Direct Connect-Web| GW
-  NextSSR -->|gRPC / Connect| GW
-
-  %% Edge security routing
-  GW -.->|Fetch Public JWKS| ID
-  GW -->|Trusted x-principal-*| Core_Domains
-  GW -->|Forward Search Query| SRC
-  GW -->|Forward AI / RAG Query| AI
-  GW -->|Forward Analytics Query| ANA
-  GW -->|Forward Beacon Telemetry| K_Tele
-
-  %% Identity persistence
-  ID --> PG_ID
-
-  %% Write domains persistence & outbox emission
-  DOM --> PG_DOM
-  ORD --> PG_ORD
-  PAY --> PG_PAY
-  PRO --> PG_PRO
-  ENG --> PG_ENG
-  NOT --> PG_NOT
-
-  DOM -- Transactional Outbox --> K_List
-  ORD -- Transactional Outbox --> K_Order
-  PRO -- Events --> K_Promo
-  PAY -- Events --> K_Pay
-
-  %% Event consumption & CQRS
-  K_List --> SRC
-  K_List --> RECSYS
-  K_Order --> ANA
-  K_Order --> NOT
-  K_Tele --> ANA
-  K_Tele --> RECSYS
-
-  %% Read model storage
-  SRC --> OS_DB
-  SRC --> QD_DB
-  ANA --> PARQUET_DB
-  RECSYS --> QD_DB
-  RECSYS --> REDIS_DB
-
-  %% AI & ML model invocation
-  AI --> MODELS
-  SRC --> MODELS
+flowchart LR
+  I["1 · Intake<br/>requirement in natural language"] --> S["2 · Specify<br/>OpenSpec change:<br/>proposal · design · spec delta · tasks"]
+  S --> P["3 · Plan & fan-out<br/>disjoint write-sets,<br/>contract first, serially"]
+  P --> C["4a · Code track<br/>one agent per repo,<br/>git worktree each"]
+  P --> E["4b · E2E track<br/>scenarios → FEATURES.yaml → .feature<br/>(written from the spec, red first)"]
+  C --> V["5 · Verify<br/>gate ladder (§5)"]
+  E --> V
+  V --> R["6 · Review<br/>reviewer agents + human"]
+  R --> M["7 · Integrate<br/>one fix = one commit · PR"]
+  M --> A["8 · Archive<br/>delta folded into openspec/specs"]
+  A --> L["9 · Learn<br/>AGENTS.md · ADRs · memory"]
+  L -.-> I
 ```
 
----
+| Phase | Artifact | Who | Exit gate |
+|---|---|---|---|
+| 1 Intake | One sentence of intent | Human | Ambiguities that change scope are asked, not guessed |
+| 2 Specify | `openspec/changes/<id>/` with `#### Scenario:` blocks | Agent (`openspec-propose`) | `openspec validate <id> --strict` |
+| 3 Plan | Tasks split into a code track per repo and an e2e track | Agent (`spec-dispatch`; `validate_plan.py` for parallel-scrum plans) | No overlapping write-sets; a proto change lands first, alone |
+| 4a Code | Commits in one repo | Sub-agent in its own worktree | Repo-local CI-equivalent checks (`go vet/test`, `ruff`, `tsc`, …) |
+| 4b E2E | `FEATURES.yaml` entries, `.feature` files and steps | Agent (`spec-to-e2e`) | Every scenario has an automated test (red is allowed until the code lands) |
+| 5 Verify | Green runs against the real stack | Agent | The gate ladder in §5 |
+| 6 Review | Findings | `contract-boundary-reviewer`, `auth-scope-reviewer`, human | No blocking finding |
+| 7 Integrate | Commit per fix, with the evidence in the message; PR | Agent (commit), human (push / merge approval) | Human approval for anything outward-facing |
+| 8 Archive | Delta merged into `openspec/specs/` | Agent (`openspec-archive-change`) | `make -C platform-e2e spec-check CHANGE=<id>` |
+| 9 Learn | Updated rules, ADRs and operating notes | Agent + human | The next change starts from the corrected map |
 
-## 2. Key Architecture Pillars
+## 3. The control plane: what makes it scale
 
-### 1. Single Authenticating Edge & Zero-Trust Metadata Propagation (ADR-0003, ADR-0006)
-- **Token Verification:** `team-gateway` is the **only** entity that verifies client JWT tokens. It downloads and caches public keys from `team-identity` via `GET /.well-known/jwks.json` (:50063).
-- **Zero Shared Secrets:** No shared HMAC secret keys exist between services. Private signing keys remain strictly in Vault and `team-identity`.
-- **Trusted Principal Context:** Upon verifying the bearer token by key ID (`kid`), `team-gateway` strips external auth headers and injects trusted gRPC metadata:
-  - `x-principal-id`: Unique User/Actor UUID
-  - `x-principal-type`: `buyer` | `seller` | `admin` | `anonymous`
-  - `x-principal-scopes`: Canonical scope array (e.g. `listing:write`, `order:create`, `admin:all`)
-- Downstream Go services enforce access via the `RequireScopes` interceptor without re-parsing JWTs.
+Agents are interchangeable; the **control plane** is not. Every agent (Claude Code, Cursor,
+Codex, …) starts from the same map and is held by the same deterministic rails.
 
-### 2. CQRS & Transactional Outbox Pattern (ADR-0005)
-```mermaid
-sequenceDiagram
-  autonumber
-  actor Seller
-  participant DOM as team-domain (:50051)
-  participant PG as PostgreSQL (listing_db)
-  participant Relayer as Outbox Background Relayer
-  participant Kafka as Redpanda (listing.events)
-  participant SRC as team-search (:50052)
-  participant OS as OpenSearch (:9200)
+**One map, portable across agents.** [`AGENTS.md`](AGENTS.md) holds the repo map, the
+five non-negotiable rules and the recipe for adding a feature. `openspec/config.yaml` injects
+the same rails into every spec an agent writes. Architecture truth lives in
+[`platform-core/docs`](platform-core/docs) and its ADRs; `AGENTS.md` points there instead
+of duplicating it.
 
-  Seller->>DOM: CreateListing(Title, Price, Variants, Stock)
-  DOM->>DOM: Enforce Seller Ownership & Validate Schema
-  rect rgb(240, 248, 255)
-    DOM->>PG: BEGIN TRANSACTION
-    DOM->>PG: INSERT INTO listings & listing_variants
-    DOM->>PG: INSERT INTO domain_outbox_events (event_type, payload)
-    DOM->>PG: COMMIT TRANSACTION
-  end
-  DOM-->>Seller: 201 Created (Listing ID)
+**Deterministic hooks.** These run on every edit and do not rely on the agent remembering
+the rules (`.claude/hooks/`):
 
-  loop Every 100ms
-    Relayer->>PG: SELECT * FROM domain_outbox_events WHERE relayed_at IS NULL
-    Relayer->>Kafka: Publish platform.events.v1.EventEnvelope to 'listing.events'
-    Relayer->>PG: UPDATE domain_outbox_events SET relayed_at = NOW()
-  end
+| Hook | When | Effect |
+|---|---|---|
+| `guard-generated.sh` | Before any edit | **Blocks** hand edits to generated code or proto forks outside `platform-core` |
+| `format.sh` | After an edit | Formats with whatever toolchain is present; never fails the edit |
+| `drift-check.sh` | After editing compose, the port table, a `.proto` or `buf.gen.yaml` | Runs `repo_doctor`; silent when clean, loud on runtime-breaking drift |
 
-  Kafka->>SRC: Consume ListingCreated Event
-  SRC->>SRC: Generate Search Document & Vector Embedding
-  SRC->>OS: Upsert Document into listings_v1 Index
-```
+**Skills.** Each turns a recurring procedure into one repeatable command
+(`.claude/skills/`):
 
-### 3. Distributed Purchase Saga Orchestration (ADR-0002)
-```mermaid
-sequenceDiagram
-  autonumber
-  actor Buyer
-  participant ORD as team-order (:50055)
-  participant PRO as team-promotion (:50061)
-  participant DOM as team-domain (:50051)
-  participant PAY as team-payment (:50056)
-  participant Kafka as Redpanda (order.events)
+| Skill | Procedure it standardizes |
+|---|---|
+| `openspec-propose` / `-explore` / `-update-change` / `-apply-change` / `-sync-specs` / `-archive-change` | The spec lifecycle, phases 2 and 8 |
+| `spec-dispatch` | Fan out an approved change: code track per repo ∥ e2e track, then converge on the gate |
+| `spec-to-e2e` | Scenario → `FEATURES.yaml` → `.feature` + steps + page objects → run → flip to `automated` |
+| `proto-change` | Edit the contract once, `buf lint`/`breaking`, regenerate, propagate to every consumer |
+| `new-go-service` | Stamp a new bounded context from the sanctioned template and register it everywhere |
+| `repo-doctor` | One coherence sweep across compose, ports, contracts, specs and plans |
 
-  Buyer->>ORD: Checkout(CartItems, VoucherCode, PaymentMethod)
-  ORD->>ORD: Create Draft Order (State: PENDING_VALIDATION)
+**Reviewer sub-agents.** These are narrow reviewers that a generic review misses
+(`.claude/agents/`):
+- `contract-boundary-reviewer`: gateway-only edge, DB-per-service, the right broker, no forked contract.
+- `auth-scope-reviewer`: every RPC is scope-gated; the principal cannot be spoofed; no verifier outside the gateway.
 
-  ORD->>PRO: RPC ReserveVoucher(Code, BuyerID, OrderTotal)
-  alt Voucher Valid
-    PRO-->>ORD: VoucherReserved (Discount Amount)
-  else Voucher Invalid / Depleted
-    PRO-->>ORD: Error: Invalid Voucher
-    ORD->>ORD: Mark Order REJECTED
-    ORD-->>Buyer: Checkout Failed (Voucher Error)
-  end
+**Validators.** `scripts/repo_doctor.py` (static cross-repo drift) and `scripts/validate_plan.py`
+(parallel plans: locked spec, no write-set overlap, no `[UNRESOLVED]` left).
 
-  ORD->>DOM: RPC ReserveStock(ListingVariantID, Qty)
-  alt Stock Available
-    DOM-->>ORD: StockReserved (ReservationID)
-  else Stock Insufficient
-    DOM-->>ORD: Error: Out of Stock
-    ORD->>PRO: Compensating RPC: ReleaseVoucher()
-    ORD->>ORD: Mark Order CANCELLED
-    ORD-->>Buyer: Checkout Failed (Stock Insufficient)
-  end
+## 4. Parallelism model
 
-  ORD->>PAY: RPC AuthorizePayment(OrderID, Amount, PaymentMethod)
-  alt Payment Successful
-    PAY-->>ORD: PaymentAuthorized (TxID)
-    ORD->>PRO: RPC CommitVoucher(ReservationID)
-    ORD->>DOM: RPC CommitStock(ReservationID)
-    ORD->>ORD: Update Order State -> CONFIRMED / PAID
-    ORD->>Kafka: Publish OrderPlaced to 'order.events'
-    ORD-->>Buyer: 200 OK (Order Confirmation & Tracking Number)
-  else Payment Failed
-    PAY-->>ORD: Error: Card Declined
-    ORD->>DOM: Compensating RPC: ReleaseStock(ReservationID)
-    ORD->>PRO: Compensating RPC: ReleaseVoucher(ReservationID)
-    ORD->>ORD: Mark Order PAYMENT_FAILED
-    ORD-->>Buyer: Checkout Failed (Payment Error)
-  end
-```
+Parallel agents are only useful if they do not collide. The standard is isolation at every
+layer:
 
-### 4. AI & MLOps Architecture (ADR-0011, ADR-0013)
-- **Telemetry Ingestion:** Client beacons (`/api/v1/telemetry`) capture GA4 ecommerce events (`view_item_list`, `view_item`, `add_to_cart`, `begin_checkout`, `purchase`) and stream into `analytics.events`.
-- **Probabilistic Demand Forecasting:** `team-analytics` queries DuckDB Parquet historical sales and runs quantile regressions ($P_{10}$ pessimistic, $P_{50}$ median, $P_{90}$ optimistic), computing dynamic safety stock and Reorder Points (ROP) for sellers.
-- **Hybrid Search & Recommendation:** `team-search` combines lexical BM25 token matching with dense embeddings retrieved from `platform-modelserve` TEI (:8101) via Reciprocal Rank Fusion (RRF).
-- **Two-Tower & ALS RecSys:** `platform-recsys` processes implicit user-item interaction matrices to index top-k candidate vectors into Qdrant (:6333).
+1. **Requirement isolation.** One change is one directory (`openspec/changes/<id>/`). N changes
+   can be authored and built at the same time with near-zero merge conflicts.
+2. **Track isolation.** Inside a change the code track (per repo) and the e2e track (written
+   from the spec) run concurrently. The gate is the sync point, not task ordering.
+3. **Workspace isolation.** Each code sub-agent works in its own git worktree on its own
+   branch. The integrator reads the diff, runs the checks, and merges.
+4. **Contract serialization.** A proto change is the one thing that never fans out: it lands
+   first, alone, then consumers are fanned out.
+5. **Runtime isolation.** Each checkout runs its own compose project and never shares
+   containers, volumes or ports with another stack. Inside the e2e suite, parallel workers that
+   touch shared stores get private namespaces (for example Redis DB `10+N` and per-worker
+   Qdrant collections for the recommender pipeline scenarios).
+6. **Resource hygiene.** Heavy environments that a task does not need (for example the local
+   GitOps cluster) stay off during e2e. Contention showed up as flakes, not as slowness.
 
----
+## 5. Verification standard (Definition of Done)
 
-## 3. Polyrepo Services Directory & Port Allocation
+A change is done when **all** of these hold. "The code looks right" is not one of them.
 
-| Repository | Language / Framework | Primary Role & Bounded Context | Internal Ports | Database & Storage |
-|---|---|---|---|---|
-| **team-gateway** | Go 1.22 / Connect-Go | Public Edge, RS256 JWKS token verifier, rate limiter, forwarder | `:8080` (HTTP/Connect) | Redis `:6379` (Rate limits & cache) |
-| **team-frontend** | Next.js 14 / TypeScript | SSR consumer storefront, seller management console, auth session | `:3000` (HTTP) | httpOnly session cookie |
-| **team-identity** | Go 1.22 / gRPC | Auth provider, RS256 token minting, JWKS server, sessions, KYC | `:50053` (gRPC), `:50063` (HTTP) | PostgreSQL `identity_db` (:5435) |
-| **team-domain** | Go 1.22 / gRPC | Catalog, listings, SKU variants, stock reservation, outbox | `:50051` (gRPC) | PostgreSQL `listing_db` (:5433) |
-| **team-search** | Go 1.22 / gRPC | CQRS search engine, hybrid BM25 + kNN vector search, facets | `:50052` (gRPC) | OpenSearch `:9200`, Qdrant `:6333` |
-| **team-order** | Go 1.22 / gRPC | Cart, distributed purchase Saga, shipment tracking, RMA returns | `:50055` (gRPC) | PostgreSQL `order_db` (:5437) |
-| **team-payment** | Go 1.22 / gRPC | Double-entry ledger, mock payments, escrow hold, seller wallet | `:50056` (gRPC) | PostgreSQL `payment_db` (:5438) |
-| **team-promotion**| Go 1.22 / gRPC | Voucher lock engine (reserve/commit/release), flash-sale campaigns | `:50061` (gRPC) | PostgreSQL `promotion_db` (:5440) |
-| **team-engagement**| Go 1.22 / gRPC | Reviews (verified badge), favorites/wishlists, Q&A, disputes | `:50054` (gRPC) | PostgreSQL `engagement_db` (:5436) |
-| **team-chat** | Go 1.22 / gRPC | Real-time buyer-seller chat threads, streaming messages | `:50057` (gRPC) | PostgreSQL `chat_db` (:5439) |
-| **team-notification**| Go 1.22 / gRPC | In-app notification center, price drop alerts, notification prefs | `:50058` (gRPC) | PostgreSQL `notification_db` (:5441) |
-| **team-analytics** | Go 1.22 / gRPC | Telemetry consumer, conversion funnels, AI demand forecasting | `:50059` (gRPC) | DuckDB Columnar Parquet |
-| **team-ai** | Python 3.11 / FastAPI | RAG shopping assistant, magic listing generator, summarization | `:8000` (HTTP) | Vector Embeddings & LLM Context |
-| **platform-modelserve** | Python 3.11 / FastAPI | Unified ML model serving router (Hugging Face TEI / vLLM) | `:8100` (Router), `:8101-:8103` | Local GPU / CPU weights |
-| **platform-recsys** | Python 3.11 | Offline ALS collaborative filtering, Two-Tower embedding trainer | — | Qdrant `:6333`, Redis `:6379` |
-| **platform-core** | Protobuf / Buf v2 | Single source of truth for contracts, ADRs, Docker compose | — | — |
-| **platform-e2e** | Python / pytest-bdd | Playwright + BDD end-to-end testing platform across all flows | — | Test fixtures & seed data |
+**Traceability**
+- [ ] Every user-facing `#### Scenario:` maps 1:1 to a `FEATURES.yaml` acceptance line and a
+      `.feature` scenario (`make -C platform-e2e features-check`).
+- [ ] When the implementation reveals that the requirement was wrong, the change carries a
+      `MODIFIED` spec delta. The spec never silently diverges from the code.
 
----
+**Real-system testing**
+- [ ] E2E runs against the real stack through the public edge. Offline jobs run as their real
+      container images, as a black box. No in-process mocks stand in for the system under test.
+- [ ] Assertions check what the spec promises (state left in the stores, decisions and their
+      reasons), not proxies that happen to be true.
+- [ ] Known gaps are `xfail(strict=True)` with a reason that names the missing piece. Strict
+      means the marker must be removed the moment the gap closes. No silent `skip`.
+- [ ] Security properties are probed, not assumed. For example: can user A act on user B's
+      resource through the gateway?
 
-## 4. Local Development & Quickstart
+**Stability**
+- [ ] The full suite is green on **repeated** parallel runs (`-n 4`); destructive scenarios run
+      in a serial lane.
+- [ ] Every flake is root-caused. Typical classes are hydration races (an action before React
+      attaches handlers is solved by a readiness wait, `BasePage.wait_until_interactive`, never
+      a sleep), shared mutable state, and timing assumptions about telemetry export.
 
-### Prerequisites
-- Docker & Docker Compose v2+
-- Python 3.10+ (for test and seed tools)
-- Node.js 18+ (for frontend development)
+**Integration**
+- [ ] The CI-equivalent checks for each touched repo are run locally before committing.
+- [ ] **One fix = one commit.** The message states the cause, the change and the checks
+      that were run.
+- [ ] Pushes, PRs, destructive operations and anything outward-facing wait for explicit
+      human approval.
 
-### 1. Boot the Entire Microservices Mesh
+## 6. Human in the loop
+
+Agents execute; humans own decisions with consequences outside the repository:
+
+| Decision | Owner |
+|---|---|
+| Scope trade-offs, product behaviour changes | Human (the agent proposes options with a recommendation) |
+| Push, open or merge PRs, publish anything | Human approval, per action |
+| Destructive operations (deleting volumes or clusters, force pushes) | Human approval; reversible alternatives offered first |
+| Legal and privacy defaults (consent mode, data retention) | Human; explicitly deferred, never changed by an agent |
+| Secrets | Never in git; dev defaults only where overridable |
+
+## 7. Evidence: what the lifecycle caught
+
+The standard is justified by the defects it surfaced, not by its diagrams. Examples from one
+stabilization wave on this branch:
+
+| Practice | Defect it surfaced |
+|---|---|
+| Root-causing flakes instead of retrying | Kafka consumers in two services **silently stopped** on a fetch timeout; notifications and order events stopped flowing |
+| Probing authorization through the edge | **IDOR**: any signed-in user could book a payout from any seller's wallet to their own bank account |
+| Turning a strict `xfail` green instead of keeping it | Seven broken links in the recommender path: warehouse on `/tmp`, missing export, a vanished base image, evaluation always on an empty set, an unregistered RPC, a servicer coded against a guessed contract, wrong vector ids |
+| Replacing mock-based pipeline tests with black-box job runs | Two **spec violations**: unevaluable runs were still promoted, and gate decisions were not auditable |
+| Auditing metrics, not just tests | **Data leakage** in offline evaluation: ndcg@10 went from 0.75 (leaky) to 0.08 (honest). The protocol is now versioned so the gate never compares across protocols |
+
+Each row is one or more commits on this branch with the evidence in the message.
+
+## 8. The testbed
+
+An AI-first marketplace (Shopee-like) built as a polyrepo. `platform-core` owns the gRPC
+contract, infrastructure and ADRs; each `team-*` repository owns exactly one bounded context
+and its own database. Browsers reach services only through `team-gateway`. Write-side services
+publish Kafka events through a transactional outbox, and read-side services build projections
+(CQRS). The AI side is a RAG assistant plus an ALS recommender trained offline from tracked
+events.
+
+- Architecture and protocols per hop: [`platform-core/docs/ARCHITECTURE.md`](platform-core/docs/ARCHITECTURE.md)
+- Decisions: [`platform-core/docs/ADR/`](platform-core/docs/ADR)
+- Repository map, ports and rules: [`AGENTS.md`](AGENTS.md)
+- Data, infrastructure, security, UI system: [`platform-core/docs/`](platform-core/docs)
+
+## 9. Using the lifecycle
+
 ```bash
-# Start all databases, search engines, message brokers, and microservices
-docker compose -f docker-compose.services.yaml up --build -d
+# Specify
+/opsx:propose "<requirement>"                       # in Claude Code; produces openspec/changes/<id>/
+openspec validate <id> --strict
 
-# Verify all containers are healthy
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+# Build (fan out code ∥ e2e), then verify
+#   skill: spec-dispatch <id>
+make -C platform-e2e features-check                 # manifests + coverage
+make -C platform-e2e spec-check CHANGE=<id>         # every scenario of the change is green
+python scripts/repo_doctor.py --root .              # cross-repo drift
+
+# Run the system the tests run against
+docker compose up -d --build                        # whole stack, one command
+docker compose --profile jobs run --rm platform-recsys   # offline recommender training
+
+# Archive
+openspec archive <id>
 ```
 
-### 2. Seed Realistic Demo Marketplace Data
-```bash
-# Seeds 5 official stores, 10 buyers, 50+ localized products, vouchers, 500+ telemetry events, and 30-day order history
-./platform-core/tools/seed-full.sh
-```
+New to the repository, whether human or agent? Read [`AGENTS.md`](AGENTS.md) first, then
+[`SPEC_DRIVEN_WORKFLOW.md`](SPEC_DRIVEN_WORKFLOW.md).
 
-### 3. Verify Live User Journeys
-```bash
-# Runs 5 end-to-end live customer & seller journeys through the Gateway in ~2 seconds
-python3 platform-core/tools/run_live_user_journeys.py
-```
+## 10. Known gaps in the standard
 
-### 4. Run Full BDD End-to-End Test Suite
-```bash
-# Runs pytest-bdd test suite covering 100% of capabilities defined in FEATURES.yaml
-make -C platform-e2e test
-make -C platform-e2e features-check
-```
-
----
-
-## 5. Security & Governance Rules
-
-1. **Edge Isolation:** Downstream services are never exposed directly to external networks. All traffic flows through `team-gateway`.
-2. **Contract Authority:** APIs are defined only in `platform-core/packages/proto`. No hand-edited generated files.
-3. **DB-Per-Service:** Zero cross-service database access. Cross-domain queries must use gRPC RPCs.
-4. **Asynchronous Decoupling:** Event notifications flow through Kafka (`<domain>.events`). Background worker jobs flow through RabbitMQ.
+- **Gates run locally, not in hosted CI.** There is no root GitHub Actions workflow yet, so a
+  PR shows no checks. Mirroring the gate ladder into CI is the next step.
+- **36 changes are in flight.** Several are blocked only on environment-bound verification
+  (live cluster, CI builds); see `openspec/ARCHIVE-STATUS.md`.
+- **Flake protection is per-pattern.** Readiness waits are applied where races were observed;
+  a suite-wide hydration signal from the frontend would remove the class entirely.
