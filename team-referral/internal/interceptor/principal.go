@@ -18,6 +18,12 @@ import (
 // team-gateway/internal/edge/forward.go), matching the other services.
 const MetadataUserIDKey = "x-principal-id"
 
+// MetadataPrincipalTypeKey carries the principal type the gateway resolved. The
+// gateway forwards callers without a bearer token as id "anonymous" with type
+// "anonymous" (team-gateway/internal/edge/forward.go), so a non-empty id alone
+// does not mean the caller is authenticated.
+const MetadataPrincipalTypeKey = "x-principal-type"
+
 type principalCtxKey struct{}
 
 // Principal is the resolved identity of the caller. Anonymous is true when no
@@ -55,9 +61,18 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 func interceptorWithPrincipal(ctx context.Context) context.Context {
 	p := Principal{Anonymous: true}
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if vals := md.Get(MetadataUserIDKey); len(vals) > 0 && vals[0] != "" {
-			p = Principal{UserID: vals[0], Anonymous: false}
+		id := firstValue(md, MetadataUserIDKey)
+		ptype := firstValue(md, MetadataPrincipalTypeKey)
+		if id != "" && id != "anonymous" && ptype != "anonymous" {
+			p = Principal{UserID: id, Anonymous: false}
 		}
 	}
 	return WithPrincipal(ctx, p)
+}
+
+func firstValue(md metadata.MD, key string) string {
+	if vals := md.Get(key); len(vals) > 0 {
+		return vals[0]
+	}
+	return ""
 }
