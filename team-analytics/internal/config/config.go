@@ -52,6 +52,11 @@ type Kafka struct {
 	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
 	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
+	// ListingTopic feeds the listing -> seller mapping (ListingChanged). It is read
+	// by its own consumer group, from the earliest offset, so existing listings
+	// backfill.
+	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-sellers"`
 }
 
 // Warehouse selects and configures the WarehouseWriter adapter. DuckDB is the

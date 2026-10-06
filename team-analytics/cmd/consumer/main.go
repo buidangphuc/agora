@@ -24,6 +24,7 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/grpcserver"
 	"github.com/buidangphuc/team-analytics/internal/observability"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
@@ -83,6 +84,24 @@ func run() error {
 		return fmt.Errorf("kafka consumer: %w", err)
 	}
 	defer cons.Close()
+
+	// listing.events -> listing_sellers: lets the seller funnel attribute tracking
+	// events (which carry only a listing id) to a seller. DuckDB adapter only.
+	if lw, ok := res.Writer.(warehouse.ListingSellerWriter); ok {
+		lcons, err := consumer.NewListingConsumer(settings.KafkaBrokers(), settings.Kafka.ListingConsumerGroup, settings.Kafka.ListingTopic)
+		if err != nil {
+			return fmt.Errorf("kafka listing consumer: %w", err)
+		}
+		defer lcons.Close()
+		logger.Info("listing seller consumer starting",
+			slog.String("listing_topic", settings.Kafka.ListingTopic),
+			slog.String("group", settings.Kafka.ListingConsumerGroup))
+		go func() {
+			if runErr := lcons.Run(ctx, lw, logger); runErr != nil {
+				logger.Error("listing seller consumer stopped", slog.Any("err", runErr))
+			}
+		}()
+	}
 
 	logger.Info("analytics consumer starting",
 		slog.String("analytics_topic", settings.Kafka.AnalyticsTopic),

@@ -28,11 +28,18 @@ func TestDuckDBRepository_OrderFactsAndFunnel(t *testing.T) {
 		{EventID: "e3", EventType: "view", OccurredAt: d1, ListingID: "lst-a"},
 		{EventID: "e4", EventType: "add_to_cart", OccurredAt: d1, ListingID: "lst-a"},
 		{EventID: "e5", EventType: "view", OccurredAt: d2, ListingID: "lst-b"},
-		{EventID: "e6", EventType: "begin_checkout", OccurredAt: d2, Value: 600, Currency: "VND"},
+		{EventID: "e6", EventType: "begin_checkout", OccurredAt: d2, ListingID: "lst-a", Value: 600, Currency: "VND"},
 		{EventID: "e7", EventType: "purchase", OccurredAt: d2, ListingID: "lst-a", Price: 500, Quantity: 1, Value: 600, Currency: "VND", TransactionID: "tx-100"},
 	}
 	if err := w.Write(ctx, trackingEvents); err != nil {
 		t.Fatalf("Write tracking events: %v", err)
+	}
+
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "lst-a", SellerID: "seller-1", UpdatedAt: d1},
+		{ListingID: "lst-b", SellerID: "seller-1", UpdatedAt: d1},
+	}); err != nil {
+		t.Fatalf("UpsertListingSellers: %v", err)
 	}
 
 	// Write order facts
@@ -165,3 +172,107 @@ func TestDuckDBRepository_OrderFactsAndFunnel(t *testing.T) {
 	}
 }
 
+func TestDuckDBRepository_UpsertListingSellers(t *testing.T) {
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "")
+	if err != nil {
+		t.Fatalf("duckdb.Open: %v", err)
+	}
+	defer w.Close()
+
+	t1 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	t2 := t1.Add(time.Hour)
+	rec := func(id, seller string, at time.Time) *warehouse.ListingSellerRecord {
+		return &warehouse.ListingSellerRecord{ListingID: id, SellerID: seller, UpdatedAt: at}
+	}
+	// Same batch twice (redelivery) plus a duplicate inside the batch: one row.
+	for i := 0; i < 2; i++ {
+		if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{rec("l1", "s1", t1), rec("l1", "s1", t1), rec("l2", "s2", t1)}); err != nil {
+			t.Fatalf("upsert: %v", err)
+		}
+	}
+	count := func() (n int) {
+		if err := w.DB().QueryRowContext(ctx, "SELECT COUNT(*) FROM listing_sellers").Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if n := count(); n != 2 {
+		t.Fatalf("rows = %d, want 2", n)
+	}
+	seller := func(id string) (s string) {
+		if err := w.DB().QueryRowContext(ctx, "SELECT seller_id FROM listing_sellers WHERE listing_id = ?", id).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	// A newer event refreshes the row; an older (out-of-order) one does not.
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{rec("l1", "s9", t2)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := seller("l1"); got != "s9" {
+		t.Fatalf("seller after newer event = %q, want s9", got)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{rec("l1", "s1", t1)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := seller("l1"); got != "s9" {
+		t.Fatalf("seller after stale event = %q, want s9 (unchanged)", got)
+	}
+	if n := count(); n != 2 {
+		t.Fatalf("rows = %d, want 2", n)
+	}
+}
+
+func TestDuckDBRepository_SellerFunnelScopedBySeller(t *testing.T) {
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "")
+	if err != nil {
+		t.Fatalf("duckdb.Open: %v", err)
+	}
+	defer w.Close()
+
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "lst-a", SellerID: "seller-a", UpdatedAt: at},
+		{ListingID: "lst-b", SellerID: "seller-b", UpdatedAt: at},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{
+		{EventID: "1", EventType: "impression", OccurredAt: at, ListingID: "lst-a"},
+		{EventID: "2", EventType: "impression", OccurredAt: at, ListingID: "lst-a"},
+		{EventID: "3", EventType: "view", OccurredAt: at, ListingID: "lst-a"},
+		{EventID: "4", EventType: "view", OccurredAt: at, ListingID: "lst-b"},
+		// Unknown listing and listing-less events belong to no seller.
+		{EventID: "5", EventType: "view", OccurredAt: at, ListingID: "lst-unknown"},
+		{EventID: "6", EventType: "view", OccurredAt: at},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := query.NewDuckDBRepository(w.DB())
+	from, to := at.Add(-time.Hour), at.Add(time.Hour)
+
+	a, err := repo.SellerFunnel(ctx, "seller-a", from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Impressions != 2 || a.Views != 1 {
+		t.Errorf("seller-a funnel = %+v, want impressions=2 views=1", a)
+	}
+	b, err := repo.SellerFunnel(ctx, "seller-b", from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Impressions != 0 || b.Views != 1 {
+		t.Errorf("seller-b funnel = %+v, want impressions=0 views=1", b)
+	}
+	none, err := repo.SellerFunnel(ctx, "seller-none", from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if none.Impressions != 0 || none.Views != 0 {
+		t.Errorf("unmapped seller funnel = %+v, want zero tracking counts", none)
+	}
+}

@@ -171,3 +171,25 @@ type WarehouseWriter interface {
 	// Close flushes and releases the underlying handle.
 	Close() error
 }
+
+// ListingSellerRecord maps a listing to its owning seller. Tracking events carry
+// only a listing id, so the seller funnel joins through this table. It is
+// derived from team-domain's ListingChanged events (listing.events).
+type ListingSellerRecord struct {
+	ListingID string
+	SellerID  string
+	// UpdatedAt is the envelope occurred_at of the event that produced the row.
+	UpdatedAt time.Time
+}
+
+// ListingSellersTableName is the listing -> seller mapping table (DuckDB only).
+const ListingSellersTableName = "listing_sellers"
+
+// ListingSellerWriter is implemented by adapters that keep the listing -> seller
+// mapping (the DuckDB adapter, which also serves the seller queries).
+type ListingSellerWriter interface {
+	// UpsertListingSellers idempotently inserts or refreshes the mappings in one
+	// transaction. Mappings are never deleted: a deleted listing keeps its row so
+	// historical tracking events stay attributable to the seller.
+	UpsertListingSellers(ctx context.Context, batch []*ListingSellerRecord) error
+}

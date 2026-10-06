@@ -87,6 +87,15 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		}
 	}
 
+	listingSellersDDL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+  listing_id VARCHAR PRIMARY KEY,
+  seller_id  VARCHAR NOT NULL,
+  updated_at TIMESTAMP NOT NULL
+)`, warehouse.ListingSellersTableName)
+	if _, err := w.db.ExecContext(ctx, listingSellersDDL); err != nil {
+		return fmt.Errorf("ensure %s table: %w", warehouse.ListingSellersTableName, err)
+	}
+
 	// Create or replace standard ga4_events view
 	createViewSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW ga4_events AS
 SELECT
@@ -275,6 +284,41 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 	return nil
 }
 
+// upsertListingSellerSQL refreshes a mapping only when the incoming event is not
+// older than the stored one, so an out-of-order redelivery cannot regress it.
+var upsertListingSellerSQL = fmt.Sprintf(
+	`INSERT INTO %[1]s (listing_id, seller_id, updated_at) VALUES (?, ?, ?)
+ON CONFLICT (listing_id) DO UPDATE SET seller_id = excluded.seller_id, updated_at = excluded.updated_at
+WHERE excluded.updated_at >= %[1]s.updated_at`, warehouse.ListingSellersTableName)
+
+// UpsertListingSellers idempotently upserts listing -> seller mappings in one
+// transaction (all-or-nothing, so the caller can commit offsets after nil).
+func (w *Writer) UpsertListingSellers(ctx context.Context, batch []*warehouse.ListingSellerRecord) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, upsertListingSellerSQL)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("prepare upsert listing_sellers: %w", err)
+	}
+	defer stmt.Close()
+	for _, r := range batch {
+		if _, err := stmt.ExecContext(ctx, r.ListingID, r.SellerID, r.UpdatedAt.UTC()); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("upsert listing_sellers %s: %w", r.ListingID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit listing_sellers batch: %w", err)
+	}
+	return nil
+}
+
 // ExportParquet writes the whole table out as columnar Parquet at dst. DuckDB's
 // COPY produces analyst-/Spark-readable Parquet — the shape the later
 // recommendation job consumes.
@@ -309,3 +353,4 @@ func marshalProperties(p map[string]string) (string, error) {
 
 // compile-time assertion that the adapter satisfies the seam.
 var _ warehouse.WarehouseWriter = (*Writer)(nil)
+var _ warehouse.ListingSellerWriter = (*Writer)(nil)

@@ -24,21 +24,25 @@ func NewDuckDBRepository(db *sql.DB) *DuckDBRepository {
 }
 
 // SellerFunnel aggregates impressions, views, adds from tracking_events and
-// distinct orders from order_facts (ADR-0013).
+// distinct orders from order_facts (ADR-0013). Tracking events carry no seller
+// id, so they are attributed through listing_sellers (listing_id -> seller_id);
+// events on a listing with no known seller are excluded from every seller funnel.
 func (r *DuckDBRepository) SellerFunnel(ctx context.Context, sellerID string, from, to time.Time) (Funnel, error) {
 	trackingQ := fmt.Sprintf(`
 SELECT
-  COUNT(*) FILTER (WHERE event_type = 'impression') AS impressions,
-  COUNT(*) FILTER (WHERE event_type = 'view')       AS views,
-  COUNT(*) FILTER (WHERE event_type = 'add_to_cart') AS adds,
-  COUNT(*) FILTER (WHERE event_type = 'begin_checkout') AS begin_checkouts,
-  COUNT(*) FILTER (WHERE event_type = 'purchase') AS purchases
-FROM %s
-WHERE occurred_at >= ? AND occurred_at <= ?`,
-		warehouse.TableName)
+  COUNT(*) FILTER (WHERE t.event_type = 'impression') AS impressions,
+  COUNT(*) FILTER (WHERE t.event_type = 'view')       AS views,
+  COUNT(*) FILTER (WHERE t.event_type = 'add_to_cart') AS adds,
+  COUNT(*) FILTER (WHERE t.event_type = 'begin_checkout') AS begin_checkouts,
+  COUNT(*) FILTER (WHERE t.event_type = 'purchase') AS purchases
+FROM %s t
+JOIN %s ls ON ls.listing_id = t.listing_id
+WHERE ls.seller_id = ?
+  AND t.occurred_at >= ? AND t.occurred_at <= ?`,
+		warehouse.TableName, warehouse.ListingSellersTableName)
 
 	var f Funnel
-	row := r.db.QueryRowContext(ctx, trackingQ, from.UTC(), to.UTC())
+	row := r.db.QueryRowContext(ctx, trackingQ, sellerID, from.UTC(), to.UTC())
 	if err := row.Scan(&f.Impressions, &f.Views, &f.Adds, &f.BeginCheckouts, &f.Purchases); err != nil {
 		return Funnel{}, fmt.Errorf("seller funnel tracking query: %w", err)
 	}
