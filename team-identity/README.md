@@ -1,448 +1,210 @@
-# team-identity — Identity, Authentication & Security Microservice
+# team-identity
 
-`team-identity` is the central user authentication, authorization, and identity authority in the Agora Marketplace polyrepo platform. It manages user credentials, bcrypt password hashing, shipping address books, active device sessions, login audit trails, and token-based self-service password recovery.
+Go gRPC service that owns the **identity bounded context**: users and bcrypt credentials, RS256
+token issuance, the JWKS endpoint, role-to-scope resolution, shipping addresses, sessions and
+password reset. It is the sole token issuer (ADR-0003, ADR-0006): it holds the RSA private key and
+publishes only the public key; `team-gateway` verifies tokens against the JWKS. It owns `identity_db`
+(Rule 3: no other service connects to it). Status: deployed in the local compose stack, port `:50053`
+(gRPC) and `:50063` (HTTP JWKS).
 
-In accordance with **ADR-0003 and ADR-0006**:
-- **Authoritative Token Issuer**: `team-identity` holds the RSA private key in memory and mints **RS256 JWT** access tokens carrying the user identity and resolved permissions (`scopes`).
-- **JWKS Publication (ADR-0006)**: It exposes a dedicated, lightweight HTTP listener on port `:50063` serving its public keys at `GET /.well-known/jwks.json` so the edge gateway (`team-gateway`) can verify tokens without sharing private secrets.
-- **Database Ownership (Rule 3)**: Exclusively owns and manages `identity_db` (PostgreSQL on port `5435`). No other service holds database credentials or joins across this database.
+## Contract
 
----
+gRPC on `GRPC_PORT` (default `50053`). Authorization is enforced in handlers only through
+`interceptor.RequirePrincipal`, which reads the gateway-forwarded `x-principal-id` /
+`x-principal-type` / `x-principal-scopes` metadata and rejects missing or anonymous principals
+with `UNAUTHENTICATED`. Scope gating for the public RPCs is the gateway's job; this service does
+not check scopes except in `GetPublicProfiles`.
 
-## 1. Service Overview & Core Responsibilities
+| Service / RPC | Rule in this service |
+|---|---|
+| `AuthService.Register` | No principal check. Role `seller` or `buyer`; anything else (including `admin`) becomes `buyer`. Username non-empty, password >= 4 chars. Creates a session and returns a token with `sid`. |
+| `AuthService.Login` | No principal check. Creates a session, returns token. Wrong credentials: `UNAUTHENTICATED`. |
+| `AuthService.ChangePassword` | `RequirePrincipal` and a `PRINCIPAL_TYPE_USER` principal (`PERMISSION_DENIED` for service principals). Always targets the principal's id; `user_id` in the request body is ignored. Verifies the old password. |
+| `AuthService.RequestPasswordReset` | No principal check. Returns `expires_at` (15 min TTL, SHA-256 hash stored); the raw reset token is returned in the response only when `PASSWORD_RESET_EXPOSE_TOKEN=true` (dev/e2e; startup refuses it when `ENV=prod`). |
+| `AuthService.ResetPassword` | No principal check. Token must exist, be unused and unexpired. |
+| `AddressService.List/Create/Update/Delete/SetDefault` | `RequirePrincipal`; every query is scoped to the caller's id. |
+| `SessionService.ListSessions`, `ListLoginHistory` | `RequirePrincipal`; scoped to the caller. History page size default 20, max 100, cursor is a numeric offset. |
+| `SessionService.RevokeSession` | `RequirePrincipal`; only the caller's own session (`NOT_FOUND` otherwise). Writes a `SessionRevoked` outbox row in the same transaction. |
+| `PublicProfileService.GetPublicProfiles` | Service principal (`PRINCIPAL_TYPE_SERVICE`) with scope `identity.read` only; otherwise `PERMISSION_DENIED`. Max 100 ids (`InvalidArgument` above). Returns `{user_id, display_name}` where display name is the username. |
+| `grpc.health.v1.Health` | Open. |
+| `ServerReflection` | Registered when `GRPC_REFLECTION_ENABLED=true`. |
 
-```
-+-----------------------------------------------------------------------------------+
-|                                   team-identity                                   |
-|                                                                                   |
-|  [User & Credentials]        [Token Minting & JWKS]       [RBAC & Scope Engine]   |
-|  - Registration & Login      - RS256 Private Key Sign     - Roles: buyer, seller, |
-|  - Bcrypt password hashing   - JWKS Server (Port :50063)    admin                 |
-|  - Default admin auto-seed   - Key ID (kid) rotation      - Scope union mapping   |
-|                                                                                   |
-|  [Address Book Management]   [Active Session Tracker]     [Password Recovery]     |
-|  - Full CRUD operations      - Multi-device sessions      - 15-minute token TTL   |
-|  - Default address switch    - Session revocation         - SHA-256 token hash    |
-|  - CASCADE with user delete  - Login audit history        - One-time usage flag   |
-+-----------------------------------------------------------------------------------+
-```
+HTTP on `JWKS_HTTP_PORT` (default `50063`): `GET /.well-known/jwks.json`, unauthenticated, serves the
+signer's single public key (`kid` = `JWT_KID`), `Cache-Control: public, max-age=300`.
 
-### Core Responsibilities
-1. **User Authentication**: Validates user credentials, securely hashes passwords using `bcrypt` (DefaultCost), and auto-seeds initial system administrators.
-2. **Asymmetric Token Minting (RS256)**: Generates cryptographic JWT tokens signed with a PEM-encoded RSA private key, stamped with key ID (`kid`), expiration, user ID (`sub`), username, principal type, and authorized scopes.
-3. **Public Key Set Publishing (JWKS)**: Serves RFC 7517/7518 compliant JSON Web Key Sets at `/.well-known/jwks.json` on HTTP port `:50063`.
-4. **Role & Permission Resolution**: Translates application roles (`admin`, `seller`, `buyer`) into fine-grained service scopes (e.g. `listing.read`, `listing.write`, `search:read`, `engagement:write`, `admin`).
-5. **Shipping Address Book**: Manages user shipping addresses with atomic default address switching and CASCADE deletion.
-6. **Account Safety & Session Center**: Tracks active client sessions (device info, IP, last seen, revocation) and records paginated login history.
-7. **Password Recovery Lifecycle**: Manages authenticated password changes and secure self-service password reset flows using hashed one-time tokens.
+Role to scopes (`internal/authz/scopes.go`):
 
----
+| Role | Scopes |
+|---|---|
+| `buyer` | `listing.read`, `search:read`, `search:write`, `engagement:read`, `engagement:write` |
+| `seller` | buyer scopes plus `listing.write` |
+| `admin` | seller scopes plus `admin` |
 
-## 2. Technology Stack & Key Libraries
+Token claims (`internal/token/jwt.go`): RS256, header `kid`; `sub`, `name`, `typ` (`user`), `scopes`,
+`sid` (session id, omitted if no session), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
+any role, so no user token can carry it, and nothing in this service mints service tokens.
 
-| Component / Library | Version | Role & Description |
-|---|---|---|
-| **Go Runtime** | `1.22` | Core programming language runtime |
-| **`google.golang.org/grpc`** | `v1.66.0` | High-performance gRPC server handling identity contracts |
-| **`google.golang.org/protobuf`** | `v1.34.2` | Protocol Buffers runtime and generated identity messages |
-| **`github.com/jackc/pgx/v5`** | `v5.6.0` | PostgreSQL driver and connection pooling (`pgxpool`) |
-| **`github.com/jackc/puddle/v2`** | `v2.2.1` | Underlying connection pool engine for `pgx` |
-| **`github.com/golang-jwt/jwt/v5`** | `v5.2.1` | RS256 token signing and claim generation |
-| **`golang.org/x/crypto`** | `v0.24.0` | `bcrypt` password hashing and cryptographic helpers |
-| **`github.com/google/uuid`** | `v1.6.0` | Cryptographically secure UUIDv4 generation for user IDs and tokens |
-| **`go.opentelemetry.io/otel`** | `v1.28.0` | OpenTelemetry distributed tracing integration |
-| **`otelgrpc` (contrib)** | `v0.53.0` | gRPC server interceptor for distributed tracing propagation |
+Consumes: no upstream RPCs. Vendored contracts only: `platform.common.v1.Principal`,
+`platform.events.v1.EventEnvelope`, `platform.identity.v1.*`.
 
----
+## Events
 
-## 3. Detailed Architecture Diagram
-
-```mermaid
-flowchart TD
-    subgraph Clients ["Callers & Downstream"]
-        GW_RPC["team-gateway gRPC Client (:8080)"]
-        GW_JWKS["team-gateway JWKS Client"]
-    end
-
-    subgraph IdentityService ["team-identity Microservice"]
-        subgraph GRPCEndpoint ["gRPC Server (:50053)"]
-            Tracing["Tracing Interceptor (OTel)"]
-            Logging["Logging Interceptor (slog)"]
-            AuthCheck["Auth / Principal Interceptor"]
-            
-            H_Auth["AuthHandler (AuthService)"]
-            H_Addr["AddressHandler (AddressService)"]
-            H_Sess["SessionHandler (SessionService)"]
-            H_Health["HealthHandler (grpc_health_v1)"]
-        end
-        
-        subgraph HTTPEndpoint ["HTTP JWKS Server (:50063)"]
-            JWKSHandler["GET /.well-known/jwks.json"]
-        end
-
-        subgraph CoreLogic ["Domain Services & Security Engine"]
-            AuthSvc["AuthService (Business Logic)"]
-            Signer["RSA Token Signer (RS256 + kid)"]
-            Authz["Authz Engine (Role -> Scopes)"]
-        end
-
-        subgraph DataAccess ["Repository Layer (pgxpool)"]
-            UserRepo["PostgresUserRepository"]
-            AddrRepo["PostgresAddressRepository"]
-            SessRepo["PostgresSessionRepository"]
-        end
-    end
-
-    subgraph Database ["PostgreSQL Database (identity_db :5435)"]
-        T_Users["users"]
-        T_Addresses["user_addresses"]
-        T_Tokens["password_reset_tokens"]
-        T_Sessions["sessions"]
-        T_History["login_history"]
-    end
-
-    GW_RPC -->|gRPC Calls| Tracing
-    Tracing --> Logging
-    Logging --> AuthCheck
-    
-    AuthCheck --> H_Auth
-    AuthCheck --> H_Addr
-    AuthCheck --> H_Sess
-    AuthCheck --> H_Health
-
-    H_Auth --> AuthSvc
-    H_Addr --> AddrRepo
-    H_Sess --> SessRepo
-
-    AuthSvc --> UserRepo
-    AuthSvc --> Signer
-    AuthSvc --> Authz
-
-    Signer -.->|RSA Public Key| JWKSHandler
-    GW_JWKS -->|HTTP GET| JWKSHandler
-
-    UserRepo --> T_Users
-    UserRepo --> T_Tokens
-    AddrRepo --> T_Addresses
-    SessRepo --> T_Sessions
-    SessRepo --> T_History
-```
-
----
-
-## 4. Internal Package Structure & Responsibilities
-
-```
-team-identity/
-├── cmd/server/
-│   └── main.go              # Entrypoint: spins up gRPC server (:50053) & HTTP JWKS server (:50063)
-├── internal/
-│   ├── config/
-│   │   ├── config.go        # Settings grouped by Runtime, Server, Database, JWT, Observability
-│   │   └── envcheck.go      # Verifies parity between config declarations and .env.example
-│   ├── authz/
-│   │   └── scopes.go        # Role-to-scope resolution (admin, seller, buyer) & role normalization
-│   ├── token/
-│   │   ├── jwt.go           # RS256 token minting using RSA private key & kid injection
-│   │   └── jwks.go          # RFC 7517 JWKS JSON builder & HTTP handler at /.well-known/jwks.json
-│   ├── service/
-│   │   └── auth.go          # Core auth business logic: register, login, password update, reset token
-│   ├── handler/
-│   │   ├── auth.go          # gRPC handler for platform.identity.v1.AuthService
-│   │   ├── address.go       # gRPC handler for platform.identity.v1.AddressService
-│   │   └── session.go       # gRPC handler for platform.identity.v1.SessionService
-│   ├── interceptor/
-│   │   ├── auth.go          # Inbound context principal extraction (RequirePrincipal, RequireScopes)
-│   │   ├── stream.go        # Streaming interceptor wrappers
-│   │   └── tracing.go       # Server tracing & span enrichment
-│   ├── repository/
-│   │   ├── users.go         # UserRepository interfaces and domain entity structs
-│   │   ├── users_pg.go      # PostgreSQL implementation for user profiles & reset tokens
-│   │   ├── address.go       # PostgreSQL implementation for user shipping addresses
-│   │   └── session.go       # PostgreSQL implementation for active sessions & login history
-│   ├── bootstrap/
-│   │   ├── resources.go     # Initializes pgxpool database connection and gRPC health checks
-│   │   └── lifecycle.go     # Clean resource teardown and connection draining
-│   └── observability/
-│       └── tracer.go        # OpenTelemetry OTLP trace exporter initialization
-└── migrations/
-    ├── 0001_users.up.sql              # Users table with unique username and role array
-    ├── 0002_addresses.up.sql          # User addresses table with foreign key to users
-    ├── 0003_password_reset_tokens.up.sql # Password reset tokens with SHA-256 hash
-    └── 0004_sessions.up.sql           # Active sessions and login history audit tables
-```
-
----
-
-## 5. Data Models & Database Schema
-
-`team-identity` exclusively owns `identity_db`. All foreign keys use `ON DELETE CASCADE` referencing `users(id)`.
-
-```mermaid
-erDiagram
-    users ||--o{ user_addresses : owns
-    users ||--o{ password_reset_tokens : requests
-    users ||--o{ sessions : maintains
-    users ||--o{ login_history : records
-
-    users {
-        text id PK "UUIDv4"
-        text username UK "Unique account username"
-        text password_hash "Bcrypt hash"
-        text_array roles "Array of roles (buyer, seller, admin)"
-        timestamptz created_at "Registration timestamp"
-    }
-
-    user_addresses {
-        text id PK "UUIDv4"
-        text user_id FK "References users(id)"
-        text recipient_name "Recipient full name"
-        text phone "Contact telephone number"
-        text street "Street address line"
-        text ward "Ward / Commune"
-        text district "District"
-        text city "City / Province"
-        boolean is_default "Default shipping flag"
-        timestamptz created_at "Creation timestamp"
-        timestamptz updated_at "Update timestamp"
-    }
-
-    password_reset_tokens {
-        text token_hash PK "SHA-256 hex digest of raw token"
-        text user_id FK "References users(id)"
-        timestamptz expires_at "Expiration timestamp (15 mins)"
-        boolean used "One-time usage flag"
-        timestamptz created_at "Creation timestamp"
-    }
-
-    sessions {
-        text id PK "UUIDv4 session id"
-        text user_id FK "References users(id)"
-        text device "Device / Browser User-Agent"
-        text ip "Client IP Address"
-        timestamptz created_at "Session initialization time"
-        timestamptz last_seen "Last activity timestamp"
-        boolean revoked "Explicit revocation flag"
-    }
-
-    login_history {
-        text id PK "UUIDv4 event id"
-        text user_id FK "References users(id)"
-        text ip "Client IP Address"
-        text user_agent "Client User-Agent"
-        boolean success "Login success status"
-        timestamptz created_at "Attempt timestamp"
-    }
-```
-
----
-
-## 6. API Contracts & Exposed Endpoints
-
-### 6.1 gRPC Services (Port `:50053`)
-
-#### 1. `platform.identity.v1.AuthService` (Public Endpoints)
-- **`Register(RegisterRequest) -> RegisterResponse`**: Creates a user with role `buyer` or `seller` (admin is seeded only), hashes password with bcrypt, and mints an RS256 JWT access token.
-- **`Login(LoginRequest) -> LoginResponse`**: Validates credentials against stored bcrypt hash, returns an RS256 JWT access token with resolved scopes.
-- **`ChangePassword(ChangePasswordRequest) -> ChangePasswordResponse`**: Verifies user old password and updates bcrypt hash with new password.
-- **`RequestPasswordReset(RequestPasswordResetRequest) -> RequestPasswordResetResponse`**: Generates a UUID token, stores its SHA-256 hash in DB with 15-minute expiration, and returns the raw token.
-- **`ResetPassword(ResetPasswordRequest) -> ResetPasswordResponse`**: Validates that the SHA-256 token hash exists, is unused, and not expired; updates bcrypt password hash; marks token used.
-
-#### 2. `platform.identity.v1.AddressService` (Protected Endpoints — Requires Principal)
-- **`ListAddresses(ListAddressesRequest) -> ListAddressesResponse`**: Lists shipping addresses for the caller, sorted by `is_default DESC, created_at DESC`.
-- **`CreateAddress(CreateAddressRequest) -> CreateAddressResponse`**: Creates a new shipping address. If marked default or if first address, resets other user addresses to non-default.
-- **`UpdateAddress(UpdateAddressRequest) -> UpdateAddressResponse`**: Updates address details and manages default flag.
-- **`DeleteAddress(DeleteAddressRequest) -> DeleteAddressResponse`**: Removes an address from the user's address book.
-- **`SetDefaultAddress(SetDefaultAddressRequest) -> SetDefaultAddressResponse`**: Atomically sets `is_default=true` on the target address while clearing it on all other addresses of the user.
-
-#### 3. `platform.identity.v1.SessionService` (Protected Endpoints — Requires Principal)
-- **`ListSessions(ListSessionsRequest) -> ListSessionsResponse`**: Lists all active sessions for the authenticated user.
-- **`RevokeSession(RevokeSessionRequest) -> RevokeSessionResponse`**: Revokes an active session by session ID.
-- **`ListLoginHistory(ListLoginHistoryRequest) -> ListLoginHistoryResponse`**: Returns paginated login audit history with cursor support.
-
-#### 4. Auxiliary gRPC Services
-- `grpc.health.v1.Health`: Standard gRPC health check (`Check`, `Watch`).
-- `grpc.reflection.v1alpha.ServerReflection`: gRPC Server Reflection for debugging tools like `grpcurl`.
-
----
-
-### 6.2 HTTP JWKS Endpoint (Port `:50063`)
-
-- **`GET /.well-known/jwks.json`**
-  - Public, read-only, unauthenticated endpoint.
-  - Serves standard RFC 7517 / RFC 7518 JWKS JSON.
-  - Headers: `Content-Type: application/json`, `Cache-Control: public, max-age=300`.
-  - Example Response:
-    ```json
-    {
-      "keys": [
-        {
-          "kty": "RSA",
-          "use": "sig",
-          "alg": "RS256",
-          "kid": "identity-key-2026",
-          "n": "u1b7w...[base64url-encoded-modulus]",
-          "e": "AQAB"
-        }
-      ]
-    }
-    ```
-
----
-
-## 7. Security & Flow Mechanisms
-
-### 7.1 RS256 Private Key Signing & JWKS Key Rotation (ADR-0006)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Buyer as User / Client
-    participant GW as team-gateway
-    participant ID_gRPC as team-identity gRPC (:50053)
-    participant ID_JWKS as team-identity JWKS (:50063)
-    participant DB as identity_db
-
-    Buyer->>GW: POST /platform.identity.v1.AuthService/Login
-    GW->>ID_gRPC: gRPC Login(username, password)
-    ID_gRPC->>DB: Query user by username
-    DB-->>ID_gRPC: Return user & password_hash
-    ID_gRPC->>ID_gRPC: bcrypt.CompareHashAndPassword()
-    ID_gRPC->>ID_gRPC: Calculate scopes for user roles
-    ID_gRPC->>ID_gRPC: Sign RS256 JWT (stamping kid in header)
-    ID_gRPC-->>GW: AuthResult (token + principal)
-    GW-->>Buyer: LoginResponse (token)
-
-    Note over GW,ID_JWKS: Gateway verifies future requests by fetching JWKS
-    GW->>ID_JWKS: GET /.well-known/jwks.json
-    ID_JWKS-->>GW: 200 OK (Public Key Set)
-```
-
-1. **Private Key Isolation**: `team-identity` reads `JWT_PRIVATE_KEY` (PEM-encoded RSA key) and `JWT_KID` at startup. The private key never leaves this service.
-2. **Key Rotation Readiness**: `BuildJWKS` accepts multiple public keys, allowing a new key to be published to JWKS before it begins signing tokens, ensuring zero-downtime rotation.
-
-### 7.2 Role-Based Access Control (RBAC) & Scope Mapping
-
-Scopes are computed deterministically from the user's assigned roles:
-
-| Role | Assigned System Scopes | Notes |
-|---|---|---|
-| `admin` | `listing.read`, `listing.write`, `search:read`, `search:write`, `engagement:read`, `engagement:write`, `admin` | Opt-in seed via `SEED_ADMIN_*` (see 8.1); no built-in password |
-| `seller` | `listing.read`, `listing.write`, `search:read`, `search:write`, `engagement:read`, `engagement:write` | Self-assignable upon registration |
-| `buyer` | `listing.read`, `search:read`, `search:write`, `engagement:read`, `engagement:write` | Default registration role |
-
-### 7.3 Token Claims Structure
-Tokens minted by `team-identity` carry:
-```json
-{
-  "sub": "usr_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "name": "buyer_alice",
-  "typ": "user",
-  "scopes": ["listing.read", "search:read", "search:write", "engagement:read", "engagement:write"],
-  "iat": 1774140000,
-  "exp": 1774143600
-}
-```
-
-### 7.4 Self-Service Password Reset Flow
-1. **Request Reset**: Client calls `RequestPasswordReset(username)`. Service generates a raw UUIDv4 token, stores its SHA-256 hash in `password_reset_tokens` table with `expires_at = now + 15m` and `used = false`, and returns the raw token.
-2. **Execute Reset**: Client calls `ResetPassword(raw_token, new_password)`. Service computes SHA-256 hash of `raw_token`, looks up token in DB, verifies `used == false` and `now < expires_at`, updates `users.password_hash` with new bcrypt hash, and marks `used = true`.
-
----
-
-## 8. Environment Configuration Reference
-
-| Environment Variable | Type | Default | Description |
+| Direction | Topic | Type | Key |
 |---|---|---|---|
-| `ENV` | `string` | `local` | Deployment environment (`local`, `dev`, `prod`) |
-| `LOG_LEVEL` | `string` | `info` | Structured logging verbosity (`debug`, `info`, `warn`, `error`) |
-| `LOG_JSON` | `bool` | `true` | Emit structured JSON log format |
-| `GRPC_HOST` | `string` | `0.0.0.0` | Bind host for gRPC server |
-| `GRPC_PORT` | `int` | `50053` | gRPC listening port |
-| `GRPC_REFLECTION_ENABLED` | `bool` | `true` | Enable gRPC Server Reflection |
-| `SHUTDOWN_GRACE_SECONDS` | `float` | `10` | Grace period for server connection drain |
-| `DATABASE_ENABLED` | `bool` | `true` | Enable PostgreSQL database connection |
-| `DATABASE_URL` | `string` | `""` | PostgreSQL connection string (`postgresql://identity_svc:identity_pass@localhost:5435/identity_db`) |
-| `DB_MAX_CONNS` | `int32` | `10` | Maximum connections in pgxpool |
-| `JWT_PRIVATE_KEY` | `string` | `""` | PEM-encoded RSA private key for RS256 signing |
-| `JWT_KID` | `string` | `""` | Key ID stamped in JWT headers (e.g. `identity-key-2026`) |
-| `JWKS_HTTP_PORT` | `int` | `50063` | Listening port for HTTP JWKS server |
-| `JWT_TTL_SECONDS` | `int` | `3600` | Access token lifespan in seconds (default 1 hour) |
-| `SEED_ADMIN_ENABLED` | `bool` | `false` | Create a first admin at startup (see 8.1) |
-| `SEED_ADMIN_USERNAME` | `string` | `admin` | Username of the seeded admin |
-| `SEED_ADMIN_PASSWORD` | `string` | `""` | Password of the seeded admin; required (>= 12 chars) when seeding is enabled |
-| `OTEL_ENABLED` | `bool` | `false` | Enable OpenTelemetry tracing exporter |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `string` | `""` | OTLP gRPC collector endpoint (`localhost:4317`) |
-| `OTEL_SERVICE_NAME` | `string` | `team-identity` | Service name stamped in distributed traces |
+| Produces | `identity.events` (`IDENTITY_EVENTS_TOPIC`) | `platform.identity.v1.SessionRevoked` in an `EventEnvelope` | user id |
+| Consumes | none | | |
 
-### 8.1 Admin seed (`SEED_ADMIN_*`)
+`RevokeSession` inserts the outbox row in the same transaction as `sessions.revoked = true`. The
+relayer (`internal/events/relayer.go`) publishes pending rows and runs only when `KAFKA_ENABLED` and
+`OUTBOX_ENABLED` are both true. With `KAFKA_ENABLED=false` (the default) rows are recorded and never
+relayed. The envelope carries an expiry of session creation time plus `JWT_TTL_SECONDS`, which is how
+the gateway knows how long to deny that session's token.
 
-team-identity ships **no** built-in credential. By default no admin exists. To create the
-first admin, start the service once with `SEED_ADMIN_ENABLED=true`, `SEED_ADMIN_USERNAME`
-(default `admin`) and `SEED_ADMIN_PASSWORD` (no default, at least 12 characters). With
-seeding enabled and a missing or short password the process exits at startup with an error
-naming `SEED_ADMIN_PASSWORD`. Seeding creates the user only if it does not exist yet; it
-never overwrites an existing password. The local compose stack enables it with a dev-only
-password; deployment manifests must not (platform-gitops has a check). In deployed
-environments create the first admin by enabling it once with a secret, then turn it off.
+## Data
 
-**Existing `admin` / `admin123` row.** Earlier versions seeded `admin` / `admin123`
-unconditionally, and that row stays in an existing database after upgrade. Rotate or remove
-it (psql against `identity_db`; `users` has `username`, `password_hash`, `roles`):
+Database `identity_db`. Migrations in `migrations/` (golang-migrate, up/down pairs):
+
+| Migration | Tables |
+|---|---|
+| `0001_users` | `users` (id, username unique, password_hash, roles[], created_at) |
+| `0002_addresses` | `user_addresses` |
+| `0003_password_reset_tokens` | `password_reset_tokens` (PK = SHA-256 token hash) |
+| `0004_sessions` | `sessions`, `login_history` |
+| `0005_identity_outbox_events` | `identity_outbox_events` (claimed with `FOR UPDATE SKIP LOCKED`) |
+
+All user-owned tables reference `users(id)` with `ON DELETE CASCADE`. Migrations are not run by the
+service: the root compose runs the `team-identity-migrate` job; standalone use `make migrate`
+(needs docker).
+
+## Configuration
+
+Read by `internal/config/config.go`. `make check-env` (part of `make check`) fails if `.env.example`
+drifts from the config structs. The service refuses to start without `DATABASE_ENABLED=true`.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `ENV` | `local` | |
+| `LOG_LEVEL` | `info` | |
+| `LOG_JSON` | `true` | |
+| `GRPC_HOST` | `0.0.0.0` | Also the bind host for JWKS |
+| `GRPC_PORT` | `50053` | |
+| `GRPC_REFLECTION_ENABLED` | `true` | |
+| `SHUTDOWN_GRACE_SECONDS` | `10` | |
+| `DATABASE_ENABLED` | `true` | Must stay true |
+| `DATABASE_URL` | empty | Required |
+| `DB_MAX_CONNS` | `10` | |
+| `KAFKA_ENABLED` | `false` | |
+| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `IDENTITY_EVENTS_TOPIC` | `identity.events` | |
+| `OUTBOX_ENABLED` | `true` | Relayer also needs `KAFKA_ENABLED` |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid falls back to 1s |
+| `OUTBOX_BATCH_SIZE` | `100` | |
+| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
+| `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `JWT_PRIVATE_KEY` | empty | Required. PEM RSA key (PKCS#1 or PKCS#8); literal `\n` and surrounding quotes are accepted |
+| `JWT_KID` | empty | Required |
+| `JWKS_HTTP_PORT` | `50063` | |
+| `JWT_TTL_SECONDS` | `3600` | Must be > 0 |
+| `SEED_ADMIN_ENABLED` | `false` | Opt-in first admin |
+| `SEED_ADMIN_USERNAME` | `admin` | |
+| `SEED_ADMIN_PASSWORD` | empty | Required, >= 12 chars, when seeding is enabled |
+| `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
+| `OTEL_ENABLED` | `false` | |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | `.env.example` sets `http://localhost:4317` |
+| `OTEL_SERVICE_NAME` | `team-identity` | |
+
+Admin seed: with `SEED_ADMIN_ENABLED=true` the user is created only if absent and an existing
+password is never overwritten. A missing or short password aborts startup. A seeding failure after
+that (for example a DB error) is only logged as a warning. The local compose stack enables it with a
+dev password; deployment manifests must not (platform-gitops has a check). Older databases may still
+hold an `admin` / `admin123` row from earlier versions that seeded unconditionally: delete or
+rotate it (`users.password_hash` is bcrypt). Tokens already issued stay valid until they expire.
+
+## Run locally
+
+Whole stack (service, migrate job, redpanda, shared Postgres), from the repo root:
 
 ```bash
-# Remove it (then re-seed with a strong password if you still need an admin):
-psql "$DATABASE_URL" -c "DELETE FROM users WHERE username = 'admin';"
-
-# Or rotate in place (bcrypt hash, cost 10; any bcrypt tool works, e.g. htpasswd):
-HASH=$(htpasswd -bnBC 10 "" 'a-new-strong-password' | tr -d ':\n' | sed 's/^\$2y/$2a/')
-psql "$DATABASE_URL" -v h="$HASH" -c "UPDATE users SET password_hash = :'h' WHERE username = 'admin';"
+docker compose up -d --build team-identity
 ```
 
-Outstanding tokens for that user stay valid until they expire (`JWT_TTL_SECONDS`).
+Compose wires `KAFKA_ENABLED=true`, `JWKS_HTTP_PORT=50063`, a dev signing key and `SEED_ADMIN_*`.
+The shared `postgres` container serves `identity_db` in-network as `postgres:5432`.
 
----
+Standalone, with the service's own Postgres on host port `5435`:
 
-## 9. Running & Testing
-
-### Local Development Commands
 ```bash
-# 1. Start postgres-identity database container
-docker compose -p platform-core up -d postgres-identity
-
-# 2. Configure environment
-cp .env.example .env
-
-# 3. Apply database migrations
+docker compose -f docker-compose.local.yaml up -d postgres-identity
+cp .env.example .env     # then set JWT_PRIVATE_KEY, see below
+make proto               # generated/ is gitignored
 make migrate
-
-# 4. Run environment drift check and unit tests
-make check
-
-# 5. Start the gRPC + JWKS service
 make run
 ```
 
-### Verification via grpcurl & curl
+`.env.example` ships `JWT_PRIVATE_KEY=dev-rsa-private-key-pem-change-me`, which is not a PEM and
+makes startup fail. Generate a key with `openssl genrsa 2048` and put it in `.env` as one line with
+`\n` escapes.
 
-**Register a New Seller:**
+Smoke checks:
+
 ```bash
+grpcurl -plaintext localhost:50053 grpc.health.v1.Health/Check
+curl -i http://localhost:50063/.well-known/jwks.json
 grpcurl -plaintext -d '{"username":"seller_dan","password":"SecurePassword123","role":"seller"}' \
   localhost:50053 platform.identity.v1.AuthService/Register
 ```
 
-**Login:**
-```bash
-grpcurl -plaintext -d '{"username":"seller_dan","password":"SecurePassword123"}' \
-  localhost:50053 platform.identity.v1.AuthService/Login
-```
+## Build, test and lint
 
-**Fetch Public JWKS Keys (HTTP):**
-```bash
-curl -i http://localhost:50063/.well-known/jwks.json
-```
+| Command | What it does |
+|---|---|
+| `make proto` | `buf generate` from the vendored `proto/` into `generated/` (needs `buf`; the plugins are remote on buf.build) |
+| `make check` | The merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
+| `make check-env` | `TestEnvExampleInSync` only |
+| `make test` | `go test ./...` |
 
-**Health Check:**
-```bash
-grpcurl -plaintext localhost:50053 grpc.health.v1.Health/Check
-```
+There is no linter beyond gofmt and vet. Postgres-backed tests (`*_pg_test.go`) skip unless
+`TEST_DATABASE_URL` is set. No workflow file for this repo exists in this checkout; treat
+`make check` as the gate.
+
+## Spec and verification
+
+`FEATURES.yaml` (15 features: login, register, password reset, addresses, logout, the RS256/JWKS
+set including key rotation, and session revocation/device+IP) maps each feature to its platform-e2e
+scenario in `covered_by`. Verify with `make -C platform-e2e features-check`, and for an OpenSpec
+change `make -C platform-e2e spec-check CHANGE=<id>`. Changes go through OpenSpec
+(`openspec/changes/<id>` at the repo root): propose, update `FEATURES.yaml`, add the e2e scenario,
+then implement, per the root README's ASDLC. `PublicProfileService` has no `FEATURES.yaml` entry.
+
+## Gotchas
+
+- `generated/` is gitignored; run `make proto` before building or testing.
+- `proto/` is vendored from platform-core. Never edit it here.
+- The Dockerfile sets `GRPC_PORT=50053` and `EXPOSE`s only `50053`, not the JWKS port. Compose does
+  not depend on `EXPOSE`.
+- `RevokeSession` only records and relays an event. Enforcement happens at the gateway, which must
+  consume `identity.events`; this service does not check `sessions.revoked` anywhere else.
+- With `KAFKA_ENABLED=false`, outbox rows accumulate unrelayed.
+- JWKS publishes exactly one key (the signer's). `BuildJWKS` accepts several, but `main.go` passes one,
+  so rotation means redeploying with a new `JWT_KID` and key.
+- In-memory repositories exist for tests only; the server always uses Postgres.
+
+## Known gaps
+
+- `login_history` is never written: `RecordLogin` exists but nothing in the server calls it, so
+  `ListLoginHistory` returns no rows.
+- `sessions.last_seen` is set at creation and never updated.
+- Identity trusts `x-principal-*` metadata without verification (ADR-0010 interim: NetworkPolicy only).
+  Anything that can reach `:50053` directly can impersonate any principal.
+- There is no out-of-band delivery (email/SMS) of the reset token, so with the default
+  `PASSWORD_RESET_EXPOSE_TOKEN=false` a caller of `RequestPasswordReset` never receives it. With it
+  `true` (dev/e2e) the RPC allows takeover of any account by username.
+- Unknown usernames in `RequestPasswordReset` return `NOT_FOUND`, which allows username enumeration; the
+  same applies to `Register` conflicts (`ALREADY_EXISTS`).
+- Display name is the username; there is no separate profile field.
+
+## Links
+
+- Root rules: [`../AGENTS.md`](../AGENTS.md)
+- ADRs in `../platform-core/docs/ADR/`: `0002-async-broker.md`, `0003-auth-model.md`,
+  `0006-rs256-jwks-auth.md`, `0010-service-zero-trust.md`
