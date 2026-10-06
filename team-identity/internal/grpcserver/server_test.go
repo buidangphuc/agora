@@ -196,8 +196,9 @@ func TestPasswordManagement_E2E(t *testing.T) {
 	userID := regResp.GetResult().GetPrincipal().GetId()
 
 	// 2. Change password
-	cpResp, err := authClient.ChangePassword(ctx, &identityv1.ChangePasswordRequest{
-		UserId:      userID,
+	pctx, pcancel := principalCtx(t, userID)
+	defer pcancel()
+	cpResp, err := authClient.ChangePassword(pctx, &identityv1.ChangePasswordRequest{
 		OldPassword: "oldpassword123",
 		NewPassword: "newpassword456",
 	})

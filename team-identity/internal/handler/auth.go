@@ -52,12 +52,17 @@ func (h *AuthHandler) ChangePassword(
 	ctx context.Context,
 	req *identityv1.ChangePasswordRequest,
 ) (*identityv1.ChangePasswordResponse, error) {
-	userID := req.GetUserId()
-	if userID == "" {
-		if p, ok := interceptor.PrincipalFromContext(ctx); ok && p != nil {
-			userID = p.GetId()
-		}
+	// The target is always the authenticated user: req.user_id is ignored so a
+	// caller can never change another account's password. Service/anonymous
+	// principals have no password to change.
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
 	}
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER {
+		return nil, status.Error(codes.PermissionDenied, "user principal required")
+	}
+	userID := principal.GetId()
 	if err := h.svc.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword()); err != nil {
 		return nil, mapErr(err)
 	}
