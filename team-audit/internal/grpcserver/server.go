@@ -5,12 +5,13 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
 	"github.com/buidangphuc/team-audit/internal/handler"
+	"github.com/buidangphuc/team-audit/internal/interceptor"
 )
 
 type Server struct {
@@ -18,14 +19,20 @@ type Server struct {
 	port       int
 }
 
-func New(port int, auditHandler *handler.AuditHandler) *Server {
-	srv := grpc.NewServer()
+// Build assembles the gRPC server: the principal interceptor (never rejects; each
+// handler authorizes as its first statement), the audit service, reflection and health.
+func Build(auditHandler *handler.AuditHandler) *grpc.Server {
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Unary()))
 	auditv1.RegisterAuditServiceServer(srv, auditHandler)
 	reflection.Register(srv)
 	healthSrv := health.NewServer()
 	healthpb.RegisterHealthServer(srv, healthSrv)
 	healthSrv.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-	return &Server{grpcServer: srv, port: port}
+	return srv
+}
+
+func New(port int, auditHandler *handler.AuditHandler) *Server {
+	return &Server{grpcServer: Build(auditHandler), port: port}
 }
 
 func (s *Server) Start() error {

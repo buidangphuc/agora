@@ -13,6 +13,7 @@ import (
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
 	commonv1 "github.com/buidangphuc/team-audit/generated/platform/common/v1"
+	"github.com/buidangphuc/team-audit/internal/interceptor"
 	"github.com/buidangphuc/team-audit/internal/service"
 )
 
@@ -37,9 +38,20 @@ func mapAuditErr(err error) error {
 
 // WriteAuditEvent appends an immutable event. It is fire-and-forget: the event
 // is persisted durably, but the response carries no payload (the caller does not
-// wait on a receipt). actor_id may be empty for anonymous/system actors.
+// wait on a receipt). The caller must be authenticated and the stored actor is
+// the principal's own id: a client-supplied actor_id is ignored, so a user cannot
+// forge events attributed to someone else. Only a SERVICE principal writing on
+// behalf of a user may supply its own actor_id.
 func (h *AuditHandler) WriteAuditEvent(ctx context.Context, req *auditv1.WriteAuditEventRequest) (*auditv1.WriteAuditEventResponse, error) {
-	if _, err := h.svc.Write(ctx, req.GetActorId(), req.GetAction(), req.GetTargetType(), req.GetTargetId(), req.GetMetadata()); err != nil {
+	p, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actorID := p.ID
+	if p.IsService() && req.GetActorId() != "" {
+		actorID = req.GetActorId()
+	}
+	if _, err := h.svc.Write(ctx, actorID, req.GetAction(), req.GetTargetType(), req.GetTargetId(), req.GetMetadata()); err != nil {
 		return nil, mapAuditErr(err)
 	}
 	return &auditv1.WriteAuditEventResponse{}, nil
@@ -47,8 +59,11 @@ func (h *AuditHandler) WriteAuditEvent(ctx context.Context, req *auditv1.WriteAu
 
 // QueryAuditLog returns the audit trail filtered by actor and/or target type,
 // newest first, paginated. The opaque page cursor encodes the row offset; the
-// response's next_cursor is set only while further pages remain.
+// response's next_cursor is set only while further pages remain. Admin only.
 func (h *AuditHandler) QueryAuditLog(ctx context.Context, req *auditv1.QueryAuditLogRequest) (*auditv1.QueryAuditLogResponse, error) {
+	if _, err := interceptor.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	pageSize := int(req.GetPage().GetPageSize())
 	offset := decodeCursor(req.GetPage().GetCursor())
 
