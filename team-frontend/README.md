@@ -1,179 +1,123 @@
-# team-frontend — Next.js 14 SSR Marketplace Frontend
+# team-frontend
 
-`team-frontend` là giao diện người dùng chính của hệ thống Marketplace Polyrepo, được xây dựng trên **Next.js 14 App Router** (React Server Components, SSR) kết hợp với **Tailwind CSS** và **Connect-ES**.
+Next.js 14 (App Router, SSR, `output: "standalone"`) web UI for the marketplace. It is the **UI shell**: it renders pages, shapes data for display and holds the `httpOnly` session cookie. It owns no business capability, no database and no Kafka/RabbitMQ topics. Each feature's logic lives in the service that owns the capability (identity, listing, order, search, ...).
 
-Theo quy tắc kiến trúc **ARCHITECTURE Rule 1**:
-- **Frontend chỉ giao tiếp duy nhất với `team-gateway`** (`:8080`) thông qua Connect RPC (HTTP/1.1 JSON/gRPC).
-- Không bao giờ gọi trực tiếp database hay microservice gRPC phía sau.
-- Không chứa business logic xử lý giao dịch — chỉ đảm nhiệm việc render UI, định dạng dữ liệu hiển thị (UI shaping) và quản lý session cookie `httpOnly`.
+Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 18, Tailwind 3, Connect-ES (`@connectrpc/connect-node`), OpenFeature + Flipt, Biome, Vitest.
 
----
+## 1. Contract
 
-## 1. Công nghệ & Kiến trúc
+**Serves** (no gRPC/Connect server; HTTP only):
 
-- **Framework**: Next.js 14.2+ (App Router, Server Actions, React Server Components).
-- **Styling**: Tailwind CSS với theme Shopee signature gradient (`#f53d2d` -> `#f63`).
-- **Giao tiếp RPC**: `@connectrpc/connect`, `@connectrpc/connect-node` kết nối tới `team-gateway`.
-- **Bảo mật & Session**: Token JWT được lưu trữ an toàn trong Cookie `session` (`httpOnly`, `sameSite: lax`). Server Component tự động trích xuất token để đính kèm vào header `Authorization: Bearer <token>` khi gửi request sang Gateway.
+| Surface | What | Authorization |
+|---|---|---|
+| 37 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, admin, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
+| `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
+| `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
+| `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
+| `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` (401/403 passed through) |
 
----
+Route groups and page-level gates:
 
-## 2. Toàn bộ 25 Routes trong App Router
+| Group | Routes | Gate |
+|---|---|---|
+| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect), `/login`, `/register`, `/sell`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
+| `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
+| `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
+| `(shop)/seller/*` | dashboard, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `seller/layout.tsx`: `/login` if anonymous; "seller account needed" result unless scope `listing.write` |
+| `(shop)/admin/cockpit` | Ops cockpit | `/login` if anonymous, denied view unless scope `admin`; the gateway re-enforces it on the data |
+| `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
+| `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |
 
-### Nhóm 1: Trải nghiệm Mua hàng & Khám phá (Buyer Experience)
-1. **`/` (Trang chủ Marketplace)**:
-   - Header tìm kiếm với thanh gợi ý từ khóa hot (iPhone 15, MacBook Pro, Nike...).
-   - Banner chương trình khuyến mãi & Danh mục sản phẩm nổi bật (Thời trang, Điện tử, Nhà cửa, Sắc đẹp...).
-   - Flash Sale Section với đồng hồ đếm ngược (Live Countdown Timer) và thanh trạng thái số lượng bán.
-   - Lưới gợi ý sản phẩm cá nhân hóa (Personalized Recommendations).
-   - Lối tắt truy cập nhanh vào **AI Shopping Assistant**.
-2. **`/search` (Tìm kiếm & Bộ lọc nâng cao)**:
-   - Tìm kiếm toàn văn (OpenSearch backend) theo từ khóa `?q=`.
-   - Bộ lọc đa chiều: Theo danh mục, khoảng giá (Min - Max VND), đánh giá sao (1-5 sao).
-   - Sắp xếp linh hoạt: Phổ biến, Mới nhất, Bán chạy, Giá tăng/giảm dần.
-   - Gợi ý từ khóa tự động (Autocomplete Suggestion).
-3. **`/listing/[id]` (Chi tiết sản phẩm & Tương tác)**:
-   - Gallery hình ảnh sản phẩm với thumbnail tương tác.
-   - Thông tin giá bán, tỷ lệ giảm giá, trạng thái tồn kho thực tế.
-   - Nút **Thêm Vào Giỏ Hàng** và **Mua Ngay**.
-   - Khối thông tin gian hàng (Mini Shop Card) kèm nút **Chat Ngay với Người Bán**.
-   - Bảng thống kê đánh giá sao (Rating Breakdown 1-5 sao) và danh sách nhận xét thực tế kèm bình luận.
-   - Nút Thả tim (Yêu thích / Wishlist) cập nhật số lượt like theo thời gian thực.
-   - Khu vực Hỏi Đáp (Q&A) giữa người mua và người bán.
-4. **`/cart` (Quản lý Giỏ hàng)**:
-   - Danh sách sản phẩm trong giỏ phân nhóm theo Shop.
-   - Chọn tất cả / chọn từng món đồ để thanh toán.
-   - Tăng/giảm số lượng món hàng, xóa sản phẩm khỏi giỏ.
-   - Tự động tính toán tổng tiền tạm tính, số lượng hàng được chọn.
-5. **`/checkout` (Thanh toán & Áp dụng Voucher)**:
-   - Lựa chọn địa chỉ giao hàng mặc định hoặc thêm địa chỉ mới.
-   - Áp dụng Mã giảm giá sàn / Voucher freeship.
-   - Lựa chọn phương thức vận chuyển: **SPX Express**, Giao hàng nhanh, Tiết kiệm.
-   - Lựa chọn phương thức thanh toán: **VietQR**, MoMo, Thẻ Quốc tế (Visa/Master), COD (Thanh toán khi nhận hàng).
-   - Nút **Đặt Hàng** kích hoạt Distributed Saga Purchase flow.
-6. **`/checkout/pay/[id]` (Cổng thanh toán Mock)**:
-   - Màn hình hiển thị mã QR VietQR động và thông tin chuyển khoản.
-   - Nút giả lập thanh toán: "Giả lập Thành Công (Success)" và "Giả lập Thất Bại (Fail)" để kiểm thử luồng Saga.
-   - Tự động redirect về trang đơn hàng khi thanh toán hoàn tất.
-7. **`/account/orders` (Danh sách Đơn mua của tôi)**:
-   - Tab phân loại trạng thái: Tất cả, Chờ thanh toán, Đang xử lý, Đang giao hàng, Đã giao, Đã hủy, Trả hàng/Hoàn tiền.
-   - Các nút thao tác nhanh: Xem chi tiết đơn, Thanh toán ngay, Hủy đơn hàng, Mua lại.
-8. **`/account/orders/[id]` (Chi tiết Đơn hàng & Tra cứu Vận đơn SPX)**:
-   - Visual Stepper thể hiện tiến trình: *Đã đặt hàng -> Đã xác nhận -> Đang vận chuyển -> Đang phát hàng -> Giao thành công*.
-   - Mã vận đơn SPX Express và nhật ký hành trình chi tiết (Timestamped timeline).
-   - Chi tiết danh sách sản phẩm, phí ship, giảm giá voucher, tổng thanh toán.
-   - Nút **Yêu Cầu Trả Hàng / Hoàn Tiền (RMA)** và **Hủy Đơn Hàng**.
-9. **`/account/addresses` (Sổ địa chỉ nhận hàng)**:
-   - Danh sách địa chỉ đã lưu của người mua.
-   - Đặt địa chỉ làm mặc định.
-   - Modal thêm mới / sửa địa chỉ (Tỉnh/Thành, Quận/Huyện, Phường/Xã, Tên đường & Số nhà).
-10. **`/favorites` (Danh sách Yêu thích / Wishlist)**:
-    - Danh sách các sản phẩm đã thả tim.
-    - Nút bỏ thích hoặc 1-click chuyển nhanh vào giỏ hàng.
-11. **`/notifications` (Trung tâm Thông báo)**:
-    - Phân loại tab: Cập nhật đơn hàng, Khuyến mãi hot, Tin tức hệ thống.
-    - Đánh dấu đã đọc tất cả, click chuyển hướng trực tiếp đến đơn hàng liên quan.
-12. **`/shop/[id]` (Trang Gian hàng Người Bán công khai)**:
-    - Header Shop: Avatar, Tên Shop, Tỷ lệ phản hồi chat, Đánh giá trung bình, Số lượng người theo dõi, Số lượng sản phẩm.
-    - Kho Voucher độc quyền của Shop.
-    - Tab danh mục sản phẩm của shop: Tất cả sản phẩm, Bán chạy nhất, Hàng mới về.
+**Consumes**: only `team-gateway` (`GATEWAY_URL`), through `@connectrpc/connect-node` clients over HTTP/1.1. All RPC code lives in `src/lib/gateway/*` (`server-only`); pages and `src/features/*` import from there. Clients are built per request with the caller's token (`makeClients(token)`), so the bearer is never a process singleton and never reaches the browser. Public reads retry once without the bearer (`anonymousFallback`) so a stale session degrades to anonymous browsing. `src/middleware.ts` removes an expired or malformed `session` cookie before render.
 
----
+Generated services in use (`src/generated/platform/*`, from the vendored `proto/platform/*`): search, listing, identity (Auth, Address), engagement, order (Cart, Order), payment, chat, ai, recommendation, promotion (Voucher, FlashSale, Subscription, Sponsored), notification, plus referral, sharing, verification, follow and cockpit/analytics helpers in their own `src/lib/gateway/*.ts` modules. The gateway forwards each RPC to the owning service.
 
-### Nhóm 2: Kênh Người Bán & Quản Trị (Seller Portal & Analytics)
-13. **`/seller` (Trang tổng quan Kênh Người Bán)**:
-    - Thống kê KPI ngày: Đơn hàng mới hôm nay, Doanh thu tạm tính, Đơn chờ giao cho SPX, Sản phẩm sắp hết hàng.
-    - Lối tắt: Đăng sản phẩm mới, Xử lý đơn hàng, Xem báo cáo doanh thu.
-    - Bảng danh sách đơn hàng cần xử lý gấp.
-14. **`/seller/new` (Đăng bán Sản phẩm mới + Magic Listing AI)**:
-    - Form nhập thông tin sản phẩm (Tên, Ảnh, Giá, Tồn kho, Danh mục).
-    - **Nút "Magic Listing AI"**: Tự động tạo Tiêu đề chuẩn SEO, Bản mô tả chi tiết Markdown, Tự động phân loại danh mục, Gợi ý dải giá thị trường và Tags thịnh hành thông qua `team-ai`.
-15. **`/seller/[id]/edit` (Chỉnh sửa thông tin Sản phẩm)**:
-    - Cập nhật giá bán, số lượng tồn kho trong kho hàng, tiêu đề và mô tả.
-16. **`/seller/orders` (Quản lý Đơn hàng của Shop)**:
-    - Lọc đơn theo trạng thái (Chờ xác nhận, Đang xử lý, Đang giao, Đã hoàn thành).
-    - Thao tác xác nhận đơn hàng hàng loạt.
-17. **`/seller/orders/[id]` (Chi tiết Đơn bán & Bàn giao Vận chuyển)**:
-    - Thông tin người mua và địa chỉ nhận hàng.
-    - Nút thao tác: "Xác nhận đơn", "Bàn giao cho đơn vị vận chuyển SPX Express".
-18. **`/seller/analytics` (Báo cáo Doanh thu & Rút tiền Ví Người Bán)**:
-    - Biểu đồ phân tích doanh thu theo ngày/tuần/tháng.
-    - Tỷ lệ chuyển đổi đơn hàng, Giá trị trung bình mỗi đơn (AOV).
-    - Số dư ví người bán hiện tại (Seller Wallet Balance).
-    - Modal yêu cầu rút tiền / thanh toán doanh thu (Payout Request Mock).
+Login/register forward the browser IP and user agent to the gateway (`src/lib/gateway/client-context.ts`): the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` places from the right, never the client-controlled leftmost one. The gateway trusts it only from this server (`TRUSTED_PROXIES=team-frontend-svc` in compose).
 
----
+Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `path=/`, `maxAge=3600`; `src/features/auth/actions.ts`). The server attaches it as `Authorization: Bearer`.
 
-### Nhóm 3: AI Assistant, Real-time Chat & Telemetry Cockpit
-19. **`/assistant` (Trợ Lý Mua Sắm Thông Minh AI Assistant)**:
-    - Giao diện đàm thoại AI toàn màn hình.
-    - Tìm kiếm catalog sản phẩm thông minh qua RAG (Retrieval-Augmented Generation).
-    - Trả lời tư vấn kèm các thẻ sản phẩm (Product Cards) có thể bấm xem chi tiết hoặc mua ngay.
-    - Gợi ý sẵn các câu hỏi tiếp theo (Follow-up suggestions chip).
-20. **`/chat` (Hộp thư Tin nhắn Trực tiếp)**:
-    - Danh sách các cuộc trò chuyện giữa Buyer và Seller.
-    - Badge đếm số tin nhắn chưa đọc, thời gian gửi tin cuối.
-21. **`/chat/[id]` (Cửa sổ Đàm thoại Real-time)**:
-    - Khung chat trực tiếp kết nối qua Server-Sent Events (SSE).
-    - Đính kèm thẻ xem trước sản phẩm đang được trao đổi trong cuộc chat.
-    - **Chat Copilot (Smart Replies)**: Gợi ý 3 câu trả lời nhanh tự động (1-Click Quick Replies) do `team-ai` phân tích tin nhắn người mua để người bán phản hồi ngay lập tức.
-22. **`/admin/cockpit` (Admin Observability Cockpit HUD)**:
-    - Bảng điều khiển thời gian thực dành cho Quản trị viên & Kỹ sư hệ thống.
-    - Đồng hồ đo Gateway RPS, Độ trễ trung bình (Avg Latency), P95 và P99 Latency.
-    - Bảng ma trận sức khỏe (Health Matrix) của toàn bộ 10 microservices trong Polyrepo.
-    - Danh sách Distributed Traces mẫu tích hợp link trực tiếp tới Jaeger UI.
-    - Live Order Ticker cập nhật các đơn hàng mới phát sinh theo thời gian thực.
-23. **`/sell`**: Lối tắt chuyển hướng thông minh đến Kênh người bán `/seller`.
-24. **`/login` (Đăng nhập)**:
-    - Form đăng nhập chuẩn bằng Email / Mật khẩu.
-    - Các nút đăng nhập nhanh 1-click dành cho Demo/Test:
-      - 👤 **Buyer Demo**: `buyer@marketplace.local`
-      - 🏪 **Seller Demo**: `seller@marketplace.local`
-      - ⚡ **Admin Demo**: `admin@marketplace.local`
-25. **`/register` (Đăng ký tài khoản mới)**:
-    - Đăng ký tài khoản với lựa chọn vai trò (Người mua / Người bán).
+## 2. Events
 
----
+None produced or consumed over a broker. The browser sends a best-effort tracking beacon batch directly to the **gateway** `POST {NEXT_PUBLIC_GATEWAY_URL}/api/track` (`src/lib/analytics/queue.ts`: `sendBeacon`, else `fetch` with `keepalive` and `credentials: include`; batches of 20 or every 2 s). This is the one browser-to-gateway call. An optional GTM dataLayer destination loads only if `NEXT_PUBLIC_GTM_ID` is set at build time.
 
-## 3. Các thành phần Giao diện Toàn cục (Global Components)
+## 3. Data
 
-1. **Banner Tuyên Bố Học Thuật & Nghiên Cứu (Educational Disclaimer Banner)**:
-   - Hiển thị cố định ở đầu tất cả các trang web (`layout.tsx`):
-   - *"Tuyên bố đồ án & nghiên cứu kiến trúc: Toàn bộ giao diện và các luồng trải nghiệm này được xây dựng hoàn toàn vì mục đích học tập, nghiên cứu kiến trúc Polyrepo, Microservices gRPC, Event-Driven Kafka, CQRS & Saga Pattern, phi thương mại và hoàn toàn không có ý định sao chép/clone thương hiệu."*
-2. **Floating Chat Bubble (`FloatingChatBubble.tsx`)**:
-   - Nút bong bóng chat nổi cố định góc dưới bên phải màn hình giúp người mua mở nhanh cuộc trò chuyện với người bán hoặc truy cập AI Assistant từ bất kỳ trang nào.
-3. **Toast Notification System (`ToastProvider.tsx`)**:
-   - Hệ thống thông báo toast nổi tự động biến mất khi người dùng thêm hàng vào giỏ, áp mã voucher, copy mã đơn hàng hoặc cập nhật trạng thái thành công.
+No database, no migrations. State is the session cookie plus whatever the gateway returns.
 
----
+## 4. Configuration
 
-## 4. Biến môi trường Cấu hình (`.env`)
+Read by the code (see `.env.example`; there is no drift gate for this repo):
+
+| Var | Default | Used in |
+|---|---|---|
+| `GATEWAY_URL` | `http://127.0.0.1:8080` (must be http/https or startup throws) | `src/lib/gateway/config.ts` |
+| `NEXT_PUBLIC_GATEWAY_URL` | `http://localhost:8080` (browser-visible, inlined at build) | `src/lib/analytics/queue.ts` |
+| `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
+| `FEATURE_FLAGS_ENABLED` | `true` (anything but `false` enables) | `src/lib/flags/config.ts` |
+| `FLIPT_ADDR` | `flipt:8080` (`http://` prepended if missing; Flipt REST port) | `src/lib/flags/config.ts` |
+| `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
+| `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
+| `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
+
+`NEXT_PUBLIC_*` values are baked in at `next build`; changing them at runtime has no effect. `NEXT_PUBLIC_MEDIA_BASE_URL` is not in `.env.example`. Feature flags are evaluated server-side only.
+
+## 5. Run locally
+
+Root compose (from the repo root; service `team-frontend`, container `team-frontend-svc`, `:3000`; it needs the gateway at `:8080`, which has no `depends_on` link, so start it too):
 
 ```bash
-# URL của Edge Gateway (bắt buộc)
-NEXT_PUBLIC_GATEWAY_URL=http://localhost:8080
-GATEWAY_URL=http://localhost:8080
-
-# URL của FastAPI AI Service (tùy chọn / fallback)
-AI_SERVICE_URL=http://localhost:8000
-
-# Secret giải mã JWT (để decode payload session phía client/SSR)
-JWT_SECRET=secret
+docker compose -f docker-compose.services.yaml up --build team-frontend team-gateway   # plus the services you need
 ```
 
----
-
-## 5. Hướng dẫn chạy và Kiểm thử
+Standalone dev (needs a gateway on `GATEWAY_URL`):
 
 ```bash
-# 1. Cài đặt dependencies
-npm install
-
-# 2. Sinh mã nguồn TypeScript từ Proto contracts
-npm run proto
-
-# 3. Chạy môi trường phát triển (Dev Server)
-npm run dev
-
-# Ứng dụng sẽ hoạt động tại http://localhost:3000
+cd team-frontend
+npm ci
+npm run proto        # buf generate, required before dev/build/tsc/test
+npm run dev          # http://localhost:3000
 ```
+
+## 6. Build, test and lint
+
+| Command | Does |
+|---|---|
+| `npm run proto` | `buf generate` from `proto/` into `src/generated/` |
+| `npm run dev` / `build` / `start` | Next dev server / production build / serve the build |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | `vitest run` (jsdom, `vitest.setup.ts`) |
+| `npm run check` | **PR gate**: `biome check .` + `tsc --noEmit` + `node scripts/check-tokens.mjs` + `vitest run` |
+
+`UI_SYSTEM_DESIGN.md` section 7 requires `npm run check` on every PR touching this repo. Node >= 20 (Dockerfile uses node 22).
+
+### UI system
+
+Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives in `tailwind.config.ts` (primary `#ee4d2d`), semantic aliases (`bg-action-primary`, `text-text-primary`, ...) in `tailwind.config.ts` backed by CSS variables in `src/app/globals.css`, and components in `src/components/ui/`. `scripts/check-tokens.mjs` fails on raw hex, `rgb()/hsl()` literals, arbitrary Tailwind values (`text-[9px]`) and literal inline-style colours in `src/**/*.tsx` (excluding `src/generated`); exempt a line with a `tokens-allow: <reason>` comment. Browse components at `/dev/ui` (dev only). Shell chrome (header, disclaimer banner, floating chat) is `src/components/shell/ConsumerShell.tsx`; `FloatingChatBubble` and `ToastProvider` are in `src/components/ui/`.
+
+## 7. Spec and verification
+
+- Feature manifest: `FEATURES.yaml` (94 features: 85 `automated`, 9 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest.
+- E2E: `platform-e2e` (pytest-bdd + Playwright) drives `team-frontend:3000` through the gateway `:8080`. Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
+- Changes are specified through OpenSpec (`openspec/changes/<id>`), then `FEATURES.yaml`, then platform-e2e, then `npm run check`, per the root README's ASDLC.
+
+## 8. Gotchas
+
+- `src/generated/` is gitignored; run `npm run proto` after clone and after every contract change. Never hand-edit it.
+- `proto/` is vendored from `platform-core`; never edit it here (ADR-0001).
+- `src/lib/gateway/*` is `server-only`; do not import it from client components.
+- The gateway answers Unauthenticated to any invalid bearer, even on public RPCs; use `anonymousFallback` for public reads.
+- `NEXT_PUBLIC_*` are build-time. In the e2e stack `NEXT_PUBLIC_GTM_ID` is set as a build arg so `window.dataLayer` initialises.
+- UI copy is mostly Vietnamese, including the disclaimer banner in `ConsumerShell.tsx`.
+
+## 9. Known gaps
+
+- Session cookie is set without `secure` (`src/features/auth/actions.ts`), so it is sent over plain HTTP if the site is served that way.
+- `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
+- `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
+- `FEATURES.yaml` has 9 `planned` features with no automated coverage yet.
+
+## 10. Links
+
+- Rules: root `AGENTS.md` (Rule 1: frontend talks only to the gateway; port table `:3000`).
+- `platform-core/docs/UI_SYSTEM_DESIGN.md`, `platform-core/docs/ARCHITECTURE.md`.
+- ADRs: `platform-core/docs/ADR/0001-proto-distribution.md`, `0003-auth-model.md`, `0006-rs256-jwks-auth.md`.

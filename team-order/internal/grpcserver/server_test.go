@@ -320,8 +320,8 @@ func TestShipmentAndRMA_E2E(t *testing.T) {
 		t.Fatalf("expected 1 checkpoint, got %d", len(trackResp.GetShipment().GetCheckpoints()))
 	}
 
-	// 4. Update order to COMPLETED
-	_, err = orderClient.UpdateOrderStatus(buyerCtx, &orderv1.UpdateOrderStatusRequest{
+	// 4. Seller completes the order (buyers cannot drive status)
+	_, err = orderClient.UpdateOrderStatus(sellerCtx, &orderv1.UpdateOrderStatusRequest{
 		Id:     orderID,
 		Status: orderv1.OrderStatus_ORDER_STATUS_COMPLETED,
 	})

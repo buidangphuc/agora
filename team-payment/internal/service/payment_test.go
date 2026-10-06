@@ -88,6 +88,38 @@ func TestService_CreatePayment(t *testing.T) {
 		}
 	})
 
+	t.Run("caller is not the order's buyer", func(t *testing.T) {
+		svc, repo, _, orderClient := setupService()
+		orderClient.orders["order-1"] = &orderv1.Order{
+			Id:          "order-1",
+			BuyerId:     "buyer-1",
+			TotalAmount: 200000,
+			Currency:    "VND",
+			Status:      orderv1.OrderStatus_ORDER_STATUS_PENDING,
+		}
+
+		_, _, err := svc.CreatePayment(ctx, "order-1", "intruder", repository.PaymentMethodMockMoMo)
+		if !errors.Is(err, service.ErrNotOrderBuyer) {
+			t.Fatalf("expected ErrNotOrderBuyer, got %v", err)
+		}
+		if _, err := repo.GetTransactionByOrderID(ctx, "order-1"); err == nil {
+			t.Fatal("a transaction was created for a non-buyer")
+		}
+
+		// The real buyer's transaction is recorded against the order's buyer.
+		tx, _, err := svc.CreatePayment(ctx, "order-1", "buyer-1", repository.PaymentMethodMockMoMo)
+		if err != nil {
+			t.Fatalf("buyer create: %v", err)
+		}
+		if tx.BuyerID != "buyer-1" {
+			t.Fatalf("tx buyer = %q, want buyer-1", tx.BuyerID)
+		}
+		// An existing transaction is not handed to someone else either.
+		if _, _, err := svc.CreatePayment(ctx, "order-1", "intruder", repository.PaymentMethodMockMoMo); !errors.Is(err, service.ErrNotOrderBuyer) {
+			t.Fatalf("existing-tx path: expected ErrNotOrderBuyer, got %v", err)
+		}
+	})
+
 	t.Run("empty order id", func(t *testing.T) {
 		svc, _, _, _ := setupService()
 		_, _, err := svc.CreatePayment(ctx, "", "buyer-1", repository.PaymentMethodMockMoMo)
@@ -107,8 +139,9 @@ func TestService_CreatePayment(t *testing.T) {
 	t.Run("order not in pending state", func(t *testing.T) {
 		svc, _, _, orderClient := setupService()
 		orderClient.orders["order-paid"] = &orderv1.Order{
-			Id:     "order-paid",
-			Status: orderv1.OrderStatus_ORDER_STATUS_PAID,
+			Id:      "order-paid",
+			BuyerId: "buyer-1",
+			Status:  orderv1.OrderStatus_ORDER_STATUS_PAID,
 		}
 
 		_, _, err := svc.CreatePayment(ctx, "order-paid", "buyer-1", repository.PaymentMethodMockMoMo)

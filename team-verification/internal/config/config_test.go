@@ -9,8 +9,8 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 
 	cfg := Load()
-	if cfg.GRPCPort != 50062 {
-		t.Fatalf("expected default port 50062, got %d", cfg.GRPCPort)
+	if cfg.GRPCPort != 50064 {
+		t.Fatalf("expected default port 50064, got %d", cfg.GRPCPort)
 	}
 	if cfg.DatabaseURL == "" {
 		t.Fatalf("expected a default DATABASE_URL")

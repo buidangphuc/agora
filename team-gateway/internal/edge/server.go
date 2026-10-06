@@ -143,7 +143,7 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	// The cockpit handler is admin-gated; it queries Prometheus (fixed PromQL),
 	// team-analytics (admin RPCs) and Jaeger (fixed query) server-side and shapes
 	// the results — it never exposes raw upstream payloads to the browser.
-	mux.HandleFunc("/api/events/live", HandleSSE)
+	mux.Handle("/api/events/live", NewSSEHandler(e, GlobalBroker))
 	mux.Handle("/api/admin/metrics", NewCockpitHandler(e, cockpit, clients.AnalyticsQuery))
 
 	return mux

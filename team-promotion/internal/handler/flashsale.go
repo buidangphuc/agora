@@ -31,7 +31,13 @@ func NewFlashSaleHandler(svc *service.FlashSaleService, logger *slog.Logger) *Fl
 }
 
 func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.CreateCampaignRequest) (*promotionv1.CreateCampaignResponse, error) {
-	if _, err := interceptor.RequirePrincipal(ctx); err != nil {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Sellers and admins only. Campaigns carry no seller id and team-promotion has
+	// no listing-ownership lookup, so cross-shop listing ownership is not enforced here.
+	if err := interceptor.RequireSeller(principal); err != nil {
 		return nil, err
 	}
 	if req.GetListingId() == "" {

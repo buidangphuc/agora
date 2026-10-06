@@ -32,7 +32,9 @@ lint-proto: tools ## Lint proto only
 .PHONY: breaking
 breaking: tools ## Fail on breaking changes vs committed HEAD (no-op before first commit)
 	@if git rev-parse HEAD >/dev/null 2>&1; then \
-	  cd $(PROTO_DIR) && buf breaking --against '.git#ref=HEAD,subdir=packages/proto' \
+	  top=$$(git rev-parse --show-toplevel) && \
+	  sub=$$(git rev-parse --show-prefix) && \
+	  cd $(PROTO_DIR) && buf breaking --against "$$top/.git#ref=HEAD,subdir=$${sub}$(PROTO_DIR)" \
 	    && echo "✓ no breaking changes"; \
 	else \
 	  echo "· no git HEAD yet — skipping breaking-check (first commit)"; \
@@ -43,15 +45,12 @@ check: lint-proto breaking ## Merge-gate for platform-core (proto lint + breakin
 	@echo "✓ platform-core check passed"
 
 .PHONY: dev
-dev: ## Start local shared infra (postgres-*, redis, qdrant, redpanda, rabbitmq, opensearch)
+dev: ## Start local shared infra (postgres, redis, qdrant, redpanda, rabbitmq, opensearch)
 	$(COMPOSE) up -d
 	@echo "✅ infra up"
 	@echo "  redis            localhost:6379"
 	@echo "  qdrant           localhost:6333 (http) / 6334 (grpc)"
-	@echo "  postgres-listing localhost:5433"
-	@echo "  postgres-search  localhost:5434"
-	@echo "  postgres-identity localhost:5435"
-	@echo "  postgres-engagement localhost:5436"
+	@echo "  postgres         localhost:5432 (single shared instance, one DB per service)"
 	@echo "  redpanda (kafka) localhost:19092 (host) / redpanda:9092 (in-network); admin 9644"
 	@echo "  rabbitmq         localhost:5672 (amqp) / 15672 (ui)"
 	@echo "  opensearch       localhost:9200"

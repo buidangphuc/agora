@@ -92,15 +92,9 @@ func (s *PaymentService) RequestWalletPayout(
 		return repository.LedgerEntry{}, ErrLedgerNotConfigured
 	}
 
-	balance, err := s.ledgerRepo.Balance(ctx, sellerID)
-	if err != nil {
-		return repository.LedgerEntry{}, err
-	}
-	if amount > balance {
-		return repository.LedgerEntry{}, repository.ErrInsufficientBalance
-	}
-
-	return s.ledgerRepo.AppendEntry(ctx, repository.LedgerEntry{
+	// Balance check and debit are one atomic repository step: a separate
+	// Balance-then-Append let concurrent payouts each pass the check and overdraw.
+	return s.ledgerRepo.AppendDebit(ctx, repository.LedgerEntry{
 		SellerID: sellerID,
 		Type:     repository.LedgerTypePayout,
 		Amount:   -amount, // debit

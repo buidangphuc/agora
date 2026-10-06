@@ -144,3 +144,18 @@ func RequireScopes(ctx context.Context, want ...string) error {
 	}
 	return nil
 }
+
+// RequireServiceScope is RequireScopes for service-to-service RPCs: the
+// Principal must be of type SERVICE and hold every scope in want. A user (even a
+// seller holding the same scope) or an anonymous caller is denied, so an end user
+// cannot reach an internal RPC just because the gateway forwards their token.
+func RequireServiceScope(ctx context.Context, want ...string) error {
+	p, ok := PrincipalFromContext(ctx)
+	if !ok {
+		return status.Error(codes.Unauthenticated, "no principal on context")
+	}
+	if p.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE {
+		return status.Error(codes.PermissionDenied, "service principal required")
+	}
+	return RequireScopes(ctx, want...)
+}

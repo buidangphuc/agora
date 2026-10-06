@@ -15,8 +15,8 @@ FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=build /out/server /server
 
-ENV GRPC_PORT=50065
-EXPOSE 50065
+ENV GRPC_PORT=50066
+EXPOSE 50066
 
 USER nonroot:nonroot
 ENTRYPOINT ["/server"]

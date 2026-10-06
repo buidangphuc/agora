@@ -20,6 +20,15 @@ import (
 type AuthHandler struct {
 	identityv1.UnimplementedAuthServiceServer
 	svc *service.AuthService
+
+	exposeResetToken bool // dev/e2e only: return the raw reset token in the response
+}
+
+// WithExposeResetToken makes RequestPasswordReset return the raw reset token.
+// Off by default: the token is a bearer credential for the account.
+func (h *AuthHandler) WithExposeResetToken(on bool) *AuthHandler {
+	h.exposeResetToken = on
+	return h
 }
 
 func NewAuthHandler(svc *service.AuthService) *AuthHandler {
@@ -52,12 +61,17 @@ func (h *AuthHandler) ChangePassword(
 	ctx context.Context,
 	req *identityv1.ChangePasswordRequest,
 ) (*identityv1.ChangePasswordResponse, error) {
-	userID := req.GetUserId()
-	if userID == "" {
-		if p, ok := interceptor.PrincipalFromContext(ctx); ok && p != nil {
-			userID = p.GetId()
-		}
+	// The target is always the authenticated user: req.user_id is ignored so a
+	// caller can never change another account's password. Service/anonymous
+	// principals have no password to change.
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
 	}
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER {
+		return nil, status.Error(codes.PermissionDenied, "user principal required")
+	}
+	userID := principal.GetId()
 	if err := h.svc.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword()); err != nil {
 		return nil, mapErr(err)
 	}
@@ -72,10 +86,11 @@ func (h *AuthHandler) RequestPasswordReset(
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return &identityv1.RequestPasswordResetResponse{
-		ResetToken: token,
-		ExpiresAt:  expiresAt.Unix(),
-	}, nil
+	resp := &identityv1.RequestPasswordResetResponse{ExpiresAt: expiresAt.Unix()}
+	if h.exposeResetToken {
+		resp.ResetToken = token
+	}
+	return resp, nil
 }
 
 func (h *AuthHandler) ResetPassword(

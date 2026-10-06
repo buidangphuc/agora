@@ -63,6 +63,7 @@ func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderCl
 			"order-123": {
 				Id:          "order-123",
 				BuyerId:     "user-1",
+				SellerId:    "seller-1",
 				TotalAmount: 250000,
 				Currency:    "VND",
 				Status:      orderv1.OrderStatus_ORDER_STATUS_PENDING,
@@ -180,8 +181,16 @@ func TestPaymentFlow_Success(t *testing.T) {
 		t.Fatalf("want order to remain PENDING (no sync call), got %v", mockOrder.orders["order-123"].Status)
 	}
 
-	// 5. Refund Payment
-	refundResp, err := client.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
+	// 5. Refund Payment: a seller/admin action, so the buyer is refused and the
+	// order's seller succeeds.
+	if _, err := client.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
+		PaymentId: tx.GetId(), Amount: 250000, Reason: "buyer self-refund",
+	}); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("buyer refund: want PermissionDenied, got %v", err)
+	}
+	sellerCtx, sellerCancel := principalCtx(t, "seller-1")
+	defer sellerCancel()
+	refundResp, err := client.RefundPayment(sellerCtx, &paymentv1.RefundPaymentRequest{
 		PaymentId: tx.GetId(),
 		Amount:    250000,
 		Reason:    "Product returned",

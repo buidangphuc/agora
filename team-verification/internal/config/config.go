@@ -11,7 +11,7 @@ type Config struct {
 }
 
 func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50062"))
+	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50064"))
 	return Config{
 		GRPCPort:    port,
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://verification_svc:verification_pass@localhost:5444/verification_db?sslmode=disable"),

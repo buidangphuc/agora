@@ -42,6 +42,11 @@ type LedgerEntry struct {
 type LedgerRepository interface {
 	// AppendEntry inserts a new ledger entry (assigning ID/CreatedAt when unset).
 	AppendEntry(ctx context.Context, e LedgerEntry) (LedgerEntry, error)
+	// AppendDebit atomically checks the seller's balance and appends the debit entry
+	// (e.Amount < 0) in one step: it returns ErrInsufficientBalance, appending
+	// nothing, when balance + e.Amount would go negative. Concurrent debits for the
+	// same seller are serialized so the balance can never be overdrawn.
+	AppendDebit(ctx context.Context, e LedgerEntry) (LedgerEntry, error)
 	// Balance returns SUM(amount) over the seller's entries (0 when none).
 	Balance(ctx context.Context, sellerID string) (int64, error)
 	// ListEntries returns a page of the seller's entries, newest first, plus the
@@ -75,6 +80,52 @@ func (r *PostgresLedgerRepository) AppendEntry(ctx context.Context, e LedgerEntr
 		VALUES ($1, $2, $3, $4, $5, $6)`
 	if _, err := r.pool.Exec(ctx, q, e.ID, e.SellerID, e.Type, e.Amount, e.Status, e.CreatedAt); err != nil {
 		return LedgerEntry{}, fmt.Errorf("insert ledger entry: %w", err)
+	}
+	return e, nil
+}
+
+// AppendDebit takes a per-seller transaction-scoped advisory lock, then sums the
+// balance and inserts the debit in the same transaction. The lock (not row
+// locking: a ledger has no single row to lock for a seller with no entries) makes
+// concurrent payouts for one seller run one after another; other sellers are
+// unaffected.
+func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntry) (LedgerEntry, error) {
+	if e.Amount >= 0 {
+		return LedgerEntry{}, ErrInvalidAmount
+	}
+	if e.ID == "" {
+		e.ID = uuid.NewString()
+	}
+	if e.Status == "" {
+		e.Status = LedgerStatusCompleted
+	}
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = time.Now()
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return LedgerEntry{}, fmt.Errorf("begin debit tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after Commit
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('wallet_ledger:' || $1, 0))`, e.SellerID); err != nil {
+		return LedgerEntry{}, fmt.Errorf("lock seller ledger: %w", err)
+	}
+	var balance int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM wallet_ledger WHERE seller_id = $1`, e.SellerID).Scan(&balance); err != nil {
+		return LedgerEntry{}, fmt.Errorf("sum ledger balance: %w", err)
+	}
+	if balance+e.Amount < 0 {
+		return LedgerEntry{}, ErrInsufficientBalance
+	}
+	const q = `INSERT INTO wallet_ledger (id, seller_id, type, amount, status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+	if _, err := tx.Exec(ctx, q, e.ID, e.SellerID, e.Type, e.Amount, e.Status, e.CreatedAt); err != nil {
+		return LedgerEntry{}, fmt.Errorf("insert ledger entry: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return LedgerEntry{}, fmt.Errorf("commit debit: %w", err)
 	}
 	return e, nil
 }
@@ -132,6 +183,39 @@ func NewInMemoryLedgerRepository() *InMemoryLedgerRepository {
 func (r *InMemoryLedgerRepository) AppendEntry(_ context.Context, e LedgerEntry) (LedgerEntry, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if e.ID == "" {
+		e.ID = uuid.NewString()
+	}
+	if e.Status == "" {
+		e.Status = LedgerStatusCompleted
+	}
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = time.Now()
+	}
+	r.seq++
+	r.seqByID[e.ID] = r.seq
+	r.entries = append(r.entries, e)
+	return e, nil
+}
+
+// AppendDebit checks the balance and appends the debit under one write lock.
+func (r *InMemoryLedgerRepository) AppendDebit(_ context.Context, e LedgerEntry) (LedgerEntry, error) {
+	if e.Amount >= 0 {
+		return LedgerEntry{}, ErrInvalidAmount
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var balance int64
+	for _, x := range r.entries {
+		if x.SellerID == e.SellerID {
+			balance += x.Amount
+		}
+	}
+	if balance+e.Amount < 0 {
+		return LedgerEntry{}, ErrInsufficientBalance
+	}
 
 	if e.ID == "" {
 		e.ID = uuid.NewString()

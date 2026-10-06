@@ -74,3 +74,26 @@ def create_shipment_via_api(
     world.state.tracking_code = code
     world.logger.info(f"Created shipment {code} for order {order_id}")
     return res
+
+
+def complete_order_as_seller(
+    world, seller: User, order_id: str, restore_token: str | None = None
+) -> None:
+    """Drive an order PENDING -> SHIPPED -> COMPLETED as the order's seller.
+
+    team-order only lets the seller (or an admin) call UpdateOrderStatus, and only
+    along PENDING|PAID -> SHIPPED and SHIPPED -> COMPLETED. ``restore_token`` is put
+    back as the active token afterwards (pass the buyer's when later steps act as them).
+    """
+    assert seller and seller.token, "no seeded seller; tag the scenario @needsListing"
+    world.service_factory.set_token(seller.token)
+    try:
+        order = world.service_factory.order.get_order(order_id).get("order", {})
+        # A scenario may already have shipped it (CreateShipment); SHIPPED -> SHIPPED
+        # is not a valid transition, so only ship what is not shipped yet.
+        if order.get("status") != "ORDER_STATUS_SHIPPED":
+            world.service_factory.order.update_order_status(order_id, "ORDER_STATUS_SHIPPED")
+        world.service_factory.order.update_order_status(order_id, "ORDER_STATUS_COMPLETED")
+    finally:
+        if restore_token:
+            world.service_factory.set_token(restore_token)

@@ -38,11 +38,25 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 	if req.GetCode() == "" {
 		return nil, status.Error(codes.InvalidArgument, "code is required")
 	}
-	// Shop-scoped vouchers belong to the authenticated seller; the wire request
-	// carries no seller_id, so it is bound from the principal.
+	// Platform vouchers are admin-only. Shop vouchers require a seller (or admin)
+	// and are always bound to the caller's own id: the wire request carries no
+	// seller_id, so a seller can only ever create vouchers for their own shop.
 	sellerID := ""
-	if req.GetScope() == promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP {
+	switch req.GetScope() {
+	case promotionv1.VoucherScope_VOUCHER_SCOPE_PLATFORM:
+		if err := interceptor.RequireAdmin(principal); err != nil {
+			return nil, err
+		}
+	case promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP:
+		if err := interceptor.RequireSeller(principal); err != nil {
+			return nil, err
+		}
 		sellerID = principal.GetId()
+	default:
+		// Unspecified scope: treat as the most restrictive (platform) until validated downstream.
+		if err := interceptor.RequireAdmin(principal); err != nil {
+			return nil, err
+		}
 	}
 	v, err := h.svc.CreateVoucher(ctx, service.CreateVoucherParams{
 		Code:          req.GetCode(),

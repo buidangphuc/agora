@@ -11,7 +11,7 @@ from src.models import User
 from src.pages import OrderDetailPage, OrdersListPage
 from src.utils import data as fake
 from src.utils import get_test_data_manager
-from tests.e2e.flows import create_order_via_api, login_via_api
+from tests.e2e.flows import complete_order_as_seller, create_order_via_api, login_via_api
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -37,6 +37,12 @@ def _place_order(world: World) -> str:
     return order_id
 
 
+def _complete(world: World, order_id: str) -> None:
+    """Ship and complete the order as its seller, then act as the buyer again."""
+    seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
+    complete_order_as_seller(world, seller, order_id, restore_token=_buyer(world).token)
+
+
 def _orders(world: World) -> OrdersListPage:
     return world.get_page(PageName.ACCOUNT_ORDERS)  # type: ignore[return-value]
 
@@ -56,8 +62,7 @@ def buyer_has_three_orders(world: World) -> None:
     sf.set_token(_buyer(world).token)
     _place_order(world)  # stays pending
     delivered = _place_order(world)
-    sf.set_token(_buyer(world).token)
-    sf.order.update_order_status(delivered, "ORDER_STATUS_COMPLETED")
+    _complete(world, delivered)
     cancelled = _place_order(world)
     sf.set_token(_buyer(world).token)
     sf.order.cancel_order(cancelled, "e2e")
@@ -78,9 +83,7 @@ def buyer_has_failed_payment_order(world: World) -> None:
 
 @given("the buyer has a delivered order")
 def buyer_has_delivered_order(world: World) -> None:
-    order_id = _place_order(world)
-    world.service_factory.set_token(_buyer(world).token)
-    world.service_factory.order.update_order_status(order_id, "ORDER_STATUS_COMPLETED")
+    _complete(world, _place_order(world))
 
 
 @given("an order belongs to a different buyer")

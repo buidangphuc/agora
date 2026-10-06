@@ -89,7 +89,7 @@ func run() error {
 
 	srv := grpcserver.Build(
 		settings,
-		handler.NewAuthHandler(authSvc),
+		handler.NewAuthHandler(authSvc).WithExposeResetToken(settings.PasswordReset.ExposeToken),
 		handler.NewAddressHandler(addrRepo, logger),
 		handler.NewSessionHandler(sessionRepo, logger).WithTokenTTL(time.Duration(settings.JWT.TTLSeconds)*time.Second),
 		handler.NewProfileHandler(repo, logger),

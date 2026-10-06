@@ -3,11 +3,14 @@ package handler_test
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
@@ -51,17 +54,22 @@ func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.Fl
 }
 
 // authCtx attaches a resolved principal via the metadata the auth interceptor reads.
-func authCtx(id string) context.Context {
+func authCtx(id string, scopes ...string) context.Context {
+	return principalCtx(id, "user", scopes...)
+}
+
+func principalCtx(id, typ string, scopes ...string) context.Context {
 	md := metadata.New(map[string]string{
-		"x-principal-id":   id,
-		"x-principal-type": "user",
+		"x-principal-id":     id,
+		"x-principal-type":   typ,
+		"x-principal-scopes": strings.Join(scopes, ","),
 	})
 	return metadata.NewOutgoingContext(context.Background(), md)
 }
 
 func TestVoucherServiceEndToEnd(t *testing.T) {
 	vc, _ := startServer(t)
-	ctx := authCtx("seller-1")
+	ctx := authCtx("seller-1", "listing.read", "listing.write")
 
 	// CreateVoucher requires a principal.
 	if _, err := vc.CreateVoucher(context.Background(), &promotionv1.CreateVoucherRequest{Code: "X"}); err == nil {
@@ -70,6 +78,7 @@ func TestVoucherServiceEndToEnd(t *testing.T) {
 
 	created, err := vc.CreateVoucher(ctx, &promotionv1.CreateVoucherRequest{
 		Code:          "GRPC20",
+		Scope:         promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP,
 		DiscountType:  promotionv1.DiscountType_DISCOUNT_TYPE_PERCENT,
 		DiscountValue: 20,
 		Quota:         10,
@@ -83,7 +92,7 @@ func TestVoucherServiceEndToEnd(t *testing.T) {
 
 	// Idempotent ValidateAndReserve over the wire.
 	req := &promotionv1.ValidateAndReserveRequest{
-		ReservationId: "wire-resv", Code: "GRPC20", BuyerId: "b1", CartSubtotal: 100000,
+		ReservationId: "wire-resv", Code: "GRPC20", BuyerId: "b1", CartSubtotal: 100000, SellerId: "seller-1",
 	}
 	r1, err := vc.ValidateAndReserve(ctx, req)
 	if err != nil {
@@ -114,7 +123,7 @@ func TestVoucherServiceEndToEnd(t *testing.T) {
 
 func TestFlashSaleServiceEndToEnd(t *testing.T) {
 	_, fc := startServer(t)
-	ctx := authCtx("admin-1")
+	ctx := authCtx("admin-1", "admin")
 
 	created, err := fc.CreateCampaign(ctx, &promotionv1.CreateCampaignRequest{
 		ListingId: "listing-1",
@@ -132,5 +141,94 @@ func TestFlashSaleServiceEndToEnd(t *testing.T) {
 	}
 	if stock.GetRemaining() != 100 || stock.GetStockCap() != 100 {
 		t.Fatalf("stock = %d/%d, want 100/100", stock.GetRemaining(), stock.GetStockCap())
+	}
+}
+
+func code(err error) codes.Code { return status.Code(err) }
+
+func TestCreateVoucherAuthz(t *testing.T) {
+	vc, _ := startServer(t)
+	seller := authCtx("seller-1", "listing.read", "listing.write")
+	buyer := authCtx("buyer-1", "listing.read", "search:read")
+	admin := authCtx("admin-1", "listing.write", "admin")
+	anon := principalCtx("anonymous", "anonymous")
+
+	mk := func(c string, scope promotionv1.VoucherScope) *promotionv1.CreateVoucherRequest {
+		return &promotionv1.CreateVoucherRequest{
+			Code: c, Scope: scope, Quota: 5, DiscountValue: 10,
+			DiscountType: promotionv1.DiscountType_DISCOUNT_TYPE_PERCENT,
+		}
+	}
+	shop, platform := promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, promotionv1.VoucherScope_VOUCHER_SCOPE_PLATFORM
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+		req  *promotionv1.CreateVoucherRequest
+		want codes.Code
+	}{
+		{"anonymous shop", anon, mk("A1", shop), codes.Unauthenticated},
+		{"buyer shop", buyer, mk("B1", shop), codes.PermissionDenied},
+		{"buyer platform", buyer, mk("B2", platform), codes.PermissionDenied},
+		{"seller platform", seller, mk("S1", platform), codes.PermissionDenied},
+		{"seller unspecified scope", seller, mk("S2", promotionv1.VoucherScope_VOUCHER_SCOPE_UNSPECIFIED), codes.PermissionDenied},
+		{"seller shop", seller, mk("S3", shop), codes.OK},
+		{"admin platform", admin, mk("AD1", platform), codes.OK},
+		{"admin shop", admin, mk("AD2", shop), codes.OK},
+	}
+	for _, tc := range cases {
+		_, err := vc.CreateVoucher(tc.ctx, tc.req)
+		if code(err) != tc.want {
+			t.Errorf("%s: got %v, want %v (err=%v)", tc.name, code(err), tc.want, err)
+		}
+	}
+
+	// Ownership: a shop voucher is always bound to the caller's id.
+	got, err := vc.GetVoucher(seller, &promotionv1.GetVoucherRequest{Code: "S3"})
+	if err != nil || got.GetVoucher().GetSellerId() != "seller-1" {
+		t.Fatalf("shop voucher owner = %q, err=%v; want seller-1", got.GetVoucher().GetSellerId(), err)
+	}
+}
+
+func TestCheckoutPathAllowedForServicePrincipal(t *testing.T) {
+	vc, _ := startServer(t)
+	seller := authCtx("seller-1", "listing.write")
+	if _, err := vc.CreateVoucher(seller, &promotionv1.CreateVoucherRequest{
+		Code: "SVC10", Scope: promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, Quota: 5, DiscountValue: 10,
+		DiscountType: promotionv1.DiscountType_DISCOUNT_TYPE_PERCENT,
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// team-order calls reserve/commit/release as a service principal with no admin/seller scope.
+	svc := principalCtx("service-team-order", "service", "identity.read")
+	if _, err := vc.ValidateAndReserve(svc, &promotionv1.ValidateAndReserveRequest{
+		ReservationId: "r1", Code: "SVC10", BuyerId: "b1", CartSubtotal: 1000, SellerId: "seller-1",
+	}); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if _, err := vc.CommitReservation(svc, &promotionv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	if _, err := vc.ReleaseReservation(svc, &promotionv1.ReleaseReservationRequest{ReservationId: "r1"}); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+}
+
+func TestCreateCampaignAuthz(t *testing.T) {
+	_, fc := startServer(t)
+	req := &promotionv1.CreateCampaignRequest{ListingId: "l1", SalePrice: 1000, StockCap: 5}
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", principalCtx("anonymous", "anonymous"), codes.Unauthenticated},
+		{"buyer", authCtx("buyer-1", "listing.read"), codes.PermissionDenied},
+		{"seller", authCtx("seller-1", "listing.write"), codes.OK},
+		{"admin", authCtx("admin-1", "admin"), codes.OK},
+	} {
+		if _, err := fc.CreateCampaign(tc.ctx, req); code(err) != tc.want {
+			t.Errorf("%s: got %v, want %v (err=%v)", tc.name, code(err), tc.want, err)
+		}
 	}
 }

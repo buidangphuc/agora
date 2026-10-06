@@ -1,6 +1,6 @@
 # team-audit — append-only audit trail service.
-# Generated code is produced by `make proto` (buf) and committed; never hand-edit
-# anything under generated/.
+# Generated code is produced by `make proto` (buf) and is gitignored, not committed:
+# run it before build/test. Never hand-edit anything under generated/.
 
 .PHONY: proto build test tidy run
 

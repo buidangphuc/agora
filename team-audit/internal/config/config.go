@@ -11,7 +11,7 @@ type Config struct {
 }
 
 func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50065"))
+	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50066"))
 	return Config{
 		GRPCPort:    port,
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://audit_svc:audit_pass@localhost:5447/audit_db?sslmode=disable"),

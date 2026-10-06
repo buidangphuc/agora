@@ -21,6 +21,7 @@ type Settings struct {
 	OpenSearch    OpenSearch
 	Retrieval     Retrieval
 	Kafka         Kafka
+	Database      Database
 	Observability Observability
 }
 
@@ -63,6 +64,14 @@ type Kafka struct {
 	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
 }
 
+// Database configures the Postgres store for saved searches (migrations/
+// 0001_saved_searches). When disabled the service falls back to an in-memory
+// store and saved searches do not survive a restart.
+type Database struct {
+	Enabled bool   `env:"DATABASE_ENABLED" default:"false"`
+	URL     string `env:"DATABASE_URL" default:""`
+}
+
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
@@ -92,6 +101,9 @@ func (s *Settings) Validate() error {
 	}
 	if s.Server.ShutdownGrace < 0 {
 		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
+	}
+	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
+		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
 	}
 	return nil
 }

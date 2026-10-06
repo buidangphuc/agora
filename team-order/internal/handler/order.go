@@ -170,6 +170,10 @@ func (h *OrderHandler) ListSellerOrders(ctx context.Context, req *orderv1.ListSe
 }
 
 func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.UpdateOrderStatusRequest) (*orderv1.UpdateOrderStatusResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if req.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "order id is required")
 	}
@@ -185,16 +189,18 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 		return nil, status.Errorf(codes.Internal, "get order: %v", err)
 	}
 
-	if principal, ok := interceptor.PrincipalFromContext(ctx); ok && principal != nil && principal.GetId() != "" {
-		if existing.SellerID != principal.GetId() && existing.BuyerID != principal.GetId() {
-			return nil, status.Error(codes.PermissionDenied, "cannot update another user's order")
-		}
+	// Only the order's seller or an admin drives status; buyers cancel via CancelOrder.
+	if !isAdminOrUser(principal, existing.SellerID) {
+		return nil, status.Error(codes.PermissionDenied, "only the seller or an admin can update order status")
 	}
 
 	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), repository.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
 	if err != nil {
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		if errors.Is(err, service.ErrInvalidStatus) {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
 		return nil, status.Errorf(codes.Internal, "update order status: %v", err)
 	}

@@ -19,6 +19,7 @@ import (
 var (
 	ErrOrderNotFound       = errors.New("order not found for payment")
 	ErrInvalidOrderState   = errors.New("order is not in pending state")
+	ErrNotOrderBuyer       = errors.New("caller is not the buyer of this order")
 	ErrTransactionNotFound = repository.ErrTransactionNotFound
 	ErrWalletNotFound      = repository.ErrWalletNotFound
 	ErrPayoutNotFound      = repository.ErrPayoutNotFound
@@ -81,7 +82,7 @@ func NewPaymentService(
 func (s *PaymentService) CreatePayment(
 	ctx context.Context,
 	orderID string,
-	buyerID string,
+	callerID string,
 	method repository.PaymentMethod,
 ) (repository.PaymentTransaction, string, error) {
 	if orderID == "" {
@@ -96,6 +97,12 @@ func (s *PaymentService) CreatePayment(
 	order := orderResp.GetOrder()
 	if order == nil {
 		return repository.PaymentTransaction{}, "", ErrOrderNotFound
+	}
+	// Only the order's buyer may open a payment for it. The transaction's buyer is
+	// the order's buyer as reported by team-order, never the request's claim.
+	buyerID := order.GetBuyerId()
+	if buyerID == "" || buyerID != callerID {
+		return repository.PaymentTransaction{}, "", ErrNotOrderBuyer
 	}
 	if order.GetStatus() != orderv1.OrderStatus_ORDER_STATUS_PENDING {
 		return repository.PaymentTransaction{}, "", ErrInvalidOrderState
@@ -237,6 +244,31 @@ func (s *PaymentService) settlePaid(ctx context.Context, tx repository.PaymentTr
 
 // ── Refund Payment ───────────────────────────────────────────────────
 
+// FindTransaction resolves a payment reference that is either a transaction id or
+// an order id (the form the RMA flow uses).
+func (s *PaymentService) FindTransaction(ctx context.Context, paymentID string) (repository.PaymentTransaction, error) {
+	tx, err := s.paymentRepo.GetTransaction(ctx, paymentID)
+	if err != nil {
+		tx, err = s.paymentRepo.GetTransactionByOrderID(ctx, paymentID)
+		if err != nil {
+			return repository.PaymentTransaction{}, ErrTransactionNotFound
+		}
+	}
+	return tx, nil
+}
+
+// OrderSellerID returns the seller of an order as reported by team-order.
+func (s *PaymentService) OrderSellerID(ctx context.Context, orderID string) (string, error) {
+	resp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
+	}
+	if resp.GetOrder() == nil {
+		return "", ErrOrderNotFound
+	}
+	return resp.GetOrder().GetSellerId(), nil
+}
+
 func (s *PaymentService) RefundPayment(
 	ctx context.Context,
 	paymentID string,
@@ -250,12 +282,9 @@ func (s *PaymentService) RefundPayment(
 		return repository.PaymentTransaction{}, false, "", ErrInvalidAmount
 	}
 
-	tx, err := s.paymentRepo.GetTransaction(ctx, paymentID)
+	tx, err := s.FindTransaction(ctx, paymentID)
 	if err != nil {
-		tx, err = s.paymentRepo.GetTransactionByOrderID(ctx, paymentID)
-		if err != nil {
-			return repository.PaymentTransaction{}, false, "", ErrTransactionNotFound
-		}
+		return repository.PaymentTransaction{}, false, "", err
 	}
 
 	if tx.Status != repository.PaymentStatusPaid {

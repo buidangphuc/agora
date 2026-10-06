@@ -22,6 +22,7 @@ type Settings struct {
 	JWT           JWT
 	Observability Observability
 	SeedAdmin     SeedAdmin
+	PasswordReset PasswordReset
 }
 
 type Runtime struct {
@@ -86,6 +87,14 @@ type SeedAdmin struct {
 	Password string `env:"SEED_ADMIN_PASSWORD" default:""`
 }
 
+// PasswordReset controls RequestPasswordReset. There is no out-of-band delivery
+// (email/SMS) yet, so the raw reset token is NEVER returned in the RPC response
+// unless ExposeToken is on. Dev/e2e only: with it on, anyone who can call the RPC
+// can take over any account. Refused when ENV is prod.
+type PasswordReset struct {
+	ExposeToken bool `env:"PASSWORD_RESET_EXPOSE_TOKEN" default:"false"`
+}
+
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
@@ -120,6 +129,9 @@ func (s *Settings) Validate() error {
 		if len(s.SeedAdmin.Password) < MinSeedAdminPasswordLen {
 			return fmt.Errorf("SEED_ADMIN_PASSWORD is required and must be at least %d characters when SEED_ADMIN_ENABLED=true", MinSeedAdminPasswordLen)
 		}
+	}
+	if s.PasswordReset.ExposeToken && s.IsProd() {
+		return errors.New("PASSWORD_RESET_EXPOSE_TOKEN must not be enabled when ENV is prod")
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)

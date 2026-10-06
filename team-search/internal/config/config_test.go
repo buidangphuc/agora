@@ -37,3 +37,21 @@ func TestValidateRequiresOpenSearchURL(t *testing.T) {
 		t.Fatal("expected error: OPENSEARCH_URL required")
 	}
 }
+
+func TestDatabaseConfig(t *testing.T) {
+	t.Setenv("DATABASE_ENABLED", "true")
+	t.Setenv("DATABASE_URL", "")
+	if _, err := LoadSettings(); err == nil {
+		t.Fatal("enabled without DATABASE_URL must fail validation")
+	}
+	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
+	s, err := LoadSettings()
+	if err != nil || !s.Database.Enabled || s.Database.URL != "postgres://u:p@h/db" {
+		t.Fatalf("got %+v, %v", s.Database, err)
+	}
+	t.Setenv("DATABASE_ENABLED", "false")
+	t.Setenv("DATABASE_URL", "")
+	if s, err = LoadSettings(); err != nil || s.Database.Enabled {
+		t.Fatalf("disabled default: %+v, %v", s.Database, err)
+	}
+}

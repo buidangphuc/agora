@@ -113,6 +113,18 @@ func principalCtx(t *testing.T, scopes string) (context.Context, context.CancelF
 	return metadata.NewOutgoingContext(ctx, md), cancel
 }
 
+// principalCtxAs is principalCtx with an explicit principal type and id.
+func principalCtxAs(t *testing.T, id, typ, scopes string) (context.Context, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	md := metadata.Pairs(
+		"x-principal-id", id,
+		"x-principal-type", typ,
+		"x-principal-scopes", scopes,
+	)
+	return metadata.NewOutgoingContext(ctx, md), cancel
+}
+
 func seedRepo() *repository.InMemoryListingRepository {
 	return repository.NewInMemoryListingRepository(
 		repository.Listing{ID: "a1", Title: "Alpha", Price: 100, Currency: "VND", Status: "published"},
@@ -431,7 +443,7 @@ func TestReserveStock_Success(t *testing.T) {
 		Stock: 10,
 	})
 	client := startServer(t, repo)
-	ctx, cancel := principalCtx(t, "listing.read")
+	ctx, cancel := principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
 	defer cancel()
 
 	resp, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{
@@ -459,7 +471,7 @@ func TestReserveStock_OutOfStock(t *testing.T) {
 		Stock: 2,
 	})
 	client := startServer(t, repo)
-	ctx, cancel := principalCtx(t, "listing.read")
+	ctx, cancel := principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
 	defer cancel()
 
 	resp, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{
@@ -481,7 +493,7 @@ func TestReleaseStock_Success(t *testing.T) {
 		Stock: 7,
 	})
 	client := startServer(t, repo)
-	ctx, cancel := principalCtx(t, "listing.read")
+	ctx, cancel := principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
 	defer cancel()
 
 	resp, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
@@ -501,4 +513,48 @@ func TestReleaseStock_Success(t *testing.T) {
 	}
 }
 
+// TestStockRPCs_RequireServicePrincipal: ReserveStock/ReleaseStock are internal
+// (called by team-order) — only a service principal with listing.write passes.
+func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
+	cases := []struct {
+		name   string
+		id     string
+		typ    string // "" = no principal metadata at all
+		scopes string
+		want   codes.Code
+	}{
+		{"service allowed", "service-team-order", "service", "listing.read,listing.write", codes.OK},
+		{"service without listing.write denied", "service-team-order", "service", "listing.read", codes.PermissionDenied},
+		{"user denied", "u1", "user", "listing.read", codes.PermissionDenied},
+		{"seller user with listing.write denied", "seller-1", "user", "listing.read,listing.write", codes.PermissionDenied},
+		{"anonymous principal denied", "anon", "anonymous", "listing.read", codes.PermissionDenied},
+		{"no principal denied", "", "", "", codes.Unauthenticated},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+			client := startServer(t, repo)
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if tc.typ == "" {
+				ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+			} else {
+				ctx, cancel = principalCtxAs(t, tc.id, tc.typ, tc.scopes)
+			}
+			defer cancel()
 
+			_, rerr := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1})
+			if got := status.Code(rerr); got != tc.want {
+				t.Fatalf("ReserveStock: want %v, got %v (%v)", tc.want, got, rerr)
+			}
+			_, lerr := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 1})
+			if got := status.Code(lerr); got != tc.want {
+				t.Fatalf("ReleaseStock: want %v, got %v (%v)", tc.want, got, lerr)
+			}
+			// Denied callers must not have moved stock; allowed: reserve 1 then release 1 = unchanged.
+			if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+				t.Fatalf("stock changed: %d", got.Stock)
+			}
+		})
+	}
+}

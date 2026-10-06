@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -77,8 +78,63 @@ func (b *RealtimeBroker) Broadcast(room string, eventName string, data interface
 	}
 }
 
-// HandleSSE handles incoming Server-Sent Events requests from browsers.
-func HandleSSE(w http.ResponseWriter, r *http.Request) {
+// SSEHandler serves /api/events/live. Room access is decided at the edge:
+//   - "global", "listing:*"  public (no credential needed);
+//   - "user:{id}"            the verified principal's id must equal {id};
+//   - "chat:*"               any authenticated (non-anonymous) principal;
+//   - "ops:*"                the admin scope;
+//   - anything else          rejected.
+//
+// A browser EventSource cannot set an Authorization header, so the `session`
+// cookie (the same JWT) is honored as well. CORS is applied by the gateway's
+// CORS middleware (CORS_ORIGINS); this handler sets no CORS headers itself.
+type SSEHandler struct {
+	edge   *Edge
+	broker *RealtimeBroker
+}
+
+// NewSSEHandler builds the SSE handler over the given broker.
+func NewSSEHandler(e *Edge, b *RealtimeBroker) *SSEHandler {
+	return &SSEHandler{edge: e, broker: b}
+}
+
+// authorizeRoom returns an HTTP status (0 = allowed) and message for the room.
+func (h *SSEHandler) authorizeRoom(r *http.Request, room string) (int, string) {
+	prefix, rest, _ := strings.Cut(room, ":")
+	if room == "global" || (prefix == "listing" && rest != "") {
+		return 0, ""
+	}
+	if prefix != "user" && prefix != "chat" && prefix != "ops" || rest == "" {
+		return http.StatusForbidden, "unknown room"
+	}
+
+	header := r.Header
+	if c, err := r.Cookie(sessionCookie); err == nil && header.Get("Authorization") == "" {
+		header = header.Clone()
+		header.Set("Authorization", "Bearer "+strings.TrimSpace(c.Value))
+	}
+	p, err := h.edge.resolve(header)
+	if err != nil {
+		return http.StatusUnauthorized, "invalid or expired bearer token"
+	}
+	if p.ptype == "anonymous" {
+		return http.StatusUnauthorized, "authentication required"
+	}
+	switch prefix {
+	case "user":
+		if p.ptype != "user" || p.id != rest {
+			return http.StatusForbidden, "forbidden room"
+		}
+	case "ops":
+		if !hasScope(p.scopes, adminScope) {
+			return http.StatusForbidden, "insufficient_scope: admin required"
+		}
+	}
+	return 0, ""
+}
+
+// ServeHTTP handles incoming Server-Sent Events requests from browsers.
+func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
@@ -89,17 +145,23 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 	if room == "" {
 		room = "global"
 	}
+	if code, msg := h.authorizeRoom(r, room); code != 0 {
+		if code == http.StatusUnauthorized {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+		}
+		http.Error(w, msg, code)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	ch := GlobalBroker.Subscribe(room)
-	defer GlobalBroker.Unsubscribe(room, ch)
+	ch := h.broker.Subscribe(room)
+	defer h.broker.Unsubscribe(room, ch)
 
 	// Send initial handshake ping
-	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"room\":\"%s\"}\n\n", room)
+	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"room\":%q}\n\n", room)
 	flusher.Flush()
 
 	ticker := time.NewTicker(15 * time.Second)

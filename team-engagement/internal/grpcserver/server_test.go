@@ -175,7 +175,7 @@ func TestProductQALifecycle(t *testing.T) {
 	client := startServer(t)
 	buyerCtx, buyerCancel := userCtx(t, "buyer-qa", "engagement:read,engagement:write")
 	defer buyerCancel()
-	sellerCtx, sellerCancel := userCtx(t, "seller-qa", "engagement:read,engagement:write")
+	sellerCtx, sellerCancel := userCtx(t, "seller-qa", "engagement:read,engagement:write,listing.write")
 	defer sellerCancel()
 
 	// 1. Ask a question

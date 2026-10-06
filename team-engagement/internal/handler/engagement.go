@@ -408,7 +408,12 @@ func (h *EngagementHandler) AnswerQuestion(
 		return nil, status.Error(codes.Unimplemented, "qa service unavailable")
 	}
 
-	ans, err := h.qaSvc.AnswerQuestion(ctx, req.GetQuestionId(), userID(ctx), req.GetAnswerText(), req.GetIsShopReply())
+	// is_shop_reply is client-supplied and cannot be trusted. The listing's
+	// owner is not known to this service (seller_listings is not populated), so
+	// honour the flag only for seller principals (those granted listing.write).
+	isShopReply := req.GetIsShopReply() && interceptor.RequireScopes(ctx, "listing.write") == nil
+
+	ans, err := h.qaSvc.AnswerQuestion(ctx, req.GetQuestionId(), userID(ctx), req.GetAnswerText(), isShopReply)
 	if err != nil {
 		if errors.Is(err, repository.ErrQuestionNotFound) {
 			return nil, status.Error(codes.NotFound, "question not found")
@@ -518,7 +523,7 @@ func (h *EngagementHandler) GetDispute(
 func (h *EngagementHandler) ResolveDispute(
 	ctx context.Context, req *engagementv1.ResolveDisputeRequest,
 ) (*engagementv1.ResolveDisputeResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
+	if err := interceptor.RequireScopes(ctx, "engagement:write", "admin"); err != nil {
 		return nil, err
 	}
 	if req.GetDisputeId() == "" {

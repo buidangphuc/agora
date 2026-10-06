@@ -9,6 +9,7 @@ import (
 
 	sharingv1 "github.com/buidangphuc/team-sharing/generated/platform/sharing/v1"
 	"github.com/buidangphuc/team-sharing/internal/handler"
+	"github.com/buidangphuc/team-sharing/internal/interceptor"
 	"github.com/buidangphuc/team-sharing/internal/repository"
 	"github.com/buidangphuc/team-sharing/internal/service"
 )
@@ -69,5 +70,35 @@ func TestHandlerCreateInvalidArgument(t *testing.T) {
 	_, err := h.CreateShareLink(context.Background(), &sharingv1.CreateShareLinkRequest{TargetType: "", TargetId: "x"})
 	if got := status.Code(err); got != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument, got %v (err=%v)", got, err)
+	}
+}
+
+// The creator is the gateway-forwarded principal, never a request field or the
+// legacy x-user-id header; anonymous callers can still create and resolve.
+func TestHandlerCreateAttributesPrincipal(t *testing.T) {
+	repo := repository.NewInMemoryShareLinkRepo()
+	h := handler.NewSharingHandler(service.NewShareService(repo))
+	req := &sharingv1.CreateShareLinkRequest{TargetType: "listing", TargetId: "l1"}
+
+	user := interceptor.ContextWithPrincipal(context.Background(),
+		interceptor.Principal{ID: "user-1", Type: "user"})
+	resp, err := h.CreateShareLink(user, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, _ := repo.Resolve(context.Background(), resp.GetShortCode())
+	if link.CreatedBy != "user-1" {
+		t.Fatalf("created_by = %q", link.CreatedBy)
+	}
+
+	anon := interceptor.ContextWithPrincipal(context.Background(),
+		interceptor.Principal{ID: "anonymous", Type: "anonymous"})
+	resp, err = h.CreateShareLink(anon, req)
+	if err != nil {
+		t.Fatalf("anonymous create should be allowed: %v", err)
+	}
+	link, _ = repo.Resolve(context.Background(), resp.GetShortCode())
+	if link.CreatedBy != "" {
+		t.Fatalf("anonymous created_by = %q", link.CreatedBy)
 	}
 }

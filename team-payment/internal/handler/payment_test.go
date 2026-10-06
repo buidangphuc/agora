@@ -119,6 +119,147 @@ func TestPaymentHandler_Payments(t *testing.T) {
 	})
 }
 
+func TestPaymentHandler_CreatePaymentOwnership(t *testing.T) {
+	h, _, _, _ := setupHandlerTest()
+	req := &paymentv1.CreatePaymentRequest{OrderId: "order-1", Method: paymentv1.PaymentMethod_PAYMENT_METHOD_COD}
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", context.Background(), codes.Unauthenticated},
+		{"other user", principalCtx("buyer-2", user), codes.PermissionDenied},
+		{"seller of the order", principalCtx("seller-1", user), codes.PermissionDenied},
+		{"owner", principalCtx("buyer-1", user), codes.OK},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := h.CreatePayment(tc.ctx, req)
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+		})
+	}
+}
+
+// TestPaymentHandler_TransactionAccess: GetPayment and ProcessMockPayment trust
+// neither the request ids nor the metadata alone; only the order's buyer or an
+// admin may read or settle a transaction.
+func TestPaymentHandler_TransactionAccess(t *testing.T) {
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", context.Background(), codes.Unauthenticated},
+		{"gateway anonymous principal", principalCtx("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS), codes.Unauthenticated},
+		{"other user", principalCtx("buyer-2", user), codes.PermissionDenied},
+		{"order's seller", principalCtx("seller-1", user), codes.PermissionDenied},
+		{"service principal", principalCtx("buyer-1", svc), codes.PermissionDenied},
+		{"owner", principalCtx("buyer-1", user), codes.OK},
+		{"admin", principalCtx("admin-1", user, "admin"), codes.OK},
+	}
+	for _, tc := range tests {
+		t.Run("GetPayment/"+tc.name, func(t *testing.T) {
+			h, repo, _, _ := setupHandlerTest()
+			seeded := seedTx(t, repo)
+			_, err := h.GetPayment(tc.ctx, &paymentv1.GetPaymentRequest{Id: seeded.ID})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("by id: code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+			_, err = h.GetPayment(tc.ctx, &paymentv1.GetPaymentRequest{OrderId: "order-1"})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("by order: code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+		})
+		t.Run("ProcessMockPayment/"+tc.name, func(t *testing.T) {
+			h, repo, _, _ := setupHandlerTest()
+			seeded := seedTx(t, repo)
+			_, err := h.ProcessMockPayment(tc.ctx, &paymentv1.ProcessMockPaymentRequest{
+				TransactionId: seeded.ID, SimulateSuccess: true,
+			})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+			after, gerr := repo.GetTransaction(context.Background(), seeded.ID)
+			if gerr != nil {
+				t.Fatalf("reload: %v", gerr)
+			}
+			settled := after.Status == repository.PaymentStatusPaid
+			if settled != (tc.want == codes.OK) {
+				t.Fatalf("settled = %v for %s", settled, tc.name)
+			}
+		})
+	}
+}
+
+func seedTx(t *testing.T, repo *repository.InMemoryPaymentRepository) repository.PaymentTransaction {
+	t.Helper()
+	tx, err := repo.CreateTransaction(context.Background(), repository.PaymentTransaction{
+		OrderID: "order-1", BuyerID: "buyer-1", Amount: 100000, Currency: "VND",
+		Method: repository.PaymentMethodMockBank, Status: repository.PaymentStatusPending,
+	})
+	if err != nil {
+		t.Fatalf("seed tx: %v", err)
+	}
+	return tx
+}
+
+// TestPaymentHandler_RefundAccess: refunds are for the order's seller or an admin
+// only; the buyer, other users, service principals and anonymous callers are
+// rejected and the payment stays PAID.
+func TestPaymentHandler_RefundAccess(t *testing.T) {
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"anonymous", context.Background(), codes.Unauthenticated},
+		{"buyer", principalCtx("buyer-1", user), codes.PermissionDenied},
+		{"other user", principalCtx("seller-2", user), codes.PermissionDenied},
+		{"service principal", principalCtx("seller-1", svc), codes.PermissionDenied},
+		{"order's seller", principalCtx("seller-1", user), codes.OK},
+		{"admin", principalCtx("admin-1", user, "admin"), codes.OK},
+	}
+	for _, tc := range tests {
+		for _, byOrderID := range []bool{false, true} {
+			name := tc.name
+			if byOrderID {
+				name += "/by-order-id"
+			}
+			t.Run(name, func(t *testing.T) {
+				h, repo, _, orders := setupHandlerTest()
+				orders.orders["order-1"].SellerId = "seller-1"
+				seeded := seedTx(t, repo)
+				if _, err := repo.UpdateTransactionStatus(context.Background(), seeded.ID, repository.PaymentStatusPaid, "ref"); err != nil {
+					t.Fatalf("mark paid: %v", err)
+				}
+				ref := seeded.ID
+				if byOrderID {
+					ref = "order-1"
+				}
+				_, err := h.RefundPayment(tc.ctx, &paymentv1.RefundPaymentRequest{PaymentId: ref, Amount: 1000, Reason: "r"})
+				if got := status.Code(err); got != tc.want {
+					t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+				}
+				after, _ := repo.GetTransaction(context.Background(), seeded.ID)
+				refunded := after.Status == repository.PaymentStatusRefunded
+				if refunded != (tc.want == codes.OK) {
+					t.Fatalf("refunded = %v for %s", refunded, tc.name)
+				}
+			})
+		}
+	}
+}
+
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	h, _, walletRepo, _ := setupHandlerTest()
 
@@ -201,7 +342,7 @@ func TestPaymentHandler_RefundPayment(t *testing.T) {
 	principal := &commonv1.Principal{
 		Id:     "admin-1",
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:write", "payment:read"},
+		Scopes: []string{"admin"},
 	}
 	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
 

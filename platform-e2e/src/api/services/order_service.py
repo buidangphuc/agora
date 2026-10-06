@@ -22,7 +22,7 @@ class OrderService(BaseService):
         return self.post(ep.ORDER_LIST_BUYER, {})
 
     def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
-        """Drive an order to a status (e.g. ORDER_STATUS_COMPLETED); the buyer may do so for own orders."""
+        """Drive an order to a status (e.g. ORDER_STATUS_COMPLETED); only the order's seller (or an admin) may, PENDING|PAID -> SHIPPED -> COMPLETED."""
         return self.post(ep.ORDER_UPDATE_STATUS, {"id": order_id, "status": status})
 
     def cancel_order(self, order_id: str, reason: str = "") -> dict[str, Any]:

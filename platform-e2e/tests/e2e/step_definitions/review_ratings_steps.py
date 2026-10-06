@@ -19,7 +19,7 @@ from src.constants import PageName, timeouts
 from src.models import Listing, User
 from src.pages import ListingDetailPage
 from src.utils import data as fake
-from tests.e2e.flows import login_via_api, seed_listing
+from tests.e2e.flows import complete_order_as_seller, login_via_api, seed_listing
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -104,7 +104,7 @@ def _create_review(
     return resp.get("review", {})
 
 
-def _complete_order_for(world: World, buyer: User, listing_id: str) -> str:
+def _complete_order_for(world: World, buyer: User, seller: User, listing_id: str) -> str:
     """Create a COD order for the buyer and drive it to COMPLETED so the review
     verifies as a real purchase (team-order.GetOrder must report COMPLETED)."""
     sf = world.service_factory
@@ -130,11 +130,8 @@ def _complete_order_for(world: World, buyer: User, listing_id: str) -> str:
     orders = res.get("orders", [])
     order_id = orders[0].get("id") if orders else res.get("order", {}).get("id", "")
     assert order_id, f"order not created: {res}"
-    # Buyer owns the order, so the buyer principal may drive its status to COMPLETED.
-    _api(world, buyer.token).post(
-        "/platform.order.v1.OrderService/UpdateOrderStatus",
-        {"id": order_id, "status": "ORDER_STATUS_COMPLETED"},
-    )
+    # Only the listing's seller may ship and complete the order.
+    complete_order_as_seller(world, seller, order_id, restore_token=buyer.token)
     return order_id
 
 
@@ -211,9 +208,9 @@ def helpful_count_increments_once(world: World) -> None:
 # ── Verified-purchase badge for a delivered order ────────────────────────
 @given("a buyer has reviewed a listing they completed an order for")
 def buyer_reviewed_completed_order(world: World) -> None:
-    _seller, listing = _seed_seller_and_listing(world, "verified")
+    seller, listing = _seed_seller_and_listing(world, "verified")
     buyer = _register_buyer(world, "verified")
-    order_id = _complete_order_for(world, buyer, listing.listing_id)
+    order_id = _complete_order_for(world, buyer, seller, listing.listing_id)
     _create_review(
         world,
         buyer.token,

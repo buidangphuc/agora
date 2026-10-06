@@ -136,28 +136,38 @@ FROM %s`, warehouse.TableName)
 var insertSQL = buildInsertSQL()
 var insertOrderFactsSQL = buildInsertOrderFactsSQL()
 
-func buildInsertSQL() string {
-	names := warehouse.ColumnNames()
-	ph := make([]string, len(names))
+// buildIdempotentInsert builds an anti-join append keyed on event_id:
+// INSERT ... SELECT CAST(? AS type)... WHERE NOT EXISTS (same event_id). Kafka
+// delivery is at-least-once, so a redelivered event must not create a second
+// row. An anti-join (not a unique index) is used because existing volumes may
+// already hold duplicates, which would make CREATE UNIQUE INDEX fail. Rows of
+// one batch run in one transaction, so duplicates inside a batch are also
+// skipped. The event_id is bound twice: last placeholder feeds the NOT EXISTS.
+func buildIdempotentInsert(table string, names, types []string) string {
+	sel := make([]string, len(names))
 	for i := range names {
-		ph[i] = "?"
+		sel[i] = fmt.Sprintf("CAST(? AS %s)", types[i])
 	}
 	return fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
-		warehouse.TableName, strings.Join(names, ", "), strings.Join(ph, ", "),
+		"INSERT INTO %s (%s) SELECT %s WHERE NOT EXISTS (SELECT 1 FROM %s WHERE event_id = ?)",
+		table, strings.Join(names, ", "), strings.Join(sel, ", "), table,
 	)
 }
 
-func buildInsertOrderFactsSQL() string {
-	names := warehouse.OrderFactsColumnNames()
-	ph := make([]string, len(names))
-	for i := range names {
-		ph[i] = "?"
+func buildInsertSQL() string {
+	types := make([]string, len(warehouse.Schema))
+	for i, c := range warehouse.Schema {
+		types[i] = c.DuckDBType
 	}
-	return fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
-		warehouse.OrderFactsTableName, strings.Join(names, ", "), strings.Join(ph, ", "),
-	)
+	return buildIdempotentInsert(warehouse.TableName, warehouse.ColumnNames(), types)
+}
+
+func buildInsertOrderFactsSQL() string {
+	types := make([]string, len(warehouse.OrderFactsSchema))
+	for i, c := range warehouse.OrderFactsSchema {
+		types[i] = c.DuckDBType
+	}
+	return buildIdempotentInsert(warehouse.OrderFactsTableName, warehouse.OrderFactsColumnNames(), types)
 }
 
 // Write appends the batch in one transaction — DuckDB strongly prefers bulk
@@ -213,6 +223,7 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.EventGroupID,
 			r.ShippingTier,
 			r.PaymentType,
+			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert row %s: %w", r.EventID, err)
@@ -252,6 +263,7 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 			r.Currency,
 			r.OccurredAt,
 			r.Status,
+			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert order fact row %s: %w", r.EventID, err)

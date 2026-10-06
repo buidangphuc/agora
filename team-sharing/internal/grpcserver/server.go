@@ -5,9 +5,9 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 
 	sharingv1 "github.com/buidangphuc/team-sharing/generated/platform/sharing/v1"
 	"github.com/buidangphuc/team-sharing/internal/handler"

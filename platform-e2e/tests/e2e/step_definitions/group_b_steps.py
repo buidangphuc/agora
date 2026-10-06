@@ -80,11 +80,11 @@ def buyer_opens_dispute(world: World) -> None:
 
 @then("an admin can resolve it and the status updates")
 def admin_resolves_dispute(world: World) -> None:
-    import uuid
-
     dispute_id = world.state.extra.get("dispute_id", "disp_001")
-    admin_uname = f"admin_{uuid.uuid4().hex[:6]}"
-    admin_token = world.service_factory.auth.register(admin_uname, "pass123", "admin")
+    # ResolveDispute needs the `admin` scope: log in as the seeded admin (registering
+    # role "admin" is demoted to buyer by team-identity).
+    admin = get_test_data_manager().get_user_by_role("admin")
+    admin_token = world.service_factory.auth.login(admin.username, admin.password)
     world.service_factory.set_token(admin_token)
     res = world.service_factory.engagement.resolve_dispute(
         dispute_id=dispute_id,

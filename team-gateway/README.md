@@ -1,399 +1,259 @@
-# team-gateway — Connect Edge & API Gateway
+# team-gateway
 
-`team-gateway` is the single edge gateway and reverse proxy for the Agora Marketplace polyrepo platform. It exposes unified service contracts over **Connect RPC** (supporting HTTP/1.1 REST/JSON, gRPC-Web, and HTTP/2 cleartext `h2c` gRPC) on port `:8080`.
+The single edge of the Agora marketplace. It serves the platform contracts over **Connect**
+(gRPC, gRPC-web and JSON over HTTP/1.1, plus HTTP/2 cleartext via h2c) on `:8080`, verifies the
+caller's RS256 JWT, stamps the resolved principal as trusted gRPC metadata and forwards each call
+to the owning upstream service. It also hosts a few edge-only HTTP endpoints (`/api/track`,
+`/api/events/live`, `/api/admin/metrics`, `/healthz`).
 
-In strict adherence to **ARCHITECTURE Rules 1–3 and ADR-0003 / ADR-0006**:
-- **Stateless & Logic-Free (Rules 1 & 2)**: The gateway holds **no database** and **no domain business logic**. It only routes, orchestrates timeouts/retries, enforces edge rate limiting, and attaches verified identity.
-- **Single Verification Point (ADR-0006)**: The gateway is the sole edge verifier for **RS256 JWT** bearer tokens. It fetches and caches RSA public keys from `team-identity`'s JWKS endpoint (`/.well-known/jwks.json`) and translates verified JWT claims into trusted `x-principal-*` gRPC metadata headers.
-- **Frontend & Client Boundary (Rule 1)**: All client traffic (Next.js Web Frontend SSR, mobile clients, external callers, E2E tests) enters the marketplace exclusively through `team-gateway` at `:8080`.
+**Bounded context:** edge routing and identity resolution. It owns **no database** and **no
+domain logic** (AGENTS.md rules 1-3). Status: deployed service, part of the root
+`docker-compose.services.yaml`.
 
----
+## Contract
 
-## 1. Service Overview & Core Responsibilities
+### Connect services (forwarded, one handler per service)
 
-```
-+-----------------------------------------------------------------------------------+
-|                                   team-gateway                                    |
-|                                                                                   |
-|  [Connect Protocol Mux]      [Edge Auth Resolution]       [Token Bucket Limiter]  |
-|  - JSON over HTTP/1.1        - Verify RS256 via JWKS      - Per-user / per-IP     |
-|  - gRPC-Web                  - Stamp x-principal-*        - TTL memory sweep      |
-|  - HTTP/2 Cleartext (h2c)    - Anonymous default scopes   - 429 ResourceExhausted |
-|                                                                                   |
-|  [Edge Telemetry Collector]  [Real-Time Event Broker]     [Admin Cockpit HUD]     |
-|  - POST /api/track           - GET /api/events/live       - GET /api/admin/metrics|
-|  - Kafka: analytics.events   - SSE room multiplexing      - PromQL server query   |
-+-----------------------------------------------------------------------------------+
-```
+The gateway serves 22 services; each RPC is a thin forward to the upstream below. Registered in
+`internal/edge/server.go`, dialed in `internal/upstream/clients.go`. Server reflection (v1 and
+v1alpha) is enabled.
 
-### Core Responsibilities
-1. **Multi-Protocol Edge Termination**: Serves 22 gRPC service contracts over Connect RPC, providing seamless JSON REST endpoints for browser fetch, gRPC-Web for client streaming, and native gRPC over HTTP/2.
-2. **Asymmetric Edge Auth Verification**: Validates incoming RS256 Bearer JWTs against dynamic JWKS public keys without holding any private signing secret.
-3. **Principal Identity Propagation**: Injects authenticated `x-principal-id`, `x-principal-type`, and `x-principal-scopes` into downstream gRPC outgoing context.
-4. **Resilience & Rate Limiting**: Enforces token bucket rate limiting per user/IP, applies call deadlines (`CALL_TIMEOUT_SECONDS`), and retries idempotent read RPCs on `Unavailable` status.
-5. **Telemetry Beacon Collector**: Ingests browser telemetry beacons (`POST /api/track`), attaches the caller's principal, and publishes `platform.analytics.v1.TrackingEvent` to Kafka `analytics.events`.
-6. **Live SSE Multiplexing & Cockpit HUD**: Delivers real-time Server-Sent Events (`/api/events/live`) for chats/notifications and serves Prometheus metrics summary (`/api/admin/metrics`) for the Admin Cockpit.
+| Contract service(s) | Upstream (env var) |
+|---|---|
+| identity `AuthService`, `AddressService`, `SessionService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
+| listing `ListingService` | team-domain (`UPSTREAM_LISTING_ADDR`) |
+| search `SearchService` | team-search (`UPSTREAM_SEARCH_ADDR`) |
+| engagement `EngagementService` | team-engagement (`UPSTREAM_ENGAGEMENT_ADDR`) |
+| order `CartService`, `OrderService` | team-order (`UPSTREAM_ORDER_ADDR`) |
+| payment `PaymentService` | team-payment (`UPSTREAM_PAYMENT_ADDR`) |
+| chat `ChatService` | team-chat (`UPSTREAM_CHAT_ADDR`); `StreamChat` goes to team-ai (`UPSTREAM_AI_ADDR`) |
+| ai `AIService` | team-ai (`UPSTREAM_AI_ADDR`) |
+| recommendation `RecommendationService` | team-ai (`UPSTREAM_RECOMMENDATION_ADDR`) |
+| promotion `VoucherService`, `FlashSaleService`, `SubscriptionService`, `SponsoredService` | team-promotion (`UPSTREAM_PROMOTION_ADDR`) |
+| notification `NotificationService` | team-notification (`UPSTREAM_NOTIFICATION_ADDR`) |
+| analytics `AnalyticsQueryService` | team-analytics (`UPSTREAM_ANALYTICS_ADDR`) |
+| referral / verification / sharing / audit | team-referral / team-verification / team-sharing / team-audit (`UPSTREAM_*_ADDR`) |
 
----
+Upstream calls get a deadline (`CALL_TIMEOUT_SECONDS`). Idempotent reads (`callRead`) retry up to
+`RETRY_MAX` times on `Unavailable`; writes (`callWrite`) never retry. Upstream gRPC statuses map to
+the matching Connect codes.
 
-## 2. Technology Stack & Key Libraries
+### Authorization at the edge
 
-| Component / Library | Version | Role & Description |
+For every unary RPC the interceptor chain runs, outermost first: request id, auth, logging,
+rate limit (`internal/edge/interceptors.go`).
+
+| Case | Result |
+|---|---|
+| No `Authorization: Bearer` header | Anonymous principal with `PUBLIC_SCOPES` |
+| Bearer verifies (RS256 signature, `exp`, `kid` in JWKS) and its `sid` is not revoked | Principal from the token (`sub`, `typ`, `scopes`) |
+| Bearer present but malformed, bad signature, unknown `kid`, expired or session revoked | `401 Unauthenticated`, never downgraded to anonymous |
+
+The gateway checks only the token, not per-RPC scopes. **Scope gates live in the services**; the
+gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes` and `x-request-id`,
+built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
+`x-client-ip` / `x-client-user-agent` (see `TRUSTED_PROXIES`). Inbound `x-client-*` headers are
+never copied through. The one edge-level RPC gate is `VerificationService.ReviewKyc`, which needs
+an authenticated principal with the `admin` scope (`requireAdmin`, `verification.go`);
+team-verification enforces the full rule again.
+
+Rate limiting is a per-instance token bucket (`RATE_LIMIT_RPS` / `RATE_LIMIT_BURST`), keyed by
+principal id, or by client IP for anonymous callers. Idle buckets are evicted after 10 minutes.
+With N replicas the effective limit is N times higher (TODO ADR-0010).
+
+### Edge HTTP endpoints
+
+| Endpoint | Authorization | Behaviour |
 |---|---|---|
-| **Go Runtime** | `1.22` | Core programming language runtime |
-| **`connectrpc.com/connect`** | `v1.16.2` | Connect RPC framework handling gRPC, gRPC-Web, and JSON |
-| **`connectrpc.com/grpcreflect`** | `v1.3.0` | gRPC Server Reflection protocol support (`v1` and `v1alpha`) |
-| **`google.golang.org/grpc`** | `v1.66.0` | High-performance gRPC client connections to upstream services |
-| **`google.golang.org/protobuf`** | `v1.34.2` | Protocol Buffers runtime and generated code structures |
-| **`github.com/golang-jwt/jwt/v5`** | `v5.2.1` | RS256 JWT parsing and cryptographic signature validation |
-| **`github.com/rs/cors`** | `v1.11.0` | Cross-Origin Resource Sharing (CORS) handler for web browsers |
-| **`golang.org/x/time/rate`** | `v0.5.0` | In-memory token bucket rate limiting |
-| **`golang.org/x/net/http2/h2c`** | `v0.26.0` | HTTP/2 Cleartext server wrapper |
-| **`github.com/twmb/franz-go`** | `v1.18.0` | High-throughput Kafka producer for edge analytics telemetry |
-| **`go.opentelemetry.io/otel`** | `v1.28.0` | OpenTelemetry distributed tracing and metrics provider |
-| **`otelgrpc` (contrib)** | `v0.53.0` | Client stats handler for per-service gRPC RED metrics |
+| `GET /healthz` | none | `200 ok` |
+| `POST /api/track` | none; principal resolved from the `Authorization` bearer or the `session` cookie, anonymous if absent or invalid | Accepts one beacon object or an array of up to 100 (body capped at 64 KiB). An unknown `type`, a malformed body or an empty batch gets `400` and nothing is produced (the batch is validated first). Otherwise each beacon becomes a `TrackingEvent` and the response is `204`, even if the Kafka produce fails (logged). Beacon types and GA4 aliases: `beaconEventTypes` in `collector.go`. |
+| `GET /api/events/live?room=<room>` (SSE) | Per room, see below. A browser `EventSource` cannot set headers, so the `session` cookie is honored when `Authorization` is absent. | Sends a `connected` event, then a heartbeat every 15 s, then any message broadcast to the room (nothing broadcasts yet, see Known gaps). The handler sets no CORS headers (no wildcard); CORS comes from the gateway-wide `CORS_ORIGINS` middleware. |
+| `GET /api/admin/metrics` (cockpit) | Bearer only. No token or anonymous: `401`. Invalid token: `401`. No `admin` scope: `403`. All checked before any upstream call. | Shapes a fixed payload from three sources, fetched concurrently: Prometheus (fixed PromQL set, `PROMETHEUS_URL`), team-analytics admin RPCs (24 h order total, revenue, recent paid orders) and Jaeger (recent traces, fixed query: service `team-gateway`, last 1 h, limit 5, 2 s timeout). The browser supplies no query. A missing or unreachable source yields `null` figures, `prometheus_available=false` or empty `recent_orders` / `recent_traces`, never fabricated values. |
 
----
+SSE room rules (`SSEHandler.authorizeRoom`, `realtime.go`):
 
-## 3. Detailed Architecture Diagram
+| Room | Who may subscribe |
+|---|---|
+| `global`, `listing:<id>` | anyone |
+| `user:<id>` | the verified user whose id equals `<id>` |
+| `chat:<id>` | any authenticated (non-anonymous) principal |
+| `ops:<id>` | principal with the `admin` scope |
+| anything else, or an empty id | `403` |
 
-```mermaid
-flowchart TD
-    Client["Clients (Browser / Next.js SSR / Mobile / E2E)"]
-    
-    subgraph Gateway ["team-gateway (:8080)"]
-        H2C["h2c HTTP/2 Cleartext Handler + CORS"]
-        
-        subgraph Pipeline ["Edge Interceptor Pipeline"]
-            ReqID["1. Request ID Interceptor (X-Request-Id)"]
-            Auth["2. Auth Interceptor (RS256 Verify via JWKS)"]
-            Log["3. Structured Logging (slog JSON)"]
-            Limiter["4. Rate Limiter (Token Bucket per IP/User)"]
-        end
-        
-        subgraph Forwarders ["Connect Forwarder Layer"]
-            F_Auth["Auth & Identity Forwarder"]
-            F_Listing["Listing & Search Forwarder"]
-            F_Order["Cart & Order Forwarder"]
-            F_Promo["Promotion & FlashSale Forwarder"]
-            F_Other["AI, Chat, Payment, etc. Forwarders"]
-        end
-        
-        subgraph EdgeEndpoints ["Specialized Edge Endpoints"]
-            Track["POST /api/track (Telemetry Collector)"]
-            SSE["GET /api/events/live (SSE Broker)"]
-            Cockpit["GET /api/admin/metrics (PromQL HUD)"]
-            Health["GET /healthz (Liveness Probe)"]
-        end
-        
-        JWKSCache["JWKS Keyset Cache (TTL 300s + Lazy Force Refresh)"]
-    end
-    
-    subgraph UpstreamServices ["Upstream Microservices (gRPC)"]
-        S_Identity["team-identity (:50053)"]
-        S_Listing["team-domain (:50051)"]
-        S_Search["team-search (:50052)"]
-        S_Engagement["team-engagement (:50054)"]
-        S_Order["team-order (:50055)"]
-        S_Payment["team-payment (:50056)"]
-        S_Chat["team-chat (:50057)"]
-        S_Notification["team-notification (:50058)"]
-        S_Analytics["team-analytics (:50059)"]
-        S_AI["team-ai (:50060)"]
-        S_Promo["team-promotion (:50061)"]
-        S_Referral["team-referral (:50062)"]
-        S_Verification["team-verification (:50064)"]
-        S_Sharing["team-sharing (:50065)"]
-        S_Audit["team-audit (:50066)"]
-    end
+An invalid or expired token gets `401`; an anonymous caller on a protected room gets `401`.
 
-    subgraph AsyncInfra ["Infra & Brokers"]
-        Kafka["Kafka / Redpanda (analytics.events)"]
-        Prometheus["Prometheus Server (:9090)"]
-        IdentityJWKS["team-identity HTTP (/.well-known/jwks.json :50063)"]
-    end
+### Consumes
 
-    Client -->|HTTP / JSON / gRPC / Connect| H2C
-    H2C --> ReqID
-    ReqID --> Auth
-    Auth --> Log
-    Log --> Limiter
-    Limiter --> Forwarders
-    
-    Auth -.->|Verify Kid| JWKSCache
-    JWKSCache -.->|Fetch Public Keys| IdentityJWKS
-    
-    F_Auth -->|x-principal-*| S_Identity
-    F_Listing -->|x-principal-*| S_Listing
-    F_Listing -->|x-principal-*| S_Search
-    F_Order -->|x-principal-*| S_Order
-    F_Promo -->|x-principal-*| S_Promo
-    F_Other -->|x-principal-*| S_Engagement
-    F_Other -->|x-principal-*| S_Payment
-    F_Other -->|x-principal-*| S_Chat
-    F_Other -->|x-principal-*| S_Notification
-    F_Other -->|x-principal-*| S_Analytics
-    F_Other -->|x-principal-*| S_AI
-    F_Other -->|x-principal-*| S_Referral
-    F_Other -->|x-principal-*| S_Verification
-    F_Other -->|x-principal-*| S_Sharing
-    F_Other -->|x-principal-*| S_Audit
-    
-    H2C --> EdgeEndpoints
-    Track -->|Publish TrackingEvent| Kafka
-    Cockpit -->|Query Metrics| Prometheus
-```
+The upstream gRPC services above, team-identity's JWKS over HTTP (`JWKS_URL`), Prometheus and
+Jaeger for the cockpit, and `identity.events` (below).
 
----
+## Events
 
-## 4. Internal Package Structure & Responsibilities
-
-```
-team-gateway/
-├── cmd/gateway/
-│   └── main.go              # Entrypoint: loads settings, dials gRPC, initializes edge & starts HTTP/h2c
-├── internal/
-│   ├── config/
-│   │   ├── config.go        # Flat settings struct grouped by capability with reflection loader
-│   │   └── envcheck.go      # Validates .env against .env.example drift at build/test time
-│   ├── edge/
-│   │   ├── server.go        # HTTP ServeMux assembling Connect handlers, reflection, /api/track & SSE
-│   │   ├── interceptors.go  # Connect interceptor pipeline: request ID, auth, logging, rate limiter
-│   │   ├── forward.go       # Edge helper: outgoing context with x-principal-*, callRead, callWrite
-│   │   ├── collector.go     # Browser beacon telemetry ingestion (POST /api/track)
-│   │   ├── cockpit.go       # Admin HUD metrics handler querying Prometheus PromQL
-│   │   ├── realtime.go      # In-memory room-based Server-Sent Events broker
-│   │   ├── auth.go          # Forwarder for platform.identity.v1.AuthService
-│   │   ├── address.go       # Forwarder for platform.identity.v1.AddressService
-│   │   ├── session.go       # Forwarder for platform.identity.v1.SessionService
-│   │   ├── listing.go       # Forwarder for platform.listing.v1.ListingService
-│   │   ├── search.go        # Forwarder for platform.search.v1.SearchService
-│   │   ├── engagement.go    # Forwarder for platform.engagement.v1.EngagementService
-│   │   ├── cart.go          # Forwarder for platform.order.v1.CartService
-│   │   ├── order.go         # Forwarder for platform.order.v1.OrderService
-│   │   ├── payment.go       # Forwarder for platform.payment.v1.PaymentService
-│   │   ├── chat.go          # Forwarder for platform.chat.v1.ChatService (Buyer/Seller & AI)
-│   │   ├── ai.go            # Forwarder for platform.ai.v1.AIService
-│   │   ├── recommendation.go# Forwarder for platform.recommendation.v1.RecommendationService
-│   │   ├── promotion.go     # Forwarders for Voucher, FlashSale, Subscription, Sponsored
-│   │   ├── notification.go  # Forwarder for platform.notification.v1.NotificationService
-│   │   ├── analytics.go     # Forwarder for platform.analytics.v1.AnalyticsQueryService
-│   │   ├── referral.go      # Forwarder for platform.referral.v1.ReferralService
-│   │   ├── verification.go  # Forwarder for platform.verification.v1.VerificationService
-│   │   ├── sharing.go       # Forwarder for platform.sharing.v1.SharingService
-│   │   └── audit.go         # Forwarder for platform.audit.v1.AuditService
-│   ├── token/
-│   │   ├── jwks.go          # Dynamic JWKS client with TTL cache & forced-refresh on unknown kid
-│   │   └── jwt.go           # RS256 token verifier using cached RSA public keys
-│   ├── events/
-│   │   └── publisher.go     # Kafka producer for analytics.events using franz-go (with Noop fallback)
-│   ├── observability/
-│   │   ├── logging.go       # Structured JSON slog logger builder
-│   │   ├── tracer.go        # OpenTelemetry OTLP trace exporter initialization
-│   │   └── meter.go         # OpenTelemetry meter provider for RED metrics
-│   └── upstream/
-│       └── clients.go       # gRPC client initialization with otelgrpc client handler
-```
-
----
-
-## 5. Data Models & In-Memory State
-
-As mandated by **Rule 3**, `team-gateway` owns **no persistent database**. It operates with thread-safe in-memory state models:
-
-### 1. In-Memory KeySet Cache (`internal/token/jwks.go`)
-```go
-type keySet struct {
-    ttl        time.Duration              // Cache validity period (default 300s)
-    minForced  time.Duration              // Minimum interval between forced refreshes (10s)
-    keys       map[string]*rsa.PublicKey  // Cached RSA public keys indexed by Key ID (kid)
-    lastFetch  time.Time                  // Timestamp of last regular fetch
-    lastForced time.Time                  // Timestamp of last forced refresh
-    mu         sync.RWMutex
-}
-```
-
-### 2. Token Bucket Rate Limiter (`internal/edge/interceptors.go`)
-```go
-type limiterEntry struct {
-    limiter  *rate.Limiter                // golang.org/x/time token bucket
-    lastSeen time.Time                    // Last request timestamp for TTL sweeping
-}
-
-type rateLimiter struct {
-    limiters  map[string]*limiterEntry   // Keyed by "user:<id>" or "ip:<host>"
-    rps       rate.Limit                 // Replenishment rate per second
-    burst     int                        // Maximum bucket burst capacity
-    ttl       time.Duration              // Inactivity eviction threshold (10 minutes)
-    lastSweep time.Time
-    mu        sync.Mutex
-}
-```
-
-### 3. Telemetry Tracking Beacon (`internal/edge/collector.go`)
-Mapped from browser JSON payload to `platform.analytics.v1.TrackingEvent`:
-- `type`: Action name (`view`, `click`, `add_to_cart`, `begin_checkout`, `purchase`, etc.)
-- `listingId`, `sessionId`, `anonymousId`, `path`, `referrer`, `query`, `position`
-- `price`, `quantity`, `value`, `currency`, `transactionId`, `coupon`
-- Attaches resolved `Principal` into `platform.events.v1.EventEnvelope` on produce.
-
----
-
-## 6. API Contracts & Exposed Endpoints
-
-### 6.1 Connect RPC Services Routing Table
-
-All Connect RPC endpoints are accessible via `POST /<package>.<Service>/<Method>` using standard JSON, Connect protocol, or gRPC-Web.
-
-| Service Contract | Connect Path Prefix | Upstream Service | Upstream Port | Primary Methods |
+| Direction | Topic | Type | Key | Notes |
 |---|---|---|---|---|
-| `platform.identity.v1.AuthService` | `/platform.identity.v1.AuthService/` | `team-identity` | `:50053` | `Register`, `Login`, `ChangePassword`, `RequestPasswordReset`, `ResetPassword` |
-| `platform.identity.v1.AddressService` | `/platform.identity.v1.AddressService/` | `team-identity` | `:50053` | `ListAddresses`, `CreateAddress`, `UpdateAddress`, `DeleteAddress`, `SetDefaultAddress` |
-| `platform.identity.v1.SessionService` | `/platform.identity.v1.SessionService/` | `team-identity` | `:50053` | `ListSessions`, `RevokeSession`, `ListLoginHistory` |
-| `platform.listing.v1.ListingService` | `/platform.listing.v1.ListingService/` | `team-domain` | `:50051` | `GetListing`, `ListListings`, `CreateListing`, `UpdateListing`, `DeleteListing`, `ReserveStock` |
-| `platform.search.v1.SearchService` | `/platform.search.v1.SearchService/` | `team-search` | `:50052` | `SearchListings`, `Suggest` |
-| `platform.engagement.v1.EngagementService` | `/platform.engagement.v1.EngagementService/` | `team-engagement` | `:50054` | `AddFavorite`, `RemoveFavorite`, `ListFavorites`, `CreateReview`, `ListReviews`, `RecordView` |
-| `platform.order.v1.CartService` | `/platform.order.v1.CartService/` | `team-order` | `:50055` | `GetCart`, `AddToCart`, `UpdateCartItem`, `RemoveFromCart`, `ClearCart` |
-| `platform.order.v1.OrderService` | `/platform.order.v1.OrderService/` | `team-order` | `:50055` | `CreateOrder`, `GetOrder`, `ListBuyerOrders`, `ListSellerOrders`, `CancelOrder` |
-| `platform.payment.v1.PaymentService` | `/platform.payment.v1.PaymentService/` | `team-payment` | `:50056` | `CreatePayment`, `GetPayment`, `ProcessMockPayment` |
-| `platform.chat.v1.ChatService` | `/platform.chat.v1.ChatService/` | `team-chat` / `team-ai` | `:50057` / `:50060` | `GetOrCreateThread`, `ListThreads`, `GetThreadMessages`, `SendMessage`, `StreamChat` |
-| `platform.ai.v1.AIService` | `/platform.ai.v1.AIService/` | `team-ai` | `:50060` | `SearchRAG`, `GenerateMagicListing`, `CompleteText` |
-| `platform.recommendation.v1.RecommendationService` | `/platform.recommendation.v1.RecommendationService/` | `team-ai` | `:50060` | `GetRecommendations`, `GetSimilarListings` |
-| `platform.promotion.v1.VoucherService` | `/platform.promotion.v1.VoucherService/` | `team-promotion` | `:50061` | `ListVouchers`, `ClaimVoucher`, `ValidateVoucher`, `ReserveVoucher`, `ReleaseVoucher` |
-| `platform.promotion.v1.FlashSaleService` | `/platform.promotion.v1.FlashSaleService/` | `team-promotion` | `:50061` | `ListFlashSales`, `GetFlashSale`, `RegisterListing` |
-| `platform.promotion.v1.SubscriptionService` | `/platform.promotion.v1.SubscriptionService/` | `team-promotion` | `:50061` | `ListPlans`, `GetSubscription`, `Subscribe` |
-| `platform.promotion.v1.SponsoredService` | `/platform.promotion.v1.SponsoredService/` | `team-promotion` | `:50061` | `ListCampaigns`, `CreateCampaign`, `GetSponsoredSlots` |
-| `platform.notification.v1.NotificationService` | `/platform.notification.v1.NotificationService/` | `team-notification` | `:50058` | `ListNotifications`, `MarkRead`, `SubscribeAlert` |
-| `platform.analytics.v1.AnalyticsQueryService` | `/platform.analytics.v1.AnalyticsQueryService/` | `team-analytics` | `:50059` | `QueryDailyMetrics`, `QueryTopListings` |
-| `platform.referral.v1.ReferralService` | `/platform.referral.v1.ReferralService/` | `team-referral` | `:50062` | `GetReferralCode`, `ValidateReferral`, `TrackReferral` |
-| `platform.verification.v1.VerificationService` | `/platform.verification.v1.VerificationService/` | `team-verification` | `:50064` | `SubmitVerification`, `GetVerificationStatus` |
-| `platform.sharing.v1.SharingService` | `/platform.sharing.v1.SharingService/` | `team-sharing` | `:50065` | `CreateShareLink`, `ResolveShareLink`, `TrackShare` |
-| `platform.audit.v1.AuditService` | `/platform.audit.v1.AuditService/` | `team-audit` | `:50066` | `ListAuditEvents`, `RecordAuditEvent` |
+| Produces | `KAFKA_ANALYTICS_TOPIC` (`analytics.events`) | `platform.analytics.v1.TrackingEvent` in an `EventEnvelope` (principal stamped from the edge-resolved identity) | session id, falling back to anonymous id | Best-effort. With `KAFKA_ENABLED=false` the producer is a no-op. |
+| Consumes | `IDENTITY_EVENTS_TOPIC` (`identity.events`) | `platform.identity.v1.SessionRevoked` in an `EventEnvelope`; other types ignored | n/a | Feeds the session denylist. |
 
-### 6.2 HTTP Native Endpoints
+Envelope and topics follow ADR-0002.
 
-- `POST /api/track`: Telemetry collector for browser events (single object or JSON batch, returns `204 No Content`).
-- `GET /api/events/live?room=<name>`: Server-Sent Events multiplexer (`listing:<id>`, `chat:<thread>`, `user:<id>`, `ops:orders`).
-- `GET /api/admin/metrics`: Admin Cockpit HUD metrics JSON aggregating per-service health, RPS, latency, and error rates.
-- `GET /healthz`: Liveness and readiness probe endpoint (returns `200 OK "ok"`).
-- `POST /grpc.reflection.v1.ServerReflection/ServerReflectionInfo`: gRPC reflection endpoint.
+### Session revocation
 
----
+`internal/revocation` consumes `SessionRevoked` into an in-memory denylist of session ids. After
+local JWT verification the edge rejects (as `401`, same as any invalid token) a token whose `sid`
+claim is denylisted. There is no call to identity.
 
-## 7. Security & Flow Mechanisms
+- No consumer group: every replica reads every partition from the earliest offset, so a restart
+  rebuilds the list. Topic retention must be at least the token TTL.
+- An entry lives until the event's `expires_at` (24 h if absent), then is pruned.
+- **Fail open.** With `KAFKA_ENABLED=false` the consumer is not started and revoked tokens stay
+  valid until they expire (a warning is logged). With Kafka down the gateway still starts and
+  revocations are not enforced.
+- OTel gauges (exported only when `OTEL_ENABLED=true`): `gateway_revocation_consumer_up`
+  (alert on `0`), `gateway_revocation_consumer_lag`, `gateway_revocation_denylist_size`.
+- Tokens without a `sid` (service tokens) are never checked against the denylist.
 
-### 7.1 JWKS Client & RS256 Verification Flow
+## Data
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client as Browser / Client
-    participant GW as team-gateway
-    participant Cache as In-Memory KeySet Cache
-    participant ID as team-identity (:50063)
-    participant Upstream as Upstream Service (e.g. team-domain)
+None. The gateway has no database, no migrations and no local state beyond in-memory structures
+(JWKS cache, rate-limit buckets, session denylist, SSE room registry).
 
-    Client->>GW: POST /platform.listing.v1.ListingService/CreateListing (Bearer JWT)
-    GW->>GW: Extract kid from JWT Header
-    GW->>Cache: Lookup RSA Public Key for kid
-    alt Key not in Cache or Cache Stale
-        Cache->>ID: GET /.well-known/jwks.json
-        ID-->>Cache: 200 OK (JWKS Document)
-        Cache->>Cache: Parse & Cache RSA Keys (TTL 300s)
-    end
-    Cache-->>GW: Return *rsa.PublicKey
-    GW->>GW: Verify RS256 Signature, Expiry (exp), Scopes
-    GW->>GW: Construct outgoing context with x-principal-*
-    GW->>Upstream: gRPC CreateListing (with trusted metadata)
-    Upstream-->>GW: ListingResponse
-    GW-->>Client: 200 OK Response
-```
+## Configuration
 
-### 7.2 Header Transformation & Principal Isolation
-To prevent client impersonation, `team-gateway` strips any client-supplied `x-principal-*` headers and builds fresh gRPC metadata from scratch:
-- `x-principal-id`: Verified User ID (subject `sub`), or `"anonymous"`.
-- `x-principal-type`: `"user"`, `"service"`, or `"anonymous"`.
-- `x-principal-scopes`: Comma-delimited list of authorized scopes (e.g. `listing.read,listing.write,search:read`).
-- `x-request-id`: Propagated or freshly generated UUIDv4 for distributed request tracing.
+Read by `internal/config/config.go` with the listed defaults. `.env.example` mirrors them;
+`make check-env` (`TestEnvExampleInSync`) fails if the two drift in either direction. This table
+is not covered by that gate.
 
-### 7.3 Rate Limiting Token Bucket
-- **Authenticated Callers**: Keyed by `user:<user_id>`, sharing a rate limiter across all devices of the user.
-- **Anonymous Callers**: Keyed by `ip:<client_ip>`, stripping ephemeral ports.
-- **Eviction Sweep**: Inactivity TTL of 10 minutes prevents memory leaks from high-cardinality IP address pools.
-- **Exceeded Threshold**: Rejects requests immediately with Connect code `ResourceExhausted` (HTTP `429 Too Many Requests`).
+| Variable | Default | Meaning |
+|---|---|---|
+| `ENV` | `local` | `prod` / `production` marks production |
+| `LOG_LEVEL` | `info` | Log level |
+| `LOG_JSON` | `true` | JSON logs |
+| `HTTP_HOST` | `0.0.0.0` | Listen host |
+| `HTTP_PORT` | `8080` | Listen port, must be 1-65535 |
+| `SHUTDOWN_GRACE_SECONDS` | `10` | Drain time on SIGINT/SIGTERM |
+| `UPSTREAM_SEARCH_ADDR` | `localhost:50052` | Required non-empty |
+| `UPSTREAM_LISTING_ADDR` | `localhost:50051` | Required non-empty |
+| `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | Required non-empty |
+| `UPSTREAM_ENGAGEMENT_ADDR` | `localhost:50054` | |
+| `UPSTREAM_ORDER_ADDR` | `localhost:50055` | |
+| `UPSTREAM_PAYMENT_ADDR` | `localhost:50056` | |
+| `UPSTREAM_CHAT_ADDR` | `localhost:50057` | |
+| `UPSTREAM_AI_ADDR` | `localhost:50060` | team-ai; also used for `StreamChat` |
+| `UPSTREAM_RECOMMENDATION_ADDR` | `localhost:50060` | team-ai |
+| `UPSTREAM_PROMOTION_ADDR` | `localhost:50061` | |
+| `UPSTREAM_NOTIFICATION_ADDR` | `localhost:50058` | |
+| `UPSTREAM_ANALYTICS_ADDR` | `team-analytics-svc:50059` | |
+| `UPSTREAM_REFERRAL_ADDR` | `team-referral-svc:50062` | |
+| `UPSTREAM_VERIFICATION_ADDR` | `team-verification-svc:50064` | |
+| `UPSTREAM_SHARING_ADDR` | `team-sharing-svc:50065` | |
+| `UPSTREAM_AUDIT_ADDR` | `team-audit-svc:50066` | |
+| `DIAL_TIMEOUT_SECONDS` | `5` | Loaded but never read (see Known gaps) |
+| `JWKS_URL` | none, **required** | team-identity `/.well-known/jwks.json` (`.env.example` uses `http://localhost:50063/...`) |
+| `JWKS_CACHE_TTL` | `300` | Seconds, must be > 0. Also refreshed on an unknown `kid` (at most once per 10 s). |
+| `PUBLIC_SCOPES` | `listing.read,search:read` | Scopes of anonymous callers (comma-separated) |
+| `RATE_LIMIT_RPS` | `20` | Per principal or per IP |
+| `RATE_LIMIT_BURST` | `40` | |
+| `CALL_TIMEOUT_SECONDS` | `5` | Deadline per unary upstream call (not applied to `StreamChat`) |
+| `RETRY_MAX` | `2` | Retries for idempotent reads on `Unavailable` |
+| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins; credentials allowed; methods GET, POST, OPTIONS |
+| `PROMETHEUS_URL` | `http://prometheus:9090` | Cockpit. Empty disables the source. |
+| `JAEGER_QUERY_URL` | `http://jaeger:16686` | Cockpit traces. Empty disables the source. |
+| `JAEGER_UI_URL` | `http://localhost:16686` | Browser-facing base for trace links |
+| `TRUSTED_PROXIES` | empty | CIDRs, bare IPs or hostnames whose `X-Forwarded-For` is believed. Hostnames are re-resolved every 30 s; an unresolvable name trusts nobody. Empty trusts nobody: `x-client-ip` is the socket peer. The client is the rightmost XFF entry that is not itself trusted. Audit data only, never authorization. A malformed entry fails startup. |
+| `KAFKA_ENABLED` | `false` | Enables both the analytics producer and the revocation consumer |
+| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
+| `IDENTITY_EVENTS_TOPIC` | `identity.events` | Revocation source |
+| `OTEL_ENABLED` | `false` | Tracer and meter providers; also needed for the gRPC RED metrics and revocation gauges |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | |
+| `OTEL_SERVICE_NAME` | `team-gateway` | |
 
-### 7.4 Telemetry Beacon Collector Flow
-1. Receives beacon payload from browser `navigator.sendBeacon` or `fetch` at `POST /api/track`.
-2. Resolves caller's identity via `Authorization` header or fallback `session` HTTP cookie.
-3. Maps JSON event type to `platform.analytics.v1.EventType` (validating schema atomically).
-4. Wraps events into `platform.events.v1.EventEnvelope` with timestamp, request ID, and caller `Principal`.
-5. Publishes asynchronously to Kafka topic `analytics.events` (best-effort, fail-safe response `204 No Content`).
+The root compose file sets `TRUSTED_PROXIES=team-frontend-svc`, `KAFKA_ENABLED=true`,
+`KAFKA_BROKERS=redpanda:9092` and `RATE_LIMIT_RPS=1000` (burst 2000).
 
----
+## Run locally
 
-## 8. Environment Configuration Reference
+Root compose (from the repo root; the gateway publishes `8080:8080` and fetches JWKS from
+`team-identity-svc:50063`):
 
-| Environment Variable | Type | Default | Description |
-|---|---|---|---|
-| `ENV` | `string` | `local` | Deployment environment (`local`, `dev`, `prod`) |
-| `HTTP_HOST` | `string` | `0.0.0.0` | Gateway HTTP/h2c bind address |
-| `HTTP_PORT` | `int` | `8080` | Gateway listening port |
-| `SHUTDOWN_GRACE_SECONDS` | `float` | `10` | Grace period for draining active connections |
-| `JWKS_URL` | `string` | `http://localhost:50063/.well-known/jwks.json` | JWKS endpoint of `team-identity` |
-| `JWKS_CACHE_TTL` | `int` | `300` | In-memory JWKS public key cache TTL (seconds) |
-| `PUBLIC_SCOPES` | `string` | `listing.read,search:read` | Scopes granted to callers that send **no** token. A token that is present but invalid/expired gets `Unauthenticated` (401), never these scopes |
-| `RATE_LIMIT_RPS` | `float` | `20` | Token bucket refill rate (requests/sec) per key |
-| `RATE_LIMIT_BURST` | `int` | `40` | Maximum token bucket burst capacity |
-| `CALL_TIMEOUT_SECONDS` | `float` | `5` | Context timeout for upstream gRPC calls |
-| `RETRY_MAX` | `int` | `2` | Maximum retry attempts for idempotent read calls on `Unavailable` |
-| `CORS_ORIGINS` | `string` | `http://localhost:3000` | Whitelist of allowed CORS origins (comma-separated) |
-| `PROMETHEUS_URL` | `string` | `http://prometheus:9090` | Internal Prometheus endpoint for Cockpit HUD queries |
-| `KAFKA_ENABLED` | `bool` | `false` | Enable Kafka producer for telemetry beacon collector |
-| `KAFKA_BROKERS` | `string` | `localhost:9092` | Kafka bootstrap broker addresses (comma-separated) |
-| `KAFKA_ANALYTICS_TOPIC` | `string` | `analytics.events` | Target Kafka topic for browser tracking beacons |
-| `OTEL_ENABLED` | `bool` | `false` | Enable OpenTelemetry tracing and metrics exporting |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `string` | `""` | OpenTelemetry OTLP collector gRPC address |
-| `OTEL_SERVICE_NAME` | `string` | `team-gateway` | Service name stamped in distributed traces |
-
----
-
-## 9. Running & Testing
-
-### Local Development Commands
 ```bash
-# 1. Initialize environment file
-cp .env.example .env
-
-# 2. Re-vendor proto files & generate Go code (Docker-based)
-make proto
-
-# 3. Run environment drift check, linters, and unit tests
-make check
-
-# 4. Start the gateway server
-make run
+docker compose -f docker-compose.services.yaml up -d --build team-gateway
 ```
 
-### Verification Examples
+The gateway is not in the `jobs` profile. Generate code before building the image (see Gotchas):
+the Dockerfile `COPY`s the working tree and there is no `.dockerignore`.
 
-**Search Listings via REST/JSON:**
+Standalone (needs reachable upstreams and a JWKS endpoint):
+
 ```bash
-curl -X POST http://localhost:8080/platform.search.v1.SearchService/SearchListings \
-  -H "Content-Type: application/json" \
-  -d '{"query":"laptop","filters":{"status":"published"},"pageSize":5}'
+cp .env.example .env     # .env is gitignored; the Makefile loads it
+make proto               # once after clone / proto change
+make run                 # go run ./cmd/gateway
 ```
 
-**Add Item to Cart (Authenticated):**
-```bash
-curl -X POST http://localhost:8080/platform.order.v1.CartService/AddToCart \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <BUYER_RS256_JWT>" \
-  -d '{"listingId":"prod-101","quantity":1,"unitPrice":12500000}'
-```
+## Build, test and lint
 
-**Send Telemetry Tracking Beacon:**
-```bash
-curl -X POST http://localhost:8080/api/track \
-  -H "Content-Type: application/json" \
-  -d '{"type":"view","listingId":"prod-101","sessionId":"sess-abc","path":"/products/prod-101"}'
-```
+| Command | What it does |
+|---|---|
+| `make proto` | `buf generate` into `generated/` (needs the `buf` binary and network access to buf.build for the remote plugins in `buf.gen.yaml`; no Docker) |
+| `make test` | `go test ./...` |
+| `make check` | **Merge gate**: `check-env`, `gofmt -l .` must be empty, `go vet ./...`, `go test ./...` |
+| `make check-env` | `.env.example` vs `internal/config` drift test |
+
+Go 1.22 (`go.mod`, Dockerfile builder `golang:1.22`); `go.mod` is the source for dependency
+versions. This repo has no CI workflow of its own; run `make check` before opening a PR.
+
+## Spec and verification
+
+- Feature manifest: `FEATURES.yaml` (4 features, all `automated`: three `tracking.*` for
+  `/api/track` and `gateway.client-ip-not-spoofable`). Session revocation and client-IP behaviour
+  are covered by `platform-e2e` (`auth/session_revocation.feature`).
+- E2E coverage is verified in `platform-e2e`: `make -C platform-e2e features-check` and
+  `make -C platform-e2e spec-check CHANGE=<id>`.
+- Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC
+  (propose, apply with the `spec-dispatch` / `spec-to-e2e` skills, e2e, archive).
+
+## Gotchas
+
+- `generated/` is gitignored. Regenerate with `make proto` after a clone or a proto change, and
+  never hand-edit it (AGENTS.md rule 4). `buf.gen.local.yaml` uses absolute local plugin paths and
+  is not the default.
+- `proto/` is vendored from platform-core (ADR-0001). Never edit it here; change the contract in
+  platform-core, then re-vendor and regenerate.
+- `coverage.out` and `coverage.summary` in the repo root are test artifacts, not source.
+- With `KAFKA_ENABLED=false`, `/api/track` returns `204` but emits nothing, and revoked sessions
+  stay valid until the token expires.
+- `JWKS_URL` is required: startup fails without it. An unreachable JWKS at boot is only a
+  warning; the cache fills lazily, but requests carrying a bearer token get `401` until it does.
+- The gateway only verifies tokens. Never assume it enforces an RPC's scope; check the service.
+- State is per replica: rate-limit buckets, the denylist and the SSE registry are in memory.
+
+## Known gaps
+
+- **`StreamChat` bypasses the interceptor chain.** The chain is built from unary interceptors
+  (`connect.UnaryInterceptorFunc`), whose streaming wrappers are pass-throughs. The server-streaming
+  `ChatService.StreamChat` therefore gets no rate limiting, no request log and no client context
+  (`x-client-ip` is not forwarded), and no call timeout. It still resolves the token through the
+  `outgoing` fallback: an invalid token forwards no scopes, and a valid one is checked against the
+  revocation denylist.
+- **Nothing publishes into `GlobalBroker`.** `RealtimeBroker.Broadcast` has no caller, so
+  `/api/events/live` currently delivers only the `connected` handshake and heartbeats, for every
+  room. The room list in the code comments (flash-sale stock, chat, notifications, `ops:orders`)
+  describes intent, not a wired feed.
+- **`DIAL_TIMEOUT_SECONDS` is inert.** It is loaded and documented but `upstream.Dial` takes no
+  timeout (connections are lazy `grpc.NewClient` dials).
+- The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
+  or `/api/admin/metrics`, which read only the `Authorization` header.
+- Revocation is fail-open and per replica, and `ReviewKyc` is the only RPC with an edge-side
+  scope check.
+- The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
+  newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
+- Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at
+  this hop).
+
+## Links
+
+- [`AGENTS.md`](../AGENTS.md) for the rules (esp. 1, 2, 4 and 5) and the add-a-feature recipe.
+- ADRs in `platform-core/docs/ADR/`: 0001 proto distribution, 0002 async broker, 0003 auth model
+  (and its addendum on revocation and client context), 0004 observability, 0006 RS256/JWKS auth,
+  0010 service zero-trust.

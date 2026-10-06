@@ -1,163 +1,164 @@
-# platform-modelserve — Unified ML Serving Router & Inference Gateway
+# platform-modelserve
 
-`platform-modelserve` is Agora's internal **Machine Learning Inference Gateway & Model Serving Router** (ADR-0011). Built on **Python 3.12 / FastAPI** and listening on port `:8100`, it provides a unified, resilient, high-throughput abstraction layer over specialized open-source inference runtimes—including **Hugging Face Text Embeddings Inference (TEI)** and **vLLM**.
+Internal ML serving router (ADR-0011). A small Python 3.12 / FastAPI service on `:8100` that sits
+in front of upstream inference runtimes (Hugging Face Text Embeddings Inference and vLLM). It adds
+an HTTP contract adapter, a Redis embedding cache and a global in-flight limit with 429 backpressure.
 
----
+- **Bounded context:** platform (ML inference plumbing). It owns no business data, no database and no
+  proto contract. The only state is the Redis embedding cache.
+- **Status:** the router is **not** part of the root `docker-compose.services.yaml` (no modelserve,
+  TEI or vLLM service there). It is opt-in, started from this repo's own `docker-compose.local.yaml`.
+- **Runtimes are not provisioned here.** Only a TEI embed container is defined
+  (`docker-compose.local.yaml`). `/rerank` and `/generate` need a TEI reranker and a vLLM server that
+  you supply yourself.
 
-## 1. System Design & Architecture Overview
+## 1. Contract
 
-Rather than having application microservices (`team-ai`, `team-search`, `platform-recsys`) integrate directly with diverse GPU runtime endpoints, `platform-modelserve` serves as a centralized gateway providing:
-- **Contract Adaptation**: Bridges varied backend APIs into unified endpoints, supporting both Agora-native formats (`/embed`, `/rerank`, `/generate`) and OpenAI-compatible specifications (`/v1/embeddings`, `/v1/chat/completions`).
-- **Distributed Embedding Cache**: Avoids redundant neural computations by caching text embeddings in Redis, keyed deterministically by `hash(model_version + text)`.
-- **Adaptive Concurrency & Backpressure**: Implements queue-depth admission control to protect underlying GPU engines from saturation, responding with `HTTP 429 Too Many Requests` and `Retry-After` headers during peak loads.
-- **Enterprise Observability**: Tracks in-flight queue depth, cache hit/miss ratios, and per-endpoint latency distributions via Prometheus metrics (`/metrics`).
+HTTP/JSON only. **There is no authentication or scope check on any endpoint** (see Known gaps).
 
----
+| Endpoint | Behaviour | Upstream |
+|---|---|---|
+| `POST /embed` | Body `{"texts": [...]}` or `{"input": str \| [str]}`. Returns `{"embeddings": [[...]]}`. Empty input returns `{"embeddings": []}`. | TEI embed |
+| `POST /v1/embeddings` | Same logic, returns OpenAI shape `{"object":"list","data":[{"object":"embedding","index","embedding"}],"model"}`. | TEI embed |
+| `POST /rerank` | Body `{"query", "texts", "top_k"?}`, forwarded as is. Not cached. | TEI rerank `/rerank` |
+| `POST /generate`, `POST /v1/chat/completions` | Body forwarded unchanged to the same path on vLLM. Upstream status and JSON body are passed through. Not streamed (the response is read with `res.json()`). | vLLM |
+| `GET /healthz` | `{"status":"ok"}`. Does not check Redis or upstreams. | none |
+| `GET /metrics` | Prometheus text. | none |
 
-## 2. Tech Stack
+Errors: `429` + `Retry-After: 2` when saturated; `503` when an upstream is unreachable; `502` when TEI
+returns non-200, an unexpected shape or the wrong vector count (embed/rerank only).
 
-- **Gateway Engine**: Python 3.12, FastAPI, Uvicorn, AsyncIO, HTTPX (asynchronous connection pooling)
-- **Specialized Inference Backends**:
-  - **Hugging Face TEI Embeddings (`:8101`)**: High-throughput vector representation inference
-  - **Hugging Face TEI Reranker (`:8102`)**: Cross-encoder scoring for 2nd-stage candidate ranking
-  - **vLLM (`:8103`)**: High-throughput LLM text generation with PagedAttention and continuous batching
-- **Caching & Resilience**: Redis (vector caching), AsyncIO concurrency locks, Adaptive Admission Controller
-- **Observability**: Prometheus client metrics (`/metrics`), OpenTelemetry tracing, standard logging
+Embed upstream details: cache misses are sent to `{TEI_EMBED_URL}/embed` as `{"inputs": [...]}`. If that
+returns non-200, the router retries once at `/v1/embeddings` with `{"input": [...]}`. Accepted upstream
+shapes: a bare list, `{"embeddings": ...}`, or OpenAI `{"data": [{"embedding": ...}]}`. The request
+`model` field is not sent upstream; it only appears in the `/v1/embeddings` response.
 
----
+**Known consumers** (both opt-in, neither is wired by default):
 
-## 3. Architecture Diagram
+| Consumer | Setting | Notes |
+|---|---|---|
+| team-ai | `RAG_EMBED_BACKEND=model_server`, `RAG_EMBED_SERVER_URL=http://modelserve-router:8100`, `RAG_EMBED_DIM` | Defaults are `mock` and an empty URL. Calls `POST /embed` with `{"texts": [...]}`. Dim default 384 must match the TEI model (the local compose uses bge-small, 384). |
+| team-search | `MODEL_SERVER_URL` (default `http://localhost:8100`), `ENABLE_RERANKER` (default `false`) | Calls `/embed` and, if enabled, `/rerank`, with 2 s timeouts. Embed errors fall back to lexical search. |
 
-```mermaid
-flowchart TD
-    subgraph Clients["Agora Application Microservices"]
-        AI["team-ai (:8000 / :50050)"]
-        SEARCH["team-search (:50052)"]
-        RECSYS["platform-recsys"]
-    end
+`platform-recsys` has no reference to modelserve.
 
-    subgraph ModelServeRouter["platform-modelserve Router (:8100)"]
-        subgraph GatewayIngress["FastAPI Gateway Ingress"]
-            EP_EMB["/embed & /v1/embeddings"]
-            EP_RERANK["/rerank"]
-            EP_GEN["/v1/chat/completions & /generate"]
-            HEALTH["/healthz & /metrics"]
-        end
+## 2. Events
 
-        subgraph ResilienceLayer["Admission & Resilience"]
-            AC["AdmissionController\n(In-Flight Queue Tracker & 429 Guard)"]
-            PROM["Prometheus Metrics Collector"]
-        end
+None. No Kafka or RabbitMQ producers or consumers.
 
-        subgraph CacheLayer["Vector Acceleration"]
-            RC["EmbeddingCache\n(Key: hash(model_version + text))"]
-        end
-    end
+## 3. Data
 
-    subgraph RedisStore["Shared Cache"]
-        REDIS[("Redis Cache (:6379)")]
-    end
+No database and no migrations. Redis (`REDIS_URL`) holds the embedding cache:
 
-    subgraph VendorRuntimes["Specialized GPU Inference Backends"]
-        TEI_EMB["Hugging Face TEI Embeddings (:8101)\n(e.g., BAAI/bge-large-en-v1.5)"]
-        TEI_RERANK["Hugging Face TEI Reranker (:8102)\n(e.g., BAAI/bge-reranker-large)"]
-        VLLM_GEN["vLLM Engine (:8103)\n(e.g., Qwen / Llama-3 with PagedAttention)"]
-    end
+- Key: `modelserve:embed:{model_version}:{sha256(text)}` (`modelserve/model_version.py`).
+- Value: JSON array of floats, written with `SET ... EX EMBED_CACHE_TTL_SECONDS` in a pipeline; reads use `MGET`.
+- Bumping `MODEL_VERSION` makes all old entries unreachable (they expire by TTL).
+- Redis failures are swallowed and logged (fail-open): the router just treats everything as a miss.
 
-    AI -->|HTTP / JSON| GatewayIngress
-    SEARCH -->|HTTP / JSON| GatewayIngress
-    RECSYS -->|HTTP / JSON| GatewayIngress
+## 4. Configuration
 
-    EP_EMB --> AC
-    EP_RERANK --> AC
-    EP_GEN --> AC
+Read by `modelserve/config.py` (pydantic-settings, also loads `.env`). `.env.example` lists all of them;
+`tests/test_env_drift.py` fails if `.env.example` has a key that `Settings` does not know (it does not
+check the reverse direction).
 
-    AC --> RC
-    RC <-->|Get / Set Cached Vectors| REDIS
+| Env var | Default | Purpose |
+|---|---|---|
+| `ROUTER_HOST` | `0.0.0.0` | Bind host |
+| `ROUTER_PORT` | `8100` | Bind port |
+| `TEI_EMBED_URL` | `http://tei-embed:8101` | Embed upstream |
+| `TEI_RERANK_URL` | `http://tei-rerank:8102` | Rerank upstream (not provisioned here) |
+| `VLLM_URL` | `http://vllm:8103` | Generate upstream (not provisioned here) |
+| `REDIS_URL` | `redis://redis:6379/0` | Cache |
+| `EMBED_CACHE_ENABLED` | `true` | Disable to skip Redis entirely |
+| `EMBED_CACHE_TTL_SECONDS` | `86400` (1 day) | Cache TTL |
+| `MODEL_VERSION` | `v1` | Cache key namespace |
+| `MAX_QUEUE_DEPTH` | `100` | Max concurrent in-flight requests |
+| `UPSTREAM_TIMEOUT_SECONDS` | `30.0` | httpx client timeout |
 
-    RC -->|Cache Miss -> Forward| TEI_EMB
-    AC -->|Forward| TEI_RERANK
-    AC -->|Forward| VLLM_GEN
+Admission control is one **global** in-flight counter shared by all endpoints, guarded by an asyncio
+lock. Rejected requests increment `modelserve_admission_rejections_total{endpoint}`.
 
-    AC -.-> PROM
-    RC -.-> PROM
-```
+Metrics: `modelserve_in_flight_requests{endpoint}`, `modelserve_admission_rejections_total{endpoint}`,
+`modelserve_request_duration_seconds{endpoint,status_code}`, `modelserve_cache_hits_total`,
+`modelserve_cache_misses_total`. No tracing (no OpenTelemetry code or dependency).
 
----
+## 5. Run locally
 
-## 4. Internal Architecture & Data Flow
+Root stack: not available (see Status).
 
-### A. Unified Ingress Endpoints & Ports
-
-| Endpoint | Upstream Backend | Target Port | Description |
-|---|---|---|---|
-| `POST /embed` / `POST /v1/embeddings` | Hugging Face TEI Embed | `:8101` | Generates dense vector embeddings. Checks Redis cache first; queries TEI only for cache-miss texts. |
-| `POST /rerank` | Hugging Face TEI Rerank | `:8102` | Cross-encoder relevance scoring between a query and multiple candidate text snippets. |
-| `POST /v1/chat/completions` / `POST /generate` | vLLM Engine | `:8103` | Proxies streaming or complete chat and text generation payloads. |
-| `GET /healthz` | Local | `:8100` | Liveness and readiness health probe. |
-| `GET /metrics` | Local | `:8100` | Exposes Prometheus runtime metrics. |
-
-### B. Embedding Cache Flow (`modelserve/cache.py`)
-1. Ingests a batch of texts $[T_1, T_2, \dots, T_N]$ under active `model_version`.
-2. Computes deterministic SHA-256 cache keys:
-   $$\text{Key}_i = \text{prefix} : \text{model\_version} : \text{SHA256}(T_i)$$
-3. Performs a pipelined `MGET` query against Redis (`:6379`).
-4. Dispatches only cache-miss texts to upstream TEI (`:8101`).
-5. Asynchronously writes newly computed vectors to Redis with configurable TTL (`embedding_cache_ttl_seconds`, default 7 days).
-6. Reconstructs and returns the full vector batch preserving the original input ordering.
-
-### C. Admission Control & Backpressure (`modelserve/admission.py`)
-- Tracks instantaneous concurrent inference requests (`in_flight_requests`) per endpoint.
-- If in-flight requests exceed `MAX_QUEUE_DEPTH` (default 100):
-  - Increments `modelserve_admission_rejections_total`.
-  - Immediately rejects the request with `HTTP 429 Too Many Requests` and headers `{"Retry-After": "2"}` to protect GPU inference engines from cascading failure.
-
-### D. Prometheus Observability Metrics
-- `modelserve_in_flight_requests` (Gauge): Current concurrent requests by endpoint.
-- `modelserve_admission_rejections_total` (Counter): Cumulative count of rejected requests due to queue saturation.
-- `modelserve_request_duration_seconds` (Histogram): Latency percentiles partitioned by endpoint and status code.
-- `modelserve_cache_hits_total` / `modelserve_cache_misses_total` (Counters): Efficiency metrics for the vector cache.
-
----
-
-## 5. Directory Structure
-
-```text
-modelserve/
-  __init__.py
-  __main__.py                  # CLI entrypoint
-  admission.py                 # In-flight request concurrency & Prometheus metrics
-  cache.py                     # Redis embedding cache implementation
-  config.py                    # Reflection settings and .env loader
-  model_version.py             # Model generation version resolver
-  router.py                    # FastAPI application & endpoint routing
-  server.py                    # Uvicorn server launcher
-tests/
-  test_admission.py            # Concurrency limit and 429 rejection tests
-  test_cache.py                # Redis cache hit/miss and key hashing tests
-  test_config.py               # Environment parsing tests
-  test_contract_conformance.py # OpenAI and native format conformance tests
-  test_env_drift.py            # .env.example parity gate
-  test_router.py               # End-to-end routing and mock backend tests
-```
-
----
-
-## 6. Local Setup & Testing
+Standalone, with the repo's compose (starts a TEI CPU embed container with `BAAI/bge-small-en-v1.5`
+and the router, both on the **external** network `platform-core_default`, which must already exist; the
+router expects a `redis` host on it, i.e. the platform-core Redis):
 
 ```bash
-# 1. Bring up Redis infra from platform-core
-cd ../platform-core/infra && docker compose up -d redis
-
-# 2. Install dependencies with uv
-cd ../platform-modelserve
-uv sync --dev
-
-# 3. Run test suite
-make test
-
-# 4. Start local router server
-make run
-# Access Swagger docs: http://localhost:8100/docs
-# Prometheus metrics: http://localhost:8100/metrics
+docker compose -f docker-compose.local.yaml up --build
 ```
+
+The compose sets `MODEL_VERSION=bge-small-en-v1.5` and does not set the rerank or vLLM URLs. Without
+the external network, run the router directly:
+
+```bash
+make install
+make run          # python -m modelserve, http://localhost:8100/docs
+```
+
+Direct runs need a reachable Redis and TEI (override `REDIS_URL`, `TEI_EMBED_URL`), or set
+`EMBED_CACHE_ENABLED=false` to skip Redis.
+
+Docker image: `Dockerfile` (python:3.12-slim, `EXPOSE 8100`, `HEALTHCHECK` on `/healthz`, runs
+`python -m modelserve`).
+
+## 6. Build, test and lint
+
+| Command | What |
+|---|---|
+| `make install` | `pip install -r requirements-dev.txt` and `pip install -e .` |
+| `make lint` | `ruff check .` (line length 110, rules E, F, I, UP, B) |
+| `make format` | `ruff format .` |
+| `make test` | `pytest -v tests/` |
+
+CI (`.github/workflows/ci.yaml`, path-filtered to `platform-modelserve/**`, Python 3.12) runs
+`make lint` then `make test`. `pyproject.toml` declares `requires-python >=3.10`. Dependencies are pip
+based; there is no `uv.lock`.
+
+Tests: `test_admission`, `test_cache`, `test_config`, `test_contract_conformance` (native and OpenAI
+shapes), `test_env_drift`, `test_router` (mock upstreams).
+
+## 7. Spec and verification
+
+- `FEATURES.yaml` is in this repo: `modelserve.embedding-router` and `modelserve.admission-control`,
+  both `status: not-testable`. There is no platform-e2e coverage; verification is the unit, contract and
+  router tests above.
+- Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
+- Changes go through OpenSpec (`openspec/changes/<id>`), per the root README's ASDLC. The original
+  change is `openspec/changes/add-platform-modelserve`. Architecture: ADR-0011.
+
+## 8. Gotchas
+
+- Cache and Redis are fail-open: errors are logged, not returned. The Redis client is created lazily,
+  so a wrong `REDIS_URL` does not fail startup.
+- Vector dimension is not validated. Changing the TEI model without bumping `MODEL_VERSION` serves
+  stale vectors from the cache, and consumers' dims (`RAG_EMBED_DIM`, team-search `EMBEDDING_DIM`)
+  must match the model.
+- `/rerank` and `/generate` return 503 until you point `TEI_RERANK_URL` / `VLLM_URL` at real servers.
+- `/healthz` is liveness only; it does not report upstream or Redis health.
+- Request latency is only recorded for successful `/embed` calls.
+- The `modelserve_in_flight_requests` gauge is set to the global in-flight count under whichever
+  endpoint label last changed it, so per-endpoint values are not meaningful.
+
+## 9. Known gaps
+
+- No authn/authz on any endpoint; it relies on network isolation.
+- Not in the root compose, and not wired into team-ai or team-search by default.
+- `/rerank` and `/generate` have no runtime anywhere in the repo.
+- No streaming for `/generate` or chat completions.
+- No e2e coverage (features are `not-testable`).
+- `.env.example` drift gate only checks one direction.
+- Stale docs elsewhere: `team-search/README.md` documents `MODELSERVE_URL` (code reads
+  `MODEL_SERVER_URL`); root `AGENTS.md` lists TEI/vLLM ports `:8101`-`:8103` as if provisioned.
+
+## 10. Links
+
+- Root `AGENTS.md` (rules, port table), root `README.md` (ASDLC).
+- `platform-core/docs/ADR/0011-model-serving.md`.
+- `openspec/changes/add-platform-modelserve`.
