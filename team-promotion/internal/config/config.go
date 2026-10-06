@@ -16,6 +16,7 @@ type Settings struct {
 	Observability Observability
 	FeatureFlags  FeatureFlags
 	Kafka         Kafka
+	Upstream      Upstream
 }
 
 type Runtime struct {
@@ -60,6 +61,13 @@ type Kafka struct {
 	Enabled     bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers     string `env:"KAFKA_BROKERS" default:"localhost:9092"`
 	EventsTopic string `env:"PROMOTION_EVENTS_TOPIC" default:"promotion.events"`
+}
+
+// Upstream locates team-domain, used to verify listing ownership when a seller
+// creates a flash-sale campaign. Empty = ownership cannot be verified, so
+// non-admin CreateCampaign fails closed (Unavailable).
+type Upstream struct {
+	DomainAddr string `env:"UPSTREAM_DOMAIN_ADDR" default:""`
 }
 
 func LoadSettings() (*Settings, error) {

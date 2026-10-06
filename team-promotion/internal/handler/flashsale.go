@@ -35,8 +35,8 @@ func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.
 	if err != nil {
 		return nil, err
 	}
-	// Sellers and admins only. Campaigns carry no seller id and team-promotion has
-	// no listing-ownership lookup, so cross-shop listing ownership is not enforced here.
+	// Sellers and admins only. Non-admin sellers must own the listing; the service
+	// verifies that against team-domain.
 	if err := interceptor.RequireSeller(principal); err != nil {
 		return nil, err
 	}
@@ -50,8 +50,13 @@ func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.
 		StockCap:  req.GetStockCap(),
 		StartsAt:  service.TimeFromProto(req.GetStartsAt()),
 		EndsAt:    service.TimeFromProto(req.GetEndsAt()),
+		CallerID:  principal.GetId(),
+		IsAdmin:   interceptor.IsAdmin(principal),
 	})
 	if err != nil {
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
 		if errors.Is(err, service.ErrInvalidCampaign) {
 			return nil, status.Error(codes.InvalidArgument, "invalid campaign")
 		}

@@ -20,6 +20,7 @@ import (
 	"github.com/buidangphuc/team-promotion/internal/handler"
 	"github.com/buidangphuc/team-promotion/internal/repository"
 	"github.com/buidangphuc/team-promotion/internal/service"
+	"github.com/buidangphuc/team-promotion/internal/upstream"
 )
 
 func main() {
@@ -89,7 +90,18 @@ func run() error {
 	}
 
 	voucherSvc := service.NewVoucherService(voucherRepo, reservationRepo, res.Producer, res.Flags, logger)
-	flashSaleSvc := service.NewFlashSaleService(flashSaleRepo, res.Producer, res.Flags, logger)
+	var listings upstream.ListingGetter
+	if addr := settings.Upstream.DomainAddr; addr != "" {
+		domain, err := upstream.Dial(addr)
+		if err != nil {
+			return fmt.Errorf("upstream domain: %w", err)
+		}
+		defer domain.Close()
+		listings = domain.Listing
+	} else {
+		logger.Warn("UPSTREAM_DOMAIN_ADDR unset: non-admin CreateCampaign fails closed")
+	}
+	flashSaleSvc := service.NewFlashSaleService(flashSaleRepo, res.Producer, res.Flags, listings, logger)
 	subscriptionSvc := service.NewSubscriptionService(subscriptionRepo, logger)
 	sponsoredSvc := service.NewSponsoredService(adCampaignRepo, logger)
 

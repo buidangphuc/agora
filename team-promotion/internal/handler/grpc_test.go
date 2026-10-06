@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
+	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/handler"
 	"github.com/buidangphuc/team-promotion/internal/interceptor"
@@ -32,7 +33,7 @@ func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.Fl
 		repository.NewInMemoryReservationRepository(),
 		nil, nil, nil,
 	)
-	flashSvc := service.NewFlashSaleService(repository.NewInMemoryFlashSaleRepository(), nil, nil, nil)
+	flashSvc := service.NewFlashSaleService(repository.NewInMemoryFlashSaleRepository(), nil, nil, ownedListings{"l1": "seller-1", "l2": "seller-2"}, nil)
 
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.AuthUnaryInterceptor()))
 	promotionv1.RegisterVoucherServiceServer(srv, handler.NewVoucherHandler(voucherSvc, nil))
@@ -51,6 +52,17 @@ func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.Fl
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	return promotionv1.NewVoucherServiceClient(conn), promotionv1.NewFlashSaleServiceClient(conn)
+}
+
+// ownedListings is a fake team-domain listing client: listing id -> seller id.
+type ownedListings map[string]string
+
+func (o ownedListings) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
+	seller, ok := o[req.GetId()]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "not_found")
+	}
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller}}, nil
 }
 
 // authCtx attaches a resolved principal via the metadata the auth interceptor reads.
@@ -225,9 +237,14 @@ func TestCreateCampaignAuthz(t *testing.T) {
 		{"anonymous", principalCtx("anonymous", "anonymous"), codes.Unauthenticated},
 		{"buyer", authCtx("buyer-1", "listing.read"), codes.PermissionDenied},
 		{"seller", authCtx("seller-1", "listing.write"), codes.OK},
+		{"seller foreign listing", authCtx("seller-1", "listing.write"), codes.PermissionDenied},
 		{"admin", authCtx("admin-1", "admin"), codes.OK},
 	} {
-		if _, err := fc.CreateCampaign(tc.ctx, req); code(err) != tc.want {
+		r := req
+		if tc.name == "seller foreign listing" {
+			r = &promotionv1.CreateCampaignRequest{ListingId: "l2", SalePrice: 1000, StockCap: 5}
+		}
+		if _, err := fc.CreateCampaign(tc.ctx, r); code(err) != tc.want {
 			t.Errorf("%s: got %v, want %v (err=%v)", tc.name, code(err), tc.want, err)
 		}
 	}

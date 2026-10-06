@@ -8,10 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-promotion/internal/bootstrap"
 	"github.com/buidangphuc/team-promotion/internal/featureflags"
 	"github.com/buidangphuc/team-promotion/internal/producer"
 	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/buidangphuc/team-promotion/internal/upstream"
 )
 
 // FlashSaleService holds the flash-sale campaign business logic.
@@ -19,16 +24,19 @@ type FlashSaleService struct {
 	campaigns repository.FlashSaleRepository
 	emitter   *producer.Emitter
 	flags     featureflags.Evaluator
+	listings  upstream.ListingGetter // nil when UPSTREAM_DOMAIN_ADDR is unset
 	logger    *slog.Logger
 	nowFn     func() time.Time
 }
 
 // NewFlashSaleService wires the campaign repository, the promotion.events producer
-// (may be nil when Kafka is disabled) and the feature flag evaluator.
+// (may be nil when Kafka is disabled), the feature flag evaluator and the team-domain
+// listing client used to verify campaign ownership (nil = fail closed for sellers).
 func NewFlashSaleService(
 	campaigns repository.FlashSaleRepository,
 	prod *bootstrap.EventProducer,
 	flags featureflags.Evaluator,
+	listings upstream.ListingGetter,
 	logger *slog.Logger,
 ) *FlashSaleService {
 	if logger == nil {
@@ -42,6 +50,7 @@ func NewFlashSaleService(
 		campaigns: campaigns,
 		emitter:   producer.NewEmitter(pub, logger),
 		flags:     flags,
+		listings:  listings,
 		logger:    logger,
 		nowFn:     time.Now,
 	}
@@ -58,12 +67,24 @@ type CreateCampaignParams struct {
 	StockCap  int64
 	StartsAt  time.Time
 	EndsAt    time.Time
+
+	// CallerID is the authenticated principal id; IsAdmin skips the ownership check.
+	CallerID string
+	IsAdmin  bool
 }
 
 // CreateCampaign persists a campaign and emits FlashSaleChanged on promotion.events.
+// Non-admin callers must own the listing (checked against team-domain). Errors from
+// the ownership check are gRPC status errors (InvalidArgument, PermissionDenied,
+// Unavailable).
 func (s *FlashSaleService) CreateCampaign(ctx context.Context, p CreateCampaignParams) (repository.FlashSaleCampaign, error) {
 	if strings.TrimSpace(p.ListingID) == "" {
 		return repository.FlashSaleCampaign{}, ErrInvalidCampaign
+	}
+	if !p.IsAdmin {
+		if err := s.requireListingOwner(ctx, strings.TrimSpace(p.ListingID), p.CallerID); err != nil {
+			return repository.FlashSaleCampaign{}, err
+		}
 	}
 	c := repository.FlashSaleCampaign{
 		ListingID: strings.TrimSpace(p.ListingID),
@@ -81,6 +102,27 @@ func (s *FlashSaleService) CreateCampaign(ctx context.Context, p CreateCampaignP
 		s.logger.Warn("emit FlashSaleChanged failed", slog.String("campaign_id", created.ID), slog.Any("err", err))
 	}
 	return created, nil
+}
+
+// requireListingOwner looks the listing up in team-domain as the caller and
+// requires its seller_id to equal callerID. Fails closed when no client is wired.
+func (s *FlashSaleService) requireListingOwner(ctx context.Context, listingID, callerID string) error {
+	if s.listings == nil {
+		return status.Error(codes.Unavailable, "listing ownership cannot be verified (UPSTREAM_DOMAIN_ADDR not configured)")
+	}
+	resp, err := s.listings.GetListing(ctx, &listingv1.GetListingRequest{Id: listingID})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return status.Error(codes.InvalidArgument, "listing not found")
+		}
+		s.logger.Warn("listing ownership lookup failed", slog.String("listing_id", listingID), slog.Any("err", err))
+		return status.Error(codes.Unavailable, "listing lookup failed")
+	}
+	owner := resp.GetListing().GetSellerId()
+	if owner == "" || callerID == "" || owner != callerID {
+		return status.Error(codes.PermissionDenied, "listing belongs to another seller")
+	}
+	return nil
 }
 
 // GetActiveFlashSale returns the active campaign for a listing, honoring the sale
