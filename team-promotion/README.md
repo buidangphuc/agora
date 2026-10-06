@@ -22,7 +22,7 @@ these into a principal; each handler enforces its own rule. `RequirePrincipal` r
 | `VoucherService/GetVoucher` | None (public read by code). |
 | `VoucherService/ListVouchers` | None. Filters by `seller_id` from the request (empty = platform). |
 | `VoucherService/ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | **None** (see Known gaps). `reservation_id` is required; the caller is expected to be team-order. |
-| `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. |
+| `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. Non-admins must own the listing: team-domain `GetListing` (as the caller) must return `seller_id` equal to the caller id. Foreign listing is `PermissionDenied`, unknown listing `InvalidArgument`, lookup failure or `UPSTREAM_DOMAIN_ADDR` unset is `Unavailable` (fails closed). Admins skip the lookup. |
 | `FlashSaleService/GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock` | None (public reads). |
 | `SubscriptionService/ListPlans` | None. |
 | `SubscriptionService/Subscribe` | Any authenticated principal; seller id is the caller's id. |
@@ -32,8 +32,9 @@ these into a principal; each handler enforces its own rule. `RequirePrincipal` r
 
 Also served: `grpc.health.v1.Health` and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default on).
 
-**Consumes:** no upstream RPCs. It reads the principal metadata and depends on Postgres, Kafka and
-Flipt (below). In the root compose, `team-order` and `team-gateway` set
+**Consumes:** team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
+caller's forwarded principal, to verify listing ownership in `CreateCampaign` (`UPSTREAM_DOMAIN_ADDR`).
+It also reads the principal metadata and depends on Postgres, Kafka and Flipt (below). In the root compose, `team-order` and `team-gateway` set
 `UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061`.
 
 Redemption flow: `ValidateAndReserve` is idempotent on `reservation_id` (a retry returns the
@@ -100,6 +101,7 @@ declared keys. The Makefile auto-loads `.env` if present.
 | `KAFKA_ENABLED` | `false` | |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
+| `UPSTREAM_DOMAIN_ADDR` | `""` | team-domain gRPC address (`team-domain-svc:50051` in compose). Unset: non-admin `CreateCampaign` fails closed; `.env.example` uses `localhost:50051` |
 
 The only flag is `flash-sale-enabled` (fail-open, default true). Switched off, it makes
 `GetActiveFlashSale` and `ListActiveCampaigns` return nothing.
@@ -177,8 +179,6 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
 - **Redemption RPCs are unauthenticated.** `ValidateAndReserve`, `CommitReservation` and
   `ReleaseReservation` have no principal or scope check, and `buyer_id` / `seller_id` come from the
   request body. Anyone who can reach the port can commit or release a hold.
-- **Cross-shop flash-sale campaigns.** `CreateCampaign` needs `listing.write` or `admin`, but there is
-  no listing-ownership lookup, so a seller can create a campaign for another shop's listing.
 - **`ListVouchers` and `GetVoucher` are public**, including by arbitrary `seller_id`.
 - **`CreateAdCampaign` and `Subscribe` accept any authenticated principal** (buyers included); there is
   no seller-role gate.
