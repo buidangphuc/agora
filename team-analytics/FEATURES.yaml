@@ -214,3 +214,28 @@ features:
       Written in analytics/seller_analytics_access.feature ("An admin reads any seller's funnel"); flip to
       automated, with covered_by, after it passes against the stack
       (OpenSpec change secure-seller-analytics-and-admin-seed, task 4.1).
+
+  - id: analytics.seller-funnel-scoped-to-seller
+    title: Seller funnel tracking counts are scoped to the seller's own listings
+    persona: seller
+    priority: P1
+    summary: >-
+      GetSellerFunnel counts only tracking events on listings the seller owns; the
+      listing -> seller mapping comes from listing.events (listing_sellers table).
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway, team-domain]
+    preconditions:
+      login: seller
+      data: Requires the listing.events consumer in team-analytics (KAFKA_LISTING_TOPIC).
+    acceptance:
+      - Given seller A and seller B exist and seller A has published a listing
+      - When view beacons are collected through the gateway for seller A's listing
+      - Then seller A's funnel reports those views
+      - And seller B's funnel reports no views
+    tags: [analytics, seller, tracking, integration]
+    status: automated
+    covered_by: "analytics/seller_funnel_scope.feature::Events on seller A's listing do not appear in seller B's funnel"
+    notes: >
+      Authored against the fix/funnel-seller-scope change; collect-only and lint
+      verified, not yet run against the stack (needs the team-analytics image rebuilt
+      and KAFKA_LISTING_* env, see the change notes).
