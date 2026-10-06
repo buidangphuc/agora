@@ -222,7 +222,7 @@ func TestEngagementHandler(t *testing.T) {
 		sellerCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 			Id:     "seller_1",
 			Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-			Scopes: []string{"engagement:write"},
+			Scopes: []string{"engagement:write", "listing.write"},
 		})
 		ansRes, err := h.AnswerQuestion(sellerCtx, &engagementv1.AnswerQuestionRequest{
 			QuestionId:  qID,
@@ -234,6 +234,40 @@ func TestEngagementHandler(t *testing.T) {
 		}
 		if ansRes.GetAnswer().GetAnswerText() != "Bảo hành chính hãng 12 tháng bạn nhé." {
 			t.Fatalf("unexpected answer text: %s", ansRes.GetAnswer().GetAnswerText())
+		}
+
+		if !ansRes.GetAnswer().GetIsShopReply() {
+			t.Fatalf("seller principal asking for shop reply should be honoured")
+		}
+
+		// A buyer cannot self-declare a shop reply: the client flag is ignored.
+		buyerAns, err := h.AnswerQuestion(ctx, &engagementv1.AnswerQuestionRequest{
+			QuestionId:  qID,
+			AnswerText:  "Mình cũng đang hỏi.",
+			IsShopReply: true,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error answering as buyer: %v", err)
+		}
+		if buyerAns.GetAnswer().GetIsShopReply() {
+			t.Fatalf("buyer must not be able to mark an answer as a shop reply")
+		}
+
+		// Seller principal answering without the flag is not a shop reply
+		plain, err := h.AnswerQuestion(sellerCtx, &engagementv1.AnswerQuestionRequest{
+			QuestionId: qID,
+			AnswerText: "Thêm thông tin.",
+		})
+		if err != nil || plain.GetAnswer().GetIsShopReply() {
+			t.Fatalf("unflagged answer must not be a shop reply (err=%v)", err)
+		}
+
+		// Anonymous cannot answer
+		if _, err = h.AnswerQuestion(context.Background(), &engagementv1.AnswerQuestionRequest{
+			QuestionId: qID,
+			AnswerText: "x",
+		}); status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("expected Unauthenticated, got %v", err)
 		}
 
 		// Answer nonexistent question
@@ -255,8 +289,8 @@ func TestEngagementHandler(t *testing.T) {
 		if len(listRes.GetQuestions()) != 1 {
 			t.Fatalf("expected 1 question, got %d", len(listRes.GetQuestions()))
 		}
-		if len(listRes.GetQuestions()[0].GetAnswers()) != 1 {
-			t.Fatalf("expected 1 answer in question, got %d", len(listRes.GetQuestions()[0].GetAnswers()))
+		if len(listRes.GetQuestions()[0].GetAnswers()) != 3 {
+			t.Fatalf("expected 3 answers in question, got %d", len(listRes.GetQuestions()[0].GetAnswers()))
 		}
 	})
 
