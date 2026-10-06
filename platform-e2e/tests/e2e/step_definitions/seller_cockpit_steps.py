@@ -225,14 +225,19 @@ def recent_orders_empty(world: World) -> None:
 
 @when(parsers.parse('the seller types "{text}" in the product search box'))
 def type_in_product_search(world: World, text: str) -> None:
-    _workplace(world).search_box.fill(text)
+    page = _workplace(world)
+    # The search box pushes ?q= from its change handler; a fill before hydration is lost.
+    page.wait_until_interactive(page.search_box)
+    page.search_box.fill(text)
 
 
 @when("the seller searches for the seeded listing by title")
 def search_seeded_listing(world: World) -> None:
     title = world.state.listing.title  # type: ignore[union-attr]
     world.state.extra["search_text"] = title
-    _workplace(world).search_box.fill(title)
+    page = _workplace(world)
+    page.wait_until_interactive(page.search_box)
+    page.search_box.fill(title)
 
 
 @then("the URL carries the search text and the matching product is listed")
