@@ -114,11 +114,12 @@ func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1
 
 func toWireLedgerEntry(e repository.LedgerEntry) *paymentv1.WalletEntry {
 	return &paymentv1.WalletEntry{
-		Id:        e.ID,
-		SellerId:  e.SellerID,
-		Type:      e.Type,
-		Amount:    e.Amount,
-		Status:    e.Status,
-		CreatedAt: timestamppb.New(e.CreatedAt),
+		Id:          e.ID,
+		SellerId:    e.SellerID,
+		Type:        e.Type,
+		Amount:      e.Amount,
+		Status:      e.Status,
+		CreatedAt:   timestamppb.New(e.CreatedAt),
+		ReferenceId: e.ReferenceID,
 	}
 }

@@ -98,6 +98,29 @@ func requireBuyerOrAdmin(principal *commonv1.Principal, buyerID string) error {
 	return status.Error(codes.PermissionDenied, "not allowed to access this payment")
 }
 
+// requirePaymentReader gates GetPayment (payment-refund-model D8): the order's buyer or
+// an admin directly; otherwise the order's seller as reported by team-order. The extra
+// hop happens only for callers who are neither. A failed lookup is never success.
+func (h *PaymentHandler) requirePaymentReader(ctx context.Context, principal *commonv1.Principal, tx repository.PaymentTransaction) error {
+	if requireBuyerOrAdmin(principal, tx.BuyerID) == nil {
+		return nil
+	}
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER || principal.GetId() == "" {
+		return status.Error(codes.PermissionDenied, "not allowed to access this payment")
+	}
+	sellerID, err := h.svc.OrderSellerID(ctx, tx.OrderID)
+	if err != nil {
+		if errors.Is(err, service.ErrOrderNotFound) {
+			return status.Error(codes.NotFound, "order not found")
+		}
+		return h.internalError(ctx, "resolve order seller", err)
+	}
+	if sellerID == "" || sellerID != principal.GetId() {
+		return status.Error(codes.PermissionDenied, "not allowed to access this payment")
+	}
+	return nil
+}
+
 func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPaymentRequest) (*paymentv1.GetPaymentResponse, error) {
 	principal, err := interceptor.RequirePrincipal(ctx)
 	if err != nil {
@@ -114,7 +137,7 @@ func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPayme
 		}
 		return nil, h.internalError(ctx, "get payment", err)
 	}
-	if err := requireBuyerOrAdmin(principal, tx.BuyerID); err != nil {
+	if err := h.requirePaymentReader(ctx, principal, tx); err != nil {
 		return nil, err
 	}
 
@@ -241,6 +264,9 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 	if req.GetPaymentId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "payment_id is required")
 	}
+	if !service.ValidRefundID(req.GetRefundId()) {
+		return nil, status.Error(codes.InvalidArgument, service.ErrInvalidRefundID.Error())
+	}
 	if req.GetAmount() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
@@ -273,10 +299,16 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
-		if errors.Is(err, service.ErrInvalidRefund) || errors.Is(err, service.ErrExceedsRemainder) {
+		if errors.Is(err, service.ErrExceedsRemainder) {
+			return nil, status.Error(codes.FailedPrecondition, "refund amount exceeds the refundable remainder")
+		}
+		if errors.Is(err, service.ErrInvalidRefund) {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
-		if errors.Is(err, service.ErrInvalidAmount) {
+		if errors.Is(err, service.ErrRefundIDConflict) {
+			return nil, status.Error(codes.AlreadyExists, "refund_id was already used for another payment or amount")
+		}
+		if errors.Is(err, service.ErrInvalidRefundID) || errors.Is(err, service.ErrInvalidAmount) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		return nil, h.internalError(ctx, "refund payment", err)
@@ -303,7 +335,36 @@ func toWireTransaction(t repository.PaymentTransaction) *paymentv1.PaymentTransa
 		ProviderReference: t.ProviderReference,
 		CreatedAt:         timestamppb.New(t.CreatedAt),
 		UpdatedAt:         timestamppb.New(t.UpdatedAt),
+		RefundedAmount:    t.RefundedAmount,
+		Refunds:           toWireRefunds(t.Refunds),
 	}
+}
+
+var refundSourceToWire = map[string]paymentv1.PaymentRefundSource{
+	repository.RefundSourceSellerOrAdmin: paymentv1.PaymentRefundSource_PAYMENT_REFUND_SOURCE_SELLER_OR_ADMIN,
+	repository.RefundSourceReturn:        paymentv1.PaymentRefundSource_PAYMENT_REFUND_SOURCE_RETURN,
+	repository.RefundSourceOrderCancel:   paymentv1.PaymentRefundSource_PAYMENT_REFUND_SOURCE_ORDER_CANCEL,
+	repository.RefundSourceLegacy:        paymentv1.PaymentRefundSource_PAYMENT_REFUND_SOURCE_LEGACY,
+}
+
+// toWireRefunds keeps the store's order (oldest first).
+func toWireRefunds(rs []repository.Refund) []*paymentv1.PaymentRefund {
+	if len(rs) == 0 {
+		return nil
+	}
+	out := make([]*paymentv1.PaymentRefund, 0, len(rs))
+	for _, r := range rs {
+		out = append(out, &paymentv1.PaymentRefund{
+			Id:              r.ID,
+			Source:          refundSourceToWire[r.Source],
+			SourceId:        r.SourceID,
+			RequestedAmount: r.RequestedAmount,
+			Amount:          r.Amount,
+			Reason:          r.Reason,
+			CreatedAt:       timestamppb.New(r.CreatedAt),
+		})
+	}
+	return out
 }
 
 func toWireWallet(w repository.SellerWallet) *paymentv1.SellerWallet {
