@@ -32,7 +32,7 @@ func TestWalletRPCAccess(t *testing.T) {
 	wallets := repository.NewInMemoryWalletRepository()
 	svc := service.NewPaymentService(nil, wallets, nil, logger,
 		service.WithLedgerRepo(ledger))
-	h := handler.NewPaymentHandler(svc, logger)
+	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true))
 	if _, err := ledger.AppendEntry(context.Background(), repository.LedgerEntry{
 		SellerID: "seller-1", Type: repository.LedgerTypeOrderSettlement,
 		Amount: 1_000_000, Status: repository.LedgerStatusCompleted,

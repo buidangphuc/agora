@@ -20,15 +20,38 @@ import (
 type PaymentHandler struct {
 	paymentv1.UnimplementedPaymentServiceServer
 
-	svc    *service.PaymentService
-	logger *slog.Logger
+	svc          *service.PaymentService
+	logger       *slog.Logger
+	mockPayments bool
 }
 
-func NewPaymentHandler(svc *service.PaymentService, logger *slog.Logger) *PaymentHandler {
+// Option configures optional PaymentHandler behaviour.
+type Option func(*PaymentHandler)
+
+// WithMockPayments enables the ProcessMockPayment RPC (MOCK_PAYMENTS). Off by default:
+// the RPC then answers FAILED_PRECONDITION without reading the transaction.
+func WithMockPayments(enabled bool) Option {
+	return func(h *PaymentHandler) { h.mockPayments = enabled }
+}
+
+func NewPaymentHandler(svc *service.PaymentService, logger *slog.Logger, opts ...Option) *PaymentHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &PaymentHandler{svc: svc, logger: logger}
+	h := &PaymentHandler{svc: svc, logger: logger}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
+}
+
+// internalError logs the cause and returns a fixed INTERNAL status, so storage,
+// SQL or upstream error text never reaches the caller.
+func (h *PaymentHandler) internalError(ctx context.Context, op string, err error) error {
+	reqID, _ := interceptor.RequestIDFromContext(ctx)
+	h.logger.ErrorContext(ctx, op+" failed",
+		slog.String("request_id", reqID), slog.Any("err", err))
+	return status.Error(codes.Internal, "internal error")
 }
 
 func (h *PaymentHandler) CreatePayment(ctx context.Context, req *paymentv1.CreatePaymentRequest) (*paymentv1.CreatePaymentResponse, error) {
@@ -51,7 +74,7 @@ func (h *PaymentHandler) CreatePayment(ctx context.Context, req *paymentv1.Creat
 		if errors.Is(err, service.ErrInvalidOrderState) {
 			return nil, status.Error(codes.FailedPrecondition, "order is not in pending state")
 		}
-		return nil, status.Errorf(codes.Internal, "create payment: %v", err)
+		return nil, h.internalError(ctx, "create payment", err)
 	}
 
 	return &paymentv1.CreatePaymentResponse{
@@ -89,7 +112,7 @@ func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPayme
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get payment: %v", err)
+		return nil, h.internalError(ctx, "get payment", err)
 	}
 	if err := requireBuyerOrAdmin(principal, tx.BuyerID); err != nil {
 		return nil, err
@@ -105,6 +128,9 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 	if err != nil {
 		return nil, err
 	}
+	if !h.mockPayments {
+		return nil, status.Error(codes.FailedPrecondition, "mock payments are disabled")
+	}
 	if req.GetTransactionId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id is required")
 	}
@@ -114,7 +140,7 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get payment: %v", err)
+		return nil, h.internalError(ctx, "get payment", err)
 	}
 	if err := requireBuyerOrAdmin(principal, existing.BuyerID); err != nil {
 		return nil, err
@@ -125,7 +151,7 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
-		return nil, status.Errorf(codes.Internal, "process mock payment: %v", err)
+		return nil, h.internalError(ctx, "process mock payment", err)
 	}
 
 	return &paymentv1.ProcessMockPaymentResponse{
@@ -145,7 +171,7 @@ func (h *PaymentHandler) GetSellerWallet(ctx context.Context, req *paymentv1.Get
 
 	wallet, err := h.svc.GetSellerWallet(ctx, sellerID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get seller wallet: %v", err)
+		return nil, h.internalError(ctx, "get seller wallet", err)
 	}
 
 	return &paymentv1.GetSellerWalletResponse{
@@ -173,7 +199,7 @@ func (h *PaymentHandler) RequestPayout(ctx context.Context, req *paymentv1.Reque
 		if errors.Is(err, repository.ErrInvalidAmount) {
 			return nil, status.Error(codes.InvalidArgument, "invalid payout amount")
 		}
-		return nil, status.Errorf(codes.Internal, "request payout: %v", err)
+		return nil, h.internalError(ctx, "request payout", err)
 	}
 
 	return &paymentv1.RequestPayoutResponse{
@@ -189,7 +215,7 @@ func (h *PaymentHandler) ListPayoutHistory(ctx context.Context, req *paymentv1.L
 
 	payouts, err := h.svc.ListPayoutHistory(ctx, sellerID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list payout history: %v", err)
+		return nil, h.internalError(ctx, "list payout history", err)
 	}
 
 	wirePayouts := make([]*paymentv1.PayoutRequest, 0, len(payouts))
@@ -222,7 +248,7 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
-		return nil, status.Errorf(codes.Internal, "refund payment: %v", err)
+		return nil, h.internalError(ctx, "refund payment", err)
 	}
 	if !slices.Contains(principal.GetScopes(), "admin") {
 		sellerID, err := h.svc.OrderSellerID(ctx, target.OrderID)
@@ -230,7 +256,7 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 			if errors.Is(err, service.ErrOrderNotFound) {
 				return nil, status.Error(codes.NotFound, "order not found")
 			}
-			return nil, status.Errorf(codes.Internal, "resolve order seller: %v", err)
+			return nil, h.internalError(ctx, "resolve order seller", err)
 		}
 		if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER ||
 			sellerID == "" || principal.GetId() != sellerID {
@@ -249,7 +275,7 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		if errors.Is(err, service.ErrInvalidAmount) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		return nil, status.Errorf(codes.Internal, "refund payment: %v", err)
+		return nil, h.internalError(ctx, "refund payment", err)
 	}
 
 	return &paymentv1.RefundPaymentResponse{

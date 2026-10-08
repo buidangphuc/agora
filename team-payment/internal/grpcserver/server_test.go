@@ -83,7 +83,7 @@ func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderCl
 	walletRepo := repository.NewInMemoryWalletRepository()
 	ledgerRepo := repository.NewInMemoryLedgerRepository()
 	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, mockOrder, logger, service.WithLedgerRepo(ledgerRepo))
-	paymentHdl := handler.NewPaymentHandler(paymentSvc, logger)
+	paymentHdl := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(true))
 
 	cfg := &config.Settings{
 		Server: config.Server{Port: 0, ReflectionEnabled: true},

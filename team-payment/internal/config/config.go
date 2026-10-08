@@ -14,6 +14,7 @@ type Settings struct {
 	Server        Server
 	Database      Database
 	Upstream      Upstream
+	Mock          Mock
 	Observability Observability
 }
 
@@ -38,6 +39,13 @@ type Database struct {
 
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:"localhost:50055"`
+}
+
+// Mock holds development conveniences that must never be on in a shared environment.
+type Mock struct {
+	// MockPayments enables the ProcessMockPayment RPC (simulated settlement). Default
+	// false: fail closed even when ENV is unset.
+	MockPayments bool `env:"MOCK_PAYMENTS" default:"false"`
 }
 
 type Observability struct {
@@ -70,6 +78,32 @@ func (s *Settings) Validate() error {
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"
+}
+
+// strictEnvs are the environments in which development conveniences are refused.
+var strictEnvs = []string{"staging", "stage", "prod", "production"}
+
+// IsStrictEnv reports whether ENV names a shared environment (staging / production).
+func (s *Settings) IsStrictEnv() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range strictEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireNoMockPayments is the boot guard against mock settlement in a shared
+// environment: MOCK_PAYMENTS=true with a strict ENV (staging/stage/prod/production)
+// refuses to start. Other environments always pass.
+func (s *Settings) RequireNoMockPayments() error {
+	if !s.Mock.MockPayments || !s.IsStrictEnv() {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to start: MOCK_PAYMENTS=true is not allowed when ENV=%q (strict for ENV in %s); unset MOCK_PAYMENTS",
+		s.Runtime.Env, strings.Join(strictEnvs, ", "))
 }
 
 func DeclaredEnvKeys() []string {
