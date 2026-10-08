@@ -544,6 +544,10 @@ func (h *EngagementHandler) CreateDispute(
 func (h *EngagementHandler) GetDispute(
 	ctx context.Context, req *engagementv1.GetDisputeRequest,
 ) (*engagementv1.GetDisputeResponse, error) {
+	caller, err := interceptor.RequireAuthenticated(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := interceptor.RequireScopes(ctx, "engagement:read"); err != nil {
 		return nil, err
 	}
@@ -560,6 +564,11 @@ func (h *EngagementHandler) GetDispute(
 			return nil, status.Error(codes.NotFound, "dispute not found")
 		}
 		return nil, status.Errorf(codes.Internal, "get dispute: %v", err)
+	}
+	// Only the parties and admins may read a dispute. Anyone else gets the same
+	// NOT_FOUND as a missing id, so dispute ids cannot be probed (no IDOR oracle).
+	if caller.GetId() != disp.ClaimantID && caller.GetId() != disp.DefendantID && !interceptor.IsAdmin(ctx) {
+		return nil, status.Error(codes.NotFound, "dispute not found")
 	}
 
 	return &engagementv1.GetDisputeResponse{

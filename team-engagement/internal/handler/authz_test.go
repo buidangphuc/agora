@@ -166,3 +166,59 @@ func TestCreateDisputeFailsClosedWithoutOrderClient(t *testing.T) {
 		t.Fatal("a dispute was stored")
 	}
 }
+
+func TestGetDisputeOnlyForPartiesAndAdmin(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"claimant", userCtx("buyer-1"), codes.OK},
+		{"defendant", userCtx("seller-1"), codes.OK},
+		{"admin", adminCtx(), codes.OK},
+		{"stranger buyer", userCtx("buyer-2"), codes.NotFound},
+		{"stranger seller", userCtx("seller-2"), codes.NotFound},
+		{"anonymous", anonCtx(), codes.Unauthenticated},
+		{"no principal", context.Background(), codes.Unauthenticated},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f, id := newFixture(t)
+			res, err := f.h.GetDispute(c.ctx, &engagementv1.GetDisputeRequest{DisputeId: id})
+			if got := status.Code(err); got != c.want {
+				t.Fatalf("want %v, got %v (%v)", c.want, got, err)
+			}
+			if c.want == codes.OK && res.GetDispute().GetId() != id {
+				t.Fatalf("dispute not returned: %v", res)
+			}
+			if c.want != codes.OK && res != nil {
+				t.Fatalf("no dispute data may be returned on rejection, got %v", res)
+			}
+		})
+	}
+}
+
+// A stranger cannot tell a real dispute id from a missing one.
+func TestGetDisputeStrangerIndistinguishableFromMissing(t *testing.T) {
+	f, id := newFixture(t)
+	_, errReal := f.h.GetDispute(userCtx("buyer-2"), &engagementv1.GetDisputeRequest{DisputeId: id})
+	_, errMissing := f.h.GetDispute(userCtx("buyer-2"), &engagementv1.GetDisputeRequest{DisputeId: "nope"})
+	if status.Code(errReal) != codes.NotFound || errReal.Error() != errMissing.Error() {
+		t.Fatalf("real=%v missing=%v", errReal, errMissing)
+	}
+}
+
+// An admin token that lacks the `admin` scope is not an admin.
+func TestIsAdminRequiresScopeAndAuthentication(t *testing.T) {
+	if !interceptor.IsAdmin(adminCtx()) {
+		t.Fatal("admin scope must count")
+	}
+	for name, ctx := range map[string]context.Context{
+		"user":      userCtx("u"),
+		"anonymous": principalCtx("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS, "admin"),
+		"none":      context.Background(),
+	} {
+		if interceptor.IsAdmin(ctx) {
+			t.Fatalf("%s must not be admin", name)
+		}
+	}
+}

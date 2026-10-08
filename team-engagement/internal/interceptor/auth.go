@@ -149,3 +149,30 @@ func RequireScopes(ctx context.Context, want ...string) error {
 	}
 	return nil
 }
+
+// ScopeAdmin gates admin-only RPCs (ResolveDispute). Only the admin role holds it.
+const ScopeAdmin = "admin"
+
+// RequireAuthenticated returns the caller's principal, or UNAUTHENTICATED when there
+// is none, it is anonymous, or it has no id.
+func RequireAuthenticated(ctx context.Context) (*commonv1.Principal, error) {
+	p, ok := PrincipalFromContext(ctx)
+	if !ok || p == nil || p.GetId() == "" || p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+	return p, nil
+}
+
+// RequireAdmin requires an authenticated caller holding the `admin` scope:
+// UNAUTHENTICATED for none/anonymous, PERMISSION_DENIED otherwise.
+func RequireAdmin(ctx context.Context) error {
+	if _, err := RequireAuthenticated(ctx); err != nil {
+		return err
+	}
+	return RequireScopes(ctx, ScopeAdmin)
+}
+
+// IsAdmin reports whether the caller is authenticated and holds `admin`.
+func IsAdmin(ctx context.Context) bool {
+	return RequireAdmin(ctx) == nil
+}
