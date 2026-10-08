@@ -6,6 +6,7 @@ package upstream
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -39,13 +40,14 @@ func servicePrincipalInterceptor(ctx context.Context, method string, req, reply 
 
 // OrderClient verifies purchases against team-order over gRPC.
 type OrderClient struct {
-	conn *grpc.ClientConn
-	svc  orderv1.OrderServiceClient
+	conn    *grpc.ClientConn
+	svc     orderv1.OrderServiceClient
+	timeout time.Duration
 }
 
 // NewOrderClient dials addr (e.g. UPSTREAM_ORDER_ADDR). If addr is empty it
 // returns (nil, nil) so callers degrade gracefully with verification disabled.
-func NewOrderClient(addr string) (*OrderClient, error) {
+func NewOrderClient(addr string, callTimeout time.Duration) (*OrderClient, error) {
 	if addr == "" {
 		return nil, nil
 	}
@@ -53,7 +55,7 @@ func NewOrderClient(addr string) (*OrderClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dial team-order at %s: %w", addr, err)
 	}
-	return &OrderClient{conn: conn, svc: orderv1.NewOrderServiceClient(conn)}, nil
+	return &OrderClient{conn: conn, svc: orderv1.NewOrderServiceClient(conn), timeout: callTimeout}, nil
 }
 
 // Close releases the underlying connection.
@@ -71,7 +73,9 @@ func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, or
 	if c == nil || c.svc == nil || orderID == "" {
 		return false, "", nil
 	}
-	resp, err := c.svc.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
+	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	defer cancel()
+	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
 		return false, "", fmt.Errorf("get order %s: %w", orderID, err)
 	}

@@ -69,7 +69,7 @@ func run() error {
 		}
 	}()
 
-	orderClient, err := upstream.NewOrderClient(settings.Upstream.OrderAddr)
+	orderClient, err := upstream.NewOrderClient(settings.Upstream.OrderAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
 	if err != nil {
 		return fmt.Errorf("dial team-order: %w", err)
 	}
