@@ -491,26 +491,51 @@ func TestReleaseStock_Success(t *testing.T) {
 	repo := repository.NewInMemoryListingRepository(repository.Listing{
 		ID:    "prod-1",
 		Title: "Phone",
-		Stock: 7,
+		Stock: 10,
 	})
 	client := startServer(t, repo)
-	ctx, cancel := principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
+	ctx, cancel := serviceCtx(t)
 	defer cancel()
 
-	resp, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
-		ListingId: "prod-1",
-		Quantity:  3,
-	})
-	if err != nil {
-		t.Fatalf("ReleaseStock: %v", err)
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
 	}
-	if !resp.GetSuccess() {
-		t.Fatal("expected ReleaseStock success")
+	// The request quantity is ignored: the stored 3 is restored, once.
+	for i := 0; i < 2; i++ {
+		resp, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 99, ReservationId: "r1"})
+		if err != nil {
+			t.Fatalf("ReleaseStock #%d: %v", i+1, err)
+		}
+		if !resp.GetSuccess() {
+			t.Fatalf("expected ReleaseStock #%d success", i+1)
+		}
 	}
-
-	got, _ := repo.Get(ctx, "prod-1")
-	if got.Stock != 10 {
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
 		t.Fatalf("want 10 stock after release, got %d", got.Stock)
+	}
+	// Unknown id: successful no-op.
+	if _, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 5, ReservationId: "never-reserved"}); err != nil {
+		t.Fatalf("ReleaseStock unknown id: %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+		t.Fatalf("unknown-id release changed stock to %d", got.Stock)
+	}
+}
+
+// ReleaseStock without a reservation_id is INVALID_ARGUMENT and leaves stock
+// unchanged (the blind stock = stock + quantity path is gone).
+func TestReleaseStock_EmptyReservationIDRejected(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 7})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	_, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 3})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("want InvalidArgument, got %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 7 {
+		t.Fatalf("stock changed to %d", got.Stock)
 	}
 }
 
@@ -544,11 +569,11 @@ func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
 			}
 			defer cancel()
 
-			_, rerr := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1})
+			_, rerr := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r1"})
 			if got := status.Code(rerr); got != tc.want {
 				t.Fatalf("ReserveStock: want %v, got %v (%v)", tc.want, got, rerr)
 			}
-			_, lerr := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 1})
+			_, lerr := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r1"})
 			if got := status.Code(lerr); got != tc.want {
 				t.Fatalf("ReleaseStock: want %v, got %v (%v)", tc.want, got, lerr)
 			}

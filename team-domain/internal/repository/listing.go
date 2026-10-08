@@ -93,8 +93,6 @@ type ListingRepository interface {
 	Delete(ctx context.Context, id string) (Listing, error)
 	// ReserveStock atomically decrements inventory if sufficient stock is available.
 	ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error
-	// ReleaseStock releases previously reserved inventory back into stock.
-	ReleaseStock(ctx context.Context, listingID, variantID string, quantity int32) error
 	// ReserveStockIdempotent decrements inventory keyed on a stable reservationID
 	// (AD5): a repeat call with the same id finds the prior reservation and is a
 	// no-op returning nil, so a retried checkout never double-decrements. The
@@ -110,7 +108,26 @@ type ListingRepository interface {
 	// a no-op success. ErrReservationReleased if it was released;
 	// ErrReservationNotFound if the id is unknown.
 	CommitReservation(ctx context.Context, reservationID string) error
+	// ReleaseReservation releases a reservation by id: if it is active or
+	// committed it moves to released and the quantity STORED on the reservation
+	// is restored, exactly once, in the same transaction. A repeat, or a
+	// reservation the sweep already released, is ReleaseNoOp; an id that was
+	// never reserved is ReleaseUnknown (also a no-op, reported separately so the
+	// caller can log it). The caller-supplied quantity is never used.
+	ReleaseReservation(ctx context.Context, reservationID string) (ReleaseOutcome, error)
 }
+
+// ReleaseOutcome reports what ReleaseReservation did.
+type ReleaseOutcome int
+
+const (
+	// ReleaseApplied: the reservation moved to released and stock was restored.
+	ReleaseApplied ReleaseOutcome = iota
+	// ReleaseNoOp: the reservation was already released (or swept); nothing changed.
+	ReleaseNoOp
+	// ReleaseUnknown: no reservation with that id exists; nothing changed.
+	ReleaseUnknown
+)
 
 // clampPageSize normalizes a requested page size into [1, MaxPageSize].
 func clampPageSize(pageSize int32) int {
@@ -259,13 +276,6 @@ func (r *InMemoryListingRepository) ReserveStock(_ context.Context, listingID, v
 	return r.reserveLocked(listingID, variantID, quantity)
 }
 
-// ReleaseStock releases inventory in memory.
-func (r *InMemoryListingRepository) ReleaseStock(_ context.Context, listingID, variantID string, quantity int32) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.releaseLocked(listingID, variantID, quantity)
-}
-
 // reserveLocked decrements stock; the caller must hold r.mu.
 func (r *InMemoryListingRepository) reserveLocked(listingID, variantID string, quantity int32) error {
 	l, ok := r.byID[listingID]
@@ -358,6 +368,27 @@ func (r *InMemoryListingRepository) SweepExpiredReservations(_ context.Context, 
 		released++
 	}
 	return released, nil
+}
+
+// ReleaseReservation is the in-memory analogue of the single
+// UPDATE ... WHERE status IN ('active','committed') RETURNING statement: the
+// STORED quantity is restored once; a repeat is a no-op.
+func (r *InMemoryListingRepository) ReleaseReservation(_ context.Context, reservationID string) (ReleaseOutcome, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	res, ok := r.reservations[reservationID]
+	if !ok {
+		return ReleaseUnknown, nil
+	}
+	if res.status == ReservationReleased {
+		return ReleaseNoOp, nil
+	}
+	// Best-effort restore, like the sweep: a since-deleted listing still ends up
+	// released so the call stays idempotent.
+	_ = r.releaseLocked(res.listingID, res.variantID, res.quantity)
+	res.status = ReservationReleased
+	r.reservations[reservationID] = res
+	return ReleaseApplied, nil
 }
 
 // CommitReservation is the in-memory analogue of the Postgres guarded UPDATE:

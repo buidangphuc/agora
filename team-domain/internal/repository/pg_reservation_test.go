@@ -102,3 +102,113 @@ func TestPG_CommitVersusSweepConcurrent(t *testing.T) {
 		}
 	}
 }
+
+func TestPG_ReleaseReservation(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("double release restores once", func(t *testing.T) {
+		repo, _ := newPGRepo(t)
+		seedPGListing(t, repo, "L1", 10)
+		if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); err != nil {
+			t.Fatalf("reserve: %v", err)
+		}
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseApplied {
+			t.Fatalf("first release: out=%v err=%v", out, err)
+		}
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseNoOp {
+			t.Fatalf("second release: out=%v err=%v, want NoOp", out, err)
+		}
+		if got := pgStock(t, repo, "L1"); got != 10 {
+			t.Fatalf("stock = %d, want 10", got)
+		}
+	})
+
+	t.Run("release after sweep is a no-op", func(t *testing.T) {
+		repo, _ := newPGRepo(t)
+		seedPGListing(t, repo, "L1", 10)
+		if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, time.Now().Add(-time.Minute)); err != nil {
+			t.Fatalf("reserve: %v", err)
+		}
+		if n, err := repo.SweepExpiredReservations(ctx, time.Now()); err != nil || n != 1 {
+			t.Fatalf("sweep n=%d err=%v", n, err)
+		}
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseNoOp {
+			t.Fatalf("release: out=%v err=%v, want NoOp", out, err)
+		}
+		if got := pgStock(t, repo, "L1"); got != 10 {
+			t.Fatalf("stock = %d, want 10", got)
+		}
+	})
+
+	t.Run("unknown id is a no-op", func(t *testing.T) {
+		repo, _ := newPGRepo(t)
+		seedPGListing(t, repo, "L1", 10)
+		if out, err := repo.ReleaseReservation(ctx, "never"); err != nil || out != repository.ReleaseUnknown {
+			t.Fatalf("release: out=%v err=%v, want Unknown", out, err)
+		}
+		if got := pgStock(t, repo, "L1"); got != 10 {
+			t.Fatalf("stock = %d, want 10", got)
+		}
+	})
+
+	t.Run("stored quantity is restored, variant too", func(t *testing.T) {
+		repo, pool := newPGRepo(t)
+		if _, err := repo.Create(ctx, repository.Listing{
+			ID: "L1", Title: "L1", Currency: "VND", Status: "published", Stock: 0,
+			Variants: []repository.Variant{{ID: "V1", Name: "red", SKU: "r", Stock: 6}},
+		}); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "V1", 4, farFuture); err != nil {
+			t.Fatalf("reserve: %v", err)
+		}
+		if _, err := repo.ReleaseReservation(ctx, "r1"); err != nil {
+			t.Fatalf("release: %v", err)
+		}
+		var st int32
+		if err := pool.QueryRow(ctx, `SELECT stock FROM listing_variants WHERE id = 'V1'`).Scan(&st); err != nil || st != 6 {
+			t.Fatalf("variant stock = %d err=%v, want 6", st, err)
+		}
+	})
+
+	t.Run("committed is releasable", func(t *testing.T) {
+		repo, _ := newPGRepo(t)
+		seedPGListing(t, repo, "L1", 10)
+		if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 2, farFuture); err != nil {
+			t.Fatalf("reserve: %v", err)
+		}
+		if err := repo.CommitReservation(ctx, "r1"); err != nil {
+			t.Fatalf("commit: %v", err)
+		}
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseApplied {
+			t.Fatalf("release: out=%v err=%v", out, err)
+		}
+		if got := pgStock(t, repo, "L1"); got != 10 {
+			t.Fatalf("stock = %d, want 10", got)
+		}
+		if err := repo.CommitReservation(ctx, "r1"); !errors.Is(err, repository.ErrReservationReleased) {
+			t.Fatalf("commit after release: %v, want ErrReservationReleased", err)
+		}
+	})
+
+	t.Run("concurrent release vs sweep and release restores once", func(t *testing.T) {
+		repo, _ := newPGRepo(t)
+		seedPGListing(t, repo, "L1", 1000)
+		for i := 0; i < 30; i++ {
+			id := fmt.Sprintf("race-%d", i)
+			before := pgStock(t, repo, "L1")
+			if err := repo.ReserveStockIdempotent(ctx, id, "L1", "", 4, time.Now().Add(-time.Minute)); err != nil {
+				t.Fatalf("reserve: %v", err)
+			}
+			var wg sync.WaitGroup
+			wg.Add(3)
+			go func() { defer wg.Done(); _, _ = repo.ReleaseReservation(ctx, id) }()
+			go func() { defer wg.Done(); _, _ = repo.ReleaseReservation(ctx, id) }()
+			go func() { defer wg.Done(); _, _ = repo.SweepExpiredReservations(ctx, time.Now()) }()
+			wg.Wait()
+			if got := pgStock(t, repo, "L1"); got != before {
+				t.Fatalf("iter %d: stock=%d want %d (restored exactly once)", i, got, before)
+			}
+		}
+	})
+}

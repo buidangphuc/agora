@@ -372,7 +372,10 @@ func (h *ListingHandler) ReserveStock(
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
 
-// ReleaseStock releases previously reserved inventory back into stock.
+// ReleaseStock releases a reservation by reservation_id, restoring the quantity
+// stored on it exactly once. listing_id, variant_id and quantity are ignored
+// (kept on the wire for compatibility). A repeated, already swept or unknown id
+// is a successful no-op; an empty id is INVALID_ARGUMENT.
 func (h *ListingHandler) ReleaseStock(
 	ctx context.Context,
 	req *listingv1.ReleaseStockRequest,
@@ -382,19 +385,10 @@ func (h *ListingHandler) ReleaseStock(
 	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
-	if req.GetListingId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
+	if req.GetReservationId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
-	if req.GetQuantity() <= 0 {
-		return nil, status.Error(codes.InvalidArgument, "quantity must be > 0")
-	}
-	if err := h.svc.ReleaseStock(ctx, req.GetListingId(), req.GetVariantId(), req.GetQuantity()); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "listing not found")
-		}
-		if errors.Is(err, repository.ErrVariantNotFound) {
-			return nil, status.Error(codes.NotFound, "variant not found")
-		}
+	if err := h.svc.ReleaseStock(ctx, req.GetReservationId()); err != nil {
 		return nil, internalErr("release stock", err)
 	}
 	return &listingv1.ReleaseStockResponse{Success: true}, nil

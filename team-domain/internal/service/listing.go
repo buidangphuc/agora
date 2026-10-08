@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -172,9 +173,23 @@ func (s *ListingService) ReserveStock(ctx context.Context, listingID, variantID 
 	return s.repo.ReserveStock(ctx, listingID, variantID, quantity)
 }
 
-// ReleaseStock delegates to repository.ReleaseStock.
-func (s *ListingService) ReleaseStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	return s.repo.ReleaseStock(ctx, listingID, variantID, quantity)
+// ReleaseStock releases the reservation reservationID: the quantity STORED on it
+// is restored exactly once. A repeat, a release of a reservation the sweep
+// already returned, and an unknown id are successful no-ops, each logged at WARN
+// (a zero-row release is expected on a retry but can also mask a caller bug).
+// The handler rejects an empty reservationID before this is called.
+func (s *ListingService) ReleaseStock(ctx context.Context, reservationID string) error {
+	outcome, err := s.repo.ReleaseReservation(ctx, reservationID)
+	if err != nil {
+		return err
+	}
+	switch outcome {
+	case repository.ReleaseUnknown:
+		slog.WarnContext(ctx, "release of unknown reservation_id treated as no-op", slog.String("reservation_id", reservationID))
+	case repository.ReleaseNoOp:
+		slog.WarnContext(ctx, "release of already released reservation treated as no-op", slog.String("reservation_id", reservationID))
+	}
+	return nil
 }
 
 // ReserveStockIdempotent reserves stock keyed on a stable reservationID so a
