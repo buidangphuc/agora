@@ -23,6 +23,7 @@ import re
 import subprocess
 import time
 import uuid
+from datetime import datetime, timezone
 
 from config.settings import get_settings
 
@@ -68,6 +69,23 @@ def docker(*args: str, check: bool = True, timeout: int = _DOCKER_TIMEOUT_S):
     return subprocess.run(
         ["docker", *args], capture_output=True, text=True, timeout=timeout, check=check
     )
+
+
+def container_age_s(service: str) -> float:
+    """Seconds since the service's container last started (0 when it is not running)."""
+    out = docker("inspect", "-f", "{{.State.StartedAt}}", container_name(service), check=False)
+    if out.returncode != 0 or not out.stdout.strip():
+        return 0.0
+    started = datetime.fromisoformat(out.stdout.strip().replace("Z", "+00:00")[:26] + "+00:00")
+    return (datetime.now(timezone.utc) - started).total_seconds()
+
+
+def wait_settled(service: str, settle_s: float = 35.0, timeout: float = 90.0) -> None:
+    """Block until the restarted service has been up long enough for its callers'
+    gRPC clients to re-resolve it (deadline loop, no fixed sleep)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and container_age_s(service) < settle_s:
+        time.sleep(1)
 
 
 # ── Go durations ─────────────────────────────────────────────────────────

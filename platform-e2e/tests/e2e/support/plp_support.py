@@ -283,14 +283,26 @@ def describe(resp: httpx.Response) -> dict[str, Any]:
     return {"status": resp.status_code, "code": code_of(resp), "body": resp.text[:300]}
 
 
-def wait_payment_up(w: OicWorld, seller: Actor, timeout: float = 90.0) -> None:
-    """Block until team-payment answers a wallet read through the gateway again."""
+# gRPC clients keep a restarted peer's old IP and re-resolve at most every ~30 s, so
+# a single 200 right after a restart does not mean every caller has reconnected.
+RESTART_SETTLE_S = 35.0
+
+
+def wait_payment_up(w: OicWorld, seller: Actor, timeout: float = 120.0) -> None:
+    """Block until team-payment is stably reachable through the gateway after a restart.
+
+    Waits until its container has been up for RESTART_SETTLE_S and three consecutive
+    wallet reads succeed (deadline loop, no fixed sleep).
+    """
     deadline = time.monotonic() + timeout
+    streak = 0
     while time.monotonic() < deadline:
         try:
-            if post(w, seller, PAYMENT, "GetWalletBalance", {}).status_code == 200:
-                return
+            ok_now = post(w, seller, PAYMENT, "GetWalletBalance", {}).status_code == 200
         except httpx.HTTPError:
-            pass
+            ok_now = False
+        streak = streak + 1 if ok_now else 0
+        if streak >= 3 and stack.container_age_s("team-payment") >= RESTART_SETTLE_S:
+            return
         time.sleep(1)
-    raise TimeoutError("team-payment did not come back")
+    raise TimeoutError("team-payment did not come back stably")

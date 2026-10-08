@@ -64,6 +64,7 @@ def plp():
     # never leave team-payment stopped; remove rows a missing constraint let through
     if w.data.get("payment_stopped"):
         stack.start_payment()
+        stack.wait_settled("team-payment")  # the next scenario must not hit a stale IP
         w.data.pop("payment_stopped", None)
     for row_id in w.data.get("inserted", []):
         stack.psql(f"DELETE FROM wallet_ledger WHERE id = {stack.sql_lit(row_id)}", check=False)

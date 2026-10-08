@@ -51,6 +51,7 @@ def prm():
     yield w
     if w.data.get("payment_stopped"):  # never leave team-payment stopped
         stack.start_payment()
+        stack.wait_settled("team-payment")  # the next scenario must not hit a stale IP
         w.data.pop("payment_stopped", None)
 
 
