@@ -2355,3 +2355,47 @@ features:
     status: planned
     notes: >-
       Scenarios live in recommendations/recommendations.feature, which cannot be collected in the e2e venv (needs pandas and platform-recsys).
+
+  - id: checkout.idempotency-replay-no-second-order
+    title: A replayed checkout submission creates no second order
+    persona: buyer
+    priority: P0
+    summary: >-
+      The checkout page sends one Idempotency-Key per attempt, so replaying the same submission returns the original order instead of creating another.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ListBuyerOrders, listing.v1.GetListing]
+    acceptance:
+      - WHEN a buyer places an order on the checkout page and the same checkout submission is sent a second time
+      - THEN the buyer has exactly one new order and the listing's stock is reduced once
+    tags: [buyer, ui]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario in frontend/oic_inv_checkout_idempotency.feature. The browser's server-action request is
+      recorded and replayed unchanged after the cart is refilled (otherwise an empty cart would fail the
+      replay on its own). RED on the pre-change stack: two orders exist, the replay created a second one (no Idempotency-Key yet).
+
+  - id: checkout.idempotency-new-key-after-success
+    title: A new checkout after a completed one creates a new order
+    persona: buyer
+    priority: P1
+    summary: >-
+      A completed checkout ends the attempt: the next checkout from the same buyer uses a new key and creates a new order.
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.ListBuyerOrders]
+    acceptance:
+      - WHEN a buyer completes a checkout, adds the listing to the cart again and places a second order from the checkout page
+      - THEN the buyer has two distinct new orders
+    tags: [buyer, ui]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario in frontend/oic_inv_checkout_idempotency.feature. GREEN on the pre-change stack (two orders); it guards the key renewal once the storefront sends keys.
