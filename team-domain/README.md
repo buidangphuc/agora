@@ -86,9 +86,15 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `OUTBOX_BATCH_SIZE` | `100` |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` |
 | `OUTBOX_MAX_ATTEMPTS` | `10` |
+| `RESERVATION_TTL` | `15m` (Go duration): how long an uncommitted (`active`) reservation holds stock before the sweeper restores it |
+| `RESERVATION_SWEEP_INTERVAL` | `1m` (Go duration): sweeper period |
 | `OTEL_ENABLED` | `false` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty |
 | `OTEL_SERVICE_NAME` | `team-domain` |
+
+`RESERVATION_TTL` and `RESERVATION_SWEEP_INTERVAL` never fail boot: a missing, unparsable or non-positive value falls
+back to the default with a WARN naming the variable. The sweeper logs `reservation sweeper started` with the effective
+`reservation_ttl` and `sweep_interval` (e.g. `15m0s`, `1m0s`).
 
 ## Run locally
 

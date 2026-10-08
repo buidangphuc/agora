@@ -11,6 +11,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"strconv"
@@ -26,6 +27,7 @@ type Settings struct {
 	Storage       Storage
 	Events        Events
 	Outbox        Outbox
+	Reservation   Reservation
 	Observability Observability
 }
 
@@ -82,6 +84,22 @@ type Outbox struct {
 	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
 	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
 }
+
+// Reservation tunes stock-reservation timing (spec inventory-reservations).
+// Both values are Go durations. A missing, unparsable or non-positive value
+// falls back to the default with a WARN naming the variable (see ReservationTTL
+// / ReservationSweepInterval) and never stops the service from starting: a typo
+// must neither take the service down nor disable expiry.
+type Reservation struct {
+	TTL           string `env:"RESERVATION_TTL" default:"15m"`           // how long an uncommitted (active) reservation holds stock
+	SweepInterval string `env:"RESERVATION_SWEEP_INTERVAL" default:"1m"` // how often the sweeper restores expired active reservations
+}
+
+// Defaults for the reservation knobs; they must match the struct tags above.
+const (
+	DefaultReservationTTL           = 15 * time.Minute
+	DefaultReservationSweepInterval = time.Minute
+)
 
 // Observability configures OpenTelemetry (ADR-0004). Exporter is swappable.
 type Observability struct {
@@ -259,4 +277,34 @@ func setField(fv reflect.Value, raw string) error {
 		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
 	}
 	return nil
+}
+
+// ReservationTTL parses RESERVATION_TTL. A missing, unparsable or non-positive
+// value falls back to DefaultReservationTTL (15m) and logs a warning on logger
+// (slog.Default() when nil).
+func (s *Settings) ReservationTTL(logger *slog.Logger) time.Duration {
+	return positiveDuration(logger, "RESERVATION_TTL", s.Reservation.TTL, DefaultReservationTTL)
+}
+
+// ReservationSweepInterval parses RESERVATION_SWEEP_INTERVAL. A missing,
+// unparsable or non-positive value falls back to DefaultReservationSweepInterval
+// (1m) and logs a warning on logger (slog.Default() when nil).
+func (s *Settings) ReservationSweepInterval(logger *slog.Logger) time.Duration {
+	return positiveDuration(logger, "RESERVATION_SWEEP_INTERVAL", s.Reservation.SweepInterval, DefaultReservationSweepInterval)
+}
+
+// positiveDuration parses raw as a Go duration; anything unusable yields def plus
+// a WARN naming key. Durations are logged as strings ("15m0s") so the JSON and
+// text handlers render them the same way.
+func positiveDuration(logger *slog.Logger, key, raw string, def time.Duration) time.Duration {
+	d, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err == nil && d > 0 {
+		return d
+	}
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger.Warn("invalid "+key+"; using the default",
+		slog.String("key", key), slog.String("value", raw), slog.String("default", def.String()))
+	return def
 }

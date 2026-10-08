@@ -91,6 +91,10 @@ func run() error {
 	} else {
 		svc = service.NewListingService(repo)
 	}
+	// Reservation timing (RESERVATION_TTL / RESERVATION_SWEEP_INTERVAL): parsed
+	// once here so an invalid value is warned about (and defaulted) at boot.
+	svc.WithReservationTTL(settings.ReservationTTL(logger))
+	sweepInterval := settings.ReservationSweepInterval(logger)
 	sfRepo := repository.NewPostgresStorefrontRepository(res.Pool)
 	sfSvc := service.NewStorefrontService(sfRepo)
 	bundleRepo := repository.NewPostgresBundleRepository(res.Pool)
@@ -103,7 +107,7 @@ func run() error {
 	// checkout never leaks inventory. Only meaningful with Postgres present, since
 	// reservations are persisted there.
 	if res.Pool != nil {
-		res.StartReservationSweeper(svc, 0, logger)
+		res.StartReservationSweeper(svc, sweepInterval, logger)
 	}
 
 	srv := grpcserver.Build(settings, h, res.Health, logger)
