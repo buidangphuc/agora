@@ -28,6 +28,13 @@ export interface TableProps<T> {
   onRetry?: () => void;
   /** Text of the Empty block for an empty dataSource. */
   emptyText?: React.ReactNode;
+  /** Extra attributes for a data row (e.g. a `data-testid` hook). */
+  rowProps?: (
+    row: T,
+    index: number,
+  ) => React.HTMLAttributes<HTMLTableRowElement> & {
+    "data-testid"?: string;
+  };
   /** Visually hidden table caption (accessible name). */
   caption?: string;
   className?: string;
@@ -52,6 +59,7 @@ export function Table<T>({
   error,
   onRetry,
   emptyText,
+  rowProps,
   caption,
   className = "",
 }: TableProps<T>) {
@@ -90,6 +98,7 @@ export function Table<T>({
     body = dataSource.map((row, i) => (
       <tr
         key={keyOf(row, i)}
+        {...rowProps?.(row, i)}
         className="border-t border-border-subtle transition duration-150 hover:bg-surface-muted"
       >
         {columns.map((c) => (
