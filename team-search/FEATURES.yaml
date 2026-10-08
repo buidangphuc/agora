@@ -88,7 +88,7 @@ features:
     priority: P1
     summary: >
       The search results page renders facet aggregations (categories, price ranges,
-      ratings, sellers) with per-bucket counts, and selecting a facet narrows the
+      sellers; no ratings while none is indexed) with per-bucket counts, and selecting a facet narrows the
       result set, reflects the filter in the URL, and recomputes the facet counts.
     entry_route: /search
     services: [team-search, team-frontend]
@@ -102,7 +102,7 @@ features:
     ui:
       key_elements:
         facets_sidebar: "testid:search-facets"
-        facet_groups: "testid:facet-categories|facet-price_ranges|facet-ratings|facet-sellers"
+        facet_groups: "testid:facet-categories|facet-price_ranges|facet-sellers"
         facet_bucket: "testid:facet-bucket"
         results: "testid:search-results"
     acceptance:

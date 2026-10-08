@@ -134,3 +134,26 @@ class SearchPage(BasePage):
             arg=expected,
             timeout=timeout,
         )
+
+    # ── Rating removal (port-search-read-model-correctness) ──────────────
+    def hrefs_containing(self, fragment: str) -> list[str]:
+        """hrefs of every anchor on the page whose href contains `fragment`."""
+        return self.page.eval_on_selector_all(
+            f'a[href*="{fragment}"]', "els => els.map(e => e.getAttribute('href'))"
+        )
+
+    def result_hrefs(self) -> list[str]:
+        """Sorted distinct listing hrefs rendered in the results grid."""
+        return sorted(
+            set(
+                self.page.eval_on_selector_all(
+                    '[data-testid="search-results"] a[href^="/listing/"]',
+                    "els => els.map(e => e.getAttribute('href'))",
+                )
+            )
+        )
+
+    @property
+    def rating_chip(self) -> Locator:
+        """An active-filter tag for a rating ("Bỏ lọc Đánh giá: ...")."""
+        return self.active_filters.get_by_role("link", name=re.compile("Đánh giá"))
