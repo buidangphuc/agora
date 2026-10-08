@@ -446,7 +446,7 @@ def verify_probabilistic_forecast_quantiles(world: World) -> None:
 # reads state back through a read RPC. What the backend does today (verified in
 # the services, see the feature file notes):
 #   * @needsOrder seeds a COD order that stays ORDER_STATUS_PENDING;
-#   * CreateShipment (seller) works on any order status and moves it to SHIPPED
+#   * CreateShipment (seller) works on a PENDING or PAID order and moves it to SHIPPED
 #     with the tracking code (team-order service/order.go CreateShipment);
 #   * a return may be opened on any non-PENDING, non-CANCELLED order, so a
 #     SHIPPED one qualifies (service/order.go CreateReturnRequest);

@@ -76,7 +76,7 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | team-identity (`UPSTREAM_IDENTITY_ADDR`) | `ListAddresses` | `CreateOrder` shipping address (matched by `address_id`, else default, else first; lookup errors are ignored and the address stays empty) |
 | team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | voucher hold, commit on settle, release on saga failure |
 
-`ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the incoming principal metadata (plus `listing.read,identity.read` scopes); with none they use the same service principal (`internal/upstream/domain.go`).
+`ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the incoming principal metadata unchanged; with none they use the same service principal with only `listing.read` (`internal/upstream/domain.go`).
 
 ## Events
 
