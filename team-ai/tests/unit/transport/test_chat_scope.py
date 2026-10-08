@@ -30,12 +30,17 @@ class _FakeContext:
     async def abort(self, code: grpc.StatusCode, details: str = ""):
         raise _Aborted(code, details)
 
+    def time_remaining(self) -> float | None:
+        return None
+
 
 class _SpyStreamer:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def astream(self, message: str, *, session_id: str) -> AsyncIterator[str]:
+    async def astream(
+        self, message: str, *, session_id: str, **_: object
+    ) -> AsyncIterator[str]:
         self.calls += 1
         yield "hello"
 

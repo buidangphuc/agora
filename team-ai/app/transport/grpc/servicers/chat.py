@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator
 
 import grpc
 
+from app.core.request_context import get_request_id
 from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
 from app.transport.grpc.chat_stream import ChatStreamer
 from app.transport.grpc.context import ensure_scopes
@@ -34,7 +35,11 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
         # (and "chat:read" is not granted to any role either).
         await ensure_scopes(context, *self._scopes)
         async for delta in self._streamer.astream(
-            request.message, session_id=request.session_id
+            request.message,
+            session_id=request.session_id,
+            request_id=get_request_id(),
+            # The caller's remaining deadline caps every LLM wait (None = none).
+            deadline_seconds=context.time_remaining(),
         ):
             yield chat_pb2.StreamChatResponse(delta=delta, done=False)
         yield chat_pb2.StreamChatResponse(delta="", done=True)
