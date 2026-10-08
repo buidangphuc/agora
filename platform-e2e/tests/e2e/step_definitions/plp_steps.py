@@ -130,7 +130,10 @@ def pays_new_order(plp, b, listing):
 def pays_new_order_credited(plp, b, listing):
     pays_new_order(plp, b, listing)
     price = _price(plp, listing)
-    p.wait_rows(plp, _seller(plp), p.SETTLEMENT, price, plp.data["credited"].count(price) + 1)
+    # later steps read the credit (its createdAt) from last_rows
+    plp.data["last_rows"] = p.wait_rows(
+        plp, _seller(plp), p.SETTLEMENT, price, plp.data["credited"].count(price) + 1
+    )
     plp.data["credited"].append(price)
 
 
@@ -346,7 +349,7 @@ def payout_accepted(plp, amount):
 
 
 # ── ledger assertions ────────────────────────────────────────────────────
-@then(
+@any_step(
     parsers.re(
         r"(?:within the settle window )?the seller has exactly (?P<n>\d+) (?P<type>[A-Z_]+) "
         r"entr(?:y|ies) of (?P<amount>-?\d+)(?: with status (?P<status>[A-Z]+))?"
