@@ -316,3 +316,37 @@ features:
     covered_by: "auth/session_revocation.feature::A new session shows the device and IP it was created from"
     notes: >-
       Scenario "A new session shows the device and IP it was created from".
+
+  - id: auth.buyer-token-ai-scopes
+    title: A buyer token carries the AI scopes and no service scope
+    persona: buyer
+    priority: P1
+    summary: Role tokens include recommendations:read and ai:use and never a service-only scope.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    api:
+      exercised: [identity.v1.Login]
+    acceptance:
+      - Given a registered buyer account
+      - When a buyer logs in through the gateway
+      - Then the token's scopes include recommendations:read and ai:use and include none of the service-only scopes
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/login_history.feature::A buyer token carries the AI scopes and no service scope"
+
+  - id: auth.login-history-records-attempts
+    title: Login history shows a failed and a successful attempt
+    persona: buyer
+    priority: P1
+    summary: A wrong password adds a failure entry, a right one a success entry, visible in the login history.
+    entry_route: /account/security
+    services: [team-identity, team-gateway]
+    api:
+      exercised: [identity.v1.Login, identity.v1.ListLoginHistory]
+    acceptance:
+      - Given a registered buyer account
+      - When a user logs in once with a wrong password and then with the right one, and lists their login history through the gateway
+      - Then the history contains a failure entry followed by a success entry
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/login_history.feature::Login history shows a failed and a successful attempt"
