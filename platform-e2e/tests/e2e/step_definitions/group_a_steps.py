@@ -81,7 +81,15 @@ def order_reaches_paid_via_saga(world: World) -> None:
 @when("the payment step is forced to fail")
 def payment_forced_to_fail(world: World) -> None:
     order_id = world.state.order_id
-    res = world.service_factory.order.force_fail_saga(order_id)
+    sf = world.service_factory
+    buyer_token = getattr(sf, "_token", None)
+    admin = get_test_data_manager().get_user_by_role("admin")
+    # ForceFailSaga is admin-only; act as the seeded admin, then back as the buyer.
+    sf.auth.login(admin.username, admin.password)
+    try:
+        res = sf.order.force_fail_saga(order_id)
+    finally:
+        sf.set_token(buyer_token)
     assert res is not None
 
 

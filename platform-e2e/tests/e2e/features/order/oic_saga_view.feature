@@ -52,7 +52,7 @@ Feature: The saga view and ForceFailSaga describe what actually happened to an o
     Given a seller "sa" who owns a listing "L" with stock 10
     And a buyer "b1"
     And "b1" has a Pending order for 2 of "L"
-    When "b1" calls ForceFailSaga with fail_step "banana" on the order
+    When the admin calls ForceFailSaga with fail_step "banana" on the order
     Then the call fails with "invalid_argument"
     And the order read by "b1" remains Pending
     And the stock of "L" is unchanged at 8
@@ -61,7 +61,7 @@ Feature: The saga view and ForceFailSaga describe what actually happened to an o
     Given a seller "sa" who owns a listing "L" with stock 10
     And a buyer "b1"
     And "b1" has a Pending order for 2 of "L"
-    When "b1" calls ForceFailSaga with fail_step "payment" on the order
+    When the admin calls ForceFailSaga with fail_step "payment" on the order
     Then ForceFailSaga reports success
     And the order read by "b1" is Cancelled
     And the returned saga view is compensated
@@ -75,7 +75,7 @@ Feature: The saga view and ForceFailSaga describe what actually happened to an o
     And a buyer "b1"
     And "b1" has a Pending order for 2 of "L"
     And team-domain is stopped
-    When "b1" calls ForceFailSaga with fail_step "" on the order
+    When the admin calls ForceFailSaga with fail_step "" on the order
     Then ForceFailSaga reports failure with a message saying the stock release is pending retry
     And the order read by "b1" is Cancelled
 
@@ -83,6 +83,6 @@ Feature: The saga view and ForceFailSaga describe what actually happened to an o
     Given a seller "sa" who owns a listing "L" with stock 10
     And a buyer "b1"
     And "b1" has a Shipped order for 2 of "L"
-    When "b1" calls ForceFailSaga with fail_step "payment" on the order
+    When the admin calls ForceFailSaga with fail_step "payment" on the order
     Then the call fails with "failed_precondition"
     And the order read by "b1" remains Shipped
