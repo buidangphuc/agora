@@ -92,7 +92,10 @@ def check_documented_env(sd: Path, name: str) -> None:
                 pass
     text = "\n".join(corpus)
     for var in sorted(documented):
-        if var not in text:
+        # pydantic-settings reads env names case-insensitively from lower-case
+        # class fields, so a field declaration counts as a reference.
+        field = re.compile(rf"^[ \t]+{var.lower()}[ \t]*:", re.M)
+        if var not in text and not field.search(text):
             err(f"{name}: README.md documents env var {var} but no code/config references it (stale doc).")
 
 
