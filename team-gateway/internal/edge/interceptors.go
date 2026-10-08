@@ -137,6 +137,10 @@ func (e *Edge) authInterceptor() connect.UnaryInterceptorFunc {
 				cerr.Meta().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
 				return nil, cerr
 			}
+			// Edge procedure policy (adminProcedures): gate before forwarding.
+			if err := requireProcedureScope(req.Spec().Procedure, p); err != nil {
+				return nil, err
+			}
 			ctx = withPrincipal(ctx, p)
 			ctx = withClient(ctx, e.clientInfoFor(req.Peer().Addr, req.Header()))
 			return next(ctx, req)
