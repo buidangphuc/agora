@@ -174,6 +174,9 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
+		if errors.Is(err, service.ErrPaymentRefunded) {
+			return nil, status.Error(codes.FailedPrecondition, service.ErrPaymentRefunded.Error())
+		}
 		return nil, h.internalError(ctx, "process mock payment", err)
 	}
 

@@ -48,6 +48,21 @@ admin calls, returns, cancellation).
 - **AND** the seller has exactly four `REFUND_DEDUCTION` entries of -125000, each referencing one of the successful
   refunds
 
+### Requirement: A refunded payment can never be paid again
+
+A payment that is `PARTIALLY_REFUNDED` or `REFUNDED` SHALL NOT be settled again by `ProcessMockPayment`, whether
+the simulated outcome is success or failure. The call SHALL fail with `FAILED_PRECONDITION` and the message
+`payment has been refunded; it cannot be paid again`, and the payment's status, refunded amount and refunds SHALL be
+unchanged. (Re-settling would reopen it to further refunds of money already returned.)
+
+#### Scenario: A refunded payment cannot be paid again
+
+- **WHEN** a credited 500000 payment has been partly refunded by 200000 and its buyer calls the mock payment again
+  for the same order through the gateway
+- **THEN** the call fails with `FAILED_PRECONDITION` and the message `payment has been refunded; it cannot be paid
+  again`
+- **AND** the payment still reads `PARTIALLY_REFUNDED` with a refunded amount of 200000
+
 ### Requirement: Each refund is identified by its refund id and applied once
 
 `RefundPayment` SHALL require a `refund_id` of 1 to 64 characters drawn from letters, digits, `.`, `_`, `:` and `-`. A

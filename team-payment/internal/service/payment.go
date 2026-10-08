@@ -25,6 +25,9 @@ var (
 	ErrInsufficientBalance = repository.ErrInsufficientBalance
 	ErrInvalidAmount       = repository.ErrInvalidAmount
 	ErrInvalidRefund       = errors.New("cannot refund unpaid or already refunded transaction")
+	// ErrPaymentRefunded: a (partially) refunded payment can never be paid again;
+	// re-settling it would reopen it to further refunds of money already returned.
+	ErrPaymentRefunded = errors.New("payment has been refunded; it cannot be paid again")
 	// ErrExceedsRemainder: a refund above the payment's refundable remainder.
 	ErrExceedsRemainder = repository.ErrExceedsRemainder
 	// ErrRefundIDConflict: the refund id was already used for another payment or amount.
@@ -216,6 +219,11 @@ func (s *PaymentService) ProcessMockPayment(
 
 	if tx.Status == repository.PaymentStatusPaid {
 		return tx, true, "Đơn hàng đã được thanh toán trước đó", nil
+	}
+	// Only PENDING or FAILED may be (re)settled. A refund needs PAID, so a payment
+	// seen here as PENDING/FAILED cannot become refunded before this settles.
+	if tx.Status == repository.PaymentStatusRefunded || tx.Status == repository.PaymentStatusPartiallyRefunded {
+		return repository.PaymentTransaction{}, false, "", ErrPaymentRefunded
 	}
 
 	if simulateSuccess {

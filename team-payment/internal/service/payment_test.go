@@ -622,3 +622,32 @@ func TestService_ListPayoutHistory(t *testing.T) {
 		}
 	})
 }
+
+// A (partially) refunded payment must never be settled again: that would reopen it
+// to further refunds of money already returned.
+func TestService_ProcessMockPayment_RefusesRefundedPayments(t *testing.T) {
+	ctx := context.Background()
+	for _, c := range []struct {
+		name   string
+		refund int64
+	}{{"fully refunded", 500000}, {"partially refunded", 200000}} {
+		t.Run(c.name, func(t *testing.T) {
+			svc, paymentRepo, _, _ := setupService()
+			tx, _ := paymentRepo.CreateTransaction(ctx, repository.PaymentTransaction{
+				ID: "tx-" + c.name, OrderID: "order-" + c.name, Amount: 500000, Status: repository.PaymentStatusPaid,
+			})
+			if _, _, _, err := svc.RefundPayment(ctx, tx.ID, "r1", c.refund, "test"); err != nil {
+				t.Fatalf("refund: %v", err)
+			}
+			for _, success := range []bool{true, false} {
+				if _, _, _, err := svc.ProcessMockPayment(ctx, tx.ID, success); !errors.Is(err, service.ErrPaymentRefunded) {
+					t.Fatalf("mock pay (success=%v) of a refunded payment: %v, want ErrPaymentRefunded", success, err)
+				}
+			}
+			got, _ := paymentRepo.GetTransaction(ctx, tx.ID)
+			if got.Status == repository.PaymentStatusPaid || got.Status == repository.PaymentStatusFailed {
+				t.Fatalf("status changed to %v", got.Status)
+			}
+		})
+	}
+}

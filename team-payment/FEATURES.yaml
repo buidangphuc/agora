@@ -977,6 +977,26 @@ features:
     covered_by: null
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
+  - id: payment.prm-cum-a-refunded-payment-cannot-be-paid-again
+    title: "A refunded payment cannot be paid again"
+    persona: buyer
+    priority: P1
+    summary: "A refunded payment cannot be paid again"
+    entry_route: /account/orders
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment]
+    acceptance:
+      - "When a credited 500000 payment has been partly refunded by 200000 and its buyer calls the mock payment again for the same order through the gateway"
+      - "Then the call fails with `FAILED_PRECONDITION` and the payment still reads `PARTIALLY_REFUNDED` with a refunded amount of 200000"
+    tags: [fintech]
+    status: planned
+    covered_by: null
+    notes: "Found by the team-payment code track (ProcessMockPayment re-settled refunded payments); added to the spec during integration."
+
   - id: payment.prm-cum-a-refund-above-the-remainder-is-refused-and-writ
     title: "A refund above the remainder is refused and writes nothing"
     persona: seller

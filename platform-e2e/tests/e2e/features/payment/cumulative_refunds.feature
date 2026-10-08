@@ -17,6 +17,15 @@ Feature: A payment is refunded in several parts, each identified by its refund i
     When the seller refunds 300000 of the payment with a fresh refund id
     Then the payment read by "b1" reads REFUNDED with a refunded amount of 500000
 
+  Scenario: A refunded payment cannot be paid again
+    Given a seller with a listing "L" whose order pays 500000
+    And a buyer "b1"
+    And "b1" has paid an order of "L" and the seller is credited
+    And the seller refunds 200000 of the payment with a fresh refund id
+    When "b1" calls the mock payment again for the same order
+    Then the call fails with "failed_precondition" and the message "payment has been refunded; it cannot be paid again"
+    And the payment read by "b1" reads PARTIALLY_REFUNDED with a refunded amount of 200000
+
   Scenario: A refund above the remainder is refused and writes nothing
     Given a seller with a listing "L" whose order pays 500000
     And a buyer "b1"
