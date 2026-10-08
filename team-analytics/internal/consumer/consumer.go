@@ -145,4 +145,3 @@ func (c *Consumer) Run(
 
 // Close shuts the client down.
 func (c *Consumer) Close() { c.client.Close() }
-

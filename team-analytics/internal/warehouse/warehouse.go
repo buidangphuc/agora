@@ -28,7 +28,7 @@ type TrackingRecord struct {
 	PagePath    string
 	Referrer    string
 	// Position is the 1-based rank within a result set (0 when N/A).
-	Position uint32
+	Position    uint32
 	SearchQuery string
 	// OccurredAt is the envelope occurred_at (producer clock), UTC.
 	OccurredAt time.Time
@@ -43,7 +43,7 @@ type TrackingRecord struct {
 	// ImpressionID is the unique impression uuid linking downstream interactions.
 	ImpressionID string
 	// ModelVersion is the model generation identifier.
-	ModelVersion string
+	ModelVersion  string
 	Currency      string
 	Value         int64
 	Price         int64

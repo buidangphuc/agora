@@ -16,11 +16,11 @@ type Writer struct {
 	mu sync.Mutex
 	// FailWith, when non-nil, is returned by Write and no rows are recorded —
 	// simulating a flush failure so the caller must NOT advance offsets.
-	FailWith       error
-	rows           []*warehouse.TrackingRecord
-	orderFactRows  []*warehouse.OrderFactRecord
-	batches        int
-	closed         bool
+	FailWith      error
+	rows          []*warehouse.TrackingRecord
+	orderFactRows []*warehouse.OrderFactRecord
+	batches       int
+	closed        bool
 }
 
 // New returns an empty fake writer.
