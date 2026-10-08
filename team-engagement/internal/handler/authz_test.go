@@ -300,3 +300,112 @@ func TestIsShopReplyFailsClosedForUnknownListing(t *testing.T) {
 		t.Fatalf("want NOT_FOUND, got %v", err)
 	}
 }
+
+func resolve(f *fixture, ctx context.Context, id string) error {
+	_, err := f.h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
+		DisputeId: id, Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED, Resolution: "refund",
+	})
+	return err
+}
+
+func TestResolveDisputeIsAdminOnly(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"claimant buyer", userCtx("buyer-1"), codes.PermissionDenied},
+		{"defendant seller", userCtx("seller-1"), codes.PermissionDenied},
+		{"stranger", userCtx("stranger"), codes.PermissionDenied},
+		{"anonymous", anonCtx(), codes.Unauthenticated},
+		{"no principal", context.Background(), codes.Unauthenticated},
+		{"anonymous holding admin scope", principalCtx("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS, "admin"), codes.Unauthenticated},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f, id := newFixture(t)
+			if got := status.Code(resolve(f, c.ctx, id)); got != c.want {
+				t.Fatalf("want %v, got %v", c.want, got)
+			}
+			d, err := f.disputes.GetDispute(context.Background(), id)
+			if err != nil || d.Status != repository.DisputeStatusOpen {
+				t.Fatalf("dispute must stay OPEN: %v %v", d.Status, err)
+			}
+		})
+	}
+}
+
+func TestAdminResolvesOnceThenFailedPrecondition(t *testing.T) {
+	f, id := newFixture(t)
+	if err := resolve(f, adminCtx(), id); err != nil {
+		t.Fatalf("admin resolve: %v", err)
+	}
+	if got := status.Code(resolve(f, adminCtx(), id)); got != codes.FailedPrecondition {
+		t.Fatalf("second resolve: want FAILED_PRECONDITION, got %v", got)
+	}
+}
+
+// brokenDisputes fails every call with an error carrying storage details.
+type brokenDisputes struct {
+	*repository.InMemoryDisputeRepository
+}
+
+var errLeaky = errors.New(`pq: password authentication failed for user "engagement_svc" at db.internal:5432`)
+
+func (brokenDisputes) CreateDispute(context.Context, repository.Dispute) (repository.Dispute, error) {
+	return repository.Dispute{}, errLeaky
+}
+func (brokenDisputes) GetDispute(context.Context, string) (repository.Dispute, error) {
+	return repository.Dispute{}, errLeaky
+}
+
+type brokenQA struct {
+	*repository.InMemoryQARepository
+}
+
+func (brokenQA) CreateAnswer(context.Context, repository.ProductAnswer) (repository.ProductAnswer, error) {
+	return repository.ProductAnswer{}, errLeaky
+}
+
+func TestInternalErrorsAreGeneric(t *testing.T) {
+	disputes := brokenDisputes{repository.NewInMemoryDisputeRepository()}
+	qa := brokenQA{repository.NewInMemoryQARepository()}
+	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
+		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
+		service.NewQAService(qa, nil), service.NewDisputeService(disputes, nil),
+		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
+		handler.WithOrderParties(fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}))
+	q, err := qa.CreateQuestion(context.Background(), repository.ProductQuestion{ListingID: "l", UserID: "buyer-1", QuestionText: "q"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := map[string]func() error{
+		"AnswerQuestion": func() error {
+			_, err := h.AnswerQuestion(userCtx("buyer-1"), &engagementv1.AnswerQuestionRequest{QuestionId: q.ID, AnswerText: "a"})
+			return err
+		},
+		"CreateDispute": func() error {
+			_, err := createDispute(&fixture{h: h}, userCtx("buyer-1"), "order-1", "seller-1")
+			return err
+		},
+		"GetDispute": func() error {
+			_, err := h.GetDispute(userCtx("buyer-1"), &engagementv1.GetDisputeRequest{DisputeId: "d"})
+			return err
+		},
+		"ResolveDispute": func() error {
+			_, err := h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{
+				DisputeId: "d", Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED})
+			return err
+		},
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			err := call()
+			if status.Code(err) != codes.Internal {
+				t.Fatalf("want INTERNAL, got %v", err)
+			}
+			if status.Convert(err).Message() != "internal error" {
+				t.Fatalf("message leaks detail: %q", status.Convert(err).Message())
+			}
+		})
+	}
+}

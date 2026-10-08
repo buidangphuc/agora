@@ -467,7 +467,7 @@ func (h *EngagementHandler) AnswerQuestion(
 		if errors.Is(err, repository.ErrQuestionNotFound) {
 			return nil, status.Error(codes.NotFound, "question not found")
 		}
-		return nil, status.Errorf(codes.Internal, "answer question: %v", err)
+		return nil, internalError(ctx, "answer question", err)
 	}
 
 	return &engagementv1.AnswerQuestionResponse{
@@ -556,7 +556,7 @@ func (h *EngagementHandler) CreateDispute(
 		if errors.Is(err, service.ErrSameClaimantAndDef) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		return nil, status.Errorf(codes.Internal, "create dispute: %v", err)
+		return nil, internalError(ctx, "create dispute", err)
 	}
 
 	return &engagementv1.CreateDisputeResponse{
@@ -586,7 +586,7 @@ func (h *EngagementHandler) GetDispute(
 		if errors.Is(err, repository.ErrDisputeNotFound) {
 			return nil, status.Error(codes.NotFound, "dispute not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get dispute: %v", err)
+		return nil, internalError(ctx, "get dispute", err)
 	}
 	// Only the parties and admins may read a dispute. Anyone else gets the same
 	// NOT_FOUND as a missing id, so dispute ids cannot be probed (no IDOR oracle).
@@ -602,7 +602,9 @@ func (h *EngagementHandler) GetDispute(
 func (h *EngagementHandler) ResolveDispute(
 	ctx context.Context, req *engagementv1.ResolveDisputeRequest,
 ) (*engagementv1.ResolveDisputeResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write", "admin"); err != nil {
+	// Admin only: a buyer or seller holding engagement:write must not be able to
+	// rule on their own dispute. RequireAdmin = authenticated + `admin` scope.
+	if err := interceptor.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	if req.GetDisputeId() == "" {
@@ -628,7 +630,7 @@ func (h *EngagementHandler) ResolveDispute(
 		if errors.Is(err, service.ErrInvalidDisputeStatus) {
 			return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
 		}
-		return nil, status.Errorf(codes.Internal, "resolve dispute: %v", err)
+		return nil, internalError(ctx, "resolve dispute", err)
 	}
 
 	return &engagementv1.ResolveDisputeResponse{

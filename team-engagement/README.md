@@ -144,9 +144,7 @@ This repo has no CI workflow of its own; `make check` is the gate. Go 1.22 (`go.
 ## 9. Known gaps
 
 - **Follow feed depends on the consumer.** It is empty unless `KAFKA_ENABLED=true` and the group has read `listing.events`. Root compose does not set the Kafka variables for this service yet. A stale redelivery of an old `PUBLISHED` event after a `DELETED` can re-add a listing (events for one listing are keyed together, so this needs a replay or rebalance race).
-- **Shop replies depend on a scope, not ownership.** The service does not know which seller owns a listing, so `AnswerQuestion` honours `is_shop_reply` for any caller with `listing.write`, even on another seller's listing.
-- **`GetDispute` has no party check.** Any caller with `engagement:read` and a dispute id can read it.
-- **Dispute state machine is loose.** `ResolveDispute` accepts `INVESTIGATING`, `RESOLVED` or `REJECTED` from any non-closed state, so `OPEN` can go straight to `RESOLVED` and `INVESTIGATING` can be set repeatedly. Closed disputes return `FailedPrecondition`. `CreateDispute` does not verify the order or the parties against `team-order`.
+- **Dispute state machine is loose.** `ResolveDispute` accepts `INVESTIGATING`, `RESOLVED` or `REJECTED` from any non-closed state, so `OPEN` can go straight to `RESOLVED` and `INVESTIGATING` can be set repeatedly. Closed disputes return `FailedPrecondition`. `CreateDispute` verifies the order, its buyer and its seller against `team-order` (fails closed with `UNAVAILABLE` when `UPSTREAM_ORDER_ADDR` is unset or team-order is down); `GetDispute` is limited to the claimant, defendant or an admin; `is_shop_reply` is honoured only for the listing owner per the `seller_listings` projection.
 - **Review display name is synthetic.** `CreateReview` sets `user_name` to `"User " + first 6 chars of id` (or a Vietnamese placeholder for short ids).
 - Root `AGENTS.md` describes this service as "Favorites, stats, reviews, Q&A, disputes"; it omits wishlist, follows and loyalty.
 
