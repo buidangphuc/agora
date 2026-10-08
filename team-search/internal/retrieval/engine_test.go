@@ -27,6 +27,7 @@ func (f *fakeIndex) PartialUpdate(ctx context.Context, id string, p map[string]i
 	return nil
 }
 func (f *fakeIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
+func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error    { return nil }
 func (f *fakeIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
 	return nil, nil
 }

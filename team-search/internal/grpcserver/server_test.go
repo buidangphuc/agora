@@ -47,7 +47,8 @@ func (f *fakeIndex) PartialUpdate(_ context.Context, id string, partialDoc map[s
 	}
 	return nil
 }
-func (f *fakeIndex) Delete(context.Context, string, int64) error { return nil }
+func (f *fakeIndex) Delete(context.Context, string, int64) error             { return nil }
+func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error { return nil }
 
 func (f *fakeIndex) Search(_ context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	var matched []index.Hit

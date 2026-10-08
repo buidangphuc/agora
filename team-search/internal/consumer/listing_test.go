@@ -24,6 +24,18 @@ type mockIndex struct {
 	lastDeleteID   string
 	lastDeleteVer  int64
 	deletes        int
+	stockCalls     []stockCall
+}
+
+type stockCall struct {
+	id      string
+	stock   int32
+	version int64
+}
+
+func (m *mockIndex) UpdateStock(ctx context.Context, id string, stock int32, version int64) error {
+	m.stockCalls = append(m.stockCalls, stockCall{id, stock, version})
+	return nil
 }
 
 func (m *mockIndex) EnsureIndex(ctx context.Context) error { return nil }
@@ -207,5 +219,50 @@ func TestListingEventHandler_DeletePathsCarryVersion(t *testing.T) {
 				t.Errorf("a delete must not upsert or partially update")
 			}
 		})
+	}
+}
+
+// D2: a valid ListingStockChanged is projected with the envelope version; the
+// listing id, stock and occurred_at are validated so a malformed event is an
+// error (AD1 then retries and parks it), never a silent ack.
+func TestListingEventHandler_StockChanged(t *testing.T) {
+	at := time.Unix(1700000000, 5)
+	const typ = "platform.listing.v1.ListingStockChanged"
+	idx := &mockIndex{}
+	h := consumer.ListingEventHandler(idx)
+	if err := h(context.Background(), nil, envelopeAt(t, typ, &listingv1.ListingStockChanged{ListingId: "l1", Stock: 0}, at)); err != nil {
+		t.Fatalf("valid stock event: %v", err)
+	}
+	if len(idx.stockCalls) != 1 || idx.stockCalls[0] != (stockCall{"l1", 0, at.UnixNano()}) {
+		t.Fatalf("want UpdateStock(l1, 0, %d), got %+v", at.UnixNano(), idx.stockCalls)
+	}
+	bad := map[string][]byte{
+		"empty id":            envelopeAt(t, typ, &listingv1.ListingStockChanged{Stock: 3}, at),
+		"negative stock":      envelopeAt(t, typ, &listingv1.ListingStockChanged{ListingId: "l1", Stock: -1}, at),
+		"missing occurred_at": envelopeAt(t, typ, &listingv1.ListingStockChanged{ListingId: "l1", Stock: 3}, time.Time{}),
+	}
+	for name, env := range bad {
+		if err := h(context.Background(), nil, env); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+	if len(idx.stockCalls) != 1 {
+		t.Errorf("a malformed stock event reached the index: %+v", idx.stockCalls)
+	}
+}
+
+// D2: every ListingChanged carries Listing.stock into the upsert (the index
+// decides under stock_version whether it wins).
+func TestListingEventHandler_ListingChangedCarriesStock(t *testing.T) {
+	idx := &mockIndex{}
+	env := envelopeAt(t, "platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
+		Listing:    &listingv1.Listing{Id: "l1", Stock: 0, Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED},
+		ChangeType: listingv1.ChangeType_CHANGE_TYPE_UPDATED,
+	}, time.Unix(1700000000, 0))
+	if err := consumer.ListingEventHandler(idx)(context.Background(), nil, env); err != nil {
+		t.Fatal(err)
+	}
+	if idx.lastUpsertDoc.Stock == nil || *idx.lastUpsertDoc.Stock != 0 {
+		t.Errorf("want stock 0 carried (present), got %v", idx.lastUpsertDoc.Stock)
 	}
 }

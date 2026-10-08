@@ -26,15 +26,18 @@ import (
 // out-of-order events cannot overwrite newer state. Rating is not written: no
 // listing event carries one (D9); the mapping keeps the field.
 type ListingDoc struct {
-	ID            string    `json:"id"`
-	Title         string    `json:"title"`
-	Description   string    `json:"description"`
-	Status        string    `json:"status"`
-	Currency      string    `json:"currency"`
-	Price         int64     `json:"price"`
-	CategoryID    string    `json:"category_id"`
-	SellerID      string    `json:"seller_id"`
-	Version       int64     `json:"version"`
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+	Currency    string `json:"currency"`
+	Price       int64  `json:"price"`
+	CategoryID  string `json:"category_id"`
+	SellerID    string `json:"seller_id"`
+	Version     int64  `json:"version"`
+	// Stock is Listing.stock from the event; nil when the doc holds none. It is
+	// written under its own stock_version guard (D2), never with the base fields.
+	Stock         *int32    `json:"stock,omitempty"`
 	Embedding     []float32 `json:"embedding,omitempty"`
 	VectorPending bool      `json:"vector_pending,omitempty"`
 }
@@ -74,6 +77,9 @@ type Index interface {
 	EnsureIndex(ctx context.Context) error
 	Upsert(ctx context.Context, doc ListingDoc) error
 	PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error
+	// UpdateStock applies a ListingStockChanged under the stock_version guard (D2);
+	// it never creates a document and is a no-op on a tombstone.
+	UpdateStock(ctx context.Context, id string, stock int32, version int64) error
 	// Delete writes a versioned tombstone (D5); version is the delete event's occurred_at in ns.
 	Delete(ctx context.Context, id string, version int64) error
 	Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
@@ -216,10 +222,12 @@ const statusDeleted = "deleted"
 // It runs as a scripted_upsert, so it sees an absent document as an empty
 // _source with ctx.op == 'create', and decides in one atomic request:
 //
-//   - kind 'upsert' on a live document: noop when the incoming version is
-//     positive and not newer than the stored one; otherwise the base fields are
-//     replaced by params.doc while the fields that have their own rules are
-//     carried forward.
+//   - kind 'upsert' on a live document: the base fields are replaced by
+//     params.doc unless the incoming version is positive and not newer than
+//     the stored one. Stock has its own guard (D2): params.stock is taken with
+//     stock_version = version only when that is newer than the stored
+//     stock_version (even if the base fields are stale), otherwise the stored
+//     stock and stock_version are carried forward.
 //   - kind 'upsert' on a tombstone: noop when the incoming version is 0 (no
 //     occurred_at) or not newer than the tombstone's; a newer one replaces it.
 //   - kind 'delete': writes {id, status: deleted, version, tombstoned_at} and
@@ -247,11 +255,22 @@ if (params.kind == 'delete') {
   }
 } else {
   boolean stale = tomb ? (v <= 0 || (hasCur && cur >= v)) : (v > 0 && hasCur && cur >= v);
-  if (stale) {
-    ctx.op = 'noop';
-  } else {
+  def oldStock = (absent || tomb) ? null : s.stock;
+  def oldSV = (absent || tomb) ? null : s.stock_version;
+  boolean takeStock = !(tomb && stale) && params.stock != null && (oldSV == null || ((Number) oldSV).longValue() < v);
+  if (!stale) {
     s.clear();
     s.putAll(params.doc);
+  }
+  if (takeStock) {
+    s.stock = params.stock;
+    s.stock_version = v;
+  } else if (!stale && oldSV != null) {
+    s.stock = oldStock;
+    s.stock_version = oldSV;
+  }
+  if (stale && !takeStock) {
+    ctx.op = 'noop';
   }
 }
 `
@@ -268,10 +287,16 @@ func (o *OpenSearchIndex) Upsert(ctx context.Context, doc ListingDoc) error {
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return err
 	}
+	delete(fields, "stock") // guarded separately by the script (D2)
+	var stock any
+	if doc.Stock != nil {
+		stock = *doc.Stock
+	}
 	return o.write(ctx, doc.ID, map[string]any{
 		"kind":    "upsert",
 		"version": doc.Version,
 		"doc":     fields,
+		"stock":   stock,
 	})
 }
 
@@ -312,6 +337,44 @@ func (o *OpenSearchIndex) write(ctx context.Context, id string, params map[strin
 	defer res.Body.Close()
 	if res.IsError() {
 		return fmt.Errorf("%s doc %q: %s", params["kind"], id, res.String())
+	}
+	return nil
+}
+
+// stockScript applies a ListingStockChanged (D2): a noop on a tombstone or when
+// the stored stock_version is at or past the event's; otherwise it sets stock and
+// stock_version and leaves version (the base-field guard) alone. It runs without
+// an upsert clause, so a missing document is a 404 and nothing is created.
+const stockScript = `if ('deleted'.equals(ctx._source.status)) { ctx.op = 'noop'; } else if (ctx._source.stock_version != null && ((Number) ctx._source.stock_version).longValue() >= params.sv) { ctx.op = 'noop'; } else { ctx._source.stock = params.stock; ctx._source.stock_version = params.sv; }`
+
+// UpdateStock projects a stock change onto an existing document under the
+// stock_version guard. An absent document (404) is acknowledged as a no-op.
+func (o *OpenSearchIndex) UpdateStock(ctx context.Context, id string, stock int32, version int64) error {
+	body, err := json.Marshal(map[string]any{
+		"script": map[string]any{
+			"lang":   "painless",
+			"source": stockScript,
+			"params": map[string]any{"stock": stock, "sv": version},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	res, err := opensearchapi.UpdateRequest{
+		Index:      o.name,
+		DocumentID: id,
+		Body:       bytes.NewReader(body),
+		Refresh:    "true",
+	}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("update stock %q: %w", id, err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode == 404 {
+		return nil // unknown listing: a stock event never creates a document.
+	}
+	if res.IsError() {
+		return fmt.Errorf("update stock %q: %s", id, res.String())
 	}
 	return nil
 }

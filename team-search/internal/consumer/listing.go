@@ -123,6 +123,24 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				"version":  version,
 			})
 
+		case listingStockChangedType:
+			var sc listingv1.ListingStockChanged
+			if err := proto.Unmarshal(env.GetPayload(), &sc); err != nil {
+				return fmt.Errorf("unmarshal ListingStockChanged: %w", err)
+			}
+			// A malformed stock event is an error, never a silent ack: AD1 retries
+			// it and parks it on the DLQ. Variants are ignored (D13).
+			if sc.GetListingId() == "" {
+				return fmt.Errorf("ListingStockChanged has no listing id")
+			}
+			if sc.GetStock() < 0 {
+				return fmt.Errorf("ListingStockChanged %q: negative stock %d", sc.GetListingId(), sc.GetStock())
+			}
+			if version <= 0 {
+				return fmt.Errorf("ListingStockChanged %q: missing occurred_at", sc.GetListingId())
+			}
+			return idx.UpdateStock(ctx, sc.GetListingId(), sc.GetStock(), version)
+
 		case listingStatusChangedType:
 			var st listingv1.ListingStatusChanged
 			if err := proto.Unmarshal(env.GetPayload(), &st); err != nil {
@@ -148,7 +166,9 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 // toDoc maps a proto Listing to the indexed document, stamping the read-model
 // version (AD2) so the index can reject out-of-order writes.
 func toDoc(l *listingv1.Listing, version int64) index.ListingDoc {
+	stock := l.GetStock()
 	return index.ListingDoc{
+		Stock:       &stock,
 		ID:          l.GetId(),
 		Title:       l.GetTitle(),
 		Description: l.GetDescription(),

@@ -34,6 +34,7 @@ func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map
 	return nil
 }
 func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
+func (m *mockIndex) UpdateStock(context.Context, string, int32, int64) error    { return nil }
 func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	m.lastMinRating = minRating
 	m.lastFilters = filters
