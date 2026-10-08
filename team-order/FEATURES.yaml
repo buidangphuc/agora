@@ -1508,3 +1508,22 @@ features:
     status: planned
     covered_by: null
     notes: "Scenario: security/edge_route_policy.feature::A buyer cannot force-fail their own order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+  - id: order.pear-service-token-cannot-place-an-order
+    title: "A service token cannot place an order"
+    persona: buyer
+    priority: P0
+    summary: "A service token cannot place an order"
+    entry_route: /checkout
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway. The SERVICE token is signed with the local dev identity key.
+    api:
+      exercised: [order.v1.CreateOrder]
+    acceptance:
+      - "When a client calls `CreateOrder` through the gateway with a validly signed SERVICE token for a cart line of a listing with stock 5"
+      - "Then the call fails with `permission_denied`, no order is created, and the listing's stock is still 5"
+    tags: [order, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: order/checkout_principal.feature::A service token cannot place an order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
