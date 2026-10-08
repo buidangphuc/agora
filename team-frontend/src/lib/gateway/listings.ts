@@ -349,46 +349,6 @@ export async function getImageUploadUrl(
   };
 }
 
-/** Atomically reserve inventory for checkout. */
-export async function reserveStock(
-  listingId: string,
-  quantity: number,
-  variantId = "",
-  reservationId = "",
-): Promise<{ success: boolean; message?: string }> {
-  try {
-    const res = await gateway().listing.reserveStock({
-      listingId,
-      variantId,
-      quantity,
-      reservationId,
-    });
-    return { success: res.success, message: res.message };
-  } catch (err) {
-    return { success: false, message: String(err) };
-  }
-}
-
-/** Release previously reserved inventory. */
-export async function releaseStock(
-  listingId: string,
-  quantity: number,
-  variantId = "",
-  reservationId = "",
-): Promise<boolean> {
-  try {
-    const res = await gateway().listing.releaseStock({
-      listingId,
-      variantId,
-      quantity,
-      reservationId,
-    });
-    return res.success;
-  } catch {
-    return false;
-  }
-}
-
 // ── Storefront (seller shop banner / tagline / featured items) ──────────────
 
 export interface ViewStorefront {
