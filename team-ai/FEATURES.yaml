@@ -199,3 +199,136 @@ features:
     tags: [recommendations, security]
     status: automated
     covered_by: "security/ai_access.feature::A buyer cannot fetch another user's recommendations"
+  - id: ai.apr-a-healthy-primary-serves-the-reply
+    title: "A healthy primary serves the reply"
+    persona: buyer
+    priority: P1
+    summary: "A healthy primary serves the reply"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message through the gateway and every fake target is healthy"
+      - "Then the full reply comes from the primary target"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A healthy primary serves the reply. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-primary-429-before-the-first-token-falls-back
+    title: "A primary 429 before the first token falls back"
+    persona: buyer
+    priority: P1
+    summary: "A primary 429 before the first token falls back"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary target answers 429 and the first fallback is healthy"
+      - "Then the buyer receives one complete reply from the first fallback and no error"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A primary 429 before the first token falls back. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-whole-chain-is-tried-in-order
+    title: "The whole chain is tried in order"
+    persona: buyer
+    priority: P1
+    summary: "The whole chain is tried in order"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary answers 500 and the first fallback answers 429"
+      - "Then the buyer receives one complete reply from the second fallback"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::The whole chain is tried in order. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failure-after-the-first-chunk-does-not-switch-models
+    title: "A failure after the first chunk does not switch models"
+    persona: buyer
+    priority: P1
+    summary: "A failure after the first chunk does not switch models"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary streams two chunks and then breaks the connection"
+      - "Then the buyer receives those two chunks, then an error status, and no chunk from any other target"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A failure after the first chunk does not switch models. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-an-exhausted-chain-fails-cleanly
+    title: "An exhausted chain fails cleanly"
+    persona: buyer
+    priority: P1
+    summary: "An exhausted chain fails cleanly"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which every target answers 500"
+      - "Then the call fails with `unavailable`, the error message contains no exception or provider text, and no reply chunk was streamed"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::An exhausted chain fails cleanly. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-hung-primary-times-out-and-falls-back
+    title: "A hung primary times out and falls back"
+    persona: buyer
+    priority: P1
+    summary: "A hung primary times out and falls back"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary never sends a first token and the first fallback is healthy"
+      - "Then the reply comes from the first fallback within `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` plus 3 seconds"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A hung primary times out and falls back. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-attempts-are-bounded
+    title: "Attempts are bounded"
+    persona: buyer
+    priority: P1
+    summary: "Attempts are bounded"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which every target answers 500"
+      - "Then the fake provider received at most `LLM_MAX_ATTEMPTS` requests for that message"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::Attempts are bounded. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
