@@ -301,6 +301,7 @@ func newRequestID() string {
 const (
 	msgInternalError      = "internal error"
 	msgServiceUnavailable = "service unavailable"
+	msgUpstreamTimeout    = "upstream timed out"
 )
 
 // upstreamError carries the original upstream error behind a sanitised Connect
@@ -364,7 +365,9 @@ func toConnectErr(err error) error {
 	case codes.Unavailable:
 		return sanitized(connect.CodeUnavailable, msgServiceUnavailable, err)
 	case codes.DeadlineExceeded:
-		code = connect.CodeDeadlineExceeded
+		// raised by the gateway's own gRPC client while it waits for an upstream
+		// (e.g. a stopped service), so the text is resolver/LB internals
+		return sanitized(connect.CodeDeadlineExceeded, msgUpstreamTimeout, err)
 	case codes.FailedPrecondition:
 		code = connect.CodeFailedPrecondition
 	case codes.ResourceExhausted:

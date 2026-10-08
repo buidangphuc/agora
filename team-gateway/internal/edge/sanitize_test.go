@@ -43,6 +43,7 @@ func TestUpstreamErrorMessagesAreSanitisedAtTheEdge(t *testing.T) {
 		{"unknown", status.Error(codes.Unknown, rawSQL), connect.CodeInternal, "internal error"},
 		{"data_loss", status.Error(codes.DataLoss, rawSQL), connect.CodeDataLoss, "internal error"},
 		{"unavailable", status.Error(codes.Unavailable, "dial tcp db-internal-7:5432: refused"), connect.CodeUnavailable, "service unavailable"},
+		{"deadline_exceeded", status.Error(codes.DeadlineExceeded, "received context error while waiting for new LB policy update: context deadline exceeded"), connect.CodeDeadlineExceeded, "upstream timed out"},
 		{"non_status", errors.New(rawSQL), connect.CodeInternal, "internal error"},
 		// client-meaningful codes keep the upstream message verbatim
 		{"invalid_argument", status.Error(codes.InvalidArgument, "amount must be positive"), connect.CodeInvalidArgument, "amount must be positive"},
@@ -69,18 +70,18 @@ func TestUpstreamErrorMessagesAreSanitisedAtTheEdge(t *testing.T) {
 			if ce.Code() != c.wantCode || ce.Message() != c.wantMsg {
 				t.Fatalf("got %v %q, want %v %q", ce.Code(), ce.Message(), c.wantCode, c.wantMsg)
 			}
-			if strings.Contains(ce.Message(), "db-internal") || strings.Contains(ce.Message(), "pq:") {
+			if strings.Contains(ce.Message(), "db-internal") || strings.Contains(ce.Message(), "pq:") || strings.Contains(ce.Message(), "LB policy") {
 				t.Fatalf("raw upstream text leaked: %q", ce.Message())
 			}
 			logged := strings.Contains(logs.String(), "edge.upstream_error")
-			sanitised := c.wantMsg == "internal error" || c.wantMsg == "service unavailable"
+			sanitised := c.wantMsg == "internal error" || c.wantMsg == "service unavailable" || c.wantMsg == "upstream timed out"
 			if sanitised != logged {
 				t.Fatalf("edge.upstream_error logged=%v, want %v: %s", logged, sanitised, logs.String())
 			}
 			if sanitised && !strings.Contains(logs.String(), "rid-"+c.name) {
 				t.Fatalf("log line missing request id: %s", logs.String())
 			}
-			if sanitised && c.name != "unavailable" && !strings.Contains(logs.String(), "db-internal") {
+			if sanitised && c.name != "unavailable" && c.name != "deadline_exceeded" && !strings.Contains(logs.String(), "db-internal") {
 				t.Fatalf("log line must carry the original error: %s", logs.String())
 			}
 		})
