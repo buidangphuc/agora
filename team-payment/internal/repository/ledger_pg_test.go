@@ -3,13 +3,11 @@ package repository
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/buidangphuc/team-payment/internal/pgtest"
 )
 
 // Concurrent AppendDebit calls for one seller must serialize on the advisory lock:
@@ -17,41 +15,13 @@ import (
 // never goes negative (a read-then-insert would let more than 10 through). Runs
 // only against a disposable Postgres (TEST_DATABASE_URL).
 func TestAppendDebitConcurrent_Postgres(t *testing.T) {
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL set; skipping Postgres ledger concurrency test")
-	}
+	pool := pgtest.Pool(t)
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
-	}
-	// Registered first so it runs last: t.Cleanup is LIFO, and the reset cleanup
-	// below still needs the pool (a defer would close it before cleanups run).
-	t.Cleanup(pool.Close)
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	ddl, err := os.ReadFile(filepath.Join("..", "..", "migrations", "0004_wallet_ledger.up.sql"))
-	if err != nil {
-		t.Fatalf("read migration: %v", err)
-	}
-	if _, err := pool.Exec(ctx, string(ddl)); err != nil {
-		t.Fatalf("apply migration: %v", err)
-	}
-
 	const seller = "seller-debit-race"
-	reset := func() {
-		if _, err := pool.Exec(ctx, `DELETE FROM wallet_ledger WHERE seller_id = $1`, seller); err != nil {
-			t.Fatalf("reset ledger: %v", err)
-		}
-	}
-	reset()
-	t.Cleanup(reset)
 
 	repo := NewPostgresLedgerRepository(pool)
 	if _, err := repo.AppendEntry(ctx, LedgerEntry{
-		SellerID: seller, Type: LedgerTypeOrderSettlement, Amount: 1000, Status: LedgerStatusCompleted,
+		SellerID: seller, Type: LedgerTypeOrderSettlement, Amount: 1000, Status: LedgerStatusCompleted, ReferenceID: "tx-seed",
 	}); err != nil {
 		t.Fatalf("seed credit: %v", err)
 	}

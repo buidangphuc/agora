@@ -43,8 +43,10 @@ type PaymentTransaction struct {
 	Method            PaymentMethod
 	Status            PaymentStatus
 	ProviderReference string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// RefundedAmount is what a refund took back (0 until refunded; 0..Amount).
+	RefundedAmount int64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type PaymentRepository interface {
@@ -65,11 +67,11 @@ func NewPostgresPaymentRepository(pool *pgxpool.Pool) *PostgresPaymentRepository
 	return &PostgresPaymentRepository{pool: pool}
 }
 
-const txColumns = `id, order_id, buyer_id, amount, currency, method, status, provider_reference, created_at, updated_at`
+const txColumns = `id, order_id, buyer_id, amount, currency, method, status, provider_reference, refunded_amount, created_at, updated_at`
 
 func scanTransaction(row pgx.Row, t *PaymentTransaction) error {
 	var methodInt, statusInt int32
-	if err := row.Scan(&t.ID, &t.OrderID, &t.BuyerID, &t.Amount, &t.Currency, &methodInt, &statusInt, &t.ProviderReference, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.OrderID, &t.BuyerID, &t.Amount, &t.Currency, &methodInt, &statusInt, &t.ProviderReference, &t.RefundedAmount, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return err
 	}
 	t.Method = PaymentMethod(methodInt)
