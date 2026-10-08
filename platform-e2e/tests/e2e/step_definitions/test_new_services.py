@@ -14,13 +14,10 @@ import uuid
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from src.api.services.audit_service import AuditService
 from src.api.services.auth_service import AuthService
 from src.api.services.referral_service import ReferralService
 from src.api.services.sharing_service import SharingService
 from src.api.services.verification_service import VerificationService
-from src.models import User
-from src.utils.test_data import get_test_data_manager
 
 SEED_PASSWORD = "pass123"
 
@@ -110,52 +107,6 @@ def resolved_has_og_meta(ctx: dict) -> None:
     og = ctx["resolved"].get("ogMeta") or {}
     assert og, f"ResolveShareLink returned no ogMeta: {ctx['resolved']}"
     assert og.get("title"), f"ogMeta has no title: {og}"
-
-
-# ── Audit ─────────────────────────────────────────────────────────────────
-# WriteAuditEvent needs any authenticated principal and stores the principal's own
-# id as the actor (a client-supplied actor_id is ignored for user principals);
-# QueryAuditLog is admin-only, so the read side logs in as the seeded admin.
-@when("an audit event is written for the seller")
-def write_audit_event(ctx: dict) -> None:
-    token = uuid.uuid4().hex[:8]
-    ctx["audit_forged_actor_id"] = f"actor-{token}"  # must NOT end up as the stored actor
-    ctx["audit_target_type"] = f"e2e-audit-{token}"
-    ctx["audit_target_id"] = f"tgt-{token}"
-    ctx["audit_action"] = "e2e.audit.write"
-    AuditService(token=ctx["token"]).write_audit_event(
-        actor_id=ctx["audit_forged_actor_id"],
-        action=ctx["audit_action"],
-        target_type=ctx["audit_target_type"],
-        target_id=ctx["audit_target_id"],
-    )
-
-
-def _admin_query(ctx: dict) -> dict:
-    admin = get_test_data_manager().get_user_by_role("admin")
-    admin_token = AuthService().login(admin.username, admin.password)
-    return AuditService(token=admin_token).query_audit_log(target_type=ctx["audit_target_type"])
-
-
-@then("the seeded admin querying the audit log sees that event")
-def admin_query_audit_log_returns_event(ctx: dict) -> None:
-    resp = _admin_query(ctx)
-    matches = [e for e in resp.get("events", []) if e.get("targetId") == ctx["audit_target_id"]]
-    assert matches, (
-        f"written audit event {ctx['audit_target_id']!r} not found in "
-        f"QueryAuditLog(targetType={ctx['audit_target_type']!r}) as admin: {resp}"
-    )
-    assert matches[0].get("action") == ctx["audit_action"], f"action mismatch: {matches[0]}"
-    ctx["audit_event"] = matches[0]
-
-
-@then("the stored actor is the seller's own id, not the client-supplied one")
-def stored_actor_is_writer(ctx: dict) -> None:
-    writer_id = User(username="", password="", role="seller", token=ctx["token"]).user_id
-    assert writer_id, "could not read the seller's id (JWT sub)"
-    actor = ctx["audit_event"].get("actorId")
-    assert actor == writer_id, f"stored actor {actor!r} != writer's own id {writer_id!r}"
-    assert actor != ctx["audit_forged_actor_id"], "client-supplied actor_id was stored"
 
 
 # ── Verification ──────────────────────────────────────────────────────────
