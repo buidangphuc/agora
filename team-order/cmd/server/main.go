@@ -139,9 +139,12 @@ func run() error {
 	var shipmentRepo repository.ShipmentRepository
 	if res.Pool != nil {
 		cartRepo = repository.NewPostgresCartRepository(res.Pool)
-		// Every first transition to PAID writes its order.events outbox row in the
-		// same transaction (ADR-0013); the relayer below publishes it.
-		orderRepo = repository.NewPostgresOrderRepository(res.Pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow))
+		// Every first transition to PAID, and every won claim to CANCELLED, writes
+		// its order.events outbox row in the same transaction (ADR-0013); the
+		// relayer below publishes it.
+		orderRepo = repository.NewPostgresOrderRepository(res.Pool,
+			repository.WithPaidOutbox(events.BuildPaidOutboxRow),
+			repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
 		returnRepo = repository.NewPostgresReturnRepository(res.Pool)
 		// OrderShipped is written to the outbox in the shipment's own transaction.
 		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool, repository.WithShipmentOutbox(events.BuildShippedOutboxRow))

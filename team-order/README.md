@@ -85,12 +85,13 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | consume | `payment.events` (`PAYMENT_EVENTS_TOPIC`) | `platform.payment.v1.PaymentSettled` | n/a | Sets a PENDING order to PAID (compare-and-set, records `paid_at`) when the payment status is PAID; an order in any other status is left unchanged and logged. Commits the voucher hold only for an order that reached PAID. Other payment statuses are ignored. |
 | produce | `order.events` (`ORDER_EVENTS_TOPIC`) | `platform.order.v1.OrderPaidEvent` | `order_id` | Outbox row written in the same transaction as the first transition to PAID |
 | produce | `order.events` | `platform.order.v1.OrderShipped` | `order_id` | Outbox row written in the same transaction as `CreateShipment` |
+| produce | `order.events` | `platform.order.v1.OrderCancelled` | `order_id` | Outbox row written in the same transaction as the compare-and-set claim to CANCELLED (`CancelOrder`, `ForceFailSaga`), only when the claim wins. `previous_status` is `ORDER_STATUS_PAID` when the order was cancelled from Paid (it has `paid_at`), else `ORDER_STATUS_PENDING` |
 | produce | `payment.events.dlq` (`PAYMENT_EVENTS_DLQ_TOPIC`) | original record | original key | Poison records, or records that exhausted retries |
 
 - The payment consumer commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process, dedupes on `processed_events` (consumer `team-order.payment`), and runs only with Postgres and `KAFKA_ENABLED=true`.
 - The outbox relayer claims rows with a lease, publishes the stored envelope verbatim, retries with backoff (1s doubling to 5m), and parks a row (`status='failed'`) after `OUTBOX_MAX_ATTEMPTS`. It runs only when Postgres, `KAFKA_ENABLED` and `OUTBOX_ENABLED` are all true.
 - With `KAFKA_ENABLED=false` (the default) outbox rows are still written but never published, and orders do not move to PAID from payment events.
-- Event ids are deterministic (per order for paid, per shipment for shipped). Consumers in this workspace include team-analytics (`OrderPaidEvent`) and team-notification (`order.events`).
+- Event ids are deterministic (per order for paid and cancelled, per shipment for shipped). Consumers in this workspace include team-analytics (`OrderPaidEvent`), team-notification (`order.events`) and team-payment (consumer group `team-payment.settlement`: `OrderPaidEvent` credits the seller, `OrderCancelled` with `previous_status = ORDER_STATUS_PAID` refunds the buyer in full and deducts the seller once). Consumers filter on `EventEnvelope.type`, so ones that do not handle `OrderCancelled` ignore it.
 
 ## Data
 
