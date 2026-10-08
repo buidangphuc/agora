@@ -27,8 +27,20 @@ from loguru import logger
 from app.core.config import Settings
 from app.core.errors import RateLimitError
 from app.core.resilience import FailureKind, RetryPolicy, TimeoutPolicy
+from app.modules.ai.llm.langfuse import build_langfuse_tracker
+from app.modules.ai.llm.prompt import STATIC_SYSTEM_PROMPT, PromptProvider
 from app.modules.ai.llm.router import ModelRouter
-from app.modules.ai.llm.usage import ChatUsage, UsageAccumulator
+from app.modules.ai.llm.session import (
+    InMemorySessionStore,
+    RedisSessionStore,
+    SessionStore,
+    Turn,
+)
+from app.modules.ai.llm.usage import (
+    CHARS_PER_TOKEN,
+    ChatUsage,
+    UsageAccumulator,
+)
 
 if TYPE_CHECKING:
     from langchain_core.language_models.chat_models import BaseChatModel
@@ -124,6 +136,8 @@ class LLMRouterChatStreamer:
         max_attempts: int = 3,
         quota_provider: Callable[[], QuotaService | None] | None = None,
         quota_policy: QuotaPolicy | None = None,
+        prompt_provider: PromptProvider | None = None,
+        session_store: SessionStore | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -132,9 +146,17 @@ class LLMRouterChatStreamer:
         self._retry = RetryPolicy(max_attempts=max_attempts)
         self._quota_provider = quota_provider
         self._quota_policy = quota_policy
+        self._prompts = prompt_provider or PromptProvider()
+        self._sessions = session_store
         self._sleep = sleep
         self._clock = clock
         self._models: dict[str, BaseChatModel] = {}
+
+    async def aclose(self) -> None:
+        """Release resources this streamer owns (e.g. the session Redis client)."""
+        close = getattr(self._sessions, "aclose", None)
+        if close is not None:
+            await close()
 
     async def astream(
         self,
@@ -148,7 +170,8 @@ class LLMRouterChatStreamer:
         deadline_at = (
             None if deadline_seconds is None else self._clock() + deadline_seconds
         )
-        messages = await self._build_messages(message)
+        history = await self._load_history(principal_id, session_id)
+        messages = await self._build_messages(message, history)
 
         # Quota is reserved before any LLM call; exhausted => no model request. The
         # reservation id is minted HERE, once per call: ``request_id`` is whatever
@@ -160,6 +183,9 @@ class LLMRouterChatStreamer:
             async with aclosing(
                 self._chain(
                     messages=messages,
+                    message=message,
+                    session_id=session_id,
+                    principal_id=principal_id,
                     request_id=request_id,
                     deadline_at=deadline_at,
                 )
@@ -177,6 +203,9 @@ class LLMRouterChatStreamer:
         self,
         *,
         messages: list[Any],
+        message: str,
+        session_id: str,
+        principal_id: str,
         request_id: str,
         deadline_at: float | None,
     ) -> AsyncIterator[str]:
@@ -241,6 +270,10 @@ class LLMRouterChatStreamer:
                         reply.append(text)
                         yield text
                 self._report_usage(request_id, target, usage, messages, "".join(reply))
+                # Only a fully delivered reply becomes history (no partials).
+                await self._remember(
+                    principal_id, session_id, Turn(message, "".join(reply))
+                )
                 return
 
         raise ChainExhausted(last_kind, attempts)
@@ -406,10 +439,42 @@ class LLMRouterChatStreamer:
         remaining = self._remaining(deadline_at)
         return remaining is not None and remaining <= 0.001
 
-    async def _build_messages(self, message: str) -> list[Any]:
-        from langchain_core.messages import HumanMessage
+    async def _build_messages(self, message: str, history: list[Turn]) -> list[Any]:
+        """``[System, *history, Human]``."""
+        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-        return [HumanMessage(content=message)]
+        messages: list[Any] = [
+            SystemMessage(content=await self._prompts.system_prompt())
+        ]
+        for turn in history:
+            messages.append(HumanMessage(content=turn.user))
+            messages.append(AIMessage(content=turn.assistant))
+        messages.append(HumanMessage(content=message))
+        return messages
+
+    def _stateful(self, principal_id: str, session_id: str) -> bool:
+        # No store, no session id, or no identified principal => stateless (an
+        # unscoped history could leak between callers).
+        return bool(self._sessions and principal_id and session_id)
+
+    async def _load_history(self, principal_id: str, session_id: str) -> list[Turn]:
+        if not self._stateful(principal_id, session_id):
+            return []
+        assert self._sessions is not None
+        try:
+            return await self._sessions.load(principal_id, session_id)
+        except Exception as exc:  # degrade to stateless rather than fail the chat
+            logger.warning("chat.session.load_failed error={}", type(exc).__name__)
+            return []
+
+    async def _remember(self, principal_id: str, session_id: str, turn: Turn) -> None:
+        if not self._stateful(principal_id, session_id):
+            return
+        assert self._sessions is not None
+        try:
+            await self._sessions.append(principal_id, session_id, turn)
+        except Exception as exc:
+            logger.warning("chat.session.append_failed error={}", type(exc).__name__)
 
 
 async def _next_text(stream: AsyncIterator[Any], usage: UsageAccumulator) -> Any:
@@ -443,6 +508,13 @@ def _chunk_text(chunk: Any) -> str:
     return ""
 
 
+async def close_chat_streamer(streamer: object) -> None:
+    """Call ``streamer.aclose()`` if it has one (the mock streamer owns nothing)."""
+    close = getattr(streamer, "aclose", None)
+    if close is not None:
+        await close()
+
+
 def build_chat_streamer(
     settings: Settings,
     *,
@@ -458,6 +530,16 @@ def build_chat_streamer(
             max_attempts=settings.LLM_MAX_ATTEMPTS,
             quota_provider=quota_provider if settings.QUOTA_ENABLED else None,
             quota_policy=_chat_quota_policy(settings),
+            prompt_provider=PromptProvider(
+                build_langfuse_tracker(
+                    settings,
+                    instance_id="grpc-chat",
+                    service_name="team-ai.chat",
+                    tags=("grpc", "chat"),
+                ),
+                fallback=settings.CHAT_SYSTEM_PROMPT.strip() or STATIC_SYSTEM_PROMPT,
+            ),
+            session_store=_build_session_store(settings),
         )
 
     raise RuntimeError(
@@ -475,4 +557,24 @@ def _chat_quota_policy(settings: Settings) -> QuotaPolicy | None:
         resource=CHAT_QUOTA_RESOURCE,
         limit=settings.QUOTA_CHAT_REPLIES_PER_WINDOW,
         window_seconds=settings.QUOTA_CHAT_WINDOW_SECONDS,
+    )
+
+
+def _build_session_store(settings: Settings) -> SessionStore:
+    """Redis when REDIS_ENABLED (shared across replicas), else per-process memory."""
+    max_chars = settings.CHAT_HISTORY_MAX_TOKENS * CHARS_PER_TOKEN
+    if settings.REDIS_ENABLED:
+        from app.core.redis import build_redis_client
+
+        return RedisSessionStore(
+            build_redis_client(settings),
+            ttl_seconds=settings.CHAT_HISTORY_TTL_SECONDS,
+            max_turns=settings.CHAT_HISTORY_MAX_TURNS,
+            max_chars=max_chars,
+            owns_client=True,
+        )
+    return InMemorySessionStore(
+        ttl_seconds=settings.CHAT_HISTORY_TTL_SECONDS,
+        max_turns=settings.CHAT_HISTORY_MAX_TURNS,
+        max_chars=max_chars,
     )

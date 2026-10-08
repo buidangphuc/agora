@@ -81,7 +81,8 @@ async def test_without_provider_usage_a_flagged_estimate_is_logged(loguru_record
 
     (record,) = _usage_records(loguru_records)
     assert record["extra"]["estimated"] is True
-    assert record["extra"]["input_tokens"] == 10  # 40 chars / 4
+    # system prompt + the 40-char message, estimated at 4 chars per token
+    assert record["extra"]["input_tokens"] > 10
     assert record["extra"]["output_tokens"] == 2  # 8 chars / 4
 
 
