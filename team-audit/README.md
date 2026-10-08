@@ -10,7 +10,7 @@ Served from `proto/platform/audit/v1/audit.proto` (vendored; see Gotchas): `plat
 
 | RPC | Authorization and behaviour |
 |---|---|
-| `WriteAuditEvent` | Authenticated principal required (`Unauthenticated` otherwise); no scope is checked. The stored `actor_id` is the principal's own id. A client-supplied `actor_id` is ignored unless the principal's type is `service`, which may supply it. Empty `action` returns `InvalidArgument`. The response is empty (fire-and-forget); the server assigns `id` (`audit_` + 8 chars of a UUID) and `created_at`. |
+| `WriteAuditEvent` | Service-only: requires a `service` principal holding `audit.write` (`Unauthenticated` with no/anonymous principal, `PermissionDenied` for users incl. admins and scopeless services). The stored `actor_id` is the request's `actor_id` if set, else the service's own id. Empty `action` returns `InvalidArgument`. The response is empty (fire-and-forget); the server assigns `id` (`audit_` + 8 chars of a UUID) and `created_at`. Storage failures return a generic `Internal` ("internal error"); the cause is logged server-side. |
 | `QueryAuditLog` | Admin only: authenticated, then scope `admin` (`PermissionDenied` otherwise; a service principal also needs `admin`). Optional filters `actor_id` and `target_type` (exact match). Newest first (`created_at DESC, id DESC`). The page cursor is a row offset as a decimal string; an empty or malformed cursor means the first page. `page_size` defaults to 20 and is capped at 100 (`internal/service/audit.go`). `next_cursor` is set only while more rows remain; `total` is the match count before paging. |
 
 Also served: gRPC health (`""` is SERVING) and server reflection (always on).
@@ -96,7 +96,6 @@ There is no lint target, no `.github/workflows` and no other CI config here; run
 
 ## Known gaps
 
-- `WriteAuditEvent` checks no scope: any authenticated user may append events (attributed to themselves), so a user can pollute their own trail with arbitrary actions and metadata. `audit.write` is used only as a test fixture value.
 - `QueryAuditLog` supports only `actor_id` and `target_type` filters; there is no `target_id` or time-range filter even though an index on `(target_type, target_id, created_at)` exists.
 - `.env.example` documents many variables the code ignores (see Configuration).
 - No FEATURES.yaml, so `features-check` has no manifest for this service.
