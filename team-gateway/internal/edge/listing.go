@@ -166,37 +166,10 @@ func (f *ListingForwarder) GetCategory(
 	return connect.NewResponse(out), nil
 }
 
-func (f *ListingForwarder) ReserveStock(
-	ctx context.Context,
-	req *connect.Request[listingv1.ReserveStockRequest],
-) (*connect.Response[listingv1.ReserveStockResponse], error) {
-	var out *listingv1.ReserveStockResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
-		var e error
-		out, e = f.client.ReserveStock(c, req.Msg)
-		return e
-	})
-	if err != nil {
-		return nil, toConnectErr(err)
-	}
-	return connect.NewResponse(out), nil
-}
-
-func (f *ListingForwarder) ReleaseStock(
-	ctx context.Context,
-	req *connect.Request[listingv1.ReleaseStockRequest],
-) (*connect.Response[listingv1.ReleaseStockResponse], error) {
-	var out *listingv1.ReleaseStockResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
-		var e error
-		out, e = f.client.ReleaseStock(c, req.Msg)
-		return e
-	})
-	if err != nil {
-		return nil, toConnectErr(err)
-	}
-	return connect.NewResponse(out), nil
-}
+// ReserveStock and ReleaseStock are intentionally NOT forwarded: they are
+// internal service-to-service RPCs called by team-order over gRPC with a service
+// principal, never by a browser. The embedded UnimplementedListingServiceHandler
+// answers `unimplemented` (HTTP 501) for every caller at the edge.
 
 // ── Storefront ──
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 
 	"connectrpc.com/connect"
 
@@ -33,7 +34,7 @@ func (f *ChatForwarder) StreamChat(
 ) error {
 	up, err := f.aiChat.StreamChat(f.edge.outgoing(ctx, req.Header()), req.Msg)
 	if err != nil {
-		return toConnectErr(err)
+		return f.streamErr(ctx, err)
 	}
 	for {
 		msg, err := up.Recv()
@@ -41,12 +42,20 @@ func (f *ChatForwarder) StreamChat(
 			return nil
 		}
 		if err != nil {
-			return toConnectErr(err)
+			return f.streamErr(ctx, err)
 		}
 		if err := stream.Send(msg); err != nil {
 			return err
 		}
 	}
+}
+
+// streamErr sanitises an upstream stream error and logs the original with the
+// request id (there is no streaming interceptor to do it).
+func (f *ChatForwarder) streamErr(ctx context.Context, err error) error {
+	cerr := toConnectErr(err)
+	logUpstreamError(slog.Default(), "StreamChat", requestIDFrom(ctx), cerr)
+	return cerr
 }
 
 func (f *ChatForwarder) GetOrCreateThread(
