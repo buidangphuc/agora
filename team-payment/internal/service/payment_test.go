@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	"github.com/buidangphuc/team-payment/internal/repository"
@@ -649,5 +651,24 @@ func TestService_ProcessMockPayment_RefusesRefundedPayments(t *testing.T) {
 				t.Fatalf("status changed to %v", got.Status)
 			}
 		})
+	}
+}
+
+// An unreachable team-order must not read as a missing order (it would surface as
+// 404 to a seller refunding or reading a payment).
+func TestService_OrderSellerID_UnreachableOrderServiceIsNotNotFound(t *testing.T) {
+	for _, c := range []struct {
+		code codes.Code
+		want error
+	}{
+		{codes.Unavailable, service.ErrOrderServiceUnavailable},
+		{codes.DeadlineExceeded, service.ErrOrderServiceUnavailable},
+		{codes.NotFound, service.ErrOrderNotFound},
+	} {
+		svc := service.NewPaymentService(repository.NewInMemoryPaymentRepository(), repository.NewInMemoryWalletRepository(),
+			&mockOrderClient{err: status.Error(c.code, "x")}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		if _, err := svc.OrderSellerID(context.Background(), "o1"); !errors.Is(err, c.want) {
+			t.Fatalf("%v: %v, want %v", c.code, err, c.want)
+		}
 	}
 }

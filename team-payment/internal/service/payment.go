@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"log/slog"
 	"time"
 
@@ -17,14 +19,16 @@ import (
 )
 
 var (
-	ErrOrderNotFound       = errors.New("order not found for payment")
-	ErrInvalidOrderState   = errors.New("order is not in pending state")
-	ErrNotOrderBuyer       = errors.New("caller is not the buyer of this order")
-	ErrTransactionNotFound = repository.ErrTransactionNotFound
-	ErrPayoutNotFound      = repository.ErrPayoutNotFound
-	ErrInsufficientBalance = repository.ErrInsufficientBalance
-	ErrInvalidAmount       = repository.ErrInvalidAmount
-	ErrInvalidRefund       = errors.New("cannot refund unpaid or already refunded transaction")
+	ErrOrderNotFound = errors.New("order not found for payment")
+	// ErrOrderServiceUnavailable: team-order could not be reached to resolve the order.
+	ErrOrderServiceUnavailable = errors.New("order service unavailable")
+	ErrInvalidOrderState       = errors.New("order is not in pending state")
+	ErrNotOrderBuyer           = errors.New("caller is not the buyer of this order")
+	ErrTransactionNotFound     = repository.ErrTransactionNotFound
+	ErrPayoutNotFound          = repository.ErrPayoutNotFound
+	ErrInsufficientBalance     = repository.ErrInsufficientBalance
+	ErrInvalidAmount           = repository.ErrInvalidAmount
+	ErrInvalidRefund           = errors.New("cannot refund unpaid or already refunded transaction")
 	// ErrPaymentRefunded: a (partially) refunded payment can never be paid again;
 	// re-settling it would reopen it to further refunds of money already returned.
 	ErrPaymentRefunded = errors.New("payment has been refunded; it cannot be paid again")
@@ -329,6 +333,11 @@ func (s *PaymentService) FindTransaction(ctx context.Context, paymentID string) 
 func (s *PaymentService) OrderSellerID(ctx context.Context, orderID string) (string, error) {
 	resp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
+		// an unreachable team-order is not a missing order: say so (503), never 404
+		switch status.Code(err) {
+		case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
+			return "", fmt.Errorf("%w: %v", ErrOrderServiceUnavailable, err)
+		}
 		return "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
 	}
 	if resp.GetOrder() == nil {

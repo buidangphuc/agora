@@ -110,6 +110,9 @@ func (h *PaymentHandler) requirePaymentReader(ctx context.Context, principal *co
 	}
 	sellerID, err := h.svc.OrderSellerID(ctx, tx.OrderID)
 	if err != nil {
+		if errors.Is(err, service.ErrOrderServiceUnavailable) {
+			return status.Error(codes.Unavailable, "order service unavailable")
+		}
 		if errors.Is(err, service.ErrOrderNotFound) {
 			return status.Error(codes.NotFound, "order not found")
 		}
@@ -286,6 +289,9 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 	if !slices.Contains(principal.GetScopes(), "admin") {
 		sellerID, err := h.svc.OrderSellerID(ctx, target.OrderID)
 		if err != nil {
+			if errors.Is(err, service.ErrOrderServiceUnavailable) {
+				return nil, status.Error(codes.Unavailable, "order service unavailable")
+			}
 			if errors.Is(err, service.ErrOrderNotFound) {
 				return nil, status.Error(codes.NotFound, "order not found")
 			}
