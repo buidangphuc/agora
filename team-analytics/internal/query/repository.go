@@ -107,3 +107,34 @@ type Repository interface {
 	// RecentOrders returns up to limit paid orders, newest first.
 	RecentOrders(ctx context.Context, limit int) ([]RecentOrder, error)
 }
+
+// TypeQuality is one event type's quality numbers over the report window.
+type TypeQuality struct {
+	EventType string
+	Events    int64
+	Visitors  int64 // distinct user_key from tracking_events_resolved
+	// MissingListingRatio is the share of events with an empty listing_id; it is
+	// only measured for listing-scoped types (ListingScoped) and 0 otherwise.
+	MissingListingRatio float64
+	ListingScoped       bool
+}
+
+// TrackingQualityData is the raw tracking-stream health measured over a window;
+// the service turns it into a status (analytics-data-quality D2).
+type TrackingQualityData struct {
+	Types []TypeQuality // ordered by event type
+	// HasLag is false when no row in the window has an ingested_at.
+	HasLag         bool
+	LagP50Seconds  float64
+	LagP95Seconds  float64
+	LastIngestedAt time.Time // zero when no row in the window has an ingested_at
+	DecodeFailures int64
+	Duplicates     int64
+}
+
+// QualityRepository is implemented by repositories that can measure the tracking
+// stream (the DuckDB one). The window is [since, until] on occurred_at; counters
+// are summed over the UTC hours overlapping it.
+type QualityRepository interface {
+	TrackingQuality(ctx context.Context, since, until time.Time) (TrackingQualityData, error)
+}

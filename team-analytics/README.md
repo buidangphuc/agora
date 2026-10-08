@@ -13,6 +13,7 @@ Served: `platform.analytics.v1.AnalyticsQueryService` (`proto/platform/analytics
 | `GetDemandForecast` | same as above |
 | `GetPlatformOrderSummary` | `admin` scope only (`RequireScopes`) |
 | `ListRecentOrders` | `admin` scope only |
+| `GetTrackingQualityReport` | `admin` scope only |
 
 Trust model (ADR-0003): the gateway verifies the token and forwards a resolved Principal as gRPC metadata `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`), `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` reads these headers and does no verification, so the service trusts any caller that can reach `:50059` (see Known gaps).
 
@@ -23,6 +24,7 @@ Trust model (ADR-0003): the gateway verifies the token and forwards a resolved P
 | `GetDemandForecast` | Baseline forecast, `model_version = duckdb_baseline_v1`. Mean and population std-dev of `quantity` per order line (not per day, not time-windowed) for the seller and listing/variant; `is_cold_start` when there is no history, with fallback mean 2.0 and std 1.0. Daily P10/P50/P90 = `max(0, mu - 1.28*sigma)`, `mu`, `mu + 1.28*sigma`. Defaults: horizon 28 days, lead time 3 days, service level 0.95. `z` is 2.33 for service level >= 0.99, 1.28 for 0.90 to below 0.95, else 1.65. `safety_stock = z * mean(P90 - P50 over lead time)`, `reorder_point = sum(P50 over lead time) + safety_stock`. |
 | `GetPlatformOrderSummary` | Distinct paid orders and GMV over the trailing window (default 24h), all sellers. |
 | `ListRecentOrders` | Latest orders, newest first; default 10, max 100; no buyer PII. |
+| `GetTrackingQualityReport` | Health of the tracking stream over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`). Per event type: events, distinct `user_key` visitors (from `tracking_events_resolved`) and, for `view`/`click`/`add_to_cart`/`impression`, the share of events with an empty `listing_id`. Also ingest lag p50/p95 (`ingested_at - occurred_at`, rows with null `ingested_at` excluded), the latest `ingested_at`, and the summed `decode_failures` and `duplicates_skipped`. `status` is `OK` or `DEGRADED` with sorted `reasons`: `stale` (no event in the window, or latest ingest older than `TRACKING_STALE_AFTER_SECONDS`), `lagging` (p95 lag above `TRACKING_LAG_P95_MAX_SECONDS`), `incomplete` (a listing-scoped missing ratio above `TRACKING_MISSING_LISTING_MAX_RATIO`). DuckDB only. |
 
 Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Upstream RPCs consumed: none. Data consumed: the two Kafka topics below.
 
@@ -51,6 +53,7 @@ Database-per-service; there are no SQL migration files.
 | `tracking_events` | Columns defined in `internal/warehouse/warehouse.go` (`Schema`): event and session ids, `event_type`, `listing_id`, `occurred_at`, principal id/type, `properties` JSON, placement/impression/model_version, GA4-style commerce fields (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_*`, `shipping_tier`, `payment_type`) |
 | `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status` |
 | `listing_sellers` | `listing_id` (primary key), `seller_id`, `updated_at`. Maps a listing to its owner so tracking events (which carry only a listing id) can be attributed to a seller. An older event never overwrites a newer row. DuckDB only. |
+| `tracking_ingest_counters` | `hour` (UTC hour, primary key), `decode_failures`, `duplicates_skipped`. The sink adds to it: one upsert per written batch that skipped a duplicate `event_id`, and one per undecodable message. A counter write failure is logged and never blocks ingestion. DuckDB only. |
 | `ga4_events` | DuckDB view over `tracking_events` that renames event types to GA4 names (`view` -> `view_item`, `click` -> `select_item`, `impression` -> `view_item_list`) |
 
 - Schema is applied at boot by the writer: `CREATE TABLE IF NOT EXISTS`, then `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for every schema column (additive only), then `CREATE OR REPLACE VIEW ga4_events`. The BigQuery adapter creates its tables at boot and treats "already exists" as success. `warehouse.Schema` and `OrderFactsSchema` are the single source for both adapters.
@@ -87,6 +90,9 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `PARQUET_EXPORT_INTERVAL_SECONDS` | `0` | 0 disables; must be >= 0 |
 | `BATCH_MAX_SIZE` | `500` | Must be > 0 |
 | `BATCH_FLUSH_INTERVAL_SECONDS` | `2` | 0 disables the interval flush (size and shutdown flush only) |
+| `TRACKING_STALE_AFTER_SECONDS` | `900` | Report is `DEGRADED` (`stale`) when the latest ingest is older; must be > 0 |
+| `TRACKING_LAG_P95_MAX_SECONDS` | `300` | `DEGRADED` (`lagging`) when p95 ingest lag exceeds it; must be > 0 |
+| `TRACKING_MISSING_LISTING_MAX_RATIO` | `0.05` | `DEGRADED` (`incomplete`) when a listing-scoped type's share of events without `listing_id` exceeds it; 0 to 1 |
 | `OTEL_ENABLED` | `false` | Inert: no tracing code reads it |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | Inert |
 | `OTEL_SERVICE_NAME` | `team-analytics` | Inert |

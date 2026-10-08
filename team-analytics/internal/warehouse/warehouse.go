@@ -114,6 +114,19 @@ const (
 	ResolvedViewName = "tracking_events_resolved"
 )
 
+// CountersTableName is the per-UTC-hour table of what the tracking sink absorbed
+// (analytics-data-quality D1): undecodable messages and skipped duplicates.
+const CountersTableName = "tracking_ingest_counters"
+
+// IngestCounterWriter is implemented by adapters that keep the ingest counters
+// (the DuckDB adapter). The consumer counts a message it cannot decode through it.
+// Duplicates are counted by the adapter itself inside Write.
+type IngestCounterWriter interface {
+	// RecordDecodeFailures adds n to the decode_failures counter of the UTC hour
+	// containing at.
+	RecordDecodeFailures(ctx context.Context, at time.Time, n int64) error
+}
+
 // ColumnNames returns the ordered column names of the canonical schema.
 func ColumnNames() []string {
 	names := make([]string, len(Schema))

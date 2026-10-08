@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,12 +38,46 @@ var farFuture = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
 // aggregation to the repository. It never writes.
 type Service struct {
 	analyticsv1.UnimplementedAnalyticsQueryServiceServer
-	repo Repository
+	repo       Repository
+	thresholds TrackingThresholds
+	now        func() time.Time
+}
+
+// TrackingThresholds are the limits GetTrackingQualityReport derives its status
+// from (TRACKING_* settings).
+type TrackingThresholds struct {
+	StaleAfter             time.Duration
+	LagP95Max              time.Duration
+	MissingListingMaxRatio float64
+}
+
+// DefaultTrackingThresholds are the documented setting defaults.
+var DefaultTrackingThresholds = TrackingThresholds{
+	StaleAfter:             900 * time.Second,
+	LagP95Max:              300 * time.Second,
+	MissingListingMaxRatio: 0.05,
+}
+
+// Option customises a Service.
+type Option func(*Service)
+
+// WithTrackingThresholds overrides the tracking quality thresholds.
+func WithTrackingThresholds(t TrackingThresholds) Option {
+	return func(s *Service) { s.thresholds = t }
+}
+
+// WithClock overrides the clock the report window is measured from (tests).
+func WithClock(now func() time.Time) Option {
+	return func(s *Service) { s.now = now }
 }
 
 // NewService builds the query servicer over repo.
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo Repository, opts ...Option) *Service {
+	s := &Service{repo: repo, thresholds: DefaultTrackingThresholds, now: time.Now}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // requireSellerAccess gates the per-seller RPCs. It runs before any other work so
@@ -260,6 +295,84 @@ func (s *Service) ListRecentOrders(ctx context.Context, req *analyticsv1.ListRec
 			Total:    o.Total,
 			PaidAt:   timestamppb.New(o.PaidAt),
 		})
+	}
+	return resp, nil
+}
+
+const (
+	defaultQualityWindowHours = 24
+	maxQualityWindowHours     = 168
+
+	statusOK       = "OK"
+	statusDegraded = "DEGRADED"
+)
+
+// GetTrackingQualityReport measures the tracking stream over a trailing window
+// (1 to 168 hours, default 24) and derives OK or DEGRADED with sorted reasons
+// stale, lagging and incomplete. Admin only.
+func (s *Service) GetTrackingQualityReport(ctx context.Context, req *analyticsv1.GetTrackingQualityReportRequest) (*analyticsv1.GetTrackingQualityReportResponse, error) {
+	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+		return nil, err
+	}
+	hours := req.GetWindowHours()
+	if hours == 0 {
+		hours = defaultQualityWindowHours
+	}
+	if hours > maxQualityWindowHours {
+		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
+	}
+	qr, ok := s.repo.(QualityRepository)
+	if !ok {
+		return nil, status.Error(codes.Unavailable, "tracking quality is not available on this warehouse")
+	}
+	now := s.now().UTC()
+	data, err := qr.TrackingQuality(ctx, now.Add(-time.Duration(hours)*time.Hour), now)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "tracking quality: %v", err)
+	}
+
+	resp := &analyticsv1.GetTrackingQualityReportResponse{
+		Types:             make([]*analyticsv1.TrackingTypeQuality, 0, len(data.Types)),
+		LagP50Seconds:     data.LagP50Seconds,
+		LagP95Seconds:     data.LagP95Seconds,
+		DecodeFailures:    data.DecodeFailures,
+		DuplicatesSkipped: data.Duplicates,
+		WindowHours:       hours,
+	}
+	if !data.LastIngestedAt.IsZero() {
+		resp.LastIngestedAt = timestamppb.New(data.LastIngestedAt)
+	}
+	var total int64
+	incomplete := false
+	for _, t := range data.Types {
+		total += t.Events
+		if t.ListingScoped && t.MissingListingRatio > s.thresholds.MissingListingMaxRatio {
+			incomplete = true
+		}
+		resp.Types = append(resp.Types, &analyticsv1.TrackingTypeQuality{
+			EventType:           t.EventType,
+			Events:              t.Events,
+			Visitors:            t.Visitors,
+			MissingListingRatio: t.MissingListingRatio,
+			ListingScoped:       t.ListingScoped,
+		})
+	}
+
+	var reasons []string
+	if total == 0 || data.LastIngestedAt.IsZero() || now.Sub(data.LastIngestedAt) > s.thresholds.StaleAfter {
+		reasons = append(reasons, "stale")
+	}
+	if data.HasLag && data.LagP95Seconds > s.thresholds.LagP95Max.Seconds() {
+		reasons = append(reasons, "lagging")
+	}
+	if incomplete {
+		reasons = append(reasons, "incomplete")
+	}
+	sort.Strings(reasons)
+	resp.Reasons = reasons
+	resp.Status = statusOK
+	if len(reasons) > 0 {
+		resp.Status = statusDegraded
 	}
 	return resp, nil
 }

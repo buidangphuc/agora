@@ -208,3 +208,86 @@ func TestOpenMigratesLegacyDatabase(t *testing.T) {
 		t.Fatalf("user_key = %q, %v", key, err)
 	}
 }
+
+func counters(t *testing.T, w *Writer) (hour time.Time, decode, dup int64, rows int) {
+	t.Helper()
+	if err := w.DB().QueryRow("SELECT count(*) FROM tracking_ingest_counters").Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows == 0 {
+		return
+	}
+	if err := w.DB().QueryRow("SELECT hour, decode_failures, duplicates_skipped FROM tracking_ingest_counters").Scan(&hour, &decode, &dup); err != nil {
+		t.Fatal(err)
+	}
+	return
+}
+
+// A redelivered or in-batch duplicate is counted against the sink's UTC hour; a
+// clean batch writes no counter row.
+func TestWriteCountsSkippedDuplicates(t *testing.T) {
+	ctx := context.Background()
+	ing := time.Date(2026, 9, 1, 10, 30, 0, 0, time.UTC)
+	w := openAt(t, "", ing)
+	defer w.Close()
+	at := ing.Add(-time.Minute)
+
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{
+		{EventID: "e1", EventType: "view", OccurredAt: at},
+		{EventID: "e2", EventType: "view", OccurredAt: at},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, rows := counters(t, w); rows != 0 {
+		t.Fatalf("clean batch wrote %d counter rows, want 0", rows)
+	}
+
+	// e1 redelivered, e3 new, e3 repeated inside the same batch.
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{
+		{EventID: "e1", EventType: "view", OccurredAt: at},
+		{EventID: "e3", EventType: "view", OccurredAt: at},
+		{EventID: "e3", EventType: "view", OccurredAt: at},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	hour, _, dup, rows := counters(t, w)
+	if rows != 1 || dup != 2 || !hour.Equal(time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)) {
+		t.Fatalf("counters = hour %v dup %d rows %d, want 10:00 / 2 / 1", hour, dup, rows)
+	}
+	if n := count(t, w, "tracking_events"); n != 3 {
+		t.Fatalf("rows = %d, want 3", n)
+	}
+
+	// Counters accumulate in the same hour (ON CONFLICT DO UPDATE).
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{{EventID: "e2", EventType: "view", OccurredAt: at}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, dup, rows = counters(t, w); rows != 1 || dup != 3 {
+		t.Fatalf("after third batch dup = %d rows = %d, want 3 / 1", dup, rows)
+	}
+}
+
+func TestRecordDecodeFailuresAccumulates(t *testing.T) {
+	ctx := context.Background()
+	w := openAt(t, "", time.Now())
+	defer w.Close()
+	at := time.Date(2026, 9, 1, 10, 59, 0, 0, time.UTC)
+	for i := 0; i < 2; i++ {
+		if err := w.RecordDecodeFailures(ctx, at, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.RecordDecodeFailures(ctx, at.Add(2*time.Minute), 1); err != nil { // next hour
+		t.Fatal(err)
+	}
+	var total, rows int64
+	if err := w.DB().QueryRow("SELECT sum(decode_failures), count(*) FROM tracking_ingest_counters").Scan(&total, &rows); err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 || rows != 2 {
+		t.Fatalf("decode failures = %d over %d hours, want 3 over 2", total, rows)
+	}
+	if err := w.RecordDecodeFailures(ctx, at, 0); err != nil {
+		t.Fatal(err)
+	}
+}

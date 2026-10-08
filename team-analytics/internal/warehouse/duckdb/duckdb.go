@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -98,6 +99,10 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("ensure %s table: %w", warehouse.ListingSellersTableName, err)
 	}
 
+	if _, err := w.db.ExecContext(ctx, countersDDL); err != nil {
+		return fmt.Errorf("ensure %s table: %w", warehouse.CountersTableName, err)
+	}
+
 	// Create or replace standard ga4_events view
 	createViewSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW ga4_events AS
 SELECT
@@ -149,6 +154,38 @@ FROM %s`, warehouse.TableName)
 	}
 
 	return nil
+}
+
+// countersDDL is the per-UTC-hour ingest counter table (analytics-data-quality D1).
+var countersDDL = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+  hour TIMESTAMP PRIMARY KEY,
+  decode_failures BIGINT NOT NULL DEFAULT 0,
+  duplicates_skipped BIGINT NOT NULL DEFAULT 0
+)`, warehouse.CountersTableName)
+
+var addCountersSQL = fmt.Sprintf(
+	`INSERT INTO %[1]s (hour, decode_failures, duplicates_skipped) VALUES (?, ?, ?)
+ON CONFLICT (hour) DO UPDATE SET
+  decode_failures = %[1]s.decode_failures + excluded.decode_failures,
+  duplicates_skipped = %[1]s.duplicates_skipped + excluded.duplicates_skipped`,
+	warehouse.CountersTableName)
+
+// addCounters upserts the deltas into the UTC hour containing at. All-zero
+// deltas write nothing.
+func (w *Writer) addCounters(ctx context.Context, at time.Time, decodeFailures, duplicates int64) error {
+	if decodeFailures == 0 && duplicates == 0 {
+		return nil
+	}
+	hour := at.UTC().Truncate(time.Hour)
+	if _, err := w.db.ExecContext(ctx, addCountersSQL, hour, decodeFailures, duplicates); err != nil {
+		return fmt.Errorf("upsert %s: %w", warehouse.CountersTableName, err)
+	}
+	return nil
+}
+
+// RecordDecodeFailures counts n undecodable messages in the hour of at.
+func (w *Writer) RecordDecodeFailures(ctx context.Context, at time.Time, n int64) error {
+	return w.addCounters(ctx, at, n, 0)
 }
 
 // identityViewDDL maps each anonymous id seen on USER-principal events to that
@@ -229,13 +266,14 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	defer stmt.Close()
 
 	ingestedAt := w.now().UTC()
+	var inserted int64
 	for _, r := range batch {
 		props, err := marshalProperties(r.Properties)
 		if err != nil {
 			_ = tx.Rollback()
 			return err
 		}
-		if _, err := stmt.ExecContext(ctx,
+		res, err := stmt.ExecContext(ctx,
 			r.EventID,
 			r.EventType,
 			r.ListingID,
@@ -266,13 +304,26 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.PaymentType,
 			ingestedAt,
 			r.EventID, // NOT EXISTS dedupe key
-		); err != nil {
+		)
+		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert row %s: %w", r.EventID, err)
+		}
+		// The anti-join inserts 0 rows for a duplicate event_id.
+		if n, rerr := res.RowsAffected(); rerr == nil {
+			inserted += n
+		} else {
+			inserted++ // driver reports nothing: do not invent duplicates
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit batch: %w", err)
+	}
+	// Counter failures must never block ingestion (analytics-data-quality D1).
+	if dup := int64(len(batch)) - inserted; dup > 0 {
+		if err := w.addCounters(ctx, ingestedAt, 0, dup); err != nil {
+			slog.Warn("tracking ingest counters not updated", slog.Any("err", err))
+		}
 	}
 	return nil
 }
@@ -387,3 +438,4 @@ func marshalProperties(p map[string]string) (string, error) {
 // compile-time assertion that the adapter satisfies the seam.
 var _ warehouse.WarehouseWriter = (*Writer)(nil)
 var _ warehouse.ListingSellerWriter = (*Writer)(nil)
+var _ warehouse.IngestCounterWriter = (*Writer)(nil)
