@@ -485,3 +485,139 @@ features:
     tags: [order, authz]
     status: automated
     covered_by: "order/self_purchase.feature::A seller cannot check out their own listing"
+
+  # ---- port-order-inventory-correctness / order-checkout-correctness (written from the spec; planned until the code lands).
+
+  - id: order.oic-checkout-one-seller-out-of-stock-fails-the-whole-two-sell
+    title: "One seller out of stock fails the whole two-seller checkout"
+    persona: buyer
+    priority: P1
+    summary: "One seller out of stock fails the whole two-seller checkout"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer checks out a cart with one item from seller A (stock available) and one item from seller B whose quantity exceeds B's stock"
+      - "Then the call fails with `resource_exhausted`, the buyer has no new order from either seller, seller A's listing stock is back to its value before the checkout, and the cart still holds both items"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::One seller out of stock fails the whole two-seller checkout. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-checkout-a-two-seller-checkout-places-one-order-per-selle
+    title: "A two-seller checkout places one order per seller"
+    persona: buyer
+    priority: P1
+    summary: "A two-seller checkout places one order per seller"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer checks out a cart with in-stock items from two sellers"
+      - "Then exactly two `Pending` orders are returned, one per seller, each listing's stock is reduced by its quantity, and the checked-out items are removed from the cart"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::A two-seller checkout places one order per seller. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-checkout-an-unkeyed-retry-after-a-failed-checkout-succeed
+    title: "An unkeyed retry after a failed checkout succeeds"
+    persona: buyer
+    priority: P1
+    summary: "An unkeyed retry after a failed checkout succeeds"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer's two-seller checkout without an `Idempotency-Key` fails because seller B is out of stock, seller B restocks the listing, and the buyer checks out the same cart again without a key"
+      - "Then the second checkout returns one order per seller and seller A's listing stock is reduced by its quantity once"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::An unkeyed retry after a failed checkout succeeds. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-checkout-the-same-idempotency-key-returns-the-same-orders
+    title: "The same idempotency key returns the same orders"
+    persona: buyer
+    priority: P1
+    summary: "The same idempotency key returns the same orders"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer calls `CreateOrder` twice with the same `Idempotency-Key` for a cart with quantity 2 of a listing with stock 10"
+      - "Then both calls return the same order ids, the buyer has exactly one new order, and the listing's stock is 8"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::The same idempotency key returns the same orders. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-checkout-concurrent-checkouts-with-one-key-create-one-set
+    title: "Concurrent checkouts with one key create one set of orders"
+    persona: buyer
+    priority: P1
+    summary: "Concurrent checkouts with one key create one set of orders"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer sends two `CreateOrder` calls with the same `Idempotency-Key` at the same time"
+      - "Then each call either returns the same order ids or fails with `aborted`, at least one returns orders, and exactly one order exists with its stock reduced once"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::Concurrent checkouts with one key create one set of orders. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-checkout-a-failed-checkout-frees-its-idempotency-key
+    title: "A failed checkout frees its idempotency key"
+    persona: buyer
+    priority: P1
+    summary: "A failed checkout frees its idempotency key"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer's checkout with key K fails because an item is out of stock, the seller restocks it, and the buyer checks out with key K again"
+      - "Then the second call creates the order"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::A failed checkout frees its idempotency key. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-checkout-idempotency-keys-are-scoped-to-the-buyer
+    title: "Idempotency keys are scoped to the buyer"
+    persona: buyer
+    priority: P1
+    summary: "Idempotency keys are scoped to the buyer"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When two different buyers each check out with the same `Idempotency-Key` value"
+      - "Then each buyer receives their own new order"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer. Red on the pre-change stack until the integrator flips it."
