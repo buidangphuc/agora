@@ -14,6 +14,11 @@ import (
 
 var ErrTransactionNotFound = errors.New("payment transaction not found")
 
+// ErrNotSettleable: a status write found the payment no longer PENDING or FAILED
+// (it was paid or refunded meanwhile). Only PENDING/FAILED payments are settled
+// or failed, so a refunded payment is never reopened, even by a racing call.
+var ErrNotSettleable = errors.New("payment is no longer pending or failed")
+
 type PaymentMethod int32
 
 const (
@@ -131,16 +136,7 @@ func (r *PostgresPaymentRepository) GetTransactionByOrderID(ctx context.Context,
 }
 
 func (r *PostgresPaymentRepository) UpdateStatus(ctx context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	const q = `UPDATE payment_transactions SET status = $1, provider_reference = $2, updated_at = NOW() WHERE id = $3
-		RETURNING ` + txColumns
-	var t PaymentTransaction
-	if err := scanTransaction(r.pool.QueryRow(ctx, q, int32(status), providerRef, id), &t); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return PaymentTransaction{}, ErrTransactionNotFound
-		}
-		return PaymentTransaction{}, fmt.Errorf("update payment status: %w", err)
-	}
-	return t, nil
+	return updatePaymentStatusTx(ctx, r.pool, id, status, providerRef)
 }
 
 func (r *PostgresPaymentRepository) UpdateTransactionStatus(ctx context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
@@ -213,6 +209,25 @@ func (r *InMemoryPaymentRepository) UpdateStatus(_ context.Context, id string, s
 	return t, nil
 }
 
-func (r *InMemoryPaymentRepository) UpdateTransactionStatus(ctx context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	return r.UpdateStatus(ctx, id, status, providerRef)
+func (r *InMemoryPaymentRepository) UpdateTransactionStatus(_ context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
+	return r.updateStatusFromSettleable(id, status, providerRef)
+}
+
+// updateStatusFromSettleable is the compare-and-set the Postgres writer runs:
+// the write applies only to a PENDING or FAILED payment.
+func (r *InMemoryPaymentRepository) updateStatusFromSettleable(id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.data[id]
+	if !ok {
+		return PaymentTransaction{}, ErrTransactionNotFound
+	}
+	if t.Status != PaymentStatusPending && t.Status != PaymentStatusFailed {
+		return PaymentTransaction{}, ErrNotSettleable
+	}
+	t.Status = status
+	t.ProviderReference = providerRef
+	t.UpdatedAt = time.Now()
+	r.data[id] = t
+	return t, nil
 }

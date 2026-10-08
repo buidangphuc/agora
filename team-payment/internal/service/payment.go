@@ -220,8 +220,9 @@ func (s *PaymentService) ProcessMockPayment(
 	if tx.Status == repository.PaymentStatusPaid {
 		return tx, true, "Đơn hàng đã được thanh toán trước đó", nil
 	}
-	// Only PENDING or FAILED may be (re)settled. A refund needs PAID, so a payment
-	// seen here as PENDING/FAILED cannot become refunded before this settles.
+	// Only PENDING or FAILED may be (re)settled. This early check gives the clear
+	// error; the writes below are a compare-and-set from PENDING/FAILED, so a racing
+	// call that settled (and maybe refunded) meanwhile is caught there too.
 	if tx.Status == repository.PaymentStatusRefunded || tx.Status == repository.PaymentStatusPartiallyRefunded {
 		return repository.PaymentTransaction{}, false, "", ErrPaymentRefunded
 	}
@@ -234,6 +235,9 @@ func (s *PaymentService) ProcessMockPayment(
 		// relayer publishes to "payment.events" and team-order consumes it. The
 		// old fire-and-forget order.UpdateOrderStatus call is intentionally gone.
 		updated, err := s.settlePaid(ctx, tx, providerRef)
+		if errors.Is(err, repository.ErrNotSettleable) {
+			return s.lostSettleRace(ctx, tx.ID)
+		}
 		if err != nil {
 			return repository.PaymentTransaction{}, false, "", fmt.Errorf("settle payment: %w", err)
 		}
@@ -244,10 +248,27 @@ func (s *PaymentService) ProcessMockPayment(
 
 	// Simulate failure
 	updated, err := s.paymentRepo.UpdateTransactionStatus(ctx, tx.ID, repository.PaymentStatusFailed, "MOCK-FAIL-REJECTED")
+	if errors.Is(err, repository.ErrNotSettleable) {
+		return s.lostSettleRace(ctx, tx.ID)
+	}
 	if err != nil {
 		return repository.PaymentTransaction{}, false, "", fmt.Errorf("update status: %w", err)
 	}
 	return updated, false, "Giao dịch thanh toán bị từ chối.", nil
+}
+
+// lostSettleRace answers a mock payment whose compare-and-set found the payment no
+// longer PENDING/FAILED: a concurrent call paid it (report it as already paid) or
+// it was refunded meanwhile (refuse, never reopen it).
+func (s *PaymentService) lostSettleRace(ctx context.Context, txID string) (repository.PaymentTransaction, bool, string, error) {
+	cur, err := s.paymentRepo.GetTransaction(ctx, txID)
+	if err != nil {
+		return repository.PaymentTransaction{}, false, "", err
+	}
+	if cur.Status == repository.PaymentStatusPaid {
+		return cur, true, "Đơn hàng đã được thanh toán trước đó", nil
+	}
+	return repository.PaymentTransaction{}, false, "", ErrPaymentRefunded
 }
 
 // settlePaid drives a payment to PAID. With a transactional outbox writer wired
