@@ -89,11 +89,10 @@ describe("QAAskForm", () => {
     await user.click(
       screen.getByRole("button", { name: "Đặt câu hỏi cho Shop" }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Quá nhiều yêu cầu",
-    );
-    // The same message also reaches the toast region.
-    expect(screen.getAllByText("Quá nhiều yêu cầu")).toHaveLength(2);
+    // The inline Alert and the error toast both announce the failure.
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts).toHaveLength(2);
+    for (const a of alerts) expect(a).toHaveTextContent("Quá nhiều yêu cầu");
     expect(screen.getByLabelText("Câu hỏi của bạn")).toHaveValue("Hỏi gì đó");
   });
 });
@@ -131,7 +130,9 @@ describe("QAAnswerForm", () => {
     await user.click(screen.getByTestId("qa-answer-toggle"));
     await user.type(screen.getByLabelText("Nội dung trả lời"), "x");
     await user.click(screen.getByRole("button", { name: "Gửi trả lời" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Không được");
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts).toHaveLength(2); // inline Alert + error toast
+    for (const a of alerts) expect(a).toHaveTextContent("Không được");
     expect(screen.getByRole("button", { name: "Gửi trả lời" })).toBeEnabled();
   });
 

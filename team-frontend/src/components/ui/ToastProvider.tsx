@@ -124,6 +124,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
+            // an error interrupts assistive tech; other toasts are polite status updates
+            role={t.type === "error" ? "alert" : "status"}
             className={`pointer-events-auto flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-md transition-all duration-300 ${
               t.type === "success"
                 ? "border-emerald-500/30 bg-emerald-900/90 text-white shadow-emerald-950/20"
