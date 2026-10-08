@@ -13,6 +13,7 @@ import time
 from pytest_bdd import given, parsers, then, when
 
 from tests.e2e.support import apr_support as apr
+from tests.e2e.support import pear_edge_support as pe
 from tests.e2e.support.world import World
 
 
@@ -37,9 +38,34 @@ def _fail_primary(world: World, status: str) -> None:
     x["apr_failed_at"] = time.monotonic()
 
 
+BREAKER_OVERLAY = pe.REPO_ROOT / "platform-e2e" / "compose" / "llm-fake-breaker.override.yaml"
+
+
+def _wait_team_ai() -> None:
+    pe.wait_healthy(pe.ai_container(), 120)
+
+
+def _real_breaker(world: World) -> None:
+    """Recreate team-ai with LLM_BREAKER_THRESHOLD=2; restore the standing stack in teardown."""
+    if apr.ai_int("LLM_BREAKER_THRESHOLD", 0) == 2:
+        return
+
+    def restore() -> None:
+        apr.dc("up", "-d", "--no-deps", "team-ai")
+        _wait_team_ai()
+
+    world.add_cleanup(restore)
+    apr.dc("-f", str(BREAKER_OVERLAY), "up", "-d", "--no-deps", "team-ai")
+    _wait_team_ai()
+    assert (
+        apr.ai_int("LLM_BREAKER_THRESHOLD", 0) == 2
+    ), "team-ai did not pick up the breaker overlay"
+
+
 @given("every fake target is healthy and the primary's breaker is closed")
 def breaker_closed(world: World) -> None:
     x = _x(world)
+    _real_breaker(world)
     apr.fake_set_mode(primary="ok", fb1="ok", fb2="ok")
     world.add_cleanup(lambda: apr.fake_set_mode(primary="ok", fb1="ok", fb2="ok"))
     deadline = time.monotonic() + 2 * _cooldown() + 10

@@ -48,7 +48,11 @@ services:
       CHAT_SYSTEM_PROMPT: "You are the Agora shopping assistant. (e2e fixed system prompt)"
       LLM_FIRST_TOKEN_TIMEOUT_SECONDS: "2"
       LLM_MAX_ATTEMPTS: "3"
-      LLM_BREAKER_THRESHOLD: "2"
+      # Breaker state lives in the team-ai process and is shared by every scenario, so the
+      # standing stack keeps it effectively off (parallel routing scenarios inject failures
+      # into the same targets). ai/llm_breaker.feature layers llm-fake-breaker.override.yaml
+      # (threshold 2) for its own serial run and restores this afterwards.
+      LLM_BREAKER_THRESHOLD: "1000"
       LLM_BREAKER_COOLDOWN_SECONDS: "5"
       CHAT_HISTORY_MAX_TURNS: "4"
       QUOTA_ENABLED: "true"
