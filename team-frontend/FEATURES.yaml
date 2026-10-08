@@ -2399,3 +2399,47 @@ features:
     covered_by: "frontend/oic_inv_checkout_idempotency.feature::A new checkout after a completed one creates a new order"
     notes: >-
       Scenario in frontend/oic_inv_checkout_idempotency.feature. GREEN on the pre-change stack (two orders); it guards the key renewal once the storefront sends keys.
+
+  - id: discovery.search-rating-the-search-page-shows-no-rating-filter
+    title: "The search page shows no rating filter"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given published listings across categories and price ranges are indexed"
+      - "When a buyer opens the search results for those listings"
+      - "Then the filter sidebar shows the category and price groups and no `facet-ratings` group or \"Đánh giá\" filter, and no sort or pagination link on the page contains `rating=`"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::The search page shows no rating filter. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: discovery.search-rating-an-old-rating-link-renders-the-results-without-error
+    title: "An old rating link renders the results without error"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability frontend-search-rating."
+    entry_route: /search
+    services: [team-frontend, team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing whose title carries a unique keyword is indexed"
+      - "When a buyer opens `/search?q=<keyword>&rating=4`"
+      - "Then the page lists that listing exactly as `/search?q=<keyword>` does, shows no error or empty state, shows no rating chip, and its sort links do not contain `rating=`"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: frontend/search_rating_removed.feature::An old rating link renders the results without error. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
