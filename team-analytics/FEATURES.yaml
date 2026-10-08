@@ -239,3 +239,37 @@ features:
       Authored against the fix/funnel-seller-scope change; collect-only and lint
       verified, not yet run against the stack (needs the team-analytics image rebuilt
       and KAFKA_LISTING_* env, see the change notes).
+
+  - id: tracking.same-event-twice-stored-once
+    title: "A re-sent tracking event is stored once in the warehouse"
+    persona: guest
+    priority: P1
+    summary: "The envelope event_id is derived from the visitor and the client eventId, so a re-sent beacon carries the same id and the warehouse keeps one row."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts the same view (same `eventId` and `anonymousId`, unique listing id) twice
+      - Then both envelopes on analytics.events carry the same `event_id`, and the warehouse holds exactly one row for that listing id
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Posting the same event twice stores one row"
+
+  - id: tracking.two-visitors-cannot-collide-on-event-id
+    title: "Two visitors reusing an eventId keep one warehouse row each"
+    persona: guest
+    priority: P1
+    summary: "The event id is scoped by visitor, so one visitor cannot suppress another's event by reusing its eventId."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When two different anonymous visitors post views with the same `eventId`
+      - Then the warehouse holds one row for each visitor
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Two visitors cannot collide on an event id"
