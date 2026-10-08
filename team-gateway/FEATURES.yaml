@@ -405,3 +405,75 @@ features:
     covered_by: "security/oic_inv_edge_listing_commit.feature::The listing stock commit RPC answers 501 at the edge"
     notes: >-
       Scenario in security/oic_inv_edge_listing_commit.feature. Written ahead of the code (port-order-inventory-correctness); flip to automated once green. RED on the pre-change stack: the running gateway image predates the re-vendored proto and answers HTTP 404 (page not found) instead of 501.
+
+  - id: edge.stream-invalid-token-refused
+    title: An invalid token on a stream is refused
+    persona: buyer
+    priority: P0
+    summary: An invalid token on a stream is refused (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a client calls StreamChat through the gateway with a bearer token whose signature is invalid"
+      - "Then the stream ends with the Connect error code unauthenticated and no chat message is streamed"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "An invalid token on a stream is refused" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.stream-echoes-request-id
+    title: A stream echoes the request id
+    persona: buyer
+    priority: P2
+    summary: A stream echoes the request id (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a logged-in buyer calls StreamChat through the gateway with X-Request-Id \"e2e-stream-<random>\""
+      - "Then the stream completes and the response carries X-Request-Id \"e2e-stream-<random>\""
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "A stream echoes the request id" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.stream-rate-limited-per-caller
+    title: Streams are rate limited per caller
+    persona: buyer
+    priority: P1
+    summary: Streams are rate limited per caller (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When one freshly registered buyer opens more StreamChat calls at once than the gateway's rate-limit burst"
+      - "Then at least one of them fails with resource_exhausted, and a different buyer's StreamChat call made right after succeeds"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "Streams are rate limited per caller" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.stream-oversized-request-refused
+    title: An oversized stream request is refused
+    persona: buyer
+    priority: P1
+    summary: An oversized stream request is refused (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a logged-in buyer calls StreamChat with a 20 000-byte message"
+      - "Then the call fails with resource_exhausted"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "An oversized stream request is refused" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
