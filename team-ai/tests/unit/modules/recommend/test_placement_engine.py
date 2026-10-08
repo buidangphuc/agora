@@ -49,9 +49,19 @@ class DummyCache:
         self.user_recs = {
             "user_vip": [
                 # Item A: higher raw cosine (0.95), but no feature store metadata
-                Candidate(listing_id="item_cos_high", score=0.95, in_stock=True, category_id="cat_other"),
+                Candidate(
+                    listing_id="item_cos_high",
+                    score=0.95,
+                    in_stock=True,
+                    category_id="cat_other",
+                ),
                 # Item B: lower raw cosine (0.80), but strong category match and high CTR in feature store
-                Candidate(listing_id="item_gbdt_favored", score=0.80, in_stock=True, category_id="cat_target"),
+                Candidate(
+                    listing_id="item_gbdt_favored",
+                    score=0.80,
+                    in_stock=True,
+                    category_id="cat_target",
+                ),
                 Candidate(listing_id="item_3", score=0.70, in_stock=True),
                 Candidate(listing_id="item_4", score=0.60, in_stock=True),
                 Candidate(listing_id="item_5", score=0.50, in_stock=True),
@@ -67,20 +77,22 @@ class DummyCache:
 
 def test_home_feed_personalized_gbdt_and_featurestore_hit_count():
     async def _run():
-        fs = InMemoryFeatureStore({
-            "item_gbdt_favored": {
-                "category_match": 1.0,
-                "historical_ctr": 0.15,
-                "conversion_rate": 0.08,
-                "popularity_score": 90.0,
-            },
-            "item_cos_high": {
-                "category_match": 0.0,
-                "historical_ctr": 0.01,
-                "conversion_rate": 0.005,
-                "popularity_score": 10.0,
-            },
-        })
+        fs = InMemoryFeatureStore(
+            {
+                "item_gbdt_favored": {
+                    "category_match": 1.0,
+                    "historical_ctr": 0.15,
+                    "conversion_rate": 0.08,
+                    "popularity_score": 90.0,
+                },
+                "item_cos_high": {
+                    "category_match": 0.0,
+                    "historical_ctr": 0.01,
+                    "conversion_rate": 0.005,
+                    "popularity_score": 10.0,
+                },
+            }
+        )
 
         service = RecommendationService(
             backend=DummyBackend(),
@@ -146,7 +158,10 @@ def test_startup_validation_rejects_unbound_ranking_model():
         ranking_model="unsupported_deep_transformer",
     )
 
-    with pytest.raises(ValueError, match="declares unbound ranking model 'unsupported_deep_transformer'"):
+    with pytest.raises(
+        ValueError,
+        match="declares unbound ranking model 'unsupported_deep_transformer'",
+    ):
         registry.validate()
 
 

@@ -21,9 +21,22 @@ from pydantic import ValidationError
 
 from app.core.errors import ServiceUnavailableError
 from app.core.request_context import get_request_id
+from app.core.resilience import FailureKind
+from app.transport.grpc.chat_stream import (
+    ChainExhausted,
+    ChatDeadlineExceeded,
+    ChatStreamError,
+    QuotaExhausted,
+    StreamInterrupted,
+)
 
 INTERNAL_MESSAGE = "internal error"
 UNAVAILABLE_MESSAGE = "service unavailable"
+# StreamChat (LLM path): fixed strings, never provider or exception text.
+MODEL_UNAVAILABLE_MESSAGE = "model unavailable"
+MODEL_RATE_LIMITED_MESSAGE = "model rate limited"
+DEADLINE_EXCEEDED_MESSAGE = "deadline exceeded"
+QUOTA_EXCEEDED_MESSAGE = "quota exceeded"
 
 # A pydantic ``loc`` part normally comes from our own schema; a dict-typed field
 # would put client-chosen keys there, so only a conservative charset is echoed.
@@ -49,6 +62,21 @@ def map_servicer_error(exc: BaseException) -> tuple[grpc.StatusCode, str]:
         return grpc.StatusCode.INVALID_ARGUMENT, f"invalid request: {detail}"
     if isinstance(exc, ServiceUnavailableError):
         return grpc.StatusCode.UNAVAILABLE, UNAVAILABLE_MESSAGE
+    if isinstance(exc, ChatStreamError):
+        return map_chat_error(exc)
+    return grpc.StatusCode.INTERNAL, INTERNAL_MESSAGE
+
+
+def map_chat_error(exc: ChatStreamError) -> tuple[grpc.StatusCode, str]:
+    """StreamChat failures onto existing gRPC codes with fixed messages."""
+    if isinstance(exc, ChatDeadlineExceeded):
+        return grpc.StatusCode.DEADLINE_EXCEEDED, DEADLINE_EXCEEDED_MESSAGE
+    if isinstance(exc, QuotaExhausted):
+        return grpc.StatusCode.RESOURCE_EXHAUSTED, QUOTA_EXCEEDED_MESSAGE
+    if isinstance(exc, ChainExhausted) and exc.last_kind is FailureKind.RATE_LIMITED:
+        return grpc.StatusCode.RESOURCE_EXHAUSTED, MODEL_RATE_LIMITED_MESSAGE
+    if isinstance(exc, ChainExhausted | StreamInterrupted):
+        return grpc.StatusCode.UNAVAILABLE, MODEL_UNAVAILABLE_MESSAGE
     return grpc.StatusCode.INTERNAL, INTERNAL_MESSAGE
 
 

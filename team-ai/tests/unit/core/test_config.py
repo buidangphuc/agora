@@ -311,3 +311,43 @@ def test_grpc_rate_limit_is_opt_in_and_redis_backend_needs_redis():
             RATE_LIMIT_BACKEND="redis",
             REDIS_ENABLED=False,
         )
+
+
+_PROD = {
+    "ENVIRONMENT": "production",
+    "AUTH_BEARER_TOKEN": "prod-token-with-enough-entropy",
+    "DOCS_ENABLED": False,
+    "CORS_ALLOW_ORIGINS": "https://app.example.com",
+    "TRUSTED_HOSTS": "api.example.com",
+}
+
+
+def test_production_refuses_a_per_process_grpc_rate_limiter():
+    with pytest.raises(ValidationError, match="RATE_LIMIT_BACKEND"):
+        build_test_settings(
+            **_PROD, GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory"
+        )
+
+
+def test_production_accepts_the_redis_grpc_rate_limiter_and_memory_when_off():
+    build_test_settings(
+        **_PROD,
+        GRPC_RATE_LIMIT_ENABLED=True,
+        RATE_LIMIT_BACKEND="redis",
+        REDIS_ENABLED=True,
+    )
+    build_test_settings(**_PROD, GRPC_RATE_LIMIT_ENABLED=False)
+
+
+def test_local_allows_the_memory_grpc_rate_limiter():
+    build_test_settings(GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory")
+
+
+def test_llm_trace_content_defaults_to_redacted_and_full_is_local_only():
+    assert build_test_settings().LLM_TRACE_CONTENT == "redacted"
+    build_test_settings(LLM_TRACE_CONTENT="full")  # local/test is fine
+    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
+        build_test_settings(**_PROD, LLM_TRACE_CONTENT="full")
+    build_test_settings(**_PROD, LLM_TRACE_CONTENT="off")
+    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
+        build_test_settings(LLM_TRACE_CONTENT="verbose")

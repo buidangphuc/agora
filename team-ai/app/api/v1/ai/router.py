@@ -74,6 +74,7 @@ async def chat_copilot_endpoint(
 # SPU & SKU Hierarchical Tag Classifier Endpoints
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/tags/classify",
     response_model=ClassifyTagsResponse,
@@ -134,8 +135,12 @@ async def promote_tags_endpoint(
 )
 async def list_tags_endpoint(
     category_id: str = Query(default="", description="Filter by category ID"),
-    facet_group: FacetGroup | None = Query(default=None, description="Filter by facet group"),
-    status: TagStatus | None = Query(default=None, description="Filter by status (promoted, exploring)"),
+    facet_group: FacetGroup | None = Query(
+        default=None, description="Filter by facet group"
+    ),
+    status: TagStatus | None = Query(
+        default=None, description="Filter by status (promoted, exploring)"
+    ),
     tag_service: TagClassifierService = Depends(get_tag_classifier_service),
 ) -> ListTagsResponse:
     return await tag_service.list_tags(

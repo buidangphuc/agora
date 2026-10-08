@@ -15,6 +15,7 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 from loguru import logger
 
 from app.core.config import Settings
+from app.core.redaction import RedactionPolicy
 from app.modules.business.ai_assistant.service import AIAssistantService
 from app.transport.grpc._pb.platform.ai.v1 import ai_pb2, ai_pb2_grpc
 from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
@@ -45,12 +46,12 @@ class _AioHealthServicer(health_pb2_grpc.HealthServicer):
     TypeError). This reports SERVING for every service asynchronously.
     """
 
-    async def Check(self, request, context):  # noqa: N802 (gRPC method name)
+    async def Check(self, request, context):
         return health_pb2.HealthCheckResponse(
             status=health_pb2.HealthCheckResponse.SERVING
         )
 
-    async def Watch(self, request, context):  # noqa: N802 (gRPC method name)
+    async def Watch(self, request, context):
         await context.write(
             health_pb2.HealthCheckResponse(
                 status=health_pb2.HealthCheckResponse.SERVING
@@ -93,7 +94,12 @@ def build_grpc_server(
     )
     ai_pb2_grpc.add_AIServiceServicer_to_server(
         AIServicer(
-            lambda: AIAssistantService(rag_service=rag_provider()),
+            lambda: AIAssistantService(
+                rag_service=rag_provider(),
+                redaction_policy=RedactionPolicy.from_trace_content(
+                    settings.LLM_TRACE_CONTENT, mask_national_id=True
+                ),
+            ),
             require_ai_use=settings.AI_USE_SCOPE_REQUIRED,
         ),
         server,

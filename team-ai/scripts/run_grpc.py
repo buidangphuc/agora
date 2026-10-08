@@ -25,7 +25,7 @@ from app.bootstrap.resources import (
 )
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.transport.grpc.chat_stream import build_chat_streamer
+from app.transport.grpc.chat_stream import build_chat_streamer, close_chat_streamer
 from app.transport.grpc.server import serve
 
 
@@ -45,13 +45,17 @@ async def _main() -> None:
     )
     logger.info("grpc.bootstrap.ready rag_enabled={}", settings.RAG_ENABLED)
 
+    chat_streamer = build_chat_streamer(
+        settings, quota_provider=lambda: app.state.resources.quota
+    )
     try:
         await serve(
             settings=settings,
             rag_provider=lambda: app.state.resources.rag_service,
-            chat_streamer=build_chat_streamer(settings),
+            chat_streamer=chat_streamer,
         )
     finally:
+        await close_chat_streamer(chat_streamer)
         await close_application_resources(app)
 
 

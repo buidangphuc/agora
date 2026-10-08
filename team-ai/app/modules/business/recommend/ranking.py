@@ -16,13 +16,13 @@ from app.modules.business.recommend.schemas import (
 
 
 class FeatureStorePort(Protocol):
-    async def get_item_features_batch(self, listing_ids: list[str]) -> dict[str, dict[str, Any]]:
-        ...
+    async def get_item_features_batch(
+        self, listing_ids: list[str]
+    ) -> dict[str, dict[str, Any]]: ...
 
 
 class NearlineSignalPort(Protocol):
-    def get_debiased_ctr(self, listing_id: str) -> float:
-        ...
+    def get_debiased_ctr(self, listing_id: str) -> float: ...
 
 
 class InMemoryFeatureStore:
@@ -34,7 +34,9 @@ class InMemoryFeatureStore:
     def set_item_features(self, listing_id: str, features: dict[str, Any]) -> None:
         self._items[listing_id] = features
 
-    async def get_item_features_batch(self, listing_ids: list[str]) -> dict[str, dict[str, Any]]:
+    async def get_item_features_batch(
+        self, listing_ids: list[str]
+    ) -> dict[str, dict[str, Any]]:
         return {lid: self._items[lid] for lid in listing_ids if lid in self._items}
 
 
@@ -59,8 +61,7 @@ class RankerPort(Protocol):
         item_features_map: dict[str, dict[str, Any]] | None = None,
         nearline_store: NearlineSignalPort | None = None,
         limit: int = 10,
-    ) -> list[RecommendedItem]:
-        ...
+    ) -> list[RecommendedItem]: ...
 
 
 class CosineRankerAdapter:
@@ -91,7 +92,11 @@ class GBDTRankerAdapter:
         item_feat: dict[str, Any],
         nearline_store: NearlineSignalPort | None = None,
     ) -> tuple[list[float], str]:
-        cat_match = 1.0 if (cand.category_id and cand.category_id == query.category_id) else float(item_feat.get("category_match", 0.0))
+        cat_match = (
+            1.0
+            if (cand.category_id and cand.category_id == query.category_id)
+            else float(item_feat.get("category_match", 0.0))
+        )
         pop = float(item_feat.get("popularity_score", 50.0)) / 100.0
         price = float(item_feat.get("price", 50.0)) / 1000.0
         freshness = float(item_feat.get("freshness_score", 0.8))
@@ -153,7 +158,9 @@ class GBDTRankerAdapter:
         scored: list[tuple[Candidate, float]] = []
         for cand in filtered_cands:
             feat = item_features_map.get(cand.listing_id, {})
-            vec, _source = self._extract_vector(cand, query, feat, nearline_store=nearline_store)
+            vec, _source = self._extract_vector(
+                cand, query, feat, nearline_store=nearline_store
+            )
             score = self._predict(vec)
             scored.append((cand, score))
 
@@ -182,6 +189,7 @@ class eGMVRankerAdapter:
 
     def _predict_cvr(self, cvr_vec: list[float]) -> float:
         import math
+
         logit = -1.5
         for v, w in zip(cvr_vec, self.cvr_weights, strict=False):
             logit += v * w
@@ -193,6 +201,7 @@ class eGMVRankerAdapter:
 
     def _predict_ctr(self, ctr_vec: list[float]) -> float:
         import math
+
         score = 0.0
         for v, w in zip(ctr_vec, self.ctr_weights, strict=False):
             score += v * w
@@ -211,6 +220,7 @@ class eGMVRankerAdapter:
         limit: int = 10,
     ) -> list[RecommendedItem]:
         import math
+
         item_features_map = item_features_map or {}
         seed = query.seed_listing_id
         best: dict[str, Candidate] = {}
@@ -229,7 +239,11 @@ class eGMVRankerAdapter:
 
         for cand in filtered_cands:
             feat = item_features_map.get(cand.listing_id, {})
-            cat_match = 1.0 if (cand.category_id and cand.category_id == query.category_id) else float(feat.get("category_match", 0.0))
+            cat_match = (
+                1.0
+                if (cand.category_id and cand.category_id == query.category_id)
+                else float(feat.get("category_match", 0.0))
+            )
             pop = float(feat.get("popularity_score", 50.0)) / 100.0
             price_raw = float(feat.get("price", 100000.0))
             price_norm = price_raw / 1000.0
@@ -243,12 +257,34 @@ class eGMVRankerAdapter:
 
             cvr = float(feat.get("conversion_rate", 0.0))
             cart_to_order = float(feat.get("cart_to_order_ratio", 0.0))
-            user_cvr = float(query.user_context.get("user_cvr", 0.0) if hasattr(query, "user_context") and query.user_context else 0.0)
-            cat_avg_price = float(feat.get("category_avg_price", price_raw if price_raw > 0 else 1.0))
+            user_cvr = float(
+                query.user_context.get("user_cvr", 0.0)
+                if hasattr(query, "user_context") and query.user_context
+                else 0.0
+            )
+            cat_avg_price = float(
+                feat.get("category_avg_price", price_raw if price_raw > 0 else 1.0)
+            )
             price_ratio = (price_raw / cat_avg_price) if cat_avg_price > 0 else 1.0
 
-            ctr_vec = [cand.score, cat_match, min(1.0, pop), min(1.0, price_norm), min(1.0, freshness), min(1.0, ctr), min(1.0, cvr)]
-            cvr_vec = [min(1.0, cvr), min(1.0, cart_to_order), min(1.0, user_cvr), min(1.0, price_norm), min(5.0, price_ratio), min(1.0, pop), cat_match]
+            ctr_vec = [
+                cand.score,
+                cat_match,
+                min(1.0, pop),
+                min(1.0, price_norm),
+                min(1.0, freshness),
+                min(1.0, ctr),
+                min(1.0, cvr),
+            ]
+            cvr_vec = [
+                min(1.0, cvr),
+                min(1.0, cart_to_order),
+                min(1.0, user_cvr),
+                min(1.0, price_norm),
+                min(5.0, price_ratio),
+                min(1.0, pop),
+                cat_match,
+            ]
 
             p_ctr = self._predict_ctr(ctr_vec)
             p_cvr = self._predict_cvr(cvr_vec)
@@ -264,7 +300,6 @@ class eGMVRankerAdapter:
             RecommendedItem(listing_id=cand.listing_id, score=score, rank=rank)
             for rank, (cand, score) in enumerate(scored[:res_limit], start=1)
         ]
-
 
 
 def rank_and_filter(

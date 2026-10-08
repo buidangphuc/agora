@@ -20,9 +20,7 @@ from app.modules.business.tag_classifier.schemas import (
     ListTagsResponse,
     PromoteTagRequest,
     PromoteTagResponse,
-    RawListingItem,
     SkuClassificationResult,
-    SkuVariantInput,
     TagItem,
     TagStatus,
 )
@@ -309,7 +307,13 @@ SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
         "status": TagStatus.PROMOTED,
         "confidence": 1.0,
         "is_canonical": True,
-        "synonyms": ["100% cotton", "cotton 100", "cotton 100%", "pure cotton", "cotton tu nhien"],
+        "synonyms": [
+            "100% cotton",
+            "cotton 100",
+            "cotton 100%",
+            "pure cotton",
+            "cotton tu nhien",
+        ],
         "occurrence_count": 112,
         "search_volume": 2900,
         "conversion_lift": 0.16,
@@ -337,7 +341,15 @@ SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
         "status": TagStatus.PROMOTED,
         "confidence": 1.0,
         "is_canonical": True,
-        "synonyms": ["upf50+", "chong uv", "chong tia uv", "tia uv", "chong nang", "chong tia cuc tim", "upf 50"],
+        "synonyms": [
+            "upf50+",
+            "chong uv",
+            "chong tia uv",
+            "tia uv",
+            "chong nang",
+            "chong tia cuc tim",
+            "upf 50",
+        ],
         "occurrence_count": 42,
         "search_volume": 1500,
         "conversion_lift": 0.17,
@@ -366,7 +378,12 @@ SEED_CANONICAL_TAGS: list[dict[str, Any]] = [
         "status": TagStatus.PROMOTED,
         "confidence": 1.0,
         "is_canonical": True,
-        "synonyms": ["inverter", "tiet kiem dien", "bien tan inverter", "ecobubble inverter"],
+        "synonyms": [
+            "inverter",
+            "tiet kiem dien",
+            "bien tan inverter",
+            "ecobubble inverter",
+        ],
         "occurrence_count": 87,
         "search_volume": 3200,
         "conversion_lift": 0.25,
@@ -460,7 +477,10 @@ class TagClassifierService:
             if re.search(pattern, norm_text):
                 tag = self._canonical_tags[slug]
                 cat_boost = 1.0
-                if request.category_id and tag.category_id not in ("all", request.category_id):
+                if request.category_id and tag.category_id not in (
+                    "all",
+                    request.category_id,
+                ):
                     cat_boost = 0.6
                 score = tag.confidence * cat_boost
                 matched_canonical.append((tag, score))
@@ -478,9 +498,13 @@ class TagClassifierService:
                     matched_candidates.append((cand, score))
                     seen_cand_slugs.add(slug)
 
-        emergent_candidates = self._extract_emergent_patterns(norm_text, request.category_id)
+        emergent_candidates = self._extract_emergent_patterns(
+            norm_text, request.category_id
+        )
         for cand in emergent_candidates:
-            if cand.slug not in seen_canonical_slugs and cand.slug not in [c.slug for c, _ in matched_candidates]:
+            if cand.slug not in seen_canonical_slugs and cand.slug not in [
+                c.slug for c, _ in matched_candidates
+            ]:
                 self._register_candidate_tag(cand)
                 if request.include_candidates:
                     matched_candidates.append((cand, cand.confidence * 0.8))
@@ -543,7 +567,9 @@ class TagClassifierService:
 
         for v in request.variants:
             # Combine variant title, options dict, and SKU code
-            variant_options_text = " ".join(f"{k} {val}" for k, val in v.options.items())
+            variant_options_text = " ".join(
+                f"{k} {val}" for k, val in v.options.items()
+            )
             variant_raw_text = f"{v.name} {variant_options_text} {v.sku_code}"
             norm_v_text = _strip_accents(variant_raw_text)
 
@@ -579,10 +605,12 @@ class TagClassifierService:
                         spu_facet_map[fg].add(tag.slug)
 
             # Build all effective tags (SPU union SKU)
-            all_effective = list({t.slug: t for t in (spu_tags + sku_specific_tags)}.values())
+            all_effective = list(
+                {t.slug: t for t in (spu_tags + sku_specific_tags)}.values()
+            )
 
             sku_res = SkuClassificationResult(
-                variant_id=v.variant_id or f"var-{len(sku_results)+1}",
+                variant_id=v.variant_id or f"var-{len(sku_results) + 1}",
                 sku_code=v.sku_code,
                 name=v.name,
                 price=v.price,
@@ -610,7 +638,7 @@ class TagClassifierService:
             )
 
         # Finalize SPU Aggregated Facet Filters
-        final_spu_facets = {k: sorted(list(v)) for k, v in spu_facet_map.items()}
+        final_spu_facets = {k: sorted(v) for k, v in spu_facet_map.items()}
 
         # OpenSearch Full Document Shape
         prices = [v.price for v in request.variants if v.price > 0]
@@ -643,7 +671,9 @@ class TagClassifierService:
     # ──────────────────────────────────────────────────────────────────────────
     # 3. Emergent Pattern Extraction (SPU & SKU)
     # ──────────────────────────────────────────────────────────────────────────
-    def _extract_emergent_patterns(self, norm_text: str, category_id: str) -> list[TagItem]:
+    def _extract_emergent_patterns(
+        self, norm_text: str, category_id: str
+    ) -> list[TagItem]:
         candidates: list[TagItem] = []
 
         # Patterns: Wattage (e.g. 100w, 120w, 240w)
@@ -724,11 +754,41 @@ class TagClassifierService:
 
         # Patterns: Fabric / Materials / Finishes
         material_keywords = [
-            ("linen", "Vải Linen Tự Nhiên", "vai-linen-tu-nhien", FacetGroup.MATERIAL, "cat-fashion"),
-            ("satin", "Lụa Satin Cao Cấp", "lua-satin-cao-cap", FacetGroup.MATERIAL, "cat-fashion"),
-            ("denim", "Chất liệu Denim Bền", "chat-lieu-denim-ben", FacetGroup.MATERIAL, "cat-fashion"),
-            ("titan", "Khung Titanium", "khung-titanium", FacetGroup.MATERIAL, "cat-electronics"),
-            ("ceramic", "Gốm Sứ Ceramic", "gom-su-ceramic", FacetGroup.MATERIAL, "cat-home"),
+            (
+                "linen",
+                "Vải Linen Tự Nhiên",
+                "vai-linen-tu-nhien",
+                FacetGroup.MATERIAL,
+                "cat-fashion",
+            ),
+            (
+                "satin",
+                "Lụa Satin Cao Cấp",
+                "lua-satin-cao-cap",
+                FacetGroup.MATERIAL,
+                "cat-fashion",
+            ),
+            (
+                "denim",
+                "Chất liệu Denim Bền",
+                "chat-lieu-denim-ben",
+                FacetGroup.MATERIAL,
+                "cat-fashion",
+            ),
+            (
+                "titan",
+                "Khung Titanium",
+                "khung-titanium",
+                FacetGroup.MATERIAL,
+                "cat-electronics",
+            ),
+            (
+                "ceramic",
+                "Gốm Sứ Ceramic",
+                "gom-su-ceramic",
+                FacetGroup.MATERIAL,
+                "cat-home",
+            ),
         ]
         for kw, name, slug, fg, cat in material_keywords:
             if re.search(r"\b" + kw + r"\b", norm_text):
@@ -776,7 +836,9 @@ class TagClassifierService:
             for var in item.variants:
                 var_text = f"{var.name} {' '.join(var.options.values())} {var.sku_code}"
                 var_norm = _strip_accents(var_text)
-                var_discovered = self._extract_emergent_patterns(var_norm, item.category_id)
+                var_discovered = self._extract_emergent_patterns(
+                    var_norm, item.category_id
+                )
                 for tag in var_discovered:
                     extracted_slugs[tag.slug] += 1
                     if tag.slug not in candidate_map:
@@ -793,7 +855,7 @@ class TagClassifierService:
         new_candidates = len(self._candidate_tags) - initial_candidate_count
         discovered_list = [
             self._candidate_tags[slug]
-            for slug in extracted_slugs.keys()
+            for slug in extracted_slugs
             if slug in self._candidate_tags
         ]
 
@@ -831,7 +893,9 @@ class TagClassifierService:
 
                 self._register_canonical_tag(tag)
                 promoted_list.append(tag)
-                logger.info(f"Promoted candidate tag '{slug}' to canonical facet ({tag.facet_group.value})")
+                logger.info(
+                    f"Promoted candidate tag '{slug}' to canonical facet ({tag.facet_group.value})"
+                )
             elif slug in self._canonical_tags:
                 tag = self._canonical_tags[slug]
                 if request.add_synonyms:
@@ -864,11 +928,15 @@ class TagClassifierService:
     # 6. Query Tags
     # ──────────────────────────────────────────────────────────────────────────
     async def list_tags(self, request: ListTagsRequest) -> ListTagsResponse:
-        all_tags: list[TagItem] = list(self._canonical_tags.values()) + list(self._candidate_tags.values())
+        all_tags: list[TagItem] = list(self._canonical_tags.values()) + list(
+            self._candidate_tags.values()
+        )
 
         filtered = all_tags
         if request.category_id:
-            filtered = [t for t in filtered if t.category_id in ("all", request.category_id)]
+            filtered = [
+                t for t in filtered if t.category_id in ("all", request.category_id)
+            ]
         if request.facet_group:
             filtered = [t for t in filtered if t.facet_group == request.facet_group]
         if request.status:

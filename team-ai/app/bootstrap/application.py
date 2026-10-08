@@ -90,9 +90,11 @@ def _build_lifespan(
             yield
         finally:
             if grpc_server is not None:
+                from app.transport.grpc.chat_stream import close_chat_streamer
                 from app.transport.grpc.server import stop_grpc_server
 
                 await stop_grpc_server(grpc_server, settings.GRPC_GRACE_SECONDS)
+                await close_chat_streamer(getattr(app.state, "chat_streamer", None))
             await _drain_in_flight(app, settings.GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS)
             if init_resources and settings.LANGFUSE_ENABLED:
                 await asyncio.to_thread(_flush_langfuse_client)
@@ -113,10 +115,15 @@ async def _start_grpc_server(app: FastAPI, settings: Settings):
     from app.transport.grpc.chat_stream import build_chat_streamer
     from app.transport.grpc.server import build_grpc_server
 
+    chat_streamer = build_chat_streamer(
+        settings,
+        quota_provider=lambda: getattr(app.state.resources, "quota", None),
+    )
+    app.state.chat_streamer = chat_streamer  # closed on shutdown (lifespan)
     server = build_grpc_server(
         settings=settings,
         rag_provider=lambda: getattr(app.state.resources, "rag_service", None),
-        chat_streamer=build_chat_streamer(settings),
+        chat_streamer=chat_streamer,
         recommendation_provider=lambda: getattr(
             app.state.resources, "recommendation_service", None
         ),

@@ -78,6 +78,23 @@ class Settings(
             and not self.REDIS_ENABLED
         ):
             raise ValueError("RATE_LIMIT_BACKEND=redis requires REDIS_ENABLED=true")
+        if (
+            self.GRPC_RATE_LIMIT_ENABLED
+            and self.RATE_LIMIT_BACKEND == "memory"
+            and not self.ENVIRONMENT.is_local
+        ):
+            # A per-process limiter multiplies the limit by the replica count.
+            raise ValueError(
+                "RATE_LIMIT_BACKEND=memory is refused with GRPC_RATE_LIMIT_ENABLED "
+                "outside dev/local/test (use RATE_LIMIT_BACKEND=redis)"
+            )
+        if self.LLM_TRACE_CONTENT not in {"off", "redacted", "full"}:
+            raise ValueError("LLM_TRACE_CONTENT must be one of off, redacted, full")
+        if self.LLM_TRACE_CONTENT == "full" and not self.ENVIRONMENT.is_local:
+            raise ValueError(
+                "LLM_TRACE_CONTENT=full is refused outside dev/local/test "
+                "(raw user text must not reach logs or traces)"
+            )
         if not self.ENVIRONMENT.is_production:
             return self
 
