@@ -424,6 +424,9 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 		if errors.Is(err, service.ErrOrderCannotBeReturned) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be returned in its current status", err)
 		}
+		if errors.Is(err, service.ErrNothingToReturn) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order has no returnable amount left", err)
+		}
 		return nil, internalErr(h.logger, "create return request", err)
 	}
 
@@ -488,12 +491,49 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 		if errors.Is(err, service.ErrInvalidReturnStatus) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid return status transition", err)
 		}
+		if errors.Is(err, service.ErrNotPaidOnline) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, service.ErrNotPaidOnline.Error(), err)
+		}
+		if errors.Is(err, repository.ErrReturnNotFound) {
+			return nil, status.Error(codes.NotFound, "return request not found")
+		}
 		return nil, internalErr(h.logger, "update return status", err)
 	}
 
 	return &orderv1.UpdateReturnStatusResponse{
 		ReturnRequest: toWireOrderReturn(updated),
 	}, nil
+}
+
+// ListOrderReturns lists an order's returns, newest first, to the order's buyer,
+// its seller or an admin; everyone else gets PERMISSION_DENIED.
+func (h *OrderHandler) ListOrderReturns(ctx context.Context, req *orderv1.ListOrderReturnsRequest) (*orderv1.ListOrderReturnsResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetOrderId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "order_id is required")
+	}
+	o, err := h.svc.GetOrder(ctx, req.GetOrderId())
+	if err != nil {
+		if errors.Is(err, repository.ErrOrderNotFound) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		return nil, internalErr(h.logger, "get order", err)
+	}
+	if !isAdminOrUser(principal, o.BuyerID, o.SellerID) {
+		return nil, status.Error(codes.PermissionDenied, "cannot list the returns of another user's order")
+	}
+	returns, err := h.svc.ListOrderReturns(ctx, o.ID)
+	if err != nil {
+		return nil, internalErr(h.logger, "list order returns", err)
+	}
+	out := make([]*orderv1.OrderReturn, 0, len(returns))
+	for _, r := range returns {
+		out = append(out, toWireOrderReturn(r))
+	}
+	return &orderv1.ListOrderReturnsResponse{Returns: out}, nil
 }
 
 // ── Shipment & Logistics Tracking RPCs ──
@@ -585,7 +625,13 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		})
 	}
 
+	var paidAt *timestamppb.Timestamp
+	if o.PaidAt != nil {
+		paidAt = timestamppb.New(*o.PaidAt) // unset = never paid online
+	}
+
 	return &orderv1.Order{
+		PaidAt:        paidAt,
 		Id:            o.ID,
 		BuyerId:       o.BuyerID,
 		SellerId:      o.SellerID,
