@@ -107,6 +107,15 @@ func run() error {
 	logger.Info("payout hold window", slog.String("window", settings.Payout.Window.String()),
 		slog.Bool("enabled", settings.Payout.Window > 0))
 	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, svcOpts...)
+	// Seller ledger consumer of order.events (OrderPaidEvent credit). The deferred stop
+	// runs before the CloseResources defer above (LIFO), so it stops before the pool
+	// closes.
+	stopConsumer, err := bootstrap.StartSettlementConsumer(paymentSvc, res.Pool != nil, logger)
+	if err != nil {
+		return fmt.Errorf("start settlement consumer: %w", err)
+	}
+	defer stopConsumer()
+
 	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(settings.Mock.MockPayments))
 
 	srv := grpcserver.Build(settings, paymentHandler, res.Health, logger)
