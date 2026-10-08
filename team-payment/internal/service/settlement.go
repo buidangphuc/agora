@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/buidangphuc/team-payment/internal/repository"
@@ -45,17 +44,9 @@ func (s *PaymentService) RefundCancelledOrder(ctx context.Context, orderID strin
 	if err != nil {
 		return err
 	}
-	if tx.Status == repository.PaymentStatusRefunded {
-		s.logger.InfoContext(ctx, "cancelled order already refunded; nothing to do",
-			slog.String("order_id", orderID), slog.String("payment_id", tx.ID))
-		return nil
-	}
-	if _, err := s.refund(ctx, tx.ID, tx.Amount, "order_cancelled"); err != nil {
-		if errors.Is(err, ErrInvalidRefund) {
-			// Lost the compare-and-set to a concurrent refund: already refunded.
-			return nil
-		}
-		return err
-	}
-	return nil
+	_, err = s.refund(ctx, repository.RefundRequest{
+		PaymentID: tx.ID, Key: "cancel:" + orderID, Source: repository.RefundSourceOrderCancel,
+		SourceID: orderID, Reason: "order_cancelled", Mode: repository.RefundRemainder,
+	})
+	return err
 }

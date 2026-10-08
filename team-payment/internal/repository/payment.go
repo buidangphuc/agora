@@ -32,6 +32,8 @@ const (
 	PaymentStatusPaid        PaymentStatus = 2
 	PaymentStatusFailed      PaymentStatus = 3
 	PaymentStatusRefunded    PaymentStatus = 4
+	// PaymentStatusPartiallyRefunded: 0 < RefundedAmount < Amount (more refunds possible).
+	PaymentStatusPartiallyRefunded PaymentStatus = 5
 )
 
 type PaymentTransaction struct {
@@ -43,7 +45,8 @@ type PaymentTransaction struct {
 	Method            PaymentMethod
 	Status            PaymentStatus
 	ProviderReference string
-	// RefundedAmount is what a refund took back (0 until refunded; 0..Amount).
+	// RefundedAmount is the cumulative applied amount of the payment's refunds
+	// (0..Amount; the sum of its payment_refunds rows, LEGACY included).
 	RefundedAmount int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

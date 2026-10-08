@@ -35,9 +35,10 @@ type LedgerEntry struct {
 	Type     string
 	Amount   int64
 	Status   string
-	// ReferenceID is what the entry is about: the payment transaction id for
-	// ORDER_SETTLEMENT / REFUND_DEDUCTION ("" = NULL, e.g. payouts and legacy credits).
-	// The store keeps (Type, ReferenceID) unique when set.
+	// ReferenceID is what the entry is about: the payment transaction id for an
+	// ORDER_SETTLEMENT, the refund key (payment_refunds.id) for a REFUND_DEDUCTION
+	// ("" = NULL, e.g. payouts and legacy credits). The store keeps (Type, ReferenceID)
+	// unique when set: one credit per payment, one deduction per refund.
 	ReferenceID string
 	CreatedAt   time.Time
 }
@@ -216,11 +217,13 @@ func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntr
 }
 
 // heldCreditsSQL lists the seller's in-window COMPLETED credits, each net of the refund
-// deductions with the same reference (design D7). Served by
+// deductions of every refund of the credited payment: a deduction references its refund,
+// and the refund names the payment (payment-refund-model design D3). Served by
 // idx_wallet_ledger_seller_created.
 const heldCreditsSQL = `SELECT c.created_at,
 		(c.amount + COALESCE((SELECT SUM(d.amount) FROM wallet_ledger d
-			WHERE d.type = 'REFUND_DEDUCTION' AND d.reference_id = c.reference_id), 0))::BIGINT
+			JOIN payment_refunds r ON r.id = d.reference_id
+			WHERE d.type = 'REFUND_DEDUCTION' AND r.payment_id = c.reference_id), 0))::BIGINT
 	FROM wallet_ledger c
 	WHERE c.seller_id = $1 AND c.type = 'ORDER_SETTLEMENT' AND c.status = 'COMPLETED' AND c.created_at > $2`
 
@@ -297,6 +300,9 @@ type InMemoryLedgerRepository struct {
 	entries []LedgerEntry
 	seq     int64 // monotonic tiebreaker so ordering is deterministic in tests
 	seqByID map[string]int64
+	// refunds is the settlement ledger's refund table (set by NewInMemorySettlementLedger):
+	// hold-back maps a deduction to its payment through it.
+	refunds *refundIndex
 }
 
 func NewInMemoryLedgerRepository() *InMemoryLedgerRepository {
@@ -357,7 +363,10 @@ func (r *InMemoryLedgerRepository) heldCreditsLocked(sellerID string, h Holdback
 		}
 		net := c.Amount
 		for _, d := range r.entries {
-			if c.ReferenceID != "" && d.Type == LedgerTypeRefundDeduction && d.ReferenceID == c.ReferenceID {
+			if c.ReferenceID == "" || d.Type != LedgerTypeRefundDeduction || r.refunds == nil {
+				continue
+			}
+			if pid, ok := r.refunds.paymentOf(d.ReferenceID); ok && pid == c.ReferenceID {
 				net += d.Amount
 			}
 		}

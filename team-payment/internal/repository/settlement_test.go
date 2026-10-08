@@ -79,6 +79,38 @@ func wantOne(t *testing.T, got []repository.LedgerEntry, amount int64, ref strin
 	}
 }
 
+func rpcRefund(ctx context.Context, s stores, txID, id string, amount int64) (repository.RefundResult, error) {
+	return s.settle.ApplyRefund(ctx, repository.RefundRequest{
+		PaymentID: txID, Key: "rpc:" + id, Source: repository.RefundSourceSellerOrAdmin, SourceID: id,
+		Requested: amount, Reason: "x", Mode: repository.RefundStrict,
+	})
+}
+
+// wantRefunds asserts the payment's refunded amount, status and number of refund rows.
+func wantRefunds(t *testing.T, s stores, txID string, refunded int64, st repository.PaymentStatus, n int) []repository.Refund {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := s.payments.GetTransaction(ctx, txID)
+	if err != nil {
+		t.Fatalf("get tx: %v", err)
+	}
+	refunds, err := s.settle.ListRefunds(ctx, txID)
+	if err != nil {
+		t.Fatalf("list refunds: %v", err)
+	}
+	if tx.RefundedAmount != refunded || tx.Status != st || len(refunds) != n {
+		t.Fatalf("payment refunded=%d status=%d refunds=%d, want %d/%d/%d (%+v)", tx.RefundedAmount, tx.Status, len(refunds), refunded, st, n, refunds)
+	}
+	var sum int64
+	for _, r := range refunds {
+		sum += r.Amount
+	}
+	if sum != refunded {
+		t.Fatalf("sum of applied refunds %d != refunded_amount %d", sum, refunded)
+	}
+	return refunds
+}
+
 func TestCreditSettlement_DuplicateIsNoop(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
@@ -124,8 +156,8 @@ func TestCreditThenRefund_OneCreditOneDeduction(t *testing.T) {
 		if _, err := s.settle.CreditSettlement(ctx, "o-cr", "seller"); err != nil {
 			t.Fatal(err)
 		}
-		res, err := s.settle.Refund(ctx, tx.ID, 200000, "REFUND:x")
-		if err != nil || !res.Deducted || res.Transaction.Status != repository.PaymentStatusRefunded || res.Transaction.RefundedAmount != 200000 {
+		res, err := rpcRefund(ctx, s, tx.ID, "r1", 200000)
+		if err != nil || !res.Deducted || res.Transaction.Status != repository.PaymentStatusPartiallyRefunded || res.Transaction.RefundedAmount != 200000 {
 			t.Fatalf("refund: %+v %v", res, err)
 		}
 		// Redelivered credit after the refund writes nothing more.
@@ -134,12 +166,12 @@ func TestCreditThenRefund_OneCreditOneDeduction(t *testing.T) {
 		}
 		got, bal := ledgerOf(t, s, "seller")
 		wantOne(t, got[repository.LedgerTypeOrderSettlement], 500000, tx.ID)
-		wantOne(t, got[repository.LedgerTypeRefundDeduction], -200000, tx.ID)
+		wantOne(t, got[repository.LedgerTypeRefundDeduction], -200000, "rpc:r1")
 		if bal != 300000 {
 			t.Fatalf("balance %d, want 300000", bal)
 		}
-		if _, err := s.settle.Refund(ctx, tx.ID, 100000, "REFUND:again"); !errors.Is(err, repository.ErrNotRefundable) {
-			t.Fatalf("second refund: want ErrNotRefundable, got %v", err)
+		if _, err := rpcRefund(ctx, s, tx.ID, "r2", 300001); !errors.Is(err, repository.ErrExceedsRemainder) {
+			t.Fatalf("refund above the remainder: want ErrExceedsRemainder, got %v", err)
 		}
 	})
 }
@@ -148,7 +180,7 @@ func TestRefundThenCredit_OneCreditOneDeduction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
 		tx := paidTx(t, s, "o-rc", 500000)
-		res, err := s.settle.Refund(ctx, tx.ID, 500000, "REFUND:x")
+		res, err := rpcRefund(ctx, s, tx.ID, "r1", 500000)
 		if err != nil || res.Deducted {
 			t.Fatalf("refund before credit must not deduct: %+v %v", res, err)
 		}
@@ -164,7 +196,7 @@ func TestRefundThenCredit_OneCreditOneDeduction(t *testing.T) {
 		}
 		got, bal := ledgerOf(t, s, "seller")
 		wantOne(t, got[repository.LedgerTypeOrderSettlement], 500000, tx.ID)
-		wantOne(t, got[repository.LedgerTypeRefundDeduction], -500000, tx.ID)
+		wantOne(t, got[repository.LedgerTypeRefundDeduction], -500000, "rpc:r1")
 		if bal != 0 {
 			t.Fatalf("balance %d, want 0", bal)
 		}
@@ -175,48 +207,52 @@ func TestRefundWithoutCredit_WritesNoDeduction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
 		tx := paidTx(t, s, "o-nc", 500000)
-		if _, err := s.settle.Refund(ctx, tx.ID, 500000, "REFUND:x"); err != nil {
+		if _, err := rpcRefund(ctx, s, tx.ID, "r1", 500000); err != nil {
 			t.Fatal(err)
 		}
 		if got, bal := ledgerOf(t, s, "seller"); len(got) != 0 || bal != 0 {
 			t.Fatalf("got %+v (%d), want an empty ledger", got, bal)
 		}
-		if _, err := s.settle.Refund(ctx, "no-such-tx", 1, "x"); !errors.Is(err, repository.ErrTransactionNotFound) {
+		if _, err := rpcRefund(ctx, s, "no-such-tx", "r2", 1); !errors.Is(err, repository.ErrTransactionNotFound) {
 			t.Fatalf("unknown tx: want ErrTransactionNotFound, got %v", err)
 		}
 	})
 }
 
-func TestConcurrentRefunds_OneWinner(t *testing.T) {
+// Eight concurrent calls with the same key write one refund and one deduction.
+func TestConcurrentRefunds_SameKeyWritesOnce(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
 		tx := paidTx(t, s, "o-race", 500000)
 		if _, err := s.settle.CreditSettlement(ctx, "o-race", "seller"); err != nil {
 			t.Fatal(err)
 		}
-		var ok, lost atomic.Int32
+		var created atomic.Int32
 		var wg sync.WaitGroup
 		for i := 0; i < 8; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err := s.settle.Refund(ctx, tx.ID, 100000, "REFUND:race")
-				switch {
-				case err == nil:
-					ok.Add(1)
-				case errors.Is(err, repository.ErrNotRefundable):
-					lost.Add(1)
-				default:
+				res, err := rpcRefund(ctx, s, tx.ID, "same", 100000)
+				if err != nil {
 					t.Errorf("unexpected error: %v", err)
+					return
+				}
+				if res.Created {
+					created.Add(1)
+				}
+				if res.Transaction.RefundedAmount != 100000 {
+					t.Errorf("refunded %d, want 100000", res.Transaction.RefundedAmount)
 				}
 			}()
 		}
 		wg.Wait()
-		if ok.Load() != 1 || lost.Load() != 7 {
-			t.Fatalf("ok=%d lost=%d, want 1/7", ok.Load(), lost.Load())
+		if created.Load() != 1 {
+			t.Fatalf("created=%d, want 1", created.Load())
 		}
+		wantRefunds(t, s, tx.ID, 100000, repository.PaymentStatusPartiallyRefunded, 1)
 		got, bal := ledgerOf(t, s, "seller")
-		wantOne(t, got[repository.LedgerTypeRefundDeduction], -100000, tx.ID)
+		wantOne(t, got[repository.LedgerTypeRefundDeduction], -100000, "rpc:same")
 		if bal != 400000 {
 			t.Fatalf("balance %d, want 400000", bal)
 		}
@@ -241,7 +277,7 @@ func TestConcurrentCreditAndRefund(t *testing.T) {
 			}()
 			go func() {
 				defer wg.Done()
-				if _, err := s.settle.Refund(ctx, tx.ID, 1000, "REFUND:x"); err != nil {
+				if _, err := rpcRefund(ctx, s, tx.ID, "r-"+order, 1000); err != nil {
 					t.Errorf("refund: %v", err)
 				}
 			}()

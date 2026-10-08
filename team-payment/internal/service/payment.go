@@ -296,38 +296,33 @@ func (s *PaymentService) RefundPayment(
 		return repository.PaymentTransaction{}, false, "", err
 	}
 
-	if tx.Status != repository.PaymentStatusPaid {
-		return repository.PaymentTransaction{}, false, "", ErrInvalidRefund
-	}
-
-	if amount > tx.Amount {
-		return repository.PaymentTransaction{}, false, "", errors.New("refund amount exceeds transaction amount")
-	}
-
-	updated, err := s.refund(ctx, tx.ID, amount, reason)
+	updated, err := s.refund(ctx, repository.RefundRequest{
+		PaymentID: tx.ID, Key: "rpc:" + uuid.NewString(), Source: repository.RefundSourceSellerOrAdmin,
+		SourceID: tx.ID, Requested: amount, Reason: reason, Mode: repository.RefundStrict,
+	})
 	if err != nil {
 		return repository.PaymentTransaction{}, false, "", err
 	}
 	return updated, true, "Hoàn tiền thành công", nil
 }
 
-// refund runs the design D4 refund transaction: PAID -> REFUNDED by compare-and-set
-// (a lost race is ErrInvalidRefund) plus exactly one REFUND_DEDUCTION for a credited
-// payment. Never blocked by the seller's balance or hold.
-func (s *PaymentService) refund(ctx context.Context, txID string, amount int64, reason string) (repository.PaymentTransaction, error) {
+// refund runs one ApplyRefund (design D1) and maps its refusals. Never blocked by the
+// seller's balance or hold.
+func (s *PaymentService) refund(ctx context.Context, req repository.RefundRequest) (repository.PaymentTransaction, error) {
 	if s.settle == nil {
 		return repository.PaymentTransaction{}, ErrSettlementNotConfigured
 	}
-	res, err := s.settle.Refund(ctx, txID, amount, fmt.Sprintf("REFUND:%s", reason))
+	res, err := s.settle.ApplyRefund(ctx, req)
 	switch {
-	case errors.Is(err, repository.ErrNotRefundable):
+	case errors.Is(err, repository.ErrNotRefundable), errors.Is(err, repository.ErrExceedsRemainder):
 		return repository.PaymentTransaction{}, ErrInvalidRefund
 	case err != nil:
 		return repository.PaymentTransaction{}, fmt.Errorf("refund payment: %w", err)
 	}
-	s.logger.InfoContext(ctx, "payment refunded",
-		slog.String("payment_id", txID), slog.String("order_id", res.Transaction.OrderID),
-		slog.Int64("amount", amount), slog.Bool("seller_deducted", res.Deducted))
+	s.logger.InfoContext(ctx, "payment refund applied",
+		slog.String("payment_id", req.PaymentID), slog.String("order_id", res.Transaction.OrderID),
+		slog.String("refund_id", req.Key), slog.Int64("applied", res.Refund.Amount),
+		slog.Bool("created", res.Created), slog.Bool("seller_deducted", res.Deducted))
 	return res.Transaction, nil
 }
 

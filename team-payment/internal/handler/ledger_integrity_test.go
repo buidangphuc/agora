@@ -107,15 +107,15 @@ func TestRefundDeductsCreditedSellerOnce(t *testing.T) {
 	seller := userCtx("seller-L")
 
 	res, err := f.h.RefundPayment(seller, &paymentv1.RefundPaymentRequest{PaymentId: tx.GetId(), Amount: 200000, Reason: "damaged"})
-	if err != nil || res.GetTransaction().GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_REFUNDED {
+	if err != nil || res.GetTransaction().GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_PARTIALLY_REFUNDED {
 		t.Fatalf("refund: %v %v", res, err)
 	}
-	_, err = f.h.RefundPayment(seller, &paymentv1.RefundPaymentRequest{PaymentId: tx.GetId(), Amount: 200000})
+	_, err = f.h.RefundPayment(seller, &paymentv1.RefundPaymentRequest{PaymentId: tx.GetId(), Amount: 300001})
 	if status.Code(err) != codes.FailedPrecondition {
-		t.Fatalf("second refund: want FailedPrecondition, got %v", err)
+		t.Fatalf("refund above the remainder: want FailedPrecondition, got %v", err)
 	}
 	got := entriesOf(t, f, "seller-L")
-	if d := got[repository.LedgerTypeRefundDeduction]; len(d) != 1 || d[0].Amount != -200000 || d[0].ReferenceID != tx.GetId() {
+	if d := got[repository.LedgerTypeRefundDeduction]; len(d) != 1 || d[0].Amount != -200000 || !strings.HasPrefix(d[0].ReferenceID, "rpc:") {
 		t.Fatalf("deductions: %+v", d)
 	}
 	bal, err := f.h.GetWalletBalance(seller, &paymentv1.GetWalletBalanceRequest{})

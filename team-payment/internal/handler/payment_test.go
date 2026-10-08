@@ -253,7 +253,7 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 					t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
 				}
 				after, _ := repo.GetTransaction(context.Background(), seeded.ID)
-				refunded := after.Status == repository.PaymentStatusRefunded
+				refunded := after.RefundedAmount > 0
 				if refunded != (tc.want == codes.OK) {
 					t.Fatalf("refunded = %v for %s", refunded, tc.name)
 				}

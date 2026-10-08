@@ -50,12 +50,15 @@ func TestMigration0006_LegacyDataAndRules_Postgres(t *testing.T) {
 	ctx := context.Background()
 	var m0006up, m0006down string
 	for _, f := range pgtest.UpFiles(t) {
-		if strings.HasPrefix(filepath.Base(f), "0006_") {
+		base := filepath.Base(f)
+		if strings.HasPrefix(base, "0006_") {
 			m0006up = f
 			m0006down = strings.TrimSuffix(f, ".up.sql") + ".down.sql"
 			continue
 		}
-		pgtest.Apply(t, pool, f)
+		if base < "0006_" {
+			pgtest.Apply(t, pool, f)
+		}
 	}
 	if m0006up == "" {
 		t.Fatal("migration 0006 not found")
