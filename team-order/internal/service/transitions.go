@@ -16,7 +16,7 @@ type Actor int
 const (
 	// ActorNone is a caller who is neither the order's buyer, its seller nor an admin.
 	ActorNone Actor = iota
-	// ActorBuyer is the order's buyer (cancels through CancelOrder / ForceFailSaga).
+	// ActorBuyer is the order's buyer (cancels through CancelOrder).
 	ActorBuyer
 	// ActorSeller is the order's seller, or an admin on UpdateOrderStatus.
 	ActorSeller
@@ -48,7 +48,7 @@ type transition struct {
 //	Pending -> Shipped    seller (cash-on-delivery hand-over)
 //	Paid    -> Shipped    seller
 //	Shipped -> Completed  seller
-//	Pending, Paid -> Cancelled  buyer (CancelOrder; ForceFailSaga for buyer or admin)
+//	Pending, Paid -> Cancelled  buyer (CancelOrder; ForceFailSaga for admin)
 var orderTransitions = []transition{
 	{repository.OrderStatusPending, repository.OrderStatusPaid, []Actor{ActorSystem}},
 	{repository.OrderStatusPending, repository.OrderStatusShipped, []Actor{ActorSeller}},

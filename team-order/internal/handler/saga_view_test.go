@@ -138,7 +138,7 @@ func TestSagaView_CancelledWithParkedRelease(t *testing.T) {
 
 func TestForceFailSaga_UnknownStepRejectedBeforeAnyWrite(t *testing.T) {
 	r := newSagaRig(t)
-	_, err := r.h.ForceFailSaga(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "banana"})
+	_, err := r.h.ForceFailSaga(adminCtx(), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "banana"})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("want InvalidArgument, got %v", err)
 	}
@@ -149,7 +149,7 @@ func TestForceFailSaga_UnknownStepRejectedBeforeAnyWrite(t *testing.T) {
 
 func TestForceFailSaga_CleanFailReportsSuccess(t *testing.T) {
 	r := newSagaRig(t)
-	res, err := r.h.ForceFailSaga(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "payment"})
+	res, err := r.h.ForceFailSaga(adminCtx(), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "payment"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestForceFailSaga_CleanFailReportsSuccess(t *testing.T) {
 func TestForceFailSaga_ParkedReleaseReportsFailure(t *testing.T) {
 	r := newSagaRig(t)
 	r.domain.ReleaseErr = func(string) error { return status.Error(codes.Unavailable, "down") }
-	res, err := r.h.ForceFailSaga(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID})
+	res, err := r.h.ForceFailSaga(adminCtx(), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestForceFailSaga_ShippedOrderRefused(t *testing.T) {
 	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPending}, "T"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := r.h.ForceFailSaga(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "shipping"})
+	_, err := r.h.ForceFailSaga(adminCtx(), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "shipping"})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("want FailedPrecondition, got %v", err)
 	}
@@ -227,7 +227,7 @@ func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
 	if _, err := orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
-	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+	ctx := adminCtx()
 	if _, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: o.ID, FailStep: "shipping"}); err != nil {
 		t.Fatal(err)
 	}
