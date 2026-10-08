@@ -5,12 +5,16 @@ package upstream
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 )
@@ -37,6 +41,9 @@ func serviceMetadata() metadata.MD {
 func servicePrincipalInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	return invoker(metadata.NewOutgoingContext(ctx, serviceMetadata()), method, req, reply, cc, opts...)
 }
+
+// ErrOrderNotFound means team-order has no such order.
+var ErrOrderNotFound = errors.New("order not found")
 
 // OrderClient verifies purchases against team-order over gRPC.
 type OrderClient struct {
@@ -95,4 +102,34 @@ func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, or
 		}
 	}
 	return false, order.GetSellerId(), nil
+}
+
+// GetOrderParties returns the buyer and seller ids of an order, read from team-order
+// as team-engagement's service principal (the interceptor replaces any caller
+// principal). An unknown order is ErrOrderNotFound; any other upstream failure is
+// logged and returned wrapped so the caller can fail closed. It does NOT decide who
+// may see the order: the caller compares the ids with its own principal.
+func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buyerID, sellerID string, err error) {
+	if c == nil || c.svc == nil {
+		return "", "", errors.New("order client not configured")
+	}
+	if orderID == "" {
+		return "", "", ErrOrderNotFound
+	}
+	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	defer cancel()
+	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return "", "", ErrOrderNotFound
+		}
+		slog.ErrorContext(ctx, "get order parties: cannot read order from team-order",
+			slog.String("order_id", orderID), slog.String("grpc_code", status.Code(err).String()), slog.Any("err", err))
+		return "", "", fmt.Errorf("get order %s: %w", orderID, err)
+	}
+	order := resp.GetOrder()
+	if order == nil {
+		return "", "", ErrOrderNotFound
+	}
+	return order.GetBuyerId(), order.GetSellerId(), nil
 }

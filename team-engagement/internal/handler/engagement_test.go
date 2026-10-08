@@ -26,7 +26,9 @@ func TestEngagementHandler(t *testing.T) {
 	collectionRepo := repository.NewInMemoryCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, nil)
 
-	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc)
+	// buyer_test owns order-1, sold by seller-1 (CreateDispute verifies this).
+	orders := fakeOrders{"order-1": {buyer: "buyer_test", seller: "seller-1"}}
+	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc, handler.WithOrderParties(orders))
 
 	principal := &commonv1.Principal{
 		Id:     "buyer_test",

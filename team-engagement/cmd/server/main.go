@@ -77,7 +77,7 @@ func run() error {
 		defer func() { _ = orderClient.Close() }()
 		logger.Info("verified-purchase enrichment enabled", slog.String("order_addr", settings.Upstream.OrderAddr))
 	} else {
-		logger.Info("UPSTREAM_ORDER_ADDR unset; verified-purchase enrichment disabled")
+		logger.Warn("UPSTREAM_ORDER_ADDR unset; verified-purchase enrichment disabled and CreateDispute fails closed")
 	}
 
 	reviewRepo := repository.NewPostgresReviewRepository(res.Pool)
@@ -93,7 +93,11 @@ func run() error {
 	collectionRepo := repository.NewPostgresCollectionRepository(res.Pool)
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
 	engagementRepo := repository.NewPostgresRepository(res.Pool)
-	h := handler.NewEngagementHandler(engagementRepo, reviewSvc, qaSvc, disputeSvc, collectionSvc)
+	var handlerOpts []handler.Option
+	if orderClient != nil {
+		handlerOpts = append(handlerOpts, handler.WithOrderParties(orderClient))
+	}
+	h := handler.NewEngagementHandler(engagementRepo, reviewSvc, qaSvc, disputeSvc, collectionSvc, handlerOpts...)
 	srv := grpcserver.Build(settings, h, res.Health, logger)
 
 	addr := net.JoinHostPort(settings.Server.Host, strconv.Itoa(settings.Server.Port))

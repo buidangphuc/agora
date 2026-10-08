@@ -15,7 +15,24 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
+
+// OrderPartiesReader resolves an order's buyer and seller from team-order as this
+// service's own principal. upstream.OrderClient implements it; upstream.ErrOrderNotFound
+// means the order does not exist.
+type OrderPartiesReader interface {
+	GetOrderParties(ctx context.Context, orderID string) (buyerID, sellerID string, err error)
+}
+
+// Option customises an EngagementHandler.
+type Option func(*EngagementHandler)
+
+// WithOrderParties wires the order lookup CreateDispute uses to verify the order,
+// its buyer and its seller. Without it CreateDispute fails closed (UNAVAILABLE).
+func WithOrderParties(r OrderPartiesReader) Option {
+	return func(h *EngagementHandler) { h.orders = r }
+}
 
 // EngagementHandler implements engagementv1.EngagementServiceServer.
 type EngagementHandler struct {
@@ -25,6 +42,7 @@ type EngagementHandler struct {
 	qaSvc         *service.QAService
 	disputeSvc    *service.DisputeService
 	collectionSvc *service.CollectionService
+	orders        OrderPartiesReader
 }
 
 func NewEngagementHandler(
@@ -33,14 +51,19 @@ func NewEngagementHandler(
 	qaSvc *service.QAService,
 	disputeSvc *service.DisputeService,
 	collectionSvc *service.CollectionService,
+	opts ...Option,
 ) *EngagementHandler {
-	return &EngagementHandler{
+	h := &EngagementHandler{
 		repo:          repo,
 		reviewSvc:     reviewSvc,
 		qaSvc:         qaSvc,
 		disputeSvc:    disputeSvc,
 		collectionSvc: collectionSvc,
 	}
+	for _, o := range opts {
+		o(h)
+	}
+	return h
 }
 
 func userID(ctx context.Context) string {
@@ -484,6 +507,27 @@ func (h *EngagementHandler) CreateDispute(
 	}
 
 	claimantID := userID(ctx)
+
+	// Authorization decision, so it fails CLOSED: the order must exist, belong to
+	// the caller and name the defendant as its seller. An unknown order and someone
+	// else's order are both NOT_FOUND so order ids cannot be probed.
+	if h.orders == nil {
+		return nil, status.Error(codes.Unavailable, "order verification unavailable")
+	}
+	buyerID, sellerID, err := h.orders.GetOrderParties(ctx, req.GetOrderId())
+	if err != nil {
+		if errors.Is(err, upstream.ErrOrderNotFound) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		return nil, status.Error(codes.Unavailable, "order verification unavailable")
+	}
+	if buyerID == "" || buyerID != claimantID {
+		return nil, status.Error(codes.NotFound, "order not found")
+	}
+	if sellerID == "" || sellerID != req.GetDefendantId() {
+		return nil, status.Error(codes.PermissionDenied, "defendant must be the order's seller")
+	}
+
 	disp, err := h.disputeSvc.CreateDispute(ctx, req.GetOrderId(), claimantID, req.GetDefendantId(), req.GetReason(), req.GetEvidenceUrls())
 	if err != nil {
 		if errors.Is(err, service.ErrSameClaimantAndDef) {
