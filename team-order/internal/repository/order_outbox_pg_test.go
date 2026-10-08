@@ -54,15 +54,17 @@ func TestPaidTransition_OutboxSameTransaction_Postgres(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if got, err := repo.UpdateOrderStatus(ctx, o.ID, repository.OrderStatusPaid, ""); err != nil || got.Status != repository.OrderStatusPaid {
+	pending := []repository.OrderStatus{repository.OrderStatusPending}
+	got, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, pending, "")
+	if err != nil || got.Status != repository.OrderStatusPaid || got.PaidAt == nil {
 		t.Fatalf("pay: %v %+v", err, got)
 	}
 	if n := count(o.ID); n != 1 {
 		t.Fatalf("want 1 outbox row after PAID, got %d", n)
 	}
-	// Re-applying PAID does not emit again.
-	if _, err := repo.UpdateOrderStatus(ctx, o.ID, repository.OrderStatusPaid, ""); err != nil {
-		t.Fatalf("re-pay: %v", err)
+	// Re-applying PAID conflicts and does not emit again.
+	if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, pending, ""); !errors.Is(err, repository.ErrStatusConflict) {
+		t.Fatalf("re-pay: want ErrStatusConflict, got %v", err)
 	}
 	if n := count(o.ID); n != 1 {
 		t.Fatalf("want still 1 outbox row, got %d", n)
@@ -77,10 +79,10 @@ func TestPaidTransition_OutboxSameTransaction_Postgres(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create2: %v", err)
 	}
-	if _, err := failing.UpdateOrderStatus(ctx, o2.ID, repository.OrderStatusPaid, ""); err == nil {
+	if _, err := failing.UpdateOrderStatusFrom(ctx, o2.ID, repository.OrderStatusPaid, pending, ""); err == nil {
 		t.Fatal("expected error from failing outbox builder")
 	}
-	got, err := failing.GetOrder(ctx, o2.ID)
+	got, err = failing.GetOrder(ctx, o2.ID)
 	if err != nil {
 		t.Fatalf("get2: %v", err)
 	}

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -65,6 +65,13 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, status.Error(codes.FailedPrecondition, "checkout is temporarily unavailable")
 	}
 
+	// Idempotency-Key (gRPC metadata forwarded by the gateway): validated before
+	// anything is reserved. Absent means a fresh checkout every time.
+	idemKey, err := idempotencyKeyFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var shippingAddr repository.Address
 	// Look up shipping address from identity service if client provided
 	if h.addrClient != nil {
@@ -86,7 +93,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		}
 	}
 
-	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode())
+	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
 	if err != nil {
 		if errors.Is(err, service.ErrEmptyCart) {
 			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
@@ -104,6 +111,13 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		if errors.Is(err, service.ErrInsufficientStock) {
 			return nil, clientErr(h.logger, codes.ResourceExhausted, "stock reservation failed: insufficient stock", err)
 		}
+		if errors.Is(err, service.ErrCheckoutInProgress) {
+			// Same key, first attempt still running: retryable, not a failure.
+			return nil, clientErr(h.logger, codes.Aborted, "checkout with this idempotency key is in progress; retry", err)
+		}
+		if errors.Is(err, service.ErrReservationLost) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "item no longer reserved; please retry checkout", err)
+		}
 		return nil, internalErr(h.logger, "create order", err)
 	}
 
@@ -112,6 +126,29 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		wireOrders = append(wireOrders, toWireOrder(o))
 	}
 	return &orderv1.CreateOrderResponse{Orders: wireOrders}, nil
+}
+
+// idempotencyKeyFromContext reads, trims and validates the idempotency-key request
+// metadata: "" when absent, INVALID_ARGUMENT when present but not 1..255 printable
+// ASCII bytes or sent more than once.
+func idempotencyKeyFromContext(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", nil
+	}
+	vals := md.Get(service.IdempotencyKeyMetadata)
+	switch len(vals) {
+	case 0:
+		return "", nil
+	case 1:
+	default:
+		return "", status.Error(codes.InvalidArgument, "multiple idempotency-key values")
+	}
+	key, err := service.NormalizeIdempotencyKey(vals[0])
+	if err != nil {
+		return "", status.Error(codes.InvalidArgument, "idempotency-key must be 1-255 printable ASCII characters")
+	}
+	return key, nil
 }
 
 func (h *OrderHandler) CalculateShippingFee(_ context.Context, req *orderv1.CalculateShippingFeeRequest) (*orderv1.CalculateShippingFeeResponse, error) {
@@ -198,17 +235,21 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 		return nil, internalErr(h.logger, "get order", err)
 	}
 
-	// Only the order's seller or an admin drives status; buyers cancel via CancelOrder.
+	// Actor class (spec order-lifecycle-guards): the seller, or an admin acting as
+	// the seller. Anyone else -- the buyer included, who cancels through
+	// CancelOrder -- is refused before the order's status is revealed.
 	if !isAdminOrUser(principal, existing.SellerID) {
 		return nil, status.Error(codes.PermissionDenied, "only the seller or an admin can update order status")
 	}
 
-	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), repository.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
+	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), service.ActorSeller, repository.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
 	if err != nil {
-		if errors.Is(err, repository.ErrOrderNotFound) {
+		switch {
+		case errors.Is(err, repository.ErrOrderNotFound):
 			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		if errors.Is(err, service.ErrInvalidStatus) {
+		case errors.Is(err, service.ErrActorForbidden):
+			return nil, clientErr(h.logger, codes.PermissionDenied, "this status change is not allowed for the seller", err)
+		case errors.Is(err, service.ErrInvalidStatus):
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid order status transition", err)
 		}
 		return nil, internalErr(h.logger, "update order status", err)
@@ -244,7 +285,7 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 		}
 		return nil, internalErr(h.logger, "cancel order", err)
 	}
-	return &orderv1.CancelOrderResponse{Order: toWireOrder(cancelled)}, nil
+	return &orderv1.CancelOrderResponse{Order: toWireOrder(cancelled.Order)}, nil
 }
 
 func (h *OrderHandler) GetSagaState(ctx context.Context, req *orderv1.GetSagaStateRequest) (*orderv1.GetSagaStateResponse, error) {
@@ -267,65 +308,37 @@ func (h *OrderHandler) GetSagaState(ctx context.Context, req *orderv1.GetSagaSta
 		return nil, status.Error(codes.PermissionDenied, "cannot view another user's saga state")
 	}
 
-	steps := []*orderv1.SagaStep{
-		{
-			Name:      "1. Khởi tạo Đơn Hàng (Order Created)",
-			Status:    "SUCCESS",
-			Timestamp: timestamppb.New(order.CreatedAt),
-			Detail:    "Đơn hàng được khởi tạo thành công trên Order DB",
-		},
-		{
-			Name:      "2. Khóa Tồn Kho Sản Phẩm (Stock Reserved)",
-			Status:    "SUCCESS",
-			Timestamp: timestamppb.New(order.CreatedAt.Add(50 * time.Millisecond)),
-			Detail:    "Đã gọi gRPC ReserveStock sang team-domain thành công",
-		},
+	return h.sagaStateOf(ctx, order)
+}
+
+// sagaStateOf renders the persisted saga view of an order (service.SagaView).
+func (h *OrderHandler) sagaStateOf(ctx context.Context, order repository.Order) (*orderv1.GetSagaStateResponse, error) {
+	view, err := h.svc.SagaView(ctx, order)
+	if err != nil {
+		return nil, internalErr(h.logger, "get saga state", err)
 	}
-
-	isCompensated := false
-	compReason := ""
-	currentStep := "4. Đơn Hàng Hoàn Tất"
-
-	if order.Status == repository.OrderStatusCancelled {
-		isCompensated = true
-		compReason = "Thanh toán thất bại / Người dùng hủy đơn -> Đã tự động hoàn trả tồn kho (Compensating Transaction: ReleaseStock)"
-		currentStep = "Đã Hoàn Tác (Compensated)"
-		steps = append(steps, &orderv1.SagaStep{
-			Name:      "3. Thanh Toán (Payment Charged)",
-			Status:    "FAILED",
-			Timestamp: timestamppb.New(order.UpdatedAt),
-			Detail:    "Giao dịch thanh toán bị từ chối hoặc thử nghiệm thất bại",
-		})
-		steps = append(steps, &orderv1.SagaStep{
-			Name:      "4. Hoàn Tác & Trả Tồn Kho (Compensation Executed)",
-			Status:    "COMPENSATED",
-			Timestamp: timestamppb.New(order.UpdatedAt.Add(30 * time.Millisecond)),
-			Detail:    "Đã tự động gọi ReleaseStock sang team-domain và hủy đơn hàng minh bạch",
-		})
-	} else {
-		steps = append(steps, &orderv1.SagaStep{
-			Name:      "3. Thanh Toán (Payment Charged)",
-			Status:    "SUCCESS",
-			Timestamp: timestamppb.New(order.CreatedAt.Add(120 * time.Millisecond)),
-			Detail:    "Thanh toán xác nhận thành công qua team-payment",
-		})
-		steps = append(steps, &orderv1.SagaStep{
-			Name:      "4. Xác Nhận & Giao Vận (Order Confirmed)",
-			Status:    "SUCCESS",
-			Timestamp: timestamppb.New(order.CreatedAt.Add(200 * time.Millisecond)),
-			Detail:    "Đơn hàng sẵn sàng đóng gói và bàn giao đơn vị vận chuyển",
-		})
+	steps := make([]*orderv1.SagaStep, 0, len(view.Steps))
+	for _, st := range view.Steps {
+		step := &orderv1.SagaStep{Name: st.Name, Status: st.Status, Detail: st.Detail}
+		if st.At != nil {
+			step.Timestamp = timestamppb.New(*st.At)
+		}
+		steps = append(steps, step)
 	}
-
 	return &orderv1.GetSagaStateResponse{
 		OrderId:            order.ID,
-		CurrentStep:        currentStep,
+		CurrentStep:        view.CurrentStep,
 		Steps:              steps,
-		IsCompensated:      isCompensated,
-		CompensationReason: compReason,
+		IsCompensated:      view.IsCompensated,
+		CompensationReason: view.CompensationReason,
 	}, nil
 }
 
+// ForceFailSaga cancels the order through the normal cancel path (claim, stock
+// release, voucher release) and returns the persisted saga view. fail_step must
+// be empty, "payment" or "shipping" (checked before any write). success is true
+// only when every reservation of the order was released; a parked release answers
+// success=false saying the release is pending retry.
 func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFailSagaRequest) (*orderv1.ForceFailSagaResponse, error) {
 	principal, err := interceptor.RequirePrincipal(ctx)
 	if err != nil {
@@ -334,8 +347,13 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	if req.GetOrderId() == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "order_id is required")
 	}
-	// This force-cancels the order and runs compensation (ReleaseStock), so it
-	// must carry the same authority as CancelOrder: the order owner or an admin.
+	step := req.GetFailStep()
+	switch step {
+	case "", "payment", "shipping":
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "fail_step must be empty, \"payment\" or \"shipping\", got %q", step)
+	}
+	// Same authority as CancelOrder: the order owner, or an admin.
 	order, err := h.svc.GetOrder(ctx, req.GetOrderId())
 	if err != nil {
 		if errors.Is(err, repository.ErrOrderNotFound) {
@@ -347,23 +365,30 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 		return nil, status.Error(codes.PermissionDenied, "only the order owner or an admin can force-fail the saga")
 	}
 
-	// Trigger compensation cancellation
-	_, err = h.svc.CancelOrder(ctx, req.GetOrderId())
+	cancelled, err := h.svc.CancelOrder(ctx, req.GetOrderId())
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidStatus) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
 		}
 		return nil, internalErr(h.logger, "force fail cancel order", err)
 	}
-
-	sagaState, err := h.GetSagaState(ctx, &orderv1.GetSagaStateRequest{OrderId: req.GetOrderId()})
+	sagaState, err := h.sagaStateOf(ctx, cancelled.Order)
 	if err != nil {
 		return nil, err
 	}
-
+	if step == "" {
+		step = "unspecified"
+	}
+	if cancelled.ReleasePending {
+		return &orderv1.ForceFailSagaResponse{
+			Success:   false,
+			Message:   "Order cancelled (fail_step=" + step + ") but the stock release is pending retry; it will be retried automatically.",
+			SagaState: sagaState,
+		}, nil
+	}
 	return &orderv1.ForceFailSagaResponse{
 		Success:   true,
-		Message:   "✓ Đã kích hoạt lỗi giả lập và thực thi Compensating Transaction (ReleaseStock) thành công!",
+		Message:   "Order cancelled (fail_step=" + step + ") and its stock released.",
 		SagaState: sagaState,
 	}, nil
 }
@@ -496,6 +521,12 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 
 	shipment, err := h.svc.CreateShipment(ctx, req.GetOrderId(), req.GetCarrier(), req.GetTrackingCode())
 	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrOrderNotFound):
+			return nil, status.Error(codes.NotFound, "order not found")
+		case errors.Is(err, service.ErrInvalidStatus):
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be shipped in its current status", err)
+		}
 		return nil, internalErr(h.logger, "create shipment", err)
 	}
 

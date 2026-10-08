@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -60,14 +61,30 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	if o, ok := m.orders[id]; ok {
-		o.Status = status
-		o.TrackingNumber = trackingNumber
-		m.orders[id] = o
-		return o, nil
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+	o, ok := m.orders[id]
+	if !ok {
+		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	return repository.Order{}, repository.ErrOrderNotFound
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
+	m.orders[id] = o
+	return o, nil
 }
 
 func incomingPrincipalCtx(userID, userType string) context.Context {
@@ -378,14 +395,37 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 	})
 	t.Run("seller cannot set PAID", func(t *testing.T) {
 		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PAID))
-		if status.Code(err) != codes.FailedPrecondition {
-			t.Fatalf("want FailedPrecondition, got %v", err)
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
 		}
 	})
 	t.Run("admin cannot set PAID", func(t *testing.T) {
 		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
+		}
+	})
+	t.Run("completed order cannot be reopened", func(t *testing.T) {
+		h := newHandler(repository.OrderStatusCompleted)
+		if _, err := h.UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PENDING)); err == nil {
+			t.Fatal("reopening a completed order must fail")
+		}
+	})
+	t.Run("paid straight to completed is refused", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
 		if status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+	t.Run("seller cannot cancel through UpdateOrderStatus", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_CANCELLED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("seller ships a pending (COD) order", func(t *testing.T) {
+		if _, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED)); err != nil {
+			t.Fatalf("COD hand-over must be allowed: %v", err)
 		}
 	})
 	t.Run("invalid transition rejected", func(t *testing.T) {

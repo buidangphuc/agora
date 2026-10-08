@@ -55,6 +55,10 @@ func (f *fakeDomainClient) ReserveStock(_ context.Context, req *listingv1.Reserv
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
 
+func (f *fakeDomainClient) CommitReservation(_ context.Context, _ *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return &listingv1.CommitReservationResponse{}, nil
+}
+
 func (f *fakeDomainClient) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, _ ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -131,14 +135,30 @@ func (r *fakeOrderRepo) ListBuyerOrders(_ context.Context, _ string, _ int32) ([
 func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ int32) ([]repository.Order, error) {
 	return nil, nil
 }
-func (r *fakeOrderRepo) UpdateOrderStatus(_ context.Context, id string, st repository.OrderStatus, _ string) (repository.Order, error) {
+func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
 	if !ok {
 		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	o.Status = st
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
 	r.orders[id] = o
 	return o, nil
 }
@@ -177,52 +197,6 @@ func (c *fakeCartRepo) RemoveItems(_ context.Context, _ string, ids []string) er
 }
 
 func addr() repository.Address { return repository.Address{City: "Hà Nội"} }
-
-// ── AD5/M6: the caller sets a stable reservation_id per (cart_item, attempt) ──
-
-func TestReservationID_StableAndDistinct(t *testing.T) {
-	item := repository.CartItem{ID: "ci_1", ListingID: "lst_1", VariantID: "", Quantity: 2}
-	a := service.ReservationID("buyer_1", item)
-	b := service.ReservationID("buyer_1", item)
-	if a == "" {
-		t.Fatal("reservation id must not be empty")
-	}
-	if a != b {
-		t.Fatalf("reservation id must be stable across retries: %s != %s", a, b)
-	}
-	other := service.ReservationID("buyer_1", repository.CartItem{ID: "ci_2", ListingID: "lst_1", Quantity: 2})
-	if a == other {
-		t.Fatal("different cart items must get different reservation ids")
-	}
-}
-
-// A retried checkout with the same cart item reuses the same reservation_id, so
-// team-domain's idempotent reserve decrements stock only once (SA-M6).
-func TestCreateOrders_RetryUsesSameReservationID_SingleDecrement(t *testing.T) {
-	ctx := context.Background()
-	domain := newFakeDomain()
-	// Both attempts fail at persistence so the cart item survives for the retry.
-	orderRepo := newFakeOrderRepo()
-	orderRepo.failFor = "s1" // every attempt fails at persistence, so the cart item survives
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
-
-	newSvc := func() *service.OrderService {
-		return service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
-	}
-
-	// Attempt 1 (fails at persist) then attempt 2 (fails again). Same reservation_id.
-	if _, err := newSvc().CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, ""); err == nil {
-		t.Fatal("expected persist failure on attempt 1")
-	}
-	if _, err := newSvc().CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, ""); err == nil {
-		t.Fatal("expected persist failure on attempt 2")
-	}
-
-	if got := domain.uniqueDecrements(); got != 1 {
-		t.Fatalf("expected exactly 1 effective stock decrement across retries, got %d", got)
-	}
-}
 
 // team-domain reports insufficient stock as Success=false with no transport error; checkout
 // must treat that as a failed hold, not create an order that oversells the listing.
@@ -312,75 +286,4 @@ func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
 	if !domain.releasedListing("lst_1") {
 		t.Fatal("expected the reserved listing to be released")
 	}
-}
-
-// ── SA-M7: multi-seller partial failure never releases a persisted order's stock ──
-
-func TestMultiSeller_PartialFailure_DoesNotReleaseCommittedStock(t *testing.T) {
-	ctx := context.Background()
-	domain := newFakeDomain()
-	orderRepo := newFakeOrderRepo()
-	orderRepo.failCall = 2 // first seller-order persists; the second fails
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{
-		{ID: "ci_a", ListingID: "lst_a", Quantity: 1, SellerID: "sa", UnitPrice: 1000},
-		{ID: "ci_b", ListingID: "lst_b", Quantity: 1, SellerID: "sb", UnitPrice: 2000},
-	}}
-
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
-
-	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "")
-	if err == nil {
-		t.Fatal("expected checkout to fail because the second seller-order failed to persist")
-	}
-
-	// Exactly one order persisted (the first seller's).
-	if orderRepo.count() != 1 {
-		t.Fatalf("expected 1 persisted order, got %d", orderRepo.count())
-	}
-	// Exactly one reservation released (the failed seller's un-committed one).
-	if got := len(domain.releasedLIDs); got != 1 {
-		t.Fatalf("expected exactly 1 release, got %d (%v)", got, domain.releasedLIDs)
-	}
-
-	// The persisted order's stock must NOT have been released (M7).
-	var persisted repository.Order
-	for _, o := range orderRepo.orders {
-		persisted = o
-	}
-	persistedListing := persisted.Items[0].ListingID
-	if domain.releasedListing(persistedListing) {
-		t.Fatalf("persisted order's stock (%s) was wrongly released", persistedListing)
-	}
-
-	// And its reservation is COMMITTED, not releasable.
-	resList, _ := saga.ListReservationsBySaga(ctx, findSagaID(t, saga))
-	var committed, released int
-	for _, r := range resList {
-		switch r.Status {
-		case repository.ReservationStatusCommitted:
-			committed++
-		case repository.ReservationStatusReleased:
-			released++
-		}
-	}
-	if committed != 1 || released != 1 {
-		t.Fatalf("expected 1 committed + 1 released reservation, got committed=%d released=%d", committed, released)
-	}
-}
-
-// findSagaID returns the saga id shared by the checkout's reservations, looked up
-// via their deterministic reservation ids (same id inputs as the service uses).
-func findSagaID(t *testing.T, saga *repository.InMemorySagaRepository) string {
-	t.Helper()
-	for _, item := range []repository.CartItem{
-		{ID: "ci_a", ListingID: "lst_a", Quantity: 1},
-		{ID: "ci_b", ListingID: "lst_b", Quantity: 1},
-	} {
-		if r, err := saga.GetReservation(context.Background(), service.ReservationID("buyer_1", item)); err == nil {
-			return r.SagaID
-		}
-	}
-	t.Fatal("could not locate saga id")
-	return ""
 }

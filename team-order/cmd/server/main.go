@@ -32,6 +32,21 @@ func main() {
 	}
 }
 
+// reservationSettings resolves RESERVATION_TTL and RESERVATION_SWEEP_INTERVAL,
+// logging a warning naming each unusable variable (it falls back to the default;
+// boot never fails on these).
+func reservationSettings(settings *config.Settings, logger *slog.Logger) (ttl, interval time.Duration) {
+	ttl, warn := settings.ReservationTTL()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	interval, warn = settings.ReservationSweepInterval()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	return ttl, interval
+}
+
 // runReservationSweeper releases stock held by reservations past their TTL (AD3)
 // on a fixed interval until ctx is cancelled. A sweep error is transient (a DB
 // blip) — it is logged and retried on the next tick.
@@ -142,7 +157,8 @@ func run() error {
 	// Durable saga/reservation store (AD3): persist reservation state in Postgres
 	// so a crashed checkout's stock is swept and released, and compensation is not
 	// best-effort in-memory. Falls back to the in-memory store when DB is disabled.
-	var orderOpts []service.OrderServiceOption
+	reservationTTL, sweepInterval := reservationSettings(settings, logger)
+	orderOpts := []service.OrderServiceOption{service.WithReservationTTL(reservationTTL)}
 	if res.Pool != nil {
 		orderOpts = append(orderOpts, service.WithSagaRepository(repository.NewPostgresSagaRepository(res.Pool)))
 	}
@@ -218,7 +234,10 @@ func run() error {
 	// Reservation sweeper (AD3): periodically release stock held past its TTL so a
 	// crashed checkout never leaks inventory. Gated on Postgres like the saga repo.
 	if res.Pool != nil {
-		go runReservationSweeper(ctx, orderSvc, time.Minute, logger)
+		logger.Info("reservation sweeper starting",
+			slog.Duration("reservation_ttl", reservationTTL),
+			slog.Duration("sweep_interval", sweepInterval))
+		go runReservationSweeper(ctx, orderSvc, sweepInterval, logger)
 	}
 
 	srv := grpcserver.Build(settings, cartHandler, orderHandler, res.Health, logger)

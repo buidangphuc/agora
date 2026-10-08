@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 
 // ErrReservationNotFound is returned when a reservation row is absent.
 var ErrReservationNotFound = errors.New("reservation not found")
+
+// ErrSagaNotFound is returned when a saga row is absent.
+var ErrSagaNotFound = errors.New("saga not found")
 
 // SagaStatus tracks the lifecycle of a checkout saga.
 type SagaStatus int32
@@ -48,11 +52,14 @@ const (
 
 // Saga is the durable header row for one checkout attempt.
 type Saga struct {
-	ID        string
-	BuyerID   string
-	Status    SagaStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID      string
+	BuyerID string
+	// IdempotencyKey is the client's Idempotency-Key ("" when none). Unique per
+	// buyer while set; compensation clears it so the key can be reused.
+	IdempotencyKey string
+	Status         SagaStatus
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // Reservation is one durable stock-reservation intent. It is persisted BEFORE the
@@ -76,7 +83,10 @@ type Reservation struct {
 // SagaRepository persists saga + reservation state so the purchase path is
 // recoverable across restarts and compensations are never lost.
 type SagaRepository interface {
-	CreateSaga(ctx context.Context, s Saga) (Saga, error)
+	// CreateSaga inserts a saga. With an IdempotencyKey it is insert-or-lookup on
+	// (buyer, key): created=false returns the saga that already holds the key.
+	CreateSaga(ctx context.Context, s Saga) (saga Saga, created bool, err error)
+	GetSaga(ctx context.Context, id string) (Saga, error)
 	UpdateSagaStatus(ctx context.Context, id string, status SagaStatus) error
 
 	CreateReservation(ctx context.Context, r Reservation) (Reservation, error)
@@ -86,9 +96,27 @@ type SagaRepository interface {
 	// A committed reservation is never released by compensation or the sweep (M7).
 	CommitReservation(ctx context.Context, id, orderID string) error
 	ListReservationsBySaga(ctx context.Context, sagaID string) ([]Reservation, error)
+	// ListCommittedReservations pages through COMMITTED reservations in id order,
+	// starting after afterID ("" = from the start).
+	ListCommittedReservations(ctx context.Context, afterID string, limit int) ([]Reservation, error)
+	// ListReservationsByOrder returns the reservations bound to an order (any status).
+	ListReservationsByOrder(ctx context.Context, orderID string) ([]Reservation, error)
 	// FindReleasable returns reservations that still hold stock (RESERVED or
 	// RELEASE_FAILED, never COMMITTED) whose TTL has elapsed — the sweep set.
 	FindReleasable(ctx context.Context, now time.Time, limit int) ([]Reservation, error)
+	// FindHeldByCancelledOrders returns reservations still holding stock (COMMITTED
+	// or RELEASE_FAILED) whose order is Cancelled and was last updated at or before
+	// cancelledBefore — a crash between a cancel's claim and its release.
+	FindHeldByCancelledOrders(ctx context.Context, cancelledBefore time.Time, limit int) ([]Reservation, error)
+	// FindStalePendingSagas returns sagas still PENDING that were created at or
+	// before createdBefore (a checkout attempt that crashed or never finished).
+	FindStalePendingSagas(ctx context.Context, createdBefore time.Time, limit int) ([]Saga, error)
+}
+
+// OrderReader is the slice of an order store the in-memory saga repository needs
+// to answer FindHeldByCancelledOrders (Postgres joins the orders table instead).
+type OrderReader interface {
+	GetOrder(ctx context.Context, id string) (Order, error)
 }
 
 // ── Postgres implementation ──
@@ -114,7 +142,7 @@ func scanReservation(row pgx.Row, r *Reservation) error {
 	return nil
 }
 
-func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, error) {
+func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, bool, error) {
 	if s.ID == "" {
 		s.ID = uuid.NewString()
 	}
@@ -122,17 +150,71 @@ func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, 
 		s.Status = SagaStatusPending
 	}
 	s.CreatedAt = time.Now()
-	s.UpdatedAt = time.Now()
-	const q = `INSERT INTO order_sagas (id, buyer_id, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)`
-	if _, err := r.pool.Exec(ctx, q, s.ID, s.BuyerID, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
-		return Saga{}, fmt.Errorf("insert saga: %w", err)
+	s.UpdatedAt = s.CreatedAt
+	if s.IdempotencyKey == "" {
+		const q = `INSERT INTO order_sagas (id, buyer_id, status, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5)`
+		if _, err := r.pool.Exec(ctx, q, s.ID, s.BuyerID, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
+			return Saga{}, false, fmt.Errorf("insert saga: %w", err)
+		}
+		return s, true, nil
+	}
+
+	// Insert-or-lookup on the partial unique index (buyer_id, idempotency_key).
+	const ins = `INSERT INTO order_sagas (id, buyer_id, status, idempotency_key, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (buyer_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`
+	const sel = `SELECT ` + sagaColumns + ` FROM order_sagas WHERE buyer_id = $1 AND idempotency_key = $2`
+	// The holder may free the key (compensation) between our conflicting insert and
+	// our lookup; the next insert then succeeds, so retry a few times.
+	for attempt := 0; attempt < 3; attempt++ {
+		ct, err := r.pool.Exec(ctx, ins, s.ID, s.BuyerID, int32(s.Status), s.IdempotencyKey, s.CreatedAt, s.UpdatedAt)
+		if err != nil {
+			return Saga{}, false, fmt.Errorf("insert saga: %w", err)
+		}
+		if ct.RowsAffected() == 1 {
+			return s, true, nil
+		}
+		var existing Saga
+		if err := scanSaga(r.pool.QueryRow(ctx, sel, s.BuyerID, s.IdempotencyKey), &existing); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return Saga{}, false, fmt.Errorf("lookup saga by idempotency key: %w", err)
+		}
+		return existing, false, nil
+	}
+	return Saga{}, false, fmt.Errorf("idempotency key contended for buyer %q; retry", s.BuyerID)
+}
+
+const sagaColumns = `id, buyer_id, COALESCE(idempotency_key, ''), status, created_at, updated_at`
+
+func scanSaga(row pgx.Row, s *Saga) error {
+	var statusInt int32
+	if err := row.Scan(&s.ID, &s.BuyerID, &s.IdempotencyKey, &statusInt, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		return err
+	}
+	s.Status = SagaStatus(statusInt)
+	return nil
+}
+
+func (r *PostgresSagaRepository) GetSaga(ctx context.Context, id string) (Saga, error) {
+	var s Saga
+	if err := scanSaga(r.pool.QueryRow(ctx, `SELECT `+sagaColumns+` FROM order_sagas WHERE id = $1`, id), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Saga{}, ErrSagaNotFound
+		}
+		return Saga{}, fmt.Errorf("get saga %q: %w", id, err)
 	}
 	return s, nil
 }
 
 func (r *PostgresSagaRepository) UpdateSagaStatus(ctx context.Context, id string, status SagaStatus) error {
-	const q = `UPDATE order_sagas SET status = $2, updated_at = now() WHERE id = $1`
+	// COMPENSATED / FAILED free the idempotency key in the same statement, so the
+	// client's next request with that key runs a fresh checkout.
+	const q = `UPDATE order_sagas SET status = $2, updated_at = now(),
+		idempotency_key = CASE WHEN $2 IN (3, 4) THEN NULL ELSE idempotency_key END
+		WHERE id = $1`
 	if _, err := r.pool.Exec(ctx, q, id, int32(status)); err != nil {
 		return fmt.Errorf("update saga status: %w", err)
 	}
@@ -216,6 +298,28 @@ func (r *PostgresSagaRepository) ListReservationsBySaga(ctx context.Context, sag
 	return out, rows.Err()
 }
 
+func (r *PostgresSagaRepository) ListReservationsByOrder(ctx context.Context, orderID string) ([]Reservation, error) {
+	const q = `SELECT ` + reservationColumns + ` FROM order_reservations WHERE order_id = $1 ORDER BY created_at ASC, id ASC`
+	rows, err := r.pool.Query(ctx, q, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("list reservations by order: %w", err)
+	}
+	return scanReservations(rows)
+}
+
+func (r *PostgresSagaRepository) ListCommittedReservations(ctx context.Context, afterID string, limit int) ([]Reservation, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `SELECT ` + reservationColumns + ` FROM order_reservations
+		WHERE status = $1 AND id > $2 ORDER BY id ASC LIMIT $3`
+	rows, err := r.pool.Query(ctx, q, int32(ReservationStatusCommitted), afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list committed reservations: %w", err)
+	}
+	return scanReservations(rows)
+}
+
 func (r *PostgresSagaRepository) FindReleasable(ctx context.Context, now time.Time, limit int) ([]Reservation, error) {
 	if limit <= 0 {
 		limit = 100
@@ -235,6 +339,58 @@ func (r *PostgresSagaRepository) FindReleasable(ctx context.Context, now time.Ti
 			return nil, err
 		}
 		out = append(out, res)
+	}
+	return out, rows.Err()
+}
+
+func scanReservations(rows pgx.Rows) ([]Reservation, error) {
+	defer rows.Close()
+	var out []Reservation
+	for rows.Next() {
+		var res Reservation
+		if err := scanReservation(rows, &res); err != nil {
+			return nil, err
+		}
+		out = append(out, res)
+	}
+	return out, rows.Err()
+}
+
+func (r *PostgresSagaRepository) FindHeldByCancelledOrders(ctx context.Context, cancelledBefore time.Time, limit int) ([]Reservation, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `SELECT r.id, r.saga_id, r.order_id, r.seller_id, r.buyer_id, r.listing_id, r.variant_id, r.quantity, r.status, r.expires_at, r.created_at, r.updated_at
+		FROM order_reservations r
+		JOIN orders o ON o.id = r.order_id
+		WHERE o.status = $1 AND o.updated_at <= $2 AND r.status IN ($3, $4)
+		ORDER BY r.updated_at ASC, r.id ASC LIMIT $5`
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusCancelled), cancelledBefore,
+		int32(ReservationStatusCommitted), int32(ReservationStatusReleaseFailed), limit)
+	if err != nil {
+		return nil, fmt.Errorf("find reservations held by cancelled orders: %w", err)
+	}
+	return scanReservations(rows)
+}
+
+func (r *PostgresSagaRepository) FindStalePendingSagas(ctx context.Context, createdBefore time.Time, limit int) ([]Saga, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `SELECT ` + sagaColumns + ` FROM order_sagas
+		WHERE status = $1 AND created_at <= $2 ORDER BY created_at ASC LIMIT $3`
+	rows, err := r.pool.Query(ctx, q, int32(SagaStatusPending), createdBefore, limit)
+	if err != nil {
+		return nil, fmt.Errorf("find stale pending sagas: %w", err)
+	}
+	defer rows.Close()
+	var out []Saga
+	for rows.Next() {
+		var sg Saga
+		if err := scanSaga(rows, &sg); err != nil {
+			return nil, err
+		}
+		out = append(out, sg)
 	}
 	return out, rows.Err()
 }
@@ -259,8 +415,13 @@ func NewReservationStore() *reservationStore {
 }
 
 type InMemorySagaRepository struct {
-	store *reservationStore
+	store  *reservationStore
+	orders OrderReader // set by BindOrders; answers FindHeldByCancelledOrders
 }
+
+// BindOrders gives the in-memory saga repository the order store it reads order
+// statuses from (Postgres joins). NewOrderService binds it automatically.
+func (r *InMemorySagaRepository) BindOrders(o OrderReader) { r.orders = o }
 
 // NewInMemorySagaRepository builds an in-memory saga repo over its own store.
 func NewInMemorySagaRepository() *InMemorySagaRepository {
@@ -276,9 +437,16 @@ func NewInMemorySagaRepositoryWithStore(store *reservationStore) *InMemorySagaRe
 	return &InMemorySagaRepository{store: store}
 }
 
-func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, error) {
+func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, bool, error) {
 	r.store.mu.Lock()
 	defer r.store.mu.Unlock()
+	if s.IdempotencyKey != "" {
+		for _, existing := range r.store.sagas {
+			if existing.BuyerID == s.BuyerID && existing.IdempotencyKey == s.IdempotencyKey {
+				return existing, false, nil
+			}
+		}
+	}
 	if s.ID == "" {
 		s.ID = uuid.NewString()
 	}
@@ -286,8 +454,18 @@ func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, er
 		s.Status = SagaStatusPending
 	}
 	s.CreatedAt = time.Now()
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = s.CreatedAt
 	r.store.sagas[s.ID] = s
+	return s, true, nil
+}
+
+func (r *InMemorySagaRepository) GetSaga(_ context.Context, id string) (Saga, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	s, ok := r.store.sagas[id]
+	if !ok {
+		return Saga{}, ErrSagaNotFound
+	}
 	return s, nil
 }
 
@@ -299,6 +477,9 @@ func (r *InMemorySagaRepository) UpdateSagaStatus(_ context.Context, id string, 
 		return fmt.Errorf("saga %q not found", id)
 	}
 	s.Status = status
+	if status == SagaStatusCompensated || status == SagaStatusFailed {
+		s.IdempotencyKey = "" // free the key (mirrors the Postgres statement)
+	}
 	s.UpdatedAt = time.Now()
 	r.store.sagas[id] = s
 	return nil
@@ -375,6 +556,43 @@ func (r *InMemorySagaRepository) ListReservationsBySaga(_ context.Context, sagaI
 	return out, nil
 }
 
+func (r *InMemorySagaRepository) ListReservationsByOrder(_ context.Context, orderID string) ([]Reservation, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	var out []Reservation
+	for _, res := range r.store.reservations {
+		if res.OrderID == orderID {
+			out = append(out, res)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.Before(out[j].CreatedAt)
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) ListCommittedReservations(_ context.Context, afterID string, limit int) ([]Reservation, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	if limit <= 0 {
+		limit = 100
+	}
+	var out []Reservation
+	for _, res := range r.store.reservations {
+		if res.Status == ReservationStatusCommitted && res.ID > afterID {
+			out = append(out, res)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 func (r *InMemorySagaRepository) FindReleasable(_ context.Context, now time.Time, limit int) ([]Reservation, error) {
 	r.store.mu.RLock()
 	defer r.store.mu.RUnlock()
@@ -392,6 +610,54 @@ func (r *InMemorySagaRepository) FindReleasable(_ context.Context, now time.Time
 		out = append(out, res)
 		if len(out) >= limit {
 			break
+		}
+	}
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) FindHeldByCancelledOrders(ctx context.Context, cancelledBefore time.Time, limit int) ([]Reservation, error) {
+	if r.orders == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	r.store.mu.RLock()
+	var candidates []Reservation
+	for _, res := range r.store.reservations {
+		if res.OrderID != "" && (res.Status == ReservationStatusCommitted || res.Status == ReservationStatusReleaseFailed) {
+			candidates = append(candidates, res)
+		}
+	}
+	r.store.mu.RUnlock() // never hold the store lock while reading orders
+
+	var out []Reservation
+	for _, res := range candidates {
+		o, err := r.orders.GetOrder(ctx, res.OrderID)
+		if err != nil || o.Status != OrderStatusCancelled || o.UpdatedAt.After(cancelledBefore) {
+			continue
+		}
+		out = append(out, res)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) FindStalePendingSagas(_ context.Context, createdBefore time.Time, limit int) ([]Saga, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	if limit <= 0 {
+		limit = 100
+	}
+	var out []Saga
+	for _, sg := range r.store.sagas {
+		if sg.Status == SagaStatusPending && !sg.CreatedAt.After(createdBefore) {
+			out = append(out, sg)
+			if len(out) >= limit {
+				break
+			}
 		}
 	}
 	return out, nil

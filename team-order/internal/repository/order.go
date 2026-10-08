@@ -16,6 +16,10 @@ import (
 
 var ErrOrderNotFound = errors.New("order not found")
 
+// ErrStatusConflict is returned by UpdateOrderStatusFrom when the order exists but
+// is no longer in one of the allowed source statuses at the moment of the write.
+var ErrStatusConflict = errors.New("order status changed concurrently")
+
 type OrderStatus int32
 
 const (
@@ -68,6 +72,9 @@ type Order struct {
 	ItemsSubtotal   int64
 	VoucherCode     string
 	DiscountAmount  int64
+	// PaidAt is when the Pending -> Paid compare-and-set succeeded; nil when the
+	// order was never paid or was paid before migration 0007.
+	PaidAt *time.Time
 }
 
 type OrderRepository interface {
@@ -75,7 +82,12 @@ type OrderRepository interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]Order, error)
 	ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]Order, error)
-	UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error)
+	// UpdateOrderStatusFrom is the only status write: a compare-and-set that moves
+	// the order to `to` only if its status at the moment of the write is one of
+	// allowedFrom. It returns ErrOrderNotFound or ErrStatusConflict otherwise. A move
+	// to Paid records paid_at and writes the OrderPaid outbox row in the same
+	// transaction. trackingNumber, when non-empty, is stored with the change.
+	UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error)
 }
 
 // PaidOutboxBuilder turns an order that has just transitioned to PAID into the
@@ -124,15 +136,17 @@ func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *Po
 	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount`
+const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at`
 const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
 	var statusInt int32
-	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount); err != nil {
+	var paidAt *time.Time
+	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt); err != nil {
 		return err
 	}
+	o.PaidAt = paidAt
 	o.Status = OrderStatus(statusInt)
 	if len(addrRaw) > 0 {
 		_ = json.Unmarshal(addrRaw, &o.ShippingAddress)
@@ -153,23 +167,33 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
 
-	addrBytes, err := json.Marshal(order.ShippingAddress)
-	if err != nil {
-		return Order{}, fmt.Errorf("marshal address: %w", err)
-	}
-
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
+	if err := insertOrderTx(ctx, tx, &order); err != nil {
+		return Order{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return order, nil
+}
+
+// insertOrderTx inserts an order (ID, Currency, Status and timestamps already set)
+// and its items inside tx, filling the item ids.
+func insertOrderTx(ctx context.Context, tx pgx.Tx, order *Order) error {
+	addrBytes, err := json.Marshal(order.ShippingAddress)
+	if err != nil {
+		return fmt.Errorf("marshal address: %w", err)
+	}
 	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount); err != nil {
-		return Order{}, fmt.Errorf("insert order: %w", err)
+		return fmt.Errorf("insert order: %w", err)
 	}
-
 	for i := range order.Items {
 		item := &order.Items[i]
 		if item.ID == "" {
@@ -179,14 +203,10 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 		const qItem = `INSERT INTO order_items (id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 		if _, err := tx.Exec(ctx, qItem, item.ID, item.OrderID, item.ListingID, item.VariantID, item.Title, item.VariantName, item.Quantity, item.UnitPrice, item.ImageURL); err != nil {
-			return Order{}, fmt.Errorf("insert order item: %w", err)
+			return fmt.Errorf("insert order item: %w", err)
 		}
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return Order{}, fmt.Errorf("commit tx: %w", err)
-	}
-	return order, nil
+	return nil
 }
 
 // rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
@@ -312,37 +332,39 @@ func (r *PostgresOrderRepository) ListSellerOrders(ctx context.Context, sellerID
 	return orders, nil
 }
 
-func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error) {
+func statusInts(st []OrderStatus) []int32 {
+	out := make([]int32, len(st))
+	for i, x := range st {
+		out[i] = int32(x)
+	}
+	return out
+}
+
+func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// Lock the row so concurrent transitions serialize and "first transition to
-	// PAID" is decided against a stable previous status.
-	var prev int32
-	if err := tx.QueryRow(ctx, `SELECT status FROM orders WHERE id = $1 FOR UPDATE`, id).Scan(&prev); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return Order{}, ErrOrderNotFound
-		}
-		return Order{}, fmt.Errorf("lock order %q: %w", id, err)
-	}
-
-	var q string
-	var args []any
-	if trackingNumber != "" {
-		q = `UPDATE orders SET status = $2, tracking_number = $3, updated_at = now() WHERE id = $1 RETURNING ` + orderColumns
-		args = []any{id, int32(status), trackingNumber}
-	} else {
-		q = `UPDATE orders SET status = $2, updated_at = now() WHERE id = $1 RETURNING ` + orderColumns
-		args = []any{id, int32(status)}
-	}
-
+	// The status condition is decided by this UPDATE itself (row lock), never by
+	// an earlier read. paid_at is recorded by the move to Paid and nothing else.
+	const q = `UPDATE orders SET status = $2, updated_at = now(),
+			tracking_number = CASE WHEN $4 <> '' THEN $4 ELSE tracking_number END,
+			paid_at = CASE WHEN $2 = 2 THEN now() ELSE paid_at END
+		WHERE id = $1 AND status = ANY($3)
+		RETURNING ` + orderColumns
 	var o Order
-	if err := scanOrder(tx.QueryRow(ctx, q, args...), &o); err != nil {
+	if err := scanOrder(tx.QueryRow(ctx, q, id, int32(to), statusInts(allowedFrom), trackingNumber), &o); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return Order{}, ErrOrderNotFound
+			var exists bool
+			if qerr := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE id = $1)`, id).Scan(&exists); qerr != nil {
+				return Order{}, fmt.Errorf("check order %q: %w", id, qerr)
+			}
+			if !exists {
+				return Order{}, ErrOrderNotFound
+			}
+			return Order{}, ErrStatusConflict
 		}
 		return Order{}, fmt.Errorf("update order status: %w", err)
 	}
@@ -352,9 +374,10 @@ func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id stri
 	}
 	o.Items = items
 
-	// Domain-fact event (ADR-0013): the order.events row commits or rolls back
-	// with the status change. Only the first transition to PAID emits.
-	if status == OrderStatusPaid && OrderStatus(prev) != OrderStatusPaid && r.paidOutbox != nil {
+	// Domain-fact event (ADR-0013): the order.events row commits or rolls back with
+	// the status change. Only Pending -> Paid reaches here with to == Paid, so it is
+	// written once per order.
+	if to == OrderStatusPaid && r.paidOutbox != nil {
 		row, err := r.paidOutbox(o)
 		if err != nil {
 			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)
@@ -363,7 +386,6 @@ func (r *PostgresOrderRepository) UpdateOrderStatus(ctx context.Context, id stri
 			return Order{}, err
 		}
 	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return Order{}, fmt.Errorf("commit tx: %w", err)
 	}
@@ -445,24 +467,35 @@ func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID s
 	return res, nil
 }
 
-func (r *InMemoryOrderRepository) UpdateOrderStatus(ctx context.Context, id string, status OrderStatus, trackingNumber string) (Order, error) {
+func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
 	if !ok {
 		return Order{}, ErrOrderNotFound
 	}
-	prev := o.Status
-	o.Status = status
+	allowed := false
+	for _, st := range allowedFrom {
+		if o.Status == st {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return Order{}, ErrStatusConflict
+	}
+	o.Status = to
 	if trackingNumber != "" {
 		o.TrackingNumber = trackingNumber
 	}
 	o.UpdatedAt = time.Now()
-
-	// Mirror the Postgres repo: the outbox row and the status change are one unit.
-	// The order is only stored after the row is enqueued, so a failure leaves the
-	// order untouched (the in-memory analogue of a transaction rollback).
-	if status == OrderStatusPaid && prev != OrderStatusPaid && r.paidOutbox != nil && r.outbox != nil {
+	if to == OrderStatusPaid {
+		paidAt := o.UpdatedAt
+		o.PaidAt = &paidAt
+	}
+	// Mirror the Postgres repo: the outbox row and the status change are one unit;
+	// the order is stored only after the row is enqueued.
+	if to == OrderStatusPaid && r.paidOutbox != nil && r.outbox != nil {
 		row, err := r.paidOutbox(o)
 		if err != nil {
 			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)

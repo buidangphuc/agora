@@ -34,6 +34,10 @@ func (f *reorderFakeDomain) ReserveStock(_ context.Context, _ *listingv1.Reserve
 	return &listingv1.ReserveStockResponse{}, nil
 }
 
+func (f *reorderFakeDomain) CommitReservation(_ context.Context, _ *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return &listingv1.CommitReservationResponse{}, nil
+}
+
 func (f *reorderFakeDomain) ReleaseStock(_ context.Context, _ *listingv1.ReleaseStockRequest, _ ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
 	return &listingv1.ReleaseStockResponse{}, nil
 }
