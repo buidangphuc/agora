@@ -66,11 +66,14 @@ def buyer_opens_dispute(world: World) -> None:
     buyer = world.state.extra.get("seeded_buyer") or get_test_data_manager().get_user_by_role(
         "buyer"
     )
-    seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
     world.service_factory.set_token(buyer.token)
+    # CreateDispute requires the defendant to be the order's seller: read that id off the order.
+    order = world.service_factory.order.get_order(world.state.order_id).get("order", {})
+    seller_id = order.get("sellerId", "")
+    assert seller_id, f"order carries no sellerId: {order}"
     dispute_res = world.service_factory.engagement.create_dispute(
         order_id=world.state.order_id,
-        defendant_id=seller.username,
+        defendant_id=seller_id,
         reason="Khong nhan duoc hang dung mo ta",
         evidence_urls=["https://img.vietnam.vn/proof1.jpg"],
     )
