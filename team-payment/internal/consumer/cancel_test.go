@@ -2,7 +2,6 @@ package consumer_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,7 +28,7 @@ func (f fixture) status(t *testing.T, txID string) repository.PaymentTransaction
 }
 
 // wantLedger asserts the seller's settlement credit for one payment and its refund
-// deductions, by refund key (a key ending in "*" matches any key with that prefix).
+// deductions, by refund key.
 func (f fixture) wantLedger(t *testing.T, seller, txID string, credit int64, deductions map[string]int64) {
 	t.Helper()
 	got := f.entries(t, seller)
@@ -52,11 +51,7 @@ func (f fixture) wantLedger(t *testing.T, seller, txID string, credit int64, ded
 	for key, want := range deductions {
 		var m int
 		for _, e := range d {
-			match := e.ReferenceID == key
-			if strings.HasSuffix(key, "*") {
-				match = strings.HasPrefix(e.ReferenceID, strings.TrimSuffix(key, "*"))
-			}
-			if match {
+			if e.ReferenceID == key {
 				m++
 				if e.Amount != want {
 					t.Fatalf("deduction %s amount %d, want %d", e.ReferenceID, e.Amount, want)
@@ -119,7 +114,7 @@ func TestCancel_AfterSellerPartialRefundRefundsTheRemainder(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "o1", 500000)
 		consume(t, f, paidRecord(t, "o1", 500000, "s1"))
-		if _, _, _, err := f.svc.RefundPayment(context.Background(), tx.ID, 200000, "seller"); err != nil {
+		if _, _, _, err := f.svc.RefundPayment(context.Background(), tx.ID, "R1", 200000, "seller"); err != nil {
 			t.Fatal(err)
 		}
 		consume(t, f, cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000))
@@ -127,7 +122,7 @@ func TestCancel_AfterSellerPartialRefundRefundsTheRemainder(t *testing.T) {
 		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusRefunded || got.RefundedAmount != 500000 {
 			t.Fatalf("payment: %+v", got)
 		}
-		f.wantLedger(t, "s1", tx.ID, 500000, map[string]int64{"rpc:*": -200000, "cancel:o1": -300000})
+		f.wantLedger(t, "s1", tx.ID, 500000, map[string]int64{"rpc:R1": -200000, "cancel:o1": -300000})
 	})
 }
 

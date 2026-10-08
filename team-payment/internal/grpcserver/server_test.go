@@ -186,7 +186,7 @@ func TestPaymentFlow_Success(t *testing.T) {
 	// 5. Refund Payment: a seller/admin action, so the buyer is refused and the
 	// order's seller succeeds.
 	if _, err := client.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
-		PaymentId: tx.GetId(), Amount: 250000, Reason: "buyer self-refund",
+		PaymentId: tx.GetId(), RefundId: "buyer-R1", Amount: 250000, Reason: "buyer self-refund",
 	}); status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("buyer refund: want PermissionDenied, got %v", err)
 	}
@@ -194,6 +194,7 @@ func TestPaymentFlow_Success(t *testing.T) {
 	defer sellerCancel()
 	refundResp, err := client.RefundPayment(sellerCtx, &paymentv1.RefundPaymentRequest{
 		PaymentId: tx.GetId(),
+		RefundId:  "R1",
 		Amount:    250000,
 		Reason:    "Product returned",
 	})

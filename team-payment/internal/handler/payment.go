@@ -268,12 +268,12 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		}
 	}
 
-	tx, success, msg, err := h.svc.RefundPayment(ctx, target.ID, req.GetAmount(), req.GetReason())
+	tx, success, msg, err := h.svc.RefundPayment(ctx, target.ID, req.GetRefundId(), req.GetAmount(), req.GetReason())
 	if err != nil {
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, status.Error(codes.NotFound, "transaction not found")
 		}
-		if errors.Is(err, service.ErrInvalidRefund) {
+		if errors.Is(err, service.ErrInvalidRefund) || errors.Is(err, service.ErrExceedsRemainder) {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
 		if errors.Is(err, service.ErrInvalidAmount) {

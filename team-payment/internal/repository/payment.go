@@ -50,6 +50,9 @@ type PaymentTransaction struct {
 	RefundedAmount int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	// Refunds are the payment's refunds, oldest first. Filled by the service for the
+	// RPC responses; the payment repositories never read or write it.
+	Refunds []Refund
 }
 
 type PaymentRepository interface {
