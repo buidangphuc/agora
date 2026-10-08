@@ -199,3 +199,472 @@ features:
     tags: [recommendations, security]
     status: automated
     covered_by: "security/ai_access.feature::A buyer cannot fetch another user's recommendations"
+  - id: ai.apr-a-healthy-primary-serves-the-reply
+    title: "A healthy primary serves the reply"
+    persona: buyer
+    priority: P1
+    summary: "A healthy primary serves the reply"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message through the gateway and every fake target is healthy"
+      - "Then the full reply comes from the primary target"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A healthy primary serves the reply. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-primary-429-before-the-first-token-falls-back
+    title: "A primary 429 before the first token falls back"
+    persona: buyer
+    priority: P1
+    summary: "A primary 429 before the first token falls back"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary target answers 429 and the first fallback is healthy"
+      - "Then the buyer receives one complete reply from the first fallback and no error"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A primary 429 before the first token falls back. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-whole-chain-is-tried-in-order
+    title: "The whole chain is tried in order"
+    persona: buyer
+    priority: P1
+    summary: "The whole chain is tried in order"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary answers 500 and the first fallback answers 429"
+      - "Then the buyer receives one complete reply from the second fallback"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::The whole chain is tried in order. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failure-after-the-first-chunk-does-not-switch-models
+    title: "A failure after the first chunk does not switch models"
+    persona: buyer
+    priority: P1
+    summary: "A failure after the first chunk does not switch models"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary streams two chunks and then breaks the connection"
+      - "Then the buyer receives those two chunks, then an error status, and no chunk from any other target"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A failure after the first chunk does not switch models. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-an-exhausted-chain-fails-cleanly
+    title: "An exhausted chain fails cleanly"
+    persona: buyer
+    priority: P1
+    summary: "An exhausted chain fails cleanly"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which every target answers 500"
+      - "Then the call fails with `unavailable`, the error message contains no exception or provider text, and no reply chunk was streamed"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::An exhausted chain fails cleanly. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-hung-primary-times-out-and-falls-back
+    title: "A hung primary times out and falls back"
+    persona: buyer
+    priority: P1
+    summary: "A hung primary times out and falls back"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary never sends a first token and the first fallback is healthy"
+      - "Then the reply comes from the first fallback within `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` plus 3 seconds"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::A hung primary times out and falls back. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-attempts-are-bounded
+    title: "Attempts are bounded"
+    persona: buyer
+    priority: P1
+    summary: "Attempts are bounded"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which every target answers 500"
+      - "Then the fake provider received at most `LLM_MAX_ATTEMPTS` requests for that message"
+    tags: [ai, resilience]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_routing.feature::Attempts are bounded. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-repeated-5xx-opens-the-primary-s-breaker
+    title: "Repeated 5xx opens the primary's breaker"
+    persona: buyer
+    priority: P1
+    summary: "Repeated 5xx opens the primary's breaker"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When the primary target answers 500 for `LLM_BREAKER_THRESHOLD` consecutive chat requests and then becomes healthy"
+      - "Then the next chat request made within the cooldown is served by the first fallback without the primary being called"
+    tags: [ai, resilience, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_breaker.feature::Repeated 5xx opens the primary's breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-request-caused-400-does-not-open-the-breaker
+    title: "A request-caused 400 does not open the breaker"
+    persona: buyer
+    priority: P1
+    summary: "A request-caused 400 does not open the breaker"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When the primary answers 400 for `LLM_BREAKER_THRESHOLD` consecutive chat requests and then becomes healthy"
+      - "Then the next chat request is served by the primary"
+    tags: [ai, resilience, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_breaker.feature::A request-caused 400 does not open the breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-successful-probe-closes-the-breaker
+    title: "A successful probe closes the breaker"
+    persona: buyer
+    priority: P1
+    summary: "A successful probe closes the breaker"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When the primary's breaker is open, the cooldown elapses and the primary is healthy again"
+      - "Then the next chat request is served by the primary, and so is the one after it"
+    tags: [ai, resilience, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_breaker.feature::A successful probe closes the breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-usage-is-recorded-for-a-completed-reply
+    title: "Usage is recorded for a completed reply"
+    persona: buyer
+    priority: P1
+    summary: "Usage is recorded for a completed reply"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer's chat reply completes and the fake provider reported 11 input and 7 output tokens"
+      - "Then team-ai's log has one usage line for that request id with 11 input tokens, 7 output tokens and the target"
+    tags: [ai, quota]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::Usage is recorded for a completed reply. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-an-exhausted-quota-refuses-the-call
+    title: "An exhausted quota refuses the call"
+    persona: buyer
+    priority: P1
+    summary: "An exhausted quota refuses the call"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer has used up the per-principal quota configured on the e2e stack and streams another chat message"
+      - "Then the call fails with `resource_exhausted` and the fake provider received no request for that message"
+    tags: [ai, quota]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::An exhausted quota refuses the call. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failed-call-does-not-consume-quota
+    title: "A failed call does not consume quota"
+    persona: buyer
+    priority: P1
+    summary: "A failed call does not consume quota"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer with quota for exactly one more reply streams a message for which every target answers 500, then streams a message with healthy targets"
+      - "Then the first call fails with `unavailable` and the second reply completes"
+    tags: [ai, quota]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::A failed call does not consume quota. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-one-buyer-over-the-limit-does-not-affect-another
+    title: "One buyer over the limit does not affect another"
+    persona: buyer
+    priority: P1
+    summary: "One buyer over the limit does not affect another"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When one buyer streams more chat messages within a minute than the per-principal limit on the e2e stack"
+      - "Then the calls past the limit fail with `resource_exhausted`, and a different buyer's chat message right after succeeds"
+    tags: [ai, rate-limit, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::One buyer over the limit does not affect another. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-production-refuses-a-per-process-rate-limiter
+    title: "Production refuses a per-process rate limiter"
+    persona: admin
+    priority: P1
+    summary: "Production refuses a per-process rate limiter"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When the team-ai image is started with `ENV=production`, `GRPC_RATE_LIMIT_ENABLED=true` and `RATE_LIMIT_BACKEND=memory`"
+      - "Then the process exits non-zero and its log names `RATE_LIMIT_BACKEND`"
+    tags: [ai, ops, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ops/boot_guard_ai.feature::Production refuses a per-process rate limiter. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-system-prompt-is-always-first
+    title: "The system prompt is always first"
+    persona: buyer
+    priority: P1
+    summary: "The system prompt is always first"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message on the e2e stack, where Langfuse is off"
+      - "Then the request the fake provider received starts with a system message equal to the configured system prompt"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::The system prompt is always first. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-follow-up-carries-the-session-history
+    title: "A follow-up carries the session history"
+    persona: buyer
+    priority: P1
+    summary: "A follow-up carries the session history"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"first question\" and then \"second question\" with the same `session_id`"
+      - "Then the second request the fake provider received contains, after the system message, the first user turn, the first assistant reply and the second user turn, in that order"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::A follow-up carries the session history. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-history-is-bounded
+    title: "History is bounded"
+    persona: buyer
+    priority: P1
+    summary: "History is bounded"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams more messages in one session than `CHAT_HISTORY_MAX_TURNS`"
+      - "Then the last request the fake provider received contains only the most recent `CHAT_HISTORY_MAX_TURNS` earlier turns"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::History is bounded. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failed-reply-is-not-kept-as-history
+    title: "A failed reply is not kept as history"
+    persona: buyer
+    priority: P1
+    summary: "A failed reply is not kept as history"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a message for which every target answers 500, then streams a follow-up with the same `session_id`"
+      - "Then the follow-up request the fake provider received contains no turn from the failed message"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::A failed reply is not kept as history. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-phone-and-citizen-id-are-masked-before-the-model
+    title: "Phone and citizen ID are masked before the model"
+    persona: buyer
+    priority: P1
+    summary: "Phone and citizen ID are masked before the model"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"gọi 0912 345 678, CCCD 079123456789\""
+      - "Then the request the fake provider received contains redaction markers and neither \"0912 345 678\" nor \"079123456789\""
+    tags: [ai, privacy, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Phone and citizen ID are masked before the model. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-prices-and-order-numbers-are-not-masked
+    title: "Prices and order numbers are not masked"
+    persona: buyer
+    priority: P1
+    summary: "Prices and order numbers are not masked"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"giá 850000000, order id 123456789\""
+      - "Then the request the fake provider received contains \"850000000\" and \"123456789\""
+    tags: [ai, privacy]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Prices and order numbers are not masked. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-assistant-logs-carry-redacted-text
+    title: "Assistant logs carry redacted text"
+    persona: buyer
+    priority: P1
+    summary: "Assistant logs carry redacted text"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer asks the Shopping Assistant through the gateway a question containing \"a.b@example.com\""
+      - "Then no team-ai log line contains \"a.b@example.com\""
+    tags: [ai, privacy, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Assistant logs carry redacted text. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-chat-trace-carries-the-request-id
+    title: "A chat trace carries the request id"
+    persona: buyer
+    priority: P1
+    summary: "A chat trace carries the request id"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When team-ai runs with Langfuse enabled against the fake provider's ingestion endpoint and a buyer streams a chat message with `X-Request-Id` \"e2e-trace-<random>\""
+      - "Then the fake ingestion endpoint receives a trace containing \"e2e-trace-<random>\" and the buyer's id"
+    tags: [ai, tracing, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_tracing.feature::A chat trace carries the request id. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-eval-gate-runs-the-chat-resilience-cases
+    title: "The eval gate runs the chat resilience cases"
+    persona: admin
+    priority: P1
+    summary: "The eval gate runs the chat resilience cases"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When `make eval` runs in team-ai with no judge configured and no judge cases"
+      - "Then it exits zero and its report lists the primary-429, all-fail and after-first-chunk cases as passed"
+    tags: [ai, eval]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_eval_gate.feature::The eval gate runs the chat resilience cases. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-judge-case-without-a-judge-fails-the-gate
+    title: "A judge case without a judge fails the gate"
+    persona: admin
+    priority: P1
+    summary: "A judge case without a judge fails the gate"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When `make eval` runs with an eval set containing one judge case and `JUDGE_CHAT_MODEL` empty"
+      - "Then it exits non-zero, names that case, and reports a pass rate below 100%"
+    tags: [ai, eval]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_eval_gate.feature::A judge case without a judge fails the gate. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
