@@ -615,3 +615,22 @@ features:
     status: planned
     covered_by: null
     notes: "Scenario: ai/llm_prompt_and_privacy.feature::Assistant logs carry redacted text. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-chat-trace-carries-the-request-id
+    title: "A chat trace carries the request id"
+    persona: buyer
+    priority: P1
+    summary: "A chat trace carries the request id"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When team-ai runs with Langfuse enabled against the fake provider's ingestion endpoint and a buyer streams a chat message with `X-Request-Id` \"e2e-trace-<random>\""
+      - "Then the fake ingestion endpoint receives a trace containing \"e2e-trace-<random>\" and the buyer's id"
+    tags: [ai, tracing, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_tracing.feature::A chat trace carries the request id. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
