@@ -79,14 +79,18 @@ func run() error {
 	var paymentRepo repository.PaymentRepository
 	var walletRepo repository.WalletRepository
 	var ledgerRepo repository.LedgerRepository
+	var settleLedger repository.SettlementLedger
 	if res.Pool != nil {
 		paymentRepo = repository.NewPostgresPaymentRepository(res.Pool)
 		walletRepo = repository.NewPostgresWalletRepository(res.Pool)
 		ledgerRepo = repository.NewPostgresLedgerRepository(res.Pool)
+		settleLedger = repository.NewPostgresSettlementLedger(res.Pool)
 	} else {
-		paymentRepo = repository.NewInMemoryPaymentRepository()
+		memPayments := repository.NewInMemoryPaymentRepository()
+		memLedger := repository.NewInMemoryLedgerRepository()
+		paymentRepo, ledgerRepo = memPayments, memLedger
 		walletRepo = repository.NewInMemoryWalletRepository()
-		ledgerRepo = repository.NewInMemoryLedgerRepository()
+		settleLedger = repository.NewInMemorySettlementLedger(memPayments, memLedger)
 	}
 
 	// Wire the transactional outbox writer (AD4): on settle, payment=PAID and the
@@ -98,7 +102,8 @@ func run() error {
 	if res.TxWriter != nil {
 		svcOpts = append(svcOpts, service.WithTxWriter(res.TxWriter))
 	}
-	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo), service.WithPayoutHold(settings.Payout.Window))
+	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo), service.WithSettlementLedger(settleLedger),
+		service.WithPayoutHold(settings.Payout.Window))
 	logger.Info("payout hold window", slog.String("window", settings.Payout.Window.String()),
 		slog.Bool("enabled", settings.Payout.Window > 0))
 	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, svcOpts...)

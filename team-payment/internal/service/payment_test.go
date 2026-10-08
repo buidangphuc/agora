@@ -53,7 +53,8 @@ func setupService() (*service.PaymentService, *repository.InMemoryPaymentReposit
 	orderClient := &mockOrderClient{
 		orders: make(map[string]*orderv1.Order),
 	}
-	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger)
+	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger,
+		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(paymentRepo, repository.NewInMemoryLedgerRepository())))
 	return svc, paymentRepo, walletRepo, orderClient
 }
 

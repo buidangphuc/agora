@@ -102,6 +102,10 @@ func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1
 		if errors.Is(err, repository.ErrInsufficientBalance) {
 			return nil, status.Error(codes.FailedPrecondition, "insufficient wallet balance")
 		}
+		if held := (*repository.FundsOnHoldError)(nil); errors.As(err, &held) {
+			// "amount is held until <RFC3339> (refund window)": the instant only, no amounts.
+			return nil, status.Error(codes.FailedPrecondition, held.Error())
+		}
 		return nil, h.internalError(ctx, "request wallet payout", err)
 	}
 

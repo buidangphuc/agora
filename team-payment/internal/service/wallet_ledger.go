@@ -105,8 +105,9 @@ func (s *PaymentService) RequestWalletPayout(
 	}, repository.Holdback{Window: s.holdWindow, Now: s.now()})
 }
 
-// CreditWallet records a COMPLETED credit ledger entry for a seller (e.g. an order
-// settlement). Not exposed as its own RPC; used by the settlement path and tests.
+// CreditWallet records an unreferenced COMPLETED credit ledger entry for a seller.
+// Test seeding only: the settlement credit is CreditSettlement (referenced, idempotent),
+// and the Postgres store refuses an unreferenced ORDER_SETTLEMENT.
 func (s *PaymentService) CreditWallet(
 	ctx context.Context,
 	sellerID string,
