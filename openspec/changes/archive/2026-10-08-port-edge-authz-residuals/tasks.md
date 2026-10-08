@@ -44,4 +44,4 @@
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive port-edge-authz-residuals`; retire `service-authz-hardening` and `authz-hardening-wave2`; trim `gateway-and-ai-hardening` to its team-ai requirements (moved to `ai-path-resilience`); verify `openspec list` and the folded specs
+- [x] 4.1 `openspec archive port-edge-authz-residuals`; retire `service-authz-hardening` and `authz-hardening-wave2`; trim `gateway-and-ai-hardening` to its team-ai requirements (moved to `ai-path-resilience`); verify `openspec list` and the folded specs

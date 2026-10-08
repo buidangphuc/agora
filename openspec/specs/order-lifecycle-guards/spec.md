@@ -16,7 +16,7 @@ concurrency on every write path, what a cancel does to stock and vouchers, and h
 | `Pending` | `Shipped` | seller (cash-on-delivery hand-over) |
 | `Paid` | `Shipped` | seller |
 | `Shipped` | `Completed` | seller |
-| `Pending`, `Paid` | `Cancelled` | buyer (`CancelOrder`); buyer or admin (`ForceFailSaga`) |
+| `Pending`, `Paid` | `Cancelled` | buyer (`CancelOrder`); admin (`ForceFailSaga`) |
 
 `Completed` and `Cancelled` SHALL be terminal. An admin SHALL act with the seller's class on `UpdateOrderStatus`. A
 caller who is not the order's buyer, seller or an admin SHALL get `PERMISSION_DENIED` before any status is revealed; a
