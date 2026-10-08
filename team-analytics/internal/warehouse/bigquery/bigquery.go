@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 	"google.golang.org/api/googleapi"
@@ -116,6 +117,10 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("ensure %s.%s table: %w", w.dataset, w.table, err)
 	}
 
+	if err := w.evolveSchema(ctx, schema); err != nil {
+		return err
+	}
+
 	factsSchema, err := bqOrderFactsSchema()
 	if err != nil {
 		return err
@@ -133,6 +138,71 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("ensure %s.%s table: %w", w.dataset, warehouse.OrderFactsTableName, err)
 	}
 
+	// Stitching views are best-effort: a read-only dataset must not stop the
+	// sink, so the error is ignored and ViewDDL is the documented migration.
+	_ = w.ensureViews(ctx)
+
+	return nil
+}
+
+// evolveSchema appends columns that an older table lacks (e.g. ingested_at).
+func (w *Writer) evolveSchema(ctx context.Context, want bigquery.Schema) error {
+	t := w.client.Dataset(w.dataset).Table(w.table)
+	md, err := t.Metadata(ctx)
+	if err != nil {
+		return fmt.Errorf("read %s.%s metadata: %w", w.dataset, w.table, err)
+	}
+	have := map[string]bool{}
+	for _, f := range md.Schema {
+		have[f.Name] = true
+	}
+	next := md.Schema
+	for _, f := range want {
+		if !have[f.Name] {
+			next = append(next, f)
+		}
+	}
+	if len(next) == len(md.Schema) {
+		return nil
+	}
+	if _, err := t.Update(ctx, bigquery.TableMetadataToUpdate{Schema: next}, md.ETag); err != nil {
+		return fmt.Errorf("add columns to %s.%s: %w", w.dataset, w.table, err)
+	}
+	return nil
+}
+
+// ViewDDL returns the BigQuery equivalents of the DuckDB stitching views
+// (tracking-ingest-integrity D5): identity first, then resolved.
+func ViewDDL(project, dataset, table string) []string {
+	base := fmt.Sprintf("`%s.%s.%s`", project, dataset, table)
+	identity := fmt.Sprintf("`%s.%s.%s`", project, dataset, warehouse.IdentityViewName)
+	resolved := fmt.Sprintf("`%s.%s.%s`", project, dataset, warehouse.ResolvedViewName)
+	return []string{
+		fmt.Sprintf("CREATE OR REPLACE VIEW %s AS\n"+
+			"SELECT anonymous_id, ANY_VALUE(principal_id HAVING MAX occurred_at) AS principal_id\n"+
+			"FROM %s\nWHERE principal_type = 'user' AND anonymous_id != ''\nGROUP BY anonymous_id", identity, base),
+		fmt.Sprintf("CREATE OR REPLACE VIEW %s AS\n"+
+			"SELECT t.*, CASE\n  WHEN t.principal_type = 'user' THEN t.principal_id\n"+
+			"  WHEN i.principal_id IS NOT NULL THEN i.principal_id\n"+
+			"  ELSE CONCAT('anon:', t.anonymous_id) END AS user_key\n"+
+			"FROM %s t LEFT JOIN %s i USING (anonymous_id)", resolved, base, identity),
+	}
+}
+
+func (w *Writer) ensureViews(ctx context.Context) error {
+	for _, ddl := range ViewDDL(w.client.Project(), w.dataset, w.table) {
+		job, err := w.client.Query(ddl).Run(ctx)
+		if err != nil {
+			return err
+		}
+		st, err := job.Wait(ctx)
+		if err != nil {
+			return err
+		}
+		if err := st.Err(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -212,6 +282,7 @@ func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
 		"event_group_id": s.rec.EventGroupID,
 		"shipping_tier":  s.rec.ShippingTier,
 		"payment_type":   s.rec.PaymentType,
+		"ingested_at":    time.Now().UTC(),
 	}
 	return row, s.rec.EventID, nil
 }
