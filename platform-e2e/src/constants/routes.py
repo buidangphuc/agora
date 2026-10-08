@@ -32,6 +32,7 @@ SELLER_ANALYTICS = "/seller/analytics"
 SELLER_WALLET = "/seller/wallet"
 SELLER_SHOP = "/seller/shop"
 SELLER_ORDER_DETAIL = "/seller/orders/{order_id}"
+SELLER_ORDER_RETURNS = "/seller/orders/{order_id}?tab=returns"
 
 # Admin
 ADMIN_COCKPIT = "/admin/cockpit"
