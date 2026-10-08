@@ -85,6 +85,11 @@ func NewOrderService(
 	if s.placer == nil {
 		s.placer = defaultPlacer(orderRepo, s.sagaRepo)
 	}
+	// The in-memory saga store answers "reservations of Cancelled orders" through
+	// the order store (Postgres joins); bind it for local/test wiring.
+	if b, ok := s.sagaRepo.(interface{ BindOrders(repository.OrderReader) }); ok && orderRepo != nil {
+		b.BindOrders(orderRepo)
+	}
 	return s
 }
 

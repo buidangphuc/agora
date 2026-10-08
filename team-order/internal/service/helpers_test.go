@@ -3,7 +3,9 @@ package service_test
 import (
 	"context"
 	"sync"
+	"testing"
 
+	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 )
 
@@ -37,4 +39,17 @@ func (r *recordingSagaRepo) lastSagaID() string {
 		return ""
 	}
 	return ids[len(ids)-1]
+}
+
+func reserveReq(res repository.Reservation) *listingv1.ReserveStockRequest {
+	return &listingv1.ReserveStockRequest{ListingId: res.ListingID, VariantId: res.VariantID, Quantity: res.Quantity, ReservationId: res.ID}
+}
+
+// cancelWithoutRelease moves an order to Cancelled without releasing anything:
+// a cancel that crashed right after its claim.
+func cancelWithoutRelease(t *testing.T, orders repository.OrderRepository, id string) {
+	t.Helper()
+	if _, err := orders.UpdateOrderStatus(context.Background(), id, repository.OrderStatusCancelled, ""); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -98,6 +98,19 @@ type SagaRepository interface {
 	// FindReleasable returns reservations that still hold stock (RESERVED or
 	// RELEASE_FAILED, never COMMITTED) whose TTL has elapsed — the sweep set.
 	FindReleasable(ctx context.Context, now time.Time, limit int) ([]Reservation, error)
+	// FindHeldByCancelledOrders returns reservations still holding stock (COMMITTED
+	// or RELEASE_FAILED) whose order is Cancelled and was last updated at or before
+	// cancelledBefore — a crash between a cancel's claim and its release.
+	FindHeldByCancelledOrders(ctx context.Context, cancelledBefore time.Time, limit int) ([]Reservation, error)
+	// FindStalePendingSagas returns sagas still PENDING that were created at or
+	// before createdBefore (a checkout attempt that crashed or never finished).
+	FindStalePendingSagas(ctx context.Context, createdBefore time.Time, limit int) ([]Saga, error)
+}
+
+// OrderReader is the slice of an order store the in-memory saga repository needs
+// to answer FindHeldByCancelledOrders (Postgres joins the orders table instead).
+type OrderReader interface {
+	GetOrder(ctx context.Context, id string) (Order, error)
 }
 
 // ── Postgres implementation ──
@@ -302,6 +315,58 @@ func (r *PostgresSagaRepository) FindReleasable(ctx context.Context, now time.Ti
 	return out, rows.Err()
 }
 
+func scanReservations(rows pgx.Rows) ([]Reservation, error) {
+	defer rows.Close()
+	var out []Reservation
+	for rows.Next() {
+		var res Reservation
+		if err := scanReservation(rows, &res); err != nil {
+			return nil, err
+		}
+		out = append(out, res)
+	}
+	return out, rows.Err()
+}
+
+func (r *PostgresSagaRepository) FindHeldByCancelledOrders(ctx context.Context, cancelledBefore time.Time, limit int) ([]Reservation, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `SELECT r.id, r.saga_id, r.order_id, r.seller_id, r.buyer_id, r.listing_id, r.variant_id, r.quantity, r.status, r.expires_at, r.created_at, r.updated_at
+		FROM order_reservations r
+		JOIN orders o ON o.id = r.order_id
+		WHERE o.status = $1 AND o.updated_at <= $2 AND r.status IN ($3, $4)
+		ORDER BY r.updated_at ASC, r.id ASC LIMIT $5`
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusCancelled), cancelledBefore,
+		int32(ReservationStatusCommitted), int32(ReservationStatusReleaseFailed), limit)
+	if err != nil {
+		return nil, fmt.Errorf("find reservations held by cancelled orders: %w", err)
+	}
+	return scanReservations(rows)
+}
+
+func (r *PostgresSagaRepository) FindStalePendingSagas(ctx context.Context, createdBefore time.Time, limit int) ([]Saga, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `SELECT ` + sagaColumns + ` FROM order_sagas
+		WHERE status = $1 AND created_at <= $2 ORDER BY created_at ASC LIMIT $3`
+	rows, err := r.pool.Query(ctx, q, int32(SagaStatusPending), createdBefore, limit)
+	if err != nil {
+		return nil, fmt.Errorf("find stale pending sagas: %w", err)
+	}
+	defer rows.Close()
+	var out []Saga
+	for rows.Next() {
+		var sg Saga
+		if err := scanSaga(rows, &sg); err != nil {
+			return nil, err
+		}
+		out = append(out, sg)
+	}
+	return out, rows.Err()
+}
+
 // ── In-memory implementation ──
 
 // reservationStore is the backing state shared by InMemorySagaRepository
@@ -322,8 +387,13 @@ func NewReservationStore() *reservationStore {
 }
 
 type InMemorySagaRepository struct {
-	store *reservationStore
+	store  *reservationStore
+	orders OrderReader // set by BindOrders; answers FindHeldByCancelledOrders
 }
+
+// BindOrders gives the in-memory saga repository the order store it reads order
+// statuses from (Postgres joins). NewOrderService binds it automatically.
+func (r *InMemorySagaRepository) BindOrders(o OrderReader) { r.orders = o }
 
 // NewInMemorySagaRepository builds an in-memory saga repo over its own store.
 func NewInMemorySagaRepository() *InMemorySagaRepository {
@@ -475,6 +545,54 @@ func (r *InMemorySagaRepository) FindReleasable(_ context.Context, now time.Time
 		out = append(out, res)
 		if len(out) >= limit {
 			break
+		}
+	}
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) FindHeldByCancelledOrders(ctx context.Context, cancelledBefore time.Time, limit int) ([]Reservation, error) {
+	if r.orders == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	r.store.mu.RLock()
+	var candidates []Reservation
+	for _, res := range r.store.reservations {
+		if res.OrderID != "" && (res.Status == ReservationStatusCommitted || res.Status == ReservationStatusReleaseFailed) {
+			candidates = append(candidates, res)
+		}
+	}
+	r.store.mu.RUnlock() // never hold the store lock while reading orders
+
+	var out []Reservation
+	for _, res := range candidates {
+		o, err := r.orders.GetOrder(ctx, res.OrderID)
+		if err != nil || o.Status != OrderStatusCancelled || o.UpdatedAt.After(cancelledBefore) {
+			continue
+		}
+		out = append(out, res)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) FindStalePendingSagas(_ context.Context, createdBefore time.Time, limit int) ([]Saga, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	if limit <= 0 {
+		limit = 100
+	}
+	var out []Saga
+	for _, sg := range r.store.sagas {
+		if sg.Status == SagaStatusPending && !sg.CreatedAt.After(createdBefore) {
+			out = append(out, sg)
+			if len(out) >= limit {
+				break
+			}
 		}
 	}
 	return out, nil
