@@ -54,7 +54,8 @@ func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRep
 			},
 		},
 	}
-	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, service.WithLedgerRepo(ledger))
+	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, service.WithLedgerRepo(ledger),
+		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(paymentRepo, ledger)))
 	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true))
 	return h, paymentRepo, ledger, orderClient
 }

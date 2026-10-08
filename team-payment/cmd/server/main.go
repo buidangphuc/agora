@@ -79,14 +79,18 @@ func run() error {
 	var paymentRepo repository.PaymentRepository
 	var walletRepo repository.WalletRepository
 	var ledgerRepo repository.LedgerRepository
+	var settleLedger repository.SettlementLedger
 	if res.Pool != nil {
 		paymentRepo = repository.NewPostgresPaymentRepository(res.Pool)
 		walletRepo = repository.NewPostgresWalletRepository(res.Pool)
 		ledgerRepo = repository.NewPostgresLedgerRepository(res.Pool)
+		settleLedger = repository.NewPostgresSettlementLedger(res.Pool)
 	} else {
-		paymentRepo = repository.NewInMemoryPaymentRepository()
+		memPayments := repository.NewInMemoryPaymentRepository()
+		memLedger := repository.NewInMemoryLedgerRepository()
+		paymentRepo, ledgerRepo = memPayments, memLedger
 		walletRepo = repository.NewInMemoryWalletRepository()
-		ledgerRepo = repository.NewInMemoryLedgerRepository()
+		settleLedger = repository.NewInMemorySettlementLedger(memPayments, memLedger)
 	}
 
 	// Wire the transactional outbox writer (AD4): on settle, payment=PAID and the
@@ -98,8 +102,20 @@ func run() error {
 	if res.TxWriter != nil {
 		svcOpts = append(svcOpts, service.WithTxWriter(res.TxWriter))
 	}
-	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo))
+	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo), service.WithSettlementLedger(settleLedger),
+		service.WithPayoutHold(settings.Payout.Window))
+	logger.Info("payout hold window", slog.String("window", settings.Payout.Window.String()),
+		slog.Bool("enabled", settings.Payout.Window > 0))
 	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, svcOpts...)
+	// Seller ledger consumer of order.events (OrderPaidEvent credit). The deferred stop
+	// runs before the CloseResources defer above (LIFO), so it stops before the pool
+	// closes.
+	stopConsumer, err := bootstrap.StartSettlementConsumer(paymentSvc, res.Pool != nil, logger)
+	if err != nil {
+		return fmt.Errorf("start settlement consumer: %w", err)
+	}
+	defer stopConsumer()
+
 	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(settings.Mock.MockPayments))
 
 	srv := grpcserver.Build(settings, paymentHandler, res.Health, logger)

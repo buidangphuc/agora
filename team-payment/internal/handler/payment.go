@@ -199,6 +199,10 @@ func (h *PaymentHandler) RequestPayout(ctx context.Context, req *paymentv1.Reque
 		if errors.Is(err, repository.ErrInvalidAmount) {
 			return nil, status.Error(codes.InvalidArgument, "invalid payout amount")
 		}
+		if held := (*repository.FundsOnHoldError)(nil); errors.As(err, &held) {
+			// "amount is held until <RFC3339> (refund window)": the instant only, no amounts.
+			return nil, status.Error(codes.FailedPrecondition, held.Error())
+		}
 		return nil, h.internalError(ctx, "request payout", err)
 	}
 

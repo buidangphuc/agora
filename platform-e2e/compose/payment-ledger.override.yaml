@@ -1,0 +1,16 @@
+# Short payout hold window for the payment ledger e2e scenarios
+# (change port-payment-ledger-integrity, design D9).
+#
+# Layer it on top of the stack, from the workspace root (any compose project name):
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/payment-ledger.override.yaml up -d
+# Add the same `-f` pair to any other `docker compose` call against that project; it combines
+# with order-inventory.override.yaml.
+#
+# Settlement credits are held from payouts for 20s instead of the 7-day default, so payout
+# scenarios (including the existing bank-payout flow) can wait the hold out. Without this
+# overlay a fresh sale cannot be paid out for 7 days.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  team-payment:
+    environment:
+      PAYOUT_HOLD_WINDOW: 20s

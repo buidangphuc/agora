@@ -3,6 +3,7 @@ package config_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/team-payment/internal/config"
 )
@@ -87,6 +88,52 @@ func TestRequireNoMockPayments(t *testing.T) {
 			}
 			if err != nil && !strings.Contains(err.Error(), "MOCK_PAYMENTS") {
 				t.Fatalf("error must name MOCK_PAYMENTS: %v", err)
+			}
+		})
+	}
+}
+
+func TestPayoutHoldWindow(t *testing.T) {
+	cases := []struct {
+		name, days, window string
+		want               time.Duration
+		errKey             string // non-empty: startup must fail naming this key
+	}{
+		{name: "unset is 7 days", want: 7 * 24 * time.Hour},
+		{name: "days", days: "3", want: 3 * 24 * time.Hour},
+		{name: "0 disables", days: "0", want: 0},
+		{name: "max days", days: "3650", want: 3650 * 24 * time.Hour},
+		{name: "negative days", days: "-1", errKey: "PAYOUT_HOLD_DAYS"},
+		{name: "too many days", days: "3651", errKey: "PAYOUT_HOLD_DAYS"},
+		{name: "non-numeric days", days: "abc", errKey: "PAYOUT_HOLD_DAYS"},
+		{name: "window overrides days", days: "7", window: "20s", want: 20 * time.Second},
+		{name: "window 0 disables", window: "0s", want: 0},
+		{name: "unparsable window", window: "soon", errKey: "PAYOUT_HOLD_WINDOW"},
+		{name: "negative window", window: "-1s", errKey: "PAYOUT_HOLD_WINDOW"},
+		{name: "window above 3650 days", window: "87601h", errKey: "PAYOUT_HOLD_WINDOW"},
+		{name: "invalid days still refused under a valid window", days: "-1", window: "20s", errKey: "PAYOUT_HOLD_DAYS"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("DATABASE_ENABLED", "false")
+			if tc.days != "" {
+				t.Setenv("PAYOUT_HOLD_DAYS", tc.days)
+			}
+			if tc.window != "" {
+				t.Setenv("PAYOUT_HOLD_WINDOW", tc.window)
+			}
+			s, err := config.LoadSettings()
+			if tc.errKey != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.errKey) {
+					t.Fatalf("want an error naming %s, got %v", tc.errKey, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("LoadSettings: %v", err)
+			}
+			if s.Payout.Window != tc.want {
+				t.Fatalf("window = %s, want %s", s.Payout.Window, tc.want)
 			}
 		})
 	}

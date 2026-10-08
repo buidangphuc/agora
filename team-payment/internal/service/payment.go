@@ -25,6 +25,13 @@ var (
 	ErrInsufficientBalance = repository.ErrInsufficientBalance
 	ErrInvalidAmount       = repository.ErrInvalidAmount
 	ErrInvalidRefund       = errors.New("cannot refund unpaid or already refunded transaction")
+	// ErrNotSettled: the order has no PAID/REFUNDED payment to credit or refund.
+	ErrNotSettled = repository.ErrNotSettled
+	// ErrFundsOnHold: the payout is within the balance but the proceeds are still in
+	// the refund hold window (errors.As gives *repository.FundsOnHoldError).
+	ErrFundsOnHold = repository.ErrFundsOnHold
+	// ErrSettlementNotConfigured: no SettlementLedger was wired.
+	ErrSettlementNotConfigured = errors.New("settlement ledger not configured")
 )
 
 type PaymentService struct {
@@ -33,7 +40,12 @@ type PaymentService struct {
 	ledgerRepo  repository.LedgerRepository
 	orderClient upstream.OrderClient
 	txWriter    repository.PaymentTxWriter
+	settle      repository.SettlementLedger
 	logger      *slog.Logger
+	// holdWindow is the payout hold-back window (0 = off); now is the clock it is
+	// measured against (injectable for tests).
+	holdWindow time.Duration
+	now        func() time.Time
 }
 
 // Option configures optional PaymentService collaborators without breaking the
@@ -54,6 +66,24 @@ func WithLedgerRepo(lr repository.LedgerRepository) Option {
 	return func(s *PaymentService) { s.ledgerRepo = lr }
 }
 
+// WithSettlementLedger injects the store that moves seller money for a payment: the
+// settlement credit (consumer of OrderPaidEvent) and the refund compare-and-set with
+// its deduction (design D4). RefundPayment requires it.
+func WithSettlementLedger(sl repository.SettlementLedger) Option {
+	return func(s *PaymentService) { s.settle = sl }
+}
+
+// WithPayoutHold sets the payout hold-back window (PAYOUT_HOLD_DAYS / PAYOUT_HOLD_WINDOW):
+// settlement credits younger than it cannot be paid out. 0 disables the hold.
+func WithPayoutHold(window time.Duration) Option {
+	return func(s *PaymentService) { s.holdWindow = window }
+}
+
+// WithClock injects the clock the hold window is measured against (tests).
+func WithClock(now func() time.Time) Option {
+	return func(s *PaymentService) { s.now = now }
+}
+
 func NewPaymentService(
 	paymentRepo repository.PaymentRepository,
 	walletRepo repository.WalletRepository,
@@ -69,6 +99,7 @@ func NewPaymentService(
 		walletRepo:  walletRepo,
 		orderClient: orderClient,
 		logger:      logger,
+		now:         time.Now,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -168,9 +199,8 @@ func (s *PaymentService) ProcessMockPayment(
 		if err != nil {
 			return repository.PaymentTransaction{}, false, "", fmt.Errorf("settle payment: %w", err)
 		}
-		// Credit the seller's (mock) wallet with the settled amount so payouts
-		// have a balance to draw from. Best-effort: never undo a paid order.
-		s.creditSellerWallet(ctx, updated)
+		// No ledger write here: the seller is credited from team-order's OrderPaidEvent
+		// (internal/consumer), so a payment that loses to a cancel never credits.
 		return updated, true, "Thanh toán giả lập thành công!", nil
 	}
 
@@ -188,26 +218,6 @@ func (s *PaymentService) ProcessMockPayment(
 // still completes (event emission then depends on the outbox writer being
 // wired). It never calls order.UpdateOrderStatus — order transition is driven by
 // the emitted event.
-// creditSellerWallet resolves the order's seller and records a COMPLETED credit
-// ledger entry for the settled amount. Best-effort: a failure here is logged and
-// must not fail the (already successful) payment.
-func (s *PaymentService) creditSellerWallet(ctx context.Context, tx repository.PaymentTransaction) {
-	orderResp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: tx.OrderID})
-	if err != nil || orderResp.GetOrder() == nil {
-		s.logger.WarnContext(ctx, "wallet credit skipped: cannot resolve order seller",
-			slog.String("order_id", tx.OrderID), slog.Any("err", err))
-		return
-	}
-	sellerID := orderResp.GetOrder().GetSellerId()
-	if sellerID == "" || tx.Amount <= 0 {
-		return
-	}
-	if _, err := s.CreditWallet(ctx, sellerID, tx.Amount, ""); err != nil {
-		s.logger.WarnContext(ctx, "wallet credit failed",
-			slog.String("seller_id", sellerID), slog.Any("err", err))
-	}
-}
-
 func (s *PaymentService) settlePaid(ctx context.Context, tx repository.PaymentTransaction, providerRef string) (repository.PaymentTransaction, error) {
 	if s.txWriter == nil {
 		s.logger.WarnContext(ctx, "settling without transactional outbox writer; no PaymentSettled event emitted",
@@ -294,13 +304,31 @@ func (s *PaymentService) RefundPayment(
 		return repository.PaymentTransaction{}, false, "", errors.New("refund amount exceeds transaction amount")
 	}
 
-	ref := fmt.Sprintf("REFUND:%s", reason)
-	updated, err := s.paymentRepo.UpdateTransactionStatus(ctx, tx.ID, repository.PaymentStatusRefunded, ref)
+	updated, err := s.refund(ctx, tx.ID, amount, reason)
 	if err != nil {
-		return repository.PaymentTransaction{}, false, "", fmt.Errorf("update refund status: %w", err)
+		return repository.PaymentTransaction{}, false, "", err
 	}
-
 	return updated, true, "Hoàn tiền thành công", nil
+}
+
+// refund runs the design D4 refund transaction: PAID -> REFUNDED by compare-and-set
+// (a lost race is ErrInvalidRefund) plus exactly one REFUND_DEDUCTION for a credited
+// payment. Never blocked by the seller's balance or hold.
+func (s *PaymentService) refund(ctx context.Context, txID string, amount int64, reason string) (repository.PaymentTransaction, error) {
+	if s.settle == nil {
+		return repository.PaymentTransaction{}, ErrSettlementNotConfigured
+	}
+	res, err := s.settle.Refund(ctx, txID, amount, fmt.Sprintf("REFUND:%s", reason))
+	switch {
+	case errors.Is(err, repository.ErrNotRefundable):
+		return repository.PaymentTransaction{}, ErrInvalidRefund
+	case err != nil:
+		return repository.PaymentTransaction{}, fmt.Errorf("refund payment: %w", err)
+	}
+	s.logger.InfoContext(ctx, "payment refunded",
+		slog.String("payment_id", txID), slog.String("order_id", res.Transaction.OrderID),
+		slog.Int64("amount", amount), slog.Bool("seller_deducted", res.Deducted))
+	return res.Transaction, nil
 }
 
 // ── Seller Wallet & Payout ───────────────────────────────────────────
