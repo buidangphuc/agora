@@ -33,7 +33,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -395,6 +395,13 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - PAYMENT_EVENTS_TOPIC=payment.events
+      # Seller ledger consumer of order.events (OrderPaidEvent credit, OrderCancelled
+      # refund); poison records go to its own DLQ (order.events.dlq is team-notification's).
+      # The payout hold stays at its 7-day default; the e2e overlay
+      # platform-e2e/compose/payment-ledger.override.yaml shortens it.
+      - ORDER_EVENTS_TOPIC=order.events
+      - PAYMENT_SETTLEMENT_CONSUMER_GROUP=team-payment.settlement
+      - PAYMENT_SETTLEMENT_DLQ_TOPIC=order.events.payment-settlement.dlq
       - GRPC_PORT=50056
       - ENV=local
       # local/e2e only: enables ProcessMockPayment (refused at boot in staging/prod)
