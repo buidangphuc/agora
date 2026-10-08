@@ -78,6 +78,16 @@ class Settings(
             and not self.REDIS_ENABLED
         ):
             raise ValueError("RATE_LIMIT_BACKEND=redis requires REDIS_ENABLED=true")
+        if (
+            self.GRPC_RATE_LIMIT_ENABLED
+            and self.RATE_LIMIT_BACKEND == "memory"
+            and not self.ENVIRONMENT.is_local
+        ):
+            # A per-process limiter multiplies the limit by the replica count.
+            raise ValueError(
+                "RATE_LIMIT_BACKEND=memory is refused with GRPC_RATE_LIMIT_ENABLED "
+                "outside dev/local/test (use RATE_LIMIT_BACKEND=redis)"
+            )
         if not self.ENVIRONMENT.is_production:
             return self
 
