@@ -105,6 +105,14 @@ default and listed in `.env.example`.
 | `REDIS_HOST` | none (required) | No default. |
 | `CHAT_BACKEND` | `mock` | `mock` or `llm_router`. |
 | `CHAT_MODEL`, `CHAT_FALLBACK_MODELS`, `JUDGE_CHAT_MODEL` | `""` | LangChain model ids such as `openai:gpt-4.1-mini`. Empty `CHAT_MODEL` means the local fake model. |
+| `LLM_FIRST_TOKEN_TIMEOUT_SECONDS`, `LLM_MAX_ATTEMPTS` | `8.0`, `3` | `llm_router`: each attempt is cancelled when no chunk arrives in time; `LLM_MAX_ATTEMPTS` bounds all pre-first-chunk attempts across the chain (the same target is retried only in a single-target chain). The gRPC deadline caps every wait. |
+| `LLM_BREAKER_THRESHOLD`, `LLM_BREAKER_COOLDOWN_SECONDS` | `3`, `30.0` | Per-target breaker: consecutive 429/5xx/timeout/connection failures open it; after the cooldown one probe request is let through. Request-caused 4xx never count. |
+| `CHAT_SYSTEM_PROMPT` | `""` | System prompt used when Langfuse is off or unreachable; empty means the built-in prompt. |
+| `CHAT_HISTORY_MAX_TURNS`, `CHAT_HISTORY_MAX_TOKENS`, `CHAT_HISTORY_TTL_SECONDS` | `10`, `1500`, `1800` | Earlier exchanges of the same `(principal, session_id)` sent to the model (a turn = one user+assistant exchange; tokens estimated as chars/4). Redis when `REDIS_ENABLED`, else per process. |
+| `LLM_TRACE_CONTENT` | `redacted` | User text in logs and Langfuse traces: `redacted`, `off` or `full` (`full` refused outside dev/local/test). Text sent to the model is always redacted. |
+| `QUOTA_ENABLED`, `QUOTA_BACKEND` | `false`, `memory` | With `llm_router`, one `chat.reply` unit is reserved per reply (server-minted id), finalized after delivery and refunded when nothing was delivered. |
+| `QUOTA_CHAT_REPLIES_PER_WINDOW`, `QUOTA_CHAT_WINDOW_SECONDS` | `200`, `86400` | Chat reply quota per principal. |
+| `GRPC_RATE_LIMIT_ENABLED` | `false` | Per-principal limit on `StreamChat` and `ShoppingAssistant` (`RATE_LIMIT_*`). Refused with `RATE_LIMIT_BACKEND=memory` outside dev/local/test. |
 | `RAG_ENABLED` | `false` | Gates `SearchListings`. |
 | `RAG_BACKEND` | `memory` | `memory` or `qdrant`. |
 | `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION` | `http://localhost:6333`, `rag_documents` | Used when `RAG_BACKEND=qdrant`. |
