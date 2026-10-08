@@ -60,7 +60,7 @@ func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.
 		if errors.Is(err, service.ErrInvalidCampaign) {
 			return nil, status.Error(codes.InvalidArgument, "invalid campaign")
 		}
-		return nil, status.Errorf(codes.Internal, "create campaign: %v", err)
+		return nil, internalError(ctx, h.logger, "create campaign", err)
 	}
 	return &promotionv1.CreateCampaignResponse{Campaign: service.CampaignToProto(c)}, nil
 }
@@ -71,7 +71,7 @@ func (h *FlashSaleHandler) GetActiveFlashSale(ctx context.Context, req *promotio
 	}
 	c, active, err := h.svc.GetActiveFlashSale(ctx, req.GetListingId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get active flash sale: %v", err)
+		return nil, internalError(ctx, h.logger, "get active flash sale", err)
 	}
 	resp := &promotionv1.GetActiveFlashSaleResponse{Active: active}
 	if active {
@@ -83,7 +83,7 @@ func (h *FlashSaleHandler) GetActiveFlashSale(ctx context.Context, req *promotio
 func (h *FlashSaleHandler) ListActiveCampaigns(ctx context.Context, req *promotionv1.ListActiveCampaignsRequest) (*promotionv1.ListActiveCampaignsResponse, error) {
 	items, next, err := h.svc.ListActiveCampaigns(ctx, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list active campaigns: %v", err)
+		return nil, internalError(ctx, h.logger, "list active campaigns", err)
 	}
 	out := make([]*promotionv1.FlashSaleCampaign, 0, len(items))
 	for _, c := range items {
@@ -104,7 +104,7 @@ func (h *FlashSaleHandler) GetFlashSaleStock(ctx context.Context, req *promotion
 		if errors.Is(err, repository.ErrCampaignNotFound) {
 			return nil, status.Error(codes.NotFound, "campaign not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get flash sale stock: %v", err)
+		return nil, internalError(ctx, h.logger, "get flash sale stock", err)
 	}
 	return &promotionv1.GetFlashSaleStockResponse{Remaining: remaining, StockCap: stockCap}, nil
 }
@@ -113,4 +113,11 @@ func (h *FlashSaleHandler) GetFlashSaleStock(ctx context.Context, req *promotion
 // (best-effort/unknown) since the repositories do not compute an exact count.
 func pageResponse(next string) *commonv1.PageResponse {
 	return &commonv1.PageResponse{NextCursor: next}
+}
+
+// internalError logs the real cause and returns a generic INTERNAL so storage or
+// upstream details never reach the client.
+func internalError(ctx context.Context, logger *slog.Logger, op string, err error) error {
+	logger.ErrorContext(ctx, "handler error", slog.String("op", op), slog.Any("err", err))
+	return status.Error(codes.Internal, "internal error")
 }

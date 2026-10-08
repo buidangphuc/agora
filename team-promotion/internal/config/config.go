@@ -17,6 +17,7 @@ type Settings struct {
 	FeatureFlags  FeatureFlags
 	Kafka         Kafka
 	Upstream      Upstream
+	Ads           Ads
 }
 
 type Runtime struct {
@@ -68,6 +69,16 @@ type Kafka struct {
 // non-admin CreateCampaign fails closed (Unavailable).
 type Upstream struct {
 	DomainAddr string `env:"UPSTREAM_DOMAIN_ADDR" default:""`
+	// CallTimeoutSeconds bounds one team-domain lookup, so a dead upstream yields
+	// UNAVAILABLE instead of consuming the whole request budget (a gateway 504).
+	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+}
+
+// Ads bounds what a seller may put on a sponsored campaign (minor units). Both
+// must be > 0.
+type Ads struct {
+	MaxBid    int64 `env:"MAX_AD_BID" default:"1000000"`
+	MaxBudget int64 `env:"MAX_AD_BUDGET" default:"1000000000"`
 }
 
 func LoadSettings() (*Settings, error) {
@@ -87,6 +98,15 @@ func (s *Settings) Validate() error {
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
+	}
+	if s.Ads.MaxBid <= 0 {
+		return fmt.Errorf("MAX_AD_BID must be > 0: %d", s.Ads.MaxBid)
+	}
+	if s.Ads.MaxBudget <= 0 {
+		return fmt.Errorf("MAX_AD_BUDGET must be > 0: %d", s.Ads.MaxBudget)
+	}
+	if s.Upstream.CallTimeoutSeconds <= 0 {
+		return fmt.Errorf("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0: %v", s.Upstream.CallTimeoutSeconds)
 	}
 	return nil
 }

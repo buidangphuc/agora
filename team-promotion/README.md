@@ -21,13 +21,13 @@ these into a principal; each handler enforces its own rule. `RequirePrincipal` r
 | `VoucherService/CreateVoucher` | Principal required. Scope `PLATFORM` (and unspecified) needs `admin`. Scope `SHOP` needs `listing.write` or `admin`; `seller_id` is forced to the caller's id. |
 | `VoucherService/GetVoucher` | None (public read by code). |
 | `VoucherService/ListVouchers` | None. Filters by `seller_id` from the request (empty = platform). |
-| `VoucherService/ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | **None** (see Known gaps). `reservation_id` is required; the caller is expected to be team-order. |
+| `VoucherService/ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | `Commit`/`Release`: SERVICE principal holding `promotion.reserve` only (user/admin tokens are `PermissionDenied`). `ValidateAndReserve` is dual-mode: a SERVICE principal with `promotion.reserve` is trusted (request `buyer_id`/`seller_id` honoured); any other authenticated principal gets `buyer_id` forced to its own id and `reservation_id` must start `preview:<its id>:` (else `PermissionDenied`), so a preview hold can never be committed. |
 | `FlashSaleService/CreateCampaign` | Principal required plus `listing.write` or `admin`. Non-admins must own the listing: team-domain `GetListing` (as the caller) must return `seller_id` equal to the caller id. Foreign listing is `PermissionDenied`, unknown listing `InvalidArgument`, lookup failure or `UPSTREAM_DOMAIN_ADDR` unset is `Unavailable` (fails closed). Admins skip the lookup. |
 | `FlashSaleService/GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock` | None (public reads). |
 | `SubscriptionService/ListPlans` | None. |
-| `SubscriptionService/Subscribe` | Any authenticated principal; seller id is the caller's id. |
-| `SubscriptionService/GetEntitlements` | Principal required. A `user` principal may read only its own id; a `service` principal may read any seller. |
-| `SponsoredService/CreateAdCampaign` | Any authenticated principal; seller id is the caller's id. |
+| `SubscriptionService/Subscribe` | Requires `listing.write` (buyer-only is `PermissionDenied`); seller id is the caller's id. |
+| `SubscriptionService/GetEntitlements` | Principal required. Only a `service` principal may read another seller; every other type (user, admin, unspecified) reads only its own id (fail closed). |
+| `SponsoredService/CreateAdCampaign` | Requires `listing.write`; non-admins must own the listing (same team-domain check as `CreateCampaign`, fails closed). `bid`/`budget` above `MAX_AD_BID`/`MAX_AD_BUDGET` are `InvalidArgument`. Seller id is the caller's id. |
 | `SponsoredService/ListSponsoredSlots` | None (active campaigns, best bid first). |
 
 Also served: `grpc.health.v1.Health` and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default on).
@@ -176,12 +176,7 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
 
 ## Known gaps
 
-- **Redemption RPCs are unauthenticated.** `ValidateAndReserve`, `CommitReservation` and
-  `ReleaseReservation` have no principal or scope check, and `buyer_id` / `seller_id` come from the
-  request body. Anyone who can reach the port can commit or release a hold.
 - **`ListVouchers` and `GetVoucher` are public**, including by arbitrary `seller_id`.
-- **`CreateAdCampaign` and `Subscribe` accept any authenticated principal** (buyers included); there is
-  no seller-role gate.
 - **`flash_sale_campaigns.stock_sold` is never incremented.** No code path updates it, so
   `GetFlashSaleStock` always reports `remaining == stock_cap`.
 - **Quota counts commits only.** Outstanding (`reserved`) holds are not counted against `quota`, so

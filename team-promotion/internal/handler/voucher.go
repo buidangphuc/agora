@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -74,7 +75,7 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 		if errors.Is(err, service.ErrInvalidVoucher) {
 			return nil, status.Error(codes.InvalidArgument, "invalid voucher")
 		}
-		return nil, status.Errorf(codes.Internal, "create voucher: %v", err)
+		return nil, internalError(ctx, h.logger, "create voucher", err)
 	}
 	return &promotionv1.CreateVoucherResponse{Voucher: service.VoucherToProto(v)}, nil
 }
@@ -88,7 +89,7 @@ func (h *VoucherHandler) GetVoucher(ctx context.Context, req *promotionv1.GetVou
 		if errors.Is(err, repository.ErrVoucherNotFound) {
 			return nil, status.Error(codes.NotFound, "voucher not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get voucher: %v", err)
+		return nil, internalError(ctx, h.logger, "get voucher", err)
 	}
 	return &promotionv1.GetVoucherResponse{Voucher: service.VoucherToProto(v)}, nil
 }
@@ -98,7 +99,7 @@ func (h *VoucherHandler) ListVouchers(ctx context.Context, req *promotionv1.List
 	pageSize := req.GetPage().GetPageSize()
 	items, next, err := h.svc.ListVouchers(ctx, req.GetSellerId(), cursor, pageSize)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list vouchers: %v", err)
+		return nil, internalError(ctx, h.logger, "list vouchers", err)
 	}
 	out := make([]*promotionv1.Voucher, 0, len(items))
 	for _, v := range items {
@@ -110,13 +111,44 @@ func (h *VoucherHandler) ListVouchers(ctx context.Context, req *promotionv1.List
 	}, nil
 }
 
+// PreviewReservationPrefix namespaces non-service ValidateAndReserve holds: a
+// preview reservation_id must be "preview:<caller id>:<anything>".
+const PreviewReservationPrefix = "preview:"
+
+// ValidateAndReserve is dual-mode.
+//
+//   - A SERVICE principal holding promotion.reserve (team-order) is trusted: the
+//     request's buyer_id / seller_id / cart_subtotal / reservation_id are honoured.
+//   - Any other authenticated principal (the checkout voucher preview, called
+//     through the gateway) is bound to itself: buyer_id is the principal id (the
+//     request value is ignored) and reservation_id must live in the caller's own
+//     "preview:<principal id>:" namespace. Such a hold can never be committed or
+//     released by its creator (those RPCs are service-only), so the user path
+//     cannot consume quota.
+//   - A service principal without promotion.reserve is refused; none/anonymous is
+//     UNAUTHENTICATED.
 func (h *VoucherHandler) ValidateAndReserve(ctx context.Context, req *promotionv1.ValidateAndReserveRequest) (*promotionv1.ValidateAndReserveResponse, error) {
+	p, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	buyerID := req.GetBuyerId()
+	if interceptor.IsService(p) {
+		if _, err := interceptor.RequireService(ctx, interceptor.ScopePromoReserve); err != nil {
+			return nil, err
+		}
+	} else {
+		buyerID = p.GetId()
+		if !strings.HasPrefix(req.GetReservationId(), PreviewReservationPrefix+p.GetId()+":") {
+			return nil, status.Error(codes.PermissionDenied, "reservation_id outside the caller's preview namespace")
+		}
+	}
 	if req.GetReservationId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
-	res, err := h.svc.ValidateAndReserve(ctx, req.GetReservationId(), req.GetCode(), req.GetBuyerId(), req.GetCartSubtotal(), req.GetSellerId())
+	res, err := h.svc.ValidateAndReserve(ctx, req.GetReservationId(), req.GetCode(), buyerID, req.GetCartSubtotal(), req.GetSellerId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "validate and reserve: %v", err)
+		return nil, internalError(ctx, h.logger, "validate and reserve", err)
 	}
 	return &promotionv1.ValidateAndReserveResponse{
 		Valid:          res.Valid,
@@ -126,24 +158,33 @@ func (h *VoucherHandler) ValidateAndReserve(ctx context.Context, req *promotionv
 	}, nil
 }
 
+// CommitReservation is a saga RPC: only the order service's own service principal
+// (scope promotion.reserve) may count a redemption against a voucher's quota.
 func (h *VoucherHandler) CommitReservation(ctx context.Context, req *promotionv1.CommitReservationRequest) (*promotionv1.CommitReservationResponse, error) {
+	if _, err := interceptor.RequireService(ctx, interceptor.ScopePromoReserve); err != nil {
+		return nil, err
+	}
 	if req.GetReservationId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
 	committed, err := h.svc.CommitReservation(ctx, req.GetReservationId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "commit reservation: %v", err)
+		return nil, internalError(ctx, h.logger, "commit reservation", err)
 	}
 	return &promotionv1.CommitReservationResponse{Committed: committed}, nil
 }
 
+// ReleaseReservation is a saga RPC: service-only, like CommitReservation.
 func (h *VoucherHandler) ReleaseReservation(ctx context.Context, req *promotionv1.ReleaseReservationRequest) (*promotionv1.ReleaseReservationResponse, error) {
+	if _, err := interceptor.RequireService(ctx, interceptor.ScopePromoReserve); err != nil {
+		return nil, err
+	}
 	if req.GetReservationId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
 	released, err := h.svc.ReleaseReservation(ctx, req.GetReservationId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "release reservation: %v", err)
+		return nil, internalError(ctx, h.logger, "release reservation", err)
 	}
 	return &promotionv1.ReleaseReservationResponse{Released: released}, nil
 }
