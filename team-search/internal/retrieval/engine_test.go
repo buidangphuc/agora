@@ -26,7 +26,7 @@ func (f *fakeIndex) Upsert(ctx context.Context, doc index.ListingDoc) error { re
 func (f *fakeIndex) PartialUpdate(ctx context.Context, id string, p map[string]interface{}) error {
 	return nil
 }
-func (f *fakeIndex) Delete(ctx context.Context, id string) error { return nil }
+func (f *fakeIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
 func (f *fakeIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
 	return nil, nil
 }

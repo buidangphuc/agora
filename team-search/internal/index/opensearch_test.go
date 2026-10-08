@@ -49,32 +49,46 @@ func fakeOpenSearch(t *testing.T, status int, respBody string, cap *capturedRequ
 	return idx
 }
 
-// AD2: Upsert applies OpenSearch external versioning so an out-of-order write
-// cannot overwrite newer state.
-func TestUpsert_UsesExternalVersioning(t *testing.T) {
+// D1: Upsert is one scripted_upsert guarded on _source.version, not an
+// external-version index request.
+func TestUpsert_IsGuardedScriptedUpsert(t *testing.T) {
 	var cap capturedRequest
 	idx := fakeOpenSearch(t, 200, `{"result":"created"}`, &cap)
 
-	err := idx.Upsert(context.Background(), index.ListingDoc{ID: "l1", Title: "Phone", Version: 42})
-	if err != nil {
+	if err := idx.Upsert(context.Background(), index.ListingDoc{ID: "l1", Title: "Phone", Version: 42}); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
-	if !strings.Contains(cap.query, "version_type=external") {
-		t.Errorf("expected version_type=external in query, got %q", cap.query)
+	if cap.path != "/listings/_update/l1" {
+		t.Errorf("expected the update API, got %s %s", cap.method, cap.path)
 	}
-	if !strings.Contains(cap.query, "version=42") {
-		t.Errorf("expected version=42 in query, got %q", cap.query)
+	if strings.Contains(cap.query, "version_type") {
+		t.Errorf("external versioning must be gone, got query %q", cap.query)
+	}
+	for _, want := range []string{`"scripted_upsert":true`, `"kind":"upsert"`, `"version":42`, `"title":"Phone"`} {
+		if !strings.Contains(cap.body, want) {
+			t.Errorf("expected %s in body, got %s", want, cap.body)
+		}
+	}
+	if strings.Contains(cap.body, `"rating"`) {
+		t.Errorf("rating must no longer be written (D9): %s", cap.body)
 	}
 }
 
-// AD2: a stale/duplicate version is rejected by OpenSearch with 409; the index
-// treats it as a no-op so the newer state is preserved.
-func TestUpsert_StaleVersionConflictIsNoOp(t *testing.T) {
+// D5: Delete writes the tombstone through the same script with the delete's version.
+func TestDelete_WritesVersionedTombstone(t *testing.T) {
 	var cap capturedRequest
-	idx := fakeOpenSearch(t, http.StatusConflict, `{"error":"version_conflict_engine_exception"}`, &cap)
+	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &cap)
 
-	if err := idx.Upsert(context.Background(), index.ListingDoc{ID: "l1", Version: 1}); err != nil {
-		t.Fatalf("expected 409 conflict to be a no-op, got error: %v", err)
+	if err := idx.Delete(context.Background(), "l1", 77); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if cap.method != http.MethodPost || cap.path != "/listings/_update/l1" {
+		t.Errorf("expected a scripted update, got %s %s", cap.method, cap.path)
+	}
+	for _, want := range []string{`"scripted_upsert":true`, `"kind":"delete"`, `"version":77`, `"now":`} {
+		if !strings.Contains(cap.body, want) {
+			t.Errorf("expected %s in body, got %s", want, cap.body)
+		}
 	}
 }
 

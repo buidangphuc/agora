@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -21,6 +22,8 @@ type mockIndex struct {
 	lastPartialDoc map[string]interface{}
 	lastPartialID  string
 	lastDeleteID   string
+	lastDeleteVer  int64
+	deletes        int
 }
 
 func (m *mockIndex) EnsureIndex(ctx context.Context) error { return nil }
@@ -33,8 +36,10 @@ func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map
 	m.lastPartialDoc = partialDoc
 	return nil
 }
-func (m *mockIndex) Delete(ctx context.Context, id string) error {
+func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error {
 	m.lastDeleteID = id
+	m.lastDeleteVer = version
+	m.deletes++
 	return nil
 }
 func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
@@ -154,5 +159,53 @@ func TestListingEventHandler_PricingChangePreservesEmbedding(t *testing.T) {
 	}
 	if idx.lastPartialDoc["price"] != int64(450000) {
 		t.Errorf("expected price 450000, got %v", idx.lastPartialDoc["price"])
+	}
+}
+
+func envelopeAt(t *testing.T, eventType string, msg proto.Message, at time.Time) []byte {
+	t.Helper()
+	payload, err := proto.Marshal(msg)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	env := &eventsv1.EventEnvelope{EventId: "evt", Type: eventType, Payload: payload}
+	if !at.IsZero() {
+		env.OccurredAt = timestamppb.New(at)
+	}
+	b, err := proto.Marshal(env)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	return b
+}
+
+// D5: every delete path writes a tombstone carrying the delete event's version
+// (occurred_at in ns), never a plain unversioned delete.
+func TestListingEventHandler_DeletePathsCarryVersion(t *testing.T) {
+	at := time.Unix(1700000000, 123)
+	cases := map[string]struct {
+		typ string
+		msg proto.Message
+	}{
+		"ListingChanged DELETED": {"platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
+			Listing: &listingv1.Listing{Id: "l-del"}, ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED}},
+		"ListingBaseInfoChanged DELETED": {"platform.listing.v1.ListingBaseInfoChanged", &listingv1.ListingBaseInfoChanged{
+			ListingId: "l-del", ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED}},
+		"ListingStatusChanged REJECTED": {"platform.listing.v1.ListingStatusChanged", &listingv1.ListingStatusChanged{
+			ListingId: "l-del", Status: listingv1.ListingStatus_LISTING_STATUS_REJECTED}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			idx := &mockIndex{}
+			if err := consumer.ListingEventHandler(idx)(context.Background(), nil, envelopeAt(t, tc.typ, tc.msg, at)); err != nil {
+				t.Fatalf("handler: %v", err)
+			}
+			if idx.deletes != 1 || idx.lastDeleteID != "l-del" || idx.lastDeleteVer != at.UnixNano() {
+				t.Errorf("want one Delete(l-del, %d), got %d x (%q, %d)", at.UnixNano(), idx.deletes, idx.lastDeleteID, idx.lastDeleteVer)
+			}
+			if idx.lastUpsertDoc.ID != "" || idx.lastPartialID != "" {
+				t.Errorf("a delete must not upsert or partially update")
+			}
+		})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/v2"
 	"github.com/opensearch-project/opensearch-go/v2/opensearchapi"
@@ -21,8 +22,9 @@ import (
 
 // ListingDoc is the indexed shape of a listing (the read-model document).
 // Version is the monotonic read-model version (AD2), sourced from the event's
-// occurred_at; it drives OpenSearch external versioning so out-of-order events
-// cannot overwrite newer state.
+// occurred_at; the write guard (writeScript) compares it with the stored one so
+// out-of-order events cannot overwrite newer state. Rating is not written: no
+// listing event carries one (D9); the mapping keeps the field.
 type ListingDoc struct {
 	ID            string    `json:"id"`
 	Title         string    `json:"title"`
@@ -32,7 +34,6 @@ type ListingDoc struct {
 	Price         int64     `json:"price"`
 	CategoryID    string    `json:"category_id"`
 	SellerID      string    `json:"seller_id"`
-	Rating        float64   `json:"rating"`
 	Version       int64     `json:"version"`
 	Embedding     []float32 `json:"embedding,omitempty"`
 	VectorPending bool      `json:"vector_pending,omitempty"`
@@ -73,7 +74,8 @@ type Index interface {
 	EnsureIndex(ctx context.Context) error
 	Upsert(ctx context.Context, doc ListingDoc) error
 	PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error
-	Delete(ctx context.Context, id string) error
+	// Delete writes a versioned tombstone (D5); version is the delete event's occurred_at in ns.
+	Delete(ctx context.Context, id string, version int64) error
 	Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
 	SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
 	Suggest(ctx context.Context, prefix string, limit int) ([]string, error)
@@ -83,6 +85,7 @@ type Index interface {
 type OpenSearchIndex struct {
 	client *opensearch.Client
 	name   string
+	now    func() time.Time
 }
 
 // New builds an OpenSearch-backed index for the given URL + index name.
@@ -91,7 +94,7 @@ func New(url, name string) (*OpenSearchIndex, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opensearch client: %w", err)
 	}
-	return &OpenSearchIndex{client: client, name: name}, nil
+	return &OpenSearchIndex{client: client, name: name, now: time.Now}, nil
 }
 
 // indexMapping: title as search_as_you_type powers both full-text and prefix
@@ -205,46 +208,119 @@ func (o *OpenSearchIndex) ensureAdditiveMapping(ctx context.Context) error {
 	return nil
 }
 
-// Upsert adds or replaces a whole document by id (idempotent). When the doc
-// carries a positive Version it is applied with OpenSearch external versioning
-// (AD2): OpenSearch rejects an incoming version <= the stored one with 409, which
-// we treat as a no-op so a re-delivered or out-of-order event never overwrites
-// newer state.
+// statusDeleted marks a tombstone document (D5). It is never published, so the
+// published-only default hides it, and the handler rejects it as a status filter.
+const statusDeleted = "deleted"
+
+// writeScript is the one write guard for every whole-document write (D1, D5).
+// It runs as a scripted_upsert, so it sees an absent document as an empty
+// _source with ctx.op == 'create', and decides in one atomic request:
+//
+//   - kind 'upsert' on a live document: noop when the incoming version is
+//     positive and not newer than the stored one; otherwise the base fields are
+//     replaced by params.doc while the fields that have their own rules are
+//     carried forward.
+//   - kind 'upsert' on a tombstone: noop when the incoming version is 0 (no
+//     occurred_at) or not newer than the tombstone's; a newer one replaces it.
+//   - kind 'delete': writes {id, status: deleted, version, tombstoned_at} and
+//     drops every other field, unless the stored document (live or tombstone)
+//     is already at or past the delete's version; an unversioned delete keeps
+//     the stored version so it cannot lower the guard.
+const writeScript = `
+Map s = ctx._source;
+boolean absent = ctx.op == 'create' || s.isEmpty();
+boolean tomb = !absent && 'deleted'.equals(s.status);
+long v = ((Number) params.version).longValue();
+boolean hasCur = !absent && s.version != null;
+long cur = hasCur ? ((Number) s.version).longValue() : 0L;
+if (params.kind == 'delete') {
+  boolean stale = tomb ? (hasCur && cur >= v) : (v > 0 && hasCur && cur >= v);
+  if (stale) {
+    ctx.op = 'noop';
+  } else {
+    long nv = v > 0 ? v : cur;
+    s.clear();
+    s.id = params.id;
+    s.status = 'deleted';
+    s.version = nv;
+    s.tombstoned_at = params.now;
+  }
+} else {
+  boolean stale = tomb ? (v <= 0 || (hasCur && cur >= v)) : (v > 0 && hasCur && cur >= v);
+  if (stale) {
+    ctx.op = 'noop';
+  } else {
+    s.clear();
+    s.putAll(params.doc);
+  }
+}
+`
+
+// Upsert adds or replaces a whole document by id through writeScript, so a
+// re-delivered, out-of-order or unversioned event never overwrites newer state
+// and never revives a tombstone it does not postdate.
 func (o *OpenSearchIndex) Upsert(ctx context.Context, doc ListingDoc) error {
-	body, err := json.Marshal(doc)
+	raw, err := json.Marshal(doc)
 	if err != nil {
 		return err
 	}
-	req := opensearchapi.IndexRequest{
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	return o.write(ctx, doc.ID, map[string]any{
+		"kind":    "upsert",
+		"version": doc.Version,
+		"doc":     fields,
+	})
+}
+
+// Delete writes the tombstone for id through writeScript (D5): the delete
+// event's version is recorded so an older event cannot resurrect the listing,
+// and tombstoned_at (the indexer's clock) drives the purge (D6).
+func (o *OpenSearchIndex) Delete(ctx context.Context, id string, version int64) error {
+	return o.write(ctx, id, map[string]any{
+		"kind":    "delete",
+		"id":      id,
+		"version": version,
+		"now":     o.now().UnixMilli(),
+	})
+}
+
+func (o *OpenSearchIndex) write(ctx context.Context, id string, params map[string]any) error {
+	body, err := json.Marshal(map[string]any{
+		"scripted_upsert": true,
+		"upsert":          map[string]any{},
+		"script": map[string]any{
+			"lang":   "painless",
+			"source": writeScript,
+			"params": params,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	res, err := opensearchapi.UpdateRequest{
 		Index:      o.name,
-		DocumentID: doc.ID,
+		DocumentID: id,
 		Body:       bytes.NewReader(body),
 		Refresh:    "true",
-	}
-	if doc.Version > 0 {
-		v := int(doc.Version)
-		req.Version = &v
-		req.VersionType = "external"
-	}
-	res, err := req.Do(ctx, o.client)
+	}.Do(ctx, o.client)
 	if err != nil {
-		return fmt.Errorf("index doc %q: %w", doc.ID, err)
+		return fmt.Errorf("%s doc %q: %w", params["kind"], id, err)
 	}
 	defer res.Body.Close()
-	if res.StatusCode == 409 {
-		return nil // stale/duplicate version rejected by the version guard.
-	}
 	if res.IsError() {
-		return fmt.Errorf("index doc %q: %s", doc.ID, res.String())
+		return fmt.Errorf("%s doc %q: %s", params["kind"], id, res.String())
 	}
 	return nil
 }
 
 // versionGuardScript applies the partial fields only when the incoming version is
-// newer than the stored one (AD2). With no `upsert`/`scripted_upsert` clause, an
-// update to a missing (tombstoned) document returns 404 and is a no-op, so a
-// stale partial update never resurrects a deleted listing.
-const versionGuardScript = `if (params.version > 0 && ctx._source.version != null && ctx._source.version >= params.version) { ctx.op = 'noop'; } else { for (entry in params.fields.entrySet()) { ctx._source[entry.getKey()] = entry.getValue(); } if (params.version > 0) { ctx._source.version = params.version; } }`
+// newer than the stored one (AD2), and never on a tombstone, whatever the version
+// (D5). With no `upsert`/`scripted_upsert` clause, an update to a missing
+// document returns 404 and is a no-op, so a partial update never creates one.
+const versionGuardScript = `if ('deleted'.equals(ctx._source.status)) { ctx.op = 'noop'; } else if (params.version > 0 && ctx._source.version != null && ctx._source.version >= params.version) { ctx.op = 'noop'; } else { for (entry in params.fields.entrySet()) { ctx._source[entry.getKey()] = entry.getValue(); } if (params.version > 0) { ctx._source.version = params.version; } }`
 
 // PartialUpdate updates only specific fields of a document without re-indexing
 // full text. The version guard (AD2) is enforced by a scripted update: stale
@@ -283,27 +359,10 @@ func (o *OpenSearchIndex) PartialUpdate(ctx context.Context, id string, partialD
 	}
 	defer res.Body.Close()
 	if res.StatusCode == 404 {
-		return nil // tombstoned/absent listing: do not resurrect.
+		return nil // absent listing: do not create.
 	}
 	if res.IsError() {
 		return fmt.Errorf("partial update doc %q: %s", id, res.String())
-	}
-	return nil
-}
-
-// Delete removes a listing from the index (ignores a missing document).
-func (o *OpenSearchIndex) Delete(ctx context.Context, id string) error {
-	res, err := opensearchapi.DeleteRequest{
-		Index:      o.name,
-		DocumentID: id,
-		Refresh:    "true",
-	}.Do(ctx, o.client)
-	if err != nil {
-		return fmt.Errorf("delete doc %q: %w", id, err)
-	}
-	defer res.Body.Close()
-	if res.IsError() && res.StatusCode != 404 {
-		return fmt.Errorf("delete doc %q: %s", id, res.String())
 	}
 	return nil
 }

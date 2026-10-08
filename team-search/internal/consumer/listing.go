@@ -52,7 +52,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
-				return idx.Delete(ctx, l.GetId())
+				return idx.Delete(ctx, l.GetId(), version)
 			}
 			doc := toDoc(l, version)
 			if embedder != nil {
@@ -78,7 +78,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if base.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
-				return idx.Delete(ctx, base.GetListingId())
+				return idx.Delete(ctx, base.GetListingId(), version)
 			}
 			// Partial update base descriptive fields
 			fields := map[string]interface{}{
@@ -132,7 +132,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if st.GetStatus() == listingv1.ListingStatus_LISTING_STATUS_REJECTED {
-				return idx.Delete(ctx, st.GetListingId())
+				return idx.Delete(ctx, st.GetListingId(), version)
 			}
 			return idx.PartialUpdate(ctx, st.GetListingId(), map[string]interface{}{
 				"status":  statusString(st.GetStatus()),
