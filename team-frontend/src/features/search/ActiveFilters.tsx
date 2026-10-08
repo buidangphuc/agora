@@ -49,13 +49,6 @@ export function ActiveFilters({
       href: buildSearchHref(state, { seller: "" }),
     });
   }
-  if (state.rating) {
-    tags.push({
-      key: "rating",
-      label: `Đánh giá: từ ${state.rating} sao`,
-      href: buildSearchHref(state, { rating: "" }),
-    });
-  }
   if (state.minPrice || state.maxPrice) {
     tags.push({
       key: "price",

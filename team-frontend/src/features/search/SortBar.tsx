@@ -31,7 +31,6 @@ export function SortBar({
     q: "",
     category: "",
     seller: "",
-    rating: "",
     sort: "relevance",
     page: 1,
   };

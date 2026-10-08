@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { Card } from "@/components/ui/Card";
-import { Rate } from "@/components/ui/Rate";
 import { focusRing } from "@/components/ui/focus";
 import type { ViewCategory } from "@/lib/gateway/listings";
 import type { ViewFacets } from "@/lib/gateway/search";
@@ -131,7 +130,6 @@ export interface FilterSidebarProps {
   categories: ViewCategory[];
   currentCategory?: string;
   currentSeller?: string;
-  currentRating?: string;
   currentMinPrice?: number;
   currentMaxPrice?: number;
   /** Keyword and sort to carry through every filter link (additive). */
@@ -166,7 +164,6 @@ function FilterContent({
   if (state.q) hidden.q = state.q;
   if (state.category) hidden.category = state.category;
   if (state.seller) hidden.seller = state.seller;
-  if (state.rating) hidden.rating = state.rating;
   if (state.sort !== "relevance") hidden.sort = state.sort;
 
   return (
@@ -225,32 +222,6 @@ function FilterContent({
         />
       </Group>
 
-      {facets.ratings.length > 0 && (
-        <Group title="Đánh giá" testId="facet-ratings">
-          <div className="space-y-0.5">
-            {facets.ratings.map((b) => {
-              const star = Math.max(0, Math.min(5, Number(b.key) || 0));
-              const active = state.rating === b.key;
-              return (
-                <Bucket
-                  key={b.key}
-                  href={href({ rating: active ? "" : b.key })}
-                  dataKey={b.key}
-                  label={
-                    <span className="inline-flex items-center gap-1.5">
-                      <Rate readOnly size="sm" value={star} />
-                      <span>{star === 5 ? "5 sao" : `từ ${star} sao`}</span>
-                    </span>
-                  }
-                  count={b.count}
-                  active={active}
-                />
-              );
-            })}
-          </div>
-        </Group>
-      )}
-
       {facets.sellers.length > 0 && (
         <Group title="Nơi bán" testId="facet-sellers">
           <div className="space-y-0.5">
@@ -284,7 +255,6 @@ export function FilterSidebar({
   categories,
   currentCategory,
   currentSeller,
-  currentRating,
   currentMinPrice,
   currentMaxPrice,
   currentQuery,
@@ -296,7 +266,6 @@ export function FilterSidebar({
       q: currentQuery,
       category: currentCategory,
       seller: currentSeller,
-      rating: currentRating,
       sort: currentSort,
     }),
     minPrice: currentMinPrice,
@@ -305,7 +274,6 @@ export function FilterSidebar({
   const hasAnyFacet =
     facets.categories.length > 0 ||
     facets.priceRanges.length > 0 ||
-    facets.ratings.length > 0 ||
     facets.sellers.length > 0;
 
   return (

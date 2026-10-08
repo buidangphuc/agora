@@ -48,6 +48,18 @@ describe("searchListings paging", () => {
     expect(res.items.map((l) => l.id)).toEqual(["p1-a", "p1-b"]);
   });
 
+  it("never requests a minimum rating", async () => {
+    rpc
+      .mockResolvedValueOnce(pageOf(1, "c1"))
+      .mockResolvedValueOnce(pageOf(2, "c2"))
+      .mockResolvedValueOnce(pageOf(3, ""));
+    await searchListings("ao", { page: 3, categoryId: "c1" });
+    expect(rpc).toHaveBeenCalledTimes(3);
+    for (const call of rpc.mock.calls) {
+      expect(call[0]).toMatchObject({ minRating: 0 });
+    }
+  });
+
   it("walks next_cursor to page 3", async () => {
     rpc
       .mockResolvedValueOnce(pageOf(1, "c1"))

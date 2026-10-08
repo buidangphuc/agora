@@ -1,6 +1,6 @@
 /**
  * URL state of /search (UI_SYSTEM_DESIGN.md section 5.B): `q, category, seller,
- * rating, minPrice, maxPrice, sort, page`. Pure helpers (no React, no gateway)
+ * minPrice, maxPrice, sort, page`. Pure helpers (no React, no gateway)
  * so the server page, the link-based filters and the tests share one parser and
  * one builder. Unknown or malformed values fall back to defaults, never throw.
  */
@@ -18,8 +18,6 @@ export interface SearchState {
   q: string;
   category: string;
   seller: string;
-  /** "1".."5" or "" when not filtering by rating. */
-  rating: string;
   minPrice?: number;
   maxPrice?: number;
   sort: SortKey;
@@ -41,13 +39,11 @@ function positiveInt(v: string): number | undefined {
 }
 
 export function parseSearchParams(raw: RawSearchParams): SearchState {
-  const rating = first(raw.rating);
   const sort = first(raw.sort);
   return {
     q: first(raw.q),
     category: first(raw.category),
     seller: first(raw.seller),
-    rating: /^[1-5]$/.test(rating) ? rating : "",
     minPrice: positiveInt(first(raw.minPrice)),
     maxPrice: positiveInt(first(raw.maxPrice)),
     sort: (SORT_KEYS as readonly string[]).includes(sort)
@@ -80,7 +76,6 @@ export function buildSearchHref(
   if (next.q) params.set("q", next.q);
   if (next.category) params.set("category", next.category);
   if (next.seller) params.set("seller", next.seller);
-  if (next.rating) params.set("rating", next.rating);
   if (next.minPrice) params.set("minPrice", String(next.minPrice));
   if (next.maxPrice) params.set("maxPrice", String(next.maxPrice));
   if (next.sort && next.sort !== "relevance") params.set("sort", next.sort);
@@ -94,7 +89,6 @@ export function activeFilterCount(state: SearchState): number {
   return (
     (state.category ? 1 : 0) +
     (state.seller ? 1 : 0) +
-    (state.rating ? 1 : 0) +
     (state.minPrice || state.maxPrice ? 1 : 0)
   );
 }
@@ -104,7 +98,6 @@ export function clearFiltersHref(state: SearchState): string {
   return buildSearchHref(state, {
     category: "",
     seller: "",
-    rating: "",
     minPrice: undefined,
     maxPrice: undefined,
   });

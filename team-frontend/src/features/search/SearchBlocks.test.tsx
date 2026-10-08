@@ -189,7 +189,7 @@ describe("SearchResultsBlock", () => {
     loadSearch.mockResolvedValue(ok());
     render(
       await SearchResultsBlock({
-        state: state({ q: "ao", category: "c1", rating: "4" }),
+        state: state({ q: "ao", category: "c1", seller: "s1" }),
       }),
     );
     const tags = screen.getByTestId("active-filters");
@@ -198,7 +198,7 @@ describe("SearchResultsBlock", () => {
     );
     expect(
       within(tags).getByRole("link", { name: "Bỏ lọc Danh mục: Điện thoại" }),
-    ).toHaveAttribute("href", "/search?q=ao&rating=4");
+    ).toHaveAttribute("href", "/search?q=ao&seller=s1");
     expect(
       within(tags).getByRole("link", { name: "Xóa tất cả bộ lọc" }),
     ).toHaveAttribute("href", "/search?q=ao");
@@ -213,6 +213,22 @@ describe("ResultCount / FilterPanel", () => {
     unmount();
     loadSearch.mockResolvedValue({ ok: false });
     expect(await ResultCount({ state: state({}) })).toBeNull();
+  });
+
+  it("renders no rating group even when facets.ratings is non-empty", async () => {
+    loadSearch.mockResolvedValue(
+      ok({
+        facets: {
+          categories: [],
+          priceRanges: [],
+          ratings: [{ key: "4", count: 3 }],
+          sellers: [],
+        },
+      }),
+    );
+    const { container } = render(await FilterPanel({ state: state({}) }));
+    expect(screen.queryByTestId("facet-ratings")).toBeNull();
+    expect(container.textContent).not.toContain("Đánh giá");
   });
 
   it("keeps the filter column when the search fails", async () => {

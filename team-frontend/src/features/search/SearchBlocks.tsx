@@ -55,7 +55,6 @@ export async function FilterPanel({ state }: { state: SearchState }) {
       categories={categories}
       currentCategory={state.category}
       currentSeller={state.seller}
-      currentRating={state.rating}
       currentMinPrice={state.minPrice}
       currentMaxPrice={state.maxPrice}
       currentQuery={state.q}

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Search List anatomy: header (breadcrumb, title, count), filter column and
- * results column. All state is in the URL (`q, category, seller, rating,
+ * results column. All state is in the URL (`q, category, seller,
  * minPrice, maxPrice, sort, page`). The search runs once (cached per request)
  * and the filter column, count and results each stream from their own boundary.
  */

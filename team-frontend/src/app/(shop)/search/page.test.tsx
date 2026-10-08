@@ -43,10 +43,18 @@ beforeEach(() => {
 });
 
 describe("SearchPage", () => {
+  it("ignores an old rating param", async () => {
+    render(await SearchPage({ searchParams: { q: "ao", rating: "4" } }));
+    const state = JSON.parse(
+      screen.getByTestId("results-state").textContent ?? "",
+    );
+    expect(state).not.toHaveProperty("rating");
+  });
+
   it("parses URL params into state for the results block and starts one search", async () => {
     render(
       await SearchPage({
-        searchParams: { q: "ao", rating: "4", sort: "price_asc", page: "3" },
+        searchParams: { q: "ao", sort: "price_asc", page: "3" },
       }),
     );
     expect(
@@ -55,7 +63,6 @@ describe("SearchPage", () => {
       q: "ao",
       category: "",
       seller: "",
-      rating: "4",
       sort: "price_asc",
       page: 3,
     });

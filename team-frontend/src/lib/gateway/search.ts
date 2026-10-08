@@ -86,7 +86,6 @@ export interface SearchOptions {
   sellerId?: string;
   minPrice?: number;
   maxPrice?: number;
-  minRating?: number;
   sortBy?: SortBy;
   /** 1-based page; resolved by walking next_cursor (capped at SEARCH_MAX_PAGE). */
   page?: number;
@@ -97,7 +96,7 @@ export interface SearchOptions {
  * aggregations over the matched set; we resolve each hit to a full listing via
  * the listing service so the UI can render cards, and pass the facet counts
  * through for filter navigation. Facet selections arrive as request filters
- * (category_id / min_price / max_price / min_rating / seller_id).
+ * (category_id / min_price / max_price / seller_id).
  */
 export async function searchListings(
   query: string,
@@ -123,7 +122,8 @@ export async function searchListings(
     maxPrice: opts.maxPrice
       ? BigInt(Math.max(0, Math.round(opts.maxPrice)))
       : 0n,
-    minRating: opts.minRating ? Math.max(0, Math.round(opts.minRating)) : 0,
+    // Search indexes no rating: a minimum rating is never requested.
+    minRating: 0,
     sortBy: opts.sortBy ?? SortBy.UNSPECIFIED,
   };
 

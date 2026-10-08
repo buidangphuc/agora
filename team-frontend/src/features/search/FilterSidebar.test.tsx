@@ -50,6 +50,16 @@ function setup(
 beforeEach(() => push.mockClear());
 
 describe("FilterSidebar", () => {
+  it("renders no rating group even when facets.ratings is non-empty", () => {
+    const { container } = setup();
+    expect(screen.queryByTestId("facet-ratings")).toBeNull();
+    expect(container.textContent).not.toContain("Đánh giá");
+    fireEvent.click(screen.getByRole("button", { name: /Bộ lọc/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByTestId("facet-ratings")).toBeNull();
+    expect(within(dialog).queryByText("Đánh giá")).toBeNull();
+  });
+
   it("renders buckets as links with counts and keeps q and sort", () => {
     const { container } = setup({ currentSort: "newest" });
     const inline = container.querySelector(".hidden.lg\\:block") as HTMLElement;
@@ -104,7 +114,7 @@ describe("FilterSidebar", () => {
   });
 
   it("shows a count badge on the mobile trigger", () => {
-    setup({ currentCategory: "c1", currentRating: "4" });
+    setup({ currentCategory: "c1", currentSeller: "s1" });
     const trigger = screen.getByRole("button", { name: /Bộ lọc/ });
     expect(within(trigger).getByText("2")).toBeInTheDocument();
   });
@@ -117,7 +127,7 @@ describe("FilterSidebar", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Danh mục")).toBeInTheDocument();
     expect(within(dialog).getByText("Khoảng giá")).toBeInTheDocument();
-    expect(within(dialog).getByText("Đánh giá")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Đánh giá")).toBeNull();
     expect(within(dialog).getByText("Nơi bán")).toBeInTheDocument();
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(
