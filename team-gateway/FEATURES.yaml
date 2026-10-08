@@ -477,3 +477,39 @@ features:
     covered_by: null
     notes: >-
       Scenario "An oversized stream request is refused" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.track-beacon-flood-throttled
+    title: A beacon flood is throttled
+    persona: guest
+    priority: P1
+    summary: A beacon flood is throttled (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    acceptance:
+      - "When one anonymous visitor sends 40 POST /api/track batches back to back, each with one event carrying a unique marker"
+      - "Then some requests answer HTTP 429, and none of the markers of the 429 requests reach analytics.events"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "A beacon flood is throttled" in security/edge_http_routes.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.track-echoes-request-id
+    title: The collector echoes the request id
+    persona: guest
+    priority: P2
+    summary: The collector echoes the request id (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    acceptance:
+      - "When a visitor sends one valid POST /api/track batch with X-Request-Id \"e2e-track-<random>\""
+      - "Then the response is accepted and carries X-Request-Id \"e2e-track-<random>\""
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "The collector echoes the request id" in security/edge_http_routes.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
