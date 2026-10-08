@@ -8,3 +8,8 @@ resources:
   limits:
     cpu: "1"
     memory: 512Mi
+
+# Strict-ENV boot guards: the service's own config reads ENV (not APP_ENV); "production"
+# engages its IsProd() refusals (weak secrets, exposed tokens, ...). Never override with local.
+env:
+  ENV: "production"
