@@ -65,9 +65,16 @@ def build_grpc_server(
     search_pb2_grpc.add_SearchServiceServicer_to_server(
         SearchServicer(rag_provider), server
     )
-    chat_pb2_grpc.add_ChatServiceServicer_to_server(ChatServicer(chat_streamer), server)
+    chat_pb2_grpc.add_ChatServiceServicer_to_server(
+        ChatServicer(chat_streamer, require_ai_use=settings.AI_USE_SCOPE_REQUIRED),
+        server,
+    )
     ai_pb2_grpc.add_AIServiceServicer_to_server(
-        AIServicer(lambda: AIAssistantService(rag_service=rag_provider())), server
+        AIServicer(
+            lambda: AIAssistantService(rag_service=rag_provider()),
+            require_ai_use=settings.AI_USE_SCOPE_REQUIRED,
+        ),
+        server,
     )
     recs_service_name = _register_recommendation_service(
         server, recommendation_provider
@@ -105,8 +112,10 @@ def _register_recommendation_service(
     ``None`` when ``RECS_ENABLED=false`` and the servicer aborts UNAVAILABLE.
     """
     if recommendation_provider is None:
+
         def recommendation_provider():
             return None
+
     try:
         from app.transport.grpc._pb.platform.recommendation.v1 import (
             recommendation_pb2,

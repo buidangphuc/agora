@@ -25,7 +25,7 @@ _AUTH = (("authorization", "bearer secret"),)
 def _settings(**overrides):
     base = {
         "AUTH_BEARER_TOKEN": "secret",
-        "AUTH_ROLES": "ai:read",
+        "AUTH_ROLES": "listing.read",
         "GRPC_REFLECTION_ENABLED": False,
         "CHAT_BACKEND": "mock",
     }

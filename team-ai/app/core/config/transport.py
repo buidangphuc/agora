@@ -12,3 +12,7 @@ class TransportSettingsMixin(BaseModel):
     GRPC_PORT: int = Field(default=50051, gt=0)
     GRPC_REFLECTION_ENABLED: bool = True
     GRPC_GRACE_SECONDS: float = Field(default=10.0, ge=0)
+    # Require the ``ai:use`` scope on ShoppingAssistant / StreamChat. Off until
+    # team-identity grants ``ai:use`` to buyer/seller/admin (it grants none today,
+    # so enabling it earlier would deny every shopper). See transport/grpc/scopes.py.
+    AI_USE_SCOPE_REQUIRED: bool = False
