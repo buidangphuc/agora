@@ -20,6 +20,11 @@ ADDRESS_CREATE = "/platform.identity.v1.AddressService/CreateAddress"
 ADDRESS_LIST = "/platform.identity.v1.AddressService/ListAddresses"
 SESSION_LIST = "/platform.identity.v1.SessionService/ListSessions"
 SESSION_REVOKE = "/platform.identity.v1.SessionService/RevokeSession"
+SESSION_LOGIN_HISTORY = "/platform.identity.v1.SessionService/ListLoginHistory"
+
+# platform.ai.v1 (authorization: port-security-hardening / ai-access-control)
+AI_MAGIC_LISTING = "/platform.ai.v1.AIService/MagicListing"
+AI_CHAT_COPILOT = "/platform.ai.v1.AIService/ChatCopilot"
 
 # platform.analytics.v1 (seller RPCs: owner or admin only — secure-seller-analytics-and-admin-seed)
 ANALYTICS_SELLER_FUNNEL = "/platform.analytics.v1.AnalyticsQueryService/GetSellerFunnel"

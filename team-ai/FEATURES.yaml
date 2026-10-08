@@ -142,3 +142,60 @@ features:
     tags: [recommendations, contract]
     status: automated
     covered_by: "recommendations/recommendation_contract.feature::A ranked result set is expressible with provenance"
+
+  - id: ai.buyer-cannot-use-listing-generator
+    title: A buyer cannot use the listing generator
+    persona: buyer
+    priority: P1
+    summary: MagicListing needs listing.write; a buyer token is refused at the gateway.
+    entry_route: /seller/new
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [ai.v1.MagicListing]
+    acceptance:
+      - Given a logged-in buyer
+      - When a logged-in buyer calls MagicListing through the gateway
+      - Then the gateway answers HTTP 403
+    tags: [ai, security]
+    status: automated
+    covered_by: "security/ai_access.feature::A buyer cannot use the listing generator"
+
+  - id: ai.seller-cannot-run-copilot-as-another-seller
+    title: A seller cannot run the copilot as another seller
+    persona: seller
+    priority: P1
+    summary: ChatCopilot refuses a seller_id other than the caller's own.
+    entry_route: /seller/chat
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - Given a logged-in seller and another seller
+      - When the seller calls ChatCopilot through the gateway with the other seller's seller_id
+      - Then the gateway answers HTTP 403
+    tags: [ai, security]
+    status: automated
+    covered_by: "security/ai_access.feature::A seller cannot run the copilot as another seller"
+
+  - id: recommendations.recommend-bound-to-caller
+    title: A buyer cannot fetch another user's recommendations
+    persona: buyer
+    priority: P1
+    summary: Recommend serves a signed-in user as themselves whatever user_id the request carries (distinguished by per-user precomputed lists seeded in Redis).
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [recommendation.v1.Recommend]
+    acceptance:
+      - Given two buyers with distinct precomputed recommendation lists
+      - When a logged-in buyer calls Recommend through the gateway with another user's user_id
+      - Then the response is computed for the calling buyer, not for the named user
+    tags: [recommendations, security]
+    status: automated
+    covered_by: "security/ai_access.feature::A buyer cannot fetch another user's recommendations"
