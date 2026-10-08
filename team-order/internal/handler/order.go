@@ -91,6 +91,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		if errors.Is(err, service.ErrEmptyCart) {
 			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
 		}
+		if errors.Is(err, service.ErrSelfPurchase) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "cannot buy your own listing", err)
+		}
 		if errors.Is(err, service.ErrVoucherRejected) {
 			// Invalid/expired voucher: reject the checkout with the promotion-supplied
 			// reason (never silently drop the voucher and charge full price).

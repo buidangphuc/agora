@@ -19,6 +19,7 @@ import (
 var (
 	ErrEmptyCart             = errors.New("cart is empty")
 	ErrInsufficientStock     = errors.New("insufficient stock for item")
+	ErrSelfPurchase          = errors.New("cannot buy your own listing")
 	ErrInvalidStatus         = errors.New("invalid order status transition")
 	ErrInvalidReturnReason   = errors.New("return reason is required")
 	ErrInvalidRefundAmount   = errors.New("invalid refund amount")
@@ -124,6 +125,14 @@ func (s *OrderService) CreateOrdersFromCart(
 
 	if len(itemsToCheckout) == 0 {
 		return nil, ErrEmptyCart
+	}
+
+	// A buyer may not buy their own listing: reject the whole checkout before any
+	// stock or voucher is reserved.
+	for _, it := range itemsToCheckout {
+		if it.SellerID != "" && it.SellerID == buyerID {
+			return nil, ErrSelfPurchase
+		}
 	}
 
 	// Group items by seller_id for multi-vendor orders

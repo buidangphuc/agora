@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/buidangphuc/team-order/internal/repository"
@@ -322,5 +323,28 @@ func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
 	}
 	if len(outbox.EnqueuedRows()) != 1 {
 		t.Errorf("expected 1 outbox row, got %d", len(outbox.EnqueuedRows()))
+	}
+}
+
+func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
+	cartRepo := repository.NewInMemoryCartRepository()
+	orderRepo := repository.NewInMemoryOrderRepository()
+	ctx := context.Background()
+	for _, it := range []repository.CartItem{
+		{UserID: "seller_1", ListingID: "l1", Quantity: 1, UnitPrice: 1000, SellerID: "seller_2"},
+		{UserID: "seller_1", ListingID: "l2", Quantity: 1, UnitPrice: 1000, SellerID: "seller_1"},
+	} {
+		if _, err := cartRepo.AddItem(ctx, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// nil domain client: the guard must trip before any stock call.
+	s := service.NewOrderService(orderRepo, cartRepo, nil, nil, nil, nil, nil)
+	_, err := s.CreateOrdersFromCart(ctx, "seller_1", repository.Address{}, nil, 0, "")
+	if !errors.Is(err, service.ErrSelfPurchase) {
+		t.Fatalf("err = %v, want ErrSelfPurchase", err)
+	}
+	if got, _ := orderRepo.ListBuyerOrders(ctx, "seller_1", 0); len(got) != 0 {
+		t.Fatalf("no order may be created, got %d", len(got))
 	}
 }
