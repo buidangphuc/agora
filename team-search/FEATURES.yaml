@@ -473,3 +473,157 @@ features:
     notes: >-
       Feature: search/search_stock_read_model.feature::An invalid in_stock value is rejected. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-stale-listing-update-after-delete-does-not-bring-it-back
+    title: "A stale listing update after delete does not bring it back"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.Suggest, search.v1.SearchListings]
+    acceptance:
+      - "Given a seller's published listing that appears in search"
+      - "When the seller deletes it through the gateway and a `ListingChanged` (UPDATED, status published) for it with an `occurred_at` before the delete is then published to `listing.events`"
+      - "Then after the search indexer has consumed past that event, neither `SearchListings` for its title nor `Suggest` for its title prefix returns it"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::A stale listing update after delete does not bring it back. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-redelivered-create-after-delete-does-not-bring-it-back
+    title: "A redelivered create after delete does not bring it back"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing that was created and then deleted through the gateway"
+      - "When the original `ListingChanged` (CREATED) record for it is read from `listing.events` and published again unchanged"
+      - "Then after the search indexer has consumed past the copy, `SearchListings` for its title does not return it"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::A redelivered create after delete does not bring it back. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-newer-status-event-does-not-revive-a-deleted-listing
+    title: "A newer status event does not revive a deleted listing"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing deleted through the gateway"
+      - "When a `ListingStatusChanged` with status PUBLISHED and an `occurred_at` after the delete is published to `listing.events`"
+      - "Then after the search indexer has consumed past that event, `SearchListings` for its title does not return it"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::A newer status event does not revive a deleted listing. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-stock-event-for-a-deleted-listing-is-ignored
+    title: "A stock event for a deleted listing is ignored"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing deleted through the gateway"
+      - "When a valid `ListingStockChanged` with stock 5 and an `occurred_at` after the delete is published to `listing.events`"
+      - "Then after the search indexer has consumed past that event, `SearchListings` for its title with `filters[\"in_stock\"]=\"true\"` does not return it and the record is not on `listing.events.dlq`"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::A stock event for a deleted listing is ignored. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-deleted-listing-leaves-search-results-totals-and-facets
+    title: "A deleted listing leaves search results, totals and facets"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a seller with two published listings, so `SearchListings` with `filters[\"seller_id\"]` set to that seller returns total 2 and a sellers facet count of 2"
+      - "When the seller deletes one of them through the gateway"
+      - "Then within 30 seconds the same search returns total 1, only the remaining listing, and a sellers facet count of 1, and a saved search with that filter run by a buyer returns only the remaining listing"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::A deleted listing leaves search results, totals and facets. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-deleted-draft-leaves-the-owner-s-draft-view
+    title: "A deleted draft leaves the owner's draft view"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a seller's draft listing that appears when the seller searches with `status=draft` and their own `seller_id`"
+      - "When the seller deletes the draft through the gateway"
+      - "Then within 30 seconds that owner search no longer returns it, and a search with `filters[\"status\"]=\"deleted\"` fails with `invalid_argument`"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::A deleted draft leaves the owner's draft view. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-an-expired-tombstone-is-purged
+    title: "An expired tombstone is purged"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-read-model-deletes."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given the e2e stack runs the search indexer with a short `TOMBSTONE_TTL` and `TOMBSTONE_PURGE_INTERVAL`"
+      - "When a seller deletes one of two published listings through the gateway"
+      - "Then the read-model holds a tombstone for the deleted listing right after the delete is consumed, holds no document for it once the TTL plus one purge interval has passed, and the other listing still appears in `SearchListings`"
+    tags: [buyer, search, destructive]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_read_model_deletes.feature::An expired tombstone is purged. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green. Needs the platform-e2e/compose/search-tombstones.override.yaml overlay (serial lane).
