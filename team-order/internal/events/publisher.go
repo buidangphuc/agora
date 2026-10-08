@@ -24,6 +24,9 @@ const OrderShippedEventType = "platform.order.v1.OrderShipped"
 // OrderCancelledEventType is the fully-qualified proto type for OrderCancelled.
 const OrderCancelledEventType = "platform.order.v1.OrderCancelled"
 
+// ReturnRefundedEventType is the fully-qualified proto type for ReturnRefunded.
+const ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
+
 // OrderEventsTopic is the Kafka topic for order lifecycle events.
 const OrderEventsTopic = "order.events"
 
@@ -206,6 +209,59 @@ func BuildShippedOutboxRow(s repository.Shipment) (repository.OutboxRow, error) 
 		AggregateType: "Order",
 		AggregateID:   s.OrderID,
 		EventType:     OrderShippedEventType,
+		Payload:       value,
+	}, nil
+}
+
+// returnRefundedNamespace seeds deterministic ReturnRefunded event ids. A return
+// reaches REFUNDED at most once (a compare-and-set out of APPROVED into a terminal
+// status), so one id per return is stable across rebuilds and redelivery.
+var returnRefundedNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/ReturnRefunded"))
+
+// ReturnRefundedEventID is the stable EventEnvelope.event_id for a return's REFUNDED fact.
+func ReturnRefundedEventID(returnID string) string {
+	return uuid.NewSHA1(returnRefundedNamespace, []byte(returnID)).String()
+}
+
+// BuildReturnRefundedOutboxRow is the repository.ReturnOutboxBuilder for
+// team-order: it wraps ReturnRefunded in an EventEnvelope keyed by order_id, ready
+// to commit in the same transaction as the won APPROVED -> REFUNDED
+// compare-and-set. ret is the row that CAS returned, so refund_amount is the
+// stored return amount (never a client value) and ret.UpdatedAt the refund time;
+// currency is the order's.
+func BuildReturnRefundedOutboxRow(ret repository.OrderReturn, currency string) (repository.OutboxRow, error) {
+	refundedAt := ret.UpdatedAt
+	if refundedAt.IsZero() {
+		refundedAt = time.Now()
+	}
+	refundedAt = refundedAt.UTC()
+	eventID := ReturnRefundedEventID(ret.ID)
+	payload, err := proto.Marshal(&orderv1.ReturnRefunded{
+		ReturnId:     ret.ID,
+		OrderId:      ret.OrderID,
+		BuyerId:      ret.BuyerID,
+		SellerId:     ret.SellerID,
+		RefundAmount: ret.RefundAmount,
+		Currency:     currency,
+		RefundedAt:   timestamppb.New(refundedAt),
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal ReturnRefunded: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       ReturnRefundedEventType,
+		OccurredAt: timestamppb.New(refundedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   ret.OrderID,
+		EventType:     ReturnRefundedEventType,
 		Payload:       value,
 	}, nil
 }

@@ -7,6 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	"github.com/buidangphuc/team-order/internal/events"
 	"github.com/buidangphuc/team-order/internal/repository"
 )
 
@@ -291,5 +296,44 @@ func TestReturnRepoContract_Postgres(t *testing.T) {
 	}
 	if string(payload) != ok.ID+"|VND" {
 		t.Fatalf("payload %q", payload)
+	}
+}
+
+// With the real builder, the stored row carries the stable id, the type, the
+// order key, the stored amount and the order currency.
+func TestReturnRefundedOutbox_Postgres(t *testing.T) {
+	pool := pgPool(t)
+	ctx := context.Background()
+	orders := repository.NewPostgresOrderRepository(pool)
+	returns := repository.NewPostgresReturnRepository(pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow))
+	f := returnFixture{orders: orders, returns: returns}
+	o := newReturnOrder(t, f, 500000)
+	r := newReturn(t, f, o, 200000)
+	if _, err := returns.TransitionReturn(ctx, r.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := returns.TransitionReturn(ctx, r.ID, repository.ReturnStatusApproved, repository.ReturnStatusRefunded); err != nil {
+		t.Fatal(err)
+	}
+	var eventID, eventType string
+	var payload []byte
+	if err := pool.QueryRow(ctx, `SELECT event_id, event_type, payload FROM order_outbox_events WHERE aggregate_id = $1`, o.ID).
+		Scan(&eventID, &eventType, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if eventID != events.ReturnRefundedEventID(r.ID) || eventType != events.ReturnRefundedEventType {
+		t.Fatalf("row id/type: %s %s", eventID, eventType)
+	}
+	var env eventsv1.EventEnvelope
+	if err := proto.Unmarshal(payload, &env); err != nil {
+		t.Fatal(err)
+	}
+	var ev orderv1.ReturnRefunded
+	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.GetReturnId() != r.ID || ev.GetOrderId() != o.ID || ev.GetBuyerId() != o.BuyerID || ev.GetSellerId() != o.SellerID ||
+		ev.GetRefundAmount() != 200000 || ev.GetCurrency() != "VND" || ev.GetRefundedAt() == nil {
+		t.Fatalf("fact: %+v", &ev)
 	}
 }
