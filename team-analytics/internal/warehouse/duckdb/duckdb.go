@@ -151,13 +151,16 @@ FROM %s`, warehouse.TableName)
 	return nil
 }
 
-// identityViewDDL maps each anonymous id seen on a USER-principal event to the
-// principal of its most recent such event.
+// identityViewDDL maps each anonymous id seen on USER-principal events to that
+// principal. The anonymous id comes from the beacon body (unauthenticated), so an
+// id seen with more than one account is ambiguous and is not stitched: a logged-in
+// user cannot claim another visitor's anonymous history by replaying its id.
 var identityViewDDL = fmt.Sprintf(`CREATE OR REPLACE VIEW %s AS
-SELECT anonymous_id, arg_max(principal_id, occurred_at) AS principal_id
+SELECT anonymous_id, any_value(principal_id) AS principal_id
 FROM %s
 WHERE principal_type = 'user' AND anonymous_id <> ''
-GROUP BY anonymous_id`, warehouse.IdentityViewName, warehouse.TableName)
+GROUP BY anonymous_id
+HAVING count(DISTINCT principal_id) = 1`, warehouse.IdentityViewName, warehouse.TableName)
 
 // resolvedViewDDL adds user_key: the event's own USER principal, else the
 // stitched principal, else "anon:<anonymous_id>".

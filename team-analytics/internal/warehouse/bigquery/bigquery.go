@@ -179,8 +179,9 @@ func ViewDDL(project, dataset, table string) []string {
 	resolved := fmt.Sprintf("`%s.%s.%s`", project, dataset, warehouse.ResolvedViewName)
 	return []string{
 		fmt.Sprintf("CREATE OR REPLACE VIEW %s AS\n"+
-			"SELECT anonymous_id, ANY_VALUE(principal_id HAVING MAX occurred_at) AS principal_id\n"+
-			"FROM %s\nWHERE principal_type = 'user' AND anonymous_id != ''\nGROUP BY anonymous_id", identity, base),
+			"SELECT anonymous_id, ANY_VALUE(principal_id) AS principal_id\n"+
+			"FROM %s\nWHERE principal_type = 'user' AND anonymous_id != ''\nGROUP BY anonymous_id\n"+
+			"HAVING COUNT(DISTINCT principal_id) = 1", identity, base),
 		fmt.Sprintf("CREATE OR REPLACE VIEW %s AS\n"+
 			"SELECT t.*, CASE\n  WHEN t.principal_type = 'user' THEN t.principal_id\n"+
 			"  WHEN i.principal_id IS NOT NULL THEN i.principal_id\n"+

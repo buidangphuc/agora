@@ -130,17 +130,25 @@ func TestStitchingViews(t *testing.T) {
 		{EventID: "a3", EventType: "view", AnonymousID: "X", PrincipalID: "u-new", PrincipalType: "user", OccurredAt: t0.Add(2 * time.Minute)},
 		{EventID: "a4", EventType: "view", AnonymousID: "X", PrincipalType: "anonymous", OccurredAt: t0.Add(3 * time.Minute)},
 		{EventID: "b1", EventType: "view", AnonymousID: "Y", PrincipalType: "anonymous", OccurredAt: t0},
+		{EventID: "s1", EventType: "view", AnonymousID: "S", PrincipalType: "anonymous", OccurredAt: t0},
+		{EventID: "s2", EventType: "view", AnonymousID: "S", PrincipalID: "u-solo", PrincipalType: "user", OccurredAt: t0.Add(time.Minute)},
+		{EventID: "s3", EventType: "view", AnonymousID: "S", PrincipalType: "anonymous", OccurredAt: t0.Add(2 * time.Minute)},
 		{EventID: "c1", EventType: "view", AnonymousID: "", PrincipalID: "u-noanon", PrincipalType: "user", OccurredAt: t0},
 	}
 	if err := w.Write(ctx, batch); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"a1": "u-new", // pre-login row resolves to the account
+		// X was seen with two accounts: ambiguous (the anonymous id is client-supplied),
+		// so its anonymous rows are not stitched to either.
+		"a1": "anon:X",
 		"a2": "u-old", // a user row keeps its own principal
 		"a3": "u-new",
-		"a4": "u-new", // post-logout anonymous row
+		"a4": "anon:X",
 		"b1": "anon:Y",
+		"s1": "u-solo", // pre-login row resolves to the only account seen with S
+		"s2": "u-solo",
+		"s3": "u-solo", // post-logout anonymous row
 		"c1": "u-noanon",
 	}
 	rows, err := w.DB().Query("SELECT event_id, user_key FROM tracking_events_resolved")
@@ -163,8 +171,12 @@ func TestStitchingViews(t *testing.T) {
 		t.Fatalf("resolved rows = %d, want %d (the join must not fan out)", n, len(want))
 	}
 	var pid string
-	if err := w.DB().QueryRow("SELECT principal_id FROM tracking_identity WHERE anonymous_id='X'").Scan(&pid); err != nil || pid != "u-new" {
-		t.Fatalf("tracking_identity X = %q, %v; want u-new", pid, err)
+	if err := w.DB().QueryRow("SELECT principal_id FROM tracking_identity WHERE anonymous_id='S'").Scan(&pid); err != nil || pid != "u-solo" {
+		t.Fatalf("tracking_identity S = %q, %v; want u-solo", pid, err)
+	}
+	var ambiguous int
+	if err := w.DB().QueryRow("SELECT count(*) FROM tracking_identity WHERE anonymous_id='X'").Scan(&ambiguous); err != nil || ambiguous != 0 {
+		t.Fatalf("tracking_identity must not map the ambiguous X: rows=%d err=%v", ambiguous, err)
 	}
 }
 
