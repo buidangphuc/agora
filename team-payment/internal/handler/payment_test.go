@@ -248,12 +248,12 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 				if byOrderID {
 					ref = "order-1"
 				}
-				_, err := h.RefundPayment(tc.ctx, &paymentv1.RefundPaymentRequest{PaymentId: ref, Amount: 1000, Reason: "r"})
+				_, err := h.RefundPayment(tc.ctx, &paymentv1.RefundPaymentRequest{PaymentId: ref, RefundId: "R1", Amount: 1000, Reason: "r"})
 				if got := status.Code(err); got != tc.want {
 					t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
 				}
 				after, _ := repo.GetTransaction(context.Background(), seeded.ID)
-				refunded := after.Status == repository.PaymentStatusRefunded
+				refunded := after.RefundedAmount > 0
 				if refunded != (tc.want == codes.OK) {
 					t.Fatalf("refunded = %v for %s", refunded, tc.name)
 				}
@@ -362,6 +362,7 @@ func TestPaymentHandler_RefundPayment(t *testing.T) {
 	t.Run("success refund", func(t *testing.T) {
 		res, err := h.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
 			PaymentId: tx.ID,
+			RefundId:  "R1",
 			Amount:    500000,
 			Reason:    "Customer return",
 		})
@@ -379,6 +380,7 @@ func TestPaymentHandler_RefundPayment(t *testing.T) {
 	t.Run("refund not found", func(t *testing.T) {
 		_, err := h.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
 			PaymentId: "missing-tx",
+			RefundId:  "R1",
 			Amount:    100000,
 			Reason:    "reason",
 		})

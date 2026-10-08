@@ -1,6 +1,7 @@
 // Package consumer holds team-payment's consumer of team-order's order.events. It credits
-// the seller's wallet ledger for every OrderPaidEvent, and refunds the payment of an order
-// cancelled from Paid on OrderCancelled, durably (at-least-once, bounded
+// the seller's wallet ledger for every OrderPaidEvent, refunds the remainder of the payment
+// of an order cancelled from Paid on OrderCancelled, and refunds an RMA return on
+// ReturnRefunded (payment-refund-model D7), durably (at-least-once, bounded
 // retry, dead-letter topic, commit only after apply or DLQ). The credit is idempotent on
 // (ORDER_SETTLEMENT, payment id), so redelivery and replays are no-ops; there is no dedupe
 // table. Transport (franz-go reader, DLQ producer) is injected so the logic is testable
@@ -27,6 +28,7 @@ import (
 const (
 	OrderPaidEventType      = "platform.order.v1.OrderPaidEvent"
 	OrderCancelledEventType = "platform.order.v1.OrderCancelled"
+	ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
 )
 
 // Documented defaults (bootstrap reads the env, design D6).
@@ -44,9 +46,12 @@ var ErrPermanent = errors.New("permanent consumer error")
 type Applier interface {
 	// CreditSettlement credits sellerID for orderID's payment (idempotent).
 	CreditSettlement(ctx context.Context, orderID, sellerID string, eventTotal int64) error
-	// RefundCancelledOrder refunds a cancelled paid order's payment in full (no-op when
-	// already refunded).
+	// RefundCancelledOrder refunds what remains of a cancelled paid order's payment (no-op
+	// when already refunded or redelivered).
 	RefundCancelledOrder(ctx context.Context, orderID string) error
+	// RefundReturn refunds an RMA return of orderID by amount, clamped to the payment's
+	// remainder, keyed by the return (no-op when redelivered).
+	RefundReturn(ctx context.Context, orderID, returnID string, amount int64) error
 }
 
 // SettlementConsumer applies order.events records to the seller ledger.
@@ -76,17 +81,42 @@ func (c *SettlementConsumer) HandleRaw(ctx context.Context, value []byte) error 
 // or a fact that can never be applied; anything else is retryable (e.g. DB errors).
 func (c *SettlementConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEnvelope) error {
 	switch env.GetType() {
-	case OrderPaidEventType, OrderCancelledEventType:
+	case OrderPaidEventType, OrderCancelledEventType, ReturnRefundedEventType:
 	default:
 		return nil // e.g. OrderShipped: not ours
 	}
 	if env.GetEventId() == "" {
 		return fmt.Errorf("%w: envelope missing event_id", ErrPermanent)
 	}
-	if env.GetType() == OrderCancelledEventType {
+	switch env.GetType() {
+	case OrderCancelledEventType:
 		return c.handleCancelled(ctx, env)
+	case ReturnRefundedEventType:
+		return c.handleReturnRefunded(ctx, env)
 	}
 	return c.handlePaid(ctx, env)
+}
+
+// handleReturnRefunded refunds an RMA return (design D6/D7). A malformed fact, or one
+// whose order has no settled payment, can never apply and is parked; an applied 0 (the
+// payment had nothing left) is not an error.
+func (c *SettlementConsumer) handleReturnRefunded(ctx context.Context, env *eventsv1.EventEnvelope) error {
+	var rr orderv1.ReturnRefunded
+	if err := proto.Unmarshal(env.GetPayload(), &rr); err != nil {
+		return fmt.Errorf("%w: unmarshal ReturnRefunded: %v", ErrPermanent, err)
+	}
+	switch {
+	case rr.GetReturnId() == "":
+		return fmt.Errorf("%w: ReturnRefunded missing return_id", ErrPermanent)
+	case rr.GetOrderId() == "":
+		return fmt.Errorf("%w: ReturnRefunded missing order_id", ErrPermanent)
+	case rr.GetRefundAmount() <= 0:
+		return fmt.Errorf("%w: ReturnRefunded %s has non-positive refund_amount %d", ErrPermanent, rr.GetReturnId(), rr.GetRefundAmount())
+	}
+	if err := c.apply.RefundReturn(ctx, rr.GetOrderId(), rr.GetReturnId(), rr.GetRefundAmount()); err != nil {
+		return classify(err, "refund return "+rr.GetReturnId()+" of order "+rr.GetOrderId())
+	}
+	return nil
 }
 
 // handleCancelled refunds the payment of an order cancelled from Paid (design D12); a

@@ -118,7 +118,7 @@ func TestHold_RefundOfHeldSaleLeavesOlderProceedsWithdrawable(t *testing.T) {
 		now := time.Now()
 		creditAt(t, s, "s", "o-old", 300000, now.Add(-window-time.Hour))
 		fresh := creditAt(t, s, "s", "o-new", 500000, now.Add(-time.Minute))
-		if _, err := s.settle.Refund(context.Background(), fresh.ID, 500000, "REFUND:x"); err != nil {
+		if _, err := rpcRefund(context.Background(), s, fresh.ID, "r1", 500000); err != nil {
 			t.Fatal(err)
 		}
 		if err := payout(s, "s", 300000, now, window); err != nil {
@@ -131,7 +131,7 @@ func TestHold_RefundPastWindowReducesWithdrawable(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		now := time.Now()
 		old := creditAt(t, s, "s", "o-old", 500000, now.Add(-window-time.Hour))
-		if _, err := s.settle.Refund(context.Background(), old.ID, 200000, "REFUND:x"); err != nil {
+		if _, err := rpcRefund(context.Background(), s, old.ID, "r1", 200000); err != nil {
 			t.Fatal(err)
 		}
 		if err := payout(s, "s", 300001, now, window); !errors.Is(err, repository.ErrInsufficientBalance) {

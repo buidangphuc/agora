@@ -337,7 +337,7 @@ func TestService_RefundPayment(t *testing.T) {
 			Status:  repository.PaymentStatusPaid,
 		})
 
-		updated, ok, msg, err := svc.RefundPayment(ctx, tx.ID, 500000, "Customer cancellation")
+		updated, ok, msg, err := svc.RefundPayment(ctx, tx.ID, "r1", 500000, "Customer cancellation")
 		if err != nil {
 			t.Fatalf("RefundPayment failed: %v", err)
 		}
@@ -354,7 +354,7 @@ func TestService_RefundPayment(t *testing.T) {
 
 	t.Run("missing payment id", func(t *testing.T) {
 		svc, _, _, _ := setupService()
-		_, _, _, err := svc.RefundPayment(ctx, "", 100000, "reason")
+		_, _, _, err := svc.RefundPayment(ctx, "", "r2", 100000, "reason")
 		if err == nil {
 			t.Fatal("expected error for empty payment id")
 		}
@@ -370,15 +370,15 @@ func TestService_RefundPayment(t *testing.T) {
 		})
 
 		// Amount <= 0
-		_, _, _, err := svc.RefundPayment(ctx, tx.ID, 0, "reason")
+		_, _, _, err := svc.RefundPayment(ctx, tx.ID, "r3", 0, "reason")
 		if !errors.Is(err, service.ErrInvalidAmount) {
 			t.Errorf("expected ErrInvalidAmount, got %v", err)
 		}
 
 		// Amount > tx.Amount
-		_, _, _, err = svc.RefundPayment(ctx, tx.ID, 300000, "reason")
-		if err == nil {
-			t.Fatal("expected error when refund amount exceeds tx amount")
+		_, _, _, err = svc.RefundPayment(ctx, tx.ID, "r4", 300000, "reason")
+		if !errors.Is(err, service.ErrExceedsRemainder) {
+			t.Fatalf("expected ErrExceedsRemainder, got %v", err)
 		}
 	})
 
@@ -391,7 +391,7 @@ func TestService_RefundPayment(t *testing.T) {
 			Status:  repository.PaymentStatusPending,
 		})
 
-		_, _, _, err := svc.RefundPayment(ctx, tx.ID, 200000, "reason")
+		_, _, _, err := svc.RefundPayment(ctx, tx.ID, "r5", 200000, "reason")
 		if !errors.Is(err, service.ErrInvalidRefund) {
 			t.Errorf("expected ErrInvalidRefund for pending tx, got %v", err)
 		}
@@ -406,7 +406,7 @@ func TestService_RefundPayment(t *testing.T) {
 			Status:  repository.PaymentStatusRefunded,
 		})
 
-		_, _, _, err := svc.RefundPayment(ctx, tx.ID, 200000, "reason")
+		_, _, _, err := svc.RefundPayment(ctx, tx.ID, "r6", 200000, "reason")
 		if !errors.Is(err, service.ErrInvalidRefund) {
 			t.Errorf("expected ErrInvalidRefund for refunded tx, got %v", err)
 		}
@@ -414,7 +414,7 @@ func TestService_RefundPayment(t *testing.T) {
 
 	t.Run("refund transaction not found", func(t *testing.T) {
 		svc, _, _, _ := setupService()
-		_, _, _, err := svc.RefundPayment(ctx, "non-existent", 100000, "reason")
+		_, _, _, err := svc.RefundPayment(ctx, "non-existent", "r7", 100000, "reason")
 		if !errors.Is(err, service.ErrTransactionNotFound) {
 			t.Errorf("expected ErrTransactionNotFound, got %v", err)
 		}

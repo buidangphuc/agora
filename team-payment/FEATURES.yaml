@@ -91,6 +91,17 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "payment/refund.feature::Refund payment is processed on approved return"
+    notes: >
+      payment-refund-model changed the refund model: a payment is refunded cumulatively
+      (PARTIALLY_REFUNDED, then REFUNDED) as one payment_refunds row per refund, keyed
+      rpc:<refund_id> / return:<return_id> / cancel:<order_id> / legacy:<payment_id>, each
+      with its own REFUND_DEDUCTION. RefundPayment now requires refund_id (INVALID_ARGUMENT
+      without it, ALREADY_EXISTS on reuse with another payment or amount, FAILED_PRECONDITION
+      above the remainder). An approved return is refunded by team-order's ReturnRefunded
+      fact, not by a storefront RefundPayment call; it is clamped to the payment's remainder
+      (requested vs applied recorded). GetPayment is readable by the order's seller and
+      carries refunded_amount and refunds. Covered in detail by payment.cumulative-refunds
+      and the seller-refund-deduction / return-refund-settlement entries.
 
   - id: payment.seller-reads-own-wallet
     title: A seller reads their own wallet
