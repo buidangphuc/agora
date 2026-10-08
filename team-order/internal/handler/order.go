@@ -538,6 +538,12 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 
 	shipment, err := h.svc.CreateShipment(ctx, req.GetOrderId(), req.GetCarrier(), req.GetTrackingCode())
 	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrOrderNotFound):
+			return nil, status.Error(codes.NotFound, "order not found")
+		case errors.Is(err, service.ErrInvalidStatus):
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be shipped in its current status", err)
+		}
 		return nil, internalErr(h.logger, "create shipment", err)
 	}
 

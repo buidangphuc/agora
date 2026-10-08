@@ -616,20 +616,19 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 
 // ── Shipment & Logistics Tracking ──
 
+// CreateShipment claims Shipped FIRST with the compare-and-set write (from Pending
+// for a cash-on-delivery hand-over, or Paid) and creates the shipment, with its
+// OrderShipped outbox row, only if that claim won (design D12). An order in any
+// other status is ErrInvalidStatus and gets no shipment. A shipment insert that
+// fails after a won claim is returned (INTERNAL) and logged for a manual fix; a
+// retry then conflicts because the order is already Shipped.
 func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, trackingCode string) (repository.Shipment, error) {
 	if orderID == "" {
 		return repository.Shipment{}, repository.ErrOrderNotFound
 	}
-
-	order, err := s.orderRepo.GetOrder(ctx, orderID)
-	if err != nil {
-		return repository.Shipment{}, err
-	}
-
 	if carrier == "" {
 		carrier = "SPX"
 	}
-
 	if trackingCode == "" {
 		orderShort := orderID
 		if len(orderShort) > 8 {
@@ -638,32 +637,39 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 		trackingCode = fmt.Sprintf("%s-VN-%s-%d", strings.ToUpper(carrier), strings.ToUpper(orderShort), time.Now().Unix()%1000000)
 	}
 
-	now := time.Now()
-	initialCheckpoint := repository.ShipmentCheckpoint{
-		Timestamp:   now,
-		Location:    "Trung tâm phân loại & Bưu cục tiếp nhận",
-		Description: fmt.Sprintf("Người bán đã bàn giao kiện hàng cho đơn vị vận chuyển %s", carrier),
-		CreatedAt:   now,
+	order, err := s.orderRepo.UpdateOrderStatusFrom(ctx, orderID, repository.OrderStatusShipped,
+		AllowedFrom(repository.OrderStatusShipped, ActorSeller), trackingCode)
+	if err != nil {
+		if errors.Is(err, repository.ErrStatusConflict) {
+			msg := "order cannot be shipped in its current status"
+			if cur, gerr := s.orderRepo.GetOrder(ctx, orderID); gerr == nil {
+				msg = fmt.Sprintf("order in status %v cannot be shipped", cur.Status)
+			}
+			return repository.Shipment{}, fmt.Errorf("%w: %s", ErrInvalidStatus, msg)
+		}
+		return repository.Shipment{}, err
 	}
 
+	now := time.Now()
 	shipment := repository.Shipment{
 		OrderID:      orderID,
 		Carrier:      carrier,
 		TrackingCode: trackingCode,
 		Status:       repository.ShipmentStatusPending,
-		Checkpoints:  []repository.ShipmentCheckpoint{initialCheckpoint},
-		BuyerID:      order.BuyerID,
-		SellerID:     order.SellerID,
+		Checkpoints: []repository.ShipmentCheckpoint{{
+			Timestamp:   now,
+			Location:    "Trung tâm phân loại & Bưu cục tiếp nhận",
+			Description: fmt.Sprintf("Người bán đã bàn giao kiện hàng cho đơn vị vận chuyển %s", carrier),
+			CreatedAt:   now,
+		}},
+		BuyerID:  order.BuyerID,
+		SellerID: order.SellerID,
 	}
-
 	created, err := s.shipmentRepo.CreateShipment(ctx, shipment)
 	if err != nil {
+		s.logger.ErrorContext(ctx, "order marked Shipped but its shipment could not be created; fix by hand",
+			slog.String("order_id", orderID), slog.String("tracking_code", trackingCode), slog.Any("err", err))
 		return repository.Shipment{}, fmt.Errorf("create shipment: %w", err)
-	}
-
-	// Update order status to SHIPPED and record tracking number if not yet shipped
-	if order.Status != repository.OrderStatusShipped {
-		_, _ = s.orderRepo.UpdateOrderStatusFrom(ctx, orderID, repository.OrderStatusShipped, AllowedFrom(repository.OrderStatusShipped, ActorSeller), trackingCode)
 	}
 
 	s.logger.InfoContext(ctx, "created shipment tracking",
@@ -672,7 +678,6 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 		slog.String("carrier", carrier),
 		slog.String("tracking_code", trackingCode),
 	)
-
 	return created, nil
 }
 
