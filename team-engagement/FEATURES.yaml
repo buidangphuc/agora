@@ -216,3 +216,118 @@ features:
     tags: [buyer, engagement]
     status: automated
     covered_by: "buyer/review_ratings_filter.feature::Buyer inspects product star rating breakdown and review filters"
+
+  - id: engagement.dispute-buyer-opens-against-seller
+    title: The buyer opens a dispute against the order's seller
+    persona: buyer
+    priority: P0
+    summary: >-
+      CreateDispute naming the order's seller is accepted and both the buyer and the seller can read it.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.GetDispute]
+    acceptance:
+      - Given a buyer who placed an order on a seller's listing
+      - When the buyer of an order opens a dispute naming the order's seller
+      - Then the dispute is created and both the buyer and the seller can read it
+    tags: [engagement, authz]
+    status: automated
+    covered_by: "security/dispute_access.feature::The buyer opens a dispute against the order's seller"
+    notes: >
+      port-security-hardening dispute-and-qa-access: disputes are tied to a real order and its parties.
+
+  - id: engagement.dispute-wrong-defendant-denied
+    title: A buyer cannot name a different defendant
+    persona: buyer
+    priority: P0
+    summary: >-
+      CreateDispute naming a user who is not the order's seller is denied with 403.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [engagement.v1.CreateDispute]
+    acceptance:
+      - Given a buyer who placed an order on a seller's listing
+      - When the buyer of an order opens a dispute naming a user who is not the order's seller
+      - Then the gateway answers HTTP 403
+    tags: [engagement, authz]
+    status: automated
+    covered_by: "security/dispute_access.feature::A buyer cannot name a different defendant"
+    notes: >
+      port-security-hardening dispute-and-qa-access: disputes are tied to a real order and its parties.
+
+  - id: engagement.dispute-stranger-cannot-open
+    title: A stranger cannot open a dispute on someone else's order
+    persona: buyer
+    priority: P0
+    summary: >-
+      CreateDispute on an order the caller did not place answers 404, so order ids cannot be probed.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [engagement.v1.CreateDispute]
+    acceptance:
+      - Given a buyer who placed an order on a seller's listing and a second buyer who did not
+      - When a buyer who did not place the order opens a dispute on it
+      - Then the gateway answers HTTP 404
+    tags: [engagement, authz]
+    status: automated
+    covered_by: "security/dispute_access.feature::A stranger cannot open a dispute on someone else's order"
+    notes: >
+      port-security-hardening dispute-and-qa-access: disputes are tied to a real order and its parties.
+
+  - id: engagement.dispute-stranger-cannot-read
+    title: A stranger cannot read a dispute
+    persona: buyer
+    priority: P0
+    summary: >-
+      GetDispute by a user who is neither party nor admin answers 404, the same as a missing id.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [engagement.v1.GetDispute]
+    acceptance:
+      - Given an existing dispute and a second buyer who is neither party nor admin
+      - When a logged-in user who is neither party nor admin calls GetDispute for an existing dispute
+      - Then the gateway answers HTTP 404
+    tags: [engagement, authz]
+    status: automated
+    covered_by: "security/dispute_access.feature::A stranger cannot read a dispute"
+    notes: >
+      port-security-hardening dispute-and-qa-access: disputes are tied to a real order and its parties.
+
+  - id: engagement.qa-non-owner-no-shop-reply
+    title: A non-owner cannot post a shop reply
+    persona: buyer
+    priority: P0
+    summary: >-
+      AnswerQuestion with is_shop_reply from a caller who does not own the listing is stored as an ordinary answer.
+    entry_route: "/listing/{listing_id}"
+    services: [team-engagement, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    api:
+      exercised: [engagement.v1.AnswerQuestion, engagement.v1.ListQuestionsByListing]
+    acceptance:
+      - Given a question on a seller's listing
+      - When a buyer answers a question on another seller's listing with is_shop_reply set
+      - Then the stored answer is not marked as a shop reply
+    tags: [engagement, authz]
+    status: automated
+    covered_by: "security/dispute_access.feature::A non-owner cannot post a shop reply"
+    notes: >
+      port-security-hardening dispute-and-qa-access: disputes are tied to a real order and its parties.
