@@ -26,6 +26,11 @@ var (
 	ErrUnauthorizedReturn    = errors.New("only buyer can request return for this order")
 	ErrOrderCannotBeReturned = errors.New("order cannot be returned in current status")
 	ErrInvalidReturnStatus   = errors.New("invalid return status transition")
+	// ErrNothingToReturn: the order's non-rejected returns already cover its total.
+	ErrNothingToReturn = errors.New("order has no returnable amount left")
+	// ErrNotPaidOnline: a return of an order with no paid_at (never paid through
+	// team-payment, e.g. cash on delivery) cannot be moved to REFUNDED.
+	ErrNotPaidOnline = errors.New("order was not paid online; cash-on-delivery refunds are handled outside the system")
 )
 
 type OrderService struct {
@@ -549,33 +554,43 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 		return repository.OrderReturn{}, fmt.Errorf("%w: status %v", ErrOrderCannotBeReturned, order.Status)
 	}
 
-	if refundAmount <= 0 {
-		refundAmount = order.TotalAmount
-	} else if refundAmount > order.TotalAmount {
-		return repository.OrderReturn{}, fmt.Errorf("%w: refund amount %d exceeds order total %d", ErrInvalidRefundAmount, refundAmount, order.TotalAmount)
-	}
-
 	req := repository.OrderReturn{
 		OrderID:      orderID,
 		BuyerID:      buyerID,
 		SellerID:     order.SellerID,
 		Reason:       reason,
-		RefundAmount: refundAmount,
+		RefundAmount: refundAmount, // <= 0 means "the remainder"
 		Status:       repository.ReturnStatusPending,
 	}
 
-	created, err := s.returnRepo.CreateReturn(ctx, req)
+	// The cap (order total minus the order's non-rejected returns) is checked and
+	// the return inserted under one per-order lock, so concurrent requests never
+	// exceed the order total.
+	created, err := s.returnRepo.CreateReturnCapped(ctx, req, order.TotalAmount)
 	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrReturnExceedsRemainder):
+			return repository.OrderReturn{}, fmt.Errorf("%w: %v", ErrInvalidRefundAmount, err)
+		case errors.Is(err, repository.ErrNoReturnableRemainder):
+			return repository.OrderReturn{}, ErrNothingToReturn
+		case errors.Is(err, repository.ErrOrderNotFound):
+			return repository.OrderReturn{}, err
+		}
 		return repository.OrderReturn{}, fmt.Errorf("create return in repo: %w", err)
 	}
-
 	s.logger.InfoContext(ctx, "created return request",
 		slog.String("return_id", created.ID),
 		slog.String("order_id", orderID),
-		slog.Int64("refund_amount", refundAmount),
+		slog.Int64("refund_amount", created.RefundAmount),
 	)
 
 	return created, nil
+}
+
+// ListOrderReturns lists an order's returns, newest first. Authorisation (the
+// order's buyer, seller or an admin) is the caller's job.
+func (s *OrderService) ListOrderReturns(ctx context.Context, orderID string) ([]repository.OrderReturn, error) {
+	return s.returnRepo.ListReturnsByOrder(ctx, orderID)
 }
 
 func (s *OrderService) GetReturnRequest(ctx context.Context, id string) (repository.OrderReturn, error) {
@@ -600,10 +615,30 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 		}
 	case repository.ReturnStatusRejected, repository.ReturnStatusRefunded:
 		return repository.OrderReturn{}, fmt.Errorf("%w: return is already in terminal state %v", ErrInvalidReturnStatus, existing.Status)
+	default:
+		return repository.OrderReturn{}, fmt.Errorf("%w: unknown return status %v", ErrInvalidReturnStatus, existing.Status)
 	}
 
-	updated, err := s.returnRepo.UpdateReturnStatus(ctx, id, newStatus)
+	// Only an order paid through team-payment can have its return refunded in the
+	// system (design D5). paid_at is written only by the Pending -> Paid CAS and
+	// never cleared, so checking it outside the transition cannot be raced.
+	if newStatus == repository.ReturnStatusRefunded {
+		order, err := s.orderRepo.GetOrder(ctx, existing.OrderID)
+		if err != nil {
+			return repository.OrderReturn{}, fmt.Errorf("get order %s of return %s: %w", existing.OrderID, id, err)
+		}
+		if order.PaidAt == nil {
+			return repository.OrderReturn{}, ErrNotPaidOnline
+		}
+	}
+
+	// A compare-and-set from the status read above: a concurrent transition that
+	// got there first makes this one lose (ErrInvalidReturnStatus).
+	updated, err := s.returnRepo.TransitionReturn(ctx, id, existing.Status, newStatus)
 	if err != nil {
+		if errors.Is(err, repository.ErrReturnStatusConflict) {
+			return repository.OrderReturn{}, fmt.Errorf("%w: return status changed concurrently", ErrInvalidReturnStatus)
+		}
 		return repository.OrderReturn{}, err
 	}
 

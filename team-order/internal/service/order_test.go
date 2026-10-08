@@ -136,8 +136,17 @@ func TestOrderService_CancelOrder(t *testing.T) {
 }
 
 func TestOrderService_ReturnRequest(t *testing.T) {
+	paidAt := time.Now()
 	orderRepo := &mockOrderServiceRepo{
 		orders: map[string]repository.Order{
+			"ord_paid_online": {
+				ID:          "ord_paid_online",
+				BuyerID:     "buyer_1",
+				SellerID:    "seller_1",
+				TotalAmount: 500000,
+				Status:      repository.OrderStatusCompleted,
+				PaidAt:      &paidAt,
+			},
 			"ord_delivered": {
 				ID:          "ord_delivered",
 				BuyerID:     "buyer_1",
@@ -205,7 +214,7 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 	})
 
 	t.Run("Update Return Status - Valid Transitions", func(t *testing.T) {
-		ret, err := s.CreateReturnRequest(ctx, "buyer_1", "ord_delivered", "Đổi trả hàng", 200000)
+		ret, err := s.CreateReturnRequest(ctx, "buyer_1", "ord_paid_online", "Đổi trả hàng", 200000)
 		if err != nil {
 			t.Fatalf("create return failed: %v", err)
 		}
