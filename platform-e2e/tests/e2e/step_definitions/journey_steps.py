@@ -119,6 +119,11 @@ def buyer_searches_seeded_listing_and_filters_price(world: World) -> None:
     search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
     expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
     # Facet keys are "<min>-<max>" or "<min>+"; click the bucket the listing's price falls in.
+    # The facet sidebar streams in after the results wrapper; reading the buckets before it
+    # renders returned [] under -n 4 load, so wait for the first bucket first.
+    expect(search.facet_group("price_ranges").locator("[data-key]").first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
     keys = (
         search.facet_group("price_ranges")
         .locator("[data-key]")
