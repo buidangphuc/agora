@@ -80,6 +80,21 @@ Feature: Payouts draw only on proceeds outside the refund window
     When the seller requests a wallet payout of 300000
     Then the payout is accepted with a PENDING PAYOUT entry of -300000
 
+  # @destructive: waits the hold window out (needs payment-ledger.override.yaml). Serial lane only.
+  # (payment-refund-model / seller-payout-holdback: a deduction belongs to the payment through its refund)
+  @destructive
+  Scenario: Two partial refunds of a held sale both reduce its held amount
+    Given a seller with listings "L3" whose order pays 300000 and "L5" whose order pays 500000
+    And a buyer "b1"
+    And "b1" has paid an order of "L3" whose credit has aged past the hold window
+    And "b1" has paid an order of "L5" and the seller is credited
+    When the seller refunds 200000 of the payment of the order of "L5"
+    And the seller refunds 100000 of the payment of the order of "L5"
+    And the seller requests a wallet payout of 300000
+    Then the payout is accepted with a PENDING PAYOUT entry of -300000
+    When the seller requests a wallet payout of 1
+    Then the call fails with "failed_precondition" because the amount is held
+
   Scenario: A payout above the balance is refused as insufficient
     Given a seller with a listing "L" whose order pays 500000
     And a buyer "b1"

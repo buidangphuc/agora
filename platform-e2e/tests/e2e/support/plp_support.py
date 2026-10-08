@@ -10,6 +10,7 @@ reference of a row (not on the wire) and the store scenarios use psql, see `plp_
 from __future__ import annotations
 
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,6 +29,7 @@ DEDUCTION = "REFUND_DEDUCTION"
 PAYOUT = "PAYOUT"
 PAID = "PAYMENT_STATUS_PAID"
 REFUNDED = "PAYMENT_STATUS_REFUNDED"
+PARTIALLY_REFUNDED = "PAYMENT_STATUS_PARTIALLY_REFUNDED"
 SENTINEL_PRICE = 600_000  # >= the free-shipping subtotal: the payment equals the price
 SHIPPING_FEE = 35_000
 FREE_SHIPPING_FROM = 500_000
@@ -181,11 +183,33 @@ def quiet(w: OicWorld, check, seconds: float = QUIET_S) -> None:
 
 
 # ── refunds ──────────────────────────────────────────────────────────────
+def new_refund_id(label: str = "") -> str:
+    """A refund id that is unique across scenarios and runs (refund ids are global keys).
+
+    1-64 characters of [A-Za-z0-9._:-], as RefundPayment requires.
+    """
+    return f"e2e-{uuid.uuid4().hex[:20]}" + (f"-{label}" if label else "")
+
+
 def refund(
-    w: OicWorld, actor: Actor, tx_id: str, amount: int, reason: str = "e2e"
+    w: OicWorld,
+    actor: Actor,
+    tx_id: str,
+    amount: int,
+    reason: str = "e2e",
+    refund_id: str | None = None,
 ) -> httpx.Response:
+    """RefundPayment through the gateway; `refund_id` is required by the API, so a fresh one is
+    generated when the caller gives none. The id used is left in `w.data["last_refund_id"]`."""
+    rid = refund_id or new_refund_id()
+    w.data["last_refund_id"] = rid
+    w.data.setdefault("refund_ids", []).append(rid)
     return post(
-        w, actor, PAYMENT, "RefundPayment", {"paymentId": tx_id, "amount": amount, "reason": reason}
+        w,
+        actor,
+        PAYMENT,
+        "RefundPayment",
+        {"paymentId": tx_id, "amount": amount, "reason": reason, "refundId": rid},
     )
 
 
