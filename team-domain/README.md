@@ -19,9 +19,13 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
 | `CreateBundle` | `listing.write` | owner-scoped |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
-| `ReserveStock`, `ReleaseStock` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
+| `ReserveStock`, `ReleaseStock`, `CommitReservation` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
 
-`ReserveStock` is idempotent on `reservation_id` (an empty id falls back to a plain reserve). Out of stock returns OK with `success=false, message="insufficient stock"` (not an error code). Unknown listing or variant gives `NotFound`.
+Reservation lifecycle (spec `inventory-reservations`, ADR-0008): `active → committed | released`, `committed → released`. Only `active` reservations expire; stock is restored once, when a reservation becomes `released`, by the quantity stored on it.
+
+- `ReserveStock` requires `reservation_id` (`InvalidArgument` when empty; there is no ledger-less decrement). The id of an `active`/`committed` reservation is an idempotent success; the id of a `released` one is `FailedPrecondition` (reserve under a new id). Out of stock returns OK with `success=false, message="insufficient stock"` (not an error code). Unknown listing or variant gives `NotFound`.
+- `CommitReservation` makes an `active` reservation `committed` (never swept). Repeat: OK. Released: `FailedPrecondition`. Unknown: `NotFound`. Empty id: `InvalidArgument`.
+- `ReleaseStock` is keyed by `reservation_id` only (`InvalidArgument` when empty); `listing_id`, `variant_id` and `quantity` are ignored. It restores the stored quantity of an `active` or `committed` reservation exactly once; a repeated, already swept or unknown id is a successful no-op (WARN log).
 
 Also serves gRPC health, and reflection when `GRPC_REFLECTION_ENABLED=true`.
 
@@ -32,9 +36,10 @@ Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order` a
 | Direction | Topic | Type | Key |
 |---|---|---|---|
 | Produces | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` (`CHANGE_TYPE_CREATED/UPDATED/DELETED`) in a `platform.events.v1.EventEnvelope` | listing id |
+| Produces | `listing.events` | `platform.listing.v1.ListingStockChanged` in a `platform.events.v1.EventEnvelope` | listing id |
 | Consumes | none | | |
 
-Only `ListingChanged` is emitted, on Create/Update/Delete. `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged` and `ListingStatusChanged` exist in the proto but are reserved; nothing in `internal/` or `cmd/` emits them. Stock reservations do not emit events.
+`ListingChanged` is emitted on Create/Update/Delete. `ListingStockChanged` is written to the outbox inside every reserve, release and TTL-sweep transaction that changes stock: one per affected listing, with the listing's stock after the change and only the variants that changed. Idempotent no-ops (repeat reserve, repeated or unknown release, commit) emit nothing. `ListingBaseInfoChanged`, `ListingPricingChanged` and `ListingStatusChanged` exist in the proto but are reserved.
 
 Outbox: the listing write and its outbox row commit in one DB transaction. The relayer (`internal/events/relayer.go`) claims pending rows with `FOR UPDATE SKIP LOCKED`, produces the stored envelope, and marks rows `published`. Delivery is at-least-once; consumers dedupe on `EventEnvelope.event_id` (the outbox row id). Failures retry with exponential backoff (1s doubling, capped at 5m); after `OUTBOX_MAX_ATTEMPTS` the row is parked as `failed`. The relayer only runs when `OUTBOX_ENABLED` and `KAFKA_ENABLED` are both true; with Kafka off, rows stay `pending`.
 
@@ -53,8 +58,9 @@ Postgres `listing_db` (role `listing_svc`). Migrations in `migrations/` (golang-
 | 0007 `reservations` | `reservations` (idempotency key, `expires_at` TTL, `active/released`) |
 | 0008 `storefronts` | `storefronts` |
 | 0009 `bundles` | `bundles` |
+| 0010 `reservation_lifecycle_constraints` | `NOT VALID` checks: `reservations.status IN ('active','committed','released')`, `listings.stock >= 0`, `listing_variants.stock >= 0`. Validate later with `psql "$DATABASE_URL" -f scripts/validate_0010_constraints.sql` (refuses unless every violation count is 0) |
 
-Applied by `make migrate` locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, default tick 1 minute, reservation TTL 15 minutes) runs inside this service when Postgres is enabled and restores stock for expired active reservations.
+Applied by `make migrate` locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service when Postgres is enabled and restores stock for expired `active` reservations only (committed ones are never swept).
 
 ## Configuration
 
