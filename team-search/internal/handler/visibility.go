@@ -17,6 +17,7 @@ import (
 const (
 	filterStatus    = "status"
 	filterSellerID  = "seller_id"
+	filterInStock   = "in_stock"
 	statusPublished = "published"
 	statusDraft     = "draft"
 
@@ -29,6 +30,7 @@ const (
 // visibility policy and returns the map to hand to the index. It never mutates
 // its input (the request's map is shared with the gRPC layer).
 //
+//   - in_stock other than "true": INVALID_ARGUMENT (D4);
 //   - no status key: returned as is; the index then applies status=published;
 //   - status other than published/draft (deleted, rejected, any, "", ...): INVALID_ARGUMENT;
 //   - status=published: allowed for everyone;
@@ -40,6 +42,9 @@ func effectiveFilters(p *commonv1.Principal, filters map[string]string) (map[str
 	out := make(map[string]string, len(filters))
 	for k, v := range filters {
 		out[k] = v
+	}
+	if v, has := out[filterInStock]; has && v != "true" {
+		return nil, status.Errorf(codes.InvalidArgument, "filters.in_stock must be %q", "true")
 	}
 	st, has := out[filterStatus]
 	if !has {

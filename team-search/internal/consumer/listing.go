@@ -52,9 +52,15 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
-				return idx.Delete(ctx, l.GetId())
+				return idx.Delete(ctx, l.GetId(), version)
 			}
 			doc := toDoc(l, version)
+			// D7: the creation time is the CREATED envelope's occurred_at; the
+			// index keeps the earliest, so UPDATED events never touch it.
+			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_CREATED && env.GetOccurredAt() != nil {
+				ms := env.GetOccurredAt().AsTime().UnixMilli()
+				doc.CreatedAt = &ms
+			}
 			if embedder != nil {
 				text := strings.TrimSpace(l.GetTitle() + " " + l.GetDescription())
 				if text != "" {
@@ -78,7 +84,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if base.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
-				return idx.Delete(ctx, base.GetListingId())
+				return idx.Delete(ctx, base.GetListingId(), version)
 			}
 			// Partial update base descriptive fields
 			fields := map[string]interface{}{
@@ -123,6 +129,24 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				"version":  version,
 			})
 
+		case listingStockChangedType:
+			var sc listingv1.ListingStockChanged
+			if err := proto.Unmarshal(env.GetPayload(), &sc); err != nil {
+				return fmt.Errorf("unmarshal ListingStockChanged: %w", err)
+			}
+			// A malformed stock event is an error, never a silent ack: AD1 retries
+			// it and parks it on the DLQ. Variants are ignored (D13).
+			if sc.GetListingId() == "" {
+				return fmt.Errorf("ListingStockChanged has no listing id")
+			}
+			if sc.GetStock() < 0 {
+				return fmt.Errorf("ListingStockChanged %q: negative stock %d", sc.GetListingId(), sc.GetStock())
+			}
+			if version <= 0 {
+				return fmt.Errorf("ListingStockChanged %q: missing occurred_at", sc.GetListingId())
+			}
+			return idx.UpdateStock(ctx, sc.GetListingId(), sc.GetStock(), version)
+
 		case listingStatusChangedType:
 			var st listingv1.ListingStatusChanged
 			if err := proto.Unmarshal(env.GetPayload(), &st); err != nil {
@@ -132,7 +156,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if st.GetStatus() == listingv1.ListingStatus_LISTING_STATUS_REJECTED {
-				return idx.Delete(ctx, st.GetListingId())
+				return idx.Delete(ctx, st.GetListingId(), version)
 			}
 			return idx.PartialUpdate(ctx, st.GetListingId(), map[string]interface{}{
 				"status":  statusString(st.GetStatus()),
@@ -148,7 +172,9 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 // toDoc maps a proto Listing to the indexed document, stamping the read-model
 // version (AD2) so the index can reject out-of-order writes.
 func toDoc(l *listingv1.Listing, version int64) index.ListingDoc {
+	stock := l.GetStock()
 	return index.ListingDoc{
+		Stock:       &stock,
 		ID:          l.GetId(),
 		Title:       l.GetTitle(),
 		Description: l.GetDescription(),

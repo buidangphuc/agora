@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -33,7 +34,9 @@ func (m *mockIndex) Upsert(ctx context.Context, doc index.ListingDoc) error {
 func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error {
 	return nil
 }
-func (m *mockIndex) Delete(ctx context.Context, id string) error { return nil }
+func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
+func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error)  { return 0, nil }
+func (m *mockIndex) UpdateStock(context.Context, string, int32, int64) error    { return nil }
 func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	m.lastMinRating = minRating
 	m.lastFilters = filters
@@ -122,22 +125,11 @@ func TestSearchHandler(t *testing.T) {
 		if len(f.GetPriceRanges()) != 2 || f.GetPriceRanges()[0].GetKey() != "0-100000" {
 			t.Errorf("price_ranges facet mismatch: %+v", f.GetPriceRanges())
 		}
-		if len(f.GetRatings()) != 2 || f.GetRatings()[0].GetKey() != "4" || f.GetRatings()[0].GetCount() != 2 {
-			t.Errorf("ratings facet mismatch: %+v", f.GetRatings())
+		if f.GetRatings() == nil || len(f.GetRatings()) != 0 {
+			t.Errorf("ratings facet must be an empty list (D9): %+v", f.GetRatings())
 		}
 		if len(f.GetSellers()) != 1 || f.GetSellers()[0].GetKey() != "seller_1" {
 			t.Errorf("sellers facet mismatch: %+v", f.GetSellers())
-		}
-	})
-
-	t.Run("SearchListings forwards min_rating", func(t *testing.T) {
-		mi := &mockIndex{}
-		h2 := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
-		if _, err := h2.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x", MinRating: 4}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if mi.lastMinRating != 4 {
-			t.Errorf("expected min_rating 4 forwarded to index, got %d", mi.lastMinRating)
 		}
 	})
 

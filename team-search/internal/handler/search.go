@@ -52,6 +52,11 @@ func (h *SearchHandler) SearchListings(
 	if err := interceptor.RequireScopes(ctx, "search:read"); err != nil {
 		return nil, err
 	}
+	// D9: no listing event carries a rating, so a minimum rating cannot be
+	// honoured by any retrieval leg; reject it before the engine or index runs.
+	if req.GetMinRating() != 0 {
+		return nil, status.Error(codes.InvalidArgument, "min_rating is not supported: no rating is indexed")
+	}
 	p, _ := interceptor.PrincipalFromContext(ctx)
 	filters, err := effectiveFilters(p, req.GetFilters())
 	if err != nil {
@@ -68,14 +73,13 @@ func (h *SearchHandler) SearchListings(
 			CategoryID: req.GetCategoryId(),
 			MinPrice:   req.GetMinPrice(),
 			MaxPrice:   req.GetMaxPrice(),
-			MinRating:  req.GetMinRating(),
 			SortBy:     req.GetSortBy(),
 			SearchMode: req.GetSearchMode(),
 			From:       from,
 			Size:       size,
 		})
 	} else {
-		res, err = h.idx.Search(ctx, req.GetQuery(), filters, req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), req.GetMinRating(), req.GetSortBy(), from, size)
+		res, err = h.idx.Search(ctx, req.GetQuery(), filters, req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), 0, req.GetSortBy(), from, size)
 	}
 
 	if err != nil {
@@ -83,7 +87,7 @@ func (h *SearchHandler) SearchListings(
 	}
 	hits := make([]*searchv1.SearchHit, 0, len(res.Hits))
 	for _, hit := range res.Hits {
-		hits = append(hits, &searchv1.SearchHit{ListingId: hit.ListingID, Score: float32(hit.Score)})
+		hits = append(hits, toWireHit(hit))
 	}
 	next := ""
 	if int64(from+size) < res.Total {
@@ -96,14 +100,26 @@ func (h *SearchHandler) SearchListings(
 	}, nil
 }
 
+// toWireHit maps an index hit to the wire SearchHit; stock keeps its presence
+// (absent = unknown, 0 = sold out) (D3).
+func toWireHit(hit index.Hit) *searchv1.SearchHit {
+	out := &searchv1.SearchHit{ListingId: hit.ListingID, Score: float32(hit.Score)}
+	if hit.Stock != nil {
+		v := *hit.Stock
+		out.Stock = &v
+	}
+	return out
+}
+
 // toFacets maps the index-layer facet counts to the wire Facets message. The
 // buckets slices are always non-nil (the index guarantees it), so an empty
-// result set yields empty — not nil — facet lists.
+// result set yields empty — not nil — facet lists. Ratings is always empty while
+// no rating is indexed (D9).
 func toFacets(f index.Facets) *searchv1.Facets {
 	return &searchv1.Facets{
 		Categories:  toFacetBuckets(f.Categories),
 		PriceRanges: toFacetBuckets(f.PriceRanges),
-		Ratings:     toFacetBuckets(f.Ratings),
+		Ratings:     []*searchv1.FacetBucket{},
 		Sellers:     toFacetBuckets(f.Sellers),
 	}
 }

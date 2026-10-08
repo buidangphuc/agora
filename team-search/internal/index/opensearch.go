@@ -12,6 +12,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/v2"
 	"github.com/opensearch-project/opensearch-go/v2/opensearchapi"
@@ -21,19 +22,25 @@ import (
 
 // ListingDoc is the indexed shape of a listing (the read-model document).
 // Version is the monotonic read-model version (AD2), sourced from the event's
-// occurred_at; it drives OpenSearch external versioning so out-of-order events
-// cannot overwrite newer state.
+// occurred_at; the write guard (writeScript) compares it with the stored one so
+// out-of-order events cannot overwrite newer state. Rating is not written: no
+// listing event carries one (D9); the mapping keeps the field.
 type ListingDoc struct {
-	ID            string    `json:"id"`
-	Title         string    `json:"title"`
-	Description   string    `json:"description"`
-	Status        string    `json:"status"`
-	Currency      string    `json:"currency"`
-	Price         int64     `json:"price"`
-	CategoryID    string    `json:"category_id"`
-	SellerID      string    `json:"seller_id"`
-	Rating        float64   `json:"rating"`
-	Version       int64     `json:"version"`
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+	Currency    string `json:"currency"`
+	Price       int64  `json:"price"`
+	CategoryID  string `json:"category_id"`
+	SellerID    string `json:"seller_id"`
+	Version     int64  `json:"version"`
+	// Stock is Listing.stock from the event; nil when the doc holds none. It is
+	// written under its own stock_version guard (D2), never with the base fields.
+	Stock *int32 `json:"stock,omitempty"`
+	// CreatedAt is the CREATED event's occurred_at in epoch millis (D7); nil on
+	// every other event. The script keeps the earliest one ever seen.
+	CreatedAt     *int64    `json:"created_at,omitempty"`
 	Embedding     []float32 `json:"embedding,omitempty"`
 	VectorPending bool      `json:"vector_pending,omitempty"`
 }
@@ -42,10 +49,12 @@ type ListingDoc struct {
 type Hit struct {
 	ListingID string
 	Score     float64
+	// Stock is the read-model stock from _source (D3); nil when none is projected.
+	Stock *int32
 }
 
 // FacetBucket is one facet value and the number of matching listings that carry
-// it (key = category_id / seller_id / price-range label / rating floor).
+// it (key = category_id / seller_id / price-range label).
 type FacetBucket struct {
 	Key   string
 	Count int64
@@ -73,7 +82,14 @@ type Index interface {
 	EnsureIndex(ctx context.Context) error
 	Upsert(ctx context.Context, doc ListingDoc) error
 	PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error
-	Delete(ctx context.Context, id string) error
+	// UpdateStock applies a ListingStockChanged under the stock_version guard (D2);
+	// it never creates a document and is a no-op on a tombstone.
+	UpdateStock(ctx context.Context, id string, stock int32, version int64) error
+	// PurgeTombstones removes tombstones applied before olderThan (D6) and
+	// returns how many it removed; it never touches a live document.
+	PurgeTombstones(ctx context.Context, olderThan time.Time) (int64, error)
+	// Delete writes a versioned tombstone (D5); version is the delete event's occurred_at in ns.
+	Delete(ctx context.Context, id string, version int64) error
 	Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
 	SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
 	Suggest(ctx context.Context, prefix string, limit int) ([]string, error)
@@ -83,6 +99,7 @@ type Index interface {
 type OpenSearchIndex struct {
 	client *opensearch.Client
 	name   string
+	now    func() time.Time
 }
 
 // New builds an OpenSearch-backed index for the given URL + index name.
@@ -91,7 +108,7 @@ func New(url, name string) (*OpenSearchIndex, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opensearch client: %w", err)
 	}
-	return &OpenSearchIndex{client: client, name: name}, nil
+	return &OpenSearchIndex{client: client, name: name, now: time.Now}, nil
 }
 
 // indexMapping: title as search_as_you_type powers both full-text and prefix
@@ -120,6 +137,10 @@ const indexMapping = `{
       "seller_id":      { "type": "keyword" },
       "rating":         { "type": "float" },
       "version":        { "type": "long" },
+      "stock":          { "type": "integer" },
+      "stock_version":  { "type": "long" },
+      "created_at":     { "type": "date", "format": "epoch_millis" },
+      "tombstoned_at":  { "type": "date", "format": "epoch_millis" },
       "embedding":      {
         "type": "knn_vector",
         "dimension": 384,
@@ -134,7 +155,22 @@ const indexMapping = `{
   }
 }`
 
-// EnsureIndex creates the listings index with indexMapping if it doesn't exist.
+// additiveMapping is the put-mapping body for the fields added after the index
+// was first created (D10). It must stay identical to their entries in
+// indexMapping: an existing index gains them, and a second put (or a concurrent
+// one from the other process at boot) is a no-op. An existing field of another
+// type makes the put fail, so a boot never runs on a mapping it cannot use.
+const additiveMapping = `{
+  "properties": {
+    "stock":         { "type": "integer" },
+    "stock_version": { "type": "long" },
+    "created_at":    { "type": "date", "format": "epoch_millis" },
+    "tombstoned_at": { "type": "date", "format": "epoch_millis" }
+  }
+}`
+
+// EnsureIndex creates the listings index with indexMapping if it doesn't exist,
+// and otherwise idempotently puts the additive fields onto the existing mapping.
 func (o *OpenSearchIndex) EnsureIndex(ctx context.Context) error {
 	res, err := opensearchapi.IndicesExistsRequest{
 		Index: []string{o.name},
@@ -145,7 +181,7 @@ func (o *OpenSearchIndex) EnsureIndex(ctx context.Context) error {
 	defer res.Body.Close()
 
 	if res.StatusCode == 200 {
-		return nil
+		return o.ensureAdditiveMapping(ctx)
 	}
 
 	createRes, err := opensearchapi.IndicesCreateRequest{
@@ -163,53 +199,254 @@ func (o *OpenSearchIndex) EnsureIndex(ctx context.Context) error {
 		// — treat that as success rather than crashing the process.
 		msg := createRes.String()
 		if createRes.StatusCode == 400 && strings.Contains(msg, "resource_already_exists_exception") {
-			return nil
+			return o.ensureAdditiveMapping(ctx)
 		}
 		return fmt.Errorf("create index %q: %s", o.name, msg)
 	}
 	return nil
 }
 
-// Upsert adds or replaces a whole document by id (idempotent). When the doc
-// carries a positive Version it is applied with OpenSearch external versioning
-// (AD2): OpenSearch rejects an incoming version <= the stored one with 409, which
-// we treat as a no-op so a re-delivered or out-of-order event never overwrites
-// newer state.
-func (o *OpenSearchIndex) Upsert(ctx context.Context, doc ListingDoc) error {
-	body, err := json.Marshal(doc)
+// ensureAdditiveMapping issues the idempotent PUT _mapping for additiveMapping.
+func (o *OpenSearchIndex) ensureAdditiveMapping(ctx context.Context) error {
+	res, err := opensearchapi.IndicesPutMappingRequest{
+		Index: []string{o.name},
+		Body:  strings.NewReader(additiveMapping),
+	}.Do(ctx, o.client)
 	if err != nil {
-		return err
-	}
-	req := opensearchapi.IndexRequest{
-		Index:      o.name,
-		DocumentID: doc.ID,
-		Body:       bytes.NewReader(body),
-		Refresh:    "true",
-	}
-	if doc.Version > 0 {
-		v := int(doc.Version)
-		req.Version = &v
-		req.VersionType = "external"
-	}
-	res, err := req.Do(ctx, o.client)
-	if err != nil {
-		return fmt.Errorf("index doc %q: %w", doc.ID, err)
+		return fmt.Errorf("put mapping on %q: %w", o.name, err)
 	}
 	defer res.Body.Close()
-	if res.StatusCode == 409 {
-		return nil // stale/duplicate version rejected by the version guard.
-	}
 	if res.IsError() {
-		return fmt.Errorf("index doc %q: %s", doc.ID, res.String())
+		return fmt.Errorf("put mapping on %q (stock, stock_version, created_at, tombstoned_at): %s", o.name, res.String())
 	}
 	return nil
 }
 
+// statusDeleted marks a tombstone document (D5). It is never published, so the
+// published-only default hides it, and the handler rejects it as a status filter.
+const statusDeleted = "deleted"
+
+// writeScript is the one write guard for every whole-document write (D1, D5).
+// It runs as a scripted_upsert, so it sees an absent document as an empty
+// _source with ctx.op == 'create', and decides in one atomic request:
+//
+//   - kind 'upsert' on a live document: the base fields are replaced by
+//     params.doc unless the incoming version is positive and not newer than
+//     the stored one. Stock has its own guard (D2): params.stock is taken with
+//     stock_version = version only when that is newer than the stored
+//     stock_version (even if the base fields are stale), otherwise the stored
+//     stock and stock_version are carried forward. created_at (D7) is
+//     set-if-absent-or-earlier from params.created_at (a CREATED event's
+//     occurred_at, also when its base fields are stale) and otherwise carried
+//     forward; it is never written onto a tombstone.
+//   - kind 'upsert' on a tombstone: noop when the incoming version is 0 (no
+//     occurred_at) or not newer than the tombstone's; a newer one replaces it.
+//   - kind 'delete': writes {id, status: deleted, version, tombstoned_at} and
+//     drops every other field, unless the stored document (live or tombstone)
+//     is already at or past the delete's version; an unversioned delete keeps
+//     the stored version so it cannot lower the guard.
+const writeScript = `
+Map s = ctx._source;
+boolean absent = ctx.op == 'create' || s.isEmpty();
+boolean tomb = !absent && 'deleted'.equals(s.status);
+long v = ((Number) params.version).longValue();
+boolean hasCur = !absent && s.version != null;
+long cur = hasCur ? ((Number) s.version).longValue() : 0L;
+if (params.kind == 'delete') {
+  boolean stale = tomb ? (hasCur && cur >= v) : (v > 0 && hasCur && cur >= v);
+  if (stale) {
+    ctx.op = 'noop';
+  } else {
+    long nv = v > 0 ? v : cur;
+    s.clear();
+    s.id = params.id;
+    s.status = 'deleted';
+    s.version = nv;
+    s.tombstoned_at = params.now;
+  }
+} else {
+  boolean stale = tomb ? (v <= 0 || (hasCur && cur >= v)) : (v > 0 && hasCur && cur >= v);
+  boolean live = !(tomb && stale);
+  def oldStock = (absent || tomb) ? null : s.stock;
+  def oldSV = (absent || tomb) ? null : s.stock_version;
+  def oldCreated = (absent || tomb) ? null : s.created_at;
+  boolean takeStock = live && params.stock != null && (oldSV == null || ((Number) oldSV).longValue() < v);
+  def created = oldCreated;
+  if (live && params.created_at != null && (created == null || ((Number) created).longValue() > ((Number) params.created_at).longValue())) {
+    created = params.created_at;
+  }
+  boolean newCreated = live && created != null && (oldCreated == null || ((Number) created).longValue() != ((Number) oldCreated).longValue());
+  if (!stale) {
+    s.clear();
+    s.putAll(params.doc);
+  }
+  if (takeStock) {
+    s.stock = params.stock;
+    s.stock_version = v;
+  } else if (!stale && oldSV != null) {
+    s.stock = oldStock;
+    s.stock_version = oldSV;
+  }
+  if (live && created != null) {
+    s.created_at = created;
+  }
+  if (stale && !takeStock && !newCreated) {
+    ctx.op = 'noop';
+  }
+}
+`
+
+// Upsert adds or replaces a whole document by id through writeScript, so a
+// re-delivered, out-of-order or unversioned event never overwrites newer state
+// and never revives a tombstone it does not postdate.
+func (o *OpenSearchIndex) Upsert(ctx context.Context, doc ListingDoc) error {
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	// Guarded separately by the script: stock (D2) and created_at (D7).
+	delete(fields, "stock")
+	delete(fields, "created_at")
+	var stock, createdAt any
+	if doc.Stock != nil {
+		stock = *doc.Stock
+	}
+	if doc.CreatedAt != nil {
+		createdAt = *doc.CreatedAt
+	}
+	return o.write(ctx, doc.ID, map[string]any{
+		"kind":       "upsert",
+		"version":    doc.Version,
+		"doc":        fields,
+		"stock":      stock,
+		"created_at": createdAt,
+	})
+}
+
+// Delete writes the tombstone for id through writeScript (D5): the delete
+// event's version is recorded so an older event cannot resurrect the listing,
+// and tombstoned_at (the indexer's clock) drives the purge (D6).
+func (o *OpenSearchIndex) Delete(ctx context.Context, id string, version int64) error {
+	return o.write(ctx, id, map[string]any{
+		"kind":    "delete",
+		"id":      id,
+		"version": version,
+		"now":     o.now().UnixMilli(),
+	})
+}
+
+func (o *OpenSearchIndex) write(ctx context.Context, id string, params map[string]any) error {
+	body, err := json.Marshal(map[string]any{
+		"scripted_upsert": true,
+		"upsert":          map[string]any{},
+		"script": map[string]any{
+			"lang":   "painless",
+			"source": writeScript,
+			"params": params,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	res, err := opensearchapi.UpdateRequest{
+		Index:      o.name,
+		DocumentID: id,
+		Body:       bytes.NewReader(body),
+		Refresh:    "true",
+	}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("%s doc %q: %w", params["kind"], id, err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("%s doc %q: %s", params["kind"], id, res.String())
+	}
+	return nil
+}
+
+// stockScript applies a ListingStockChanged (D2): a noop on a tombstone or when
+// the stored stock_version is at or past the event's; otherwise it sets stock and
+// stock_version and leaves version (the base-field guard) alone. It runs without
+// an upsert clause, so a missing document is a 404 and nothing is created.
+const stockScript = `if ('deleted'.equals(ctx._source.status)) { ctx.op = 'noop'; } else if (ctx._source.stock_version != null && ((Number) ctx._source.stock_version).longValue() >= params.sv) { ctx.op = 'noop'; } else { ctx._source.stock = params.stock; ctx._source.stock_version = params.sv; }`
+
+// UpdateStock projects a stock change onto an existing document under the
+// stock_version guard. An absent document (404) is acknowledged as a no-op.
+func (o *OpenSearchIndex) UpdateStock(ctx context.Context, id string, stock int32, version int64) error {
+	body, err := json.Marshal(map[string]any{
+		"script": map[string]any{
+			"lang":   "painless",
+			"source": stockScript,
+			"params": map[string]any{"stock": stock, "sv": version},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	res, err := opensearchapi.UpdateRequest{
+		Index:      o.name,
+		DocumentID: id,
+		Body:       bytes.NewReader(body),
+		Refresh:    "true",
+	}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("update stock %q: %w", id, err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode == 404 {
+		return nil // unknown listing: a stock event never creates a document.
+	}
+	if res.IsError() {
+		return fmt.Errorf("update stock %q: %s", id, res.String())
+	}
+	return nil
+}
+
+// PurgeTombstones runs delete_by_query on status=deleted AND tombstoned_at <
+// olderThan. Both clauses are required, so a live document is never matched.
+// Version conflicts (a tombstone replaced while the query ran) are skipped.
+func (o *OpenSearchIndex) PurgeTombstones(ctx context.Context, olderThan time.Time) (int64, error) {
+	body, err := json.Marshal(map[string]any{
+		"query": map[string]any{"bool": map[string]any{"filter": []any{
+			statusClause(statusDeleted),
+			map[string]any{"range": map[string]any{"tombstoned_at": map[string]any{"lt": olderThan.UnixMilli()}}},
+		}}},
+	})
+	if err != nil {
+		return 0, err
+	}
+	refresh := true
+	res, err := opensearchapi.DeleteByQueryRequest{
+		Index:     []string{o.name},
+		Body:      bytes.NewReader(body),
+		Conflicts: "proceed",
+		Refresh:   &refresh,
+	}.Do(ctx, o.client)
+	if err != nil {
+		return 0, fmt.Errorf("purge tombstones: %w", err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return 0, fmt.Errorf("purge tombstones: %s", res.String())
+	}
+	var out struct {
+		Deleted int64 `json:"deleted"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return 0, fmt.Errorf("purge tombstones: decode response: %w", err)
+	}
+	return out.Deleted, nil
+}
+
 // versionGuardScript applies the partial fields only when the incoming version is
-// newer than the stored one (AD2). With no `upsert`/`scripted_upsert` clause, an
-// update to a missing (tombstoned) document returns 404 and is a no-op, so a
-// stale partial update never resurrects a deleted listing.
-const versionGuardScript = `if (params.version > 0 && ctx._source.version != null && ctx._source.version >= params.version) { ctx.op = 'noop'; } else { for (entry in params.fields.entrySet()) { ctx._source[entry.getKey()] = entry.getValue(); } if (params.version > 0) { ctx._source.version = params.version; } }`
+// newer than the stored one (AD2), and never on a tombstone, whatever the version
+// (D5). With no `upsert`/`scripted_upsert` clause, an update to a missing
+// document returns 404 and is a no-op, so a partial update never creates one.
+const versionGuardScript = `if ('deleted'.equals(ctx._source.status)) { ctx.op = 'noop'; } else if (params.version > 0 && ctx._source.version != null && ctx._source.version >= params.version) { ctx.op = 'noop'; } else { for (entry in params.fields.entrySet()) { ctx._source[entry.getKey()] = entry.getValue(); } if (params.version > 0) { ctx._source.version = params.version; } }`
 
 // PartialUpdate updates only specific fields of a document without re-indexing
 // full text. The version guard (AD2) is enforced by a scripted update: stale
@@ -248,27 +485,10 @@ func (o *OpenSearchIndex) PartialUpdate(ctx context.Context, id string, partialD
 	}
 	defer res.Body.Close()
 	if res.StatusCode == 404 {
-		return nil // tombstoned/absent listing: do not resurrect.
+		return nil // absent listing: do not create.
 	}
 	if res.IsError() {
 		return fmt.Errorf("partial update doc %q: %s", id, res.String())
-	}
-	return nil
-}
-
-// Delete removes a listing from the index (ignores a missing document).
-func (o *OpenSearchIndex) Delete(ctx context.Context, id string) error {
-	res, err := opensearchapi.DeleteRequest{
-		Index:      o.name,
-		DocumentID: id,
-		Refresh:    "true",
-	}.Do(ctx, o.client)
-	if err != nil {
-		return fmt.Errorf("delete doc %q: %w", id, err)
-	}
-	defer res.Body.Close()
-	if res.IsError() && res.StatusCode != 404 {
-		return fmt.Errorf("delete doc %q: %s", id, res.String())
 	}
 	return nil
 }
@@ -294,7 +514,6 @@ type osAggregations struct {
 	Categories  osTermsAgg `json:"categories"`
 	Sellers     osTermsAgg `json:"sellers"`
 	PriceRanges osKeyedAgg `json:"price_ranges"`
-	Ratings     osKeyedAgg `json:"ratings"`
 }
 
 type osTermsAgg struct {
@@ -328,19 +547,6 @@ var priceRangeBuckets = []priceRangeBucket{
 	{label: "1000000+", from: 1000000, to: 0},
 }
 
-// ratingBuckets are the cumulative rating facet floors (>=4, >=3, >=2, >=1).
-// key is the emitted FacetBucket key ("4" == 4-plus stars); floor is the range
-// gte bound. Modeled as a filters agg so buckets overlap (>=4 counts into >=3).
-var ratingBuckets = []struct {
-	key   string
-	floor float64
-}{
-	{key: "4", floor: 4},
-	{key: "3", floor: 3},
-	{key: "2", floor: 2},
-	{key: "1", floor: 1},
-}
-
 // facetAggs builds the aggregation block requested alongside every SearchListings
 // query. It aggregates over the post-filter matched set (aggs sit outside the
 // query in the request body but count only documents the query matched).
@@ -356,10 +562,6 @@ func facetAggs() map[string]any {
 		}
 		priceRanges = append(priceRanges, r)
 	}
-	ratingFilters := make(map[string]any, len(ratingBuckets))
-	for _, b := range ratingBuckets {
-		ratingFilters[b.key] = map[string]any{"range": map[string]any{"rating": map[string]any{"gte": b.floor}}}
-	}
 	return map[string]any{
 		"categories": map[string]any{"terms": map[string]any{"field": "category_id", "size": 50}},
 		"sellers":    map[string]any{"terms": map[string]any{"field": "seller_id", "size": 50}},
@@ -368,21 +570,22 @@ func facetAggs() map[string]any {
 			"keyed":  true,
 			"ranges": priceRanges,
 		}},
-		"ratings": map[string]any{"filters": map[string]any{"filters": ratingFilters}},
 	}
 }
 
 // parseFacets turns the raw aggregation block into Facets. Every slice is
 // initialized (never nil), so an empty result set yields empty — not nil —
 // facet buckets. Terms buckets are emitted in the order OpenSearch returns them
-// (by count desc); the keyed price/rating buckets are emitted in the fixed order
+// (by count desc); the keyed price buckets are emitted in the fixed order
 // defined above so the UI order is stable regardless of JSON map iteration.
 func parseFacets(aggs osAggregations) Facets {
 	f := Facets{
 		Categories:  make([]FacetBucket, 0, len(aggs.Categories.Buckets)),
 		Sellers:     make([]FacetBucket, 0, len(aggs.Sellers.Buckets)),
 		PriceRanges: make([]FacetBucket, 0, len(priceRangeBuckets)),
-		Ratings:     make([]FacetBucket, 0, len(ratingBuckets)),
+		// D9: no listing event carries a rating, so there is no ratings
+		// aggregation and the facet is always an empty (non-nil) list.
+		Ratings: []FacetBucket{},
 	}
 	for _, b := range aggs.Categories.Buckets {
 		f.Categories = append(f.Categories, FacetBucket{Key: termKey(b.Key), Count: b.DocCount})
@@ -392,9 +595,6 @@ func parseFacets(aggs osAggregations) Facets {
 	}
 	for _, b := range priceRangeBuckets {
 		f.PriceRanges = append(f.PriceRanges, FacetBucket{Key: b.label, Count: aggs.PriceRanges.Buckets[b.label].DocCount})
-	}
-	for _, b := range ratingBuckets {
-		f.Ratings = append(f.Ratings, FacetBucket{Key: b.key, Count: aggs.Ratings.Buckets[b.key].DocCount})
 	}
 	return f
 }
@@ -417,6 +617,7 @@ func termKey(k any) string {
 // Listing status filter key and the only status served when the caller names none.
 const (
 	filterStatus    = "status"
+	filterInStock   = "in_stock"
 	statusPublished = "published"
 )
 
@@ -439,6 +640,15 @@ func buildFilterClauses(filters map[string]string, categoryID string, minPrice, 
 		clauses = append(clauses, statusClause(statusPublished))
 	}
 	for k, v := range filters {
+		if k == filterInStock {
+			// D4: in_stock is not a document field; "true" keeps only listings with
+			// projected stock > 0 (a doc without stock does not match a range). The
+			// handler rejects any other value; it never becomes a raw term.
+			if v == "true" {
+				clauses = append(clauses, map[string]any{"range": map[string]any{"stock": map[string]any{"gt": 0}}})
+			}
+			continue
+		}
 		clauses = append(clauses, map[string]any{"term": map[string]any{k: v}})
 	}
 	if categoryID != "" {
@@ -458,6 +668,24 @@ func buildFilterClauses(filters map[string]string, categoryID string, minPrice, 
 		clauses = append(clauses, map[string]any{"range": map[string]any{"rating": map[string]any{"gte": minRating}}})
 	}
 	return clauses
+}
+
+// sortClause is the key sort shared by both retrieval legs; nil means relevance.
+// SORT_BY_NEWEST orders by creation time (D7), most recent first, listings with
+// no recorded creation time last, ties by the id keyword (never _id).
+func sortClause(sortBy searchv1.SortBy) []any {
+	switch sortBy {
+	case searchv1.SortBy_SORT_BY_PRICE_ASC:
+		return []any{map[string]any{"price": map[string]any{"order": "asc"}}}
+	case searchv1.SortBy_SORT_BY_PRICE_DESC:
+		return []any{map[string]any{"price": map[string]any{"order": "desc"}}}
+	case searchv1.SortBy_SORT_BY_NEWEST:
+		return []any{
+			map[string]any{"created_at": map[string]any{"order": "desc", "missing": "_last", "unmapped_type": "date"}},
+			map[string]any{"id": map[string]any{"order": "asc"}},
+		}
+	}
+	return nil
 }
 
 // Search runs a free-text (multi_match over title^2 + description) query with
@@ -496,14 +724,8 @@ func (o *OpenSearchIndex) Search(
 		"aggs": facetAggs(),
 	}
 
-	// Sorting
-	switch sortBy {
-	case searchv1.SortBy_SORT_BY_PRICE_ASC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "asc"}}}
-	case searchv1.SortBy_SORT_BY_PRICE_DESC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "desc"}}}
-	case searchv1.SortBy_SORT_BY_NEWEST:
-		body["sort"] = []any{map[string]any{"_id": map[string]any{"order": "desc"}}}
+	if sort := sortClause(sortBy); sort != nil {
+		body["sort"] = sort
 	}
 
 	var parsed osSearchResponse
@@ -512,7 +734,7 @@ func (o *OpenSearchIndex) Search(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock})
 	}
 	return SearchResult{
 		Hits:   hits,
@@ -566,14 +788,8 @@ func (o *OpenSearchIndex) SearchVector(
 		"aggs": facetAggs(),
 	}
 
-	// Sorting
-	switch sortBy {
-	case searchv1.SortBy_SORT_BY_PRICE_ASC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "asc"}}}
-	case searchv1.SortBy_SORT_BY_PRICE_DESC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "desc"}}}
-	case searchv1.SortBy_SORT_BY_NEWEST:
-		body["sort"] = []any{map[string]any{"_id": map[string]any{"order": "desc"}}}
+	if sort := sortClause(sortBy); sort != nil {
+		body["sort"] = sort
 	}
 
 	var parsed osSearchResponse
@@ -582,7 +798,7 @@ func (o *OpenSearchIndex) SearchVector(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock})
 	}
 	return SearchResult{
 		Hits:   hits,

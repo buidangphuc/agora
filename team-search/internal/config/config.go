@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Settings is the whole configuration surface, grouped by capability.
@@ -21,6 +22,7 @@ type Settings struct {
 	OpenSearch    OpenSearch
 	Retrieval     Retrieval
 	Kafka         Kafka
+	Tombstone     Tombstone
 	Database      Database
 	Observability Observability
 }
@@ -62,6 +64,42 @@ type Kafka struct {
 	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-search-indexer"`
 	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+}
+
+// Tombstone tunes the retention of deleted-listing tombstones in the read-model
+// and the indexer's purge loop (D6). Both are Go duration strings; read them
+// through TombstoneTTL and TombstonePurgeInterval, which never fail: an unusable
+// value falls back to the default with a warning so a typo cannot stop the indexer.
+type Tombstone struct {
+	TTL           string `env:"TOMBSTONE_TTL" default:"336h"`
+	PurgeInterval string `env:"TOMBSTONE_PURGE_INTERVAL" default:"1h"`
+}
+
+// DefaultTombstoneTTL (14 days) is how long a tombstone outlives its delete,
+// measured from when the indexer applied it, before the purge removes it.
+const DefaultTombstoneTTL = 336 * time.Hour
+
+// DefaultTombstonePurgeInterval is how often the indexer purges expired tombstones.
+const DefaultTombstonePurgeInterval = time.Hour
+
+// TombstoneTTL parses TOMBSTONE_TTL. An empty, unparsable, zero or negative value
+// yields the default and a non-empty warning naming the variable.
+func (s *Settings) TombstoneTTL() (time.Duration, string) {
+	return positiveDuration("TOMBSTONE_TTL", s.Tombstone.TTL, DefaultTombstoneTTL)
+}
+
+// TombstonePurgeInterval parses TOMBSTONE_PURGE_INTERVAL with the same rules.
+func (s *Settings) TombstonePurgeInterval() (time.Duration, string) {
+	return positiveDuration("TOMBSTONE_PURGE_INTERVAL", s.Tombstone.PurgeInterval, DefaultTombstonePurgeInterval)
+}
+
+func positiveDuration(key, raw string, def time.Duration) (time.Duration, string) {
+	raw = strings.TrimSpace(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return def, fmt.Sprintf("invalid %s %q (want a positive Go duration such as 30s or 336h); using default %s", key, raw, def)
+	}
+	return d, ""
 }
 
 // Database configures the Postgres store for saved searches (migrations/
