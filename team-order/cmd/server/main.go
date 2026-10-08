@@ -82,6 +82,16 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("init resources: %w", err)
 	}
+	// Fail fast before any port opens: staging/prod must never fall back to the
+	// in-memory repositories (orders would vanish on restart).
+	if err := settings.RequireDurableStorage(res.Pool != nil); err != nil {
+		_ = bootstrap.CloseResources(context.Background(), res)
+		return err
+	}
+	if res.Pool == nil {
+		logger.Warn("running with IN-MEMORY repositories: orders, carts and sagas are NOT durable and are lost on restart",
+			slog.String("env", settings.Runtime.Env))
+	}
 	defer func() {
 		cctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
