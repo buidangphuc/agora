@@ -222,3 +222,81 @@ func TestIsAdminRequiresScopeAndAuthentication(t *testing.T) {
 		}
 	}
 }
+
+// shopReplyFixture: question on listing-1, owned by seller-1 in the seller_listings projection.
+func shopReplyFixture(t *testing.T) (*handler.EngagementHandler, string) {
+	t.Helper()
+	repo := repository.NewInMemoryRepository()
+	qaSvc := service.NewQAService(repository.NewInMemoryQARepository(), nil)
+	h := handler.NewEngagementHandler(repo,
+		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil), qaSvc,
+		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil),
+		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
+	if err := repo.IndexSellerListing(context.Background(), "seller-1", "listing-1"); err != nil {
+		t.Fatal(err)
+	}
+	q, err := qaSvc.AskQuestion(context.Background(), "listing-1", "buyer-1", "ok?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h, q.ID
+}
+
+func TestIsShopReplyDerivedFromListingOwnership(t *testing.T) {
+	sellerScopes := append(append([]string{}, userScopes...), "listing.write")
+	seller := func(id string) context.Context {
+		return principalCtx(id, commonv1.PrincipalType_PRINCIPAL_TYPE_USER, sellerScopes...)
+	}
+	for _, c := range []struct {
+		name      string
+		ctx       context.Context
+		requested bool
+		want      bool
+	}{
+		{"owner asks for shop reply", seller("seller-1"), true, true},
+		{"owner without flag", seller("seller-1"), false, false},
+		{"other seller with listing.write cannot claim it", seller("seller-2"), true, false},
+		{"buyer cannot claim it", userCtx("buyer-1"), true, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			h, qid := shopReplyFixture(t)
+			res, err := h.AnswerQuestion(c.ctx, &engagementv1.AnswerQuestionRequest{QuestionId: qid, AnswerText: "a", IsShopReply: c.requested})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := res.GetAnswer().GetIsShopReply(); got != c.want {
+				t.Fatalf("is_shop_reply = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+// A listing the seller_listings projection does not know has no provable owner,
+// so nobody (even a listing.write holder) gets the shop badge.
+func TestIsShopReplyFailsClosedForUnknownListing(t *testing.T) {
+	h, _ := shopReplyFixture(t)
+	// Question on a listing absent from the projection.
+	repo := repository.NewInMemoryRepository()
+	qa := service.NewQAService(repository.NewInMemoryQARepository(), nil)
+	h2 := handler.NewEngagementHandler(repo,
+		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil), qa,
+		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil),
+		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
+	q, err := qa.AskQuestion(context.Background(), "unindexed-listing", "buyer-1", "ok?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := principalCtx("seller-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, "engagement:write", "listing.write")
+	res, err := h2.AnswerQuestion(ctx, &engagementv1.AnswerQuestionRequest{QuestionId: q.ID, AnswerText: "a", IsShopReply: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.GetAnswer().GetIsShopReply() {
+		t.Fatal("unknown listing owner must not yield a shop reply")
+	}
+	// Unknown question with the flag set is NOT_FOUND, not a leaked internal error.
+	_, err = h.AnswerQuestion(ctx, &engagementv1.AnswerQuestionRequest{QuestionId: "nope", AnswerText: "a", IsShopReply: true})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("want NOT_FOUND, got %v", err)
+	}
+}

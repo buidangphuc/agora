@@ -220,6 +220,10 @@ func TestEngagementHandler(t *testing.T) {
 		}
 		qID := qRes.GetQuestion().GetId()
 
+		// seller_1 owns listing-qa-1 per the listing.events projection.
+		if err := repo.IndexSellerListing(ctx, "seller_1", "listing-qa-1"); err != nil {
+			t.Fatalf("index seller listing: %v", err)
+		}
 		// Answer question
 		sellerCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 			Id:     "seller_1",

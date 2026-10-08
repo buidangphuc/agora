@@ -37,7 +37,12 @@ func startServer(t *testing.T) engagementv1.EngagementServiceClient {
 	disputeSvc := service.NewDisputeService(disputeRepo, logger)
 	collectionRepo := repository.NewInMemoryCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), reviewSvc, qaSvc, disputeSvc, collectionSvc,
+	repo := repository.NewInMemoryRepository()
+	// seller-qa owns item-qa-1 (the seller_listings projection is what grants the shop badge).
+	if err := repo.IndexSellerListing(context.Background(), "seller-qa", "item-qa-1"); err != nil {
+		t.Fatalf("seed seller listing: %v", err)
+	}
+	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc,
 		handler.WithOrderParties(stubOrders{}))
 	srv := grpcserver.Build(s, h, nil, logger)
 

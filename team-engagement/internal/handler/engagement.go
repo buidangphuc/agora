@@ -4,6 +4,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -64,6 +65,13 @@ func NewEngagementHandler(
 		o(h)
 	}
 	return h
+}
+
+// internalError logs the real cause server-side and returns a generic INTERNAL so
+// storage or upstream details never reach the client.
+func internalError(ctx context.Context, op string, err error) error {
+	slog.ErrorContext(ctx, "handler error", slog.String("op", op), slog.Any("err", err))
+	return status.Error(codes.Internal, "internal error")
 }
 
 func userID(ctx context.Context) string {
@@ -434,10 +442,25 @@ func (h *EngagementHandler) AnswerQuestion(
 		return nil, status.Error(codes.Unimplemented, "qa service unavailable")
 	}
 
-	// is_shop_reply is client-supplied and cannot be trusted. The listing's
-	// owner is not known to this service (seller_listings is not populated), so
-	// honour the flag only for seller principals (those granted listing.write).
-	isShopReply := req.GetIsShopReply() && interceptor.RequireScopes(ctx, "listing.write") == nil
+	// is_shop_reply is client-supplied and cannot be trusted. It is honoured only
+	// when the caller is the owner of the question's listing, resolved from this
+	// service's own seller_listings projection (listing.events). Fails closed: a
+	// listing the projection does not know yields a plain (non-shop) answer.
+	isShopReply := false
+	if req.GetIsShopReply() {
+		q, err := h.qaSvc.GetQuestion(ctx, req.GetQuestionId())
+		if err != nil {
+			if errors.Is(err, repository.ErrQuestionNotFound) {
+				return nil, status.Error(codes.NotFound, "question not found")
+			}
+			return nil, internalError(ctx, "answer question", err)
+		}
+		owner, found, err := h.repo.ListingSeller(ctx, q.ListingID)
+		if err != nil {
+			return nil, internalError(ctx, "answer question", err)
+		}
+		isShopReply = found && owner == userID(ctx)
+	}
 
 	ans, err := h.qaSvc.AnswerQuestion(ctx, req.GetQuestionId(), userID(ctx), req.GetAnswerText(), isShopReply)
 	if err != nil {

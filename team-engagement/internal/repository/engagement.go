@@ -95,6 +95,10 @@ type Repository interface {
 	// a redelivered event keeps the original createdAt (the feed's sort key), and
 	// a listing is only ever owned by one seller.
 	UpsertSellerListing(ctx context.Context, sellerID, listingID string, createdAt time.Time) error
+	// ListingSeller returns the seller that owns listingID per the seller_listings
+	// projection (fed by listing.events). found=false when the projection has no
+	// owner for it (not yet consumed, or removed).
+	ListingSeller(ctx context.Context, listingID string) (sellerID string, found bool, err error)
 	// RemoveSellerListing drops a deleted or unpublished listing from the feed
 	// source. Idempotent; removing an unknown listing is a no-op.
 	RemoveSellerListing(ctx context.Context, listingID string) error
@@ -368,6 +372,17 @@ func (r *InMemoryRepository) UpsertSellerListing(_ context.Context, sellerID, li
 	}
 	set[listingID] = createdAt.UTC()
 	return nil
+}
+
+func (r *InMemoryRepository) ListingSeller(_ context.Context, listingID string) (string, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for sid, set := range r.sellerLs {
+		if _, ok := set[listingID]; ok {
+			return sid, true, nil
+		}
+	}
+	return "", false, nil
 }
 
 func (r *InMemoryRepository) RemoveSellerListing(_ context.Context, listingID string) error {

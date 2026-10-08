@@ -91,6 +91,15 @@ func (s *QAService) AnswerQuestion(
 	return saved, nil
 }
 
+// GetQuestion returns one question (ErrQuestionNotFound when absent).
+func (s *QAService) GetQuestion(ctx context.Context, id string) (repository.ProductQuestion, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return repository.ProductQuestion{}, ErrEmptyQuestionID
+	}
+	return s.repo.GetQuestionByID(ctx, id)
+}
+
 func (s *QAService) ListQuestionsByListing(
 	ctx context.Context,
 	listingID string,
