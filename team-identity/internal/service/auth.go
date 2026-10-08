@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -98,7 +99,30 @@ func (s *AuthService) Register(ctx context.Context, username, password, role str
 	return s.issue(ctx, created)
 }
 
-// Login verifies credentials and issues a token.
+// recordTimeout bounds each best-effort login-history write.
+const recordTimeout = 2 * time.Second
+
+// recordLogin appends a login event (with the forwarded client IP/UA). It is
+// best-effort: a failure is logged server-side and never fails or alters the login.
+func (s *AuthService) recordLogin(ctx context.Context, userID string, success bool) {
+	if s.sessions == nil {
+		return
+	}
+	c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
+	ctx, cancel := context.WithTimeout(ctx, recordTimeout)
+	defer cancel()
+	if _, err := s.sessions.RecordLogin(ctx, repository.LoginEvent{
+		UserID: userID, IP: clip(c.IP, 64), UserAgent: clip(c.UserAgent, 256), Success: success,
+	}); err != nil {
+		slog.ErrorContext(ctx, "login recording failed",
+			slog.String("op", "record login"), slog.String("user_id", userID), slog.Any("error", err))
+	}
+}
+
+// Login verifies credentials and issues a token. A wrong password for an existing
+// user records a failure event and a success records a success event (best-effort);
+// an unknown username records nothing (login_history.user_id is an FK) and returns
+// the identical error.
 func (s *AuthService) Login(ctx context.Context, username, password string) (AuthResult, error) {
 	u, err := s.repo.GetByUsername(ctx, strings.TrimSpace(username))
 	if err != nil {
@@ -108,9 +132,15 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 		return AuthResult{}, err
 	}
 	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
+		s.recordLogin(ctx, u.ID, false)
 		return AuthResult{}, ErrInvalidCredentials
 	}
-	return s.issue(ctx, u)
+	res, err := s.issue(ctx, u)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	s.recordLogin(ctx, u.ID, true)
+	return res, nil
 }
 
 func (s *AuthService) issue(ctx context.Context, u repository.User) (AuthResult, error) {

@@ -191,8 +191,6 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 
 ## Known gaps
 
-- `login_history` is never written: `RecordLogin` exists but nothing in the server calls it, so
-  `ListLoginHistory` returns no rows.
 - `sessions.last_seen` is set at creation and never updated.
 - Identity trusts `x-principal-*` metadata without verification (ADR-0010 interim: NetworkPolicy only).
   Anything that can reach `:50053` directly can impersonate any principal.
