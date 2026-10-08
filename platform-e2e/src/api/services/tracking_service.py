@@ -5,8 +5,8 @@ behavioral context (type, listing/session/anonymous ids, path, referrer, result
 position, query, properties) — never authenticated user identity, which the
 gateway stamps onto the `EventEnvelope.principal` from the resolved principal.
 
-The endpoint answers 204 on accept (best-effort produce) and a 4xx for a
-malformed / unknown-type beacon. Both are asserted via the returned status code,
+The endpoint answers 202 `{"accepted": n, "dropped": m}` when at least one event is valid
+(tracking-ingest-integrity; it was 204) and a 4xx when the body holds no valid event. Both are asserted via the returned status code,
 so this client uses `BaseService.send` (no-raise) rather than `post`.
 """
 
@@ -39,7 +39,7 @@ class TrackingService(BaseService):
         query: str = "",
         properties: dict[str, Any] | None = None,
     ) -> int:
-        """POST a well-formed browsing beacon. Returns the HTTP status (204 = accepted)."""
+        """POST a well-formed browsing beacon. Returns the HTTP status (202 = accepted)."""
         body: dict[str, Any] = {
             "type": event_type,
             "listingId": listing_id,
@@ -64,4 +64,3 @@ class TrackingService(BaseService):
         """POST a batched array of tracking beacons."""
         resp = self.send("POST", ep.TRACK, json_body=items)
         return resp.status_code
-

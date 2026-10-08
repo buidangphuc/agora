@@ -2637,3 +2637,21 @@ features:
     covered_by: seller/return_refund_ui.feature::The buyer sees the return status without a refund button
     notes: payment-refund-model; green against the stack on 2026-10-08.
 
+
+  - id: frontend.storefront-sends-event-id-on-every-beacon
+    title: "The storefront sends a distinct event id on every tracking beacon"
+    persona: buyer
+    priority: P1
+    summary: "Every beacon the product page posts to /api/track carries its own UUID eventId, so a re-sent flush dedupes in the warehouse."
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+    acceptance:
+      - When a buyer opens a product page in the storefront
+      - Then every beacon the page sends to `/api/track` carries a distinct UUID `eventId`
+    tags: [buyer, tracking]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: frontend/tracking_event_ids.feature::The storefront sends an event id on every beacon"

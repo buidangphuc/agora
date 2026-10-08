@@ -239,3 +239,88 @@ features:
       Authored against the fix/funnel-seller-scope change; collect-only and lint
       verified, not yet run against the stack (needs the team-analytics image rebuilt
       and KAFKA_LISTING_* env, see the change notes).
+
+  - id: tracking.same-event-twice-stored-once
+    title: "A re-sent tracking event is stored once in the warehouse"
+    persona: guest
+    priority: P1
+    summary: "The envelope event_id is derived from the visitor and the client eventId, so a re-sent beacon carries the same id and the warehouse keeps one row."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts the same view (same `eventId` and `anonymousId`, unique listing id) twice
+      - Then both envelopes on analytics.events carry the same `event_id`, and the warehouse holds exactly one row for that listing id
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Posting the same event twice stores one row"
+
+  - id: tracking.two-visitors-cannot-collide-on-event-id
+    title: "Two visitors reusing an eventId keep one warehouse row each"
+    persona: guest
+    priority: P1
+    summary: "The event id is scoped by visitor, so one visitor cannot suppress another's event by reusing its eventId."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When two different anonymous visitors post views with the same `eventId`
+      - Then the warehouse holds one row for each visitor
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Two visitors cannot collide on an event id"
+
+  - id: tracking.stored-event-has-ingest-time
+    title: "A stored tracking event has an ingest time not before its occurrence"
+    persona: guest
+    priority: P1
+    summary: "The warehouse sink stamps ingested_at with its own clock at write time; occurred_at stays the edge receive time."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts one view with a unique listing id and the sink writes it
+      - Then the warehouse row has a non-null `ingested_at` that is not earlier than its `occurred_at`
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_time.feature::A stored event has an ingest time after its occurrence"
+
+  - id: tracking.pre-login-browsing-resolves-to-user
+    title: "Pre-login browsing resolves to the account after login"
+    persona: guest
+    priority: P1
+    summary: "tracking_identity maps an anonymous id seen on a USER event to that principal, and tracking_events_resolved exposes it as user_key for the anonymous events too."
+    entry_route: "/"
+    services: [team-gateway, team-analytics, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view anonymously with `anonymousId` X, then logs in as a new buyer and posts a view with the same `anonymousId` X
+      - Then in `tracking_events_resolved` both views have `user_key` equal to the buyer's id
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::Pre-login browsing resolves to the user after login"
+
+  - id: tracking.never-logged-in-keeps-anon-key
+    title: "A never-logged-in visitor resolves to an anonymous key"
+    persona: guest
+    priority: P1
+    summary: "A visitor with no USER event keeps user_key anon:<anonymous_id> in tracking_events_resolved."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view anonymously with a fresh `anonymousId` Y and never logs in
+      - Then in `tracking_events_resolved` that view has `user_key` "anon:Y"
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::A never-logged-in visitor keeps an anonymous key"
