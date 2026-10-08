@@ -115,13 +115,59 @@ func (s *Settings) Validate() error {
 	if s.Server.ShutdownGrace < 0 {
 		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
 	}
-	return nil
+	return s.RequireSafeStrictConfig()
 }
 
 // IsProd reports whether this is a production environment (case-insensitive).
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"
+}
+
+// strictEnvs are the ENV values (normalised: trimmed, lowercase) in which unsafe
+// fallbacks are refused at boot. Anything else ("local", "test", unknown) is
+// non-strict.
+var strictEnvs = []string{"staging", "stage", "prod", "production"}
+
+// IsStrictEnv reports whether ENV names staging or production.
+func (s *Settings) IsStrictEnv() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range strictEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireSafeStrictConfig is the boot guard against silent unsafe fallbacks. In a
+// strict ENV (staging/stage/prod/production) it refuses config where:
+//   - KAFKA_ENABLED=false: the no-op publisher is used, so outbox rows are recorded
+//     but never relayed and read-models (team-search) silently go stale;
+//   - OUTBOX_ENABLED=false: the relayer never runs, same effect;
+//   - STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY are still the minioadmin defaults.
+//
+// The database is required in every ENV, but that is enforced by Validate's
+// DATABASE_ENABLED/URL check and bootstrap, not here. Other environments always pass.
+func (s *Settings) RequireSafeStrictConfig() error {
+	if !s.IsStrictEnv() {
+		return nil
+	}
+	var bad []string
+	if !s.Events.KafkaEnabled {
+		bad = append(bad, "KAFKA_ENABLED=false (the no-op publisher is used: outbox rows would never be relayed)")
+	}
+	if !s.Outbox.Enabled {
+		bad = append(bad, "OUTBOX_ENABLED=false (the outbox relayer would not run)")
+	}
+	if s.Storage.AccessKey == "minioadmin" || s.Storage.SecretKey == "minioadmin" {
+		bad = append(bad, "STORAGE_ACCESS_KEY/STORAGE_SECRET_KEY are the insecure minioadmin defaults")
+	}
+	if len(bad) == 0 {
+		return nil
+	}
+	return fmt.Errorf("refusing to start with unsafe config: ENV=%q is strict (ENV in %s) but %s",
+		s.Runtime.Env, strings.Join(strictEnvs, ", "), strings.Join(bad, "; "))
 }
 
 // KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
