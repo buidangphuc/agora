@@ -482,3 +482,136 @@ features:
     status: planned
     covered_by: null
     notes: "Scenario: ops/boot_guard_ai.feature::Production refuses a per-process rate limiter. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-system-prompt-is-always-first
+    title: "The system prompt is always first"
+    persona: buyer
+    priority: P1
+    summary: "The system prompt is always first"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message on the e2e stack, where Langfuse is off"
+      - "Then the request the fake provider received starts with a system message equal to the configured system prompt"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::The system prompt is always first. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-follow-up-carries-the-session-history
+    title: "A follow-up carries the session history"
+    persona: buyer
+    priority: P1
+    summary: "A follow-up carries the session history"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"first question\" and then \"second question\" with the same `session_id`"
+      - "Then the second request the fake provider received contains, after the system message, the first user turn, the first assistant reply and the second user turn, in that order"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::A follow-up carries the session history. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-history-is-bounded
+    title: "History is bounded"
+    persona: buyer
+    priority: P1
+    summary: "History is bounded"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams more messages in one session than `CHAT_HISTORY_MAX_TURNS`"
+      - "Then the last request the fake provider received contains only the most recent `CHAT_HISTORY_MAX_TURNS` earlier turns"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::History is bounded. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failed-reply-is-not-kept-as-history
+    title: "A failed reply is not kept as history"
+    persona: buyer
+    priority: P1
+    summary: "A failed reply is not kept as history"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a message for which every target answers 500, then streams a follow-up with the same `session_id`"
+      - "Then the follow-up request the fake provider received contains no turn from the failed message"
+    tags: [ai, prompt]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::A failed reply is not kept as history. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-phone-and-citizen-id-are-masked-before-the-model
+    title: "Phone and citizen ID are masked before the model"
+    persona: buyer
+    priority: P1
+    summary: "Phone and citizen ID are masked before the model"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"gọi 0912 345 678, CCCD 079123456789\""
+      - "Then the request the fake provider received contains redaction markers and neither \"0912 345 678\" nor \"079123456789\""
+    tags: [ai, privacy, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Phone and citizen ID are masked before the model. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-prices-and-order-numbers-are-not-masked
+    title: "Prices and order numbers are not masked"
+    persona: buyer
+    priority: P1
+    summary: "Prices and order numbers are not masked"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"giá 850000000, order id 123456789\""
+      - "Then the request the fake provider received contains \"850000000\" and \"123456789\""
+    tags: [ai, privacy]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Prices and order numbers are not masked. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-assistant-logs-carry-redacted-text
+    title: "Assistant logs carry redacted text"
+    persona: buyer
+    priority: P1
+    summary: "Assistant logs carry redacted text"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer asks the Shopping Assistant through the gateway a question containing \"a.b@example.com\""
+      - "Then no team-ai log line contains \"a.b@example.com\""
+    tags: [ai, privacy, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Assistant logs carry redacted text. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
