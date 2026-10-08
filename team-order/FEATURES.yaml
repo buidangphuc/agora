@@ -445,3 +445,43 @@ features:
       Ran green against the agora stack (2026-10-05): the paid order's outbox row is
       published and the envelope is read back from order.events. Needs team-order with
       KAFKA_ENABLED=true / OUTBOX_ENABLED=true and the order.events topic.
+
+  - id: order.checkout-reserves-and-commits-stock-and-voucher
+    title: A buyer checkout reserves and commits stock and voucher
+    persona: buyer
+    priority: P0
+    summary: >-
+      After checkout with a voucher and mock payment the listing stock drops by the quantity and the voucher is redeemed once.
+    entry_route: /
+    services: [team-order, team-promotion, team-domain, team-payment, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, promotion.v1.CommitReservation]
+    acceptance:
+      - Given a buyer with a voucher and a listing in stock
+      - When the buyer checks out with the voucher and the payment settles
+      - Then the stock decreases by the ordered quantity and the voucher is redeemed once
+    tags: [order, saga]
+    status: automated
+    covered_by: "order/self_purchase.feature::A buyer checkout reserves and commits stock and voucher"
+
+  - id: order.seller-cannot-buy-own-listing
+    title: A seller cannot check out their own listing
+    persona: seller
+    priority: P0
+    summary: >-
+      CreateOrder with the buyer as seller of an item is refused (failed_precondition, HTTP 400) before stock or voucher is reserved.
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder]
+    acceptance:
+      - Given a seller with a listing in their cart
+      - When the seller places the order
+      - Then the order is refused and the listing stock is unchanged
+    tags: [order, authz]
+    status: automated
+    covered_by: "order/self_purchase.feature::A seller cannot check out their own listing"
