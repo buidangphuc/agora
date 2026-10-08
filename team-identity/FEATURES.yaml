@@ -366,3 +366,19 @@ features:
     tags: [auth]
     status: automated
     covered_by: "ops/boot_guard_identity.feature::team-identity refuses the development signing key in production"
+
+  - id: ops.identity-boot-guard-reset-token-staging
+    title: team-identity refuses an exposed reset token in staging
+    persona: admin
+    priority: P1
+    summary: team-identity refuses an exposed reset token in staging (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When the team-identity image is started with ENV=staging, its own non-development signing key, and PASSWORD_RESET_EXPOSE_TOKEN=true"
+      - "Then the process exits non-zero and its log names PASSWORD_RESET_EXPOSE_TOKEN"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "team-identity refuses an exposed reset token in staging" in ops/boot_guard_identity.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
