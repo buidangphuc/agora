@@ -1045,3 +1045,25 @@ features:
     status: planned
     covered_by: null
     notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::Force-failing a shipped order is refused. Red on the pre-change stack until the integrator flips it."
+
+  # ---- port-order-inventory-correctness / order-upstream-principals (written from the spec; planned until the code lands).
+
+  - id: order.oic-upstream-a-buyer-checkout-commits-stock-as-the-order-serv
+    title: "A buyer checkout commits stock as the order service"
+    persona: buyer
+    priority: P1
+    summary: "A buyer checkout commits stock as the order service"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer, whose own scopes do not include `listing.write`, checks out a cart and the configured reservation TTL plus two sweep intervals then pass"
+      - "Then the order is created and the listing's stock stays reduced by the ordered quantity"
+    tags: [order, destructive]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_upstream_principals.feature::A buyer checkout commits stock as the order service. Red on the pre-change stack until the integrator flips it. Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s)."
