@@ -427,3 +427,214 @@ features:
     tags: [fintech]
     status: planned
     notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  # ---- port-payment-ledger-integrity / seller-refund-deduction (written from the spec; planned until the code lands).
+
+  - id: payment.plp-refund-refunding-a-credited-payment-deducts-the-refunde
+    title: "Refunding a credited payment deducts the refunded amount from the seller"
+    persona: seller
+    priority: P1
+    summary: "Refunding a credited payment deducts the refunded amount from the seller"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller was credited 500000 for a paid order and the seller refunds 200000 of that payment through the gateway"
+      - "Then the payment reads `REFUNDED`, the seller's ledger has exactly one `REFUND_DEDUCTION` entry of -200000, and `GetWalletBalance` is 300000"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-a-second-refund-of-the-same-payment-is-refused-a
+    title: "A second refund of the same payment is refused and deducts nothing more"
+    persona: seller
+    priority: P1
+    summary: "A second refund of the same payment is refused and deducts nothing more"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller refunds the same, already refunded payment again"
+      - "Then the call fails with `FAILED_PRECONDITION` and the seller still has exactly one `REFUND_DEDUCTION` entry and the same balance"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-concurrent-refunds-of-one-payment-deduct-once
+    title: "Concurrent refunds of one payment deduct once"
+    persona: seller
+    priority: P1
+    summary: "Concurrent refunds of one payment deduct once"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller sends eight concurrent refunds of 100000 for one credited payment"
+      - "Then exactly one succeeds, the others fail with `FAILED_PRECONDITION`, and the seller has exactly one `REFUND_DEDUCTION` entry of -100000"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-refunding-a-payment-whose-order-was-cancelled-de
+    title: "Refunding a payment whose order was cancelled deducts nothing"
+    persona: seller
+    priority: P1
+    summary: "Refunding a payment whose order was cancelled deducts nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a payment succeeded late for an order that stayed `Cancelled`, and the order's seller refunds it in full"
+      - "Then the refund succeeds and the payment reads `REFUNDED`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order and the balance equals the sentinel's amount"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-a-refund-issued-right-after-payment-ends-with-on
+    title: "A refund issued right after payment ends with one credit and one deduction"
+    persona: seller
+    priority: P1
+    summary: "A refund issued right after payment ends with one credit and one deduction"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000 and its seller refunds 500000 immediately after the payment call returns, before the credit is observed"
+      - "Then once the order's credit is written the seller has exactly one `ORDER_SETTLEMENT` entry of +500000 and one `REFUND_DEDUCTION` entry of -500000 for it, and the balance contribution of that order is 0"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-a-refund-after-the-proceeds-were-paid-out-takes
+    title: "A refund after the proceeds were paid out takes the balance negative"
+    persona: seller
+    priority: P1
+    summary: "A refund after the proceeds were paid out takes the balance negative"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller's 500000 credit has passed the hold window and been paid out in full, and the seller then refunds 200000 of that payment"
+      - "Then the refund succeeds, the seller's ledger has one `REFUND_DEDUCTION` of -200000, and `GetWalletBalance` is -200000"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): waits out the payout hold window, so it needs the short-window overlay platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s on team-payment). Serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-cancelling-a-credited-paid-order-refunds-the-buy
+    title: "Cancelling a credited paid order refunds the buyer and deducts the seller"
+    persona: seller
+    priority: P1
+    summary: "Cancelling a credited paid order refunds the buyer and deducts the seller"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000, its seller's credit of +500000 is observed, and the buyer cancels the order through the gateway"
+      - "Then within the settle window the buyer's `GetPayment` reads `REFUNDED`, the seller's ledger has exactly one `REFUND_DEDUCTION` of -500000 for it, and the seller's balance is back to its value before the payment"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-cancelling-a-paid-order-before-its-credit-is-obs
+    title: "Cancelling a paid order before its credit is observed ends with one credit and one deduction"
+    persona: seller
+    priority: P1
+    summary: "Cancelling a paid order before its credit is observed ends with one credit and one deduction"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000 and cancels it as soon as the order reads `Paid`, before the seller's credit is observed"
+      - "Then once both are applied the payment reads `REFUNDED` and the seller has exactly one `ORDER_SETTLEMENT` of +500000 and one `REFUND_DEDUCTION` of -500000 for the order"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-a-cancel-while-team-payment-is-stopped-is-refund
+    title: "A cancel while team-payment is stopped is refunded when it restarts"
+    persona: seller
+    priority: P1
+    summary: "A cancel while team-payment is stopped is refunded when it restarts"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a credited paid order is cancelled by its buyer while `team-payment` is stopped, and `team-payment` is then started again"
+      - "Then the buyer's payment reads `REFUNDED` and the seller has exactly one `REFUND_DEDUCTION` of minus the payment amount"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): stops team-payment (docker stop) while the cancel is recorded; serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-a-redelivered-cancellation-does-not-refund-or-de
+    title: "A redelivered cancellation does not refund or deduct again"
+    persona: seller
+    priority: P1
+    summary: "A redelivered cancellation does not refund or deduct again"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a cancelled paid order has been refunded and deducted, and its cancellation record is produced to `order.events` again, byte for byte"
+      - "Then after a sentinel order of the same seller is credited the seller still has exactly one `REFUND_DEDUCTION` for the cancelled order"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-refund-cancelling-an-order-its-seller-already-refunded
+    title: "Cancelling an order its seller already refunded deducts nothing more"
+    persona: seller
+    priority: P1
+    summary: "Cancelling an order its seller already refunded deducts nothing more"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller of a credited paid order of 500000 refunds 200000, and the buyer then cancels the order"
+      - "Then the payment stays `REFUNDED` and, after a sentinel order of the same seller is credited, the seller has exactly one `REFUND_DEDUCTION` of -200000 for the order"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
