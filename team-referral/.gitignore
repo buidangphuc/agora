@@ -1,6 +1,6 @@
 # Binaries
 /out/
-server
+/server
 
 # Go test / coverage artifacts
 coverage.out
