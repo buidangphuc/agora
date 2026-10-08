@@ -595,8 +595,8 @@ features:
       - When a visitor posts a batch of three events, two valid views carrying unique markers and one of type "teleport"
       - Then the response is 202 with accepted 2 and dropped 1, and both valid markers reach analytics.events
     tags: [tracking]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "tracking/ingest_validation.feature::One bad event does not drop the batch"
     notes: "tracking-ingest-integrity: tracking/ingest_validation.feature::One bad event does not drop the batch"
 
   - id: tracking.oversized-properties-drops-only-that-event
@@ -612,8 +612,8 @@ features:
       - When a visitor posts a batch with one valid view and one view whose `properties` has 21 keys
       - Then the response is 202 with accepted 1 and dropped 1, and only the valid view reaches analytics.events
     tags: [tracking]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "tracking/ingest_validation.feature::An oversized properties map drops only that event"
     notes: "tracking-ingest-integrity: tracking/ingest_validation.feature::An oversized properties map drops only that event"
 
   - id: tracking.query-email-and-phone-masked
@@ -629,8 +629,8 @@ features:
       - When a visitor posts a view whose `query` is "a.b@example.com 0912 345 678 tủ lạnh 850000"
       - Then the event on analytics.events has `search_query` "[email] [phone] tủ lạnh 850000"
     tags: [tracking]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "tracking/ingest_scrubbing.feature::An email and a phone in a search query are masked"
     notes: "tracking-ingest-integrity: tracking/ingest_scrubbing.feature::An email and a phone in a search query are masked"
 
   - id: tracking.referrer-loses-query-string
@@ -646,6 +646,6 @@ features:
       - When a visitor posts a view whose `referrer` is "https://news.example.com/a/b?utm_source=x&email=a@b.co#top"
       - Then the event on analytics.events has `referrer` "https://news.example.com/a/b"
     tags: [tracking]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "tracking/ingest_scrubbing.feature::A referrer loses its query string"
     notes: "tracking-ingest-integrity: tracking/ingest_scrubbing.feature::A referrer loses its query string"
