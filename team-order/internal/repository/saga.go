@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -95,6 +96,8 @@ type SagaRepository interface {
 	// A committed reservation is never released by compensation or the sweep (M7).
 	CommitReservation(ctx context.Context, id, orderID string) error
 	ListReservationsBySaga(ctx context.Context, sagaID string) ([]Reservation, error)
+	// ListReservationsByOrder returns the reservations bound to an order (any status).
+	ListReservationsByOrder(ctx context.Context, orderID string) ([]Reservation, error)
 	// FindReleasable returns reservations that still hold stock (RESERVED or
 	// RELEASE_FAILED, never COMMITTED) whose TTL has elapsed — the sweep set.
 	FindReleasable(ctx context.Context, now time.Time, limit int) ([]Reservation, error)
@@ -290,6 +293,15 @@ func (r *PostgresSagaRepository) ListReservationsBySaga(ctx context.Context, sag
 		out = append(out, res)
 	}
 	return out, rows.Err()
+}
+
+func (r *PostgresSagaRepository) ListReservationsByOrder(ctx context.Context, orderID string) ([]Reservation, error) {
+	const q = `SELECT ` + reservationColumns + ` FROM order_reservations WHERE order_id = $1 ORDER BY created_at ASC, id ASC`
+	rows, err := r.pool.Query(ctx, q, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("list reservations by order: %w", err)
+	}
+	return scanReservations(rows)
 }
 
 func (r *PostgresSagaRepository) FindReleasable(ctx context.Context, now time.Time, limit int) ([]Reservation, error) {
@@ -525,6 +537,24 @@ func (r *InMemorySagaRepository) ListReservationsBySaga(_ context.Context, sagaI
 			out = append(out, res)
 		}
 	}
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) ListReservationsByOrder(_ context.Context, orderID string) ([]Reservation, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	var out []Reservation
+	for _, res := range r.store.reservations {
+		if res.OrderID == orderID {
+			out = append(out, res)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.Before(out[j].CreatedAt)
+		}
+		return out[i].ID < out[j].ID
+	})
 	return out, nil
 }
 

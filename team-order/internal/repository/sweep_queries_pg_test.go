@@ -26,6 +26,11 @@ func TestSweepQueries_Postgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	byOrder, err := sagas.ListReservationsByOrder(ctx, cancelled)
+	if err != nil || len(byOrder) != 1 || byOrder[0].ID != res[1] {
+		t.Fatalf("ListReservationsByOrder: %v %+v", err, byOrder)
+	}
+
 	held, err := sagas.FindHeldByCancelledOrders(ctx, time.Now().Add(time.Second), 1000)
 	if err != nil {
 		t.Fatal(err)

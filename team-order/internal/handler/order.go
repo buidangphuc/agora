@@ -286,7 +286,7 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 		}
 		return nil, internalErr(h.logger, "cancel order", err)
 	}
-	return &orderv1.CancelOrderResponse{Order: toWireOrder(cancelled)}, nil
+	return &orderv1.CancelOrderResponse{Order: toWireOrder(cancelled.Order)}, nil
 }
 
 func (h *OrderHandler) GetSagaState(ctx context.Context, req *orderv1.GetSagaStateRequest) (*orderv1.GetSagaStateResponse, error) {

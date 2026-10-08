@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
-	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
@@ -450,43 +449,79 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor A
 	return updated, err
 }
 
-func (s *OrderService) CancelOrder(ctx context.Context, id string) (repository.Order, error) {
-	order, err := s.orderRepo.GetOrder(ctx, id)
+// CancelResult is a won cancel: the cancelled order, and whether a stock release
+// is still outstanding (parked RELEASE_FAILED for the sweep). The order IS
+// Cancelled either way; ReleasePending only says the stock is not back yet.
+type CancelResult struct {
+	repository.Order
+	ReleasePending bool
+}
+
+// CancelOrder claims Cancelled FIRST with the compare-and-set write (from Pending
+// or Paid, design D10). Only the caller that wins the claim then releases the
+// order's own reservations by their original ids and the voucher hold placed for
+// it, so concurrent cancels restore stock once and a Shipped/Completed/Cancelled
+// order releases nothing (ErrInvalidStatus). A failing release is parked
+// RELEASE_FAILED and retried by the sweep, which also releases reservations still
+// held by a Cancelled order (a crash between claim and release). A voucher release
+// failure is logged and never fails the cancel.
+func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult, error) {
+	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
 	if err != nil {
-		return repository.Order{}, err
+		if errors.Is(err, repository.ErrStatusConflict) {
+			msg := "order is not in a cancellable status"
+			if cur, gerr := s.orderRepo.GetOrder(ctx, id); gerr == nil {
+				msg = fmt.Sprintf("cannot cancel order in status %v", cur.Status)
+			}
+			return CancelResult{}, fmt.Errorf("%w: %s", ErrInvalidStatus, msg)
+		}
+		return CancelResult{}, err
 	}
 
-	if order.Status == repository.OrderStatusCancelled || order.Status == repository.OrderStatusCompleted {
-		return repository.Order{}, fmt.Errorf("%w: cannot cancel order in status %v", ErrInvalidStatus, order.Status)
-	}
+	// Everything after the claim runs on a fresh context (AD3): the request may be
+	// gone, and neither release may be abandoned because of it.
+	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	defer cancel()
 
-	// Release stock for all items in the cancelled order
-	for _, it := range order.Items {
-		// Idempotent release: a stable cancel-scoped reservation_id so a retried
-		// cancel does not double-restore stock (parity with saga compensation, AD5).
-		relID := ReservationID(order.BuyerID, repository.CartItem{
-			ID: "cancel:" + it.ID, ListingID: it.ListingID, VariantID: it.VariantID, Quantity: it.Quantity,
-		})
-		_, err := s.domainClient.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
-			ListingId:     it.ListingID,
-			VariantId:     it.VariantID,
-			Quantity:      it.Quantity,
-			ReservationId: relID,
-		})
-		if err != nil {
-			s.logger.WarnContext(ctx, "failed to release stock on cancel",
-				slog.String("order_id", id),
-				slog.String("listing_id", it.ListingID),
-				slog.Any("err", err),
-			)
+	pending, rerr := s.releaseOrderReservations(bg, claimed)
+	if rerr != nil {
+		// The order is Cancelled; its reservations still hold stock and the sweep
+		// releases them. Never fail a cancel the buyer has been granted.
+		s.logger.ErrorContext(ctx, "order cancelled but its release could not be recorded; the sweep will release it",
+			slog.String("order_id", claimed.ID), slog.Any("err", rerr))
+		pending = true
+	}
+	if claimed.VoucherCode != "" {
+		s.releaseVoucher(bg, claimed.ID) // the hold id is the order id
+	}
+	return CancelResult{Order: claimed, ReleasePending: pending}, nil
+}
+
+// releaseOrderReservations releases every reservation of the order that still
+// holds stock (COMMITTED, or parked RELEASE_FAILED) by its original id. pending is
+// true when any release was parked for the sweep.
+func (s *OrderService) releaseOrderReservations(ctx context.Context, order repository.Order) (pending bool, err error) {
+	reservations, err := s.sagaRepo.ListReservationsByOrder(ctx, order.ID)
+	if err != nil {
+		return true, fmt.Errorf("load reservations of order %s: %w", order.ID, err)
+	}
+	if len(reservations) == 0 && len(order.Items) > 0 {
+		s.logger.WarnContext(ctx, "cancelled order has no reservations to release (placed before reservation tracking?)",
+			slog.String("order_id", order.ID))
+	}
+	for _, res := range reservations {
+		if res.Status != repository.ReservationStatusCommitted && res.Status != repository.ReservationStatusReleaseFailed {
+			continue
+		}
+		released, perr := s.releaseOrPark(ctx, res)
+		if perr != nil {
+			return true, perr
+		}
+		if !released {
+			pending = true
 		}
 	}
-
-	cancelled, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
-	if errors.Is(err, repository.ErrStatusConflict) {
-		return repository.Order{}, fmt.Errorf("%w: order is not in a cancellable status", ErrInvalidStatus)
-	}
-	return cancelled, err
+	return pending, nil
 }
 
 // ── RMA / Return Management ──
