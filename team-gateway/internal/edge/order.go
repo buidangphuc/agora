@@ -23,8 +23,12 @@ func (f *OrderForwarder) CreateOrder(
 	ctx context.Context,
 	req *connect.Request[orderv1.CreateOrderRequest],
 ) (*connect.Response[orderv1.CreateOrderResponse], error) {
+	octx, err := f.edge.outgoingWithIdempotencyKey(ctx, req.Header())
+	if err != nil {
+		return nil, err
+	}
 	var out *orderv1.CreateOrderResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+	err = f.edge.callWrite(octx, func(c context.Context) error {
 		var e error
 		out, e = f.client.CreateOrder(c, req.Msg)
 		return e

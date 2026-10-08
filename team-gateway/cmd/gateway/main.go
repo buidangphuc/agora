@@ -156,7 +156,7 @@ func run() error {
 	corsMW := cors.New(cors.Options{
 		AllowedOrigins:   settings.CORSOriginsList(),
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodOptions},
-		AllowedHeaders:   []string{"Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Authorization", "X-Request-Id"},
+		AllowedHeaders:   []string{"Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Authorization", "X-Request-Id", "Idempotency-Key"},
 		ExposedHeaders:   []string{"X-Request-Id"},
 		AllowCredentials: true,
 	})

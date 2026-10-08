@@ -244,8 +244,8 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
   timeout (connections are lazy `grpc.NewClient` dials).
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
-- Revocation is fail-open and per replica, and `ReviewKyc` is the only RPC with an edge-side
-  scope check.
+- Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
+  in `policy.go` (`ReviewKyc`, `ResolveDispute`, `QueryAuditLog`).
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at

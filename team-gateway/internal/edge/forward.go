@@ -11,6 +11,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -29,6 +30,9 @@ const (
 	mdPrincipalType   = "x-principal-type"
 	mdPrincipalScopes = "x-principal-scopes"
 	mdRequestID       = "x-request-id"
+	// mdIdempotencyKey carries the client's Idempotency-Key header to the owning
+	// service (CreateOrder). Built from the validated header only.
+	mdIdempotencyKey = "idempotency-key"
 )
 
 type ctxKey int
@@ -143,9 +147,7 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 	}
 	rid := requestIDFrom(ctx)
 	if rid == "" {
-		if rid = strings.TrimSpace(header.Get("X-Request-Id")); rid == "" {
-			rid = newRequestID()
-		}
+		rid = sanitizeRequestID(header.Get("X-Request-Id"))
 	}
 	md := metadata.MD{}
 	md.Set(mdPrincipalID, p.id)
@@ -233,6 +235,57 @@ func bearerToken(raw string) string {
 		return strings.TrimSpace(raw[len(prefix):])
 	}
 	return ""
+}
+
+// requestIDRe is the accepted client request-id shape. The id is forwarded as
+// x-request-id and used as a log/correlation key downstream, so anything else
+// (spaces, control characters, long or unicode values) is replaced.
+var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
+// sanitizeRequestID returns the client's id when it is safe, else a fresh one.
+func sanitizeRequestID(raw string) string {
+	if requestIDRe.MatchString(raw) {
+		return raw
+	}
+	return newRequestID()
+}
+
+// maxIdempotencyKeyLen bounds an Idempotency-Key header value.
+const maxIdempotencyKeyLen = 255
+
+// errInvalidIdempotencyKey is the fixed client-facing message for an
+// Idempotency-Key header that is not a single printable-ASCII value.
+const errInvalidIdempotencyKey = "invalid Idempotency-Key header: must be a single printable-ASCII value of at most 255 characters"
+
+// validIdempotencyKey reports whether v can travel as gRPC (non "-bin")
+// metadata and is of sane length: printable ASCII (0x20-0x7E), 1..255 bytes.
+func validIdempotencyKey(v string) bool {
+	if v == "" || len(v) > maxIdempotencyKeyLen {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		if v[i] < 0x20 || v[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+// outgoingWithIdempotencyKey is outgoing plus the Idempotency-Key header
+// forwarded as `idempotency-key` metadata. A missing header adds nothing. A
+// header that is repeated, empty-but-present, over-long or not printable ASCII
+// is a client error (invalid_argument), never silently dropped: dropping it would
+// disable duplicate-order protection. Used by CreateOrder only.
+func (e *Edge) outgoingWithIdempotencyKey(ctx context.Context, header http.Header) (context.Context, error) {
+	out := e.outgoing(ctx, header)
+	vals := header.Values("Idempotency-Key")
+	if len(vals) == 0 {
+		return out, nil
+	}
+	if len(vals) > 1 || !validIdempotencyKey(strings.TrimSpace(vals[0])) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(errInvalidIdempotencyKey))
+	}
+	return metadata.AppendToOutgoingContext(out, mdIdempotencyKey, strings.TrimSpace(vals[0])), nil
 }
 
 func newRequestID() string {

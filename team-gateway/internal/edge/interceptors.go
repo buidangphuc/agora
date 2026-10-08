@@ -110,10 +110,7 @@ func (e *Edge) Interceptors(logger *slog.Logger) []connect.Interceptor {
 func (e *Edge) requestIDInterceptor() connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			rid := strings.TrimSpace(req.Header().Get("X-Request-Id"))
-			if rid == "" {
-				rid = newRequestID()
-			}
+			rid := sanitizeRequestID(strings.TrimSpace(req.Header().Get("X-Request-Id")))
 			ctx = withRequestID(ctx, rid)
 			res, err := next(ctx, req)
 			// On error, res is a typed-nil AnyResponse — calling Header() would
