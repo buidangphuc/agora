@@ -153,23 +153,33 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
 
-	addrBytes, err := json.Marshal(order.ShippingAddress)
-	if err != nil {
-		return Order{}, fmt.Errorf("marshal address: %w", err)
-	}
-
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
+	if err := insertOrderTx(ctx, tx, &order); err != nil {
+		return Order{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return order, nil
+}
+
+// insertOrderTx inserts an order (ID, Currency, Status and timestamps already set)
+// and its items inside tx, filling the item ids.
+func insertOrderTx(ctx context.Context, tx pgx.Tx, order *Order) error {
+	addrBytes, err := json.Marshal(order.ShippingAddress)
+	if err != nil {
+		return fmt.Errorf("marshal address: %w", err)
+	}
 	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount); err != nil {
-		return Order{}, fmt.Errorf("insert order: %w", err)
+		return fmt.Errorf("insert order: %w", err)
 	}
-
 	for i := range order.Items {
 		item := &order.Items[i]
 		if item.ID == "" {
@@ -179,14 +189,10 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 		const qItem = `INSERT INTO order_items (id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 		if _, err := tx.Exec(ctx, qItem, item.ID, item.OrderID, item.ListingID, item.VariantID, item.Title, item.VariantName, item.Quantity, item.UnitPrice, item.ImageURL); err != nil {
-			return Order{}, fmt.Errorf("insert order item: %w", err)
+			return fmt.Errorf("insert order item: %w", err)
 		}
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return Order{}, fmt.Errorf("commit tx: %w", err)
-	}
-	return order, nil
+	return nil
 }
 
 // rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
