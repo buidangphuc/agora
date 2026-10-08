@@ -246,9 +246,15 @@ services:
       dockerfile: Dockerfile
     image: team-search:local
     container_name: team-search-svc
+    # it ensures the OpenSearch index at boot and exits if OpenSearch is not up yet
+    restart: unless-stopped
     depends_on:
       team-search-migrate:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
