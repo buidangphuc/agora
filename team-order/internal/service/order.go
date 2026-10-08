@@ -194,7 +194,7 @@ func (s *OrderService) CreateOrdersFromCart(
 		var itemsSubtotal int64
 
 		for _, it := range group {
-			resID := ReservationID(buyerID, it) // AD5/M6: stable per (cart_item, attempt)
+			resID := ReservationID(saga.ID, it) // attempt-scoped (D7)
 			res := repository.Reservation{
 				ID:        resID,
 				SagaID:    saga.ID,

@@ -78,14 +78,17 @@ func WithReleaseRetry(timeout time.Duration, maxAttempts int, backoff time.Durat
 	}
 }
 
-// ReservationID returns a stable reservation id per (buyer, cart-item, attempt)
-// (AD5/M6). It is deterministic in the cart item's identity, so a retried checkout
-// of the same cart item reuses the same id and team-domain's idempotent reserve
-// decrements stock only once. A cart item is removed only after its order commits,
-// so its id is the natural per-attempt key.
-func ReservationID(buyerID string, item repository.CartItem) string {
+// ReservationID is the reservation id of one cart item within one checkout
+// ATTEMPT (its saga). Every attempt has its own saga id, so two attempts never
+// share a reservation: a checkout that follows a compensated one reserves normally
+// instead of hitting team-domain's refusal to re-reserve a released id. The same
+// attempt and item always map to the same id. The idempotency key is deliberately
+// not part of the seed: a keyed replay never reserves (it returns the first
+// attempt's orders) and concurrent same-key requests collapse on the saga's unique
+// index before reserving (design D7).
+func ReservationID(sagaID string, item repository.CartItem) string {
 	seed := strings.Join([]string{
-		buyerID, item.ID, item.ListingID, item.VariantID, fmt.Sprintf("q%d", item.Quantity),
+		"attempt", sagaID, item.ID, item.ListingID, item.VariantID, fmt.Sprintf("q%d", item.Quantity),
 	}, "|")
 	return uuid.NewSHA1(reservationNamespace, []byte(seed)).String()
 }

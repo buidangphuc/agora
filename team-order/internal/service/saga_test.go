@@ -182,52 +182,6 @@ func (c *fakeCartRepo) RemoveItems(_ context.Context, _ string, ids []string) er
 
 func addr() repository.Address { return repository.Address{City: "Hà Nội"} }
 
-// ── AD5/M6: the caller sets a stable reservation_id per (cart_item, attempt) ──
-
-func TestReservationID_StableAndDistinct(t *testing.T) {
-	item := repository.CartItem{ID: "ci_1", ListingID: "lst_1", VariantID: "", Quantity: 2}
-	a := service.ReservationID("buyer_1", item)
-	b := service.ReservationID("buyer_1", item)
-	if a == "" {
-		t.Fatal("reservation id must not be empty")
-	}
-	if a != b {
-		t.Fatalf("reservation id must be stable across retries: %s != %s", a, b)
-	}
-	other := service.ReservationID("buyer_1", repository.CartItem{ID: "ci_2", ListingID: "lst_1", Quantity: 2})
-	if a == other {
-		t.Fatal("different cart items must get different reservation ids")
-	}
-}
-
-// A retried checkout with the same cart item reuses the same reservation_id, so
-// team-domain's idempotent reserve decrements stock only once (SA-M6).
-func TestCreateOrders_RetryUsesSameReservationID_SingleDecrement(t *testing.T) {
-	ctx := context.Background()
-	domain := newFakeDomain()
-	// Both attempts fail at persistence so the cart item survives for the retry.
-	orderRepo := newFakeOrderRepo()
-	orderRepo.failFor = "s1" // every attempt fails at persistence, so the cart item survives
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
-
-	newSvc := func() *service.OrderService {
-		return service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
-	}
-
-	// Attempt 1 (fails at persist) then attempt 2 (fails again). Same reservation_id.
-	if _, err := newSvc().CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, ""); err == nil {
-		t.Fatal("expected persist failure on attempt 1")
-	}
-	if _, err := newSvc().CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, ""); err == nil {
-		t.Fatal("expected persist failure on attempt 2")
-	}
-
-	if got := domain.uniqueDecrements(); got != 1 {
-		t.Fatalf("expected exactly 1 effective stock decrement across retries, got %d", got)
-	}
-}
-
 // team-domain reports insufficient stock as Success=false with no transport error; checkout
 // must treat that as a failed hold, not create an order that oversells the listing.
 func TestCreateOrders_DeclinedReserveFailsCheckoutWithoutOrder(t *testing.T) {
@@ -325,7 +279,7 @@ func TestMultiSeller_PartialFailure_DoesNotReleaseCommittedStock(t *testing.T) {
 	domain := newFakeDomain()
 	orderRepo := newFakeOrderRepo()
 	orderRepo.failCall = 2 // first seller-order persists; the second fails
-	saga := repository.NewInMemorySagaRepository()
+	saga := &recordingSagaRepo{SagaRepository: repository.NewInMemorySagaRepository()}
 	cart := &fakeCartRepo{items: []repository.CartItem{
 		{ID: "ci_a", ListingID: "lst_a", Quantity: 1, SellerID: "sa", UnitPrice: 1000},
 		{ID: "ci_b", ListingID: "lst_b", Quantity: 1, SellerID: "sb", UnitPrice: 2000},
@@ -358,7 +312,7 @@ func TestMultiSeller_PartialFailure_DoesNotReleaseCommittedStock(t *testing.T) {
 	}
 
 	// And its reservation is COMMITTED, not releasable.
-	resList, _ := saga.ListReservationsBySaga(ctx, findSagaID(t, saga))
+	resList, _ := saga.ListReservationsBySaga(ctx, saga.lastSagaID())
 	var committed, released int
 	for _, r := range resList {
 		switch r.Status {
@@ -371,20 +325,4 @@ func TestMultiSeller_PartialFailure_DoesNotReleaseCommittedStock(t *testing.T) {
 	if committed != 1 || released != 1 {
 		t.Fatalf("expected 1 committed + 1 released reservation, got committed=%d released=%d", committed, released)
 	}
-}
-
-// findSagaID returns the saga id shared by the checkout's reservations, looked up
-// via their deterministic reservation ids (same id inputs as the service uses).
-func findSagaID(t *testing.T, saga *repository.InMemorySagaRepository) string {
-	t.Helper()
-	for _, item := range []repository.CartItem{
-		{ID: "ci_a", ListingID: "lst_a", Quantity: 1},
-		{ID: "ci_b", ListingID: "lst_b", Quantity: 1},
-	} {
-		if r, err := saga.GetReservation(context.Background(), service.ReservationID("buyer_1", item)); err == nil {
-			return r.SagaID
-		}
-	}
-	t.Fatal("could not locate saga id")
-	return ""
 }
