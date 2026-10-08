@@ -86,7 +86,8 @@ type OrderRepository interface {
 	// the order to `to` only if its status at the moment of the write is one of
 	// allowedFrom. It returns ErrOrderNotFound or ErrStatusConflict otherwise. A move
 	// to Paid records paid_at and writes the OrderPaid outbox row in the same
-	// transaction. trackingNumber, when non-empty, is stored with the change.
+	// transaction; a won move to Cancelled writes the OrderCancelled outbox row in
+	// the same transaction. trackingNumber, when non-empty, is stored with the change.
 	UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error)
 }
 
@@ -96,12 +97,19 @@ type OrderRepository interface {
 // envelope/contract) so the repository stays free of an events dependency.
 type PaidOutboxBuilder func(order Order) (OutboxRow, error)
 
+// CancelledOutboxBuilder turns an order that has just won the claim to CANCELLED
+// into the outbox row to persist alongside that claim. order is the row the
+// compare-and-set returned: PaidAt is set iff the order was cancelled from Paid
+// (paid_at is written only by the move to Paid, and only Pending/Paid cancel).
+type CancelledOutboxBuilder func(order Order) (OutboxRow, error)
+
 // OrderRepoOption customizes an order repository.
 type OrderRepoOption func(*orderRepoConfig)
 
 type orderRepoConfig struct {
-	paidOutbox PaidOutboxBuilder
-	outbox     OutboxRepository // in-memory repo only
+	paidOutbox      PaidOutboxBuilder
+	cancelledOutbox CancelledOutboxBuilder
+	outbox          OutboxRepository // in-memory repo only
 }
 
 // WithPaidOutbox makes every first transition to PAID write an outbox row built
@@ -109,6 +117,13 @@ type orderRepoConfig struct {
 // the row fails, the status change is rolled back too.
 func WithPaidOutbox(b PaidOutboxBuilder) OrderRepoOption {
 	return func(c *orderRepoConfig) { c.paidOutbox = b }
+}
+
+// WithCancelledOutbox makes every won claim to CANCELLED write an outbox row
+// built by b in the SAME transaction as the status update. A lost claim writes
+// nothing; if building or enqueueing the row fails, the cancel is rolled back too.
+func WithCancelledOutbox(b CancelledOutboxBuilder) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.cancelledOutbox = b }
 }
 
 // WithInMemoryOutbox sets the outbox store the in-memory repository writes to,
@@ -127,13 +142,14 @@ func newOrderRepoConfig(opts []OrderRepoOption) orderRepoConfig {
 }
 
 type PostgresOrderRepository struct {
-	pool       *pgxpool.Pool
-	paidOutbox PaidOutboxBuilder
+	pool            *pgxpool.Pool
+	paidOutbox      PaidOutboxBuilder
+	cancelledOutbox CancelledOutboxBuilder
 }
 
 func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox}
+	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox}
 }
 
 const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at`
@@ -386,6 +402,17 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 			return Order{}, err
 		}
 	}
+	// Only the caller that won the claim reaches here, so an order is cancelled
+	// (and its OrderCancelled fact written) at most once.
+	if to == OrderStatusCancelled && r.cancelledOutbox != nil {
+		row, err := r.cancelledOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build order cancelled outbox row: %w", err)
+		}
+		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			return Order{}, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Order{}, fmt.Errorf("commit tx: %w", err)
 	}
@@ -394,15 +421,17 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 
 // InMemoryOrderRepository for unit tests
 type InMemoryOrderRepository struct {
-	mu         sync.RWMutex
-	orders     map[string]Order
-	paidOutbox PaidOutboxBuilder
-	outbox     OutboxRepository
+	mu              sync.RWMutex
+	orders          map[string]Order
+	paidOutbox      PaidOutboxBuilder
+	cancelledOutbox CancelledOutboxBuilder
+	outbox          OutboxRepository
 }
 
 func NewInMemoryOrderRepository(opts ...OrderRepoOption) *InMemoryOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox, outbox: cfg.outbox}
+	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox,
+		cancelledOutbox: cfg.cancelledOutbox, outbox: cfg.outbox}
 }
 
 func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {
@@ -499,6 +528,15 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		row, err := r.paidOutbox(o)
 		if err != nil {
 			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return Order{}, err
+		}
+	}
+	if to == OrderStatusCancelled && r.cancelledOutbox != nil && r.outbox != nil {
+		row, err := r.cancelledOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build order cancelled outbox row: %w", err)
 		}
 		if err := r.outbox.Enqueue(ctx, row); err != nil {
 			return Order{}, err

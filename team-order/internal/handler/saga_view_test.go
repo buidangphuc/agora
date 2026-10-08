@@ -9,8 +9,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"google.golang.org/protobuf/proto"
+
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
+	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	"github.com/buidangphuc/team-order/internal/events"
 	"github.com/buidangphuc/team-order/internal/handler"
 	"github.com/buidangphuc/team-order/internal/interceptor"
 	"github.com/buidangphuc/team-order/internal/repository"
@@ -199,5 +203,53 @@ func TestSagaAccess_BuyerOrAdminOnly(t *testing.T) {
 		if _, err := r.h.ForceFailSaga(incomingPrincipalCtx(who, "x"), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("%s force-fail: want PermissionDenied, got %v", who, err)
 		}
+	}
+}
+
+// ForceFailSaga cancels through the same claim as CancelOrder, so it writes the
+// OrderCancelled fact once, with the status the order was cancelled from.
+func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
+	outbox := repository.NewInMemoryOutboxRepository()
+	orders := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
+		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow), repository.WithInMemoryOutbox(outbox))
+	carts := repository.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
+		t.Fatal(err)
+	}
+	svc := service.NewOrderService(orders, carts, nil, nil, upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), nil, nil,
+		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
+	h := handler.NewOrderHandler(svc, nil, nil)
+	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", repository.Address{}, nil, 2, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := placed[0]
+	if _, err := orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+		t.Fatal(err)
+	}
+	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+	if _, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: o.ID, FailStep: "shipping"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: o.ID}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("second force-fail: want FailedPrecondition, got %v", err)
+	}
+	var facts []*orderv1.OrderCancelled
+	for _, row := range outbox.EnqueuedRows() {
+		if row.AggregateID != o.ID || row.EventType != events.OrderCancelledEventType {
+			continue
+		}
+		var env eventsv1.EventEnvelope
+		if err := proto.Unmarshal(row.Payload, &env); err != nil {
+			t.Fatal(err)
+		}
+		var ev orderv1.OrderCancelled
+		if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
+			t.Fatal(err)
+		}
+		facts = append(facts, &ev)
+	}
+	if len(facts) != 1 || facts[0].GetPreviousStatus() != orderv1.OrderStatus_ORDER_STATUS_PAID || facts[0].GetSellerId() != "seller_1" {
+		t.Fatalf("want one OrderCancelled from PAID, got %+v", facts)
 	}
 }
