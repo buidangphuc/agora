@@ -23,8 +23,8 @@ var (
 	// ErrReturnExceedsRemainder is returned by CreateReturnCapped when the
 	// requested amount is above the order's returnable remainder.
 	ErrReturnExceedsRemainder = errors.New("refund amount exceeds the order's returnable remainder")
-	// ErrNoReturnableRemainder is returned by CreateReturnCapped when the order's
-	// non-rejected returns already cover its total.
+	// ErrNoReturnableRemainder is returned by CreateReturnCapped for a request
+	// without an amount when the order's non-rejected returns already cover its total.
 	ErrNoReturnableRemainder = errors.New("order has no returnable amount left")
 )
 
@@ -116,13 +116,18 @@ func newReturnRepoConfig(opts []ReturnRepoOption) returnRepoConfig {
 }
 
 // returnRemainder applies the cap rule to the sum of the order's non-rejected
-// returns, returning the amount to store.
+// returns, returning the amount to store. A positive amount above the remainder
+// (including a remainder of 0) is ErrReturnExceedsRemainder; a defaulted amount
+// with nothing left is ErrNoReturnableRemainder.
 func returnRemainder(requested, orderTotal, taken int64) (int64, error) {
 	remaining := orderTotal - taken
-	if remaining <= 0 {
-		return 0, ErrNoReturnableRemainder
+	if remaining < 0 {
+		remaining = 0
 	}
 	if requested <= 0 {
+		if remaining == 0 {
+			return 0, ErrNoReturnableRemainder
+		}
 		return remaining, nil
 	}
 	if requested > remaining {

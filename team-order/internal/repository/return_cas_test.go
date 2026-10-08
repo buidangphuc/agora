@@ -163,7 +163,7 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 				switch {
 				case err == nil:
 					ok++
-				case errors.Is(err, repository.ErrReturnExceedsRemainder), errors.Is(err, repository.ErrNoReturnableRemainder):
+				case errors.Is(err, repository.ErrReturnExceedsRemainder):
 					over++
 				default:
 					t.Errorf("unexpected error: %v", err)
@@ -202,6 +202,10 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 		if _, err := f.returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
 			Reason: "r"}, o.TotalAmount); !errors.Is(err, repository.ErrNoReturnableRemainder) {
 			t.Fatalf("want ErrNoReturnableRemainder, got %v", err)
+		}
+		if _, err := f.returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r", RefundAmount: 1}, o.TotalAmount); !errors.Is(err, repository.ErrReturnExceedsRemainder) {
+			t.Fatalf("a positive amount with nothing left: want ErrReturnExceedsRemainder, got %v", err)
 		}
 		if _, err := f.returns.TransitionReturn(ctx, first.ID, P, J); err != nil {
 			t.Fatal(err)
