@@ -7,3 +7,4 @@ from tests.e2e.step_definitions.common_steps import *  # noqa: F401,F403
 
 scenarios("../features/security/ai_access.feature")
 scenarios("../features/auth/login_history.feature")
+scenarios("../features/ops/boot_guard_identity.feature")

@@ -350,3 +350,19 @@ features:
     tags: [auth, buyer]
     status: automated
     covered_by: "auth/login_history.feature::Login history shows a failed and a successful attempt"
+
+  - id: ops.identity-boot-guard-dev-key
+    title: team-identity refuses the development signing key in production
+    persona: admin
+    priority: P1
+    summary: With ENV=production and the compose development signing key the real image exits non-zero naming the signing key.
+    entry_route: /
+    services: [team-identity]
+    api:
+      exercised: [identity.v1.AuthService]
+    acceptance:
+      - When the team-identity image is started with ENV=production and the development signing key from the local compose file
+      - Then the process exits non-zero and its log names the signing key
+    tags: [auth]
+    status: automated
+    covered_by: "ops/boot_guard_identity.feature::team-identity refuses the development signing key in production"
