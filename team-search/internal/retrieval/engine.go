@@ -98,6 +98,13 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	}
 
 	// 3. Hybrid Mode (Multi-Strategy Fusion)
+	// D8: RRF ranks by relevance and would destroy a key order, so an explicit
+	// newest/price sort is served by the lexical leg with that sort and page.
+	if isKeySort(params.SortBy) {
+		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
+		return res, false, err
+	}
+
 	// D8: Deep paging beyond fusion window falls back to BM25
 	if params.From >= e.cfg.HybridFusionWindow {
 		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
@@ -245,6 +252,15 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		Total:  total,
 		Facets: facets,
 	}, false, nil
+}
+
+// isKeySort reports whether sortBy orders by a document key rather than relevance.
+func isKeySort(sortBy searchv1.SortBy) bool {
+	switch sortBy {
+	case searchv1.SortBy_SORT_BY_NEWEST, searchv1.SortBy_SORT_BY_PRICE_ASC, searchv1.SortBy_SORT_BY_PRICE_DESC:
+		return true
+	}
+	return false
 }
 
 func toCandidates(hits []index.Hit, strategy string) []Candidate {

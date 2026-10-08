@@ -19,6 +19,9 @@ type fakeIndex struct {
 	lexCalled  bool
 	vecCalled  bool
 	lastVector []float32
+	lexSort    searchv1.SortBy
+	lexFrom    int
+	lexSize    int
 }
 
 func (f *fakeIndex) EnsureIndex(ctx context.Context) error                  { return nil }
@@ -34,6 +37,7 @@ func (f *fakeIndex) Suggest(ctx context.Context, prefix string, limit int) ([]st
 
 func (f *fakeIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	f.lexCalled = true
+	f.lexSort, f.lexFrom, f.lexSize = sortBy, from, size
 	if f.lexErr != nil {
 		return index.SearchResult{}, f.lexErr
 	}
