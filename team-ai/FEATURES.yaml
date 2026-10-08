@@ -389,3 +389,79 @@ features:
     status: planned
     covered_by: null
     notes: "Scenario: ai/llm_breaker.feature::A successful probe closes the breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-usage-is-recorded-for-a-completed-reply
+    title: "Usage is recorded for a completed reply"
+    persona: buyer
+    priority: P1
+    summary: "Usage is recorded for a completed reply"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer's chat reply completes and the fake provider reported 11 input and 7 output tokens"
+      - "Then team-ai's log has one usage line for that request id with 11 input tokens, 7 output tokens and the target"
+    tags: [ai, quota]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::Usage is recorded for a completed reply. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-an-exhausted-quota-refuses-the-call
+    title: "An exhausted quota refuses the call"
+    persona: buyer
+    priority: P1
+    summary: "An exhausted quota refuses the call"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer has used up the per-principal quota configured on the e2e stack and streams another chat message"
+      - "Then the call fails with `resource_exhausted` and the fake provider received no request for that message"
+    tags: [ai, quota]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::An exhausted quota refuses the call. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failed-call-does-not-consume-quota
+    title: "A failed call does not consume quota"
+    persona: buyer
+    priority: P1
+    summary: "A failed call does not consume quota"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer with quota for exactly one more reply streams a message for which every target answers 500, then streams a message with healthy targets"
+      - "Then the first call fails with `unavailable` and the second reply completes"
+    tags: [ai, quota]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::A failed call does not consume quota. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-one-buyer-over-the-limit-does-not-affect-another
+    title: "One buyer over the limit does not affect another"
+    persona: buyer
+    priority: P1
+    summary: "One buyer over the limit does not affect another"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When one buyer streams more chat messages within a minute than the per-principal limit on the e2e stack"
+      - "Then the calls past the limit fail with `resource_exhausted`, and a different buyer's chat message right after succeeds"
+    tags: [ai, rate-limit, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_quota_and_limits.feature::One buyer over the limit does not affect another. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
