@@ -132,6 +132,38 @@ func (s *Settings) IsProd() bool {
 	return e == "prod" || e == "production"
 }
 
+// durableStorageEnvs are the ENV values (trimmed, lowercase) in which the service
+// must never run on in-memory repositories. Anything else (local, test, unknown)
+// is non-strict, matching the "local" default.
+var durableStorageEnvs = []string{"staging", "stage", "prod", "production"}
+
+// RequiresDurableStorage reports whether ENV names a staging/production environment.
+func (s *Settings) RequiresDurableStorage() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range durableStorageEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireDurableStorage is the boot guard against the silent in-memory fallback:
+// in a strict ENV it fails when the database is disabled or no pool was obtained,
+// so a mis-set flag refuses to boot instead of serving orders that vanish on
+// restart. Other environments always pass.
+func (s *Settings) RequireDurableStorage(dbAvailable bool) error {
+	if !s.RequiresDurableStorage() {
+		return nil
+	}
+	if s.Database.Enabled && dbAvailable {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to start with in-memory storage: ENV=%q requires a database (strict for ENV in %s) but DATABASE_ENABLED=%t and the database pool available=%t; set DATABASE_ENABLED=true with a reachable DATABASE_URL",
+		s.Runtime.Env, strings.Join(durableStorageEnvs, ", "), s.Database.Enabled, dbAvailable)
+}
+
 func DeclaredEnvKeys() []string {
 	var keys []string
 	t := reflect.TypeOf(Settings{})

@@ -49,3 +49,32 @@ func TestOutboxAndKafkaDefaults(t *testing.T) {
 		t.Errorf("outbox defaults wrong: %+v", cfg.Outbox)
 	}
 }
+
+func TestRequireDurableStorage(t *testing.T) {
+	cases := []struct {
+		env       string
+		dbEnabled bool
+		pool      bool
+		wantErr   bool
+	}{
+		{"local", false, false, false},
+		{"test", true, false, false},
+		{"", false, false, false},
+		{"staging", false, false, true},
+		{"staging", true, false, true},
+		{"staging", true, true, false},
+		{"prod", false, false, true},
+		{" Production ", true, false, true},
+		{"production", true, true, false},
+	}
+	for _, tc := range cases {
+		s := &config.Settings{
+			Runtime:  config.Runtime{Env: tc.env},
+			Database: config.Database{Enabled: tc.dbEnabled},
+		}
+		err := s.RequireDurableStorage(tc.pool)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("ENV=%q enabled=%v pool=%v: err=%v wantErr=%v", tc.env, tc.dbEnabled, tc.pool, err, tc.wantErr)
+		}
+	}
+}
