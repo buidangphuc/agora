@@ -70,6 +70,10 @@ spec:
                     serverAddress: http://prometheus.marketplace.svc:9090
                     query: sum(rate(teamai_grpc_requests_total[30s]))
                     threshold: "5"     # ~5 rps per replica → scale up
+          # Only the gateway (sole gRPC caller) and Prometheus (KEDA metric source) may reach team-ai.
+          networkPolicy:
+            enabled: true
+            allowFrom: [team-gateway, prometheus]
           secrets:
             enabled: true
   syncPolicy:

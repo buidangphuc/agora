@@ -65,6 +65,40 @@ def agents_table(text: str) -> dict[str, str | None]:
     return rows
 
 
+ENV_ROW = re.compile(r"^\|\s*`([A-Z][A-Z0-9_]{2,})`\s*\|", re.M)
+SRC_EXT = {".go", ".py", ".ts", ".tsx", ".js", ".mjs", ".sh", ".yaml", ".yml", ".mk"}
+SKIP_DIRS = {"node_modules", ".git", ".next", ".venv", ".uv-cache", "generated", "vendor"}
+
+
+def check_documented_env(sd: Path, name: str) -> None:
+    """An env var documented in a directory README table must be referenced by
+    that directory's code/config (README files excluded); otherwise the doc lies."""
+    readme = sd / "README.md"
+    if not readme.exists():
+        return
+    documented = set(ENV_ROW.findall(readme.read_text(encoding="utf-8")))
+    if not documented:
+        return
+    corpus = []
+    for f in sd.rglob("*"):
+        if not f.is_file() or any(part in SKIP_DIRS for part in f.relative_to(sd).parts):
+            continue
+        if f.suffix.lower() == ".md":
+            continue
+        if f.suffix in SRC_EXT or f.name in {"Makefile", "Dockerfile", ".env.example"}:
+            try:
+                corpus.append(f.read_text(encoding="utf-8", errors="ignore"))
+            except OSError:
+                pass
+    text = "\n".join(corpus)
+    for var in sorted(documented):
+        # pydantic-settings reads env names case-insensitively from lower-case
+        # class fields, so a field declaration counts as a reference.
+        field = re.compile(rf"^[ \t]+{var.lower()}[ \t]*:", re.M)
+        if var not in text and not field.search(text):
+            err(f"{name}: README.md documents env var {var} but no code/config references it (stale doc).")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
@@ -133,6 +167,11 @@ def main() -> int:
             warn(
                 f"{d}/ has buf.gen.yaml but no generated/ or proto-vendor/ — codegen not run (contract drift)."
             )
+
+    # D. Documented env vars must be used by the code.
+    for p in sorted(root.iterdir()):
+        if p.is_dir() and p.name.startswith(("team-", "platform-")):
+            check_documented_env(p, p.name)
 
     _report()
     return 1 if errors else 0

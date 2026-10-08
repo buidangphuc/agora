@@ -36,6 +36,10 @@ deploy/act/         local GitHub Actions payloads (P4)
 ../platform-gitops/ desired-state repo (Helm charts + envs/local + argocd/apps)
 ```
 
+Vault is configured declaratively by the `vault-config` ArgoCD app
+(`platform-gitops/platform/vault-config`, a PostSync Job); there is no manual
+bootstrap script. To add a service, append it to `SERVICES` in that manifest.
+
 ## GitOps flow
 `dev push → CI (act): buf + make check + build/push image + e2e gate + bump tag in
 platform-gitops → Gitea → ArgoCD auto-sync → cluster (+ PostSync e2e smoke)`.
