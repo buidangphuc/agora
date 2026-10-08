@@ -469,8 +469,8 @@ features:
       - "When a seller was credited 500000 for a paid order and the seller refunds 200000 of that payment through the gateway with a fresh refund id"
       - "Then the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 200000, the seller's ledger has exactly one `REFUND_DEDUCTION` of -200000 whose reference is that refund's id, and `GetWalletBalance` is 300000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Refunding a credited payment deducts the refunded amount from the seller"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-a-second-refund-of-the-same-payment-deducts-its
@@ -489,8 +489,8 @@ features:
       - "When the seller then refunds a further 300000 of the same payment with another fresh refund id"
       - "Then the payment reads `REFUNDED` with a refunded amount of 500000, the seller's ledger has two `REFUND_DEDUCTION` entries of -200000 and -300000 each referencing its own refund, and `GetWalletBalance` is 0"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A second refund of the same payment deducts its own amount"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-a-second-refund-of-the-same-payment-is-refused-a
@@ -509,8 +509,8 @@ features:
       - "When a credited payment of 500000 has been refunded in full by one refund and the seller refunds it again with a fresh refund id"
       - "Then the call fails with `FAILED_PRECONDITION`, and the seller still has exactly one `REFUND_DEDUCTION` for the payment, of -500000, and the same balance"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A second refund of the same payment is refused and deducts nothing more"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-concurrent-refunds-of-one-payment-deduct-once
@@ -529,8 +529,8 @@ features:
       - "When the seller of a credited payment of 500000 sends eight concurrent refunds of 100000, all with the same refund id"
       - "Then every call succeeds, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 100000, and the seller has exactly one `REFUND_DEDUCTION` of -100000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Concurrent refunds of one payment deduct once"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-refunding-a-payment-whose-order-was-cancelled-de
@@ -549,8 +549,8 @@ features:
       - "When a payment succeeded late for an order that stayed `Cancelled`, and the order's seller refunds it in full"
       - "Then the refund succeeds and the payment reads `REFUNDED`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order and the balance equals the sentinel's amount"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Refunding a payment whose order was cancelled deducts nothing"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-a-refund-issued-right-after-payment-ends-with-on
@@ -569,8 +569,8 @@ features:
       - "When a buyer pays an order of 500000 and its seller refunds 500000 immediately after the payment call returns, before the credit is observed"
       - "Then once the order's credit is written, the seller has exactly one `ORDER_SETTLEMENT` entry of +500000 and one `REFUND_DEDUCTION` entry of -500000 for it, and the balance contribution of that order is 0"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A refund issued right after payment ends with one credit and one deduction"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-two-refunds-issued-before-the-credit-end-with-on
@@ -589,8 +589,8 @@ features:
       - "When a buyer pays an order of 500000 and its seller refunds 100000 and then 150000 of it, with two refund ids, immediately after the payment call returns and before the credit is observed"
       - "Then once the order's credit is written, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 250000, and the seller has exactly one `ORDER_SETTLEMENT` of +500000 and two `REFUND_DEDUCTION` entries, -100000 and -150000, each referencing its own refund"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Two refunds issued before the credit end with one deduction each"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-a-refund-after-the-proceeds-were-paid-out-takes
@@ -629,8 +629,8 @@ features:
       - "When a buyer pays an order of 500000, its seller's credit of +500000 is observed, and the buyer cancels the order through the gateway"
       - "Then within the settle window the buyer's `GetPayment` reads `REFUNDED` with a refunded amount of 500000, the seller's ledger has exactly one `REFUND_DEDUCTION` of -500000 referencing `cancel:<order_id>`, and the seller's balance is back to its value before the payment"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a credited paid order refunds the buyer and deducts the seller"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-cancelling-a-paid-order-before-its-credit-is-obs
@@ -649,8 +649,8 @@ features:
       - "When a buyer pays an order of 500000 and cancels it as soon as the order reads `Paid`, before the seller's credit is observed"
       - "Then once both are applied the payment reads `REFUNDED`, and the seller has exactly one `ORDER_SETTLEMENT` of +500000 and one `REFUND_DEDUCTION` of -500000 for the order"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a paid order before its credit is observed ends with one credit and one deduction"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-a-cancel-while-team-payment-is-stopped-is-refund
@@ -669,8 +669,8 @@ features:
       - "When a credited paid order is cancelled by its buyer while `team-payment` is stopped, and `team-payment` is then started again"
       - "Then the buyer's payment reads `REFUNDED` and the seller has exactly one `REFUND_DEDUCTION` of minus the payment amount"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A cancel while team-payment is stopped is refunded when it restarts"
     notes: "@destructive (serial lane). Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-a-redelivered-cancellation-does-not-refund-or-de
@@ -689,8 +689,8 @@ features:
       - "When a cancelled paid order has been refunded and deducted, and its cancellation record is produced to `order.events` again, byte for byte"
       - "Then after a sentinel order of the same seller is credited, the seller still has exactly one `REFUND_DEDUCTION` for the cancelled order, and the payment lists exactly one refund with source `ORDER_CANCEL`"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A redelivered cancellation does not refund or deduct again"
     notes: "@destructive (serial lane). Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-cancelling-a-partially-refunded-order-refunds-th
@@ -709,8 +709,8 @@ features:
       - "When the seller of a credited paid order of 500000 refunds 200000, and the buyer then cancels the order"
       - "Then within the settle window the payment reads `REFUNDED` with a refunded amount of 500000, lists two refunds (200000 from the seller and 300000 with source `ORDER_CANCEL`), and the seller has exactly two `REFUND_DEDUCTION` entries for the order, -200000 and -300000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a partially refunded order refunds the remainder"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.plp-refund-cancelling-an-order-its-seller-already-refunded
@@ -729,8 +729,8 @@ features:
       - "When the seller of a credited paid order of 500000 refunds 500000, and the buyer then cancels the order"
       - "Then the payment stays `REFUNDED` with one refund, and after a sentinel order of the same seller is credited the seller has exactly one `REFUND_DEDUCTION` of -500000 for the order"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling an order its seller already refunded deducts nothing more"
     notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
 
   # ---- port-payment-ledger-integrity / seller-payout-holdback (written from the spec; planned until the code lands).
@@ -891,8 +891,8 @@ features:
       - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, the recent sale is refunded 200000 and then 100000 with two refund ids, and the seller requests a wallet payout of 300000 and then one of 1"
       - "Then the first payout is accepted and the second fails with `FAILED_PRECONDITION` as held, because 200000 of the recent sale is still held"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Two partial refunds of a held sale both reduce its held amount"
     notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Modified by payment-refund-model (a deduction belongs to the payment through its refund); written from the spec ahead of the code (plp_payout_holdback.feature); integrator flips to automated."
 
   - id: payment.plp-holdback-a-payout-above-the-balance-is-refused-as-insuffi
@@ -973,8 +973,8 @@ features:
       - "When the seller of a paid order of 500000 refunds 200000 and then 300000 through the gateway, each with its own refund id"
       - "Then after the first refund the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 200000, and after the second it reads `REFUNDED` with a refunded amount of 500000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Two partial refunds leave the payment partially refunded and then refunded"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-a-refunded-payment-cannot-be-paid-again
@@ -993,8 +993,8 @@ features:
       - "When a credited 500000 payment has been partly refunded by 200000 and its buyer calls the mock payment again for the same order through the gateway"
       - "Then the call fails with `FAILED_PRECONDITION` and the payment still reads `PARTIALLY_REFUNDED` with a refunded amount of 200000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A refunded payment cannot be paid again"
     notes: "Found by the team-payment code track (ProcessMockPayment re-settled refunded payments); added to the spec during integration."
 
   - id: payment.prm-cum-a-refund-above-the-remainder-is-refused-and-writ
@@ -1013,8 +1013,8 @@ features:
       - "When 200000 of a paid order of 500000 has been refunded and the seller refunds 300001 with a fresh refund id"
       - "Then the call fails with `FAILED_PRECONDITION` and message `refund amount exceeds the refundable remainder`, and the payment still reads `PARTIALLY_REFUNDED` with a refunded amount of 200000 and one refund"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A refund above the remainder is refused and writes nothing"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-two-partial-refunds-racing-near-the-cap-cannot-o
@@ -1033,8 +1033,8 @@ features:
       - "When 300000 of a credited payment of 500000 has been refunded and the seller sends two concurrent refunds of 150000 with different refund ids"
       - "Then exactly one succeeds and the other fails with `FAILED_PRECONDITION`, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 450000, and the seller has exactly two `REFUND_DEDUCTION` entries for the payment, -300000 and -150000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Two partial refunds racing near the cap cannot over-refund"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-concurrent-refunds-with-their-own-ids-refund-at
@@ -1053,8 +1053,8 @@ features:
       - "When the seller of a credited payment of 500000 sends eight concurrent refunds of 125000, each with its own refund id"
       - "Then exactly four succeed and the other four fail with `FAILED_PRECONDITION`, the payment reads `REFUNDED` with a refunded amount of 500000 and four refunds, and the seller has exactly four `REFUND_DEDUCTION` entries of -125000, each referencing one of the successful refunds"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Concurrent refunds with their own ids refund at most the payment amount"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-retrying-a-refund-with-the-same-refund-id-refund
@@ -1073,8 +1073,8 @@ features:
       - "When the seller of a credited paid order of 500000 refunds 200000 with refund id R and then sends the same call again"
       - "Then both calls succeed, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 200000 and one refund, and the seller has exactly one `REFUND_DEDUCTION` of -200000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Retrying a refund with the same refund id refunds once"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-reusing-a-refund-id-for-a-different-amount-is-re
@@ -1093,8 +1093,8 @@ features:
       - "When a refund of 200000 with refund id R was applied and the seller refunds 100000 of the same payment with refund id R"
       - "Then the call fails with `ALREADY_EXISTS` and the payment's refunded amount stays 200000"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Reusing a refund id for a different amount is refused"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-a-refund-without-a-refund-id-is-refused
@@ -1113,8 +1113,8 @@ features:
       - "When the seller of a paid order refunds 100000 without a refund id"
       - "Then the call fails with `INVALID_ARGUMENT` and the payment reads `PAID` with no refund"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A refund without a refund id is refused"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-a-partially-refunded-payment-lists-its-refunds-t
@@ -1133,8 +1133,8 @@ features:
       - "When the seller of a paid order of 500000 refunds 200000 with refund id R1 and reason `damaged`, and 100000 with refund id R2"
       - "Then the buyer's `GetPayment` through the gateway reads `PARTIALLY_REFUNDED` with a refunded amount of 300000 and lists two refunds in that order, each with source `SELLER_OR_ADMIN`, source ids R1 and R2, and requested and applied amounts of 200000 and 100000, the first with reason `damaged`"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A partially refunded payment lists its refunds through the gateway"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-the-seller-s-ledger-entries-name-the-refund-each
@@ -1153,8 +1153,8 @@ features:
       - "When a credited payment of 500000 has two refunds, R1 of 200000 and R2 of 100000"
       - "Then the seller's `ListLedgerEntries` shows the `ORDER_SETTLEMENT` referencing the payment id and two `REFUND_DEDUCTION` entries whose references are the two refunds' ids"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::The seller's ledger entries name the refund each deduction belongs to"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-the-order-s-seller-reads-the-payment-of-their-or
@@ -1173,8 +1173,8 @@ features:
       - "When the seller of a paid order calls `GetPayment` with the order id through the gateway"
       - "Then the call returns the order's payment with its status, refunded amount and refunds"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::The order's seller reads the payment of their order"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-another-seller-cannot-read-the-payment-of-an-ord
@@ -1193,8 +1193,8 @@ features:
       - "When a seller who does not sell the order calls `GetPayment` with that order's id through the gateway"
       - "Then the call fails with `PERMISSION_DENIED`"
     tags: [fintech]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Another seller cannot read the payment of an order"
     notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-a-legacy-partial-refund-becomes-one-legacy-refun
@@ -1213,8 +1213,8 @@ features:
       - "When a scratch payment database at the previous schema holds a payment of 500000 refunded under the old model (status `REFUNDED`, refunded amount 200000, a credit of +500000 and a `REFUND_DEDUCTION` of -200000 referencing the payment), and the migration is applied with the migrate image"
       - "Then the database holds one `LEGACY` refund `legacy:<payment id>` of 200000, the deduction references it, and the payment is still `REFUNDED` with a refunded amount of 200000 and the seller's ledger sum is still 300000"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A legacy partial refund becomes one legacy refund and stays closed"
     notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-a-legacy-partially-refunded-payment-refuses-a-fu
@@ -1233,8 +1233,8 @@ features:
       - "When the `team-payment` image runs against that migrated scratch database and an admin refunds 100000 of the legacy payment with a fresh refund id"
       - "Then the call fails with `FAILED_PRECONDITION` and the payment still has one refund"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A legacy partially refunded payment refuses a further refund"
     notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-a-payment-refunded-before-refunded-amounts-were
@@ -1253,8 +1253,8 @@ features:
       - "When the scratch database also holds a `REFUNDED` payment with a refunded amount of 0 and no deduction, and the migration is applied"
       - "Then that payment has no refund, keeps status `REFUNDED` and a refunded amount of 0, and no ledger row changed"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A payment refunded before refunded amounts were recorded is left as it was"
     notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
 
   - id: payment.prm-cum-rolling-back-the-migration-restores-the-payment
@@ -1273,6 +1273,6 @@ features:
       - "When the down migration is applied to the migrated scratch database"
       - "Then the legacy deduction references the payment id again and the seller's ledger sum is still 300000"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Rolling back the migration restores the payment-id references"
     notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."

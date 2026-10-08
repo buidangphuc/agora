@@ -2444,45 +2444,196 @@ features:
       Feature: frontend/search_rating_removed.feature::An old rating link renders the results without error. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
 
-  - id: frontend.seller-return-refund-ui
-    title: Seller handles order returns and sees the refund the payment applied
+  - id: frontend.srru-the-seller-approves-a-return-from-the-order-page
+    title: The seller approves a return from the order page
     persona: seller
     priority: P1
-    summary: >-
-      /seller/orders/{id}?tab=returns lists the order's returns (ListOrderReturns) with Duyệt / Từ chối / Hoàn tiền
-      per status, shows the payment's refunded amount and what each refunded return actually got, and the buyer
-      order page follows the return status with no refund button. The faked storefront refund is gone: every action
-      calls UpdateReturnStatus only (change payment-refund-model, capability seller-return-refund-ui).
-    entry_route: /seller/orders
-    related_routes: [/account/orders]
+    summary: The seller approves a return from the order page
+    entry_route: "/seller/orders/{order_id}?tab=returns"
     services: [team-frontend, team-gateway, team-order, team-payment]
     preconditions:
       login: seller
-    ui:
-      key_elements:
-        returns_panel: "testid:seller-returns"
-        return_status: "testid:return-status"
-        approve: "testid:return-approve"
-        reject: "testid:return-reject"
-        refund: "testid:return-refund"
-        refund_confirm: "testid:return-refund-confirm"
-        cod_message: "testid:return-cod-message"
-        refund_state: "testid:return-refund-state"
-        payment_summary: "testid:payment-summary"
-        payment_unavailable: "testid:payment-unavailable"
-    api:
-      exercised: [order.v1.ListOrderReturns, order.v1.UpdateReturnStatus, payment.v1.GetPayment]
     acceptance:
-      - "Scenario The seller approves a return from the order page: when the seller opens the returns tab of an order with a PENDING return and clicks Duyệt, then the return reads Đã duyệt and offers Hoàn tiền and Từ chối, and a reload shows the same"
-      - "Scenario The seller refunds an approved return and it reads refunded: when the seller clicks Hoàn tiền on an APPROVED return of 200000 on a credited paid order of 500000 and confirms, then the return reads Đã hoàn tiền with no action left and, within the settle window, GetPayment for the order through the gateway reads a refunded amount of 200000"
-      - "Scenario The seller rejects a pending return: when the seller clicks Từ chối on a PENDING return, then the return reads Đã từ chối with no action left and the payment's refunded amount is unchanged"
-      - "Scenario A COD return shows that its refund is handled outside the system: when the seller opens the returns tab of a cash-on-delivery order whose return is APPROVED, then the return reads Đã duyệt with the COD message and offers Từ chối but no Hoàn tiền"
-      - "Scenario Refunding a return that is no longer approved shows the error: when the return is rejected through the gateway meanwhile and the seller clicks Hoàn tiền and confirms, then the page shows an error and after a reload the return reads Đã từ chối, with no refund on the payment"
-      - "Scenario A refunded return shows processing until the payment applies it: when team-payment is stopped and the seller refunds an approved return of 200000, then the return reads Đã hoàn tiền and Đang xử lý hoàn tiền and the payment summary says the payment could not be loaded; after team-payment is started again and the page reloaded within the settle window, the return reads Đã hoàn 200.000₫ and the summary reads 200.000₫ refunded of 500.000₫"
-      - "Scenario A return refunded only in part says how much was refunded: when the seller of a credited paid order of 500000 refunds 400000 of the payment directly and then refunds an approved return of 300000, then after a reload within the settle window the return reads Chỉ hoàn được 100.000₫ and the payment summary reads 500.000₫ refunded of 500.000₫"
-      - "Scenario The buyer sees the return status without a refund button: when the buyer requests a return, the seller approves and refunds it and the buyer reloads the returns tab, then the return reads Đã hoàn tiền and the page has no Hoàn tiền button in any return state"
-    tags: [seller, buyer, returns]
-    status: planned
-    notes: >-
-      Written from specs/seller-return-refund-ui. The stopped-team-payment scenario runs in the serial lane; the
-      scenarios that need a refunded payment need the payment-ledger overlay.
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - When the seller opens the returns tab of the order
+      - And the seller clicks "Duyệt" on the return "R1"
+      - Then the return "R1" reads "Đã duyệt" and offers the actions "Hoàn tiền, Từ chối"
+      - When the seller reloads the page
+      - Then the return "R1" reads "Đã duyệt" and offers the actions "Hoàn tiền, Từ chối"
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::The seller approves a return from the order page
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-the-seller-refunds-an-approved-return-and-it-reads-refunded
+    title: The seller refunds an approved return and it reads refunded
+    persona: seller
+    priority: P1
+    summary: The seller refunds an approved return and it reads refunded
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When the seller opens the returns tab of the order
+      - And the seller clicks "Hoàn tiền" on the return "R1" and confirms
+      - Then the return "R1" reads "Đã hoàn tiền" and offers the actions ""
+      - And within the settle window the payment read by "b1" is PARTIALLY_REFUNDED with 200000 refunded
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::The seller refunds an approved return and it reads refunded
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-the-seller-rejects-a-pending-return
+    title: The seller rejects a pending return
+    persona: seller
+    priority: P1
+    summary: The seller rejects a pending return
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - When the seller opens the returns tab of the order
+      - And the seller clicks "Từ chối" on the return "R1"
+      - Then the return "R1" reads "Đã từ chối" and offers the actions ""
+      - And the payment read by "b1" is PAID with 0 refunded
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::The seller rejects a pending return
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-a-cod-return-shows-that-its-refund-is-handled-outside-the-sy
+    title: A COD return shows that its refund is handled outside the system
+    persona: seller
+    priority: P1
+    summary: A COD return shows that its refund is handled outside the system
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has a cash-on-delivery order of the listing that the seller handed over without an online payment
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When the seller opens the returns tab of the order
+      - Then the return "R1" reads "Đã duyệt" and offers the actions "Từ chối"
+      - 'And the return "R1" shows the message "Đơn thanh toán khi nhận hàng (COD): việc hoàn tiền được xử lý ngoài hệ thống."'
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::A COD return shows that its refund is handled outside the system
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-refunding-a-return-that-is-no-longer-approved-shows-the-erro
+    title: Refunding a return that is no longer approved shows the error
+    persona: seller
+    priority: P1
+    summary: Refunding a return that is no longer approved shows the error
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - And the seller opens the returns tab of the order
+      - And the return "R1" reads "Đã duyệt" and offers the actions "Hoàn tiền, Từ chối"
+      - When the seller rejects the return "R1"
+      - And the seller clicks "Hoàn tiền" on the return "R1" and confirms
+      - Then the page shows an error
+      - When the seller reloads the page
+      - Then the return "R1" reads "Đã từ chối" and offers the actions ""
+      - And the payment read by "b1" is PAID with 0 refunded
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::Refunding a return that is no longer approved shows the error
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-a-refunded-return-shows-processing-until-the-payment-applies
+    title: A refunded return shows processing until the payment applies it
+    persona: seller
+    priority: P1
+    summary: A refunded return shows processing until the payment applies it
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - And the seller opens the returns tab of the order
+      - When team-payment is stopped
+      - And the seller clicks "Hoàn tiền" on the return "R1" and confirms
+      - Then the return "R1" reads "Đã hoàn tiền" and offers the actions ""
+      - And the return "R1" shows the refund state "Đang xử lý hoàn tiền"
+      - And the payment summary says the payment could not be loaded
+      - When team-payment is started again
+      - And the page is reloaded until the return "R1" shows the refund state "Đã hoàn 200.000₫"
+      - Then the payment summary reads "200.000₫" refunded of "500.000₫"
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::A refunded return shows processing until the payment applies it
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-a-return-refunded-only-in-part-says-how-much-was-refunded
+    title: A return refunded only in part says how much was refunded
+    persona: seller
+    priority: P1
+    summary: A return refunded only in part says how much was refunded
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 300000
+      - And the seller approves the return "R1"
+      - And the seller refunds 400000 of the payment directly
+      - And the seller opens the returns tab of the order
+      - When the seller clicks "Hoàn tiền" on the return "R1" and confirms
+      - And the page is reloaded until the return "R1" shows the refund state "Chỉ hoàn được 100.000₫"
+      - Then the payment summary reads "500.000₫" refunded of "500.000₫"
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::A return refunded only in part says how much was refunded
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: frontend.srru-the-buyer-sees-the-return-status-without-a-refund-button
+    title: The buyer sees the return status without a refund button
+    persona: seller
+    priority: P1
+    summary: The buyer sees the return status without a refund button
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - And the seller moves the return "R1" to REFUNDED
+      - When "b1" opens the returns tab of the order
+      - And the page is reloaded
+      - Then the return "R1" reads "Đã hoàn tiền" on the buyer's page
+      - And the buyer's page has no "Hoàn tiền" button
+    tags: [seller]
+    status: automated
+    covered_by: seller/return_refund_ui.feature::The buyer sees the return status without a refund button
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
