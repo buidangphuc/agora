@@ -35,7 +35,7 @@ const consumerName = "team-order.payment"
 // OrderStore is the slice of the order repository the consumer needs.
 type OrderStore interface {
 	GetOrder(ctx context.Context, id string) (repository.Order, error)
-	UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error)
+	UpdateOrderStatusFrom(ctx context.Context, id string, to repository.OrderStatus, allowedFrom []repository.OrderStatus, trackingNumber string) (repository.Order, error)
 }
 
 // VoucherCommitter commits a voucher reservation once its order is settled. The
@@ -180,7 +180,11 @@ func (c *PaymentConsumer) apply(ctx context.Context, settled *paymentv1.PaymentS
 		return nil
 	}
 
-	if _, err := c.orders.UpdateOrderStatus(ctx, order.ID, repository.OrderStatusPaid, ""); err != nil {
+	if _, err := c.orders.UpdateOrderStatusFrom(ctx, order.ID, repository.OrderStatusPaid,
+		[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+		if errors.Is(err, repository.ErrStatusConflict) {
+			return nil // the order left Pending meanwhile; nothing to do
+		}
 		return fmt.Errorf("transition order %q to PAID: %w", order.ID, err)
 	}
 	c.logger.InfoContext(ctx, "order transitioned to PAID from PaymentSettled",

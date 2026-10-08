@@ -49,7 +49,7 @@ func reserveReq(res repository.Reservation) *listingv1.ReserveStockRequest {
 // a cancel that crashed right after its claim.
 func cancelWithoutRelease(t *testing.T, orders repository.OrderRepository, id string) {
 	t.Helper()
-	if _, err := orders.UpdateOrderStatus(context.Background(), id, repository.OrderStatusCancelled, ""); err != nil {
+	if _, err := orders.UpdateOrderStatusFrom(context.Background(), id, repository.OrderStatusCancelled, []repository.OrderStatus{repository.OrderStatusPending, repository.OrderStatusPaid}, ""); err != nil {
 		t.Fatal(err)
 	}
 }

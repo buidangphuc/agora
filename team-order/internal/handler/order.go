@@ -236,17 +236,21 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 		return nil, internalErr(h.logger, "get order", err)
 	}
 
-	// Only the order's seller or an admin drives status; buyers cancel via CancelOrder.
+	// Actor class (spec order-lifecycle-guards): the seller, or an admin acting as
+	// the seller. Anyone else -- the buyer included, who cancels through
+	// CancelOrder -- is refused before the order's status is revealed.
 	if !isAdminOrUser(principal, existing.SellerID) {
 		return nil, status.Error(codes.PermissionDenied, "only the seller or an admin can update order status")
 	}
 
-	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), repository.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
+	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), service.ActorSeller, repository.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
 	if err != nil {
-		if errors.Is(err, repository.ErrOrderNotFound) {
+		switch {
+		case errors.Is(err, repository.ErrOrderNotFound):
 			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		if errors.Is(err, service.ErrInvalidStatus) {
+		case errors.Is(err, service.ErrActorForbidden):
+			return nil, clientErr(h.logger, codes.PermissionDenied, "this status change is not allowed for the seller", err)
+		case errors.Is(err, service.ErrInvalidStatus):
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid order status transition", err)
 		}
 		return nil, internalErr(h.logger, "update order status", err)

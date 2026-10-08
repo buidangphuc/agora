@@ -135,14 +135,30 @@ func (r *fakeOrderRepo) ListBuyerOrders(_ context.Context, _ string, _ int32) ([
 func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ int32) ([]repository.Order, error) {
 	return nil, nil
 }
-func (r *fakeOrderRepo) UpdateOrderStatus(_ context.Context, id string, st repository.OrderStatus, _ string) (repository.Order, error) {
+func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
 	if !ok {
 		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	o.Status = st
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
 	r.orders[id] = o
 	return o, nil
 }

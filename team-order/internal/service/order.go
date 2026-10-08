@@ -429,34 +429,25 @@ func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, st
 	return s.orderRepo.ListSellerOrders(ctx, sellerID, statusFilter)
 }
 
-// sellerTransitions lists the status changes a seller (or admin) may drive
-// through the UpdateOrderStatus RPC. PAID is deliberately absent as a target:
-// payment settlement drives it via the payment.events consumer. CANCELLED is
-// absent too: cancelling goes through CancelOrder so stock is released.
-var sellerTransitions = map[repository.OrderStatus][]repository.OrderStatus{
-	repository.OrderStatusPending: {repository.OrderStatusShipped}, // COD hand-over
-	repository.OrderStatusPaid:    {repository.OrderStatusShipped},
-	repository.OrderStatusShipped: {repository.OrderStatusCompleted},
-}
-
-// UpdateOrderStatus moves an order along a valid seller transition; any other
-// transition (including to PAID) returns ErrInvalidStatus.
-func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	order, err := s.orderRepo.GetOrder(ctx, id)
-	if err != nil {
-		return repository.Order{}, err
+// UpdateOrderStatus applies a status change requested through the
+// UpdateOrderStatus RPC by an actor class (the handler resolves it: the order's
+// seller, or an admin acting as seller). Cancelling is never possible here (it
+// goes through CancelOrder so stock is released). A target the class may never
+// request is ErrActorForbidden; a permitted target from the wrong status is
+// ErrInvalidStatus, decided by the compare-and-set write itself.
+func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor Actor, to repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+	if to == repository.OrderStatusCancelled {
+		return repository.Order{}, ErrActorForbidden
 	}
-	allowed := false
-	for _, to := range sellerTransitions[order.Status] {
-		if to == status {
-			allowed = true
-			break
-		}
+	from := AllowedFrom(to, actor)
+	if len(from) == 0 {
+		return repository.Order{}, ErrActorForbidden
 	}
-	if !allowed {
-		return repository.Order{}, fmt.Errorf("%w: %v -> %v", ErrInvalidStatus, order.Status, status)
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber)
+	if errors.Is(err, repository.ErrStatusConflict) {
+		return repository.Order{}, fmt.Errorf("%w: order cannot move to %v from its current status", ErrInvalidStatus, to)
 	}
-	return s.orderRepo.UpdateOrderStatus(ctx, id, status, trackingNumber)
+	return updated, err
 }
 
 func (s *OrderService) CancelOrder(ctx context.Context, id string) (repository.Order, error) {
@@ -491,7 +482,11 @@ func (s *OrderService) CancelOrder(ctx context.Context, id string) (repository.O
 		}
 	}
 
-	return s.orderRepo.UpdateOrderStatus(ctx, id, repository.OrderStatusCancelled, "")
+	cancelled, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
+	if errors.Is(err, repository.ErrStatusConflict) {
+		return repository.Order{}, fmt.Errorf("%w: order is not in a cancellable status", ErrInvalidStatus)
+	}
+	return cancelled, err
 }
 
 // ── RMA / Return Management ──
@@ -633,7 +628,7 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 
 	// Update order status to SHIPPED and record tracking number if not yet shipped
 	if order.Status != repository.OrderStatusShipped {
-		_, _ = s.orderRepo.UpdateOrderStatus(ctx, orderID, repository.OrderStatusShipped, trackingCode)
+		_, _ = s.orderRepo.UpdateOrderStatusFrom(ctx, orderID, repository.OrderStatusShipped, AllowedFrom(repository.OrderStatusShipped, ActorSeller), trackingCode)
 	}
 
 	s.logger.InfoContext(ctx, "created shipment tracking",

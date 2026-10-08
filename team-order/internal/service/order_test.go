@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/service"
@@ -48,14 +49,30 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	if o, ok := m.orders[id]; ok {
-		o.Status = status
-		o.TrackingNumber = trackingNumber
-		m.orders[id] = o
-		return o, nil
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+	o, ok := m.orders[id]
+	if !ok {
+		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	return repository.Order{}, repository.ErrOrderNotFound
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
+	m.orders[id] = o
+	return o, nil
 }
 
 func TestOrderService_CalculateShippingFee(t *testing.T) {

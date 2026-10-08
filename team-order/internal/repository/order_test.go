@@ -57,7 +57,7 @@ func TestInMemoryOrderRepository(t *testing.T) {
 		}
 
 		// Update Order Status
-		updated, err := repo.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusPaid, "SPX123456")
+		updated, err := repo.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, "SPX123456")
 		if err != nil {
 			t.Fatalf("unexpected error updating status: %v", err)
 		}

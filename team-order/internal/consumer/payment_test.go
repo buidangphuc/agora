@@ -16,7 +16,7 @@ import (
 	"github.com/buidangphuc/team-order/internal/repository"
 )
 
-// countingOrderStore records how many times UpdateOrderStatus is called so the
+// countingOrderStore records how many status writes succeed so the
 // test can prove the PAID transition happens exactly once.
 type countingOrderStore struct {
 	mu      sync.Mutex
@@ -34,14 +34,30 @@ func (s *countingOrderStore) GetOrder(_ context.Context, id string) (repository.
 	return o, nil
 }
 
-func (s *countingOrderStore) UpdateOrderStatus(_ context.Context, id string, st repository.OrderStatus, _ string) (repository.Order, error) {
+func (s *countingOrderStore) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	o, ok := s.orders[id]
 	if !ok {
 		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	o.Status = st
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
 	s.orders[id] = o
 	s.updates++
 	return o, nil
