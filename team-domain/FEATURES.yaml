@@ -155,3 +155,60 @@ features:
     notes: >
       Backend scenarios are covered by team-domain handler tests; the UI-visible
       scenarios live in team-frontend FEATURES (shop.storefront, cart.shop-names, ...).
+
+  - id: listing.visibility-stranger-draft
+    title: A stranger cannot read a draft
+    persona: buyer
+    priority: P0
+    summary: >-
+      GetListing answers not_found for a draft listing unless the caller owns it, is an admin or a service.
+    entry_route: /seller/new
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing]
+    acceptance:
+      - WHEN a buyer calls GetListing through the gateway for another seller's draft listing
+      - THEN the gateway answers HTTP 404
+    tags: [security, authz]
+    status: automated
+    covered_by: "security/listing_visibility.feature::A stranger cannot read a draft"
+
+  - id: listing.visibility-owner-draft
+    title: The owner can read their draft
+    persona: seller
+    priority: P0
+    summary: >-
+      The seller who owns a draft can still read it.
+    entry_route: /seller/new
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.GetListing]
+    acceptance:
+      - WHEN the seller who owns a draft listing calls GetListing for it through the gateway
+      - THEN the listing is returned with status draft
+    tags: [security, seller]
+    status: automated
+    covered_by: "security/listing_visibility.feature::The owner can read their draft"
+
+  - id: listing.visibility-list-published-only
+    title: Listing without a status returns only published listings
+    persona: guest
+    priority: P0
+    summary: >-
+      ListListings defaults to published listings, so unpublished items stay private.
+    entry_route: /
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [listing.v1.ListListings]
+    acceptance:
+      - WHEN an anonymous client calls ListListings through the gateway without a status filter
+      - THEN every returned listing has status published
+    tags: [security, contract]
+    status: automated
+    covered_by: "security/listing_visibility.feature::Listing without a status returns only published listings"
