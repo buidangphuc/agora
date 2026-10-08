@@ -1474,16 +1474,28 @@ class MarketplaceSeeder:
                 if isinstance(res, dict) and "orders" in res and res["orders"]:
                     order_id = res["orders"][0].get("id", order_id)
 
-                # Advance Order Status to COMPLETED / PAID
-                self.client.post(
-                    "/platform.order.v1.OrderService/UpdateOrderStatus",
-                    {
-                        "id": order_id,
-                        "status": 4,  # ORDER_STATUS_COMPLETED
-                        "tracking_number": f"SPX-VN-{uuid.uuid4().hex[:8].upper()}",
-                    },
-                    token=b_token,
-                )
+                # Advance every placed order to COMPLETED along the order transition
+                # table: the order's seller ships it (PENDING -> SHIPPED, cash on
+                # delivery) and then completes it (SHIPPED -> COMPLETED). A buyer may
+                # not set these statuses, so the seller's token is used.
+                seller_by_listing = {l["id"]: l.get("seller_user") for l in self.created_listings}
+                placed = res.get("orders", []) if isinstance(res, dict) else []
+                for placed_order in placed:
+                    items = placed_order.get("items") or []
+                    seller_user = seller_by_listing.get(items[0].get("listingId")) if items else None
+                    s_token = self.seller_tokens.get(seller_user) if seller_user else None
+                    if not s_token:
+                        continue
+                    for target in (3, 4):  # ORDER_STATUS_SHIPPED, ORDER_STATUS_COMPLETED
+                        self.client.post(
+                            "/platform.order.v1.OrderService/UpdateOrderStatus",
+                            {
+                                "id": placed_order.get("id"),
+                                "status": target,
+                                "tracking_number": f"SPX-VN-{uuid.uuid4().hex[:8].upper()}",
+                            },
+                            token=s_token,
+                        )
 
                 # Record order simulation row for DuckDB / reporting
                 for it in order_items:
