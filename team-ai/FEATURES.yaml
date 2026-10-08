@@ -634,3 +634,37 @@ features:
     status: planned
     covered_by: null
     notes: "Scenario: ai/llm_tracing.feature::A chat trace carries the request id. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-eval-gate-runs-the-chat-resilience-cases
+    title: "The eval gate runs the chat resilience cases"
+    persona: admin
+    priority: P1
+    summary: "The eval gate runs the chat resilience cases"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When `make eval` runs in team-ai with no judge configured and no judge cases"
+      - "Then it exits zero and its report lists the primary-429, all-fail and after-first-chunk cases as passed"
+    tags: [ai, eval]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_eval_gate.feature::The eval gate runs the chat resilience cases. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-judge-case-without-a-judge-fails-the-gate
+    title: "A judge case without a judge fails the gate"
+    persona: admin
+    priority: P1
+    summary: "A judge case without a judge fails the gate"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When `make eval` runs with an eval set containing one judge case and `JUDGE_CHAT_MODEL` empty"
+      - "Then it exits non-zero, names that case, and reports a pass rate below 100%"
+    tags: [ai, eval]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ai/llm_eval_gate.feature::A judge case without a judge fails the gate. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
