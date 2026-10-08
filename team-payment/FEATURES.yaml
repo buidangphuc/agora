@@ -175,3 +175,44 @@ features:
       IDOR regression: the wallet RPCs used to trust the request seller_id, so any
       signed-in user could read a seller's wallet or book a payout from it to their
       own bank account.
+
+  - id: payment.local-stack-settles-through-mock-payment
+    title: The local stack settles a checkout through the mock payment
+    persona: buyer
+    priority: P0
+    summary: >-
+      With MOCK_PAYMENTS=true (local compose) ProcessMockPayment settles and the order becomes paid.
+    entry_route: /
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [payment.v1.CreatePayment, payment.v1.ProcessMockPayment]
+    acceptance:
+      - Given a buyer with a pending MOCK_BANK order
+      - When the buyer pays with the mock payment
+      - Then the payment succeeds and the order becomes paid
+    tags: [payment, saga]
+    status: automated
+    covered_by: "payment/mock_payment_gate.feature::The local stack settles a checkout through the mock payment"
+
+  - id: payment.boot-guard-refuses-mock-in-production
+    title: team-payment refuses mock payments in production
+    persona: admin
+    priority: P0
+    summary: >-
+      The team-payment image started with ENV=production and MOCK_PAYMENTS=true exits non-zero and logs MOCK_PAYMENTS.
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    api:
+      exercised: []
+    acceptance:
+      - When the team-payment image is started with ENV=production and MOCK_PAYMENTS=true
+      - Then the process exits non-zero and its log names MOCK_PAYMENTS
+    tags: [payment, ops]
+    status: automated
+    covered_by: "ops/boot_guard_payment.feature::team-payment refuses mock payments in production"
+    notes: >-
+      Standalone docker run --rm of agora-team-payment:local (override with PAYMENT_BOOT_IMAGE); not destructive.
