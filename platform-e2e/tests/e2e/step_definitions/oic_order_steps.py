@@ -468,7 +468,10 @@ def then_comp(saga_view):
 
 
 @when(
-    parsers.parse('"{buyer}" calls ForceFailSaga with fail_step "{fail_step}" on the order'),
+    # re, not parse: parse's {field} never matches the empty fail_step ""
+    parsers.re(
+        r'"(?P<buyer>[^"]+)" calls ForceFailSaga with fail_step "(?P<fail_step>[^"]*)" on the order'
+    ),
     target_fixture="force_fail",
 )
 def when_force_fail(oic, buyer, fail_step):

@@ -401,7 +401,7 @@ features:
       - WHEN a logged-in seller, then an anonymous caller, calls ListingService/CommitReservation through the gateway with the reservation id of a buyer's live order
       - THEN each call answers HTTP 501 with code unimplemented and the listing's stock is unchanged
     tags: [security, edge]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "security/oic_inv_edge_listing_commit.feature::The listing stock commit RPC answers 501 at the edge"
     notes: >-
       Scenario in security/oic_inv_edge_listing_commit.feature. Written ahead of the code (port-order-inventory-correctness); flip to automated once green. RED on the pre-change stack: the running gateway image predates the re-vendored proto and answers HTTP 404 (page not found) instead of 501.

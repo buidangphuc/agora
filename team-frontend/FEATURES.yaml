@@ -2372,8 +2372,8 @@ features:
       - WHEN a buyer places an order on the checkout page and the same checkout submission is sent a second time
       - THEN the buyer has exactly one new order and the listing's stock is reduced once
     tags: [buyer, ui]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/oic_inv_checkout_idempotency.feature::A replayed checkout submission creates no second order"
     notes: >-
       Scenario in frontend/oic_inv_checkout_idempotency.feature. The browser's server-action request is
       recorded and replayed unchanged after the cart is refilled (otherwise an empty cart would fail the
@@ -2395,7 +2395,7 @@ features:
       - WHEN a buyer completes a checkout, adds the listing to the cart again and places a second order from the checkout page
       - THEN the buyer has two distinct new orders
     tags: [buyer, ui]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/oic_inv_checkout_idempotency.feature::A new checkout after a completed one creates a new order"
     notes: >-
       Scenario in frontend/oic_inv_checkout_idempotency.feature. GREEN on the pre-change stack (two orders); it guards the key renewal once the storefront sends keys.

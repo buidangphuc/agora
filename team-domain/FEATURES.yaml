@@ -229,8 +229,8 @@ features:
       - WHEN a buyer checks out quantity 2 of a listing whose stock is 10 through the gateway
       - THEN the listing's stock read through the gateway is 8
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A checkout holds the ordered quantity exactly once"
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Written ahead of the code (port-order-inventory-correctness); flip to automated once green after the code lands. Observed GREEN on the
       pre-change stack (stock 10 -> 8).
@@ -251,8 +251,8 @@ features:
       - WHEN a buyer checks out quantity 2 of a listing with stock 10, and more than the configured reservation TTL plus two sweep intervals of both services pass
       - THEN the listing's stock read through the gateway is still 8 and the order is still Pending
     tags: [order, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A placed order keeps its stock after the reservation TTL"
     notes: >-
       Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
       RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). Scenario in
@@ -274,8 +274,8 @@ features:
       - WHEN a buyer's two-seller checkout fails because the second seller's item is out of stock, and more than the configured reservation TTL plus two sweep intervals then pass
       - THEN the first seller's listing stock read through the gateway equals its stock before the checkout
     tags: [order, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A failed checkout returns its stock once even after the TTL sweep"
     notes: >-
       Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
       RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). The failing item belongs
@@ -298,8 +298,8 @@ features:
       - WHEN a buyer cancels a Pending order for quantity 2 of a listing with stock 10, and more than the configured reservation TTL plus two sweep intervals then pass
       - THEN the listing's stock read through the gateway is 10
     tags: [order, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A cancelled order's stock is returned once even after the TTL sweep"
     notes: >-
       Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
       RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). Scenario in
@@ -321,8 +321,8 @@ features:
       - WHEN the team-domain image is started with RESERVATION_TTL=banana and RESERVATION_SWEEP_INTERVAL=0s
       - THEN it starts, logs a warning naming each variable, and logs the effective TTL 15m0s and interval 1m0s
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::An invalid reservation TTL falls back to the default"
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Runs the real team-domain image with
       docker run against a throwaway database created in the stack's postgres (dropped afterwards); the
@@ -344,8 +344,8 @@ features:
       - WHEN the stack is started with the e2e overlay that sets a short RESERVATION_TTL and RESERVATION_SWEEP_INTERVAL for team-domain and team-order
       - THEN each service logs the overlay values as its effective reservation TTL and sweep interval
     tags: [order, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::The e2e stack runs the sweeper on the configured short cadence"
     notes: >-
       Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
       RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). Scenario in
@@ -367,8 +367,8 @@ features:
       - WHEN a buyer checks out quantity 2 of a listing with stock 10
       - THEN a ListingStockChanged envelope keyed by that listing id with stock 8 appears on listing.events
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A checkout announces the listing's new stock"
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
       (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.
@@ -389,8 +389,8 @@ features:
       - WHEN the buyer then cancels that order
       - THEN a later ListingStockChanged envelope for the listing with stock 10 appears on listing.events
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A cancel announces the restored stock"
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
       (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.

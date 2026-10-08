@@ -504,9 +504,9 @@ features:
       - "When a buyer checks out a cart with one item from seller A (stock available) and one item from seller B whose quantity exceeds B's stock"
       - "Then the call fails with `resource_exhausted`, the buyer has no new order from either seller, seller A's listing stock is back to its value before the checkout, and the cart still holds both items"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::One seller out of stock fails the whole two-seller checkout. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::One seller out of stock fails the whole two-seller checkout"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::One seller out of stock fails the whole two-seller checkout.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-checkout-a-two-seller-checkout-places-one-order-per-selle
     title: "A two-seller checkout places one order per seller"
     persona: buyer
@@ -523,9 +523,9 @@ features:
       - "When a buyer checks out a cart with in-stock items from two sellers"
       - "Then exactly two `Pending` orders are returned, one per seller, each listing's stock is reduced by its quantity, and the checked-out items are removed from the cart"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::A two-seller checkout places one order per seller. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::A two-seller checkout places one order per seller"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::A two-seller checkout places one order per seller.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-checkout-an-unkeyed-retry-after-a-failed-checkout-succeed
     title: "An unkeyed retry after a failed checkout succeeds"
     persona: buyer
@@ -542,9 +542,9 @@ features:
       - "When a buyer's two-seller checkout without an `Idempotency-Key` fails because seller B is out of stock, seller B restocks the listing, and the buyer checks out the same cart again without a key"
       - "Then the second checkout returns one order per seller and seller A's listing stock is reduced by its quantity once"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::An unkeyed retry after a failed checkout succeeds. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::An unkeyed retry after a failed checkout succeeds"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::An unkeyed retry after a failed checkout succeeds.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-checkout-the-same-idempotency-key-returns-the-same-orders
     title: "The same idempotency key returns the same orders"
     persona: buyer
@@ -561,9 +561,9 @@ features:
       - "When a buyer calls `CreateOrder` twice with the same `Idempotency-Key` for a cart with quantity 2 of a listing with stock 10"
       - "Then both calls return the same order ids, the buyer has exactly one new order, and the listing's stock is 8"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::The same idempotency key returns the same orders. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::The same idempotency key returns the same orders"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::The same idempotency key returns the same orders.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-checkout-concurrent-checkouts-with-one-key-create-one-set
     title: "Concurrent checkouts with one key create one set of orders"
     persona: buyer
@@ -580,9 +580,9 @@ features:
       - "When a buyer sends two `CreateOrder` calls with the same `Idempotency-Key` at the same time"
       - "Then each call either returns the same order ids or fails with `aborted`, at least one returns orders, and exactly one order exists with its stock reduced once"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::Concurrent checkouts with one key create one set of orders. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::Concurrent checkouts with one key create one set of orders"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::Concurrent checkouts with one key create one set of orders.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-checkout-a-failed-checkout-frees-its-idempotency-key
     title: "A failed checkout frees its idempotency key"
     persona: buyer
@@ -599,9 +599,9 @@ features:
       - "When a buyer's checkout with key K fails because an item is out of stock, the seller restocks it, and the buyer checks out with key K again"
       - "Then the second call creates the order"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::A failed checkout frees its idempotency key. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::A failed checkout frees its idempotency key"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::A failed checkout frees its idempotency key.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-checkout-idempotency-keys-are-scoped-to-the-buyer
     title: "Idempotency keys are scoped to the buyer"
     persona: buyer
@@ -618,9 +618,9 @@ features:
       - "When two different buyers each check out with the same `Idempotency-Key` value"
       - "Then each buyer receives their own new order"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer.) — red on the pre-change stack, green after the code landed (2026-10-08)."
 
   # ---- port-order-inventory-correctness / order-lifecycle-guards (written from the spec; planned until the code lands).
 
@@ -640,9 +640,9 @@ features:
       - "When the seller calls `UpdateOrderStatus` to `Pending` on their `Completed` order"
       - "Then the call fails and the order read through the gateway is still `Completed`"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A completed order cannot be reopened. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A completed order cannot be reopened"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A completed order cannot be reopened.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-a-seller-cannot-mark-an-order-paid
     title: "A seller cannot mark an order paid"
     persona: buyer
@@ -659,9 +659,9 @@ features:
       - "When the seller calls `UpdateOrderStatus` to `Paid` on their `Pending` order"
       - "Then the call fails with `permission_denied` and the order is still `Pending`"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A seller cannot mark an order paid. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A seller cannot mark an order paid"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A seller cannot mark an order paid.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-skipping-from-paid-straight-to-completed-is-refu
     title: "Skipping from paid straight to completed is refused"
     persona: buyer
@@ -678,9 +678,9 @@ features:
       - "When the seller calls `UpdateOrderStatus` to `Completed` on their `Paid` order"
       - "Then the call fails with `failed_precondition` and the order is still `Paid`"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Skipping from paid straight to completed is refused. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Skipping from paid straight to completed is refused"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Skipping from paid straight to completed is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-the-seller-ships-a-paid-order
     title: "The seller ships a paid order"
     persona: buyer
@@ -697,9 +697,9 @@ features:
       - "When the seller calls `UpdateOrderStatus` to `Shipped` on their `Paid` order"
       - "Then the order is `Shipped`"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::The seller ships a paid order. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::The seller ships a paid order"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::The seller ships a paid order.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-a-stranger-cannot-change-an-order-s-status
     title: "A stranger cannot change an order's status"
     persona: buyer
@@ -716,9 +716,9 @@ features:
       - "When a buyer who is neither the order's buyer nor its seller calls `UpdateOrderStatus` on it"
       - "Then the call fails with `permission_denied` and the order is unchanged"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A stranger cannot change an order's status. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A stranger cannot change an order's status"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A stranger cannot change an order's status.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-concurrent-cancels-restore-stock-once
     title: "Concurrent cancels restore stock once"
     persona: buyer
@@ -735,9 +735,9 @@ features:
       - "When a buyer sends two `CancelOrder` calls for the same `Pending` order (quantity 2, listing stock 8) at the same time"
       - "Then exactly one succeeds, the other fails with `failed_precondition`, and the listing's stock is 10"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Concurrent cancels restore stock once. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Concurrent cancels restore stock once"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Concurrent cancels restore stock once.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-a-cancel-racing-a-shipment-applies-exactly-one-o
     title: "A cancel racing a shipment applies exactly one of them"
     persona: buyer
@@ -754,9 +754,9 @@ features:
       - "When the seller ships a `Paid` order while its buyer cancels it at the same time"
       - "Then exactly one call succeeds; the order is `Shipped` with stock unchanged, or `Cancelled` with its stock restored once"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A cancel racing a shipment applies exactly one of them. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A cancel racing a shipment applies exactly one of them"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A cancel racing a shipment applies exactly one of them.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-cancelling-a-paid-order-restores-its-stock-once
     title: "Cancelling a paid order restores its stock once"
     persona: buyer
@@ -773,9 +773,9 @@ features:
       - "When a buyer cancels their `Paid` order for quantity 2 of a listing with stock 8"
       - "Then the order is `Cancelled` and the listing's stock is 10"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Cancelling a paid order restores its stock once. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Cancelling a paid order restores its stock once"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Cancelling a paid order restores its stock once.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-cancelling-a-shipped-order-is-refused-and-keeps
     title: "Cancelling a shipped order is refused and keeps its stock"
     persona: buyer
@@ -792,9 +792,9 @@ features:
       - "When a buyer cancels their `Shipped` order"
       - "Then the call fails with `failed_precondition`, the order is still `Shipped` and the listing's stock is unchanged"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Cancelling a shipped order is refused and keeps its stock. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Cancelling a shipped order is refused and keeps its stock"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Cancelling a shipped order is refused and keeps its stock.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-a-cancel-whose-stock-release-fails-is-retried-un
     title: "A cancel whose stock release fails is retried until the stock returns"
     persona: buyer
@@ -811,9 +811,9 @@ features:
       - "When a buyer cancels a `Pending` order for quantity 2 of a listing with stock 8 while `team-domain` is stopped, and `team-domain` is then started again"
       - "Then the cancel succeeds with the order `Cancelled`, and within the configured reservation TTL plus two sweep intervals the listing's stock is 10, and stays 10"
     tags: [order, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A cancel whose stock release fails is retried until the stock returns. Red on the pre-change stack until the integrator flips it. Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A cancel whose stock release fails is retried until the stock returns"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A cancel whose stock release fails is retried until the stock returns.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
   - id: order.oic-lifecycle-a-late-payment-after-cancel-is-ignored
     title: "A late payment after cancel is ignored"
     persona: buyer
@@ -830,9 +830,9 @@ features:
       - "When a buyer starts an online payment for a `Pending` order, cancels the order, and the payment then succeeds"
       - "Then the order read through the gateway stays `Cancelled` and its listing's stock is restored once"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A late payment after cancel is ignored. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A late payment after cancel is ignored"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A late payment after cancel is ignored.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-payment-racing-cancel-ends-cancelled-with-stock
     title: "Payment racing cancel ends cancelled with stock restored once"
     persona: buyer
@@ -849,9 +849,9 @@ features:
       - "When a buyer's online payment succeeds while the buyer cancels the same `Pending` order at the same time"
       - "Then the order ends `Cancelled` and its listing's stock is restored once"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Payment racing cancel ends cancelled with stock restored once. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Payment racing cancel ends cancelled with stock restored once"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Payment racing cancel ends cancelled with stock restored once.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-a-late-payment-of-a-cancelled-voucher-order-leav
     title: "A late payment of a cancelled voucher order leaves the voucher unused"
     persona: buyer
@@ -868,9 +868,9 @@ features:
       - "When a buyer checks out with a voucher whose quota is 1, cancels the order, and a payment for that order then succeeds"
       - "Then the order stays `Cancelled` and another buyer can still check out with that voucher"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-lifecycle-shipping-a-cancelled-order-is-refused
     title: "Shipping a cancelled order is refused"
     persona: buyer
@@ -887,9 +887,9 @@ features:
       - "When the seller calls `CreateShipment` for an order the buyer has cancelled"
       - "Then the call fails with `failed_precondition`, no shipment exists for the order, and the order is still `Cancelled`"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Shipping a cancelled order is refused. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Shipping a cancelled order is refused"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Shipping a cancelled order is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
 
   # ---- port-order-inventory-correctness / order-read-access (written from the spec; planned until the code lands).
 
@@ -909,9 +909,9 @@ features:
       - "When the buyer reads the saga view of their `Pending` order"
       - "Then the created and reserved steps are `SUCCESS`, the payment and confirmation steps are `PENDING`, and `is_compensated` is false"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::A pending order's saga view shows payment pending. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A pending order's saga view shows payment pending"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A pending order's saga view shows payment pending.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-paid-order-s-saga-view-shows-the-payment-time
     title: "A paid order's saga view shows the payment time"
     persona: buyer
@@ -928,9 +928,9 @@ features:
       - "When the buyer reads the saga view of an order whose online payment succeeded"
       - "Then the payment step is `SUCCESS` with a timestamp and no compensation is reported"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::A paid order's saga view shows the payment time. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A paid order's saga view shows the payment time"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A paid order's saga view shows the payment time.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-cancelled-order-with-released-stock-shows-comp
     title: "A cancelled order with released stock shows completed compensation"
     persona: buyer
@@ -947,9 +947,9 @@ features:
       - "When the buyer reads the saga view of their `Pending` order after cancelling it"
       - "Then the payment step is `SKIPPED`, the compensation step is `COMPENSATED`, and `is_compensated` is true"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::A cancelled order with released stock shows completed compensation. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A cancelled order with released stock shows completed compensation"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A cancelled order with released stock shows completed compensation.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-cancelled-order-awaiting-a-stock-release-shows
     title: "A cancelled order awaiting a stock release shows compensation pending"
     persona: buyer
@@ -966,9 +966,9 @@ features:
       - "When the buyer reads the saga view of an order cancelled while `team-domain` was stopped, before it is started again"
       - "Then the compensation step is `PENDING` and `is_compensated` is false"
     tags: [order, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::A cancelled order awaiting a stock release shows compensation pending. Red on the pre-change stack until the integrator flips it. Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A cancelled order awaiting a stock release shows compensation pending"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A cancelled order awaiting a stock release shows compensation pending.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
   - id: order.oic-saga-an-unknown-fail-step-is-rejected
     title: "An unknown fail_step is rejected"
     persona: buyer
@@ -985,9 +985,9 @@ features:
       - "When the buyer calls `ForceFailSaga` with `fail_step` \"banana\" on their `Pending` order"
       - "Then the call fails with `invalid_argument` and the order is still `Pending` with its stock still held"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::An unknown fail_step is rejected. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::An unknown fail_step is rejected"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::An unknown fail_step is rejected.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-clean-force-fail-reports-success
     title: "A clean force-fail reports success"
     persona: buyer
@@ -1004,9 +1004,9 @@ features:
       - "When the buyer calls `ForceFailSaga` with `fail_step` \"payment\" on their `Pending` order for quantity 2 of a listing with stock 8"
       - "Then `success` is true, the order is `Cancelled`, the returned saga view is compensated, and the stock is 10"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::A clean force-fail reports success. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A clean force-fail reports success"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A clean force-fail reports success.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-force-fail-with-a-parked-release-reports-failu
     title: "A force-fail with a parked release reports failure"
     persona: buyer
@@ -1023,9 +1023,9 @@ features:
       - "When the buyer calls `ForceFailSaga` on their `Pending` order while `team-domain` is stopped"
       - "Then `success` is false, the message says the stock release is pending retry, and the order is `Cancelled`"
     tags: [order, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::A force-fail with a parked release reports failure. Red on the pre-change stack until the integrator flips it. Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A force-fail with a parked release reports failure"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A force-fail with a parked release reports failure.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
   - id: order.oic-saga-force-failing-a-shipped-order-is-refused
     title: "Force-failing a shipped order is refused"
     persona: buyer
@@ -1042,9 +1042,9 @@ features:
       - "When the buyer calls `ForceFailSaga` on their `Shipped` order"
       - "Then the call fails with `failed_precondition` and the order is still `Shipped`"
     tags: [order]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_saga_view.feature::Force-failing a shipped order is refused. Red on the pre-change stack until the integrator flips it."
+    status: automated
+    covered_by: "order/oic_saga_view.feature::Force-failing a shipped order is refused"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::Force-failing a shipped order is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
 
   # ---- port-order-inventory-correctness / order-upstream-principals (written from the spec; planned until the code lands).
 
@@ -1064,6 +1064,6 @@ features:
       - "When a buyer, whose own scopes do not include `listing.write`, checks out a cart and the configured reservation TTL plus two sweep intervals then pass"
       - "Then the order is created and the listing's stock stays reduced by the ordered quantity"
     tags: [order, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written from the spec ahead of the code: order/oic_upstream_principals.feature::A buyer checkout commits stock as the order service. Red on the pre-change stack until the integrator flips it. Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s)."
+    status: automated
+    covered_by: "order/oic_upstream_principals.feature::A buyer checkout commits stock as the order service"
+    notes: "Written from the spec ahead of the code (order/oic_upstream_principals.feature::A buyer checkout commits stock as the order service.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s)."
