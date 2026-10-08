@@ -31,9 +31,12 @@ def a_then_b_then_update_a(world: World) -> None:
     # Adversarial ids: the pre-change sort was `_id desc`, so a B whose id sorts below A's makes
     # the old code answer A, B. Candidates that do not qualify are deleted (the order of creation
     # A then B is unchanged); the corrected sort passes whatever the ids are.
-    for _ in range(12):
+    # The last candidate is always kept: deleting it too left no B at all (a small A id made
+    # every try miss, ~46% for an A id starting with "1"), and B is never searchable.
+    tries = 12
+    for i in range(tries):
         b = s.create_listing(world, "B", stock=5)
-        if b.id < a.id:
+        if b.id < a.id or i == tries - 1:
             break
         s.ok_json(s.post(s.LISTING + "DeleteListing", {"id": b.id}, seller.token))
     current = s.ok_json(s.post(s.LISTING + "GetListing", {"id": a.id}))["listing"]
