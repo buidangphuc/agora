@@ -299,3 +299,15 @@ def test_grpc_bearer_fallback_refused_outside_local():
             TRUSTED_HOSTS="api.example.com",
             GRPC_BEARER_FALLBACK_ENABLED=True,
         )
+
+
+def test_grpc_rate_limit_is_opt_in_and_redis_backend_needs_redis():
+    assert build_test_settings().GRPC_RATE_LIMIT_ENABLED is False
+    # Off: the backend/redis combination is not checked.
+    build_test_settings(RATE_LIMIT_BACKEND="redis", REDIS_ENABLED=False)
+    with pytest.raises(ValidationError, match="requires REDIS_ENABLED"):
+        build_test_settings(
+            GRPC_RATE_LIMIT_ENABLED=True,
+            RATE_LIMIT_BACKEND="redis",
+            REDIS_ENABLED=False,
+        )

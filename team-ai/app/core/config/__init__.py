@@ -72,6 +72,12 @@ class Settings(
             raise ValueError(
                 "GRPC_BEARER_FALLBACK_ENABLED must be false outside dev/local/test"
             )
+        if (
+            self.GRPC_RATE_LIMIT_ENABLED
+            and self.RATE_LIMIT_BACKEND == "redis"
+            and not self.REDIS_ENABLED
+        ):
+            raise ValueError("RATE_LIMIT_BACKEND=redis requires REDIS_ENABLED=true")
         if not self.ENVIRONMENT.is_production:
             return self
 

@@ -7,6 +7,7 @@ returns a ready-but-unstarted server so tests can drive it in-process.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 import grpc
@@ -20,12 +21,18 @@ from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
 from app.transport.grpc._pb.platform.search.v1 import search_pb2, search_pb2_grpc
 from app.transport.grpc.chat_stream import ChatStreamer
 from app.transport.grpc.interceptors.auth import AuthInterceptor
+from app.transport.grpc.interceptors.rate_limit import (
+    RateLimiter,
+    RateLimitInterceptor,
+)
 from app.transport.grpc.interceptors.tracing import TracingInterceptor
 from app.transport.grpc.servicers.ai import AIServicer
 from app.transport.grpc.servicers.chat import ChatServicer
 from app.transport.grpc.servicers.search import SearchServicer
 
 if TYPE_CHECKING:
+    from redis.asyncio import Redis
+
     from app.transport.grpc.servicers.recommend import RecommendationProvider
     from app.transport.grpc.servicers.search import RagProvider
 
@@ -57,10 +64,25 @@ def build_grpc_server(
     rag_provider: RagProvider,
     chat_streamer: ChatStreamer,
     recommendation_provider: RecommendationProvider | None = None,
+    rate_limiter: RateLimiter | None = None,
 ) -> grpc.aio.Server:
-    server = grpc.aio.server(
-        interceptors=(TracingInterceptor(), AuthInterceptor(settings))
-    )
+    interceptors: list[grpc.aio.ServerInterceptor] = [
+        TracingInterceptor(),
+        AuthInterceptor(settings),
+    ]
+    # After auth: the limiter keys on the principal the auth interceptor resolved.
+    owned_closers: list[Callable[[], Awaitable[None]]] = []
+    if rate_limiter is not None:
+        limiter: RateLimiter | None = rate_limiter
+    else:
+        limiter, redis = _default_rate_limiter(settings)
+        if redis is not None:
+            owned_closers.append(redis.aclose)
+    if limiter is not None:
+        interceptors.append(RateLimitInterceptor(limiter))
+    server = grpc.aio.server(interceptors=tuple(interceptors))
+    # Clients built here (not injected) are closed by stop_grpc_server.
+    server._owned_closers = owned_closers  # type: ignore[attr-defined]
 
     search_pb2_grpc.add_SearchServiceServicer_to_server(
         SearchServicer(rag_provider), server
@@ -97,6 +119,37 @@ def build_grpc_server(
         )
 
     return server
+
+
+async def stop_grpc_server(server: grpc.aio.Server, grace: float | None) -> None:
+    """Stop the server, then close clients ``build_grpc_server`` created itself."""
+    try:
+        await server.stop(grace)
+    finally:
+        for close in getattr(server, "_owned_closers", ()):
+            try:
+                await close()
+            except Exception:
+                logger.exception("grpc.server.owned_client_close_failed")
+
+
+def _default_rate_limiter(
+    settings: Settings,
+) -> tuple[RateLimiter | None, Redis | None]:
+    """Per-principal limiter for StreamChat/ShoppingAssistant from the shared factory.
+
+    Also returns the Redis client it built (if any) so the caller can close it.
+    """
+    if not settings.GRPC_RATE_LIMIT_ENABLED:
+        return None, None
+    from app.modules.platform.rate_limit.factory import build_principal_rate_limiter
+
+    redis = None
+    if settings.RATE_LIMIT_BACKEND == "redis":
+        from app.core.redis import build_redis_client
+
+        redis = build_redis_client(settings)
+    return build_principal_rate_limiter(settings, redis=redis), redis
 
 
 def _register_recommendation_service(
@@ -169,5 +222,5 @@ async def serve(
     try:
         await server.wait_for_termination()
     finally:
-        await server.stop(settings.GRPC_GRACE_SECONDS)
+        await stop_grpc_server(server, settings.GRPC_GRACE_SECONDS)
         logger.info("grpc.server.stopped")

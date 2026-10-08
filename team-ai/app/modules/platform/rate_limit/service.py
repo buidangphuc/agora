@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from time import monotonic
+from time import monotonic, time
 
 DEFAULT_EVICTION_THRESHOLD = 10_000
 
@@ -136,7 +136,9 @@ return {weighted_after, retry_after, 1}
         self.limit = limit
         self.window_seconds = window_seconds
         self.prefix = prefix
-        self.clock = clock or monotonic
+        # Wall clock: the window index is part of a Redis key shared by every
+        # replica, and monotonic() is per-process, so replicas would disagree.
+        self.clock = clock or time
 
     async def check(self, key: str) -> RateLimitResult:
         now = self.clock()
