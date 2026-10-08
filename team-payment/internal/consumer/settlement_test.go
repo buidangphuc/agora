@@ -303,6 +303,11 @@ func (a *failingApplier) RefundCancelledOrder(context.Context, string) error {
 	return errors.New("connection refused")
 }
 
+func (a *failingApplier) RefundReturn(context.Context, string, string, int64) error {
+	a.calls.Add(1)
+	return errors.New("connection refused")
+}
+
 func TestConsumer_TransientErrorRetriedThenDLQ(t *testing.T) {
 	a := &failingApplier{}
 	reader := &fakeReader{records: []consumer.Record{paidRecord(t, "o1", 100, "s1")}}
