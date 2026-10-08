@@ -34,6 +34,7 @@ var serviceOnlyScopes = []enforcedScope{
 	{"order.read", "team-order (GetOrder for a service principal, held by team-payment and team-engagement)"},
 	{"promotion.reserve", "team-promotion (ValidateAndReserve service path, CommitReservation, ReleaseReservation; held by service-team-order)"},
 	{"audit.write", "team-audit (WriteAuditEvent; held by any audit-producing service)"},
+	{"identity.read", "team-identity (GetPublicProfiles for a service principal, held by team-notification)"},
 	{"features.read", "team-analytics FeatureService GetOnlineFeatures/DescribeFeatures (held by service-team-ai)"},
 	{"features.dataset", "team-analytics FeatureService BuildDataset/GetDatasetBuild (held by service-platform-recsys, the recsys trainer)"},
 }

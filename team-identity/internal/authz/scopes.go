@@ -15,13 +15,14 @@ const (
 // recommendations:read and ai:use are the team-ai gates (gateway-and-ai-hardening D7,
 // order-domain-correctness); they are not in the gateway's public (anonymous) scope set.
 //
-// Six SERVICE-ONLY scopes are deliberately granted to NO role; they live only on a
+// Seven SERVICE-ONLY scopes are deliberately granted to NO role; they live only on a
 // service principal and are declared in coverage_test.go (serviceOnlyScopes):
 //   - inventory.write   team-domain stock RPCs, held by service-team-order
 //   - order.read        team-order GetOrder, held by the service principals of team-payment
 //     and team-engagement
 //   - promotion.reserve team-promotion voucher saga RPCs, held by service-team-order
 //   - audit.write       team-audit WriteAuditEvent, held by audit-producing services
+//   - identity.read     team-identity GetPublicProfiles, held by team-notification
 //   - features.read     FeatureService online serving, held by service-team-ai
 //   - features.dataset  FeatureService BuildDataset/GetDatasetBuild, held by the recsys trainer
 //
