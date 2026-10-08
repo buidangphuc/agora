@@ -45,6 +45,8 @@ message SearchListingsRequest {
   platform.common.v1.PageRequest page = 2;
   // Optional structured filters (e.g. status, currency), applied alongside the
   // free-text match. Engine translates these to term filters.
+  // Known keys include category_id, seller_id, status and in_stock ("true" keeps
+  // only listings whose projected stock is > 0).
   map<string, string> filters = 3;
   string category_id = 4;
   int64 min_price = 5;
@@ -57,6 +59,10 @@ message SearchListingsRequest {
 message SearchHit {
   string listing_id = 1;
   float score = 2;
+  // The listing's base stock as projected into the search read-model from
+  // listing.events (ListingStockChanged / ListingChanged). Absent = unknown (not
+  // projected yet). Filled on SearchListings and RunSavedSearch.
+  optional int32 stock = 3;
 }
 
 message SearchListingsResponse {

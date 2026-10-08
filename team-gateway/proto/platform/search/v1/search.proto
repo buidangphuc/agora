@@ -17,6 +17,13 @@ enum SortBy {
   SORT_BY_NEWEST = 4;      // Newest listings first
 }
 
+enum SearchMode {
+  SEARCH_MODE_UNSPECIFIED = 0; // Default: HYBRID when semantic retrieval is configured
+  SEARCH_MODE_HYBRID = 1;      // Multi-strategy fusion (BM25 + k-NN Dense Vector)
+  SEARCH_MODE_LEXICAL = 2;     // BM25 text match only
+  SEARCH_MODE_SEMANTIC = 3;    // Dense vector nearest neighbors only
+}
+
 // Owned by team-search. Reads its OWN OpenSearch read-model (rebuildable by
 // replaying Kafka); never joins another service's DB (Rule 3).
 service SearchService {
@@ -38,17 +45,24 @@ message SearchListingsRequest {
   platform.common.v1.PageRequest page = 2;
   // Optional structured filters (e.g. status, currency), applied alongside the
   // free-text match. Engine translates these to term filters.
+  // Known keys include category_id, seller_id, status and in_stock ("true" keeps
+  // only listings whose projected stock is > 0).
   map<string, string> filters = 3;
   string category_id = 4;
   int64 min_price = 5;
   int64 max_price = 6;
   SortBy sort_by = 7;
   int32 min_rating = 8;
+  SearchMode search_mode = 9;
 }
 
 message SearchHit {
   string listing_id = 1;
   float score = 2;
+  // The listing's base stock as projected into the search read-model from
+  // listing.events (ListingStockChanged / ListingChanged). Absent = unknown (not
+  // projected yet). Filled on SearchListings and RunSavedSearch.
+  optional int32 stock = 3;
 }
 
 message SearchListingsResponse {
