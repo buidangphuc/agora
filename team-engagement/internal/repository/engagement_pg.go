@@ -337,6 +337,19 @@ func (r *PostgresRepository) UpsertSellerListing(ctx context.Context, sellerID, 
 	return nil
 }
 
+func (r *PostgresRepository) ListingSeller(ctx context.Context, listingID string) (string, bool, error) {
+	var sellerID string
+	err := r.pool.QueryRow(ctx,
+		`SELECT seller_id FROM seller_listings WHERE listing_id = $1 LIMIT 1`, listingID).Scan(&sellerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("listing seller: %w", err)
+	}
+	return sellerID, true, nil
+}
+
 func (r *PostgresRepository) RemoveSellerListing(ctx context.Context, listingID string) error {
 	if _, err := r.pool.Exec(ctx, `DELETE FROM seller_listings WHERE listing_id = $1`, listingID); err != nil {
 		return fmt.Errorf("remove seller listing: %w", err)

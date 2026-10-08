@@ -20,6 +20,7 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 func startServer(t *testing.T) engagementv1.EngagementServiceClient {
@@ -36,7 +37,13 @@ func startServer(t *testing.T) engagementv1.EngagementServiceClient {
 	disputeSvc := service.NewDisputeService(disputeRepo, logger)
 	collectionRepo := repository.NewInMemoryCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), reviewSvc, qaSvc, disputeSvc, collectionSvc)
+	repo := repository.NewInMemoryRepository()
+	// seller-qa owns item-qa-1 (the seller_listings projection is what grants the shop badge).
+	if err := repo.IndexSellerListing(context.Background(), "seller-qa", "item-qa-1"); err != nil {
+		t.Fatalf("seed seller listing: %v", err)
+	}
+	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc,
+		handler.WithOrderParties(stubOrders{}))
 	srv := grpcserver.Build(s, h, nil, logger)
 
 	lis, err := net.Listen("tcp", "localhost:0")
@@ -226,6 +233,16 @@ func TestProductQALifecycle(t *testing.T) {
 	if len(listResp.GetQuestions()[0].GetAnswers()) != 1 {
 		t.Fatalf("want 1 answer in question, got %d", len(listResp.GetQuestions()[0].GetAnswers()))
 	}
+}
+
+// stubOrders: order-999 belongs to buyer-disp and is sold by seller-123.
+type stubOrders struct{}
+
+func (stubOrders) GetOrderParties(_ context.Context, id string) (string, string, error) {
+	if id == "order-999" {
+		return "buyer-disp", "seller-123", nil
+	}
+	return "", "", upstream.ErrOrderNotFound
 }
 
 func TestDisputeLifecycle(t *testing.T) {

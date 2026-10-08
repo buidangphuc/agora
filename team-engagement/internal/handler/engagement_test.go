@@ -26,7 +26,9 @@ func TestEngagementHandler(t *testing.T) {
 	collectionRepo := repository.NewInMemoryCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, nil)
 
-	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc)
+	// buyer_test owns order-1, sold by seller-1 (CreateDispute verifies this).
+	orders := fakeOrders{"order-1": {buyer: "buyer_test", seller: "seller-1"}}
+	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc, handler.WithOrderParties(orders))
 
 	principal := &commonv1.Principal{
 		Id:     "buyer_test",
@@ -218,6 +220,10 @@ func TestEngagementHandler(t *testing.T) {
 		}
 		qID := qRes.GetQuestion().GetId()
 
+		// seller_1 owns listing-qa-1 per the listing.events projection.
+		if err := repo.IndexSellerListing(ctx, "seller_1", "listing-qa-1"); err != nil {
+			t.Fatalf("index seller listing: %v", err)
+		}
 		// Answer question
 		sellerCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 			Id:     "seller_1",

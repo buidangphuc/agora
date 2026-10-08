@@ -51,6 +51,9 @@ type Observability struct {
 // DBs, Rule 3). Empty OrderAddr disables verified-purchase enrichment.
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:""`
+	// CallTimeoutSeconds bounds each upstream lookup (also capped to the inbound
+	// request deadline minus a margin), so a dead sibling cannot hang a handler.
+	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
 }
 
 // Kafka configures the listing.events consumer that fills the follow-feed source
@@ -91,6 +94,9 @@ func (s *Settings) Validate() error {
 	}
 	if s.Kafka.Enabled && (len(s.KafkaBrokers()) == 0 || strings.TrimSpace(s.Kafka.ListingTopic) == "" || strings.TrimSpace(s.Kafka.ConsumerGroup) == "") {
 		return errors.New("KAFKA_BROKERS, KAFKA_LISTING_TOPIC and KAFKA_CONSUMER_GROUP are required when KAFKA_ENABLED=true")
+	}
+	if s.Upstream.CallTimeoutSeconds <= 0 {
+		return errors.New("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0")
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
