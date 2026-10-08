@@ -621,3 +621,272 @@ features:
     status: planned
     covered_by: null
     notes: "Written from the spec ahead of the code: order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer. Red on the pre-change stack until the integrator flips it."
+
+  # ---- port-order-inventory-correctness / order-lifecycle-guards (written from the spec; planned until the code lands).
+
+  - id: order.oic-lifecycle-a-completed-order-cannot-be-reopened
+    title: "A completed order cannot be reopened"
+    persona: buyer
+    priority: P1
+    summary: "A completed order cannot be reopened"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Pending` on their `Completed` order"
+      - "Then the call fails and the order read through the gateway is still `Completed`"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A completed order cannot be reopened. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-a-seller-cannot-mark-an-order-paid
+    title: "A seller cannot mark an order paid"
+    persona: buyer
+    priority: P1
+    summary: "A seller cannot mark an order paid"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Paid` on their `Pending` order"
+      - "Then the call fails with `permission_denied` and the order is still `Pending`"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A seller cannot mark an order paid. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-skipping-from-paid-straight-to-completed-is-refu
+    title: "Skipping from paid straight to completed is refused"
+    persona: buyer
+    priority: P1
+    summary: "Skipping from paid straight to completed is refused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Completed` on their `Paid` order"
+      - "Then the call fails with `failed_precondition` and the order is still `Paid`"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Skipping from paid straight to completed is refused. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-the-seller-ships-a-paid-order
+    title: "The seller ships a paid order"
+    persona: buyer
+    priority: P1
+    summary: "The seller ships a paid order"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Shipped` on their `Paid` order"
+      - "Then the order is `Shipped`"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::The seller ships a paid order. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-a-stranger-cannot-change-an-order-s-status
+    title: "A stranger cannot change an order's status"
+    persona: buyer
+    priority: P1
+    summary: "A stranger cannot change an order's status"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer who is neither the order's buyer nor its seller calls `UpdateOrderStatus` on it"
+      - "Then the call fails with `permission_denied` and the order is unchanged"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A stranger cannot change an order's status. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-concurrent-cancels-restore-stock-once
+    title: "Concurrent cancels restore stock once"
+    persona: buyer
+    priority: P1
+    summary: "Concurrent cancels restore stock once"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer sends two `CancelOrder` calls for the same `Pending` order (quantity 2, listing stock 8) at the same time"
+      - "Then exactly one succeeds, the other fails with `failed_precondition`, and the listing's stock is 10"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Concurrent cancels restore stock once. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-a-cancel-racing-a-shipment-applies-exactly-one-o
+    title: "A cancel racing a shipment applies exactly one of them"
+    persona: buyer
+    priority: P1
+    summary: "A cancel racing a shipment applies exactly one of them"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller ships a `Paid` order while its buyer cancels it at the same time"
+      - "Then exactly one call succeeds; the order is `Shipped` with stock unchanged, or `Cancelled` with its stock restored once"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A cancel racing a shipment applies exactly one of them. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-cancelling-a-paid-order-restores-its-stock-once
+    title: "Cancelling a paid order restores its stock once"
+    persona: buyer
+    priority: P1
+    summary: "Cancelling a paid order restores its stock once"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer cancels their `Paid` order for quantity 2 of a listing with stock 8"
+      - "Then the order is `Cancelled` and the listing's stock is 10"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Cancelling a paid order restores its stock once. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-cancelling-a-shipped-order-is-refused-and-keeps
+    title: "Cancelling a shipped order is refused and keeps its stock"
+    persona: buyer
+    priority: P1
+    summary: "Cancelling a shipped order is refused and keeps its stock"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer cancels their `Shipped` order"
+      - "Then the call fails with `failed_precondition`, the order is still `Shipped` and the listing's stock is unchanged"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Cancelling a shipped order is refused and keeps its stock. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-a-cancel-whose-stock-release-fails-is-retried-un
+    title: "A cancel whose stock release fails is retried until the stock returns"
+    persona: buyer
+    priority: P1
+    summary: "A cancel whose stock release fails is retried until the stock returns"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer cancels a `Pending` order for quantity 2 of a listing with stock 8 while `team-domain` is stopped, and `team-domain` is then started again"
+      - "Then the cancel succeeds with the order `Cancelled`, and within the configured reservation TTL plus two sweep intervals the listing's stock is 10, and stays 10"
+    tags: [order, destructive]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A cancel whose stock release fails is retried until the stock returns. Red on the pre-change stack until the integrator flips it. Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+  - id: order.oic-lifecycle-a-late-payment-after-cancel-is-ignored
+    title: "A late payment after cancel is ignored"
+    persona: buyer
+    priority: P1
+    summary: "A late payment after cancel is ignored"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer starts an online payment for a `Pending` order, cancels the order, and the payment then succeeds"
+      - "Then the order read through the gateway stays `Cancelled` and its listing's stock is restored once"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A late payment after cancel is ignored. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-payment-racing-cancel-ends-cancelled-with-stock
+    title: "Payment racing cancel ends cancelled with stock restored once"
+    persona: buyer
+    priority: P1
+    summary: "Payment racing cancel ends cancelled with stock restored once"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer's online payment succeeds while the buyer cancels the same `Pending` order at the same time"
+      - "Then the order ends `Cancelled` and its listing's stock is restored once"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Payment racing cancel ends cancelled with stock restored once. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-a-late-payment-of-a-cancelled-voucher-order-leav
+    title: "A late payment of a cancelled voucher order leaves the voucher unused"
+    persona: buyer
+    priority: P1
+    summary: "A late payment of a cancelled voucher order leaves the voucher unused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer checks out with a voucher whose quota is 1, cancels the order, and a payment for that order then succeeds"
+      - "Then the order stays `Cancelled` and another buyer can still check out with that voucher"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused. Red on the pre-change stack until the integrator flips it."
+  - id: order.oic-lifecycle-shipping-a-cancelled-order-is-refused
+    title: "Shipping a cancelled order is refused"
+    persona: buyer
+    priority: P1
+    summary: "Shipping a cancelled order is refused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `CreateShipment` for an order the buyer has cancelled"
+      - "Then the call fails with `failed_precondition`, no shipment exists for the order, and the order is still `Cancelled`"
+    tags: [order]
+    status: planned
+    covered_by: null
+    notes: "Written from the spec ahead of the code: order/oic_lifecycle_guards.feature::Shipping a cancelled order is refused. Red on the pre-change stack until the integrator flips it."
