@@ -45,7 +45,8 @@ def _principal_from_metadata(metadata: dict[str, Any]) -> Principal | None:
         return None
     ptype = _decode(metadata.get("x-principal-type")) or "anonymous"
     if ptype not in _PRINCIPAL_TYPES:
-        ptype = "user"
+        # fail closed: an unrecognised type gets no user identity
+        ptype = "anonymous"
     scopes_raw = _decode(metadata.get("x-principal-scopes"))
     scopes = tuple(s.strip() for s in scopes_raw.split(",") if s.strip())
     return Principal(
