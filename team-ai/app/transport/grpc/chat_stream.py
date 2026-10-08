@@ -28,7 +28,11 @@ from app.core.config import Settings
 from app.core.errors import RateLimitError
 from app.core.redaction import RedactionPolicy
 from app.core.resilience import FailureKind, RetryPolicy, TimeoutPolicy
-from app.modules.ai.llm.langfuse import build_langfuse_tracker
+from app.modules.ai.llm.langfuse import (
+    LangfuseLLMTracker,
+    LLMTraceContext,
+    build_langfuse_tracker,
+)
 from app.modules.ai.llm.prompt import STATIC_SYSTEM_PROMPT, PromptProvider
 from app.modules.ai.llm.router import ModelRouter
 from app.modules.ai.llm.session import (
@@ -137,6 +141,7 @@ class LLMRouterChatStreamer:
         max_attempts: int = 3,
         quota_provider: Callable[[], QuotaService | None] | None = None,
         quota_policy: QuotaPolicy | None = None,
+        tracker: LangfuseLLMTracker | None = None,
         prompt_provider: PromptProvider | None = None,
         session_store: SessionStore | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
@@ -148,7 +153,8 @@ class LLMRouterChatStreamer:
         self._quota_provider = quota_provider
         self._quota_policy = quota_policy
         self._redaction = RedactionPolicy.for_llm_input()
-        self._prompts = prompt_provider or PromptProvider()
+        self._tracker = tracker
+        self._prompts = prompt_provider or PromptProvider(tracker)
         self._sessions = session_store
         self._sleep = sleep
         self._clock = clock
@@ -233,7 +239,14 @@ class LLMRouterChatStreamer:
                 timeout = self._first_token_timeout.timeout_seconds
                 if remaining is not None:
                     timeout = min(timeout, remaining)
-                stream = model.astream(messages).__aiter__()  # type: ignore[arg-type]
+                config = self._trace_config(
+                    target=target,
+                    attempt=attempts,
+                    session_id=session_id,
+                    principal_id=principal_id,
+                    request_id=request_id,
+                )
+                stream = model.astream(messages, config=config).__aiter__()  # type: ignore[arg-type]
                 usage = UsageAccumulator()
                 try:
                     first = await asyncio.wait_for(_next_text(stream, usage), timeout)
@@ -405,6 +418,33 @@ class LLMRouterChatStreamer:
         )
         return result
 
+    def _trace_config(
+        self,
+        *,
+        target: str,
+        attempt: int,
+        session_id: str,
+        principal_id: str,
+        request_id: str,
+    ) -> dict[str, Any] | None:
+        """Langfuse/LangChain ``config`` for one attempt (None without a tracker).
+
+        Carries session, principal and request ids plus the target. A disabled
+        tracker yields tags/metadata but no callbacks, so the call is behaviourally
+        identical to an untraced one.
+        """
+        if self._tracker is None:
+            return None
+        return self._tracker.trace_config(
+            LLMTraceContext(
+                session_id=session_id or None,
+                user_id=principal_id or None,
+                request_id=request_id or None,
+                tags=("grpc", "chat", f"target:{target}"),
+                metadata={"target": target, "attempt": attempt},
+            )
+        )
+
     def _candidate_targets(self) -> list[str]:
         if not self._router.fallback_models():
             return [""]  # no CHAT_MODEL configured: router serves its fake model
@@ -528,19 +568,21 @@ def build_chat_streamer(
         return MockChatStreamer()
 
     if settings.CHAT_BACKEND == "llm_router":
+        tracker = build_langfuse_tracker(
+            settings,
+            instance_id="grpc-chat",
+            service_name="team-ai.chat",
+            tags=("grpc", "chat"),
+        )
         return LLMRouterChatStreamer(
             ModelRouter(settings),
             first_token_timeout_seconds=settings.LLM_FIRST_TOKEN_TIMEOUT_SECONDS,
             max_attempts=settings.LLM_MAX_ATTEMPTS,
             quota_provider=quota_provider if settings.QUOTA_ENABLED else None,
             quota_policy=_chat_quota_policy(settings),
+            tracker=tracker,
             prompt_provider=PromptProvider(
-                build_langfuse_tracker(
-                    settings,
-                    instance_id="grpc-chat",
-                    service_name="team-ai.chat",
-                    tags=("grpc", "chat"),
-                ),
+                tracker,
                 fallback=settings.CHAT_SYSTEM_PROMPT.strip() or STATIC_SYSTEM_PROMPT,
             ),
             session_store=_build_session_store(settings),
