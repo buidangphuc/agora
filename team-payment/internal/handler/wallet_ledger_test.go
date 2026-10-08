@@ -21,7 +21,7 @@ func setupLedgerHandler() (*handler.PaymentHandler, *repository.InMemoryLedgerRe
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ledger := repository.NewInMemoryLedgerRepository()
 	svc := service.NewPaymentService(nil, nil, nil, logger, service.WithLedgerRepo(ledger))
-	return handler.NewPaymentHandler(svc, logger), ledger
+	return handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true)), ledger
 }
 
 func authCtx(id string) context.Context {

@@ -35,6 +35,9 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+	if err := settings.RequireNoMockPayments(); err != nil {
+		return err
+	}
 
 	var handlerOpts slog.HandlerOptions
 	if settings.Runtime.LogLevel == "debug" {
@@ -97,7 +100,7 @@ func run() error {
 	}
 	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo))
 	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, svcOpts...)
-	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger)
+	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(settings.Mock.MockPayments))
 
 	srv := grpcserver.Build(settings, paymentHandler, res.Health, logger)
 

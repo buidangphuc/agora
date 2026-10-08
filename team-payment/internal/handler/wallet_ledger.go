@@ -51,7 +51,7 @@ func (h *PaymentHandler) GetWalletBalance(ctx context.Context, req *paymentv1.Ge
 
 	balance, err := h.svc.GetWalletBalance(ctx, sellerID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get wallet balance: %v", err)
+		return nil, h.internalError(ctx, "get wallet balance", err)
 	}
 
 	return &paymentv1.GetWalletBalanceResponse{Balance: balance}, nil
@@ -68,7 +68,7 @@ func (h *PaymentHandler) ListLedgerEntries(ctx context.Context, req *paymentv1.L
 		if errors.Is(err, service.ErrInvalidPageToken) {
 			return nil, status.Error(codes.InvalidArgument, "invalid page cursor")
 		}
-		return nil, status.Errorf(codes.Internal, "list ledger entries: %v", err)
+		return nil, h.internalError(ctx, "list ledger entries", err)
 	}
 
 	wireEntries := make([]*paymentv1.WalletEntry, 0, len(entries))
@@ -102,7 +102,7 @@ func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1
 		if errors.Is(err, repository.ErrInsufficientBalance) {
 			return nil, status.Error(codes.FailedPrecondition, "insufficient wallet balance")
 		}
-		return nil, status.Errorf(codes.Internal, "request wallet payout: %v", err)
+		return nil, h.internalError(ctx, "request wallet payout", err)
 	}
 
 	return &paymentv1.RequestWalletPayoutResponse{Entry: toWireLedgerEntry(entry)}, nil
