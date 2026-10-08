@@ -51,11 +51,14 @@ const (
 
 // Saga is the durable header row for one checkout attempt.
 type Saga struct {
-	ID        string
-	BuyerID   string
-	Status    SagaStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID      string
+	BuyerID string
+	// IdempotencyKey is the client's Idempotency-Key ("" when none). Unique per
+	// buyer while set; compensation clears it so the key can be reused.
+	IdempotencyKey string
+	Status         SagaStatus
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // Reservation is one durable stock-reservation intent. It is persisted BEFORE the
@@ -79,7 +82,9 @@ type Reservation struct {
 // SagaRepository persists saga + reservation state so the purchase path is
 // recoverable across restarts and compensations are never lost.
 type SagaRepository interface {
-	CreateSaga(ctx context.Context, s Saga) (Saga, error)
+	// CreateSaga inserts a saga. With an IdempotencyKey it is insert-or-lookup on
+	// (buyer, key): created=false returns the saga that already holds the key.
+	CreateSaga(ctx context.Context, s Saga) (saga Saga, created bool, err error)
 	GetSaga(ctx context.Context, id string) (Saga, error)
 	UpdateSagaStatus(ctx context.Context, id string, status SagaStatus) error
 
@@ -118,7 +123,7 @@ func scanReservation(row pgx.Row, r *Reservation) error {
 	return nil
 }
 
-func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, error) {
+func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, bool, error) {
 	if s.ID == "" {
 		s.ID = uuid.NewString()
 	}
@@ -126,20 +131,48 @@ func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, 
 		s.Status = SagaStatusPending
 	}
 	s.CreatedAt = time.Now()
-	s.UpdatedAt = time.Now()
-	const q = `INSERT INTO order_sagas (id, buyer_id, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)`
-	if _, err := r.pool.Exec(ctx, q, s.ID, s.BuyerID, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
-		return Saga{}, fmt.Errorf("insert saga: %w", err)
+	s.UpdatedAt = s.CreatedAt
+	if s.IdempotencyKey == "" {
+		const q = `INSERT INTO order_sagas (id, buyer_id, status, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5)`
+		if _, err := r.pool.Exec(ctx, q, s.ID, s.BuyerID, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
+			return Saga{}, false, fmt.Errorf("insert saga: %w", err)
+		}
+		return s, true, nil
 	}
-	return s, nil
+
+	// Insert-or-lookup on the partial unique index (buyer_id, idempotency_key).
+	const ins = `INSERT INTO order_sagas (id, buyer_id, status, idempotency_key, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (buyer_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`
+	const sel = `SELECT ` + sagaColumns + ` FROM order_sagas WHERE buyer_id = $1 AND idempotency_key = $2`
+	// The holder may free the key (compensation) between our conflicting insert and
+	// our lookup; the next insert then succeeds, so retry a few times.
+	for attempt := 0; attempt < 3; attempt++ {
+		ct, err := r.pool.Exec(ctx, ins, s.ID, s.BuyerID, int32(s.Status), s.IdempotencyKey, s.CreatedAt, s.UpdatedAt)
+		if err != nil {
+			return Saga{}, false, fmt.Errorf("insert saga: %w", err)
+		}
+		if ct.RowsAffected() == 1 {
+			return s, true, nil
+		}
+		var existing Saga
+		if err := scanSaga(r.pool.QueryRow(ctx, sel, s.BuyerID, s.IdempotencyKey), &existing); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return Saga{}, false, fmt.Errorf("lookup saga by idempotency key: %w", err)
+		}
+		return existing, false, nil
+	}
+	return Saga{}, false, fmt.Errorf("idempotency key contended for buyer %q; retry", s.BuyerID)
 }
 
-const sagaColumns = `id, buyer_id, status, created_at, updated_at`
+const sagaColumns = `id, buyer_id, COALESCE(idempotency_key, ''), status, created_at, updated_at`
 
 func scanSaga(row pgx.Row, s *Saga) error {
 	var statusInt int32
-	if err := row.Scan(&s.ID, &s.BuyerID, &statusInt, &s.CreatedAt, &s.UpdatedAt); err != nil {
+	if err := row.Scan(&s.ID, &s.BuyerID, &s.IdempotencyKey, &statusInt, &s.CreatedAt, &s.UpdatedAt); err != nil {
 		return err
 	}
 	s.Status = SagaStatus(statusInt)
@@ -158,7 +191,11 @@ func (r *PostgresSagaRepository) GetSaga(ctx context.Context, id string) (Saga, 
 }
 
 func (r *PostgresSagaRepository) UpdateSagaStatus(ctx context.Context, id string, status SagaStatus) error {
-	const q = `UPDATE order_sagas SET status = $2, updated_at = now() WHERE id = $1`
+	// COMPENSATED / FAILED free the idempotency key in the same statement, so the
+	// client's next request with that key runs a fresh checkout.
+	const q = `UPDATE order_sagas SET status = $2, updated_at = now(),
+		idempotency_key = CASE WHEN $2 IN (3, 4) THEN NULL ELSE idempotency_key END
+		WHERE id = $1`
 	if _, err := r.pool.Exec(ctx, q, id, int32(status)); err != nil {
 		return fmt.Errorf("update saga status: %w", err)
 	}
@@ -302,9 +339,16 @@ func NewInMemorySagaRepositoryWithStore(store *reservationStore) *InMemorySagaRe
 	return &InMemorySagaRepository{store: store}
 }
 
-func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, error) {
+func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, bool, error) {
 	r.store.mu.Lock()
 	defer r.store.mu.Unlock()
+	if s.IdempotencyKey != "" {
+		for _, existing := range r.store.sagas {
+			if existing.BuyerID == s.BuyerID && existing.IdempotencyKey == s.IdempotencyKey {
+				return existing, false, nil
+			}
+		}
+	}
 	if s.ID == "" {
 		s.ID = uuid.NewString()
 	}
@@ -312,9 +356,9 @@ func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, er
 		s.Status = SagaStatusPending
 	}
 	s.CreatedAt = time.Now()
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = s.CreatedAt
 	r.store.sagas[s.ID] = s
-	return s, nil
+	return s, true, nil
 }
 
 func (r *InMemorySagaRepository) GetSaga(_ context.Context, id string) (Saga, error) {
@@ -335,6 +379,9 @@ func (r *InMemorySagaRepository) UpdateSagaStatus(_ context.Context, id string, 
 		return fmt.Errorf("saga %q not found", id)
 	}
 	s.Status = status
+	if status == SagaStatusCompensated || status == SagaStatusFailed {
+		s.IdempotencyKey = "" // free the key (mirrors the Postgres statement)
+	}
 	s.UpdatedAt = time.Now()
 	r.store.sagas[id] = s
 	return nil

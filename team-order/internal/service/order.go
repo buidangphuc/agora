@@ -106,29 +106,65 @@ func (s *OrderService) CreateOrdersFromCart(
 	targetItemIDs []string,
 	paymentMethod int32,
 	voucherCode string,
+	checkoutOpts ...CheckoutOption,
 ) ([]repository.Order, error) {
+	var cfg checkoutConfig
+	for _, opt := range checkoutOpts {
+		opt(&cfg)
+	}
+
+	// With a client key the saga header is the dedupe record (design D8), taken
+	// BEFORE the cart is read: a replay must work after the first attempt emptied
+	// the cart, and concurrent same-key requests collapse here, before reserving.
+	var saga repository.Saga
+	keyed := cfg.idempotencyKey != ""
+	if keyed {
+		sg, created, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID, IdempotencyKey: cfg.idempotencyKey})
+		if err != nil {
+			return nil, fmt.Errorf("create saga: %w", err)
+		}
+		if !created {
+			return s.replayCheckout(ctx, buyerID, sg)
+		}
+		saga = sg
+	}
+	// abandon frees the key of a keyed saga whose checkout never reserved anything.
+	abandon := func(cause error) ([]repository.Order, error) {
+		if keyed {
+			bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+			defer cancel()
+			if err := s.sagaRepo.UpdateSagaStatus(bg, saga.ID, repository.SagaStatusFailed); err != nil {
+				s.logger.ErrorContext(ctx, "failed to free the idempotency key of an abandoned checkout",
+					slog.String("saga_id", saga.ID), slog.Any("err", err))
+			}
+		}
+		return nil, cause
+	}
+
 	cartItems, err := s.cartRepo.GetCart(ctx, buyerID)
 	if err != nil {
-		return nil, fmt.Errorf("get cart: %w", err)
+		return abandon(fmt.Errorf("get cart: %w", err))
 	}
 	itemsToCheckout := selectItems(cartItems, targetItemIDs)
 	if len(itemsToCheckout) == 0 {
-		return nil, ErrEmptyCart
+		return abandon(ErrEmptyCart)
 	}
 
 	// A buyer may not buy their own listing: reject the whole checkout before any
 	// stock or voucher is reserved.
 	for _, it := range itemsToCheckout {
 		if it.SellerID != "" && it.SellerID == buyerID {
-			return nil, ErrSelfPurchase
+			return abandon(ErrSelfPurchase)
 		}
 	}
 
-	// Persist a durable saga header (one per checkout attempt) so reservations are
-	// recoverable across a crash/restart (AD3).
-	saga, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID})
-	if err != nil {
-		return nil, fmt.Errorf("create saga: %w", err)
+	if !keyed {
+		// One durable saga header per checkout attempt (AD3).
+		sg, _, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID})
+		if err != nil {
+			return nil, fmt.Errorf("create saga: %w", err)
+		}
+		saga = sg
 	}
 	return s.runCheckout(ctx, saga, buyerID, shippingAddr, itemsToCheckout, paymentMethod, voucherCode)
 }

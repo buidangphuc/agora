@@ -73,7 +73,7 @@ func TestSagaReservation_PersistsAcrossRestart_Postgres(t *testing.T) {
 
 	// Instance 1 persists a saga header and a RESERVED reservation, then goes away.
 	repoA := repository.NewPostgresSagaRepository(pool)
-	saga, err := repoA.CreateSaga(ctx, repository.Saga{BuyerID: "buyer_c2"})
+	saga, _, err := repoA.CreateSaga(ctx, repository.Saga{BuyerID: "buyer_c2"})
 	if err != nil {
 		t.Fatalf("create saga: %v", err)
 	}

@@ -15,14 +15,14 @@ type recordingSagaRepo struct {
 	ids []string
 }
 
-func (r *recordingSagaRepo) CreateSaga(ctx context.Context, s repository.Saga) (repository.Saga, error) {
-	got, err := r.SagaRepository.CreateSaga(ctx, s)
-	if err == nil {
+func (r *recordingSagaRepo) CreateSaga(ctx context.Context, s repository.Saga) (repository.Saga, bool, error) {
+	got, created, err := r.SagaRepository.CreateSaga(ctx, s)
+	if err == nil && created {
 		r.mu.Lock()
 		r.ids = append(r.ids, got.ID)
 		r.mu.Unlock()
 	}
-	return got, err
+	return got, created, err
 }
 
 func (r *recordingSagaRepo) sagaIDs() []string {

@@ -23,7 +23,7 @@ type placerFixture struct {
 func newCheckout(t *testing.T, sagas repository.SagaRepository, listings ...string) (string, []string) {
 	t.Helper()
 	ctx := context.Background()
-	sg, err := sagas.CreateSaga(ctx, repository.Saga{BuyerID: "buyer_p"})
+	sg, _, err := sagas.CreateSaga(ctx, repository.Saga{BuyerID: "buyer_p"})
 	if err != nil {
 		t.Fatalf("create saga: %v", err)
 	}

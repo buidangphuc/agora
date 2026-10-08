@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -65,6 +66,13 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, status.Error(codes.FailedPrecondition, "checkout is temporarily unavailable")
 	}
 
+	// Idempotency-Key (gRPC metadata forwarded by the gateway): validated before
+	// anything is reserved. Absent means a fresh checkout every time.
+	idemKey, err := idempotencyKeyFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var shippingAddr repository.Address
 	// Look up shipping address from identity service if client provided
 	if h.addrClient != nil {
@@ -86,7 +94,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		}
 	}
 
-	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode())
+	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
 	if err != nil {
 		if errors.Is(err, service.ErrEmptyCart) {
 			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
@@ -104,6 +112,10 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		if errors.Is(err, service.ErrInsufficientStock) {
 			return nil, clientErr(h.logger, codes.ResourceExhausted, "stock reservation failed: insufficient stock", err)
 		}
+		if errors.Is(err, service.ErrCheckoutInProgress) {
+			// Same key, first attempt still running: retryable, not a failure.
+			return nil, clientErr(h.logger, codes.Aborted, "checkout with this idempotency key is in progress; retry", err)
+		}
 		if errors.Is(err, service.ErrReservationLost) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "item no longer reserved; please retry checkout", err)
 		}
@@ -115,6 +127,29 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		wireOrders = append(wireOrders, toWireOrder(o))
 	}
 	return &orderv1.CreateOrderResponse{Orders: wireOrders}, nil
+}
+
+// idempotencyKeyFromContext reads, trims and validates the idempotency-key request
+// metadata: "" when absent, INVALID_ARGUMENT when present but not 1..255 printable
+// ASCII bytes or sent more than once.
+func idempotencyKeyFromContext(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", nil
+	}
+	vals := md.Get(service.IdempotencyKeyMetadata)
+	switch len(vals) {
+	case 0:
+		return "", nil
+	case 1:
+	default:
+		return "", status.Error(codes.InvalidArgument, "multiple idempotency-key values")
+	}
+	key, err := service.NormalizeIdempotencyKey(vals[0])
+	if err != nil {
+		return "", status.Error(codes.InvalidArgument, "idempotency-key must be 1-255 printable ASCII characters")
+	}
+	return key, nil
 }
 
 func (h *OrderHandler) CalculateShippingFee(_ context.Context, req *orderv1.CalculateShippingFeeRequest) (*orderv1.CalculateShippingFeeResponse, error) {
