@@ -2655,3 +2655,37 @@ features:
     status: automated
     covered_by: "frontend/tracking_event_ids.feature::The storefront sends an event id on every beacon"
     notes: "tracking-ingest-integrity: frontend/tracking_event_ids.feature::The storefront sends an event id on every beacon"
+
+  - id: frontend.adq-cockpit-tracking-quality-panel
+    title: "The admin sees the tracking quality panel"
+    persona: admin
+    priority: P1
+    summary: "The admin sees the tracking quality panel"
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the seeded admin opens `/admin/cockpit` after views were tracked"
+      - "Then the \"Tracking data quality\" panel shows a status and a view count of at least 1"
+    tags: [admin, tracking]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: ops/cockpit_tracking_quality.feature::The admin sees the tracking quality panel"
+
+  - id: frontend.adq-cockpit-panel-unavailable-when-analytics-down
+    title: "The panel says unavailable when analytics is down"
+    persona: admin
+    priority: P1
+    summary: "The panel says unavailable when analytics is down"
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When team-analytics is stopped and the admin opens `/admin/cockpit`"
+      - "Then the \"Tracking data quality\" panel says the data is unavailable and shows no counts"
+    tags: [admin, tracking, destructive]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: ops/cockpit_tracking_quality.feature::The panel says unavailable when analytics is down"
