@@ -57,7 +57,11 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
    frontend holds no business logic — UI shaping only.
 2. **Gateway routes + orchestrates; holds no business logic.** It knows *who to
    call* and *deadlines*, not *what the answer is*. It verifies auth **once** and
-   forwards a resolved principal downstream.
+   forwards a resolved principal downstream. Allowed edge policy is coarse and
+   per-procedure only: not routing internal RPCs (501), a required scope such as
+   `admin` (`team-gateway/internal/edge/policy.go`), header validation and error
+   sanitising. Ownership and resource-level checks stay in the owning service,
+   which remains authoritative even where the edge also gates.
 3. **Each service owns its DB.** No service holds another's DB connection string.
    Need another service's data? Call its gRPC — never join across DBs.
 4. **Contract is source of truth.** A message/RPC is defined only in
