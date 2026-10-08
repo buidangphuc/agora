@@ -596,6 +596,7 @@ func termKey(k any) string {
 // Listing status filter key and the only status served when the caller names none.
 const (
 	filterStatus    = "status"
+	filterInStock   = "in_stock"
 	statusPublished = "published"
 )
 
@@ -618,6 +619,15 @@ func buildFilterClauses(filters map[string]string, categoryID string, minPrice, 
 		clauses = append(clauses, statusClause(statusPublished))
 	}
 	for k, v := range filters {
+		if k == filterInStock {
+			// D4: in_stock is not a document field; "true" keeps only listings with
+			// projected stock > 0 (a doc without stock does not match a range). The
+			// handler rejects any other value; it never becomes a raw term.
+			if v == "true" {
+				clauses = append(clauses, map[string]any{"range": map[string]any{"stock": map[string]any{"gt": 0}}})
+			}
+			continue
+		}
 		clauses = append(clauses, map[string]any{"term": map[string]any{k: v}})
 	}
 	if categoryID != "" {

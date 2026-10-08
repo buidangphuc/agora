@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/index"
 )
 
@@ -127,5 +128,33 @@ func TestIT_Stock_NewerUpsertOverTombstoneTakesStock(t *testing.T) {
 	upsert(t, idx, stockDoc("l1", "back", 4, 300))
 	if s, sv := stockOf(t, url, name, "l1"); s != 4 || sv != 300 {
 		t.Errorf("stock=%d@%d, want 4@300", s, sv)
+	}
+}
+
+func TestIT_InStock_OnlyPositiveStockMatches(t *testing.T) {
+	idx, _, _ := readyIndex(t)
+	upsert(t, idx, stockDoc("five", "wombat five", 5, 100))
+	upsert(t, idx, stockDoc("zero", "wombat zero", 0, 100))
+	upsert(t, idx, liveDoc("unknown", "wombat unknown", 100)) // no stock projected
+	ctx := context.Background()
+	res, err := idx.Search(ctx, "wombat", map[string]string{"in_stock": "true"}, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Total != 1 || len(res.Hits) != 1 || res.Hits[0].ListingID != "five" {
+		t.Errorf("in_stock: total=%d hits=%+v, want only five", res.Total, res.Hits)
+	}
+	if len(res.Facets.Sellers) != 1 || res.Facets.Sellers[0].Count != 1 {
+		t.Errorf("facets not restricted: %+v", res.Facets.Sellers)
+	}
+	all, err := idx.Search(ctx, "wombat", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if all.Total != 3 {
+		t.Errorf("without in_stock stock must not affect matching, total=%d", all.Total)
+	}
+	if _, err := idx.SearchVector(ctx, make384(), map[string]string{"in_stock": "true"}, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
+		t.Errorf("k-NN leg with in_stock rejected by the cluster: %v", err)
 	}
 }

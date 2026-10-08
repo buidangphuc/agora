@@ -306,3 +306,31 @@ func TestSortNewest_BothLegsUseCreatedAtThenID(t *testing.T) {
 		}
 	}
 }
+
+// D4: in_stock=true becomes range stock > 0 in both legs (the k-NN leg inside
+// knn.filter), never a raw term on a non-existent field.
+func TestInStock_BecomesStockRangeInBothLegs(t *testing.T) {
+	for _, leg := range []string{"lexical", "vector"} {
+		var cap capturedRequest
+		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+		f := map[string]string{"in_stock": "true"}
+		var err error
+		if leg == "lexical" {
+			_, err = idx.Search(context.Background(), "x", f, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+		} else {
+			_, err = idx.SearchVector(context.Background(), []float32{0.1}, f, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(cap.body, `{"range":{"stock":{"gt":0}}}`) {
+			t.Errorf("%s: no stock range clause: %s", leg, cap.body)
+		}
+		if strings.Contains(cap.body, `"in_stock"`) {
+			t.Errorf("%s: in_stock leaked as a raw term: %s", leg, cap.body)
+		}
+		if leg == "vector" && !strings.Contains(cap.body, `"knn":{"embedding":{"filter":{"bool":{"filter":[`) {
+			t.Errorf("vector: filter not inside knn.filter: %s", cap.body)
+		}
+	}
+}

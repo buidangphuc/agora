@@ -47,6 +47,10 @@ func TestEffectiveFilters(t *testing.T) {
 		{"status rejected", principal("A", user), map[string]string{"status": "rejected"}, codes.InvalidArgument},
 		{"status any", principal("A", user), map[string]string{"status": "any"}, codes.InvalidArgument},
 		{"status empty", principal("A", user), map[string]string{"status": ""}, codes.InvalidArgument},
+		{"in_stock true", principal("anonymous", anon), map[string]string{"in_stock": "true"}, codes.OK},
+		{"in_stock maybe", principal("A", user), map[string]string{"in_stock": "maybe"}, codes.InvalidArgument},
+		{"in_stock false", principal("A", user), map[string]string{"in_stock": "false"}, codes.InvalidArgument},
+		{"in_stock empty", principal("A", user), map[string]string{"in_stock": ""}, codes.InvalidArgument},
 		{"status deleted beats auth checks (anonymous)", principal("anonymous", anon), map[string]string{"status": "deleted"}, codes.InvalidArgument},
 	}
 	for _, tc := range cases {
