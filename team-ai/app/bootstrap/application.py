@@ -116,7 +116,10 @@ async def _start_grpc_server(app: FastAPI, settings: Settings):
     server = build_grpc_server(
         settings=settings,
         rag_provider=lambda: getattr(app.state.resources, "rag_service", None),
-        chat_streamer=build_chat_streamer(settings),
+        chat_streamer=build_chat_streamer(
+            settings,
+            quota_provider=lambda: getattr(app.state.resources, "quota", None),
+        ),
         recommendation_provider=lambda: getattr(
             app.state.resources, "recommendation_service", None
         ),

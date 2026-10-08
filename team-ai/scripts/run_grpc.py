@@ -49,7 +49,9 @@ async def _main() -> None:
         await serve(
             settings=settings,
             rag_provider=lambda: app.state.resources.rag_service,
-            chat_streamer=build_chat_streamer(settings),
+            chat_streamer=build_chat_streamer(
+                settings, quota_provider=lambda: app.state.resources.quota
+            ),
         )
     finally:
         await close_application_resources(app)

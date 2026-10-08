@@ -27,7 +27,14 @@ def _default_model_builder(target: str) -> BaseChatModel:
     require_langchain()
     from langchain.chat_models import init_chat_model
 
-    return init_chat_model(target)
+    # OpenAI targets: an OpenAI-compatible endpoint (OPENAI_BASE_URL) makes
+    # langchain-openai skip ``stream_options.include_usage`` by default, and usage is
+    # metered, so ask for it. ``max_retries=0``: the SDK would otherwise retry
+    # 429/5xx itself; retries belong only to the streamer's bounded attempt loop.
+    kwargs: dict[str, object] = (
+        {"stream_usage": True, "max_retries": 0} if target.startswith("openai:") else {}
+    )
+    return init_chat_model(target, **kwargs)
 
 
 class ModelRouter:

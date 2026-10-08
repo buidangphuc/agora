@@ -26,6 +26,7 @@ from app.transport.grpc.chat_stream import (
     ChainExhausted,
     ChatDeadlineExceeded,
     ChatStreamError,
+    QuotaExhausted,
     StreamInterrupted,
 )
 
@@ -70,6 +71,8 @@ def map_chat_error(exc: ChatStreamError) -> tuple[grpc.StatusCode, str]:
     """StreamChat failures onto existing gRPC codes with fixed messages."""
     if isinstance(exc, ChatDeadlineExceeded):
         return grpc.StatusCode.DEADLINE_EXCEEDED, DEADLINE_EXCEEDED_MESSAGE
+    if isinstance(exc, QuotaExhausted):
+        return grpc.StatusCode.RESOURCE_EXHAUSTED, QUOTA_EXCEEDED_MESSAGE
     if isinstance(exc, ChainExhausted) and exc.last_kind is FailureKind.RATE_LIMITED:
         return grpc.StatusCode.RESOURCE_EXHAUSTED, MODEL_RATE_LIMITED_MESSAGE
     if isinstance(exc, ChainExhausted | StreamInterrupted):

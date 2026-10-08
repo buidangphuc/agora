@@ -15,8 +15,8 @@ from loguru import logger
 
 from app.core.request_context import get_request_id
 from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
-from app.transport.grpc.chat_stream import ChatStreamer
-from app.transport.grpc.context import ensure_scopes
+from app.transport.grpc.chat_stream import ChatStreamer, QuotaExhausted
+from app.transport.grpc.context import current_principal, ensure_scopes
 from app.transport.grpc.errors import map_servicer_error
 from app.transport.grpc.scopes import ai_use_scopes
 
@@ -37,10 +37,16 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
         # (and "chat:read" is not granted to any role either).
         await ensure_scopes(context, *self._scopes)
         request_id = get_request_id()
+        principal = current_principal()
         try:
             async for delta in self._streamer.astream(
                 request.message,
                 session_id=request.session_id,
+                # Quota is keyed by the forwarded principal (never a client-chosen
+                # id); anonymous callers are not metered per principal.
+                principal_id=(
+                    principal.id if principal and principal.type != "anonymous" else ""
+                ),
                 request_id=request_id,
                 # The caller's remaining deadline caps every LLM wait (None = none).
                 deadline_seconds=context.time_remaining(),
@@ -51,6 +57,10 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
         except Exception as exc:
             # Fixed message to the caller; the original exception stays in the logs.
             code, message = map_servicer_error(exc)
+            if isinstance(exc, QuotaExhausted) and exc.retry_after_seconds:
+                context.set_trailing_metadata(
+                    (("retry-after", str(exc.retry_after_seconds)),)
+                )
             logger.opt(exception=exc).error(
                 "grpc.StreamChat.error request_id={} type={} code={}",
                 request_id,
