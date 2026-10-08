@@ -905,10 +905,10 @@ features:
     acceptance:
       - When a buyer selects the "100000-500000" price bucket and sort "price_asc"
       - Then the URL contains minPrice=100000&maxPrice=500000&sort=price_asc and a new tab shows the same results and selected state
-      - When a buyer on /search?q=ao&page=3 selects a rating filter
+      - When a buyer on /search?q=ao&page=3 selects a category filter
       - Then the new URL has no page and shows the first page of the filtered results
-      - Given /search?q=ao&category=c1&rating=4 is rendered
-      - Then three removable tags are shown and removing the category tag navigates to /search?q=ao&rating=4
+      - Given /search?q=ao&category=c1&minPrice=100000 is rendered
+      - Then three removable tags are shown and removing the category tag navigates to /search?q=ao&minPrice=100000
       - When at least one filter is active and the buyer activates "Xóa tất cả bộ lọc"
       - Then the URL becomes /search keeping q and all tags disappear
       - Given the SortBar is rendered
@@ -994,7 +994,7 @@ features:
         filter_drawer: "role:dialog=Bộ lọc"
     acceptance:
       - Given a visitor at 375px opens /search and taps "Bộ lọc"
-      - Then a Drawer opens with the category, price, rating and seller filters, focus moves into it and Escape closes it and returns focus to the button
+      - Then a Drawer opens with the category, price and seller filters (no rating filter), focus moves into it and Escape closes it and returns focus to the button
       - When the buyer enters min 500000 and max 100000 and submits
       - Then the max field shows an error, the URL does not change and the submit button is not left loading
       - Given two filters are active at 375px

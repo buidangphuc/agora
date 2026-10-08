@@ -211,3 +211,265 @@ features:
     tags: [ops, security]
     status: automated
     covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"
+
+  - id: search.srm-a-checkout-lowers-the-stock-shown-in-search
+    title: "A checkout lowers the stock shown in search"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with stock 10 that appears in search"
+      - "When a buyer checks out quantity 2 of it through the gateway"
+      - "Then within 30 seconds `SearchListings` through the gateway returns that listing with `stock` 8"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A checkout lowers the stock shown in search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-cancelling-the-order-restores-the-stock-shown-in-search
+    title: "Cancelling the order restores the stock shown in search"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given that order has lowered the listing's search stock to 8"
+      - "When the buyer cancels the order through the gateway"
+      - "Then within 30 seconds `SearchListings` returns that listing with `stock` 10"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::Cancelling the order restores the stock shown in search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-saved-search-run-shows-the-current-stock
+    title: "A saved search run shows the current stock"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.RunSavedSearch, search.v1.SearchListings]
+    acceptance:
+      - "Given a buyer has saved a search whose query matches a listing with stock 10"
+      - "When another buyer checks out quantity 3 of that listing and the first buyer then runs the saved search through the gateway"
+      - "Then within 30 seconds `RunSavedSearch` returns that listing with `stock` 7"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A saved search run shows the current stock. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-stale-stock-event-does-not-roll-stock-back
+    title: "A stale stock event does not roll stock back"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing whose search stock is 8 after a real checkout"
+      - "When a `ListingStockChanged` with stock 10 and an `occurred_at` earlier than that checkout's event is published to `listing.events`"
+      - "Then after the search indexer has consumed past that event, `SearchListings` still returns that listing with `stock` 8"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A stale stock event does not roll stock back. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-stock-event-for-an-unknown-listing-creates-nothing
+    title: "A stock event for an unknown listing creates nothing"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a valid `ListingStockChanged` with stock 5 for a listing id that was never created is published to `listing.events`"
+      - "Then after the search indexer has consumed past that event, the read-model holds no document for that id and no search returns it"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A stock event for an unknown listing creates nothing. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-malformed-stock-event-is-parked-not-applied
+    title: "A malformed stock event is parked, not applied"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing whose search stock is 10"
+      - "When a `ListingStockChanged` for that listing with stock -1 is published to `listing.events`"
+      - "Then within 60 seconds that record appears on `listing.events.dlq` and `SearchListings` still returns the listing with `stock` 10"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A malformed stock event is parked, not applied. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-late-listing-update-does-not-overwrite-newer-stock
+    title: "A late listing update does not overwrite newer stock"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a listing created with stock 10 whose search stock is 8 after a real checkout"
+      - "When a `ListingChanged` (UPDATED) for that listing with a new title, stock 10 and an `occurred_at` between its creation and that checkout is published to `listing.events`"
+      - "Then within 30 seconds a search for the new title returns that listing with `stock` 8"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A late listing update does not overwrite newer stock. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-seller-s-stock-edit-is-reflected-in-search
+    title: "A seller's stock edit is reflected in search"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a seller's published listing with search stock 8"
+      - "When the seller updates the listing's stock to 50 through the gateway"
+      - "Then within 30 seconds `SearchListings` returns that listing with `stock` 50"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A seller's stock edit is reflected in search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-an-in-stock-search-hides-a-sold-out-listing
+    title: "An in-stock search hides a sold-out listing"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with stock 1 that matches a query"
+      - "When a buyer checks out quantity 1 of it through the gateway"
+      - "Then within 30 seconds `SearchListings` for that query with `filters[\"in_stock\"]=\"true\"` does not return it and its total no longer counts it, while the same search without the filter returns it with `stock` 0"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::An in-stock search hides a sold-out listing. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-the-in-stock-filter-applies-in-semantic-and-hybrid-search
+    title: "The in-stock filter applies in semantic and hybrid search"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a sold-out listing and an in-stock listing that both match a query"
+      - "When a buyer runs that query with `filters[\"in_stock\"]=\"true\"` in `SEARCH_MODE_SEMANTIC`, then in `SEARCH_MODE_HYBRID`"
+      - "Then both responses return the in-stock listing and neither returns the sold-out one"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::The in-stock filter applies in semantic and hybrid search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-a-saved-in-stock-search-excludes-sold-out-listings
+    title: "A saved in-stock search excludes sold-out listings"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a buyer has saved a search with `filters_json` `{\"in_stock\":\"true\"}` and a query matching one sold-out and one in-stock listing"
+      - "When the buyer runs the saved search through the gateway"
+      - "Then the response returns the in-stock listing with its `stock` and not the sold-out one"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::A saved in-stock search excludes sold-out listings. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.srm-an-invalid-in-stock-value-is-rejected
+    title: "An invalid in_stock value is rejected"
+    persona: buyer
+    priority: P1
+    summary: "Change port-search-read-model-correctness, capability search-stock-read-model."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SaveSearch, search.v1.SearchListings]
+    acceptance:
+      - "When a buyer calls `SearchListings` with `filters[\"in_stock\"]=\"maybe\"`, then `SaveSearch` with `filters_json` `{\"in_stock\":\"yes\"}`"
+      - "Then both calls fail with `invalid_argument` and no saved search is created"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: search/search_stock_read_model.feature::An invalid in_stock value is rejected. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
+      the integrator flips this to automated once the code is merged and the scenario is green.
