@@ -5,7 +5,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
 
 	analyticsv1 "github.com/buidangphuc/team-gateway/generated/platform/analytics/v1"
 	commonv1 "github.com/buidangphuc/team-gateway/generated/platform/common/v1"
@@ -47,6 +52,7 @@ type trackBeacon struct {
 	EventGroupID  string            `json:"eventGroupId"`
 	ShippingTier  string            `json:"shippingTier"`
 	PaymentType   string            `json:"paymentType"`
+	EventID       string            `json:"eventId"`
 }
 
 // beaconEventTypes maps the beacon's lowercase action name to its EventType.
@@ -73,12 +79,107 @@ var beaconEventTypes = map[string]analyticsv1.EventType{
 	"view_item_list": analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
 }
 
+// Per-field bounds (characters). An event breaking any of them is dropped.
+const (
+	maxIDChars        = 128 // listingId, sessionId, anonymousId, placementId, ...
+	maxPathChars      = 512 // path, referrer
+	maxQueryChars     = 256 // query
+	maxPropKeys       = 20
+	maxPropKeyChars   = 40
+	maxPropValueChars = 256
+)
+
+// nsTrack is the fixed UUID namespace for deterministic envelope event ids.
+var nsTrack = uuid.MustParse("6f0d5f6e-3c1b-5a43-9a7e-2b8c4d1e9f10")
+
+var (
+	reEmail     = regexp.MustCompile(`[\w.+-]+@[\w-]+(\.[\w-]+)+`)
+	rePhone     = regexp.MustCompile(`(?:\+84|\b0)(?:[\s.]?\d){9}\b`)
+	reLongDigit = regexp.MustCompile(`\d{13,}`)
+)
+
+// scrubText masks personal data in free text: emails, VN phone numbers and long
+// digit runs. Prices, listing ids and other short numbers are kept.
+func scrubText(s string) string {
+	s = reEmail.ReplaceAllString(s, "[email]")
+	s = rePhone.ReplaceAllString(s, "[phone]")
+	return reLongDigit.ReplaceAllString(s, "[number]")
+}
+
+// scrubReferrer reduces a referrer to scheme://host/path. A value that does not
+// parse to an absolute URL becomes empty.
+func scrubReferrer(ref string) string {
+	if ref == "" {
+		return ""
+	}
+	u, err := url.Parse(ref)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host + u.Path
+}
+
+// validateBeacon applies the per-event type and bounds rules.
+func validateBeacon(b *trackBeacon) error {
+	if _, ok := beaconEventTypes[strings.ToLower(strings.TrimSpace(b.Type))]; !ok {
+		return jsonError("unknown event type")
+	}
+	for _, f := range []string{b.ListingID, b.SessionID, b.AnonymousID, b.PlacementID, b.ImpressionID,
+		b.ModelVersion, b.EventGroupID, b.TransactionID} {
+		if utf8.RuneCountInString(f) > maxIDChars {
+			return jsonError("field too long")
+		}
+	}
+	if utf8.RuneCountInString(b.Path) > maxPathChars || utf8.RuneCountInString(b.Referrer) > maxPathChars {
+		return jsonError("path too long")
+	}
+	if utf8.RuneCountInString(b.Query) > maxQueryChars {
+		return jsonError("query too long")
+	}
+	if len(b.Properties) > maxPropKeys {
+		return jsonError("too many properties")
+	}
+	for k, v := range b.Properties {
+		if utf8.RuneCountInString(k) > maxPropKeyChars || utf8.RuneCountInString(v) > maxPropValueChars {
+			return jsonError("property too long")
+		}
+	}
+	return nil
+}
+
+// envelopeEventID derives the deterministic envelope event_id from the visitor
+// and the client-supplied eventId. Empty means "mint a random one": no valid
+// UUID eventId, or no visitor key (anonymous without an anonymousId).
+func envelopeEventID(b *trackBeacon, p *commonv1.Principal) string {
+	if _, err := uuid.Parse(b.EventID); err != nil {
+		return ""
+	}
+	var visitor string
+	switch {
+	case p.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS && p.GetId() != "":
+		visitor = p.GetId()
+	case b.AnonymousID != "":
+		visitor = "anon:" + b.AnonymousID
+	default:
+		return ""
+	}
+	return uuid.NewSHA1(nsTrack, []byte(visitor+"|"+strings.ToLower(b.EventID))).String()
+}
+
+// trackResponse is the 202 body of POST /api/track.
+type trackResponse struct {
+	Accepted int `json:"accepted"`
+	Dropped  int `json:"dropped"`
+}
+
 // HandleTrack builds the pure edge-telemetry collector: parse the beacon (single
-// or a small batch), reject a malformed/unknown-type body with a 4xx, map each
-// beacon to a TrackingEvent, stamp the edge-resolved principal on the envelope,
-// and forward to Kafka. It holds no business logic and owns no analytics storage
-// (Rule 2). Delivery is best-effort: a produce error is logged, the response is
-// 204 so a dropped beacon never surfaces to the user.
+// or a small batch), validate each event on its own (invalid ones are dropped),
+// scrub free text, map each beacon to a TrackingEvent, stamp the edge-resolved
+// principal on the envelope, and forward to Kafka. It answers 202 with the
+// accepted/dropped counts, or 400 when nothing in the body is valid. It holds
+// no business logic and owns no analytics storage (Rule 2). Delivery is
+// best-effort: a produce error is logged and the beacon still counts as accepted
+// so a dropped beacon never surfaces to the user.
 func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(io.LimitReader(r.Body, maxBeaconBytes))
@@ -93,61 +194,80 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 			return
 		}
 
-		// Validate every beacon BEFORE producing anything, so a malformed batch
-		// rejects atomically without emitting a partial set.
-		evs := make([]*analyticsv1.TrackingEvent, 0, len(beacons))
-		for _, b := range beacons {
-			et, ok := beaconEventTypes[strings.ToLower(strings.TrimSpace(b.Type))]
-			if !ok {
-				http.Error(w, "unknown event type", http.StatusBadRequest)
-				return
+		principal := e.beaconPrincipal(r)
+
+		type item struct {
+			ev      *analyticsv1.TrackingEvent
+			eventID string
+		}
+		items := make([]item, 0, len(beacons))
+		for i := range beacons {
+			b := &beacons[i]
+			if err := validateBeacon(b); err != nil {
+				continue
 			}
-			evs = append(evs, &analyticsv1.TrackingEvent{
-				EventType:     et,
-				ListingId:     b.ListingID,
-				SessionId:     b.SessionID,
-				AnonymousId:   b.AnonymousID,
-				PagePath:      b.Path,
-				Referrer:      b.Referrer,
-				Position:      b.Position,
-				SearchQuery:   b.Query,
-				Properties:    b.Properties,
-				PlacementId:   b.PlacementID,
-				ImpressionId:  b.ImpressionID,
-				ModelVersion:  b.ModelVersion,
-				Currency:      b.Currency,
-				Value:         b.Value,
-				Price:         b.Price,
-				Quantity:      b.Quantity,
-				TransactionId: b.TransactionID,
-				Coupon:        b.Coupon,
-				ItemCategory:  b.ItemCategory,
-				ItemListId:    b.ItemListID,
-				ItemListName:  b.ItemListName,
-				EventGroupId:  b.EventGroupID,
-				ShippingTier:  b.ShippingTier,
-				PaymentType:   b.PaymentType,
+			et := beaconEventTypes[strings.ToLower(strings.TrimSpace(b.Type))]
+			var props map[string]string
+			if b.Properties != nil {
+				props = make(map[string]string, len(b.Properties))
+				for k, v := range b.Properties {
+					props[k] = scrubText(v)
+				}
+			}
+			items = append(items, item{
+				eventID: envelopeEventID(b, principal),
+				ev: &analyticsv1.TrackingEvent{
+					EventType:     et,
+					ListingId:     b.ListingID,
+					SessionId:     b.SessionID,
+					AnonymousId:   b.AnonymousID,
+					PagePath:      scrubText(b.Path),
+					Referrer:      scrubReferrer(b.Referrer),
+					Position:      b.Position,
+					SearchQuery:   scrubText(b.Query),
+					Properties:    props,
+					PlacementId:   b.PlacementID,
+					ImpressionId:  b.ImpressionID,
+					ModelVersion:  b.ModelVersion,
+					Currency:      b.Currency,
+					Value:         b.Value,
+					Price:         b.Price,
+					Quantity:      b.Quantity,
+					TransactionId: b.TransactionID,
+					Coupon:        b.Coupon,
+					ItemCategory:  b.ItemCategory,
+					ItemListId:    b.ItemListID,
+					ItemListName:  b.ItemListName,
+					EventGroupId:  b.EventGroupID,
+					ShippingTier:  b.ShippingTier,
+					PaymentType:   b.PaymentType,
+				},
 			})
 		}
+		if len(items) == 0 {
+			http.Error(w, "no valid event", http.StatusBadRequest)
+			return
+		}
 
-		principal := e.beaconPrincipal(r)
 		requestID := requestIDFrom(r.Context())
 		if requestID == "" {
 			requestID = sanitizeRequestID(strings.TrimSpace(r.Header.Get("X-Request-Id")))
 		}
 
-		for _, ev := range evs {
-			if err := pub.PublishTrackingEvent(r.Context(), ev, principal, requestID); err != nil {
+		for _, it := range items {
+			if err := pub.PublishTrackingEvent(r.Context(), it.ev, principal, requestID, it.eventID); err != nil {
 				// Best-effort: log and keep going; the browsing action must not fail.
 				logger.Warn("publish tracking event",
-					slog.String("event_type", ev.GetEventType().String()),
-					slog.String("listing_id", ev.GetListingId()),
+					slog.String("event_type", it.ev.GetEventType().String()),
+					slog.String("listing_id", it.ev.GetListingId()),
 					slog.Any("err", err),
 				)
 			}
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(trackResponse{Accepted: len(items), Dropped: len(beacons) - len(items)})
 	}
 }
 

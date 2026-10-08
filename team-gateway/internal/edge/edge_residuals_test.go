@@ -74,7 +74,7 @@ type countPub struct {
 	events int
 }
 
-func (p *countPub) PublishTrackingEvent(context.Context, *analyticsv1.TrackingEvent, *commonv1.Principal, string) error {
+func (p *countPub) PublishTrackingEvent(context.Context, *analyticsv1.TrackingEvent, *commonv1.Principal, string, string) error {
 	p.mu.Lock()
 	p.events++
 	p.mu.Unlock()
@@ -244,7 +244,7 @@ func TestTrackFloodGets429AndProducesNothingForThem(t *testing.T) {
 	var ok, limited int
 	for i := 0; i < 20; i++ {
 		switch f.track("", "", "m").StatusCode {
-		case http.StatusNoContent:
+		case http.StatusAccepted:
 			ok++
 		case http.StatusTooManyRequests:
 			limited++
@@ -269,7 +269,7 @@ func TestTrackKeysLoggedInVisitorByUser(t *testing.T) {
 	}
 	// ... but the same IP logged in has its own per-user bucket.
 	tok := "Bearer " + mint(t, f.key, "kid-1", time.Now().Add(time.Hour))
-	if got := f.track(tok, "", "m").StatusCode; got != http.StatusNoContent {
+	if got := f.track(tok, "", "m").StatusCode; got != http.StatusAccepted {
 		t.Fatalf("logged-in visitor shares the IP bucket: %d", got)
 	}
 	if !strings.Contains(f.logs.String(), `"principal":"user-1"`) {
@@ -280,7 +280,7 @@ func TestTrackKeysLoggedInVisitorByUser(t *testing.T) {
 func TestTrackEchoesRequestID(t *testing.T) {
 	f := newResFixture(t, 1000, 1000, 100, 100)
 	res := f.track("", "e2e-track-1", "m")
-	if res.StatusCode != http.StatusNoContent || res.Header.Get("X-Request-Id") != "e2e-track-1" {
+	if res.StatusCode != http.StatusAccepted || res.Header.Get("X-Request-Id") != "e2e-track-1" {
 		t.Fatalf("status %d rid %q", res.StatusCode, res.Header.Get("X-Request-Id"))
 	}
 	if !strings.Contains(f.logs.String(), `"request_id":"e2e-track-1"`) {
