@@ -101,7 +101,18 @@ var Schema = []Column{
 	{"event_group_id", "VARCHAR", "STRING"},
 	{"shipping_tier", "VARCHAR", "STRING"},
 	{"payment_type", "VARCHAR", "STRING"},
+	// ingested_at is the sink's own clock at write time (tracking-ingest-integrity
+	// D4); occurred_at stays the edge receive time. Null on rows written before
+	// the column existed.
+	{"ingested_at", "TIMESTAMP", "TIMESTAMP"},
 }
+
+// Stitching view names (tracking-ingest-integrity D5). The principal_type
+// literal for an authenticated visitor is "user" (consumer.principalTypeName).
+const (
+	IdentityViewName = "tracking_identity"
+	ResolvedViewName = "tracking_events_resolved"
+)
 
 // ColumnNames returns the ordered column names of the canonical schema.
 func ColumnNames() []string {

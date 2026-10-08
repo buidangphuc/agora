@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	// Registers the "duckdb" database/sql driver. Requires CGO at build time;
 	// the worker image builds it in Docker/CI (Go is not on the host).
@@ -23,6 +24,7 @@ import (
 type Writer struct {
 	db   *sql.DB
 	path string
+	now  func() time.Time // ingested_at clock; overridable in tests
 }
 
 // Open dials (opens/creates) the DuckDB file at path and ensures the schema.
@@ -31,7 +33,7 @@ func Open(ctx context.Context, path string) (*Writer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open duckdb %q: %w", path, err)
 	}
-	w := &Writer{db: db, path: path}
+	w := &Writer{db: db, path: path, now: time.Now}
 	if err := w.ensureSchema(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -138,8 +140,34 @@ FROM %s`, warehouse.TableName)
 		return fmt.Errorf("ensure ga4_events view: %w", err)
 	}
 
+	// Stitching views (tracking-ingest-integrity D5). Created after the column
+	// migrations so t.* includes ingested_at.
+	for _, ddl := range []string{identityViewDDL, resolvedViewDDL} {
+		if _, err := w.db.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("ensure stitching view: %w", err)
+		}
+	}
+
 	return nil
 }
+
+// identityViewDDL maps each anonymous id seen on a USER-principal event to the
+// principal of its most recent such event.
+var identityViewDDL = fmt.Sprintf(`CREATE OR REPLACE VIEW %s AS
+SELECT anonymous_id, arg_max(principal_id, occurred_at) AS principal_id
+FROM %s
+WHERE principal_type = 'user' AND anonymous_id <> ''
+GROUP BY anonymous_id`, warehouse.IdentityViewName, warehouse.TableName)
+
+// resolvedViewDDL adds user_key: the event's own USER principal, else the
+// stitched principal, else "anon:<anonymous_id>".
+var resolvedViewDDL = fmt.Sprintf(`CREATE OR REPLACE VIEW %s AS
+SELECT t.*, CASE
+  WHEN t.principal_type = 'user' THEN t.principal_id
+  WHEN i.principal_id IS NOT NULL THEN i.principal_id
+  ELSE 'anon:' || t.anonymous_id END AS user_key
+FROM %s t LEFT JOIN %s i USING (anonymous_id)`,
+	warehouse.ResolvedViewName, warehouse.TableName, warehouse.IdentityViewName)
 
 // insertSQL is the parameterized append for one row, column order == Schema.
 var insertSQL = buildInsertSQL()
@@ -197,6 +225,7 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	}
 	defer stmt.Close()
 
+	ingestedAt := w.now().UTC()
 	for _, r := range batch {
 		props, err := marshalProperties(r.Properties)
 		if err != nil {
@@ -232,6 +261,7 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.EventGroupID,
 			r.ShippingTier,
 			r.PaymentType,
+			ingestedAt,
 			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()
