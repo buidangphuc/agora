@@ -113,6 +113,36 @@ func (s *Settings) IsProd() bool {
 	return e == "prod" || e == "production"
 }
 
+// durableStorageEnvs are the ENV values (normalised: trimmed, lowercase) in which
+// the query server must never run on the in-memory saved-search repository.
+// Anything else ("local", "test", unset, unknown) is non-strict.
+var durableStorageEnvs = []string{"staging", "stage", "prod", "production"}
+
+// RequiresDurableStorage reports whether ENV names an environment that must use
+// the database (staging / production).
+func (s *Settings) RequiresDurableStorage() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range durableStorageEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireDurableStorage is the boot guard against the silent in-memory fallback:
+// in a strict ENV it fails when the database is disabled. Other environments
+// always pass. (An enabled-but-unreachable database already fails the boot in
+// bootstrap.OpenSavedSearchRepository.)
+func (s *Settings) RequireDurableStorage() error {
+	if !s.RequiresDurableStorage() || s.Database.Enabled {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to start with in-memory saved-search storage: ENV=%q requires a database (strict for ENV in %s) but DATABASE_ENABLED=false; set DATABASE_ENABLED=true with a reachable DATABASE_URL",
+		s.Runtime.Env, strings.Join(durableStorageEnvs, ", "))
+}
+
 // KafkaBrokers splits KAFKA_BROKERS into seed addresses.
 func (s *Settings) KafkaBrokers() []string { return splitCSV(s.Kafka.Brokers) }
 

@@ -189,7 +189,7 @@ Docker build uses `golang:1.22`.
 - `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
 - Root compose has no modelserve and does not set `MODEL_SERVER_URL` for team-search (see Run locally).
 - Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
-- With `DATABASE_ENABLED=false`, saved searches are in memory only.
+- With `DATABASE_ENABLED=false` (local/test only; staging/production refuse to boot), saved searches are in memory only.
 
 ## References
 

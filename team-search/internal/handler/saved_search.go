@@ -29,16 +29,34 @@ const (
 	scopeSearchWrite = "search:write"
 )
 
-// callerID enforces the scope gate and returns the self-scoping principal id.
-// A missing principal (anonymous / non-gateway call) fails at RequireScopes with
-// Unauthenticated, so no saved-search RPC ever runs without an owner.
+// callerID resolves the authenticated owner of a saved-search call. Identity is
+// a precondition, checked BEFORE scopes, so the outcome for an anonymous caller
+// does not depend on which scopes the gateway grants it:
+//
+//  1. a principal must be present, else UNAUTHENTICATED;
+//  2. its type must be user: anonymous/unspecified -> UNAUTHENTICATED,
+//     service -> PERMISSION_DENIED;
+//  3. its id must be non-empty and not the reserved anonymous id, else UNAUTHENTICATED;
+//  4. only then the scope gate (search:read for list/run, search:write for mutations).
+//
+// No saved-search RPC therefore ever runs against a shared or default owner.
 func (h *SearchHandler) callerID(ctx context.Context, scope string) (string, error) {
+	p, ok := interceptor.PrincipalFromContext(ctx)
+	if !ok || p == nil {
+		return "", status.Error(codes.Unauthenticated, "authentication required")
+	}
+	switch p.GetType() {
+	case commonv1.PrincipalType_PRINCIPAL_TYPE_USER:
+	case commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE:
+		return "", status.Error(codes.PermissionDenied, "saved searches are available to signed-in users only")
+	default: // anonymous, unspecified
+		return "", status.Error(codes.Unauthenticated, "authentication required")
+	}
+	if p.GetId() == "" || p.GetId() == anonymousPrincipalID {
+		return "", status.Error(codes.Unauthenticated, "authentication required")
+	}
 	if err := interceptor.RequireScopes(ctx, scope); err != nil {
 		return "", err
-	}
-	p, ok := interceptor.PrincipalFromContext(ctx)
-	if !ok || p.GetId() == "" {
-		return "", status.Error(codes.Unauthenticated, "no principal on context")
 	}
 	return p.GetId(), nil
 }
