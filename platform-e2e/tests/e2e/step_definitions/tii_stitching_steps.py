@@ -71,3 +71,33 @@ def anonymous_key(world: World) -> None:
     x = _x(world)
     resolved = _resolved(x["tii_listings"])
     assert resolved == {x["tii_listings"][0]: f"anon:{x['tii_anon']}"}, resolved
+
+
+@when(
+    "a visitor posts a view anonymously with anonymousId Z, then two different new buyers "
+    "each post a view with the same anonymousId Z"
+)
+def anonymous_then_two_accounts(world: World) -> None:
+    x = _x(world)
+    x["tii_anon"] = anon = f"e2e-anon-{uuid.uuid4()}"
+    pre = tii.view(f"e2e-tii-sess-{tii.run_id()}", anonymousId=anon)
+    _post(pre)
+    owners = {pre["listingId"]: f"anon:{anon}"}
+    for _ in range(2):
+        token, buyer_id = tii.register_buyer()
+        beacon = tii.view(f"e2e-tii-sess-{tii.run_id()}", anonymousId=anon)
+        _post(beacon, token=token)
+        owners[beacon["listingId"]] = buyer_id
+    x["tii_owners"] = owners
+
+
+@then(
+    parsers.parse(
+        'in tracking_events_resolved the anonymous view keeps "anon:Z" and each buyer\'s view '
+        "has that buyer's id"
+    )
+)
+def ambiguous_not_stitched(world: World) -> None:
+    owners: dict[str, str] = _x(world)["tii_owners"]
+    resolved = _resolved(list(owners))
+    assert resolved == owners, resolved

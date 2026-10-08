@@ -82,8 +82,9 @@ The warehouse sink SHALL set `ingested_at` on every tracking row it writes, usin
 ### Requirement: Anonymous history is stitched to the account that logs in
 
 The warehouse SHALL provide two views:
-- `tracking_identity`, mapping each `anonymous_id` that appeared on an event with a USER principal to the principal of
-  its most recent such event;
+- `tracking_identity`, mapping each `anonymous_id` that appeared on events with exactly one USER principal to that
+  principal. The anonymous id comes from the beacon body, so an id seen with more than one account is ambiguous and SHALL
+  NOT be mapped; a logged-in user cannot claim another visitor's anonymous history by replaying its id;
 - `tracking_events_resolved`, with every `tracking_events` column plus `user_key`, which is the event's USER principal
   when present, else the principal `tracking_identity` maps its `anonymous_id` to, else `anon:<anonymous_id>`.
 
@@ -92,6 +93,13 @@ The warehouse SHALL provide two views:
 - **WHEN** a visitor posts a view anonymously with `anonymousId` X, then logs in as a new buyer and posts a view with
   the same `anonymousId` X
 - **THEN** in `tracking_events_resolved` both views have `user_key` equal to the buyer's id
+
+#### Scenario: An anonymous id seen with two accounts is not stitched
+
+- **WHEN** a visitor posts a view anonymously with `anonymousId` Z, then two different new buyers each post a view with
+  the same `anonymousId` Z
+- **THEN** in `tracking_events_resolved` the anonymous view has `user_key` "anon:Z" and each buyer's view has that buyer's
+  id
 
 #### Scenario: A never-logged-in visitor keeps an anonymous key
 

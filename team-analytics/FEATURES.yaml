@@ -308,6 +308,20 @@ features:
     covered_by: "tracking/identity_stitching.feature::Pre-login browsing resolves to the user after login"
     notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::Pre-login browsing resolves to the user after login"
 
+  - id: analytics.tii-ambiguous-anonymous-id-is-not-stitched
+    title: "An anonymous id seen with two accounts is not stitched"
+    persona: buyer
+    priority: P1
+    summary: "An anonymous id seen with two accounts is not stitched"
+    entry_route: /
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a visitor posts a view anonymously with `anonymousId` Z, then two different new buyers each post a view with the same `anonymousId` Z"
+      - "Then in `tracking_events_resolved` the anonymous view has `user_key` \"anon:Z\" and each buyer's view has that buyer's id"
+    tags: [tracking, security]
+    status: automated
+    covered_by: "tracking/identity_stitching.feature::An anonymous id seen with two accounts is not stitched"
+    notes: "Added after the boundary review of tracking-ingest-integrity: the anonymous id is client-supplied, so an id seen with two accounts must not be stitched."
   - id: tracking.never-logged-in-keeps-anon-key
     title: "A never-logged-in visitor resolves to an anonymous key"
     persona: guest

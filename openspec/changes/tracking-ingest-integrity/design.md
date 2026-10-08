@@ -63,10 +63,11 @@ See proposal.md for the motivation. Current agora code as of 2026-10-08:
 
 ```sql
 CREATE OR REPLACE VIEW tracking_identity AS
-SELECT anonymous_id, arg_max(principal_id, occurred_at) AS principal_id
+SELECT anonymous_id, any_value(principal_id) AS principal_id
 FROM tracking_events
 WHERE principal_type = 'user' AND anonymous_id <> ''
-GROUP BY anonymous_id;
+GROUP BY anonymous_id
+HAVING count(DISTINCT principal_id) = 1;   -- ambiguous ids are not stitched (review, 2026-10-09)
 
 CREATE OR REPLACE VIEW tracking_events_resolved AS
 SELECT t.*, CASE
