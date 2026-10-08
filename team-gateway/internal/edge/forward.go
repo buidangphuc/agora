@@ -59,6 +59,39 @@ type Edge struct {
 	callTimeout  time.Duration
 	retryMax     int
 	limiter      *rateLimiter
+	// trackLimiter is the collector's own bucket (nil = unlimited) so a beacon
+	// burst never drains the caller's RPC bucket.
+	trackLimiter   *rateLimiter
+	aiTimeout      time.Duration
+	streamMaxBytes int
+	reflection     bool
+}
+
+// defaultStreamMaxBytes caps a streaming request message (STREAM_MAX_REQUEST_BYTES).
+const defaultStreamMaxBytes = 16384
+
+// WithTrackLimit gives POST /api/track its own per-visitor bucket.
+func (e *Edge) WithTrackLimit(rps float64, burst int) *Edge {
+	e.trackLimiter = newRateLimiter(rps, burst)
+	return e
+}
+
+// WithAICallTimeout sets the single-attempt deadline for AI generation calls.
+func (e *Edge) WithAICallTimeout(d time.Duration) *Edge {
+	e.aiTimeout = d
+	return e
+}
+
+// WithStreamMaxBytes caps the size of one streaming request message.
+func (e *Edge) WithStreamMaxBytes(n int) *Edge {
+	e.streamMaxBytes = n
+	return e
+}
+
+// WithReflection mounts gRPC reflection (off by default).
+func (e *Edge) WithReflection(on bool) *Edge {
+	e.reflection = on
+	return e
 }
 
 // SessionRevocations answers whether a session id was revoked (ADR-0003 addendum).
@@ -98,6 +131,7 @@ func NewEdge(verifier *token.Verifier, publicScopes []string, callTimeout time.D
 		callTimeout:  callTimeout,
 		retryMax:     retryMax,
 		limiter:      newRateLimiter(rps, burst),
+		aiTimeout:    30 * time.Second,
 	}
 }
 
@@ -175,6 +209,7 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 func (e *Edge) callRead(ctx context.Context, fn func(context.Context) error) error {
 	var err error
 	for attempt := 0; attempt <= e.retryMax; attempt++ {
+		noteAttempt(ctx)
 		err = e.callOnce(ctx, fn)
 		if err == nil || status.Code(err) != codes.Unavailable {
 			return err
@@ -190,7 +225,21 @@ func (e *Edge) callRead(ctx context.Context, fn func(context.Context) error) err
 
 // callWrite runs a non-idempotent call once, with a deadline (no retry).
 func (e *Edge) callWrite(ctx context.Context, fn func(context.Context) error) error {
+	noteAttempt(ctx)
 	return e.callOnce(ctx, fn)
+}
+
+// callAI runs an AI generation call exactly once (never retried on Unavailable:
+// generation is slow and costly) under AI_CALL_TIMEOUT_SECONDS, not the read deadline.
+func (e *Edge) callAI(ctx context.Context, fn func(context.Context) error) error {
+	noteAttempt(ctx)
+	d := e.aiTimeout
+	if d <= 0 {
+		d = e.callTimeout
+	}
+	c, cancel := context.WithTimeout(ctx, d)
+	defer cancel()
+	return fn(c)
 }
 
 func (e *Edge) callOnce(ctx context.Context, fn func(context.Context) error) error {

@@ -131,9 +131,9 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 		}
 
 		principal := e.beaconPrincipal(r)
-		requestID := strings.TrimSpace(r.Header.Get("X-Request-Id"))
+		requestID := requestIDFrom(r.Context())
 		if requestID == "" {
-			requestID = newRequestID()
+			requestID = sanitizeRequestID(strings.TrimSpace(r.Header.Get("X-Request-Id")))
 		}
 
 		for _, ev := range evs {
