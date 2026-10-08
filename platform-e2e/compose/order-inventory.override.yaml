@@ -1,0 +1,19 @@
+# Short reservation timing for the order/inventory e2e scenarios
+# (change port-order-inventory-correctness, design D16).
+#
+# Layer it on top of the stack, from the workspace root (any compose project name):
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/order-inventory.override.yaml up -d
+# Add the same `-f` pair to any other `docker compose` call against that project.
+#
+# Uncommitted holds expire after 20s and the sweeper runs every 2s. Placed orders are
+# committed and immune to the sweep, so the whole suite is safe with this overlay.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  team-domain:
+    environment:
+      RESERVATION_TTL: 20s
+      RESERVATION_SWEEP_INTERVAL: 2s
+  team-order:
+    environment:
+      RESERVATION_TTL: 20s
+      RESERVATION_SWEEP_INTERVAL: 2s
