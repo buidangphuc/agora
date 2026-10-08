@@ -224,3 +224,40 @@ def stream_chat(
     http = client or httpx
     resp = http.post(url, content=body, headers=headers, timeout=timeout)
     return parse_stream(resp.status_code, resp.headers, resp.content)
+
+
+_PRIVATE_SKIP_ENV = {"PATH", "HOME", "HOSTNAME"}
+
+
+def private_gateway(world, overrides: dict[str, str]) -> str:
+    """Start a throwaway gateway from the stack's image and env plus `overrides`; return its URL.
+
+    Used when the stack's own limits are raised for parallel e2e (compose sets RATE_LIMIT_* and
+    TRACK_RATE_LIMIT_* high), so a limit scenario can still exceed a real default-sized bucket.
+    The container joins the stack network, produces to the same Kafka, and is removed on cleanup.
+    """
+    import uuid as _uuid
+
+    env = container_env(gateway_container())
+    name = f"e2e-edge-gw-{_uuid.uuid4().hex[:8]}"
+    image = docker("inspect", gateway_container(), "--format", "{{.Config.Image}}").stdout.strip()
+    args = ["run", "-d", "--rm", "--name", name, "--network", stack_network()]
+    args += ["-p", "127.0.0.1::8080"]
+    private = {k: v for k, v in env.items() if k not in _PRIVATE_SKIP_ENV}
+    private.update(overrides)
+    private["HTTP_PORT"] = "8080"
+    for key, value in private.items():
+        args += ["-e", f"{key}={value}"]
+    world.add_cleanup(lambda: docker("rm", "-f", name, check=False))
+    docker(*args, image)
+    port = docker("port", name, "8080/tcp").stdout.strip().splitlines()[0].rsplit(":", 1)[1]
+    base = f"http://127.0.0.1:{port}"
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        try:
+            if httpx.get(f"{base}/healthz", timeout=2).status_code == httpx.codes.OK:
+                return base
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.5)
+    raise TimeoutError(f"private gateway {name} did not become healthy")

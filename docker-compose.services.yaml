@@ -558,6 +558,10 @@ services:
       - CORS_ORIGINS=http://localhost:3000,http://team-frontend:3000,http://127.0.0.1:3000
       - RATE_LIMIT_RPS=1000
       - RATE_LIMIT_BURST=2000
+      # Every e2e browser shares the docker host IP, so the per-IP collector limit is raised
+      # locally too (shipped default 5 rps / burst 20; the flood scenario uses its own gateway).
+      - TRACK_RATE_LIMIT_RPS=1000
+      - TRACK_RATE_LIMIT_BURST=2000
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events

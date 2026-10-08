@@ -19,6 +19,9 @@ from tests.e2e.support.world import World
 FLOOD = 40
 
 
+TRACK_BURST_MAX = 200
+
+
 def _x(world: World) -> dict:
     return world.state.extra
 
@@ -51,10 +54,18 @@ def send_flood(world: World, count: int) -> None:
     run = uuid.uuid4().hex[:10]
     x["pe_run"] = f"e2e-flood-{run}-"
     sent: list[tuple[str, int]] = []
+    base = pe.gateway_url()
+    burst = int(pe.container_env(pe.gateway_container()).get("TRACK_RATE_LIMIT_BURST", "20"))
+    if burst > TRACK_BURST_MAX:
+        # The stack raises the collector limit for parallel e2e (every browser shares the
+        # docker host IP); exceed a gateway that runs the shipped defaults instead.
+        base = pe.private_gateway(
+            world, {"TRACK_RATE_LIMIT_RPS": "5", "TRACK_RATE_LIMIT_BURST": "20"}
+        )
     with httpx.Client(timeout=15) as client:
         for i in range(count):
             marker = f"{x['pe_run']}{i:03d}"
-            resp = client.post(f"{pe.gateway_url()}/api/track", json=_beacon(marker))
+            resp = client.post(f"{base}/api/track", json=_beacon(marker))
             sent.append((marker, resp.status_code))
     x["pe_sent"] = sent
 

@@ -126,6 +126,13 @@ def stream_past_limit(world: World) -> None:
     x = _x(world)
     limit = apr.ai_int("RATE_LIMIT_PRINCIPAL_PER_MINUTE", 20)
     x["apr_limit"] = limit
+    # team-ai's limiter is a sliding-window counter over fixed windows: a burst that straddles
+    # a window boundary is counted with a weighted slice of the previous window, which can
+    # move the cut-off by one. Start the burst well inside a window so "the first `limit`
+    # pass, the rest fail" is exact.
+    window = apr.ai_int("RATE_LIMIT_WINDOW_SECONDS", 60)
+    if time.time() % window > window - 15:
+        time.sleep(window - time.time() % window + 1)
     x["apr_burst"] = [
         apr.stream(x["apr_token"], f"limit probe {i}", directive=apr.ALL_400, tagged=apr.tag())
         for i in range(limit + 5)
