@@ -602,8 +602,13 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 		return repository.OrderReturn{}, fmt.Errorf("%w: return is already in terminal state %v", ErrInvalidReturnStatus, existing.Status)
 	}
 
-	updated, err := s.returnRepo.UpdateReturnStatus(ctx, id, newStatus)
+	// A compare-and-set from the status read above: a concurrent transition that
+	// got there first makes this one lose (ErrInvalidReturnStatus).
+	updated, err := s.returnRepo.TransitionReturn(ctx, id, existing.Status, newStatus)
 	if err != nil {
+		if errors.Is(err, repository.ErrReturnStatusConflict) {
+			return repository.OrderReturn{}, fmt.Errorf("%w: return status changed concurrently", ErrInvalidReturnStatus)
+		}
 		return repository.OrderReturn{}, err
 	}
 
