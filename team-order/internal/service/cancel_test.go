@@ -27,6 +27,11 @@ type cancelRig struct {
 // voucher, and returns the order.
 func newCancelRig(t *testing.T, voucher string) (*cancelRig, repository.Order) {
 	t.Helper()
+	return newCancelRigWithRetry(t, voucher, time.Second)
+}
+
+func newCancelRigWithRetry(t *testing.T, voucher string, releaseTimeout time.Duration) (*cancelRig, repository.Order) {
+	t.Helper()
 	r := &cancelRig{
 		domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10}),
 		orders: repository.NewInMemoryOrderRepository(),
@@ -39,7 +44,7 @@ func newCancelRig(t *testing.T, voucher string) (*cancelRig, repository.Order) {
 	}
 	r.svc = service.NewOrderService(r.orders, carts, nil, nil, r.domain, nil, nil,
 		service.WithSagaRepository(r.sagas), service.WithPromotionClient(r.promo),
-		service.WithReleaseRetry(time.Second, 2, time.Millisecond))
+		service.WithReleaseRetry(releaseTimeout, 2, time.Millisecond))
 	placed, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, voucher)
 	if err != nil || len(placed) != 1 {
 		t.Fatalf("checkout: %v", err)
@@ -160,5 +165,22 @@ func TestCancel_ReleasesTheVoucherOnceAndToleratesItsFailure(t *testing.T) {
 	res, err := r2.svc.CancelOrder(context.Background(), o2.ID)
 	if err != nil || res.Status != repository.OrderStatusCancelled || r2.domain.Stock("lst_1") != 10 {
 		t.Fatalf("a voucher release error must not fail the cancel: %v %+v", err, res)
+	}
+}
+
+// A stopped team-domain must not hold a buyer's cancel past the gateway's
+// per-call deadline: the release gets the short inline budget, is parked, and
+// the cancel still succeeds.
+func TestCancel_HangingReleaseIsBoundedAndParked(t *testing.T) {
+	// the background compensation budget stays long; only the cancel is bounded
+	r, o := newCancelRigWithRetry(t, "", 30*time.Second)
+	r.domain.ReleaseHang = true
+	start := time.Now()
+	res, err := r.svc.CancelOrder(context.Background(), o.ID)
+	if elapsed := time.Since(start); elapsed > 4*time.Second {
+		t.Fatalf("cancel took %v; it must return within the inline release budget", elapsed)
+	}
+	if err != nil || res.Status != repository.OrderStatusCancelled || !res.ReleasePending {
+		t.Fatalf("the cancel must succeed with the release parked: %v %+v", err, res)
 	}
 }

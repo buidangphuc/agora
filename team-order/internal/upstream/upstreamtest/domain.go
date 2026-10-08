@@ -50,6 +50,9 @@ type Domain struct {
 	ReserveErr func(req *listingv1.ReserveStockRequest) error
 	CommitErr  func(id string) error
 	ReleaseErr func(id string) error
+	// ReleaseHang makes ReleaseStock block until its context is done, like a
+	// gRPC call to a stopped team-domain, then fail with DeadlineExceeded.
+	ReleaseHang bool
 
 	Calls struct {
 		Reserve, Commit, Release int
@@ -192,7 +195,12 @@ func (d *Domain) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRe
 	if ctx.Err() != nil {
 		d.ReleaseCtxErrs++
 	}
+	hang := d.ReleaseHang
 	d.mu.Unlock()
+	if hang {
+		<-ctx.Done()
+		return nil, status.Error(codes.DeadlineExceeded, ctx.Err().Error())
+	}
 	if d.ReleaseErr != nil {
 		if err := d.ReleaseErr(id); err != nil {
 			return nil, err

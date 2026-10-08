@@ -479,8 +479,10 @@ func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult
 	}
 
 	// Everything after the claim runs on a fresh context (AD3): the request may be
-	// gone, and neither release may be abandoned because of it.
-	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	// gone, and neither release may be abandoned because of it. The budget is the
+	// short inline one: a release that cannot finish in time is parked and the
+	// sweep retries it, so the buyer's cancel still succeeds.
+	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.inlineTimeout)
 	defer cancel()
 
 	pending, rerr := s.releaseOrderReservations(bg, claimed)

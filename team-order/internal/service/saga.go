@@ -20,10 +20,15 @@ import (
 // own deadline (AD3) so a cancelled/expired request context can never abort the
 // release of already-reserved stock.
 const (
-	defaultReservationTTL     = 15 * time.Minute
-	defaultReleaseTimeout     = 30 * time.Second
-	defaultReleaseMaxAttempts = 3
-	defaultReleaseBackoff     = 100 * time.Millisecond
+	defaultReservationTTL = 15 * time.Minute
+	defaultReleaseTimeout = 30 * time.Second
+	// defaultInlineReleaseTimeout bounds the release a buyer-facing cancel waits
+	// for; it must stay under the gateway's per-call deadline (5s) so a slow or
+	// stopped team-domain parks the release for the sweep instead of failing
+	// the cancel at the edge.
+	defaultInlineReleaseTimeout = 2 * time.Second
+	defaultReleaseMaxAttempts   = 3
+	defaultReleaseBackoff       = 100 * time.Millisecond
 )
 
 // ErrReservationLost: a reservation can no longer back an order — team-domain
@@ -42,14 +47,18 @@ var reservationNamespace = uuid.MustParse("6ba7b814-9dad-11d1-80b4-00c04fd430c8"
 
 // releaseRetryConfig bounds a compensation release's retries.
 type releaseRetryConfig struct {
-	timeout     time.Duration
-	maxAttempts int
-	backoff     time.Duration
+	timeout       time.Duration
+	inlineTimeout time.Duration
+	maxAttempts   int
+	backoff       time.Duration
 }
 
 func (c releaseRetryConfig) withDefaults() releaseRetryConfig {
 	if c.timeout <= 0 {
 		c.timeout = defaultReleaseTimeout
+	}
+	if c.inlineTimeout <= 0 {
+		c.inlineTimeout = defaultInlineReleaseTimeout
 	}
 	if c.maxAttempts <= 0 {
 		c.maxAttempts = defaultReleaseMaxAttempts
