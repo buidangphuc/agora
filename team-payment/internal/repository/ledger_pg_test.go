@@ -37,7 +37,7 @@ func TestAppendDebitConcurrent_Postgres(t *testing.T) {
 			<-start
 			_, err := repo.AppendDebit(ctx, LedgerEntry{
 				SellerID: seller, Type: LedgerTypePayout, Amount: -100, Status: LedgerStatusPending,
-			})
+			}, Holdback{})
 			switch {
 			case err == nil:
 				ok.Add(1)

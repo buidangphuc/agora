@@ -55,11 +55,13 @@ type LedgerRepository interface {
 	// entry with that key exists nothing is written and created is false (the existing
 	// entry is returned). ReferenceID must be set.
 	AppendEntryOnce(ctx context.Context, e LedgerEntry) (entry LedgerEntry, created bool, err error)
-	// AppendDebit atomically checks the seller's balance and appends the debit entry
-	// (e.Amount < 0) in one step: it returns ErrInsufficientBalance, appending
-	// nothing, when balance + e.Amount would go negative. Concurrent debits for the
-	// same seller are serialized so the balance can never be overdrawn.
-	AppendDebit(ctx context.Context, e LedgerEntry) (LedgerEntry, error)
+	// AppendDebit atomically checks the seller's balance and withdrawable amount under
+	// hold and appends the debit entry (e.Amount < 0) in one step: it returns
+	// ErrInsufficientBalance when -e.Amount exceeds the balance, a *FundsOnHoldError
+	// (errors.Is ErrFundsOnHold) when it exceeds the withdrawable amount, appending
+	// nothing either way. Concurrent debits for the same seller are serialized so neither
+	// the balance nor the hold can be overdrawn. A zero hold disables the hold.
+	AppendDebit(ctx context.Context, e LedgerEntry, hold Holdback) (LedgerEntry, error)
 	// Balance returns SUM(amount) over the seller's entries (0 when none).
 	Balance(ctx context.Context, sellerID string) (int64, error)
 	// ListEntries returns a page of the seller's entries, newest first, plus the
@@ -178,7 +180,7 @@ func (r *PostgresLedgerRepository) AppendEntryOnce(ctx context.Context, e Ledger
 // locking: a ledger has no single row to lock for a seller with no entries) makes
 // concurrent payouts for one seller run one after another; other sellers are
 // unaffected.
-func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntry) (LedgerEntry, error) {
+func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntry, hold Holdback) (LedgerEntry, error) {
 	if e.Amount >= 0 {
 		return LedgerEntry{}, ErrInvalidAmount
 	}
@@ -197,8 +199,12 @@ func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntr
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM wallet_ledger WHERE seller_id = $1`, e.SellerID).Scan(&balance); err != nil {
 		return LedgerEntry{}, fmt.Errorf("sum ledger balance: %w", err)
 	}
-	if balance+e.Amount < 0 {
-		return LedgerEntry{}, ErrInsufficientBalance
+	credits, err := loadHeldCredits(ctx, tx, e.SellerID, hold)
+	if err != nil {
+		return LedgerEntry{}, err
+	}
+	if err := checkWithdrawable(balance, -e.Amount, credits, hold); err != nil {
+		return LedgerEntry{}, err
 	}
 	if err := insertLedger(ctx, tx, e); err != nil {
 		return LedgerEntry{}, fmt.Errorf("insert ledger entry: %w", err)
@@ -207,6 +213,35 @@ func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntr
 		return LedgerEntry{}, fmt.Errorf("commit debit: %w", err)
 	}
 	return e, nil
+}
+
+// heldCreditsSQL lists the seller's in-window COMPLETED credits, each net of the refund
+// deductions with the same reference (design D7). Served by
+// idx_wallet_ledger_seller_created.
+const heldCreditsSQL = `SELECT c.created_at,
+		(c.amount + COALESCE((SELECT SUM(d.amount) FROM wallet_ledger d
+			WHERE d.type = 'REFUND_DEDUCTION' AND d.reference_id = c.reference_id), 0))::BIGINT
+	FROM wallet_ledger c
+	WHERE c.seller_id = $1 AND c.type = 'ORDER_SETTLEMENT' AND c.status = 'COMPLETED' AND c.created_at > $2`
+
+func loadHeldCredits(ctx context.Context, q DBTX, sellerID string, h Holdback) ([]heldCredit, error) {
+	if !h.Enabled() {
+		return nil, nil // a window of 0 skips the query
+	}
+	rows, err := q.Query(ctx, heldCreditsSQL, sellerID, h.Cutoff())
+	if err != nil {
+		return nil, fmt.Errorf("load held credits: %w", err)
+	}
+	defer rows.Close()
+	var out []heldCredit
+	for rows.Next() {
+		var c heldCredit
+		if err := rows.Scan(&c.CreatedAt, &c.Net); err != nil {
+			return nil, fmt.Errorf("scan held credit: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 // lockSeller takes the per-seller transaction-scoped advisory lock that serialises every
@@ -310,8 +345,29 @@ func (r *InMemoryLedgerRepository) AppendEntryOnce(_ context.Context, e LedgerEn
 	return r.appendOnceLocked(e)
 }
 
-// AppendDebit checks the balance and appends the debit under one write lock.
-func (r *InMemoryLedgerRepository) AppendDebit(_ context.Context, e LedgerEntry) (LedgerEntry, error) {
+// heldCreditsLocked mirrors heldCreditsSQL; callers hold r.mu.
+func (r *InMemoryLedgerRepository) heldCreditsLocked(sellerID string, h Holdback) []heldCredit {
+	if !h.Enabled() {
+		return nil
+	}
+	var out []heldCredit
+	for _, c := range r.entries {
+		if c.SellerID != sellerID || c.Type != LedgerTypeOrderSettlement || c.Status != LedgerStatusCompleted || !c.CreatedAt.After(h.Cutoff()) {
+			continue
+		}
+		net := c.Amount
+		for _, d := range r.entries {
+			if c.ReferenceID != "" && d.Type == LedgerTypeRefundDeduction && d.ReferenceID == c.ReferenceID {
+				net += d.Amount
+			}
+		}
+		out = append(out, heldCredit{CreatedAt: c.CreatedAt, Net: net})
+	}
+	return out
+}
+
+// AppendDebit checks the balance and the hold and appends the debit under one write lock.
+func (r *InMemoryLedgerRepository) AppendDebit(_ context.Context, e LedgerEntry, hold Holdback) (LedgerEntry, error) {
 	if e.Amount >= 0 {
 		return LedgerEntry{}, ErrInvalidAmount
 	}
@@ -324,8 +380,8 @@ func (r *InMemoryLedgerRepository) AppendDebit(_ context.Context, e LedgerEntry)
 			balance += x.Amount
 		}
 	}
-	if balance+e.Amount < 0 {
-		return LedgerEntry{}, ErrInsufficientBalance
+	if err := checkWithdrawable(balance, -e.Amount, r.heldCreditsLocked(e.SellerID, hold), hold); err != nil {
+		return LedgerEntry{}, err
 	}
 	return r.appendLocked(e), nil
 }

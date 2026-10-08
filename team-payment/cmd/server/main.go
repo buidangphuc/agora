@@ -98,7 +98,9 @@ func run() error {
 	if res.TxWriter != nil {
 		svcOpts = append(svcOpts, service.WithTxWriter(res.TxWriter))
 	}
-	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo))
+	svcOpts = append(svcOpts, service.WithLedgerRepo(ledgerRepo), service.WithPayoutHold(settings.Payout.Window))
+	logger.Info("payout hold window", slog.String("window", settings.Payout.Window.String()),
+		slog.Bool("enabled", settings.Payout.Window > 0))
 	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, svcOpts...)
 	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(settings.Mock.MockPayments))
 

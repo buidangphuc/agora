@@ -34,6 +34,10 @@ type PaymentService struct {
 	orderClient upstream.OrderClient
 	txWriter    repository.PaymentTxWriter
 	logger      *slog.Logger
+	// holdWindow is the payout hold-back window (0 = off); now is the clock it is
+	// measured against (injectable for tests).
+	holdWindow time.Duration
+	now        func() time.Time
 }
 
 // Option configures optional PaymentService collaborators without breaking the
@@ -54,6 +58,17 @@ func WithLedgerRepo(lr repository.LedgerRepository) Option {
 	return func(s *PaymentService) { s.ledgerRepo = lr }
 }
 
+// WithPayoutHold sets the payout hold-back window (PAYOUT_HOLD_DAYS / PAYOUT_HOLD_WINDOW):
+// settlement credits younger than it cannot be paid out. 0 disables the hold.
+func WithPayoutHold(window time.Duration) Option {
+	return func(s *PaymentService) { s.holdWindow = window }
+}
+
+// WithClock injects the clock the hold window is measured against (tests).
+func WithClock(now func() time.Time) Option {
+	return func(s *PaymentService) { s.now = now }
+}
+
 func NewPaymentService(
 	paymentRepo repository.PaymentRepository,
 	walletRepo repository.WalletRepository,
@@ -69,6 +84,7 @@ func NewPaymentService(
 		walletRepo:  walletRepo,
 		orderClient: orderClient,
 		logger:      logger,
+		now:         time.Now,
 	}
 	for _, opt := range opts {
 		opt(s)
