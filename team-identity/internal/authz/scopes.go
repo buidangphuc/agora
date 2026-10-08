@@ -10,11 +10,26 @@ const (
 )
 
 // roleScopes is the role → scopes table. Scopes match what services enforce via
-// RequireScopes (listing.read/write, search:read) plus an admin marker.
+// RequireScopes (listing.read/write, search:read/write, engagement:read/write,
+// recommendations:read, ai:use) plus the `admin` marker, granted to the admin role only.
+// recommendations:read and ai:use are the team-ai gates (gateway-and-ai-hardening D7,
+// order-domain-correctness); they are not in the gateway's public (anonymous) scope set.
+//
+// Six SERVICE-ONLY scopes are deliberately granted to NO role; they live only on a
+// service principal and are declared in coverage_test.go (serviceOnlyScopes):
+//   - inventory.write   team-domain stock RPCs, held by service-team-order
+//   - order.read        team-order GetOrder, held by the service principals of team-payment
+//     and team-engagement
+//   - promotion.reserve team-promotion voucher saga RPCs, held by service-team-order
+//   - audit.write       team-audit WriteAuditEvent, held by audit-producing services
+//   - features.read     FeatureService online serving, held by service-team-ai
+//   - features.dataset  FeatureService BuildDataset/GetDatasetBuild, held by the recsys trainer
+//
+// See TestServiceOnlyScopesGrantedToNoRole.
 var roleScopes = map[string][]string{
-	RoleAdmin:  {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write", "admin"},
-	RoleSeller: {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write"},
-	RoleBuyer:  {"listing.read", "search:read", "search:write", "engagement:read", "engagement:write"},
+	RoleAdmin:  {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use", "admin"},
+	RoleSeller: {"listing.read", "listing.write", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use"},
+	RoleBuyer:  {"listing.read", "search:read", "search:write", "engagement:read", "engagement:write", "recommendations:read", "ai:use"},
 }
 
 // ScopesForRoles returns the deduped union of scopes granted by the given roles.
