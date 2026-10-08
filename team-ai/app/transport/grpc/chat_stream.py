@@ -16,6 +16,7 @@ one reply never mixes output from two models.
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -568,6 +569,13 @@ def build_chat_streamer(
         return MockChatStreamer()
 
     if settings.CHAT_BACKEND == "llm_router":
+        # Fail at boot, not on every chat: the router path needs the optional
+        # `ai` extra (langchain, langchain-openai), which the core image omits.
+        if importlib.util.find_spec("langchain_core") is None:
+            raise RuntimeError(
+                "CHAT_BACKEND='llm_router' needs the 'ai' extra (langchain, "
+                "langchain-openai); build the image with UV_EXTRAS including 'ai'."
+            )
         tracker = build_langfuse_tracker(
             settings,
             instance_id="grpc-chat",
