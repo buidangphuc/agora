@@ -181,15 +181,32 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
 	return s.repo.UpdatePassword(ctx, userID, string(newHash))
 }
 
+// ResetIssue is a freshly issued password-reset token plus the facts safe to log.
+type ResetIssue struct {
+	Token     string
+	UserID    string
+	ExpiresAt time.Time
+}
+
 // RequestPasswordReset creates a temporary reset token for user identified by username.
 func (s *AuthService) RequestPasswordReset(ctx context.Context, username string) (string, time.Time, error) {
+	iss, err := s.IssuePasswordReset(ctx, username)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return iss.Token, iss.ExpiresAt, nil
+}
+
+// IssuePasswordReset is RequestPasswordReset that also reports the user id, so the
+// transport layer can audit-log the issuance without the raw token.
+func (s *AuthService) IssuePasswordReset(ctx context.Context, username string) (ResetIssue, error) {
 	username = strings.TrimSpace(username)
 	if username == "" {
-		return "", time.Time{}, ErrInvalidInput
+		return ResetIssue{}, ErrInvalidInput
 	}
 	u, err := s.repo.GetByUsername(ctx, username)
 	if err != nil {
-		return "", time.Time{}, err
+		return ResetIssue{}, err
 	}
 
 	rawToken := uuid.NewString()
@@ -204,9 +221,9 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, username string)
 		CreatedAt: time.Now(),
 	})
 	if err != nil {
-		return "", time.Time{}, err
+		return ResetIssue{}, err
 	}
-	return rawToken, expiresAt, nil
+	return ResetIssue{Token: rawToken, UserID: u.ID, ExpiresAt: expiresAt}, nil
 }
 
 // ResetPassword verifies the reset token and updates the user's password.
@@ -243,6 +260,10 @@ func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword s
 
 	return s.repo.MarkResetTokenUsed(ctx, tokenHash)
 }
+
+// TokenFingerprint is a short, non-reversible identifier for a reset token (the
+// first 12 hex characters of its stored SHA-256 hash), safe to log.
+func TokenFingerprint(raw string) string { return hashToken(raw)[:12] }
 
 func hashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
