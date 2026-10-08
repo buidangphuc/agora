@@ -11,7 +11,7 @@ import re
 import time
 
 from playwright.sync_api import expect
-from pytest_bdd import parsers, then, when
+from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName, timeouts
 from src.pages import SellerOrderReturnsPage
@@ -83,7 +83,15 @@ def click_refund_and_confirm(world: World, prm, name) -> None:  # noqa: F811
     page.confirm_refund()
 
 
-@then(parsers.parse('the return "{name}" reads "{label}" and offers the actions "{actions}"'))
+# re, not parse: the action list may be empty (""), which parse's {field} never matches;
+# registered as Given too because a scenario uses it as a precondition
+_READS_AND_OFFERS = parsers.re(
+    r'the return "(?P<name>[^"]+)" reads "(?P<label>[^"]+)" and offers the actions "(?P<actions>[^"]*)"'
+)
+
+
+@given(_READS_AND_OFFERS)
+@then(_READS_AND_OFFERS)
 def reads_and_offers(world: World, prm, name, label, actions) -> None:  # noqa: F811
     page = _returns_page(world)
     rid = _rid(prm, name)
@@ -101,7 +109,8 @@ def reads_and_offers(world: World, prm, name, label, actions) -> None:  # noqa: 
 def shows_cod_message(world: World, prm, name, text) -> None:  # noqa: F811
     message = _returns_page(world).cod_message(_rid(prm, name))
     expect(message).to_be_visible(timeout=timeouts.DEFAULT)
-    assert _norm(message.inner_text()) == _norm(text), message.inner_text()
+    # inner_text includes the Alert's aria-hidden glyph ("i"); compare what is announced
+    expect(message).to_contain_text(text, timeout=timeouts.DEFAULT)
 
 
 @then("the page shows an error")
