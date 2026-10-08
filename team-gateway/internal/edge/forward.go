@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -242,14 +243,56 @@ func newRequestID() string {
 	return hex.EncodeToString(b[:])
 }
 
-// toConnectErr maps an upstream gRPC status to the equivalent Connect error.
+// Generic client-facing messages for server-side upstream failures. The raw
+// upstream text (driver errors, hostnames, stack hints) never reaches a client.
+const (
+	msgInternalError      = "internal error"
+	msgServiceUnavailable = "service unavailable"
+)
+
+// upstreamError carries the original upstream error behind a sanitised Connect
+// error. The logging interceptor records Original() with the request id.
+type upstreamError struct {
+	msg      string // generic, client-facing
+	original error
+}
+
+func (e *upstreamError) Error() string   { return e.msg }
+func (e *upstreamError) Original() error { return e.original }
+func (e *upstreamError) Unwrap() error   { return e.original }
+
+// sanitized builds a Connect error with a fixed message, keeping the original as
+// a typed cause (never serialised to the client).
+func sanitized(code connect.Code, msg string, original error) error {
+	return connect.NewError(code, &upstreamError{msg: msg, original: original})
+}
+
+// logUpstreamError records the original (pre-sanitisation) upstream error with
+// the request id so operators can correlate the generic client message. It is a
+// no-op for errors that were not sanitised.
+func logUpstreamError(logger *slog.Logger, procedure, rid string, err error) {
+	var ue *upstreamError
+	if errors.As(err, &ue) {
+		logger.Error("edge.upstream_error",
+			slog.String("method", procedure),
+			slog.String("request_id", rid),
+			slog.String("code", connect.CodeOf(err).String()),
+			slog.String("original", ue.Original().Error()),
+		)
+	}
+}
+
+// toConnectErr maps an upstream gRPC status to the equivalent Connect error. It
+// is the single sanitisation point: Internal/Unknown/DataLoss/non-status errors
+// become "internal error" and Unavailable becomes "service unavailable" (codes
+// kept); every client-meaningful code keeps the upstream message.
 func toConnectErr(err error) error {
 	if err == nil {
 		return nil
 	}
 	st, ok := status.FromError(err)
 	if !ok {
-		return connect.NewError(connect.CodeInternal, err)
+		return sanitized(connect.CodeInternal, msgInternalError, err)
 	}
 	var code connect.Code
 	switch st.Code() {
@@ -266,7 +309,7 @@ func toConnectErr(err error) error {
 	case codes.Unauthenticated:
 		code = connect.CodeUnauthenticated
 	case codes.Unavailable:
-		code = connect.CodeUnavailable
+		return sanitized(connect.CodeUnavailable, msgServiceUnavailable, err)
 	case codes.DeadlineExceeded:
 		code = connect.CodeDeadlineExceeded
 	case codes.FailedPrecondition:
@@ -282,9 +325,9 @@ func toConnectErr(err error) error {
 	case codes.Canceled:
 		code = connect.CodeCanceled
 	case codes.DataLoss:
-		code = connect.CodeDataLoss
-	default:
-		code = connect.CodeInternal
+		return sanitized(connect.CodeDataLoss, msgInternalError, err)
+	default: // Internal, Unknown and any future code
+		return sanitized(connect.CodeInternal, msgInternalError, err)
 	}
 	return connect.NewError(code, errors.New(st.Message()))
 }

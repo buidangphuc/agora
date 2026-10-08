@@ -156,6 +156,7 @@ func (e *Edge) loggingInterceptor(logger *slog.Logger) connect.UnaryInterceptorF
 			code := "ok"
 			if err != nil {
 				code = connect.CodeOf(err).String()
+				logUpstreamError(logger, req.Spec().Procedure, requestIDFrom(ctx), err)
 			}
 			principalID := "anonymous"
 			if p, ok := principalFrom(ctx); ok {
