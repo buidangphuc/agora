@@ -130,8 +130,8 @@ func (s *Settings) Validate() error {
 			return fmt.Errorf("SEED_ADMIN_PASSWORD is required and must be at least %d characters when SEED_ADMIN_ENABLED=true", MinSeedAdminPasswordLen)
 		}
 	}
-	if s.PasswordReset.ExposeToken && s.IsProd() {
-		return errors.New("PASSWORD_RESET_EXPOSE_TOKEN must not be enabled when ENV is prod")
+	if s.PasswordReset.ExposeToken && s.RequiresHardenedSecrets() {
+		return fmt.Errorf("PASSWORD_RESET_EXPOSE_TOKEN must not be enabled when ENV is %q (staging or production)", s.Runtime.Env)
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)

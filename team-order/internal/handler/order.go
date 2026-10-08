@@ -55,6 +55,11 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	if err != nil {
 		return nil, err
 	}
+	// Only a user places an order; checked before the kill-switch and before
+	// anything is reserved.
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER {
+		return nil, status.Error(codes.PermissionDenied, "only a user can place an order")
+	}
 
 	// Emergency kill-switch (authoritative enforcement point). Evaluate the
 	// `checkout-enabled` flag with default TRUE (fail-open): a Flipt outage must
@@ -344,6 +349,10 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	if err != nil {
 		return nil, err
 	}
+	// Admin-only: the order owner no longer qualifies.
+	if !isAdminOrUser(principal) {
+		return nil, status.Error(codes.PermissionDenied, "only an admin can force-fail the saga")
+	}
 	if req.GetOrderId() == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "order_id is required")
 	}
@@ -353,18 +362,6 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "fail_step must be empty, \"payment\" or \"shipping\", got %q", step)
 	}
-	// Same authority as CancelOrder: the order owner, or an admin.
-	order, err := h.svc.GetOrder(ctx, req.GetOrderId())
-	if err != nil {
-		if errors.Is(err, repository.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
-	}
-	if !isAdminOrUser(principal, order.BuyerID) {
-		return nil, status.Error(codes.PermissionDenied, "only the order owner or an admin can force-fail the saga")
-	}
-
 	cancelled, err := h.svc.CancelOrder(ctx, req.GetOrderId())
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidStatus) {

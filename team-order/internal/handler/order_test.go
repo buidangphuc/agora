@@ -96,6 +96,12 @@ func incomingPrincipalCtx(userID, userType string) context.Context {
 	return interceptor.ContextWithPrincipal(context.Background(), p)
 }
 
+func serviceCtx(scopes ...string) context.Context {
+	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+		Id: "svc_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE, Scopes: scopes,
+	})
+}
+
 func TestOrderHandler_CalculateShippingFee(t *testing.T) {
 	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
 	h := handler.NewOrderHandler(svc, nil, nil)
@@ -222,7 +228,7 @@ func TestOrderHandler_ForceFailSaga(t *testing.T) {
 	}
 	svc := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
 	h := handler.NewOrderHandler(svc, nil, nil)
-	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+	ctx := adminCtx()
 
 	res, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
 	if err != nil {
@@ -472,5 +478,61 @@ func TestOrderHandler_GetOrder_Authz(t *testing.T) {
 				t.Fatalf("wrong order: %v", res)
 			}
 		})
+	}
+}
+
+func TestOrderHandler_ForceFailSaga_AdminOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"buyer owner": incomingPrincipalCtx("buyer_1", "buyer"),
+		"service":     serviceCtx("order.read", "order.write"),
+		"anonymous":   context.Background(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+				"ord_123": {ID: "ord_123", BuyerID: "buyer_1", Status: repository.OrderStatusPending},
+			}}
+			h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+			_, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
+			want := codes.PermissionDenied
+			if name == "anonymous" {
+				want = status.Code(err)
+				if want == codes.OK {
+					t.Fatal("anonymous must be refused")
+				}
+			}
+			if status.Code(err) != want {
+				t.Fatalf("want %v, got %v", want, err)
+			}
+			if repo.orders["ord_123"].Status != repository.OrderStatusPending {
+				t.Fatalf("order must be unchanged, got %v", repo.orders["ord_123"].Status)
+			}
+		})
+	}
+}
+
+func TestOrderHandler_CreateOrder_UserOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"service":       serviceCtx("order.write", "admin"),
+		"admin service": serviceCtx("admin"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			// Kill-switch is OFF: a refusal on PermissionDenied proves the type check runs first.
+			h := handler.NewOrderHandler(service.NewOrderService(nil, nil, nil, nil, nil, nil, nil), nil, nil,
+				handler.WithFeatureFlags(fakeFlags{enabled: false}))
+			_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+			if status.Code(err) != codes.PermissionDenied {
+				t.Fatalf("want PermissionDenied, got %v", err)
+			}
+		})
+	}
+	h, domain, orders := checkoutHandler(t)
+	if _, err := h.CreateOrder(serviceCtx("order.write"), &orderv1.CreateOrderRequest{}); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("want PermissionDenied, got %v", err)
+	}
+	if domain.Calls.Reserve != 0 || domain.Stock("lst_1") != 10 {
+		t.Fatalf("nothing may be reserved: calls %d stock %d", domain.Calls.Reserve, domain.Stock("lst_1"))
+	}
+	if l, _ := orders.ListBuyerOrders(context.Background(), "buyer_1", 0); len(l) != 0 {
+		t.Fatalf("no order may exist: %v", l)
 	}
 }

@@ -268,7 +268,7 @@ func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	principal := &commonv1.Principal{
 		Id:     "seller-1",
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:write", "payment:read"},
+		Scopes: []string{"payment:write", "payment:read", "listing.write"},
 	}
 	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
 

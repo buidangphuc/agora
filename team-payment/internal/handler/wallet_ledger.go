@@ -43,6 +43,19 @@ func sellerAccess(ctx context.Context, requested string, adminRead bool) (string
 	return "", status.Error(codes.PermissionDenied, "not allowed to access this seller's wallet")
 }
 
+// requirePayoutScope gates payouts on the seller scope, on top of sellerAccess:
+// a buyer acting on their own wallet still may not request a payout.
+func requirePayoutScope(ctx context.Context) error {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(principal.GetScopes(), "listing.write") {
+		return status.Error(codes.PermissionDenied, "listing.write scope is required to request a payout")
+	}
+	return nil
+}
+
 func (h *PaymentHandler) GetWalletBalance(ctx context.Context, req *paymentv1.GetWalletBalanceRequest) (*paymentv1.GetWalletBalanceResponse, error) {
 	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
 	if err != nil {
@@ -88,6 +101,9 @@ func (h *PaymentHandler) ListLedgerEntries(ctx context.Context, req *paymentv1.L
 func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1.RequestWalletPayoutRequest) (*paymentv1.RequestWalletPayoutResponse, error) {
 	sellerID, err := sellerAccess(ctx, req.GetSellerId(), false)
 	if err != nil {
+		return nil, err
+	}
+	if err := requirePayoutScope(ctx); err != nil {
 		return nil, err
 	}
 	if req.GetAmount() <= 0 {
