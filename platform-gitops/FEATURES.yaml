@@ -1,0 +1,41 @@
+# Feature manifest for platform-gitops (deployment plane) and repo-wide coherence checks (repo_doctor).
+# Schema: platform-e2e/schemas/features.schema.json
+
+repo: platform-gitops
+owner: platform-team
+
+features:
+  - id: gitops.pear-rendered-gateway-knows-its-environment
+    title: "The rendered gateway knows its environment"
+    persona: admin
+    priority: P0
+    summary: "The rendered gateway knows its environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static `helm template` render of platform-gitops/charts/service."
+    acceptance:
+      - "When `charts/service` is rendered for team-gateway against the staging overlay and again against the prod overlay"
+      - "Then the gateway container has `ENV` \"staging\" and \"production\" respectively"
+    tags: [ops]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ops/gitops_render.feature::The rendered gateway knows its environment. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+  - id: gitops.pear-team-ai-renders-an-ingress-allow-list
+    title: "team-ai renders an ingress allow-list"
+    persona: admin
+    priority: P0
+    summary: "team-ai renders an ingress allow-list"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static `helm template` render of platform-gitops/charts/service."
+    acceptance:
+      - "When `charts/service` is rendered for team-ai with its service values"
+      - "Then a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway` and `app: prometheus`"
+    tags: [ops]
+    status: planned
+    covered_by: null
+    notes: "Scenario: ops/gitops_render.feature::team-ai renders an ingress allow-list. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
