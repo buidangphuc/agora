@@ -652,7 +652,7 @@ func isAdminOrUser(principal *commonv1.Principal, allowedUserIDs ...string) bool
 		}
 	}
 	for _, s := range principal.GetScopes() {
-		if s == "admin" || s == "order.admin" || s == "all" {
+		if s == "admin" || s == "order.admin" {
 			return true
 		}
 	}
