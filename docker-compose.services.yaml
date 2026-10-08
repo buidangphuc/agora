@@ -391,6 +391,8 @@ services:
       - PAYMENT_EVENTS_TOPIC=payment.events
       - GRPC_PORT=50056
       - ENV=local
+      # local/e2e only: enables ProcessMockPayment (refused at boot in staging/prod)
+      - MOCK_PAYMENTS=true
 
   team-chat:
     build:

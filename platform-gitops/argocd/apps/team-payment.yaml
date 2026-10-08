@@ -38,6 +38,8 @@ spec:
               memory: 256Mi
           secrets:
             enabled: true
+          env:
+            MOCK_PAYMENTS: "true"   # local kind only; refused at boot in staging/prod
   syncPolicy:
     automated:
       prune: true
