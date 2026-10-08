@@ -64,7 +64,7 @@ func (h *NotificationHandler) ListNotifications(ctx context.Context, req *notifi
 
 	notis, unread, err := h.repo.ListNotifications(ctx, userID, pageSize, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list notifications failed: %v", err)
+		return nil, internalErr(ctx, "list notifications", err)
 	}
 
 	return &notificationv1.ListNotificationsResponse{
@@ -82,7 +82,7 @@ func (h *NotificationHandler) MarkAsRead(ctx context.Context, req *notificationv
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "notification not found")
 		}
-		return nil, status.Errorf(codes.Internal, "mark as read failed: %v", err)
+		return nil, internalErr(ctx, "mark as read", err)
 	}
 	return &notificationv1.MarkAsReadResponse{Success: true}, nil
 }
@@ -94,7 +94,7 @@ func (h *NotificationHandler) GetUnreadCount(ctx context.Context, req *notificat
 	}
 	count, err := h.repo.GetUnreadCount(ctx, userID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get unread count failed: %v", err)
+		return nil, internalErr(ctx, "get unread count", err)
 	}
 	return &notificationv1.GetUnreadCountResponse{UnreadCount: count}, nil
 }

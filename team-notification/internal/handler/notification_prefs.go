@@ -12,13 +12,13 @@ import (
 )
 
 // mapPrefsErr turns a service validation error into the right gRPC status.
-func mapPrefsErr(err error) error {
+func mapPrefsErr(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, service.ErrEmptyUser),
 		errors.Is(err, service.ErrNilPrefs):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "%v", err)
+		return internalErr(ctx, "service call", err)
 	}
 }
 
@@ -32,7 +32,7 @@ func (h *NotificationHandler) GetNotificationPrefs(ctx context.Context, _ *notif
 	}
 	prefs, err := h.prefs.Get(ctx, userID)
 	if err != nil {
-		return nil, mapPrefsErr(err)
+		return nil, mapPrefsErr(ctx, err)
 	}
 	return &notificationv1.GetNotificationPrefsResponse{Prefs: prefs}, nil
 }
@@ -47,7 +47,7 @@ func (h *NotificationHandler) UpdateNotificationPrefs(ctx context.Context, req *
 	}
 	prefs, err := h.prefs.Update(ctx, userID, req.GetPrefs())
 	if err != nil {
-		return nil, mapPrefsErr(err)
+		return nil, mapPrefsErr(ctx, err)
 	}
 	return &notificationv1.UpdateNotificationPrefsResponse{Prefs: prefs}, nil
 }
