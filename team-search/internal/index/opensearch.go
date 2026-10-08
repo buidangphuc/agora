@@ -414,6 +414,52 @@ func termKey(k any) string {
 	}
 }
 
+// Listing status filter key and the only status served when the caller names none.
+const (
+	filterStatus    = "status"
+	statusPublished = "published"
+)
+
+func statusClause(v string) map[string]any {
+	return map[string]any{"term": map[string]any{filterStatus: v}}
+}
+
+// buildFilterClauses is the single place structured filters become OpenSearch
+// filter clauses, shared by every retrieval strategy so hits, totals and facets
+// see the same set.
+//
+// Visibility default: unless the filter set already carries a "status", a term
+// status=published clause is added, so a draft, rejected or unspecified document
+// is never matched by a caller that forgot the filter. A given status is used as
+// is; whether the caller may ask for a non-published status is the handler's
+// decision (handler.effectiveFilters), not the index's.
+func buildFilterClauses(filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32) []any {
+	clauses := make([]any, 0, len(filters)+4)
+	if _, has := filters[filterStatus]; !has {
+		clauses = append(clauses, statusClause(statusPublished))
+	}
+	for k, v := range filters {
+		clauses = append(clauses, map[string]any{"term": map[string]any{k: v}})
+	}
+	if categoryID != "" {
+		clauses = append(clauses, map[string]any{"term": map[string]any{"category_id": categoryID}})
+	}
+	if minPrice > 0 || maxPrice > 0 {
+		rangeQ := map[string]any{}
+		if minPrice > 0 {
+			rangeQ["gte"] = minPrice
+		}
+		if maxPrice > 0 {
+			rangeQ["lte"] = maxPrice
+		}
+		clauses = append(clauses, map[string]any{"range": map[string]any{"price": rangeQ}})
+	}
+	if minRating > 0 {
+		clauses = append(clauses, map[string]any{"range": map[string]any{"rating": map[string]any{"gte": minRating}}})
+	}
+	return clauses
+}
+
 // Search runs a free-text (multi_match over title^2 + description) query with
 // structured filters (category, price range, terms) and sorting, paginated by from/size.
 func (o *OpenSearchIndex) Search(
@@ -435,26 +481,7 @@ func (o *OpenSearchIndex) Search(
 			},
 		}
 	}
-	filterClauses := make([]any, 0, len(filters)+2)
-	for k, v := range filters {
-		filterClauses = append(filterClauses, map[string]any{"term": map[string]any{k: v}})
-	}
-	if categoryID != "" {
-		filterClauses = append(filterClauses, map[string]any{"term": map[string]any{"category_id": categoryID}})
-	}
-	if minPrice > 0 || maxPrice > 0 {
-		rangeQ := map[string]any{}
-		if minPrice > 0 {
-			rangeQ["gte"] = minPrice
-		}
-		if maxPrice > 0 {
-			rangeQ["lte"] = maxPrice
-		}
-		filterClauses = append(filterClauses, map[string]any{"range": map[string]any{"price": rangeQ}})
-	}
-	if minRating > 0 {
-		filterClauses = append(filterClauses, map[string]any{"range": map[string]any{"rating": map[string]any{"gte": minRating}}})
-	}
+	filterClauses := buildFilterClauses(filters, categoryID, minPrice, maxPrice, minRating)
 
 	body := map[string]any{
 		"from": from,
@@ -509,26 +536,7 @@ func (o *OpenSearchIndex) SearchVector(
 		return SearchResult{Facets: parseFacets(osAggregations{})}, nil
 	}
 
-	filterClauses := make([]any, 0, len(filters)+2)
-	for k, v := range filters {
-		filterClauses = append(filterClauses, map[string]any{"term": map[string]any{k: v}})
-	}
-	if categoryID != "" {
-		filterClauses = append(filterClauses, map[string]any{"term": map[string]any{"category_id": categoryID}})
-	}
-	if minPrice > 0 || maxPrice > 0 {
-		rangeQ := map[string]any{}
-		if minPrice > 0 {
-			rangeQ["gte"] = minPrice
-		}
-		if maxPrice > 0 {
-			rangeQ["lte"] = maxPrice
-		}
-		filterClauses = append(filterClauses, map[string]any{"range": map[string]any{"price": rangeQ}})
-	}
-	if minRating > 0 {
-		filterClauses = append(filterClauses, map[string]any{"range": map[string]any{"rating": map[string]any{"gte": minRating}}})
-	}
+	filterClauses := buildFilterClauses(filters, categoryID, minPrice, maxPrice, minRating)
 
 	k := from + size
 	if k <= 0 {
@@ -592,11 +600,17 @@ func (o *OpenSearchIndex) Suggest(ctx context.Context, prefix string, limit int)
 	body := map[string]any{
 		"size":    limit,
 		"_source": []string{"title"},
+		// Suggestions are public: only published titles, never a draft's or rejected one's.
 		"query": map[string]any{
-			"multi_match": map[string]any{
-				"query":  prefix,
-				"type":   "bool_prefix",
-				"fields": []string{"title", "title._2gram", "title._3gram"},
+			"bool": map[string]any{
+				"must": map[string]any{
+					"multi_match": map[string]any{
+						"query":  prefix,
+						"type":   "bool_prefix",
+						"fields": []string{"title", "title._2gram", "title._3gram"},
+					},
+				},
+				"filter": []any{statusClause(statusPublished)},
 			},
 		},
 	}

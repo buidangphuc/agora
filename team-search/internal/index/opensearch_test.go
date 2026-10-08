@@ -222,3 +222,51 @@ func TestPartialUpdate_TombstonedListingNotResurrected(t *testing.T) {
 		t.Fatalf("expected 404 (missing doc) to be a no-op, got error: %v", err)
 	}
 }
+
+// Visibility default: with no status filter a status=published clause is added,
+// so drafts/rejected/unspecified listings never match (hits, total and facets).
+func TestSearch_DefaultsToPublishedOnly(t *testing.T) {
+	var cap capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	if _, err := idx.Search(context.Background(), "phone", map[string]string{"seller_id": "s1"}, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if !strings.Contains(cap.body, `{"term":{"status":"published"}}`) {
+		t.Errorf("expected published clause, got %s", cap.body)
+	}
+}
+
+func TestSearchVector_DefaultsToPublishedOnly(t *testing.T) {
+	var cap capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	if _, err := idx.SearchVector(context.Background(), []float32{0.1}, nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
+		t.Fatalf("SearchVector: %v", err)
+	}
+	if !strings.Contains(cap.body, `{"term":{"status":"published"}}`) {
+		t.Errorf("expected published clause in knn filter, got %s", cap.body)
+	}
+}
+
+// An explicit status is used as is (the handler authorises it); no second clause.
+func TestSearch_ExplicitStatusReplacesDefault(t *testing.T) {
+	var cap capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	if _, err := idx.Search(context.Background(), "", map[string]string{"status": "draft", "seller_id": "A"}, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if strings.Contains(cap.body, `"status":"published"`) || !strings.Contains(cap.body, `"status":"draft"`) {
+		t.Errorf("expected only the draft status clause, got %s", cap.body)
+	}
+}
+
+// Suggestions are public: titles of non-published listings must not leak.
+func TestSuggest_PublishedOnly(t *testing.T) {
+	var cap capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	if _, err := idx.Suggest(context.Background(), "iph", 5); err != nil {
+		t.Fatalf("Suggest: %v", err)
+	}
+	if !strings.Contains(cap.body, `{"term":{"status":"published"}}`) {
+		t.Errorf("expected published clause in suggest, got %s", cap.body)
+	}
+}

@@ -61,8 +61,15 @@ func (h *SearchHandler) SaveSearch(
 	if req.GetQuery() == "" && !hasFilters(filtersJSON) {
 		return nil, status.Error(codes.InvalidArgument, "query or filters_json required")
 	}
-	if _, err := parseFilters(filtersJSON); err != nil {
+	parsed, err := parseFilters(filtersJSON)
+	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "filters_json must be a JSON object of string values")
+	}
+	// Same visibility rules as SearchListings for this caller, so a filter set that
+	// search would reject (for example status=draft for a non-owner) is never stored.
+	p, _ := interceptor.PrincipalFromContext(ctx)
+	if _, err := effectiveFilters(p, parsed); err != nil {
+		return nil, err
 	}
 	saved, err := h.saved.Create(ctx, repository.SavedSearch{
 		UserID:      userID,
@@ -159,7 +166,14 @@ func (h *SearchHandler) RunSavedSearch(
 		// it as no structured filters and run the free-text query alone.
 		filters = nil
 	}
-	// Reuse the existing search path exactly (default first page).
+	// Re-apply the visibility policy at RUN time with the runner's identity (a saved
+	// draft filter never outlives its owner's right to it), then reuse the
+	// existing search path exactly (default first page).
+	p, _ := interceptor.PrincipalFromContext(ctx)
+	filters, err = effectiveFilters(p, filters)
+	if err != nil {
+		return nil, err
+	}
 	res, err := h.idx.Search(ctx, saved.Query, filters, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, defaultPageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "search failed")

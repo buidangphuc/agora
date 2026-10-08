@@ -34,7 +34,7 @@ func TestSaveThenList(t *testing.T) {
 
 	saved, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{
 		Query:       "iPhone",
-		FiltersJson: `{"status":"active"}`,
+		FiltersJson: `{"status":"published"}`,
 	})
 	if err != nil {
 		t.Fatalf("SaveSearch: %v", err)
@@ -53,7 +53,7 @@ func TestSaveThenList(t *testing.T) {
 	if list.GetPage().GetTotal() != 1 || len(list.GetSavedSearches()) != 1 {
 		t.Fatalf("expected 1 saved search, got total=%d len=%d", list.GetPage().GetTotal(), len(list.GetSavedSearches()))
 	}
-	if list.GetSavedSearches()[0].GetFiltersJson() != `{"status":"active"}` {
+	if list.GetSavedSearches()[0].GetFiltersJson() != `{"status":"published"}` {
 		t.Errorf("filters mismatch: %q", list.GetSavedSearches()[0].GetFiltersJson())
 	}
 }

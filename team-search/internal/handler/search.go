@@ -52,15 +52,19 @@ func (h *SearchHandler) SearchListings(
 	if err := interceptor.RequireScopes(ctx, "search:read"); err != nil {
 		return nil, err
 	}
+	p, _ := interceptor.PrincipalFromContext(ctx)
+	filters, err := effectiveFilters(p, req.GetFilters())
+	if err != nil {
+		return nil, err
+	}
 	from, size := decodePage(req.GetPage())
 
 	var res index.SearchResult
-	var err error
 
 	if h.engine != nil {
 		res, _, err = h.engine.Execute(ctx, retrieval.SearchParams{
 			Query:      req.GetQuery(),
-			Filters:    req.GetFilters(),
+			Filters:    filters,
 			CategoryID: req.GetCategoryId(),
 			MinPrice:   req.GetMinPrice(),
 			MaxPrice:   req.GetMaxPrice(),
@@ -71,7 +75,7 @@ func (h *SearchHandler) SearchListings(
 			Size:       size,
 		})
 	} else {
-		res, err = h.idx.Search(ctx, req.GetQuery(), req.GetFilters(), req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), req.GetMinRating(), req.GetSortBy(), from, size)
+		res, err = h.idx.Search(ctx, req.GetQuery(), filters, req.GetCategoryId(), req.GetMinPrice(), req.GetMaxPrice(), req.GetMinRating(), req.GetSortBy(), from, size)
 	}
 
 	if err != nil {
