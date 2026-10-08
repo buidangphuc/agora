@@ -16,6 +16,7 @@ import (
 	eventsv1 "github.com/buidangphuc/team-payment/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	"github.com/buidangphuc/team-payment/internal/consumer"
+	"github.com/buidangphuc/team-payment/internal/pgtest"
 	"github.com/buidangphuc/team-payment/internal/repository"
 	"github.com/buidangphuc/team-payment/internal/service"
 )
@@ -96,8 +97,8 @@ func (d *fakeDLQ) setFail(f bool) {
 
 type fixture struct {
 	svc      *service.PaymentService
-	payments *repository.InMemoryPaymentRepository
-	ledger   *repository.InMemoryLedgerRepository
+	payments repository.PaymentRepository
+	ledger   repository.LedgerRepository
 }
 
 func newFixture() fixture {
@@ -106,6 +107,22 @@ func newFixture() fixture {
 	svc := service.NewPaymentService(p, repository.NewInMemoryWalletRepository(), nil, quiet,
 		service.WithLedgerRepo(l), service.WithSettlementLedger(repository.NewInMemorySettlementLedger(p, l)))
 	return fixture{svc: svc, payments: p, ledger: l}
+}
+
+// newPGFixture is the same service over Postgres stores (fresh migrated schema).
+func newPGFixture(t *testing.T) fixture {
+	pool := pgtest.Pool(t)
+	p := repository.NewPostgresPaymentRepository(pool)
+	l := repository.NewPostgresLedgerRepository(pool)
+	svc := service.NewPaymentService(p, repository.NewPostgresWalletRepository(pool), nil, quiet,
+		service.WithLedgerRepo(l), service.WithSettlementLedger(repository.NewPostgresSettlementLedger(pool)))
+	return fixture{svc: svc, payments: p, ledger: l}
+}
+
+// eachBackend runs fn in memory and, with TEST_DATABASE_URL, on Postgres.
+func eachBackend(t *testing.T, fn func(t *testing.T, f fixture)) {
+	t.Run("memory", func(t *testing.T) { fn(t, newFixture()) })
+	t.Run("postgres", func(t *testing.T) { fn(t, newPGFixture(t)) })
 }
 
 func (f fixture) paid(t *testing.T, orderID string, amount int64) repository.PaymentTransaction {

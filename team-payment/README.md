@@ -50,7 +50,7 @@ call does not forward the caller's principal: `internal/upstream/order.go` sends
 | Direction | Topic | Type | Key | Notes |
 |---|---|---|---|---|
 | Produces | `payment.events` | `platform.payment.v1.PaymentSettled` in an `EventEnvelope` | `order_id` | Emitted only when a payment is settled PAID. A failed or refunded payment emits nothing. |
-| Consumes | `order.events` | `platform.order.v1.OrderPaidEvent` (others ignored) | `order_id` | Group `team-payment.settlement`; poison records go to `order.events.payment-settlement.dlq`. Credits the seller. |
+| Consumes | `order.events` | `platform.order.v1.OrderPaidEvent`, `platform.order.v1.OrderCancelled` (others ignored) | `order_id` | Group `team-payment.settlement`; poison records go to `order.events.payment-settlement.dlq`. Credits the seller; refunds a cancelled paid order. |
 
 - `event_id` (the outbox primary key) is the envelope `event_id`. Delivery is at-least-once, so
   consumers must dedupe on it. The consumer is `team-order`, which parks poison records on
@@ -92,6 +92,17 @@ then take the seller lock payouts use. The refund writes one `REFUND_DEDUCTION` 
 credit for that payment exists, for the credited seller; if the refund lands first, the credit
 path writes the deduction together with the credit. Either order ends with one credit and one
 deduction, and a never-credited payment is never deducted.
+
+### Automatic refund of a cancelled paid order
+
+`team-order` writes `OrderCancelled` (with `previous_status`) through its outbox in the same
+transaction as the cancel claim. The same consumer, when `previous_status` is `PAID`, refunds the
+order's `PAID` payment in full as the system (`provider_reference` `REFUND:order_cancelled`)
+through the refund transaction above, so the seller gets one deduction whether the cancel or the
+credit is applied first. A payment already `REFUNDED` (seller/admin refund, redelivered cancel) is
+left alone, with no second deduction; a cancel from `PENDING` triggers nothing; an order with no
+`PAID`/`REFUNDED` transaction goes to the DLQ. A cancel published while `team-payment` is down is
+applied when it restarts (committed offsets).
 
 ### Payout hold-back
 

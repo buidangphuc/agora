@@ -1,5 +1,6 @@
 // Package consumer holds team-payment's consumer of team-order's order.events. It credits
-// the seller's wallet ledger for every OrderPaidEvent durably (at-least-once, bounded
+// the seller's wallet ledger for every OrderPaidEvent, and refunds the payment of an order
+// cancelled from Paid on OrderCancelled, durably (at-least-once, bounded
 // retry, dead-letter topic, commit only after apply or DLQ). The credit is idempotent on
 // (ORDER_SETTLEMENT, payment id), so redelivery and replays are no-ops; there is no dedupe
 // table. Transport (franz-go reader, DLQ producer) is injected so the logic is testable
@@ -24,7 +25,8 @@ import (
 
 // Envelope types handled on order.events; every other type is acknowledged without effect.
 const (
-	OrderPaidEventType = "platform.order.v1.OrderPaidEvent"
+	OrderPaidEventType      = "platform.order.v1.OrderPaidEvent"
+	OrderCancelledEventType = "platform.order.v1.OrderCancelled"
 )
 
 // Documented defaults (bootstrap reads the env, design D6).
@@ -42,6 +44,9 @@ var ErrPermanent = errors.New("permanent consumer error")
 type Applier interface {
 	// CreditSettlement credits sellerID for orderID's payment (idempotent).
 	CreditSettlement(ctx context.Context, orderID, sellerID string, eventTotal int64) error
+	// RefundCancelledOrder refunds a cancelled paid order's payment in full (no-op when
+	// already refunded).
+	RefundCancelledOrder(ctx context.Context, orderID string) error
 }
 
 // SettlementConsumer applies order.events records to the seller ledger.
@@ -71,14 +76,36 @@ func (c *SettlementConsumer) HandleRaw(ctx context.Context, value []byte) error 
 // or a fact that can never be applied; anything else is retryable (e.g. DB errors).
 func (c *SettlementConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEnvelope) error {
 	switch env.GetType() {
-	case OrderPaidEventType:
+	case OrderPaidEventType, OrderCancelledEventType:
 	default:
 		return nil // e.g. OrderShipped: not ours
 	}
 	if env.GetEventId() == "" {
 		return fmt.Errorf("%w: envelope missing event_id", ErrPermanent)
 	}
+	if env.GetType() == OrderCancelledEventType {
+		return c.handleCancelled(ctx, env)
+	}
 	return c.handlePaid(ctx, env)
+}
+
+// handleCancelled refunds the payment of an order cancelled from Paid (design D12); a
+// cancel from any other status (Pending) triggers nothing.
+func (c *SettlementConsumer) handleCancelled(ctx context.Context, env *eventsv1.EventEnvelope) error {
+	var cancelled orderv1.OrderCancelled
+	if err := proto.Unmarshal(env.GetPayload(), &cancelled); err != nil {
+		return fmt.Errorf("%w: unmarshal OrderCancelled: %v", ErrPermanent, err)
+	}
+	if cancelled.GetOrderId() == "" {
+		return fmt.Errorf("%w: OrderCancelled missing order_id", ErrPermanent)
+	}
+	if cancelled.GetPreviousStatus() != orderv1.OrderStatus_ORDER_STATUS_PAID {
+		return nil
+	}
+	if err := c.apply.RefundCancelledOrder(ctx, cancelled.GetOrderId()); err != nil {
+		return classify(err, "refund cancelled order "+cancelled.GetOrderId())
+	}
+	return nil
 }
 
 func (c *SettlementConsumer) handlePaid(ctx context.Context, env *eventsv1.EventEnvelope) error {
