@@ -17,7 +17,8 @@ const (
 //
 // Seven SERVICE-ONLY scopes are deliberately granted to NO role; they live only on a
 // service principal and are declared in coverage_test.go (serviceOnlyScopes):
-//   - inventory.write   team-domain stock RPCs, held by service-team-order
+//   - inventory.write   reserved for team-domain stock RPCs (not enforced yet: they gate on
+//     a SERVICE principal with listing.write; authz-hardening-wave2 moves them here)
 //   - order.read        team-order GetOrder, held by the service principals of team-payment
 //     and team-engagement
 //   - promotion.reserve team-promotion voucher saga RPCs, held by service-team-order

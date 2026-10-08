@@ -30,7 +30,7 @@ var enforcedScopes = []enforcedScope{
 // serviceOnlyScopes are enforced by a service but deliberately granted to no user role;
 // they live only on a service principal (design D9).
 var serviceOnlyScopes = []enforcedScope{
-	{"inventory.write", "team-domain (ReserveStock/ReleaseStock/CommitReservation, held by team-order)"},
+	{"inventory.write", "reserved for team-domain stock RPCs; today they gate on SERVICE + listing.write (authz-hardening-wave2)"},
 	{"order.read", "team-order (GetOrder for a service principal, held by team-payment and team-engagement)"},
 	{"promotion.reserve", "team-promotion (ValidateAndReserve service path, CommitReservation, ReleaseReservation; held by service-team-order)"},
 	{"audit.write", "team-audit (WriteAuditEvent; held by any audit-producing service)"},
