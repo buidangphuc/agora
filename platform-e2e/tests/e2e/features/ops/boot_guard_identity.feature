@@ -9,3 +9,8 @@ Feature: team-identity refuses the development signing key outside local
   Scenario: team-identity refuses the development signing key in production
     When the team-identity image is started with ENV=production and the development signing key from the local compose file
     Then the process exits non-zero and its log names the signing key
+
+  @destructive
+  Scenario: team-identity refuses an exposed reset token in staging
+    When the team-identity image is started with ENV=staging, its own non-development signing key, and PASSWORD_RESET_EXPOSE_TOKEN=true
+    Then the identity process exits non-zero and its log names PASSWORD_RESET_EXPOSE_TOKEN
