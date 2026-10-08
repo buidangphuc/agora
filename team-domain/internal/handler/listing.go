@@ -264,7 +264,7 @@ func (h *ListingHandler) GetImageUploadUrl(
 		req.GetFilename(),
 	)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to generate upload url: %v", err)
+		return nil, internalErr("generate upload url", err)
 	}
 	return &listingv1.GetImageUploadUrlResponse{
 		UploadUrl: uploadURL,
@@ -286,7 +286,7 @@ func (h *ListingHandler) ListCategories(
 	}
 	items, err := h.categories.List(ctx, req.GetParentId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list categories: %v", err)
+		return nil, internalErr("list categories", err)
 	}
 	wire := make([]*listingv1.Category, 0, len(items))
 	for _, c := range items {
@@ -321,7 +321,7 @@ func (h *ListingHandler) GetCategory(
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return nil, status.Error(codes.NotFound, "category not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get category: %v", err)
+		return nil, internalErr("get category", err)
 	}
 	return &listingv1.GetCategoryResponse{
 		Category: &listingv1.Category{
@@ -367,7 +367,7 @@ func (h *ListingHandler) ReserveStock(
 				Message: "insufficient stock",
 			}, nil
 		}
-		return nil, status.Errorf(codes.Internal, "reserve stock: %v", err)
+		return nil, internalErr("reserve stock", err)
 	}
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
@@ -395,7 +395,7 @@ func (h *ListingHandler) ReleaseStock(
 		if errors.Is(err, repository.ErrVariantNotFound) {
 			return nil, status.Error(codes.NotFound, "variant not found")
 		}
-		return nil, status.Errorf(codes.Internal, "release stock: %v", err)
+		return nil, internalErr("release stock", err)
 	}
 	return &listingv1.ReleaseStockResponse{Success: true}, nil
 }
