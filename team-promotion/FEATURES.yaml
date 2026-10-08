@@ -52,3 +52,147 @@ features:
     tags: [buyer, promotion]
     status: automated
     covered_by: "promo/vouchers.feature::Flash-sale listing shows sale price and live remaining-stock meter"
+
+  - id: promotion.buyer-previews-voucher-own-namespace
+    title: A buyer previews a voucher under their own namespace
+    persona: buyer
+    priority: P0
+    summary: >-
+      A user ValidateAndReserve with reservation_id preview:<own id>:<code> succeeds as a preview.
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.ValidateAndReserve]
+    acceptance:
+      - Given a logged-in buyer
+      - When the buyer calls ValidateAndReserve with reservation_id preview:<own id>:<code>
+      - Then the call succeeds and the discount is computed for that buyer
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::A buyer previews a voucher under their own namespace"
+
+  - id: promotion.buyer-cannot-reserve-outside-preview
+    title: A buyer cannot hold a reservation outside the preview namespace
+    persona: buyer
+    priority: P0
+    summary: >-
+      A user reservation_id outside preview:<own id>: is refused with 403 (also another user's namespace); anonymous gets 401.
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.ValidateAndReserve]
+    acceptance:
+      - Given a logged-in buyer
+      - "When the buyer calls ValidateAndReserve with a reservation_id outside preview:<own id>:"
+      - Then the gateway answers HTTP 403
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::A buyer cannot hold a reservation outside the preview namespace"
+
+  - id: promotion.voucher-checkout-completes-through-saga
+    title: A voucher checkout still completes through the saga
+    persona: buyer
+    priority: P0
+    summary: >-
+      Checkout with a voucher and mock payment pays the discounted total and commits the redemption once.
+    entry_route: /
+    services: [team-promotion, team-order, team-payment, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, promotion.v1.ValidateAndReserve, promotion.v1.CommitReservation, payment.v1.ProcessMockPayment]
+    acceptance:
+      - Given a buyer with a voucher-qualifying cart
+      - When the buyer places the order with the voucher and pays
+      - Then the order is paid with the voucher discount applied and the redemption is committed once
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::A voucher checkout still completes through the saga"
+    notes: >-
+      Admin-created voucher with quota 5; asserts totalAmount and voucher.used==1.
+
+  - id: promotion.buyer-cannot-subscribe-to-plan
+    title: A buyer cannot subscribe to a seller plan
+    persona: buyer
+    priority: P0
+    summary: >-
+      Subscribe needs listing.write; a buyer gets 403.
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [promotion.v1.Subscribe]
+    acceptance:
+      - Given a logged-in buyer
+      - When the buyer calls Subscribe
+      - Then the gateway answers HTTP 403
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::A buyer cannot subscribe to a seller plan"
+
+  - id: promotion.seller-cannot-advertise-foreign-listing
+    title: A seller cannot advertise another seller's listing
+    persona: seller
+    priority: P0
+    summary: >-
+      CreateAdCampaign requires listing ownership; another seller's listing is refused with 403.
+    entry_route: /
+    services: [team-promotion, team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CreateAdCampaign]
+    acceptance:
+      - Given two sellers and a listing owned by the first
+      - When the second seller calls CreateAdCampaign for that listing
+      - Then the gateway answers HTTP 403
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::A seller cannot advertise another seller's listing"
+
+  - id: promotion.oversized-ad-bid-rejected
+    title: An oversized ad bid is rejected
+    persona: seller
+    priority: P0
+    summary: >-
+      A bid above MAX_AD_BID is refused with 400 while a normal bid on the same listing succeeds.
+    entry_route: /
+    services: [team-promotion, team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.CreateAdCampaign]
+    acceptance:
+      - Given a seller with a listing
+      - When the seller calls CreateAdCampaign with a bid above the maximum
+      - Then the gateway answers HTTP 400
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::An oversized ad bid is rejected"
+
+  - id: promotion.entitlements-not-readable-by-users
+    title: Entitlements are not readable by users
+    persona: seller
+    priority: P0
+    summary: >-
+      GetEntitlements for another seller's id is refused with 403.
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [promotion.v1.GetEntitlements]
+    acceptance:
+      - Given two sellers
+      - When the first seller calls GetEntitlements for the second seller
+      - Then the gateway answers HTTP 403
+    tags: [promotion, authz]
+    status: automated
+    covered_by: "security/promotion_access.feature::Entitlements are not readable by users"
+    notes: >-
+      SPEC MISMATCH: the code (and the seller plans page) allow a user to read their OWN entitlements (200); only cross-seller reads are 403. Spec says every non-SERVICE caller is refused.
