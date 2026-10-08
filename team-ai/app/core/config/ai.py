@@ -15,6 +15,33 @@ class AISettingsMixin(BaseModel):
     # external LLM via the existing router (team-ai embeds no model itself).
     CHAT_BACKEND: str = "mock"  # "mock" | "llm_router"
 
+    # Chat path resilience (CHAT_BACKEND=llm_router). Each attempt is cancelled when
+    # no chunk arrives within the first-token timeout; LLM_MAX_ATTEMPTS bounds all
+    # pre-first-chunk attempts across the fallback chain. Each target has its own
+    # breaker: LLM_BREAKER_THRESHOLD consecutive transient failures (429/5xx/timeout/
+    # connection) open it, and after the cooldown one probe request is let through.
+    LLM_FIRST_TOKEN_TIMEOUT_SECONDS: float = Field(default=8.0, gt=0)
+    LLM_MAX_ATTEMPTS: int = Field(default=3, ge=1)
+    LLM_BREAKER_THRESHOLD: int = Field(default=3, gt=0)
+    LLM_BREAKER_COOLDOWN_SECONDS: float = Field(default=30.0, ge=0)
+
+    # Prompt and session history. The system prompt comes from Langfuse when it is
+    # enabled and reachable, else CHAT_SYSTEM_PROMPT, else a built-in static prompt.
+    CHAT_SYSTEM_PROMPT: str = ""
+    CHAT_HISTORY_MAX_TURNS: int = Field(default=10, ge=0)
+    CHAT_HISTORY_MAX_TOKENS: int = Field(default=1500, gt=0)
+    CHAT_HISTORY_TTL_SECONDS: int = Field(default=1800, gt=0)
+
+    # What user text may appear in logs and traces: "redacted" (PII masked, default),
+    # "off" (no user text) or "full" (raw; refused outside dev/local/test). Text sent
+    # to the model is always redacted, whatever this says.
+    LLM_TRACE_CONTENT: str = "redacted"
+
+    # Chat quota: one unit per reply (resource ``chat.reply``), enforced when
+    # QUOTA_ENABLED and CHAT_BACKEND=llm_router.
+    QUOTA_CHAT_REPLIES_PER_WINDOW: int = Field(default=200, gt=0)
+    QUOTA_CHAT_WINDOW_SECONDS: int = Field(default=86_400, gt=0)
+
     # Langfuse observability
     LANGFUSE_ENABLED: bool = False
     LANGFUSE_PUBLIC_KEY: str = ""
