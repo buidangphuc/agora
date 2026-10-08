@@ -120,6 +120,10 @@ const indexMapping = `{
       "seller_id":      { "type": "keyword" },
       "rating":         { "type": "float" },
       "version":        { "type": "long" },
+      "stock":          { "type": "integer" },
+      "stock_version":  { "type": "long" },
+      "created_at":     { "type": "date", "format": "epoch_millis" },
+      "tombstoned_at":  { "type": "date", "format": "epoch_millis" },
       "embedding":      {
         "type": "knn_vector",
         "dimension": 384,
@@ -134,7 +138,22 @@ const indexMapping = `{
   }
 }`
 
-// EnsureIndex creates the listings index with indexMapping if it doesn't exist.
+// additiveMapping is the put-mapping body for the fields added after the index
+// was first created (D10). It must stay identical to their entries in
+// indexMapping: an existing index gains them, and a second put (or a concurrent
+// one from the other process at boot) is a no-op. An existing field of another
+// type makes the put fail, so a boot never runs on a mapping it cannot use.
+const additiveMapping = `{
+  "properties": {
+    "stock":         { "type": "integer" },
+    "stock_version": { "type": "long" },
+    "created_at":    { "type": "date", "format": "epoch_millis" },
+    "tombstoned_at": { "type": "date", "format": "epoch_millis" }
+  }
+}`
+
+// EnsureIndex creates the listings index with indexMapping if it doesn't exist,
+// and otherwise idempotently puts the additive fields onto the existing mapping.
 func (o *OpenSearchIndex) EnsureIndex(ctx context.Context) error {
 	res, err := opensearchapi.IndicesExistsRequest{
 		Index: []string{o.name},
@@ -145,7 +164,7 @@ func (o *OpenSearchIndex) EnsureIndex(ctx context.Context) error {
 	defer res.Body.Close()
 
 	if res.StatusCode == 200 {
-		return nil
+		return o.ensureAdditiveMapping(ctx)
 	}
 
 	createRes, err := opensearchapi.IndicesCreateRequest{
@@ -163,9 +182,25 @@ func (o *OpenSearchIndex) EnsureIndex(ctx context.Context) error {
 		// — treat that as success rather than crashing the process.
 		msg := createRes.String()
 		if createRes.StatusCode == 400 && strings.Contains(msg, "resource_already_exists_exception") {
-			return nil
+			return o.ensureAdditiveMapping(ctx)
 		}
 		return fmt.Errorf("create index %q: %s", o.name, msg)
+	}
+	return nil
+}
+
+// ensureAdditiveMapping issues the idempotent PUT _mapping for additiveMapping.
+func (o *OpenSearchIndex) ensureAdditiveMapping(ctx context.Context) error {
+	res, err := opensearchapi.IndicesPutMappingRequest{
+		Index: []string{o.name},
+		Body:  strings.NewReader(additiveMapping),
+	}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("put mapping on %q: %w", o.name, err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("put mapping on %q (stock, stock_version, created_at, tombstoned_at): %s", o.name, res.String())
 	}
 	return nil
 }
