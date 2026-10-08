@@ -563,3 +563,21 @@ features:
     covered_by: null
     notes: >-
       Scenario "The gateway refuses reflection in production" in ops/boot_guard_gateway.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.upstream-recovers-after-recreate
+    title: A recreated upstream is reachable again within seconds
+    persona: seller
+    priority: P1
+    summary: A recreated upstream is reachable again within seconds (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the team-payment container is recreated and its gRPC port answers"
+      - "Then within 5 seconds a seller's GetWalletBalance through the gateway succeeds, and it keeps succeeding on 3 consecutive calls"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "A recreated upstream is reachable again within seconds" in ops/upstream_recovery.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
