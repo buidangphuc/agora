@@ -167,6 +167,23 @@ func (s *Settings) OutboxPollInterval() time.Duration {
 	return d
 }
 
+// hardenedSecretEnvs are the deployed environments that must not run on the
+// committed development signing key; anything else ("local", "test", unknown) is
+// non-strict.
+var hardenedSecretEnvs = []string{"staging", "stage", "prod", "production"}
+
+// RequiresHardenedSecrets reports whether ENV names a deployed environment
+// (staging / production) that must not run on development secrets.
+func (s *Settings) RequiresHardenedSecrets() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range hardenedSecretEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"

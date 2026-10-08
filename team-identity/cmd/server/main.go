@@ -77,6 +77,9 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build token signer: %w", err)
 	}
+	if err := settings.RequireNonDevSigningKey(signer.KID(), signer.PublicKey()); err != nil {
+		return err
+	}
 	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second).WithSessions(sessionRepo)
 
 	// Seed the first admin only when explicitly enabled; the password comes from

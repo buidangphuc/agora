@@ -43,3 +43,17 @@ func TestNormalizeRole(t *testing.T) {
 		t.Errorf("expected fallback to RoleBuyer")
 	}
 }
+
+func TestUserRolesCarryRecommendationsAndAI(t *testing.T) {
+	for _, role := range []string{authz.RoleBuyer, authz.RoleSeller, authz.RoleAdmin} {
+		got := map[string]bool{}
+		for _, s := range authz.ScopesForRoles([]string{role}) {
+			got[s] = true
+		}
+		for _, want := range []string{"recommendations:read", "ai:use"} {
+			if !got[want] {
+				t.Errorf("role %s missing scope %s", role, want)
+			}
+		}
+	}
+}
