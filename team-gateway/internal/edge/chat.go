@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log/slog"
 
 	"connectrpc.com/connect"
 
@@ -50,12 +49,10 @@ func (f *ChatForwarder) StreamChat(
 	}
 }
 
-// streamErr sanitises an upstream stream error and logs the original with the
-// request id (there is no streaming interceptor to do it).
-func (f *ChatForwarder) streamErr(ctx context.Context, err error) error {
-	cerr := toConnectErr(err)
-	logUpstreamError(slog.Default(), "StreamChat", requestIDFrom(ctx), cerr)
-	return cerr
+// streamErr sanitises an upstream stream error; the edge logging interceptor
+// logs it with the request id.
+func (f *ChatForwarder) streamErr(_ context.Context, err error) error {
+	return toConnectErr(err)
 }
 
 func (f *ChatForwarder) GetOrCreateThread(
