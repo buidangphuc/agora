@@ -649,3 +649,20 @@ features:
     status: automated
     covered_by: "tracking/ingest_scrubbing.feature::A referrer loses its query string"
     notes: "tracking-ingest-integrity: tracking/ingest_scrubbing.feature::A referrer loses its query string"
+
+  - id: gateway.adq-tracking-quality-report-admin-only
+    title: "Only admins can read the report"
+    persona: guest
+    priority: P1
+    summary: "Only admins can read the report"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetTrackingQualityReport
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous client and then a logged-in buyer call `GetTrackingQualityReport` through the gateway"
+      - "Then the gateway answers HTTP 401 and then HTTP 403"
+    tags: [security, analytics, admin]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Only admins can read the report"

@@ -338,3 +338,71 @@ features:
     status: automated
     covered_by: "tracking/identity_stitching.feature::A never-logged-in visitor keeps an anonymous key"
     notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::A never-logged-in visitor keeps an anonymous key"
+
+  - id: analytics.adq-resent-event-counted-as-duplicate
+    title: "A re-sent event is counted as a skipped duplicate"
+    persona: admin
+    priority: P1
+    summary: "A re-sent event is counted as a skipped duplicate"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts the same view (same `eventId` and `anonymousId`) twice and the admin then reads the tracking quality report for the last hour"
+      - "Then the report's `duplicates_skipped` is at least 1 higher than it was before the two posts"
+    tags: [tracking, analytics, admin]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A re-sent event is counted as a skipped duplicate"
+
+  - id: analytics.adq-fresh-views-appear-in-report
+    title: "Fresh views appear in the report"
+    persona: admin
+    priority: P1
+    summary: "Fresh views appear in the report"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts three views of a listing and the admin reads the report for the last hour"
+      - "Then the view count is at least 3, the latest ingest time is within the last 5 minutes, and the status is not degraded for `stale`"
+    tags: [tracking, analytics, admin]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Fresh views appear in the report"
+
+  - id: analytics.adq-views-without-listing-incomplete
+    title: "Views without a listing make the report incomplete"
+    persona: admin
+    priority: P1
+    summary: "Views without a listing make the report incomplete"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts 50 views without a `listingId` and the admin reads the report for the last hour"
+      - "Then the view type's missing-listing ratio is above 0 and, if it exceeds the configured maximum, the status is `DEGRADED` with reason `incomplete`"
+    tags: [tracking, analytics, admin]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Views without a listing make the report incomplete"
+
+  - id: analytics.adq-window-out-of-range-rejected
+    title: "A window out of range is rejected"
+    persona: admin
+    priority: P1
+    summary: "A window out of range is rejected"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the admin reads the report with a window of 500 hours"
+      - "Then the call fails with `invalid_argument`"
+    tags: [tracking, analytics, admin]
+    status: planned
+    covered_by: null
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A window out of range is rejected"
