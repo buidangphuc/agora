@@ -156,13 +156,21 @@ export async function createOrder(
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
   voucherCode?: string,
+  idempotencyKey?: string,
 ): Promise<ViewOrder[]> {
-  const res = await gateway().order.createOrder({
+  const req = {
     addressId: addressId ?? "",
     itemIds: itemIds ?? [],
     paymentMethod: paymentMethod ?? PaymentMethod.COD,
     voucherCode: voucherCode ?? "",
-  });
+  };
+  // One key per checkout attempt: the gateway forwards it to team-order, which
+  // replays the same orders for a repeated key instead of placing a second set.
+  const res = idempotencyKey
+    ? await gateway().order.createOrder(req, {
+        headers: { "Idempotency-Key": idempotencyKey },
+      })
+    : await gateway().order.createOrder(req);
   return res.orders.map(mapOrder);
 }
 

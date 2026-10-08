@@ -1,5 +1,6 @@
 "use server";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
@@ -33,11 +34,15 @@ export interface CheckoutData {
   paymentUrl?: string;
 }
 
+const CHECKOUT_IN_PROGRESS =
+  "Đơn hàng đang được xử lý, vui lòng thử lại sau giây lát.";
+
 export async function checkoutAction(
   addressId?: string,
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
   voucherCode?: string,
+  idempotencyKey?: string,
 ): Promise<ActionResult<CheckoutData>> {
   try {
     const orders = await createOrder(
@@ -45,6 +50,7 @@ export async function checkoutAction(
       itemIds,
       paymentMethod,
       voucherCode,
+      idempotencyKey,
     );
     revalidatePath("/cart");
     revalidatePath("/checkout");
@@ -67,6 +73,11 @@ export async function checkoutAction(
 
     return ok({ orderIds, paymentUrl });
   } catch (err: unknown) {
+    // `aborted`: the same idempotency key is still being processed by a
+    // concurrent request. Nothing failed; the buyer can safely retry.
+    if (err instanceof ConnectError && err.code === Code.Aborted) {
+      return fail(CHECKOUT_IN_PROGRESS);
+    }
     return fail(err instanceof Error ? err.message : "Đặt hàng thất bại.");
   }
 }

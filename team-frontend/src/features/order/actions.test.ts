@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -43,6 +44,7 @@ describe("checkoutAction", () => {
       ["it1"],
       PaymentMethod.COD,
       undefined,
+      undefined,
     );
     expect(createPayment).not.toHaveBeenCalled();
     expect(res).toEqual({
@@ -72,6 +74,29 @@ describe("checkoutAction", () => {
     expect(res).toEqual({
       ok: true,
       data: { orderIds: ["o1"], paymentUrl: undefined },
+    });
+  });
+
+  it("passes the idempotency key through to createOrder", async () => {
+    vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
+    await checkoutAction("addr1", undefined, PaymentMethod.COD, "V", "key-1");
+    expect(createOrder).toHaveBeenCalledWith(
+      "addr1",
+      undefined,
+      PaymentMethod.COD,
+      "V",
+      "key-1",
+    );
+  });
+
+  it("maps an aborted checkout to a retryable in-progress message", async () => {
+    vi.mocked(createOrder).mockRejectedValue(
+      new ConnectError("checkout already in progress", Code.Aborted),
+    );
+    const res = await checkoutAction("addr1", ["it1"], PaymentMethod.COD);
+    expect(res).toEqual({
+      ok: false,
+      error: "Đơn hàng đang được xử lý, vui lòng thử lại sau giây lát.",
     });
   });
 

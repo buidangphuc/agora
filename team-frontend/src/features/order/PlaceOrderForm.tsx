@@ -69,6 +69,10 @@ export function PlaceOrderForm({
   const { pending, setPending } = useCheckoutPending();
   const inFlight = useRef(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // One Idempotency-Key per checkout attempt: reused on a retry of the same
+  // inputs (so a replay cannot place a second order), renewed after a success
+  // or when address / payment method / voucher / items change.
+  const attempt = useRef<{ key: string; sig: string } | null>(null);
   const [phase, setPhase] = useState<"idle" | "pending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +80,19 @@ export function PlaceOrderForm({
     inFlight.current = false;
     setPhase("idle");
     setPending(false);
+  }
+
+  function attemptKey(): string {
+    const sig = JSON.stringify([
+      addressId,
+      method,
+      voucherCode ?? "",
+      items.map((i) => [i.itemId, i.quantity, i.price]),
+    ]);
+    if (!attempt.current || attempt.current.sig !== sig) {
+      attempt.current = { key: crypto.randomUUID(), sig };
+    }
+    return attempt.current.key;
   }
 
   async function placeOrder() {
@@ -90,6 +107,7 @@ export function PlaceOrderForm({
         undefined,
         method,
         voucherCode,
+        attemptKey(),
       );
       if (!res.ok) {
         release();
@@ -106,6 +124,7 @@ export function PlaceOrderForm({
         paymentType: String(method),
         items,
       });
+      attempt.current = null; // the next checkout is a new attempt
       setPhase("done");
       router.push(res.data?.paymentUrl || "/account/orders?success=1");
     } catch (err: unknown) {

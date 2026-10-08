@@ -129,6 +129,25 @@ be running on the network (hosts `redis`, `qdrant`). Isolation is per xdist work
 `10+N` and Qdrant collections `e2e_recsys_gwN_*`; live serving data (Redis DB 0, default
 collections) is not touched.
 
+### Order / inventory scenarios (short reservation TTL)
+
+The reservation-expiry scenarios need `team-domain` and `team-order` to expire holds in seconds,
+not 15 minutes. `compose/order-inventory.override.yaml` sets `RESERVATION_TTL=20s` and
+`RESERVATION_SWEEP_INTERVAL=2s` on both services. Layer it as an extra `-f` on the stack, from
+the workspace root, whatever the compose project name is (it names services only, no container
+names; add `-p <project>` if your stack runs under a non-default project, and any extra override
+you already use as another `-f`):
+
+```bash
+docker compose -f docker-compose.yaml -f platform-e2e/compose/order-inventory.override.yaml up -d
+# check: shows the values; plain `docker compose config` does not
+docker compose -f docker-compose.yaml -f platform-e2e/compose/order-inventory.override.yaml config | grep RESERVATION
+```
+
+Only uncommitted holds expire that fast; placed orders are committed and immune to the sweep, so
+the whole suite can run with the overlay. TTL scenarios wait TTL + 2 x interval + margin. Do not
+use it for deployed environments (their defaults, 15m / 1m, apply).
+
 ## Build, test, lint
 
 | Command | Does |
