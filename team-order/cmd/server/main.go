@@ -235,8 +235,8 @@ func run() error {
 	// crashed checkout never leaks inventory. Gated on Postgres like the saga repo.
 	if res.Pool != nil {
 		logger.Info("reservation sweeper starting",
-			slog.Duration("reservation_ttl", reservationTTL),
-			slog.Duration("sweep_interval", sweepInterval))
+			slog.String("reservation_ttl", reservationTTL.String()),
+			slog.String("sweep_interval", sweepInterval.String()))
 		go runReservationSweeper(ctx, orderSvc, sweepInterval, logger)
 	}
 
