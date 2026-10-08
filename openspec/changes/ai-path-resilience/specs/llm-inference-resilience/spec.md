@@ -103,8 +103,9 @@ delivered. A principal whose quota is exhausted SHALL get `RESOURCE_EXHAUSTED` a
 ### Requirement: Chat and assistant RPCs are rate limited per principal
 
 With `GRPC_RATE_LIMIT_ENABLED`, `StreamChat` and `ShoppingAssistant` SHALL be limited per forwarded principal and
-SHALL answer `RESOURCE_EXHAUSTED` when the limit is exceeded, without calling the model. When `ENV` is staging or
-production, team-ai SHALL refuse to start with the gRPC rate limit enabled and `RATE_LIMIT_BACKEND=memory`.
+SHALL answer `RESOURCE_EXHAUSTED` when the limit is exceeded, without calling the model. When team-ai's environment
+setting `ENVIRONMENT` is anything other than dev, local or test, team-ai SHALL refuse to start with the gRPC rate limit
+enabled and `RATE_LIMIT_BACKEND=memory`.
 
 #### Scenario: One buyer over the limit does not affect another
 
@@ -114,7 +115,7 @@ production, team-ai SHALL refuse to start with the gRPC rate limit enabled and `
 
 #### Scenario: Production refuses a per-process rate limiter
 
-- **WHEN** the team-ai image is started with `ENV=production`, `GRPC_RATE_LIMIT_ENABLED=true` and
+- **WHEN** the team-ai image is started with `ENVIRONMENT=production`, `GRPC_RATE_LIMIT_ENABLED=true` and
   `RATE_LIMIT_BACKEND=memory`
 - **THEN** the process exits non-zero and its log names `RATE_LIMIT_BACKEND`
 
@@ -164,7 +165,7 @@ Bare digit strings without an ID keyword (prices, order numbers) SHALL NOT be ma
 (`StreamChat`, `ShoppingAssistant`, `ChatCopilot`) and in traces SHALL follow `LLM_TRACE_CONTENT`:
 - `redacted` (default): the masks above;
 - `off`: no user text;
-- `full`: raw text, allowed only outside staging and production.
+- `full`: raw text, refused when `ENVIRONMENT` is production.
 
 #### Scenario: Phone and citizen ID are masked before the model
 
