@@ -28,6 +28,11 @@ service AnalyticsQueryService {
   // Latest paid orders across the platform, newest first, from order_facts. Admin-only
   // (scope "admin"); carries no buyer PII.
   rpc ListRecentOrders(ListRecentOrdersRequest) returns (ListRecentOrdersResponse);
+  // Tracking-pipeline health over a trailing window: per-event-type volume and
+  // missing-listing ratio, ingest lag, last ingest time, decode failures and
+  // skipped duplicates, folded into a status. Admin-only (scope "admin"); carries
+  // no per-user data.
+  rpc GetTrackingQualityReport(GetTrackingQualityReportRequest) returns (GetTrackingQualityReportResponse);
 }
 
 message GetSellerFunnelRequest {
@@ -117,6 +122,30 @@ message RecentOrder {
 
 message ListRecentOrdersResponse {
   repeated RecentOrder orders = 1;
+}
+
+message GetTrackingQualityReportRequest {
+  uint32 window_hours = 1;  // trailing window in hours; 0 = 24
+}
+
+message TrackingTypeQuality {
+  string event_type = 1;
+  int64 events = 2;                  // events of this type in the window
+  int64 visitors = 3;                // distinct visitors of this type in the window
+  double missing_listing_ratio = 4;  // share of events lacking a listing id, 0..1
+  bool listing_scoped = 5;           // true when this type is expected to carry a listing id
+}
+
+message GetTrackingQualityReportResponse {
+  repeated TrackingTypeQuality types = 1;
+  double lag_p50_seconds = 2;                       // ingest lag, median
+  double lag_p95_seconds = 3;                       // ingest lag, 95th percentile
+  google.protobuf.Timestamp last_ingested_at = 4;   // unset when nothing was ingested
+  int64 decode_failures = 5;                        // undecodable messages in the window
+  int64 duplicates_skipped = 6;                     // events skipped as duplicates in the window
+  string status = 7;                                // overall health verdict
+  repeated string reasons = 8;                      // why the status is not healthy
+  uint32 window_hours = 9;                          // the effective window (0 resolved to 24)
 }
 
 // EventType distinguishes the behavioral signals a single TrackingEvent can
