@@ -290,3 +290,37 @@ features:
     status: planned
     covered_by: null
     notes: "tracking-ingest-integrity: tracking/ingest_time.feature::A stored event has an ingest time after its occurrence"
+
+  - id: tracking.pre-login-browsing-resolves-to-user
+    title: "Pre-login browsing resolves to the account after login"
+    persona: guest
+    priority: P1
+    summary: "tracking_identity maps an anonymous id seen on a USER event to that principal, and tracking_events_resolved exposes it as user_key for the anonymous events too."
+    entry_route: "/"
+    services: [team-gateway, team-analytics, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view anonymously with `anonymousId` X, then logs in as a new buyer and posts a view with the same `anonymousId` X
+      - Then in `tracking_events_resolved` both views have `user_key` equal to the buyer's id
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::Pre-login browsing resolves to the user after login"
+
+  - id: tracking.never-logged-in-keeps-anon-key
+    title: "A never-logged-in visitor resolves to an anonymous key"
+    persona: guest
+    priority: P1
+    summary: "A visitor with no USER event keeps user_key anon:<anonymous_id> in tracking_events_resolved."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view anonymously with a fresh `anonymousId` Y and never logs in
+      - Then in `tracking_events_resolved` that view has `user_key` "anon:Y"
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::A never-logged-in visitor keeps an anonymous key"
