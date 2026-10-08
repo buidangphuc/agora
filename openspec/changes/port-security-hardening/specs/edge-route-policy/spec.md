@@ -46,14 +46,15 @@ verified caller without `admin` SHALL receive `permission_denied` (HTTP 403).
 ### Requirement: Upstream failures are reported without internal detail
 
 When an upstream service fails with an internal or unknown error, the gateway SHALL answer with the message
-`internal error`. When the upstream is unreachable, it SHALL answer `unavailable` (HTTP 503) with the message
-`service unavailable`. Neither response SHALL contain the upstream's error text, addresses or driver messages. The
+`internal error`. When the upstream refuses the connection, it SHALL answer `unavailable` (HTTP 503) with the message
+`service unavailable`. When the gateway gives up waiting for the upstream, it SHALL answer `deadline_exceeded`
+(HTTP 504) with the message `upstream timed out`. Neither response SHALL contain the upstream's error text, addresses or driver messages. The
 gateway SHALL log the original error with the request id.
 
 #### Scenario: An unreachable upstream is reported without internal detail
 
 - **WHEN** team-audit is stopped and the seeded admin calls `QueryAuditLog` through the gateway
-- **THEN** the gateway answers HTTP 503 with message `service unavailable` and the body contains no host, port or dial error text
+- **THEN** the gateway answers HTTP 503 `service unavailable` or HTTP 504 `upstream timed out`, and the body contains no host, port, dial or load-balancer text
 
 ### Requirement: Tokens must carry an expiry and a subject
 

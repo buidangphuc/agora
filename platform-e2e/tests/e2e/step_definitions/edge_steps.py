@@ -254,11 +254,15 @@ def admin_queries_audit_down(world: World) -> None:
     )
 
 
-@then("the gateway answers HTTP 503 with message service unavailable")
-def answers_503(world: World) -> None:
+@then("the gateway answers with a fixed upstream-failure message")
+def answers_fixed_upstream_failure(world: World) -> None:
+    # A stopped container's DNS name disappears, so the gateway's gRPC client
+    # waits and times out (504); a refused connection is 503. Both carry a fixed
+    # message and never the client's resolver/LB text.
     resp = _extra(world)["edge_query"]
-    assert resp.status_code == 503, f"{resp.status_code} {resp.text}"
-    assert resp.json().get("message") == "service unavailable", resp.text
+    expected = {503: "service unavailable", 504: "upstream timed out"}
+    assert resp.status_code in expected, f"{resp.status_code} {resp.text}"
+    assert resp.json().get("message") == expected[resp.status_code], resp.text
 
 
 @then("the body contains no host, port or dial error text")
@@ -272,6 +276,8 @@ def no_internal_detail(world: World) -> None:
         "lookup",
         ":50",
         "no such host",
+        "lb policy",
+        "deadline exceeded",
     ):
         assert leak not in text, f"body leaks {leak!r}: {text}"
     assert not re.search(r"\d{1,3}(\.\d{1,3}){3}", text), f"body leaks an address: {text}"

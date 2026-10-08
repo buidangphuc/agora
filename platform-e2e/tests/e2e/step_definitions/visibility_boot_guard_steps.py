@@ -1,18 +1,20 @@
 """team-search production boot guard (port-security-hardening / deploy-runtime).
 
-Runs the real team-search:local image as a black box with `docker run --rm`; the
+Runs the real team-search image built by the stack (agora-team-search:local) as a black box with `docker run --rm`; the
 assertions are the exit code and the log, nothing in-process.
 """
 
 from __future__ import annotations
 
+import os
 import subprocess
 
 from pytest_bdd import given, then, when
 
 from tests.e2e.support.world import World
 
-IMAGE = "team-search:local"
+# the image the agora stack builds (compose project "agora"); override for other stacks
+IMAGE = os.environ.get("SEARCH_BOOT_IMAGE", "agora-team-search:local")
 GUARD_MARKER = "refusing to start with in-memory saved-search storage"
 
 

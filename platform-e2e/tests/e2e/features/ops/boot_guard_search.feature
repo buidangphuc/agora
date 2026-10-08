@@ -1,5 +1,5 @@
 Feature: team-search refuses to boot on in-memory storage in production
-  Black box: the real team-search:local image is started with docker run.
+  Black box: the real team-search image built by the stack is started with docker run.
 
   Scenario: team-search refuses in-memory storage in production
     Given the team-search image

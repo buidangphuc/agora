@@ -176,7 +176,7 @@ features:
     covered_by: "security/promotion_access.feature::An oversized ad bid is rejected"
 
   - id: promotion.entitlements-not-readable-by-users
-    title: Entitlements are not readable by users
+    title: A seller cannot read another seller's entitlements
     persona: seller
     priority: P0
     summary: >-
@@ -193,6 +193,6 @@ features:
       - Then the gateway answers HTTP 403
     tags: [promotion, authz]
     status: automated
-    covered_by: "security/promotion_access.feature::Entitlements are not readable by users"
+    covered_by: "security/promotion_access.feature::A seller cannot read another seller's entitlements"
     notes: >-
-      SPEC MISMATCH: the code (and the seller plans page) allow a user to read their OWN entitlements (200); only cross-seller reads are 403. Spec says every non-SERVICE caller is refused.
+      A seller may read their own entitlements (the seller plans page relies on it); the spec was corrected to match.

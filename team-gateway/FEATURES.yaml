@@ -244,8 +244,9 @@ features:
     title: An unreachable upstream is reported without internal detail
     persona: admin
     priority: P1
-    summary: 'With team-audit stopped the gateway answers 503 ''service unavailable'' and leaks no host,
-      port or dial error text. Destructive: stops agora-team-audit-svc and restores it in teardown.'
+    summary: 'With team-audit stopped the gateway answers 503 ''service unavailable'' or 504 ''upstream
+      timed out'' and leaks no host, port, dial or load-balancer text. Destructive: stops
+      agora-team-audit-svc and restores it in teardown.'
     entry_route: /
     services:
     - team-gateway
@@ -258,15 +259,15 @@ features:
     acceptance:
     - Given the seeded admin and team-audit is stopped
     - When the seeded admin calls QueryAuditLog through the gateway while team-audit is down
-    - Then the gateway answers HTTP 503 with message service unavailable
+    - Then the gateway answers with a fixed upstream-failure message
     - And the body contains no host, port or dial error text
     tags:
     - security
     - edge
-    status: planned
-    covered_by: null
-    notes: 'DESTRUCTIVE (@destructive): stops agora-team-audit-svc; not run by the e2e track, the integrator
-      runs it in the serial lane. Flip to automated once green.'
+    status: automated
+    covered_by: security/edge_route_policy.feature::An unreachable upstream is reported without internal detail
+    notes: 'DESTRUCTIVE (@destructive): runs in the serial lane only. A stopped container loses its DNS
+      name, so the gateway times out (504) rather than getting a refused connection (503).'
 
   - id: edge.token-without-exp-rejected
     title: A signed token without an expiry is rejected

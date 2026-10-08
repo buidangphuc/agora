@@ -31,8 +31,8 @@ id>:`, otherwise the call SHALL fail with `permission_denied`. An anonymous call
 
 `Subscribe` and `CreateAdCampaign` SHALL require `listing.write`. `CreateAdCampaign` SHALL additionally require that
 the caller owns the listing, unless the caller is an admin. A bid above `MAX_AD_BID` or a budget above
-`MAX_AD_BUDGET` SHALL be rejected with `invalid_argument`. `GetEntitlements` SHALL be refused for every
-non-SERVICE caller.
+`MAX_AD_BUDGET` SHALL be rejected with `invalid_argument`. `GetEntitlements` SHALL return a seller's plan
+entitlements only to that seller or to a SERVICE principal; any other caller SHALL receive `permission_denied`.
 
 #### Scenario: A buyer cannot subscribe to a seller plan
 
@@ -49,7 +49,7 @@ non-SERVICE caller.
 - **WHEN** a logged-in seller calls `CreateAdCampaign` for their own listing with a bid above the configured maximum
 - **THEN** the gateway answers HTTP 400
 
-#### Scenario: Entitlements are not readable by users
+#### Scenario: A seller cannot read another seller's entitlements
 
-- **WHEN** a logged-in seller calls `GetEntitlements` through the gateway
+- **WHEN** a logged-in seller calls `GetEntitlements` through the gateway for another seller's id
 - **THEN** the gateway answers HTTP 403

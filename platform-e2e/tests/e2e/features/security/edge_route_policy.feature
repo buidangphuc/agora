@@ -37,7 +37,7 @@ Feature: The gateway edge enforces a route policy
     Given the seeded admin
     And team-audit is stopped
     When the seeded admin calls QueryAuditLog through the gateway while team-audit is down
-    Then the gateway answers HTTP 503 with message service unavailable
+    Then the gateway answers with a fixed upstream-failure message
     And the body contains no host, port or dial error text
 
   Scenario: A signed token without an expiry is rejected

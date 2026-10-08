@@ -27,7 +27,7 @@ of the port (security first, then order/inventory/payment correctness, then AI-f
   - The saga RPCs are service-only (`promotion.reserve`).
   - `ValidateAndReserve` from a user is a preview bound to the caller (`buyer_id` forced, `preview:<id>:` namespace).
   - `Subscribe` and `CreateAdCampaign` need `listing.write`, and a campaign needs listing ownership.
-  - `GetEntitlements` is service-only.
+  - `GetEntitlements` returns a seller's entitlements only to that seller or a service.
   - Ad bid and budget are capped.
   - The team-domain lookup is bounded by a timeout.
 - **team-order**:

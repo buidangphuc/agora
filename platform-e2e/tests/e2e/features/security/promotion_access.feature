@@ -46,7 +46,7 @@ Feature: Voucher saga, plan subscription and sponsored ads are gated by caller r
     When the seller creates an ad campaign for their own listing with a bid of 10000000000000
     Then the plan call returns 400
 
-  Scenario: Entitlements are not readable by users
+  Scenario: A seller cannot read another seller's entitlements
     Given a commerce seller with a published listing priced 1000000 with stock 10
     And a second commerce seller
     When the seller reads the entitlements of the second seller
