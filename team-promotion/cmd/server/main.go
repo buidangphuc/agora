@@ -97,13 +97,13 @@ func run() error {
 			return fmt.Errorf("upstream domain: %w", err)
 		}
 		defer domain.Close()
-		listings = domain.Listing
+		listings = upstream.WithTimeout(domain.Listing, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
 	} else {
-		logger.Warn("UPSTREAM_DOMAIN_ADDR unset: non-admin CreateCampaign fails closed")
+		logger.Warn("UPSTREAM_DOMAIN_ADDR unset: non-admin CreateCampaign/CreateAdCampaign fail closed")
 	}
 	flashSaleSvc := service.NewFlashSaleService(flashSaleRepo, res.Producer, res.Flags, listings, logger)
 	subscriptionSvc := service.NewSubscriptionService(subscriptionRepo, logger)
-	sponsoredSvc := service.NewSponsoredService(adCampaignRepo, logger)
+	sponsoredSvc := service.NewSponsoredService(adCampaignRepo, listings, logger).WithLimits(settings.Ads.MaxBid, settings.Ads.MaxBudget)
 
 	voucherHandler := handler.NewVoucherHandler(voucherSvc, logger)
 	flashSaleHandler := handler.NewFlashSaleHandler(flashSaleSvc, logger)
