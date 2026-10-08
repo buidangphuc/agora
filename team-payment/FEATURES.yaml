@@ -638,3 +638,195 @@ features:
     tags: [fintech]
     status: planned
     notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  # ---- port-payment-ledger-integrity / seller-payout-holdback (written from the spec; planned until the code lands).
+
+  - id: payment.plp-holdback-fresh-sale-proceeds-cannot-be-paid-out
+    title: "Fresh sale proceeds cannot be paid out"
+    persona: seller
+    priority: P1
+    summary: "Fresh sale proceeds cannot be paid out"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller's only entry is a 500000 credit written moments ago and the seller requests a wallet payout of 100000"
+      - "Then the call fails with `FAILED_PRECONDITION`, the ledger has no `PAYOUT` entry, and both `GetWalletBalance` and `GetSellerWallet` still return 500000"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-proceeds-can-be-paid-out-once-the-hold-window-pa
+    title: "Proceeds can be paid out once the hold window passes"
+    persona: seller
+    priority: P1
+    summary: "Proceeds can be paid out once the hold window passes"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the same seller waits until the credit is older than the hold window and requests a wallet payout of 500000"
+      - "Then the payout is accepted with a `PENDING` `PAYOUT` entry of -500000 and the balance becomes 0"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-only-the-proceeds-inside-the-window-are-held
+    title: "Only the proceeds inside the window are held"
+    persona: seller
+    priority: P1
+    summary: "Only the proceeds inside the window are held"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, and requests a wallet payout of 300000 and then one of 1"
+      - "Then the first payout is accepted and the second fails with `FAILED_PRECONDITION` as held"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-a-bank-payout-of-held-proceeds-is-refused-and-re
+    title: "A bank payout of held proceeds is refused and records nothing"
+    persona: seller
+    priority: P1
+    summary: "A bank payout of held proceeds is refused and records nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller whose only proceeds are inside the hold window requests a bank payout through `RequestPayout`"
+      - "Then the call fails with `FAILED_PRECONDITION` as held, `ListPayoutHistory` has no new payout, and the ledger has no `PAYOUT` entry"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-concurrent-payouts-cannot-overdraw-the-withdrawa
+    title: "Concurrent payouts cannot overdraw the withdrawable amount"
+    persona: seller
+    priority: P1
+    summary: "Concurrent payouts cannot overdraw the withdrawable amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has 100000 withdrawable and a further 500000 held, and sends eight concurrent wallet payouts of 40000"
+      - "Then exactly two succeed, the others fail with `FAILED_PRECONDITION`, and the balance is 520000"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-a-refund-of-a-held-sale-leaves-older-proceeds-wi
+    title: "A refund of a held sale leaves older proceeds withdrawable"
+    persona: seller
+    priority: P1
+    summary: "A refund of a held sale leaves older proceeds withdrawable"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, and the recent sale is refunded in full"
+      - "Then a wallet payout of 300000 is accepted"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-a-refund-of-a-sale-past-the-window-reduces-what
+    title: "A refund of a sale past the window reduces what can be paid out"
+    persona: seller
+    priority: P1
+    summary: "A refund of a sale past the window reduces what can be paid out"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller's only credit is a 500000 sale older than the hold window and 200000 of it is refunded"
+      - "Then a wallet payout of 300001 fails with `FAILED_PRECONDITION` `insufficient wallet balance` and a payout of 300000 is accepted"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-a-payout-above-the-balance-is-refused-as-insuffi
+    title: "A payout above the balance is refused as insufficient"
+    persona: seller
+    priority: P1
+    summary: "A payout above the balance is refused as insufficient"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller with a balance of 500000 requests a wallet payout of 500001"
+      - "Then the call fails with `FAILED_PRECONDITION` and message `insufficient wallet balance`"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-a-held-payout-names-when-the-amount-is-released
+    title: "A held payout names when the amount is released"
+    persona: seller
+    priority: P1
+    summary: "A held payout names when the amount is released"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller whose 500000 credit was written at time T, inside a hold window W, requests a wallet payout of 100000"
+      - "Then the message starts with `amount is held until `, ends with ` (refund window)`, carries an RFC3339 timestamp within a few seconds of T + W, and contains neither 100000 nor 500000"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-holdback-an-invalid-hold-window-refuses-to-start
+    title: "An invalid hold window refuses to start"
+    persona: seller
+    priority: P1
+    summary: "An invalid hold window refuses to start"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the `team-payment` image is started with `PAYOUT_HOLD_DAYS=-1`, with `PAYOUT_HOLD_DAYS=abc`, or with `PAYOUT_HOLD_WINDOW=soon`"
+      - "Then each container exits non-zero and its log names the offending key"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
