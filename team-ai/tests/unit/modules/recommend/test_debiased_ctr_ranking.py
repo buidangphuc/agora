@@ -30,10 +30,12 @@ def test_equal_raw_ctr_worse_position_yields_higher_debiased_ctr_and_gbdt_score(
     cand_a = Candidate(listing_id="item_a_pos1", score=0.80, in_stock=True)
     cand_b = Candidate(listing_id="item_b_pos5", score=0.80, in_stock=True)
 
-    nearline = InMemoryNearlineStore({
-        "item_a_pos1": 0.05,
-        "item_b_pos5": 0.11,
-    })
+    nearline = InMemoryNearlineStore(
+        {
+            "item_a_pos1": 0.05,
+            "item_b_pos5": 0.11,
+        }
+    )
 
     # When ranked with nearline store, item B receives higher score due to debiased CTR
     ranked = ranker.rank_candidates(

@@ -91,5 +91,7 @@ class ListingEventIndexer:
                 "chunk_count": result.get("chunk_count", 1),
             }
 
-        logger.warning("indexer.unhandled_action action={} listing_id={}", action, listing_id)
+        logger.warning(
+            "indexer.unhandled_action action={} listing_id={}", action, listing_id
+        )
         return {"status": "ignored", "action": action}

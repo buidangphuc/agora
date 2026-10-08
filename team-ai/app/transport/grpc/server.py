@@ -46,12 +46,12 @@ class _AioHealthServicer(health_pb2_grpc.HealthServicer):
     TypeError). This reports SERVING for every service asynchronously.
     """
 
-    async def Check(self, request, context):  # noqa: N802 (gRPC method name)
+    async def Check(self, request, context):
         return health_pb2.HealthCheckResponse(
             status=health_pb2.HealthCheckResponse.SERVING
         )
 
-    async def Watch(self, request, context):  # noqa: N802 (gRPC method name)
+    async def Watch(self, request, context):
         await context.write(
             health_pb2.HealthCheckResponse(
                 status=health_pb2.HealthCheckResponse.SERVING
