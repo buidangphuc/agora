@@ -266,3 +266,26 @@ func TestListingEventHandler_ListingChangedCarriesStock(t *testing.T) {
 		t.Errorf("want stock 0 carried (present), got %v", idx.lastUpsertDoc.Stock)
 	}
 }
+
+// D7: only a CREATED event carries a creation time (its occurred_at, millis).
+func TestListingEventHandler_CreatedAtOnlyFromCreated(t *testing.T) {
+	at := time.UnixMilli(1700000000123)
+	for ct, want := range map[listingv1.ChangeType]bool{
+		listingv1.ChangeType_CHANGE_TYPE_CREATED: true,
+		listingv1.ChangeType_CHANGE_TYPE_UPDATED: false,
+	} {
+		idx := &mockIndex{}
+		env := envelopeAt(t, "platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
+			Listing: &listingv1.Listing{Id: "l1"}, ChangeType: ct}, at)
+		if err := consumer.ListingEventHandler(idx)(context.Background(), nil, env); err != nil {
+			t.Fatal(err)
+		}
+		got := idx.lastUpsertDoc.CreatedAt
+		if want && (got == nil || *got != at.UnixMilli()) {
+			t.Errorf("%v: created_at = %v, want %d", ct, got, at.UnixMilli())
+		}
+		if !want && got != nil {
+			t.Errorf("%v must not carry created_at, got %d", ct, *got)
+		}
+	}
+}

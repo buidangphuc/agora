@@ -37,7 +37,10 @@ type ListingDoc struct {
 	Version     int64  `json:"version"`
 	// Stock is Listing.stock from the event; nil when the doc holds none. It is
 	// written under its own stock_version guard (D2), never with the base fields.
-	Stock         *int32    `json:"stock,omitempty"`
+	Stock *int32 `json:"stock,omitempty"`
+	// CreatedAt is the CREATED event's occurred_at in epoch millis (D7); nil on
+	// every other event. The script keeps the earliest one ever seen.
+	CreatedAt     *int64    `json:"created_at,omitempty"`
 	Embedding     []float32 `json:"embedding,omitempty"`
 	VectorPending bool      `json:"vector_pending,omitempty"`
 }
@@ -227,7 +230,10 @@ const statusDeleted = "deleted"
 //     the stored one. Stock has its own guard (D2): params.stock is taken with
 //     stock_version = version only when that is newer than the stored
 //     stock_version (even if the base fields are stale), otherwise the stored
-//     stock and stock_version are carried forward.
+//     stock and stock_version are carried forward. created_at (D7) is
+//     set-if-absent-or-earlier from params.created_at (a CREATED event's
+//     occurred_at, also when its base fields are stale) and otherwise carried
+//     forward; it is never written onto a tombstone.
 //   - kind 'upsert' on a tombstone: noop when the incoming version is 0 (no
 //     occurred_at) or not newer than the tombstone's; a newer one replaces it.
 //   - kind 'delete': writes {id, status: deleted, version, tombstoned_at} and
@@ -255,9 +261,16 @@ if (params.kind == 'delete') {
   }
 } else {
   boolean stale = tomb ? (v <= 0 || (hasCur && cur >= v)) : (v > 0 && hasCur && cur >= v);
+  boolean live = !(tomb && stale);
   def oldStock = (absent || tomb) ? null : s.stock;
   def oldSV = (absent || tomb) ? null : s.stock_version;
-  boolean takeStock = !(tomb && stale) && params.stock != null && (oldSV == null || ((Number) oldSV).longValue() < v);
+  def oldCreated = (absent || tomb) ? null : s.created_at;
+  boolean takeStock = live && params.stock != null && (oldSV == null || ((Number) oldSV).longValue() < v);
+  def created = oldCreated;
+  if (live && params.created_at != null && (created == null || ((Number) created).longValue() > ((Number) params.created_at).longValue())) {
+    created = params.created_at;
+  }
+  boolean newCreated = live && created != null && (oldCreated == null || ((Number) created).longValue() != ((Number) oldCreated).longValue());
   if (!stale) {
     s.clear();
     s.putAll(params.doc);
@@ -269,7 +282,10 @@ if (params.kind == 'delete') {
     s.stock = oldStock;
     s.stock_version = oldSV;
   }
-  if (stale && !takeStock) {
+  if (live && created != null) {
+    s.created_at = created;
+  }
+  if (stale && !takeStock && !newCreated) {
     ctx.op = 'noop';
   }
 }
@@ -287,16 +303,22 @@ func (o *OpenSearchIndex) Upsert(ctx context.Context, doc ListingDoc) error {
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return err
 	}
-	delete(fields, "stock") // guarded separately by the script (D2)
-	var stock any
+	// Guarded separately by the script: stock (D2) and created_at (D7).
+	delete(fields, "stock")
+	delete(fields, "created_at")
+	var stock, createdAt any
 	if doc.Stock != nil {
 		stock = *doc.Stock
 	}
+	if doc.CreatedAt != nil {
+		createdAt = *doc.CreatedAt
+	}
 	return o.write(ctx, doc.ID, map[string]any{
-		"kind":    "upsert",
-		"version": doc.Version,
-		"doc":     fields,
-		"stock":   stock,
+		"kind":       "upsert",
+		"version":    doc.Version,
+		"doc":        fields,
+		"stock":      stock,
+		"created_at": createdAt,
 	})
 }
 
@@ -617,6 +639,24 @@ func buildFilterClauses(filters map[string]string, categoryID string, minPrice, 
 	return clauses
 }
 
+// sortClause is the key sort shared by both retrieval legs; nil means relevance.
+// SORT_BY_NEWEST orders by creation time (D7), most recent first, listings with
+// no recorded creation time last, ties by the id keyword (never _id).
+func sortClause(sortBy searchv1.SortBy) []any {
+	switch sortBy {
+	case searchv1.SortBy_SORT_BY_PRICE_ASC:
+		return []any{map[string]any{"price": map[string]any{"order": "asc"}}}
+	case searchv1.SortBy_SORT_BY_PRICE_DESC:
+		return []any{map[string]any{"price": map[string]any{"order": "desc"}}}
+	case searchv1.SortBy_SORT_BY_NEWEST:
+		return []any{
+			map[string]any{"created_at": map[string]any{"order": "desc", "missing": "_last", "unmapped_type": "date"}},
+			map[string]any{"id": map[string]any{"order": "asc"}},
+		}
+	}
+	return nil
+}
+
 // Search runs a free-text (multi_match over title^2 + description) query with
 // structured filters (category, price range, terms) and sorting, paginated by from/size.
 func (o *OpenSearchIndex) Search(
@@ -653,14 +693,8 @@ func (o *OpenSearchIndex) Search(
 		"aggs": facetAggs(),
 	}
 
-	// Sorting
-	switch sortBy {
-	case searchv1.SortBy_SORT_BY_PRICE_ASC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "asc"}}}
-	case searchv1.SortBy_SORT_BY_PRICE_DESC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "desc"}}}
-	case searchv1.SortBy_SORT_BY_NEWEST:
-		body["sort"] = []any{map[string]any{"_id": map[string]any{"order": "desc"}}}
+	if sort := sortClause(sortBy); sort != nil {
+		body["sort"] = sort
 	}
 
 	var parsed osSearchResponse
@@ -723,14 +757,8 @@ func (o *OpenSearchIndex) SearchVector(
 		"aggs": facetAggs(),
 	}
 
-	// Sorting
-	switch sortBy {
-	case searchv1.SortBy_SORT_BY_PRICE_ASC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "asc"}}}
-	case searchv1.SortBy_SORT_BY_PRICE_DESC:
-		body["sort"] = []any{map[string]any{"price": map[string]any{"order": "desc"}}}
-	case searchv1.SortBy_SORT_BY_NEWEST:
-		body["sort"] = []any{map[string]any{"_id": map[string]any{"order": "desc"}}}
+	if sort := sortClause(sortBy); sort != nil {
+		body["sort"] = sort
 	}
 
 	var parsed osSearchResponse

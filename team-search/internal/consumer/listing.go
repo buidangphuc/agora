@@ -55,6 +55,12 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return idx.Delete(ctx, l.GetId(), version)
 			}
 			doc := toDoc(l, version)
+			// D7: the creation time is the CREATED envelope's occurred_at; the
+			// index keeps the earliest, so UPDATED events never touch it.
+			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_CREATED && env.GetOccurredAt() != nil {
+				ms := env.GetOccurredAt().AsTime().UnixMilli()
+				doc.CreatedAt = &ms
+			}
 			if embedder != nil {
 				text := strings.TrimSpace(l.GetTitle() + " " + l.GetDescription())
 				if text != "" {

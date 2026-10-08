@@ -284,3 +284,25 @@ func TestSuggest_PublishedOnly(t *testing.T) {
 		t.Errorf("expected published clause in suggest, got %s", cap.body)
 	}
 }
+
+// D7: SORT_BY_NEWEST sorts both legs by created_at desc (missing last), then the
+// id keyword asc; never by _id.
+func TestSortNewest_BothLegsUseCreatedAtThenID(t *testing.T) {
+	const want = `"sort":[{"created_at":{"missing":"_last","order":"desc","unmapped_type":"date"}},{"id":{"order":"asc"}}]`
+	for _, leg := range []string{"lexical", "vector"} {
+		var cap capturedRequest
+		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+		var err error
+		if leg == "lexical" {
+			_, err = idx.Search(context.Background(), "x", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_NEWEST, 0, 10)
+		} else {
+			_, err = idx.SearchVector(context.Background(), []float32{0.1}, nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_NEWEST, 0, 10)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(cap.body, want) || strings.Contains(cap.body, `"_id"`) {
+			t.Errorf("%s sort body: %s", leg, cap.body)
+		}
+	}
+}
