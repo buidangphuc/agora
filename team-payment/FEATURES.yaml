@@ -216,3 +216,214 @@ features:
     covered_by: "ops/boot_guard_payment.feature::team-payment refuses mock payments in production"
     notes: >-
       Standalone docker run --rm of agora-team-payment:local (override with PAYMENT_BOOT_IMAGE); not destructive.
+
+  # ---- port-payment-ledger-integrity / seller-settlement-credit (written from the spec; planned until the code lands).
+
+  - id: payment.plp-settlement-paying-an-order-credits-its-seller-with-the-paid
+    title: "Paying an order credits its seller with the paid amount"
+    persona: seller
+    priority: P1
+    summary: "Paying an order credits its seller with the paid amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays a `Pending` order of 500000 with the mock payment and the order becomes `Paid`"
+      - "Then within the settle window the seller's `ListLedgerEntries` through the gateway shows exactly one new `ORDER_SETTLEMENT` entry of +500000 with status `COMPLETED`, and `GetWalletBalance` grew by 500000"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-paying-an-already-paid-order-again-does-not-cred
+    title: "Paying an already paid order again does not credit twice"
+    persona: seller
+    priority: P1
+    summary: "Paying an already paid order again does not credit twice"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the buyer calls the mock payment again for the same, already credited order"
+      - "Then the call reports the order already paid, and after a later sentinel order of the same seller is credited the seller still has exactly one `ORDER_SETTLEMENT` entry for the first order's amount"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-concurrent-settlements-of-one-order-credit-the-s
+    title: "Concurrent settlements of one order credit the seller once"
+    persona: seller
+    priority: P1
+    summary: "Concurrent settlements of one order credit the seller once"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the buyer sends eight concurrent successful mock payments for one `Pending` order"
+      - "Then the order is `Paid` and, after a sentinel order of the same seller is credited, the seller has exactly one `ORDER_SETTLEMENT` entry for that order"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-a-late-payment-for-a-cancelled-order-does-not-cr
+    title: "A late payment for a cancelled order does not credit the seller"
+    persona: seller
+    priority: P1
+    summary: "A late payment for a cancelled order does not credit the seller"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer opens a payment for a `Pending` order, cancels the order, and the mock payment then succeeds"
+      - "Then the order stays `Cancelled`, the payment reads `PAID`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order's amount and the balance equals the sentinel's amount"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-replaying-a-paid-order-event-does-not-credit-aga
+    title: "Replaying a paid-order event does not credit again"
+    persona: seller
+    priority: P1
+    summary: "Replaying a paid-order event does not credit again"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has been credited for a paid order and that order's `OrderPaidEvent` record is produced to `order.events` again, byte for byte"
+      - "Then after a sentinel order of the same seller is credited, the seller has exactly one `ORDER_SETTLEMENT` entry for the replayed order and the balance equals the two orders' amounts"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-re-consuming-order-events-after-a-restart-does-n
+    title: "Re-consuming order events after a restart does not credit again"
+    persona: seller
+    priority: P1
+    summary: "Re-consuming order events after a restart does not credit again"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has been credited for two paid orders, `team-payment` is stopped, its consumer group is moved back to before those orders' events, and `team-payment` is started again"
+      - "Then once the group has caught up the seller's ledger entries and balance are unchanged, and an order the seller is paid for after the restart is credited once"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): stops team-payment, moves its consumer group back with rpk and starts it again; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-a-malformed-order-event-is-dead-lettered-and-lat
+    title: "A malformed order event is dead-lettered and later credits still apply"
+    persona: seller
+    priority: P1
+    summary: "A malformed order event is dead-lettered and later credits still apply"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a record whose value is not a valid event envelope is produced to `order.events`, followed by a paid order"
+      - "Then the malformed record appears on `order.events.payment-settlement.dlq` and the paid order's seller is credited once"
+    tags: [fintech, destructive]
+    status: planned
+    notes: "@destructive (serial lane): produces a malformed record onto the shared order.events topic; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-a-shipped-order-event-does-not-touch-the-ledger
+    title: "A shipped-order event does not touch the ledger"
+    persona: seller
+    priority: P1
+    summary: "A shipped-order event does not touch the ledger"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a credited order is shipped by its seller, so an `OrderShipped` event follows on `order.events`"
+      - "Then after a sentinel order of the same seller is credited the seller's ledger holds only the two settlement credits"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-the-ledger-store-refuses-a-second-settlement-cre
+    title: "The ledger store refuses a second settlement credit for one payment"
+    persona: seller
+    priority: P1
+    summary: "The ledger store refuses a second settlement credit for one payment"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a second `ORDER_SETTLEMENT` row with the reference of an already credited payment is inserted directly into `team-payment`'s database"
+      - "Then the insert fails with a unique violation and the seller's balance through the gateway is unchanged"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-the-ledger-store-refuses-a-settlement-credit-tha
+    title: "The ledger store refuses a settlement credit that is not positive"
+    persona: seller
+    priority: P1
+    summary: "The ledger store refuses a settlement credit that is not positive"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When an `ORDER_SETTLEMENT` row of -1 with a fresh reference is inserted directly into `team-payment`'s database"
+      - "Then the insert fails with a check violation"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+
+  - id: payment.plp-settlement-the-ledger-store-refuses-a-refund-deduction-with
+    title: "The ledger store refuses a refund deduction without a reference"
+    persona: seller
+    priority: P1
+    summary: "The ledger store refuses a refund deduction without a reference"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a `REFUND_DEDUCTION` row of -1 without a reference is inserted directly into `team-payment`'s database"
+      - "Then the insert fails with a check violation"
+    tags: [fintech]
+    status: planned
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
