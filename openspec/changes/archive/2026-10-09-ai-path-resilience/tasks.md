@@ -52,4 +52,4 @@
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive ai-path-resilience`; retire `llm-path-resilience`, and retire `gateway-and-ai-hardening` after moving its recommendation items to the AI-first `recs-serving-safeguards` change; verify `openspec list`
+- [x] 4.1 `openspec archive ai-path-resilience`; retire `llm-path-resilience`, and retire `gateway-and-ai-hardening` after moving its recommendation items to the AI-first `recs-serving-safeguards` change; verify `openspec list`
