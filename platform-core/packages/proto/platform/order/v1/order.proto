@@ -366,6 +366,22 @@ message OrderPaidEvent {
   google.protobuf.Timestamp paid_at = 6;
 }
 
+// OrderCancelled is emitted (via the outbox, to order.events) in the same
+// transaction as the compare-and-set that cancels an order, so only a cancel that
+// won the claim produces it (CancelOrder and ForceFailSaga). previous_status is
+// the status the order was cancelled from; team-payment refunds the buyer and
+// deducts the seller exactly once when it is ORDER_STATUS_PAID. The event id is
+// stable per order, so redelivery is harmless.
+message OrderCancelled {
+  string order_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  OrderStatus previous_status = 4;
+  int64 total_amount = 5;
+  string currency = 6;
+  google.protobuf.Timestamp cancelled_at = 7;
+}
+
 // OrderShipped is emitted (via the outbox, to order.events) when a seller creates
 // a shipment for an order. Consumed by team-notification to notify the buyer.
 message OrderShipped {
