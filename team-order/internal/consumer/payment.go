@@ -23,6 +23,7 @@ import (
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/service"
 )
 
 // paymentSettledType is the fully-qualified proto name the EventEnvelope carries
@@ -156,8 +157,10 @@ func (c *PaymentConsumer) apply(ctx context.Context, settled *paymentv1.PaymentS
 		return nil
 	}
 
+	// the transition table is the single source of truth for which statuses
+	// settlement may move to PAID (today only PENDING)
 	order, err := c.orders.UpdateOrderStatusFrom(ctx, settled.GetOrderId(), repository.OrderStatusPaid,
-		[]repository.OrderStatus{repository.OrderStatusPending}, "")
+		service.AllowedFrom(repository.OrderStatusPaid, service.ActorSystem), "")
 	switch {
 	case err == nil:
 		c.logger.InfoContext(ctx, "order transitioned to PAID from PaymentSettled",
