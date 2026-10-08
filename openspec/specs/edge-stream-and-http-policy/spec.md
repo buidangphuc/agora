@@ -1,7 +1,9 @@
 # edge-stream-and-http-policy Specification
 
 ## Purpose
-TBD - created by archiving change port-edge-authz-residuals. Update Purpose after archive.
+Defines what `team-gateway` enforces on Connect streams and on its plain-HTTP routes (request id, fail-closed tokens,
+admin policy, rate limits, size caps), how it forwards AI generation calls, when it serves gRPC reflection, and how
+quickly it recovers after an upstream restart.
 
 ## Requirements
 

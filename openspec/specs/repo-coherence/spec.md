@@ -1,7 +1,8 @@
 # repo-coherence Specification
 
 ## Purpose
-TBD - created by archiving change port-edge-authz-residuals. Update Purpose after archive.
+Defines the workspace consistency checks `scripts/repo_doctor.py` enforces across the `team-*` and `platform-*`
+directories, so documentation, configuration and code cannot silently drift apart.
 
 ## Requirements
 
