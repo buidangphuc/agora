@@ -32,6 +32,15 @@ Feature: The gateway edge enforces a route policy
     When the seeded admin calls QueryAuditLog through the gateway
     Then the request succeeds with an events list
 
+  Scenario: A buyer cannot force-fail their own order
+    Given a seller "sa" who owns a listing "L" with stock 10
+    And a buyer "b1"
+    And "b1" has a Pending order for 2 of "L"
+    When the buyer "b1" calls ForceFailSaga on their own order through the gateway
+    Then the gateway answers HTTP 403 to the force-fail call
+    And the order read by "b1" remains Pending
+    And the stock of "L" is unchanged at 8
+
   @destructive
   Scenario: An unreachable upstream is reported without internal detail
     Given the seeded admin
