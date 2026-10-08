@@ -168,11 +168,6 @@ func (s *ListingService) DeleteWithEvent(ctx context.Context, id, ownerID string
 	return s.tx.DeleteTx(ctx, id, enqueue)
 }
 
-// ReserveStock delegates to repository.ReserveStock.
-func (s *ListingService) ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	return s.repo.ReserveStock(ctx, listingID, variantID, quantity)
-}
-
 // ReleaseStock releases the reservation reservationID: the quantity STORED on it
 // is restored exactly once. A repeat, a release of a reservation the sweep
 // already returned, and an unknown id are successful no-ops, each logged at WARN
@@ -193,10 +188,11 @@ func (s *ListingService) ReleaseStock(ctx context.Context, reservationID string)
 }
 
 // ReserveStockIdempotent reserves stock keyed on a stable reservationID so a
-// retried checkout decrements exactly once (AD5). The reservation is held for
-// the configured reservation TTL, after which SweepExpiredReservations restores it. The
-// caller supplies reservationID (stable per cart-item + attempt); an empty id
-// falls back to a plain, non-idempotent reserve.
+// retried checkout decrements exactly once. The reservation is held for the
+// configured reservation TTL, after which SweepExpiredReservations restores it
+// unless it was committed. Re-reserving the id of a released reservation fails
+// with repository.ErrReservationReleased. reservationID is required
+// (repository.ErrReservationIDRequired): there is no ledger-less decrement.
 func (s *ListingService) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32) error {
 	return s.repo.ReserveStockIdempotent(ctx, reservationID, listingID, variantID, quantity, time.Now().Add(s.ReservationTTL()))
 }

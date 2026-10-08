@@ -448,8 +448,9 @@ func TestReserveStock_Success(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{
-		ListingId: "prod-1",
-		Quantity:  3,
+		ListingId:     "prod-1",
+		Quantity:      3,
+		ReservationId: "r1",
 	})
 	if err != nil {
 		t.Fatalf("ReserveStock: %v", err)
@@ -476,8 +477,9 @@ func TestReserveStock_OutOfStock(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{
-		ListingId: "prod-1",
-		Quantity:  5,
+		ListingId:     "prod-1",
+		Quantity:      5,
+		ReservationId: "r1",
 	})
 	if err != nil {
 		t.Fatalf("ReserveStock: %v", err)
@@ -683,5 +685,45 @@ func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
 				t.Fatalf("sweep released %d, want %d", n, wantSwept)
 			}
 		})
+	}
+}
+
+// ReserveStock without a reservation_id is INVALID_ARGUMENT with stock unchanged:
+// there is no ledger-less decrement.
+func TestReserveStock_EmptyReservationIDRejected(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("want InvalidArgument, got %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+		t.Fatalf("stock changed to %d", got.Stock)
+	}
+}
+
+// reserve -> release -> reserve again under the same id fails FAILED_PRECONDITION
+// and leaves stock unchanged (the caller must use a new id).
+func TestReserveStock_ReleasedIDFailsPrecondition(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	req := &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3, ReservationId: "r1"}
+	if _, err := client.ReserveStock(ctx, req); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if _, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ReservationId: "r1"}); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if _, err := client.ReserveStock(ctx, req); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("re-reserve of released id: want FailedPrecondition, got %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+		t.Fatalf("stock = %d, want 10", got.Stock)
 	}
 }

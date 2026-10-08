@@ -253,37 +253,33 @@ func deleteListing(ctx context.Context, q DBTX, id string) (Listing, error) {
 	return out, nil
 }
 
-// ReserveStock atomically decrements inventory if sufficient stock is available.
-func (r *PostgresListingRepository) ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	if quantity <= 0 {
-		return errors.New("quantity must be positive")
-	}
+// decrementStock subtracts quantity iff enough stock remains (the conditional
+// UPDATE is the oversell guard). ErrNotFound / ErrVariantNotFound when the row
+// does not exist, ErrOutOfStock when it exists but has too little.
+func decrementStock(ctx context.Context, q DBTX, listingID, variantID string, quantity int32) error {
 	if variantID == "" {
-		const q = `UPDATE listings SET stock = stock - $1 WHERE id = $2 AND stock >= $1`
-		res, err := r.pool.Exec(ctx, q, quantity, listingID)
+		res, err := q.Exec(ctx, `UPDATE listings SET stock = stock - $1 WHERE id = $2 AND stock >= $1`, quantity, listingID)
 		if err != nil {
 			return fmt.Errorf("reserve base stock: %w", err)
 		}
 		if res.RowsAffected() == 0 {
-			var exists bool
-			_ = r.pool.QueryRow(ctx, `SELECT true FROM listings WHERE id = $1`, listingID).Scan(&exists)
-			if !exists {
+			var ex bool
+			_ = q.QueryRow(ctx, `SELECT true FROM listings WHERE id = $1`, listingID).Scan(&ex)
+			if !ex {
 				return ErrNotFound
 			}
 			return ErrOutOfStock
 		}
 		return nil
 	}
-
-	const q = `UPDATE listing_variants SET stock = stock - $1 WHERE id = $2 AND listing_id = $3 AND stock >= $1`
-	res, err := r.pool.Exec(ctx, q, quantity, variantID, listingID)
+	res, err := q.Exec(ctx, `UPDATE listing_variants SET stock = stock - $1 WHERE id = $2 AND listing_id = $3 AND stock >= $1`, quantity, variantID, listingID)
 	if err != nil {
 		return fmt.Errorf("reserve variant stock: %w", err)
 	}
 	if res.RowsAffected() == 0 {
-		var exists bool
-		_ = r.pool.QueryRow(ctx, `SELECT true FROM listing_variants WHERE id = $1 AND listing_id = $2`, variantID, listingID).Scan(&exists)
-		if !exists {
+		var ex bool
+		_ = q.QueryRow(ctx, `SELECT true FROM listing_variants WHERE id = $1 AND listing_id = $2`, variantID, listingID).Scan(&ex)
+		if !ex {
 			return ErrVariantNotFound
 		}
 		return ErrOutOfStock
@@ -292,16 +288,24 @@ func (r *PostgresListingRepository) ReserveStock(ctx context.Context, listingID,
 }
 
 // ReserveStockIdempotent decrements stock and records a reservation keyed on
-// reservationID, in ONE transaction so the two commit together (AD5). If the
-// reservation_id was already applied, it is a no-op returning nil — so a retried
-// checkout never double-decrements. An empty reservationID falls back to a plain
-// (non-idempotent) reserve.
+// reservationID, in ONE transaction so the two commit together.
+//
+// The reservation row is inserted FIRST with ON CONFLICT DO NOTHING, which makes
+// the idempotency check race-free: two concurrent reserves of one id serialise on
+// the row, and the loser sees the existing row instead of failing on the PK.
+//   - existing row active/committed -> no-op success (no stock change);
+//   - existing row released         -> ErrReservationReleased: the stock was given
+//     back, so a "success" would let the caller place an order on stock it does
+//     not hold; the caller must reserve under a new id.
+//
+// reservationID is required (ErrReservationIDRequired): there is no ledger-less
+// decrement.
 func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
 	if quantity <= 0 {
 		return errors.New("quantity must be positive")
 	}
 	if reservationID == "" {
-		return r.ReserveStock(ctx, listingID, variantID, quantity)
+		return ErrReservationIDRequired
 	}
 
 	tx, err := r.pool.Begin(ctx)
@@ -310,49 +314,27 @@ func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Idempotency guard: a reservation already applied for this id is a no-op.
-	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM reservations WHERE reservation_id = $1)`, reservationID).Scan(&exists); err != nil {
-		return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
-	}
-	if exists {
-		return nil
-	}
-
-	if variantID == "" {
-		const q = `UPDATE listings SET stock = stock - $1 WHERE id = $2 AND stock >= $1`
-		res, err := tx.Exec(ctx, q, quantity, listingID)
-		if err != nil {
-			return fmt.Errorf("reserve base stock: %w", err)
-		}
-		if res.RowsAffected() == 0 {
-			var ex bool
-			_ = tx.QueryRow(ctx, `SELECT true FROM listings WHERE id = $1`, listingID).Scan(&ex)
-			if !ex {
-				return ErrNotFound
-			}
-			return ErrOutOfStock
-		}
-	} else {
-		const q = `UPDATE listing_variants SET stock = stock - $1 WHERE id = $2 AND listing_id = $3 AND stock >= $1`
-		res, err := tx.Exec(ctx, q, quantity, variantID, listingID)
-		if err != nil {
-			return fmt.Errorf("reserve variant stock: %w", err)
-		}
-		if res.RowsAffected() == 0 {
-			var ex bool
-			_ = tx.QueryRow(ctx, `SELECT true FROM listing_variants WHERE id = $1 AND listing_id = $2`, variantID, listingID).Scan(&ex)
-			if !ex {
-				return ErrVariantNotFound
-			}
-			return ErrOutOfStock
-		}
-	}
-
 	const ins = `INSERT INTO reservations (reservation_id, listing_id, variant_id, quantity, status, expires_at)
-		VALUES ($1, $2, $3, $4, 'active', $5)`
-	if _, err := tx.Exec(ctx, ins, reservationID, listingID, variantID, quantity, expiresAt); err != nil {
+		VALUES ($1, $2, $3, $4, 'active', $5)
+		ON CONFLICT (reservation_id) DO NOTHING`
+	tag, err := tx.Exec(ctx, ins, reservationID, listingID, variantID, quantity, expiresAt)
+	if err != nil {
 		return fmt.Errorf("insert reservation %q: %w", reservationID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		var st string
+		if err := tx.QueryRow(ctx, `SELECT status FROM reservations WHERE reservation_id = $1`, reservationID).Scan(&st); err != nil {
+			return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
+		}
+		if st == ReservationReleased {
+			return ErrReservationReleased
+		}
+		return nil // active or committed: idempotent success
+	}
+	// New reservation: take the stock. A failure here (out of stock, unknown
+	// listing) rolls the inserted row back with the tx.
+	if err := decrementStock(ctx, tx, listingID, variantID, quantity); err != nil {
+		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit reserve tx: %w", err)

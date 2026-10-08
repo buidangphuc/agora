@@ -345,21 +345,29 @@ func (h *ListingHandler) ReserveStock(
 	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
+	if req.GetReservationId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
+	}
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
 	if req.GetQuantity() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "quantity must be > 0")
 	}
-	// Idempotent on the caller-supplied reservation_id (AD5): a retried checkout
-	// with the same id is a no-op, so stock is decremented exactly once. An empty
-	// id falls back to a plain (non-idempotent) reserve in the service layer.
+	// Idempotent on the caller-supplied reservation_id: a retried checkout with
+	// the id of an active or committed reservation is a no-op, so stock is
+	// decremented exactly once. There is no reserve without an id, so every
+	// decrement leaves a reservation that can be committed, released and swept.
 	if err := h.svc.ReserveStockIdempotent(ctx, req.GetReservationId(), req.GetListingId(), req.GetVariantId(), req.GetQuantity()); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "listing not found")
 		}
 		if errors.Is(err, repository.ErrVariantNotFound) {
 			return nil, status.Error(codes.NotFound, "variant not found")
+		}
+		if errors.Is(err, repository.ErrReservationReleased) {
+			// The id belongs to a released reservation: reserve under a new id.
+			return nil, status.Error(codes.FailedPrecondition, "reservation already released; reserve with a new reservation_id")
 		}
 		if errors.Is(err, repository.ErrOutOfStock) {
 			return &listingv1.ReserveStockResponse{

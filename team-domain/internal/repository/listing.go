@@ -23,6 +23,9 @@ var (
 	// was given back). CommitReservation and a re-reserve under the same id fail
 	// with it instead of reporting a false success.
 	ErrReservationReleased = errors.New("reservation already released")
+	// ErrReservationIDRequired: ReserveStockIdempotent was called without a
+	// reservation id. There is no ledger-less reserve path.
+	ErrReservationIDRequired = errors.New("reservation id required")
 )
 
 // Reservation lifecycle (owned by team-domain): active -> committed | released,
@@ -91,13 +94,14 @@ type ListingRepository interface {
 	// Delete removes the listing by id, returning the deleted row (for the
 	// event); ErrNotFound if absent.
 	Delete(ctx context.Context, id string) (Listing, error)
-	// ReserveStock atomically decrements inventory if sufficient stock is available.
-	ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error
-	// ReserveStockIdempotent decrements inventory keyed on a stable reservationID
-	// (AD5): a repeat call with the same id finds the prior reservation and is a
-	// no-op returning nil, so a retried checkout never double-decrements. The
-	// reservation is recorded with the given expiresAt TTL; an empty reservationID
-	// falls back to a plain (non-idempotent) ReserveStock.
+	// ReserveStockIdempotent decrements inventory keyed on a stable reservationID:
+	// a repeat call with the id of an active or committed reservation is a no-op
+	// returning nil, so a retried checkout never double-decrements; a repeat with
+	// the id of a RELEASED reservation returns ErrReservationReleased (its stock
+	// was given back, the caller must use a new id). The reservation is recorded
+	// with the given expiresAt. reservationID is required
+	// (ErrReservationIDRequired): there is no ledger-less decrement, so every
+	// decrement can be committed, released and swept.
 	ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error
 	// SweepExpiredReservations releases every still-active reservation whose
 	// expires_at is at or before now, restoring the reserved stock, and returns how
@@ -269,13 +273,6 @@ func (r *InMemoryListingRepository) Delete(_ context.Context, id string) (Listin
 	return l, nil
 }
 
-// ReserveStock reserves inventory in memory.
-func (r *InMemoryListingRepository) ReserveStock(_ context.Context, listingID, variantID string, quantity int32) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.reserveLocked(listingID, variantID, quantity)
-}
-
 // reserveLocked decrements stock; the caller must hold r.mu.
 func (r *InMemoryListingRepository) reserveLocked(listingID, variantID string, quantity int32) error {
 	l, ok := r.byID[listingID]
@@ -324,27 +321,30 @@ func (r *InMemoryListingRepository) releaseLocked(listingID, variantID string, q
 	return ErrVariantNotFound
 }
 
-// ReserveStockIdempotent reserves stock at most once per reservationID (AD5): a
-// repeat call with an already-applied id returns nil without touching stock.
+// ReserveStockIdempotent reserves stock at most once per reservationID: a repeat
+// call with the id of an active or committed reservation returns nil without
+// touching stock; the id of a released one returns ErrReservationReleased.
 func (r *InMemoryListingRepository) ReserveStockIdempotent(_ context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
+	if reservationID == "" {
+		return ErrReservationIDRequired
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if reservationID != "" {
-		if _, ok := r.reservations[reservationID]; ok {
-			return nil // already applied: prior result was success
+	if res, ok := r.reservations[reservationID]; ok {
+		if res.status == ReservationReleased {
+			return ErrReservationReleased // stock was given back: never report success
 		}
+		return nil // active/committed: already applied
 	}
 	if err := r.reserveLocked(listingID, variantID, quantity); err != nil {
 		return err
 	}
-	if reservationID != "" {
-		r.reservations[reservationID] = memReservation{
-			listingID: listingID,
-			variantID: variantID,
-			quantity:  quantity,
-			expiresAt: expiresAt,
-			status:    ReservationActive,
-		}
+	r.reservations[reservationID] = memReservation{
+		listingID: listingID,
+		variantID: variantID,
+		quantity:  quantity,
+		expiresAt: expiresAt,
+		status:    ReservationActive,
 	}
 	return nil
 }

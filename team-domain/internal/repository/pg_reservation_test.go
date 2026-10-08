@@ -212,3 +212,67 @@ func TestPG_ReleaseReservation(t *testing.T) {
 		}
 	})
 }
+
+func TestPG_ReserveStockIdempotent_Lifecycle(t *testing.T) {
+	ctx := context.Background()
+	repo, _ := newPGRepo(t)
+	seedPGListing(t, repo, "L1", 10)
+
+	if err := repo.ReserveStockIdempotent(ctx, "", "L1", "", 3, farFuture); !errors.Is(err, repository.ErrReservationIDRequired) {
+		t.Fatalf("empty id: %v, want ErrReservationIDRequired", err)
+	}
+	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); err != nil {
+		t.Fatalf("repeat reserve: %v", err)
+	}
+	if got := pgStock(t, repo, "L1"); got != 7 {
+		t.Fatalf("stock = %d, want 7 (decremented once)", got)
+	}
+	if _, err := repo.ReleaseReservation(ctx, "r1"); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); !errors.Is(err, repository.ErrReservationReleased) {
+		t.Fatalf("re-reserve released id: %v, want ErrReservationReleased", err)
+	}
+	if got := pgStock(t, repo, "L1"); got != 10 {
+		t.Fatalf("stock = %d, want 10", got)
+	}
+
+	// Out of stock rolls the reservation row back: the id stays usable.
+	if err := repo.ReserveStockIdempotent(ctx, "r2", "L1", "", 11, farFuture); !errors.Is(err, repository.ErrOutOfStock) {
+		t.Fatalf("oversized reserve: %v, want ErrOutOfStock", err)
+	}
+	if err := repo.ReserveStockIdempotent(ctx, "r2", "L1", "", 1, farFuture); err != nil {
+		t.Fatalf("reserve after refused attempt: %v", err)
+	}
+	if got := pgStock(t, repo, "L1"); got != 9 {
+		t.Fatalf("stock = %d, want 9", got)
+	}
+}
+
+// Concurrent reserves of one id decrement once.
+func TestPG_ReserveStockIdempotent_ConcurrentSameID(t *testing.T) {
+	ctx := context.Background()
+	repo, _ := newPGRepo(t)
+	seedPGListing(t, repo, "L1", 100)
+	var wg sync.WaitGroup
+	errs := make([]error, 8)
+	for i := range errs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs[i] = repo.ReserveStockIdempotent(ctx, "same", "L1", "", 5, farFuture)
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("reserve #%d: %v", i, err)
+		}
+	}
+	if got := pgStock(t, repo, "L1"); got != 95 {
+		t.Fatalf("stock = %d, want 95", got)
+	}
+}
