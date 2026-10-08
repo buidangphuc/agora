@@ -135,3 +135,79 @@ features:
     tags: [buyer, search, hybrid]
     status: automated
     covered_by: "search/hybrid_retrieval.feature::Buyer searches catalog with multi-strategy hybrid retrieval"
+
+  - id: search.visibility-hides-drafts
+    title: Search hides drafts by default
+    persona: guest
+    priority: P0
+    summary: >-
+      SearchListings returns only published listings by default; the draft is proven indexed (owner view) so its absence is the filter.
+    entry_route: /search
+    services: [team-search, team-domain, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - WHEN a seller creates a draft listing with a unique title and an anonymous client searches for that title
+      - THEN the search returns no hit for the draft
+    tags: [security, search]
+    status: automated
+    covered_by: "security/listing_visibility.feature::Search hides drafts by default"
+
+  - id: search.visibility-foreign-drafts-403
+    title: A user cannot search another seller's drafts
+    persona: buyer
+    priority: P0
+    summary: >-
+      A draft search is allowed only when seller_id is the caller's own id.
+    entry_route: /search
+    services: [team-search, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - WHEN a logged-in buyer searches with status draft and another seller's seller_id
+      - THEN the gateway answers HTTP 403
+    tags: [security, authz]
+    status: automated
+    covered_by: "security/listing_visibility.feature::A user cannot search another seller's drafts"
+
+  - id: search.saved-search-requires-auth
+    title: Saved searches require a signed-in user
+    persona: guest
+    priority: P0
+    summary: >-
+      Saved-search RPCs need an authenticated user.
+    entry_route: /search
+    services: [team-search, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [search.v1.SaveSearch]
+    acceptance:
+      - WHEN an anonymous client calls SaveSearch through the gateway
+      - THEN the gateway answers HTTP 401
+    tags: [security, authz]
+    status: automated
+    covered_by: "security/listing_visibility.feature::Saved searches require a signed-in user"
+
+  - id: ops.search-boot-guard-prod-storage
+    title: team-search refuses in-memory storage in production
+    persona: admin
+    priority: P0
+    summary: >-
+      Boot guard: staging/production must not run on the in-memory saved-search store.
+    entry_route: /
+    services: [team-search]
+    preconditions:
+      login: guest
+    api:
+      exercised: [search.v1.SaveSearch]
+    acceptance:
+      - WHEN the team-search image is started with ENV=production and DATABASE_ENABLED=false
+      - THEN the process exits non-zero and its log names the storage setting
+    tags: [ops, security]
+    status: automated
+    covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"
