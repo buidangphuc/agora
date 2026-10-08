@@ -68,4 +68,3 @@ func (f *AnalyticsQueryForwarder) GetDemandForecast(
 	}
 	return connect.NewResponse(out), nil
 }
-

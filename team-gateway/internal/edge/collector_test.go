@@ -98,16 +98,16 @@ func TestHandleTrackEcommerceBatchAndGA4Aliases(t *testing.T) {
 
 	batch := []trackBeacon{
 		{
-			Type:          "view_item_list", // GA4 alias for impression
-			ListingID:     "prod-1",
-			SessionID:     "sess-1",
-			AnonymousID:   "anon-1",
-			Price:         50000,
-			Currency:      "VND",
-			ItemListID:    "search_results",
-			Position:      1,
-			EventGroupID:  "group-abc",
-			ItemCategory:  "Fashion",
+			Type:         "view_item_list", // GA4 alias for impression
+			ListingID:    "prod-1",
+			SessionID:    "sess-1",
+			AnonymousID:  "anon-1",
+			Price:        50000,
+			Currency:     "VND",
+			ItemListID:   "search_results",
+			Position:     1,
+			EventGroupID: "group-abc",
+			ItemCategory: "Fashion",
 		},
 		{
 			Type:          "purchase",

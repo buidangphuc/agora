@@ -167,4 +167,3 @@ func (s *ListingService) ReserveStockIdempotent(ctx context.Context, reservation
 func (s *ListingService) SweepExpiredReservations(ctx context.Context, now time.Time) (int, error) {
 	return s.repo.SweepExpiredReservations(ctx, now)
 }
-

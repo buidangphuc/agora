@@ -43,13 +43,13 @@ type Listing struct {
 	ID          string
 	Title       string
 	Description string
-	Price       int64    // minor units (e.g. VND), integer to avoid float money
-	Currency    string   // ISO 4217
-	Status      string   // "draft" | "published" | "rejected"
-	SellerID    string   // owner Principal id (server-assigned on create)
-	ImageKeys   []string // storage keys in object store
-	CategoryID  string   // category ID
-	Stock       int32    // base stock if no variants
+	Price       int64     // minor units (e.g. VND), integer to avoid float money
+	Currency    string    // ISO 4217
+	Status      string    // "draft" | "published" | "rejected"
+	SellerID    string    // owner Principal id (server-assigned on create)
+	ImageKeys   []string  // storage keys in object store
+	CategoryID  string    // category ID
+	Stock       int32     // base stock if no variants
 	Variants    []Variant // product variants
 }
 
