@@ -5,9 +5,11 @@ package upstream
 
 import (
 	"fmt"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 
 	aiv1 "github.com/buidangphuc/team-gateway/generated/platform/ai/v1"
@@ -75,18 +77,40 @@ type Clients struct {
 	Audit        auditv1.AuditServiceClient
 }
 
-// Dial creates (lazy) gRPC connections to the upstream services.
-func Dial(searchAddr, listingAddr, identityAddr, engagementAddr, orderAddr, paymentAddr, chatAddr, aiAddr, recAddr, promotionAddr, notificationAddr, analyticsAddr, referralAddr, verificationAddr, sharingAddr, auditAddr string) (*Clients, error) {
-	insec := grpc.WithTransportCredentials(insecure.NewCredentials())
+// connectParams bounds the reconnect backoff by the dial timeout. grpc-go's
+// default (up to 120 s) leaves a recreated upstream (new IP) unreachable for tens
+// of seconds; a short cap makes the next attempt re-resolve DNS and reach it.
+func connectParams(timeout time.Duration) grpc.ConnectParams {
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+	bo := backoff.DefaultConfig
+	bo.BaseDelay = 200 * time.Millisecond
+	bo.MaxDelay = timeout
+	return grpc.ConnectParams{Backoff: bo, MinConnectTimeout: timeout}
+}
+
+// dialOptions are the options every upstream connection is created with.
+func dialOptions(timeout time.Duration) []grpc.DialOption {
+	return []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithConnectParams(connectParams(timeout)),
+	}
+}
+
+// Dial creates (lazy) gRPC connections to the upstream services. dialTimeout
+// (DIAL_TIMEOUT_SECONDS) bounds the reconnect backoff.
+func Dial(dialTimeout time.Duration, searchAddr, listingAddr, identityAddr, engagementAddr, orderAddr, paymentAddr, chatAddr, aiAddr, recAddr, promotionAddr, notificationAddr, analyticsAddr, referralAddr, verificationAddr, sharingAddr, auditAddr string) (*Clients, error) {
 	// The gateway is the single edge that dials every upstream (Rules 1 & 2), so
 	// one otelgrpc client stats handler here emits per-service gRPC RED metrics
 	// (request count + duration histogram, labelled by rpc.service/method/status)
 	// for the whole platform — no per-service /metrics endpoint needed. It records
 	// into the global MeterProvider, which is the SDK no-op unless OTEL_ENABLED=true.
-	otelStats := grpc.WithStatsHandler(otelgrpc.NewClientHandler())
+	opts := dialOptions(dialTimeout)
 	c := &Clients{}
 	dial := func(name, addr string) (*grpc.ClientConn, error) {
-		conn, err := grpc.NewClient(addr, insec, otelStats)
+		conn, err := grpc.NewClient(addr, opts...)
 		if err != nil {
 			c.Close()
 			return nil, fmt.Errorf("dial %s %s: %w", name, addr, err)

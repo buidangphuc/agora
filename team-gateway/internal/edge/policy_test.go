@@ -9,6 +9,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/audit/v1/auditv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/engagement/v1/engagementv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/listing/v1/listingv1connect"
+	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
 )
 
@@ -17,6 +18,7 @@ func TestAdminProcedureSetIsPinned(t *testing.T) {
 	want := []string{
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
+		orderv1connect.OrderServiceForceFailSagaProcedure,
 		verificationv1connect.VerificationServiceReviewKycProcedure,
 	}
 	var got []string
