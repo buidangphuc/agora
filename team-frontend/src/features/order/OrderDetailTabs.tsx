@@ -33,12 +33,13 @@ export function OrderDetailTabs({
 
   // A return requested from the header Modal shows up in the returns panel: bring that
   // panel forward so the buyer sees the "pending" badge instead of an unchanged timeline.
-  const [ret] = useReturnState();
-  const hadReturn = useRef(ret !== null);
+  const [requested] = useReturnState();
+  const hasReturn = requested.length > 0;
+  const hadReturn = useRef(hasReturn);
   useEffect(() => {
-    if (ret !== null && !hadReturn.current) change("returns");
-    hadReturn.current = ret !== null;
-  }, [ret, change]);
+    if (hasReturn && !hadReturn.current) change("returns");
+    hadReturn.current = hasReturn;
+  }, [hasReturn, change]);
 
   return (
     <Tabs

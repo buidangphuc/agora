@@ -53,6 +53,8 @@ export interface ViewOrder {
   trackingNumber: string;
   items: ViewOrderItem[];
   createdAt: string;
+  /** Empty = never paid online (e.g. cash on delivery). */
+  paidAt: string;
 }
 
 function getStatusText(s: OrderStatus): string {
@@ -125,6 +127,9 @@ function mapOrder(o: Order): ViewOrder {
     trackingNumber: o.trackingNumber,
     items: o.items.map(mapOrderItem),
     createdAt,
+    paidAt: o.paidAt
+      ? new Date(Number(o.paidAt.seconds) * 1000).toLocaleString("vi-VN")
+      : "",
   };
 }
 
@@ -444,4 +449,16 @@ export async function updateReturnStatus(
   const res = await gateway().order.updateReturnStatus({ id, status });
   if (!res.returnRequest) throw new Error("update return status failed");
   return mapReturn(res.returnRequest);
+}
+
+/** The order's returns, newest first (buyer, seller or admin of the order). */
+export async function listOrderReturns(
+  orderId: string,
+): Promise<ViewOrderReturn[]> {
+  try {
+    const res = await gateway().order.listOrderReturns({ orderId });
+    return res.returns.map(mapReturn);
+  } catch {
+    return [];
+  }
 }

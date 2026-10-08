@@ -4,7 +4,6 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
@@ -14,13 +13,8 @@ import {
   createOrder,
   createReturnRequest,
   updateOrderStatus,
-  updateReturnStatus,
 } from "@/lib/gateway/orders";
-import {
-  createPayment,
-  processMockPayment,
-  refundPayment,
-} from "@/lib/gateway/payment";
+import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 
 export interface OrderActionResult {
   ok: boolean;
@@ -194,28 +188,5 @@ export async function createReturnRequestAction(
     return fail(
       err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
     );
-  }
-}
-
-/**
- * MOCK refund: mark the return REFUNDED (authoritative state on the order) and
- * simulate the money-back leg via the mock payment helper. No real money moves
- * (AGENTS.md §7).
- */
-export async function mockRefundAction(
-  returnId: string,
-  orderId: string,
-  amount: number,
-): Promise<ActionResult<ViewOrderReturn>> {
-  try {
-    const returnRequest = await updateReturnStatus(
-      returnId,
-      ReturnStatus.REFUNDED,
-    );
-    await refundPayment(orderId, amount);
-    revalidateBuyerOrder(orderId);
-    return ok(returnRequest);
-  } catch (err: unknown) {
-    return fail(err instanceof Error ? err.message : "Hoàn tiền thất bại.");
   }
 }

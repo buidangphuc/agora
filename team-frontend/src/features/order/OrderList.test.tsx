@@ -12,7 +12,6 @@ vi.mock("./actions", () => ({
   reorderAction: vi.fn(),
   cancelOrderAction: vi.fn(),
   createReturnRequestAction: vi.fn(),
-  mockRefundAction: vi.fn(),
 }));
 vi.mock("@/features/review/ReviewModal", () => ({ ReviewModal: () => null }));
 

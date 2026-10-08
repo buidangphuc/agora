@@ -1,7 +1,10 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import {
+  OrderStatus,
+  ReturnStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 
 import { makeClients } from "./client.js";
@@ -13,6 +16,7 @@ import {
   getOrderResult,
   listBuyerOrders,
   listBuyerOrdersResult,
+  listOrderReturns,
   updateOrderStatus,
 } from "./orders.js";
 
@@ -228,5 +232,45 @@ describe("orders gateway wrapper", () => {
       reason: "changed mind",
     });
     expect(res.id).toBe("o1");
+  });
+
+  it("getOrder maps paid_at (empty when never paid online)", async () => {
+    stubOrder({
+      getOrder: vi
+        .fn()
+        .mockResolvedValueOnce({ order: protoOrder })
+        .mockResolvedValueOnce({
+          order: { ...protoOrder, paidAt: { seconds: 1_700_000_000 } },
+        }),
+    });
+    expect((await getOrder("o1"))?.paidAt).toBe("");
+    expect((await getOrder("o1"))?.paidAt).not.toBe("");
+  });
+
+  it("listOrderReturns maps the returns through the gateway", async () => {
+    const listOrderReturnsRpc = vi.fn().mockResolvedValue({
+      returns: [
+        {
+          id: "r1",
+          orderId: "o1",
+          reason: "hỏng",
+          refundAmount: 200000n,
+          status: ReturnStatus.REFUNDED,
+        },
+      ],
+    });
+    stubOrder({ listOrderReturns: listOrderReturnsRpc });
+    const res = await listOrderReturns("o1");
+    expect(listOrderReturnsRpc).toHaveBeenCalledWith({ orderId: "o1" });
+    expect(res).toEqual([
+      {
+        id: "r1",
+        orderId: "o1",
+        reason: "hỏng",
+        refundAmount: 200000,
+        status: ReturnStatus.REFUNDED,
+        statusText: "Đã hoàn tiền",
+      },
+    ]);
   });
 });

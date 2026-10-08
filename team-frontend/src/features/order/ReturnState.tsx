@@ -1,41 +1,58 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 
 import type { ViewOrderReturn } from "@/lib/gateway/orders";
 
 interface ReturnStateValue {
-  ret: ViewOrderReturn | null;
-  setRet: (ret: ViewOrderReturn) => void;
+  returns: ViewOrderReturn[];
+  addReturn: (ret: ViewOrderReturn) => void;
 }
 
 const ReturnStateContext = createContext<ReturnStateValue | null>(null);
 
+/** Insert a return, or replace the one with the same id. Newest first. */
+function upsert(list: ViewOrderReturn[], ret: ViewOrderReturn) {
+  return list.some((r) => r.id === ret.id)
+    ? list.map((r) => (r.id === ret.id ? ret : r))
+    : [ret, ...list];
+}
+
+function useReturnList(initial: ViewOrderReturn[]): ReturnStateValue {
+  const [returns, setReturns] = useState<ViewOrderReturn[]>(initial);
+  const addReturn = useCallback(
+    (ret: ViewOrderReturn) => setReturns((cur) => upsert(cur, ret)),
+    [],
+  );
+  return { returns, addReturn };
+}
+
 /**
- * Shares the order's return request between the header trigger and the
- * returns section. The gateway has no "get return by order" call, so the
- * result of the create / refund action is the only source for it.
+ * Shares the order's returns (loaded server-side through `ListOrderReturns`)
+ * between the header trigger and the returns section; a return created in the
+ * Modal is added to the list.
  */
 export function ReturnStateProvider({
-  initialReturn = null,
+  initialReturns = [],
   children,
 }: {
-  initialReturn?: ViewOrderReturn | null;
+  initialReturns?: ViewOrderReturn[];
   children: React.ReactNode;
 }) {
-  const [ret, setRet] = useState<ViewOrderReturn | null>(initialReturn);
+  const value = useReturnList(initialReturns);
   return (
-    <ReturnStateContext.Provider value={{ ret, setRet }}>
+    <ReturnStateContext.Provider value={value}>
       {children}
     </ReturnStateContext.Provider>
   );
 }
 
-/** The shared return when inside a provider, otherwise local state. */
+/** The shared returns when inside a provider, otherwise local state. */
 export function useReturnState(
-  initialReturn: ViewOrderReturn | null = null,
-): [ViewOrderReturn | null, (ret: ViewOrderReturn) => void] {
+  initialReturns: ViewOrderReturn[] = [],
+): [ViewOrderReturn[], (ret: ViewOrderReturn) => void] {
   const shared = useContext(ReturnStateContext);
-  const local = useState<ViewOrderReturn | null>(initialReturn);
-  return shared ? [shared.ret, shared.setRet] : local;
+  const local = useReturnList(initialReturns);
+  const v = shared ?? local;
+  return [v.returns, v.addReturn];
 }

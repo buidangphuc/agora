@@ -102,7 +102,7 @@ export function ReturnRequestModal({
       onClose={close}
       size="sm"
       title="Yêu cầu trả hàng / hoàn tiền"
-      description="Chọn lý do và số tiền muốn hoàn. Hoàn tiền là mô phỏng (demo)."
+      description="Chọn lý do và số tiền muốn hoàn. Người bán sẽ xem xét và xử lý hoàn tiền."
       footer={
         <>
           <Button variant="outline" disabled={pending} onClick={close}>

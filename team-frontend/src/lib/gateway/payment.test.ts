@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   PaymentMethod,
+  PaymentRefundSource,
   PaymentStatus,
 } from "@/generated/platform/payment/v1/payment_pb.js";
 
@@ -41,6 +42,8 @@ const protoTx = {
   status: PaymentStatus.PENDING,
   providerReference: "ref1",
   createdAt: { seconds: 1_700_000_000 },
+  refundedAmount: 0n,
+  refunds: [],
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -49,6 +52,9 @@ describe("payment label helpers", () => {
   it("maps method + status enums to Vietnamese labels", () => {
     expect(getPaymentMethodText(PaymentMethod.COD)).toContain("COD");
     expect(getPaymentStatusText(PaymentStatus.PAID)).toBe("Đã thanh toán");
+    expect(getPaymentStatusText(PaymentStatus.PARTIALLY_REFUNDED)).toBe(
+      "Đã hoàn một phần",
+    );
   });
 });
 
@@ -78,6 +84,43 @@ describe("payment gateway wrapper", () => {
     await expect(createPayment("o1", PaymentMethod.COD)).rejects.toThrow(
       "create payment failed",
     );
+  });
+
+  it("getPayment maps the refunded amount and the refunds", async () => {
+    stubPayment({
+      getPayment: vi.fn().mockResolvedValue({
+        transaction: {
+          ...protoTx,
+          status: PaymentStatus.PARTIALLY_REFUNDED,
+          refundedAmount: 100000n,
+          refunds: [
+            {
+              id: "f1",
+              source: PaymentRefundSource.RETURN,
+              sourceId: "r1",
+              requestedAmount: 300000n,
+              amount: 100000n,
+              reason: "return_refunded",
+            },
+          ],
+        },
+      }),
+    });
+    const tx = await getPayment(undefined, "o1");
+    expect(tx).toMatchObject({
+      refundedAmount: 100000,
+      statusText: "Đã hoàn một phần",
+    });
+    expect(tx?.refunds).toEqual([
+      {
+        id: "f1",
+        source: PaymentRefundSource.RETURN,
+        sourceId: "r1",
+        requestedAmount: 300000,
+        amount: 100000,
+        reason: "return_refunded",
+      },
+    ]);
   });
 
   it("getPayment returns null on error", async () => {
