@@ -50,7 +50,7 @@ func principalCtx(t *testing.T, userID string) (context.Context, context.CancelF
 	md := metadata.Pairs(
 		"x-principal-id", userID,
 		"x-principal-type", "user",
-		"x-principal-scopes", "payment.write,payment.read",
+		"x-principal-scopes", "payment.write,payment.read,listing.write",
 	)
 	return metadata.NewOutgoingContext(ctx, md), cancel
 }

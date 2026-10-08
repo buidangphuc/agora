@@ -213,6 +213,9 @@ func (h *PaymentHandler) RequestPayout(ctx context.Context, req *paymentv1.Reque
 	if err != nil {
 		return nil, err
 	}
+	if err := requirePayoutScope(ctx); err != nil {
+		return nil, err
+	}
 	if req.GetAmount() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}

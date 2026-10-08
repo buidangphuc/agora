@@ -51,7 +51,7 @@ func newLedgerFixture(t *testing.T, hold time.Duration) ledgerFixture {
 
 func userCtx(id string) context.Context {
 	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
+		Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"listing.write"},
 	})
 }
 

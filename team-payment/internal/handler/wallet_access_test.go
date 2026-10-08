@@ -79,8 +79,9 @@ func TestWalletRPCAccess(t *testing.T) {
 		wantRead, wantPay codes.Code
 	}
 	cases := []tc{
-		{"owner explicit", principalCtx("seller-1", user, "seller"), "seller-1", codes.OK, codes.OK},
-		{"owner implicit", principalCtx("seller-1", user, "seller"), "", codes.OK, codes.OK},
+		{"owner explicit", principalCtx("seller-1", user, "seller", "listing.write"), "seller-1", codes.OK, codes.OK},
+		{"owner implicit", principalCtx("seller-1", user, "seller", "listing.write"), "", codes.OK, codes.OK},
+		{"owner without listing.write", principalCtx("seller-1", user, "buyer"), "seller-1", codes.OK, codes.PermissionDenied},
 		{"other user", principalCtx("buyer-9", user, "buyer"), "seller-1", codes.PermissionDenied, codes.PermissionDenied},
 		{"admin", principalCtx("admin-1", user, "admin"), "seller-1", codes.OK, codes.PermissionDenied},
 		{"service", principalCtx("svc-x", commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE, "payment:write"), "seller-1", codes.PermissionDenied, codes.PermissionDenied},
@@ -99,5 +100,36 @@ func TestWalletRPCAccess(t *testing.T) {
 				t.Errorf("%s/%s: code = %v, want %v", name, c.name, got, c.wantPay)
 			}
 		}
+	}
+}
+
+// A buyer (no listing.write) acting on their own wallet is refused and no payout row appears.
+func TestPayoutRequiresListingWrite(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ledger := repository.NewInMemoryLedgerRepository()
+	svc := service.NewPaymentService(nil, repository.NewInMemoryWalletRepository(), nil, logger, service.WithLedgerRepo(ledger))
+	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true))
+	if _, err := ledger.AppendEntry(context.Background(), repository.LedgerEntry{
+		SellerID: "buyer-1", Type: repository.LedgerTypeOrderSettlement, Amount: 1_000_000, Status: repository.LedgerStatusCompleted,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	buyer := principalCtx("buyer-1", user, "payment:read", "payment:write")
+	_, err := h.RequestWalletPayout(buyer, &paymentv1.RequestWalletPayoutRequest{Amount: 1000})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("RequestWalletPayout: want PermissionDenied, got %v", err)
+	}
+	_, err = h.RequestPayout(buyer, &paymentv1.RequestPayoutRequest{Amount: 1000, BankCode: "VCB", AccountNumber: "1", AccountName: "A"})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("RequestPayout: want PermissionDenied, got %v", err)
+	}
+	hist, err := h.ListPayoutHistory(buyer, &paymentv1.ListPayoutHistoryRequest{})
+	if err != nil || len(hist.GetPayouts()) != 0 {
+		t.Fatalf("no payout may be recorded: %v %v", hist, err)
+	}
+	seller := principalCtx("buyer-1", user, "listing.write")
+	if _, err := h.RequestWalletPayout(seller, &paymentv1.RequestWalletPayoutRequest{Amount: 1000}); err != nil {
+		t.Fatalf("seller payout: %v", err)
 	}
 }
