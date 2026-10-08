@@ -228,8 +228,8 @@ features:
       - "When a buyer checks out quantity 2 of it through the gateway"
       - "Then within 30 seconds `SearchListings` through the gateway returns that listing with `stock` 8"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A checkout lowers the stock shown in search"
     notes: >-
       Feature: search/search_stock_read_model.feature::A checkout lowers the stock shown in search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -250,8 +250,8 @@ features:
       - "When the buyer cancels the order through the gateway"
       - "Then within 30 seconds `SearchListings` returns that listing with `stock` 10"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::Cancelling the order restores the stock shown in search"
     notes: >-
       Feature: search/search_stock_read_model.feature::Cancelling the order restores the stock shown in search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -272,8 +272,8 @@ features:
       - "When another buyer checks out quantity 3 of that listing and the first buyer then runs the saved search through the gateway"
       - "Then within 30 seconds `RunSavedSearch` returns that listing with `stock` 7"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A saved search run shows the current stock"
     notes: >-
       Feature: search/search_stock_read_model.feature::A saved search run shows the current stock. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -294,8 +294,8 @@ features:
       - "When a `ListingStockChanged` with stock 10 and an `occurred_at` earlier than that checkout's event is published to `listing.events`"
       - "Then after the search indexer has consumed past that event, `SearchListings` still returns that listing with `stock` 8"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A stale stock event does not roll stock back"
     notes: >-
       Feature: search/search_stock_read_model.feature::A stale stock event does not roll stock back. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -315,8 +315,8 @@ features:
       - "When a valid `ListingStockChanged` with stock 5 for a listing id that was never created is published to `listing.events`"
       - "Then after the search indexer has consumed past that event, the read-model holds no document for that id and no search returns it"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A stock event for an unknown listing creates nothing"
     notes: >-
       Feature: search/search_stock_read_model.feature::A stock event for an unknown listing creates nothing. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -337,8 +337,8 @@ features:
       - "When a `ListingStockChanged` for that listing with stock -1 is published to `listing.events`"
       - "Then within 60 seconds that record appears on `listing.events.dlq` and `SearchListings` still returns the listing with `stock` 10"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A malformed stock event is parked, not applied"
     notes: >-
       Feature: search/search_stock_read_model.feature::A malformed stock event is parked, not applied. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -359,8 +359,8 @@ features:
       - "When a `ListingChanged` (UPDATED) for that listing with a new title, stock 10 and an `occurred_at` between its creation and that checkout is published to `listing.events`"
       - "Then within 30 seconds a search for the new title returns that listing with `stock` 8"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A late listing update does not overwrite newer stock"
     notes: >-
       Feature: search/search_stock_read_model.feature::A late listing update does not overwrite newer stock. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -381,8 +381,8 @@ features:
       - "When the seller updates the listing's stock to 50 through the gateway"
       - "Then within 30 seconds `SearchListings` returns that listing with `stock` 50"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A seller's stock edit is reflected in search"
     notes: >-
       Feature: search/search_stock_read_model.feature::A seller's stock edit is reflected in search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -403,8 +403,8 @@ features:
       - "When a buyer checks out quantity 1 of it through the gateway"
       - "Then within 30 seconds `SearchListings` for that query with `filters[\"in_stock\"]=\"true\"` does not return it and its total no longer counts it, while the same search without the filter returns it with `stock` 0"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::An in-stock search hides a sold-out listing"
     notes: >-
       Feature: search/search_stock_read_model.feature::An in-stock search hides a sold-out listing. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -425,8 +425,8 @@ features:
       - "When a buyer runs that query with `filters[\"in_stock\"]=\"true\"` in `SEARCH_MODE_SEMANTIC`, then in `SEARCH_MODE_HYBRID`"
       - "Then both responses return the in-stock listing and neither returns the sold-out one"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::The in-stock filter applies in semantic and hybrid search"
     notes: >-
       Feature: search/search_stock_read_model.feature::The in-stock filter applies in semantic and hybrid search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -447,8 +447,8 @@ features:
       - "When the buyer runs the saved search through the gateway"
       - "Then the response returns the in-stock listing with its `stock` and not the sold-out one"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::A saved in-stock search excludes sold-out listings"
     notes: >-
       Feature: search/search_stock_read_model.feature::A saved in-stock search excludes sold-out listings. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -468,8 +468,8 @@ features:
       - "When a buyer calls `SearchListings` with `filters[\"in_stock\"]=\"maybe\"`, then `SaveSearch` with `filters_json` `{\"in_stock\":\"yes\"}`"
       - "Then both calls fail with `invalid_argument` and no saved search is created"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_stock_read_model.feature::An invalid in_stock value is rejected"
     notes: >-
       Feature: search/search_stock_read_model.feature::An invalid in_stock value is rejected. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -490,8 +490,8 @@ features:
       - "When the seller deletes it through the gateway and a `ListingChanged` (UPDATED, status published) for it with an `occurred_at` before the delete is then published to `listing.events`"
       - "Then after the search indexer has consumed past that event, neither `SearchListings` for its title nor `Suggest` for its title prefix returns it"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::A stale listing update after delete does not bring it back"
     notes: >-
       Feature: search/search_read_model_deletes.feature::A stale listing update after delete does not bring it back. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -512,8 +512,8 @@ features:
       - "When the original `ListingChanged` (CREATED) record for it is read from `listing.events` and published again unchanged"
       - "Then after the search indexer has consumed past the copy, `SearchListings` for its title does not return it"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::A redelivered create after delete does not bring it back"
     notes: >-
       Feature: search/search_read_model_deletes.feature::A redelivered create after delete does not bring it back. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -534,8 +534,8 @@ features:
       - "When a `ListingStatusChanged` with status PUBLISHED and an `occurred_at` after the delete is published to `listing.events`"
       - "Then after the search indexer has consumed past that event, `SearchListings` for its title does not return it"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::A newer status event does not revive a deleted listing"
     notes: >-
       Feature: search/search_read_model_deletes.feature::A newer status event does not revive a deleted listing. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -556,8 +556,8 @@ features:
       - "When a valid `ListingStockChanged` with stock 5 and an `occurred_at` after the delete is published to `listing.events`"
       - "Then after the search indexer has consumed past that event, `SearchListings` for its title with `filters[\"in_stock\"]=\"true\"` does not return it and the record is not on `listing.events.dlq`"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::A stock event for a deleted listing is ignored"
     notes: >-
       Feature: search/search_read_model_deletes.feature::A stock event for a deleted listing is ignored. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -578,8 +578,8 @@ features:
       - "When the seller deletes one of them through the gateway"
       - "Then within 30 seconds the same search returns total 1, only the remaining listing, and a sellers facet count of 1, and a saved search with that filter run by a buyer returns only the remaining listing"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::A deleted listing leaves search results, totals and facets"
     notes: >-
       Feature: search/search_read_model_deletes.feature::A deleted listing leaves search results, totals and facets. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -600,8 +600,8 @@ features:
       - "When the seller deletes the draft through the gateway"
       - "Then within 30 seconds that owner search no longer returns it, and a search with `filters[\"status\"]=\"deleted\"` fails with `invalid_argument`"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::A deleted draft leaves the owner's draft view"
     notes: >-
       Feature: search/search_read_model_deletes.feature::A deleted draft leaves the owner's draft view. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -622,8 +622,8 @@ features:
       - "When a seller deletes one of two published listings through the gateway"
       - "Then the read-model holds a tombstone for the deleted listing right after the delete is consumed, holds no document for it once the TTL plus one purge interval has passed, and the other listing still appears in `SearchListings`"
     tags: [buyer, search, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_read_model_deletes.feature::An expired tombstone is purged"
     notes: >-
       Feature: search/search_read_model_deletes.feature::An expired tombstone is purged. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green. Needs the platform-e2e/compose/search-tombstones.override.yaml overlay (serial lane).
@@ -644,8 +644,8 @@ features:
       - "When a buyer searches for that keyword with `SORT_BY_NEWEST` through the gateway"
       - "Then within 30 seconds the hits are B then A"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_query_correctness.feature::Newest-first lists the most recently created listing first"
     notes: >-
       Feature: search/search_query_correctness.feature::Newest-first lists the most recently created listing first. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -666,8 +666,8 @@ features:
       - "When a buyer searches for that keyword with `SORT_BY_NEWEST` and `SEARCH_MODE_HYBRID`, then with `SORT_BY_NEWEST` and no search mode"
       - "Then both responses return B then A"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_query_correctness.feature::Newest-first holds in hybrid search"
     notes: >-
       Feature: search/search_query_correctness.feature::Newest-first holds in hybrid search. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -688,8 +688,8 @@ features:
       - "When a `ListingChanged` UPDATED for that id (status published, a title with the same keyword) with `occurred_at` T2 is published to `listing.events`, followed by its `ListingChanged` CREATED with `occurred_at` T1, where the real listing's creation is before T1 and T1 is before T2"
       - "Then within 30 seconds a `SORT_BY_NEWEST` search for that keyword returns the out-of-order listing first, with the UPDATED event's title, and the real listing second"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_query_correctness.feature::A late create event still records the creation time"
     notes: >-
       Feature: search/search_query_correctness.feature::A late create event still records the creation time. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -709,8 +709,8 @@ features:
       - "When a buyer calls `SearchListings` through the gateway with `min_rating` 4, then with `min_rating` 4 and `SEARCH_MODE_SEMANTIC`"
       - "Then both calls fail with `invalid_argument`"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_query_correctness.feature::A minimum-rating search is rejected"
     notes: >-
       Feature: search/search_query_correctness.feature::A minimum-rating search is rejected. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
@@ -731,8 +731,8 @@ features:
       - "When a buyer calls `SearchListings` for that query with `min_rating` 0, and runs a saved search with the same query"
       - "Then both responses return the matching listings and an empty `facets.ratings` list, while `facets.categories` is not empty"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "search/search_query_correctness.feature::The ratings facet is empty"
     notes: >-
       Feature: search/search_query_correctness.feature::The ratings facet is empty. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.

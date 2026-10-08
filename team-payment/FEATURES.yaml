@@ -236,8 +236,9 @@ features:
       - "When a buyer pays a `Pending` order of 500000 with the mock payment and the order becomes `Paid`"
       - "Then within the settle window the seller's `ListLedgerEntries` through the gateway shows exactly one new `ORDER_SETTLEMENT` entry of +500000 with status `COMPLETED`, and `GetWalletBalance` grew by 500000"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Paying an order credits its seller with the paid amount"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-paying-an-already-paid-order-again-does-not-cred
     title: "Paying an already paid order again does not credit twice"
@@ -255,8 +256,9 @@ features:
       - "When the buyer calls the mock payment again for the same, already credited order"
       - "Then the call reports the order already paid, and after a later sentinel order of the same seller is credited the seller still has exactly one `ORDER_SETTLEMENT` entry for the first order's amount"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Paying an already paid order again does not credit twice"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-concurrent-settlements-of-one-order-credit-the-s
     title: "Concurrent settlements of one order credit the seller once"
@@ -274,8 +276,9 @@ features:
       - "When the buyer sends eight concurrent successful mock payments for one `Pending` order"
       - "Then the order is `Paid` and, after a sentinel order of the same seller is credited, the seller has exactly one `ORDER_SETTLEMENT` entry for that order"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Concurrent settlements of one order credit the seller once"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-a-late-payment-for-a-cancelled-order-does-not-cr
     title: "A late payment for a cancelled order does not credit the seller"
@@ -293,8 +296,9 @@ features:
       - "When a buyer opens a payment for a `Pending` order, cancels the order, and the mock payment then succeeds"
       - "Then the order stays `Cancelled`, the payment reads `PAID`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order's amount and the balance equals the sentinel's amount"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::A late payment for a cancelled order does not credit the seller"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-replaying-a-paid-order-event-does-not-credit-aga
     title: "Replaying a paid-order event does not credit again"
@@ -312,8 +316,9 @@ features:
       - "When a seller has been credited for a paid order and that order's `OrderPaidEvent` record is produced to `order.events` again, byte for byte"
       - "Then after a sentinel order of the same seller is credited, the seller has exactly one `ORDER_SETTLEMENT` entry for the replayed order and the balance equals the two orders' amounts"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Replaying a paid-order event does not credit again"
+    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-re-consuming-order-events-after-a-restart-does-n
     title: "Re-consuming order events after a restart does not credit again"
@@ -331,8 +336,9 @@ features:
       - "When a seller has been credited for two paid orders, `team-payment` is stopped, its consumer group is moved back to before those orders' events, and `team-payment` is started again"
       - "Then once the group has caught up the seller's ledger entries and balance are unchanged, and an order the seller is paid for after the restart is credited once"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): stops team-payment, moves its consumer group back with rpk and starts it again; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Re-consuming order events after a restart does not credit again"
+    notes: "@destructive (serial lane): stops team-payment, moves its consumer group back with rpk and starts it again; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-a-malformed-order-event-is-dead-lettered-and-lat
     title: "A malformed order event is dead-lettered and later credits still apply"
@@ -350,8 +356,9 @@ features:
       - "When a record whose value is not a valid event envelope is produced to `order.events`, followed by a paid order"
       - "Then the malformed record appears on `order.events.payment-settlement.dlq` and the paid order's seller is credited once"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): produces a malformed record onto the shared order.events topic; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::A malformed order event is dead-lettered and later credits still apply"
+    notes: "@destructive (serial lane): produces a malformed record onto the shared order.events topic; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-a-shipped-order-event-does-not-touch-the-ledger
     title: "A shipped-order event does not touch the ledger"
@@ -369,8 +376,9 @@ features:
       - "When a credited order is shipped by its seller, so an `OrderShipped` event follows on `order.events`"
       - "Then after a sentinel order of the same seller is credited the seller's ledger holds only the two settlement credits"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::A shipped-order event does not touch the ledger"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-the-ledger-store-refuses-a-second-settlement-cre
     title: "The ledger store refuses a second settlement credit for one payment"
@@ -388,8 +396,9 @@ features:
       - "When a second `ORDER_SETTLEMENT` row with the reference of an already credited payment is inserted directly into `team-payment`'s database"
       - "Then the insert fails with a unique violation and the seller's balance through the gateway is unchanged"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::The ledger store refuses a second settlement credit for one payment"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-the-ledger-store-refuses-a-settlement-credit-tha
     title: "The ledger store refuses a settlement credit that is not positive"
@@ -407,8 +416,9 @@ features:
       - "When an `ORDER_SETTLEMENT` row of -1 with a fresh reference is inserted directly into `team-payment`'s database"
       - "Then the insert fails with a check violation"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::The ledger store refuses a settlement credit that is not positive"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-settlement-the-ledger-store-refuses-a-refund-deduction-with
     title: "The ledger store refuses a refund deduction without a reference"
@@ -426,8 +436,9 @@ features:
       - "When a `REFUND_DEDUCTION` row of -1 without a reference is inserted directly into `team-payment`'s database"
       - "Then the insert fails with a check violation"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::The ledger store refuses a refund deduction without a reference"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   # ---- port-payment-ledger-integrity / seller-refund-deduction (written from the spec; planned until the code lands).
 
@@ -447,8 +458,9 @@ features:
       - "When a seller was credited 500000 for a paid order and the seller refunds 200000 of that payment through the gateway"
       - "Then the payment reads `REFUNDED`, the seller's ledger has exactly one `REFUND_DEDUCTION` entry of -200000, and `GetWalletBalance` is 300000"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Refunding a credited payment deducts the refunded amount from the seller"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-a-second-refund-of-the-same-payment-is-refused-a
     title: "A second refund of the same payment is refused and deducts nothing more"
@@ -466,8 +478,9 @@ features:
       - "When the seller refunds the same, already refunded payment again"
       - "Then the call fails with `FAILED_PRECONDITION` and the seller still has exactly one `REFUND_DEDUCTION` entry and the same balance"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A second refund of the same payment is refused and deducts nothing more"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-concurrent-refunds-of-one-payment-deduct-once
     title: "Concurrent refunds of one payment deduct once"
@@ -485,8 +498,9 @@ features:
       - "When the seller sends eight concurrent refunds of 100000 for one credited payment"
       - "Then exactly one succeeds, the others fail with `FAILED_PRECONDITION`, and the seller has exactly one `REFUND_DEDUCTION` entry of -100000"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Concurrent refunds of one payment deduct once"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-refunding-a-payment-whose-order-was-cancelled-de
     title: "Refunding a payment whose order was cancelled deducts nothing"
@@ -504,8 +518,9 @@ features:
       - "When a payment succeeded late for an order that stayed `Cancelled`, and the order's seller refunds it in full"
       - "Then the refund succeeds and the payment reads `REFUNDED`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order and the balance equals the sentinel's amount"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Refunding a payment whose order was cancelled deducts nothing"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-a-refund-issued-right-after-payment-ends-with-on
     title: "A refund issued right after payment ends with one credit and one deduction"
@@ -523,8 +538,9 @@ features:
       - "When a buyer pays an order of 500000 and its seller refunds 500000 immediately after the payment call returns, before the credit is observed"
       - "Then once the order's credit is written the seller has exactly one `ORDER_SETTLEMENT` entry of +500000 and one `REFUND_DEDUCTION` entry of -500000 for it, and the balance contribution of that order is 0"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A refund issued right after payment ends with one credit and one deduction"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-a-refund-after-the-proceeds-were-paid-out-takes
     title: "A refund after the proceeds were paid out takes the balance negative"
@@ -542,8 +558,9 @@ features:
       - "When a seller's 500000 credit has passed the hold window and been paid out in full, and the seller then refunds 200000 of that payment"
       - "Then the refund succeeds, the seller's ledger has one `REFUND_DEDUCTION` of -200000, and `GetWalletBalance` is -200000"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): waits out the payout hold window, so it needs the short-window overlay platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s on team-payment). Serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A refund after the proceeds were paid out takes the balance negative"
+    notes: "@destructive (serial lane): waits out the payout hold window, so it needs the short-window overlay platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s on team-payment). Serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-cancelling-a-credited-paid-order-refunds-the-buy
     title: "Cancelling a credited paid order refunds the buyer and deducts the seller"
@@ -561,8 +578,9 @@ features:
       - "When a buyer pays an order of 500000, its seller's credit of +500000 is observed, and the buyer cancels the order through the gateway"
       - "Then within the settle window the buyer's `GetPayment` reads `REFUNDED`, the seller's ledger has exactly one `REFUND_DEDUCTION` of -500000 for it, and the seller's balance is back to its value before the payment"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a credited paid order refunds the buyer and deducts the seller"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-cancelling-a-paid-order-before-its-credit-is-obs
     title: "Cancelling a paid order before its credit is observed ends with one credit and one deduction"
@@ -580,8 +598,9 @@ features:
       - "When a buyer pays an order of 500000 and cancels it as soon as the order reads `Paid`, before the seller's credit is observed"
       - "Then once both are applied the payment reads `REFUNDED` and the seller has exactly one `ORDER_SETTLEMENT` of +500000 and one `REFUND_DEDUCTION` of -500000 for the order"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a paid order before its credit is observed ends with one credit and one deduction"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-a-cancel-while-team-payment-is-stopped-is-refund
     title: "A cancel while team-payment is stopped is refunded when it restarts"
@@ -599,8 +618,9 @@ features:
       - "When a credited paid order is cancelled by its buyer while `team-payment` is stopped, and `team-payment` is then started again"
       - "Then the buyer's payment reads `REFUNDED` and the seller has exactly one `REFUND_DEDUCTION` of minus the payment amount"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): stops team-payment (docker stop) while the cancel is recorded; serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A cancel while team-payment is stopped is refunded when it restarts"
+    notes: "@destructive (serial lane): stops team-payment (docker stop) while the cancel is recorded; serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-a-redelivered-cancellation-does-not-refund-or-de
     title: "A redelivered cancellation does not refund or deduct again"
@@ -618,8 +638,9 @@ features:
       - "When a cancelled paid order has been refunded and deducted, and its cancellation record is produced to `order.events` again, byte for byte"
       - "Then after a sentinel order of the same seller is credited the seller still has exactly one `REFUND_DEDUCTION` for the cancelled order"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A redelivered cancellation does not refund or deduct again"
+    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-refund-cancelling-an-order-its-seller-already-refunded
     title: "Cancelling an order its seller already refunded deducts nothing more"
@@ -637,8 +658,9 @@ features:
       - "When the seller of a credited paid order of 500000 refunds 200000, and the buyer then cancels the order"
       - "Then the payment stays `REFUNDED` and, after a sentinel order of the same seller is credited, the seller has exactly one `REFUND_DEDUCTION` of -200000 for the order"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling an order its seller already refunded deducts nothing more"
+    notes: "Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   # ---- port-payment-ledger-integrity / seller-payout-holdback (written from the spec; planned until the code lands).
 
@@ -658,8 +680,9 @@ features:
       - "When a seller's only entry is a 500000 credit written moments ago and the seller requests a wallet payout of 100000"
       - "Then the call fails with `FAILED_PRECONDITION`, the ledger has no `PAYOUT` entry, and both `GetWalletBalance` and `GetSellerWallet` still return 500000"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Fresh sale proceeds cannot be paid out"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-proceeds-can-be-paid-out-once-the-hold-window-pa
     title: "Proceeds can be paid out once the hold window passes"
@@ -677,8 +700,9 @@ features:
       - "When the same seller waits until the credit is older than the hold window and requests a wallet payout of 500000"
       - "Then the payout is accepted with a `PENDING` `PAYOUT` entry of -500000 and the balance becomes 0"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Proceeds can be paid out once the hold window passes"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-only-the-proceeds-inside-the-window-are-held
     title: "Only the proceeds inside the window are held"
@@ -696,8 +720,9 @@ features:
       - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, and requests a wallet payout of 300000 and then one of 1"
       - "Then the first payout is accepted and the second fails with `FAILED_PRECONDITION` as held"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Only the proceeds inside the window are held"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-a-bank-payout-of-held-proceeds-is-refused-and-re
     title: "A bank payout of held proceeds is refused and records nothing"
@@ -715,8 +740,9 @@ features:
       - "When a seller whose only proceeds are inside the hold window requests a bank payout through `RequestPayout`"
       - "Then the call fails with `FAILED_PRECONDITION` as held, `ListPayoutHistory` has no new payout, and the ledger has no `PAYOUT` entry"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A bank payout of held proceeds is refused and records nothing"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-concurrent-payouts-cannot-overdraw-the-withdrawa
     title: "Concurrent payouts cannot overdraw the withdrawable amount"
@@ -734,8 +760,9 @@ features:
       - "When a seller has 100000 withdrawable and a further 500000 held, and sends eight concurrent wallet payouts of 40000"
       - "Then exactly two succeed, the others fail with `FAILED_PRECONDITION`, and the balance is 520000"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Concurrent payouts cannot overdraw the withdrawable amount"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-a-refund-of-a-held-sale-leaves-older-proceeds-wi
     title: "A refund of a held sale leaves older proceeds withdrawable"
@@ -753,8 +780,9 @@ features:
       - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, and the recent sale is refunded in full"
       - "Then a wallet payout of 300000 is accepted"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A refund of a held sale leaves older proceeds withdrawable"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-a-refund-of-a-sale-past-the-window-reduces-what
     title: "A refund of a sale past the window reduces what can be paid out"
@@ -772,8 +800,9 @@ features:
       - "When a seller's only credit is a 500000 sale older than the hold window and 200000 of it is refunded"
       - "Then a wallet payout of 300001 fails with `FAILED_PRECONDITION` `insufficient wallet balance` and a payout of 300000 is accepted"
     tags: [fintech, destructive]
-    status: planned
-    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A refund of a sale past the window reduces what can be paid out"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-a-payout-above-the-balance-is-refused-as-insuffi
     title: "A payout above the balance is refused as insufficient"
@@ -791,8 +820,9 @@ features:
       - "When a seller with a balance of 500000 requests a wallet payout of 500001"
       - "Then the call fails with `FAILED_PRECONDITION` and message `insufficient wallet balance`"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A payout above the balance is refused as insufficient"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-a-held-payout-names-when-the-amount-is-released
     title: "A held payout names when the amount is released"
@@ -810,8 +840,9 @@ features:
       - "When a seller whose 500000 credit was written at time T, inside a hold window W, requests a wallet payout of 100000"
       - "Then the message starts with `amount is held until `, ends with ` (refund window)`, carries an RFC3339 timestamp within a few seconds of T + W, and contains neither 100000 nor 500000"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A held payout names when the amount is released"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
 
   - id: payment.plp-holdback-an-invalid-hold-window-refuses-to-start
     title: "An invalid hold window refuses to start"
@@ -829,5 +860,6 @@ features:
       - "When the `team-payment` image is started with `PAYOUT_HOLD_DAYS=-1`, with `PAYOUT_HOLD_DAYS=abc`, or with `PAYOUT_HOLD_WINDOW=soon`"
       - "Then each container exits non-zero and its log names the offending key"
     tags: [fintech]
-    status: planned
-    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); expected red on the pre-change stack, the integrator flips it to automated once the code lands."
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::An invalid hold window refuses to start"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
