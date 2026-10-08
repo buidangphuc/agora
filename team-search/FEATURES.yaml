@@ -192,3 +192,22 @@ features:
     tags: [security, authz]
     status: automated
     covered_by: "security/listing_visibility.feature::Saved searches require a signed-in user"
+
+  - id: ops.search-boot-guard-prod-storage
+    title: team-search refuses in-memory storage in production
+    persona: admin
+    priority: P0
+    summary: >-
+      Boot guard: staging/production must not run on the in-memory saved-search store.
+    entry_route: /
+    services: [team-search]
+    preconditions:
+      login: guest
+    api:
+      exercised: [search.v1.SaveSearch]
+    acceptance:
+      - WHEN the team-search image is started with ENV=production and DATABASE_ENABLED=false
+      - THEN the process exits non-zero and its log names the storage setting
+    tags: [ops, security]
+    status: automated
+    covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"
