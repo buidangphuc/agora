@@ -513,3 +513,37 @@ features:
     covered_by: null
     notes: >-
       Scenario "The collector echoes the request id" in security/edge_http_routes.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.ai-generation-not-retried
+    title: A generation call is not retried when team-ai is down
+    persona: seller
+    priority: P1
+    summary: A generation call is not retried when team-ai is down (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [ai.v1.MagicListing]
+    acceptance:
+      - "When team-ai is stopped and a logged-in seller calls MagicListing through the gateway with X-Request-Id \"e2e-ai-<random>\""
+      - "Then the call fails with unavailable, and the gateway's edge.request log line for that request id reports one upstream attempt"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "A generation call is not retried when team-ai is down" in security/edge_ai_and_reflection.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.reflection-not-served-by-default
+    title: Reflection is not served by default
+    persona: guest
+    priority: P1
+    summary: Reflection is not served by default (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "When a client posts a reflection request to /grpc.reflection.v1.ServerReflection/ServerReflectionInfo on the local gateway"
+      - "Then the gateway answers HTTP 404"
+    tags: [security]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario "Reflection is not served by default" in security/edge_ai_and_reflection.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
