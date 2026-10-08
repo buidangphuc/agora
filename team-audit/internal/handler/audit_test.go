@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -177,5 +178,15 @@ func TestQueryAuditLogAdminOnly(t *testing.T) {
 				t.Fatalf("got %v, want %v", code(err), c.want)
 			}
 		})
+	}
+}
+
+func TestInternalErrorIsGenericAndNotLeaked(t *testing.T) {
+	err := handler.MapAuditErrForTest(errors.New("pq: password authentication failed for user audit"))
+	if code(err) != codes.Internal {
+		t.Fatalf("got %v, want Internal", code(err))
+	}
+	if msg := status.Convert(err).Message(); msg != "internal error" {
+		t.Fatalf("message %q leaks the cause", msg)
 	}
 }

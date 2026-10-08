@@ -6,6 +6,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"google.golang.org/grpc/codes"
@@ -32,7 +33,9 @@ func mapAuditErr(err error) error {
 	case errors.Is(err, service.ErrEmptyAction):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "%v", err)
+		// Log the cause server-side; never leak storage error text to the caller.
+		slog.Error("audit: internal error", "err", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 
