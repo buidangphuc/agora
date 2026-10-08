@@ -123,22 +123,11 @@ func TestSearchHandler(t *testing.T) {
 		if len(f.GetPriceRanges()) != 2 || f.GetPriceRanges()[0].GetKey() != "0-100000" {
 			t.Errorf("price_ranges facet mismatch: %+v", f.GetPriceRanges())
 		}
-		if len(f.GetRatings()) != 2 || f.GetRatings()[0].GetKey() != "4" || f.GetRatings()[0].GetCount() != 2 {
-			t.Errorf("ratings facet mismatch: %+v", f.GetRatings())
+		if f.GetRatings() == nil || len(f.GetRatings()) != 0 {
+			t.Errorf("ratings facet must be an empty list (D9): %+v", f.GetRatings())
 		}
 		if len(f.GetSellers()) != 1 || f.GetSellers()[0].GetKey() != "seller_1" {
 			t.Errorf("sellers facet mismatch: %+v", f.GetSellers())
-		}
-	})
-
-	t.Run("SearchListings forwards min_rating", func(t *testing.T) {
-		mi := &mockIndex{}
-		h2 := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
-		if _, err := h2.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x", MinRating: 4}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if mi.lastMinRating != 4 {
-			t.Errorf("expected min_rating 4 forwarded to index, got %d", mi.lastMinRating)
 		}
 	})
 

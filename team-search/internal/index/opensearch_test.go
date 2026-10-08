@@ -116,9 +116,10 @@ func TestPartialUpdate_NoUpsertUsesVersionGuardScript(t *testing.T) {
 	}
 }
 
-// F2: Search must request the four facet aggregations and parse the returned
-// aggregation block into Facets, with the keyed price/rating buckets emitted in
-// a stable fixed order regardless of JSON map iteration.
+// F2: Search must request the facet aggregations and parse the returned
+// aggregation block into Facets, with the keyed price buckets emitted in a
+// stable fixed order regardless of JSON map iteration. D9: no ratings
+// aggregation is requested and the ratings facet is an empty list.
 func TestSearch_ParsesFacetAggregations(t *testing.T) {
 	var cap capturedRequest
 	respBody := `{
@@ -137,11 +138,13 @@ func TestSearch_ParsesFacetAggregations(t *testing.T) {
 		t.Fatalf("Search: %v", err)
 	}
 
-	// The query body must request all four facet aggregations.
-	for _, want := range []string{`"aggs"`, "category_id", "seller_id", "price_ranges", "ratings"} {
+	for _, want := range []string{`"aggs"`, "category_id", "seller_id", "price_ranges"} {
 		if !strings.Contains(cap.body, want) {
 			t.Errorf("expected agg request body to contain %q, got: %s", want, cap.body)
 		}
+	}
+	if strings.Contains(cap.body, "ratings") {
+		t.Errorf("the ratings aggregation must be gone (D9): %s", cap.body)
 	}
 
 	if len(res.Facets.Categories) != 2 || res.Facets.Categories[0].Key != "cat_phones" || res.Facets.Categories[0].Count != 2 {
@@ -167,22 +170,14 @@ func TestSearch_ParsesFacetAggregations(t *testing.T) {
 		}
 	}
 
-	// Ratings emitted in fixed floor order 4,3,2,1 (cumulative counts).
-	wantRatings := []index.FacetBucket{
-		{Key: "4", Count: 2},
-		{Key: "3", Count: 3},
-		{Key: "2", Count: 3},
-		{Key: "1", Count: 3},
-	}
-	for i, w := range wantRatings {
-		if res.Facets.Ratings[i] != w {
-			t.Errorf("ratings[%d] = %+v, want %+v", i, res.Facets.Ratings[i], w)
-		}
+	// Even if a cluster returned a ratings block, the facet stays empty.
+	if res.Facets.Ratings == nil || len(res.Facets.Ratings) != 0 {
+		t.Errorf("ratings facet must be an empty non-nil list: %+v", res.Facets.Ratings)
 	}
 }
 
 // F2: an empty result set must yield empty — never nil — facet buckets, and the
-// fixed price/rating buckets are still present with zero counts (no nil-panic).
+// fixed price buckets are still present with zero counts (no nil-panic).
 func TestSearch_EmptyResultSafeFacets(t *testing.T) {
 	var cap capturedRequest
 	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
@@ -198,10 +193,10 @@ func TestSearch_EmptyResultSafeFacets(t *testing.T) {
 	if len(res.Facets.Categories) != 0 || len(res.Facets.Sellers) != 0 {
 		t.Errorf("terms facets should be empty on empty result: %+v", res.Facets)
 	}
-	if len(res.Facets.PriceRanges) != 4 || len(res.Facets.Ratings) != 4 {
-		t.Errorf("fixed facets should keep their buckets (zero counts): %+v", res.Facets)
+	if len(res.Facets.PriceRanges) != 4 || len(res.Facets.Ratings) != 0 {
+		t.Errorf("price buckets kept with zero counts, ratings empty: %+v", res.Facets)
 	}
-	for _, b := range append(append([]index.FacetBucket{}, res.Facets.PriceRanges...), res.Facets.Ratings...) {
+	for _, b := range res.Facets.PriceRanges {
 		if b.Count != 0 {
 			t.Errorf("expected zero count on empty result, got %+v", b)
 		}

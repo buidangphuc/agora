@@ -54,7 +54,7 @@ type Hit struct {
 }
 
 // FacetBucket is one facet value and the number of matching listings that carry
-// it (key = category_id / seller_id / price-range label / rating floor).
+// it (key = category_id / seller_id / price-range label).
 type FacetBucket struct {
 	Key   string
 	Count int64
@@ -475,7 +475,6 @@ type osAggregations struct {
 	Categories  osTermsAgg `json:"categories"`
 	Sellers     osTermsAgg `json:"sellers"`
 	PriceRanges osKeyedAgg `json:"price_ranges"`
-	Ratings     osKeyedAgg `json:"ratings"`
 }
 
 type osTermsAgg struct {
@@ -509,19 +508,6 @@ var priceRangeBuckets = []priceRangeBucket{
 	{label: "1000000+", from: 1000000, to: 0},
 }
 
-// ratingBuckets are the cumulative rating facet floors (>=4, >=3, >=2, >=1).
-// key is the emitted FacetBucket key ("4" == 4-plus stars); floor is the range
-// gte bound. Modeled as a filters agg so buckets overlap (>=4 counts into >=3).
-var ratingBuckets = []struct {
-	key   string
-	floor float64
-}{
-	{key: "4", floor: 4},
-	{key: "3", floor: 3},
-	{key: "2", floor: 2},
-	{key: "1", floor: 1},
-}
-
 // facetAggs builds the aggregation block requested alongside every SearchListings
 // query. It aggregates over the post-filter matched set (aggs sit outside the
 // query in the request body but count only documents the query matched).
@@ -537,10 +523,6 @@ func facetAggs() map[string]any {
 		}
 		priceRanges = append(priceRanges, r)
 	}
-	ratingFilters := make(map[string]any, len(ratingBuckets))
-	for _, b := range ratingBuckets {
-		ratingFilters[b.key] = map[string]any{"range": map[string]any{"rating": map[string]any{"gte": b.floor}}}
-	}
 	return map[string]any{
 		"categories": map[string]any{"terms": map[string]any{"field": "category_id", "size": 50}},
 		"sellers":    map[string]any{"terms": map[string]any{"field": "seller_id", "size": 50}},
@@ -549,21 +531,22 @@ func facetAggs() map[string]any {
 			"keyed":  true,
 			"ranges": priceRanges,
 		}},
-		"ratings": map[string]any{"filters": map[string]any{"filters": ratingFilters}},
 	}
 }
 
 // parseFacets turns the raw aggregation block into Facets. Every slice is
 // initialized (never nil), so an empty result set yields empty — not nil —
 // facet buckets. Terms buckets are emitted in the order OpenSearch returns them
-// (by count desc); the keyed price/rating buckets are emitted in the fixed order
+// (by count desc); the keyed price buckets are emitted in the fixed order
 // defined above so the UI order is stable regardless of JSON map iteration.
 func parseFacets(aggs osAggregations) Facets {
 	f := Facets{
 		Categories:  make([]FacetBucket, 0, len(aggs.Categories.Buckets)),
 		Sellers:     make([]FacetBucket, 0, len(aggs.Sellers.Buckets)),
 		PriceRanges: make([]FacetBucket, 0, len(priceRangeBuckets)),
-		Ratings:     make([]FacetBucket, 0, len(ratingBuckets)),
+		// D9: no listing event carries a rating, so there is no ratings
+		// aggregation and the facet is always an empty (non-nil) list.
+		Ratings: []FacetBucket{},
 	}
 	for _, b := range aggs.Categories.Buckets {
 		f.Categories = append(f.Categories, FacetBucket{Key: termKey(b.Key), Count: b.DocCount})
@@ -573,9 +556,6 @@ func parseFacets(aggs osAggregations) Facets {
 	}
 	for _, b := range priceRangeBuckets {
 		f.PriceRanges = append(f.PriceRanges, FacetBucket{Key: b.label, Count: aggs.PriceRanges.Buckets[b.label].DocCount})
-	}
-	for _, b := range ratingBuckets {
-		f.Ratings = append(f.Ratings, FacetBucket{Key: b.key, Count: aggs.Ratings.Buckets[b.key].DocCount})
 	}
 	return f
 }
