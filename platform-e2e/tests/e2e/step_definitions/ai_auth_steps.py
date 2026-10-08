@@ -36,7 +36,6 @@ SERVICE_ONLY_SCOPES = {
     "features.dataset",
 }
 REDIS_CONTAINER = os.getenv("REDIS_CONTAINER", "agora-redis-1")
-IDENTITY_CONTAINER = os.getenv("IDENTITY_CONTAINER", "agora-team-identity-svc")
 RECS_USER_KEY = "recs:v1:user:{user_id}"
 HOMEPAGE = "RECOMMENDATION_CONTEXT_HOMEPAGE"
 
@@ -225,19 +224,9 @@ def history_failure_then_success(world: World) -> None:
 
 # ── deploy-runtime: identity boot guard ────────────────────────────────────
 def _identity_image() -> str:
-    """The team-identity image the running stack uses (the `team-identity:local` tag can be
-    stale when the stack builds under a compose project prefix); override with IDENTITY_IMAGE."""
-    if os.getenv("IDENTITY_IMAGE"):
-        return os.environ["IDENTITY_IMAGE"]
-    out = subprocess.run(
-        ["docker", "inspect", IDENTITY_CONTAINER, "--format", "{{.Config.Image}}"],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    return (
-        out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else "team-identity:local"
-    )
+    """The image agora builds for team-identity (`team-identity:local` is a stale image from the
+    retired full_team_repo and proves nothing); override with IDENTITY_IMAGE."""
+    return os.getenv("IDENTITY_IMAGE", "agora-team-identity:local")
 
 
 @when(
