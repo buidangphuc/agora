@@ -104,6 +104,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		if errors.Is(err, service.ErrInsufficientStock) {
 			return nil, clientErr(h.logger, codes.ResourceExhausted, "stock reservation failed: insufficient stock", err)
 		}
+		if errors.Is(err, service.ErrReservationLost) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "item no longer reserved; please retry checkout", err)
+		}
 		return nil, internalErr(h.logger, "create order", err)
 	}
 

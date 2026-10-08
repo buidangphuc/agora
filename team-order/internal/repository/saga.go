@@ -16,6 +16,9 @@ import (
 // ErrReservationNotFound is returned when a reservation row is absent.
 var ErrReservationNotFound = errors.New("reservation not found")
 
+// ErrSagaNotFound is returned when a saga row is absent.
+var ErrSagaNotFound = errors.New("saga not found")
+
 // SagaStatus tracks the lifecycle of a checkout saga.
 type SagaStatus int32
 
@@ -77,6 +80,7 @@ type Reservation struct {
 // recoverable across restarts and compensations are never lost.
 type SagaRepository interface {
 	CreateSaga(ctx context.Context, s Saga) (Saga, error)
+	GetSaga(ctx context.Context, id string) (Saga, error)
 	UpdateSagaStatus(ctx context.Context, id string, status SagaStatus) error
 
 	CreateReservation(ctx context.Context, r Reservation) (Reservation, error)
@@ -127,6 +131,28 @@ func (r *PostgresSagaRepository) CreateSaga(ctx context.Context, s Saga) (Saga, 
 		VALUES ($1, $2, $3, $4, $5)`
 	if _, err := r.pool.Exec(ctx, q, s.ID, s.BuyerID, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
 		return Saga{}, fmt.Errorf("insert saga: %w", err)
+	}
+	return s, nil
+}
+
+const sagaColumns = `id, buyer_id, status, created_at, updated_at`
+
+func scanSaga(row pgx.Row, s *Saga) error {
+	var statusInt int32
+	if err := row.Scan(&s.ID, &s.BuyerID, &statusInt, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		return err
+	}
+	s.Status = SagaStatus(statusInt)
+	return nil
+}
+
+func (r *PostgresSagaRepository) GetSaga(ctx context.Context, id string) (Saga, error) {
+	var s Saga
+	if err := scanSaga(r.pool.QueryRow(ctx, `SELECT `+sagaColumns+` FROM order_sagas WHERE id = $1`, id), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Saga{}, ErrSagaNotFound
+		}
+		return Saga{}, fmt.Errorf("get saga %q: %w", id, err)
 	}
 	return s, nil
 }
@@ -288,6 +314,16 @@ func (r *InMemorySagaRepository) CreateSaga(_ context.Context, s Saga) (Saga, er
 	s.CreatedAt = time.Now()
 	s.UpdatedAt = time.Now()
 	r.store.sagas[s.ID] = s
+	return s, nil
+}
+
+func (r *InMemorySagaRepository) GetSaga(_ context.Context, id string) (Saga, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	s, ok := r.store.sagas[id]
+	if !ok {
+		return Saga{}, ErrSagaNotFound
+	}
 	return s, nil
 }
 
