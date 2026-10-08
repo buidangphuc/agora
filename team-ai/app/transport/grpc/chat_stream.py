@@ -26,6 +26,7 @@ from loguru import logger
 
 from app.core.config import Settings
 from app.core.errors import RateLimitError
+from app.core.redaction import RedactionPolicy
 from app.core.resilience import FailureKind, RetryPolicy, TimeoutPolicy
 from app.modules.ai.llm.langfuse import build_langfuse_tracker
 from app.modules.ai.llm.prompt import STATIC_SYSTEM_PROMPT, PromptProvider
@@ -146,6 +147,7 @@ class LLMRouterChatStreamer:
         self._retry = RetryPolicy(max_attempts=max_attempts)
         self._quota_provider = quota_provider
         self._quota_policy = quota_policy
+        self._redaction = RedactionPolicy.for_llm_input()
         self._prompts = prompt_provider or PromptProvider()
         self._sessions = session_store
         self._sleep = sleep
@@ -170,6 +172,8 @@ class LLMRouterChatStreamer:
         deadline_at = (
             None if deadline_seconds is None else self._clock() + deadline_seconds
         )
+        # Model input is always redacted (history stores the redacted text too).
+        message = self._redaction.redact_text(message)
         history = await self._load_history(principal_id, session_id)
         messages = await self._build_messages(message, history)
 

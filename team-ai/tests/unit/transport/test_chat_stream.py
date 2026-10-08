@@ -375,3 +375,28 @@ async def test_client_disconnect_frees_the_half_open_probe_without_judging():
 
     assert router.breaker_state("a") == "closed"
     assert ("a", "cancelled") in router.outcomes
+
+
+# --- redaction of model input ------------------------------------------------
+
+
+async def test_pii_is_redacted_in_the_messages_handed_to_the_model():
+    provider = ScriptedProvider().queue("a", Script(chunks=("ok",)))
+    _, streamer = _setup(provider)
+
+    await _collect(streamer, "goi 0912 345 678 hoac a@b.com, cccd 079123456789 nhe")
+
+    sent = "".join(str(m.content) for m in provider.calls[0].messages)
+    for raw in ("0912 345 678", "a@b.com", "079123456789"):
+        assert raw not in sent
+    assert "[phone]" in sent and "[email]" in sent and "[id]" in sent
+
+
+async def test_prices_and_order_numbers_reach_the_model_untouched():
+    provider = ScriptedProvider().queue("a", Script(chunks=("ok",)))
+    _, streamer = _setup(provider)
+
+    await _collect(streamer, "giá 850000000, order id 123456789")
+
+    assert "850000000" in str(provider.calls[0].messages[-1].content)
+    assert "123456789" in str(provider.calls[0].messages[-1].content)

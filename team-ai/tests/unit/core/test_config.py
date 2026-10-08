@@ -341,3 +341,13 @@ def test_production_accepts_the_redis_grpc_rate_limiter_and_memory_when_off():
 
 def test_local_allows_the_memory_grpc_rate_limiter():
     build_test_settings(GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory")
+
+
+def test_llm_trace_content_defaults_to_redacted_and_full_is_local_only():
+    assert build_test_settings().LLM_TRACE_CONTENT == "redacted"
+    build_test_settings(LLM_TRACE_CONTENT="full")  # local/test is fine
+    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
+        build_test_settings(**_PROD, LLM_TRACE_CONTENT="full")
+    build_test_settings(**_PROD, LLM_TRACE_CONTENT="off")
+    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
+        build_test_settings(LLM_TRACE_CONTENT="verbose")

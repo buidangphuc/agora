@@ -350,3 +350,14 @@ async def test_history_is_bounded_to_the_newest_turns_in_the_model_input(store):
     humans = [c for t, c in last if t == "human"]
     # the 5 newest earlier turns (q2..q6), then the current message
     assert humans == ["q2", "q3", "q4", "q5", "q6", "q7"]
+
+
+async def test_history_stores_redacted_user_text(store):
+    provider = ScriptedProvider().queue("a", Script(chunks=("ok",)), Script())
+    streamer = _streamer(provider, store)
+
+    await _chat(streamer, "call 0912345678")
+    await _chat(streamer, "again")
+
+    assert ("human", "call [phone]") in _texts(provider.calls[1])
+    assert all("0912345678" not in c for _, c in _texts(provider.calls[1]))

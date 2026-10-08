@@ -6,6 +6,7 @@ from typing import Any
 
 from loguru import logger
 
+from app.core.redaction import RedactionPolicy
 from app.modules.business.ai_assistant.schemas import (
     ChatCopilotRequest,
     ChatCopilotResponse,
@@ -323,15 +324,29 @@ def _strip_accents(text: str) -> str:
 
 
 class AIAssistantService:
-    def __init__(self, rag_service: Any = None) -> None:
+    def __init__(
+        self,
+        rag_service: Any = None,
+        *,
+        redaction_policy: RedactionPolicy | None = None,
+    ) -> None:
         self.rag_service = rag_service
+        self._redaction = redaction_policy or RedactionPolicy(
+            mode="redacted", mask_national_id=True
+        )
+
+    def _safe(self, text: str) -> str:
+        """User text as it may appear in logs (masked per ``LLM_TRACE_CONTENT``)."""
+        return self._redaction.redact_text(text)
 
     async def shopping_assistant(
         self, request: ShoppingAssistantRequest
     ) -> ShoppingAssistantResponse:
         query = request.message.strip()
         logger.info(
-            "shopping_assistant.query user_id={} message={}", request.user_id, query
+            "shopping_assistant.query user_id={} message={}",
+            request.user_id,
+            self._safe(query),
         )
 
         # 1. Match products from catalog / RAG
@@ -351,7 +366,7 @@ class AIAssistantService:
 
     async def magic_listing(self, request: MagicListingRequest) -> MagicListingResponse:
         title_hint = request.title_hint.strip()
-        logger.info("magic_listing.generate hint={}", title_hint)
+        logger.info("magic_listing.generate hint={}", self._safe(title_hint))
 
         category_id, cat_name = self._infer_category(title_hint, request.category_hint)
         generated_title = self._generate_seo_title(title_hint, cat_name)
@@ -372,7 +387,7 @@ class AIAssistantService:
 
     async def chat_copilot(self, request: ChatCopilotRequest) -> ChatCopilotResponse:
         buyer_msg = request.buyer_message.strip()
-        logger.info("chat_copilot.replies buyer_message={}", buyer_msg)
+        logger.info("chat_copilot.replies buyer_message={}", self._safe(buyer_msg))
 
         quick_replies = self._generate_smart_replies(buyer_msg)
         return ChatCopilotResponse(quick_replies=quick_replies)
