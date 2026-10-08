@@ -1404,8 +1404,8 @@ features:
       - "When the admin calls `ForceFailSaga` with `fail_step` \"banana\" on a buyer's `Pending` order"
       - "Then the call fails with `invalid_argument` and the order is still `Pending` with its stock still held"
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "order/oic_saga_view.feature::An unknown fail_step is rejected"
     notes: "Scenario: order/oic_saga_view.feature::An unknown fail_step is rejected. Written from the spec ahead of the code (order/oic_saga_view.feature::An unknown fail_step is rejected.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-clean-force-fail-reports-success
     title: "A clean force-fail reports success"
@@ -1423,8 +1423,8 @@ features:
       - "When the admin calls `ForceFailSaga` with `fail_step` \"payment\" on a buyer's `Pending` order for quantity 2 of a listing with stock 8"
       - "Then `success` is true, the order is `Cancelled`, the returned saga view is compensated, and the stock is 10"
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A clean force-fail reports success"
     notes: "Scenario: order/oic_saga_view.feature::A clean force-fail reports success. Written from the spec ahead of the code (order/oic_saga_view.feature::A clean force-fail reports success.) — red on the pre-change stack, green after the code landed (2026-10-08)."
   - id: order.oic-saga-a-force-fail-with-a-parked-release-reports-failu
     title: "A force-fail with a parked release reports failure"
@@ -1442,8 +1442,8 @@ features:
       - "When the admin calls `ForceFailSaga` on a buyer's `Pending` order while `team-domain` is stopped"
       - "Then `success` is false, the message says the stock release is pending retry, and the order is `Cancelled`"
     tags: [order, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A force-fail with a parked release reports failure"
     notes: "Scenario: order/oic_saga_view.feature::A force-fail with a parked release reports failure. Written from the spec ahead of the code (order/oic_saga_view.feature::A force-fail with a parked release reports failure.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
   - id: order.oic-saga-force-failing-a-shipped-order-is-refused
     title: "Force-failing a shipped order is refused"
@@ -1461,8 +1461,8 @@ features:
       - "When the admin calls `ForceFailSaga` on a buyer's `Shipped` order"
       - "Then the call fails with `failed_precondition` and the order is still `Shipped`"
     tags: [order]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "order/oic_saga_view.feature::Force-failing a shipped order is refused"
     notes: "Scenario: order/oic_saga_view.feature::Force-failing a shipped order is refused. Written from the spec ahead of the code (order/oic_saga_view.feature::Force-failing a shipped order is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
 
   # ---- port-order-inventory-correctness / order-upstream-principals (written from the spec; planned until the code lands).
@@ -1505,8 +1505,8 @@ features:
       - "When a buyer calls `ForceFailSaga` through the gateway on their own `Pending` order"
       - "Then the gateway answers HTTP 403 and the order is still `Pending` with its stock still held"
     tags: [order, security]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "security/edge_route_policy.feature::A buyer cannot force-fail their own order"
     notes: "Scenario: security/edge_route_policy.feature::A buyer cannot force-fail their own order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
   - id: order.pear-service-token-cannot-place-an-order
     title: "A service token cannot place an order"
@@ -1524,6 +1524,6 @@ features:
       - "When a client calls `CreateOrder` through the gateway with a validly signed SERVICE token for a cart line of a listing with stock 5"
       - "Then the call fails with `permission_denied`, no order is created, and the listing's stock is still 5"
     tags: [order, security]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "order/checkout_principal.feature::A service token cannot place an order"
     notes: "Scenario: order/checkout_principal.feature::A service token cannot place an order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."

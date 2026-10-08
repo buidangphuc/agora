@@ -8,7 +8,7 @@ Feature: Payouts require the seller scope
     Given a buyer "b1"
     When "b1" requests a wallet payout of 100000 for their own id
     Then the call fails with "permission_denied"
-    And the payout history of "b1" is empty
+    And the wallet ledger of "b1" has no payout entry
 
   # @destructive: waits the hold window out (needs payment-ledger.override.yaml, PAYOUT_HOLD_WINDOW=20s)
   # so the seller has an available balance. Serial lane only; stops nothing.
@@ -19,4 +19,4 @@ Feature: Payouts require the seller scope
     And "b1" has paid an order of "L" whose credit has aged past the hold window
     When the seller requests a wallet payout of 100000
     Then the payout is accepted with a PENDING PAYOUT entry of -100000
-    And the payout appears in the seller's payout history with amount 100000
+    And a payout entry of 100000 appears in the seller's wallet ledger

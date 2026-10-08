@@ -19,14 +19,16 @@ def user_requests_wallet_payout(plp, b, amount):
     plp.responses["last"] = p.wallet_payout(plp, _actor(plp, b), amount)
 
 
-@then(parsers.parse('the payout history of "{b}" is empty'))
-def user_payout_history_empty(plp, b):
-    history = p.payout_history(plp, _actor(plp, b))
-    assert not history, f"a payout was recorded for {b}: {history}"
+# RequestWalletPayout books a PAYOUT ledger entry; ListPayoutHistory lists only the
+# bank-detail RequestPayout payouts, so the wallet ledger is the record to check.
+@then(parsers.parse('the wallet ledger of "{b}" has no payout entry'))
+def user_has_no_payout_entry(plp, b):
+    payouts = p.rows(plp, _actor(plp, b), "PAYOUT")
+    assert not payouts, f"a payout was recorded for {b}: {payouts}"
 
 
-@then(parsers.parse("the payout appears in the seller's payout history with amount {amount:d}"))
-def payout_in_history(plp, amount):
-    history = p.payout_history(plp, _seller(plp))
-    assert any(int(x.get("amount", 0)) == amount for x in history), history
+@then(parsers.parse("a payout entry of {amount:d} appears in the seller's wallet ledger"))
+def payout_in_ledger(plp, amount):
+    payouts = p.rows(plp, _seller(plp), "PAYOUT")
+    assert any(abs(int(x.get("amount", 0))) == amount for x in payouts), payouts
     assert _last(plp).status_code == 200

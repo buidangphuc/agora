@@ -9,9 +9,9 @@ their own wallet. A caller without it SHALL get `PERMISSION_DENIED` and no payou
 
 - **WHEN** a logged-in buyer, who holds no `listing.write`, calls `RequestWalletPayout` for their own id through the
   gateway
-- **THEN** the call fails with `permission_denied` and the buyer's payout history is empty
+- **THEN** the call fails with `permission_denied` and the buyer's wallet ledger has no `PAYOUT` entry
 
 #### Scenario: A seller can still request a payout
 
 - **WHEN** a seller with an available balance calls `RequestWalletPayout` for part of it through the gateway
-- **THEN** the payout is recorded and appears in the seller's payout history
+- **THEN** a `PAYOUT` entry for that amount appears in the seller's wallet ledger

@@ -1293,10 +1293,10 @@ features:
       exercised: [payment.v1.RequestWalletPayout, payment.v1.ListPayoutHistory]
     acceptance:
       - "When a logged-in buyer, who holds no `listing.write`, calls `RequestWalletPayout` for their own id through the gateway"
-      - "Then the call fails with `permission_denied` and the buyer's payout history is empty"
+      - "Then the call fails with `permission_denied` and the buyer's wallet ledger has no `PAYOUT` entry"
     tags: [fintech, security]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/payout_scope.feature::A buyer cannot request a payout"
     notes: "Scenario: payment/payout_scope.feature::A buyer cannot request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
   - id: payment.pear-seller-can-still-request-a-payout
     title: "A seller can still request a payout"
@@ -1312,8 +1312,8 @@ features:
       exercised: [payment.v1.RequestWalletPayout, payment.v1.ListPayoutHistory]
     acceptance:
       - "When a seller with an available balance calls `RequestWalletPayout` for part of it through the gateway"
-      - "Then the payout is recorded and appears in the seller's payout history"
+      - "Then a `PAYOUT` entry for that amount appears in the seller's wallet ledger"
     tags: [fintech, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "payment/payout_scope.feature::A seller can still request a payout"
     notes: "Scenario: payment/payout_scope.feature::A seller can still request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Serial lane (@destructive): waits the payout hold window out, needs platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s); stops nothing."

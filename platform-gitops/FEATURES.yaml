@@ -19,8 +19,8 @@ features:
       - "When `charts/service` is rendered for team-gateway against the staging overlay and again against the prod overlay"
       - "Then the gateway container has `ENV` \"staging\" and \"production\" respectively"
     tags: [ops]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "ops/gitops_render.feature::The rendered gateway knows its environment"
     notes: "Scenario: ops/gitops_render.feature::The rendered gateway knows its environment. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
   - id: gitops.pear-team-ai-renders-an-ingress-allow-list
     title: "team-ai renders an ingress allow-list"
@@ -36,8 +36,8 @@ features:
       - "When `charts/service` is rendered for team-ai with its service values"
       - "Then a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway` and `app: prometheus`"
     tags: [ops]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "ops/gitops_render.feature::team-ai renders an ingress allow-list"
     notes: "Scenario: ops/gitops_render.feature::team-ai renders an ingress allow-list. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
   - id: gitops.pear-undocumented-in-code-env-var-fails-the-doctor
     title: "An undocumented-in-code env var fails the doctor"
@@ -53,8 +53,8 @@ features:
       - "When `repo_doctor` runs on a copy of the workspace whose `team-referral/README.md` env table gains the row `E2E_GHOST_SETTING`"
       - "Then it exits non-zero and names `team-referral` and `E2E_GHOST_SETTING`"
     tags: [ops]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "ops/repo_doctor.feature::An undocumented-in-code env var fails the doctor"
     notes: "Scenario: ops/repo_doctor.feature::An undocumented-in-code env var fails the doctor. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
   - id: gitops.pear-real-workspace-passes-the-env-check
     title: "The real workspace passes the env check"
@@ -70,6 +70,6 @@ features:
       - "When `repo_doctor` runs on the workspace"
       - "Then it reports no undocumented-in-code env var"
     tags: [ops]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "ops/repo_doctor.feature::The real workspace passes the env check"
     notes: "Scenario: ops/repo_doctor.feature::The real workspace passes the env check. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Passes vacuously before the code lands (the check does not exist yet); the ghost scenario is the red one."
