@@ -55,6 +55,10 @@ func (f *fakeDomainClient) ReserveStock(_ context.Context, req *listingv1.Reserv
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
 
+func (f *fakeDomainClient) CommitReservation(_ context.Context, _ *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return &listingv1.CommitReservationResponse{}, nil
+}
+
 func (f *fakeDomainClient) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, _ ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

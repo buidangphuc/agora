@@ -15,7 +15,7 @@ import (
 
 type Clients struct {
 	conns []*grpc.ClientConn
-	// Listing wraps the listing client so ReserveStock/ReleaseStock are always
+	// Listing wraps the listing client so ReserveStock/CommitReservation/ReleaseStock are always
 	// marked AsService (team-order's own principal, scope listing.write only).
 	Listing DomainClient
 	Address identityv1.AddressServiceClient
@@ -43,6 +43,7 @@ const (
 var methodScopes = map[string]string{
 	listingv1.ListingService_ReserveStock_FullMethodName:         stockServiceScope,
 	listingv1.ListingService_ReleaseStock_FullMethodName:         stockServiceScope,
+	listingv1.ListingService_CommitReservation_FullMethodName:    stockServiceScope,
 	promotionv1.VoucherService_ValidateAndReserve_FullMethodName: promotionScope,
 	promotionv1.VoucherService_CommitReservation_FullMethodName:  promotionScope,
 	promotionv1.VoucherService_ReleaseReservation_FullMethodName: promotionScope,
@@ -149,6 +150,9 @@ type DomainClient interface {
 	GetListing(ctx context.Context, req *listingv1.GetListingRequest, opts ...grpc.CallOption) (*listingv1.GetListingResponse, error)
 	ReserveStock(ctx context.Context, req *listingv1.ReserveStockRequest, opts ...grpc.CallOption) (*listingv1.ReserveStockResponse, error)
 	ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, opts ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error)
+	// CommitReservation makes an active reservation permanent in team-domain so its
+	// TTL sweep never restores the stock of a placed order.
+	CommitReservation(ctx context.Context, req *listingv1.CommitReservationRequest, opts ...grpc.CallOption) (*listingv1.CommitReservationResponse, error)
 }
 
 // serviceStockClient marks exactly the stock-changing RPCs AsService and leaves
@@ -158,7 +162,7 @@ type serviceStockClient struct {
 	DomainClient
 }
 
-// NewServiceStockClient wraps inner so ReserveStock and ReleaseStock are sent as
+// NewServiceStockClient wraps inner so ReserveStock, CommitReservation and ReleaseStock are sent as
 // team-order's service principal, in a buyer's request and in background
 // compensation/sweeping alike.
 func NewServiceStockClient(inner DomainClient) DomainClient {
@@ -177,4 +181,8 @@ func (c serviceStockClient) ReserveStock(ctx context.Context, req *listingv1.Res
 
 func (c serviceStockClient) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, opts ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
 	return c.DomainClient.ReleaseStock(AsService(ctx), req, opts...)
+}
+
+func (c serviceStockClient) CommitReservation(ctx context.Context, req *listingv1.CommitReservationRequest, opts ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return c.DomainClient.CommitReservation(AsService(ctx), req, opts...)
 }
