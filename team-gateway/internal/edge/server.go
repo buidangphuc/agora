@@ -63,7 +63,7 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	paymentPath, paymentHandler := paymentv1connect.NewPaymentServiceHandler(NewPaymentForwarder(clients.Payment, e), opts)
 	mux.Handle(paymentPath, paymentHandler)
 
-	// StreamChat requests are capped (the unary chat RPCs keep Connect's default):
+	// Every ChatService request (StreamChat and the unary chat RPCs) is capped:
 	// an oversized message is refused with resource_exhausted before the handler.
 	streamMax := e.streamMaxBytes
 	if streamMax <= 0 {
