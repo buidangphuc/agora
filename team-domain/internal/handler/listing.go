@@ -95,6 +95,13 @@ func (h *ListingHandler) GetListing(
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
+	// Non-published (draft, rejected) listings are visible only to the owner,
+	// admin or an internal service; everyone else gets the same NOT_FOUND as an
+	// unknown id so the response is not an existence oracle.
+	if l.Status != statusPublished && !canSeeNonPublished(ctx, l.SellerID) {
+		return nil, status.Error(codes.NotFound, "not_found")
+	}
+
 	return &listingv1.GetListingResponse{Listing: toWire(l)}, nil
 }
 
@@ -114,7 +121,21 @@ func (h *ListingHandler) ListListings(
 		pageSize = p.GetPageSize()
 	}
 
-	page, err := h.svc.List(ctx, cursor, pageSize, req.GetStatus())
+	// An empty status means published. Any other status (draft, rejected) is a
+	// moderation view: admin or internal service only. A seller's own drafts
+	// live on ListMyListings.
+	st := req.GetStatus()
+	if st == "" {
+		st = statusPublished
+	}
+	if st != statusPublished {
+		_, admin := principalOwner(ctx)
+		if !admin && !isService(ctx) {
+			return nil, status.Error(codes.PermissionDenied, "permission denied")
+		}
+	}
+
+	page, err := h.svc.List(ctx, cursor, pageSize, st)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "internal error")
 	}
@@ -408,6 +429,33 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 			RequestID:     requestID,
 		}, nil
 	}
+}
+
+const statusPublished = "published"
+
+// isService reports whether the caller is an internal service principal
+// (type SERVICE) holding listing.read. The type check matters: a user principal
+// carrying the same scopes gets no extra access.
+func isService(ctx context.Context) bool {
+	p, ok := interceptor.PrincipalFromContext(ctx)
+	if !ok || p.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE {
+		return false
+	}
+	for _, s := range p.GetScopes() {
+		if s == "listing.read" {
+			return true
+		}
+	}
+	return false
+}
+
+// canSeeNonPublished is the read rule for draft/rejected listings.
+func canSeeNonPublished(ctx context.Context, sellerID string) bool {
+	id, admin := principalOwner(ctx)
+	if admin || isService(ctx) {
+		return true
+	}
+	return id != "" && id == sellerID
 }
 
 // principalOwner extracts the owner id + admin flag from the context Principal.

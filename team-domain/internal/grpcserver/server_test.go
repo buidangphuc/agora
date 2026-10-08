@@ -164,13 +164,14 @@ func TestListListings_Page(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.ListListings(ctx, &listingv1.ListListingsRequest{
-		Page: &commonv1.PageRequest{PageSize: 2},
+		Page: &commonv1.PageRequest{PageSize: 1},
 	})
 	if err != nil {
 		t.Fatalf("ListListings: %v", err)
 	}
-	if len(resp.GetListings()) != 2 || resp.GetPage().GetTotal() != 3 {
-		t.Fatalf("want 2 items of total 3, got %d/%d", len(resp.GetListings()), resp.GetPage().GetTotal())
+	// Empty status means published: the seeded draft (b2) is excluded from the total.
+	if len(resp.GetListings()) != 1 || resp.GetPage().GetTotal() != 2 {
+		t.Fatalf("want 1 item of total 2 (published only), got %d/%d", len(resp.GetListings()), resp.GetPage().GetTotal())
 	}
 }
 
