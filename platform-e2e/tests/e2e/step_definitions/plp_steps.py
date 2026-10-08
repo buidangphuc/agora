@@ -262,12 +262,6 @@ def seller_refunds_of_listing(plp, amount, listing):
     plp.responses["last"] = p.refund(plp, _seller(plp), _paid(plp, listing)["tx"], amount)
 
 
-@any_step(parsers.parse("the seller sends {n:d} concurrent refunds of {amount:d} for the payment"))
-def concurrent_refunds(plp, n, amount):
-    seller, tx_id = _seller(plp), _paid(plp)["tx"]
-    plp.data["race"] = race([lambda: p.refund(plp, seller, tx_id, amount) for _ in range(n)])
-
-
 # ── payouts ──────────────────────────────────────────────────────────────
 @any_step(parsers.parse("the seller requests a wallet payout of {amount:d}"))
 def requests_wallet_payout(plp, amount):
