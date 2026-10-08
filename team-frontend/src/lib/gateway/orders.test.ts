@@ -98,6 +98,22 @@ describe("orders gateway wrapper", () => {
     expect(res[0].items[0]).toMatchObject({ id: "it1", unitPrice: 50000 });
   });
 
+  it("createOrder sends the Idempotency-Key call header when a key is given", async () => {
+    const order = stubOrder({
+      createOrder: vi.fn().mockResolvedValue({ orders: [] }),
+    });
+    await createOrder("a", [], PaymentMethod.COD, "V", "key-1");
+    expect(order.createOrder).toHaveBeenCalledWith(
+      {
+        addressId: "a",
+        itemIds: [],
+        paymentMethod: PaymentMethod.COD,
+        voucherCode: "V",
+      },
+      { headers: { "Idempotency-Key": "key-1" } },
+    );
+  });
+
   it("createOrder applies defaults for missing args (COD, empty ids)", async () => {
     const order = stubOrder({
       createOrder: vi.fn().mockResolvedValue({ orders: [] }),
