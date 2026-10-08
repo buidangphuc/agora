@@ -15,6 +15,7 @@ import (
 	"github.com/buidangphuc/team-search/internal/config"
 	"github.com/buidangphuc/team-search/internal/consumer"
 	"github.com/buidangphuc/team-search/internal/observability"
+	"github.com/buidangphuc/team-search/internal/tombstone"
 )
 
 func main() {
@@ -49,6 +50,20 @@ func run() error {
 		return fmt.Errorf("kafka consumer: %w", err)
 	}
 	defer cons.Close()
+
+	// D6: purge expired tombstones in the background, by processing time.
+	ttl, warnTTL := settings.TombstoneTTL()
+	interval, warnInterval := settings.TombstonePurgeInterval()
+	for _, w := range []string{warnTTL, warnInterval} {
+		if w != "" {
+			logger.Warn(w)
+		}
+	}
+	logger.Info("tombstone purge configured",
+		slog.String("tombstone_ttl", ttl.String()),
+		slog.String("tombstone_purge_interval", interval.String()),
+	)
+	go tombstone.Loop{Purger: res.Index, TTL: ttl, Interval: interval, Logger: logger}.Run(ctx)
 
 	logger.Info("indexer consuming",
 		slog.String("topic", settings.Kafka.ListingTopic),

@@ -85,6 +85,9 @@ type Index interface {
 	// UpdateStock applies a ListingStockChanged under the stock_version guard (D2);
 	// it never creates a document and is a no-op on a tombstone.
 	UpdateStock(ctx context.Context, id string, stock int32, version int64) error
+	// PurgeTombstones removes tombstones applied before olderThan (D6) and
+	// returns how many it removed; it never touches a live document.
+	PurgeTombstones(ctx context.Context, olderThan time.Time) (int64, error)
 	// Delete writes a versioned tombstone (D5); version is the delete event's occurred_at in ns.
 	Delete(ctx context.Context, id string, version int64) error
 	Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
@@ -401,6 +404,42 @@ func (o *OpenSearchIndex) UpdateStock(ctx context.Context, id string, stock int3
 		return fmt.Errorf("update stock %q: %s", id, res.String())
 	}
 	return nil
+}
+
+// PurgeTombstones runs delete_by_query on status=deleted AND tombstoned_at <
+// olderThan. Both clauses are required, so a live document is never matched.
+// Version conflicts (a tombstone replaced while the query ran) are skipped.
+func (o *OpenSearchIndex) PurgeTombstones(ctx context.Context, olderThan time.Time) (int64, error) {
+	body, err := json.Marshal(map[string]any{
+		"query": map[string]any{"bool": map[string]any{"filter": []any{
+			statusClause(statusDeleted),
+			map[string]any{"range": map[string]any{"tombstoned_at": map[string]any{"lt": olderThan.UnixMilli()}}},
+		}}},
+	})
+	if err != nil {
+		return 0, err
+	}
+	refresh := true
+	res, err := opensearchapi.DeleteByQueryRequest{
+		Index:     []string{o.name},
+		Body:      bytes.NewReader(body),
+		Conflicts: "proceed",
+		Refresh:   &refresh,
+	}.Do(ctx, o.client)
+	if err != nil {
+		return 0, fmt.Errorf("purge tombstones: %w", err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return 0, fmt.Errorf("purge tombstones: %s", res.String())
+	}
+	var out struct {
+		Deleted int64 `json:"deleted"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return 0, fmt.Errorf("purge tombstones: decode response: %w", err)
+	}
+	return out.Deleted, nil
 }
 
 // versionGuardScript applies the partial fields only when the incoming version is

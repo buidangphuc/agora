@@ -2,7 +2,10 @@ package index_test
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"testing"
+	"time"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/index"
@@ -150,5 +153,40 @@ func TestIT_Tombstone_InvisibleToSearchAndSuggest(t *testing.T) {
 	}
 	if len(sugg) != 1 || sugg[0] != "zebraphone kept" {
 		t.Errorf("tombstone leaked into suggest: %v", sugg)
+	}
+}
+
+func TestIT_PurgeTombstones_RemovesOnlyExpiredTombstones(t *testing.T) {
+	idx, url, name := readyIndex(t)
+	ctx := context.Background()
+	now := time.Now()
+	old := now.Add(-2 * time.Hour).UnixMilli()
+	// An expired tombstone, a fresh one (via the real Delete), a live document and
+	// a live document that somehow carries an old tombstoned_at.
+	put := func(id, body string) {
+		if code, b := osDo(t, http.MethodPut, url+"/"+name+"/_doc/"+id+"?refresh=true", body); code >= 300 {
+			t.Fatalf("seed %s: %d %s", id, code, b)
+		}
+	}
+	put("expired", fmt.Sprintf(`{"id":"expired","status":"deleted","version":1,"tombstoned_at":%d}`, old))
+	put("odd-live", fmt.Sprintf(`{"id":"odd-live","status":"published","version":1,"tombstoned_at":%d}`, old))
+	del(t, idx, "fresh", 5)
+	upsert(t, idx, liveDoc("live", "kept", 1))
+
+	n, err := idx.PurgeTombstones(ctx, now.Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("purged %d, want 1", n)
+	}
+	if _, ok := getSource(t, url, name, "expired"); ok {
+		t.Error("expired tombstone survived")
+	}
+	wantTombstone(t, url, name, "fresh", 5)
+	for _, id := range []string{"live", "odd-live"} {
+		if _, ok := getSource(t, url, name, id); !ok {
+			t.Errorf("purge removed live document %s", id)
+		}
 	}
 }

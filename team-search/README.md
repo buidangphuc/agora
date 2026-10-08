@@ -24,7 +24,7 @@ missing scope gives `PermissionDenied`.
 
 | RPC | Required scope | Notes |
 |---|---|---|
-| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters, category, price range, min rating, sort; returns hits and facets |
+| `SearchListings` | `search:read` | `search_mode` HYBRID / LEXICAL / SEMANTIC; filters (incl. `in_stock="true"`), category, price range, sort; `min_rating` other than 0 is `InvalidArgument`; returns hits (with `stock` when projected) and facets |
 | `Suggest` | `search:read` | Prefix completion over titles; default limit 5, max 20 |
 | `SaveSearch` | `search:write` | Needs a non-empty `query` or at least one filter; `filters_json` must be a JSON object of string values |
 | `ListSavedSearches` | `search:read` | Caller's own searches, newest first |
@@ -35,7 +35,12 @@ Behaviour of `SearchListings`:
 
 - Page size default 10, max 50; the cursor is an integer offset.
 - Default mode is HYBRID when `ENABLE_HYBRID_SEARCH=true` and the query is non-empty, otherwise LEXICAL.
-- Lexical: `multi_match` over `title^2` and `description` plus term, price and rating filters.
+- Lexical: `multi_match` over `title^2` and `description` plus term and price filters. Both legs
+  share `buildFilterClauses`: the published-only default, and `in_stock="true"` as `stock > 0`
+  (a listing with no projected stock does not match). Any other `in_stock` value is `InvalidArgument`.
+- Sort: `SORT_BY_NEWEST` is `created_at` desc (unknown last), ties by `id`. A HYBRID (or
+  defaulted) request with `NEWEST` / `PRICE_ASC` / `PRICE_DESC` is served by the lexical leg with
+  that sort and page; RRF only runs for relevance order.
 - Semantic: embeds the query through modelserve `POST /embed`, then runs a `knn` query on `embedding`.
 - Hybrid: runs lexical and semantic concurrently (pool = `from + size`, at least 50, capped at
   `HYBRID_FUSION_WINDOW`), then fuses by RRF: `sum(w_s / (k + rank_s))`, with `k = HYBRID_RRF_K`
@@ -47,8 +52,9 @@ Behaviour of `SearchListings`:
 - Offsets at or beyond `HYBRID_FUSION_WINDOW` skip fusion and use plain lexical paging.
 - Optional reranker (`ENABLE_RERANKER=true`): reorders the top 20 fused candidates through
   modelserve `/rerank`; on error the fused order is kept.
-- Facets (`categories`, `sellers`, `price_ranges`, `ratings`) are computed over the filtered
-  lexical set; see `facetAggs` in `internal/index/opensearch.go` for buckets.
+- Facets (`categories`, `sellers`, `price_ranges`) are computed over the filtered lexical set;
+  see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` is always an empty
+  list: no listing event carries a rating.
 
 Consumes: modelserve over HTTP (`MODEL_SERVER_URL`: `/embed`, and `/rerank` when enabled). No
 upstream gRPC calls.
@@ -57,15 +63,28 @@ upstream gRPC calls.
 
 | Direction | Topic | Type | Key |
 |---|---|---|---|
-| Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
+| Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
 | Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
 
 Handling (`internal/consumer/listing.go`):
 
-- Version guard: the document version is the envelope `occurred_at` in nanoseconds; upserts use
-  OpenSearch external versioning, so stale or redelivered events are rejected.
+- Version guard: the document version is the envelope `occurred_at` in nanoseconds. Every
+  whole-document write (upsert and delete) is one `scripted_upsert` guarded on `_source.version`
+  (`writeScript`), so stale or redelivered events are no-ops.
+- Deletes (`ListingChanged` / `ListingBaseInfoChanged` DELETED, `ListingStatusChanged` REJECTED)
+  write a tombstone `{id, status: deleted, version, tombstoned_at}`. A `ListingChanged` at or
+  before the tombstone's version (or with no `occurred_at`) is ignored; a newer one replaces it.
+  Partial and stock updates never touch a tombstone. `status=deleted` is hidden by the
+  published-only default and rejected as a filter.
 - `ListingChanged`: upsert, or delete when `CHANGE_TYPE_DELETED`. Title and description are
   embedded synchronously; on embed failure the document is indexed with `vector_pending=true`.
+  `Listing.stock` replaces the stored stock only if the event is newer than `stock_version`. A
+  CREATED event records `created_at` (its `occurred_at`; the earliest one wins, also when it
+  arrives after a newer update).
+- `ListingStockChanged`: sets `stock` / `stock_version` when newer than `stock_version`
+  (independent of the document version); never creates a document. An empty id, a negative stock
+  or a missing `occurred_at` is an error, so the record is retried and parked on the DLQ.
+  Variants are ignored (base stock only).
 - `ListingBaseInfoChanged`: partial update of title, description, category, seller, status, and
   re-embed; delete on `CHANGE_TYPE_DELETED`.
 - `ListingPricingChanged`: partial update of `price` (promotional price if on sale) and `currency`.
@@ -116,6 +135,8 @@ if `.env.example` and the config structs drift in either direction.
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
+| `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; invalid or non-positive falls back to the default with a WARN |
+| `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; same fallback |
 | `DATABASE_ENABLED` | `false` | Postgres vs in-memory saved searches; used by the server only |
 | `DATABASE_URL` | `""` | required when `DATABASE_ENABLED=true`; `.env.example` supplies a local value |
 | `OTEL_ENABLED` | `false` | |
@@ -174,6 +195,18 @@ Docker build uses `golang:1.22`.
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes are proposed and archived through OpenSpec (`openspec/changes/<id>`) per the root
   README lifecycle. The saved-search RPCs have no `FEATURES.yaml` entry.
+
+## Runbook: read-model fields after a deploy
+
+- `EnsureIndex` adds `stock`, `stock_version`, `created_at` and `tombstoned_at` to an existing
+  index (idempotent put-mapping); documents indexed before that have no stock (`SearchHit.stock`
+  absent, excluded by `in_stock`) and no creation time (sorted last by newest).
+- Backfill by replaying the topic after deploying server and indexer:
+  `rpk group seek team-search-indexer --to start` (stop the indexer first). The write guard makes
+  the replay idempotent.
+- Retention trade-off: an event older than a tombstone that is delivered after the tombstone was
+  purged (`TOMBSTONE_TTL`, default 14 days) can resurrect the listing. A replay from the start
+  processes events in order, so the delete is re-applied and re-arms the tombstone.
 
 ## Gotchas
 

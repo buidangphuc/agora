@@ -33,6 +33,7 @@ type stockCall struct {
 	version int64
 }
 
+func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
 func (m *mockIndex) UpdateStock(ctx context.Context, id string, stock int32, version int64) error {
 	m.stockCalls = append(m.stockCalls, stockCall{id, stock, version})
 	return nil
