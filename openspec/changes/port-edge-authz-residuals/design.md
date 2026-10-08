@@ -74,7 +74,8 @@ concurrency caps, and service-side reflection.
 ### D2. Stream request cap via Connect's read limit
 - Mount the chat handler with `connect.WithReadMaxBytes(STREAM_MAX_REQUEST_BYTES)`. Connect then answers
   `resource_exhausted` before the handler runs.
-- Unary handlers keep their current limits.
+- Connect sets the limit per service handler, so it also covers the unary `ChatService` RPCs (buyer–seller
+  messages). 16 KiB is far above a chat message.
 
 ### D3. AI calls get `callAI`
 - `callAI(ctx, fn)` is `callWrite` with the `AI_CALL_TIMEOUT_SECONDS` deadline: one attempt and no retry.

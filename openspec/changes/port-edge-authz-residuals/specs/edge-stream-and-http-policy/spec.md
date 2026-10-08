@@ -4,20 +4,22 @@
 
 For every Connect streaming procedure the gateway routes (today `ChatService/StreamChat`), `team-gateway` SHALL:
 - validate or mint the request id, and return it in the `X-Request-Id` response header;
-- refuse a presented but invalid bearer token with `unauthenticated` (HTTP 401) before any upstream call, never
-  downgrading it to anonymous;
+- refuse a presented but invalid bearer token with the Connect error code `unauthenticated` before any upstream call,
+  never downgrading it to anonymous (a Connect stream reports its error in the end-of-stream message, so the HTTP status
+  is 200);
 - apply the edge admin procedure policy;
 - charge the caller's per-identity rate-limit bucket, the same bucket unary calls use, and refuse with
   `resource_exhausted` when it is empty;
-- write one `edge.request` log line per stream with the procedure, principal, final code, latency and request id.
+- write one `edge.request` log line per authenticated stream with the procedure, principal, final code, latency and
+  request id.
 
 A stream request larger than `STREAM_MAX_REQUEST_BYTES` (default 16384) SHALL be refused with `resource_exhausted`
-without reaching the upstream.
+without reaching the upstream. The cap applies to every `ChatService` procedure the gateway serves.
 
 #### Scenario: An invalid token on a stream is refused
 
 - **WHEN** a client calls `StreamChat` through the gateway with a bearer token whose signature is invalid
-- **THEN** the gateway answers HTTP 401 with code `unauthenticated` and no chat message is streamed
+- **THEN** the stream ends with the Connect error code `unauthenticated` and no chat message is streamed
 
 #### Scenario: A stream echoes the request id
 
