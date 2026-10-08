@@ -476,12 +476,29 @@ features:
       login: admin
       data: "None: black-box run of the team-ai image / Makefile."
     acceptance:
-      - "When the team-ai image is started with `ENV=production`, `GRPC_RATE_LIMIT_ENABLED=true` and `RATE_LIMIT_BACKEND=memory`"
+      - "When the team-ai image is started with `ENVIRONMENT=production`, `GRPC_RATE_LIMIT_ENABLED=true` and `RATE_LIMIT_BACKEND=memory`"
       - "Then the process exits non-zero and its log names `RATE_LIMIT_BACKEND`"
     tags: [ai, ops, destructive]
     status: automated
     covered_by: "ops/boot_guard_ai.feature::Production refuses a per-process rate limiter"
     notes: "Scenario: ops/boot_guard_ai.feature::Production refuses a per-process rate limiter. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-production-refuses-an-unmetered-llm-chat-path
+    title: "Production refuses an unmetered LLM chat path"
+    persona: admin
+    priority: P1
+    summary: "Production refuses an unmetered LLM chat path"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image."
+    acceptance:
+      - "When the team-ai image is started with `ENVIRONMENT=production`, `CHAT_BACKEND=llm_router`, `GRPC_RATE_LIMIT_ENABLED=false` and `QUOTA_ENABLED=false`"
+      - "Then the process exits non-zero and its log names `QUOTA_ENABLED`"
+    tags: [ai, ops, security, destructive]
+    status: automated
+    covered_by: "ops/boot_guard_ai.feature::Production refuses an unmetered LLM chat path"
+    notes: "Added after the auth-scope review of ai-path-resilience (anonymous chat on the paid path must be rate limited and metered). Destructive lane: docker run of the stack's team-ai image."
   - id: ai.apr-the-system-prompt-is-always-first
     title: "The system prompt is always first"
     persona: buyer

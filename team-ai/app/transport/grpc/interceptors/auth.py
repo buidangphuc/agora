@@ -22,7 +22,7 @@ from app.core.config import Settings
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.modules.platform.identity.auth import authenticate_bearer_token
 from app.modules.platform.identity.schemas import Principal
-from app.transport.grpc.context import _principal
+from app.transport.grpc.context import _principal, bind_client_ip
 from app.transport.grpc.interceptors._wrap import wrap_handler
 
 _PRINCIPAL_TYPES = {"user", "service", "anonymous"}
@@ -44,13 +44,15 @@ def _principal_from_metadata(metadata: dict[str, Any]) -> Principal | None:
     if "x-principal-id" not in metadata:
         return None
     ptype = _decode(metadata.get("x-principal-type")) or "anonymous"
-    if ptype not in _PRINCIPAL_TYPES:
-        # fail closed: an unrecognised type gets no user identity
+    pid = _decode(metadata.get("x-principal-id")).strip()
+    if ptype not in _PRINCIPAL_TYPES or not pid:
+        # fail closed: an unrecognised type or an empty id gets no identity
         ptype = "anonymous"
+        pid = pid or "anonymous"
     scopes_raw = _decode(metadata.get("x-principal-scopes"))
     scopes = tuple(s.strip() for s in scopes_raw.split(",") if s.strip())
     return Principal(
-        id=_decode(metadata.get("x-principal-id")),
+        id=pid,
         type=ptype,  # type: ignore[arg-type]
         scopes=scopes,
     )
@@ -75,6 +77,8 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
 
         async def before(context: grpc.aio.ServicerContext) -> Token[Principal | None]:
             principal = await self._authenticate(context)
+            metadata = dict(context.invocation_metadata() or ())
+            bind_client_ip(_decode(metadata.get("x-client-ip")))
             return _principal.set(principal)
 
         return wrap_handler(handler, before)

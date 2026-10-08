@@ -15,7 +15,7 @@ import grpc
 from loguru import logger
 
 from app.modules.platform.rate_limit.service import RateLimitResult
-from app.transport.grpc.context import current_principal
+from app.transport.grpc.context import caller_key, current_principal
 from app.transport.grpc.interceptors._wrap import wrap_handler
 
 RATE_LIMITED_METHODS = frozenset(
@@ -54,7 +54,7 @@ class RateLimitInterceptor(grpc.aio.ServerInterceptor):
             if principal is None:  # auth interceptor guarantees one; be defensive
                 return None
             try:
-                result = await self._limiter.check(f"{principal.type}:{principal.id}")
+                result = await self._limiter.check(caller_key(principal))
             except Exception as exc:
                 logger.warning("grpc.rate_limit.error error={}", type(exc).__name__)
                 return None

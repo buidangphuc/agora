@@ -20,6 +20,9 @@ from app.transport.grpc.context import current_principal, ensure_scopes
 from app.transport.grpc.errors import map_servicer_error
 from app.transport.grpc.scopes import ai_use_scopes
 
+# Session ids key the (principal, session) history; bound them like any client input.
+MAX_SESSION_ID_LEN = 128
+
 
 class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
     def __init__(self, streamer: ChatStreamer, *, require_ai_use: bool = False) -> None:
@@ -36,6 +39,11 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
         # ``AI_USE_SCOPE_REQUIRED`` because team-identity grants no ``ai:use`` yet
         # (and "chat:read" is not granted to any role either).
         await ensure_scopes(context, *self._scopes)
+        if len(request.session_id) > MAX_SESSION_ID_LEN:
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"session_id must be at most {MAX_SESSION_ID_LEN} characters",
+            )
         request_id = get_request_id()
         principal = current_principal()
         try:

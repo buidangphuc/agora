@@ -88,6 +88,17 @@ class Settings(
                 "RATE_LIMIT_BACKEND=memory is refused with GRPC_RATE_LIMIT_ENABLED "
                 "outside dev/local/test (use RATE_LIMIT_BACKEND=redis)"
             )
+        if (
+            self.CHAT_BACKEND == "llm_router"
+            and not self.ENVIRONMENT.is_local
+            and not (self.GRPC_RATE_LIMIT_ENABLED and self.QUOTA_ENABLED)
+        ):
+            # The real-LLM path costs money per call and anonymous chat is allowed
+            # (ai:use is not enforced), so it must be rate limited and metered.
+            raise ValueError(
+                "CHAT_BACKEND=llm_router outside dev/local/test requires "
+                "GRPC_RATE_LIMIT_ENABLED=true and QUOTA_ENABLED=true"
+            )
         if self.LLM_TRACE_CONTENT not in {"off", "redacted", "full"}:
             raise ValueError("LLM_TRACE_CONTENT must be one of off, redacted, full")
         if self.LLM_TRACE_CONTENT == "full" and not self.ENVIRONMENT.is_local:
