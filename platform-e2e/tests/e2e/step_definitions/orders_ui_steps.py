@@ -80,7 +80,7 @@ def buyer_has_failed_payment_order(world: World) -> None:
     sf = world.service_factory
     # ForceFailSaga is admin-only; act as the seeded admin, then back as the buyer.
     admin = get_test_data_manager().get_user_by_role("admin")
-    sf.auth.login(admin.username, admin.password)
+    sf.set_token(sf.auth.login(admin.username, admin.password))
     try:
         sf.order.force_fail_saga(order_id)
     finally:

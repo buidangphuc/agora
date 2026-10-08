@@ -17,6 +17,8 @@ from pytest_bdd import given, parsers, then, when
 WORKSPACE = Path(__file__).resolve().parents[3].parent
 SKIP = shutil.ignore_patterns(
     ".git",
+    ".codegraph",
+    "*.sock",
     "node_modules",
     ".venv",
     "venv",
