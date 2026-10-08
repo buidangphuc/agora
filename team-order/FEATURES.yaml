@@ -169,28 +169,82 @@ features:
     covered_by: "order/shipment_tracking.feature::Order shipment generates trackable timeline"
 
   - id: order.rma-return
-    title: RMA return and refund
-    persona: buyer
+    title: Seller handles an RMA return from the order page
+    persona: seller
     priority: P2
-    summary: Buyer requests a return; seller approval refunds and restocks.
-    entry_route: /account/orders/{order_id}
-    services: [team-order, team-payment]
+    summary: >-
+      The seller approves, rejects and refunds a buyer's return from the order page and sees the refund the payment
+      applied; the buyer follows the return without a refund control. Owned by the payment-refund-model change; the
+      journey is the frontend.seller-return-refund-ui feature (the stub-based acceptance is removed).
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
     preconditions:
-      login: buyer
-      data: A delivered, paid order belonging to the buyer.
+      login: seller
+      data: A paid order of the seller with a PENDING return requested by the buyer.
     api:
-      exercised: [order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+      exercised: [order.v1.ListOrderReturns, order.v1.UpdateReturnStatus, payment.v1.GetPayment]
     ui:
       key_elements:
-        open_rma: "role:button=Yêu cầu trả hàng"
+        returns: "testid:seller-returns"
+        refund: "testid:return-refund"
     acceptance:
-      - Given a buyer has a delivered order
-      - When the buyer submits a return request
-      - And the seller approves it
-      - Then the payment is refunded and stock restored
-    tags: [buyer]
-    status: automated
-    covered_by: "order/rma_return.feature::Buyer submits return request and seller updates status"
+      - "See frontend.seller-return-refund-ui (features/seller/return_refund_ui.feature): approve, refund, reject, COD message, stale-refund error, processing state, partial refund, buyer without a refund button"
+    tags: [seller, order]
+    status: planned
+    covered_by: null
+    notes: >-
+      Rewritten for change payment-refund-model (task 7.2). Feature: seller/return_refund_ui.feature (red-first, code not
+      merged); the integrator flips it once the code is merged and the scenarios are green. The processing-state scenario
+      stops team-payment (@destructive, serial lane).
+
+  - id: order.return-refund-settlement
+    title: An approved RMA return refunds the buyer exactly once
+    persona: seller
+    priority: P1
+    summary: >-
+      Change payment-refund-model, capability return-refund-settlement: team-order records one ReturnRefunded fact per
+      refunded return, team-payment applies it once, and a return never refunds more than the order and payment allow.
+    entry_route: /seller/orders/{order_id}
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+      data: A seller with a listing and distinct buyers registered per scenario; paid orders via the mock payment.
+    api:
+      exercised:
+        - order.v1.CreateReturnRequest
+        - order.v1.UpdateReturnStatus
+        - order.v1.ListOrderReturns
+        - order.v1.CancelOrder
+        - payment.v1.GetPayment
+        - payment.v1.RefundPayment
+        - payment.v1.ListLedgerEntries
+    acceptance:
+      - "Refunding an approved return emits one ReturnRefunded with the stored amount: WHEN a buyer's return of 200000 on a paid order of 500000 is approved and then moved to REFUNDED by the seller through the gateway; THEN the return reads REFUNDED and order.events carries exactly one ReturnRefunded record keyed by the order id with refund_amount 200000"
+      - "Refunding a pending return is refused and emits nothing: WHEN the seller moves a PENDING return straight to REFUNDED; THEN the call fails with FAILED_PRECONDITION, the return stays PENDING and order.events carries no ReturnRefunded record"
+      - "Concurrent refunds of one return emit one fact: WHEN the seller sends eight concurrent UpdateReturnStatus calls moving one APPROVED return to REFUNDED; THEN exactly one succeeds, the others fail with FAILED_PRECONDITION and order.events carries exactly one ReturnRefunded record"
+      - "Refunding a return on an order never paid online is refused: WHEN a cash-on-delivery order handed over without an online payment has an APPROVED return of 200000 and the seller moves it to REFUNDED; THEN it fails with FAILED_PRECONDITION and the cash-on-delivery message, the return still reads APPROVED, and neither order.events nor the payment-settlement DLQ has a record for it"
+      - "The buyer cannot refund their own return: WHEN the buyer of an order moves its APPROVED return to REFUNDED through the gateway; THEN the call fails with PERMISSION_DENIED, the return stays APPROVED and no ReturnRefunded record is written"
+      - "An RMA refund refunds the buyer and deducts the seller: WHEN the seller of a credited paid order of 500000 approves and refunds the buyer's return of 200000; THEN the payment reads PARTIALLY_REFUNDED with 200000 refunded, lists one RETURN refund for the return, and the seller has one REFUND_DEDUCTION of -200000 referencing return:<return_id>"
+      - "An RMA refund while team-payment is stopped is applied when it restarts: WHEN team-payment is stopped, the seller refunds an approved return of 200000 and team-payment is started again; THEN the return reads REFUNDED at once and, within the settle window, the payment reads PARTIALLY_REFUNDED with 200000 refunded and the seller has one REFUND_DEDUCTION of -200000"
+      - "A redelivered ReturnRefunded does not refund again: WHEN a return's refund has been applied and its ReturnRefunded record is produced to order.events again byte for byte; THEN after a sentinel order of the seller is credited, the payment still lists one refund for the return with the same refunded amount and the seller still has one REFUND_DEDUCTION for it"
+      - "Two returns on one order refund cumulatively: WHEN a credited paid order of 500000 has returns of 200000 and 300000 and the seller approves and refunds the first and then the second; THEN the payment reads PARTIALLY_REFUNDED with 200000 and then REFUNDED with 500000 and two RETURN refunds, and the seller has deductions of -200000 and -300000 each referencing its return"
+      - "A return refund and a cancel of the same paid order refund the payment once in total: WHEN the seller refunds an approved return of 200000 of a credited paid order of 500000 and the buyer then cancels the order; THEN the payment reads REFUNDED with 500000, lists one RETURN and one ORDER_CANCEL refund whose applied amounts sum to 500000, and the seller's deductions sum to -500000"
+      - "A return above the order's remaining returnable amount is refused: WHEN a paid order of 500000 has an open return of 300000 and the buyer requests a second return of 300000; THEN the call fails with INVALID_ARGUMENT and a second return of 200000 is accepted"
+      - "A rejected return frees its amount for a new return: WHEN a paid order of 500000 has a return of 500000 that the seller rejects and the buyer requests a return of 500000; THEN the new return is accepted as PENDING"
+      - "Concurrent return requests cannot exceed the order total: WHEN the buyer of a paid order of 500000 sends eight concurrent return requests of 100000; THEN exactly five are accepted and three fail with INVALID_ARGUMENT, and ListOrderReturns lists five returns totalling 500000"
+      - "An RMA refund larger than what remains refunds only the remainder: WHEN a credited paid order of 500000 has an approved return of 300000, its seller refunds 400000 of the payment directly and then refunds the return; THEN the payment reads REFUNDED with 500000, the return's refund lists requested 300000 and applied 100000, and the seller's deductions are -400000 and -100000"
+      - "An RMA refund after the payment was fully refunded records nothing to refund: WHEN the seller of a credited paid order of 500000 refunds the payment in full directly and then approves and refunds a return of 200000; THEN the payment stays REFUNDED with 500000, lists the return's refund with requested 200000 and applied 0, the seller has no REFUND_DEDUCTION for it and the DLQ has no record for it"
+      - "A ReturnRefunded for an order without a paid payment is dead-lettered: WHEN a well-formed ReturnRefunded record for an order that has no paid payment is produced to order.events, followed by a paid order; THEN the record appears on order.events.payment-settlement.dlq, no refund is written and the paid order's seller is credited once"
+      - "The seller lists the returns of their order: WHEN a paid order has two returns and its seller calls ListOrderReturns through the gateway; THEN both returns are listed newest first, each with its reason, refund amount and status"
+      - "Another buyer cannot list the returns of an order: WHEN a buyer who did not place the order calls ListOrderReturns for it through the gateway; THEN the call fails with PERMISSION_DENIED"
+    tags: [order, fintech]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature: order/return_refund_settlement.feature (18 scenarios, written from the spec ahead of the code, red-first);
+      the integrator flips this to automated and fills covered_by per scenario once the code is merged. Three scenarios are
+      @destructive (serial lane): the team-payment stop/start, the byte-for-byte replay and the DLQ record. The cumulative,
+      cancel and clamp scenarios need no overlay; the payment-ledger overlay is not required.
 
   - id: order.detail-timeline
     title: Order detail and 5-step delivery timeline

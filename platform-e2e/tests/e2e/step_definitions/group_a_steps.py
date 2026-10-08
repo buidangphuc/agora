@@ -109,46 +109,6 @@ def order_detail_shows_spx_timeline(world: World) -> None:
     assert res.get("shipment") or res.get("tracking") or res.get("carrier") == "SPX Express"
 
 
-@when("the buyer submits a return request")
-def buyer_submits_return_request(world: World) -> None:
-    order_id = world.state.order_id
-    buyer = world.state.extra.get("seeded_buyer") or get_test_data_manager().get_user_by_role(
-        "buyer"
-    )
-    world.service_factory.set_token(buyer.token)
-    world.service_factory.payment.mock_pay(order_id, 5_000_000, success=True)
-    _wait_until_paid(world, order_id)  # a return needs a paid order
-    res = world.service_factory.order.create_return_request(
-        order_id=order_id,
-        reason="Sản phẩm lỗi kỹ thuật",
-        refund_amount=5_000_000,
-    )
-    ret = res.get("return") or res.get("returnRequest") or {}
-    world.state.extra["return_id"] = ret.get("id", "return_001")
-
-
-@when("the seller approves it")
-def seller_approves_return(world: World) -> None:
-    return_id = world.state.extra.get("return_id", "return_001")
-    seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
-    if not seller.token:
-        seller.token = world.service_factory.auth.login(seller.username, seller.password)
-    world.service_factory.set_token(seller.token)
-    res = world.service_factory.order.update_return_status(return_id, "RETURN_STATUS_APPROVED")
-    assert res is not None
-
-
-@then("the payment is refunded and stock restored")
-def payment_refunded_stock_restored(world: World) -> None:
-    order_id = world.state.order_id
-    res = world.service_factory.payment.refund(
-        payment_id=order_id,
-        amount=5_000_000,
-        reason="RMA approved return",
-    )
-    assert res is not None
-
-
 @given("a return request is approved")
 def return_request_approved(world: World) -> None:
     buyer = world.state.extra.get("seeded_buyer") or get_test_data_manager().get_user_by_role(
