@@ -9,7 +9,7 @@ class PlatformSettingsMixin(BaseModel):
     # Auth / identity
     AUTH_BEARER_TOKEN: str = ""
     AUTH_SUBJECT: str = "local-user"
-    AUTH_ROLES: str = "admin"
+    AUTH_ROLES: str = ""
 
     # Rate limit (2 layers: IP + principal)
     RATE_LIMIT_ENABLED: bool = False

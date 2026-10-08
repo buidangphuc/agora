@@ -68,6 +68,10 @@ class Settings(
     def validate_runtime_safety(self) -> Settings:
         if not self.ENVIRONMENT.is_local and not self.AUTH_BEARER_TOKEN:
             raise ValueError("AUTH_BEARER_TOKEN is required outside dev/local/test")
+        if self.GRPC_BEARER_FALLBACK_ENABLED and not self.ENVIRONMENT.is_local:
+            raise ValueError(
+                "GRPC_BEARER_FALLBACK_ENABLED must be false outside dev/local/test"
+            )
         if not self.ENVIRONMENT.is_production:
             return self
 

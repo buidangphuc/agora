@@ -39,6 +39,7 @@ async def _start(recs, roles="listing.read"):
     settings = build_test_settings(
         AUTH_BEARER_TOKEN="secret",
         AUTH_ROLES=roles,
+        GRPC_BEARER_FALLBACK_ENABLED=True,
         GRPC_REFLECTION_ENABLED=False,
         CHAT_BACKEND="mock",
     )
@@ -101,3 +102,49 @@ async def test_recommend_requires_the_listing_read_scope():
     finally:
         await server.stop(None)
     assert exc.value.code() == grpc.StatusCode.PERMISSION_DENIED
+
+
+def _forwarded(pid: str, ptype: str, scopes: str = "listing.read"):
+    return (
+        ("x-principal-id", pid),
+        ("x-principal-type", ptype),
+        ("x-principal-scopes", scopes),
+    )
+
+
+async def _recommend_as(metadata, **request_fields):
+    recs = _FakeRecs()
+    server, port = await _start(recs)
+    try:
+        async with grpc.aio.insecure_channel(f"localhost:{port}") as ch:
+            stub = recommendation_pb2_grpc.RecommendationServiceStub(ch)
+            await stub.Recommend(
+                recommendation_pb2.RecommendRequest(**request_fields),
+                metadata=metadata,
+            )
+    finally:
+        await server.stop(None)
+    return recs.queries[0]
+
+
+async def test_user_principal_cannot_request_another_users_recommendations():
+    q = await _recommend_as(
+        _forwarded("buyer-1", "user"), user_id="victim", anonymous_id="dev-1"
+    )
+    assert (q.user_id, q.anonymous_id) == ("buyer-1", "")
+
+
+async def test_anonymous_principal_cannot_claim_a_user_id():
+    q = await _recommend_as(
+        _forwarded("anonymous", "anonymous"), user_id="victim", anonymous_id="dev-1"
+    )
+    assert (q.user_id, q.anonymous_id) == ("", "dev-1")
+
+
+async def test_admin_and_service_principals_may_request_on_behalf_of_a_user():
+    admin = await _recommend_as(
+        _forwarded("admin-1", "user", "listing.read,admin"), user_id="u-9"
+    )
+    service = await _recommend_as(_forwarded("svc", "service"), user_id="u-9")
+    assert admin.user_id == "u-9"
+    assert service.user_id == "u-9"

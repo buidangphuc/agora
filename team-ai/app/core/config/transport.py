@@ -16,3 +16,9 @@ class TransportSettingsMixin(BaseModel):
     # team-identity grants ``ai:use`` to buyer/seller/admin (it grants none today,
     # so enabling it earlier would deny every shopper). See transport/grpc/scopes.py.
     AI_USE_SCOPE_REQUIRED: bool = False
+    # Static-bearer fallback on the gRPC surface (``authorization: bearer
+    # AUTH_BEARER_TOKEN`` -> service principal with AUTH_ROLES scopes). Off by
+    # default so a direct caller needs the gateway-forwarded x-principal-* metadata;
+    # local tooling (grpcurl) may opt in. Refused at boot outside dev/local/test.
+    # The REST API bearer auth is unaffected.
+    GRPC_BEARER_FALLBACK_ENABLED: bool = False

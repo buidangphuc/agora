@@ -5,9 +5,10 @@ and forwards a trusted principal as ``x-principal-{id,type,scopes}`` metadata,
 rebuilt on every hop. When those headers are present we trust them — this is how
 every other platform service authenticates gateway traffic.
 
-Fallback: a direct caller (tests, local tooling) may still present an
-``authorization: bearer`` token, resolved via the transport-neutral
-``authenticate_bearer_token`` so both surfaces issue the same Principal.
+Fallback (off by default, ``GRPC_BEARER_FALLBACK_ENABLED``): a direct caller
+(tests, local tooling) may present an ``authorization: bearer`` token, resolved via
+the transport-neutral ``authenticate_bearer_token`` so both surfaces issue the same
+Principal. Startup refuses to enable it outside local environments.
 """
 
 from __future__ import annotations
@@ -85,6 +86,12 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
         forwarded = _principal_from_metadata(metadata)
         if forwarded is not None:
             return forwarded
+
+        if not self._settings.GRPC_BEARER_FALLBACK_ENABLED:
+            await context.abort(
+                grpc.StatusCode.UNAUTHENTICATED, "Missing gateway principal"
+            )
+            raise AssertionError("unreachable")  # abort raises
 
         raw = metadata.get("authorization")
         authorization = raw.decode() if isinstance(raw, bytes) else raw
