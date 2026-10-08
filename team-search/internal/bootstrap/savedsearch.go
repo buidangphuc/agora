@@ -17,7 +17,8 @@ import (
 type dbOpener func(ctx context.Context, url string) (*sql.DB, error)
 
 // OpenSavedSearchRepository returns the Postgres-backed repository when
-// DATABASE_ENABLED=true, otherwise the in-memory fallback. The returned func
+// DATABASE_ENABLED=true, otherwise the in-memory fallback (local/test only: in
+// staging/production DATABASE_ENABLED=false is a boot error). The returned func
 // releases the DB handle (a no-op for the fallback).
 func OpenSavedSearchRepository(ctx context.Context, s *config.Settings, logger *slog.Logger) (repository.SavedSearchRepository, func(), error) {
 	return selectSavedSearchRepository(ctx, s, logger, openPostgres)
@@ -25,6 +26,11 @@ func OpenSavedSearchRepository(ctx context.Context, s *config.Settings, logger *
 
 func selectSavedSearchRepository(ctx context.Context, s *config.Settings, logger *slog.Logger, open dbOpener) (repository.SavedSearchRepository, func(), error) {
 	if !s.Database.Enabled {
+		// Staging/production must never silently fall back to a non-durable,
+		// per-replica store: refuse to boot instead.
+		if err := s.RequireDurableStorage(); err != nil {
+			return nil, nil, err
+		}
 		logger.Warn("DATABASE_ENABLED=false: saved searches use an in-memory store and are lost on restart")
 		return repository.NewInMemorySavedSearchRepository(), func() {}, nil
 	}

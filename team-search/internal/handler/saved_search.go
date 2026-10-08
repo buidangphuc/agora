@@ -29,16 +29,34 @@ const (
 	scopeSearchWrite = "search:write"
 )
 
-// callerID enforces the scope gate and returns the self-scoping principal id.
-// A missing principal (anonymous / non-gateway call) fails at RequireScopes with
-// Unauthenticated, so no saved-search RPC ever runs without an owner.
+// callerID resolves the authenticated owner of a saved-search call. Identity is
+// a precondition, checked BEFORE scopes, so the outcome for an anonymous caller
+// does not depend on which scopes the gateway grants it:
+//
+//  1. a principal must be present, else UNAUTHENTICATED;
+//  2. its type must be user: anonymous/unspecified -> UNAUTHENTICATED,
+//     service -> PERMISSION_DENIED;
+//  3. its id must be non-empty and not the reserved anonymous id, else UNAUTHENTICATED;
+//  4. only then the scope gate (search:read for list/run, search:write for mutations).
+//
+// No saved-search RPC therefore ever runs against a shared or default owner.
 func (h *SearchHandler) callerID(ctx context.Context, scope string) (string, error) {
+	p, ok := interceptor.PrincipalFromContext(ctx)
+	if !ok || p == nil {
+		return "", status.Error(codes.Unauthenticated, "authentication required")
+	}
+	switch p.GetType() {
+	case commonv1.PrincipalType_PRINCIPAL_TYPE_USER:
+	case commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE:
+		return "", status.Error(codes.PermissionDenied, "saved searches are available to signed-in users only")
+	default: // anonymous, unspecified
+		return "", status.Error(codes.Unauthenticated, "authentication required")
+	}
+	if p.GetId() == "" || p.GetId() == anonymousPrincipalID {
+		return "", status.Error(codes.Unauthenticated, "authentication required")
+	}
 	if err := interceptor.RequireScopes(ctx, scope); err != nil {
 		return "", err
-	}
-	p, ok := interceptor.PrincipalFromContext(ctx)
-	if !ok || p.GetId() == "" {
-		return "", status.Error(codes.Unauthenticated, "no principal on context")
 	}
 	return p.GetId(), nil
 }
@@ -61,8 +79,15 @@ func (h *SearchHandler) SaveSearch(
 	if req.GetQuery() == "" && !hasFilters(filtersJSON) {
 		return nil, status.Error(codes.InvalidArgument, "query or filters_json required")
 	}
-	if _, err := parseFilters(filtersJSON); err != nil {
+	parsed, err := parseFilters(filtersJSON)
+	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "filters_json must be a JSON object of string values")
+	}
+	// Same visibility rules as SearchListings for this caller, so a filter set that
+	// search would reject (for example status=draft for a non-owner) is never stored.
+	p, _ := interceptor.PrincipalFromContext(ctx)
+	if _, err := effectiveFilters(p, parsed); err != nil {
+		return nil, err
 	}
 	saved, err := h.saved.Create(ctx, repository.SavedSearch{
 		UserID:      userID,
@@ -159,7 +184,14 @@ func (h *SearchHandler) RunSavedSearch(
 		// it as no structured filters and run the free-text query alone.
 		filters = nil
 	}
-	// Reuse the existing search path exactly (default first page).
+	// Re-apply the visibility policy at RUN time with the runner's identity (a saved
+	// draft filter never outlives its owner's right to it), then reuse the
+	// existing search path exactly (default first page).
+	p, _ := interceptor.PrincipalFromContext(ctx)
+	filters, err = effectiveFilters(p, filters)
+	if err != nil {
+		return nil, err
+	}
 	res, err := h.idx.Search(ctx, saved.Query, filters, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, defaultPageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "search failed")

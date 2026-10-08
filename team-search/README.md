@@ -185,14 +185,11 @@ Docker build uses `golang:1.22`.
 
 ## Known gaps
 
-- `SearchListings` and `RunSavedSearch` add no implicit `status=PUBLISHED` filter; unless the
-  caller passes `filters`, any indexed status (for example DRAFT) can be returned. `Suggest`
-  is not restricted by status either.
 - `EMBEDDING_DIM` is inert (the mapping and `.env.example` agree on 384 only by convention).
 - `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
 - Root compose has no modelserve and does not set `MODEL_SERVER_URL` for team-search (see Run locally).
 - Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
-- With `DATABASE_ENABLED=false`, saved searches are in memory only.
+- With `DATABASE_ENABLED=false` (local/test only; staging/production refuse to boot), saved searches are in memory only.
 
 ## References
 

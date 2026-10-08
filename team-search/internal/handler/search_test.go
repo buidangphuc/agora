@@ -21,6 +21,8 @@ import (
 type mockIndex struct {
 	docs          []index.ListingDoc
 	lastMinRating int32
+	lastFilters   map[string]string
+	searchCalls   int
 }
 
 func (m *mockIndex) EnsureIndex(ctx context.Context) error { return nil }
@@ -34,6 +36,8 @@ func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map
 func (m *mockIndex) Delete(ctx context.Context, id string) error { return nil }
 func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	m.lastMinRating = minRating
+	m.lastFilters = filters
+	m.searchCalls++
 	return index.SearchResult{
 		Hits: []index.Hit{
 			{ListingID: "listing_1", Score: 1.5},

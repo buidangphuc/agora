@@ -55,3 +55,22 @@ func TestDatabaseConfig(t *testing.T) {
 		t.Fatalf("disabled default: %+v, %v", s.Database, err)
 	}
 }
+
+func TestRequireDurableStorage(t *testing.T) {
+	for _, env := range []string{"staging", "stage", "prod", "production", " Production ", "STAGING"} {
+		s := &Settings{Runtime: Runtime{Env: env}}
+		if err := s.RequireDurableStorage(); err == nil {
+			t.Errorf("ENV=%q with DATABASE_ENABLED=false must refuse to boot", env)
+		}
+		s.Database.Enabled = true
+		if err := s.RequireDurableStorage(); err != nil {
+			t.Errorf("ENV=%q with the database enabled must pass: %v", env, err)
+		}
+	}
+	for _, env := range []string{"", "local", "test", "dev", "unknown"} {
+		s := &Settings{Runtime: Runtime{Env: env}}
+		if err := s.RequireDurableStorage(); err != nil {
+			t.Errorf("ENV=%q is non-strict and may use memory: %v", env, err)
+		}
+	}
+}
