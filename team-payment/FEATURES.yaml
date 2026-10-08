@@ -1276,3 +1276,44 @@ features:
     status: automated
     covered_by: "payment/cumulative_refunds.feature::Rolling back the migration restores the payment-id references"
     notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  # ---- port-edge-authz-residuals (written from the spec; planned until the code lands).
+
+  - id: payment.pear-buyer-cannot-request-a-payout
+    title: "A buyer cannot request a payout"
+    persona: buyer
+    priority: P0
+    summary: "A buyer cannot request a payout"
+    entry_route: /seller/analytics
+    services: [team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own buyer through the gateway.
+    api:
+      exercised: [payment.v1.RequestWalletPayout, payment.v1.ListPayoutHistory]
+    acceptance:
+      - "When a logged-in buyer, who holds no `listing.write`, calls `RequestWalletPayout` for their own id through the gateway"
+      - "Then the call fails with `permission_denied` and the buyer's payout history is empty"
+    tags: [fintech, security]
+    status: planned
+    covered_by: null
+    notes: "Scenario: payment/payout_scope.feature::A buyer cannot request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+  - id: payment.pear-seller-can-still-request-a-payout
+    title: "A seller can still request a payout"
+    persona: seller
+    priority: P1
+    summary: "A seller can still request a payout"
+    entry_route: /seller/analytics
+    services: [team-gateway, team-payment, team-order, team-domain]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RequestWalletPayout, payment.v1.ListPayoutHistory]
+    acceptance:
+      - "When a seller with an available balance calls `RequestWalletPayout` for part of it through the gateway"
+      - "Then the payout is recorded and appears in the seller's payout history"
+    tags: [fintech, destructive]
+    status: planned
+    covered_by: null
+    notes: "Scenario: payment/payout_scope.feature::A seller can still request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Serial lane (@destructive): waits the payout hold window out, needs platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s); stops nothing."

@@ -469,15 +469,14 @@ def then_comp(saga_view):
 
 @when(
     # re, not parse: parse's {field} never matches the empty fail_step ""
-    parsers.re(
-        r'"(?P<buyer>[^"]+)" calls ForceFailSaga with fail_step "(?P<fail_step>[^"]*)" on the order'
-    ),
+    parsers.re(r'the admin calls ForceFailSaga with fail_step "(?P<fail_step>[^"]*)" on the order'),
     target_fixture="force_fail",
 )
-def when_force_fail(oic, buyer, fail_step):
+def when_force_fail(oic, fail_step):
+    # ForceFailSaga is admin-only (port-edge-authz-residuals / order-read-access)
     resp = s.post(
         oic,
-        _actor(oic, buyer),
+        oic.actors.get("admin") or s.login_admin(oic),
         s.ORDER,
         "ForceFailSaga",
         {"orderId": oic.orders["order"], "failStep": fail_step},
