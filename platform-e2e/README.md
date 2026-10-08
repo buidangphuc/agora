@@ -148,6 +148,25 @@ Only uncommitted holds expire that fast; placed orders are committed and immune 
 the whole suite can run with the overlay. TTL scenarios wait TTL + 2 x interval + margin. Do not
 use it for deployed environments (their defaults, 15m / 1m, apply).
 
+### Payment and search scenarios (short hold window, short tombstone TTL)
+
+Two more overlays shorten windows the same way, and the full suite runs with all of them:
+
+- `compose/payment-ledger.override.yaml` sets `PAYOUT_HOLD_WINDOW=20s` on `team-payment`, so a fresh
+  sale's proceeds leave the payout hold in seconds instead of `PAYOUT_HOLD_DAYS` (7). The hold-back
+  scenarios and the bank-payout scenario wait the window out and fail fast, naming this file, without it.
+- `compose/search-tombstones.override.yaml` sets `TOMBSTONE_TTL=30s` and a 2s purge interval on
+  `team-search-indexer`, for the tombstone purge scenario (destructive lane).
+
+```bash
+docker compose -f docker-compose.yaml \
+  -f platform-e2e/compose/order-inventory.override.yaml \
+  -f platform-e2e/compose/payment-ledger.override.yaml \
+  -f platform-e2e/compose/search-tombstones.override.yaml up -d
+```
+
+Deployed environments keep the defaults (7-day hold, 336h tombstone TTL).
+
 ## Build, test, lint
 
 | Command | Does |

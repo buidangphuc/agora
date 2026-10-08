@@ -8,6 +8,7 @@ from pytest_bdd import given, then, when
 from src.constants import PageName, timeouts
 from src.utils import get_test_data_manager
 from tests.e2e.flows import create_order_via_api, login_via_api, settle_seeded_order_to_seller
+from tests.e2e.support.plp_support import wait_past_window
 from tests.e2e.support.world import World
 
 
@@ -146,6 +147,17 @@ def seller_has_positive_wallet_balance(world: World) -> None:
     balance = int(wallet.get("wallet", {}).get("balance") or 0)
     assert balance > 0, f"settled order left the seller without a wallet balance: {wallet}"
     world.state.extra["seller_wallet_balance"] = balance
+    # Fresh sale proceeds are held for the refund window (seller-payout-holdback), so a
+    # payout must wait until the newest credit has left it. Fails fast, naming the
+    # short-window overlay, when the stack runs the default 7-day hold.
+    entries = world.service_factory.payment.ledger_response("").json().get("entries", [])
+    credits = [
+        e
+        for e in entries
+        if e.get("type") in ("ORDER_SETTLEMENT", "LEDGER_ENTRY_TYPE_ORDER_SETTLEMENT")
+    ]
+    assert credits, f"no settlement credit in the seller's ledger: {entries}"
+    wait_past_window(max(e["createdAt"] for e in credits))
 
 
 @when("the seller requests a payout")

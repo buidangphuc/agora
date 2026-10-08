@@ -65,12 +65,13 @@ features:
     api:
       exercised: [payment.v1.RequestPayout, payment.v1.ListPayoutHistory]
     acceptance:
-      - Given a seller has a positive wallet balance
+      - Given a seller has a positive wallet balance whose newest credit has left the payout hold window
       - When the seller requests a payout
       - Then the payout appears in payout history
     tags: [seller]
     status: automated
     covered_by: "fintech/seller_payout.feature::Seller requests a bank payout from wallet balance"
+    notes: Fresh sale proceeds are held for the refund window (seller-payout-holdback), so the step waits the window out; needs compose/payment-ledger.override.yaml (20s) or it fails fast naming it.
 
   - id: payment.refund
     title: Refund on approved return
