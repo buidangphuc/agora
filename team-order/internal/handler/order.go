@@ -94,12 +94,14 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		if errors.Is(err, service.ErrVoucherRejected) {
 			// Invalid/expired voucher: reject the checkout with the promotion-supplied
 			// reason (never silently drop the voucher and charge full price).
-			return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
+			// err carries only the promotion-supplied reason (user-facing by design).
+			h.logger.Warn("voucher rejected", slog.String("buyer_id", principal.GetId()), slog.Any("error", err))
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
 		if errors.Is(err, service.ErrInsufficientStock) {
-			return nil, status.Errorf(codes.ResourceExhausted, "stock reservation failed: %v", err)
+			return nil, clientErr(h.logger, codes.ResourceExhausted, "stock reservation failed: insufficient stock", err)
 		}
-		return nil, status.Errorf(codes.Internal, "create order: %v", err)
+		return nil, internalErr(h.logger, "create order", err)
 	}
 
 	wireOrders := make([]*orderv1.Order, 0, len(orders))
@@ -133,7 +135,7 @@ func (h *OrderHandler) GetOrder(ctx context.Context, req *orderv1.GetOrderReques
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get order: %v", err)
+		return nil, internalErr(h.logger, "get order", err)
 	}
 	if !canViewOrder(principal, o) {
 		return nil, status.Error(codes.PermissionDenied, "cannot view another user's order")
@@ -148,7 +150,7 @@ func (h *OrderHandler) ListBuyerOrders(ctx context.Context, req *orderv1.ListBuy
 	}
 	orders, err := h.svc.ListBuyerOrders(ctx, principal.GetId(), int32(req.GetStatusFilter()))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list buyer orders: %v", err)
+		return nil, internalErr(h.logger, "list buyer orders", err)
 	}
 	wireOrders := make([]*orderv1.Order, 0, len(orders))
 	for _, o := range orders {
@@ -164,7 +166,7 @@ func (h *OrderHandler) ListSellerOrders(ctx context.Context, req *orderv1.ListSe
 	}
 	orders, err := h.svc.ListSellerOrders(ctx, principal.GetId(), int32(req.GetStatusFilter()))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list seller orders: %v", err)
+		return nil, internalErr(h.logger, "list seller orders", err)
 	}
 	wireOrders := make([]*orderv1.Order, 0, len(orders))
 	for _, o := range orders {
@@ -190,7 +192,7 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get order: %v", err)
+		return nil, internalErr(h.logger, "get order", err)
 	}
 
 	// Only the order's seller or an admin drives status; buyers cancel via CancelOrder.
@@ -204,9 +206,9 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
 		if errors.Is(err, service.ErrInvalidStatus) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid order status transition", err)
 		}
-		return nil, status.Errorf(codes.Internal, "update order status: %v", err)
+		return nil, internalErr(h.logger, "update order status", err)
 	}
 	return &orderv1.UpdateOrderStatusResponse{Order: toWireOrder(updated)}, nil
 }
@@ -225,7 +227,7 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get order: %v", err)
+		return nil, internalErr(h.logger, "get order", err)
 	}
 
 	if existing.BuyerID != principal.GetId() {
@@ -234,7 +236,10 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 
 	cancelled, err := h.svc.CancelOrder(ctx, req.GetId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "cancel order: %v", err)
+		if errors.Is(err, service.ErrInvalidStatus) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
+		}
+		return nil, internalErr(h.logger, "cancel order", err)
 	}
 	return &orderv1.CancelOrderResponse{Order: toWireOrder(cancelled)}, nil
 }
@@ -252,7 +257,7 @@ func (h *OrderHandler) GetSagaState(ctx context.Context, req *orderv1.GetSagaSta
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Errorf(codes.NotFound, "order not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get order: %v", err)
+		return nil, internalErr(h.logger, "get order", err)
 	}
 	// Owner-or-admin only: the saga view exposes another buyer's order state.
 	if !isAdminOrUser(principal, order.BuyerID) {
@@ -333,7 +338,7 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get order: %v", err)
+		return nil, internalErr(h.logger, "get order", err)
 	}
 	if !isAdminOrUser(principal, order.BuyerID) {
 		return nil, status.Error(codes.PermissionDenied, "only the order owner or an admin can force-fail the saga")
@@ -342,7 +347,10 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	// Trigger compensation cancellation
 	_, err = h.svc.CancelOrder(ctx, req.GetOrderId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "force fail cancel order: %v", err)
+		if errors.Is(err, service.ErrInvalidStatus) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
+		}
+		return nil, internalErr(h.logger, "force fail cancel order", err)
 	}
 
 	sagaState, err := h.GetSagaState(ctx, &orderv1.GetSagaStateRequest{OrderId: req.GetOrderId()})
@@ -377,15 +385,18 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
 		if errors.Is(err, service.ErrUnauthorizedReturn) {
-			return nil, status.Error(codes.PermissionDenied, err.Error())
+			return nil, clientErr(h.logger, codes.PermissionDenied, "only the buyer can request a return for this order", err)
 		}
-		if errors.Is(err, service.ErrInvalidReturnReason) || errors.Is(err, service.ErrInvalidRefundAmount) {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
+		if errors.Is(err, service.ErrInvalidReturnReason) {
+			return nil, clientErr(h.logger, codes.InvalidArgument, "return reason is required", err)
+		}
+		if errors.Is(err, service.ErrInvalidRefundAmount) {
+			return nil, clientErr(h.logger, codes.InvalidArgument, "invalid refund amount", err)
 		}
 		if errors.Is(err, service.ErrOrderCannotBeReturned) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be returned in its current status", err)
 		}
-		return nil, status.Errorf(codes.Internal, "create return request: %v", err)
+		return nil, internalErr(h.logger, "create return request", err)
 	}
 
 	return &orderv1.CreateReturnRequestResponse{
@@ -407,7 +418,7 @@ func (h *OrderHandler) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 		if errors.Is(err, repository.ErrReturnNotFound) {
 			return nil, status.Error(codes.NotFound, "return request not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get return request: %v", err)
+		return nil, internalErr(h.logger, "get return request", err)
 	}
 
 	if !isAdminOrUser(principal, ret.BuyerID, ret.SellerID) {
@@ -436,7 +447,7 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 		if errors.Is(err, repository.ErrReturnNotFound) {
 			return nil, status.Error(codes.NotFound, "return request not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get return request: %v", err)
+		return nil, internalErr(h.logger, "get return request", err)
 	}
 
 	// Only seller or admin can approve/reject/refund return request
@@ -447,9 +458,9 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 	updated, err := h.svc.UpdateReturnStatus(ctx, req.GetId(), repository.ReturnStatus(req.GetStatus()))
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidReturnStatus) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid return status transition", err)
 		}
-		return nil, status.Errorf(codes.Internal, "update return status: %v", err)
+		return nil, internalErr(h.logger, "update return status", err)
 	}
 
 	return &orderv1.UpdateReturnStatusResponse{
@@ -473,7 +484,7 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 		if errors.Is(err, repository.ErrOrderNotFound) {
 			return nil, status.Error(codes.NotFound, "order not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get order: %v", err)
+		return nil, internalErr(h.logger, "get order", err)
 	}
 
 	if !isAdminOrUser(principal, order.SellerID) {
@@ -482,7 +493,7 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 
 	shipment, err := h.svc.CreateShipment(ctx, req.GetOrderId(), req.GetCarrier(), req.GetTrackingCode())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "create shipment: %v", err)
+		return nil, internalErr(h.logger, "create shipment", err)
 	}
 
 	return &orderv1.CreateShipmentResponse{
@@ -500,7 +511,7 @@ func (h *OrderHandler) GetShipmentTracking(ctx context.Context, req *orderv1.Get
 		if errors.Is(err, repository.ErrShipmentNotFound) {
 			return nil, status.Error(codes.NotFound, "shipment not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get shipment tracking: %v", err)
+		return nil, internalErr(h.logger, "get shipment tracking", err)
 	}
 
 	return &orderv1.GetShipmentTrackingResponse{
