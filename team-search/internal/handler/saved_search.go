@@ -198,7 +198,7 @@ func (h *SearchHandler) RunSavedSearch(
 	}
 	hits := make([]*searchv1.SearchHit, 0, len(res.Hits))
 	for _, hit := range res.Hits {
-		hits = append(hits, &searchv1.SearchHit{ListingId: hit.ListingID, Score: float32(hit.Score)})
+		hits = append(hits, toWireHit(hit))
 	}
 	next := ""
 	if int64(defaultPageSize) < res.Total {

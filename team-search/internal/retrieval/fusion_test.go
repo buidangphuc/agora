@@ -70,3 +70,18 @@ func TestRRF_WeightsScaleStrategyInfluence(t *testing.T) {
 		t.Errorf("expected item-Y to rank 1st with 3x semantic weight, got %s", fused[0].ListingID)
 	}
 }
+
+func TestRRF_CarriesStock(t *testing.T) {
+	three, zero := int32(3), int32(0)
+	fused := retrieval.RRF(map[string][]retrieval.Candidate{
+		"lexical":  {{ListingID: "a", Stock: &three}, {ListingID: "b"}},
+		"semantic": {{ListingID: "b", Stock: &zero}, {ListingID: "c"}},
+	}, 60, nil)
+	got := map[string]*int32{}
+	for _, c := range fused {
+		got[c.ListingID] = c.Stock
+	}
+	if got["a"] == nil || *got["a"] != 3 || got["b"] == nil || *got["b"] != 0 || got["c"] != nil {
+		t.Errorf("stock not carried through RRF: a=%v b=%v c=%v", got["a"], got["b"], got["c"])
+	}
+}

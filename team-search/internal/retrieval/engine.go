@@ -228,7 +228,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	pagedCandidates := paginateCandidates(fused, params.From, params.Size)
 	hits := make([]index.Hit, 0, len(pagedCandidates))
 	for _, c := range pagedCandidates {
-		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score})
+		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score, Stock: c.Stock})
 	}
 
 	// Total estimate is max of both strategies
@@ -255,6 +255,7 @@ func toCandidates(hits []index.Hit, strategy string) []Candidate {
 			Score:     h.Score,
 			Rank:      i + 1,
 			Strategy:  strategy,
+			Stock:     h.Stock,
 		})
 	}
 	return cands

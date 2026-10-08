@@ -49,6 +49,8 @@ type ListingDoc struct {
 type Hit struct {
 	ListingID string
 	Score     float64
+	// Stock is the read-model stock from _source (D3); nil when none is projected.
+	Stock *int32
 }
 
 // FacetBucket is one facet value and the number of matching listings that carry
@@ -713,7 +715,7 @@ func (o *OpenSearchIndex) Search(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock})
 	}
 	return SearchResult{
 		Hits:   hits,
@@ -777,7 +779,7 @@ func (o *OpenSearchIndex) SearchVector(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock})
 	}
 	return SearchResult{
 		Hits:   hits,

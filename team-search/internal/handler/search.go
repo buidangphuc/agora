@@ -83,7 +83,7 @@ func (h *SearchHandler) SearchListings(
 	}
 	hits := make([]*searchv1.SearchHit, 0, len(res.Hits))
 	for _, hit := range res.Hits {
-		hits = append(hits, &searchv1.SearchHit{ListingId: hit.ListingID, Score: float32(hit.Score)})
+		hits = append(hits, toWireHit(hit))
 	}
 	next := ""
 	if int64(from+size) < res.Total {
@@ -94,6 +94,17 @@ func (h *SearchHandler) SearchListings(
 		Page:   &commonv1.PageResponse{NextCursor: next, Total: res.Total},
 		Facets: toFacets(res.Facets),
 	}, nil
+}
+
+// toWireHit maps an index hit to the wire SearchHit; stock keeps its presence
+// (absent = unknown, 0 = sold out) (D3).
+func toWireHit(hit index.Hit) *searchv1.SearchHit {
+	out := &searchv1.SearchHit{ListingId: hit.ListingID, Score: float32(hit.Score)}
+	if hit.Stock != nil {
+		v := *hit.Stock
+		out.Stock = &v
+	}
+	return out
 }
 
 // toFacets maps the index-layer facet counts to the wire Facets message. The

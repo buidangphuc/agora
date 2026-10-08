@@ -334,3 +334,28 @@ func TestInStock_BecomesStockRangeInBothLegs(t *testing.T) {
 		}
 	}
 }
+
+// D3: stock is decoded from _source with presence (absent stays nil).
+func TestSearch_DecodesStockFromSource(t *testing.T) {
+	var cap capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits":{"total":{"value":3},"hits":[
+	  {"_id":"a","_source":{"id":"a","stock":4}},
+	  {"_id":"b","_source":{"id":"b","stock":0}},
+	  {"_id":"c","_source":{"id":"c"}}]}}`, &cap)
+	for _, leg := range []string{"lexical", "vector"} {
+		var res index.SearchResult
+		var err error
+		if leg == "lexical" {
+			res, err = idx.Search(context.Background(), "x", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+		} else {
+			res, err = idx.SearchVector(context.Background(), []float32{0.1}, nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := res.Hits
+		if len(h) != 3 || h[0].Stock == nil || *h[0].Stock != 4 || h[1].Stock == nil || *h[1].Stock != 0 || h[2].Stock != nil {
+			t.Errorf("%s: stock decode wrong: %+v", leg, h)
+		}
+	}
+}

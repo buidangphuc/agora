@@ -10,6 +10,8 @@ type Candidate struct {
 	Score     float64
 	Rank      int
 	Strategy  string
+	// Stock is carried from whichever leg returned the hit (D3); nil = unknown.
+	Stock *int32
 }
 
 // RRF merges ranked candidate lists using Reciprocal Rank Fusion:
@@ -23,6 +25,7 @@ func RRF(strategyCandidates map[string][]Candidate, k int, weights map[string]fl
 	scores := make(map[string]float64)
 	orderSeen := make([]string, 0)
 	provenance := make(map[string][]string)
+	stock := make(map[string]*int32)
 
 	for strategy, candidates := range strategyCandidates {
 		weight := 1.0
@@ -37,6 +40,9 @@ func RRF(strategyCandidates map[string][]Candidate, k int, weights map[string]fl
 			if _, seen := scores[c.ListingID]; !seen {
 				orderSeen = append(orderSeen, c.ListingID)
 			}
+			if stock[c.ListingID] == nil && c.Stock != nil {
+				stock[c.ListingID] = c.Stock
+			}
 			// 1-based rank
 			rrfScore := weight / float64(k+rank+1)
 			scores[c.ListingID] += rrfScore
@@ -50,6 +56,7 @@ func RRF(strategyCandidates map[string][]Candidate, k int, weights map[string]fl
 			ListingID: id,
 			Score:     scores[id],
 			Strategy:  "rrf_fused",
+			Stock:     stock[id],
 		})
 	}
 
