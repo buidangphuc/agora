@@ -53,3 +53,7 @@ func cancelWithoutRelease(t *testing.T, orders repository.OrderRepository, id st
 		t.Fatal(err)
 	}
 }
+
+func releaseReq(id string) *listingv1.ReleaseStockRequest {
+	return &listingv1.ReleaseStockRequest{ReservationId: id}
+}

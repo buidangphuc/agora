@@ -96,6 +96,9 @@ type SagaRepository interface {
 	// A committed reservation is never released by compensation or the sweep (M7).
 	CommitReservation(ctx context.Context, id, orderID string) error
 	ListReservationsBySaga(ctx context.Context, sagaID string) ([]Reservation, error)
+	// ListCommittedReservations pages through COMMITTED reservations in id order,
+	// starting after afterID ("" = from the start).
+	ListCommittedReservations(ctx context.Context, afterID string, limit int) ([]Reservation, error)
 	// ListReservationsByOrder returns the reservations bound to an order (any status).
 	ListReservationsByOrder(ctx context.Context, orderID string) ([]Reservation, error)
 	// FindReleasable returns reservations that still hold stock (RESERVED or
@@ -300,6 +303,19 @@ func (r *PostgresSagaRepository) ListReservationsByOrder(ctx context.Context, or
 	rows, err := r.pool.Query(ctx, q, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("list reservations by order: %w", err)
+	}
+	return scanReservations(rows)
+}
+
+func (r *PostgresSagaRepository) ListCommittedReservations(ctx context.Context, afterID string, limit int) ([]Reservation, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `SELECT ` + reservationColumns + ` FROM order_reservations
+		WHERE status = $1 AND id > $2 ORDER BY id ASC LIMIT $3`
+	rows, err := r.pool.Query(ctx, q, int32(ReservationStatusCommitted), afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list committed reservations: %w", err)
 	}
 	return scanReservations(rows)
 }
@@ -555,6 +571,25 @@ func (r *InMemorySagaRepository) ListReservationsByOrder(_ context.Context, orde
 		}
 		return out[i].ID < out[j].ID
 	})
+	return out, nil
+}
+
+func (r *InMemorySagaRepository) ListCommittedReservations(_ context.Context, afterID string, limit int) ([]Reservation, error) {
+	r.store.mu.RLock()
+	defer r.store.mu.RUnlock()
+	if limit <= 0 {
+		limit = 100
+	}
+	var out []Reservation
+	for _, res := range r.store.reservations {
+		if res.Status == ReservationStatusCommitted && res.ID > afterID {
+			out = append(out, res)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	if len(out) > limit {
+		out = out[:limit]
+	}
 	return out, nil
 }
 

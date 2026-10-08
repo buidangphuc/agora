@@ -26,6 +26,14 @@ func TestSweepQueries_Postgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	committed, err := sagas.ListCommittedReservations(ctx, "", 100000)
+	if err != nil || !containsRes(committed, res[0]) || !containsRes(committed, res[1]) {
+		t.Fatalf("ListCommittedReservations: %v", err)
+	}
+	if page, _ := sagas.ListCommittedReservations(ctx, res[0], 1); len(page) == 1 && page[0].ID <= res[0] {
+		t.Fatalf("paging must start after the given id: %s <= %s", page[0].ID, res[0])
+	}
+
 	byOrder, err := sagas.ListReservationsByOrder(ctx, cancelled)
 	if err != nil || len(byOrder) != 1 || byOrder[0].ID != res[1] {
 		t.Fatalf("ListReservationsByOrder: %v %+v", err, byOrder)
