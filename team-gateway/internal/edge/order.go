@@ -185,6 +185,22 @@ func (f *OrderForwarder) GetReturnRequest(
 	return connect.NewResponse(out), nil
 }
 
+func (f *OrderForwarder) ListOrderReturns(
+	ctx context.Context,
+	req *connect.Request[orderv1.ListOrderReturnsRequest],
+) (*connect.Response[orderv1.ListOrderReturnsResponse], error) {
+	var out *orderv1.ListOrderReturnsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListOrderReturns(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 func (f *OrderForwarder) UpdateReturnStatus(
 	ctx context.Context,
 	req *connect.Request[orderv1.UpdateReturnStatusRequest],
