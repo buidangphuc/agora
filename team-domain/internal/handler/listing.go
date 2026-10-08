@@ -462,6 +462,39 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 	}
 }
 
+// NewStockEventBuilder returns the repository.StockEventBuilder that turns a
+// stock snapshot into a ListingStockChanged outbox row. The repository calls it
+// INSIDE the reserve / release / sweep transaction, so the row commits (or rolls
+// back) with the stock change. The principal and request id come from the
+// request context when present (the TTL sweep has neither).
+func NewStockEventBuilder() repository.StockEventBuilder {
+	return func(ctx context.Context, snap repository.StockSnapshot) (repository.OutboxRow, error) {
+		var principal *commonv1.Principal
+		if p, ok := interceptor.PrincipalFromContext(ctx); ok {
+			principal = p
+		}
+		requestID, _ := interceptor.RequestIDFromContext(ctx)
+		change := &listingv1.ListingStockChanged{
+			ListingId: snap.ListingID,
+			Stock:     snap.Stock,
+			Variants:  toWire(repository.Listing{Variants: snap.Variants}).GetVariants(),
+		}
+		eventID := uuid.NewString()
+		payload, err := events.BuildListingStockChangedEnvelope(eventID, change, principal, requestID)
+		if err != nil {
+			return repository.OutboxRow{}, err
+		}
+		return repository.OutboxRow{
+			EventID:       eventID,
+			AggregateType: "Listing",
+			AggregateID:   snap.ListingID,
+			EventType:     events.ListingStockChangedEventType,
+			Payload:       payload,
+			RequestID:     requestID,
+		}, nil
+	}
+}
+
 const statusPublished = "published"
 
 // isService reports whether the caller is an internal service principal

@@ -86,6 +86,9 @@ func run() error {
 	// service.
 	var svc *service.ListingService
 	if res.Outbox != nil {
+		// Reserve / release / sweep announce ListingStockChanged on the same
+		// outbox, inside their own stock-change transaction.
+		repo.WithStockEvents(res.Outbox, handler.NewStockEventBuilder())
 		txw := repository.NewPgTxWriter(res.Pool, res.Outbox)
 		svc = service.NewListingServiceWithOutbox(repo, txw)
 	} else {

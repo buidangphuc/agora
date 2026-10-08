@@ -24,6 +24,40 @@ const listingChangedType = "platform.listing.v1.ListingChanged"
 // on a single source of truth.
 const ListingChangedEventType = listingChangedType
 
+// ListingStockChangedEventType is the discriminator for stock-level events
+// (reserve / release / TTL sweep) on listing.events.
+const ListingStockChangedEventType = "platform.listing.v1.ListingStockChanged"
+
+// BuildListingStockChangedEnvelope marshals an EventEnvelope carrying a
+// ListingStockChanged, with the outbox row's event_id as the stable dedupe id.
+// Same topic (listing.events), key (listing_id) and envelope shape as
+// ListingChanged, so the relayer needs no change. occurred_at is stamped now:
+// the event is built inside the stock-change transaction, and carries absolute
+// values, so a consumer can order by occurred_at.
+func BuildListingStockChangedEnvelope(
+	eventID string,
+	change *listingv1.ListingStockChanged,
+	principal *commonv1.Principal,
+	requestID string,
+) ([]byte, error) {
+	payload, err := proto.Marshal(change)
+	if err != nil {
+		return nil, fmt.Errorf("marshal ListingStockChanged: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       ListingStockChangedEventType,
+		OccurredAt: timestamppb.Now(),
+		Principal:  principal,
+		RequestId:  requestID,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return value, nil
+}
+
 // BuildListingChangedEnvelope marshals the exact EventEnvelope the KafkaPublisher
 // produced inline before the outbox — same fields, same inner ListingChanged —
 // but with a caller-supplied eventID (the outbox row id) rather than a fresh

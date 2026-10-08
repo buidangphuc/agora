@@ -727,3 +727,49 @@ func TestReserveStock_ReleasedIDFailsPrecondition(t *testing.T) {
 		t.Fatalf("stock = %d, want 10", got.Stock)
 	}
 }
+
+// With the real builder wired, a reserve and a release each announce a decodable
+// ListingStockChanged envelope carrying the post-change stock; a commit and a
+// repeated release announce nothing.
+func TestStockEvents_WireEnvelope(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10}).
+		WithStockEvents(handler.NewStockEventBuilder())
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
+		t.Fatalf("CommitReservation: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ReservationId: "r1"}); err != nil {
+			t.Fatalf("ReleaseStock: %v", err)
+		}
+	}
+	rows := repo.StockEventRows()
+	if len(rows) != 2 {
+		t.Fatalf("want 2 stock events, got %d", len(rows))
+	}
+	for i, want := range []int32{7, 10} {
+		var env eventsv1.EventEnvelope
+		if err := proto.Unmarshal(rows[i].Payload, &env); err != nil {
+			t.Fatalf("unmarshal envelope: %v", err)
+		}
+		if env.GetType() != "platform.listing.v1.ListingStockChanged" || env.GetEventId() != rows[i].EventID || env.GetOccurredAt() == nil {
+			t.Fatalf("bad envelope: %+v", &env)
+		}
+		if env.GetPrincipal().GetId() != "service-team-order" {
+			t.Errorf("principal = %q, want service-team-order", env.GetPrincipal().GetId())
+		}
+		var ev listingv1.ListingStockChanged
+		if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
+			t.Fatalf("unmarshal ListingStockChanged: %v", err)
+		}
+		if ev.GetListingId() != "prod-1" || ev.GetStock() != want || rows[i].AggregateID != "prod-1" {
+			t.Errorf("event %d = %+v, want listing prod-1 stock %d", i, &ev, want)
+		}
+	}
+}

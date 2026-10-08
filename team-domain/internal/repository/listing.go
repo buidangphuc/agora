@@ -154,6 +154,11 @@ type InMemoryListingRepository struct {
 	// re-reserve with the same id is a no-op and the sweeper can restore expired
 	// holds. It mirrors the Postgres `reservations` table.
 	reservations map[string]memReservation
+
+	// stockEvent, when set, is called for every REAL stock change (reserve,
+	// release, sweep); its rows are kept in stockRows.
+	stockEvent StockEventBuilder
+	stockRows  []OutboxRow
 }
 
 // memReservation is the in-memory analogue of one `reservations` row.
@@ -324,7 +329,7 @@ func (r *InMemoryListingRepository) releaseLocked(listingID, variantID string, q
 // ReserveStockIdempotent reserves stock at most once per reservationID: a repeat
 // call with the id of an active or committed reservation returns nil without
 // touching stock; the id of a released one returns ErrReservationReleased.
-func (r *InMemoryListingRepository) ReserveStockIdempotent(_ context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
+func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
 	if reservationID == "" {
 		return ErrReservationIDRequired
 	}
@@ -334,38 +339,50 @@ func (r *InMemoryListingRepository) ReserveStockIdempotent(_ context.Context, re
 		if res.status == ReservationReleased {
 			return ErrReservationReleased // stock was given back: never report success
 		}
-		return nil // active/committed: already applied
+		return nil // active/committed: already applied, no stock change, no event
 	}
-	if err := r.reserveLocked(listingID, variantID, quantity); err != nil {
-		return err
-	}
-	r.reservations[reservationID] = memReservation{
-		listingID: listingID,
-		variantID: variantID,
-		quantity:  quantity,
-		expiresAt: expiresAt,
-		status:    ReservationActive,
-	}
-	return nil
+	return r.txLocked(ctx, func(changes stockChanges) error {
+		if err := r.reserveLocked(listingID, variantID, quantity); err != nil {
+			return err
+		}
+		r.reservations[reservationID] = memReservation{
+			listingID: listingID,
+			variantID: variantID,
+			quantity:  quantity,
+			expiresAt: expiresAt,
+			status:    ReservationActive,
+		}
+		changes.add(listingID, variantID)
+		return nil
+	})
 }
 
 // SweepExpiredReservations restores stock for every active reservation whose TTL
 // has passed and marks it released (AD3). Re-running is a no-op for already
 // released rows.
-func (r *InMemoryListingRepository) SweepExpiredReservations(_ context.Context, now time.Time) (int, error) {
+func (r *InMemoryListingRepository) SweepExpiredReservations(ctx context.Context, now time.Time) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	released := 0
-	for id, res := range r.reservations {
-		if res.status != ReservationActive || res.expiresAt.After(now) {
-			continue
+	err := r.txLocked(ctx, func(changes stockChanges) error {
+		for id, res := range r.reservations {
+			if res.status != ReservationActive || res.expiresAt.After(now) {
+				continue
+			}
+			// Best-effort restore: a since-deleted listing is still marked released
+			// so the sweep stays idempotent and never loops on it (and announces
+			// nothing).
+			if err := r.releaseLocked(res.listingID, res.variantID, res.quantity); err == nil {
+				changes.add(res.listingID, res.variantID)
+			}
+			res.status = ReservationReleased
+			r.reservations[id] = res
+			released++
 		}
-		// Best-effort restore: a since-deleted listing is still marked released so
-		// the sweep stays idempotent and never loops on it.
-		_ = r.releaseLocked(res.listingID, res.variantID, res.quantity)
-		res.status = ReservationReleased
-		r.reservations[id] = res
-		released++
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 	return released, nil
 }
@@ -373,7 +390,7 @@ func (r *InMemoryListingRepository) SweepExpiredReservations(_ context.Context, 
 // ReleaseReservation is the in-memory analogue of the single
 // UPDATE ... WHERE status IN ('active','committed') RETURNING statement: the
 // STORED quantity is restored once; a repeat is a no-op.
-func (r *InMemoryListingRepository) ReleaseReservation(_ context.Context, reservationID string) (ReleaseOutcome, error) {
+func (r *InMemoryListingRepository) ReleaseReservation(ctx context.Context, reservationID string) (ReleaseOutcome, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	res, ok := r.reservations[reservationID]
@@ -383,11 +400,19 @@ func (r *InMemoryListingRepository) ReleaseReservation(_ context.Context, reserv
 	if res.status == ReservationReleased {
 		return ReleaseNoOp, nil
 	}
-	// Best-effort restore, like the sweep: a since-deleted listing still ends up
-	// released so the call stays idempotent.
-	_ = r.releaseLocked(res.listingID, res.variantID, res.quantity)
-	res.status = ReservationReleased
-	r.reservations[reservationID] = res
+	err := r.txLocked(ctx, func(changes stockChanges) error {
+		// Best-effort restore, like the sweep: a since-deleted listing still ends
+		// up released so the call stays idempotent (and announces nothing).
+		if err := r.releaseLocked(res.listingID, res.variantID, res.quantity); err == nil {
+			changes.add(res.listingID, res.variantID)
+		}
+		res.status = ReservationReleased
+		r.reservations[reservationID] = res
+		return nil
+	})
+	if err != nil {
+		return ReleaseNoOp, err
+	}
 	return ReleaseApplied, nil
 }
 

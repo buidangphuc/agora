@@ -26,7 +26,14 @@ type DBTX interface {
 // PostgresListingRepository implements ListingRepository against a real pgxpool.
 type PostgresListingRepository struct {
 	pool *pgxpool.Pool
+	// outbox + stockEvent, when both set (WithStockEvents), make every real stock
+	// change (reserve, release, sweep) enqueue a ListingStockChanged row INSIDE
+	// the same transaction. Unset means no event.
+	outbox     *OutboxStore
+	stockEvent StockEventBuilder
 }
+
+func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
 
 func NewPostgresListingRepository(pool *pgxpool.Pool) *PostgresListingRepository {
 	return &PostgresListingRepository{pool: pool}
@@ -336,6 +343,11 @@ func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, 
 	if err := decrementStock(ctx, tx, listingID, variantID, quantity); err != nil {
 		return err
 	}
+	changes := stockChanges{}
+	changes.add(listingID, variantID)
+	if err := r.emitStockChanges(ctx, tx, changes); err != nil {
+		return err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit reserve tx: %w", err)
 	}
@@ -379,6 +391,7 @@ func (r *PostgresListingRepository) SweepExpiredReservations(ctx context.Context
 	}
 
 	released := 0
+	changes := stockChanges{}
 	for _, e := range batch {
 		// The row is locked (FOR UPDATE) and was 'active' in the SELECT; the status
 		// guard keeps "released at most once" true even if that ever changed.
@@ -389,13 +402,20 @@ func (r *PostgresListingRepository) SweepExpiredReservations(ctx context.Context
 		if tag.RowsAffected() == 0 {
 			continue
 		}
+		released++
 		// A since-deleted listing/variant is still marked released so the sweep
-		// stays idempotent and never loops on it.
-		if err := incrementStock(ctx, tx, e.listingID, e.variantID, e.quantity); err != nil &&
-			!errors.Is(err, ErrNotFound) && !errors.Is(err, ErrVariantNotFound) {
+		// stays idempotent and never loops on it (and announces nothing).
+		if err := incrementStock(ctx, tx, e.listingID, e.variantID, e.quantity); err != nil {
+			if errors.Is(err, ErrNotFound) || errors.Is(err, ErrVariantNotFound) {
+				continue
+			}
 			return 0, err
 		}
-		released++
+		changes.add(e.listingID, e.variantID)
+	}
+	// One ListingStockChanged per affected listing (its final stock), same tx.
+	if err := r.emitStockChanges(ctx, tx, changes); err != nil {
+		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit sweep tx: %w", err)
@@ -459,10 +479,17 @@ func (r *PostgresListingRepository) ReleaseReservation(ctx context.Context, rese
 		return ReleaseUnknown, nil
 	}
 	// A since-deleted listing/variant is still marked released (idempotent, like
-	// the sweep); there is simply no stock to restore.
-	if err := incrementStock(ctx, tx, listingID, variantID, quantity); err != nil &&
-		!errors.Is(err, ErrNotFound) && !errors.Is(err, ErrVariantNotFound) {
-		return ReleaseNoOp, err
+	// the sweep); there is simply no stock to restore and nothing to announce.
+	if err := incrementStock(ctx, tx, listingID, variantID, quantity); err != nil {
+		if !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrVariantNotFound) {
+			return ReleaseNoOp, err
+		}
+	} else {
+		changes := stockChanges{}
+		changes.add(listingID, variantID)
+		if err := r.emitStockChanges(ctx, tx, changes); err != nil {
+			return ReleaseNoOp, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return ReleaseNoOp, fmt.Errorf("commit release tx: %w", err)
