@@ -107,3 +107,279 @@ features:
     covered_by: "auth/session_revocation.feature::A client cannot spoof the recorded session IP"
     notes: >-
       Scenario "A client cannot spoof the recorded session IP" in auth/session_revocation.feature.
+
+  - id: edge.internal-rpcs-not-routed
+    title: Internal stock and voucher saga RPCs are not routed at the edge
+    persona: seller
+    priority: P0
+    summary: The saga-internal RPCs answer unimplemented (501) for every caller without contacting the upstream.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-domain
+    - team-promotion
+    preconditions:
+      login: seller
+    api:
+      exercised:
+      - listing.v1.ListingService.ReserveStock
+      - listing.v1.ListingService.ReleaseStock
+      - promotion.v1.VoucherService.CommitReservation
+      - promotion.v1.VoucherService.ReleaseReservation
+    acceptance:
+    - Given a logged-in seller with a listing in stock
+    - When the seller calls ReserveStock, ReleaseStock, CommitReservation and ReleaseReservation through
+      the gateway
+    - Then each call answers HTTP 501 with code unimplemented
+    - And the listing's stock is unchanged
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Internal stock and voucher saga RPCs answer 501 at the
+      edge
+
+  - id: edge.audit-write-not-routed
+    title: Writing an audit event is not exposed at the edge
+    persona: seller
+    priority: P0
+    summary: 'WriteAuditEvent is service-only: a seller or the admin gets 501 and nothing is stored.'
+    entry_route: /
+    services:
+    - team-gateway
+    - team-audit
+    preconditions:
+      login: seller
+    api:
+      exercised:
+      - audit.v1.AuditService.WriteAuditEvent
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given a logged-in seller and the seeded admin
+    - When the seller and the seeded admin call WriteAuditEvent through the gateway for a fresh target type
+    - Then the gateway answers HTTP 501 for each write
+    - And no audit event is stored for that target type
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Writing an audit event is not exposed at the edge
+
+  - id: edge.admin-rpc-anonymous-401
+    title: Anonymous callers are refused on admin-only RPCs
+    persona: guest
+    priority: P0
+    summary: QueryAuditLog, ReviewKyc and ResolveDispute need authentication at the edge before being forwarded.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: guest
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+      - verification.v1.VerificationService.ReviewKyc
+      - engagement.v1.EngagementService.ResolveDispute
+    acceptance:
+    - Given an anonymous client
+    - When the client calls QueryAuditLog, ReviewKyc and ResolveDispute through the gateway
+    - Then each admin-only call answers HTTP 401
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Anonymous call to an admin-only RPC
+
+  - id: edge.admin-rpc-buyer-403
+    title: A buyer is refused on admin-only RPCs
+    persona: buyer
+    priority: P0
+    summary: A verified caller without the admin scope gets permission_denied (403) on the admin-only RPCs.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+      - verification.v1.VerificationService.ReviewKyc
+      - engagement.v1.EngagementService.ResolveDispute
+    acceptance:
+    - Given a logged-in buyer
+    - When the buyer calls QueryAuditLog, ReviewKyc and ResolveDispute through the gateway
+    - Then each admin-only call answers HTTP 403
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Buyer call to an admin-only RPC
+
+  - id: edge.admin-may-query-audit
+    title: The seeded admin may query the audit log
+    persona: admin
+    priority: P1
+    summary: The admin scope passes the edge gate and QueryAuditLog answers with an events list.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-audit
+    - team-identity
+    preconditions:
+      login: admin
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given the seeded admin
+    - When the seeded admin calls QueryAuditLog through the gateway
+    - Then the request succeeds with an events list
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Admin may query the audit log
+
+  - id: edge.upstream-unavailable-no-detail
+    title: An unreachable upstream is reported without internal detail
+    persona: admin
+    priority: P1
+    summary: 'With team-audit stopped the gateway answers 503 ''service unavailable'' and leaks no host,
+      port or dial error text. Destructive: stops agora-team-audit-svc and restores it in teardown.'
+    entry_route: /
+    services:
+    - team-gateway
+    - team-audit
+    preconditions:
+      login: admin
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given the seeded admin and team-audit is stopped
+    - When the seeded admin calls QueryAuditLog through the gateway while team-audit is down
+    - Then the gateway answers HTTP 503 with message service unavailable
+    - And the body contains no host, port or dial error text
+    tags:
+    - security
+    - edge
+    status: planned
+    covered_by: null
+    notes: 'DESTRUCTIVE (@destructive): stops agora-team-audit-svc; not run by the e2e track, the integrator
+      runs it in the serial lane. Flip to automated once green.'
+
+  - id: edge.token-without-exp-rejected
+    title: A signed token without an expiry is rejected
+    persona: buyer
+    priority: P1
+    summary: A token that verifies against the JWKS but has no exp claim is refused with 401.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-identity
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - order.v1.OrderService.ListBuyerOrders
+    acceptance:
+    - Given a token signed by the identity key is accepted when it carries exp and sub
+    - When a client calls an authenticated RPC with a token signed by the identity key that has no exp claim
+    - Then the gateway answers HTTP 401
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A signed token without an expiry is rejected
+
+  - id: edge.token-without-sub-rejected
+    title: A signed token without a subject is rejected
+    persona: buyer
+    priority: P1
+    summary: A token that verifies against the JWKS but has an empty sub is refused with 401.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-identity
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - order.v1.OrderService.ListBuyerOrders
+    acceptance:
+    - Given a token signed by the identity key is accepted when it carries exp and sub
+    - When a client calls an authenticated RPC with a token signed by the identity key whose sub is empty
+    - Then the gateway answers HTTP 401
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A signed token without a subject is rejected
+
+  - id: edge.request-id-echoed
+    title: A well-formed request id is echoed
+    persona: guest
+    priority: P2
+    summary: A client X-Request-Id matching ^[A-Za-z0-9._-]{1,64}$ is returned unchanged.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: guest
+    api:
+      exercised:
+      - search.v1.SearchService.SearchListings
+    acceptance:
+    - When a client sends X-Request-Id "e2e-req.42" on an RPC
+    - Then the response header X-Request-Id is "e2e-req.42"
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A well-formed request id is echoed
+
+  - id: edge.request-id-replaced
+    title: A malformed request id is replaced
+    persona: guest
+    priority: P2
+    summary: An X-Request-Id with spaces or angle brackets is replaced by a fresh well-formed id.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: guest
+    api:
+      exercised:
+      - search.v1.SearchService.SearchListings
+    acceptance:
+    - When a client sends an X-Request-Id containing spaces and angle brackets
+    - Then the response header X-Request-Id is a different, well-formed id
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A malformed request id is replaced
+
+  - id: edge.idempotency-key-validated
+    title: A malformed idempotency key is rejected
+    persona: buyer
+    priority: P2
+    summary: CreateOrder with an Idempotency-Key longer than 255 bytes is refused with 400.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-order
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - order.v1.OrderService.CreateOrder
+    acceptance:
+    - Given a logged-in buyer
+    - When the buyer calls CreateOrder with an Idempotency-Key longer than 255 bytes
+    - Then the gateway answers HTTP 400
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A malformed idempotency key is rejected

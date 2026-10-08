@@ -1,0 +1,32 @@
+# Feature manifest for team-audit.
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-audit
+owner: platform-team
+
+features:
+  - id: audit.refused-edge-write-leaves-no-event
+    title: A refused edge write leaves no audit event
+    persona: seller
+    priority: P0
+    summary: 'End users cannot forge the audit trail: a seller''s WriteAuditEvent through the gateway fails
+      and the admin''s QueryAuditLog for that target type is empty.'
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    preconditions:
+      login: seller
+    api:
+      exercised:
+      - audit.v1.AuditService.WriteAuditEvent
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given a logged-in seller and the seeded admin
+    - When the seller calls WriteAuditEvent through the gateway for a fresh target type
+    - Then the refused write call fails
+    - And the seeded admin's QueryAuditLog for that target type returns no events
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_access.feature::A refused edge write leaves no audit event
