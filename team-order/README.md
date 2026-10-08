@@ -46,7 +46,7 @@ The gRPC server also registers `grpc.health.v1` and, when `GRPC_REFLECTION_ENABL
 5. Any failure runs compensation on a fresh background context: `ReleaseStock` with retries (3 attempts), release parked as RELEASE_FAILED on repeated failure, voucher hold released, saga marked COMPENSATED.
 6. Payment is **not** a synchronous saga step. The order moves PENDING -> PAID when the `PaymentSettled` event arrives (see Events).
 
-A background sweeper (every 1 minute, only with Postgres) releases reservations past their 15 minute TTL that were never committed. Both values are hard-coded.
+A background sweeper (only with Postgres) runs every `RESERVATION_SWEEP_INTERVAL` (default 1m) and releases reservations older than `RESERVATION_TTL` (default 15m) that were never bound to an order. Both are logged at sweeper start (`reservation sweeper starting`).
 
 ### Consumes (upstream)
 
@@ -124,6 +124,8 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `OUTBOX_BATCH_SIZE` | `100` | |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
 | `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `RESERVATION_TTL` | `15m` | Go duration: stock-hold lifetime before the sweep releases it; also how long an unfinished checkout attempt may stay pending. Empty, invalid or non-positive falls back to the default with a WARN; boot never fails |
+| `RESERVATION_SWEEP_INTERVAL` | `1m` | Go duration: sweep cadence. Same fallback rule |
 
 Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `.env.example` and the declared env keys differ in either direction. `.env.example` points `DATABASE_URL` at `localhost:5437`; compose uses `postgres:5432`.
 

@@ -19,6 +19,7 @@ type Settings struct {
 	FeatureFlags  FeatureFlags
 	Kafka         Kafka
 	Outbox        Outbox
+	Reservation   Reservation
 }
 
 type Runtime struct {
@@ -82,6 +83,46 @@ type Outbox struct {
 	BatchSize        int    `env:"OUTBOX_BATCH_SIZE" default:"100"`
 	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
 	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+}
+
+// Reservation tunes the stock-reservation lifetime and the reservation sweeper.
+// Both are Go duration strings ("20s", "1m", "15m"); read them through
+// ReservationTTL and ReservationSweepInterval, which never fail: an unusable value
+// falls back to the default with a warning so a typo cannot stop the service.
+type Reservation struct {
+	TTL           string `env:"RESERVATION_TTL" default:"15m"`
+	SweepInterval string `env:"RESERVATION_SWEEP_INTERVAL" default:"1m"`
+}
+
+// DefaultReservationTTL is used when RESERVATION_TTL is empty or unusable. It
+// matches team-domain's own default.
+const DefaultReservationTTL = 15 * time.Minute
+
+// DefaultReservationSweepInterval is used when RESERVATION_SWEEP_INTERVAL is empty
+// or unusable.
+const DefaultReservationSweepInterval = time.Minute
+
+// ReservationTTL parses RESERVATION_TTL, the lifetime of a checkout's stock hold
+// before the sweep may reclaim it (and of an unfinished checkout attempt). An
+// empty, unparsable, zero or negative value yields the default and a non-empty
+// warning naming the variable for the caller to log.
+func (s *Settings) ReservationTTL() (time.Duration, string) {
+	return positiveDuration("RESERVATION_TTL", s.Reservation.TTL, DefaultReservationTTL)
+}
+
+// ReservationSweepInterval parses RESERVATION_SWEEP_INTERVAL, how often the
+// reservation sweeper runs. Same fallback rules as ReservationTTL.
+func (s *Settings) ReservationSweepInterval() (time.Duration, string) {
+	return positiveDuration("RESERVATION_SWEEP_INTERVAL", s.Reservation.SweepInterval, DefaultReservationSweepInterval)
+}
+
+func positiveDuration(key, raw string, def time.Duration) (time.Duration, string) {
+	raw = strings.TrimSpace(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return def, fmt.Sprintf("invalid %s %q (want a positive Go duration such as 20s or 15m); using default %s", key, raw, def)
+	}
+	return d, ""
 }
 
 // KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
