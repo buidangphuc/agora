@@ -581,3 +581,37 @@ features:
     covered_by: "ops/upstream_recovery.feature::A recreated upstream is reachable again within seconds"
     notes: >-
       Scenario "A recreated upstream is reachable again within seconds" in ops/upstream_recovery.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: tracking.one-bad-event-does-not-drop-the-batch
+    title: "One bad event in a tracking batch does not drop the batch"
+    persona: guest
+    priority: P1
+    summary: "POST /api/track validates each event on its own: an unknown type is dropped and the valid events of the batch are produced, with a 202 reporting accepted and dropped counts."
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a batch of three events, two valid views carrying unique markers and one of type "teleport"
+      - Then the response is 202 with accepted 2 and dropped 1, and both valid markers reach analytics.events
+    tags: [tracking]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_validation.feature::One bad event does not drop the batch"
+
+  - id: tracking.oversized-properties-drops-only-that-event
+    title: "An oversized properties map drops only that tracking event"
+    persona: guest
+    priority: P1
+    summary: "An event whose properties exceed 20 keys is dropped while the valid events of the same batch are produced."
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a batch with one valid view and one view whose `properties` has 21 keys
+      - Then the response is 202 with accepted 1 and dropped 1, and only the valid view reaches analytics.events
+    tags: [tracking]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_validation.feature::An oversized properties map drops only that event"
