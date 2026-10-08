@@ -42,7 +42,8 @@ def test_settings_defaults_are_local_safe():
     assert settings.CHAT_FALLBACK_MODELS == ""
     assert settings.JUDGE_CHAT_MODEL == ""
     assert settings.AUTH_SUBJECT == "local-user"
-    assert settings.auth_roles == ["admin"]
+    assert settings.auth_roles == []
+    assert settings.GRPC_BEARER_FALLBACK_ENABLED is False
     assert "API_KEY_PEPPER" not in Settings.model_fields
     assert "API_KEY_BOOTSTRAP_TOKEN" not in Settings.model_fields
 
@@ -278,3 +279,35 @@ def test_env_langfuse_example_carries_compose_only_overrides():
     assert "LANGFUSE_DOCKER_BASE_URL=http://langfuse-web:3000" in langfuse_example
     assert project_id_line in langfuse_example
     assert "LANGFUSE_NEXTAUTH_URL=http://localhost:3000" in langfuse_example
+
+
+def test_grpc_bearer_fallback_defaults_off_and_is_allowed_locally():
+    assert build_test_settings().GRPC_BEARER_FALLBACK_ENABLED is False
+    settings = build_test_settings(
+        ENVIRONMENT="local", GRPC_BEARER_FALLBACK_ENABLED=True
+    )
+    assert settings.GRPC_BEARER_FALLBACK_ENABLED is True
+
+
+def test_grpc_bearer_fallback_refused_outside_local():
+    with pytest.raises(ValidationError, match="GRPC_BEARER_FALLBACK_ENABLED"):
+        build_test_settings(
+            ENVIRONMENT="prod",
+            AUTH_BEARER_TOKEN="prod-token-with-enough-entropy",
+            DOCS_ENABLED=False,
+            CORS_ALLOW_ORIGINS="https://app.example.com",
+            TRUSTED_HOSTS="api.example.com",
+            GRPC_BEARER_FALLBACK_ENABLED=True,
+        )
+
+
+def test_grpc_rate_limit_is_opt_in_and_redis_backend_needs_redis():
+    assert build_test_settings().GRPC_RATE_LIMIT_ENABLED is False
+    # Off: the backend/redis combination is not checked.
+    build_test_settings(RATE_LIMIT_BACKEND="redis", REDIS_ENABLED=False)
+    with pytest.raises(ValidationError, match="requires REDIS_ENABLED"):
+        build_test_settings(
+            GRPC_RATE_LIMIT_ENABLED=True,
+            RATE_LIMIT_BACKEND="redis",
+            REDIS_ENABLED=False,
+        )

@@ -211,9 +211,12 @@ gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci
   `make ci` fails at that step.
 - **`.github/workflows/ci.yaml` is stale.** It runs `pytest tests/test_env_drift.py`, which does
   not exist, and installs with pip on Python 3.11 while the project requires 3.12.
-- **No authorization on the AI RPCs or the `/api/v1/ai/*` HTTP routes.** `AIService` and
-  `ChatService` rely on the gateway alone, and the HTTP AI and tag routes (including
-  `/tags/promote`, which mutates state) have no auth dependency.
+- **`ai:use` is not enforced yet.** `MagicListing` and `ChatCopilot` need `listing.write`
+  (`ChatCopilot` also rejects another seller's `seller_id`), `SummarizeReviews` needs
+  `listing.read`, and `AIService` errors are mapped to field names or fixed text. But
+  `ShoppingAssistant` and `StreamChat` stay open to any principal until team-identity grants
+  `ai:use` to buyer, seller and admin and `AI_USE_SCOPE_REQUIRED=true` is set. The HTTP AI and
+  tag routes (including `/tags/promote`, which mutates state) still have no auth dependency.
 - **`make grpc` (`scripts/run_grpc.py`) does not wire recommendations.** It builds the server
   without `recommendation_provider`, so `Recommend` answers `UNAVAILABLE` there. Use the HTTP app
   with `GRPC_ENABLED=true`, as compose does.

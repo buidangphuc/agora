@@ -90,7 +90,9 @@ def _build_lifespan(
             yield
         finally:
             if grpc_server is not None:
-                await grpc_server.stop(settings.GRPC_GRACE_SECONDS)
+                from app.transport.grpc.server import stop_grpc_server
+
+                await stop_grpc_server(grpc_server, settings.GRPC_GRACE_SECONDS)
             await _drain_in_flight(app, settings.GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS)
             if init_resources and settings.LANGFUSE_ENABLED:
                 await asyncio.to_thread(_flush_langfuse_client)
