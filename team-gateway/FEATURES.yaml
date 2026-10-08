@@ -384,3 +384,24 @@ features:
     - edge
     status: automated
     covered_by: security/edge_route_policy.feature::A malformed idempotency key is rejected
+
+  - id: edge.listing-commit-not-routed
+    title: The listing stock commit RPC answers 501 at the edge
+    persona: seller
+    priority: P0
+    summary: >-
+      ListingService/CommitReservation is service-to-service: the gateway answers unimplemented (501) to a logged-in seller and to an anonymous caller without changing stock.
+    entry_route: /
+    services: [team-gateway, team-domain, team-order]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.ListingService.CommitReservation, listing.v1.GetListing]
+    acceptance:
+      - WHEN a logged-in seller, then an anonymous caller, calls ListingService/CommitReservation through the gateway with the reservation id of a buyer's live order
+      - THEN each call answers HTTP 501 with code unimplemented and the listing's stock is unchanged
+    tags: [security, edge]
+    status: planned
+    covered_by: null
+    notes: >-
+      Scenario in security/oic_inv_edge_listing_commit.feature. Written ahead of the code (port-order-inventory-correctness); flip to automated once green. RED on the pre-change stack: the running gateway image predates the re-vendored proto and answers HTTP 404 (page not found) instead of 501.
