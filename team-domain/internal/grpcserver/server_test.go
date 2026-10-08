@@ -559,3 +559,104 @@ func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
 		})
 	}
 }
+
+func serviceCtx(t *testing.T) (context.Context, context.CancelFunc) {
+	t.Helper()
+	return principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
+}
+
+func TestCommitReservation_Outcomes(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
+	}
+	for i := 0; i < 2; i++ { // the second call is the idempotent repeat
+		if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
+			t.Fatalf("CommitReservation #%d: %v", i+1, err)
+		}
+	}
+	// A committed reservation is not restored by the sweep.
+	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); err != nil || n != 0 {
+		t.Fatalf("sweep of committed: n=%d err=%v, want 0/nil", n, err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 8 {
+		t.Fatalf("stock after sweep = %d, want 8", got.Stock)
+	}
+
+	// A reservation swept (released) before the commit fails FAILED_PRECONDITION.
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r2"}); err != nil {
+		t.Fatalf("ReserveStock r2: %v", err)
+	}
+	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); err != nil || n != 1 {
+		t.Fatalf("sweep n=%d err=%v, want 1/nil", n, err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r2"}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("released id: want FailedPrecondition, got %v", err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "missing"}); status.Code(err) != codes.NotFound {
+		t.Fatalf("unknown id: want NotFound, got %v", err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("empty id: want InvalidArgument, got %v", err)
+	}
+}
+
+// CommitReservation needs the same authority as the other stock RPCs: a service
+// principal holding listing.write. A denied caller leaves the reservation active.
+func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
+	cases := []struct {
+		name   string
+		id     string
+		typ    string // "" = no principal metadata at all
+		scopes string
+		want   codes.Code
+	}{
+		{"service without listing.write denied", "service-team-order", "service", "listing.read", codes.PermissionDenied},
+		{"user denied", "u1", "user", "listing.read", codes.PermissionDenied},
+		{"seller user with listing.write denied", "seller-1", "user", "listing.read,listing.write", codes.PermissionDenied},
+		{"anonymous principal denied", "anon", "anonymous", "listing.read", codes.PermissionDenied},
+		{"no principal denied", "", "", "", codes.Unauthenticated},
+		{"service allowed", "service-team-order", "service", "listing.read,listing.write", codes.OK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+			client := startServer(t, repo)
+			sctx, scancel := serviceCtx(t)
+			defer scancel()
+			if _, err := client.ReserveStock(sctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+				t.Fatalf("ReserveStock: %v", err)
+			}
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if tc.typ == "" {
+				ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+			} else {
+				ctx, cancel = principalCtxAs(t, tc.id, tc.typ, tc.scopes)
+			}
+			defer cancel()
+			_, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r1"})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("CommitReservation: want %v, got %v (%v)", tc.want, got, err)
+			}
+
+			// Only an allowed commit protects the stock from the sweep.
+			n, err := repo.SweepExpiredReservations(sctx, time.Now().Add(service.DefaultReservationTTL+time.Minute))
+			if err != nil {
+				t.Fatalf("sweep: %v", err)
+			}
+			wantSwept := 1
+			if tc.want == codes.OK {
+				wantSwept = 0
+			}
+			if n != wantSwept {
+				t.Fatalf("sweep released %d, want %d", n, wantSwept)
+			}
+		})
+	}
+}

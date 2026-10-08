@@ -192,3 +192,11 @@ func (s *ListingService) ReserveStockIdempotent(ctx context.Context, reservation
 func (s *ListingService) SweepExpiredReservations(ctx context.Context, now time.Time) (int, error) {
 	return s.repo.SweepExpiredReservations(ctx, now)
 }
+
+// CommitReservation makes an active reservation permanent so the TTL sweeper
+// never restores it. Idempotent on reservationID. Errors are the repository
+// sentinels ErrReservationReleased / ErrReservationNotFound; the handler maps
+// them to FAILED_PRECONDITION / NOT_FOUND.
+func (s *ListingService) CommitReservation(ctx context.Context, reservationID string) error {
+	return s.repo.CommitReservation(ctx, reservationID)
+}

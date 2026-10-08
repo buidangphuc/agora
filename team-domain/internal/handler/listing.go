@@ -400,6 +400,35 @@ func (h *ListingHandler) ReleaseStock(
 	return &listingv1.ReleaseStockResponse{Success: true}, nil
 }
 
+// CommitReservation makes an active reservation permanent (team-order calls it
+// for every reservation of a checkout before placing the orders). Idempotent on
+// reservation_id: OK for active or already committed; FAILED_PRECONDITION when
+// the reservation was released (the order must not be placed); NOT_FOUND for an
+// unknown id; INVALID_ARGUMENT for an empty id.
+func (h *ListingHandler) CommitReservation(
+	ctx context.Context,
+	req *listingv1.CommitReservationRequest,
+) (*listingv1.CommitReservationResponse, error) {
+	// Internal inventory mutation: same authority as ReserveStock/ReleaseStock.
+	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+		return nil, err
+	}
+	if req.GetReservationId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
+	}
+	if err := h.svc.CommitReservation(ctx, req.GetReservationId()); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrReservationNotFound):
+			return nil, status.Error(codes.NotFound, "reservation not found")
+		case errors.Is(err, repository.ErrReservationReleased):
+			return nil, status.Error(codes.FailedPrecondition, "reservation already released")
+		default:
+			return nil, internalErr("commit reservation", err)
+		}
+	}
+	return &listingv1.CommitReservationResponse{}, nil
+}
+
 // enqueueListingChanged returns the EnqueueFn the service invokes inside the
 // write transaction. It captures the acting principal and request id from the
 // context now (request-scoped), and — given the just-persisted listing — builds

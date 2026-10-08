@@ -16,6 +16,22 @@ var (
 	ErrNotFound        = errors.New("listing not found")
 	ErrOutOfStock      = errors.New("insufficient stock")
 	ErrVariantNotFound = errors.New("variant not found")
+
+	// ErrReservationNotFound: the reservation_id is unknown (CommitReservation).
+	ErrReservationNotFound = errors.New("reservation not found")
+	// ErrReservationReleased: the reservation was already released (its stock
+	// was given back). CommitReservation and a re-reserve under the same id fail
+	// with it instead of reporting a false success.
+	ErrReservationReleased = errors.New("reservation already released")
+)
+
+// Reservation lifecycle (owned by team-domain): active -> committed | released,
+// and committed -> released. Only an active reservation expires (TTL sweep);
+// stock is restored once, when a reservation becomes released.
+const (
+	ReservationActive    = "active"
+	ReservationCommitted = "committed"
+	ReservationReleased  = "released"
 )
 
 // Page sizing: a page request of 0 uses the default; anything above the max is
@@ -89,6 +105,11 @@ type ListingRepository interface {
 	// expires_at is at or before now, restoring the reserved stock, and returns how
 	// many were released (AD3 domain side). Idempotent and safe to re-run.
 	SweepExpiredReservations(ctx context.Context, now time.Time) (int, error)
+	// CommitReservation moves an active reservation to committed so the TTL
+	// sweeper never restores it. Idempotent: an already committed reservation is
+	// a no-op success. ErrReservationReleased if it was released;
+	// ErrReservationNotFound if the id is unknown.
+	CommitReservation(ctx context.Context, reservationID string) error
 }
 
 // clampPageSize normalizes a requested page size into [1, MaxPageSize].
@@ -120,7 +141,7 @@ type memReservation struct {
 	variantID string
 	quantity  int32
 	expiresAt time.Time
-	released  bool
+	status    string // ReservationActive | ReservationCommitted | ReservationReleased
 }
 
 // NewInMemoryListingRepository returns a store seeded with the given rows (or a
@@ -312,6 +333,7 @@ func (r *InMemoryListingRepository) ReserveStockIdempotent(_ context.Context, re
 			variantID: variantID,
 			quantity:  quantity,
 			expiresAt: expiresAt,
+			status:    ReservationActive,
 		}
 	}
 	return nil
@@ -325,17 +347,39 @@ func (r *InMemoryListingRepository) SweepExpiredReservations(_ context.Context, 
 	defer r.mu.Unlock()
 	released := 0
 	for id, res := range r.reservations {
-		if res.released || res.expiresAt.After(now) {
+		if res.status != ReservationActive || res.expiresAt.After(now) {
 			continue
 		}
 		// Best-effort restore: a since-deleted listing is still marked released so
 		// the sweep stays idempotent and never loops on it.
 		_ = r.releaseLocked(res.listingID, res.variantID, res.quantity)
-		res.released = true
+		res.status = ReservationReleased
 		r.reservations[id] = res
 		released++
 	}
 	return released, nil
+}
+
+// CommitReservation is the in-memory analogue of the Postgres guarded UPDATE:
+// active -> committed; committed is an idempotent success; released fails with
+// ErrReservationReleased; an unknown id is ErrReservationNotFound.
+func (r *InMemoryListingRepository) CommitReservation(_ context.Context, reservationID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	res, ok := r.reservations[reservationID]
+	if !ok {
+		return ErrReservationNotFound
+	}
+	switch res.status {
+	case ReservationActive:
+		res.status = ReservationCommitted
+		r.reservations[reservationID] = res
+		return nil
+	case ReservationCommitted:
+		return nil
+	default:
+		return ErrReservationReleased
+	}
 }
 
 // compile-time assertion that the fake satisfies the port.

@@ -444,6 +444,40 @@ func (r *PostgresListingRepository) ReleaseStock(ctx context.Context, listingID,
 	return nil
 }
 
+// CommitReservation moves an active reservation to committed in one guarded
+// UPDATE. The WHERE clause requires status = 'active', the same predicate the
+// sweep leases with FOR UPDATE, so a concurrent sweep and commit cannot both win:
+// the loser re-evaluates the predicate after the winner commits. Zero rows is
+// disambiguated by a follow-up read: committed -> idempotent success, released ->
+// ErrReservationReleased, absent -> ErrReservationNotFound. No stock changes, so
+// no outbox event is written.
+func (r *PostgresListingRepository) CommitReservation(ctx context.Context, reservationID string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE reservations SET status = 'committed' WHERE reservation_id = $1 AND status = 'active'`, reservationID)
+	if err != nil {
+		return fmt.Errorf("commit reservation %q: %w", reservationID, err)
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	var st string
+	if err := r.pool.QueryRow(ctx, `SELECT status FROM reservations WHERE reservation_id = $1`, reservationID).Scan(&st); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrReservationNotFound
+		}
+		return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
+	}
+	switch st {
+	case ReservationCommitted:
+		return nil
+	case ReservationReleased:
+		return ErrReservationReleased
+	default:
+		// 'active' here would mean the row moved backwards between the two
+		// statements, which the lifecycle forbids; surface it rather than guess.
+		return fmt.Errorf("commit reservation %q: unexpected status %q", reservationID, st)
+	}
+}
+
 func (r *PostgresListingRepository) count(ctx context.Context, q, arg string) (int64, error) {
 	var total int64
 	if err := r.pool.QueryRow(ctx, q, arg).Scan(&total); err != nil {
