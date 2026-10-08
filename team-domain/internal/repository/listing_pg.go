@@ -329,14 +329,21 @@ func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, 
 		return fmt.Errorf("insert reservation %q: %w", reservationID, err)
 	}
 	if tag.RowsAffected() == 0 {
-		var st string
-		if err := tx.QueryRow(ctx, `SELECT status FROM reservations WHERE reservation_id = $1`, reservationID).Scan(&st); err != nil {
+		var (
+			st, gotListing, gotVariant string
+			gotQty                     int32
+		)
+		if err := tx.QueryRow(ctx, `SELECT status, listing_id, variant_id, quantity FROM reservations WHERE reservation_id = $1`,
+			reservationID).Scan(&st, &gotListing, &gotVariant, &gotQty); err != nil {
 			return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
 		}
 		if st == ReservationReleased {
 			return ErrReservationReleased
 		}
-		return nil // active or committed: idempotent success
+		if gotListing != listingID || gotVariant != variantID || gotQty != quantity {
+			return ErrReservationMismatch
+		}
+		return nil // active or committed: idempotent success for an identical retry
 	}
 	// New reservation: take the stock. A failure here (out of stock, unknown
 	// listing) rolls the inserted row back with the tx.

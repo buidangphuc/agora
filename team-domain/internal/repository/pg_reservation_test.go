@@ -276,3 +276,26 @@ func TestPG_ReserveStockIdempotent_ConcurrentSameID(t *testing.T) {
 		t.Fatalf("stock = %d, want 95", got)
 	}
 }
+
+// A retry must be identical: reusing an id for another listing or quantity is
+// refused and changes no stock.
+func TestPG_ReserveStockIdempotent_MismatchedRetryIsRefused(t *testing.T) {
+	ctx := context.Background()
+	repo, _ := newPGRepo(t)
+	seedPGListing(t, repo, "L1", 10)
+	seedPGListing(t, repo, "L2", 10)
+	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	for _, c := range []struct {
+		listing string
+		qty     int32
+	}{{"L1", 4}, {"L2", 3}} {
+		if err := repo.ReserveStockIdempotent(ctx, "r1", c.listing, "", c.qty, farFuture); !errors.Is(err, repository.ErrReservationMismatch) {
+			t.Fatalf("retry %s x%d: %v, want ErrReservationMismatch", c.listing, c.qty, err)
+		}
+	}
+	if a, b := pgStock(t, repo, "L1"), pgStock(t, repo, "L2"); a != 7 || b != 10 {
+		t.Fatalf("stock L1=%d L2=%d, want 7 and 10", a, b)
+	}
+}

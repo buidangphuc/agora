@@ -23,6 +23,9 @@ var (
 	// was given back). CommitReservation and a re-reserve under the same id fail
 	// with it instead of reporting a false success.
 	ErrReservationReleased = errors.New("reservation already released")
+	// ErrReservationMismatch: a reserve repeated an existing reservation_id with
+	// a different listing, variant or quantity. A retry must be identical.
+	ErrReservationMismatch = errors.New("reservation id reused with different listing, variant or quantity")
 	// ErrReservationIDRequired: ReserveStockIdempotent was called without a
 	// reservation id. There is no ledger-less reserve path.
 	ErrReservationIDRequired = errors.New("reservation id required")
@@ -338,6 +341,9 @@ func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, 
 	if res, ok := r.reservations[reservationID]; ok {
 		if res.status == ReservationReleased {
 			return ErrReservationReleased // stock was given back: never report success
+		}
+		if res.listingID != listingID || res.variantID != variantID || res.quantity != quantity {
+			return ErrReservationMismatch
 		}
 		return nil // active/committed: already applied, no stock change, no event
 	}

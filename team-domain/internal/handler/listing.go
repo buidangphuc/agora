@@ -369,6 +369,9 @@ func (h *ListingHandler) ReserveStock(
 			// The id belongs to a released reservation: reserve under a new id.
 			return nil, status.Error(codes.FailedPrecondition, "reservation already released; reserve with a new reservation_id")
 		}
+		if errors.Is(err, repository.ErrReservationMismatch) {
+			return nil, status.Error(codes.FailedPrecondition, "reservation_id already used for a different listing, variant or quantity")
+		}
 		if errors.Is(err, repository.ErrOutOfStock) {
 			return &listingv1.ReserveStockResponse{
 				Success: false,

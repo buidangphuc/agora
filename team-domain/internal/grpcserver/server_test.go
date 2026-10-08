@@ -773,3 +773,23 @@ func TestStockEvents_WireEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestReserveStock_MismatchedRetryIsFailedPrecondition(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
+	}
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+		t.Fatalf("identical retry must succeed: %v", err)
+	}
+	_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 5, ReservationId: "r1"})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("mismatched retry: %v, want FailedPrecondition", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 8 {
+		t.Fatalf("stock = %d, want 8", got.Stock)
+	}
+}
