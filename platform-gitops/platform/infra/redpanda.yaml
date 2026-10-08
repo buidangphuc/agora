@@ -83,7 +83,7 @@ spec:
               set -u
               BROKERS=redpanda.marketplace.svc:9092
               for t in payment.events payment.events.dlq \
-                       order.events order.events.dlq \
+                       order.events order.events.dlq order.events.payment-settlement.dlq \
                        chat.events chat.events.dlq \
                        listing.events listing.events.dlq \
                        identity.events promotion.events analytics.events; do

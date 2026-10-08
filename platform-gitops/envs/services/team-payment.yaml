@@ -15,6 +15,18 @@ resources:
   limits:
     cpu: 250m
     memory: 256Mi
+env:
+  # payment.events outbox relayer (PaymentSettled -> team-order) and the settlement
+  # consumer of order.events (OrderPaidEvent credit, OrderCancelled refund) -
+  # port-payment-ledger-integrity. Without KAFKA_ENABLED neither runs and sellers
+  # are never credited.
+  KAFKA_ENABLED: "true"
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+  PAYMENT_EVENTS_TOPIC: "payment.events"
+  ORDER_EVENTS_TOPIC: "order.events"
+  PAYMENT_SETTLEMENT_CONSUMER_ENABLED: "true"
+  PAYMENT_SETTLEMENT_CONSUMER_GROUP: "team-payment.settlement"
+  PAYMENT_SETTLEMENT_DLQ_TOPIC: "order.events.payment-settlement.dlq"
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50056; only the

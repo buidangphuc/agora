@@ -40,6 +40,14 @@ spec:
             enabled: true
           env:
             MOCK_PAYMENTS: "true"   # local kind only; refused at boot in staging/prod
+            # payment.events relayer + order.events settlement consumer
+            KAFKA_ENABLED: "true"
+            KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
+            PAYMENT_EVENTS_TOPIC: "payment.events"
+            ORDER_EVENTS_TOPIC: "order.events"
+            PAYMENT_SETTLEMENT_CONSUMER_ENABLED: "true"
+            PAYMENT_SETTLEMENT_CONSUMER_GROUP: "team-payment.settlement"
+            PAYMENT_SETTLEMENT_DLQ_TOPIC: "order.events.payment-settlement.dlq"
   syncPolicy:
     automated:
       prune: true
