@@ -273,3 +273,20 @@ features:
     status: planned
     covered_by: null
     notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Two visitors cannot collide on an event id"
+
+  - id: tracking.stored-event-has-ingest-time
+    title: "A stored tracking event has an ingest time not before its occurrence"
+    persona: guest
+    priority: P1
+    summary: "The warehouse sink stamps ingested_at with its own clock at write time; occurred_at stays the edge receive time."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts one view with a unique listing id and the sink writes it
+      - Then the warehouse row has a non-null `ingested_at` that is not earlier than its `occurred_at`
+    tags: [tracking, analytics]
+    status: planned
+    covered_by: null
+    notes: "tracking-ingest-integrity: tracking/ingest_time.feature::A stored event has an ingest time after its occurrence"
