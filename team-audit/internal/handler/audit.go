@@ -40,18 +40,18 @@ func mapAuditErr(err error) error {
 }
 
 // WriteAuditEvent appends an immutable event. It is fire-and-forget: the event
-// is persisted durably, but the response carries no payload (the caller does not
-// wait on a receipt). The caller must be authenticated and the stored actor is
-// the principal's own id: a client-supplied actor_id is ignored, so a user cannot
-// forge events attributed to someone else. Only a SERVICE principal writing on
-// behalf of a user may supply its own actor_id.
+// is persisted durably, but the response carries no payload. Service-only: the
+// caller must be a service principal holding audit.write; users (admins
+// included), anonymous callers and scopeless services are refused so the trail
+// cannot be forged. The service may supply actor_id to record on behalf of a
+// user; otherwise its own id is stored.
 func (h *AuditHandler) WriteAuditEvent(ctx context.Context, req *auditv1.WriteAuditEventRequest) (*auditv1.WriteAuditEventResponse, error) {
-	p, err := interceptor.RequirePrincipal(ctx)
+	p, err := interceptor.RequireService(ctx, interceptor.ScopeAuditWrite)
 	if err != nil {
 		return nil, err
 	}
 	actorID := p.ID
-	if p.IsService() && req.GetActorId() != "" {
+	if req.GetActorId() != "" {
 		actorID = req.GetActorId()
 	}
 	if _, err := h.svc.Write(ctx, actorID, req.GetAction(), req.GetTargetType(), req.GetTargetId(), req.GetMetadata()); err != nil {
