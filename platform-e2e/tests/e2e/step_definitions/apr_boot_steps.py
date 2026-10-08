@@ -108,3 +108,33 @@ def local_boots(world: World) -> None:
         time.sleep(1)
     # still running after the wait without naming the setting: the guard did not fire
     assert SETTING not in log, log
+
+
+@when(
+    "it is started with ENVIRONMENT=production and CHAT_BACKEND=llm_router but no rate limit and no quota"
+)
+def start_unmetered_llm(world: World) -> None:
+    env = _env("production")
+    env.update(
+        CHAT_BACKEND="llm_router",
+        CHAT_MODEL="openai:primary",
+        GRPC_RATE_LIMIT_ENABLED="false",
+        QUOTA_ENABLED="false",
+    )
+    name, cmd = _docker_run(world, env, "--rm")
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        pe.docker("rm", "-f", name, check=False)
+        raise AssertionError(
+            f"team-ai kept running instead of refusing to boot: {exc.stdout}"
+        ) from exc
+    _x(world)["apr_boot"] = proc
+
+
+@then("the process exits non-zero and its log names QUOTA_ENABLED")
+def refused_unmetered(world: World) -> None:
+    proc: subprocess.CompletedProcess[str] = _x(world)["apr_boot"]
+    log = proc.stdout + proc.stderr
+    assert proc.returncode != 0, f"team-ai booted with an unmetered llm_router: {log[-2000:]}"
+    assert "QUOTA_ENABLED" in log, log[-2000:]

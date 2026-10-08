@@ -103,7 +103,11 @@ delivered. A principal whose quota is exhausted SHALL get `RESOURCE_EXHAUSTED` a
 ### Requirement: Chat and assistant RPCs are rate limited per principal
 
 With `GRPC_RATE_LIMIT_ENABLED`, `StreamChat` and `ShoppingAssistant` SHALL be limited per forwarded principal and
-SHALL answer `RESOURCE_EXHAUSTED` when the limit is exceeded, without calling the model. When team-ai's environment
+SHALL answer `RESOURCE_EXHAUSTED` when the limit is exceeded, without calling the model. Anonymous callers SHALL be keyed
+by the client IP the gateway forwards (`x-client-ip`), so one visitor cannot exhaust the bucket of every other anonymous
+visitor; a forwarded principal with an empty id SHALL be treated as anonymous. Because anonymous chat is allowed
+(`ai:use` is not enforced), team-ai SHALL refuse to start with `CHAT_BACKEND=llm_router` outside dev, local and test
+unless both `GRPC_RATE_LIMIT_ENABLED` and `QUOTA_ENABLED` are true. When team-ai's environment
 setting `ENVIRONMENT` is anything other than dev, local or test, team-ai SHALL refuse to start with the gRPC rate limit
 enabled and `RATE_LIMIT_BACKEND=memory`.
 
@@ -118,6 +122,12 @@ enabled and `RATE_LIMIT_BACKEND=memory`.
 - **WHEN** the team-ai image is started with `ENVIRONMENT=production`, `GRPC_RATE_LIMIT_ENABLED=true` and
   `RATE_LIMIT_BACKEND=memory`
 - **THEN** the process exits non-zero and its log names `RATE_LIMIT_BACKEND`
+
+#### Scenario: Production refuses an unmetered LLM chat path
+
+- **WHEN** the team-ai image is started with `ENVIRONMENT=production`, `CHAT_BACKEND=llm_router`,
+  `GRPC_RATE_LIMIT_ENABLED=false` and `QUOTA_ENABLED=false`
+- **THEN** the process exits non-zero and its log names `QUOTA_ENABLED`
 
 ### Requirement: The model input carries a system prompt and bounded session history
 

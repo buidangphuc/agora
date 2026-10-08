@@ -8,3 +8,9 @@ Feature: team-ai refuses a per-process rate limiter in production
     When it is started with ENV=production, GRPC_RATE_LIMIT_ENABLED=true and RATE_LIMIT_BACKEND=memory
     Then the process exits non-zero and its log names RATE_LIMIT_BACKEND
     And the same image with ENV=local does not trip the guard
+
+  @destructive
+  Scenario: Production refuses an unmetered LLM chat path
+    Given the team-ai image
+    When it is started with ENVIRONMENT=production and CHAT_BACKEND=llm_router but no rate limit and no quota
+    Then the process exits non-zero and its log names QUOTA_ENABLED
