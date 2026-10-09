@@ -127,6 +127,14 @@ export async function getShopRatingSummary(
   }
 }
 
+/**
+ * The UI paginates reviews client-side (REVIEWS_PAGE_SIZE per page) over one
+ * fetched list, and the engagement handler always serves page 1 with a default
+ * of 20 when no size is sent. Ask for the server's maximum (100) so the page
+ * count follows the real review count.
+ */
+export const REVIEWS_FETCH_SIZE = 100;
+
 export async function listReviews(
   listingId: string,
   ratingFilter = 0,
@@ -135,6 +143,7 @@ export async function listReviews(
     const res = await publicGateway().engagement.listReviews({
       listingId,
       ratingFilter,
+      page: { pageSize: REVIEWS_FETCH_SIZE },
     });
     return res.reviews.map(mapReview);
   } catch {

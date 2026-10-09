@@ -63,6 +63,18 @@ describe("reviews gateway wrapper", () => {
     );
   });
 
+  it("listReviews asks for the server's maximum page size", async () => {
+    const engagement = stubEngagement({
+      listReviews: vi.fn().mockResolvedValue({ reviews: [] }),
+    });
+    await listReviews("l1", 4);
+    expect(engagement.listReviews).toHaveBeenCalledWith({
+      listingId: "l1",
+      ratingFilter: 4,
+      page: { pageSize: 100 },
+    });
+  });
+
   it("listReviews normalizes errors to an empty list", async () => {
     stubEngagement({ listReviews: vi.fn().mockRejectedValue(new Error("x")) });
     await expect(listReviews("l1")).resolves.toEqual([]);
