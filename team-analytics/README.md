@@ -34,7 +34,7 @@ Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Up
 | Direction | Topic | Envelope `type` | Effect |
 |---|---|---|---|
 | Consume | `analytics.events` (`KAFKA_ANALYTICS_TOPIC`) | `platform.analytics.v1.TrackingEvent` | One row in `tracking_events`, `event_id` = envelope `event_id` |
-| Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, currency defaults to `VND` |
+| Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, `buyer_id` = `OrderPaidEvent.buyer_id` (empty -> NULL), currency defaults to `VND` |
 | Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id` in `listing_sellers` (DuckDB only). Deletes keep the mapping. |
 | Consume | `engagement.events` (`ENGAGEMENT_EVENTS_TOPIC`) | `platform.engagement.v1.FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated` | One `engagement_facts` row per envelope, `event_id` = envelope `event_id`, `fact` = `favorite_added`, `favorite_removed`, `seller_followed`, `seller_unfollowed` or `review_created`. Own group `team-analytics.engagement` (`ENGAGEMENT_CONSUMER_GROUP`). DuckDB only. |
 | Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with an `error` header | Only for an undecodable engagement record or an unknown envelope `type`; the consumer then commits past it. |
@@ -54,7 +54,7 @@ Database-per-service; there are no SQL migration files.
 | Object | Notes |
 |---|---|
 | `tracking_events` | Columns defined in `internal/warehouse/warehouse.go` (`Schema`): event and session ids, `event_type`, `listing_id`, `occurred_at`, principal id/type, `properties` JSON, placement/impression/model_version, GA4-style commerce fields (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_*`, `shipping_tier`, `payment_type`) |
-| `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status` |
+| `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status`, `buyer_id` (nullable; NULL for rows ingested before the column existed) |
 | `engagement_facts` | `event_id`, `fact`, `user_id`, `listing_id`, `seller_id`, `rating` (NULL except `review_created`), `occurred_at`, `ingested_at`. DuckDB only. |
 | `favorites_current` | View: `user_id`, `listing_id`, `occurred_at` for the pairs whose latest favourite fact is `favorite_added`. Ties on `occurred_at` resolve by `event_id` order. |
 | `follows_current` | View: `user_id`, `seller_id`, `occurred_at` for the pairs whose latest follow fact is `seller_followed`. Same tie rule. |

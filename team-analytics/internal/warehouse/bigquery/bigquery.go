@@ -117,7 +117,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("ensure %s.%s table: %w", w.dataset, w.table, err)
 	}
 
-	if err := w.evolveSchema(ctx, schema); err != nil {
+	if err := w.evolveSchema(ctx, w.table, schema); err != nil {
 		return err
 	}
 
@@ -137,6 +137,9 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	if err != nil && !isAlreadyExists(err) {
 		return fmt.Errorf("ensure %s.%s table: %w", w.dataset, warehouse.OrderFactsTableName, err)
 	}
+	if err := w.evolveSchema(ctx, warehouse.OrderFactsTableName, factsSchema); err != nil {
+		return err
+	}
 
 	// Stitching views are best-effort: a read-only dataset must not stop the
 	// sink, so the error is ignored and ViewDDL is the documented migration.
@@ -145,30 +148,37 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	return nil
 }
 
-// evolveSchema appends columns that an older table lacks (e.g. ingested_at).
-func (w *Writer) evolveSchema(ctx context.Context, want bigquery.Schema) error {
-	t := w.client.Dataset(w.dataset).Table(w.table)
+// evolveSchema appends columns that an older table lacks (e.g. ingested_at,
+// order_facts.buyer_id).
+func (w *Writer) evolveSchema(ctx context.Context, table string, want bigquery.Schema) error {
+	t := w.client.Dataset(w.dataset).Table(table)
 	md, err := t.Metadata(ctx)
 	if err != nil {
-		return fmt.Errorf("read %s.%s metadata: %w", w.dataset, w.table, err)
+		return fmt.Errorf("read %s.%s metadata: %w", w.dataset, table, err)
 	}
-	have := map[string]bool{}
-	for _, f := range md.Schema {
-		have[f.Name] = true
-	}
-	next := md.Schema
-	for _, f := range want {
-		if !have[f.Name] {
-			next = append(next, f)
-		}
-	}
+	next := withMissingColumns(md.Schema, want)
 	if len(next) == len(md.Schema) {
 		return nil
 	}
 	if _, err := t.Update(ctx, bigquery.TableMetadataToUpdate{Schema: next}, md.ETag); err != nil {
-		return fmt.Errorf("add columns to %s.%s: %w", w.dataset, w.table, err)
+		return fmt.Errorf("add columns to %s.%s: %w", w.dataset, table, err)
 	}
 	return nil
+}
+
+// withMissingColumns returns have plus every column of want that have lacks.
+func withMissingColumns(have, want bigquery.Schema) bigquery.Schema {
+	seen := map[string]bool{}
+	for _, f := range have {
+		seen[f.Name] = true
+	}
+	next := append(bigquery.Schema{}, have...)
+	for _, f := range want {
+		if !seen[f.Name] {
+			next = append(next, f)
+		}
+	}
+	return next
 }
 
 // ViewDDL returns the BigQuery equivalents of the DuckDB stitching views
@@ -303,6 +313,9 @@ func (s *orderFactRowSaver) Save() (map[string]bigquery.Value, string, error) {
 		"currency":    s.rec.Currency,
 		"occurred_at": s.rec.OccurredAt,
 		"status":      s.rec.Status,
+	}
+	if s.rec.BuyerID != "" {
+		row["buyer_id"] = s.rec.BuyerID // absent -> NULL
 	}
 	return row, s.rec.EventID, nil
 }
