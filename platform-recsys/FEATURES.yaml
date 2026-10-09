@@ -303,7 +303,7 @@ features:
     tags: [recsys, recommendations, destructive]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
 
   - id: recsys.ssa-rollback-restores-vectors
     title: "Rollback restores the earlier model's vectors"
@@ -321,7 +321,7 @@ features:
     tags: [recsys, recommendations, destructive]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
 
   - id: recsys.mlr-nearline-recent-views
     title: "User recent views update nearline signals"
@@ -337,8 +337,9 @@ features:
       - "When a user views item A and then item B"
       - "Then the nearline layer records [B, A] in the user's recent items list in Redis and increments the category affinities"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-nearline-signals: recommendations/mlr_ml_recsys.feature::User recent views update nearline signals. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::User recent views update nearline signals"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::User recent views update nearline signals"
 
   - id: recsys.mlr-nearline-coview
     title: "Real-time item co-occurrence is tracked"
@@ -354,8 +355,9 @@ features:
       - "When multiple users view A and B within the same session"
       - "Then the co-view count between A and B is incremented in Redis"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-nearline-signals: recommendations/mlr_ml_recsys.feature::Real-time item co-occurrence is tracked. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Real-time item co-occurrence is tracked"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Real-time item co-occurrence is tracked"
 
   - id: recsys.mlr-nearline-generation-isolation
     title: "A generation switch leaves nearline keys alone"
@@ -371,8 +373,9 @@ features:
       - "When nearline keys exist and the recsys job promotes three generations in a row"
       - "Then the nearline keys are unchanged and keep their TTL"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-nearline-signals: recommendations/mlr_ml_recsys.feature::A generation switch leaves nearline keys alone. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A generation switch leaves nearline keys alone"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A generation switch leaves nearline keys alone"
 
   - id: recsys.mlr-drift-first-run
     title: "The first run has no drift baseline"
@@ -388,8 +391,9 @@ features:
       - "When the recsys job runs with an empty registry"
       - "Then the summary and model metadata report drift status no_baseline and the distribution is stored"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-drift-monitoring: recommendations/mlr_ml_recsys.feature::The first run has no drift baseline. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::The first run has no drift baseline"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::The first run has no drift baseline"
 
   - id: recsys.mlr-drift-second-run
     title: "A second run records its drift against the first"
@@ -405,8 +409,9 @@ features:
       - "When the recsys job runs twice on the same governed dataset"
       - "Then the second run's drift names the first as baseline with a PSI and level per feature, none flagged"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-drift-monitoring: recommendations/mlr_ml_recsys.feature::A second run records its drift against the first. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A second run records its drift against the first"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A second run records its drift against the first"
 
   - id: recsys.mlr-drift-flagged-still-promoted
     title: "A drifted run is flagged and still decided by the gate"
@@ -422,8 +427,9 @@ features:
       - "When the recsys job runs a second time with DRIFT_ALERT_THRESHOLD set to 0"
       - "Then every feature is flagged, the metadata carries the verdict and the run is promoted"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-drift-monitoring: recommendations/mlr_ml_recsys.feature::A drifted run is flagged and still decided by the gate. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A drifted run is flagged and still decided by the gate"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A drifted run is flagged and still decided by the gate"
 
   - id: recsys.mlr-drift-prometheus-file
     title: "A drift report is written as Prometheus text"
@@ -439,8 +445,9 @@ features:
       - "When the recsys job runs twice with DRIFT_METRICS_PATH set"
       - "Then the file holds recsys_feature_psi per feature and recsys_model_drift_alert"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "add-recsys-drift-monitoring: recommendations/mlr_ml_recsys.feature::A drift report is written as Prometheus text. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A drift report is written as Prometheus text"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A drift report is written as Prometheus text"
 
   - id: recsys.mlr-tt-indexes-vectors
     title: "Pipeline run indexes two-tower vectors and reports the count"
@@ -456,8 +463,9 @@ features:
       - "When pipeline.run() executes with the two-tower stage enabled over a sample catalog"
       - "Then the summary has two_tower_items greater than zero and the collection holds that many points"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::Pipeline run indexes two-tower vectors and reports the count. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Pipeline run indexes two-tower vectors and reports the count"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Pipeline run indexes two-tower vectors and reports the count"
 
   - id: recsys.mlr-tt-generation
     title: "Two-tower vectors carry the run generation"
@@ -473,8 +481,9 @@ features:
       - "When the two-tower stage loads vectors during three runs"
       - "Then every point carries its run's model_version and earlier generations' collections are pruned"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::Two-tower vectors carry the run generation. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Two-tower vectors carry the run generation"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Two-tower vectors carry the run generation"
 
   - id: recsys.mlr-tt-cold-start
     title: "Cold-start item receives a vector that ALS cannot produce"
@@ -490,8 +499,9 @@ features:
       - "When the catalog contains an item with no recorded interactions"
       - "Then it has a non-zero two-tower vector that differs from another item's, and no ALS vector"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::Cold-start item receives a vector that ALS cannot produce. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Cold-start item receives a vector that ALS cannot produce"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Cold-start item receives a vector that ALS cannot produce"
 
   - id: recsys.mlr-tt-trains
     title: "A run trains the towers on the dataset's pairs"
@@ -507,8 +517,9 @@ features:
       - "When the two-tower stage runs over a dataset with interactions"
       - "Then the summary reports first and last epoch loss and the metadata records pairs, epochs and feature snapshots"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::A run trains the towers on the dataset's pairs. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A run trains the towers on the dataset's pairs"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A run trains the towers on the dataset's pairs"
 
   - id: recsys.mlr-tt-missing-snapshots
     title: "Missing feature snapshots stop the run"
@@ -524,8 +535,9 @@ features:
       - "When the stage is enabled and no item_popularity snapshot exists"
       - "Then the job exits 2, its log names ITEM_FEATURES_DIR and no model is registered"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::Missing feature snapshots stop the run. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Missing feature snapshots stop the run"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Missing feature snapshots stop the run"
 
   - id: recsys.mlr-tt-degenerate-refused
     title: "A degenerate vector never reaches the vector store"
@@ -541,8 +553,9 @@ features:
       - "When the catalogue has an item with all-zero features and the towers are untrained"
       - "Then one refused vector is counted and the collection has no point for that item"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::A degenerate vector never reaches the vector store. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A degenerate vector never reaches the vector store"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A degenerate vector never reaches the vector store"
 
   - id: recsys.mlr-tt-disabled
     title: "Disabled stage leaves the ALS run unchanged"
@@ -558,8 +571,9 @@ features:
       - "When pipeline.run() executes with the two-tower stage disabled"
       - "Then the summary has no two-tower entries and no two-tower collection is written"
     tags: [recsys, recommendations, batch]
-    status: planned
-    notes: "wire-two-tower-batch-pipeline: recommendations/mlr_ml_recsys.feature::Disabled stage leaves the ALS run unchanged. needs rebuild: the platform-recsys image must be rebuilt (confluent-kafka, new stages) before this can run; flip to automated with covered_by once green."
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Disabled stage leaves the ALS run unchanged"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Disabled stage leaves the ALS run unchanged"
 
   - id: recsys.mlr-nearline-redelivery-stale
     title: "Redelivered and stale events change nothing"

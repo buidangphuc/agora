@@ -542,7 +542,7 @@ features:
     tags: [analytics, order, integration]
     status: automated
     covered_by: "analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
-    notes: "needs rebuild green after rebuild: analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
+    notes: "green after rebuild: analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
 
   - id: analytics.recs-paid-order-attributed
     title: "A purchase after a recommended click is attributed"
@@ -559,7 +559,7 @@ features:
     tags: [recommendations, analytics, admin, integration]
     status: automated
     covered_by: "analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
-    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
 
   - id: analytics.recs-purchase-beacon-ignored
     title: "A purchase beacon without an order is not counted"
@@ -576,7 +576,7 @@ features:
     tags: [recommendations, analytics, admin, integration]
     status: automated
     covered_by: "analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
-    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
 
   - id: analytics.recs-foreign-click-ignored
     title: "A click on a listing the impression did not show is not counted"
@@ -593,7 +593,7 @@ features:
     tags: [recommendations, analytics, admin, integration]
     status: automated
     covered_by: "analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
-    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
 
   - id: analytics.recs-reused-impression-id
     title: "A reused impression id keeps its placements and models apart"
@@ -610,7 +610,7 @@ features:
     tags: [recommendations, analytics, admin, integration]
     status: automated
     covered_by: "analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
-    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
 
   - id: analytics.recs-open-window-rate
     title: "A conversion on a still-open attribution window is left out of the rate"
@@ -627,4 +627,4 @@ features:
     tags: [recommendations, analytics, admin, integration]
     status: automated
     covered_by: "analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
-    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"

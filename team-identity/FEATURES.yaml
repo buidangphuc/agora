@@ -506,7 +506,7 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_order_admin.feature::An admin token carries order.admin"
-    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::An admin token carries order.admin"
+    notes: "green after rebuild: security/ar2_order_admin.feature::An admin token carries order.admin"
 
   - id: auth.ar2-buyer-seller-no-order-admin
     title: "Buyer and seller tokens carry no order.admin"
@@ -525,4 +525,4 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
-    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
+    notes: "green after rebuild: security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"

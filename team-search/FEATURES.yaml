@@ -753,13 +753,9 @@ features:
       - "When the listing event has been indexed"
       - "Then `SearchListings` with the filter `tag.connectivity` = `bluetooth-5-3` returns the listing, and the same search with `tag.connectivity` = `wifi-6` does not"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: search/search_dynamic_facets.feature (scenario "Listing Events Index SPU Tags").
-      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
-      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
-      Written before the code is deployed; the integrator flips this to automated once green.
+    status: automated
+    covered_by: "search/search_dynamic_facets.feature::Listing Events Index SPU Tags"
+    notes: "green after rebuild: search/search_dynamic_facets.feature::Listing Events Index SPU Tags"
   - id: search.mls-sku-filters-single-variant
     title: "SKU Filters Match One Variant, Not Across Variants"
     persona: buyer
@@ -776,13 +772,9 @@ features:
       - "When a buyer searches with `sku.color` = `xanh-navy` and `sku.capacity` = `512gb`"
       - "Then only the first listing is returned"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: search/search_dynamic_facets.feature (scenario "SKU Filters Match One Variant, Not Across Variants").
-      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
-      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
-      Written before the code is deployed; the integrator flips this to automated once green.
+    status: automated
+    covered_by: "search/search_dynamic_facets.feature::SKU Filters Match One Variant, Not Across Variants"
+    notes: "green after rebuild: search/search_dynamic_facets.feature::SKU Filters Match One Variant, Not Across Variants"
   - id: search.mls-sku-filters-in-stock-only
     title: "Sold-Out Variants Do Not Satisfy SKU Filters"
     persona: buyer
@@ -799,13 +791,9 @@ features:
       - "When a buyer searches with `sku.color` = `xanh-navy` and `sku.capacity` = `512gb`"
       - "Then only the listing whose matching variant is in stock is returned"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: search/search_dynamic_facets.feature (scenario "Sold-Out Variants Do Not Satisfy SKU Filters").
-      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
-      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
-      Written before the code is deployed; the integrator flips this to automated once green.
+    status: automated
+    covered_by: "search/search_dynamic_facets.feature::Sold-Out Variants Do Not Satisfy SKU Filters"
+    notes: "green after rebuild: search/search_dynamic_facets.feature::Sold-Out Variants Do Not Satisfy SKU Filters"
   - id: search.mls-facet-filters-rejected
     title: "Malformed Facet Filters Are Rejected"
     persona: buyer
@@ -821,13 +809,9 @@ features:
       - "When a buyer calls `SearchListings` with the filter `sku.Colour Name` = `x` or `tag.color` = `den:other`"
       - "Then the call fails with `invalid_argument` and no search is run"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: search/search_dynamic_facets.feature (scenario "Malformed Facet Filters Are Rejected").
-      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
-      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
-      Written before the code is deployed; the integrator flips this to automated once green.
+    status: automated
+    covered_by: "search/search_dynamic_facets.feature::Malformed Facet Filters Are Rejected"
+    notes: "green after rebuild: search/search_dynamic_facets.feature::Malformed Facet Filters Are Rejected"
   - id: search.mls-dynamic-facets-in-response
     title: "Search Response Carries Dynamic Facets"
     persona: buyer
@@ -844,13 +828,9 @@ features:
       - "When a buyer searches for their keyword through the gateway"
       - "Then `facets.tags` lists a `connectivity` group with the `bluetooth-5-3` bucket and `facets.skus` lists `color` and `capacity` groups, each bucket counting listings"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: search/search_dynamic_facets.feature (scenario "Search Response Carries Dynamic Facets").
-      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
-      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
-      Written before the code is deployed; the integrator flips this to automated once green.
+    status: automated
+    covered_by: "search/search_dynamic_facets.feature::Search Response Carries Dynamic Facets"
+    notes: "green after rebuild: search/search_dynamic_facets.feature::Search Response Carries Dynamic Facets"
   - id: search.mls-dynamic-facet-ui
     title: "Selecting a Dynamic Facet Narrows Results and Reflects in the URL"
     persona: buyer
@@ -867,13 +847,9 @@ features:
       - "When a buyer opens `/search` for that keyword and selects the `xanh-navy` bucket of the color facet"
       - "Then the URL contains `sku.color=xanh-navy`, only listings with an in-stock navy variant remain, and the selected value is shown as an active filter chip"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: frontend/search_dynamic_facets.feature (scenario "Selecting a Dynamic Facet Narrows Results and Reflects in the URL").
-      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
-      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
-      Written before the code is deployed; the integrator flips this to automated once green.
+    status: automated
+    covered_by: "frontend/search_dynamic_facets.feature::Selecting a Dynamic Facet Narrows Results and Reflects in the URL"
+    notes: "green after rebuild: frontend/search_dynamic_facets.feature::Selecting a Dynamic Facet Narrows Results and Reflects in the URL"
 
   - id: search.mls-tag-classification-is-not-reachable-at-the-edge
     title: "Tag Classification Is Not Reachable At The Edge"
@@ -890,11 +866,9 @@ features:
       - "When an anonymous caller and a signed-in buyer call `/platform.ai.v1.AIService/ClassifyTags` through the gateway"
       - "Then both calls fail with `unimplemented` (HTTP 501) and no classification is returned"
     tags: [buyer, search]
-    status: planned
-    covered_by: null
-    notes: >-
-      Feature file: search/search_dynamic_facets.feature (scenario "Tag Classification Is Not Reachable At The Edge").
-      Needs rebuild: team-gateway (regenerated AIService with ClassifyTags). Unit pin: team-gateway TestInternalRPCsAreNotRoutedAtTheEdge.
+    status: automated
+    covered_by: "search/search_dynamic_facets.feature::Tag Classification Is Not Reachable At The Edge"
+    notes: "green after rebuild: search/search_dynamic_facets.feature::Tag Classification Is Not Reachable At The Edge"
 
   - id: search.mls-classifier-outage-does-not-block-indexing
     title: "Classifier Outage Does Not Block Indexing"

@@ -830,7 +830,7 @@ features:
     tags: [recsys, recommendations, destructive]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
 
   - id: ai.ssa-alias-ahead-of-pointer
     title: "An alias ahead of the pointer does not change what is served"
@@ -848,7 +848,7 @@ features:
     tags: [recsys, recommendations, destructive]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
 
   - id: ai.ssa-alias-behind-pointer
     title: "An alias behind the pointer does not change what is served"
@@ -866,7 +866,7 @@ features:
     tags: [recsys, recommendations, destructive]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
 
   - id: ai.ssa-no-pointer-uses-alias
     title: "Without a pointer the alias is used"
@@ -884,7 +884,7 @@ features:
     tags: [recsys, recommendations, destructive]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
 
   - id: ai.ssa-no-listing-credentials
     title: "The team-ai container does not hold listing's credentials"
@@ -902,7 +902,7 @@ features:
     tags: [recsys, recommendations]
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
-    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
 
   - id: ai.aci-created-indexed
     title: "Created listing is indexed into RAG"
@@ -1063,9 +1063,9 @@ features:
       - "Then a Recommend call through the gateway ranks the second above the first"
       - "And with no nearline row for either, the order is the candidates' own order"
     tags: [recsys, recommendations]
-    status: planned
-    covered_by: null
-    notes: "add-recsys-nearline-signals: recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer. Needs rebuild (team-ai image with RedisNearlineStore) and compose RECS_NEARLINE_REDIS_URL=redis://redis:6379/0 before this can run"
+    status: automated
+    covered_by: "recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer"
+    notes: "green after rebuild: recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer"
 
   - id: ai.mla-debiased-changes-score
     title: "Debiased value changes the ranking score"
@@ -1081,9 +1081,9 @@ features:
       - "When two candidates have equal model scores and equal raw click-through but the second's clicks came from worse positions"
       - "Then the second ranks above the first in the Recommend response"
     tags: [recsys, recommendations]
-    status: planned
-    covered_by: null
-    notes: "wire-debiased-ctr-ranker-features: recommendations/nearline_ctr.feature::Debiased value changes the ranking score. Needs rebuild and compose RECS_NEARLINE_REDIS_URL=redis://redis:6379/0 before this can run"
+    status: automated
+    covered_by: "recommendations/nearline_ctr.feature::Debiased value changes the ranking score"
+    notes: "green after rebuild: recommendations/nearline_ctr.feature::Debiased value changes the ranking score"
 
   - id: ai.mla-outage-served
     title: "Nearline outage leaves the request served"

@@ -37,7 +37,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/feature_materialization.feature::A buyer's activity becomes features"
-    notes: "needs rebuild green after rebuild: featurestore/feature_materialization.feature::A buyer's activity becomes features"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::A buyer's activity becomes features"
 
   - id: featurestore.as-of-exclusion
     title: "Events after AS_OF are not used"
@@ -54,7 +54,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/feature_materialization.feature::Events after AS_OF are not used"
-    notes: "needs rebuild green after rebuild: featurestore/feature_materialization.feature::Events after AS_OF are not used"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::Events after AS_OF are not used"
 
   - id: featurestore.snapshot-and-manifest
     title: "A run leaves a snapshot and a manifest"
@@ -88,7 +88,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/feature_materialization.feature::The online store says how fresh it is"
-    notes: "needs rebuild green after rebuild: featurestore/feature_materialization.feature::The online store says how fresh it is"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::The online store says how fresh it is"
 
   - id: featurestore.parity-tamper
     title: "A tampered online value fails the parity check"
@@ -105,7 +105,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/feature_materialization.feature::A tampered online value fails the parity check"
-    notes: "needs rebuild green after rebuild: featurestore/feature_materialization.feature::A tampered online value fails the parity check"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::A tampered online value fails the parity check"
 
   - id: featurestore.dataset-weighted-row
     title: "A buyer's views and favourite become one weighted row"
@@ -190,7 +190,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/order_features.feature::A paid order becomes a user feature"
-    notes: "needs rebuild green after rebuild: featurestore/order_features.feature::A paid order becomes a user feature"
+    notes: "green after rebuild: featurestore/order_features.feature::A paid order becomes a user feature"
 
   - id: featurestore.paid-orders-window
     title: "Only orders in the 30 days before AS_OF count"
@@ -207,7 +207,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/order_features.feature::Only orders in the 30 days before AS_OF count"
-    notes: "needs rebuild green after rebuild: featurestore/order_features.feature::Only orders in the 30 days before AS_OF count"
+    notes: "green after rebuild: featurestore/order_features.feature::Only orders in the 30 days before AS_OF count"
 
   - id: featurestore.paid-orders-multiline
     title: "A multi-line order counts once"
@@ -224,7 +224,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/order_features.feature::A multi-line order counts once"
-    notes: "needs rebuild green after rebuild: featurestore/order_features.feature::A multi-line order counts once"
+    notes: "green after rebuild: featurestore/order_features.feature::A multi-line order counts once"
 
   - id: featurestore.paid-orders-no-buyer
     title: "An order without a buyer counts for nobody"
@@ -241,7 +241,7 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/order_features.feature::An order without a buyer counts for nobody"
-    notes: "needs rebuild green after rebuild: featurestore/order_features.feature::An order without a buyer counts for nobody"
+    notes: "green after rebuild: featurestore/order_features.feature::An order without a buyer counts for nobody"
 
   - id: featurestore.paid-orders-parity
     title: "A tampered order count fails the parity check"
@@ -258,4 +258,4 @@ features:
     tags: [analytics, batch, integration]
     status: automated
     covered_by: "featurestore/order_features.feature::A tampered order count fails the parity check"
-    notes: "needs rebuild green after rebuild: featurestore/order_features.feature::A tampered order count fails the parity check"
+    notes: "green after rebuild: featurestore/order_features.feature::A tampered order count fails the parity check"

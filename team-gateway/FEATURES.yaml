@@ -701,7 +701,7 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
-    notes: "needs rebuild green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
+    notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
 
   - id: edge.ar2-stream-ends-on-session-revoke
     title: "A stream is ended when its session is revoked"
@@ -720,7 +720,7 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
-    notes: "needs rebuild green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
+    notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
 
   - id: edge.ar2-stream-finishing-before-expiry-unaffected
     title: "A stream that finishes before expiry is unaffected"
@@ -739,4 +739,4 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
-    notes: "needs rebuild green after rebuild: security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
+    notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"

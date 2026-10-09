@@ -1546,7 +1546,7 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
-    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
+    notes: "green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
 
   - id: order.ar2-admin-without-order-admin-cannot-read-saga
     title: "An admin token without order.admin cannot read another user's saga"
@@ -1566,7 +1566,7 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
-    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
+    notes: "green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
 
   - id: order.ar2-admin-can-read-saga
     title: "The admin can still read another user's saga"
@@ -1586,7 +1586,7 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_order_admin.feature::The admin can still read another user's saga"
-    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::The admin can still read another user's saga"
+    notes: "green after rebuild: security/ar2_order_admin.feature::The admin can still read another user's saga"
 
   - id: order.ar2-buyer-cannot-force-fail-other-buyer
     title: "A buyer cannot force-fail another buyer's order"
@@ -1606,4 +1606,4 @@ features:
     tags: [security]
     status: automated
     covered_by: "security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
-    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
+    notes: "green after rebuild: security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
