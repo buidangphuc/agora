@@ -93,7 +93,14 @@ def rss_first_items_of_popular(world: World) -> None:
 )
 def rss_boot_memory(world: World) -> None:
     env = _env("production")
-    env.update(RECS_ENABLED="true", RECS_BACKEND="memory")
+    # _env (apr_boot_steps) turns on the memory gRPC rate limiter to test that guard; switch it
+    # and the llm_router path off so only the RECS_BACKEND guard can refuse this boot.
+    env.update(
+        GRPC_RATE_LIMIT_ENABLED="false",
+        CHAT_BACKEND="mock",
+        RECS_ENABLED="true",
+        RECS_BACKEND="memory",
+    )
     name, cmd = _docker_run(world, env, "--rm")
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
@@ -126,10 +133,14 @@ def rss_run_grpc(world: World) -> None:
     }
     port = env.get("GRPC_PORT", "50060")
     args = ["run", "-d", "--name", name, "--network", pe.stack_network()]
+    # The image ships only the app (scripts/ is a dev tool); mount the repo's scripts so the
+    # real run_grpc.py runs against the image's code and dependencies.
+    args += ["-v", f"{pe.REPO_ROOT / 'team-ai' / 'scripts'}:/app/scripts:ro"]
     for key, value in env.items():
         args += ["-e", f"{key}={value}"]
     world.add_cleanup(lambda: pe.docker("rm", "-f", name, check=False))
-    pe.docker(*args, _image(), "python", "scripts/run_grpc.py")
+    # Same invocation as `make grpc` (a module run, so /app is on sys.path).
+    pe.docker(*args, _image(), "python", "-m", "scripts.run_grpc")
     addr = f"{name}:{port}"
     base = pe.private_gateway(
         world, {"UPSTREAM_RECOMMENDATION_ADDR": addr, "UPSTREAM_AI_ADDR": addr}
