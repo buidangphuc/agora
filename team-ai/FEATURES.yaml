@@ -903,3 +903,276 @@ features:
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
     notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+
+  - id: ai.aci-created-indexed
+    title: "Created listing is indexed into RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged CREATED/UPDATED event arrives on listing.events"
+      - "Then the listing is retrievable in the RAG store"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. The RAG store has no gateway-reachable read path (openspec/changes/add-ai-content-indexer/design.md)."
+
+  - id: ai.aci-deleted-removed
+    title: "Deleted listing is removed from RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged DELETED event arrives on listing.events"
+      - "Then the listing's documents are removed from the RAG store"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+
+  - id: ai.aci-unpublished-removed
+    title: "Unpublished listing is removed from RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged event carries a DRAFT or REJECTED listing"
+      - "Then the listing is removed from the RAG store instead of indexed"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+
+  - id: ai.aci-redelivered-once
+    title: "Redelivered event is applied once"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the same event or an older event for a listing is delivered again"
+      - "Then it causes no second index or delete"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Redelivery cannot be forced through the gateway."
+
+  - id: ai.aci-failing-parked
+    title: "A failing event is retried and then parked"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When indexing keeps failing or the record is undecodable"
+      - "Then it is retried, parked on listing.events.dlq and committed; an unparkable record is not committed"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Needs fault injection the stack does not expose."
+
+  - id: ai.aci-consumer-lifecycle
+    title: "The consumer runs with the application"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When LISTING_INDEXER_ENABLED and RAG_ENABLED are true"
+      - "Then startup starts the consumer, a crash restarts it and shutdown stops it"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Effect only visible in the RAG store."
+
+  - id: ai.wsg-gbdt-ordering
+    title: "GBDT placement produces ranker ordering, not cosine ordering"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then gBDT placement produces ranker ordering, not cosine ordering"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. The gateway wire carries no explain/status."
+
+  - id: ai.wsg-cosine-ordering
+    title: "Placement without a GBDT model keeps retrieval ordering"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then placement without a GBDT model keeps retrieval ordering"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. The gateway wire carries no explain/status."
+
+  - id: ai.wsg-featurestore-count
+    title: "Enrichment count proves the feature store was read"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then enrichment count proves the feature store was read"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire; the order effect is covered by recommendations/serving_safeguards.feature."
+
+  - id: ai.wsg-unbound-startup
+    title: "Unbound ranking model fails at startup"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then unbound ranking model fails at startup"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. Needs a placement file edit and a restart."
+
+  - id: ai.wsg-ranker-degrades
+    title: "Ranker failure falls back and marks degraded"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then ranker failure falls back and marks degraded"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. Needs a failing ranker in the running service; status is not on the wire."
+
+  - id: ai.wsg-factory-binds
+    title: "A factory-built service honours use_featurestore and gbdt"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then a factory-built service honours use_featurestore and gbdt"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire."
+
+  - id: ai.mla-serving-ranks-nearline
+    title: "Serving ranks with the nearline CTR written by the consumer"
+    persona: buyer
+    priority: P1
+    summary: "Serving ranks with the nearline CTR written by the consumer"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the nearline CTR hash (recs:nearline:ctr:<id>) and the buyer's user list in the stack Redis DB 0; keys are unique/restored."
+    acceptance:
+      - "When two home-feed candidates have equal model scores and only the second has a nearline CTR in Redis"
+      - "Then a Recommend call through the gateway ranks the second above the first"
+      - "And with no nearline row for either, the order is the candidates' own order"
+    tags: [recsys, recommendations]
+    status: planned
+    covered_by: null
+    notes: "add-recsys-nearline-signals: recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer. Needs rebuild (team-ai image with RedisNearlineStore) and compose RECS_NEARLINE_REDIS_URL=redis://redis:6379/0 before this can run"
+
+  - id: ai.mla-debiased-changes-score
+    title: "Debiased value changes the ranking score"
+    persona: buyer
+    priority: P1
+    summary: "Debiased value changes the ranking score"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the nearline CTR hash (recs:nearline:ctr:<id>) and the buyer's user list in the stack Redis DB 0; keys are unique/restored."
+    acceptance:
+      - "When two candidates have equal model scores and equal raw click-through but the second's clicks came from worse positions"
+      - "Then the second ranks above the first in the Recommend response"
+    tags: [recsys, recommendations]
+    status: planned
+    covered_by: null
+    notes: "wire-debiased-ctr-ranker-features: recommendations/nearline_ctr.feature::Debiased value changes the ranking score. Needs rebuild and compose RECS_NEARLINE_REDIS_URL=redis://redis:6379/0 before this can run"
+
+  - id: ai.mla-outage-served
+    title: "Nearline outage leaves the request served"
+    persona: buyer
+    priority: P1
+    summary: "Nearline outage leaves the request served"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline outage leaves the request served"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/add-recsys-nearline-signals/specs. Needs the stack Redis (also the serving cache) to fail; status is not on the wire."
+
+  - id: ai.mla-equal-raw-ctr
+    title: "Equal raw CTR, worse positions, higher debiased CTR"
+    persona: buyer
+    priority: P1
+    summary: "Equal raw CTR, worse positions, higher debiased CTR"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then equal raw CTR, worse positions, higher debiased CTR"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. The feature vector is not on the wire; the ordering effect is e2e scenario Debiased value changes the ranking score."
+
+  - id: ai.mla-source-present
+    title: "Nearline data present"
+    persona: buyer
+    priority: P1
+    summary: "Nearline data present"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline data present"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. ctr_source is not on the gateway wire."
+
+  - id: ai.mla-source-absent
+    title: "Nearline data absent"
+    persona: buyer
+    priority: P1
+    summary: "Nearline data absent"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline data absent"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. ctr_source is not on the gateway wire."
+
+  - id: ai.mla-serving-enriches
+    title: "Serving request enriches from nearline"
+    persona: buyer
+    priority: P1
+    summary: "Serving request enriches from nearline"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then serving request enriches from nearline"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. explain is not on the gateway wire; the effect is e2e scenario Debiased value changes the ranking score."
+
+  - id: ai.wsg-registry-features
+    title: "Registry feature names drive the ranking and defaults are counted"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When candidates' online rows carry the registry names, or only names the registry does not declare"
+      - "Then the registry values reach the ranker and defaulted features are counted without failing the request"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/recommend/test_item_feature_contract.py. explain is not on the gateway wire."

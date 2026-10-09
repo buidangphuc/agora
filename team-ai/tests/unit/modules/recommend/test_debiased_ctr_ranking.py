@@ -60,7 +60,7 @@ def test_ctr_source_provenance_nearline_vs_fallback():
     # 1. Nearline present
     nearline = InMemoryNearlineStore({"item_tested": 0.08})
     vec_nearline, source_nearline = ranker._extract_vector(
-        cand, query, item_feat={"historical_ctr": 0.02}, nearline_store=nearline
+        cand, query, item_feat={"ctr_7d": 0.02}, nearline_store=nearline
     )
     assert source_nearline == "nearline"
     assert vec_nearline[5] == 0.08
@@ -68,7 +68,7 @@ def test_ctr_source_provenance_nearline_vs_fallback():
     # 2. Nearline absent
     nearline_empty = InMemoryNearlineStore()
     vec_fallback, source_fallback = ranker._extract_vector(
-        cand, query, item_feat={"historical_ctr": 0.02}, nearline_store=nearline_empty
+        cand, query, item_feat={"ctr_7d": 0.02}, nearline_store=nearline_empty
     )
     assert source_fallback == "fallback"
     assert vec_fallback[5] == 0.02
@@ -108,3 +108,42 @@ def test_serving_path_enriches_from_nearline():
         assert result.items[0].listing_id == "item_b"
 
     asyncio.run(_run())
+
+
+def test_ranked_items_carry_the_ctr_source_of_their_feature_vector():
+    ranker = GBDTRankerAdapter()
+    query = RecommendQuery(placement_id="home_feed")
+    cands = [
+        Candidate(listing_id="with_nearline", score=0.8),
+        Candidate(listing_id="without_nearline", score=0.8),
+    ]
+    nearline = InMemoryNearlineStore({"with_nearline": 0.09})
+
+    ranked = ranker.rank_candidates(
+        candidates=cands,
+        query=query,
+        item_features_map={"without_nearline": {"ctr_7d": 0.02}},
+        nearline_store=nearline,
+        limit=2,
+    )
+
+    assert {i.listing_id: i.ctr_source for i in ranked} == {
+        "with_nearline": "nearline",
+        "without_nearline": "fallback",
+    }
+
+
+def test_extract_features_records_source_and_keeps_the_prior_value_on_fallback():
+    ranker = GBDTRankerAdapter()
+    query = RecommendQuery(placement_id="home_feed")
+    cand = Candidate(listing_id="x", score=0.5)
+
+    present = ranker.extract_features(
+        cand, query, {"ctr_7d": 0.02}, InMemoryNearlineStore({"x": 0.07})
+    )
+    absent = ranker.extract_features(
+        cand, query, {"ctr_7d": 0.02}, InMemoryNearlineStore()
+    )
+
+    assert (present.ctr_source, present.values[5]) == ("nearline", 0.07)
+    assert (absent.ctr_source, absent.values[5]) == ("fallback", 0.02)

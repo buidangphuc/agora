@@ -28,6 +28,7 @@ class BootstrapAddon(Protocol):
 def default_resource_addons() -> tuple[BootstrapAddon, ...]:
     from app.modules.ai.rag.factory import RagAddon
     from app.modules.business.recommend.factory import RecommendAddon
+    from app.modules.messaging.indexer.factory import ListingIndexerAddon
     from app.modules.messaging.outbox.factory import OutboxAddon
     from app.modules.messaging.webhooks.factory import WebhookAddon
     from app.modules.platform.cache.factory import CacheAddon
@@ -47,5 +48,6 @@ def default_resource_addons() -> tuple[BootstrapAddon, ...]:
         OutboxAddon(),
         WebhookAddon(),
         RagAddon(),
+        ListingIndexerAddon(),
         RecommendAddon(),
     )

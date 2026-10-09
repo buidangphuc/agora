@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 from app.core.errors import ServiceUnavailableError
+from app.modules.business.recommend.features import missing_item_features
 from app.modules.business.recommend.placement_config import PlacementRegistry
 from app.modules.business.recommend.ranking import (
     CosineRankerAdapter,
@@ -21,6 +23,8 @@ from app.modules.business.recommend.ranking import (
     InMemoryFeatureStore,
     InMemoryNearlineStore,
     NearlineSignalPort,
+    NearlineSnapshot,
+    NearlineSourcePort,
     RankerPort,
     rank_and_filter,
 )
@@ -83,9 +87,33 @@ def apply_online_features(
     if limit > 0:
         boosted = boosted[:limit]
     return [
-        RecommendedItem(listing_id=item.listing_id, score=score, rank=rank)
+        RecommendedItem(
+            listing_id=item.listing_id,
+            score=score,
+            rank=rank,
+            ctr_source=item.ctr_source,
+        )
         for rank, (item, score) in enumerate(boosted, start=1)
     ]
+
+
+def _ctr_sources(items: list[RecommendedItem]) -> dict[str, int]:
+    """How many returned items had their CTR feature from each source (GBDT only)."""
+    counts: dict[str, int] = {}
+    for item in items:
+        if item.ctr_source:
+            counts[item.ctr_source] = counts.get(item.ctr_source, 0) + 1
+    return counts
+
+
+@dataclass(frozen=True)
+class RankOutcome:
+    items: list[RecommendedItem]
+    status: str  # "ok" | "degraded"
+    featurestore_hits: int
+    source: str  # "gbdt" | "cosine" | "degraded_cosine"
+    nearline_hits: int = 0
+    feature_defaults: int = 0
 
 
 class RecommendationService:
@@ -96,8 +124,9 @@ class RecommendationService:
         cache: PrecomputedCache,
         registry: PlacementRegistry | None = None,
         feature_store: FeatureStorePort | None = None,
-        nearline_store: NearlineSignalPort | None = None,
+        nearline_store: NearlineSignalPort | NearlineSourcePort | None = None,
         ranker: RankerPort | None = None,
+        nearline_timeout_ms: int = 20,
         candidate_top_k: int = 100,
         result_top_k: int = 10,
         retrieve_timeout_ms: int = 25,
@@ -109,7 +138,10 @@ class RecommendationService:
         self._cache = cache
         self._registry = registry or PlacementRegistry()
         self._feature_store = feature_store or InMemoryFeatureStore()
+        # Reported as ``nearline_enabled``: true only when a store was supplied.
+        self._nearline_enabled = nearline_store is not None
         self._nearline_store = nearline_store or InMemoryNearlineStore()
+        self._nearline_timeout_s = nearline_timeout_ms / 1000
         self._gbdt_ranker = ranker or GBDTRankerAdapter()
         self._cosine_ranker = CosineRankerAdapter()
         self._candidate_top_k = candidate_top_k
@@ -260,13 +292,9 @@ class RecommendationService:
             )
 
             if len(candidates) >= min_candidates:
-                (
-                    items,
-                    rank_status,
-                    hit_count,
-                    rank_source,
-                ) = await self._rank_candidates(candidates, query, config, limit)
-                if rank_status == "degraded":
+                ranked = await self._rank_candidates(candidates, query, config, limit)
+                items = ranked.items
+                if ranked.status == "degraded":
                     status = "degraded"
 
                 if items:
@@ -280,9 +308,12 @@ class RecommendationService:
                             "latency_ms": round(elapsed_ms, 2),
                             "ladder_traversed": ladder_history,
                             "ranking_model": config.ranking_model,
-                            "ranking_source": rank_source,
-                            "featurestore_hit_count": hit_count,
-                            "nearline_enabled": self._nearline_store is not None,
+                            "ranking_source": ranked.source,
+                            "featurestore_hit_count": ranked.featurestore_hits,
+                            "nearline_hit_count": ranked.nearline_hits,
+                            "feature_defaults": ranked.feature_defaults,
+                            "ctr_sources": _ctr_sources(items),
+                            "nearline_enabled": self._nearline_enabled,
                             "status": status,
                         }
                     return self._result(
@@ -310,7 +341,10 @@ class RecommendationService:
                 "ranking_model": "cosine_rank",
                 "ranking_source": "cosine",
                 "featurestore_hit_count": 0,
-                "nearline_enabled": self._nearline_store is not None,
+                "nearline_hit_count": 0,
+                "feature_defaults": 0,
+                "ctr_sources": {},
+                "nearline_enabled": self._nearline_enabled,
                 "status": "fallback",
             }
         return self._result(
@@ -330,7 +364,7 @@ class RecommendationService:
         query: RecommendQuery,
         config: Any,
         limit: int,
-    ) -> tuple[list[RecommendedItem], str, int, str]:
+    ) -> RankOutcome:
         """Rank candidates using configured ranking model with FeatureStore & Nearline enrichment."""
         item_features: dict[str, dict[str, Any]] = {}
         hit_count = 0
@@ -349,7 +383,7 @@ class RecommendationService:
                 logger.warning(
                     "Feature store lookup failed: {}, degrading to cosine", exc
                 )
-                return (
+                return RankOutcome(
                     rank_and_filter(candidates, query, limit),
                     "degraded",
                     0,
@@ -360,28 +394,62 @@ class RecommendationService:
         # candidate and apply_online_features cuts to ``limit`` after the boost.
         rank_limit = 0 if item_features else limit
         if ranking_model == "gbdt":
+            nearline = await self._nearline_for(candidates)
             try:
                 ranked = self._gbdt_ranker.rank_candidates(
                     candidates=candidates,
                     query=query,
                     item_features_map=item_features,
-                    nearline_store=self._nearline_store,
+                    nearline_store=nearline,
                     limit=rank_limit,
                 )
                 ranked = apply_online_features(ranked, item_features, limit)
-                return ranked, "ok", hit_count, "gbdt"
+                return RankOutcome(
+                    ranked,
+                    "ok",
+                    hit_count,
+                    "gbdt",
+                    nearline_hits=len(nearline)
+                    if isinstance(nearline, NearlineSnapshot)
+                    else 0,
+                    feature_defaults=sum(
+                        len(missing_item_features(row))
+                        for row in item_features.values()
+                    ),
+                )
             except Exception as exc:
                 logger.warning("GBDT ranker failed: {}, degrading to cosine", exc)
-                return (
+                return RankOutcome(
                     rank_and_filter(candidates, query, limit),
                     "degraded",
                     hit_count,
                     "degraded_cosine",
                 )
-        else:
-            ranked = rank_and_filter(candidates, query, rank_limit)
-            ranked = apply_online_features(ranked, item_features, limit)
-            return ranked, "ok", hit_count, "cosine"
+        ranked = rank_and_filter(candidates, query, rank_limit)
+        ranked = apply_online_features(ranked, item_features, limit)
+        return RankOutcome(ranked, "ok", hit_count, "cosine")
+
+    async def _nearline_for(
+        self, candidates: list[Candidate]
+    ) -> NearlineSignalPort | None:
+        """The request's nearline signals: read once for all candidates, never fatal.
+
+        A source with the async batch read (the Redis store) is read here, within
+        ``nearline_timeout_ms``, into a snapshot the sync ranker consumes; a failure or
+        timeout leaves an empty snapshot, i.e. ranking on its prior ``ctr_7d``.
+        A plain sync store (the in-memory one) is handed to the ranker as is.
+        """
+        store = self._nearline_store
+        batch = getattr(store, "get_debiased_ctr_batch", None)
+        if batch is None:
+            return store  # type: ignore[return-value]
+        ids = list({c.listing_id for c in candidates if c.listing_id})
+        try:
+            ctrs = await asyncio.wait_for(batch(ids), timeout=self._nearline_timeout_s)
+        except Exception as exc:  # includes TimeoutError: nearline is optional
+            logger.warning("recs.nearline.unavailable err={}", exc)
+            ctrs = {}
+        return NearlineSnapshot(ctrs)
 
     async def _retrieve_similar(self, seed_listing_id: str) -> list[Candidate]:
         try:

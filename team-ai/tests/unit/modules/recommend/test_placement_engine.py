@@ -80,17 +80,13 @@ def test_home_feed_personalized_gbdt_and_featurestore_hit_count():
         fs = InMemoryFeatureStore(
             {
                 "item_gbdt_favored": {
-                    "category_match": 1.0,
-                    "historical_ctr": 0.15,
-                    "conversion_rate": 0.08,
-                    "popularity_score": 90.0,
+                    "ctr_7d": 0.15,
+                    "views_7d": 900,
+                    "clicks_7d": 135,
+                    "add_to_cart_7d": 40,
+                    "favorites_current": 30,
                 },
-                "item_cos_high": {
-                    "category_match": 0.0,
-                    "historical_ctr": 0.01,
-                    "conversion_rate": 0.005,
-                    "popularity_score": 10.0,
-                },
+                "item_cos_high": {"ctr_7d": 0.01, "views_7d": 10, "clicks_7d": 0},
             }
         )
 
