@@ -4588,9 +4588,10 @@ features:
     acceptance:
       - "When the order list request fails"
       - "Then an `Alert` with an error message and a \"Thử lại\" action is shown instead of the empty state"
-    tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs ListBuyerOrders to fail. Covered by the Vitest app/(shop)/account/orders/(list)/page.test.tsx."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_orders.feature::A failed load shows an Alert with retry"
+    notes: "@destructive: stops team-order, restores it in teardown; passed twice serially. The retry is a same-URL Link served from Next's 30 s router cache, so the step retries until the page recovers (a click right after the outage keeps the cached error)."
 
   - id: uior.loading-does-not-shift-layout
     title: "Loading does not shift layout"
@@ -4831,9 +4832,10 @@ features:
     acceptance:
       - "When the order request fails with a non-permission, non-not-found error"
       - "Then an `Alert` with a \"Thử lại\" action is shown, and not a 404"
-    tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs GetOrder to fail with a non-permission error. Covered by the Vitest app/(shop)/account/orders/[id]/page.test.tsx."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_orders.feature::A transport failure offers retry"
+    notes: "@destructive: stops team-order, restores it in teardown; passed twice serially (same retry-until-recovered step as the list)."
 
   - id: uior.thumbnails-reserve-their-box
     title: "Thumbnails reserve their box"
