@@ -624,6 +624,591 @@ features:
     status: automated
     covered_by: "frontend/ui_token_gates.feature::The quality gate is green"
 
+  - id: account.the-menu-reflects-the-url
+    title: "The menu reflects the URL"
+    persona: buyer
+    priority: P2
+    summary: "The menu reflects the URL"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer opens `/account/security`"
+      - "Then the \"Bảo mật\" menu item has `aria-current=\"page\"`, the others do not, and the `h1` is \"Bảo mật tài khoản\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::The menu reflects the URL"
+
+  - id: account.menu-navigation-is-a-real-navigation
+    title: "Menu navigation is a real navigation"
+    persona: buyer
+    priority: P2
+    summary: "Menu navigation is a real navigation"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks \"Xác minh\" in the menu and then uses the browser Back button"
+      - "Then the URL becomes `/account/verification` and Back returns to `/account/security` with that page re-rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::Menu navigation is a real navigation"
+
+  - id: account.menu-collapses-on-mobile
+    title: "Menu collapses on mobile"
+    persona: buyer
+    priority: P2
+    summary: "Menu collapses on mobile"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the viewport is 375px wide"
+      - "Then the menu renders as one scrollable row above the content and `document.documentElement.scrollWidth` does not exceed the viewport width"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::Menu collapses on mobile"
+    notes: "Also asserts document.documentElement.scrollWidth <= 375."
+
+  - id: account.unknown-collection
+    title: "Unknown collection"
+    persona: buyer
+    priority: P2
+    summary: "Unknown collection"
+    entry_route: /favorites?collection=does-not-exist
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/favorites?collection=does-not-exist`"
+      - "Then a `Result` explains the collection was not found and offers \"Xem tất cả sản phẩm yêu thích\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account.feature::Unknown collection"
+
+  - id: account.anonymous-visitor-is-redirected
+    title: "Anonymous visitor is redirected"
+    persona: guest
+    priority: P2
+    summary: "Anonymous visitor is redirected"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor opens `/account/addresses`"
+      - "Then they are redirected to `/login` and no address data is in the response"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Anonymous visitor is redirected"
+    notes: "The route streams its redirect: the 200 document holds no address UI."
+
+  - id: account.required-fields-are-validated-before-submit
+    title: "Required fields are validated before submit"
+    persona: guest
+    priority: P2
+    summary: "Required fields are validated before submit"
+    entry_route: /login
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor submits `/login` with an empty username"
+      - "Then no request is sent, the username `FormItem` shows help text and `aria-invalid=\"true\"`, and focus moves to the username input"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Required fields are validated before submit"
+
+  - id: account.pending-submit-is-visible-and-inert
+    title: "Pending submit is visible and inert"
+    persona: guest
+    priority: P2
+    summary: "Pending submit is visible and inert"
+    entry_route: /login
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor submits valid credentials"
+      - "Then the submit button shows a spinner, has `aria-busy=\"true\"`, keeps its width, and a second click does not send a second request"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Pending submit is visible and inert"
+
+  - id: account.register-enforces-the-minimum-lengths
+    title: "Register enforces the minimum lengths"
+    persona: guest
+    priority: P2
+    summary: "Register enforces the minimum lengths"
+    entry_route: /register
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor enters a 2-character username or a 3-character password on `/register`"
+      - "Then the matching `FormItem` shows its minimum-length help text and the form is not submitted"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Register enforces the minimum lengths"
+
+  - id: account.adding-an-address
+    title: "Adding an address"
+    persona: buyer
+    priority: P2
+    summary: "Adding an address"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer submits a valid address in the add `Modal`"
+      - "Then the submit button is pending during the request, the modal closes, a success toast appears and the new address card is in the list"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Adding an address"
+
+  - id: account.a-failed-mutation-reports-an-error-and-keeps-state
+    title: "A failed mutation reports an error and keeps state"
+    persona: buyer
+    priority: P2
+    summary: "A failed mutation reports an error and keeps state"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When set-default fails because the gateway returns an error"
+      - "Then an error toast is shown, the previous default keeps its \"Mặc định\" `Tag`, and the button is enabled again"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::A failed mutation reports an error and keeps state"
+    notes: "Failure forced by deleting the second address through the API before the page sets it as default."
+
+  - id: account.empty-address-book
+    title: "Empty address book"
+    persona: buyer
+    priority: P2
+    summary: "Empty address book"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer has no addresses"
+      - "Then an `Empty` block with the description \"Bạn chưa có địa chỉ nhận hàng nào.\" and a \"Thêm địa chỉ ngay\" action is shown"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Empty address book"
+
+  - id: account.double-submit-is-blocked
+    title: "Double submit is blocked"
+    persona: buyer
+    priority: P2
+    summary: "Double submit is blocked"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user double-clicks any in-scope mutation button"
+      - "Then exactly one request is sent"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Double submit is blocked"
+
+  - id: account.action-result-shape
+    title: "Action result shape"
+    persona: buyer
+    priority: P2
+    summary: "Action result shape"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When any in-scope Server Action fails with a gateway error"
+      - "Then it resolves (does not throw) with `{ ok: false, error }` where `error` is a user-readable string"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Action result shape"
+    notes: "Black box: the failing set-default action resolves to a readable error toast; the route error boundary does not appear and no page error is raised."
+
+  - id: account.revoking-a-session
+    title: "Revoking a session"
+    persona: buyer
+    priority: P2
+    summary: "Revoking a session"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer confirms \"Thu hồi\" on an active session"
+      - "Then the button is pending, a success toast appears, and after revalidation that row shows \"Đã thu hồi\" with no Revoke button"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Revoking a session"
+
+  - id: account.empty-history
+    title: "Empty history"
+    persona: buyer
+    priority: P2
+    summary: "Empty history"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer has no login history rows"
+      - "Then the history `Table` renders an `Empty` with \"Chưa có lịch sử đăng nhập.\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Empty history"
+
+  - id: account.submitting-a-kyc-document
+    title: "Submitting a KYC document"
+    persona: buyer
+    priority: P2
+    summary: "Submitting a KYC document"
+    entry_route: /account/verification
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer enters a reference and presses \"Gửi hồ sơ xác minh\""
+      - "Then the button is pending, a success toast appears, the field is cleared and the status `Tag` shows \"Chờ duyệt\" after revalidation"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Submitting a KYC document"
+    notes: "FINDING: team-verification reports PENDING for a user who never submitted, so the page reads Đang chờ duyệt before and after submitting; the Not submitted state is unreachable."
+
+  - id: account.status-is-not-conveyed-by-colour-alone
+    title: "Status is not conveyed by colour alone"
+    persona: buyer
+    priority: P2
+    summary: "Status is not conveyed by colour alone"
+    entry_route: /account/verification
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the status is Verified"
+      - "Then the `Tag` contains the text from `statusText` in addition to its colour"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Status is not conveyed by colour alone"
+
+  - id: account.status-colours-are-semantic
+    title: "Status colours are semantic"
+    persona: buyer
+    priority: P2
+    summary: "Status colours are semantic"
+    entry_route: /account/verification
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the KYC status is Verified, Pending or Rejected"
+      - "Then the `Tag` uses the success, promo or danger token respectively and not the brand colour"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Status colours are semantic"
+    notes: "An admin approves one buyer and rejects another through ReviewKyc."
+
+  - id: account.redeeming-an-invalid-code
+    title: "Redeeming an invalid code"
+    persona: buyer
+    priority: P2
+    summary: "Redeeming an invalid code"
+    entry_route: /account/referral
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer redeems a code the server rejects"
+      - "Then an error toast is shown and the redeem `FormItem` displays the server message as help with `aria-invalid=\"true\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Redeeming an invalid code"
+
+  - id: account.no-rewards-yet
+    title: "No rewards yet"
+    persona: buyer
+    priority: P2
+    summary: "No rewards yet"
+    entry_route: /account/referral
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the rewards list is empty"
+      - "Then the `Timeline` area renders `Empty` \"Chưa có phần thưởng nào.\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::No rewards yet"
+
+  - id: account.tab-is-held-in-the-url
+    title: "Tab is held in the URL"
+    persona: buyer
+    priority: P2
+    summary: "Tab is held in the URL"
+    entry_route: /account/following
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/account/following?tab=items`"
+      - "Then the \"Sản phẩm\" tab is selected (`aria-selected=\"true\"`) on first render without client JS"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Tab is held in the URL"
+    notes: "JavaScript disabled. The link tab carries aria-current=page (the spec says aria-selected)."
+
+  - id: account.shop-cards-show-the-real-shop-name
+    title: "Shop cards show the real shop name"
+    persona: buyer
+    priority: P2
+    summary: "Shop cards show the real shop name"
+    entry_route: /account/following
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer follows a shop whose display name is \"Cửa hàng Hoa Mai\""
+      - "Then the shop card shows \"Cửa hàng Hoa Mai\" and not \"Shop #\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Shop cards show the real shop name"
+
+  - id: account.empty-shop-name-falls-back
+    title: "Empty shop name falls back"
+    persona: buyer
+    priority: P2
+    summary: "Empty shop name falls back"
+    entry_route: /account/following
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a followed shop has an empty display name"
+      - "Then its card shows \"Shop #\" followed by the first 6 characters of the shop id"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Empty shop name falls back"
+
+  - id: account.empty-follow-list
+    title: "Empty follow list"
+    persona: buyer
+    priority: P2
+    summary: "Empty follow list"
+    entry_route: /account/following
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer follows no shops"
+      - "Then the shops tab shows `Empty` \"Bạn chưa theo dõi gian hàng nào.\" with a \"Khám phá gian hàng\" action linking to `/search`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Empty follow list"
+
+  - id: account.collection-filter-in-the-url
+    title: "Collection filter in the URL"
+    persona: buyer
+    priority: P2
+    summary: "Collection filter in the URL"
+    entry_route: /favorites
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer selects a collection"
+      - "Then the URL becomes `/favorites?collection=<id>`, the header shows the collection name, and reloading the page shows the same items"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Collection filter in the URL"
+
+  - id: account.collection-management-gives-feedback
+    title: "Collection management gives feedback"
+    persona: buyer
+    priority: P2
+    summary: "Collection management gives feedback"
+    entry_route: /favorites
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer creates a collection"
+      - "Then the create button is pending and disabled, a success toast appears, and the new collection is listed"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Collection management gives feedback"
+
+  - id: account.favorites-impressions-and-clicks-still-fire
+    title: "Favorites impressions and clicks still fire"
+    persona: buyer
+    priority: P2
+    summary: "Favorites impressions and clicks still fire"
+    entry_route: /favorites
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/favorites` renders a grid of listings and the buyer clicks one"
+      - "Then the same impression events and the same click event with its placement attribution are emitted as before this change"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Favorites impressions and clicks still fire"
+
+  - id: account.tab-survives-reload-and-sharing
+    title: "Tab survives reload and sharing"
+    persona: buyer
+    priority: P2
+    summary: "Tab survives reload and sharing"
+    entry_route: /notifications
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer selects the \"Đơn hàng\" tab and reloads"
+      - "Then the URL contains `?tab=order`, the tab is selected, and only order notifications are listed"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Tab survives reload and sharing"
+
+  - id: account.empty-tab
+    title: "Empty tab"
+    persona: buyer
+    priority: P2
+    summary: "Empty tab"
+    entry_route: /notifications
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a tab has no notifications"
+      - "Then `Empty` \"Chưa có thông báo nào trong mục này.\" is shown inside the list area"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Empty tab"
+
+  - id: account.no-mark-all-read-control
+    title: "No mark-all-read control"
+    persona: buyer
+    priority: P2
+    summary: "No mark-all-read control"
+    entry_route: /notifications
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/notifications` renders a list with unread items"
+      - "Then no \"Đánh dấu đã đọc\" or equivalent mark-all-read control is rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::No mark-all-read control"
+
+  - id: account.saving-preferences
+    title: "Saving preferences"
+    persona: buyer
+    priority: P2
+    summary: "Saving preferences"
+    entry_route: /notifications
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer changes a toggle and presses \"Lưu\""
+      - "Then the button is pending, then a success toast appears; on failure an error toast appears and the toggles keep the unsaved values"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Saving preferences"
+    notes: "Success path only: the failure branch (error toast, toggles keep unsaved values) cannot be forced without breaking team-notification."
+
+  - id: account.test-hooks-are-preserved
+    title: "Test hooks are preserved"
+    persona: buyer
+    priority: P2
+    summary: "Test hooks are preserved"
+    entry_route: /notifications
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/notifications` renders notifications and alert subscriptions"
+      - "Then each row exposes `data-testid=\"notification-item\"` or `data-testid=\"alert-subscription\"` and a `data-type` value as before"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Test hooks are preserved"
+
+  - id: account.skeleton-matches-the-content
+    title: "Skeleton matches the content"
+    persona: buyer
+    priority: P2
+    summary: "Skeleton matches the content"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/account/security` is loaded with a throttled gateway"
+      - "Then a `Skeleton` with the shell and two section placeholders is shown first and the measured Cumulative Layout Shift for the page is 0"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Skeleton matches the content"
+    notes: "CPU and network throttled (CDP); the gateway itself cannot be slowed, so the shift is measured on the real load."
+
+  - id: account.no-horizontal-scroll-on-mobile
+    title: "No horizontal scroll on mobile"
+    persona: buyer
+    priority: P2
+    summary: "No horizontal scroll on mobile"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When each of the nine routes is rendered at 375px wide for a signed-in buyer"
+      - "Then `document.documentElement.scrollWidth` is not greater than 375"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::No horizontal scroll on mobile"
+
+  - id: account.desktop-layout
+    title: "Desktop layout"
+    persona: buyer
+    priority: P2
+    summary: "Desktop layout"
+    entry_route: /account/addresses
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/account/addresses` is rendered at 1280px wide"
+      - "Then the menu column is visible to the left of the content"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Desktop layout"
+
+  - id: account.token-lint-is-clean
+    title: "Token lint is clean"
+    persona: guest
+    priority: P2
+    summary: "Token lint is clean"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `scripts/check-tokens.mjs` runs on the files of this change"
+      - "Then it reports 0 violations"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/account_ui.feature::Token lint is clean"
+
   # ---- d1-entries-end (append new d1 entries above this line)
 
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
@@ -1653,7 +2238,7 @@ features:
       - "Anonymous visitor is redirected: opening /account/addresses without a session redirects to /login with no address data in the response"
     tags: [buyer]
     status: automated
-    covered_by: "frontend/account.feature::The account menu reflects the URL and Back returns to the previous page"
+    covered_by: "frontend/account.feature::The menu reflects the URL"
 
   - id: account.address-delete-confirm
     title: Address book with confirmed delete and feedback on every action
@@ -1685,7 +2270,7 @@ features:
       - "Empty address book: with no addresses an Empty block says Bạn chưa có địa chỉ nhận hàng nào. with a Thêm địa chỉ ngay action"
     tags: [buyer]
     status: automated
-    covered_by: "frontend/account.feature::Deleting an address needs confirmation"
+    covered_by: "frontend/account.feature::Delete requires confirmation"
 
   - id: account.security-revoke
     title: Security page lists sessions and login history in Tables
