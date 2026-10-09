@@ -47,6 +47,10 @@ type resolvedPrincipal struct {
 	id     string
 	ptype  string
 	scopes []string
+	// exp and sid come from the verified token (zero for anonymous); streams use
+	// them to end at expiry or revocation.
+	exp time.Time
+	sid string
 }
 
 // Edge holds the request-scoped machinery: auth resolution, upstream call
@@ -64,7 +68,9 @@ type Edge struct {
 	trackLimiter   *rateLimiter
 	aiTimeout      time.Duration
 	streamMaxBytes int
-	reflection     bool
+	// streamRevocationEvery is how often an open stream polls the revocation list.
+	streamRevocationEvery time.Duration
+	reflection            bool
 }
 
 // defaultStreamMaxBytes caps a streaming request message (STREAM_MAX_REQUEST_BYTES).
@@ -164,6 +170,10 @@ func (e *Edge) resolve(header http.Header) (resolvedPrincipal, error) {
 		p.ptype = claims.Type
 	}
 	p.scopes = claims.Scopes
+	p.sid = claims.SessionID
+	if claims.ExpiresAt != nil {
+		p.exp = claims.ExpiresAt.Time
+	}
 	return p, nil
 }
 

@@ -192,7 +192,18 @@ func (e *Edge) authInterceptor() connect.Interceptor {
 				if err != nil {
 					return err
 				}
-				return next(ctx, conn)
+				// The token was valid at open; end the stream when it expires or
+				// its session is revoked (the upstream call is cancelled with it).
+				p, _ := principalFrom(ctx)
+				ctx, life := e.watchStream(ctx, p)
+				defer life.stop()
+				err = next(ctx, conn)
+				// Also when the handler ended cleanly: an upstream may turn the cancellation
+				// into EOF, and the client must not read a cut stream as a completed one.
+				if life.ended() {
+					return endedError()
+				}
+				return err
 			}
 		},
 	}

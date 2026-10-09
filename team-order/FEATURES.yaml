@@ -1527,3 +1527,79 @@ features:
     status: automated
     covered_by: "order/checkout_principal.feature::A service token cannot place an order"
     notes: "Scenario: order/checkout_principal.feature::A service token cannot place an order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+
+  - id: order.ar2-admin-without-order-admin-cannot-force-fail
+    title: "An admin token without order.admin cannot force-fail"
+    persona: admin
+    priority: P0
+    summary: "An admin token without order.admin cannot force-fail (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.ForceFailSaga, order.v1.GetOrder]
+    acceptance:
+      - "When a caller whose token carries the `admin` scope but not `order.admin` calls `ForceFailSaga` on a buyer's `Pending` order"
+      - "Then the call fails with `permission_denied` and the order is still `Pending` with its stock still held"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+
+  - id: order.ar2-admin-without-order-admin-cannot-read-saga
+    title: "An admin token without order.admin cannot read another user's saga"
+    persona: admin
+    priority: P0
+    summary: "An admin token without order.admin cannot read another user's saga (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.GetSagaState]
+    acceptance:
+      - "When a caller whose token carries `admin` but not `order.admin` calls `GetSagaState` on a buyer's order"
+      - "Then the call fails with `permission_denied`"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+
+  - id: order.ar2-admin-can-read-saga
+    title: "The admin can still read another user's saga"
+    persona: admin
+    priority: P0
+    summary: "The admin can still read another user's saga (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.GetSagaState]
+    acceptance:
+      - "When the seeded admin calls `GetSagaState` on a buyer's order"
+      - "Then the call succeeds and returns that order's saga view"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::The admin can still read another user's saga. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+
+  - id: order.ar2-buyer-cannot-force-fail-other-buyer
+    title: "A buyer cannot force-fail another buyer's order"
+    persona: buyer
+    priority: P0
+    summary: "A buyer cannot force-fail another buyer's order (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.ForceFailSaga]
+    acceptance:
+      - "When buyer B calls `ForceFailSaga` on buyer A's `Pending` order"
+      - "Then the gateway answers 403 and A's order is still `Pending`"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."

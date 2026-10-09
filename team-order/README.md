@@ -6,7 +6,7 @@ Go 1.22 (`go.mod`; the Dockerfile builds with `golang:1.22`), module `github.com
 
 ## Contract
 
-Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/interceptor/auth.go`). `RequirePrincipal` rejects missing, `anonymous` and ANONYMOUS-type principals. "Owner or admin" below means `isAdminOrUser` (`internal/handler/order.go`): the principal id equals the named user, or its scopes include `admin`, `order.admin` or `all`. This service does not check `order.read` / `order.write` scopes.
+Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/interceptor/auth.go`). `RequirePrincipal` rejects missing, `anonymous` and ANONYMOUS-type principals. "Owner or admin" below means `isAdminOrUser` (`internal/handler/order.go`): the principal id equals the named user, or its scopes include `order.admin` (the bare `admin` scope does not open orders). This service does not check `order.read` / `order.write` scopes.
 
 ### CartService (`internal/handler/cart.go`)
 
@@ -28,7 +28,7 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 | `CancelOrder` | authenticated; buyer only. Claims CANCELLED from PENDING or PAID (else `FailedPrecondition`, nothing released), then releases the order's reservations by id and its voucher hold. |
 | `CalculateShippingFee` | none. Free at subtotal >= 500000; 20000 for HCM / Ha Noi city strings; otherwise 35000 (`service/order.go`). |
 | `GetSagaState` | owner or admin (buyer). Built from the order, its reservations and `paid_at` (see Saga view). |
-| `ForceFailSaga` | owner or admin (buyer). `fail_step` must be empty, `payment` or `shipping` (`InvalidArgument`). Cancels via `CancelOrder`; `success=false` when a stock release is parked. |
+| `ForceFailSaga` | admin only: scopes `admin` AND `order.admin` (owners get `PermissionDenied`). `fail_step` must be empty, `payment` or `shipping` (`InvalidArgument`). Cancels via `CancelOrder`; `success=false` when a stock release is parked. |
 | `CreateReturnRequest` | authenticated; buyer of the order; order must not be PENDING or CANCELLED. **Return cap:** `refund_amount` may not exceed the order's returnable remainder, the order total minus the `refund_amount` of the order's returns that are not REJECTED (`InvalidArgument`, also when the remainder is 0). No amount (`<= 0`) defaults to the remainder; no amount with a remainder of 0 is `FailedPrecondition`. The check and the insert run under the order row lock (`SELECT ... FOR UPDATE`), so concurrent requests never exceed the total; a rejected return frees its amount. |
 | `GetReturnRequest` | buyer or seller of the return, or admin |
 | `ListOrderReturns` | buyer or seller of the order, or admin (else `PermissionDenied`; unknown order `NotFound`). All returns of the order, newest first. |
@@ -61,7 +61,7 @@ A checkout places **every order or none** (design D6 of `port-order-inventory-co
 | Pending | Shipped | seller (COD hand-over), via `UpdateOrderStatus` or `CreateShipment` |
 | Paid | Shipped | seller |
 | Shipped | Completed | seller |
-| Pending, Paid | Cancelled | buyer (`CancelOrder`), buyer or admin (`ForceFailSaga`) |
+| Pending, Paid | Cancelled | buyer (`CancelOrder`), admin (`ForceFailSaga`) |
 
 An admin acts as the seller on `UpdateOrderStatus`. A target the caller may never request -> `PermissionDenied`; a permitted target from the wrong status -> `FailedPrecondition`. `CancelOrder` claims Cancelled first; only the winner releases the order's own reservations (by id) and its voucher hold. `CreateShipment` claims Shipped first and creates the shipment only on a won claim. The `orders_status_check` constraint rejects any status outside 1..5.
 

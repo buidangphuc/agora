@@ -85,7 +85,7 @@ func wantCode(t *testing.T, err error, code codes.Code) {
 }
 
 func adminCtx() context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "ops", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"}})
+	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "ops", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
 }
 
 func TestReturnRefund_Handler(t *testing.T) {

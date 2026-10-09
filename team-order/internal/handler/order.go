@@ -349,8 +349,9 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	if err != nil {
 		return nil, err
 	}
-	// Admin-only: the order owner no longer qualifies.
-	if !isAdminOrUser(principal) {
+	// Admin-only: the order owner no longer qualifies. Both the generic admin
+	// marker and the order-domain scope are required (authz-residuals-2).
+	if !hasScope(principal, scopeAdmin) || !hasScope(principal, scopeOrderAdmin) {
 		return nil, status.Error(codes.PermissionDenied, "only an admin can force-fail the saga")
 	}
 	if req.GetOrderId() == "" {
@@ -716,6 +717,23 @@ func canViewOrder(p *commonv1.Principal, o repository.Order) bool {
 	return false
 }
 
+const (
+	scopeAdmin      = "admin"
+	scopeOrderAdmin = "order.admin"
+)
+
+func hasScope(principal *commonv1.Principal, want string) bool {
+	for _, s := range principal.GetScopes() {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// isAdminOrUser reports whether the principal is one of allowedUserIDs or an
+// order admin. The admin override is the order.admin scope only: the generic
+// `admin` marker does not open orders (authz-residuals-2).
 func isAdminOrUser(principal *commonv1.Principal, allowedUserIDs ...string) bool {
 	if principal == nil {
 		return false
@@ -725,10 +743,5 @@ func isAdminOrUser(principal *commonv1.Principal, allowedUserIDs ...string) bool
 			return true
 		}
 	}
-	for _, s := range principal.GetScopes() {
-		if s == "admin" || s == "order.admin" {
-			return true
-		}
-	}
-	return false
+	return hasScope(principal, scopeOrderAdmin)
 }

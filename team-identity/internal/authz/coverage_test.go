@@ -24,6 +24,7 @@ var enforcedScopes = []enforcedScope{
 	{"engagement:write", "team-engagement"},
 	{"recommendations:read", "team-ai"},
 	{"ai:use", "team-ai"},
+	{"order.admin", "team-order (ForceFailSaga with admin; admin override on GetOrder, GetSagaState, UpdateOrderStatus, shipment and return RPCs)"},
 	{"admin", "team-gateway edge policy, team-engagement, team-verification, team-audit, team-promotion, team-payment, team-analytics, team-domain (admin-only RPCs and ownership overrides)"},
 }
 

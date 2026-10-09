@@ -488,3 +488,39 @@ features:
     covered_by: "ops/boot_guard_identity.feature::team-identity refuses an exposed reset token in staging"
     notes: >-
       Scenario "team-identity refuses an exposed reset token in staging" in ops/boot_guard_identity.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: auth.ar2-admin-token-carries-order-admin
+    title: "An admin token carries order.admin"
+    persona: admin
+    priority: P0
+    summary: "An admin token carries order.admin (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.AuthService.Login]
+    acceptance:
+      - "When the seeded admin logs in through the gateway"
+      - "Then the token's scopes include `admin` and `order.admin`"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::An admin token carries order.admin. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+
+  - id: auth.ar2-buyer-seller-no-order-admin
+    title: "Buyer and seller tokens carry no order.admin"
+    persona: buyer
+    priority: P0
+    summary: "Buyer and seller tokens carry no order.admin (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "When a buyer and a seller each log in through the gateway"
+      - "Then neither token's scopes include `order.admin` or `admin`"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."

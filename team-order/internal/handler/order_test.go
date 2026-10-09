@@ -355,7 +355,7 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 		return &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: to}
 	}
 	adminCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"},
+		Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"},
 	})
 	anonCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 		Id: "anonymous", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS,
@@ -463,7 +463,7 @@ func TestOrderHandler_GetOrder_Authz(t *testing.T) {
 		{"buyer", principal("buyer_1", user), codes.OK},
 		{"seller", principal("seller_1", user), codes.OK},
 		{"other user", principal("user_9", user, "order.read"), codes.PermissionDenied},
-		{"admin", principal("admin_1", user, "admin"), codes.OK},
+		{"admin", principal("admin_1", user, "admin", "order.admin"), codes.OK},
 		{"service with order.read", principal("service-team-payment", svc, "order.read"), codes.OK},
 		{"service without order.read", principal("service-x", svc, "listing.read"), codes.PermissionDenied},
 		{"user claiming order.read is not a service", principal("user_9", user, "order.read"), codes.PermissionDenied},

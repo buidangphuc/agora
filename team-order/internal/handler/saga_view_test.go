@@ -192,7 +192,7 @@ func TestForceFailSaga_ShippedOrderRefused(t *testing.T) {
 
 func TestSagaAccess_BuyerOrAdminOnly(t *testing.T) {
 	r := newSagaRig(t)
-	admin := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"}})
+	admin := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
 	if _, err := r.h.GetSagaState(admin, &orderv1.GetSagaStateRequest{OrderId: r.order.ID}); err != nil {
 		t.Fatalf("admin: %v", err)
 	}
