@@ -26,6 +26,8 @@ spec:
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ANALYTICS_TOPIC, value: "analytics.events" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }
+            - { name: ENGAGEMENT_EVENTS_TOPIC, value: "engagement.events" }
+            - { name: ENGAGEMENT_DLQ_TOPIC, value: "engagement.events.analytics.dlq" }
             - { name: KAFKA_CONSUMER_GROUP, value: "team-analytics" }
             - { name: WAREHOUSE_DRIVER, value: "duckdb" }
             - { name: DUCKDB_PATH, value: "/data/analytics.duckdb" }
