@@ -508,6 +508,124 @@ features:
       Written in ops/cockpit_real_data.feature ("A paid order shows up in the 24h figures"); flips to automated, with covered_by,
       after it passes against the stack.
 
+  - id: ui.brand-scale-config
+    title: "The brand scale resolves from the config"
+    persona: guest
+    priority: P2
+    summary: "The brand scale resolves from the config"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a component uses `bg-primary-500`"
+      - "Then the computed background colour is `rgb(238, 77, 45)`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::The brand scale resolves from the config"
+    notes: "Tailwind CLI builds bg-primary-500 from tailwind.config.ts; rendered in the browser."
+
+  - id: ui.no-text-below-12px
+    title: "Text below 12px is not available"
+    persona: guest
+    priority: P2
+    summary: "Text below 12px is not available"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the built CSS is searched for a font-size below 12px generated from the type scale"
+      - "Then none is found"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::Text below 12px is not available"
+    notes: "Searches the CSS served by the storefront for .text-xs..5xl. NOTE: the served bundle also contains a dead .text-[9px] rule (from a unit-test string under src/ matched by the Tailwind content glob); it is not part of the type scale."
+
+  - id: ui.token-lint-fails-arbitrary
+    title: "A new arbitrary value fails the gate"
+    persona: guest
+    priority: P2
+    summary: "A new arbitrary value fails the gate"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a developer adds `className=\"text-[9px]\"` to any component and runs `npm run check`"
+      - "Then the check fails and names that file, line and `text-[9px]`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::A new arbitrary value fails the gate"
+    notes: "Runs scripts/check-tokens.mjs against a fixture tree."
+
+  - id: ui.token-lint-clean
+    title: "The current tree is clean"
+    persona: guest
+    priority: P2
+    summary: "The current tree is clean"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `npm run check` runs on the branch after this change"
+      - "Then the token lint reports 0 violations"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::The current tree is clean"
+
+  - id: ui.action-result-typed
+    title: "A failed action is typed as an error"
+    persona: guest
+    priority: P2
+    summary: "A failed action is typed as an error"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a Server Action returns `fail(\"Hết hàng\")`"
+      - "Then TypeScript narrows on `ok === false` to a value whose `error` is `\"Hết hàng\"`, and `data` is not accessible on that branch"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::A failed action is typed as an error"
+    notes: "tsc accepts r.error and rejects r.data on the failure branch."
+
+  - id: frontend-quality.test-script
+    title: "Test script runs the unit suite"
+    persona: guest
+    priority: P2
+    summary: "Test script runs the unit suite"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a developer runs `npm test` (`vitest run`) in `team-frontend`"
+      - "Then the Vitest suite executes against jsdom and reports pass/fail, with no dependency on a running gateway or backend"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::Test script runs the unit suite"
+
+  - id: frontend-quality.gate-green
+    title: "The quality gate is green"
+    persona: guest
+    priority: P2
+    summary: "The quality gate is green"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a developer runs `npm run check` on the branch after this change"
+      - "Then Biome, `tsc --noEmit`, the token lint and Vitest all pass and the command exits 0"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_token_gates.feature::The quality gate is green"
+
+  # ---- d1-entries-end (append new d1 entries above this line)
+
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
   # ---- ui_foundation.feature scenarios have run green against the local stack.
   - id: ui.not-found
