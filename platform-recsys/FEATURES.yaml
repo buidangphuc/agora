@@ -322,3 +322,63 @@ features:
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
     notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
+
+  - id: recsys.wtse-evaluation-report-exposes-split
+    title: "Evaluation report exposes the split it performed"
+    persona: admin
+    priority: P2
+    summary: "Evaluation report exposes the split it performed"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: Evaluation report exposes the split it performed"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_evaluator_owns_temporal_split_and_reports_metadata. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.wtse-split-admits-no-temporal-leakage
+    title: "Split admits no temporal leakage"
+    persona: admin
+    priority: P2
+    summary: "Split admits no temporal leakage"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: Split admits no temporal leakage"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_temporal_split_zero_leakage. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.wtse-post-cutoff-signal-not-learnable
+    title: "Post-cutoff-only signal is not learnable from the training half"
+    persona: admin
+    priority: P2
+    summary: "Post-cutoff-only signal is not learnable from the training half"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: Post-cutoff-only signal is not learnable from the training half"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_post_cutoff_only_signal_yields_zero_recall_on_training_model. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.wtse-external-split-marked
+    title: "External split is marked in the report"
+    persona: admin
+    priority: P2
+    summary: "External split is marked in the report"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: External split is marked in the report"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_external_ground_truth_is_marked_external. Offline evaluation logic, no edge-visible effect."

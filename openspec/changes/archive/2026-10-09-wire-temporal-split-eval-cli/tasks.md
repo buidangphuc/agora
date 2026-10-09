@@ -20,3 +20,8 @@ wire-pipeline-eval-registry specifies. A second, CLI-side path to the same repor
 ## 3. Verification
 - [x] Run `pytest -v tests/test_evals_temporal_cli.py`.
 - [x] `openspec validate wire-temporal-split-eval-cli --strict`.
+
+## Evidence (2026-10-09)
+
+- `pytest tests/test_evals_temporal_cli.py`: 4 passed. Each of the four scenarios is unit-verified: a VERIFIED BY line in the spec and a not-testable entry in FEATURES. spec_sync --strict reports e2e-ready.
+- Section 2, the CLI over the warehouse and a trained model, is retired because `pipeline.evaluate_generation` produces that report.
