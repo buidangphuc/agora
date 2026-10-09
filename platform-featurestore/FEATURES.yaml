@@ -120,8 +120,8 @@ features:
       - When a new buyer views a listing twice and favourites it, the export cycle completes, and the dataset is built
       - Then the dataset has one row for that buyer and listing, with weight 5 and 3 interactions
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::A buyer's views and favourite become one weighted row"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::A buyer's views and favourite become one weighted row"
 
   - id: featurestore.dataset-stitched-row
@@ -137,8 +137,8 @@ features:
       - When a visitor views a listing anonymously, logs in as a new buyer and views it again with the same anonymous id, the export cycle completes, and the dataset is built
       - Then the dataset has one row for that buyer and listing, with weight 2
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::Pre-login views count toward the buyer"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::Pre-login views count toward the buyer"
 
   - id: featurestore.dataset-as-of-exclusion
@@ -154,8 +154,8 @@ features:
       - When the dataset is built with AS_OF just before a new buyer's first event
       - Then the dataset has no row for that buyer
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::Events after AS_OF are not in the dataset"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::Events after AS_OF are not in the dataset"
 
   - id: featurestore.dataset-manifest
@@ -171,6 +171,6 @@ features:
       - When the dataset is built
       - Then its manifest names the as_of, a positive row count, and a file SHA-256 equal to the SHA-256 of the dataset file
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::A dataset manifest describes its file"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::A dataset manifest describes its file"

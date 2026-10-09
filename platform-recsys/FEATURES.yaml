@@ -158,8 +158,8 @@ features:
       - When the dataset is built and the recsys ALS job runs on it
       - Then the model the job registered records als_interactions, version 1, the dataset's as_of and the file SHA-256 from its manifest
     tags: [recsys, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::A trained model names its dataset"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::A trained model names its dataset"
 
   - id: recsys.dataset-required
@@ -175,6 +175,6 @@ features:
       - When the recsys ALS job starts with DATASET_DIR pointing at an empty directory
       - Then it exits non-zero, its log names DATASET_DIR, and no model is registered
     tags: [recsys, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::Recsys refuses to train without a dataset"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::Recsys refuses to train without a dataset"
