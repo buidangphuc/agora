@@ -31,6 +31,8 @@ class TwoTowerModel:
         # In-memory candidate index: listing_id -> embedding_vector
         self._item_vectors: dict[str, list[float]] = {}
         self._item_metadata: dict[str, dict[str, Any]] = {}
+        # Set by train_and_index_two_tower: what the training/indexing pass did.
+        self.report: Any = None
 
     def index_item(self, item: dict[str, Any]) -> None:
         lid = str(item.get("listing_id") or item.get("id", ""))

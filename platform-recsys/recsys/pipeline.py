@@ -3,7 +3,8 @@
 Orchestrates the seams. The heavy Spark work (read, map, index, fit) stays in
 the executors; the collected factor matrices are evaluated and gated before
 being loaded into the artifact stores.
-Optionally trains and indexes Two-Tower neural candidate retrieval model when enabled.
+Optionally trains the Two-Tower retrieval model on governed feature snapshots and publishes its item
+vectors with the generation when enabled.
 """
 
 from __future__ import annotations
@@ -16,16 +17,16 @@ from .dataset import resolve_dataset
 from .evals.evaluator import ModelEvaluator
 from .evals.holdout import EVAL_PROTOCOL, leave_last_new_item_out
 from .interactions import dataset_triples, index_interactions
-from .load import qdrant as qdrant_load
 from .load import redis_cache
 from .model_version import resolve_model_version
+from .monitoring import generation as drift_monitor
 from .publish import publish_generation, refresh_serving_ttl
 from .registry.metadata import ModelMetadata
 from .registry.registry import ModelRegistry
 from .spark import build_spark
 from .structural_gate import structural_check
 from .train import train_als
-from .two_tower.pipeline import train_and_index_two_tower
+from .two_tower import stage as two_tower_stage
 
 log = logging.getLogger("recsys.pipeline")
 
@@ -150,6 +151,32 @@ def _refresh_ttl(settings: Settings, redis_client=None) -> None:
         log.warning("could not refresh the serving generations' TTL: %s", exc)
 
 
+def assess_drift(settings: Settings, registry: ModelRegistry, current: dict[str, list[float]]) -> dict:
+    """Compare this run's distributions with the champion's (the generation it would replace).
+
+    Observational: the verdict goes to the log, the optional Prometheus file and the model metadata
+    (the caller records it), never into the gate. Returns the drift record (see monitoring.generation).
+    """
+    incumbent_version = registry.get_champion_version()
+    incumbent = registry.get_model(incumbent_version) if incumbent_version else None
+    baseline = (incumbent.parameters or {}).get("distribution") if incumbent else None
+    record, report = drift_monitor.compare(
+        baseline, current, incumbent_version, settings.drift_alert_threshold
+    )
+    if record["status"] == "drifted":
+        log.warning("drift against %s: %s", incumbent_version, record)
+    else:
+        log.info("drift against %s: %s", incumbent_version, record)
+    if report is not None and settings.drift_metrics_path:
+        try:
+            drift_monitor.write_prometheus(
+                settings.drift_metrics_path, report, settings.drift_alert_threshold
+            )
+        except OSError as exc:
+            log.warning("could not write drift metrics to %s: %s", settings.drift_metrics_path, exc)
+    return record
+
+
 def run(
     settings: Settings | None = None,
     registry: ModelRegistry | None = None,
@@ -166,6 +193,9 @@ def run(
     # Resolve the governed dataset BEFORE starting Spark: with none, refuse to run
     # (ConfigError → exit 2) and register nothing. No fallback to raw events.
     dataset = resolve_dataset(settings)
+    # The two-tower stage trains on governed feature snapshots only: with none, refuse to run now,
+    # before Spark starts and before anything is registered (ConfigError → exit 2).
+    two_tower_inputs = two_tower_stage.resolve_inputs(settings) if settings.enable_two_tower else None
     log.info("starting ALS batch model_version=%s dataset=%s", model_version, dataset.path)
 
     spark = build_spark(settings)
@@ -198,6 +228,13 @@ def run(
         user_recs = recommend.top_n_for_users(user_ids, user_vecs, item_ids, item_vecs, settings.top_n)
         item_recs = recommend.similar_items(item_ids, item_vecs, settings.top_n)
 
+        # ── Drift of this run's distributions against the generation it would replace ──
+        if registry is None:
+            registry = _open_registry(settings, redis_client)
+        distribution = drift_monitor.spark_distributions(triples, user_recs)
+        drift = assess_drift(settings, registry, distribution)
+        drift_metrics = {"drift_psi_max": drift["max_psi"]} if "max_psi" in drift else {}
+
         # ── Structural gate: a degenerate candidate never reaches the metric gate ──
         structural_ok, structural_reason = structural_check(
             user_recs,
@@ -208,8 +245,6 @@ def run(
             settings,
         )
         if not structural_ok:
-            if registry is None:
-                registry = _open_registry(settings, redis_client)
             # metrics.gate_reason is a string next to eval_protocol (also a string in metrics); the
             # reason is mirrored in parameters.gate_reason for readers that treat metrics as floats.
             registry.register_model(
@@ -217,8 +252,13 @@ def run(
                     model_version=model_version,
                     model_name="recsys-als",
                     model_type="als",
-                    metrics={"gate_reason": structural_reason},
-                    parameters={"dataset": dataset.lineage, "gate_reason": structural_reason},
+                    metrics={"gate_reason": structural_reason, **drift_metrics},
+                    parameters={
+                        "dataset": dataset.lineage,
+                        "gate_reason": structural_reason,
+                        "distribution": distribution,
+                        "drift": drift,
+                    },
                     status="rejected",
                 )
             )
@@ -230,6 +270,7 @@ def run(
                 "decision": "rejected",
                 "reason": structural_reason,
                 "gate": "structural",
+                "drift": drift,
                 "items": len(item_ids),
                 "users": len(user_ids),
                 "popular": len(popular),
@@ -249,6 +290,7 @@ def run(
                 "reason": "no usable holdout: the temporal split left no test events, "
                 "so no evaluation was possible",
                 "metrics": metrics,
+                "drift": drift,
                 "items": len(item_ids),
                 "users": len(user_ids),
                 "popular": len(popular),
@@ -258,15 +300,13 @@ def run(
             return summary
 
         # ── Model Registry & Promotion Gate ──────────────────────────────────────
-        if registry is None:
-            registry = _open_registry(settings, redis_client)
-
+        metrics = {**metrics, **drift_metrics}
         metadata = ModelMetadata(
             model_version=model_version,
             model_name="recsys-als",
             model_type="als",
             metrics=metrics,
-            parameters={"dataset": dataset.lineage},
+            parameters={"dataset": dataset.lineage, "distribution": distribution, "drift": drift},
             status="candidate",
         )
         registry.register_model(metadata)
@@ -294,6 +334,7 @@ def run(
                 incumbent.metrics.get(settings.promotion_primary_metric) if incumbent else None
             ),
             "metrics": metrics,
+            "drift": drift,
             "items": len(item_ids),
             "users": len(user_ids),
             "popular": len(popular),
@@ -304,6 +345,21 @@ def run(
             log.info("candidate model %s rejected by promotion gate: %s", model_version, reason)
             _refresh_ttl(settings, redis_client)
             return summary
+
+        # ── Two-tower stage (optional): trained and checked BEFORE the publish ───
+        # The generation is written whole or not at all, so a stage that cannot produce safe
+        # vectors (missing features, every vector degenerate) rejects the candidate like a failed
+        # publish does: serving and the champion stay as they were.
+        two_tower = None
+        if two_tower_inputs is not None:
+            try:
+                pairs = two_tower_stage.collect_pairs(triples, settings.two_tower_max_pairs)
+                two_tower = two_tower_stage.run_stage(settings, two_tower_inputs, pairs)
+            except Exception as exc:
+                registry.reject(decision, reason=f"two-tower stage failed: {type(exc).__name__}: {exc}")
+                log.error("two-tower stage of %s failed, candidate rejected: %s", model_version, exc)
+                raise
+            decision.candidate.parameters["two_tower"] = two_tower.as_parameters(settings.two_tower_dim)
 
         # ── Publish as a generation (ONLY if Promoted) ───────────────────────────
         # The champion changes only once the publish has succeeded: a failed publish leaves the
@@ -319,6 +375,7 @@ def run(
                 user_rows=zip(user_ids, user_vecs, strict=False),
                 redis_client=redis_client,
                 qdrant_client=qdrant_client,
+                two_tower_vectors=two_tower.vectors if two_tower else None,
             )
         except Exception as exc:
             registry.reject(decision, reason=f"publish failed: {type(exc).__name__}")
@@ -330,29 +387,10 @@ def run(
         summary["serving"] = published["serving"]
         summary["previous"] = published["previous"]
 
-        # ── Two-Tower Stage (Optional) ───────────────────────────────────────────
-        if settings.enable_two_tower:
-            catalog_items = [
-                {
-                    "listing_id": lid,
-                    "price": 100.0,
-                    "popularity": 1.0,
-                    "category_id": "general",
-                }
-                for lid in item_ids
-            ]
-            _tt_model, tt_vectors = train_and_index_two_tower(
-                catalog_items=catalog_items,
-                embedding_dim=settings.two_tower_dim,
-            )
-            tt_count = qdrant_load.load_two_tower_vectors(
-                settings=settings,
-                model_version=model_version,
-                item_vectors=tt_vectors,
-                client=qdrant_client,
-            )
-            summary["two_tower_items"] = tt_count
-            log.info("two-tower stage indexed items=%d", tt_count)
+        if two_tower:
+            summary["two_tower_items"] = published["two_tower_items"]
+            summary["two_tower"] = two_tower.report.as_dict()
+            log.info("two-tower stage published %d item vectors", published["two_tower_items"])
 
         log.info("batch complete %s", summary)
         return summary
