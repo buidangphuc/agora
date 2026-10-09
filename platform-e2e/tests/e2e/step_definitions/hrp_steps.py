@@ -298,7 +298,8 @@ def embed_rejected(world: World) -> None:
 
 
 def _bucket_counts(facets: dict, name: str) -> dict[str, int]:
-    return {b["key"]: int(b["count"]) for b in facets.get(name) or []}
+    # proto3 JSON omits a zero count.
+    return {b["key"]: int(b.get("count", 0)) for b in facets.get(name) or []}
 
 
 @then(
@@ -311,10 +312,16 @@ def facets_kept(world: World) -> None:
     assert set(h.ids(bag["resp"])) >= {s.listing(world, x).id for x in ("cheap", "dear")}
     facets = degraded.get("facets") or {}
     assert facets == (lexical.get("facets") or {}), "facets differ between degraded and lexical"
-    assert _bucket_counts(facets, "categories") == {"cat-laptop": 2}, facets.get("categories")
+    # The lexical leg also matches other listings whose titles carry the same directive words, so the
+    # facets are checked against the response's own hits rather than a fixed count: each facet counts
+    # every hit once, and our two listings fall in two price ranges under our seller.
+    total = len(h.ids(bag["resp"]))
+    assert sum(_bucket_counts(facets, "categories").values()) == total, facets.get("categories")
     prices = {k: v for k, v in _bucket_counts(facets, "priceRanges").items() if v}
-    assert len(prices) >= 2 and sum(prices.values()) == 2, prices
-    assert _bucket_counts(facets, "sellers") == {s.subject(s.seller_of(world).token): 2}
+    assert len(prices) >= 2 and sum(prices.values()) == total, prices
+    sellers = _bucket_counts(facets, "sellers")
+    assert sum(sellers.values()) == total, sellers
+    assert sellers.get(s.subject(s.seller_of(world).token)) == 2, sellers
 
 
 @then("the listing is among the hits although a lexical search for the alias finds nothing")
@@ -361,15 +368,16 @@ def listing_first(world: World) -> None:
 
 @then("the TEI fake received a rerank request listing those candidates")
 def rerank_seen(world: World) -> None:
-    mine = {s.listing(world, label).id for label in ("one", "two", "three")}
+    # The rerank documents are the candidates' text (title + description), not their ids.
+    mine = {s.listing(world, label).title for label in ("one", "two", "three")}
 
     def _found():
         for call in h.rerank_calls('"texts"'):
-            if all(i in call["body"] for i in mine):
+            if all(t in call["body"] for t in mine):
                 return call
         return None
 
-    s.eventually(_found, "a rerank request carrying the three candidate ids", 15.0)
+    s.eventually(_found, "a rerank request carrying the three candidates' titles", 15.0)
 
 
 @then("the three listings come back in the opposite order of the plain search")
