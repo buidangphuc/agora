@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from loguru import logger
@@ -263,6 +264,14 @@ class CosineRankerAdapter:
         return rank_and_filter(candidates, query, limit)
 
 
+@dataclass(frozen=True)
+class FeatureVector:
+    """The ranker's input for one candidate plus where its CTR feature came from."""
+
+    values: list[float]
+    ctr_source: str  # "nearline" | "fallback"
+
+
 class GBDTRankerAdapter:
     """Gradient-Boosted Decision Tree ranker with nearline position-debiased CTR integration."""
 
@@ -270,13 +279,13 @@ class GBDTRankerAdapter:
         # Default weights: [similarity, category_match, popularity, price_fit, freshness, ctr, cvr]
         self.weights = weights or [0.30, 0.25, 0.15, 0.05, 0.05, 0.10, 0.10]
 
-    def _extract_vector(
+    def extract_features(
         self,
         cand: Candidate,
         query: RecommendQuery,
         item_feat: dict[str, Any],
         nearline_store: NearlineSignalPort | None = None,
-    ) -> tuple[list[float], str]:
+    ) -> FeatureVector:
         cat_match = (
             1.0
             if (cand.category_id and cand.category_id == query.category_id)
@@ -286,7 +295,7 @@ class GBDTRankerAdapter:
         price = float(item_feat.get("price", 50.0)) / 1000.0
         freshness = float(item_feat.get("freshness_score", 0.8))
 
-        # Check nearline position-debiased CTR
+        # Position-debiased CTR from nearline overrides the item's prior value when usable.
         ctr_source = "fallback"
         ctr = float(item_feat.get("historical_ctr", 0.0))
         if nearline_store is not None:
@@ -297,16 +306,28 @@ class GBDTRankerAdapter:
 
         cvr = float(item_feat.get("conversion_rate", 0.0))
 
-        vec = [
-            cand.score,
-            cat_match,
-            min(1.0, max(0.0, pop)),
-            min(1.0, max(0.0, price)),
-            min(1.0, max(0.0, freshness)),
-            min(1.0, max(0.0, ctr)),
-            min(1.0, max(0.0, cvr)),
-        ]
-        return vec, ctr_source
+        return FeatureVector(
+            values=[
+                cand.score,
+                cat_match,
+                min(1.0, max(0.0, pop)),
+                min(1.0, max(0.0, price)),
+                min(1.0, max(0.0, freshness)),
+                min(1.0, max(0.0, ctr)),
+                min(1.0, max(0.0, cvr)),
+            ],
+            ctr_source=ctr_source,
+        )
+
+    def _extract_vector(
+        self,
+        cand: Candidate,
+        query: RecommendQuery,
+        item_feat: dict[str, Any],
+        nearline_store: NearlineSignalPort | None = None,
+    ) -> tuple[list[float], str]:
+        features = self.extract_features(cand, query, item_feat, nearline_store)
+        return features.values, features.ctr_source
 
     def _predict(self, vec: list[float]) -> float:
         score = 0.0
@@ -340,20 +361,21 @@ class GBDTRankerAdapter:
 
         filtered_cands = list(best.values())
 
-        scored: list[tuple[Candidate, float]] = []
+        scored: list[tuple[Candidate, float, str]] = []
         for cand in filtered_cands:
             feat = item_features_map.get(cand.listing_id, {})
-            vec, _source = self._extract_vector(
+            features = self.extract_features(
                 cand, query, feat, nearline_store=nearline_store
             )
-            score = self._predict(vec)
-            scored.append((cand, score))
+            scored.append((cand, self._predict(features.values), features.ctr_source))
 
         scored.sort(key=lambda x: -x[1])
         res_limit = limit if limit > 0 else len(scored)
         return [
-            RecommendedItem(listing_id=cand.listing_id, score=score, rank=rank)
-            for rank, (cand, score) in enumerate(scored[:res_limit], start=1)
+            RecommendedItem(
+                listing_id=cand.listing_id, score=score, rank=rank, ctr_source=source
+            )
+            for rank, (cand, score, source) in enumerate(scored[:res_limit], start=1)
         ]
 
 

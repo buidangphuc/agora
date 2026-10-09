@@ -86,9 +86,23 @@ def apply_online_features(
     if limit > 0:
         boosted = boosted[:limit]
     return [
-        RecommendedItem(listing_id=item.listing_id, score=score, rank=rank)
+        RecommendedItem(
+            listing_id=item.listing_id,
+            score=score,
+            rank=rank,
+            ctr_source=item.ctr_source,
+        )
         for rank, (item, score) in enumerate(boosted, start=1)
     ]
+
+
+def _ctr_sources(items: list[RecommendedItem]) -> dict[str, int]:
+    """How many returned items had their CTR feature from each source (GBDT only)."""
+    counts: dict[str, int] = {}
+    for item in items:
+        if item.ctr_source:
+            counts[item.ctr_source] = counts.get(item.ctr_source, 0) + 1
+    return counts
 
 
 @dataclass(frozen=True)
@@ -295,6 +309,7 @@ class RecommendationService:
                             "ranking_source": ranked.source,
                             "featurestore_hit_count": ranked.featurestore_hits,
                             "nearline_hit_count": ranked.nearline_hits,
+                            "ctr_sources": _ctr_sources(items),
                             "nearline_enabled": self._nearline_enabled,
                             "status": status,
                         }
@@ -324,6 +339,7 @@ class RecommendationService:
                 "ranking_source": "cosine",
                 "featurestore_hit_count": 0,
                 "nearline_hit_count": 0,
+                "ctr_sources": {},
                 "nearline_enabled": self._nearline_enabled,
                 "status": "fallback",
             }

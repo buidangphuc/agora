@@ -179,3 +179,41 @@ async def test_nearline_outage_does_not_fail_or_degrade_the_request(feature_redi
     assert result.status != "fallback"
     assert result.explain["nearline_hit_count"] == 0
     assert [i.listing_id for i in result.items] == ["item-a", "item-b"]
+
+
+# --- ctr_source provenance reaches the response ----------------------------------------
+
+
+async def test_explain_reports_the_ctr_source_of_every_returned_item(feature_redis):
+    redis = await _tied_redis({"item-b": {"clicks_ips": "8", "imprs_ips": "40"}})
+    feature_redis["redis"] = redis
+    service = await build_recommendation_service(
+        _settings(
+            RECS_NEARLINE_REDIS_URL="redis://nearline/0",
+            RECS_FEATURESTORE_REDIS_URL="redis://featurestore/2",
+        ),
+        redis=redis,
+    )
+    await redis.set("fs:item_popularity:current", "1")
+    await redis.set("fs:item_popularity:v1:item-a", json.dumps({"ctr_7d": 0.01}))
+
+    result = await _home(service)
+
+    # The feature store is on too, so the online-feature re-rank runs after the ranker:
+    # provenance must survive it.
+    assert result.explain["featurestore_hit_count"] == 1
+    assert {i.listing_id: i.ctr_source for i in result.items} == {
+        "item-b": "nearline",
+        "item-a": "fallback",
+    }
+    assert result.explain["ctr_sources"] == {"nearline": 1, "fallback": 1}
+
+
+async def test_without_nearline_every_item_reports_fallback():
+    redis = await _tied_redis()
+    service = await build_recommendation_service(_settings(), redis=redis)
+
+    result = await _home(service)
+
+    assert result.explain["ctr_sources"] == {"fallback": 2}
+    assert {i.ctr_source for i in result.items} == {"fallback"}

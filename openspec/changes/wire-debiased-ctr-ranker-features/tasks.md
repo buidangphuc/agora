@@ -34,3 +34,9 @@
       nearline source is actually consulted — the current test injects the store directly and
       so cannot observe the missing wire.
 - [x] `openspec validate wire-debiased-ctr-ranker-features --strict`.
+
+## 4. Reconciliation addendum (team-ai, 2026-10-09)
+- [ ] Nearline source injected by the factory and read per request (see `add-recsys-nearline-signals` task 3).
+- [ ] `ctr_source` per ranked item, in `explain["ctr_sources"]`; `nearline_hit_count` in `explain`.
+- [ ] Factory-level tests: `tests/unit/modules/recommend/test_factory_serving_wiring.py`.
+- [ ] E2E: `recommendations/nearline_ctr.feature` (needs rebuild + `RECS_NEARLINE_REDIS_URL`).

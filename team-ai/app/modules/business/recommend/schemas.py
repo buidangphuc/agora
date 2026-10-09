@@ -51,6 +51,10 @@ class RecommendedItem:
     listing_id: str
     score: float
     rank: int
+    # Where the GBDT ranker's ``historical_ctr`` feature came from for this item:
+    # "nearline" (position-debiased CTR) | "fallback" (the item's prior value).
+    # Empty when the item was not scored by the GBDT ranker. Not on the wire.
+    ctr_source: str = ""
 
 
 @dataclass(frozen=True)

@@ -108,3 +108,42 @@ def test_serving_path_enriches_from_nearline():
         assert result.items[0].listing_id == "item_b"
 
     asyncio.run(_run())
+
+
+def test_ranked_items_carry_the_ctr_source_of_their_feature_vector():
+    ranker = GBDTRankerAdapter()
+    query = RecommendQuery(placement_id="home_feed")
+    cands = [
+        Candidate(listing_id="with_nearline", score=0.8),
+        Candidate(listing_id="without_nearline", score=0.8),
+    ]
+    nearline = InMemoryNearlineStore({"with_nearline": 0.09})
+
+    ranked = ranker.rank_candidates(
+        candidates=cands,
+        query=query,
+        item_features_map={"without_nearline": {"historical_ctr": 0.02}},
+        nearline_store=nearline,
+        limit=2,
+    )
+
+    assert {i.listing_id: i.ctr_source for i in ranked} == {
+        "with_nearline": "nearline",
+        "without_nearline": "fallback",
+    }
+
+
+def test_extract_features_records_source_and_keeps_the_prior_value_on_fallback():
+    ranker = GBDTRankerAdapter()
+    query = RecommendQuery(placement_id="home_feed")
+    cand = Candidate(listing_id="x", score=0.5)
+
+    present = ranker.extract_features(
+        cand, query, {"historical_ctr": 0.02}, InMemoryNearlineStore({"x": 0.07})
+    )
+    absent = ranker.extract_features(
+        cand, query, {"historical_ctr": 0.02}, InMemoryNearlineStore()
+    )
+
+    assert (present.ctr_source, present.values[5]) == ("nearline", 0.07)
+    assert (absent.ctr_source, absent.values[5]) == ("fallback", 0.02)
