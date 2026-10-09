@@ -628,3 +628,38 @@ features:
     status: automated
     covered_by: "analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
     notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
+
+  - id: analytics.tpr-export-atomic
+    title: "The export replaces the file atomically"
+    persona: guest
+    priority: P2
+    summary: "The export replaces the file atomically"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+      data: "The real team-analytics image on the stack network, exporting every second into a scratch directory."
+    acceptance:
+      - "When an export runs while a previous export file exists"
+      - "Then the new data is written to a temporary file and renamed over the old one: a reader opening the file throughout sees a complete Parquet file each time and a new file at each export"
+    tags: [analytics, recsys]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::The export replaces the file atomically"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::The export replaces the file atomically. Runs the real team-analytics image as a throwaway container with its own warehouse dir and consumer groups."
+
+  - id: analytics.tpr-export-disabled
+    title: "Export disabled by default"
+    persona: guest
+    priority: P2
+    summary: "Export disabled by default"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When PARQUET_EXPORT_INTERVAL_SECONDS is 0 or unset"
+      - "Then no export runs"
+    tags: [analytics, recsys]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Export disabled by default"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Export disabled by default. Two throwaway team-analytics containers (interval 0 and unset) write no Parquet file while running."

@@ -1227,3 +1227,37 @@ features:
     tags: [recsys, recommendations]
     status: not-testable
     notes: "VERIFIED BY team-ai/tests/unit/modules/recommend/test_item_feature_contract.py. explain is not on the gateway wire."
+
+  - id: recommendations.tpr-similar-listing-ids
+    title: "Similar items come back as listing ids"
+    persona: buyer
+    priority: P2
+    summary: "Similar items come back as listing ids"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When similar items are requested for a listing present in the trained collection"
+      - "Then the query uses that listing's uuid5 point id, and every returned candidate id is a listing id from the payload"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Similar items come back as listing ids"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Similar items come back as listing ids"
+
+  - id: recommendations.tpr-home-trained
+    title: "Home page shows trained recommendations"
+    persona: buyer
+    priority: P2
+    summary: "Home page shows trained recommendations"
+    entry_route: /
+    services: [team-ai, team-gateway, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the training job has run against the stack's tracking events and a buyer opens the home page"
+      - "Then the Gợi ý cho bạn row shows product cards for real listings of the serving trained generation, sourced from team-ai"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Home page shows trained recommendations"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Home page shows trained recommendations"

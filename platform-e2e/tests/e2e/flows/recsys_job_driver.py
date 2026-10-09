@@ -18,7 +18,8 @@ The live serving data (Redis DB 0 and the default collections) is never touched.
 Live plans (recsys-generation-publish) skip the namespace: they publish to the stack's own serving
 data (DB 0, the default collections and their aliases), optionally forgetting every generation first
 ("reset"), and leave what they published in place. A run may name a dataset variant ("@fixture") and
-a subcommand ("@command", e.g. rollback).
+a subcommand ("@command", e.g. rollback); "@legacy_champion" seeds an incumbent champion whose
+metrics carry no evaluation protocol (namespace plans only).
 
 Only the image's own dependencies are used (pandas, redis, qdrant-client).
 """
@@ -196,6 +197,28 @@ def _reset_live(redis: Redis, qdrant: QdrantClient) -> None:
             qdrant.delete_collection(name)
 
 
+def _seed_legacy_champion(redis: Redis) -> None:
+    """An incumbent champion evaluated before evaluation protocols were stamped.
+
+    Written as the registry stores it (`recs:model:meta:<version>` plus the champion key): the
+    metrics carry no `eval_protocol`, and a score no honest holdout run could match.
+    """
+    version = "als-legacy-e2e"
+    meta = {
+        "model_name": "als",
+        "model_version": version,
+        "model_type": "als",
+        "status": "champion",
+        "metrics": {"ndcg@10": 0.99, "coverage@10": 1.0, "test_events": 3},
+        "parameters": {},
+        "git_commit": "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "artifact_paths": {},
+    }
+    redis.set(f"recs:model:meta:{version}", json.dumps(meta))
+    redis.set("recs:model:champion", version)
+
+
 def _clean(redis: Redis, qdrant: QdrantClient) -> None:
     """Empty this worker's namespace: its Redis DB, and its aliases plus every collection behind
     them (the plain names and the per-generation ``__<gen>`` ones), so no earlier run leaks in."""
@@ -297,6 +320,8 @@ def main() -> int:
             run_env = dict(raw_env)
             variant = run_env.pop("@fixture", None)
             command = run_env.pop("@command", None)
+            if run_env.pop("@legacy_champion", None):
+                _seed_legacy_champion(redis)
             if variant:
                 run_env = {**_FIXTURE_ENV.get(variant, {}), **run_env}
                 # An explicit version per run: the default one is the run clock to the second.

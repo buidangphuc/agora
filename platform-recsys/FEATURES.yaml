@@ -754,3 +754,37 @@ features:
     tags: [recsys, unit]
     status: not-testable
     notes: "add-gbdt-ranker: VERIFIED BY platform-recsys/tests/test_ranker.py › test_gbdt_ranker_outperforms_raw_cosine_ndcg. Not verifiable end to end: offline NDCG arithmetic over a labelled holdout; the serving path exposes only the re-ranked list, never the cosine baseline."
+
+  - id: recsys.tpr-eval-never-trains-on-targets
+    title: "The evaluation model never trains on its targets"
+    persona: guest
+    priority: P2
+    summary: "The evaluation model never trains on its targets"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a run evaluates its training recipe"
+      - "Then no held-out pair or later event of that user is in the evaluation model's training data, and the metrics carry the evaluation protocol identifier"
+    tags: [recsys, evals]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::The evaluation model never trains on its targets"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::The evaluation model never trains on its targets. Real job image on a fixture whose targets are unique per user: exact train/test event counts, zero hit rate for the evaluation model, published model holds the targets."
+
+  - id: recsys.tpr-protocol-not-compared
+    title: "Metrics from another evaluation protocol are not compared"
+    persona: guest
+    priority: P2
+    summary: "Metrics from another evaluation protocol are not compared"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the incumbent champion's metrics were produced under a different evaluation protocol"
+      - "Then the gate does not compare the two values, and the candidate becomes the champion with a reason that names both protocols"
+    tags: [recsys, evals, registry]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared. The incumbent is seeded in the registry store without an eval_protocol (as a pre-protocol champion is)."

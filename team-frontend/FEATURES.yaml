@@ -7189,3 +7189,20 @@ features:
     status: automated
     covered_by: "frontend/recommendation_attribution.feature::Storefront beacons carry the server request id"
     notes: "recs-serving-safeguards: frontend/recommendation_attribution.feature::Storefront beacons carry the server request id"
+
+  - id: recommendations.home-row-viewable-impressions
+    title: "Home page shows AI recommendations with viewable impressions"
+    persona: buyer
+    priority: P2
+    summary: "The trained recommendations row on the home page renders cards and emits a viewable impression to the data layer"
+    entry_route: /
+    services: [team-ai, team-gateway, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens the home page while team-ai serves a trained generation"
+      - "Then the Gợi ý cho bạn row shows product cards and a viewable impression event is emitted to the data layer for the recommendations row"
+    tags: [buyer, recommendations, journey]
+    status: automated
+    covered_by: "journeys/buyer_full_funnel_journey.feature::Home page shows AI recommendations with viewable impressions"
+    notes: "serve-trained-recs-locally task 4.1: the strict xfail is gone; green 3 runs on the agora stack."

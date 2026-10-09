@@ -14,7 +14,7 @@
 
 ## 4. E2E — platform-e2e
 
-- [ ] 4.1 Remove the strict xfail on "Home page shows AI recommendations with viewable impressions"; verify green against the agora stack (3 runs), FEATURES entries
+- [x] 4.1 Remove the strict xfail on "Home page shows AI recommendations with viewable impressions"; verify green against the agora stack (3 runs), FEATURES entries
 - [x] 4.2 Run `openspec validate serve-trained-recs-locally --strict`; verify it is valid
 
 ## 5. Leakage-free evaluation — platform-recsys
