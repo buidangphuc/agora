@@ -18,8 +18,10 @@ now). The registry SHALL declare `user_activity@v1` and `item_popularity@v1`.
 - `user_activity@v1`, per `user_key`:
   - views, clicks and add-to-carts in the 7 days before `AS_OF`;
   - current favourites;
-  - current follows;
-  - paid orders in the 30 days before `AS_OF`.
+  - current follows.
+
+  `order_facts` carries no buyer, so per-user order counts are not part of v1; they need a buyer column in the
+  warehouse first and then a new view version.
 - `item_popularity@v1`, per listing:
   - views, clicks and add-to-carts in the 7 days before `AS_OF`;
   - current favourite count;
@@ -27,7 +29,7 @@ now). The registry SHALL declare `user_activity@v1` and `item_popularity@v1`.
   - average rating;
   - 7-day click-through rate (clicks over impressions, 0 without impressions).
 
-Only rows with `ingested_at` at or before `AS_OF` (`occurred_at` for order facts) SHALL be used.
+Only rows with `ingested_at` at or before `AS_OF` SHALL be used.
 
 #### Scenario: A buyer's activity becomes features
 
@@ -44,7 +46,8 @@ Only rows with `ingested_at` at or before `AS_OF` (`occurred_at` for order facts
 ### Requirement: Each run writes an offline snapshot and a manifest
 
 Each run SHALL write one Parquet snapshot per view and version under
-`<offline dir>/<view>/v<version>/as_of=<as_of>.parquet`, and a `manifest.json` beside it. The manifest SHALL record:
+`<offline dir>/<view>/v<version>/as_of=<as_of>.parquet`, and one `manifest.json` per run under
+`<offline dir>/runs/<as_of>/`. The manifest SHALL record:
 - `as_of`;
 - the row count per view;
 - the SHA-256 of each view's SQL definition;

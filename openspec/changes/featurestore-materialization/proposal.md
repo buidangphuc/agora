@@ -49,6 +49,9 @@ change.**
 
 ## Non-goals
 
+- Per-user order features. `order_facts` has no buyer column (found by the code track), so `user_activity@v1` omits
+  them; adding `buyer_id` to the order facts and a `user_activity@v2` is a follow-up.
+
 - Serving features to team-ai, or changing ranking. That is `recs-serving-safeguards` (change 7).
 - Training datasets built from these features. That is `featurestore-datasets` (change 5).
 - A scheduler. The job runs on demand (compose profile, e2e, CI). A CronJob in gitops is a follow-up once a deployed

@@ -52,9 +52,8 @@ See proposal.md for the motivation. Current code as of 2026-10-09:
   committed registry against a hash lock file `registry/features.lock`.
 
 ### D3. The point-in-time rule
-- **Windows:**
-  - `occurred_at > $as_of - INTERVAL 7 DAY AND occurred_at <= $as_of`, for 7-day counts;
-  - 30 days, for orders.
+- **Windows:** `occurred_at > $as_of - INTERVAL 7 DAY AND occurred_at <= $as_of` for 7-day counts. There is no
+  30-day order window in v1, because `order_facts` has no buyer.
 - **Current state:** the facts with `occurred_at <= $as_of` are reduced per pair, with the same latest-fact rule as the
   warehouse views. The warehouse views themselves are not used, because they are unfiltered.
 - **Default:** `AS_OF` is `now()` in UTC. An explicit `AS_OF` must be RFC 3339.
