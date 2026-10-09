@@ -1047,3 +1047,120 @@ features:
     tags: [recsys, recommendations]
     status: not-testable
     notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire."
+
+  - id: ai.mla-serving-ranks-nearline
+    title: "Serving ranks with the nearline CTR written by the consumer"
+    persona: buyer
+    priority: P1
+    summary: "Serving ranks with the nearline CTR written by the consumer"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the nearline CTR hash (recs:nearline:ctr:<id>) and the buyer's user list in the stack Redis DB 0; keys are unique/restored."
+    acceptance:
+      - "When two home-feed candidates have equal model scores and only the second has a nearline CTR in Redis"
+      - "Then a Recommend call through the gateway ranks the second above the first"
+      - "And with no nearline row for either, the order is the candidates' own order"
+    tags: [recsys, recommendations]
+    status: planned
+    covered_by: null
+    notes: "add-recsys-nearline-signals: recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer. Needs rebuild (team-ai image with RedisNearlineStore) and compose RECS_NEARLINE_REDIS_URL=redis://redis:6379/0 before this can run"
+
+  - id: ai.mla-debiased-changes-score
+    title: "Debiased value changes the ranking score"
+    persona: buyer
+    priority: P1
+    summary: "Debiased value changes the ranking score"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the nearline CTR hash (recs:nearline:ctr:<id>) and the buyer's user list in the stack Redis DB 0; keys are unique/restored."
+    acceptance:
+      - "When two candidates have equal model scores and equal raw click-through but the second's clicks came from worse positions"
+      - "Then the second ranks above the first in the Recommend response"
+    tags: [recsys, recommendations]
+    status: planned
+    covered_by: null
+    notes: "wire-debiased-ctr-ranker-features: recommendations/nearline_ctr.feature::Debiased value changes the ranking score. Needs rebuild and compose RECS_NEARLINE_REDIS_URL=redis://redis:6379/0 before this can run"
+
+  - id: ai.mla-outage-served
+    title: "Nearline outage leaves the request served"
+    persona: buyer
+    priority: P1
+    summary: "Nearline outage leaves the request served"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline outage leaves the request served"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/add-recsys-nearline-signals/specs. Needs the stack Redis (also the serving cache) to fail; status is not on the wire."
+
+  - id: ai.mla-equal-raw-ctr
+    title: "Equal raw CTR, worse positions, higher debiased CTR"
+    persona: buyer
+    priority: P1
+    summary: "Equal raw CTR, worse positions, higher debiased CTR"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then equal raw CTR, worse positions, higher debiased CTR"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. The feature vector is not on the wire; the ordering effect is e2e scenario Debiased value changes the ranking score."
+
+  - id: ai.mla-source-present
+    title: "Nearline data present"
+    persona: buyer
+    priority: P1
+    summary: "Nearline data present"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline data present"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. ctr_source is not on the gateway wire."
+
+  - id: ai.mla-source-absent
+    title: "Nearline data absent"
+    persona: buyer
+    priority: P1
+    summary: "Nearline data absent"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline data absent"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. ctr_source is not on the gateway wire."
+
+  - id: ai.mla-serving-enriches
+    title: "Serving request enriches from nearline"
+    persona: buyer
+    priority: P1
+    summary: "Serving request enriches from nearline"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then serving request enriches from nearline"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. explain is not on the gateway wire; the effect is e2e scenario Debiased value changes the ranking score."
