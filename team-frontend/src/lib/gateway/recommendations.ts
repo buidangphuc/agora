@@ -51,15 +51,32 @@ export interface RecommendationsOptions {
   limit?: number;
 }
 
+export interface RecommendationsResult {
+  items: ViewListing[];
+  /** Server-minted id of this response; the impression beacons' impressionId. */
+  requestId: string;
+  /** Placement the server actually served ("" when unknown). */
+  placementId: string;
+  modelVersion: string;
+}
+
+const EMPTY_RESULT: RecommendationsResult = {
+  items: [],
+  requestId: "",
+  placementId: "",
+  modelVersion: "",
+};
+
 /**
  * Fetch a ranked set of recommendations for the caller and hydrate each into a
- * product card. Returns an empty list when the service is unavailable (e.g.
+ * product card, together with the response's request/placement/model ids for
+ * attribution. Returns an empty result when the service is unavailable (e.g.
  * `RECS_ENABLED=false`) so callers can hide the row instead of erroring the
  * whole page.
  */
 export async function getRecommendations(
   opts: RecommendationsOptions = {},
-): Promise<ViewListing[]> {
+): Promise<RecommendationsResult> {
   const principal = getPrincipal();
   const limit = opts.limit ?? 10;
   try {
@@ -79,11 +96,18 @@ export async function getRecommendations(
     const resolved = await Promise.all(
       ranked.map((item) => getListing(item.listingId)),
     );
-    return resolved
+    const items = resolved
       .filter((l): l is ViewListing => l !== null && l.stock > 0)
       .slice(0, limit);
+    return {
+      items,
+      requestId: res.requestId,
+      placementId: res.placementId,
+      modelVersion: res.modelVersion,
+    };
   } catch (err) {
-    if (err instanceof ConnectError && err.code === Code.Unavailable) return [];
+    if (err instanceof ConnectError && err.code === Code.Unavailable)
+      return EMPTY_RESULT;
     throw err;
   }
 }
