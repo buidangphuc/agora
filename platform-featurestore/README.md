@@ -41,6 +41,7 @@ RFC 3339 UTC ending in `Z`. The old `fs:u:` / `fs:i:` keys are gone.
 | --- | --- |
 | `materialize` | compute, write offline + online, parity gate |
 | `parity` | compare Redis with the latest run's snapshots |
+| `dataset` | build governed datasets (`als_interactions@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
 | `lock` | regenerate `registry/features.lock` after a deliberate definition change |
 
 Exit codes: 0 ok, 2 config/missing input, 3 parity mismatch (`parity mismatch view=.. entity=.. feature=..

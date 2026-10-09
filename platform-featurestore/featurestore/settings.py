@@ -38,6 +38,7 @@ class Settings:
     parity_sample: int
     as_of: datetime
     registry_dir: Path
+    dataset_window_days: int = 30
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Settings:
@@ -45,8 +46,11 @@ class Settings:
         try:
             ttl = int(e.get("FEATURESTORE_ONLINE_TTL_SECONDS") or 172800)
             sample = int(e.get("FEATURESTORE_PARITY_SAMPLE") or 200)
+            window = int(e.get("DATASET_WINDOW_DAYS") or 30)
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
+        if window <= 0:
+            raise ConfigError(f"DATASET_WINDOW_DAYS must be positive, got {window}")
         return cls(
             input_dir=Path(e.get("FEATURESTORE_INPUT_DIR") or "/data"),
             offline_dir=Path(e.get("FEATURESTORE_OFFLINE_DIR") or "/features"),
@@ -55,4 +59,5 @@ class Settings:
             parity_sample=sample,
             as_of=parse_as_of(e.get("AS_OF")),
             registry_dir=Path(__file__).resolve().parent.parent / "registry",
+            dataset_window_days=window,
         )
