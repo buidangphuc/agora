@@ -61,6 +61,18 @@ def buyer_cart_one_item(world: World, price: int, stock: int) -> None:
     world.state.extra["d2_shops"] = [shop]
 
 
+@given(
+    parsers.parse(
+        'a d2 buyer with the address city "{city}" has a cart with one item priced {price:d}'
+    )
+)
+def buyer_cart_in_city(world: World, city: str, price: int) -> None:
+    d2.seed_buyer(world, address_city=None if city == "-" else city)
+    shop = d2.seed_shop(price=price)
+    d2.add_to_cart(world, shop)
+    world.state.extra["d2_shops"] = [shop]
+
+
 @given("a d2 buyer has an empty cart")
 def buyer_empty_cart(world: World) -> None:
     d2.seed_buyer(world)
@@ -323,3 +335,71 @@ def voucher_empty(world: World) -> None:
     field.fill("ANYTHING")
     expect(field).to_have_value("ANYTHING")
     expect(dialog.get_by_role("button", name="Áp dụng")).to_be_enabled()
+
+
+# ── Empty cart, skeleton and layout shift ────────────────────────────────
+@then("the empty cart state links to continue shopping and no summary or buy button is rendered")
+def empty_cart_state(world: World) -> None:
+    page = world.page
+    expect(page.get_by_text("Giỏ hàng của bạn đang trống")).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(page.get_by_role("link", name="Tiếp tục mua sắm")).to_have_attribute("href", "/")
+    expect(page.get_by_test_id("order-summary")).to_have_count(0)
+    main = page.locator("main")
+    expect(main.get_by_role("link", name="Mua hàng")).to_have_count(0)
+    expect(main.get_by_role("button", name="Mua hàng")).to_have_count(0)
+
+
+@when("the d2 buyer opens the cart from the home page while the cart data is slow")
+def open_cart_slow(world: World) -> None:
+    import time
+
+    from tests.e2e.step_definitions.d2_quality_steps import install_cls
+
+    page = world.page
+    install_cls(world)
+    page.goto(f"{world.settings.base_url}/", wait_until="networkidle")
+
+    def slow(route) -> None:  # noqa: ANN001
+        time.sleep(1.5)
+        route.continue_()
+
+    page.route(re.compile(r".*/cart\?_rsc=.*"), slow)
+    page.evaluate("window.__cls = 0")
+    page.locator('a[href="/cart"]').first.click()
+
+
+@then("a skeleton with a shop card, three item rows and the summary is shown before the cart")
+def cart_skeleton(world: World) -> None:
+    page = world.page
+    skeleton = page.get_by_test_id("cart-skeleton")
+    expect(skeleton).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(skeleton.locator("ul > li")).to_have_count(3)
+    expect(page.get_by_test_id("cart-shop-group").first).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(skeleton).to_have_count(0)
+
+
+@then("the layout shift score of the cart is 0")
+def cart_cls_zero(world: World) -> None:
+    from tests.e2e.step_definitions.d2_quality_steps import cls
+
+    page = world.page
+    page.wait_for_timeout(1000)
+    soft = cls(page)
+    page.goto(f"{world.settings.base_url}/cart", wait_until="load")
+    expect(page.get_by_test_id("cart-shop-group").first).to_be_visible(timeout=timeouts.DEFAULT)
+    page.wait_for_timeout(1500)
+    hard = cls(page)
+    assert (
+        soft == 0 and hard == 0
+    ), f"cumulative layout shift: soft navigation {soft}, hard load {hard}"
+
+
+@given(parsers.parse("a d2 buyer has a cart with one item from each of {n:d} shops"))
+def buyer_cart_n_shops(world: World, n: int) -> None:
+    d2.seed_buyer(world)
+    shops = []
+    for i in range(n):
+        shop = d2.seed_shop(None, price=100_000 * (i + 1), image=True)
+        d2.add_to_cart(world, shop)
+        shops.append(shop)
+    world.state.extra["d2_shops"] = shops

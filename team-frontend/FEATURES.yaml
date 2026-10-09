@@ -1146,7 +1146,7 @@ features:
       - Then the URL has step=shipping and the Vận chuyển step is still current
     tags: [buyer, checkout]
     status: automated
-    covered_by: "buyer/cart_checkout.feature::Checkout step lives in the URL and survives a reload"
+    covered_by: "buyer/cart_checkout.feature::Step state lives in the URL"
 
   - id: checkout.address-selector
     title: Address selection in a modal
@@ -1167,7 +1167,7 @@ features:
       - Then the address card shows the new recipient and the URL addr is the chosen id
     tags: [buyer, checkout]
     status: automated
-    covered_by: "buyer/cart_checkout.feature::Buyer changes the delivery address in the selector modal"
+    covered_by: "buyer/cart_checkout.feature::Changing the address updates the URL"
 
   - id: checkout.payment-options
     title: Payment method one-of-many, keyboard operable
@@ -1211,7 +1211,7 @@ features:
       - Then exactly one order exists for the buyer
     tags: [buyer, checkout, order]
     status: automated
-    covered_by: "buyer/cart_checkout.feature::Double-clicking Place order creates exactly one order"
+    covered_by: "buyer/cart_checkout.feature::Rapid double click creates one order"
     notes: The same-tick guarantee and the single purchase event are covered by Vitest (PlaceOrderForm.test.tsx).
 
   - id: checkout.saga-failure-alert
@@ -1234,7 +1234,7 @@ features:
       - And the order button is enabled again, did not move, and the cart is unchanged
     tags: [buyer, checkout, order]
     status: automated
-    covered_by: "buyer/cart_checkout.feature::A saga failure is shown as a recoverable alert"
+    covered_by: "buyer/cart_checkout.feature::Out-of-stock failure shows a recoverable error"
 
   - id: payment.result-outcomes
     title: Payment outcome shown as a Result
@@ -1296,7 +1296,7 @@ features:
       - Then there is no horizontal overflow and the quantity control and Mua hàng are visible
     tags: [buyer, cart]
     status: automated
-    covered_by: "buyer/cart_checkout.feature::The cart fits a 375px viewport"
+    covered_by: "buyer/cart_checkout.feature::Mobile cart fits the viewport"
 
   # >>> d2 generated (ui-phase-cart-checkout / -orders / -seller), one entry per spec scenario
 
@@ -1379,6 +1379,22 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "frontend/ui_cart_page.feature::Cart page is not a client component"
+
+  - id: uicc.checkout-kill-switch-disables-the-cta
+    title: "Checkout kill-switch disables the CTA"
+    persona: buyer
+    priority: P2
+    summary: "Checkout kill-switch disables the CTA"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the checkout kill-switch is off and the buyer opens `/cart`"
+      - "Then the \"Mua hàng\" button is disabled with `aria-disabled=\"true\"` and an `Alert` explains that checkout is temporarily unavailable"
+    tags: [buyer]
+    status: planned
+    notes: "Written as frontend/ui_checkout_order.feature::Checkout kill-switch disables the CTA, @destructive (flips the stack-wide checkout-enabled flag, restored in teardown); not run in the parallel lane."
 
   - id: uicc.increasing-quantity-shows-pending-and-then-the-new-tota
     title: "Increasing quantity shows pending and then the new total"
@@ -1508,6 +1524,472 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "frontend/ui_cart_page.feature::No available vouchers"
+
+  - id: uicc.shell-hides-consumer-chrome
+    title: "Shell hides consumer chrome"
+    persona: buyer
+    priority: P2
+    summary: "Shell hides consumer chrome"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer opens `/checkout`"
+      - "Then the page shows the checkout header with the `Stepper` and the secure footer, and neither the global search field nor the mobile bottom navigation is present"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Shell hides consumer chrome"
+
+  - id: uicc.browser-back-returns-to-the-previous-step
+    title: "Browser back returns to the previous step"
+    persona: buyer
+    priority: P2
+    summary: "Browser back returns to the previous step"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer is on the Thanh toán step and uses the browser back button"
+      - "Then the Vận chuyển step is shown with selections preserved"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Browser back returns to the previous step"
+
+  - id: uicc.skipping-ahead-is-redirected
+    title: "Skipping ahead is redirected"
+    persona: buyer
+    priority: P2
+    summary: "Skipping ahead is redirected"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer navigates directly to `/checkout?step=confirm` with no address selected"
+      - "Then the page redirects to `step=address`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Skipping ahead is redirected"
+
+  - id: uicc.empty-cart-and-signed-out-user-are-redirected
+    title: "Empty cart and signed-out user are redirected"
+    persona: buyer
+    priority: P2
+    summary: "Empty cart and signed-out user are redirected"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-out visitor opens `/checkout`, or a signed-in buyer opens it with an empty cart"
+      - "Then the visitor is redirected to `/login` or the buyer to `/cart` respectively"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Empty cart and signed-out user are redirected"
+
+  - id: uicc.adding-an-address-from-the-modal
+    title: "Adding an address from the modal"
+    persona: buyer
+    priority: P2
+    summary: "Adding an address from the modal"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer adds a new address in the modal and the action succeeds"
+      - "Then a success toast is shown, the new address appears in the list and is selected"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Adding an address from the modal"
+
+  - id: uicc.no-saved-address-blocks-the-step
+    title: "No saved address blocks the step"
+    persona: buyer
+    priority: P2
+    summary: "No saved address blocks the step"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer has no saved addresses"
+      - "Then an `Empty` with \"Thêm địa chỉ\" is shown and \"Tiếp tục\" is disabled with `aria-disabled=\"true\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::No saved address blocks the step"
+
+  - id: uicc.free-shipping-above-the-threshold
+    title: "Free shipping above the threshold"
+    persona: buyer
+    priority: P2
+    summary: "Free shipping above the threshold"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the cart subtotal is 500000 or more"
+      - "Then the shipping step shows a \"Freeship\" `Tag` and the summary shipping row shows 0"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Free shipping above the threshold"
+    notes: "The summary shows the Freeship tag (zero fee) rather than a literal 0."
+
+  - id: uicc.payment-grid-wraps-on-mobile
+    title: "Payment grid wraps on mobile"
+    persona: buyer
+    priority: P2
+    summary: "Payment grid wraps on mobile"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the Thanh toán step is rendered at 375px width"
+      - "Then the method cards are one per row, none overflows the viewport horizontally, and each is at least 44px tall"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Payment grid wraps on mobile"
+
+  - id: uicc.total-reflects-discount-and-shipping
+    title: "Total reflects discount and shipping"
+    persona: buyer
+    priority: P2
+    summary: "Total reflects discount and shipping"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the subtotal is 300000, the applied discount is 30000 and shipping is 20000"
+      - "Then the summary shows subtotal 300000, discount 30000, shipping 20000 and total 290000"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Total reflects discount and shipping"
+
+  - id: uicc.mobile-summary-bar-and-drawer
+    title: "Mobile summary bar and drawer"
+    persona: buyer
+    priority: P2
+    summary: "Mobile summary bar and drawer"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer views any checkout step at 375px width"
+      - "Then a sticky bottom bar shows the total and the primary action, and tapping \"Chi tiết\" opens a `Drawer` with the full breakdown without horizontal scroll"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Mobile summary bar and drawer"
+
+  - id: uicc.button-is-disabled-while-pending
+    title: "Button is disabled while pending"
+    persona: buyer
+    priority: P2
+    summary: "Button is disabled while pending"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When \"Đặt hàng\" is clicked and the action has not yet resolved"
+      - "Then the button is disabled, shows a spinner, has `aria-busy=\"true\"` and the same width as before, and the Back link and Stepper navigation are disabled"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Button is disabled while pending"
+
+  - id: uicc.enter-key-cannot-bypass-the-guard
+    title: "Enter key cannot bypass the guard"
+    persona: buyer
+    priority: P2
+    summary: "Enter key cannot bypass the guard"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the order is pending and the buyer presses Enter inside the confirm form"
+      - "Then no second `checkoutAction` call is made"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Enter key cannot bypass the guard"
+
+  - id: uicc.button-stays-locked-after-success
+    title: "Button stays locked after success"
+    persona: buyer
+    priority: P2
+    summary: "Button stays locked after success"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `checkoutAction` returns `ok:true` and navigation to the payment or orders page is in progress"
+      - "Then the button remains disabled and no further `checkoutAction` call can be made"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Button stays locked after success"
+
+  - id: uicc.button-is-re-enabled-after-failure
+    title: "Button is re-enabled after failure"
+    persona: buyer
+    priority: P2
+    summary: "Button is re-enabled after failure"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `checkoutAction` returns `ok:false`"
+      - "Then the button is enabled again and an error `Alert` and an error toast are shown"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Button is re-enabled after failure"
+
+  - id: uicc.kill-switch-shows-an-info-result
+    title: "Kill-switch shows an info Result"
+    persona: buyer
+    priority: P2
+    summary: "Kill-switch shows an info Result"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the checkout kill-switch is off and the buyer opens `/checkout`"
+      - "Then a `Result` with the unavailable notice and a \"Quay lại giỏ hàng\" button is shown and no wizard is rendered"
+    tags: [buyer]
+    status: planned
+    notes: "Written as frontend/ui_checkout_order.feature::Kill-switch shows an info Result, @destructive (flips the stack-wide checkout-enabled flag, restored in teardown); not run in the parallel lane."
+
+  - id: uicc.successful-payment-shows-the-success-result
+    title: "Successful payment shows the success Result"
+    persona: buyer
+    priority: P2
+    summary: "Successful payment shows the success Result"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer presses \"Thanh toán thành công\" for a pending transaction"
+      - "Then both simulator buttons are disabled while pending, and afterwards a success `Result` with a link to the order list is shown and the order status becomes PAID"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_payment_result.feature::Successful payment shows the success Result"
+
+  - id: uicc.failed-payment-offers-recovery
+    title: "Failed payment offers recovery"
+    persona: buyer
+    priority: P2
+    summary: "Failed payment offers recovery"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer presses \"Thanh toán thất bại\""
+      - "Then an error `Result` is shown with \"Thử lại\" and \"Đổi phương thức\", and an error toast is displayed"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_payment_result.feature::Failed payment offers recovery"
+
+  - id: uicc.saga-compensation-is-explained
+    title: "Saga compensation is explained"
+    persona: buyer
+    priority: P2
+    summary: "Saga compensation is explained"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the payment step is forced to fail and the saga cancels the order"
+      - "Then the page shows an `Alert` stating that stock was released and the order was cancelled"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_payment_result.feature::Saga compensation is explained"
+
+  - id: uicc.unknown-order-id
+    title: "Unknown order id"
+    persona: buyer
+    priority: P2
+    summary: "Unknown order id"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer opens `/checkout/pay/does-not-exist`"
+      - "Then a `Result status=\"404\"` with a link to `/account/orders` is rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_payment_result.feature::Unknown order id"
+
+  - id: uicc.empty-cart
+    title: "Empty cart"
+    persona: buyer
+    priority: P2
+    summary: "Empty cart"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with an empty cart opens `/cart`"
+      - "Then the empty cart state (`Empty` with a \"Tiếp tục mua sắm\" link) is displayed and no summary or \"Mua hàng\" button is rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_quality.feature::Empty cart"
+
+  - id: uicc.gateway-failure-on-the-cart
+    title: "Gateway failure on the cart"
+    persona: buyer
+    priority: P2
+    summary: "Gateway failure on the cart"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the cart read throws"
+      - "Then the segment error UI shows an `Alert` with \"Thử lại\" which re-renders the route"
+    tags: [buyer]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: the cart read can only be made to throw by faulting the gateway or order service (a bad session token renders the empty cart instead). Covered by the Vitest states.test.tsx / error.tsx of app/(shop)/cart."
+
+  - id: uicc.loading-skeleton-matches-the-page-footprint
+    title: "Loading skeleton matches the page footprint"
+    persona: buyer
+    priority: P2
+    summary: "Loading skeleton matches the page footprint"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/cart` is streaming"
+      - "Then `loading.tsx` renders shop-card, three item-row and summary `Skeleton`s, and on load completion the page's cumulative layout shift score is 0"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_quality.feature::Loading skeleton matches the page footprint"
+    notes: "CLS measured 0 on an unthrottled run (soft navigation and hard load). tasks.md 4.4 records 0.0021 to 0.0279 on the throttled production build, so this can be flaky on slower machines."
+
+  - id: uicc.applying-a-voucher-does-not-shift-the-layout
+    title: "Applying a voucher does not shift the layout"
+    persona: buyer
+    priority: P2
+    summary: "Applying a voucher does not shift the layout"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a voucher is applied in checkout"
+      - "Then the vertical position of the \"Đặt hàng\"/\"Tiếp tục\" button and of the total row is unchanged"
+    tags: [buyer]
+    status: planned
+    notes: "BLOCKED code defect, scenario red: applying SAVE10 moves the summary total row down 16px because the discount row label grows from 16px to 32px when the voucher Tag appears (features/order/OrderSummary.tsx)."
+
+  - id: uicc.below-the-fold-thumbnails-are-lazy
+    title: "Below-the-fold thumbnails are lazy"
+    persona: buyer
+    priority: P2
+    summary: "Below-the-fold thumbnails are lazy"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the cart has three shop groups"
+      - "Then images in the second and third groups carry `loading=\"lazy\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_quality.feature::Below-the-fold thumbnails are lazy"
+
+  - id: uicc.desktop-shows-a-sticky-summary
+    title: "Desktop shows a sticky summary"
+    persona: buyer
+    priority: P2
+    summary: "Desktop shows a sticky summary"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/checkout` is opened at 1280px width and the page is scrolled"
+      - "Then the order summary stays visible in the right column"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Desktop shows a sticky summary"
+
+  - id: uicc.token-lint-is-clean
+    title: "Token lint is clean"
+    persona: buyer
+    priority: P2
+    summary: "Token lint is clean"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the token lint from `ui-foundation` runs over `features/cart`, `features/order` checkout files, `features/payment` and `app/cart`, `app/checkout`"
+      - "Then it reports no arbitrary values, raw hex colours or font sizes outside the scale"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_quality.feature::Token lint is clean"
+
+  - id: uicc.begin-checkout-fires-once-per-entry
+    title: "begin_checkout fires once per entry"
+    persona: buyer
+    priority: P2
+    summary: "begin_checkout fires once per entry"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer opens `/checkout` and moves through all four steps"
+      - "Then exactly one `begin_checkout` event is sent, with the cart items and value"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::begin_checkout fires once per entry"
+
+  - id: uicc.purchase-fires-once
+    title: "purchase fires once"
+    persona: buyer
+    priority: P2
+    summary: "purchase fires once"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer places an order successfully, including after a double click"
+      - "Then exactly one `purchase` event is sent with the created order id as `transactionId`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::purchase fires once"
+
+  - id: uicc.apply-promotion-still-fires-for-valid-and-invalid-codes
+    title: "apply_promotion still fires for valid and invalid codes"
+    persona: buyer
+    priority: P2
+    summary: "apply_promotion still fires for valid and invalid codes"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer previews a valid code and then an invalid code"
+      - "Then two `apply_promotion` events are sent, with `properties.valid` equal to `\"true\"` and `\"false\"` respectively"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::apply_promotion still fires for valid and invalid codes"
 
   # <<< d2 generated
 

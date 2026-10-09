@@ -14,6 +14,7 @@ from typing import Any
 
 from config.settings import get_settings
 from src.api.services import AddressService, AuthService, CartService, ListingService, OrderService
+from src.constants import gateway_endpoints as ep
 from src.models import Listing, User
 from src.utils import data as fake
 from tests.e2e.flows.auth_flow import SESSION_COOKIE
@@ -42,6 +43,7 @@ def seed_shop(
     price: int = 100_000,
     stock: int = 50,
     title: str | None = None,
+    image: bool = False,
 ) -> dict[str, Any]:
     """A seller (optionally with a shop display name) with one published listing."""
     username, token = register("seller")
@@ -56,7 +58,26 @@ def seed_shop(
         status="published",
         description="Seed for the d2 UI e2e.",
     )
-    svc.create_listing(listing)
+    if image:
+        # a stored key resolves to a media URL, so the page renders a real <img>
+        res = svc.post(
+            ep.LISTING_CREATE,
+            {
+                "listing": {
+                    "title": listing.title,
+                    "categoryId": listing.category_id,
+                    "price": price,
+                    "stock": stock,
+                    "status": "LISTING_STATUS_PUBLISHED",
+                    "currency": listing.currency,
+                    "description": listing.description,
+                    "imageKeys": ["d2/thumb.png"],
+                }
+            },
+        )
+        listing.listing_id = res["listing"]["id"]
+    else:
+        svc.create_listing(listing)
     return {
         "username": username,
         "token": token,
@@ -64,11 +85,12 @@ def seed_shop(
         "listing_id": listing.listing_id,
         "title": listing.title,
         "price": price,
+        "stock": stock,
         "name": name,
     }
 
 
-def seed_buyer(world: World, *, address_city: str | None = "Ha Noi") -> User:
+def seed_buyer(world: World, *, address_city: str | None = "Hà Nội") -> User:
     """Register a buyer (with an optional default address) and log the browser in as them."""
     username, token = register("buyer")
     if address_city:
@@ -101,3 +123,23 @@ def buyer_orders(world: World) -> OrderService:
 
 def add_to_cart(world: World, shop: dict[str, Any], quantity: int = 1) -> None:
     buyer_cart(world).add_to_cart(shop["listing_id"], quantity)
+
+
+def place_order(world: World, shop: dict[str, Any], quantity: int = 1) -> str:
+    """Create a COD order for the logged-in d2 buyer from `shop`; returns the order id."""
+    add_to_cart(world, shop, quantity)
+    res = buyer_orders(world).create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
+    orders = res.get("orders", [])
+    order_id = orders[0]["id"] if orders else res["order"]["id"]
+    world.state.extra["d2_order_id"] = order_id
+    return order_id
+
+
+def force_fail_payment(order_id: str) -> None:
+    """ForceFailSaga is admin-only: act as the seeded admin."""
+    from src.api.services import OrderService
+    from src.utils import get_test_data_manager
+
+    admin = get_test_data_manager().get_user_by_role("admin")
+    token = AuthService().login(admin.username, admin.password)
+    OrderService(token=token).force_fail_saga(order_id)
