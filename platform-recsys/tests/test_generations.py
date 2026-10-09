@@ -275,7 +275,7 @@ def test_lua_switch_moves_all_three_keys_together():
         "g1",
         "g2",
     )
-    assert redis_cache.swap_generations(SETTINGS, client=r) == ("g2", "g1")
+    assert redis_cache.swap_generations(SETTINGS, "g2", client=r) == ("g2", "g1")
     assert (r.get("recs:v1:serving"), r.get("recs:v1:previous"), r.get("recs:v1:model_version")) == (
         "g1",
         "g2",
@@ -406,3 +406,64 @@ def test_legacy_migration_keeps_the_old_vector_size(redis_client, qdrant):
 
     assert out["qdrant"]["legacy_migrated"] == 1
     assert qdrant.get_collection(collection_name="item_als_vectors__g1").config.params.vectors.size == DIM
+
+
+def test_swap_is_a_compare_and_set_on_serving(redis_client):
+    redis_cache.activate_generation(SETTINGS, "g1", client=redis_client)
+    redis_cache.activate_generation(SETTINGS, "g2", client=redis_client)
+
+    assert redis_cache.swap_generations(SETTINGS, "g1", client=redis_client) == redis_cache.SWAP_STALE
+    assert redis_cache.pointers(SETTINGS, redis_client) == ("g2", "g1")
+    assert redis_cache.swap_generations(SETTINGS, "g2", client=redis_client) == ("g2", "g1")
+
+
+def test_rollback_rerun_after_a_crash_converges_on_the_restored_model(redis_client, qdrant):
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    registry = _registry_with(redis_client, "g1", "g2")
+
+    # Crash: the aliases and the pointers moved, restore_champion never ran.
+    qdrant_load.activate_aliases(SETTINGS, "g1", client=qdrant)
+    assert redis_cache.swap_generations(SETTINGS, "g2", client=redis_client) == ("g2", "g1")
+    assert registry.get_champion_version() == "g2"
+
+    # The re-run (a retry of the same rollback) converges; it must not swap back to g2.
+    if True:
+        out = rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+        assert out["serving"] == "g1"
+        assert redis_client.get("recs:v1:serving") == "g1"
+        assert redis_client.get("recs:v1:previous") == "g2"
+        assert redis_client.get("recs:v1:model_version") == "g1"
+        assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
+        assert _aliases(qdrant)["user_als_vectors"] == "user_als_vectors__g1"
+        assert registry.get_champion_version() == "g1"
+        assert registry.get_model("g1").status == "champion"
+        assert registry.get_model("g2").status == "archived"
+
+
+def test_rollback_with_a_stale_read_does_not_swap_back(redis_client, qdrant):
+    """Serving moves between the pointer read and the swap: the CAS refuses, rollback converges."""
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    registry = _registry_with(redis_client, "g1", "g2")
+
+    real = redis_cache.pointers
+    state = {"n": 0}
+
+    def stale_pointers(settings, client):
+        out = real(settings, client)
+        if state["n"] == 0:  # a concurrent rollback completes right after our read
+            state["n"] = 1
+            redis_cache.swap_generations(settings, "g2", client=client)
+        return out
+
+    import unittest.mock as mock
+
+    with mock.patch.object(redis_cache, "pointers", stale_pointers):
+        out = rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+
+    assert out["serving"] == "g1"
+    assert redis_client.get("recs:v1:serving") == "g1"
+    assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
+    assert registry.get_champion_version() == "g1"
+
