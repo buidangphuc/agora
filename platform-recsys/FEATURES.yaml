@@ -193,8 +193,8 @@ features:
       - "When the recsys job promotes a model on one dataset and then promotes a better model on a second dataset"
       - "Then `recs:v1:serving` is the second model, `recs:v1:previous` is the first, the alias points at the second model's collection, and a buyer's recommendations through the gateway report the second model's version"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A second promotion keeps the first as previous"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::A second promotion keeps the first as previous"
 
   - id: recsys.gen-third-promotion-drops-oldest
@@ -211,8 +211,8 @@ features:
       - "When a third model is promoted after the two above"
       - "Then no key or collection of the first model remains, and `recs:v1:previous` is the second model"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A third promotion drops the oldest generation"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::A third promotion drops the oldest generation"
 
   - id: recsys.gen-rejected-candidate-leaves-serving
@@ -229,8 +229,8 @@ features:
       - "When the recsys job runs on a dataset whose candidate fails the promotion gate"
       - "Then `recs:v1:serving`, `recs:v1:previous` and the alias are the same as before the run"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A rejected candidate leaves serving untouched"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::A rejected candidate leaves serving untouched"
 
   - id: recsys.gen-one-size-fits-all-rejected
@@ -247,8 +247,8 @@ features:
       - "When the recsys job runs on a dataset in which every user interacted with the same three items only"
       - "Then the candidate is registered as `rejected` with a reason naming the list overlap or item coverage check, and serving is unchanged"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A one-size-fits-all model is rejected"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::A one-size-fits-all model is rejected"
 
   - id: recsys.gen-rollback-restores-earlier-model
@@ -265,8 +265,8 @@ features:
       - "When two models were promoted and `python -m recsys rollback` runs"
       - "Then `recs:v1:serving` is the first model, `recs:v1:previous` is the second, the registry champion is the first, and a buyer's recommendations through the gateway report the first model's version"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::Rolling back restores the earlier model"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::Rolling back restores the earlier model"
 
   - id: recsys.gen-rollback-refused-without-previous
@@ -283,6 +283,6 @@ features:
       - "When only one generation was ever promoted and `python -m recsys rollback` runs"
       - "Then it exits non-zero and `recs:v1:serving` is unchanged"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::Rollback without a previous generation is refused"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::Rollback without a previous generation is refused"
