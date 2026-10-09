@@ -1261,3 +1261,38 @@ features:
     status: automated
     covered_by: "recommendations/trained_recs_local.feature::Home page shows trained recommendations"
     notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Home page shows trained recommendations"
+
+  - id: recommendations.ple-home-feed
+    title: "Home feed surfaces personalized recommendations with popularity fallback"
+    persona: buyer
+    priority: P2
+    summary: "Home feed surfaces personalized recommendations with popularity fallback"
+    entry_route: /
+    services: [team-ai, team-gateway, platform-recsys]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on a governed dataset fixture that includes the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When a user the trained model knows and a user it never saw query the home_feed placement"
+      - "Then the first is answered from its personalized list and the second from the global popular items, both stamped placementId home_feed"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/placement_engine.feature::Home feed surfaces personalized recommendations with popularity fallback"
+    notes: "add-placement-engine: recommendations/placement_engine.feature::Home feed surfaces personalized recommendations with popularity fallback. Destructive lane (publishes a fixture generation with the buyer; the binder republishes a real one). fallback_tier is internal to team-ai and not on the gateway wire; the tier is unit-verified in team-ai/tests/unit/modules/recommend/test_placement_engine.py."
+
+  - id: recommendations.ple-similar-items
+    title: "Similar items placement retrieves item similarities"
+    persona: buyer
+    priority: P2
+    summary: "Similar items placement retrieves item similarities"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a client queries similar_items with seed_listing_id"
+      - "Then the service retrieves similar items via vector similarity and falls back to global popular items if the seed is unknown, stamping placementId similar_items"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/placement_engine.feature::Similar items placement retrieves item similarities"
+    notes: "add-placement-engine: recommendations/placement_engine.feature::Similar items placement retrieves item similarities. The category tier is unit-verified: the gateway never sends a category_id."
