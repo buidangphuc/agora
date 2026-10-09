@@ -975,3 +975,75 @@ features:
     tags: [ai, rag]
     status: not-testable
     notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Effect only visible in the RAG store."
+
+  - id: ai.wsg-gbdt-ordering
+    title: "GBDT placement produces ranker ordering, not cosine ordering"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then gBDT placement produces ranker ordering, not cosine ordering"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. The gateway wire carries no explain/status."
+
+  - id: ai.wsg-cosine-ordering
+    title: "Placement without a GBDT model keeps retrieval ordering"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then placement without a GBDT model keeps retrieval ordering"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. The gateway wire carries no explain/status."
+
+  - id: ai.wsg-featurestore-count
+    title: "Enrichment count proves the feature store was read"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then enrichment count proves the feature store was read"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire; the order effect is covered by recommendations/serving_safeguards.feature."
+
+  - id: ai.wsg-unbound-startup
+    title: "Unbound ranking model fails at startup"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then unbound ranking model fails at startup"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. Needs a placement file edit and a restart."
+
+  - id: ai.wsg-ranker-degrades
+    title: "Ranker failure falls back and marks degraded"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then ranker failure falls back and marks degraded"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. Needs a failing ranker in the running service; status is not on the wire."
+
+  - id: ai.wsg-factory-binds
+    title: "A factory-built service honours use_featurestore and gbdt"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then a factory-built service honours use_featurestore and gbdt"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire."
