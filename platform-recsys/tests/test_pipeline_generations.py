@@ -153,5 +153,6 @@ def test_failed_publish_keeps_the_previous_champion_and_pointers(tmp_path):
     assert rejected.status == "rejected"
     assert rejected.metrics["gate_reason"] == "publish failed: RuntimeError"
     assert rejected.parameters["gate_reason"] == "publish failed: RuntimeError"
-    assert {k: v for k, v in fake_r.store.items() if k.startswith("recs:v1:") and ":gen:" not in k} == pointers
+    unscoped = {k: v for k, v in fake_r.store.items() if k.startswith("recs:v1:") and ":gen:" not in k}
+    assert unscoped == pointers
     assert fake_q.aliases == aliases

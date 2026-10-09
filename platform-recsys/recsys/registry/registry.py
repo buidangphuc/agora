@@ -161,7 +161,9 @@ class ModelRegistry:
             decision.demote.status = "archived"
             self.register_model(decision.demote)
         self._set_champion(decision.candidate)
-        logger.info("Promoted candidate %s to champion: %s", decision.candidate.model_version, decision.reason)
+        logger.info(
+            "Promoted candidate %s to champion: %s", decision.candidate.model_version, decision.reason
+        )
 
     def reject(self, decision: PromotionDecision, reason: str | None = None) -> None:
         """Record the candidate as ``rejected``; the champion is not touched."""

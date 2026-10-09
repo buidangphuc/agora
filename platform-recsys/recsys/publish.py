@@ -106,8 +106,9 @@ def rollback(
         raise RollbackRefused(f"previous generation {previous} has no Qdrant collections left")
 
     # Crash after the pointer swap but before the registry follow-up: serving already names the
-    # restored model while the registry still has the old champion. A restored model was a champion once; a publish that
-    # crashed before its promotion leaves serving on a model still marked "candidate".
+    # restored model while the registry still has the old champion. A restored model was a
+    # champion once; a publish that crashed before its promotion leaves serving on a model still
+    # marked "candidate".
     # Converge on serving; never swap back.
     champion = registry.get_champion_version()
     restored = registry.get_model(serving) if serving else None
