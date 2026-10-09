@@ -21,6 +21,6 @@ Feature: Product Tag Classifier & Taxonomy Filter Enrichment
     Then candidate tags are discovered and registered with status EXPLORING
 
   Scenario: Candidate Tag Promoted to Canonical Filter Facet
-    Given an exploring candidate tag "cong-suat-100w"
-    When promotion is executed with synonyms "sac 100w"
+    Given an exploring candidate tag with a wattage no earlier run used
+    When promotion is executed with target category "cat-electronics" and a bound synonym
     Then the tag status becomes PROMOTED and is active for search filter facets

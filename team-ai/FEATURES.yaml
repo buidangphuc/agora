@@ -81,6 +81,57 @@ features:
     status: automated
     covered_by: "ai/tag_classifier_taxonomy.feature::SPU Level Tag Classification"
 
+  - id: ai.tag-sku-hierarchy
+    title: Granular SKU level hierarchical classification
+    persona: seller
+    priority: P1
+    summary: Each child SKU inherits the parent's tags and gets its own color and capacity facets, plus an OpenSearch nested document.
+    entry_route: /seller/new
+    services: [team-ai]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given a parent listing with child SKU variants
+      - When hierarchical SKU classification is executed
+      - Then each SKU inherits common tags, receives variant facets and a nested document payload is generated
+    tags: [ai, seller, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Granular SKU Level Hierarchical Classification"
+
+  - id: ai.tag-candidate-discovery
+    title: Candidate tag discovery from a raw batch
+    persona: seller
+    priority: P1
+    summary: Offline exploration mines recurring specs from unclassified listings and registers them as EXPLORING candidates.
+    entry_route: /seller/new
+    services: [team-ai]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given a batch of unclassified listings with emergent specs
+      - When offline exploration is executed with frequency threshold 2
+      - Then candidate tags are discovered and registered with status EXPLORING
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Candidate Tag Discovery from Raw Batch"
+
+  - id: ai.tag-candidate-promotion
+    title: Candidate tag promoted to a canonical filter facet
+    persona: seller
+    priority: P1
+    summary: Promotion turns an exploring candidate into a canonical tag that later classifications carry.
+    entry_route: /seller/new
+    services: [team-ai]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given an exploring candidate tag
+      - When promotion is executed with a target category and a bound synonym
+      - Then the tag status becomes PROMOTED and later classifications carry it
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Candidate Tag Promoted to Canonical Filter Facet"
+
   - id: ai.summarize-reviews
     title: AI review summarization
     persona: buyer
