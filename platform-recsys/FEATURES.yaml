@@ -144,3 +144,37 @@ features:
     tags: [recsys, observability]
     status: automated
     covered_by: "recommendations/pipeline_eval_registry.feature::The run summary states the decision and its reason"
+
+  - id: recsys.model-dataset-lineage
+    title: "A trained model names its dataset"
+    persona: guest
+    priority: P1
+    summary: "A trained model names its dataset."
+    entry_route: "/"
+    services: [platform-recsys, platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the dataset is built and the recsys ALS job runs on it
+      - Then the model the job registered records als_interactions, version 1, the dataset's as_of and the file SHA-256 from its manifest
+    tags: [recsys, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::A trained model names its dataset"
+
+  - id: recsys.dataset-required
+    title: "Recsys refuses to train without a dataset"
+    persona: guest
+    priority: P1
+    summary: "Recsys refuses to train without a dataset."
+    entry_route: "/"
+    services: [platform-recsys, platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the recsys ALS job starts with DATASET_DIR pointing at an empty directory
+      - Then it exits non-zero, its log names DATASET_DIR, and no model is registered
+    tags: [recsys, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::Recsys refuses to train without a dataset"
