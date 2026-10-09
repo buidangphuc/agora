@@ -249,7 +249,7 @@ features:
     status: automated
     covered_by: "notification/c1_delivery_faults.feature::A message sent while Kafka is down is still delivered"
     notes: >
-      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops the shared redpanda container (REDPANDA_CONTAINER, default agora-redpanda-1) and restores it in teardown.
+      @destructive: passed in the serial lane (w2-destr, 2026-10-09). Stops the shared redpanda container (REDPANDA_CONTAINER, default agora-redpanda-1) and restores it in teardown.
 
   - id: notification.chat-failed-write-publishes-nothing
     title: A rejected chat write stores nothing and notifies nobody
@@ -293,7 +293,7 @@ features:
     status: automated
     covered_by: "notification/c1_delivery_faults.feature::A redelivered event after a restart notifies once"
     notes: >
-      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops team-notification (NOTIFICATION_CONTAINER, set agora-team-notification-svc) and rewinds group team-notification.chat with rpk; restores it in teardown.
+      @destructive: passed in the serial lane (w2-destr, 2026-10-09). Stops team-notification (NOTIFICATION_CONTAINER, set agora-team-notification-svc) and rewinds group team-notification.chat with rpk; restores it in teardown.
 
   - id: notification.chat-name-lookup-failure
     title: A chat notification is still created when the sender-name lookup fails
@@ -315,7 +315,7 @@ features:
     status: automated
     covered_by: "notification/c1_delivery_faults.feature::Name lookup failure still notifies"
     notes: >
-      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops team-identity (IDENTITY_CONTAINER, default agora-team-identity-svc) and restores it in teardown.
+      @destructive: passed in the serial lane (w2-destr, 2026-10-09). Stops team-identity (IDENTITY_CONTAINER, default agora-team-identity-svc) and restores it in teardown.
 
   - id: notification.order-shipped-atomic
     title: The OrderShipped event is written with the shipment

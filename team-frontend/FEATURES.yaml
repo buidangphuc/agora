@@ -235,8 +235,8 @@ features:
       - When BatchGetStorefronts fails
       - Then the cart still renders every item and every group header uses the "Shop #<6 chars>" fallback
     tags: [buyer, shop, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Lookup failure does not break the page"
     notes: >-
       @destructive: stops the team-domain container (DOMAIN_CONTAINER) and restores it in teardown; written but not run by the parallel lane. Flip to automated after the serial lane passes.
 
@@ -625,7 +625,7 @@ features:
     status: automated
     covered_by: "ops/c1_cockpit_real_data.feature::Analytics unavailable leaves the figures empty"
     notes: >
-      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops team-analytics through DC_WRAPPER and restores it in teardown.
+      @destructive: passed in the serial lane (w2-destr, 2026-10-09). Stops team-analytics through DC_WRAPPER and restores it in teardown.
 
   - id: ops.cockpit-jaeger-unavailable
     title: Jaeger unavailable
@@ -647,7 +647,7 @@ features:
     status: automated
     covered_by: "ops/c1_cockpit_real_data.feature::Jaeger unavailable"
     notes: >
-      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops the Jaeger container (JAEGER_CONTAINER, default agora-jaeger-1) and restores it in teardown.
+      @destructive: passed in the serial lane (w2-destr, 2026-10-09). Stops the Jaeger container (JAEGER_CONTAINER, default agora-jaeger-1) and restores it in teardown.
 
   - id: ui.brand-scale-config
     title: "The brand scale resolves from the config"
