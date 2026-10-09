@@ -1209,6 +1209,672 @@ features:
     status: automated
     covered_by: "frontend/account_ui.feature::Token lint is clean"
 
+  - id: discovery.selecting-a-category-navigates-by-url
+    title: "Selecting a category navigates by URL"
+    persona: buyer
+    priority: P2
+    summary: "Selecting a category navigates by URL"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a visitor activates the \"Điện thoại\" category on the home grid"
+      - "Then the browser navigates to `/search?category=<that id>` and the results are limited to that category"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/shell.feature::Selecting a category navigates by URL"
+
+  - id: discovery.active-filters-can-be-removed-one-by-one
+    title: "Active filters can be removed one by one"
+    persona: buyer
+    priority: P2
+    summary: "Active filters can be removed one by one"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/search?q=ao&category=c1&rating=4` is rendered"
+      - "Then three closable `Tag`s are shown, and activating the category tag navigates to `/search?q=ao&rating=4`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Active filters can be removed one by one"
+
+  - id: discovery.clear-all-filters
+    title: "Clear all filters"
+    persona: buyer
+    priority: P2
+    summary: "Clear all filters"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When at least one filter is active and the buyer activates \"Xóa tất cả bộ lọc\""
+      - "Then the URL becomes `/search` (keeping `q` only if present) and all tags disappear"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Clear all filters"
+
+  - id: discovery.sort-options-match-what-the-server-honours
+    title: "Sort options match what the server honours"
+    persona: buyer
+    priority: P2
+    summary: "Sort options match what the server honours"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the `SortBar` is rendered"
+      - "Then it offers only Liên quan, Mới nhất, Giá thấp đến cao and Giá cao đến thấp (no \"Bán Chạy\"), and the active one has `aria-current=\"true\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Sort options match what the server honours"
+
+  - id: discovery.out-of-range-page-redirects
+    title: "Out-of-range page redirects"
+    persona: buyer
+    priority: P2
+    summary: "Out-of-range page redirects"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a visitor opens `/search?q=ao&page=99` and only 3 pages exist"
+      - "Then the response redirects to `/search?q=ao&page=3`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Out-of-range page redirects"
+
+  - id: discovery.zero-results
+    title: "Zero results"
+    persona: buyer
+    priority: P2
+    summary: "Zero results"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/search?q=zzzzzz` returns no hits"
+      - "Then `Empty` is shown with the text \"Không tìm thấy sản phẩm\" and a \"Xóa bộ lọc\" button linking to `/search`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_facets.feature::Zero results"
+
+  - id: discovery.active-count-badge
+    title: "Active count badge"
+    persona: buyer
+    priority: P2
+    summary: "Active count badge"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When two filters are active at 375px"
+      - "Then the \"Bộ lọc\" button shows a badge with `2`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_mobile.feature::Active count badge"
+
+  - id: discovery.card-layout-works-at-375px
+    title: "Card layout works at 375px"
+    persona: buyer
+    priority: P2
+    summary: "Card layout works at 375px"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a grid is rendered in a 375px wide viewport"
+      - "Then it shows 2 columns, no horizontal page scroll, and no text smaller than 12px"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/search_mobile.feature::Card layout works at 375px"
+
+  - id: discovery.card-click-still-records-select-item
+    title: "Card click still records select_item"
+    persona: buyer
+    priority: P2
+    summary: "Card click still records select_item"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a visitor clicks the image or the title of a card"
+      - "Then a `select_item` event with the same attribution fields is sent before navigation to `/listing/<id>`, and navigation is not blocked"
+    tags: [buyer]
+    status: automated
+    covered_by: "tracking/discovery_tracking_unchanged.feature::Card click still records select_item"
+
+  - id: discovery.search-results-still-emit-a-batched-impression
+    title: "Search results still emit a batched impression"
+    persona: buyer
+    priority: P2
+    summary: "Search results still emit a batched impression"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/search?q=ao` renders 24 results"
+      - "Then one `view_item_list` event with `itemListId=\"search_results\"`, `query=\"ao\"` and 24 indexed items is sent"
+    tags: [buyer]
+    status: automated
+    covered_by: "tracking/discovery_tracking_unchanged.feature::Search results still emit a batched impression"
+
+  - id: discovery.card-reserves-its-image-box
+    title: "Card reserves its image box"
+    persona: buyer
+    priority: P2
+    summary: "Card reserves its image box"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a `ListingCard` is rendered before its image has loaded"
+      - "Then the image container already has a 1:1 box and the card's height does not change when the image loads"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Card reserves its image box"
+    notes: "Object-store images are intercepted and delayed 2.5 s; card heights are compared before and after they load."
+
+  - id: discovery.image-fallback-keeps-the-layout
+    title: "Image fallback keeps the layout"
+    persona: buyer
+    priority: P2
+    summary: "Image fallback keeps the layout"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a listing has no image or the image fails to load"
+      - "Then a placeholder is shown inside the same 1:1 box"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Image fallback keeps the layout"
+
+  - id: discovery.below-the-fold-images-are-lazy
+    title: "Below-the-fold images are lazy"
+    persona: buyer
+    priority: P2
+    summary: "Below-the-fold images are lazy"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a grid of 24 cards is rendered"
+      - "Then images of cards 1-6 are not `loading=\"lazy\"` and images of cards 7-24 have `loading=\"lazy\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Below-the-fold images are lazy"
+
+  - id: discovery.empty-grid-offers-a-way-out
+    title: "Empty grid offers a way out"
+    persona: buyer
+    priority: P2
+    summary: "Empty grid offers a way out"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `ListingGrid` receives an empty list with an `empty` message"
+      - "Then an `Empty` block shows that message and a suggestion to change keywords or filters"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Empty grid offers a way out"
+    notes: "Asserted through the zero-result search page (the grid's empty state)."
+
+  - id: discovery.listing-without-reviews-shows-no-rating-or-sold-count
+    title: "Listing without reviews shows no rating or sold count"
+    persona: buyer
+    priority: P2
+    summary: "Listing without reviews shows no rating or sold count"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a `ListingCard` is rendered for a listing with no review aggregate"
+      - "Then no rating stars, no rating number and no sold count are rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Listing without reviews shows no rating or sold count"
+
+  - id: discovery.card-shows-only-the-real-price
+    title: "Card shows only the real price"
+    persona: buyer
+    priority: P2
+    summary: "Card shows only the real price"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a `ListingCard` is rendered for a listing priced 1,250,000, including one above 5,000,000 or with a brand keyword in its title"
+      - "Then exactly one price is shown, there is no strike-through price, no discount badge and no MALL badge"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Card shows only the real price"
+
+  - id: discovery.mall-is-never-guessed
+    title: "Mall is never guessed"
+    persona: buyer
+    priority: P2
+    summary: "Mall is never guessed"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a listing costs more than 5,000,000 or its title contains a brand keyword"
+      - "Then its card shows no MALL badge"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Mall is never guessed"
+
+  - id: discovery.unsupported-features-are-hidden
+    title: "Unsupported features are hidden"
+    persona: buyer
+    priority: P2
+    summary: "Unsupported features are hidden"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/search` and `/vouchers` are rendered"
+      - "Then the sort options exclude \"Bán Chạy\" and no voucher card has a \"Lưu mã\" button"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Unsupported features are hidden"
+
+  - id: discovery.token-lint-passes-on-discovery-files
+    title: "Token lint passes on discovery files"
+    persona: guest
+    priority: P2
+    summary: "Token lint passes on discovery files"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `scripts/check-tokens.mjs` runs on `src/app/page.tsx`, `src/app/search`, `src/app/vouchers` and `src/features/{listing,search,home,voucher}`"
+      - "Then it reports no raw hex, `rgb()` or arbitrary values"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Token lint passes on discovery files"
+
+  - id: discovery.hub-tiles-are-not-rainbow
+    title: "Hub tiles are not rainbow"
+    persona: buyer
+    priority: P2
+    summary: "Hub tiles are not rainbow"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the eight service hubs are rendered"
+      - "Then every tile uses the same neutral surface and only the hub badge uses a badge colour"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Hub tiles are not rainbow"
+
+  - id: discovery.no-campaign-data-means-no-fake-countdown-or-sold-bar
+    title: "No campaign data means no fake countdown or sold bar"
+    persona: buyer
+    priority: P2
+    summary: "No campaign data means no fake countdown or sold bar"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the home page is rendered and the gateway provides no flash-sale campaign"
+      - "Then no flash-sale heading, no countdown, no \"% sold\" bar and no discount badge are present"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::No campaign data means no fake countdown or sold bar"
+
+  - id: discovery.current-category-is-announced
+    title: "Current category is announced"
+    persona: buyer
+    priority: P2
+    summary: "Current category is announced"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/search?category=c1` is rendered with `CategoryBar variant=\"pills\"`"
+      - "Then the pill for `c1` has `aria-current=\"true\"` and the \"Tất cả\" pill does not"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED (DEFECT): CategoryBar variant=pills is not mounted on /search (only the sidebar facet link marks the category current), so there is no pill row; the scenario is xfail in test_d1_discovery.py."
+
+  - id: discovery.changing-a-filter-resets-the-page
+    title: "Changing a filter resets the page"
+    persona: buyer
+    priority: P2
+    summary: "Changing a filter resets the page"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer on `/search?q=ao&page=3` selects a rating filter"
+      - "Then the new URL has no `page` (or `page=1`) and shows the first page of the filtered results"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Changing a filter resets the page"
+
+  - id: discovery.single-page-hides-pagination
+    title: "Single page hides Pagination"
+    persona: buyer
+    priority: P2
+    summary: "Single page hides Pagination"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the total is 24 or fewer"
+      - "Then no `Pagination` is rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Single page hides Pagination"
+
+  - id: discovery.invalid-price-range-is-rejected
+    title: "Invalid price range is rejected"
+    persona: buyer
+    priority: P2
+    summary: "Invalid price range is rejected"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer enters min 500000 and max 100000 and submits"
+      - "Then the max field shows an error, the URL does not change, and the submit button is not left loading"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Invalid price range is rejected"
+
+  - id: discovery.save-search-shows-pending-then-toast
+    title: "Save search shows pending then toast"
+    persona: buyer
+    priority: P2
+    summary: "Save search shows pending then toast"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer activates \"Lưu tìm kiếm\" for query \"ao\""
+      - "Then the button shows a spinner and is disabled until the action settles, then a success toast appears and the saved list contains \"ao\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Save search shows pending then toast"
+
+  - id: discovery.save-search-with-empty-query-is-rejected
+    title: "Save search with empty query is rejected"
+    persona: buyer
+    priority: P2
+    summary: "Save search with empty query is rejected"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer activates \"Lưu tìm kiếm\" with an empty query"
+      - "Then the action returns `ok: false` with an `error`, an error toast is shown, and nothing is saved"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Save search with empty query is rejected"
+    notes: "Partial: the Save button is disabled without a query so the action cannot be invoked from the UI; the action's own ok:false path is unit-tested only."
+
+  - id: discovery.no-voucher-save-without-a-backend
+    title: "No voucher save without a backend"
+    persona: guest
+    priority: P2
+    summary: "No voucher save without a backend"
+    entry_route: /vouchers
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `/vouchers` renders vouchers"
+      - "Then no card has a \"Lưu mã\" or \"Đã lưu\" control and nothing is read from or written to `localStorage`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::No voucher save without a backend"
+
+  - id: discovery.seller-tools-are-scope-gated
+    title: "Seller tools are scope gated"
+    persona: buyer
+    priority: P2
+    summary: "Seller tools are scope gated"
+    entry_route: /vouchers
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a principal without `listing.write` opens `/vouchers`"
+      - "Then `VoucherManager` is not rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Seller tools are scope gated"
+
+  - id: discovery.vouchers-grid-at-375px
+    title: "Vouchers grid at 375px"
+    persona: guest
+    priority: P2
+    summary: "Vouchers grid at 375px"
+    entry_route: /vouchers
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `/vouchers` is rendered at 375px"
+      - "Then voucher cards are one per row and the tabs scroll horizontally without page overflow"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Vouchers grid at 375px"
+
+  - id: discovery.submit-navigates-to-search
+    title: "Submit navigates to search"
+    persona: guest
+    priority: P2
+    summary: "Submit navigates to search"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor types \"ao khoac\" and presses Enter"
+      - "Then the browser navigates to `/search?q=ao%20khoac`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Submit navigates to search"
+
+  - id: discovery.empty-submit-is-ignored
+    title: "Empty submit is ignored"
+    persona: guest
+    priority: P2
+    summary: "Empty submit is ignored"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the input is empty and the visitor presses Enter"
+      - "Then no navigation happens"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Empty submit is ignored"
+
+  - id: discovery.suggestion-failure-is-silent
+    title: "Suggestion failure is silent"
+    persona: guest
+    priority: P2
+    summary: "Suggestion failure is silent"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `/api/suggest` returns an error"
+      - "Then the suggestion list is hidden and the input keeps working"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Suggestion failure is silent"
+
+  - id: discovery.keyboard-selects-a-suggestion
+    title: "Keyboard selects a suggestion"
+    persona: buyer
+    priority: P2
+    summary: "Keyboard selects a suggestion"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When suggestions are open and the visitor presses ArrowDown then Enter"
+      - "Then the first suggestion is submitted as the query"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Keyboard selects a suggestion"
+
+  - id: discovery.attribution-survives-the-suspense-rework
+    title: "Attribution survives the Suspense rework"
+    persona: buyer
+    priority: P2
+    summary: "Attribution survives the Suspense rework"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the recommendations row streams in after the hero"
+      - "Then its cards still carry `placementId=\"home_feed\"` on both impression and click events"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Attribution survives the Suspense rework"
+
+  - id: discovery.block-failure-degrades-locally
+    title: "Block failure degrades locally"
+    persona: buyer
+    priority: P2
+    summary: "Block failure degrades locally"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the recommendations or recently-viewed query fails or returns no items"
+      - "Then that block is not rendered (no empty heading) and every other block still renders"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs a real recommendations/recently-viewed backend failure (stopping team-ai); not forced here because it would disrupt the shared stack. The existing 'Recommendations are unavailable without breaking the page' only probes availability."
+
+  - id: discovery.feed-failure-shows-a-recovery-action
+    title: "Feed failure shows a recovery action"
+    persona: buyer
+    priority: P2
+    summary: "Feed failure shows a recovery action"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the feed query fails"
+      - "Then an `Alert` of type error with a retry link to `/` is shown in the feed area instead of an empty grid"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs the listings read behind the feed to fail for real (stop team-listing); destructive, not run."
+
+  - id: discovery.countdown-ticks-without-layout-shift
+    title: "Countdown ticks without layout shift"
+    persona: buyer
+    priority: P2
+    summary: "Countdown ticks without layout shift"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a real `endsAt` is passed and the countdown advances from 00:59:59 to 01:00:00"
+      - "Then the clock's bounding box width and height are unchanged"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "NOT E2E-REACHABLE: FlashSaleSection/CountdownClock are not mounted on any route until a promotion source exists (spec); covered by the component unit tests."
+
+  - id: discovery.no-listings-hides-the-section
+    title: "No listings hides the section"
+    persona: buyer
+    priority: P2
+    summary: "No listings hides the section"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `FlashSaleSection` receives an empty list"
+      - "Then it renders nothing"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "NOT E2E-REACHABLE: FlashSaleSection is not mounted on any route; unit-tested."
+
+  - id: discovery.server-action-failure-shows-an-error-toast
+    title: "Server action failure shows an error toast"
+    persona: buyer
+    priority: P2
+    summary: "Server action failure shows an error toast"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `saveSearchAction` returns `{ ok: false, error: \"...\" }`"
+      - "Then an error toast with that message is shown and the button is enabled again"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: saveSearchAction cannot be made to fail from the UI (the button is disabled without a query) and team-search cannot be broken non-destructively."
+
+  - id: discovery.loading-skeleton-matches-the-grid
+    title: "Loading skeleton matches the grid"
+    persona: buyer
+    priority: P2
+    summary: "Loading skeleton matches the grid"
+    entry_route: /search
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a filter change triggers navigation"
+      - "Then the results column shows 24 `ListingCardSkeleton`s in the same grid, and the sidebar remains"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "NOT E2E-OBSERVABLE: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them (measured: no aria-busy section after an applied filter, even with the RSC request delayed); asserted by search/loading.test.tsx."
+
   # ---- d1-entries-end (append new d1 entries above this line)
 
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the

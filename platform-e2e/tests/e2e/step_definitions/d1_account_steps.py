@@ -54,16 +54,6 @@ def _track_posts(world: World) -> list[str]:
     return posts
 
 
-def _slow_actions(world: World, delay_ms: int = 900) -> None:
-    def delay(route) -> None:  # noqa: ANN001
-        if route.request.method == "POST" and route.request.headers.get("next-action"):
-            world.page.wait_for_timeout(delay_ms)
-        route.continue_()
-
-    world.page.route("**/*", delay)
-    world.add_cleanup(lambda: world.page.unroute_all(behavior="ignoreErrors"))
-
-
 def _toast(world: World, text: str | None = None):  # noqa: ANN202
     toast = world.page.get_by_role("status")
     return toast.filter(has_text=text) if text else toast
@@ -71,11 +61,6 @@ def _toast(world: World, text: str | None = None):  # noqa: ANN202
 
 def _api(token: str) -> BaseService:
     return BaseService(token=token)
-
-
-@given("the form submission is slowed down")
-def form_submission_slowed(world: World) -> None:
-    _slow_actions(world)
 
 
 # ── Session redirect ─────────────────────────────────────────────────────
