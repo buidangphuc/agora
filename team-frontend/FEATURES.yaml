@@ -508,6 +508,109 @@ features:
       Written in ops/cockpit_real_data.feature ("A paid order shows up in the 24h figures"); flips to automated, with covered_by,
       after it passes against the stack.
 
+  - id: ops.cockpit-admin-sees
+    title: An admin sees the cockpit
+    persona: admin
+    priority: P1
+    summary: >-
+      A signed-in admin opens /admin/cockpit and the page renders the figures the gateway returns for that admin.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - When a signed-in admin opens /admin/cockpit
+      - Then the page renders the metrics returned by the gateway for that admin
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops/c1_cockpit_real_data.feature::An admin sees the cockpit"
+
+  - id: ops.cockpit-recent-trace
+    title: A real request appears as a trace
+    persona: admin
+    priority: P1
+    summary: >-
+      After requests pass through the gateway, recent_traces holds a trace whose id resolves in Jaeger.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - Given a request has passed through the gateway in the last hour and Jaeger is up
+      - Then recent_traces contains at least one entry whose id opens in the Jaeger UI
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops/c1_cockpit_real_data.feature::A real request appears as a trace"
+
+  - id: ops.cockpit-empty-state
+    title: Missing data renders as an empty state
+    persona: admin
+    priority: P1
+    summary: >-
+      When every figure is null the HUD shows a dash or Chưa có dữ liệu and no placeholder number, row or trace id.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - When the cockpit receives a response with every figure null
+      - Then the HUD shows a dash or "Chưa có dữ liệu" and no placeholder number, row or trace id
+    tags: [admin, observability]
+    status: automated
+    covered_by: "ops/c1_cockpit_real_data.feature::Missing data renders as an empty state"
+    notes: >
+      The poll response is stubbed in the browser (page.route) to check null rendering for all sources at once; the real unavailable-source paths are the two @destructive cockpit scenarios.
+
+  - id: ops.cockpit-analytics-unavailable
+    title: Analytics unavailable leaves the figures empty
+    persona: admin
+    priority: P1
+    summary: >-
+      With team-analytics unreachable, total_orders_24h/total_revenue_24h are null and recent_orders is empty while the rest of the response is returned.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - Given team-analytics is unreachable
+      - When the admin calls GET /api/admin/metrics
+      - Then total_orders_24h and total_revenue_24h are null, recent_orders is empty and the response keeps its shape
+    tags: [admin, observability, destructive]
+    status: automated
+    covered_by: "ops/c1_cockpit_real_data.feature::Analytics unavailable leaves the figures empty"
+    notes: >
+      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops team-analytics through DC_WRAPPER and restores it in teardown.
+
+  - id: ops.cockpit-jaeger-unavailable
+    title: Jaeger unavailable
+    persona: admin
+    priority: P1
+    summary: >-
+      With Jaeger stopped, recent_traces is empty and the HUD shows Chưa có dữ liệu for traces.
+    entry_route: /admin/cockpit
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [admin.metrics]
+    acceptance:
+      - Given Jaeger is unreachable
+      - When the admin opens the cockpit
+      - Then recent_traces is empty and the HUD shows "Chưa có dữ liệu"
+    tags: [admin, observability, destructive]
+    status: automated
+    covered_by: "ops/c1_cockpit_real_data.feature::Jaeger unavailable"
+    notes: >
+      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops the Jaeger container (JAEGER_CONTAINER, default agora-jaeger-1) and restores it in teardown.
+
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
   # ---- ui_foundation.feature scenarios have run green against the local stack.
   - id: ui.not-found
