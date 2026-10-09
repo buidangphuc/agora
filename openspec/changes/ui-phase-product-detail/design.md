@@ -183,3 +183,20 @@ blocks are deleted with the page rewrite.
    Confirm the page size, or defer until the API paginates.
 6. Decided: the Mall badge is hidden; the heuristic is deleted. A real "official store" flag is a follow-up
    backend change (listed in Non-goals).
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A), `frontend/uif_product_detail.feature`: "The summary does not block the page" and "A slow recommendation call
+  does not block the page" (team-ai paused; header, price and actions visible, Skeleton in place, summary shows after unpause),
+  "An unavailable AI service hides the block" and "Unavailable recommendations are hidden" (team-ai stopped), "A gateway failure
+  shows a recoverable error" (team-domain stopped).
+- Defect found, kept red: "A gateway failure shows a recoverable error" shows the Alert, but "Thử lại" calls only `reset()`: no request
+  is sent and the page stays on the error after the service is back. `listing/error.tsx` needs `router.refresh()` in a transition
+  next to `reset()`.
