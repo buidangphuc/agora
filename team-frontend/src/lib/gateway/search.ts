@@ -10,6 +10,7 @@ import "server-only";
 
 import { SortBy } from "@/generated/platform/search/v1/search_pb.js";
 import type {
+  AttributeFacet,
   Facets,
   SavedSearch,
 } from "@/generated/platform/search/v1/search_pb.js";
@@ -82,28 +83,10 @@ function mapBuckets(
   return buckets.map((b) => ({ key: b.key, count: Number(b.count) }));
 }
 
-// Facets.tags / Facets.skus (repeated AttributeFacet) come with the additive
-// search.proto change of add-tag-classifier-filter-enrichment. Until the vendored
-// generated code carries them they are read structurally (absent = no groups);
-// once regenerated, replace this adapter's cast with `f.tags` / `f.skus`.
-interface WireAttributeFacet {
-  group: string;
-  buckets: { key: string; count: bigint | number }[];
-}
-
-function mapAttributes(
-  f: Facets,
-  field: "tags" | "skus",
-): ViewAttributeFacet[] {
-  const groups =
-    (f as unknown as Record<string, WireAttributeFacet[] | undefined>)[field] ??
-    [];
+function mapAttributes(groups: AttributeFacet[]): ViewAttributeFacet[] {
   return groups
     .filter((g) => g.group && g.buckets.length > 0)
-    .map((g) => ({
-      group: g.group,
-      buckets: g.buckets.map((b) => ({ key: b.key, count: Number(b.count) })),
-    }));
+    .map((g) => ({ group: g.group, buckets: mapBuckets(g.buckets) }));
 }
 
 function mapFacets(f?: Facets): ViewFacets {
@@ -113,8 +96,8 @@ function mapFacets(f?: Facets): ViewFacets {
     priceRanges: mapBuckets(f.priceRanges),
     ratings: mapBuckets(f.ratings),
     sellers: mapBuckets(f.sellers),
-    tags: mapAttributes(f, "tags"),
-    skus: mapAttributes(f, "skus"),
+    tags: mapAttributes(f.tags),
+    skus: mapAttributes(f.skus),
   };
 }
 

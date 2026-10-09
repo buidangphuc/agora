@@ -125,7 +125,7 @@ describe("searchListings dynamic facets", () => {
     });
   });
 
-  it("maps facets.tags and facets.skus (bigint counts) and tolerates their absence", async () => {
+  it("maps facets.tags and facets.skus (bigint counts) and an empty response", async () => {
     rpc.mockResolvedValueOnce({
       ...pageOf(1, ""),
       facets: {
@@ -147,7 +147,14 @@ describe("searchListings dynamic facets", () => {
 
     rpc.mockResolvedValueOnce({
       ...pageOf(1, ""),
-      facets: { categories: [], priceRanges: [], ratings: [], sellers: [] },
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [],
+        skus: [],
+      },
     });
     const old = await searchListings("x");
     expect(old.facets.tags).toEqual([]);

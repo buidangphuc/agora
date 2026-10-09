@@ -121,7 +121,17 @@ func toFacets(f index.Facets) *searchv1.Facets {
 		PriceRanges: toFacetBuckets(f.PriceRanges),
 		Ratings:     []*searchv1.FacetBucket{},
 		Sellers:     toFacetBuckets(f.Sellers),
+		Tags:        toAttributeFacets(f.Tags),
+		Skus:        toAttributeFacets(f.SKUs),
 	}
+}
+
+func toAttributeFacets(groups []index.AttributeFacet) []*searchv1.AttributeFacet {
+	out := make([]*searchv1.AttributeFacet, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, &searchv1.AttributeFacet{Group: g.Group, Buckets: toFacetBuckets(g.Buckets)})
+	}
+	return out
 }
 
 func toFacetBuckets(buckets []index.FacetBucket) []*searchv1.FacetBucket {
