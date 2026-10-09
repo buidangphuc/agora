@@ -106,3 +106,71 @@ features:
     status: automated
     covered_by: "featurestore/feature_materialization.feature::A tampered online value fails the parity check"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tampered online value fails the parity check"
+
+  - id: featurestore.dataset-weighted-row
+    title: "A buyer's views and favourite become one weighted row"
+    persona: buyer
+    priority: P1
+    summary: "A buyer's views and favourite become one weighted row."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a new buyer views a listing twice and favourites it, the export cycle completes, and the dataset is built
+      - Then the dataset has one row for that buyer and listing, with weight 5 and 3 interactions
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::A buyer's views and favourite become one weighted row"
+
+  - id: featurestore.dataset-stitched-row
+    title: "Pre-login views count toward the buyer"
+    persona: buyer
+    priority: P1
+    summary: "Pre-login views count toward the buyer."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a visitor views a listing anonymously, logs in as a new buyer and views it again with the same anonymous id, the export cycle completes, and the dataset is built
+      - Then the dataset has one row for that buyer and listing, with weight 2
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::Pre-login views count toward the buyer"
+
+  - id: featurestore.dataset-as-of-exclusion
+    title: "Events after AS_OF are not in the dataset"
+    persona: buyer
+    priority: P1
+    summary: "Events after AS_OF are not in the dataset."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When the dataset is built with AS_OF just before a new buyer's first event
+      - Then the dataset has no row for that buyer
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::Events after AS_OF are not in the dataset"
+
+  - id: featurestore.dataset-manifest
+    title: "A dataset manifest describes its file"
+    persona: guest
+    priority: P1
+    summary: "A dataset manifest describes its file."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the dataset is built
+      - Then its manifest names the as_of, a positive row count, and a file SHA-256 equal to the SHA-256 of the dataset file
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::A dataset manifest describes its file"
