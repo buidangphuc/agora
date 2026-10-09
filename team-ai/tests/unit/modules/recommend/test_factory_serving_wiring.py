@@ -45,7 +45,9 @@ def feature_redis(monkeypatch):
 
     holder: dict[str, Any] = {}
     monkeypatch.setattr(
-        Redis, "from_url", staticmethod(lambda url, **kw: holder["redis"])
+        Redis,
+        "from_url",
+        staticmethod(lambda url, **kw: holder.get(url) or holder["redis"]),
     )
     return holder
 
@@ -103,3 +105,77 @@ async def test_non_gbdt_placement_keeps_retrieval_order_through_the_factory():
     assert result.explain["ranking_model"] == "cosine_rank"
     assert scores == sorted(scores, reverse=True)
     assert result.explain["featurestore_hit_count"] == 0
+
+
+# --- nearline: the Redis store is built by the factory and consulted per request ------
+
+
+_TIED = [
+    {"listing_id": "item-a", "score": 0.8, "category_id": "c"},
+    {"listing_id": "item-b", "score": 0.8, "category_id": "c"},
+]
+
+
+async def _tied_redis(nearline: dict[str, dict[str, str]] | None = None) -> Any:
+    redis = aioredis.FakeRedis(decode_responses=True)
+    await redis.set("recs:v1:user:u1", json.dumps(_TIED))
+    for lid, fields in (nearline or {}).items():
+        await redis.hset(f"recs:nearline:ctr:{lid}", mapping=fields)  # pyright: ignore[reportGeneralTypeIssues]
+    return redis
+
+
+async def test_factory_built_service_consults_the_nearline_store(feature_redis):
+    redis = await _tied_redis({"item-b": {"clicks_ips": "8", "imprs_ips": "40"}})
+    feature_redis["redis"] = redis
+    service = await build_recommendation_service(
+        _settings(RECS_NEARLINE_REDIS_URL="redis://nearline/0"), redis=redis
+    )
+
+    result = await _home(service)
+
+    assert result.explain["nearline_enabled"] is True
+    assert result.explain["nearline_hit_count"] == 1
+    # Equal model scores: only the nearline CTR (0.2) can put item-b first.
+    assert [i.listing_id for i in result.items] == ["item-b", "item-a"]
+
+
+async def test_without_a_nearline_url_nearline_is_off_and_ties_keep_order():
+    redis = await _tied_redis({"item-b": {"clicks_ips": "8", "imprs_ips": "40"}})
+    service = await build_recommendation_service(_settings(), redis=redis)
+
+    result = await _home(service)
+
+    assert result.explain["nearline_enabled"] is False
+    assert result.explain["nearline_hit_count"] == 0
+    assert [i.listing_id for i in result.items] == ["item-a", "item-b"]
+
+
+async def test_nearline_below_the_impression_floor_is_not_used(feature_redis):
+    redis = await _tied_redis({"item-b": {"clicks_ips": "1", "imprs_ips": "0.5"}})
+    feature_redis["redis"] = redis
+    service = await build_recommendation_service(
+        _settings(RECS_NEARLINE_REDIS_URL="redis://nearline/0"), redis=redis
+    )
+
+    result = await _home(service)
+
+    assert result.explain["nearline_hit_count"] == 0
+    assert [i.listing_id for i in result.items] == ["item-a", "item-b"]
+
+
+async def test_nearline_outage_does_not_fail_or_degrade_the_request(feature_redis):
+    class Down:
+        def pipeline(self):
+            raise ConnectionError("nearline redis down")
+
+    cache_redis = await _tied_redis()
+    feature_redis["redis"] = Down()
+    service = await build_recommendation_service(
+        _settings(RECS_NEARLINE_REDIS_URL="redis://nearline/0"), redis=cache_redis
+    )
+
+    result = await _home(service)
+
+    assert result.status != "fallback"
+    assert result.explain["nearline_hit_count"] == 0
+    assert [i.listing_id for i in result.items] == ["item-a", "item-b"]

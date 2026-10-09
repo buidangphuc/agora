@@ -21,8 +21,9 @@ from app.modules.business.recommend.ranking import (
     FeatureStorePort,
     GBDTRankerAdapter,
     InMemoryFeatureStore,
-    InMemoryNearlineStore,
+    NearlineSourcePort,
     RedisFeatureStore,
+    RedisNearlineStore,
 )
 from app.modules.business.recommend.service import RecommendationService
 
@@ -41,6 +42,20 @@ def _build_feature_store(settings: Settings) -> FeatureStorePort:
     from redis.asyncio import Redis
 
     return RedisFeatureStore(Redis.from_url(url, decode_responses=True))
+
+
+def _build_nearline_store(settings: Settings) -> NearlineSourcePort | None:
+    """Nearline signals from the recsys consumer's Redis when configured, else none."""
+    url = settings.RECS_NEARLINE_REDIS_URL
+    if not url:
+        return None
+    from redis.asyncio import Redis
+
+    return RedisNearlineStore(
+        Redis.from_url(url, decode_responses=True),
+        prefix=settings.RECS_NEARLINE_PREFIX,
+        min_impressions=settings.RECS_NEARLINE_MIN_IMPRESSIONS,
+    )
 
 
 async def build_recommendation_service(
@@ -69,7 +84,7 @@ async def build_recommendation_service(
         )
     registry = PlacementRegistry()
     feature_store: FeatureStorePort = _build_feature_store(settings)
-    nearline_store = InMemoryNearlineStore()
+    nearline_store = _build_nearline_store(settings)
     ranker = GBDTRankerAdapter()
 
     return RecommendationService(
@@ -78,6 +93,7 @@ async def build_recommendation_service(
         registry=registry,
         feature_store=feature_store,
         nearline_store=nearline_store,
+        nearline_timeout_ms=settings.RECS_NEARLINE_TIMEOUT_MS,
         ranker=ranker,
         candidate_top_k=settings.RECS_CANDIDATE_TOP_K,
         result_top_k=settings.RECS_RESULT_TOP_K,

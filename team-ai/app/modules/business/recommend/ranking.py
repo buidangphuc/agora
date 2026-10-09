@@ -29,6 +29,32 @@ class NearlineSignalPort(Protocol):
     def get_debiased_ctr(self, listing_id: str) -> float: ...
 
 
+class NearlineSourcePort(Protocol):
+    """Async batch read of position-debiased CTR, as the serving path needs it.
+
+    ``NearlineSignalPort`` (sync, per item) is what the ranker consumes; the service
+    reads a source once per request and hands the ranker a ``NearlineSnapshot``.
+    Items with no usable data are simply absent from the result.
+    """
+
+    async def get_debiased_ctr_batch(
+        self, listing_ids: list[str]
+    ) -> dict[str, float]: ...
+
+
+class NearlineSnapshot:
+    """The debiased CTRs of one request's candidates, readable synchronously."""
+
+    def __init__(self, ctrs: dict[str, float] | None = None) -> None:
+        self._ctrs = ctrs or {}
+
+    def __len__(self) -> int:
+        return len(self._ctrs)
+
+    def get_debiased_ctr(self, listing_id: str) -> float:
+        return self._ctrs.get(listing_id, 0.0)
+
+
 class InMemoryFeatureStore:
     """In-memory feature store adapter for offline testing and local execution."""
 
@@ -134,6 +160,82 @@ class InMemoryNearlineStore:
 
     def get_debiased_ctr(self, listing_id: str) -> float:
         return self._ctr_map.get(listing_id, 0.0)
+
+    async def get_debiased_ctr_batch(self, listing_ids: list[str]) -> dict[str, float]:
+        return {
+            lid: self._ctr_map[lid]
+            for lid in listing_ids
+            if self._ctr_map.get(lid, 0.0) > 0
+        }
+
+
+NEARLINE_DEFAULT_PREFIX = "recs:nearline"
+
+
+class RedisNearlineStore:
+    """Reads the position-debiased CTR the platform-recsys nearline consumer maintains.
+
+    Key (``<prefix>`` defaults to ``recs:nearline``): ``<prefix>:ctr:<listing_id>`` is a
+    HASH with float fields ``clicks_ips`` and ``imprs_ips`` (inverse-propensity weighted
+    click and impression sums over the TTL window). The debiased CTR is
+    ``min(1, clicks_ips / imprs_ips)``; an item with fewer than ``min_impressions``
+    weighted impressions has no usable data and is left out, so ranking keeps its prior
+    ``historical_ctr``. Missing keys, malformed values and any Redis error give no entry
+    (the error is logged at most once a minute): nearline never fails a request.
+    """
+
+    def __init__(
+        self,
+        redis: Any,
+        *,
+        prefix: str = NEARLINE_DEFAULT_PREFIX,
+        min_impressions: float = 1.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._redis = redis
+        self._prefix = prefix
+        self._min_impressions = min_impressions
+        self._clock = clock
+        self._last_error_log: float | None = None
+
+    def ctr_key(self, listing_id: str) -> str:
+        return f"{self._prefix}:ctr:{listing_id}"
+
+    async def get_debiased_ctr_batch(self, listing_ids: list[str]) -> dict[str, float]:
+        if not listing_ids:
+            return {}
+        try:
+            pipe = self._redis.pipeline()
+            for lid in listing_ids:
+                pipe.hmget(self.ctr_key(lid), "clicks_ips", "imprs_ips")
+            rows = await pipe.execute()
+        except Exception as exc:
+            now = self._clock()
+            if (
+                self._last_error_log is None
+                or now - self._last_error_log >= _ERROR_LOG_EVERY_S
+            ):
+                self._last_error_log = now
+                logger.warning("recs.nearline.read_failed err={}", exc)
+            return {}
+        out: dict[str, float] = {}
+        for lid, row in zip(listing_ids, rows, strict=False):
+            ctr = self._ctr(row)
+            if ctr is not None:
+                out[lid] = ctr
+        return out
+
+    def _ctr(self, row: Any) -> float | None:
+        try:
+            clicks_raw, imprs_raw = row
+            if clicks_raw is None or imprs_raw is None:
+                return None
+            clicks, imprs = float(clicks_raw), float(imprs_raw)
+        except (TypeError, ValueError):
+            return None
+        if imprs <= 0 or imprs < self._min_impressions or clicks < 0:
+            return None
+        return min(1.0, clicks / imprs)
 
 
 class RankerPort(Protocol):
