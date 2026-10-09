@@ -37,4 +37,4 @@
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive recsys-generation-publish`; verify `openspec list`
+- [x] 4.1 `openspec archive recsys-generation-publish`; verify `openspec list`
