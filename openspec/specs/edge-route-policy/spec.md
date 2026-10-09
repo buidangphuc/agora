@@ -32,7 +32,8 @@ failures, and which tokens and request headers it accepts, as defence in depth i
 ### Requirement: Admin-only RPCs are gated at the edge
 
 `team-gateway` SHALL require the scope `admin` on `VerificationService/ReviewKyc`, `EngagementService/ResolveDispute`,
-`AuditService/QueryAuditLog` and `OrderService/ForceFailSaga` before forwarding. An anonymous caller SHALL receive
+`AuditService/QueryAuditLog`, `OrderService/ForceFailSaga` and
+`AnalyticsQueryService/GetTrackingQualityReport` before forwarding. An anonymous caller SHALL receive
 `unauthenticated` (HTTP 401). A verified caller without `admin` SHALL receive `permission_denied` (HTTP 403).
 
 #### Scenario: Anonymous call to an admin-only RPC

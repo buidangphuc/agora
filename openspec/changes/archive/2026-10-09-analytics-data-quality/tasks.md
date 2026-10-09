@@ -37,4 +37,4 @@
 
 ## 5. Archive
 
-- [ ] 5.1 `openspec archive analytics-data-quality`; verify the folded specs
+- [x] 5.1 `openspec archive analytics-data-quality`; verify the folded specs
