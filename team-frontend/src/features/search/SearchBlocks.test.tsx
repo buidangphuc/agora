@@ -21,7 +21,14 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/lib/gateway/search", () => ({
-  EMPTY_FACETS: { categories: [], priceRanges: [], ratings: [], sellers: [] },
+  EMPTY_FACETS: {
+    categories: [],
+    priceRanges: [],
+    ratings: [],
+    sellers: [],
+    tags: [],
+    skus: [],
+  },
 }));
 vi.mock("@/lib/gateway/shops", () => ({
   batchGetShopNames: async () => new Map<string, string>(),
@@ -66,7 +73,14 @@ function ok(over: Partial<FacetedSearchResult> = {}) {
       total: 60,
       page: 1,
       pageSize: 24,
-      facets: { categories: [], priceRanges: [], ratings: [], sellers: [] },
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [],
+        skus: [],
+      },
       ...over,
     } satisfies FacetedSearchResult,
   };
@@ -223,6 +237,8 @@ describe("ResultCount / FilterPanel", () => {
           priceRanges: [],
           ratings: [{ key: "4", count: 3 }],
           sellers: [],
+          tags: [],
+          skus: [],
         },
       }),
     );
@@ -245,6 +261,8 @@ describe("ResultCount / FilterPanel", () => {
           priceRanges: [],
           ratings: [],
           sellers: [{ key: "abcdef123456", count: 2 }],
+          tags: [],
+          skus: [],
         },
       }),
     );

@@ -3,14 +3,16 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { focusRing } from "@/components/ui/focus";
 import type { ViewCategory } from "@/lib/gateway/listings";
-import type { ViewFacets } from "@/lib/gateway/search";
+import type { ViewAttributeFacet, ViewFacets } from "@/lib/gateway/search";
 import { FilterDrawer } from "./FilterDrawer";
 import { PriceRangeForm } from "./PriceRangeForm";
+import { attributeGroupLabel, attributeSlugLabel } from "./attributeLabels";
 import {
   type SearchState,
   activeFilterCount,
   buildSearchHref,
   parseSearchParams,
+  toggleAttr,
 } from "./url";
 
 function formatVnd(n: number): string {
@@ -132,11 +134,68 @@ export interface FilterSidebarProps {
   currentSeller?: string;
   currentMinPrice?: number;
   currentMaxPrice?: number;
+  /** Selected dynamic facets: filter key (`tag.x` / `sku.x`) -> tag slugs. */
+  currentAttrs?: Record<string, string[]>;
   /** Keyword and sort to carry through every filter link (additive). */
   currentQuery?: string;
   currentSort?: string;
   /** sellerId -> shop name for the seller facet (additive); falls back to the id. */
   sellerNames?: Record<string, string>;
+}
+
+/**
+ * Dynamic classifier facets as link groups. Variant (sku) groups come first and
+ * win over an SPU tag group of the same name, so "Màu sắc" is offered once and
+ * matches an in-stock variant. Each bucket toggles its slug in the group's
+ * `tag.<group>` / `sku.<group>` URL param (OR inside a group, AND across groups).
+ */
+function AttributeGroups({
+  facets,
+  state,
+}: {
+  facets: ViewFacets;
+  state: SearchState;
+}) {
+  const skuGroups = new Set(facets.skus.map((g) => g.group));
+  const groups: { prefix: "sku" | "tag"; facet: ViewAttributeFacet }[] = [
+    ...facets.skus.map((facet) => ({ prefix: "sku" as const, facet })),
+    ...facets.tags
+      .filter((g) => !skuGroups.has(g.group))
+      .map((facet) => ({ prefix: "tag" as const, facet })),
+  ];
+  return (
+    <>
+      {groups.map(({ prefix, facet }) => {
+        const key = `${prefix}.${facet.group}`;
+        const selected = state.attrs[key] ?? [];
+        return (
+          <Group
+            key={key}
+            title={attributeGroupLabel(facet.group)}
+            testId={`facet-${prefix}-${facet.group}`}
+          >
+            <div className="space-y-0.5">
+              {facet.buckets.map((b) => {
+                const active = selected.includes(b.key);
+                return (
+                  <Bucket
+                    key={b.key}
+                    href={buildSearchHref(state, {
+                      attrs: toggleAttr(state.attrs, key, b.key),
+                    })}
+                    dataKey={b.key}
+                    label={attributeSlugLabel(b.key)}
+                    count={b.count}
+                    active={active}
+                  />
+                );
+              })}
+            </div>
+          </Group>
+        );
+      })}
+    </>
+  );
 }
 
 function FilterContent({
@@ -212,6 +271,8 @@ function FilterContent({
         </Group>
       )}
 
+      <AttributeGroups facets={facets} state={state} />
+
       <Group title="Tự nhập giá">
         <PriceRangeForm
           id={`${idPrefix}-price-form`}
@@ -257,6 +318,7 @@ export function FilterSidebar({
   currentSeller,
   currentMinPrice,
   currentMaxPrice,
+  currentAttrs = {},
   currentQuery,
   currentSort,
   sellerNames = {},
@@ -270,11 +332,14 @@ export function FilterSidebar({
     }),
     minPrice: currentMinPrice,
     maxPrice: currentMaxPrice,
+    attrs: currentAttrs,
   };
   const hasAnyFacet =
     facets.categories.length > 0 ||
     facets.priceRanges.length > 0 ||
-    facets.sellers.length > 0;
+    facets.sellers.length > 0 ||
+    facets.tags.length > 0 ||
+    facets.skus.length > 0;
 
   return (
     <aside data-testid="search-facets" className="w-full">

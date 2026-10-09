@@ -64,6 +64,7 @@ describe("SearchPage", () => {
       category: "",
       seller: "",
       sort: "price_asc",
+      attrs: {},
       page: 3,
     });
     expect(loadSearch).toHaveBeenCalledTimes(1);
