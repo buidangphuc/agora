@@ -42,6 +42,14 @@ def test_vectors_are_deterministic_unit_and_384_wide():
     assert any(v != 0.0 for v in fake.embed_text(""))  # never the zero vector
 
 
+def test_vectors_are_dense_so_an_hnsw_graph_has_gradients():
+    # A one-hot vector is orthogonal to nearly everything: a k-NN index of those is a plateau of
+    # equal scores and its HNSW graph cannot find a planted neighbour (recall ~30%).
+    vec = fake.embed_text("zhr0123456789")
+    assert sum(1 for v in vec if abs(v) > 1e-3) > 300
+    assert abs(cosine(vec, fake.embed_text("zhr9876543210"))) < 0.2
+
+
 def test_overlapping_texts_are_closer_than_unrelated_ones():
     base = fake.embed_text("red running sneakers")
     near = fake.embed_text("blue running sneakers")

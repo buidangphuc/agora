@@ -20,9 +20,9 @@ GET  /healthz               liveness
 
 Vectors (dim 384)
 -----------------
-A text becomes a hashed bag of concepts, L2-normalised: every word hashes (sha256) to one of
-384 dimensions with a sign. Words of one *concept* hash alike, so texts that share words or
-synonyms have a high cosine and unrelated texts are near orthogonal. Concepts:
+A text becomes a bag of concepts, L2-normalised: every word maps (sha256) to a dense
+pseudo-random 384 dimension direction. Words of one *concept* map alike, so texts that share
+words or synonyms have a high cosine and unrelated texts are near orthogonal (|cos| < ~0.1). Concepts:
 
 * ``CONCEPTS`` below (sneakers = trainers = shoes = kicks, laptop = notebook, ...);
 * any word ending in ``zalias`` is the concept of what precedes it (``abc7zalias`` ~ ``abc7``),
@@ -49,6 +49,7 @@ import math
 import re
 import threading
 import time
+from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -94,18 +95,33 @@ def concept(word: str) -> str:
     return _CONCEPT_OF.get(word, word)
 
 
+@lru_cache(maxsize=4096)
+def concept_vector(name: str) -> tuple[float, ...]:
+    """A deterministic pseudo-random DENSE direction in [-1, 1]^DIM for one concept.
+
+    Dense on purpose: a one-hot (hashed bag) vector is orthogonal to almost every other one, so
+    a k-NN index full of them is a plateau of equal scores and its HNSW graph cannot be
+    navigated (measured recall of a planted neighbour: ~30%, never above 70% even at k=50). Random
+    dense directions keep unrelated texts at cosine ~0 (+-0.05 in 384 dims) and equal concepts at
+    exactly the same vector, while giving the graph real gradients (recall ~100%).
+    """
+    out: list[float] = []
+    block = 0
+    while len(out) < DIM:
+        digest = hashlib.sha256(f"{name}\x00{block}".encode()).digest()
+        out.extend(int.from_bytes(digest[i : i + 4], "big") / 2**31 - 1.0 for i in range(0, 32, 4))
+        block += 1
+    return tuple(out[:DIM])
+
+
 def embed_text(text: str) -> list[float]:
     """The deterministic unit vector of ``text`` (never the zero vector)."""
     vec = [0.0] * DIM
     words = tokens(text) or ["\x00blank"]
     for word in words:
-        digest = hashlib.sha256(concept(word).encode()).digest()
-        index = int.from_bytes(digest[:4], "big") % DIM
-        vec[index] += 1.0 if digest[4] & 1 else -1.0
+        for i, value in enumerate(concept_vector(concept(word))):
+            vec[i] += value
     norm = math.sqrt(sum(v * v for v in vec))
-    if norm == 0.0:  # two opposite signs cancelled on one dimension
-        vec[int.from_bytes(hashlib.sha256(b"\x00cancel").digest()[:4], "big") % DIM] = 1.0
-        return vec
     return [round(v / norm, 6) for v in vec]
 
 
