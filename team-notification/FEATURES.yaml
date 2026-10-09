@@ -222,7 +222,7 @@ features:
       - Then the buyer receives the price-drop notification
     tags: [buyer, destructive]
     status: automated
-    covered_by: "notification/delivery_hardening.feature::A price drop after a team-notification restart is still detected"
+    covered_by: "notification/delivery_hardening.feature::A price drop after a restart is still detected"
     notes: >
       Scenario authored in notification/delivery_hardening.feature ("A price drop after a
       team-notification restart is still detected", @destructive, restarts the container
@@ -232,10 +232,10 @@ features:
   - id: notification.chat-outbox-delivery
     title: A chat message sent while Kafka is down is delivered later
     persona: buyer
-    priority: P2
+    priority: P1
     summary: team-chat writes chat.events through an outbox, so a message stored while the relayer cannot publish still notifies the buyer once after recovery.
     entry_route: /notifications
-    services: [team-chat, team-notification]
+    services: [team-notification, team-chat]
     preconditions:
       login: buyer
       seed_tag: needsOrder
@@ -245,10 +245,119 @@ features:
       - Given the chat.events relayer cannot reach Kafka
       - When the seller replies and Kafka recovers
       - Then the buyer receives exactly one chat notification
-    tags: [buyer, seller]
+    tags: [buyer, seller, destructive]
     status: automated
-    covered_by: "journeys/post_purchase_chat_rma_journey.feature::Seller reply notifies the buyer"
+    covered_by: "notification/c1_delivery_faults.feature::A message sent while Kafka is down is still delivered"
     notes: >
-      No e2e scenario: it needs Redpanda (shared by every service) stopped. Covered by
-      relayer unit tests (TestRelayerDeliversAfterKafkaRecovers) and the Postgres
-      atomicity/ordering tests in team-chat.
+      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops the shared redpanda container (REDPANDA_CONTAINER, default agora-redpanda-1) and restores it in teardown.
+
+  - id: notification.chat-failed-write-publishes-nothing
+    title: A rejected chat write stores nothing and notifies nobody
+    persona: buyer
+    priority: P1
+    summary: A SendMessage the service rejects leaves no message, no event and no notification (the mid-transaction outbox rollback is covered by team-chat's Postgres test).
+    entry_route: /notifications
+    services: [team-chat, team-notification]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given a thread between a buyer and a seller
+      - When a user outside the thread sends a message into it
+      - Then the message is rejected and not stored, and neither participant is notified
+    tags: [buyer, seller, security]
+    status: automated
+    covered_by: "notification/c1_delivery_faults.feature::A failed message write publishes nothing"
+    notes: >
+      Black-box probe by a rejected write (caller outside the thread); the spec's rollback-after-outbox-insert fault cannot be injected through the edge.
+
+  - id: notification.redelivery-after-restart-once
+    title: A redelivered chat event after a restart notifies once
+    persona: buyer
+    priority: P1
+    summary: team-notification's dedupe ledger lives in Postgres, so replaying chat.events after a restart does not create a second notification.
+    entry_route: /notifications
+    services: [team-notification, team-chat]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given the buyer already has one chat notification for the seller's reply
+      - When team-notification restarts and chat.events is delivered again
+      - Then no second notification is created
+    tags: [buyer, seller, destructive]
+    status: automated
+    covered_by: "notification/c1_delivery_faults.feature::A redelivered event after a restart notifies once"
+    notes: >
+      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops team-notification (NOTIFICATION_CONTAINER, set agora-team-notification-svc) and rewinds group team-notification.chat with rpk; restores it in teardown.
+
+  - id: notification.chat-name-lookup-failure
+    title: A chat notification is still created when the sender-name lookup fails
+    persona: buyer
+    priority: P1
+    summary: With team-identity unreachable the seller's chat notification is created with the neutral sender label.
+    entry_route: /notifications
+    services: [team-notification, team-chat, team-identity]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [chat.v1.SendMessage, notification.v1.ListNotifications]
+    acceptance:
+      - Given the sender-name lookup is unavailable
+      - When the buyer messages the seller
+      - Then the seller's chat notification is created with the neutral label
+    tags: [buyer, seller, destructive]
+    status: automated
+    covered_by: "notification/c1_delivery_faults.feature::Name lookup failure still notifies"
+    notes: >
+      UNVERIFIED: @destructive, implemented but not run by the c1 track (serial lane runs it). Stops team-identity (IDENTITY_CONTAINER, default agora-team-identity-svc) and restores it in teardown.
+
+  - id: notification.order-shipped-atomic
+    title: The OrderShipped event is written with the shipment
+    persona: buyer
+    priority: P1
+    summary: A CreateShipment the service rejects stores no shipment and notifies no one (the mid-transaction rollback is covered by team-order's Postgres test).
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [order.v1.CreateShipment, order.v1.GetShipmentTracking, notification.v1.ListNotifications]
+    acceptance:
+      - Given a buyer with an order awaiting fulfillment
+      - When a seller who does not own the order creates a shipment
+      - Then the shipment is rejected, the order is not shipped and the buyer gets no ORDER notification
+    tags: [buyer, seller, security]
+    status: automated
+    covered_by: "notification/c1_shipment_event.feature::The shipment event is written with the shipment"
+    notes: >
+      Black-box probe by a rejected write; the rollback-after-outbox-insert fault cannot be injected through the edge.
+
+  - id: notification.order-analytics-ignores-shipped
+    title: Order analytics ignores the OrderShipped event
+    persona: buyer
+    priority: P1
+    summary: team-analytics' order-facts consumer skips OrderShipped on order.events and its committed offset advances past it.
+    entry_route: /notifications
+    services: [team-order, team-analytics]
+    preconditions:
+      login: buyer
+      seed_tag: needsOrder
+    api:
+      exercised: [order.v1.CreateShipment]
+    acceptance:
+      - Given the order.events end offset is noted
+      - When the seller creates a shipment (OrderShipped is published)
+      - Then within 30 s team-analytics' consumer group has committed past it and is still running
+    tags: [seller, analytics]
+    status: planned
+    covered_by: null
+    notes: >
+      BLOCKED (code defect): team-analytics commits offsets only inside a batch flush (consumer.go flush -> CommitUncommittedOffsets, no-op on an empty buffer), so a skipped OrderShipped is not committed until the next tracking/order-fact record. Evidence: after CreateShipment, group team-analytics sat at order.events CURRENT-OFFSET 6934 while LOG-END grew 6935 -> 6937 (LAG 3) on an idle stack. Scenario written in notification/c1_shipment_event.feature and red.
+
