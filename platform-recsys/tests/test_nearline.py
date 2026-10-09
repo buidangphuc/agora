@@ -67,6 +67,11 @@ def test_nearline_position_debiased_ctr() -> None:
     store = NearlineSignalStore()
     aggregator = NearlineSignalAggregator(store)
 
+    for item, pos in (("item-A", 1), ("item-B", 4)):
+        aggregator.process_interaction(
+            RawInteraction(user_id="u0", listing_id=item, event_type="impression", position=pos)
+        )
+
     # Item A displayed at pos 1 (weight = 1.0) and clicked
     aggregator.process_interaction(
         RawInteraction(user_id="u1", listing_id="item-A", event_type="click", position=1)
@@ -176,3 +181,16 @@ def test_events_older_than_the_window_are_ignored(redis_backed):
     old = RawInteraction("u1", "item-A", "view", timestamp=time.time() - 3600)
     assert agg.process_interaction(old) is False
     assert store.get_recent_items("u1") == []
+
+
+@pytest.mark.parametrize("redis_backed", [True, False])
+def test_equal_raw_ctr_at_worse_positions_gets_higher_debiased_ctr(redis_backed):
+    store = _redis_store()[1] if redis_backed else NearlineSignalStore()
+    agg = NearlineSignalAggregator(store)
+    for listing, position in (("top", 1), ("deep", 9)):
+        for _ in range(4):
+            agg.process_interaction(RawInteraction("u", listing, "impression", position=position))
+        agg.process_interaction(RawInteraction("u", listing, "click", position=position))
+    # raw CTR is 1/4 for both; the click at position 9 counts sqrt(9)=3 times
+    assert store.get_debiased_ctr("top") == pytest.approx(0.25)
+    assert store.get_debiased_ctr("deep") == pytest.approx(0.75)

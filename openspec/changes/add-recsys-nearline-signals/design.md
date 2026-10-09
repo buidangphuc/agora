@@ -36,11 +36,14 @@ than `NEARLINE_TTL_SECONDS` are ignored, so a replay can never revive an expired
 A listing viewed, clicked or carted is co-viewed with the up to 3 distinct listings that session touched just before
 (`session_id`, else the actor). Both directions are incremented. Different sessions are never linked.
 
+### D6. Debiased CTR is inverse-propensity weighted clicks over raw exposure
+A click at a worse position counts `position ** 0.5` times; impressions and views add 1 each. (Weighting both by the position factor cancelled for items shown at one position and left the raw CTR.) Only clicks and impressions/views write the `ctr` hash.
+
 ### D5. Impressions do not become "recent items"
 Impressions (search result lists) feed only the click-through counters. Recents, categories and co-views come from
 view/click/add_to_cart.
 
-## The Redis contract (what team-ai reads)
+## Nearline Redis contract
 
 All keys carry TTL `NEARLINE_TTL_SECONDS` (86400 s), refreshed on every write. All are in the same Redis DB as the
 `recs:v1:*` keys (`REDIS_DATABASE`, 0). `actor` is the warehouse `user_key`: the principal's id for a signed-in user,
@@ -52,7 +55,7 @@ else `anon:<anonymous_id>`; with neither, the session id. Anonymous visitors are
 | `recs:nearline:user:{actor}:items` | ZSET | member `listing_id`, score = event time (epoch seconds, float); the 50 most recent | `ZREVRANGE key 0 n-1` (newest first) |
 | `recs:nearline:user:{actor}:cats` | HASH | `item_category` -> float affinity; view +1, click +2, add_to_cart +5 | `HGETALL` |
 | `recs:nearline:coview:{listing_id}` | ZSET | member other `listing_id`, score = co-view count; the top 50 | `ZREVRANGE key 0 n-1 WITHSCORES` |
-| `recs:nearline:ctr:{listing_id}` | HASH | `clicks_ips`, `imprs_ips` (floats, weight sqrt(position)); CTR = `clicks_ips / imprs_ips` capped at 1 | `HGETALL` |
+| `recs:nearline:ctr:{listing_id}` | HASH | `clicks_ips`: clicks weighted by `position ** 0.5` (position clamped to >= 1); `imprs_ips`: impression + view count, unweighted exposure. CTR = `min(1, clicks_ips / imprs_ips)` | `HGETALL` / `HMGET` |
 
 Internal, not part of the contract: `recs:nearline:session:{session}:items` (ZSET) and `recs:nearline:seen:{event_id}`.
 A missing key means "no signal in the window". Values are strings from a `decode_responses=True` client; a reader

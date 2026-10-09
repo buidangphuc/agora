@@ -9,7 +9,8 @@ by publish, rollback or retention, and every key carries the nearline TTL):
   most recent. Read newest first with ZREVRANGE.
 - ``recs:nearline:user:{actor}:cats``    HASH  category -> float affinity (view 1, click 2, add_to_cart 5).
 - ``recs:nearline:coview:{listing_id}``  ZSET  member other listing_id, score co-view count; the top 50.
-- ``recs:nearline:ctr:{listing_id}``     HASH  ``clicks_ips`` and ``imprs_ips`` (float); CTR is the ratio.
+- ``recs:nearline:ctr:{listing_id}``     HASH  ``clicks_ips`` (clicks weighted by position**0.5) and
+  ``imprs_ips`` (impression + view count, unweighted); CTR = clicks_ips / imprs_ips, capped at 1.
 - ``recs:nearline:session:{session}:items`` ZSET  internal: a session's recent listings (co-view source).
 - ``recs:nearline:seen:{event_id}``      STRING internal: replay guard (``SET NX EX``).
 
@@ -208,31 +209,31 @@ class NearlineSignalAggregator:
         return True
 
     def _update_ctr(self, event: RawInteraction) -> None:
-        ips_weight = compute_ips_weight(event.position)
-        if event.event_type in ("impression", "view"):
-            if self.store.redis is not None:
-                key_ctr = f"{ITEM_CTR_PREFIX}{event.listing_id}"
-                pipe = self.store.redis.pipeline()
-                pipe.hincrbyfloat(key_ctr, "imprs_ips", ips_weight)
-                pipe.expire(key_ctr, self.ttl)
-                pipe.execute()
-            else:
-                curr = self.store._in_memory_debiased_impressions.get(event.listing_id, 0.0)
-                self.store._in_memory_debiased_impressions[event.listing_id] = curr + ips_weight
+        """Position-debiased CTR = clicks_ips / imprs_ips.
 
+        Inverse propensity scoring: a click is weighted by 1 / P(seen at its position), here
+        position ** gamma, so a click at a worse position counts more. An impression (or view) is
+        plain exposure: it adds 1 to ``imprs_ips`` whatever its position. Weighting both by the same
+        position factor would cancel and leave the raw CTR.
+        """
+        if event.event_type in ("impression", "view"):
+            field_name, amount = "imprs_ips", 1.0
         elif event.event_type == "click":
-            if self.store.redis is not None:
-                key_ctr = f"{ITEM_CTR_PREFIX}{event.listing_id}"
-                pipe = self.store.redis.pipeline()
-                pipe.hincrbyfloat(key_ctr, "clicks_ips", ips_weight)
-                pipe.hincrbyfloat(key_ctr, "imprs_ips", ips_weight)
-                pipe.expire(key_ctr, self.ttl)
-                pipe.execute()
-            else:
-                curr_c = self.store._in_memory_debiased_clicks.get(event.listing_id, 0.0)
-                self.store._in_memory_debiased_clicks[event.listing_id] = curr_c + ips_weight
-                curr_i = self.store._in_memory_debiased_impressions.get(event.listing_id, 0.0)
-                self.store._in_memory_debiased_impressions[event.listing_id] = curr_i + ips_weight
+            field_name, amount = "clicks_ips", compute_ips_weight(event.position)
+        else:
+            return
+        if self.store.redis is not None:
+            key_ctr = f"{ITEM_CTR_PREFIX}{event.listing_id}"
+            pipe = self.store.redis.pipeline()
+            pipe.hincrbyfloat(key_ctr, field_name, amount)
+            pipe.expire(key_ctr, self.ttl)
+            pipe.execute()
+        elif field_name == "imprs_ips":
+            curr = self.store._in_memory_debiased_impressions.get(event.listing_id, 0.0)
+            self.store._in_memory_debiased_impressions[event.listing_id] = curr + amount
+        else:
+            curr = self.store._in_memory_debiased_clicks.get(event.listing_id, 0.0)
+            self.store._in_memory_debiased_clicks[event.listing_id] = curr + amount
 
     def _update_actor(self, event: RawInteraction, actor_id: str) -> None:
         """Recents, category affinity and session co-views of one engagement event."""
