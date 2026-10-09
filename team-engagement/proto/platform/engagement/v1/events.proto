@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+// Fact events published by team-engagement on the `engagement.events` topic (ADR-0002, ADR-0005).
+// Each message here is the `payload` of a platform.events.v1.EventEnvelope whose `type` is the
+// fully-qualified message name (e.g. "platform.engagement.v1.FavoriteAdded"). Consumers (team-analytics)
+// switch on `type` and unmarshal `payload`.
+package platform.engagement.v1;
+
+// A user added a listing to their favorites. Payload of an EventEnvelope on `engagement.events`.
+message FavoriteAdded {
+  string user_id = 1;
+  string listing_id = 2;
+}
+
+// A user removed a listing from their favorites. Payload of an EventEnvelope on `engagement.events`.
+message FavoriteRemoved {
+  string user_id = 1;
+  string listing_id = 2;
+}
+
+// A user started following a seller. Payload of an EventEnvelope on `engagement.events`.
+message SellerFollowed {
+  string user_id = 1;
+  string seller_id = 2;
+}
+
+// A user stopped following a seller. Payload of an EventEnvelope on `engagement.events`.
+message SellerUnfollowed {
+  string user_id = 1;
+  string seller_id = 2;
+}
+
+// A user created a review. Payload of an EventEnvelope on `engagement.events`.
+// By design this carries NO review text or title: the event is an analytics fact, not a copy of the
+// review, so free-form user content never leaves team-engagement's database.
+message ReviewCreated {
+  string review_id = 1;
+  string user_id = 2;
+  string listing_id = 3;
+  // Resolved from team-engagement's own seller_listings projection; empty when unknown.
+  string seller_id = 4;
+  // Star rating given by the reviewer.
+  int32 rating = 5;
+}
