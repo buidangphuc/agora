@@ -28,6 +28,11 @@ from tests.e2e.support.world import World
 LISTING_L = "L"
 
 
+# The reranker reorders the whole fused top-20, so a reversed order moves our three (the best
+# lexical matches) to the END of that window: read a page wide enough to hold it.
+RERANK_PAGE = 20
+
+
 def _kw(world: World) -> str:
     return s.ctx(world).keyword
 
@@ -199,11 +204,11 @@ def _plain_then_directive(world: World, directive: str) -> None:
     kw = _kw(world)
 
     def _plain():
-        resp = h.search(kw, mode=h.HYBRID)
+        resp = h.search(kw, mode=h.HYBRID, page_size=RERANK_PAGE)
         return resp if len(_sorted_ours(world, resp, labels)) == 3 else None
 
     plain = s.eventually(_plain, "all three listings in the plain hybrid search", 30.0)
-    directed = h.search(f"{kw} {directive}", mode=h.HYBRID)
+    directed = h.search(f"{kw} {directive}", mode=h.HYBRID, page_size=RERANK_PAGE)
     h.bag(world).update(
         plain=_sorted_ours(world, plain, labels),
         directed=_sorted_ours(world, directed, labels),
@@ -557,6 +562,40 @@ def replay(world: World) -> None:
     world.add_cleanup(_cleanup)
 
 
+REPLAY_STALL_S = 120.0  # no new document in the replay index for this long = the replay is stuck
+REPLAY_CAP_S = 3600.0
+
+
+def _wait_for_replay(index: str, check, what: str):  # noqa: ANN001, ANN202
+    """Poll `check` while the replay makes progress.
+
+    A replay re-reads the WHOLE listing.events topic, so its duration is the topic's size (a shared
+    e2e stack holds tens of thousands of events; the listing under test is among the newest), not a
+    constant. The bound is therefore on progress, not on wall time: fail when the replay index
+    stops growing for REPLAY_STALL_S (or after REPLAY_CAP_S overall).
+    """
+    started = time.monotonic()
+    best, moved_at = -1, started
+    while True:
+        value = check()
+        if value:
+            return value
+        try:
+            count = int(
+                httpx.get(f"{ev.opensearch_url()}/{index}/_count", timeout=15.0).json()["count"]
+            )
+        except (httpx.HTTPError, KeyError, ValueError):
+            count = best
+        now = time.monotonic()
+        if count > best:
+            best, moved_at = count, now
+        if now - moved_at > REPLAY_STALL_S or now - started > REPLAY_CAP_S:
+            raise AssertionError(
+                f"{what}: replay stalled at {best} documents after {now - started:.0f}s"
+            )
+        time.sleep(3.0)
+
+
 @then("the new index holds that listing with its text and a 384 dimension embedding")
 def replayed(world: World) -> None:
     lid = s.listing(world, LISTING_L).id
@@ -569,7 +608,7 @@ def replayed(world: World) -> None:
         src = resp.json()["_source"]
         return src if len(src.get("embedding") or []) == ms.EMBED_DIM else None
 
-    doc = s.eventually(_doc, f"listing {lid} replayed with an embedding into {index}", 300.0, 3.0)
+    doc = _wait_for_replay(index, _doc, f"listing {lid} replayed with an embedding into {index}")
     assert doc["title"] == s.listing(world, LISTING_L).title
     assert not doc.get("vector_pending")
 
