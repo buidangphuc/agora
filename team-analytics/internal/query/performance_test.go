@@ -194,7 +194,7 @@ func TestGetRecommendationPerformance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.WindowHours != 24 || resp.AttributionWindowHours != 12 || stub.hours != 12 || !stub.since.Equal(now.Add(-24*time.Hour)) {
+	if resp.WindowHours != 168 || resp.AttributionWindowHours != 12 || stub.hours != 12 || !stub.since.Equal(now.Add(-168*time.Hour)) {
 		t.Fatalf("window = %d/%d, stub = %+v", resp.WindowHours, resp.AttributionWindowHours, stub)
 	}
 	r := resp.Rows[0]

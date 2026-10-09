@@ -2,7 +2,8 @@
 
 ### Requirement: Recommendation outcomes are reported per placement and model
 
-`AnalyticsQueryService/GetRecommendationPerformance` SHALL take a window of 1 to 168 hours (default 24) and return one row per
+`AnalyticsQueryService/GetRecommendationPerformance` SHALL take a window of 1 to 168 hours (default 168, so the default
+window is longer than the attribution window and `conversion_rate` has mature clicks to count) and return one row per
 (`placement_id`, `model_version`) seen on impression events in the window.
 
 An impression SHALL be identified by the triple (`impression_id`, `placement_id`, `model_version`). The same

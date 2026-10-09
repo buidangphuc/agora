@@ -314,6 +314,8 @@ const (
 	defaultQualityWindowHours = 24
 	maxQualityWindowHours     = 168
 
+	defaultPerformanceWindowHours = 168
+
 	statusOK       = "OK"
 	statusDegraded = "DEGRADED"
 )
@@ -417,7 +419,9 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 	}
 	hours := req.GetWindowHours()
 	if hours == 0 {
-		hours = defaultQualityWindowHours
+		// Seven days, not the quality report's 24 h: conversion_rate counts only clicks whose
+		// attribution window has closed, so a default no longer than that window reads 0.
+		hours = defaultPerformanceWindowHours
 	}
 	if hours > maxQualityWindowHours {
 		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
