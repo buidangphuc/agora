@@ -71,3 +71,17 @@ and not only in a service assembled by hand.
 - **THEN** `explain["featurestore_hit_count"]` is greater than zero and the order differs from the cosine order
 - **AND** with the setting empty, `featurestore_hit_count` is `0` and the order is the cosine order
 - **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt, test_without_a_feature_store_url_the_same_request_keeps_cosine_order. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+
+### Requirement: Serving reads the feature store's registry features
+
+The ranker SHALL read item features by the names the feature registry declares for `item_popularity`, from the version named by
+`fs:item_popularity:current`. A declared feature that is missing or not a finite number SHALL take its documented default, be
+counted in `explain["feature_defaults"]`, and SHALL NOT fail the request.
+
+#### Scenario: Registry feature names drive the ranking and defaults are counted
+
+- **WHEN** a request ranks candidates whose online rows carry the registry names, and another whose row carries only names the registry does not declare
+- **THEN** the first rows' `ctr_7d` and engagement counts reach the ranker's inputs, the other row ranks as an empty row, and `explain["feature_defaults"]` counts its missing registry features
+- **AND** the request is not degraded
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_item_feature_contract.py › test_registry_names_drive_the_ranker_vector, test_service_counts_defaulted_features_and_does_not_crash, test_item_feature_list_matches_the_registry_view. Not verifiable end to end: `explain` is not on the gateway wire (the feature store's effect on order is covered by `recommendations/serving_safeguards.feature`).
+

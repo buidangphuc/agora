@@ -210,7 +210,7 @@ async def test_favorites_break_a_ctr_tie():
 
 
 async def test_boost_is_bounded_so_the_model_score_stays_dominant():
-    cands = [Candidate("strong", 0.9), Candidate("weak", 0.5)]
+    cands = [Candidate("strong", 0.9), Candidate("weak", 0.3)]
     store = RedisFeatureStore(_fs_redis(rows={"weak": {"ctr_7d": 1e9}}))
     result = await _rank(store, _BrokenUserCache(popular=cands))
     assert [i.listing_id for i in result.items] == ["strong", "weak"]

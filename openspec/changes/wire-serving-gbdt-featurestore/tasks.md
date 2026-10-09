@@ -33,3 +33,8 @@
 - [x] Test asserts ranker failure yields cosine order + `status == "degraded"`.
 - [x] `openspec validate wire-serving-gbdt-featurestore --strict`.
 - [x] `PYTHONPATH=. pytest tests/` in `team-ai` (**full suite**, not selected files).
+
+## 3. Reconciliation addendum (2026-10-09)
+- [ ] Serving reads the registry's `item_popularity` names (`recommend/features.py`); defaults are counted in `explain["feature_defaults"]`.
+- [ ] Test that fails on the old names (`test_item_feature_contract.py`); registry-parity test.
+- [ ] platform-recsys trainer aligned with the feature contract in design.md (platform-recsys, not done here).

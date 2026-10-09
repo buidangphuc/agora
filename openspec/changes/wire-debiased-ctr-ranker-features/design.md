@@ -8,10 +8,8 @@
   each ranked item carries `ctr_source` (kept through the online-feature re-rank), and `explain["ctr_sources"]` counts returned items
   per source. `explain` also reports `nearline_enabled` (a store is configured) and `nearline_hit_count` (candidates with usable data).
   Neither is on the gateway wire (`RecommendResponse` has no explain), which is why the provenance scenarios are unit-verified.
-- **What "fallback" is in production.** The prior `historical_ctr` is read from the item's online features. The `item_popularity` view
-  that `platform-featurestore` materialises has no `historical_ctr` column (it has `ctr_7d`), so in the stack the prior value is `0.0`
-  and only `ctr_7d` acts, through the bounded re-rank boost. Feeding `ctr_7d` into the ranker's CTR feature is a modelling choice not
-  made here.
+- **What "fallback" is in production.** The prior CTR is `ctr_7d` from the `item_popularity` online row (the ranker now reads the
+  registry's names; see `wire-serving-gbdt-featurestore/design.md`, "Feature contract"). Without a row it is `0.0`.
 - **A usable debiased CTR of exactly 0 is "fallback"** (the ranker overrides only when the nearline CTR is `> 0`, the rule the existing
   tests pin). An item shown a lot and never clicked therefore keeps its prior CTR.
 - **Out of scope here, still open: platform-recsys.** `extract_candidate_features` taking a nearline source and recording the CTR source per

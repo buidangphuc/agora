@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 from app.core.errors import ServiceUnavailableError
+from app.modules.business.recommend.features import missing_item_features
 from app.modules.business.recommend.placement_config import PlacementRegistry
 from app.modules.business.recommend.ranking import (
     CosineRankerAdapter,
@@ -112,6 +113,7 @@ class RankOutcome:
     featurestore_hits: int
     source: str  # "gbdt" | "cosine" | "degraded_cosine"
     nearline_hits: int = 0
+    feature_defaults: int = 0
 
 
 class RecommendationService:
@@ -309,6 +311,7 @@ class RecommendationService:
                             "ranking_source": ranked.source,
                             "featurestore_hit_count": ranked.featurestore_hits,
                             "nearline_hit_count": ranked.nearline_hits,
+                            "feature_defaults": ranked.feature_defaults,
                             "ctr_sources": _ctr_sources(items),
                             "nearline_enabled": self._nearline_enabled,
                             "status": status,
@@ -339,6 +342,7 @@ class RecommendationService:
                 "ranking_source": "cosine",
                 "featurestore_hit_count": 0,
                 "nearline_hit_count": 0,
+                "feature_defaults": 0,
                 "ctr_sources": {},
                 "nearline_enabled": self._nearline_enabled,
                 "status": "fallback",
@@ -408,6 +412,10 @@ class RecommendationService:
                     nearline_hits=len(nearline)
                     if isinstance(nearline, NearlineSnapshot)
                     else 0,
+                    feature_defaults=sum(
+                        len(missing_item_features(row))
+                        for row in item_features.values()
+                    ),
                 )
             except Exception as exc:
                 logger.warning("GBDT ranker failed: {}, degrading to cosine", exc)
@@ -428,7 +436,7 @@ class RecommendationService:
 
         A source with the async batch read (the Redis store) is read here, within
         ``nearline_timeout_ms``, into a snapshot the sync ranker consumes; a failure or
-        timeout leaves an empty snapshot, i.e. ranking on its prior ``historical_ctr``.
+        timeout leaves an empty snapshot, i.e. ranking on its prior ``ctr_7d``.
         A plain sync store (the in-memory one) is handed to the ranker as is.
         """
         store = self._nearline_store

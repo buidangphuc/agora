@@ -13,6 +13,11 @@ from typing import Any, Protocol
 
 from loguru import logger
 
+from app.modules.business.recommend.features import (
+    ITEM_POPULARITY_VIEW,
+    item_feature,
+    popularity,
+)
 from app.modules.business.recommend.schemas import (
     Candidate,
     RecommendedItem,
@@ -84,7 +89,7 @@ class RedisFeatureStore:
     minute), so ranking degrades to running without features.
     """
 
-    VIEW = "item_popularity"
+    VIEW = ITEM_POPULARITY_VIEW
 
     def __init__(
         self,
@@ -181,7 +186,7 @@ class RedisNearlineStore:
     click and impression sums over the TTL window). The debiased CTR is
     ``min(1, clicks_ips / imprs_ips)``; an item with fewer than ``min_impressions``
     weighted impressions has no usable data and is left out, so ranking keeps its prior
-    ``historical_ctr``. Missing keys, malformed values and any Redis error give no entry
+    ``ctr_7d``. Missing keys, malformed values and any Redis error give no entry
     (the error is logged at most once a minute): nearline never fails a request.
     """
 
@@ -286,35 +291,37 @@ class GBDTRankerAdapter:
         item_feat: dict[str, Any],
         nearline_store: NearlineSignalPort | None = None,
     ) -> FeatureVector:
-        cat_match = (
-            1.0
-            if (cand.category_id and cand.category_id == query.category_id)
-            else float(item_feat.get("category_match", 0.0))
-        )
-        pop = float(item_feat.get("popularity_score", 50.0)) / 100.0
-        price = float(item_feat.get("price", 50.0)) / 1000.0
-        freshness = float(item_feat.get("freshness_score", 0.8))
+        """The 7 ranker inputs; ``item_feat`` uses the feature store's registry names.
 
-        # Position-debiased CTR from nearline overrides the item's prior value when usable.
+        [similarity, category_match, popularity, price, freshness, ctr, cvr]. similarity
+        and category_match come from the candidate and query. popularity and ctr come from
+        ``item_popularity`` (``features.py``); price, freshness and cvr have no source in
+        the registry, so they are 0 (inert) until a view provides them. A feature the row
+        lacks takes its documented default.
+        """
+        cat_match = (
+            1.0 if (cand.category_id and cand.category_id == query.category_id) else 0.0
+        )
+        pop = popularity(item_feat)
+
+        # Position-debiased CTR from nearline overrides the item's prior ctr_7d when usable.
         ctr_source = "fallback"
-        ctr = float(item_feat.get("historical_ctr", 0.0))
+        ctr = item_feature(item_feat, "ctr_7d")[0]
         if nearline_store is not None:
             nearline_ctr = nearline_store.get_debiased_ctr(cand.listing_id)
             if nearline_ctr > 0:
                 ctr = nearline_ctr
                 ctr_source = "nearline"
 
-        cvr = float(item_feat.get("conversion_rate", 0.0))
-
         return FeatureVector(
             values=[
                 cand.score,
                 cat_match,
-                min(1.0, max(0.0, pop)),
-                min(1.0, max(0.0, price)),
-                min(1.0, max(0.0, freshness)),
+                pop,
+                0.0,
+                0.0,
                 min(1.0, max(0.0, ctr)),
-                min(1.0, max(0.0, cvr)),
+                0.0,
             ],
             ctr_source=ctr_source,
         )

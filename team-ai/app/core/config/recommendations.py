@@ -55,7 +55,7 @@ class RecommendationSettingsMixin(BaseModel):
 
     # Nearline signals written by platform-recsys's nearline consumer (position-debiased CTR in
     # ``<RECS_NEARLINE_PREFIX>:ctr:<listing_id>``). Empty URL = off: ranking runs on its prior
-    # ``historical_ctr``. Weighted impressions below the minimum count as no usable data.
+    # ``ctr_7d``. Weighted impressions below the minimum count as no usable data.
     RECS_NEARLINE_REDIS_URL: str = ""
     RECS_NEARLINE_PREFIX: str = "recs:nearline"
     RECS_NEARLINE_MIN_IMPRESSIONS: float = Field(default=1.0, ge=0)
