@@ -6,6 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/buidangphuc/team-gateway/generated/platform/analytics/v1/analyticsv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/audit/v1/auditv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/engagement/v1/engagementv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/listing/v1/listingv1connect"
@@ -16,6 +17,7 @@ import (
 // The admin policy set is pinned: changing it is a spec change.
 func TestAdminProcedureSetIsPinned(t *testing.T) {
 	want := []string{
+		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
 		orderv1connect.OrderServiceForceFailSagaProcedure,

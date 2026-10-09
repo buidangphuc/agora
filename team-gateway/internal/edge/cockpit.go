@@ -49,6 +49,32 @@ type CockpitMetricsResponse struct {
 	Services            []ServiceHealth `json:"services"`
 	RecentOrders        []RecentOrder   `json:"recent_orders"`
 	RecentTraces        []TraceSummary  `json:"recent_traces"`
+	// TrackingQuality is team-analytics' 24h tracking data-quality report, null
+	// when team-analytics cannot be reached (never zeros-as-real).
+	TrackingQuality *TrackingQuality `json:"tracking_quality"`
+}
+
+// TrackingQuality mirrors GetTrackingQualityReportResponse with snake_case JSON
+// names. The gateway copies it; the status and reasons are decided upstream.
+// LastIngestedAt is RFC3339 or null when nothing has been ingested.
+type TrackingQuality struct {
+	Status            string                `json:"status"`
+	Reasons           []string              `json:"reasons"`
+	LastIngestedAt    *string               `json:"last_ingested_at"`
+	LagP50Seconds     float64               `json:"lag_p50_seconds"`
+	LagP95Seconds     float64               `json:"lag_p95_seconds"`
+	DecodeFailures    int64                 `json:"decode_failures"`
+	DuplicatesSkipped int64                 `json:"duplicates_skipped"`
+	Types             []TrackingTypeQuality `json:"types"`
+}
+
+// TrackingTypeQuality is one event type's row of the tracking quality report.
+type TrackingTypeQuality struct {
+	EventType           string  `json:"event_type"`
+	Events              int64   `json:"events"`
+	Visitors            int64   `json:"visitors"`
+	MissingListingRatio float64 `json:"missing_listing_ratio"`
+	ListingScoped       bool    `json:"listing_scoped"`
 }
 
 // RecentOrder is one paid order as reported by team-analytics (minor units, no
@@ -126,7 +152,10 @@ const (
 	adminScope = "admin"
 	// Fixed cockpit queries: the browser supplies none of these.
 	ordersWindow = 24 * time.Hour
-	recentOrders = 5
+	// trackingQualityWindowHours is the fixed window of the cockpit's tracking
+	// quality call.
+	trackingQualityWindowHours = 24
+	recentOrders               = 5
 )
 
 // CockpitHandler serves the Admin Cockpit HUD (GET /api/admin/metrics). It
@@ -208,9 +237,10 @@ func (h *CockpitHandler) buildResponse(ctx context.Context, header http.Header) 
 		snap promSnapshot
 		ok   bool
 	)
-	wg.Add(3)
+	wg.Add(4)
 	go func() { defer wg.Done(); snap, ok = h.snapshot(ctx) }()
 	go func() { defer wg.Done(); h.fillOrders(ctx, header, &resp) }()
+	go func() { defer wg.Done(); h.fillTrackingQuality(ctx, header, &resp) }()
 	go func() {
 		defer wg.Done()
 		if traces := h.recentTraces(ctx); traces != nil {
@@ -314,6 +344,49 @@ func (h *CockpitHandler) fillOrders(ctx context.Context, header http.Header, res
 			})
 		}
 	}
+}
+
+// fillTrackingQuality copies team-analytics' tracking quality report (one call,
+// fixed 24h window) into resp, forwarding the caller's principal. On any error
+// the section stays null.
+func (h *CockpitHandler) fillTrackingQuality(ctx context.Context, header http.Header, resp *CockpitMetricsResponse) {
+	if h.analytics == nil {
+		return
+	}
+	var rep *analyticsv1.GetTrackingQualityReportResponse
+	err := h.edge.callRead(h.edge.outgoing(ctx, header), func(c context.Context) error {
+		var e error
+		rep, e = h.analytics.GetTrackingQualityReport(c, &analyticsv1.GetTrackingQualityReportRequest{
+			WindowHours: trackingQualityWindowHours,
+		})
+		return e
+	})
+	if err != nil || rep == nil {
+		return
+	}
+	tq := &TrackingQuality{
+		Status:            rep.GetStatus(),
+		Reasons:           append([]string{}, rep.GetReasons()...),
+		LagP50Seconds:     rep.GetLagP50Seconds(),
+		LagP95Seconds:     rep.GetLagP95Seconds(),
+		DecodeFailures:    rep.GetDecodeFailures(),
+		DuplicatesSkipped: rep.GetDuplicatesSkipped(),
+		Types:             make([]TrackingTypeQuality, 0, len(rep.GetTypes())),
+	}
+	if ts := rep.GetLastIngestedAt(); ts != nil {
+		v := ts.AsTime().UTC().Format(time.RFC3339)
+		tq.LastIngestedAt = &v
+	}
+	for _, t := range rep.GetTypes() {
+		tq.Types = append(tq.Types, TrackingTypeQuality{
+			EventType:           t.GetEventType(),
+			Events:              t.GetEvents(),
+			Visitors:            t.GetVisitors(),
+			MissingListingRatio: t.GetMissingListingRatio(),
+			ListingScoped:       t.GetListingScoped(),
+		})
+	}
+	resp.TrackingQuality = tq
 }
 
 // foldRow collapses a row's (possibly several) rpc_service series into one

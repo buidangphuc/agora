@@ -6,6 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/buidangphuc/team-gateway/generated/platform/analytics/v1/analyticsv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/audit/v1/auditv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/engagement/v1/engagementv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
@@ -17,10 +18,11 @@ import (
 // stays the authoritative check). Adding or removing an entry is a spec change
 // (openspec service-authz-hardening, edge-route-policy); a test pins the set.
 var adminProcedures = map[string]string{
-	verificationv1connect.VerificationServiceReviewKycProcedure:  adminScope,
-	engagementv1connect.EngagementServiceResolveDisputeProcedure: adminScope,
-	auditv1connect.AuditServiceQueryAuditLogProcedure:            adminScope,
-	orderv1connect.OrderServiceForceFailSagaProcedure:            adminScope,
+	verificationv1connect.VerificationServiceReviewKycProcedure:               adminScope,
+	engagementv1connect.EngagementServiceResolveDisputeProcedure:              adminScope,
+	auditv1connect.AuditServiceQueryAuditLogProcedure:                         adminScope,
+	orderv1connect.OrderServiceForceFailSagaProcedure:                         adminScope,
+	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure: adminScope,
 }
 
 // requireProcedureScope enforces adminProcedures for a resolved principal:
