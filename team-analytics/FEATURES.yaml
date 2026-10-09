@@ -560,3 +560,88 @@ features:
     status: planned
     covered_by: null
     notes: "order-facts-buyer: needs rebuild (team-analytics image with buyer_id); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: analytics/order_facts_buyer.feature::A paid order's lines carry the buyer]"
+
+  - id: analytics.recs-paid-order-attributed
+    title: "A purchase after a recommended click is attributed"
+    persona: admin
+    priority: P1
+    summary: "A purchase after a recommended click is attributed."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a logged-in buyer clicks a recommended listing and then pays an order for that listing
+      - Then the report row for that placement and model counts that purchase
+    tags: [recommendations, analytics, admin, integration]
+    status: planned
+    covered_by: null
+    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed]"
+
+  - id: analytics.recs-purchase-beacon-ignored
+    title: "A purchase beacon without an order is not counted"
+    persona: admin
+    priority: P1
+    summary: "A purchase beacon without an order is not counted."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a logged-in buyer clicks a recommended listing and posts a purchase tracking event for it, but pays no order
+      - Then the report row for that placement and model counts the click and 0 purchases
+    tags: [recommendations, analytics, admin, integration]
+    status: planned
+    covered_by: null
+    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted]"
+
+  - id: analytics.recs-foreign-click-ignored
+    title: "A click on a listing the impression did not show is not counted"
+    persona: admin
+    priority: P1
+    summary: "A click on a listing the impression did not show is not counted."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a visitor posts an impression of listing A and a click on listing B with the same impressionId
+      - Then the report row for that placement and model counts the impression and 0 clicks
+    tags: [recommendations, analytics, admin, integration]
+    status: planned
+    covered_by: null
+    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted]"
+
+  - id: analytics.recs-reused-impression-id
+    title: "A reused impression id keeps its placements and models apart"
+    persona: admin
+    priority: P1
+    summary: "A reused impression id keeps its placements and models apart."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a visitor posts impressions of one listing with the same impressionId under two placements with two models, and one click carrying that impressionId, the first placement and the first model
+      - Then the report has a row for each placement and model with at least 1 impression, and only the first row counts the click
+    tags: [recommendations, analytics, admin, integration]
+    status: planned
+    covered_by: null
+    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart]"
+
+  - id: analytics.recs-open-window-rate
+    title: "A conversion on a still-open attribution window is left out of the rate"
+    persona: admin
+    priority: P1
+    summary: "A conversion on a still-open attribution window is left out of the rate."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a logged-in buyer clicks a recommended listing and pays an order for it within the attribution window, and the report is read right away
+      - Then the report row for that placement and model counts 1 click and 1 purchase, and its conversion rate is 0
+    tags: [recommendations, analytics, admin, integration]
+    status: planned
+    covered_by: null
+    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate]"
