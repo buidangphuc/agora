@@ -33,11 +33,11 @@ features:
       login: buyer
     acceptance:
       - When a new buyer views a listing three times and favourites it, the export cycle completes, and the materialisation job runs
-      - Then the online features of that buyer under user_activity@v1 have 3 views in the last 7 days and 1 current favourite, and the listing's item_popularity@v1 features have at least 3 views and at least 1 current favourite
+      - Then the online features of that buyer under user_activity@v2 have 3 views in the last 7 days and 1 current favourite, and the listing's item_popularity@v1 features have at least 3 views and at least 1 current favourite
     tags: [analytics, batch, integration]
-    status: automated
-    covered_by: "featurestore/feature_materialization.feature::A buyer's activity becomes features"
-    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A buyer's activity becomes features"
+    status: planned
+    covered_by: null
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A buyer's activity becomes features; order-facts-buyer: needs rebuild, fsm_steps.py and feature_materialization.feature must move to user_activity@v2 (current 2) [target: featurestore/feature_materialization.feature::A buyer's activity becomes features]"
 
   - id: featurestore.as-of-exclusion
     title: "Events after AS_OF are not used"
@@ -50,11 +50,11 @@ features:
       login: buyer
     acceptance:
       - When the job runs with AS_OF set to a time just before a new buyer's first event
-      - Then that buyer has no user_activity@v1 row in the offline snapshot of that run
+      - Then that buyer has no user_activity@v2 row in the offline snapshot of that run
     tags: [analytics, batch, integration]
-    status: automated
-    covered_by: "featurestore/feature_materialization.feature::Events after AS_OF are not used"
-    notes: "featurestore-materialization: featurestore/feature_materialization.feature::Events after AS_OF are not used"
+    status: planned
+    covered_by: null
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::Events after AS_OF are not used; order-facts-buyer: needs rebuild, fsm_steps.py and feature_materialization.feature must move to user_activity@v2 (current 2) [target: featurestore/feature_materialization.feature::Events after AS_OF are not used]"
 
   - id: featurestore.snapshot-and-manifest
     title: "A run leaves a snapshot and a manifest"
@@ -84,11 +84,11 @@ features:
       login: guest
     acceptance:
       - When the materialisation job finishes
-      - Then fs:user_activity:current is \"1\" and fs:user_activity:meta carries the run's as_of and an input watermark no later than it
+      - Then fs:user_activity:current is \"2\" and fs:user_activity:meta carries the run's as_of and an input watermark no later than it
     tags: [analytics, batch, integration]
-    status: automated
-    covered_by: "featurestore/feature_materialization.feature::The online store says how fresh it is"
-    notes: "featurestore-materialization: featurestore/feature_materialization.feature::The online store says how fresh it is"
+    status: planned
+    covered_by: null
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::The online store says how fresh it is; order-facts-buyer: needs rebuild, fsm_steps.py and feature_materialization.feature must move to user_activity@v2 (current 2) [target: featurestore/feature_materialization.feature::The online store says how fresh it is]"
 
   - id: featurestore.parity-tamper
     title: "A tampered online value fails the parity check"
@@ -100,12 +100,12 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - When after a run, one buyer's user_activity@v1 online value is overwritten with a different view count, and python -m featurestore parity runs
+      - When after a run, one buyer's user_activity@v2 online view count is overwritten with a different value, and python -m featurestore parity runs
       - Then the command exits non-zero and its output names that buyer
     tags: [analytics, batch, integration]
-    status: automated
-    covered_by: "featurestore/feature_materialization.feature::A tampered online value fails the parity check"
-    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tampered online value fails the parity check"
+    status: planned
+    covered_by: null
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tampered online value fails the parity check; order-facts-buyer: needs rebuild, fsm_steps.py and feature_materialization.feature must move to user_activity@v2 (current 2) [target: featurestore/feature_materialization.feature::A tampered online value fails the parity check]"
 
   - id: featurestore.dataset-weighted-row
     title: "A buyer's views and favourite become one weighted row"
@@ -174,3 +174,88 @@ features:
     status: automated
     covered_by: "featurestore/governed_datasets.feature::A dataset manifest describes its file"
     notes: "featurestore-datasets: featurestore/governed_datasets.feature::A dataset manifest describes its file"
+
+  - id: featurestore.paid-order-feature
+    title: "A paid order becomes a user feature"
+    persona: buyer
+    priority: P1
+    summary: "A paid order becomes a user feature."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a new buyer pays one order, the export cycle completes, and the materialisation job runs
+      - Then the online paid_orders_30d of that buyer under user_activity@v2 is 1, and that buyer has a row although they posted no tracking event
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "order-facts-buyer: needs rebuild (team-analytics and featurestore images); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: featurestore/order_features.feature::A paid order becomes a user feature]"
+
+  - id: featurestore.paid-orders-window
+    title: "Only orders in the 30 days before AS_OF count"
+    persona: buyer
+    priority: P1
+    summary: "Only orders in the 30 days before AS_OF count."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a user has paid orders 31 days, 29 days and 1 day before AS_OF and one after AS_OF, and the job runs
+      - Then the user's paid_orders_30d is 2
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "order-facts-buyer: needs rebuild (team-analytics and featurestore images); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: featurestore/order_features.feature::Only orders in the 30 days before AS_OF count]"
+
+  - id: featurestore.paid-orders-multiline
+    title: "A multi-line order counts once"
+    persona: buyer
+    priority: P1
+    summary: "A multi-line order counts once."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a user has one paid order with three lines and one paid order with one line within the window, and the job runs
+      - Then the user's paid_orders_30d is 2
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "order-facts-buyer: needs rebuild (team-analytics and featurestore images); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: featurestore/order_features.feature::A multi-line order counts once]"
+
+  - id: featurestore.paid-orders-no-buyer
+    title: "An order without a buyer counts for nobody"
+    persona: buyer
+    priority: P1
+    summary: "An order without a buyer counts for nobody."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When the order facts hold a paid order line with no buyer_id, and the job runs
+      - Then no user_activity@v2 row has a paid_orders_30d that includes that order
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "order-facts-buyer: needs rebuild (team-analytics and featurestore images); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: featurestore/order_features.feature::An order without a buyer counts for nobody]"
+
+  - id: featurestore.paid-orders-parity
+    title: "A tampered order count fails the parity check"
+    persona: buyer
+    priority: P1
+    summary: "A tampered order count fails the parity check."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When after a run, one buyer's user_activity@v2 online paid_orders_30d is overwritten with a different value, and python -m featurestore parity runs
+      - Then the command exits non-zero and its output names that buyer and paid_orders_30d
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "order-facts-buyer: needs rebuild (team-analytics and featurestore images); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: featurestore/order_features.feature::A tampered order count fails the parity check]"
