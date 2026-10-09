@@ -1,76 +1,88 @@
-"""Execution-proof tests for Two-Tower batch pipeline wiring (ADR-0011 / P3-T3)."""
+"""Two-tower vectors are published and retired as part of a generation (no Spark)."""
 
 from __future__ import annotations
 
 from recsys.config import Settings
-from recsys.load.qdrant import load_two_tower_vectors
+from recsys.load import qdrant as qdrant_load
+from recsys.publish import publish_generation
 from recsys.two_tower.pipeline import train_and_index_two_tower
+from tests.fakes import FakeQdrantClient, FakeRedis
+
+DIM = 4
+SETTINGS = Settings(als_rank=DIM, two_tower_dim=8, top_n=2)
 
 
-class FakeQdrantClient:
-    def __init__(self):
-        self.collections = set()
-        self.upserted_points: dict[str, list] = {}
-        self.deleted_filters: dict[str, list] = {}
-
-    def get_collections(self):
-        return type("Resp", (), {"collections": [type("C", (), {"name": c})() for c in self.collections]})()
-
-    def create_collection(self, collection_name, vectors_config):
-        self.collections.add(collection_name)
-
-    def upsert(self, collection_name, points):
-        self.upserted_points.setdefault(collection_name, []).extend(points)
-
-    def delete(self, collection_name, points_selector):
-        self.deleted_filters.setdefault(collection_name, []).append(points_selector)
+def _publish(version, redis, qdrant, tt=None):
+    return publish_generation(
+        SETTINGS,
+        version,
+        {"u1": [("a", 0.9)]},
+        {"a": [("b", 0.8)]},
+        [("a", 1.0)],
+        item_rows=[("a", [1.0] * DIM), ("b", [0.5] * DIM)],
+        user_rows=[("u1", [1.0] * DIM)],
+        redis_client=redis,
+        qdrant_client=qdrant,
+        two_tower_vectors=tt,
+    )
 
 
-def test_two_tower_loader_indexes_and_stamps_model_version():
+def _tt(n=2):
+    return {f"item-{i}": [0.0] * 7 + [1.0] for i in range(n)}
+
+
+def test_loader_writes_a_collection_named_for_the_generation():
     client = FakeQdrantClient()
-    settings = Settings(
-        enable_two_tower=True,
-        qdrant_two_tower_collection="item_two_tower_vectors",
-        two_tower_dim=16,
-    )
-    model_version = "recs-2026-09-20-001"
-    item_vectors = {
-        "item_cold_1": [0.1] * 16,
-        "item_active_2": [0.2] * 16,
-    }
+    count = qdrant_load.load_two_tower_vectors(SETTINGS, "g1", _tt(3), client=client)
 
-    count = load_two_tower_vectors(
-        settings=settings,
-        model_version=model_version,
-        item_vectors=item_vectors,
-        client=client,
-    )
+    assert count == 3
+    assert set(client.collections) == {"item_two_tower_vectors__g1"}  # no plain collection
+    points = client.collections["item_two_tower_vectors__g1"].values()
+    assert {p["payload"]["model_version"] for p in points} == {"g1"}
+    assert client.dims["item_two_tower_vectors__g1"] == 8
 
-    assert count == 2
-    assert "item_two_tower_vectors" in client.collections
-    points = client.upserted_points["item_two_tower_vectors"]
-    assert len(points) == 2
-    # Verify every point carries the run's model_version
-    assert all(p.payload["model_version"] == model_version for p in points)
-    # Verify prune_stale was called
-    assert len(client.deleted_filters["item_two_tower_vectors"]) >= 1
+
+def test_publish_writes_the_two_tower_collection_before_the_switch_and_reports_the_count():
+    redis, qdrant = FakeRedis(), FakeQdrantClient()
+    out = _publish("g1", redis, qdrant, tt=_tt(2))
+
+    assert out["two_tower_items"] == 2
+    assert "item_two_tower_vectors__g1" in qdrant.collections
+    assert redis.store["recs:v1:serving"] == "g1"
+
+
+def test_publish_without_the_stage_writes_no_two_tower_collection():
+    redis, qdrant = FakeRedis(), FakeQdrantClient()
+    out = _publish("g1", redis, qdrant)
+
+    assert out["two_tower_items"] is None
+    assert not [c for c in qdrant.collections if "two_tower" in c]
+
+
+def test_earlier_generations_are_pruned_with_the_als_ones():
+    redis, qdrant = FakeRedis(), FakeQdrantClient()
+    for version in ("g1", "g2", "g3"):
+        _publish(version, redis, qdrant, tt=_tt())
+
+    tower = sorted(c for c in qdrant.collections if c.startswith("item_two_tower_vectors"))
+    assert tower == ["item_two_tower_vectors__g2", "item_two_tower_vectors__g3"]  # serving + previous
+
+
+def test_the_old_plain_collection_is_retired():
+    redis, qdrant = FakeRedis(), FakeQdrantClient()
+    qdrant.create_collection("item_two_tower_vectors", None)
+    _publish("g1", redis, qdrant, tt=_tt())
+    assert "item_two_tower_vectors" not in qdrant.collections
 
 
 def test_cold_start_item_receives_two_tower_vector_without_interactions():
-    catalog = [
-        {"listing_id": "cold_item_never_clicked", "category_id": "electronics", "price": 49.9},
-    ]
-
-    model, vectors = train_and_index_two_tower(catalog, embedding_dim=16)
-
-    assert "cold_item_never_clicked" in vectors
-    assert len(vectors["cold_item_never_clicked"]) == 16
-    # Vector is normalized
-    norm = sum(v * v for v in vectors["cold_item_never_clicked"]) ** 0.5
-    assert abs(norm - 1.0) < 1e-4
+    catalog = [{"listing_id": "cold_item_never_clicked", "category_id": "electronics", "price": 49.9}]
+    _, vectors = train_and_index_two_tower(catalog, embedding_dim=16)
+    vec = vectors["cold_item_never_clicked"]
+    assert len(vec) == 16
+    assert abs(sum(v * v for v in vec) ** 0.5 - 1.0) < 1e-4
 
 
-def test_disabled_stage_leaves_summary_unchanged():
-    settings_disabled = Settings(enable_two_tower=False)
-    assert settings_disabled.enable_two_tower is False
-    assert settings_disabled.qdrant_two_tower_collection == "item_two_tower_vectors"
+def test_disabled_stage_is_the_default():
+    settings = Settings()
+    assert settings.enable_two_tower is False

@@ -3,7 +3,8 @@
 Orchestrates the seams. The heavy Spark work (read, map, index, fit) stays in
 the executors; the collected factor matrices are evaluated and gated before
 being loaded into the artifact stores.
-Optionally trains and indexes Two-Tower neural candidate retrieval model when enabled.
+Optionally trains the Two-Tower retrieval model on governed feature snapshots and publishes its item
+vectors with the generation when enabled.
 """
 
 from __future__ import annotations
@@ -16,7 +17,6 @@ from .dataset import resolve_dataset
 from .evals.evaluator import ModelEvaluator
 from .evals.holdout import EVAL_PROTOCOL, leave_last_new_item_out
 from .interactions import dataset_triples, index_interactions
-from .load import qdrant as qdrant_load
 from .load import redis_cache
 from .model_version import resolve_model_version
 from .monitoring import generation as drift_monitor
@@ -26,7 +26,7 @@ from .registry.registry import ModelRegistry
 from .spark import build_spark
 from .structural_gate import structural_check
 from .train import train_als
-from .two_tower.pipeline import train_and_index_two_tower
+from .two_tower import stage as two_tower_stage
 
 log = logging.getLogger("recsys.pipeline")
 
@@ -193,6 +193,9 @@ def run(
     # Resolve the governed dataset BEFORE starting Spark: with none, refuse to run
     # (ConfigError → exit 2) and register nothing. No fallback to raw events.
     dataset = resolve_dataset(settings)
+    # The two-tower stage trains on governed feature snapshots only: with none, refuse to run now,
+    # before Spark starts and before anything is registered (ConfigError → exit 2).
+    two_tower_inputs = two_tower_stage.resolve_inputs(settings) if settings.enable_two_tower else None
     log.info("starting ALS batch model_version=%s dataset=%s", model_version, dataset.path)
 
     spark = build_spark(settings)
@@ -343,6 +346,21 @@ def run(
             _refresh_ttl(settings, redis_client)
             return summary
 
+        # ── Two-tower stage (optional): trained and checked BEFORE the publish ───
+        # The generation is written whole or not at all, so a stage that cannot produce safe
+        # vectors (missing features, every vector degenerate) rejects the candidate like a failed
+        # publish does: serving and the champion stay as they were.
+        two_tower = None
+        if two_tower_inputs is not None:
+            try:
+                pairs = two_tower_stage.collect_pairs(triples, settings.two_tower_max_pairs)
+                two_tower = two_tower_stage.run_stage(settings, two_tower_inputs, pairs)
+            except Exception as exc:
+                registry.reject(decision, reason=f"two-tower stage failed: {type(exc).__name__}: {exc}")
+                log.error("two-tower stage of %s failed, candidate rejected: %s", model_version, exc)
+                raise
+            decision.candidate.parameters["two_tower"] = two_tower.as_parameters(settings.two_tower_dim)
+
         # ── Publish as a generation (ONLY if Promoted) ───────────────────────────
         # The champion changes only once the publish has succeeded: a failed publish leaves the
         # previous champion (and serving) untouched and the candidate recorded as rejected.
@@ -357,6 +375,7 @@ def run(
                 user_rows=zip(user_ids, user_vecs, strict=False),
                 redis_client=redis_client,
                 qdrant_client=qdrant_client,
+                two_tower_vectors=two_tower.vectors if two_tower else None,
             )
         except Exception as exc:
             registry.reject(decision, reason=f"publish failed: {type(exc).__name__}")
@@ -368,29 +387,10 @@ def run(
         summary["serving"] = published["serving"]
         summary["previous"] = published["previous"]
 
-        # ── Two-Tower Stage (Optional) ───────────────────────────────────────────
-        if settings.enable_two_tower:
-            catalog_items = [
-                {
-                    "listing_id": lid,
-                    "price": 100.0,
-                    "popularity": 1.0,
-                    "category_id": "general",
-                }
-                for lid in item_ids
-            ]
-            _tt_model, tt_vectors = train_and_index_two_tower(
-                catalog_items=catalog_items,
-                embedding_dim=settings.two_tower_dim,
-            )
-            tt_count = qdrant_load.load_two_tower_vectors(
-                settings=settings,
-                model_version=model_version,
-                item_vectors=tt_vectors,
-                client=qdrant_client,
-            )
-            summary["two_tower_items"] = tt_count
-            log.info("two-tower stage indexed items=%d", tt_count)
+        if two_tower:
+            summary["two_tower_items"] = published["two_tower_items"]
+            summary["two_tower"] = two_tower.report.as_dict()
+            log.info("two-tower stage published %d item vectors", published["two_tower_items"])
 
         log.info("batch complete %s", summary)
         return summary

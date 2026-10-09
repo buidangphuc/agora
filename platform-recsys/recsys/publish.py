@@ -2,7 +2,8 @@
 
 Publish order (a crash before step 3 leaves serving exactly as it was):
   1. write the generation's Redis keys                      (invisible: no pointer names it)
-  2. write the generation's Qdrant collections              (invisible: the aliases do not name them)
+  2. write the generation's Qdrant collections (ALS, and two-tower when the stage ran)
+                                                            (invisible: the aliases do not name them)
   3. move the Qdrant aliases, then the Redis pointers       (the switch; the Redis one is a single Lua EVAL)
   4. delete every generation that is neither serving nor previous
 
@@ -39,8 +40,12 @@ def publish_generation(
     user_rows,
     redis_client=None,
     qdrant_client=None,
+    two_tower_vectors: dict[str, list[float]] | None = None,
 ) -> dict:
-    """Write ``model_version`` as a generation, switch serving to it, drop older generations."""
+    """Write ``model_version`` as a generation, switch serving to it, drop older generations.
+
+    ``two_tower_vectors`` (the optional two-tower stage) is written with the ALS collections, before
+    the switch, so a generation is complete or not visible at all."""
     if redis_client is None:
         redis_client = redis_cache.connect(settings)
     if qdrant_client is None:
@@ -52,6 +57,11 @@ def publish_generation(
     qdrant_counts = qdrant_load.load_vectors(
         settings, model_version, item_rows, user_rows, client=qdrant_client
     )
+    two_tower_items = None
+    if two_tower_vectors is not None:
+        two_tower_items = qdrant_load.load_two_tower_vectors(
+            settings, model_version, two_tower_vectors, client=qdrant_client
+        )
 
     qdrant_load.activate_aliases(settings, model_version, client=qdrant_client)
     replaced = redis_cache.activate_generation(settings, model_version, client=redis_client)
@@ -72,6 +82,7 @@ def publish_generation(
     return {
         "qdrant": qdrant_counts,
         "cache": cache_counts,
+        "two_tower_items": two_tower_items,
         "serving": serving,
         "previous": previous,
         "dropped_keys": dropped_keys,

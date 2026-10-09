@@ -7,7 +7,9 @@ Names (recsys-generations):
   it; they still point at the serving generation's collections and are removable in a later release.
 - ``item_als_vectors__<gen>`` / ``user_als_vectors__<gen>``: the vectors of one ``model_version``,
   created fresh by each publish. The alias moves only after they are written, in one atomic call.
-- two-tower collection (default ``item_two_tower_vectors``): not generation-scoped.
+- ``item_two_tower_vectors__<gen>`` (two-tower stage): one generation's item vectors, written with the
+  ALS collections BEFORE the switch, deleted by the same retention. It has no alias: it is new, so no
+  reader predates pointer-resolved names; a reader names it from ``recs:v1:serving``.
 
 The first publish after this layout finds a real collection named ``item_als_vectors``: it is
 copied to ``item_als_vectors__legacy``, deleted, and the alias takes its name (``__legacy`` is then
@@ -40,39 +42,52 @@ def point_id(source_id: str) -> str:
 def _get_models():
     try:
         from qdrant_client import models
+
         return models
     except ImportError:
+
         class FakeModels:
             PointStruct = PointStruct
+
             class Distance:
                 COSINE = "Cosine"
+
             @staticmethod
             def VectorParams(size: int, distance: str):
                 return {"size": size, "distance": distance}
+
             @staticmethod
             def FilterSelector(filter: Any):
                 return {"filter": filter}
+
             @staticmethod
             def Filter(must_not: list):
                 return {"must_not": must_not}
+
             @staticmethod
             def FieldCondition(key: str, match: Any):
                 return {"key": key, "match": match}
+
             @staticmethod
             def MatchValue(value: Any):
                 return {"value": value}
+
             @staticmethod
             def CreateAlias(collection_name: str, alias_name: str):
                 return SimpleNamespace(collection_name=collection_name, alias_name=alias_name)
+
             @staticmethod
             def DeleteAlias(alias_name: str):
                 return SimpleNamespace(alias_name=alias_name)
+
             @staticmethod
             def CreateAliasOperation(create_alias: Any):
                 return SimpleNamespace(create_alias=create_alias)
+
             @staticmethod
             def DeleteAliasOperation(delete_alias: Any):
                 return SimpleNamespace(delete_alias=delete_alias)
+
         return FakeModels
 
 
@@ -109,27 +124,17 @@ def _upsert(client, name: str, rows, id_field: str, model_version: str, updated_
     return count
 
 
-def _prune_stale(client, name: str, model_version: str) -> None:
-    """Delete points not stamped with the current model_version (two-tower collection only)."""
-    models = _get_models()
-    client.delete(
-        collection_name=name,
-        points_selector=models.FilterSelector(
-            filter=models.Filter(
-                must_not=[
-                    models.FieldCondition(key="model_version", match=models.MatchValue(value=model_version))
-                ]
-            )
-        ),
-    )
-
-
 def generation_collection(base: str, generation: str) -> str:
     return f"{base}__{generation}"
 
 
 def _bases(settings) -> tuple[str, str]:
     return settings.qdrant_item_collection, settings.qdrant_user_collection
+
+
+def _retention_bases(settings) -> tuple[str, ...]:
+    """Every collection base whose ``<base>__<gen>`` members retention manages."""
+    return (*_bases(settings), settings.qdrant_two_tower_collection)
 
 
 def _connect(settings):
@@ -279,11 +284,16 @@ def prune_generations(settings, keep: set[str], client=None) -> list[str]:
     live = set(_alias_targets(client).values())
     deleted: list[str] = []
     for name in sorted(_real_collections(client)):
-        for base in _bases(settings):
+        for base in _retention_bases(settings):
             prefix = f"{base}__"
             if name.startswith(prefix) and name[len(prefix) :] not in keep and name not in live:
                 client.delete_collection(collection_name=name)
                 deleted.append(name)
+        # The pre-generation layout wrote one plain two-tower collection that every run upserted
+        # into; nothing reads it and no generation owns it.
+        if name == settings.qdrant_two_tower_collection and name not in live:
+            client.delete_collection(collection_name=name)
+            deleted.append(name)
     return deleted
 
 
@@ -293,17 +303,20 @@ def load_two_tower_vectors(
     item_vectors: dict[str, list[float]],
     client=None,
 ) -> int:
-    """Upsert Two-Tower candidate item vectors and prune stale generations."""
+    """Write the generation's two-tower item vectors into their own fresh collection.
+
+    ``<QDRANT_TWO_TOWER_COLLECTION>__<model_version>``, every point stamped with ``model_version``.
+    Like the ALS collections it is invisible until the pointer names the generation, and it is
+    deleted by retention once the generation is neither serving nor previous. A vector that is all
+    zeros (or not finite) is never written: the caller must have refused it (``two_tower.guard``).
+    """
     if client is None:
         client = _connect(settings)
 
     updated_at = datetime.now(timezone.utc).isoformat()
-    dim = settings.two_tower_dim
-    coll_name = settings.qdrant_two_tower_collection
-
-    _ensure_collection(client, coll_name, dim)
-
-    n_items = _upsert(
+    coll_name = generation_collection(settings.qdrant_two_tower_collection, model_version)
+    _fresh_collection(client, coll_name, settings.two_tower_dim)
+    return _upsert(
         client,
         coll_name,
         item_vectors.items(),
@@ -311,6 +324,3 @@ def load_two_tower_vectors(
         model_version,
         updated_at,
     )
-
-    _prune_stale(client, coll_name, model_version)
-    return n_items

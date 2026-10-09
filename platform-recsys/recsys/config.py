@@ -85,6 +85,18 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("enable_two_tower", "ENABLE_TWO_TOWER", "false", _as_bool),
     ("qdrant_two_tower_collection", "QDRANT_TWO_TOWER_COLLECTION", "item_two_tower_vectors", _as_str),
     ("two_tower_dim", "TWO_TOWER_DIM", "32", _as_int),
+    # Governed feature snapshots written by platform-featurestore (`materialize`): the stage trains
+    # on these only. *_PATH (an explicit file) wins over the latest as_of=*.parquet under *_DIR.
+    ("item_features_dir", "ITEM_FEATURES_DIR", "/features/item_popularity/v1", _as_str),
+    ("item_features_path", "ITEM_FEATURES_PATH", "", _as_str),
+    ("user_features_dir", "USER_FEATURES_DIR", "/features/user_activity/v2", _as_str),
+    ("user_features_path", "USER_FEATURES_PATH", "", _as_str),
+    # In-batch softmax training on the dataset's pairs (sampled to TWO_TOWER_MAX_PAIRS).
+    ("two_tower_epochs", "TWO_TOWER_EPOCHS", "5", _as_int),
+    ("two_tower_lr", "TWO_TOWER_LR", "0.05", _as_float),
+    ("two_tower_batch_size", "TWO_TOWER_BATCH_SIZE", "256", _as_int),
+    ("two_tower_temperature", "TWO_TOWER_TEMPERATURE", "0.1", _as_float),
+    ("two_tower_max_pairs", "TWO_TOWER_MAX_PAIRS", "200000", _as_int),
     # ── Nearline signal consumer (python -m recsys.nearline) ─────────────────
     # A long-running consumer of analytics.events that keeps the recs:nearline:* keys fresh.
     ("kafka_brokers", "KAFKA_BROKERS", "localhost:19092", _as_str),
@@ -142,6 +154,15 @@ class Settings:
     enable_two_tower: bool = False
     qdrant_two_tower_collection: str = "item_two_tower_vectors"
     two_tower_dim: int = 32
+    item_features_dir: str = "/features/item_popularity/v1"
+    item_features_path: str = ""
+    user_features_dir: str = "/features/user_activity/v2"
+    user_features_path: str = ""
+    two_tower_epochs: int = 5
+    two_tower_lr: float = 0.05
+    two_tower_batch_size: int = 256
+    two_tower_temperature: float = 0.1
+    two_tower_max_pairs: int = 200000
     kafka_brokers: str = "localhost:19092"
     kafka_analytics_topic: str = "analytics.events"
     nearline_consumer_group: str = "platform-recsys-nearline"
@@ -223,6 +244,14 @@ class Settings:
             raise ValueError(
                 f"NEARLINE_START_OFFSET must be latest or earliest: {self.nearline_start_offset}"
             )
+        if self.two_tower_dim <= 0:
+            raise ValueError(f"TWO_TOWER_DIM must be > 0: {self.two_tower_dim}")
+        if self.two_tower_epochs < 0:
+            raise ValueError(f"TWO_TOWER_EPOCHS must be >= 0: {self.two_tower_epochs}")
+        if self.two_tower_batch_size < 2:
+            raise ValueError(f"TWO_TOWER_BATCH_SIZE must be >= 2: {self.two_tower_batch_size}")
+        if self.two_tower_temperature <= 0:
+            raise ValueError(f"TWO_TOWER_TEMPERATURE must be > 0: {self.two_tower_temperature}")
         if self.drift_alert_threshold < 0:
             raise ValueError(f"DRIFT_ALERT_THRESHOLD must be >= 0: {self.drift_alert_threshold}")
         if self.nearline_ttl_seconds <= 0:
