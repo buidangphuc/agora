@@ -33,4 +33,4 @@
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive featurestore-materialization`; retire `add-platform-featurestore` (superseded) and `analytics-feature-store` (decision D1 moved features out of team-analytics); verify `openspec list`
+- [x] 4.1 `openspec archive featurestore-materialization`; retire `add-platform-featurestore` (superseded) and `analytics-feature-store` (decision D1 moved features out of team-analytics); verify `openspec list`
