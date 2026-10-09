@@ -153,18 +153,25 @@ def _fresh_collection(client, name: str, dim: int) -> None:
     _ensure_collection(client, name, dim)
 
 
+def _alias_ops(client, targets: dict[str, str]) -> list:
+    """Delete (if present) then create every ``alias -> collection`` in ``targets``."""
+    models = _get_models()
+    existing = _alias_targets(client)
+    ops: list = []
+    for alias, collection in targets.items():
+        if alias in existing:
+            ops.append(models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=alias)))
+        ops.append(
+            models.CreateAliasOperation(
+                create_alias=models.CreateAlias(collection_name=collection, alias_name=alias)
+            )
+        )
+    return ops
+
+
 def _move_alias(client, alias: str, collection: str) -> None:
     """Point ``alias`` at ``collection`` in one atomic call (delete + create)."""
-    models = _get_models()
-    ops = []
-    if alias in _alias_targets(client):
-        ops.append(models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=alias)))
-    ops.append(
-        models.CreateAliasOperation(
-            create_alias=models.CreateAlias(collection_name=collection, alias_name=alias)
-        )
-    )
-    client.update_collection_aliases(change_aliases_operations=ops)
+    client.update_collection_aliases(change_aliases_operations=_alias_ops(client, {alias: collection}))
 
 
 def _collection_dim(client, name: str, default: int) -> int:
@@ -248,11 +255,11 @@ def generation_present(settings, generation: str, client=None) -> bool:
 
 
 def activate_aliases(settings, generation: str, client=None) -> None:
-    """Point the item and user aliases at the generation's collections (each move is atomic)."""
+    """Point the item and user aliases at the generation's collections in ONE atomic call."""
     if client is None:
         client = _connect(settings)
-    for base in _bases(settings):
-        _move_alias(client, base, generation_collection(base, generation))
+    targets = {base: generation_collection(base, generation) for base in _bases(settings)}
+    client.update_collection_aliases(change_aliases_operations=_alias_ops(client, targets))
 
 
 def prune_generations(settings, keep: set[str], client=None) -> list[str]:

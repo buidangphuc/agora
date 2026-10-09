@@ -467,3 +467,29 @@ def test_rollback_with_a_stale_read_does_not_swap_back(redis_client, qdrant):
     assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
     assert registry.get_champion_version() == "g1"
 
+
+class _CountingQdrant(FakeQdrantClient):
+    def __init__(self):
+        super().__init__()
+        self.alias_calls: list[list] = []
+
+    def update_collection_aliases(self, change_aliases_operations):
+        self.alias_calls.append(list(change_aliases_operations))
+        super().update_collection_aliases(change_aliases_operations)
+
+
+def test_item_and_user_aliases_move_in_one_call():
+    redis_client, qdrant = FakeRedis(), _CountingQdrant()
+    _publish(redis_client, qdrant, "g1")
+    qdrant.alias_calls.clear()
+
+    _publish(redis_client, qdrant, "g2")
+
+    assert len(qdrant.alias_calls) == 1
+    ops = qdrant.alias_calls[0]
+    assert sum(getattr(o, "delete_alias", None) is not None for o in ops) == 2
+    assert sum(getattr(o, "create_alias", None) is not None for o in ops) == 2
+    assert _aliases(qdrant) == {
+        "item_als_vectors": "item_als_vectors__g2",
+        "user_als_vectors": "user_als_vectors__g2",
+    }
