@@ -14,6 +14,8 @@ Value schema (either form accepted):
 from __future__ import annotations
 
 import json
+import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -24,38 +26,91 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
 
+_POINTER_TTL_S = 5.0
+
+
 class PrecomputedCache:
+    """Reads the pre-computed lists of the *serving generation*.
+
+    ``{prefix}:{schema}:serving`` names the generation to serve; it is memoised
+    per process for 5 s. When it is set, keys are ``{prefix}:{schema}:gen:<gen>:...``;
+    when absent (or unreadable) the legacy unscoped keys are used.
+    """
+
     def __init__(
         self,
         redis: Redis | None,
         *,
         prefix: str,
         schema_version: str,
+        clock: Callable[[], float] = time.monotonic,
+        pointer_ttl_s: float = _POINTER_TTL_S,
     ) -> None:
         self._redis = redis
         self._prefix = prefix
         self._schema_version = schema_version
+        self._clock = clock
+        self._pointer_ttl_s = pointer_ttl_s
+        self._pointer: str | None = None
+        self._pointer_at: float | None = None
 
-    def user_key(self, user_id: str) -> str:
-        return f"{self._prefix}:{self._schema_version}:user:{user_id}"
+    def _base(self, gen: str | None) -> str:
+        base = f"{self._prefix}:{self._schema_version}"
+        return f"{base}:gen:{gen}" if gen else base
 
-    def popular_key(self) -> str:
-        return f"{self._prefix}:{self._schema_version}:popular"
+    def serving_key(self) -> str:
+        return f"{self._prefix}:{self._schema_version}:serving"
+
+    def user_key(self, user_id: str, gen: str | None = None) -> str:
+        return f"{self._base(gen)}:user:{user_id}"
+
+    def popular_key(self, gen: str | None = None) -> str:
+        return f"{self._base(gen)}:popular"
+
+    def item_key(self, item_id: str, gen: str | None = None) -> str:
+        return f"{self._base(gen)}:item:{item_id}"
 
     def model_version_key(self) -> str:
         return f"{self._prefix}:{self._schema_version}:model_version"
 
+    async def serving_generation(self) -> str | None:
+        """The serving generation, memoised; a Redis error counts as absent."""
+        if self._redis is None:
+            return None
+        now = self._clock()
+        if (
+            self._pointer_at is not None
+            and now - self._pointer_at < self._pointer_ttl_s
+        ):
+            return self._pointer
+        try:
+            val = await self._redis.get(self.serving_key())
+            if isinstance(val, bytes):
+                val = val.decode("utf-8")
+            pointer = str(val) if val else None
+        except Exception as exc:
+            logger.warning("recs.cache.serving_pointer_failed err={}", exc)
+            pointer = None
+        self._pointer = pointer
+        self._pointer_at = now
+        return pointer
+
     async def get_user_candidates(self, user_id: str) -> list[Candidate] | None:
         if not user_id:
             return None
-        return await self._read(self.user_key(user_id))
+        gen = await self.serving_generation()
+        return await self._read(self.user_key(user_id, gen))
 
     async def get_popular_candidates(self) -> list[Candidate] | None:
-        return await self._read(self.popular_key())
+        gen = await self.serving_generation()
+        return await self._read(self.popular_key(gen))
 
     async def get_model_version(self) -> str | None:
         if self._redis is None:
             return None
+        gen = await self.serving_generation()
+        if gen:
+            return gen
         try:
             val = await self._redis.get(self.model_version_key())
             if isinstance(val, bytes):
