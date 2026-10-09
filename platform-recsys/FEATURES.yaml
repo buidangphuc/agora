@@ -286,3 +286,39 @@ features:
     status: automated
     covered_by: "recommendations/generation_publish.feature::Rollback without a previous generation is refused"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::Rollback without a previous generation is refused"
+
+  - id: recsys.ssa-retention-spares-serving-previous
+    title: "Serving and previous collections survive retention without an alias"
+    persona: buyer
+    priority: P1
+    summary: "Serving and previous collections survive retention without an alias"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When a third model is promoted and the item alias is then deleted and another model is promoted"
+      - "Then the collections of the serving and the previous model both still exist"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+
+  - id: recsys.ssa-rollback-restores-vectors
+    title: "Rollback restores the earlier model's vectors"
+    persona: buyer
+    priority: P1
+    summary: "Rollback restores the earlier model's vectors"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When two models were promoted and `python -m recsys rollback` runs"
+      - "Then similar items through the gateway are the nearest neighbours in the first model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
