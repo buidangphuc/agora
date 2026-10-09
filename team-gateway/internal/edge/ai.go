@@ -23,6 +23,11 @@ func NewAIForwarder(client aiv1.AIServiceClient, edge *Edge) *AIForwarder {
 	return &AIForwarder{client: client, edge: edge}
 }
 
+// ClassifyTags is intentionally NOT forwarded: it is an internal service-to-service
+// RPC (team-search's indexer, service principal with scope ai.classify), never called by a
+// browser. The embedded UnimplementedAIServiceHandler answers `unimplemented` (HTTP 501)
+// for every caller at the edge.
+
 func (f *AIForwarder) ShoppingAssistant(
 	ctx context.Context,
 	req *connect.Request[aiv1.ShoppingAssistantRequest],
