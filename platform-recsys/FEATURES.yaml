@@ -301,9 +301,9 @@ features:
       - "When a third model is promoted and the item alias is then deleted and another model is promoted"
       - "Then the collections of the serving and the previous model both still exist"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
 
   - id: recsys.ssa-rollback-restores-vectors
     title: "Rollback restores the earlier model's vectors"
@@ -319,6 +319,6 @@ features:
       - "When two models were promoted and `python -m recsys rollback` runs"
       - "Then similar items through the gateway are the nearest neighbours in the first model's collection"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"

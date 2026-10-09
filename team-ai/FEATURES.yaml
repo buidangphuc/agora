@@ -828,9 +828,9 @@ features:
       - "When two models have been promoted and a buyer opens similar items for a listing"
       - "Then the returned listings are the nearest neighbours in the second model's collection"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
 
   - id: ai.ssa-alias-ahead-of-pointer
     title: "An alias ahead of the pointer does not change what is served"
@@ -846,9 +846,9 @@ features:
       - "When the item alias is moved to the second model's collection while `recs:v1:serving` still names the first"
       - "Then similar items through the gateway are the nearest neighbours in the first model's collection"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
 
   - id: ai.ssa-alias-behind-pointer
     title: "An alias behind the pointer does not change what is served"
@@ -864,9 +864,9 @@ features:
       - "When `recs:v1:serving` names the second model while the item alias still points at the first model's collection"
       - "Then similar items through the gateway are the nearest neighbours in the second model's collection"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
 
   - id: ai.ssa-no-pointer-uses-alias
     title: "Without a pointer the alias is used"
@@ -882,9 +882,9 @@ features:
       - "When `recs:v1:serving` is absent and the item alias points at a generation's collection"
       - "Then similar items through the gateway are the nearest neighbours in the alias's collection"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
 
   - id: ai.ssa-no-listing-credentials
     title: "The team-ai container does not hold listing's credentials"
