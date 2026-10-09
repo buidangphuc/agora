@@ -46,3 +46,8 @@
 ## 6. Validation
 
 - [x] 6.1 Validate the change; verify `openspec validate shop-display-name --strict` reports valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system, 2026-10-09: parallel lane 710 passed twice (w2-par-1/2). Destructive lane w2-destr: 75 passed; its 3 failures were fixed and rerun green.
+- c2 e2e: 11/11. "Lookup failure does not break the page" (stops team-domain) passed twice serially. Task 4.7: the base-branch gate is now green. Task 5.4: satisfied by the c2 runs.

@@ -20,3 +20,8 @@
 
 - [x] 4.1 Scenarios: revoked token gets 401 within 5 s; revocation survives a gateway restart (`@destructive`); new session shows device and IP; spoofed forwarded IP is ignored; FEATURES.yaml entries; verify green against the agora stack and flip to `automated`
 - [x] 4.2 Run `openspec validate session-revocation --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system, 2026-10-09: parallel lane 710 passed twice (w2-par-1/2). Destructive lane w2-destr: 75 passed; its 3 failures were fixed and rerun green.
+- c2 e2e: 6/6. "Revocations survive a gateway restart" passed in the serial lane.

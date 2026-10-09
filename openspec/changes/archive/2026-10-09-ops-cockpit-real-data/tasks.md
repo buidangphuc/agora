@@ -21,3 +21,8 @@
 
 - [x] 5.1 Cockpit scenarios log in as the seeded admin; add anonymous-401, buyer-403 and "paid order shows in the 24h figures" scenarios with FEATURES.yaml entries; verify they pass against the agora stack and flip to `automated`
 - [x] 5.2 Run `openspec validate ops-cockpit-real-data --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system, 2026-10-09: parallel lane 710 passed twice (w2-par-1/2). Destructive lane w2-destr: 75 passed; its 3 failures were fixed and rerun green.
+- c1 e2e: 10/10, including the Analytics and Jaeger outage scenarios in the serial lane.

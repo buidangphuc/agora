@@ -17,3 +17,8 @@
 
 - [x] 4.1 Scenarios: seller reads own funnel; seller cannot read another seller's revenue (403); anonymous forecast (401); admin reads any seller; FEATURES.yaml entries; verify green against the agora stack and flip to `automated`
 - [x] 4.2 Run `openspec validate secure-seller-analytics-and-admin-seed --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system, 2026-10-09: parallel lane 710 passed twice (w2-par-1/2). Destructive lane w2-destr: 75 passed; its 3 failures were fixed and rerun green.
+- c2 e2e: 8/8, including auth/admin_bootstrap.feature (scratch DB, gateway refusal of admin/admin123, helm render check).

@@ -20,3 +20,8 @@
 
 - [x] 5.1 Scenarios: a seller reply names the shop; a price drop after a team-notification restart is detected (`@destructive`, restarts the container named by `NOTIFICATION_CONTAINER`); a message sent while chat's relayer cannot publish is delivered later if feasible without stopping shared infra; FEATURES entries; verify green against the agora stack (3 runs) and flip to `automated`
 - [x] 5.2 Run `openspec validate notification-delivery-hardening --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system, 2026-10-09: parallel lane 710 passed twice (w2-par-1/2). Destructive lane w2-destr: 75 passed; its 3 failures were fixed and rerun green.
+- c1 e2e: 6/6. The 4 destructive scenarios passed in the serial lane after the rebalance wait fix (4963cf19). The redelivery scenario and the name-lookup scenario then each passed twice serially.

@@ -24,3 +24,8 @@
 
 - [x] 6.1 Remove the strict xfail markers from "Seller reply notifies the buyer" and "Shipping the order notifies the buyer", add a chat-pref-disabled scenario; verify green against the agora stack (3 runs) and FEATURES entries `automated`
 - [x] 6.2 Run `openspec validate notify-chat-and-shipment --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system, 2026-10-09: parallel lane 710 passed twice (w2-par-1/2). Destructive lane w2-destr: 75 passed; its 3 failures were fixed and rerun green.
+- c1 e2e: 5/5. "Order analytics ignores the new event" turned green after the team-analytics consumer fix (05a8e072: offsets are committed once every polled record is written or skipped).
