@@ -5105,9 +5105,10 @@ features:
     acceptance:
       - "When the call that feeds a KPI (for example open orders) fails"
       - "Then that `Statistic` cell is not rendered, no placeholder `0` appears in its place, and the other KPIs still render"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs the open-orders read (ListSellerOrders) to fail while the page still renders. Covered by the Vitest app/(shop)/seller/(dashboard)/page.test.tsx and features/seller/kpi.test.ts."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::A KPI without a source is hidden, not zeroed"
+    notes: "@destructive: stops team-order, the three product KPIs render and the open-orders cell is absent; passed twice serially."
 
   - id: uisl.no-hard-coded-metric-values
     title: "No hard-coded metric values"
@@ -5363,9 +5364,10 @@ features:
     acceptance:
       - "When `magicListingAction` returns `{ ok: false, error }`"
       - "Then an `Alert` with \"Thử lại\" and an error toast are shown, and the seller can still submit manually"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs team-ai to fail or run out of quota (see the destructive ai/llm_breaker.feature). Covered by the Vitest features/listing/ListingForm.test.tsx."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::Magic Listing failure is recoverable"
+    notes: "@destructive: stops team-ai, restores it in teardown; the seller then submits manually; passed twice serially."
 
   - id: uisl.shipping-an-order-gives-feedback
     title: "Shipping an order gives feedback"
@@ -5460,9 +5462,10 @@ features:
     acceptance:
       - "When `getSellerFunnel` throws"
       - "Then an `Alert` with a \"Thử lại\" link to the same URL is shown and the rest of the page still renders"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs getSellerFunnel to throw. Covered by the Vitest app/(shop)/seller/analytics/analytics.test.tsx."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::Analytics failure is recoverable"
+    notes: "@destructive: stops team-analytics, restores it in teardown; passed twice serially."
 
   - id: uisl.payout-confirms-pends-and-toasts
     title: "Payout confirms, pends and toasts"
@@ -5476,9 +5479,10 @@ features:
     acceptance:
       - "When a seller with a positive balance activates \"Rút tiền\" and confirms"
       - "Then the confirm button is pending then disabled, a success toast appears and the balance and ledger refresh"
-    tags: [seller]
-    status: planned
-    notes: "Written as frontend/ui_seller_orders_money.feature::Payout confirms, pends and toasts, @destructive: proceeds inside the refund window cannot be paid out (failed_precondition, verified live), so it waits the window out and needs payment-ledger.override.yaml like payment/plp_payout_holdback.feature. Serial lane only, not run."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Payout confirms, pends and toasts"
+    notes: "@destructive: a payout needs proceeds older than the refund window, so it waits the window out (payment-ledger override on the stack); passed twice serially."
 
   - id: uisl.payout-is-disabled-without-balance
     title: "Payout is disabled without balance"
@@ -5590,9 +5594,10 @@ features:
     acceptance:
       - "When a seller page throws during render"
       - "Then `error.tsx` shows a `Result` with \"Thử lại\" calling `reset` and a link to `/seller`"
-    tags: [seller]
+    tags: [seller, destructive]
     status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs a seller page to throw during render. Covered by the Vitest app/(shop)/seller/states.test.tsx."
+    covered_by: null
+    notes: "Written as frontend/uif_seller.feature::Route error offers recovery (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the seller edit page throws and seller/error.tsx shows the Result with \"Thử lại\" and the link to /seller; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well)."
 
   - id: uisl.empty-product-list-shows-a-call-to-action
     title: "Empty product list shows a call to action"
@@ -5622,9 +5627,10 @@ features:
     acceptance:
       - "When `listMyListings` throws"
       - "Then an `Alert` with a retry link is shown above an empty table instead of a raw error string"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs listMyListings to throw. Covered by the Vitest app/(shop)/seller/states.test.tsx."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::List read failure shows an Alert"
+    notes: "@destructive: stops team-domain, restores it in teardown; passed twice serially."
 
   - id: uisl.thumbnails-reserve-their-space
     title: "Thumbnails reserve their space"
