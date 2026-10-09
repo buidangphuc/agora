@@ -127,3 +127,31 @@ def test_one_size_fits_all_candidate_is_rejected_and_serving_is_unchanged(tmp_pa
     assert registry.get_champion_version() == "g1"
     after = (dict(fake_r.store), dict(fake_q.aliases), set(fake_q.collections))
     assert after == before
+
+
+class _AliasFailingQdrant(FakeQdrantClient):
+    def update_collection_aliases(self, change_aliases_operations):
+        raise RuntimeError("qdrant unreachable")
+
+
+def test_failed_publish_keeps_the_previous_champion_and_pointers(tmp_path):
+    write_dataset(tmp_path, _clustered_rows())
+    registry = ModelRegistry()
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
+    run(_settings(tmp_path, "g1"), registry=registry, redis_client=fake_r, qdrant_client=fake_q)
+    pointers = {k: v for k, v in fake_r.store.items() if k.startswith("recs:v1:") and ":gen:" not in k}
+    aliases = dict(fake_q.aliases)
+
+    broken = _AliasFailingQdrant()
+    broken.collections, broken.aliases, broken.dims = fake_q.collections, fake_q.aliases, fake_q.dims
+    with pytest.raises(RuntimeError, match="qdrant unreachable"):
+        run(_settings(tmp_path, "g2"), registry=registry, redis_client=fake_r, qdrant_client=broken)
+
+    assert registry.get_champion_version() == "g1"
+    assert registry.get_model("g1").status == "champion"
+    rejected = registry.get_model("g2")
+    assert rejected.status == "rejected"
+    assert rejected.metrics["gate_reason"] == "publish failed: RuntimeError"
+    assert rejected.parameters["gate_reason"] == "publish failed: RuntimeError"
+    assert {k: v for k, v in fake_r.store.items() if k.startswith("recs:v1:") and ":gen:" not in k} == pointers
+    assert fake_q.aliases == aliases
