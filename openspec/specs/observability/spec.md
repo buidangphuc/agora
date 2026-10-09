@@ -1,7 +1,7 @@
 # observability Specification
 
 ## Purpose
-TBD - created by archiving change add-prometheus-infra. Update Purpose after archive.
+Defines the platform's request metrics and tracing: the gateway emits real per-service metrics through OpenTelemetry, Prometheus scrapes them, and tracing keeps working as before.
 
 ## Requirements
 

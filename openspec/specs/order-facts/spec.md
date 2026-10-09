@@ -1,7 +1,7 @@
 # order-facts Specification
 
 ## Purpose
-TBD - created by archiving change add-order-warehouse-facts. Update Purpose after archive.
+Defines how paid orders reach analytics: team-order publishes settlement events through an outbox, team-analytics ingests them into order_facts (with the buyer), and revenue figures are aggregated from those facts.
 
 ## Requirements
 

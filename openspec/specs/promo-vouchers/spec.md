@@ -1,7 +1,7 @@
 # promo-vouchers Specification
 
 ## Purpose
-TBD - created by archiving change capture-vouchers-hub. Update Purpose after archive.
+Defines the buyer-facing vouchers hub at /vouchers, where a buyer browses the vouchers available to them.
 
 ## Requirements
 

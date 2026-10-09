@@ -1,7 +1,7 @@
 # ops-cockpit Specification
 
 ## Purpose
-TBD - created by archiving change replace-cockpit-mock-metrics. Update Purpose after archive.
+Defines the admin operations cockpit: live per-service metrics from Prometheus, 24h orders and GMV from order facts, and recent traces from Jaeger, read through a thin admin-only gateway proxy that never shows fabricated data.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # auth Specification
 
 ## Purpose
-TBD - created by archiving change migrate-jwt-rs256-jwks. Update Purpose after archive.
+Defines how users are authenticated: team-identity issues RS256 JWTs and publishes its JWKS, the gateway verifies tokens by key id across key rotation, role tokens carry the scopes services check, and login attempts are recorded.
 
 ## Requirements
 
