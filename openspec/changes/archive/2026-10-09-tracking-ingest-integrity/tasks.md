@@ -36,4 +36,4 @@
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive tracking-ingest-integrity`; verify `openspec/specs/tracking` and the new `tracking-ingest-integrity` spec are folded
+- [x] 4.1 `openspec archive tracking-ingest-integrity`; verify `openspec/specs/tracking` and the new `tracking-ingest-integrity` spec are folded
