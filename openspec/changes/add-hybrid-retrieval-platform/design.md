@@ -42,3 +42,27 @@
 
 ## D11: Test Coverage & Isolation
 - **Decision**: Comprehensive unit tests covering in-process RRF, strategy fail-over, embed client retries, and gRPC handler delegation.
+
+## E2E verification
+
+The e2e track (`platform-e2e/tests/e2e/features/search/hybrid_retrieval.feature`, `hybrid_indexing.feature`) names each scenario after its
+spec title and drives team-search through the gateway. Semantic behaviour needs a model server, so the stack runs the real
+`platform-modelserve` router in front of a deterministic TEI fake (`platform-e2e/fakes/tei_fake`, overlay
+`platform-e2e/compose/modelserve.override.yaml`; no model or TEI image is downloaded). The fake's request log is the observation point
+for "an embedding was / was not requested", and `[[fake ...]]` directives inside a query or title inject the failures (slow or failing
+embedding, failing or reversing rerank). Vectors and `vector_pending` are read from the OpenSearch read-model document.
+
+Four scenarios are verified by named Go unit tests instead and carry a `**VERIFIED BY**` line (FEATURES.yaml `status: not-testable`):
+
+- *executes strategies concurrently*: that two stages overlap in time is not visible to a client; `TestEngine_StrategiesRunConcurrently`
+  makes each leg take 250 ms and requires the whole call under 500 ms.
+- *Items present in multiple candidate lists are boosted*, *RRF constant k ...*, *Strategy weights ...*: the fused score never leaves the
+  process, only an order that depends on every other document in the shared index; k and the weights are deployment configuration
+  (D7), not request fields. `TestRRF_BoostsItemsAppearingInMultipleLists`, `TestRRF_ConstantKFlattensRankScores` and
+  `TestRRF_WeightsScaleStrategyInfluence` check the arithmetic.
+
+Two scenarios are weaker than their wording and say so here. *Version guard prevents stale events during re-indexing* publishes the
+stale event to the live index, not mid-replay (the guard is the same script on both paths). *Replaying listing events ...* runs a second
+indexer with a new consumer group on a new index and waits for one listing; it reads the whole topic, so it is tagged `@destructive @slow`.
+The rating facet of *Degraded search responses maintain facet aggregations* is not asserted: no rating is indexed (see
+`search_rating_removed.feature`).

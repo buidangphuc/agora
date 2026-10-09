@@ -15,6 +15,7 @@ The system SHALL support concurrent candidate retrieval across multiple independ
 #### Scenario: Multi-strategy retrieval executes strategies concurrently
 - **WHEN** a hybrid query executes against the retrieval engine
 - **THEN** both lexical and semantic retrieval stages run concurrently within configured deadlines
+- **VERIFIED BY**: team-search/internal/retrieval/spec_hybrid_test.go › TestEngine_StrategiesRunConcurrently (two legs of 250 ms finish in under 500 ms). Not verifiable end to end: overlap in time is not observable through the gateway (see design.md, E2E verification).
 
 ### Requirement: In-process Reciprocal Rank Fusion
 
@@ -23,14 +24,17 @@ The system SHALL combine ranked candidate lists using in-process Reciprocal Rank
 #### Scenario: Items present in multiple candidate lists are boosted
 - **WHEN** an item appears in both lexical and semantic candidate lists
 - **THEN** its fused RRF score is strictly greater than if it appeared in only one list
+- **VERIFIED BY**: team-search/internal/retrieval/fusion_test.go › TestRRF_BoostsItemsAppearingInMultipleLists. Not verifiable end to end: the fused score is not on the wire, only an order that depends on the whole index (see design.md, E2E verification).
 
 #### Scenario: RRF constant k stabilizes rank position weights
 - **WHEN** candidates are merged using RRF with parameter $k=60$
 - **THEN** rank scores decrease smoothly without outlier score dominance
+- **VERIFIED BY**: team-search/internal/retrieval/spec_hybrid_test.go › TestRRF_ConstantKFlattensRankScores. Not verifiable end to end: `HYBRID_RRF_K` is deployment configuration and the scores are not on the wire (see design.md, E2E verification).
 
 #### Scenario: Strategy weights scale individual strategy influence
 - **WHEN** strategy weights are adjusted
 - **THEN** the higher-weighted strategy exerts proportional influence on the final candidate ordering
+- **VERIFIED BY**: team-search/internal/retrieval/fusion_test.go › TestRRF_WeightsScaleStrategyInfluence. Not verifiable end to end: the weights are deployment configuration (`HYBRID_LEXICAL_WEIGHT`, `HYBRID_SEMANTIC_WEIGHT`), not a request field (see design.md, E2E verification).
 
 ### Requirement: Strategy Fail-Open Resiliency
 

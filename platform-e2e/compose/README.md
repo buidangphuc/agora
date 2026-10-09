@@ -13,6 +13,7 @@ the overlays you need to its `-f` list.
 | `payment-ledger.override.yaml` | payment ledger features | short ledger windows |
 | `search-tombstones.override.yaml` | search read-model features | 30 s tombstone TTL |
 | `llm-fake.override.yaml` | `ai/llm_*.feature`, `ops/boot_guard_ai.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |
+| `modelserve.override.yaml` | `modelserve/*.feature`, `search/hybrid_*.feature` | adds `tei-fake` (deterministic TEI + vLLM stand-in) and the real `modelserve-router` (Redis DB 4), points team-search and its indexer at the router (`MODEL_SERVER_URL`, `ENABLE_RERANKER=true`) |
 | `llm-fake-langfuse.override.yaml` | `ai/llm_tracing.feature` only | turns Langfuse on in team-ai, pointed at the fake's ingestion endpoint |
 
 ## `llm-fake.override.yaml` (change ai-path-resilience)
@@ -52,3 +53,20 @@ It is never part of the standing stack, which is why the scenario is `@destructi
 ### Unit tests for the fake
 
     platform-e2e/.venv/bin/pytest -p no:cacheprovider platform-e2e/unit/test_llm_fake.py -q
+
+## `modelserve.override.yaml` (changes add-platform-modelserve, add-hybrid-retrieval-platform)
+
+`platform-e2e/fakes/tei_fake/` is a stdlib-only, deterministic stand-in for Hugging Face TEI: `POST /embed`
+(dim 384, a hashed bag of concepts, so overlapping texts are closer and `<stem>zalias` equals `<stem>`),
+`POST /rerank` (token overlap), a canned vLLM (`/v1/chat/completions`, `/generate`) and a request log
+(`GET /_requests?contains=&kind=`). `[[fake status=500]]`, `[[fake delay=3000]]`, `[[fake rerank=reverse]]`,
+`[[fake rerank_status=500]]` in a text or query drive the failure scenarios. The overlay builds it as
+`tei-fake` (host port `${TEI_FAKE_HOST_PORT:-18110}`), builds `./platform-modelserve` as `modelserve-router`
+(host port `${MODELSERVE_HOST_PORT:-18100}`, Redis DB 4, `MAX_QUEUE_DEPTH=10`) and sets `MODEL_SERVER_URL`
+on team-search and team-search-indexer. Bring it up:
+
+    DC=~/Library/Caches/ai-first-runs/agora-stack/dc-agora-ov.sh
+    $DC -f platform-e2e/compose/modelserve.override.yaml up -d --build tei-fake modelserve-router
+    $DC -f platform-e2e/compose/modelserve.override.yaml up -d --no-deps team-search team-search-indexer
+
+Every later `$DC` call for these services needs the same `-f` (or add it to the wrapper's list).
