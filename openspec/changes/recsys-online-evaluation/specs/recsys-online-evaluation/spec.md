@@ -18,16 +18,15 @@ placement, the share of impressions served by the fallback. A window outside 1â€
 
 #### Scenario: Impressions and clicks are counted per placement and model
 
-- **WHEN** a visitor posts 2 impressions of a recommendation row (one `impressionId`, placement "home_feed", model
-  version M) and 1 click on one of its listings with the same `impressionId`
-- **THEN** the admin's report for the last hour has a row for "home_feed" and M with at least 1 impression, at least 2
+- **WHEN** a visitor posts 2 impressions of a recommendation row (one `impressionId`, a placement P, model version M) and 1 click on one of its listings with the same `impressionId`
+- **THEN** the admin's report for the last hour has a row for P and M with at least 1 impression, at least 2
   item impressions and at least 1 click
 
 #### Scenario: A purchase after a recommended click is attributed
 
-- **WHEN** a logged-in buyer clicks a recommended listing (impression id I, placement "similar_items", model version M2)
+- **WHEN** a logged-in buyer clicks a recommended listing (impression id I, a placement P2, model version M2)
   and then purchases that listing
-- **THEN** the report row for "similar_items" and M2 counts that purchase
+- **THEN** the report row for P2 and M2 counts that purchase
 
 #### Scenario: A purchase without a recommended click is not attributed
 
@@ -36,9 +35,9 @@ placement, the share of impressions served by the fallback. A window outside 1â€
 
 #### Scenario: The fallback share is reported
 
-- **WHEN** a visitor posts impressions for placement "cart_cross_sell" with model version "serving-fallback" and with a
-  real model version, 1 each
-- **THEN** the report gives "cart_cross_sell" a fallback share above 0 and below 1
+- **WHEN** a visitor posts impressions for a placement P3 used by no other traffic, 1 with model version
+  "serving-fallback" and 1 with a real model version
+- **THEN** the report gives P3 a fallback share above 0 and below 1
 
 #### Scenario: Only admins read recommendation performance
 
