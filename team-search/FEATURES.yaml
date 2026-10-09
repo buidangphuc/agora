@@ -736,3 +736,163 @@ features:
     notes: >-
       Feature: search/search_query_correctness.feature::The ratings facet is empty. Written from the spec before the code landed (red-first); see the run evidence in the e2e commit;
       the integrator flips this to automated once the code is merged and the scenario is green.
+
+  - id: search.mls-tag-spu-tags-indexed
+    title: "Listing Events Index SPU Tags"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-ai, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a seller publishes a listing titled with Bluetooth 5.3, ANC and 65W GaN fast charging"
+      - "When the listing event has been indexed"
+      - "Then `SearchListings` with the filter `tag.connectivity` = `bluetooth-5-3` returns the listing, and the same search with `tag.connectivity` = `wifi-6` does not"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: search/search_dynamic_facets.feature (scenario "Listing Events Index SPU Tags").
+      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
+      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Written before the code is deployed; the integrator flips this to automated once green.
+  - id: search.mls-sku-filters-single-variant
+    title: "SKU Filters Match One Variant, Not Across Variants"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-ai, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with in-stock variants Titan Tự Nhiên 256GB and Xanh Navy 512GB, and a second one with Xanh Navy 256GB and Titan Tự Nhiên 512GB"
+      - "When a buyer searches with `sku.color` = `xanh-navy` and `sku.capacity` = `512gb`"
+      - "Then only the first listing is returned"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: search/search_dynamic_facets.feature (scenario "SKU Filters Match One Variant, Not Across Variants").
+      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
+      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Written before the code is deployed; the integrator flips this to automated once green.
+  - id: search.mls-sku-filters-in-stock-only
+    title: "Sold-Out Variants Do Not Satisfy SKU Filters"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-ai, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing whose Xanh Navy 512GB variant has stock 0, and another with that variant in stock"
+      - "When a buyer searches with `sku.color` = `xanh-navy` and `sku.capacity` = `512gb`"
+      - "Then only the listing whose matching variant is in stock is returned"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: search/search_dynamic_facets.feature (scenario "Sold-Out Variants Do Not Satisfy SKU Filters").
+      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
+      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Written before the code is deployed; the integrator flips this to automated once green.
+  - id: search.mls-facet-filters-rejected
+    title: "Malformed Facet Filters Are Rejected"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-ai, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a buyer calls `SearchListings` with the filter `sku.Colour Name` = `x` or `tag.color` = `den:other`"
+      - "Then the call fails with `invalid_argument` and no search is run"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: search/search_dynamic_facets.feature (scenario "Malformed Facet Filters Are Rejected").
+      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
+      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Written before the code is deployed; the integrator flips this to automated once green.
+  - id: search.mls-dynamic-facets-in-response
+    title: "Search Response Carries Dynamic Facets"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-ai, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given published listings with classified SPU tags and variants"
+      - "When a buyer searches for their keyword through the gateway"
+      - "Then `facets.tags` lists a `connectivity` group with the `bluetooth-5-3` bucket and `facets.skus` lists `color` and `capacity` groups, each bucket counting listings"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: search/search_dynamic_facets.feature (scenario "Search Response Carries Dynamic Facets").
+      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
+      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Written before the code is deployed; the integrator flips this to automated once green.
+  - id: search.mls-dynamic-facet-ui
+    title: "Selecting a Dynamic Facet Narrows Results and Reflects in the URL"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, team-ai, team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given published listings with different variant colors indexed for a keyword"
+      - "When a buyer opens `/search` for that keyword and selects the `xanh-navy` bucket of the color facet"
+      - "Then the URL contains `sku.color=xanh-navy`, only listings with an in-stock navy variant remain, and the selected value is shown as an active filter chip"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: frontend/search_dynamic_facets.feature (scenario "Selecting a Dynamic Facet Narrows Results and Reflects in the URL").
+      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
+      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Written before the code is deployed; the integrator flips this to automated once green.
+
+  - id: search.mls-classifier-outage-does-not-block-indexing
+    title: "Classifier Outage Does Not Block Indexing"
+    persona: buyer
+    priority: P2
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-search, team-ai]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given team-ai's tag classifier is unreachable or answers an error"
+      - "When a listing event is indexed"
+      - "Then the listing is searchable by its title, its document carries `tags_pending`, and the tags it had before stay stored"
+    tags: [buyer, search]
+    status: not-testable
+    notes: >-
+      VERIFIED BY team-search/internal/consumer/listing_test.go TestListingEventHandler_ClassifierOutageDoesNotFailIngestion and
+      internal/index/attributes_integration_test.go TestIT_Attr_TagsPendingKeepsStoredTags. Not verifiable end to end: it needs
+      team-ai stopped, which no scenario may do to the shared stack. Reason also recorded in the change's design.md (D6).
