@@ -197,7 +197,10 @@ def _reset_live(redis: Redis, qdrant: QdrantClient) -> None:
 
 
 def _clean(redis: Redis, qdrant: QdrantClient) -> None:
+    """Empty this worker's namespace: its Redis DB, and its aliases plus every collection behind
+    them (the plain names and the per-generation ``__<gen>`` ones), so no earlier run leaks in."""
     redis.flushdb()
+    _reset_live(redis, qdrant)
     for name in (ITEMS, USERS):
         if qdrant.collection_exists(name):
             qdrant.delete_collection(name)
@@ -274,6 +277,13 @@ def main() -> int:
         "ALS_MAX_ITER": "3",
         "TOP_N": "5",
     }
+    if not LIVE:
+        # The pipeline_eval_registry scenarios exercise the METRIC gate on tiny catalogues where
+        # every user's top-5 is the same list; keep the structural gate (recsys-generation-publish)
+        # out of their way. The live generation scenarios keep the real thresholds.
+        base_env.setdefault("GATE_MAX_LIST_OVERLAP", "1.0")
+        base_env.setdefault("GATE_MIN_ITEM_COVERAGE", "0")
+        base_env.setdefault("GATE_MIN_USER_COVERAGE", "0")
     if PLAN.get("dataset_mounted"):
         base_env["DATASET_DIR"] = "/dataset/datasets/als_interactions/v1"
         base_env.pop("DATASET_PATH", None)
