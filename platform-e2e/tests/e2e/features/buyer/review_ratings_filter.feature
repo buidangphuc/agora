@@ -12,13 +12,13 @@ Feature: Product Reviews Breakdown & Filters
     Then the listing page displays the reviews breakdown section and rating filter buttons
 
   # ui-phase-product-detail: the star filter and the page live in the URL.
-  Scenario: Filtering reviews by stars is shareable through the URL
+  Scenario: Filtering by stars is shareable
     Given a buyer is viewing a listing with reviews of several star values
     When the buyer clicks the "4 Sao" review filter
     Then the URL contains rating=4 and only 4-star reviews are listed
     And reloading the page shows the same filtered list
 
-  Scenario: A star filter with no matching review offers a way back to all reviews
+  Scenario: A filter with no matches shows Empty with a way out
     Given a buyer is viewing a listing with reviews of several star values
     When the buyer opens the reviews filtered by 2 stars
     Then an empty state "Không có đánh giá 2 sao" is shown
