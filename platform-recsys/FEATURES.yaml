@@ -739,3 +739,18 @@ features:
     tags: [recsys]
     status: not-testable
     notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_external_ground_truth_is_marked_external. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.gbdt-outperforms-cosine
+    title: "GBDT ranker outperforms raw cosine baseline on offline eval"
+    persona: guest
+    priority: P2
+    summary: "GBDT ranker outperforms raw cosine baseline on offline eval"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "GBDT ranker outperforms raw cosine baseline on offline eval (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-gbdt-ranker: VERIFIED BY platform-recsys/tests/test_ranker.py › test_gbdt_ranker_outperforms_raw_cosine_ndcg. Not verifiable end to end: offline NDCG arithmetic over a labelled holdout; the serving path exposes only the re-ranked list, never the cosine baseline."
