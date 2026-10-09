@@ -30,6 +30,11 @@ func Dial(addr string) (*Domain, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(forwardPrincipalInterceptor()),
+		// After team-domain restarts with a new address, the first call would
+		// otherwise fail fast (connection refused on the old IP) while the
+		// resolver catches up. Wait for the reconnect instead; every call already
+		// carries the UPSTREAM_CALL_TIMEOUT_SECONDS deadline, which bounds it.
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("dial domain %s: %w", addr, err)
