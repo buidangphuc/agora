@@ -156,6 +156,10 @@ services:
       - "16686:16686" # Web UI
     environment:
       - COLLECTOR_OTLP_ENABLED=true
+      # The in-memory store keeps every trace forever by default; a few full e2e runs grew it
+      # until the kernel OOM-killed it (exit 137) mid-suite. Bound it and restart if killed.
+      - MEMORY_MAX_TRACES=20000
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:16686/ | grep -q 'Jaeger UI'"]
       interval: 5s
