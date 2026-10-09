@@ -48,12 +48,14 @@ async def build_recommendation_service(
     *,
     redis: object | None,
 ) -> RecommendationService:
-    backend = build_backend(settings)
     cache = PrecomputedCache(
         redis,  # type: ignore[arg-type]
         prefix=settings.RECS_CACHE_PREFIX,
         schema_version=settings.RECS_CACHE_SCHEMA_VERSION,
     )
+    # One pointer decides both stores: the backend names its Qdrant collection from the same
+    # serving generation the cache scopes its Redis keys with.
+    backend = build_backend(settings, generation_source=cache.serving_generation)
     # Startup collection-contract check (name/dim/metric vs the training job).
     # A mismatch makes Recommend return UNAVAILABLE rather than serve empty.
     collection_ok = await backend.collection_ok()

@@ -145,13 +145,21 @@ class RecommendationService:
         hiccup) still surfaces as ``ServiceUnavailableError``.
         """
         await self._ensure_collection_ok()
+        # Fix the serving generation once: the Redis lists and the Qdrant collection of this
+        # request must come from the same generation even if the pointer moves mid-request.
+        pin: Any = getattr(self._cache, "pin_generation", None)
+        token = await pin() if pin is not None else None
         try:
-            return await self._recommend(query)
-        except ServiceUnavailableError:
-            raise
-        except Exception as exc:
-            logger.warning("recs.recommend.failed err={}", exc)
-            return await self._fallback(query)
+            try:
+                return await self._recommend(query)
+            except ServiceUnavailableError:
+                raise
+            except Exception as exc:
+                logger.warning("recs.recommend.failed err={}", exc)
+                return await self._fallback(query)
+        finally:
+            if token is not None:
+                self._cache.unpin_generation(token)
 
     async def _fallback(self, query: RecommendQuery) -> RecommendResult:
         """The serving generation's popular list, else the backend's, else empty."""
