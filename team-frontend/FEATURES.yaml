@@ -2689,6 +2689,57 @@ features:
     covered_by: null
     notes: "DEFECT (xfail in test_d1_discovery.py): scenario 'A click on the card title keeps its attribution'. Clicking a ListingCard title link sends select_item with only item_id; the image link carries placement_id and index (observed on / and on /listing/{id} similar-items rows)."
 
+  - id: account.gateway-read-failure
+    title: "Gateway read failure"
+    persona: buyer
+    priority: P2
+    summary: "Gateway read failure"
+    entry_route: /account/security
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the sessions request fails"
+      - "Then the sessions section shows an inline `Alert type=\"error\"` with a \"Thử lại\" action that reloads the route, and the history section still renders"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs the sessions read to fail while login history still renders; both come from team-identity, and stopping it is destructive (container stop), not authored."
+
+  - id: account.route-error-offers-recovery
+    title: "Route error offers recovery"
+    persona: buyer
+    priority: P2
+    summary: "Route error offers recovery"
+    entry_route: /notifications
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a gateway call throws during rendering of `/notifications`"
+      - "Then a `Result status=\"error\"` is shown with a \"Thử lại\" button that re-renders the route"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs a real gateway outage (stop team-notification); destructive, not authored."
+
+  - id: account.generating-a-code
+    title: "Generating a code"
+    persona: buyer
+    priority: P2
+    summary: "Generating a code"
+    entry_route: /account/referral
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer without a code presses \"Tạo mã\""
+      - "Then the button is pending, a success toast appears and the code is displayed after revalidation"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "NOT E2E-REACHABLE: team-referral GetMyReferral mints the code on first read, so a buyer without a code never reaches the Tạo mã giới thiệu button (unit-tested)."
+
   # ---- d1-entries-end (append new d1 entries above this line)
 
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
