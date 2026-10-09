@@ -12,6 +12,9 @@ export interface RecommendationsResult {
   ok: boolean;
   message: string;
   items: ViewListing[];
+  requestId: string;
+  placementId: string;
+  modelVersion: string;
 }
 
 /**
@@ -27,13 +30,20 @@ export async function getRecommendationsAction(
   } = {},
 ): Promise<RecommendationsResult> {
   try {
-    const items = await getRecommendations(opts);
-    return { ok: true, message: "", items };
+    const res = await getRecommendations(opts);
+    return { ok: true, message: "", ...res };
   } catch (err) {
     const msg =
       err instanceof ConnectError
         ? err.message
         : "Không tải được gợi ý sản phẩm.";
-    return { ok: false, message: msg, items: [] };
+    return {
+      ok: false,
+      message: msg,
+      items: [],
+      requestId: "",
+      placementId: "",
+      modelVersion: "",
+    };
   }
 }

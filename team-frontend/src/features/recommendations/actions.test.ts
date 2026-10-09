@@ -20,7 +20,12 @@ beforeEach(() => vi.clearAllMocks());
 describe("getRecommendationsAction", () => {
   it("returns the hydrated cards on success and forwards the seed + context", async () => {
     const items = [{ id: "a" }] as never;
-    vi.mocked(getRecommendations).mockResolvedValue(items);
+    const ids = {
+      requestId: "req-1",
+      placementId: "home_feed",
+      modelVersion: "m1",
+    };
+    vi.mocked(getRecommendations).mockResolvedValue({ items, ...ids });
     const res = await getRecommendationsAction({
       seedListingId: "seed-1",
       context: RecommendationContext.SIMILAR_ITEMS,
@@ -29,7 +34,7 @@ describe("getRecommendationsAction", () => {
       seedListingId: "seed-1",
       context: RecommendationContext.SIMILAR_ITEMS,
     });
-    expect(res).toEqual({ ok: true, message: "", items });
+    expect(res).toEqual({ ok: true, message: "", items, ...ids });
   });
 
   it("degrades to an empty list with the ConnectError message on failure", async () => {
@@ -49,6 +54,9 @@ describe("getRecommendationsAction", () => {
       ok: false,
       message: "Không tải được gợi ý sản phẩm.",
       items: [],
+      requestId: "",
+      placementId: "",
+      modelVersion: "",
     });
   });
 });
