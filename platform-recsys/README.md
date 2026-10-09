@@ -151,6 +151,16 @@ next training run compares against the restored champion.
 
 `MODEL_VERSION` overrides the stamp; otherwise `als-<UTC yyyymmddThhmmssZ>`.
 
+**Drift** (`recsys/monitoring/generation.py`, change `add-recsys-drift-monitoring`). Before the structural
+gate every run summarises four distributions as quantile sketches (`weight` of the dataset pairs,
+`user_items`, `item_users`, and each user's best recommendation score `top_score`), computes PSI against the
+champion's stored sketches (the generation it would replace) and records the verdict: `parameters.distribution`
+(the sketches, the next run's baseline), `parameters.drift` (`status` no_baseline/ok/drifted, `baseline_version`,
+per-feature `psi` and `drift_level`, `is_drifted`), `metrics.drift_psi_max`, the summary's `drift`, a log line
+(WARNING when flagged) and, with `DRIFT_METRICS_PATH`, a Prometheus text file. A feature is flagged at
+`DRIFT_ALERT_THRESHOLD` (0.25). It is observational: it never changes `decision`. ALS factors are not compared
+(they are only defined up to a rotation).
+
 ## 5. Configuration
 
 All settings are read in `recsys/config.py` (`_FIELDS`, the single source of truth); `.env.example`
@@ -166,6 +176,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
 | Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32) |
 | Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
+| Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
 | Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
 | Structural gate | `GATE_MIN_USER_COVERAGE` (0.5), `GATE_MIN_ITEM_COVERAGE` (0.05), `GATE_MAX_LIST_OVERLAP` (0.9) |
 | Compatibility | `RECS_WRITE_LEGACY_KEYS` (true): also write the unscoped `recs:v1:{user,item,popular}` keys |
@@ -246,8 +257,7 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 10. Known gaps
 
-- `recsys/ranker/` (CVR / eGMV), `recsys/monitoring/` (PSI drift) are library
-  modules with unit tests; `pipeline.py` does not call them. `recsys/nearline/` runs as its own process
+- `recsys/ranker/` (CVR / eGMV) is a library module with unit tests; `pipeline.py` does not call it. `recsys/nearline/` runs as its own process
   (section 2); its compose service is proposed in the change's `design.md`, not yet in the root compose. There is no online reranker here and
   `lightgbm` is not a dependency.
 - Two-Tower is a placeholder: it runs only when `ENABLE_TWO_TOWER=true` and only after a promoted
