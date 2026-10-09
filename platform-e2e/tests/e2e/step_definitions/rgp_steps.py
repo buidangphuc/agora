@@ -6,8 +6,8 @@ registry), and recommendations are read through the gateway as that buyer
 (RecommendationService/Recommend, `modelVersion`). Redis pointers, generation keys, Qdrant aliases
 and collections and the registry come from the job driver's snapshot after each run.
 
-Scenarios rewrite what every other recommendation scenario reads. The binder restores the serving
-state once, after the module, by re-running the "good A" publish from a clean slate.
+Scenarios rewrite what every other recommendation scenario reads. The binder republishes a real
+generation (governed dataset from the stack exports, forced promotion) once, after the module.
 """
 
 from __future__ import annotations

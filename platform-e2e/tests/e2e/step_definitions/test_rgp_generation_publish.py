@@ -1,27 +1,40 @@
 """Binds recommendations/generation_publish.feature (recsys-generation-publish, destructive)."""
 
+import os
+import subprocess
+
 import pytest
 from pytest_bdd import scenarios
 
-from tests.e2e.flows.recsys_job_flow import run_recsys_job
 from tests.e2e.step_definitions.buyer_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.common_steps import *  # noqa: F401,F403
 from tests.e2e.step_definitions.rgp_steps import *  # noqa: F401,F403
+from tests.e2e.support.pear_edge_support import DC_WRAPPER_DEFAULT
 
 scenarios("recommendations/generation_publish.feature")
 
 
 @pytest.fixture(scope="module", autouse=True)
 def rgp_restore_serving():
-    """Restore the serving state after the module: a clean "good A" publish.
+    """Leave a REAL generation serving after the module, not an e2e fixture.
 
-    The scenarios rewrite and reset the shared generation state. Teardown re-runs the "good A"
-    publish from a clean slate, so what is left serving is one fresh `als-e2e-good-a-*`
-    generation (no previous). The data the stack held before (the real tracking dataset) is not
-    recreated; the platform-gitops recsys CronJob republishes it.
+    The scenarios reset the shared generation state and leave a fixture model as serving and as
+    registry champion; every other recommendation scenario (homepage row, Recommend for stack
+    buyers) then sees fixture listing ids. Teardown runs the production path instead: build the
+    governed dataset from the stack's own exports, then train and publish it with
+    PROMOTION_FORCE (the fixture champion's holdout score would otherwise reject it).
     """
     yield
-    try:
-        run_recsys_job([], [{"@fixture": "good_a"}], live=True, reset=True)
-    except Exception as exc:  # noqa: BLE001 - cleanup must not mask the scenarios' result
-        print(f"[rgp] could not restore the serving state: {exc}")
+    wrapper = os.getenv("DC_WRAPPER", DC_WRAPPER_DEFAULT)
+    for args in (
+        ["--profile", "featurestore", "run", "--rm", "featurestore-dataset"],
+        ["--profile", "jobs", "run", "--rm", "-e", "PROMOTION_FORCE=true", "platform-recsys"],
+    ):
+        proc = subprocess.run(
+            [wrapper, *args], capture_output=True, text=True, timeout=1200, check=False
+        )
+        if proc.returncode != 0:  # cleanup must not mask the scenarios' result
+            print(
+                f"[rgp] restore step {args[-1]} failed: {proc.stdout[-1500:]}{proc.stderr[-1500:]}"
+            )
+            return
