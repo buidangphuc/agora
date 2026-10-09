@@ -64,6 +64,8 @@ services:
     environment:
       MODEL_SERVER_URL: http://modelserve-router:8100
       ENABLE_RERANKER: "true"
+      # The fake's unrelated texts have cosine ~0 +-0.05 and an alias exactly 1: 0.6 separates them.
+      HYBRID_SEMANTIC_MIN_SCORE: "0.6"
   team-search-indexer:
     depends_on:
       modelserve-router:

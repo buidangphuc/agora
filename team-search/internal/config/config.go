@@ -57,6 +57,9 @@ type Retrieval struct {
 	HybridRRFK         int     `env:"HYBRID_RRF_K" default:"60"`
 	LexicalWeight      float64 `env:"HYBRID_LEXICAL_WEIGHT" default:"1.0"`
 	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
+	// SemanticMinScore is the minimum cosine similarity (-1..1) a semantic
+	// candidate needs to be kept; a value <= -1 disables the floor.
+	SemanticMinScore float64 `env:"HYBRID_SEMANTIC_MIN_SCORE" default:"0.6"`
 }
 
 // Taxonomy points the indexer at team-ai's gRPC AIService (ClassifyTags), which

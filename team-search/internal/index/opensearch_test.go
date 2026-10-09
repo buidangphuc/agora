@@ -354,3 +354,56 @@ func TestSearch_DecodesStockFromSource(t *testing.T) {
 		}
 	}
 }
+
+// Every structured filter the lexical leg applies also constrains the k-NN leg,
+// inside knn.filter so the k neighbours are found among matching listings.
+func TestFilters_SameClausesInBothLegs(t *testing.T) {
+	f := map[string]string{
+		"status": "published", "in_stock": "true", "seller_id": "s1",
+		"tag.connectivity": "bluetooth-5-3", "sku.color": "den",
+	}
+	run := func(vector bool) string {
+		var cap capturedRequest
+		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+		var err error
+		if vector {
+			_, err = idx.SearchVector(context.Background(), []float32{0.1}, f, "c1", 100, 900, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+		} else {
+			_, err = idx.Search(context.Background(), "x", f, "c1", 100, 900, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cap.body
+	}
+	vec := run(true)
+	for _, want := range []string{
+		`{"term":{"status":"published"}}`, `{"range":{"stock":{"gt":0}}}`, `{"term":{"seller_id":"s1"}}`,
+		`{"term":{"category_id":"c1"}}`, `{"range":{"price":{"gte":100,"lte":900}}}`,
+		`bluetooth-5-3`, `"nested"`, `den`,
+	} {
+		if !strings.Contains(vec, want) {
+			t.Errorf("k-NN leg is missing filter %s: %s", want, vec)
+		}
+		if lex := run(false); !strings.Contains(lex, want) {
+			t.Errorf("lexical leg is missing filter %s", want)
+		}
+	}
+	if !strings.Contains(vec, `"knn":{"embedding":{"filter":{"bool":{"filter":[`) {
+		t.Errorf("filters are not inside knn.filter (post-filtering): %s", vec)
+	}
+}
+
+// FacetsForIDs aggregates over exactly the given ids under the same filters.
+func TestFacetsForIDs_RestrictsToIDsAndFilters(t *testing.T) {
+	var cap capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	if _, err := idx.FacetsForIDs(context.Background(), []string{"a", "b"}, map[string]string{"seller_id": "s1"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"terms":{"id":["a","b"]}`, `{"term":{"seller_id":"s1"}}`, `{"term":{"status":"published"}}`, `"size":0`, `"price_ranges"`} {
+		if !strings.Contains(cap.body, want) {
+			t.Errorf("missing %s in %s", want, cap.body)
+		}
+	}
+}

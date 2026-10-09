@@ -53,6 +53,7 @@ def create(
     *,
     description: str = DEFAULT_DESCRIPTION,
     price: int = 100_000,
+    stock: int = 5,
 ) -> s.Listed:
     resp = s.post(
         s.LISTING + "CreateListing",
@@ -61,7 +62,7 @@ def create(
                 "title": title,
                 "categoryId": "cat-laptop",
                 "price": price,
-                "stock": 5,
+                "stock": stock,
                 "status": "LISTING_STATUS_PUBLISHED",
                 "currency": "VND",
                 "description": description,
@@ -82,8 +83,14 @@ def search(
     cursor: str | None = None,
     page_size: int | None = None,
     filters: dict[str, str] | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
 ) -> httpx.Response:
     body: dict[str, Any] = {"query": query}
+    if min_price:
+        body["minPrice"] = min_price
+    if max_price:
+        body["maxPrice"] = max_price
     if mode:
         body["searchMode"] = mode
     if filters:
