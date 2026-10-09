@@ -51,6 +51,14 @@ func TestEffectiveFilters(t *testing.T) {
 		{"in_stock maybe", principal("A", user), map[string]string{"in_stock": "maybe"}, codes.InvalidArgument},
 		{"in_stock false", principal("A", user), map[string]string{"in_stock": "false"}, codes.InvalidArgument},
 		{"in_stock empty", principal("A", user), map[string]string{"in_stock": ""}, codes.InvalidArgument},
+		{"tag filter", principal("anonymous", anon), map[string]string{"tag.connectivity": "bluetooth-5-3"}, codes.OK},
+		{"sku filters, comma list", principal("anonymous", anon), map[string]string{"sku.color": "xanh-navy,den", "sku.capacity": "512gb"}, codes.OK},
+		{"tag group with uppercase", principal("A", user), map[string]string{"tag.Color": "den"}, codes.InvalidArgument},
+		{"tag group is a path", principal("A", user), map[string]string{"sku.skus.attrs": "x"}, codes.InvalidArgument},
+		{"empty tag group", principal("A", user), map[string]string{"tag.": "x"}, codes.InvalidArgument},
+		{"sku value with space", principal("A", user), map[string]string{"sku.color": "xanh navy"}, codes.InvalidArgument},
+		{"tag value empty", principal("A", user), map[string]string{"tag.color": ""}, codes.InvalidArgument},
+		{"tag value colon injection", principal("A", user), map[string]string{"tag.color": "den:other"}, codes.InvalidArgument},
 		{"status deleted beats auth checks (anonymous)", principal("anonymous", anon), map[string]string{"status": "deleted"}, codes.InvalidArgument},
 	}
 	for _, tc := range cases {

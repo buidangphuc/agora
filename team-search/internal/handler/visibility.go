@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
+	"github.com/buidangphuc/team-search/internal/index"
 )
 
 // Listing visibility policy (search-correctness-and-privacy D1/D2).
@@ -31,6 +32,8 @@ const (
 // its input (the request's map is shared with the gRPC layer).
 //
 //   - in_stock other than "true": INVALID_ARGUMENT (D4);
+//   - tag.<group> / sku.<group> with a malformed group or tag slug (values may be a
+//     comma list): INVALID_ARGUMENT;
 //   - no status key: returned as is; the index then applies status=published;
 //   - status other than published/draft (deleted, rejected, any, "", ...): INVALID_ARGUMENT;
 //   - status=published: allowed for everyone;
@@ -45,6 +48,20 @@ func effectiveFilters(p *commonv1.Principal, filters map[string]string) (map[str
 	}
 	if v, has := out[filterInStock]; has && v != "true" {
 		return nil, status.Errorf(codes.InvalidArgument, "filters.in_stock must be %q", "true")
+	}
+	// tag.<group> / sku.<group> (dynamic facets): group and values must be well-formed
+	// so a caller can never name an arbitrary field through the filter map.
+	for k, v := range out {
+		_, _, ok, err := index.ParseAttrFilterKey(k)
+		if !ok {
+			continue
+		}
+		if err == nil {
+			_, err = index.ParseAttrFilterValues(k, v)
+		}
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 	}
 	st, has := out[filterStatus]
 	if !has {
