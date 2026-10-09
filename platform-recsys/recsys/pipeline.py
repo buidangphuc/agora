@@ -19,9 +19,11 @@ from .interactions import dataset_triples, index_interactions
 from .load import qdrant as qdrant_load
 from .load import redis_cache
 from .model_version import resolve_model_version
+from .publish import publish_generation, refresh_serving_ttl
 from .registry.metadata import ModelMetadata
 from .registry.registry import ModelRegistry
 from .spark import build_spark
+from .structural_gate import structural_check
 from .train import train_als
 from .two_tower.pipeline import train_and_index_two_tower
 
@@ -128,8 +130,37 @@ def evaluate_generation(events, settings: Settings) -> dict:
     return {**metrics, "eval_protocol": EVAL_PROTOCOL}
 
 
-def run(settings: Settings | None = None, registry: ModelRegistry | None = None) -> dict:
-    """Run the full pipeline. Returns a summary dict of what was produced."""
+def _open_registry(settings: Settings, redis_client=None) -> ModelRegistry:
+    if redis_client is None:
+        try:
+            redis_client = redis_cache.connect(settings)
+            redis_client.ping()
+        except Exception as exc:
+            log.info("redis not available for model registry: %s (using memory)", exc)
+            redis_client = None
+    return ModelRegistry(redis_client=redis_client)
+
+
+def _refresh_ttl(settings: Settings, redis_client=None) -> None:
+    """Keep the serving and previous generations' keys alive on every run. Best effort: a run that
+    published nothing must not fail because Redis is down."""
+    try:
+        refresh_serving_ttl(settings, redis_client)
+    except Exception as exc:
+        log.warning("could not refresh the serving generations' TTL: %s", exc)
+
+
+def run(
+    settings: Settings | None = None,
+    registry: ModelRegistry | None = None,
+    redis_client=None,
+    qdrant_client=None,
+) -> dict:
+    """Run the full pipeline. Returns a summary dict of what was produced.
+
+    ``redis_client`` / ``qdrant_client`` are injectable for tests; by default the job connects from
+    the settings.
+    """
     settings = settings or load_settings()
     model_version = resolve_model_version(settings)
     # Resolve the governed dataset BEFORE starting Spark: with none, refuse to run
@@ -153,6 +184,9 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
         )
         popular = [(r["listing_id"], float(r["w"])) for r in pop_rows]
 
+        dataset_users = triples.select("user_key").distinct().count()
+        dataset_items = triples.select("listing_id").distinct().count()
+
         indexed = index_interactions(triples, settings)
         artifacts = train_als(indexed, settings)
 
@@ -163,6 +197,43 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
         # Precomputed Top-N artifacts (numpy on the driver).
         user_recs = recommend.top_n_for_users(user_ids, user_vecs, item_ids, item_vecs, settings.top_n)
         item_recs = recommend.similar_items(item_ids, item_vecs, settings.top_n)
+
+        # ── Structural gate: a degenerate candidate never reaches the metric gate ──
+        structural_ok, structural_reason = structural_check(
+            user_recs,
+            item_recs,
+            (user_vecs, item_vecs),
+            dataset_users,
+            dataset_items,
+            settings,
+        )
+        if not structural_ok:
+            if registry is None:
+                registry = _open_registry(settings, redis_client)
+            # metrics.gate_reason is a string next to eval_protocol (also a string in metrics); the
+            # reason is mirrored in parameters.gate_reason for readers that treat metrics as floats.
+            registry.register_model(
+                ModelMetadata(
+                    model_version=model_version,
+                    model_name="recsys-als",
+                    model_type="als",
+                    metrics={"gate_reason": structural_reason},
+                    parameters={"dataset": dataset.lineage, "gate_reason": structural_reason},
+                    status="rejected",
+                )
+            )
+            _refresh_ttl(settings, redis_client)
+            log.warning("candidate %s rejected by structural gate: %s", model_version, structural_reason)
+            return {
+                "model_version": model_version,
+                "dataset": dataset.lineage,
+                "decision": "rejected",
+                "reason": structural_reason,
+                "gate": "structural",
+                "items": len(item_ids),
+                "users": len(user_ids),
+                "popular": len(popular),
+            }
 
         # ── Evaluation (leakage-free, on a separately trained model) ────────────
         metrics = evaluate_generation(events, settings)
@@ -183,26 +254,12 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
                 "popular": len(popular),
             }
             log.info("candidate model %s not evaluated: %s", model_version, summary["reason"])
+            _refresh_ttl(settings, redis_client)
             return summary
 
         # ── Model Registry & Promotion Gate ──────────────────────────────────────
         if registry is None:
-            redis_client = None
-            try:
-                from redis import Redis  # noqa: PLC0415
-
-                redis_client = Redis(
-                    host=settings.redis_host,
-                    port=settings.redis_port,
-                    password=settings.redis_password or None,
-                    db=settings.redis_db,
-                    decode_responses=True,
-                )
-                redis_client.ping()
-            except Exception as exc:
-                log.info("redis not available for model registry: %s (using memory)", exc)
-                redis_client = None
-            registry = ModelRegistry(redis_client=redis_client)
+            registry = _open_registry(settings, redis_client)
 
         metadata = ModelMetadata(
             model_version=model_version,
@@ -243,19 +300,25 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
 
         if not promoted:
             log.info("candidate model %s rejected by promotion gate: %s", model_version, reason)
+            _refresh_ttl(settings, redis_client)
             return summary
 
-        # ── Publish to Qdrant and Redis (ONLY if Promoted) ──────────────────────
-        qdrant_counts = qdrant_load.load_vectors(
+        # ── Publish as a generation (ONLY if Promoted) ───────────────────────────
+        published = publish_generation(
             settings,
             model_version,
+            user_recs,
+            item_recs,
+            popular,
             item_rows=zip(item_ids, item_vecs, strict=False),
             user_rows=zip(user_ids, user_vecs, strict=False),
+            redis_client=redis_client,
+            qdrant_client=qdrant_client,
         )
-        cache_counts = redis_cache.load_cache(settings, model_version, user_recs, item_recs, popular)
-
-        summary["qdrant"] = qdrant_counts
-        summary["cache"] = cache_counts
+        summary["qdrant"] = published["qdrant"]
+        summary["cache"] = published["cache"]
+        summary["serving"] = published["serving"]
+        summary["previous"] = published["previous"]
 
         # ── Two-Tower Stage (Optional) ───────────────────────────────────────────
         if settings.enable_two_tower:
@@ -276,6 +339,7 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
                 settings=settings,
                 model_version=model_version,
                 item_vectors=tt_vectors,
+                client=qdrant_client,
             )
             summary["two_tower_items"] = tt_count
             log.info("two-tower stage indexed items=%d", tt_count)

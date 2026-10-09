@@ -1,12 +1,12 @@
 import json
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 from recsys.config import Settings
 from recsys.pipeline import run
 from recsys.registry.metadata import ModelMetadata
 from recsys.registry.registry import ModelRegistry
 from tests.dataset_fixture import sample_rows, write_dataset
+from tests.fakes import FakeQdrantClient, FakeRedis
 
 
 def test_pipeline_evaluates_and_promotes_initial_model(tmp_path, monkeypatch):
@@ -21,22 +21,20 @@ def test_pipeline_evaluates_and_promotes_initial_model(tmp_path, monkeypatch):
         top_n=5,
         redis_host="localhost",
         redis_port=6379,
+        gate_max_list_overlap=1.0,  # a 3-item catalogue always yields identical lists
     )
 
     registry = ModelRegistry()
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
 
-    import recsys.load.qdrant as qdrant_load
-    import recsys.load.redis_cache as redis_cache
-
-    monkeypatch.setattr(qdrant_load, "load_vectors", lambda *args, **kwargs: {"items": 3, "users": 3})
-    monkeypatch.setattr(redis_cache, "load_cache", lambda *args, **kwargs: {"items": 3, "users": 3})
-
-    summary = run(settings=settings, registry=registry)
+    summary = run(settings=settings, registry=registry, redis_client=fake_r, qdrant_client=fake_q)
 
     assert summary["decision"] == "promoted"
     assert "metrics" in summary
     assert "ndcg@10" in summary["metrics"]
     assert summary["qdrant"]["items"] == 3
+    assert summary["serving"] == summary["model_version"]
+    assert fake_r.store[settings.serving_key] == summary["model_version"]
     # The registered model names the dataset it was trained on (from the manifest).
     manifest = json.loads((tmp_path / "as_of=20261005T020000Z.manifest.json").read_text())
     lineage = {
@@ -60,6 +58,7 @@ def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypat
         als_rank=4,
         top_n=5,
         promotion_min_relative_improvement=0.10,
+        gate_max_list_overlap=1.0,
     )
 
     registry = ModelRegistry()
@@ -77,20 +76,13 @@ def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypat
     registry.register_model(champion)
     registry._set_champion(champion)
 
-    import recsys.load.qdrant as qdrant_load
-    import recsys.load.redis_cache as redis_cache
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
 
-    qdrant_mock = MagicMock()
-    redis_mock = MagicMock()
-    monkeypatch.setattr(qdrant_load, "load_vectors", qdrant_mock)
-    monkeypatch.setattr(redis_cache, "load_cache", redis_mock)
-
-    summary = run(settings=settings, registry=registry)
+    summary = run(settings=settings, registry=registry, redis_client=fake_r, qdrant_client=fake_q)
 
     assert summary["decision"] == "rejected"
-    # Verify qdrant and redis loads were NOT called on rejected model
-    qdrant_mock.assert_not_called()
-    redis_mock.assert_not_called()
+    # Nothing was published for the rejected model.
+    assert not fake_r.store and not fake_q.collections
     # The summary carries the comparison the gate made (auditable from the run).
     assert summary["primary_metric"] == "ndcg@10"
     assert summary["incumbent_version"] == "champ-v1"
@@ -114,25 +106,18 @@ def test_pipeline_without_a_holdout_is_not_a_candidate(tmp_path, monkeypatch):
         als_max_iter=2,
         als_rank=4,
         top_n=5,
+        gate_max_list_overlap=1.0,
     )
     registry = ModelRegistry()
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
 
-    import recsys.load.qdrant as qdrant_load
-    import recsys.load.redis_cache as redis_cache
-
-    qdrant_mock = MagicMock()
-    redis_mock = MagicMock()
-    monkeypatch.setattr(qdrant_load, "load_vectors", qdrant_mock)
-    monkeypatch.setattr(redis_cache, "load_cache", redis_mock)
-
-    summary = run(settings=settings, registry=registry)
+    summary = run(settings=settings, registry=registry, redis_client=fake_r, qdrant_client=fake_q)
 
     assert summary["decision"] == "skipped"
     assert "no usable holdout" in summary["reason"]
     assert registry.get_model(summary["model_version"]) is None
     assert registry.get_champion_version() is None
-    qdrant_mock.assert_not_called()
-    redis_mock.assert_not_called()
+    assert not fake_r.store and not fake_q.collections
 
 
 def test_evaluation_model_never_trains_on_the_holdout(tmp_path, monkeypatch):

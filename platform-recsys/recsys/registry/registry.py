@@ -123,6 +123,24 @@ class ModelRegistry:
         logger.warning("Rejected candidate %s: %s", candidate_version, reason)
         return False, reason
 
+    def restore_champion(self, model_version: str) -> str | None:
+        """Make ``model_version`` the champion again (rollback). The champion it replaces becomes
+        ``archived``. Returns the demoted version, if any."""
+        demoted = self.get_champion_version()
+        if demoted and demoted != model_version:
+            old = self.get_model(demoted)
+            if old is not None:
+                old.status = "archived"
+                self.register_model(old)
+        target = self.get_model(model_version)
+        if target is not None:
+            self._set_champion(target)
+        elif self.redis is not None:
+            self.redis.set(CHAMPION_KEY, model_version)
+        else:
+            self._champion_version = model_version
+        return demoted if demoted != model_version else None
+
     def _set_champion(self, model: ModelMetadata) -> None:
         model.status = "champion"
         self.register_model(model)
