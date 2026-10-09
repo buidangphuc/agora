@@ -12,7 +12,7 @@ Feature: Seller Order Fulfillment and Wallet Payout
     And I should see the seller wallet balance
 
   @needsSeller
-  Scenario: Payout is disabled and explained at zero balance
+  Scenario: Payout is disabled without balance
     Given I am logged in as a seller via API
     When the seller opens the seller wallet page
     Then the payout button is disabled and says why

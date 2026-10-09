@@ -6,7 +6,7 @@ Feature: Buyer orders UI - list, detail, timeline and return flow
   375px layout. Needs the full local stack (gateway, order, payment, listing).
 
   @needsBuyer @needsListing
-  Scenario: A status tab changes the URL and the list
+  Scenario: Selecting a status tab updates the URL and the list
     Given I am logged in as a buyer via API
     And the buyer has a pending, a delivered and a cancelled order
     When I navigate to the "account orders" page
@@ -16,7 +16,7 @@ Feature: Buyer orders UI - list, detail, timeline and return flow
     And the orders list shows 1 order
 
   @needsBuyer @needsListing
-  Scenario: The tab and page survive a reload
+  Scenario: The list state survives reload and back navigation
     Given I am logged in as a buyer via API
     And the buyer has 11 orders
     When I open the orders list with the query "status=pending&page=2"
@@ -24,16 +24,21 @@ Feature: Buyer orders UI - list, detail, timeline and return flow
     Then the orders URL is "/account/orders?status=pending&page=2"
     And the "Chờ xử lý" order tab is the current tab
     And the orders list shows 1 order
+    When the d2 buyer navigates away and comes back with the browser back button
+    Then the orders URL is "/account/orders?status=pending&page=2"
+    And the "Chờ xử lý" order tab is the current tab
+    And the orders list shows 1 order
 
   @needsBuyer @needsListing
-  Scenario: Pagination links page through the list
+  Scenario: Pagination links page through the filtered list
     Given I am logged in as a buyer via API
-    And the buyer has 11 orders
+    And the buyer has 23 orders
     When I navigate to the "account orders" page
     Then the orders list shows 10 orders
-    When I follow the pagination link "2"
-    Then the orders URL is "/account/orders?page=2"
-    And the orders list shows 1 order
+    And the pagination has 3 pages
+    When I follow the pagination link "3"
+    Then the orders URL is "/account/orders?page=3"
+    And the orders list shows 3 orders
 
   @needsBuyer @needsListing
   Scenario: An empty tab offers a way back
@@ -46,7 +51,7 @@ Feature: Buyer orders UI - list, detail, timeline and return flow
     And the orders list shows 1 order
 
   @needsBuyer @needsListing
-  Scenario: A saga failure is shown as the failure checkpoint
+  Scenario: A failed saga step is surfaced as the failure checkpoint
     Given I am logged in as a buyer via API
     And the buyer has an order whose payment failed
     When I open the order detail page
@@ -65,12 +70,13 @@ Feature: Buyer orders UI - list, detail, timeline and return flow
     Then the return section shows the request as pending
 
   @needsBuyer @needsListing
-  Scenario: Another buyer's order shows a 403 page
+  Scenario: An order of another user shows 403
     Given I am logged in as a buyer via API
     And an order belongs to a different buyer
     When I open the order detail page
     Then the 403 page is shown with a link back to my orders
     And no item of that order is rendered
+    And no recipient, item or amount of that order appears in the page
 
   @needsBuyer @needsListing @wap
   Scenario: The order screens fit a 375px viewport
@@ -83,7 +89,7 @@ Feature: Buyer orders UI - list, detail, timeline and return flow
     Then the page has no horizontal scroll
 
   @needsBuyer @needsListing
-  Scenario: The page view is still tracked after reordering
+  Scenario: Tracking events still fire after reorder
     Given I am logged in as a buyer via API
     And the buyer has 1 orders
     When I navigate to the "account orders" page
