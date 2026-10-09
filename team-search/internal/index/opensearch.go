@@ -419,16 +419,40 @@ func (o *OpenSearchIndex) write(ctx context.Context, id string, params map[strin
 // the stored stock_version is at or past the event's; otherwise it sets stock and
 // stock_version and leaves version (the base-field guard) alone. It runs without
 // an upsert clause, so a missing document is a 404 and nothing is created.
-const stockScript = `if ('deleted'.equals(ctx._source.status)) { ctx.op = 'noop'; } else if (ctx._source.stock_version != null && ((Number) ctx._source.stock_version).longValue() >= params.sv) { ctx.op = 'noop'; } else { ctx._source.stock = params.stock; ctx._source.stock_version = params.sv; }`
+const stockScript = `if ('deleted'.equals(ctx._source.status)) { ctx.op = 'noop'; } else if (ctx._source.stock_version != null && ((Number) ctx._source.stock_version).longValue() >= params.sv) { ctx.op = 'noop'; } else { ctx._source.stock = params.stock; ctx._source.stock_version = params.sv; if (params.variants != null && ctx._source.skus != null) { for (v in params.variants) { for (s in ctx._source.skus) { if (v.id.equals(s.variant_id)) { s.stock = v.stock; s.is_in_stock = ((Number) v.stock).intValue() > 0; } } } } }`
+
+// VariantStock is one variant's stock from a ListingStockChanged.
+type VariantStock struct {
+	ID    string `json:"id"`
+	Stock int32  `json:"stock"`
+}
+
+// VariantStockUpdater is the optional Index capability that also projects variant
+// stock onto the nested skus (is_in_stock drives the sku.* filters and facets). It is
+// a separate interface so Index fakes need not grow a method; the consumer uses it
+// when the index offers it and the event carries variants.
+type VariantStockUpdater interface {
+	UpdateStockWithVariants(ctx context.Context, id string, stock int32, version int64, variants []VariantStock) error
+}
 
 // UpdateStock projects a stock change onto an existing document under the
 // stock_version guard. An absent document (404) is acknowledged as a no-op.
 func (o *OpenSearchIndex) UpdateStock(ctx context.Context, id string, stock int32, version int64) error {
+	return o.UpdateStockWithVariants(ctx, id, stock, version, nil)
+}
+
+// UpdateStockWithVariants is UpdateStock plus the per-variant stock of the nested
+// skus, under the same guard (a stale event touches neither).
+func (o *OpenSearchIndex) UpdateStockWithVariants(ctx context.Context, id string, stock int32, version int64, variants []VariantStock) error {
+	params := map[string]any{"stock": stock, "sv": version}
+	if len(variants) > 0 {
+		params["variants"] = variants
+	}
 	body, err := json.Marshal(map[string]any{
 		"script": map[string]any{
 			"lang":   "painless",
 			"source": stockScript,
-			"params": map[string]any{"stock": stock, "sv": version},
+			"params": params,
 		},
 	})
 	if err != nil {

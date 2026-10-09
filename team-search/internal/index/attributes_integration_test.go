@@ -208,3 +208,35 @@ func TestIT_Attr_TagsPendingKeepsStoredTags(t *testing.T) {
 		t.Errorf("re-classification with no variants must clear skus: %v", src["skus"])
 	}
 }
+
+// A ListingStockChanged with variants keeps the nested is_in_stock current, so a
+// sold-out variant stops satisfying sku.* filters; a stale event touches nothing.
+func TestIT_Attr_VariantStockEventUpdatesNestedInStock(t *testing.T) {
+	idx, _, _ := readyIndex(t)
+	d := phone("a", 10, nil, sku("v1", 5, "color:xanh-navy", "capacity:512gb"))
+	upsert(t, idx, d)
+	f := map[string]string{"sku.color": "xanh-navy", "sku.capacity": "512gb"}
+	if got := ids(srch(t, idx, f)); !got["a"] {
+		t.Fatalf("precondition: in-stock variant must match, got %v", got)
+	}
+	ctx := context.Background()
+	if err := idx.UpdateStockWithVariants(ctx, "a", 0, 20, []index.VariantStock{{ID: "v1", Stock: 0}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ids(srch(t, idx, f)); len(got) != 0 {
+		t.Errorf("sold-out variant still matches: %v", got)
+	}
+	// An older event (stock_version 15 < 20) must not resurrect it.
+	if err := idx.UpdateStockWithVariants(ctx, "a", 9, 15, []index.VariantStock{{ID: "v1", Stock: 9}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ids(srch(t, idx, f)); len(got) != 0 {
+		t.Errorf("stale stock event restored the variant: %v", got)
+	}
+	if err := idx.UpdateStockWithVariants(ctx, "a", 3, 30, []index.VariantStock{{ID: "v1", Stock: 3}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ids(srch(t, idx, f)); !got["a"] {
+		t.Errorf("restock must make the variant match again: %v", got)
+	}
+}

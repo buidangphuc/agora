@@ -160,7 +160,7 @@ func NewListingEventHandler(idx index.Index, embedder retrieval.EmbedClient, cla
 				return fmt.Errorf("unmarshal ListingStockChanged: %w", err)
 			}
 			// A malformed stock event is an error, never a silent ack: AD1 retries
-			// it and parks it on the DLQ. Variants are ignored (D13).
+			// it and parks it on the DLQ. Variants only refresh the nested skus' stock (below).
 			if sc.GetListingId() == "" {
 				return fmt.Errorf("ListingStockChanged has no listing id")
 			}
@@ -169,6 +169,15 @@ func NewListingEventHandler(idx index.Index, embedder retrieval.EmbedClient, cla
 			}
 			if version <= 0 {
 				return fmt.Errorf("ListingStockChanged %q: missing occurred_at", sc.GetListingId())
+			}
+			// Variant stock keeps the nested skus' is_in_stock current (a sold-out
+			// variant must stop matching sku.* filters); same stock_version guard.
+			if vu, ok := idx.(index.VariantStockUpdater); ok && len(sc.GetVariants()) > 0 {
+				vs := make([]index.VariantStock, 0, len(sc.GetVariants()))
+				for _, v := range sc.GetVariants() {
+					vs = append(vs, index.VariantStock{ID: v.GetId(), Stock: max(v.GetStock(), 0)})
+				}
+				return vu.UpdateStockWithVariants(ctx, sc.GetListingId(), sc.GetStock(), version, vs)
 			}
 			return idx.UpdateStock(ctx, sc.GetListingId(), sc.GetStock(), version)
 

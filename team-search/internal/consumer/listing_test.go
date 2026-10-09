@@ -385,3 +385,39 @@ func TestListingBaseInfoChanged_RefreshesSpuTags(t *testing.T) {
 		t.Error("outage must leave stored facet_tags untouched")
 	}
 }
+
+type variantIndex struct {
+	mockIndex
+	vcalls []index.VariantStock
+	vstock int32
+}
+
+func (v *variantIndex) UpdateStockWithVariants(_ context.Context, _ string, stock int32, _ int64, vs []index.VariantStock) error {
+	v.vstock, v.vcalls = stock, vs
+	return nil
+}
+
+func TestListingStockChanged_VariantsRefreshNestedStock(t *testing.T) {
+	idx := &variantIndex{}
+	ev := &listingv1.ListingStockChanged{ListingId: "l1", Stock: 4, Variants: []*listingv1.Variant{{Id: "v1", Stock: 0}, {Id: "v2", Stock: 4}}}
+	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.vcalls) != 2 || idx.vcalls[0] != (index.VariantStock{ID: "v1", Stock: 0}) || idx.vstock != 4 {
+		t.Errorf("variant stock not projected: %+v stock=%d", idx.vcalls, idx.vstock)
+	}
+	if len(idx.stockCalls) != 0 {
+		t.Errorf("must use the variant-aware update exclusively: %+v", idx.stockCalls)
+	}
+}
+
+func TestListingStockChanged_WithoutVariantsUsesPlainUpdate(t *testing.T) {
+	idx := &variantIndex{}
+	ev := &listingv1.ListingStockChanged{ListingId: "l1", Stock: 4}
+	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.stockCalls) != 1 || len(idx.vcalls) != 0 {
+		t.Errorf("stockCalls=%+v vcalls=%+v", idx.stockCalls, idx.vcalls)
+	}
+}
