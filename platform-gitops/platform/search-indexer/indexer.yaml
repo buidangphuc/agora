@@ -23,3 +23,5 @@ spec:
             - { name: KAFKA_ENABLED, value: "true" }
             - { name: KAFKA_LISTING_TOPIC, value: "listing.events" }
             - { name: KAFKA_CONSUMER_GROUP, value: "team-search-indexer" }
+            # Tag classification (AIService.ClassifyTags, scope ai.classify); fail-open to tags_pending.
+            - { name: UPSTREAM_AI_ADDR, value: "team-ai:50060" }

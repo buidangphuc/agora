@@ -34,7 +34,7 @@ features:
       data: "None: static `helm template` render of platform-gitops/charts/service."
     acceptance:
       - "When `charts/service` is rendered for team-ai with its service values"
-      - "Then a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway` and `app: prometheus`"
+      - "Then a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway`, `app: team-search-indexer` and `app: prometheus`"
     tags: [ops]
     status: automated
     covered_by: "ops/gitops_render.feature::team-ai renders an ingress allow-list"

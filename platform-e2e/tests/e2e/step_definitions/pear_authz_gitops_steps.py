@@ -71,8 +71,8 @@ def render_ai(gitops):
 
 
 @then(
-    "a NetworkPolicy selects app team-ai and its only ingress sources are app team-gateway and "
-    "app prometheus"
+    "a NetworkPolicy selects app team-ai and its only ingress sources are app team-gateway, "
+    "app team-search-indexer and app prometheus"
 )
 def ai_network_policy(gitops):
     policies = [d for d in gitops["docs"] if d["kind"] == "NetworkPolicy"]
@@ -92,5 +92,9 @@ def ai_network_policy(gitops):
         for peer in rule.get("from", [])
         if "podSelector" not in peer
     ]
-    assert sources == {"team-gateway", "prometheus"}, f"ingress pod sources: {sources}"
+    assert sources == {
+        "team-gateway",
+        "team-search-indexer",
+        "prometheus",
+    }, f"ingress pod sources: {sources}"
     assert not others, f"non-pod ingress sources are not allowed for team-ai: {others}"

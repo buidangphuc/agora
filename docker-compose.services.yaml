@@ -277,12 +277,17 @@ services:
         condition: service_healthy
       team-search-migrate:
         condition: service_completed_successfully
+      team-ai:
+        condition: service_started
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
       - OPENSEARCH_URL=http://opensearch:9200
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
+      # Tag classification during ingestion (AIService.ClassifyTags, service principal, scope ai.classify).
+      # A failed call never blocks ingestion: the listing is indexed with tags_pending.
+      - UPSTREAM_AI_ADDR=team-ai-svc:50060
       - ENV=local
 
   team-engagement:

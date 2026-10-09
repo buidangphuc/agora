@@ -10,4 +10,4 @@ Feature: The rendered GitOps manifests carry the deploy-runtime guarantees
 
   Scenario: team-ai renders an ingress allow-list
     When charts/service is rendered for team-ai with its service values
-    Then a NetworkPolicy selects app team-ai and its only ingress sources are app team-gateway and app prometheus
+    Then a NetworkPolicy selects app team-ai and its only ingress sources are app team-gateway, app team-search-indexer and app prometheus
