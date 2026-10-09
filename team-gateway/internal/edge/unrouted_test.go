@@ -17,6 +17,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	aiv1 "github.com/buidangphuc/team-gateway/generated/platform/ai/v1"
 	auditv1 "github.com/buidangphuc/team-gateway/generated/platform/audit/v1"
 	listingv1 "github.com/buidangphuc/team-gateway/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-gateway/generated/platform/promotion/v1"
@@ -63,6 +64,13 @@ func (hitVoucher) ValidateAndReserve(context.Context, *promotionv1.ValidateAndRe
 	return &promotionv1.ValidateAndReserveResponse{}, nil
 }
 
+type hitAI struct{ aiv1.AIServiceClient }
+
+func (hitAI) ClassifyTags(context.Context, *aiv1.ClassifyTagsRequest, ...grpc.CallOption) (*aiv1.ClassifyTagsResponse, error) {
+	upstreamHits.Add(1)
+	return &aiv1.ClassifyTagsResponse{}, nil
+}
+
 type hitAudit struct{ auditv1.AuditServiceClient }
 
 func (hitAudit) WriteAuditEvent(context.Context, *auditv1.WriteAuditEventRequest, ...grpc.CallOption) (*auditv1.WriteAuditEventResponse, error) {
@@ -89,7 +97,7 @@ func TestInternalRPCsAreNotRoutedAtTheEdge(t *testing.T) {
 	userToken := mint(t, key, "kid-1", time.Now().Add(time.Hour))
 
 	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"listing.read"}, time.Second, 0, 1000, 1000)
-	clients := &upstream.Clients{Listing: hitListing{}, Voucher: hitVoucher{}, Audit: hitAudit{}}
+	clients := &upstream.Clients{Listing: hitListing{}, Voucher: hitVoucher{}, Audit: hitAudit{}, AI: hitAI{}}
 	srv := httptest.NewServer(edge.NewMux(clients, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
 	t.Cleanup(srv.Close)
 
@@ -125,6 +133,7 @@ func TestInternalRPCsAreNotRoutedAtTheEdge(t *testing.T) {
 			"/platform.promotion.v1.VoucherService/CommitReservation",
 			"/platform.promotion.v1.VoucherService/ReleaseReservation",
 			"/platform.audit.v1.AuditService/WriteAuditEvent",
+			"/platform.ai.v1.AIService/ClassifyTags",
 		} {
 			if code, body := post(path); code != http.StatusNotImplemented || !strings.Contains(body, "unimplemented") {
 				t.Errorf("%s %s = %d %s, want 501 unimplemented", caller.name, path, code, body)

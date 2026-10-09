@@ -35,6 +35,7 @@ export const loadSearch = cache(async (key: string): Promise<SearchLoad> => {
       minPrice: s.minPrice,
       maxPrice: s.maxPrice,
       sortBy: SORT_BY[s.sort],
+      attrs: s.attrs,
       status: "published",
       page: s.page,
     });

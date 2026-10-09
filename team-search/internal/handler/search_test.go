@@ -52,6 +52,8 @@ func (m *mockIndex) Search(ctx context.Context, query string, filters map[string
 			PriceRanges: []index.FacetBucket{{Key: "0-100000", Count: 1}, {Key: "1000000+", Count: 1}},
 			Ratings:     []index.FacetBucket{{Key: "4", Count: 2}, {Key: "3", Count: 2}},
 			Sellers:     []index.FacetBucket{{Key: "seller_1", Count: 2}},
+			Tags:        []index.AttributeFacet{{Group: "connectivity", Buckets: []index.FacetBucket{{Key: "bluetooth-5-3", Count: 2}}}},
+			SKUs:        []index.AttributeFacet{{Group: "color", Buckets: []index.FacetBucket{{Key: "xanh-navy", Count: 1}, {Key: "den", Count: 1}}}},
 		},
 	}, nil
 }
@@ -130,6 +132,12 @@ func TestSearchHandler(t *testing.T) {
 		}
 		if len(f.GetSellers()) != 1 || f.GetSellers()[0].GetKey() != "seller_1" {
 			t.Errorf("sellers facet mismatch: %+v", f.GetSellers())
+		}
+		if g := f.GetTags(); len(g) != 1 || g[0].GetGroup() != "connectivity" || g[0].GetBuckets()[0].GetKey() != "bluetooth-5-3" || g[0].GetBuckets()[0].GetCount() != 2 {
+			t.Errorf("tags facet mismatch: %+v", g)
+		}
+		if g := f.GetSkus(); len(g) != 1 || g[0].GetGroup() != "color" || len(g[0].GetBuckets()) != 2 || g[0].GetBuckets()[0].GetKey() != "xanh-navy" {
+			t.Errorf("skus facet mismatch: %+v", g)
 		}
 	})
 

@@ -70,5 +70,5 @@ func run() error {
 		slog.String("group", settings.Kafka.ConsumerGroup),
 		slog.String("opensearch_index", settings.OpenSearch.Index),
 	)
-	return cons.Run(ctx, consumer.ListingEventHandlerWithEmbedder(res.Index, res.EmbedClient), logger)
+	return cons.Run(ctx, consumer.NewListingEventHandler(res.Index, res.EmbedClient, res.Classifier), logger)
 }

@@ -78,12 +78,21 @@ message FacetBucket {
   int64 count = 2;
 }
 
+// One dynamic facet group (e.g. "color") with its value buckets; key = canonical tag slug,
+// count = number of matching LISTINGS (add-tag-classifier-filter-enrichment).
+message AttributeFacet {
+  string group = 1;
+  repeated FacetBucket buckets = 2;
+}
+
 // Facet aggregations computed alongside hits (OpenSearch aggregations).
 message Facets {
   repeated FacetBucket categories = 1;   // key = category_id
   repeated FacetBucket price_ranges = 2; // key = bucket label e.g. "0-100000"
   repeated FacetBucket ratings = 3;      // key = rating floor e.g. "4" (>=4 stars)
   repeated FacetBucket sellers = 4;      // key = seller_id
+  repeated AttributeFacet tags = 5;      // SPU tags by group; filter key "tag.<group>"
+  repeated AttributeFacet skus = 6;      // in-stock variant attributes by group; filter key "sku.<group>"
 }
 
 message SuggestRequest {

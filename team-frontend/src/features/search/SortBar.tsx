@@ -32,6 +32,7 @@ export function SortBar({
     category: "",
     seller: "",
     sort: "relevance",
+    attrs: {},
     page: 1,
   };
   const hrefs = Object.fromEntries(

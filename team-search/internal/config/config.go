@@ -21,6 +21,7 @@ type Settings struct {
 	Server        Server
 	OpenSearch    OpenSearch
 	Retrieval     Retrieval
+	Taxonomy      Taxonomy
 	Kafka         Kafka
 	Tombstone     Tombstone
 	Database      Database
@@ -56,6 +57,13 @@ type Retrieval struct {
 	HybridRRFK         int     `env:"HYBRID_RRF_K" default:"60"`
 	LexicalWeight      float64 `env:"HYBRID_LEXICAL_WEIGHT" default:"1.0"`
 	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
+}
+
+// Taxonomy points the indexer at team-ai's gRPC AIService (ClassifyTags), which
+// supplies the canonical SPU tags and per-variant attributes stored for dynamic
+// facets. Empty disables classification: listings are indexed without tags.
+type Taxonomy struct {
+	AIAddr string `env:"UPSTREAM_AI_ADDR" default:""`
 }
 
 // Kafka configures the listing-events consumer (ADR-0002).

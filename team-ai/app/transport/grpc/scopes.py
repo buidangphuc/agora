@@ -28,6 +28,9 @@ AI_USE_SCOPE: Final = "ai:use"
 LISTING_WRITE_SCOPE: Final = "listing.write"
 LISTING_READ_SCOPE: Final = "listing.read"
 ADMIN_SCOPE: Final = "admin"
+# Internal only: held by service principals (team-search's indexer), never granted to a
+# user role by team-identity and never in the gateway's public scopes.
+AI_CLASSIFY_SCOPE: Final = "ai.classify"
 
 # platform.ai.v1.AIService: RPC name -> scopes the principal must hold (all).
 # ShoppingAssistant is absent on purpose: see ``ai_use_scopes``.
@@ -37,6 +40,8 @@ AI_SERVICE_SCOPES: Final[dict[str, tuple[str, ...]]] = {
     "ChatCopilot": (LISTING_WRITE_SCOPE,),  # + seller_id rule, see AIServicer
     # Stateless, rendered on the public product page: anonymous keeps it.
     "SummarizeReviews": (LISTING_READ_SCOPE,),
+    # Internal service-to-service (see AIServicer.ClassifyTags: also requires a service principal).
+    "ClassifyTags": (AI_CLASSIFY_SCOPE,),
 }
 
 

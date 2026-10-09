@@ -5,6 +5,7 @@ import {
   buildSearchHref,
   clearFiltersHref,
   parseSearchParams,
+  toggleAttr,
 } from "./url";
 
 describe("parseSearchParams", () => {
@@ -16,6 +17,7 @@ describe("parseSearchParams", () => {
       minPrice: undefined,
       maxPrice: undefined,
       sort: "relevance",
+      attrs: {},
       page: 1,
     });
   });
@@ -38,6 +40,7 @@ describe("parseSearchParams", () => {
       minPrice: 100000,
       maxPrice: 500000,
       sort: "price_asc",
+      attrs: {},
       page: 3,
     });
   });
@@ -145,5 +148,51 @@ describe("filters", () => {
     expect(clearFiltersHref(parseSearchParams({ category: "c1" }))).toBe(
       "/search",
     );
+  });
+});
+
+describe("dynamic facet params (tag.<group> / sku.<group>)", () => {
+  it("parses comma lists, drops malformed groups and slugs, ignores unknown prefixes", () => {
+    const s = parseSearchParams({
+      "sku.color": "xanh-navy, den,den",
+      "tag.connectivity": "bluetooth-5-3",
+      "tag.Bad": "x",
+      "sku.size": "Xl L",
+      "foo.color": "x",
+      "sku.ram": "",
+    });
+    expect(s.attrs).toEqual({
+      "sku.color": ["xanh-navy", "den"],
+      "tag.connectivity": ["bluetooth-5-3"],
+    });
+  });
+
+  it("round-trips through buildSearchHref in stable key order and resets the page", () => {
+    const s = parseSearchParams({
+      q: "ao",
+      page: "3",
+      "tag.feature": "chong-nuoc",
+      "sku.color": "den,trang",
+    });
+    expect(buildSearchHref(s, { page: 3 })).toBe(
+      "/search?q=ao&sku.color=den%2Ctrang&tag.feature=chong-nuoc&page=3",
+    );
+    expect(buildSearchHref(s)).not.toContain("page=");
+    const again = parseSearchParams(
+      Object.fromEntries(
+        new URL(`http://x${buildSearchHref(s)}`).searchParams.entries(),
+      ),
+    );
+    expect(again.attrs).toEqual(s.attrs);
+  });
+
+  it("toggles one slug, drops an emptied group, counts groups and clears with the filters", () => {
+    const s = parseSearchParams({ q: "ao", "sku.color": "den" });
+    expect(toggleAttr(s.attrs, "sku.color", "trang")).toEqual({
+      "sku.color": ["den", "trang"],
+    });
+    expect(toggleAttr(s.attrs, "sku.color", "den")).toEqual({});
+    expect(activeFilterCount(s)).toBe(1);
+    expect(clearFiltersHref(s)).toBe("/search?q=ao");
   });
 });

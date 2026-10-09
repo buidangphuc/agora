@@ -4,7 +4,10 @@ from fastapi import Request
 
 from app.core.redaction import RedactionPolicy
 from app.modules.business.ai_assistant.service import AIAssistantService
-from app.modules.business.tag_classifier.service import TagClassifierService
+from app.modules.business.tag_classifier.service import (
+    TagClassifierService,
+    shared_tag_classifier,
+)
 
 
 def get_ai_service(request: Request) -> AIAssistantService:
@@ -35,7 +38,7 @@ def get_tag_classifier_service(request: Request) -> TagClassifierService:
         service = getattr(resources, "tag_classifier_service", None)
         if service is not None:
             return service
-        service = TagClassifierService()
+        service = shared_tag_classifier()
         resources.tag_classifier_service = service
         return service
-    return TagClassifierService()
+    return shared_tag_classifier()

@@ -3,10 +3,16 @@ import Link from "next/link";
 import { Tag } from "@/components/ui/Tag";
 import { focusRing } from "@/components/ui/focus";
 import {
+  attributeGroupLabel,
+  attributeSlugLabel,
+  splitAttrKey,
+} from "./attributeLabels";
+import {
   type SearchState,
   activeFilterCount,
   buildSearchHref,
   clearFiltersHref,
+  toggleAttr,
 } from "./url";
 
 function formatVnd(n: number): string {
@@ -60,6 +66,17 @@ export function ActiveFilters({
         maxPrice: undefined,
       }),
     });
+  }
+  for (const [key, slugs] of Object.entries(state.attrs)) {
+    for (const slug of slugs) {
+      tags.push({
+        key: `${key}:${slug}`,
+        label: `${attributeGroupLabel(splitAttrKey(key).group)}: ${attributeSlugLabel(slug)}`,
+        href: buildSearchHref(state, {
+          attrs: toggleAttr(state.attrs, key, slug),
+        }),
+      });
+    }
   }
   if (tags.length === 0) return null;
 

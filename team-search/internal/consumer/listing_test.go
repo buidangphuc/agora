@@ -15,6 +15,7 @@ import (
 	"github.com/buidangphuc/team-search/internal/consumer"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
 
 type mockIndex struct {
@@ -288,5 +289,135 @@ func TestListingEventHandler_CreatedAtOnlyFromCreated(t *testing.T) {
 		if !want && got != nil {
 			t.Errorf("%v must not carry created_at, got %d", ct, *got)
 		}
+	}
+}
+
+func classified() *taxonomy.MockClassifier {
+	return &taxonomy.MockClassifier{Result: taxonomy.Classification{
+		FacetTags: []string{"connectivity:bluetooth-5-3"},
+		SKUs: []index.SkuDoc{
+			{VariantID: "v1", Stock: 3, InStock: true, Attrs: []string{"color:xanh-navy", "capacity:512gb"}},
+		},
+	}}
+}
+
+func tagChanged(variants ...*listingv1.Variant) *listingv1.ListingChanged {
+	return &listingv1.ListingChanged{
+		Listing: &listingv1.Listing{
+			Id: "l-tag", Title: "Tai nghe Bluetooth 5.3", Description: "ANC", CategoryId: "cat-electronics",
+			Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED, Variants: variants,
+		},
+		ChangeType: listingv1.ChangeType_CHANGE_TYPE_CREATED,
+	}
+}
+
+func TestListingEventHandler_IndexesClassifiedTagsAndSkus(t *testing.T) {
+	idx := &mockIndex{}
+	cls := classified()
+	h := consumer.NewListingEventHandler(idx, nil, cls)
+	v := &listingv1.Variant{Id: "v1", Name: "Xanh Navy / 512GB", Sku: "SKU-1", Price: 100, Stock: 3}
+	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingChanged", tagChanged(v))); err != nil {
+		t.Fatal(err)
+	}
+	if len(cls.Calls) != 1 || cls.Calls[0].Title != "Tai nghe Bluetooth 5.3" || cls.Calls[0].CategoryID != "cat-electronics" ||
+		len(cls.Calls[0].Variants) != 1 || cls.Calls[0].Variants[0].Name != "Xanh Navy / 512GB" || cls.Calls[0].Variants[0].Stock != 3 {
+		t.Errorf("classifier input = %+v", cls.Calls)
+	}
+	d := idx.lastUpsertDoc
+	if len(d.FacetTags) != 1 || d.FacetTags[0] != "connectivity:bluetooth-5-3" || len(d.SKUs) != 1 || d.SKUs[0].Attrs[0] != "color:xanh-navy" || d.TagsPending {
+		t.Errorf("doc = %+v", d)
+	}
+}
+
+// A classifier outage must not fail the ingestion or block the listing: the doc is
+// written (searchable by title) and marked tags_pending so the index keeps old tags.
+func TestListingEventHandler_ClassifierOutageDoesNotFailIngestion(t *testing.T) {
+	idx := &mockIndex{}
+	cls := &taxonomy.MockClassifier{Err: errors.New("team-ai down")}
+	h := consumer.NewListingEventHandler(idx, nil, cls)
+	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingChanged", tagChanged())); err != nil {
+		t.Fatalf("handler failed on classifier outage: %v", err)
+	}
+	d := idx.lastUpsertDoc
+	if d.ID != "l-tag" || d.Title == "" || !d.TagsPending || len(d.FacetTags) != 0 || len(d.SKUs) != 0 {
+		t.Errorf("doc = %+v, want indexed with tags_pending and no tags", d)
+	}
+}
+
+func TestListingEventHandler_NilClassifierIndexesWithoutTags(t *testing.T) {
+	idx := &mockIndex{}
+	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil,
+		makeEnvelope(t, "platform.listing.v1.ListingChanged", tagChanged())); err != nil {
+		t.Fatal(err)
+	}
+	if d := idx.lastUpsertDoc; d.TagsPending || d.FacetTags != nil || d.SKUs != nil {
+		t.Errorf("doc = %+v", d)
+	}
+}
+
+func TestListingBaseInfoChanged_RefreshesSpuTags(t *testing.T) {
+	idx := &mockIndex{}
+	cls := classified()
+	h := consumer.NewListingEventHandler(idx, nil, cls)
+	ev := &listingv1.ListingBaseInfoChanged{ListingId: "l-tag", Title: "Tai nghe Bluetooth 5.3", CategoryId: "cat-electronics", SellerId: "s1",
+		Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED}
+	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingBaseInfoChanged", ev)); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := idx.lastPartialDoc["facet_tags"].([]string); len(got) != 1 || got[0] != "connectivity:bluetooth-5-3" {
+		t.Errorf("partial = %v", idx.lastPartialDoc)
+	}
+	if idx.lastPartialDoc["tags_pending"] != false {
+		t.Errorf("tags_pending = %v", idx.lastPartialDoc["tags_pending"])
+	}
+	if _, has := idx.lastPartialDoc["skus"]; has {
+		t.Error("a base-info event carries no variants and must not touch skus")
+	}
+
+	cls.Err = errors.New("down")
+	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingBaseInfoChanged", ev)); err != nil {
+		t.Fatalf("outage failed the event: %v", err)
+	}
+	if idx.lastPartialDoc["tags_pending"] != true {
+		t.Errorf("outage must set tags_pending: %v", idx.lastPartialDoc)
+	}
+	if _, has := idx.lastPartialDoc["facet_tags"]; has {
+		t.Error("outage must leave stored facet_tags untouched")
+	}
+}
+
+type variantIndex struct {
+	mockIndex
+	vcalls []index.VariantStock
+	vstock int32
+}
+
+func (v *variantIndex) UpdateStockWithVariants(_ context.Context, _ string, stock int32, _ int64, vs []index.VariantStock) error {
+	v.vstock, v.vcalls = stock, vs
+	return nil
+}
+
+func TestListingStockChanged_VariantsRefreshNestedStock(t *testing.T) {
+	idx := &variantIndex{}
+	ev := &listingv1.ListingStockChanged{ListingId: "l1", Stock: 4, Variants: []*listingv1.Variant{{Id: "v1", Stock: 0}, {Id: "v2", Stock: 4}}}
+	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.vcalls) != 2 || idx.vcalls[0] != (index.VariantStock{ID: "v1", Stock: 0}) || idx.vstock != 4 {
+		t.Errorf("variant stock not projected: %+v stock=%d", idx.vcalls, idx.vstock)
+	}
+	if len(idx.stockCalls) != 0 {
+		t.Errorf("must use the variant-aware update exclusively: %+v", idx.stockCalls)
+	}
+}
+
+func TestListingStockChanged_WithoutVariantsUsesPlainUpdate(t *testing.T) {
+	idx := &variantIndex{}
+	ev := &listingv1.ListingStockChanged{ListingId: "l1", Stock: 4}
+	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.stockCalls) != 1 || len(idx.vcalls) != 0 {
+		t.Errorf("stockCalls=%+v vcalls=%+v", idx.stockCalls, idx.vcalls)
 	}
 }

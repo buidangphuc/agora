@@ -107,3 +107,57 @@ describe("searchListings paging", () => {
     await expect(searchListings("ao")).rejects.toThrow("search down");
   });
 });
+
+describe("searchListings dynamic facets", () => {
+  it("sends tag.* / sku.* selections as comma-joined request filters", async () => {
+    rpc.mockResolvedValueOnce(pageOf(1, ""));
+    await searchListings("tai nghe", {
+      attrs: {
+        "sku.color": ["xanh-navy", "den"],
+        "tag.connectivity": ["wifi-6"],
+        "sku.ram": [],
+      },
+    });
+    expect(rpc.mock.calls[0]?.[0].filters).toEqual({
+      status: "published",
+      "sku.color": "xanh-navy,den",
+      "tag.connectivity": "wifi-6",
+    });
+  });
+
+  it("maps facets.tags and facets.skus (bigint counts) and an empty response", async () => {
+    rpc.mockResolvedValueOnce({
+      ...pageOf(1, ""),
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [
+          { group: "connectivity", buckets: [{ key: "wifi-6", count: 2n }] },
+        ],
+        skus: [{ group: "color", buckets: [] }],
+      },
+    });
+    const res = await searchListings("x");
+    expect(res.facets.tags).toEqual([
+      { group: "connectivity", buckets: [{ key: "wifi-6", count: 2 }] },
+    ]);
+    expect(res.facets.skus).toEqual([]); // an empty group is not rendered
+
+    rpc.mockResolvedValueOnce({
+      ...pageOf(1, ""),
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [],
+        skus: [],
+      },
+    });
+    const old = await searchListings("x");
+    expect(old.facets.tags).toEqual([]);
+    expect(old.facets.skus).toEqual([]);
+  });
+});
