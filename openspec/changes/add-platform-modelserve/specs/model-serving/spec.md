@@ -53,9 +53,9 @@ The model server router SHALL track pending in-flight requests and enforce a max
 
 ### Requirement: GitOps deployment and network isolation
 
-The platform model serving capability SHALL be deployable via GitOps manifests in `platform-gitops` with separate Deployments per role (router, embed, rerank, vLLM), explicit resource limits / node affinities, and a Kubernetes NetworkPolicy ensuring only `team-ai` (and authorized platform services) can access the router port `:8100`.
+The platform model serving capability SHALL be deployable via GitOps manifests in `platform-gitops` with separate Deployments per role (router, embed, rerank, vLLM), explicit resource limits / node affinities, and a Kubernetes NetworkPolicy ensuring only the model-consuming platform services (`team-ai`, and `team-search` for query/index-time embedding and reranking) and prometheus can access the router port `:8100`.
 
-#### Scenario: NetworkPolicy restricts access to team-ai
+#### Scenario: NetworkPolicy admits only team-ai, team-search and prometheus
 
 - **WHEN** network traffic targets port `:8100` of `platform-modelserve` in Kubernetes
-- **THEN** only pods labeled `app: team-ai` (or internal prometheus scrapers) are permitted ingress
+- **THEN** only pods labeled `app: team-ai`, `app: team-search` or `app: team-search-indexer` (or internal prometheus scrapers) are permitted ingress
