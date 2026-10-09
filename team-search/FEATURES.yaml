@@ -917,3 +917,413 @@ features:
       VERIFIED BY team-search/internal/consumer/listing_test.go TestListingEventHandler_ClassifierOutageDoesNotFailIngestion and
       internal/index/attributes_integration_test.go TestIT_Attr_TagsPendingKeepsStoredTags. Not verifiable end to end: it needs
       team-ai stopped, which no scenario may do to the shared stack. Reason also recorded in the change's design.md (D6).
+
+  # change add-hybrid-retrieval-platform (spec search-retrieval): one entry per spec scenario, titles equal the spec's.
+
+  - id: search.hrp-lexical-strategy-returns-matching-keyword-candidates
+    title: "Lexical strategy returns matching keyword candidates"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: SEARCH_MODE_LEXICAL returns the keyword match with a positive BM25 score."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing whose title carries a unique keyword is searchable"
+      - "When a buyer searches for that keyword in SEARCH_MODE_LEXICAL through the gateway"
+      - "Then the listing is among the hits with a positive score"
+    tags: [buyer, search, hybrid]
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Lexical strategy returns matching keyword candidates"
+
+  - id: search.hrp-semantic-strategy-returns-dense-vector-nearest-neighbors
+    title: "Semantic strategy returns dense vector nearest neighbors"
+    persona: buyer
+    priority: P1
+    summary: "SEARCH_MODE_SEMANTIC finds a listing by a word that is only a semantic alias of its title."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing titled with a unique word and an embedded unrelated listing"
+      - "When a buyer searches for the semantic alias of that word in SEARCH_MODE_SEMANTIC"
+      - "Then the listing with that word is the first hit and the unrelated one ranks after it or is absent"
+      - "And a lexical search for the same alias finds neither listing"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-multi-strategy-retrieval-executes-strategies-concurrently
+    title: "Multi-strategy retrieval executes strategies concurrently"
+    persona: buyer
+    priority: P1
+    summary: "Both legs overlap in time."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a hybrid query executes against the retrieval engine"
+      - "Then both lexical and semantic retrieval stages run concurrently within configured deadlines"
+    tags: [buyer, search, hybrid]
+    status: not-testable
+    notes: "Verified by a Go unit test (see the **VERIFIED BY** line of the delta spec and design.md, E2E verification): team-search/internal/retrieval/spec_hybrid_test.go TestEngine_StrategiesRunConcurrently."
+
+  - id: search.hrp-items-present-in-multiple-candidate-lists-are-boosted
+    title: "Items present in multiple candidate lists are boosted"
+    persona: buyer
+    priority: P1
+    summary: "RRF boost for an item in both lists."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When an item appears in both lexical and semantic candidate lists"
+      - "Then its fused RRF score is strictly greater than if it appeared in only one list"
+    tags: [buyer, search, hybrid]
+    status: not-testable
+    notes: "Verified by a Go unit test (see the **VERIFIED BY** line of the delta spec and design.md, E2E verification): team-search/internal/retrieval/fusion_test.go TestRRF_BoostsItemsAppearingInMultipleLists."
+
+  - id: search.hrp-rrf-constant-k-stabilizes-rank-position-weights
+    title: "RRF constant k stabilizes rank position weights"
+    persona: buyer
+    priority: P1
+    summary: "k=60 flattens the rank curve."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When candidates are merged using RRF with parameter k=60"
+      - "Then rank scores decrease smoothly without outlier score dominance"
+    tags: [buyer, search, hybrid]
+    status: not-testable
+    notes: "Verified by a Go unit test (see the **VERIFIED BY** line of the delta spec and design.md, E2E verification): team-search/internal/retrieval/spec_hybrid_test.go TestRRF_ConstantKFlattensRankScores."
+
+  - id: search.hrp-strategy-weights-scale-individual-strategy-influence
+    title: "Strategy weights scale individual strategy influence"
+    persona: buyer
+    priority: P1
+    summary: "Strategy weights are deployment configuration."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When strategy weights are adjusted"
+      - "Then the higher-weighted strategy exerts proportional influence on the final candidate ordering"
+    tags: [buyer, search, hybrid]
+    status: not-testable
+    notes: "Verified by a Go unit test (see the **VERIFIED BY** line of the delta spec and design.md, E2E verification): team-search/internal/retrieval/fusion_test.go TestRRF_WeightsScaleStrategyInfluence."
+
+  - id: search.hrp-semantic-strategy-timeout-degrades-to-lexical-results
+    title: "Semantic strategy timeout degrades to lexical results"
+    persona: buyer
+    priority: P1
+    summary: "A slow embedding (4 s) must not hold the search: lexical hits come back in under 3.5 s."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with a unique keyword is embedded and searchable"
+      - "When a buyer searches for that keyword plus a slow-embedding directive in SEARCH_MODE_HYBRID"
+      - "Then the search answers 200 with the listing among the hits well before the embedding would finish"
+      - "And the TEI fake did receive the slow embedding request"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-model-server-unavailability-fails-open
+    title: "Model server unavailability fails open"
+    persona: buyer
+    priority: P1
+    summary: "With the modelserve router stopped, a hybrid search still answers from lexical."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with a unique keyword is embedded and searchable"
+      - "And the modelserve router is stopped"
+      - "When a buyer searches for that keyword in SEARCH_MODE_HYBRID through the gateway"
+      - "Then the search answers 200 with the listing among the hits"
+    tags: [buyer, search, hybrid, destructive]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive: stops the modelserve-router container (restored in teardown); serial lane only."
+
+  - id: search.hrp-degraded-search-responses-maintain-facet-aggregations
+    title: "Degraded search responses maintain facet aggregations"
+    persona: buyer
+    priority: P1
+    summary: "A degraded hybrid search returns the same facets as the lexical search (categories, price ranges, sellers; no rating is indexed)."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given two embedded listings with a unique keyword differ in price"
+      - "When a buyer searches for that keyword plus a failing-embedding directive in SEARCH_MODE_HYBRID"
+      - "Then the TEI fake rejected the embedding of that query"
+      - "And the facet counts of the degraded response equal those of the lexical search and count both listings"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-unspecified-search-mode-defaults-to-hybrid
+    title: "Unspecified search mode defaults to hybrid"
+    persona: buyer
+    priority: P1
+    summary: "No search_mode behaves as hybrid: a semantic-only alias still finds the listing and the embedding was requested."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing titled with a unique word"
+      - "When a buyer searches for the semantic alias of that word without a search mode"
+      - "Then the listing is among the hits although a lexical search for the alias finds nothing"
+      - "And the TEI fake received an embedding request for that query"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-explicit-lexical-mode-skips-vector-embedding
+    title: "Explicit lexical mode skips vector embedding"
+    persona: buyer
+    priority: P1
+    summary: "SEARCH_MODE_LEXICAL never calls the model server (observed on the fake's request log, with a hybrid positive control)."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with a unique keyword is embedded and searchable"
+      - "When a buyer searches for that keyword plus a unique word in SEARCH_MODE_LEXICAL through the gateway"
+      - "Then the listing is among the hits"
+      - "And the TEI fake received no embedding request for that query"
+      - "And the same query in SEARCH_MODE_HYBRID does reach the TEI fake"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-explicit-semantic-mode-queries-vector-index
+    title: "Explicit semantic mode queries vector index"
+    persona: buyer
+    priority: P1
+    summary: "SEARCH_MODE_SEMANTIC ranks the nearest listing first and requests the query embedding."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing titled with a unique word"
+      - "When a buyer searches for the semantic alias of that word in SEARCH_MODE_SEMANTIC"
+      - "Then the listing is the first hit"
+      - "And the TEI fake received an embedding request for that query"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-reranker-scores-top-candidates
+    title: "Reranker scores top candidates"
+    persona: buyer
+    priority: P1
+    summary: "With ENABLE_RERANKER the top fused candidates go to /rerank and the reranker order is applied."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given three embedded listings share a unique keyword"
+      - "When a buyer searches for that keyword in SEARCH_MODE_HYBRID, then again with a reverse-rerank directive"
+      - "Then the TEI fake received a rerank request listing those candidates"
+      - "And the three listings come back in the opposite order of the plain search"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). Expected RED until fixed: team-search HTTPRerankClient parses {\"results\":[...]} but TEI /rerank (and the router, which passes it through) answers a bare list, so the reranker order is never applied; see the e2e report."
+
+  - id: search.hrp-reranker-failure-falls-back-to-rrf-order
+    title: "Reranker failure falls back to RRF order"
+    persona: buyer
+    priority: P1
+    summary: "A failing /rerank leaves the RRF order untouched."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given three embedded listings share a unique keyword"
+      - "When a buyer searches for that keyword in SEARCH_MODE_HYBRID, then again with a failing-rerank directive"
+      - "Then the TEI fake answered the rerank request with a failure"
+      - "And the search answers 200 with the three listings in the same order as the plain search"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-published-listing-receives-embedding-at-index-time
+    title: "Published listing receives embedding at index time"
+    persona: seller
+    priority: P1
+    summary: "The indexer vectorizes a published listing through the model server."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: seller
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a seller publishes a listing with a unique title through the gateway"
+      - "Then the read-model document holds a 384 dimension embedding that is the model server's vector of its text"
+      - "And the document is not marked vector_pending"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-embedding-failure-marks-vector-pending-without-dlq
+    title: "Embedding failure marks vector_pending without DLQ"
+    persona: seller
+    priority: P1
+    summary: "A failing embedding indexes the listing with vector_pending and parks nothing on the DLQ."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: seller
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "When a seller publishes a listing whose title carries a failing-embedding directive"
+      - "Then the listing is indexed and searchable with vector_pending true and no embedding"
+      - "And no record of the listing is parked on the listing events DLQ"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). Also green on a stack without the overlay (every embedding fails there)."
+
+  - id: search.hrp-fine-grained-price-or-status-update-preserves-existing-embedding
+    title: "Fine-grained price or status update preserves existing embedding"
+    persona: seller
+    priority: P1
+    summary: "A ListingPricingChanged updates the price and leaves the vector alone."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: seller
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing whose read-model document is embedded"
+      - "When a ListingPricingChanged with a new price and a newer occurred_at is published to listing.events"
+      - "Then the document shows the new price and the same embedding, still not vector_pending"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-replaying-listing-events-generates-dense-embeddings
+    title: "Replaying listing events generates dense embeddings"
+    persona: seller
+    priority: P1
+    summary: "A second indexer with a new group replays listing.events onto a new index."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: seller
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing whose read-model document is embedded"
+      - "When a second indexer with a new consumer group replays listing.events onto a new index"
+      - "Then the new index holds that listing with its text and a 384 dimension embedding"
+    tags: [seller, search, hybrid, destructive, slow]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive @slow: runs a short-lived indexer container reading the whole topic (image TS_IMAGE, default agora-team-search:local); serial lane only."
+
+  - id: search.hrp-version-guard-prevents-stale-events-during-re-indexing
+    title: "Version guard prevents stale events during re-indexing"
+    persona: seller
+    priority: P1
+    summary: "A stale ListingChanged is rejected by the external version guard."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: seller
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing whose read-model document is embedded"
+      - "When a ListingChanged UPDATED with another title and an occurred_at older than the creation is published to listing.events"
+      - "Then the read-model document keeps its title and embedding"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-search-within-fusion-window-executes-multi-strategy-fusion
+    title: "Search within fusion window executes multi-strategy fusion"
+    persona: buyer
+    priority: P1
+    summary: "Inside the window both legs contribute: a lexical-only and a semantic-only listing are in one hybrid page."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing matching a keyword lexically and an embedded listing matching its alias only semantically"
+      - "When a buyer searches for the keyword and the alias in SEARCH_MODE_HYBRID, first page"
+      - "Then both listings are among the hits although a lexical search finds only the first one"
+      - "And the TEI fake received an embedding request for that query"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-deep-pagination-beyond-fusion-window-falls-back-to-bm25
+    title: "Deep pagination beyond fusion window falls back to BM25"
+    persona: buyer
+    priority: P1
+    summary: "Cursor 250 (past the 200 window) is served by the lexical offset query: no embedding is requested."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given a published listing with a unique keyword is embedded and searchable"
+      - "When a buyer searches for that keyword plus a unique word in SEARCH_MODE_HYBRID with the cursor 250"
+      - "Then the answer is 200 with the same total as the lexical search at that cursor"
+      - "And the TEI fake received no embedding request for that query"
+      - "And the same query in SEARCH_MODE_HYBRID at the first page does reach the TEI fake"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
