@@ -387,3 +387,34 @@ func TestOpenIsIdempotentForEngagementSchema(t *testing.T) {
 		t.Fatalf("rows after reopen = %d", got)
 	}
 }
+
+func TestExportRelationWritesReadableParquetForTablesAndViews(t *testing.T) {
+	ctx := context.Background()
+	w, err := Open(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{{EventID: "e1", EventType: "view", ListingID: "l1", OccurredAt: at}}); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	for _, rel := range []string{warehouse.TableName, warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName} {
+		dst := dir + "/" + rel + ".parquet"
+		if err := w.ExportRelation(ctx, rel, dst); err != nil {
+			t.Fatalf("export %s: %v", rel, err)
+		}
+		var n int
+		if err := w.DB().QueryRow("SELECT COUNT(*) FROM read_parquet('" + dst + "')").Scan(&n); err != nil {
+			t.Fatalf("read back %s: %v", rel, err)
+		}
+		if want := count(t, w, rel); n != want {
+			t.Errorf("%s: parquet rows = %d, table rows = %d", rel, n, want)
+		}
+	}
+	var user string
+	if err := w.DB().QueryRow("SELECT user_key FROM read_parquet('" + dir + "/tracking_events_resolved.parquet')").Scan(&user); err != nil || user == "" {
+		t.Errorf("resolved export user_key = %q, %v", user, err)
+	}
+}

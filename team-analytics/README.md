@@ -63,7 +63,7 @@ Database-per-service; there are no SQL migration files.
 
 - Schema is applied at boot by the writer: `CREATE TABLE IF NOT EXISTS`, then `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for every schema column (additive only), then `CREATE OR REPLACE VIEW ga4_events`. The BigQuery adapter creates its tables at boot and treats "already exists" as success. `warehouse.Schema` and `OrderFactsSchema` are the single source for both adapters.
 - DuckDB is an embedded file (`DUCKDB_PATH`, default `/data/analytics.duckdb`) on the `analytics_data` volume in the root compose. The query service reuses the writer's `*sql.DB` because DuckDB holds an exclusive file lock.
-- Parquet export (`internal/export`): DuckDB only. At start and then every `PARQUET_EXPORT_INTERVAL_SECONDS`, `tracking_events` is written to `PARQUET_EXPORT_PATH.tmp` and renamed over `PARQUET_EXPORT_PATH`, so readers never see a partial file. Enabled only when the path is non-empty and the interval is positive. In the root compose it writes `/data/tracking_events.parquet` every 300s; `platform-recsys` (profile `jobs`) mounts the volume read-only and reads it. `order_facts` is not exported.
+- Parquet export (`internal/export`): DuckDB only. At start and then every `PARQUET_EXPORT_INTERVAL_SECONDS`, four files are written into the directory of `PARQUET_EXPORT_PATH`: `tracking_events.parquet` (the path itself), `tracking_events_resolved.parquet` (stitched `user_key`, `ingested_at`), `engagement_facts.parquet` and `order_facts.parquet`. Each is written to `<file>.tmp` and renamed over the target, so readers never see a partial file. A failure on one file is logged and does not block the others; the previous version of that file is kept. Enabled only when the path is non-empty and the interval is positive. In the root compose it writes `/data/*.parquet` every 300s; `platform-recsys` (profile `jobs`) and `platform-featurestore` (profile `featurestore`) mount the volume read-only and read it.
 - BigQuery (`WAREHOUSE_DRIVER=bigquery`) is write-only: no query path and no Parquet export; it is only unit/parity-tested.
 
 ## 4. Configuration
@@ -94,7 +94,7 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `BIGQUERY_PROJECT` | empty | Required for `bigquery` |
 | `BIGQUERY_DATASET` | `analytics` | Required for `bigquery` |
 | `BIGQUERY_TABLE` | `tracking_events` | Tracking table; order facts go to `order_facts` in the same dataset |
-| `PARQUET_EXPORT_PATH` | empty | Export disabled when empty |
+| `PARQUET_EXPORT_PATH` | empty | Export disabled when empty; the other three files go beside it |
 | `PARQUET_EXPORT_INTERVAL_SECONDS` | `0` | 0 disables; must be >= 0 |
 | `BATCH_MAX_SIZE` | `500` | Must be > 0 |
 | `BATCH_FLUSH_INTERVAL_SECONDS` | `2` | 0 disables the interval flush (size and shutdown flush only) |
