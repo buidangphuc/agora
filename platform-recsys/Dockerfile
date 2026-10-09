@@ -23,5 +23,5 @@ RUN useradd --uid 1001 --create-home recsys
 USER 1001
 
 # Batch entrypoint. Config is entirely env-driven (see .env.example); the
-# platform-gitops CronJob supplies WAREHOUSE_DRIVER, QDRANT_URL, REDIS_*, ALS knobs.
+# platform-gitops CronJob supplies DATASET_DIR, QDRANT_URL, REDIS_*, ALS knobs.
 ENTRYPOINT ["python", "-m", "recsys"]

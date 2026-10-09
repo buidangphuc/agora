@@ -1,16 +1,17 @@
-"""Spark-gated interaction-mapping tests.
+"""Spark-gated dataset-triple tests.
 
 Skipped automatically when PySpark is not installed on the host (Spark runs in
-Docker/CI). Asserts the DataFrame pipeline matches the pure-Python rules: empty
-listings dropped, principal-vs-anonymous user key, weights summed per (user,item).
+Docker/CI). Asserts the ALS input uses the dataset weight exactly as given and drops
+only rows that carry no signal.
 """
 
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
 
-from recsys.config import load_settings  # noqa: E402
-from recsys.interactions import build_triples  # noqa: E402
+from datetime import datetime  # noqa: E402
+
+from recsys.interactions import dataset_triples  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -26,45 +27,42 @@ def spark():
     s.stop()
 
 
-def _events(spark, rows):
-    cols = ["event_type", "listing_id", "anonymous_id", "principal_id", "occurred_at"]
+def _dataset(spark, rows):
+    cols = ["user_key", "listing_id", "weight", "interactions", "last_occurred_at"]
     return spark.createDataFrame(rows, cols)
 
 
-def test_build_triples_drops_empty_listing_and_sums_weight(spark):
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc)
-    rows = [
-        ("view", "listing-a", "", "user-1", now),  # 1.0
-        ("click", "listing-a", "", "user-1", now),  # 2.0  -> (user-1, listing-a) = 3.0
-        ("view", "", "", "user-1", now),  # dropped: empty listing
-        ("view", "listing-b", "anon-9", "", now),  # anonymous user key
-    ]
-    df = _events(spark, rows)
-    settings = load_settings(environ={})
-    triples = {(r["user_key"], r["listing_id"]): r["weight"] for r in build_triples(df, settings).collect()}
-
-    assert triples[("user-1", "listing-a")] == 3.0
-    assert ("user-1", "") not in triples  # empty listing dropped
-    assert ("anon-9", "listing-b") in triples  # fell back to anonymous_id
+def test_dataset_triples_uses_weight_as_given_and_drops_no_signal_rows(spark):
+    t = datetime(2026, 10, 5, 2, 0, 0)
+    df = _dataset(
+        spark,
+        [
+            ("user-1", "listing-a", 3.7, 4, t),  # kept verbatim (not re-weighted)
+            ("user-1", "", 9.0, 1, t),  # dropped: empty listing
+            ("", "listing-b", 9.0, 1, t),  # dropped: empty user
+            ("user-2", "listing-b", 0.0, 1, t),  # dropped: no positive signal
+            ("anon-9", "listing-b", 0.25, 1, t),
+        ],
+    )
+    got = {(r["user_key"], r["listing_id"]): r["weight"] for r in dataset_triples(df).collect()}
+    assert got == {("user-1", "listing-a"): 3.7, ("anon-9", "listing-b"): 0.25}
 
 
 def test_timestamped_interactions_reads_timestamp_ntz(spark):
-    """The DuckDB export stores occurred_at as TIMESTAMP_NTZ; the evaluation rows
-    must still carry epoch seconds (a CAST to DOUBLE is an analysis error there)."""
-    from datetime import datetime
-
+    """last_occurred_at may be TIMESTAMP_NTZ; the evaluation rows must still carry epoch
+    seconds (a CAST to DOUBLE is an analysis error there)."""
     from pyspark.sql import functions as F
 
     from recsys.pipeline import timestamped_interactions
 
-    rows = [
-        ("view", "listing-a", "", "user-1", datetime(2026, 10, 5, 2, 34, 0)),
-        ("view", "", "anon-1", "", datetime(2026, 10, 5, 3, 0, 0)),  # no listing: dropped
-        ("click", "listing-b", "anon-2", "", datetime(2026, 10, 5, 4, 0, 0)),
-    ]
-    df = _events(spark, rows).withColumn("occurred_at", F.col("occurred_at").cast("timestamp_ntz"))
+    df = _dataset(
+        spark,
+        [
+            ("user-1", "listing-a", 1.0, 1, datetime(2026, 10, 5, 2, 34, 0)),
+            ("anon-1", "", 1.0, 1, datetime(2026, 10, 5, 3, 0, 0)),  # no listing: dropped
+            ("anon-2", "listing-b", 2.0, 1, datetime(2026, 10, 5, 4, 0, 0)),
+        ],
+    ).withColumn("last_occurred_at", F.col("last_occurred_at").cast("timestamp_ntz"))
     got = sorted(
         (r["user_id"], r["listing_id"], r["timestamp"]) for r in timestamped_interactions(df).collect()
     )

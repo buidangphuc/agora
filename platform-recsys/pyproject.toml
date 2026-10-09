@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "platform-recsys"
 version = "0.1.0"
-description = "Offline PySpark ALS training job — behavioral warehouse → Qdrant + Redis recommendation artifacts."
+description = "Offline PySpark ALS training job — governed dataset → Qdrant + Redis recommendation artifacts."
 requires-python = ">=3.10"
 dependencies = [
     "pyspark==3.5.1",
