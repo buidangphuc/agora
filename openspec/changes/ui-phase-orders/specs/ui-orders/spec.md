@@ -223,7 +223,9 @@ required) and refund amount (`Input` number, greater than 0 and at most the orde
 total). Submitting SHALL call `createReturnRequestAction` and, while pending, show `isLoading` on the submit
 button, disable the fields and prevent dismissing the Modal. Success SHALL close the Modal, show a success
 toast and refresh the section from revalidated data; failure SHALL keep the Modal open and show an error toast.
-The mock refund button SHALL keep `data-testid="return-refund"` with pending and toast feedback. The existing
+The buyer's return section SHALL NOT offer any refund control: refunding is a seller action (the seller
+order page's returns tab, "Hoàn tiền" with a confirm `Modal`, `data-testid="return-refund"` in `SellerReturns`),
+so the buyer only sees the resulting return status. The existing
 testids `return-section`, `return-reason`, `return-amount`, `return-submit`, `return-status` SHALL be kept.
 
 #### Scenario: Submitting a valid return
@@ -242,11 +244,11 @@ testids `return-section`, `return-reason`, `return-amount`, `return-submit`, `re
 - **WHEN** `createReturnRequestAction` returns `{ ok: false, error }`
 - **THEN** an error toast shows the error, the Modal stays open and the submit button is enabled again
 
-#### Scenario: Mock refund shows pending and a toast
+#### Scenario: The buyer sees the return status without a refund button
 
-- **WHEN** a buyer clicks "Hoàn tiền (mô phỏng)" on an approved return
-- **THEN** the button shows a pending state and is disabled, then a success toast shows and the badge reads
-  "refunded"
+- **WHEN** a buyer opens an order whose return is APPROVED or REFUNDED
+- **THEN** the return section shows the matching `OrderStatusBadge` and no refund button
+  (`return-refund` is absent); the refund itself is performed by the seller
 
 #### Scenario: The return is not offered for non-eligible orders
 
@@ -358,7 +360,7 @@ events that fire on other routes SHALL still fire after the buyer reorders and l
   rebuilt components
 - **THEN** they pass without changes to their selectors (`order-timeline`, `timeline-checkpoint`,
   `timeline-saga`, `timeline-saga-step`, `timeline-empty`, `return-section`, `return-reason`,
-  `return-amount`, `return-submit`, `return-status`, `return-refund`)
+  `return-amount`, `return-submit`, `return-status`)
 
 #### Scenario: Tracking events still fire after reorder
 
