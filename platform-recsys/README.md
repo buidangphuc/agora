@@ -45,7 +45,7 @@ copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run
 | Qdrant | `user_als_vectors__<model_version>` | Same for users; payload `user_key`. |
 | Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Deprecated compatibility shim (serving-switch-atomicity): team-ai names `<alias>__<recs:v1:serving>` itself, so one pointer decides Redis and Qdrant; the alias is only for readers that predate that and for a deployment with no pointer yet. |
 | Qdrant | alias `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users. |
-| Qdrant | `QDRANT_TWO_TOWER_COLLECTION` (`item_two_tower_vectors`) | Only when `ENABLE_TWO_TOWER=true` (see Known gaps). |
+| Qdrant | `item_two_tower_vectors__<model_version>` (`QDRANT_TWO_TOWER_COLLECTION` + `__` + generation) | Only when `ENABLE_TWO_TOWER=true`: L2-normalised item vectors, dim `TWO_TOWER_DIM`, written with the generation before the switch, retired with it, no alias (name it from `recs:v1:serving`). Needs the `item_popularity@v1` and `user_activity@v2` featurestore snapshots under `/features` (else exit 2). |
 | Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |
 | Redis | `recs:v1:gen:<model_version>:item:{listing_id}` | Similar items, same shape |
 | Redis | `recs:v1:gen:<model_version>:popular` | Popularity fallback (summed weight), same shape |
@@ -174,7 +174,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | Interactions | `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
 | ALS | `ALS_RANK` (64), `ALS_REG_PARAM` (0.05), `ALS_ALPHA` (40.0), `ALS_MAX_ITER` (15) |
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
-| Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32) |
+| Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32), `ITEM_FEATURES_DIR` (/features/item_popularity/v1), `ITEM_FEATURES_PATH`, `USER_FEATURES_DIR` (/features/user_activity/v2), `USER_FEATURES_PATH`, `TWO_TOWER_EPOCHS` (5), `_LR` (0.05), `_BATCH_SIZE` (256), `_TEMPERATURE` (0.1), `TWO_TOWER_MAX_PAIRS` (200000) |
 | Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
 | Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
 | Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
@@ -260,9 +260,10 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 - `recsys/ranker/` (CVR / eGMV) is a library module with unit tests; `pipeline.py` does not call it. `recsys/nearline/` runs as its own process
   (section 2); its compose service is proposed in the change's `design.md`, not yet in the root compose. There is no online reranker here and
   `lightgbm` is not a dependency.
-- Two-Tower is a placeholder: it runs only when `ENABLE_TWO_TOWER=true` and only after a promoted
-  run, and feeds the item tower hard-coded `price=100`, `popularity=1.0`, `category_id="general"` for
-  every item. It is not evaluated or gated.
+- Two-Tower (change `wire-two-tower-batch-pipeline`) trains on featurestore snapshots and the dataset's pairs and is
+  published with the generation, but it is not evaluated or gated, and the snapshots carry no item category/price or user
+  categories, so those tower inputs are 0 until the featurestore adds an attribute view. A zero vector is refused; if none
+  is usable the candidate is rejected (nothing published).
 - With Redis unreachable the in-memory registry has no champion, so every run is a bootstrap and the
   gate is bypassed; the run then still attempts to publish to Redis.
 - A user with fewer than two distinct listings is never a test user; with no test users the run is
