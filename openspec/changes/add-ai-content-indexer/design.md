@@ -30,10 +30,18 @@ requirement true. Test path in the proposal (`tests/test_listing_indexer.py`) is
 
 ## Why the scenarios are not end-to-end tests
 
-There is no gateway-reachable read path into team-ai's RAG store: the gateway routes `SearchService` to team-search,
-and `ShoppingAssistant` answers from a static catalog without retrieval. The only observation of the index would be
-the vector store itself, which is not the public edge. Each scenario names its unit test (real
-`KnowledgeRetrievalService`, mock embeddings, scripted Kafka records) in a `VERIFIED BY` line.
+Re-checked 2026-10-09 against the code: nothing reachable through the gateway reads the RAG store.
+- `AIService.ShoppingAssistant` is routed to team-ai, but `AIAssistantService.shopping_assistant` matches against a static
+  in-code `CATALOG` (`_match_products`); `rag_service` is stored on the object and never called, and the response
+  (`reply_text`, `product_cards`, `suggested_followups`) has no sources or citations field.
+- `ChatService.StreamChat` goes to the LLM router with no retrieval step. The `llm-fake` overlay records the chat requests the
+  provider receives (`GET /_requests`), but no retrieved context is ever placed in them, so there is nothing to observe.
+- `SearchService.SearchListings` is the only caller of `rag.search`, and the gateway routes it to team-search (OpenSearch), not
+  team-ai.
+The only observation of the index is the vector store itself, which is not the public edge. The scenarios therefore keep their
+`VERIFIED BY` lines (real `KnowledgeRetrievalService`, mock embeddings, scripted Kafka records). They become end-to-end testable
+when a gateway-reachable path retrieves from RAG (for example `ShoppingAssistant` calling `rag.search` and returning the matched
+listing ids as `product_cards`); that is a product change outside this change.
 
 ## Deployment needs
 
