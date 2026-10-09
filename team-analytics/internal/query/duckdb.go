@@ -314,3 +314,77 @@ WHERE hour >= ? AND hour <= ?`, warehouse.CountersTableName)
 }
 
 var _ QualityRepository = (*DuckDBRepository)(nil)
+
+// FallbackModelVersion is the model_version serving stamps on fallback lists.
+const FallbackModelVersion = "serving-fallback"
+
+// RecommendationPerformance attributes clicks, add-to-carts and purchases to the
+// (placement, model_version) of the impression that was served, over
+// tracking_events_resolved. A conversion is credited once, to the earliest click
+// by the same user_key on the same listing that precedes it by at most
+// attributionHours.
+func (r *DuckDBRepository) RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
+	since, until = since.UTC(), until.UTC()
+	q := fmt.Sprintf(`
+WITH imp AS (
+  SELECT impression_id, min(placement_id) AS placement_id, min(model_version) AS model_version,
+         count(*) AS item_impressions
+  FROM %[1]s
+  WHERE event_type = 'impression' AND occurred_at >= ? AND occurred_at <= ?
+    AND COALESCE(impression_id, '') <> '' AND COALESCE(placement_id, '') <> ''
+  GROUP BY impression_id
+),
+clk AS (
+  SELECT e.event_id, e.user_key, e.listing_id, e.occurred_at, imp.placement_id, imp.model_version
+  FROM %[1]s e JOIN imp USING (impression_id)
+  WHERE e.event_type = 'click' AND e.occurred_at >= ? AND e.occurred_at <= ?
+),
+conv AS (
+  SELECT c.event_type, k.placement_id, k.model_version
+  FROM %[1]s c JOIN clk k
+    ON c.user_key = k.user_key AND c.listing_id = k.listing_id
+   AND c.occurred_at BETWEEN k.occurred_at AND k.occurred_at + to_hours(CAST(? AS BIGINT))
+  WHERE c.event_type IN ('add_to_cart', 'purchase') AND c.occurred_at <= ?
+    AND COALESCE(c.listing_id, '') <> ''
+  QUALIFY row_number() OVER (PARTITION BY c.event_id ORDER BY k.occurred_at, k.event_id) = 1
+),
+i AS (
+  SELECT placement_id, model_version, count(*) AS impressions, sum(item_impressions) AS item_impressions
+  FROM imp GROUP BY placement_id, model_version
+),
+k AS (
+  SELECT placement_id, model_version, count(*) AS clicks FROM clk GROUP BY placement_id, model_version
+),
+v AS (
+  SELECT placement_id, model_version,
+    count(*) FILTER (WHERE event_type = 'add_to_cart') AS add_to_carts,
+    count(*) FILTER (WHERE event_type = 'purchase')    AS purchases
+  FROM conv GROUP BY placement_id, model_version
+)
+SELECT i.placement_id, i.model_version, i.impressions, i.item_impressions,
+       COALESCE(k.clicks, 0), COALESCE(v.add_to_carts, 0), COALESCE(v.purchases, 0)
+FROM i
+LEFT JOIN k USING (placement_id, model_version)
+LEFT JOIN v USING (placement_id, model_version)
+ORDER BY i.placement_id, i.model_version`, warehouse.ResolvedViewName)
+	rows, err := r.db.QueryContext(ctx, q, since, until, since, until, attributionHours, until)
+	if err != nil {
+		return nil, fmt.Errorf("recommendation performance query: %w", err)
+	}
+	defer rows.Close()
+	var out []PerformanceRow
+	for rows.Next() {
+		var p PerformanceRow
+		if err := rows.Scan(&p.PlacementID, &p.ModelVersion, &p.Impressions, &p.ItemImpressions,
+			&p.Clicks, &p.AddToCarts, &p.Purchases); err != nil {
+			return nil, fmt.Errorf("scan recommendation performance: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate recommendation performance: %w", err)
+	}
+	return out, nil
+}
+
+var _ PerformanceRepository = (*DuckDBRepository)(nil)

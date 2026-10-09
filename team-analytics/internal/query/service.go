@@ -40,7 +40,9 @@ type Service struct {
 	analyticsv1.UnimplementedAnalyticsQueryServiceServer
 	repo       Repository
 	thresholds TrackingThresholds
-	now        func() time.Time
+	// attributionHours is RECS_ATTRIBUTION_WINDOW_HOURS.
+	attributionHours int
+	now              func() time.Time
 }
 
 // TrackingThresholds are the limits GetTrackingQualityReport derives its status
@@ -58,12 +60,21 @@ var DefaultTrackingThresholds = TrackingThresholds{
 	MissingListingMaxRatio: 0.05,
 }
 
+// DefaultAttributionWindowHours is the documented RECS_ATTRIBUTION_WINDOW_HOURS default.
+const DefaultAttributionWindowHours = 24
+
 // Option customises a Service.
 type Option func(*Service)
 
 // WithTrackingThresholds overrides the tracking quality thresholds.
 func WithTrackingThresholds(t TrackingThresholds) Option {
 	return func(s *Service) { s.thresholds = t }
+}
+
+// WithAttributionWindowHours sets how long after a click an add-to-cart or
+// purchase is still credited to it (RECS_ATTRIBUTION_WINDOW_HOURS).
+func WithAttributionWindowHours(h int) Option {
+	return func(s *Service) { s.attributionHours = h }
 }
 
 // WithClock overrides the clock the report window is measured from (tests).
@@ -73,7 +84,7 @@ func WithClock(now func() time.Time) Option {
 
 // NewService builds the query servicer over repo.
 func NewService(repo Repository, opts ...Option) *Service {
-	s := &Service{repo: repo, thresholds: DefaultTrackingThresholds, now: time.Now}
+	s := &Service{repo: repo, thresholds: DefaultTrackingThresholds, attributionHours: DefaultAttributionWindowHours, now: time.Now}
 	for _, o := range opts {
 		o(s)
 	}
@@ -395,3 +406,72 @@ func window(from, to *timestamppb.Timestamp) (time.Time, time.Time) {
 
 // compile-time assertion that the servicer satisfies the generated interface.
 var _ analyticsv1.AnalyticsQueryServiceServer = (*Service)(nil)
+
+// GetRecommendationPerformance reports clicks and attributed conversions per
+// (placement, model_version) over a trailing window (1 to 168 hours, default
+// 24), plus each placement's share of impressions served by the fallback.
+// Admin only (recsys-online-evaluation).
+func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyticsv1.GetRecommendationPerformanceRequest) (*analyticsv1.GetRecommendationPerformanceResponse, error) {
+	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+		return nil, err
+	}
+	hours := req.GetWindowHours()
+	if hours == 0 {
+		hours = defaultQualityWindowHours
+	}
+	if hours > maxQualityWindowHours {
+		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
+	}
+	pr, ok := s.repo.(PerformanceRepository)
+	if !ok {
+		return nil, status.Error(codes.Unavailable, "recommendation performance is not available on this warehouse")
+	}
+	now := s.now().UTC()
+	data, err := pr.RecommendationPerformance(ctx, now.Add(-time.Duration(hours)*time.Hour), now, s.attributionHours)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "recommendation performance: %v", err)
+	}
+
+	resp := &analyticsv1.GetRecommendationPerformanceResponse{
+		Rows:                   make([]*analyticsv1.RecommendationPerformanceRow, 0, len(data)),
+		Fallback:               []*analyticsv1.PlacementFallbackShare{},
+		WindowHours:            hours,
+		AttributionWindowHours: uint32(s.attributionHours),
+	}
+	var order []string
+	total, fallback := map[string]int64{}, map[string]int64{}
+	for _, d := range data {
+		row := &analyticsv1.RecommendationPerformanceRow{
+			PlacementId:     d.PlacementID,
+			ModelVersion:    d.ModelVersion,
+			Impressions:     d.Impressions,
+			ItemImpressions: d.ItemImpressions,
+			Clicks:          d.Clicks,
+			AddToCarts:      d.AddToCarts,
+			Purchases:       d.Purchases,
+		}
+		if d.ItemImpressions > 0 {
+			row.Ctr = float64(d.Clicks) / float64(d.ItemImpressions)
+		}
+		if d.Clicks > 0 {
+			row.ConversionRate = float64(d.Purchases) / float64(d.Clicks)
+		}
+		resp.Rows = append(resp.Rows, row)
+		if _, seen := total[d.PlacementID]; !seen {
+			order = append(order, d.PlacementID)
+		}
+		total[d.PlacementID] += d.Impressions
+		if d.ModelVersion == FallbackModelVersion {
+			fallback[d.PlacementID] += d.Impressions
+		}
+	}
+	sort.Strings(order)
+	for _, p := range order {
+		share := 0.0
+		if total[p] > 0 {
+			share = float64(fallback[p]) / float64(total[p])
+		}
+		resp.Fallback = append(resp.Fallback, &analyticsv1.PlacementFallbackShare{PlacementId: p, FallbackShare: share})
+	}
+	return resp, nil
+}
