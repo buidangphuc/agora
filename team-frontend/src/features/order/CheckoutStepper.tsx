@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { Stepper } from "@/components/ui/Stepper";
 import { useCheckoutPending } from "./CheckoutPending";
@@ -21,10 +21,17 @@ export const STEP_TITLES: Record<CheckoutStep, string> = {
 /**
  * The four-step Stepper. The current step is read from `?step=` (the page has
  * already validated it); completed steps link back with the selections kept.
- * Navigation is inert while an order is being placed.
+ * Navigation is inert while an order is being placed. When the checkout
+ * kill-switch is off the wizard is not rendered on /checkout (an info Result is
+ * shown instead), so the Stepper is hidden there too.
  */
-export function CheckoutStepper() {
+export function CheckoutStepper({
+  checkoutEnabled = true,
+}: {
+  checkoutEnabled?: boolean;
+}) {
   const params = useSearchParams();
+  const pathname = usePathname();
   const { pending } = useCheckoutPending();
   const raw = params.get("step");
   const current: CheckoutStep = CHECKOUT_STEPS.includes(raw as CheckoutStep)
@@ -32,6 +39,8 @@ export function CheckoutStepper() {
     : "address";
   const currentIndex = stepIndex(current);
   const payRaw = params.get("pay");
+
+  if (!checkoutEnabled && pathname === "/checkout") return null;
 
   return (
     <div className="w-full">
