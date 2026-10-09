@@ -685,3 +685,21 @@ features:
     status: automated
     covered_by: "ai/llm_eval_gate.feature::A judge case without a judge fails the gate"
     notes: "Scenario: ai/llm_eval_gate.feature::A judge case without a judge fails the gate. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+
+  - id: ai.rgp-serving-follows-within-10s
+    title: "Serving follows a promotion within seconds"
+    persona: buyer
+    priority: P1
+    summary: "Serving follows a promotion within seconds"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When a new model is promoted"
+      - "Then within 10 seconds a buyer's recommendations through the gateway report the new model's version"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::Serving follows a promotion within seconds"

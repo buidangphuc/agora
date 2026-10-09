@@ -15,6 +15,11 @@ The live serving data (Redis DB 0 and the default collections) is never touched.
    "recsys done: {...}" log line), and snapshots the stores.
 4. It writes everything to /work/result.json and cleans the namespace up again.
 
+Live plans (recsys-generation-publish) skip the namespace: they publish to the stack's own serving
+data (DB 0, the default collections and their aliases), optionally forgetting every generation first
+("reset"), and leave what they published in place. A run may name a dataset variant ("@fixture") and
+a subcommand ("@command", e.g. rollback).
+
 Only the image's own dependencies are used (pandas, redis, qdrant-client).
 """
 
@@ -26,18 +31,26 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 import pandas as pd
 from qdrant_client import QdrantClient
+from qdrant_client.models import DeleteAlias, DeleteAliasOperation
 from redis import Redis
 
 WORK = "/work"
 PLAN = json.load(open(f"{WORK}/plan.json"))  # noqa: SIM115
 NS = PLAN["namespace"]
-ITEMS = f"{NS}_items"
-USERS = f"{NS}_users"
-DB = int(PLAN["redis_db"])
+# "live" plans (recsys-generation-publish, destructive lane) publish to the stack's serving data
+# (Redis DB 0, the default collections / aliases) so team-ai, and the gateway in front of it, read
+# what the job published. Default plans stay in the per-worker namespace.
+LIVE = bool(PLAN.get("live"))
+ITEMS = "item_als_vectors" if LIVE else f"{NS}_items"
+USERS = "user_als_vectors" if LIVE else f"{NS}_users"
+DB = 0 if LIVE else int(PLAN["redis_db"])
+BUYER = PLAN.get("buyer_id") or ""
+PREFIX = "recs:v1"
 SUMMARY_MARK = "recsys done: "
 
 
@@ -55,9 +68,8 @@ EVENT_WEIGHTS = {
 }
 
 
-def _write_dataset() -> str | None:
-    """Write a governed dataset fixture (parquet + manifest) from the plan's events."""
-    rows = PLAN["events"]
+def _write_dataset(rows: list[dict], root: str = WORK) -> str | None:
+    """Write a governed dataset fixture (parquet + manifest) from events under `root`."""
     if not rows:
         return None
     df = pd.DataFrame(
@@ -77,7 +89,7 @@ def _write_dataset() -> str | None:
     grouped["interactions"] = grouped["interactions"].astype("int64")
     as_of = datetime.now(timezone.utc)
     stamp = as_of.strftime("%Y%m%dT%H%M%SZ")
-    directory = f"{WORK}/datasets/als_interactions/v1"
+    directory = f"{root}/datasets/als_interactions/v1"
     os.makedirs(directory, exist_ok=True)
     path = f"{directory}/as_of={stamp}.parquet"
     grouped[["user_key", "listing_id", "weight", "interactions", "last_occurred_at"]].to_parquet(
@@ -103,6 +115,87 @@ def _write_dataset() -> str | None:
     return path
 
 
+# ── Fixture variants (recsys-generation-publish) ──────────────────────────
+# A run picks one with the reserved run key "@fixture". Three taste clusters of five items; users
+# of a cluster interact with items of their own cluster, the last (held-out) one being an item their
+# cluster-mates also have, so the temporal holdout scores above zero. The buyer (plan "buyer_id")
+# replaces the first user so Recommend through the gateway has a cached list for the buyer.
+#   good_a       4 of the 5 cluster items per user (4 users per cluster)
+#   better_b     all 5 cluster items per user (denser history, same users)
+#   third_c      4 items, rotated, 5 users per cluster (a different dataset again)
+#   regressing   good_a's data; the run is made to fail the metric gate (+10% needed, see below)
+#   one_size     every user interacted with the same three items only (degenerate)
+# "Better" is engineered as in pipeline_eval_registry: the promotion gate is the lever, not luck. A
+# promoting variant runs with PROMOTION_MIN_RELATIVE_IMPROVEMENT=-0.25 (an equal-scoring retrain
+# passes), the regressing one with +0.10 (an equal-scoring retrain cannot pass).
+_FIXTURE_ENV = {
+    "better_b": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "-0.25"},
+    "third_c": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "-0.25"},
+    "regressing": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "0.10"},
+}
+_EVENT_CYCLE = ("view", "click", "add_to_cart", "click")
+
+
+def _fixture_events(name: str) -> list[dict]:
+    now = time.time()
+    rows: list[dict] = []
+
+    def add(user: str, item: str, step: int, total: int, kind: str) -> None:
+        # Oldest first; the final step is the most recent (the temporal holdout).
+        rows.append(
+            {"user": user, "listing": item, "event_type": kind, "ts": now - (total - step) * 3600}
+        )
+
+    if name == "one_size":
+        users = [f"rgp-u-{i}" for i in range(10)]
+        if BUYER:
+            users[0] = BUYER
+        for user in users:
+            for step in range(3):
+                add(user, f"rgp-item-0-{step}", step, 3, _EVENT_CYCLE[step])
+        return rows
+    per_cluster = 5 if name == "third_c" else 4
+    shift = 2 if name == "third_c" else 0
+    seen = 5 if name == "better_b" else 4
+    for cluster in range(3):
+        for i in range(per_cluster):
+            user = f"rgp-u{cluster}-{i}"
+            if cluster == 0 and i == 0 and BUYER:
+                user = BUYER
+            for step in range(seen):
+                item = f"rgp-item-{cluster}-{(i + shift + step) % 5}"
+                add(user, item, step, seen, _EVENT_CYCLE[step % len(_EVENT_CYCLE)])
+    return rows
+
+
+def _fixture_for(name: str) -> str | None:
+    base = "good_a" if name == "regressing" else name
+    return _write_dataset(_fixture_events(base), f"{WORK}/fixture-{name}")
+
+
+def _reset_live(redis: Redis, qdrant: QdrantClient) -> None:
+    """Forget every generation: pointers, gen keys, registry, aliases and generation collections.
+
+    The unscoped v1 keys and any real (non-generation) collection are left alone, so team-ai's
+    fallback and the first publish's legacy migration keep working.
+    """
+    for pattern in (f"{PREFIX}:gen:*", "recs:model:*"):
+        for key in list(redis.scan_iter(pattern)):
+            redis.delete(key)
+    redis.delete(f"{PREFIX}:serving", f"{PREFIX}:previous")
+    aliases = {a.alias_name: a.collection_name for a in qdrant.get_aliases().aliases}
+    for alias in (ITEMS, USERS):
+        if alias in aliases:
+            qdrant.update_collection_aliases(
+                change_aliases_operations=[
+                    DeleteAliasOperation(delete_alias=DeleteAlias(alias_name=alias))
+                ]
+            )
+    for name in [c.name for c in qdrant.get_collections().collections]:
+        if name.startswith((f"{ITEMS}__", f"{USERS}__")):
+            qdrant.delete_collection(name)
+
+
 def _clean(redis: Redis, qdrant: QdrantClient) -> None:
     redis.flushdb()
     for name in (ITEMS, USERS):
@@ -110,7 +203,12 @@ def _clean(redis: Redis, qdrant: QdrantClient) -> None:
             qdrant.delete_collection(name)
 
 
+def _aliases(qdrant: QdrantClient) -> dict[str, str]:
+    return {a.alias_name: a.collection_name for a in qdrant.get_aliases().aliases}
+
+
 def _points(qdrant: QdrantClient, name: str) -> dict:
+    name = _aliases(qdrant).get(name, name)  # an alias reads as the collection it points at
     if not qdrant.collection_exists(name):
         return {"count": 0, "model_versions": []}
     points, _ = qdrant.scroll(collection_name=name, limit=10_000, with_payload=True)
@@ -129,9 +227,24 @@ def _snapshot(redis: Redis, qdrant: QdrantClient) -> dict:
             "metrics": meta.get("metrics"),
             "parameters": meta.get("parameters"),
         }
+    gens: dict[str, int] = {}
+    for key in redis.scan_iter(f"{PREFIX}:gen:*"):
+        gen = key[len(f"{PREFIX}:gen:") :].split(":", 1)[0]
+        gens[gen] = gens.get(gen, 0) + 1
+    aliases = _aliases(qdrant)
     return {
         "champion": redis.get("recs:model:champion"),
         "serving_model_version": redis.get("recs:v1:model_version"),
+        # Generation publishing: the pointers, each generation's keys and collections, the aliases.
+        "serving": redis.get(f"{PREFIX}:serving"),
+        "previous": redis.get(f"{PREFIX}:previous"),
+        "gen_keys": gens,
+        "collections": sorted(
+            c.name
+            for c in qdrant.get_collections().collections
+            if c.name.startswith((f"{ITEMS}__", f"{USERS}__"))
+        ),
+        "aliases": {a: c for a, c in aliases.items() if a in (ITEMS, USERS)},
         "popular_cached": redis.exists("recs:v1:popular") == 1,
         "models": models,
         "items": _points(qdrant, ITEMS),
@@ -140,12 +253,16 @@ def _snapshot(redis: Redis, qdrant: QdrantClient) -> dict:
 
 
 def main() -> int:
-    fixture = _write_dataset()
+    fixture = _write_dataset(PLAN["events"])
     os.makedirs(f"{WORK}/empty-dataset", exist_ok=True)
     redis_host = os.environ.get("REDIS_HOST", "redis")
     redis = Redis(host=redis_host, port=6379, db=DB, decode_responses=True)
     qdrant = QdrantClient(url=os.environ.get("QDRANT_URL", "http://qdrant:6333"))
-    _clean(redis, qdrant)
+    if LIVE:
+        if PLAN.get("reset"):
+            _reset_live(redis, qdrant)
+    else:
+        _clean(redis, qdrant)
     base_env = {
         **os.environ,
         "WAREHOUSE_DRIVER": "duckdb",
@@ -164,13 +281,26 @@ def main() -> int:
         base_env["DATASET_PATH"] = fixture
     results = []
     try:
-        for run_env in PLAN["runs"]:
+        nonce = format(int(time.time() * 1000), "x")
+        for index, raw_env in enumerate(PLAN["runs"]):
+            # Reserved run keys: "@fixture" picks a dataset variant, "@command" a subcommand.
+            run_env = dict(raw_env)
+            variant = run_env.pop("@fixture", None)
+            command = run_env.pop("@command", None)
+            if variant:
+                run_env = {**_FIXTURE_ENV.get(variant, {}), **run_env}
+                # An explicit version per run: the default one is the run clock to the second.
+                slug = variant.replace("_", "-")
+                run_env.setdefault("MODEL_VERSION", f"als-e2e-{slug}-{nonce}-{index}")
             env = {**base_env, **{k: v for k, v in run_env.items() if v is not None}}
             for key, value in run_env.items():
                 if value is None:
                     env.pop(key, None)
+            if variant:
+                path = _fixture_for(variant)
+                env["DATASET_PATH"] = path or ""
             proc = subprocess.run(
-                [sys.executable, "-m", "recsys"],
+                [sys.executable, "-m", "recsys", *([command] if command else [])],
                 env=env,
                 capture_output=True,
                 text=True,
@@ -190,7 +320,8 @@ def main() -> int:
                 }
             )
     finally:
-        _clean(redis, qdrant)
+        if not LIVE:
+            _clean(redis, qdrant)
     json.dump({"runs": results}, open(f"{WORK}/result.json", "w"))  # noqa: SIM115
     return 0
 
