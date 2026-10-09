@@ -17,6 +17,11 @@ export type CockpitResult =
   | { status: "forbidden" }
   | { status: "unavailable" };
 
+export type {
+  TrackingQuality,
+  TrackingQualityType,
+} from "@/features/admin/TrackingQualityPanel";
+
 const TIMEOUT_MS = 5000;
 
 /** Fetch the cockpit payload with `token`; never throws. */
