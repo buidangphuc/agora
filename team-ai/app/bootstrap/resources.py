@@ -194,6 +194,11 @@ def validate_core_resource_requirements(
 ) -> None:
     if not init_resources:
         return
+    if settings.LISTING_INDEXER_ENABLED:
+        _require_enabled(
+            settings.RAG_ENABLED,
+            "LISTING_INDEXER_ENABLED requires RAG_ENABLED",
+        )
     if settings.TASKS_ENABLED and not settings.QUEUE_ENABLED:
         raise RuntimeError("TASKS_ENABLED requires QUEUE_ENABLED")
     if settings.QUEUE_ENABLED and settings.QUEUE_BACKEND == "redis":

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// Generic async-event envelope carried on Kafka topics (ADR-0002, ADR-0005).
+// Producers wrap a serialized domain event (e.g. platform.listing.v1.ListingChanged)
+// in this envelope; consumers switch on `type` and unmarshal `payload`.
+package platform.events.v1;
+
+import "platform/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+// EventEnvelope is the on-the-wire shape of every platform event. It carries the
+// cross-cutting context (who, when, trace correlation) alongside the opaque
+// domain payload so the transport stays domain-agnostic.
+message EventEnvelope {
+  // Unique id for this event occurrence (uuid) — consumers may dedupe on it.
+  string event_id = 1;
+  // Fully-qualified proto name of the payload message, e.g.
+  // "platform.listing.v1.ListingChanged". Consumers switch on this.
+  string type = 2;
+  // When the event occurred at the producer.
+  google.protobuf.Timestamp occurred_at = 3;
+  // Who caused it — resolved Principal (ADR-0003), carried for audit/authz.
+  platform.common.v1.Principal principal = 4;
+  // W3C trace-context bridged onto the event so the async hop stays traceable.
+  string traceparent = 5;
+  // Human-facing correlation id, bridged from the x-request-id convention.
+  string request_id = 6;
+  // Serialized domain event message identified by `type`.
+  bytes payload = 7;
+}

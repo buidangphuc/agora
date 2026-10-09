@@ -68,9 +68,14 @@ popular; the other placements are configured in the same file.
 
 ## 2. Events
 
-None. There is no Kafka or RabbitMQ producer or consumer wired. The `outbox`, `queue`, `tasks` and
-`webhooks` modules exist but are disabled by default, and `ListingEventIndexer`
-(`app/modules/messaging/indexer`) is not hooked to any consumer.
+Consumes `listing.events` (Kafka, `platform.events.v1.EventEnvelope` wrapping
+`platform.listing.v1.ListingChanged`) when `LISTING_INDEXER_ENABLED=true` (needs `RAG_ENABLED=true`
+and the `kafka` extra). `app/modules/messaging/indexer` indexes created/updated published listings
+into the RAG store and removes deleted, draft and rejected ones. Delivery is at-least-once with manual
+commits: a redelivered event is applied once, a failing record is retried `LISTING_INDEXER_MAX_ATTEMPTS`
+times and then parked on `listing.events.dlq`. Settings: `KAFKA_BROKERS`, `LISTING_INDEXER_TOPIC`,
+`LISTING_INDEXER_GROUP`. No producer is wired. The `outbox`, `queue`, `tasks` and `webhooks` modules
+exist but are disabled by default.
 
 ## 3. Data
 

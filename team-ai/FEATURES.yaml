@@ -903,3 +903,75 @@ features:
     status: automated
     covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
     notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+
+  - id: ai.aci-created-indexed
+    title: "Created listing is indexed into RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged CREATED/UPDATED event arrives on listing.events"
+      - "Then the listing is retrievable in the RAG store"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. The RAG store has no gateway-reachable read path (openspec/changes/add-ai-content-indexer/design.md)."
+
+  - id: ai.aci-deleted-removed
+    title: "Deleted listing is removed from RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged DELETED event arrives on listing.events"
+      - "Then the listing's documents are removed from the RAG store"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+
+  - id: ai.aci-unpublished-removed
+    title: "Unpublished listing is removed from RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged event carries a DRAFT or REJECTED listing"
+      - "Then the listing is removed from the RAG store instead of indexed"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+
+  - id: ai.aci-redelivered-once
+    title: "Redelivered event is applied once"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the same event or an older event for a listing is delivered again"
+      - "Then it causes no second index or delete"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Redelivery cannot be forced through the gateway."
+
+  - id: ai.aci-failing-parked
+    title: "A failing event is retried and then parked"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When indexing keeps failing or the record is undecodable"
+      - "Then it is retried, parked on listing.events.dlq and committed; an unparkable record is not committed"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Needs fault injection the stack does not expose."
+
+  - id: ai.aci-consumer-lifecycle
+    title: "The consumer runs with the application"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When LISTING_INDEXER_ENABLED and RAG_ENABLED are true"
+      - "Then startup starts the consumer, a crash restarts it and shutdown stops it"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Effect only visible in the RAG store."
