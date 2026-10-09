@@ -1334,7 +1334,8 @@ features:
       - "When a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with the in-stock filter"
       - "Then the in-stock listing is among the hits and the sold-out listing is not"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::In-stock filter excludes a sold-out listing from semantic candidates"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::In-stock filter excludes a sold-out listing from semantic candidates; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-price-range-filter-constrains-semantic-candidates
@@ -1353,7 +1354,8 @@ features:
       - "When a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with a price range around the cheap one"
       - "Then the cheap listing is among the hits and the dear listing is not"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Price range filter constrains semantic candidates"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Price range filter constrains semantic candidates; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-hybrid-facets-and-total-describe-the-fused-candidate-set
@@ -1372,7 +1374,8 @@ features:
       - "When a buyer searches for the keyword and the alias in SEARCH_MODE_HYBRID, first page"
       - "Then the category facet counts sum to the response total and the total counts both listings"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Hybrid facets and total describe the fused candidate set"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Hybrid facets and total describe the fused candidate set; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-unrelated-text-returns-no-semantic-candidates
@@ -1391,7 +1394,8 @@ features:
       - "When a buyer searches for a nonexistent term in SEARCH_MODE_HYBRID"
       - "Then the answer is 200 with no hits and a total of zero"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Unrelated text returns no semantic candidates"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Unrelated text returns no semantic candidates; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-a-related-listing-survives-the-similarity-floor
@@ -1410,7 +1414,8 @@ features:
       - "When a buyer searches for the semantic alias of that word without a search mode"
       - "Then the related listing is among the hits and the unrelated listing is not"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::A related listing survives the similarity floor"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::A related listing survives the similarity floor; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-unrelated-neighbours-do-not-inflate-total-or-paging
@@ -1429,5 +1434,6 @@ features:
       - "When a buyer searches for that keyword in SEARCH_MODE_HYBRID through the gateway"
       - "Then the total is three and there is no next page"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Unrelated neighbours do not inflate total or paging"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Unrelated neighbours do not inflate total or paging; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."

@@ -64,8 +64,11 @@ services:
     environment:
       MODEL_SERVER_URL: http://modelserve-router:8100
       ENABLE_RERANKER: "true"
-      # The fake's unrelated texts have cosine ~0 +-0.05 and an alias exactly 1: 0.6 separates them.
-      HYBRID_SEMANTIC_MIN_SCORE: "0.6"
+      # The fake sums one dense direction per concept, so a one-concept query against a document with N
+      # distinct concepts that contains it scores about 1/sqrt(N) (0.58 for three), while unrelated texts
+      # score about 0 +-0.05. 0.3 separates them for titles of up to about ten concepts. 0.6 (the service
+      # default) is tuned for bge-small's compressed cosine range and would drop real matches here.
+      HYBRID_SEMANTIC_MIN_SCORE: "0.3"
   team-search-indexer:
     depends_on:
       modelserve-router:
