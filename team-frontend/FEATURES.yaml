@@ -2669,8 +2669,8 @@ features:
       - "When the seeded admin opens `/admin/cockpit` after views were tracked"
       - "Then the \"Tracking data quality\" panel shows a status and a view count of at least 1"
     tags: [admin, tracking]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "ops/cockpit_tracking_quality.feature::The admin sees the tracking quality panel"
     notes: "analytics-data-quality: ops/cockpit_tracking_quality.feature::The admin sees the tracking quality panel"
 
   - id: frontend.adq-cockpit-panel-unavailable-when-analytics-down
@@ -2686,6 +2686,6 @@ features:
       - "When team-analytics is stopped and the admin opens `/admin/cockpit`"
       - "Then the \"Tracking data quality\" panel says the data is unavailable and shows no counts"
     tags: [admin, tracking, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "ops/cockpit_tracking_quality.feature::The panel says unavailable when analytics is down"
     notes: "analytics-data-quality: ops/cockpit_tracking_quality.feature::The panel says unavailable when analytics is down"

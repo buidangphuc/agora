@@ -352,8 +352,8 @@ features:
       - "When a visitor posts the same view (same `eventId` and `anonymousId`) twice and the admin then reads the tracking quality report for the last hour"
       - "Then the report's `duplicates_skipped` is at least 1 higher than it was before the two posts"
     tags: [tracking, analytics, admin]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::A re-sent event is counted as a skipped duplicate"
     notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A re-sent event is counted as a skipped duplicate"
 
   - id: analytics.adq-fresh-views-appear-in-report
@@ -369,8 +369,8 @@ features:
       - "When a visitor posts three views of a listing and the admin reads the report for the last hour"
       - "Then the view count is at least 3, the latest ingest time is within the last 5 minutes, and the status is not degraded for `stale`"
     tags: [tracking, analytics, admin]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::Fresh views appear in the report"
     notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Fresh views appear in the report"
 
   - id: analytics.adq-views-without-listing-incomplete
@@ -386,8 +386,8 @@ features:
       - "When a visitor posts 50 views without a `listingId` and the admin reads the report for the last hour"
       - "Then the view type's missing-listing ratio is above 0 and, if it exceeds the configured maximum, the status is `DEGRADED` with reason `incomplete`"
     tags: [tracking, analytics, admin]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::Views without a listing make the report incomplete"
     notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Views without a listing make the report incomplete"
 
   - id: analytics.adq-window-out-of-range-rejected
@@ -403,6 +403,6 @@ features:
       - "When the admin reads the report with a window of 500 hours"
       - "Then the call fails with `invalid_argument`"
     tags: [tracking, analytics, admin]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::A window out of range is rejected"
     notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A window out of range is rejected"
