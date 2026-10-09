@@ -92,6 +92,15 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     # Operator override: promote (and publish) this run even if the gate rejects it,
     # e.g. to repopulate Qdrant/Redis after they were reset. Never set it on a schedule.
     ("promotion_force", "PROMOTION_FORCE", "false", _as_bool),
+    # ── Structural gate (before the metric gate; recsys-generations) ─────────
+    # Reject a degenerate candidate: too few users with a list, too little of the catalogue
+    # in any list, lists that are nearly identical across users. NaN/inf factors always reject.
+    ("gate_min_user_coverage", "GATE_MIN_USER_COVERAGE", "0.5", _as_float),
+    ("gate_min_item_coverage", "GATE_MIN_ITEM_COVERAGE", "0.05", _as_float),
+    ("gate_max_list_overlap", "GATE_MAX_LIST_OVERLAP", "0.9", _as_float),
+    # Compatibility shim for one release: also write the unscoped recs:v1:{user,item,popular}
+    # keys so a reverted team-ai keeps serving the latest generation. Follow-up removes it.
+    ("write_legacy_keys", "RECS_WRITE_LEGACY_KEYS", "true", _as_bool),
     # Provenance stamped on every artifact; empty ⇒ derive from the run clock.
     ("model_version", "MODEL_VERSION", "", _as_str),
 ]
@@ -129,6 +138,10 @@ class Settings:
     promotion_min_relative_improvement: float = 0.01
     promotion_min_coverage_ratio: float = 0.8
     promotion_force: bool = False
+    gate_min_user_coverage: float = 0.5
+    gate_min_item_coverage: float = 0.05
+    gate_max_list_overlap: float = 0.9
+    write_legacy_keys: bool = True
     model_version: str = ""
 
     # ── Derived helpers ──────────────────────────────────────────────────────
@@ -150,6 +163,32 @@ class Settings:
     def model_version_cache_key(self) -> str:
         return f"{self.cache_prefix}:{self.cache_schema_version}:model_version"
 
+    # Generation-scoped keys (recsys-generations): everything one model_version published.
+    @property
+    def _prefix(self) -> str:
+        return f"{self.cache_prefix}:{self.cache_schema_version}"
+
+    @property
+    def gen_key_prefix(self) -> str:
+        return f"{self._prefix}:gen:"
+
+    def gen_user_key(self, gen: str, user_key: str) -> str:
+        return f"{self.gen_key_prefix}{gen}:user:{user_key}"
+
+    def gen_item_key(self, gen: str, listing_id: str) -> str:
+        return f"{self.gen_key_prefix}{gen}:item:{listing_id}"
+
+    def gen_popular_key(self, gen: str) -> str:
+        return f"{self.gen_key_prefix}{gen}:popular"
+
+    @property
+    def serving_key(self) -> str:
+        return f"{self._prefix}:serving"
+
+    @property
+    def previous_key(self) -> str:
+        return f"{self._prefix}:previous"
+
     def validate(self) -> None:
         if self.als_rank <= 0:
             raise ValueError(f"ALS_RANK must be > 0: {self.als_rank}")
@@ -157,6 +196,10 @@ class Settings:
             raise ValueError(f"ALS_MAX_ITER must be > 0: {self.als_max_iter}")
         if self.top_n <= 0:
             raise ValueError(f"TOP_N must be > 0: {self.top_n}")
+        for name in ("gate_min_user_coverage", "gate_min_item_coverage", "gate_max_list_overlap"):
+            v = getattr(self, name)
+            if not 0.0 <= v <= 1.0:
+                raise ValueError(f"{name.upper()} must be within [0, 1]: {v}")
 
 
 def env_names() -> list[str]:

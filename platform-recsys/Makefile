@@ -39,7 +39,7 @@ test:
 
 .PHONY: test-host
 test-host:
-	$(PY) -m pytest -q tests/test_config.py tests/test_dataset.py tests/test_weights.py tests/test_recommend.py tests/test_env_drift.py tests/test_evals.py tests/test_registry.py tests/test_nearline.py tests/test_ranker.py tests/test_point_id.py
+	$(PY) -m pytest -q tests/test_config.py tests/test_dataset.py tests/test_weights.py tests/test_recommend.py tests/test_env_drift.py tests/test_evals.py tests/test_registry.py tests/test_nearline.py tests/test_ranker.py tests/test_point_id.py tests/test_structural_gate.py tests/test_generations.py
 
 .PHONY: eval
 eval:

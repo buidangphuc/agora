@@ -1,25 +1,81 @@
-"""Write the precomputed Top-N recommendation cache into Redis (:6379).
+"""Write the precomputed Top-N recommendation cache into Redis (:6379), one generation at a time.
 
-Key shapes match the consumer contract (serve-recommendations-teamai):
+A generation is one ``model_version``. Its keys are scoped to it and never overwrite another
+generation's (recsys-generations):
 
-- ``recs:v1:user:{user_key}``     → ranked ``[{listing_id, score}, ...]`` (JSON), capped at TOP_N
-- ``recs:v1:item:{listing_id}``   → precomputed similar items (same shape)
-- ``recs:v1:popular``             → global popularity fallback list (same shape)
-- ``recs:v1:model_version``       → the current model_version string (echoed by the RPC)
+- ``recs:v1:gen:<gen>:user:{user_key}``    → ranked ``[{listing_id, score}, ...]`` (JSON), capped at TOP_N
+- ``recs:v1:gen:<gen>:item:{listing_id}``  → precomputed similar items (same shape)
+- ``recs:v1:gen:<gen>:popular``            → global popularity fallback list (same shape)
 
-Every key carries a TTL longer than the batch cadence so a missed run degrades
-gracefully rather than emptying the cache. Values hold listing ids + scores only
-— no hydrated listing content (Rule 3). ``recs:v1:model_version`` is written last
-so the version flips only once the generation is fully loaded.
+Pointers (no TTL), moved together by ONE Lua script so readers never see them disagree:
+
+- ``recs:v1:serving``        → the generation being served
+- ``recs:v1:previous``       → the generation ``serving`` replaced (the rollback target)
+- ``recs:v1:model_version``  → mirrors ``serving`` for readers that predate generations
+
+Generation keys carry a TTL longer than the batch cadence; the job refreshes the TTL of the
+serving and previous generations on every run so a rollback never lands on expired keys.
+With ``RECS_WRITE_LEGACY_KEYS`` (default true) the unscoped ``recs:v1:{user,item,popular}`` keys
+are written too, as a one-release shim for a reverted team-ai. Values hold listing ids + scores
+only — no hydrated listing content (Rule 3).
 """
 
 from __future__ import annotations
 
 import json
+import re
+
+# KEYS: serving, previous, model_version. ARGV[1]: the new generation.
+# Re-publishing the serving generation leaves previous alone.
+_PROMOTE_LUA = """
+local old = redis.call('GET', KEYS[1])
+if old and old ~= ARGV[1] then
+  redis.call('SET', KEYS[2], old)
+end
+redis.call('SET', KEYS[1], ARGV[1])
+redis.call('SET', KEYS[3], ARGV[1])
+return old or ''
+"""
+
+# KEYS: serving, previous, model_version. Swap serving and previous; refuse (return false)
+# when there is no previous. Returns {old_serving, new_serving}.
+_ROLLBACK_LUA = """
+local s = redis.call('GET', KEYS[1])
+local p = redis.call('GET', KEYS[2])
+if not p then
+  return false
+end
+redis.call('SET', KEYS[1], p)
+if s then
+  redis.call('SET', KEYS[2], s)
+else
+  redis.call('DEL', KEYS[2])
+end
+redis.call('SET', KEYS[3], p)
+return {s or '', p}
+"""
+
+
+def connect(settings):
+    from redis import Redis  # noqa: PLC0415
+
+    return Redis(
+        host=settings.redis_host,
+        port=settings.redis_port,
+        password=settings.redis_password or None,
+        db=settings.redis_db,
+        decode_responses=True,
+    )
 
 
 def _encode(pairs) -> str:
     return json.dumps([{"listing_id": lid, "score": round(float(score), 6)} for lid, score in pairs])
+
+
+def _text(value) -> str | None:
+    if value is None:
+        return None
+    return value.decode("utf-8") if isinstance(value, bytes) else str(value)
 
 
 def load_cache(
@@ -30,17 +86,12 @@ def load_cache(
     popular: list[tuple[str, float]],
     client=None,
 ) -> dict[str, int]:
-    """Write per-user, per-item, popular, and model_version keys. Returns counts."""
-    if client is None:
-        from redis import Redis  # noqa: PLC0415
+    """Write the generation's per-user, per-item and popular keys. Returns counts.
 
-        client = Redis(
-            host=settings.redis_host,
-            port=settings.redis_port,
-            password=settings.redis_password or None,
-            db=settings.redis_db,
-            decode_responses=True,
-        )
+    Does NOT move any pointer: the generation stays invisible until ``activate_generation``.
+    """
+    if client is None:
+        client = connect(settings)
 
     ttl = settings.cache_ttl_seconds
     n_users = 0
@@ -48,15 +99,98 @@ def load_cache(
 
     pipe = client.pipeline()
     for user_key, pairs in user_recs.items():
-        pipe.set(settings.user_cache_key(user_key), _encode(pairs[: settings.top_n]), ex=ttl)
+        body = _encode(pairs[: settings.top_n])
+        pipe.set(settings.gen_user_key(model_version, user_key), body, ex=ttl)
+        if settings.write_legacy_keys:
+            pipe.set(settings.user_cache_key(user_key), body, ex=ttl)
         n_users += 1
     for listing_id, pairs in item_recs.items():
-        pipe.set(settings.item_cache_key(listing_id), _encode(pairs[: settings.top_n]), ex=ttl)
+        body = _encode(pairs[: settings.top_n])
+        pipe.set(settings.gen_item_key(model_version, listing_id), body, ex=ttl)
+        if settings.write_legacy_keys:
+            pipe.set(settings.item_cache_key(listing_id), body, ex=ttl)
         n_items += 1
-    pipe.set(settings.popular_cache_key, _encode(popular[: settings.top_n]), ex=ttl)
+    popular_body = _encode(popular[: settings.top_n])
+    pipe.set(settings.gen_popular_key(model_version), popular_body, ex=ttl)
+    if settings.write_legacy_keys:
+        pipe.set(settings.popular_cache_key, popular_body, ex=ttl)
     pipe.execute()
 
-    # Flip the version only after the generation is fully written.
-    client.set(settings.model_version_cache_key, model_version, ex=ttl)
-
     return {"users": n_users, "items": n_items}
+
+
+def pointers(settings, client) -> tuple[str | None, str | None]:
+    """(serving, previous) generations, None when unset."""
+    return _text(client.get(settings.serving_key)), _text(client.get(settings.previous_key))
+
+
+def activate_generation(settings, model_version: str, client=None) -> str | None:
+    """Atomically make ``model_version`` the serving generation. Returns the one it replaced."""
+    if client is None:
+        client = connect(settings)
+    old = client.eval(
+        _PROMOTE_LUA,
+        3,
+        settings.serving_key,
+        settings.previous_key,
+        settings.model_version_cache_key,
+        model_version,
+    )
+    return _text(old) or None
+
+
+def swap_generations(settings, client=None) -> tuple[str, str] | None:
+    """Atomically swap serving and previous. Returns (old_serving, new_serving), None if no previous."""
+    if client is None:
+        client = connect(settings)
+    out = client.eval(
+        _ROLLBACK_LUA,
+        3,
+        settings.serving_key,
+        settings.previous_key,
+        settings.model_version_cache_key,
+    )
+    if not out:
+        return None
+    return (_text(out[0]) or "", _text(out[1]) or "")
+
+
+_GEN_KEY = re.compile(r"^(?P<gen>.+?):(?:user:|item:|popular$)")
+
+
+def _scan_generation_keys(settings, client):
+    """Yield (gen, key) for every generation-scoped key."""
+    prefix = settings.gen_key_prefix
+    for key in client.scan_iter(match=f"{prefix}*", count=1000):
+        key = _text(key)
+        m = _GEN_KEY.match(key[len(prefix) :])
+        if m:
+            yield m.group("gen"), key
+
+
+def generation_present(settings, gen: str, client) -> bool:
+    """True when the generation's keys still exist (its popular list is the sentinel)."""
+    return bool(client.exists(settings.gen_popular_key(gen)))
+
+
+def prune_generations(settings, keep: set[str], client=None) -> int:
+    """Delete the keys of every generation not in ``keep``. Returns the number of keys deleted."""
+    if client is None:
+        client = connect(settings)
+    doomed = [key for gen, key in _scan_generation_keys(settings, client) if gen not in keep]
+    for i in range(0, len(doomed), 500):
+        client.delete(*doomed[i : i + 500])
+    return len(doomed)
+
+
+def refresh_ttl(settings, gens: set[str], client=None) -> int:
+    """EXPIRE every key of the given generations back to the full TTL. Returns keys touched."""
+    if client is None:
+        client = connect(settings)
+    ttl = settings.cache_ttl_seconds
+    n = 0
+    for gen, key in _scan_generation_keys(settings, client):
+        if gen in gens:
+            client.expire(key, ttl)
+            n += 1
+    return n

@@ -79,7 +79,8 @@ def test_train_and_load_populates_artifacts(spark):
     assert counts["items"] == len(item_ids)
     assert counts["users"] == len(user_ids)
     # Collections exist and points are stamped with the model_version.
-    item_pts = fake_q.collections[settings.qdrant_item_collection]
+    item_coll = qdrant_load.generation_collection(settings.qdrant_item_collection, model_version)
+    item_pts = fake_q.collections[item_coll]
     assert item_pts and all(p["payload"]["model_version"] == model_version for p in item_pts.values())
 
     user_recs = recommend.top_n_for_users(user_ids, user_vecs, item_ids, item_vecs, settings.top_n)
@@ -89,6 +90,12 @@ def test_train_and_load_populates_artifacts(spark):
     fake_r = FakeRedis()
     redis_cache.load_cache(settings, model_version, user_recs, item_recs, popular, client=fake_r)
 
+    # The generation is written but invisible until it is activated.
+    assert settings.serving_key not in fake_r.store
+    redis_cache.activate_generation(settings, model_version, client=fake_r)
     assert fake_r.store[settings.model_version_cache_key] == model_version
-    assert any(k.startswith("recs:v1:user:") for k in fake_r.store)
+    assert fake_r.store[settings.serving_key] == model_version
+    assert any(k.startswith(f"recs:v1:gen:{model_version}:user:") for k in fake_r.store)
+    assert any(k.startswith("recs:v1:user:") for k in fake_r.store)  # legacy shim (default on)
+    assert fake_r.store[settings.gen_popular_key(model_version)]
     assert fake_r.store[settings.popular_cache_key]

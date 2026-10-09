@@ -1,11 +1,15 @@
 """Upsert ALS and Two-Tower factors into Qdrant (:6333).
 
-Collections:
-- item collection (default ``item_als_vectors``): ALS item factors
-- user collection (default ``user_als_vectors``): ALS user factors
-- two-tower collection (default ``item_two_tower_vectors``): Dense neural candidate vectors
+Names (recsys-generations):
+- ``item_als_vectors`` / ``user_als_vectors`` are ALIASES (the names readers use). They point at the
+  serving generation's collections.
+- ``item_als_vectors__<gen>`` / ``user_als_vectors__<gen>``: the vectors of one ``model_version``,
+  created fresh by each publish. The alias moves only after they are written, in one atomic call.
+- two-tower collection (default ``item_two_tower_vectors``): not generation-scoped.
 
-Each run writes under a fresh ``model_version`` and prunes stale generations.
+The first publish after this layout finds a real collection named ``item_als_vectors``: it is
+copied to ``item_als_vectors__legacy``, deleted, and the alias takes its name (``__legacy`` is then
+dropped by retention like any generation that is neither serving nor previous).
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 
 # Stable namespace so a given listing/user maps to the same point id every run.
@@ -54,6 +59,18 @@ def _get_models():
             @staticmethod
             def MatchValue(value: Any):
                 return {"value": value}
+            @staticmethod
+            def CreateAlias(collection_name: str, alias_name: str):
+                return SimpleNamespace(collection_name=collection_name, alias_name=alias_name)
+            @staticmethod
+            def DeleteAlias(alias_name: str):
+                return SimpleNamespace(alias_name=alias_name)
+            @staticmethod
+            def CreateAliasOperation(create_alias: Any):
+                return SimpleNamespace(create_alias=create_alias)
+            @staticmethod
+            def DeleteAliasOperation(delete_alias: Any):
+                return SimpleNamespace(delete_alias=delete_alias)
         return FakeModels
 
 
@@ -91,7 +108,7 @@ def _upsert(client, name: str, rows, id_field: str, model_version: str, updated_
 
 
 def _prune_stale(client, name: str, model_version: str) -> None:
-    """Delete points not stamped with the current model_version."""
+    """Delete points not stamped with the current model_version (two-tower collection only)."""
     models = _get_models()
     client.delete(
         collection_name=name,
@@ -105,6 +122,79 @@ def _prune_stale(client, name: str, model_version: str) -> None:
     )
 
 
+def generation_collection(base: str, generation: str) -> str:
+    return f"{base}__{generation}"
+
+
+def _bases(settings) -> tuple[str, str]:
+    return settings.qdrant_item_collection, settings.qdrant_user_collection
+
+
+def _connect(settings):
+    from qdrant_client import QdrantClient  # noqa: PLC0415
+
+    return QdrantClient(url=settings.qdrant_url)
+
+
+def _real_collections(client) -> set[str]:
+    return {c.name for c in client.get_collections().collections}
+
+
+def _alias_targets(client) -> dict[str, str]:
+    return {a.alias_name: a.collection_name for a in client.get_aliases().aliases}
+
+
+def _fresh_collection(client, name: str, dim: int) -> None:
+    """Create ``name`` empty; a leftover of an interrupted run of the same generation is dropped.
+
+    A collection an alias points at is serving: it is reused (same version, same point ids)."""
+    if name in _real_collections(client) and name not in _alias_targets(client).values():
+        client.delete_collection(collection_name=name)
+    _ensure_collection(client, name, dim)
+
+
+def _move_alias(client, alias: str, collection: str) -> None:
+    """Point ``alias`` at ``collection`` in one atomic call (delete + create)."""
+    models = _get_models()
+    ops = []
+    if alias in _alias_targets(client):
+        ops.append(models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=alias)))
+    ops.append(
+        models.CreateAliasOperation(
+            create_alias=models.CreateAlias(collection_name=collection, alias_name=alias)
+        )
+    )
+    client.update_collection_aliases(change_aliases_operations=ops)
+
+
+def _migrate_legacy(client, alias: str, dim: int) -> bool:
+    """If ``alias`` is still a real collection, copy it to ``<alias>__legacy`` and let the alias
+    take its name (pointing at the copy, so readers keep seeing the same data). True if migrated."""
+    if alias not in _real_collections(client):
+        return False
+    legacy = generation_collection(alias, "legacy")
+    _fresh_collection(client, legacy, dim)
+    offset = None
+    while True:
+        points, offset = client.scroll(
+            collection_name=alias, limit=256, offset=offset, with_vectors=True, with_payload=True
+        )
+        if points:
+            models = _get_models()
+            client.upsert(
+                collection_name=legacy,
+                points=[
+                    models.PointStruct(id=p.id, vector=list(p.vector), payload=dict(p.payload or {}))
+                    for p in points
+                ],
+            )
+        if offset is None:
+            break
+    client.delete_collection(collection_name=alias)
+    _move_alias(client, alias, legacy)
+    return True
+
+
 def load_vectors(
     settings,
     model_version: str,
@@ -112,28 +202,63 @@ def load_vectors(
     user_rows,
     client=None,
 ) -> dict[str, int]:
-    """Upsert item + user factors and prune stale generations."""
+    """Write the generation's item + user factors into its own fresh collections.
+
+    Serving is untouched: the aliases move only in ``activate_aliases``. The first call on a
+    deployment that still has plain ``item_als_vectors`` / ``user_als_vectors`` collections
+    migrates them behind the aliases first.
+    """
     if client is None:
-        from qdrant_client import QdrantClient  # noqa: PLC0415
-        client = QdrantClient(url=settings.qdrant_url)
+        client = _connect(settings)
 
     updated_at = datetime.now(timezone.utc).isoformat()
     dim = settings.als_rank
+    item_base, user_base = _bases(settings)
 
-    _ensure_collection(client, settings.qdrant_item_collection, dim)
-    _ensure_collection(client, settings.qdrant_user_collection, dim)
+    migrated = [_migrate_legacy(client, base, dim) for base in (item_base, user_base)]
+    item_coll = generation_collection(item_base, model_version)
+    user_coll = generation_collection(user_base, model_version)
+    _fresh_collection(client, item_coll, dim)
+    _fresh_collection(client, user_coll, dim)
 
-    n_items = _upsert(
-        client, settings.qdrant_item_collection, item_rows, "listing_id", model_version, updated_at
-    )
-    n_users = _upsert(
-        client, settings.qdrant_user_collection, user_rows, "user_key", model_version, updated_at
-    )
+    n_items = _upsert(client, item_coll, item_rows, "listing_id", model_version, updated_at)
+    n_users = _upsert(client, user_coll, user_rows, "user_key", model_version, updated_at)
 
-    _prune_stale(client, settings.qdrant_item_collection, model_version)
-    _prune_stale(client, settings.qdrant_user_collection, model_version)
+    return {"items": n_items, "users": n_users, "legacy_migrated": sum(migrated)}
 
-    return {"items": n_items, "users": n_users}
+
+def generation_present(settings, generation: str, client=None) -> bool:
+    """True when both of the generation's collections exist."""
+    if client is None:
+        client = _connect(settings)
+    existing = _real_collections(client)
+    return all(generation_collection(b, generation) in existing for b in _bases(settings))
+
+
+def activate_aliases(settings, generation: str, client=None) -> None:
+    """Point the item and user aliases at the generation's collections (each move is atomic)."""
+    if client is None:
+        client = _connect(settings)
+    for base in _bases(settings):
+        _move_alias(client, base, generation_collection(base, generation))
+
+
+def prune_generations(settings, keep: set[str], client=None) -> list[str]:
+    """Delete every ``<base>__<gen>`` collection whose generation is not in ``keep``.
+
+    Never touches a collection the aliases currently point at. Returns the names deleted.
+    """
+    if client is None:
+        client = _connect(settings)
+    live = set(_alias_targets(client).values())
+    deleted: list[str] = []
+    for name in sorted(_real_collections(client)):
+        for base in _bases(settings):
+            prefix = f"{base}__"
+            if name.startswith(prefix) and name[len(prefix) :] not in keep and name not in live:
+                client.delete_collection(collection_name=name)
+                deleted.append(name)
+    return deleted
 
 
 def load_two_tower_vectors(
@@ -144,8 +269,7 @@ def load_two_tower_vectors(
 ) -> int:
     """Upsert Two-Tower candidate item vectors and prune stale generations."""
     if client is None:
-        from qdrant_client import QdrantClient  # noqa: PLC0415
-        client = QdrantClient(url=settings.qdrant_url)
+        client = _connect(settings)
 
     updated_at = datetime.now(timezone.utc).isoformat()
     dim = settings.two_tower_dim
