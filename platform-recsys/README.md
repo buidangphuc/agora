@@ -43,7 +43,7 @@ copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run
 |---|---|---|
 | Qdrant | `item_als_vectors__<model_version>` | One generation's L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at`. Created fresh by each publish. |
 | Qdrant | `user_als_vectors__<model_version>` | Same for users; payload `user_key`. |
-| Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Readers keep using this name. |
+| Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Deprecated compatibility shim (serving-switch-atomicity): team-ai names `<alias>__<recs:v1:serving>` itself, so one pointer decides Redis and Qdrant; the alias is only for readers that predate that and for a deployment with no pointer yet. |
 | Qdrant | alias `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users. |
 | Qdrant | `QDRANT_TWO_TOWER_COLLECTION` (`item_two_tower_vectors`) | Only when `ENABLE_TWO_TOWER=true` (see Known gaps). |
 | Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |

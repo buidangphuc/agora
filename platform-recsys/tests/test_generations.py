@@ -493,3 +493,43 @@ def test_item_and_user_aliases_move_in_one_call():
         "item_als_vectors": "item_als_vectors__g2",
         "user_als_vectors": "user_als_vectors__g2",
     }
+
+
+# ── serving-switch-atomicity: retention is pointer-safe ──────────────────────────────────────────
+
+
+def _drop_aliases(qdrant):
+    models = qdrant_load._get_models()
+    qdrant.update_collection_aliases(
+        change_aliases_operations=[
+            models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=name))
+            for name in _aliases(qdrant)
+        ]
+    )
+
+
+def test_retention_with_no_named_generation_deletes_nothing(redis_client, qdrant):
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _drop_aliases(qdrant)  # nothing but the pointers (and now not even those) protects a generation
+    before_collections = _collections(qdrant)
+    before_keys = set(redis_client.scan_iter(match="recs:v1:gen:*"))
+
+    assert qdrant_load.prune_generations(SETTINGS, set(), client=qdrant) == []
+    assert redis_cache.prune_generations(SETTINGS, set(), client=redis_client) == 0
+
+    assert _collections(qdrant) == before_collections
+    assert set(redis_client.scan_iter(match="recs:v1:gen:*")) == before_keys
+
+
+def test_publish_spares_serving_and_previous_collections_without_aliases(redis_client, qdrant):
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _drop_aliases(qdrant)
+    _publish(redis_client, qdrant, "g3")
+
+    names = _collections(qdrant)
+    assert {"item_als_vectors__g3", "item_als_vectors__g2"} <= names
+    assert not {n for n in names if n.endswith("__g1")}
+    assert redis_client.get("recs:v1:serving") == "g3"
+    assert redis_client.get("recs:v1:previous") == "g2"

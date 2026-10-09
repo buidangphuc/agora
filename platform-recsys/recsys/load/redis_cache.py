@@ -186,7 +186,11 @@ def generation_present(settings, gen: str, client) -> bool:
 
 
 def prune_generations(settings, keep: set[str], client=None) -> int:
-    """Delete the keys of every generation not in ``keep``. Returns the number of keys deleted."""
+    """Delete the keys of every generation not in ``keep``. Returns the number of keys deleted.
+
+    An empty ``keep`` (no serving/previous readable) deletes nothing."""
+    if not keep:
+        return 0
     if client is None:
         client = connect(settings)
     doomed = [key for gen, key in _scan_generation_keys(settings, client) if gen not in keep]
