@@ -105,6 +105,28 @@ def lexical_and_semantic_only(world: World) -> None:
     h.wait_embedded(world, "sem")
 
 
+@given(
+    "an embedded in-stock listing and an embedded sold-out listing titled with the same unique word"
+)
+def in_and_out_of_stock(world: World) -> None:
+    stem = h.word()
+    h.bag(world)["stem"] = stem
+    h.create(world, "in", f"{stem} in stock", stock=5)
+    h.create(world, "out", f"{stem} sold out", stock=0)
+    h.wait_embedded(world, "in")
+    h.wait_embedded(world, "out")
+
+
+@given("an embedded cheap listing and an embedded dear listing titled with the same unique word")
+def cheap_and_dear(world: World) -> None:
+    stem = h.word()
+    h.bag(world)["stem"] = stem
+    h.create(world, "cheap", f"{stem} cheap", price=100_000)
+    h.create(world, "dear", f"{stem} dear", price=600_000)
+    h.wait_embedded(world, "cheap")
+    h.wait_embedded(world, "dear")
+
+
 @given("the modelserve router is stopped")
 def stop_router(world: World) -> None:
     restore = stop_container(ms.router_container())
@@ -155,6 +177,36 @@ def search_alias_semantic(world: World) -> None:
 @when("a buyer searches for the semantic alias of that word without a search mode")
 def search_alias_unspecified(world: World) -> None:
     _search_until_listed(world, _alias(world), None, "near")
+
+
+@when(
+    "a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with the in-stock "
+    "filter"
+)
+def search_alias_in_stock(world: World) -> None:
+    alias, lid = _alias(world), s.listing(world, "in").id
+    h.bag(world)["resp"] = s.eventually(
+        lambda: (r := h.search(alias, mode=h.HYBRID, filters={"in_stock": "true"}))
+        and lid in h.ids(r)
+        and r,
+        f"the in-stock listing {lid} among the filtered hybrid hits of {alias!r}",
+        30.0,
+    )
+
+
+@when(
+    "a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with a price range "
+    "around the cheap one"
+)
+def search_alias_price_range(world: World) -> None:
+    alias, lid = _alias(world), s.listing(world, "cheap").id
+    h.bag(world)["resp"] = s.eventually(
+        lambda: (r := h.search(alias, mode=h.HYBRID, min_price=50_000, max_price=200_000))
+        and lid in h.ids(r)
+        and r,
+        f"the cheap listing {lid} among the price-filtered hybrid hits of {alias!r}",
+        30.0,
+    )
 
 
 @when("a buyer searches for that keyword plus a slow-embedding directive in SEARCH_MODE_HYBRID")
@@ -329,6 +381,31 @@ def facets_kept(world: World) -> None:
     sellers = _bucket_counts(facets, "sellers")
     assert sum(sellers.values()) == total, sellers
     assert sellers.get(s.subject(s.seller_of(world).token)) == 2, sellers
+
+
+@then("the in-stock listing is among the hits and the sold-out listing is not")
+def in_stock_only(world: World) -> None:
+    got = h.ids(h.bag(world)["resp"])
+    assert s.listing(world, "in").id in got, got
+    assert s.listing(world, "out").id not in got, "the sold-out listing leaked through the k-NN leg"
+
+
+@then("the cheap listing is among the hits and the dear listing is not")
+def cheap_only(world: World) -> None:
+    got = h.ids(h.bag(world)["resp"])
+    assert s.listing(world, "cheap").id in got, got
+    assert s.listing(world, "dear").id not in got, "the price filter did not reach the k-NN leg"
+
+
+@then("the category facet counts sum to the response total and the total counts both listings")
+def facets_follow_fused_set(world: World) -> None:
+    resp = h.bag(world)["resp"]
+    body = s.ok_json(resp)
+    total = s.total_of(resp)
+    assert {s.listing(world, x).id for x in ("lex", "sem")} <= set(h.ids(resp)), h.ids(resp)
+    assert total >= 2, total
+    cats = sum(_bucket_counts(body.get("facets") or {}, "categories").values())
+    assert cats == total, f"facets count {cats} listings, the total says {total}"
 
 
 @then("the listing is among the hits although a lexical search for the alias finds nothing")

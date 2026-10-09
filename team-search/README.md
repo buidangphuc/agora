@@ -52,7 +52,12 @@ Behaviour of `SearchListings`:
 - Offsets at or beyond `HYBRID_FUSION_WINDOW` skip fusion and use plain lexical paging.
 - Optional reranker (`ENABLE_RERANKER=true`): reorders the top 20 fused candidates through
   modelserve `/rerank`; on error the fused order is kept.
-- Facets (`categories`, `sellers`, `price_ranges`) are computed over the filtered lexical set;
+- Filters constrain every leg: the structured filters (status, `in_stock`, category, seller, price,
+  `tag.*`, `sku.*`) go into the k-NN query's own `filter` (Lucene engine, efficient filtering), so the k
+  neighbours are found among matching listings rather than post-filtered.
+- Facets (`categories`, `sellers`, `price_ranges`) are computed over the filtered lexical set (in hybrid,
+  over the fused candidate set when it differs from the lexical set, via `FacetsForIDs`; the hybrid
+  total is the fused count, not the k-NN leg's k);
   see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` is always an empty
   list: no listing event carries a rating.
 

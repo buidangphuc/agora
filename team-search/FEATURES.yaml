@@ -1317,3 +1317,60 @@ features:
     status: automated
     covered_by: "search/hybrid_retrieval.feature::Deep pagination beyond fusion window falls back to BM25"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-in-stock-filter-excludes-a-sold-out-listing-from-semantic-candidates
+    title: "In-stock filter excludes a sold-out listing from semantic candidates"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: in_stock=true constrains the k-NN leg, so a sold-out semantic twin is not returned."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded in-stock listing and an embedded sold-out listing titled with the same unique word"
+      - "When a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with the in-stock filter"
+      - "Then the in-stock listing is among the hits and the sold-out listing is not"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::In-stock filter excludes a sold-out listing from semantic candidates; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-price-range-filter-constrains-semantic-candidates
+    title: "Price range filter constrains semantic candidates"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: a price range constrains the k-NN leg."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded cheap listing and an embedded dear listing titled with the same unique word"
+      - "When a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with a price range around the cheap one"
+      - "Then the cheap listing is among the hits and the dear listing is not"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Price range filter constrains semantic candidates; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-hybrid-facets-and-total-describe-the-fused-candidate-set
+    title: "Hybrid facets and total describe the fused candidate set"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: total and facets are computed over the fused candidates, not the lexical leg or the k-NN k."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing matching a keyword lexically and an embedded listing matching its alias only semantically"
+      - "When a buyer searches for the keyword and the alias in SEARCH_MODE_HYBRID, first page"
+      - "Then the category facet counts sum to the response total and the total counts both listings"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Hybrid facets and total describe the fused candidate set; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."

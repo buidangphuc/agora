@@ -163,29 +163,39 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		return index.SearchResult{}, false, lexErr
 	}
 
-	// If semantic failed, fail open cleanly to lexical
-	if semErr != nil || len(semResult.Hits) == 0 {
+	// Semantic failed: fail open cleanly to lexical.
+	if semErr != nil {
 		isDegraded = true
 		if lexErr != nil {
 			return index.SearchResult{}, false, lexErr
 		}
-		// Paginate lexical results
-		hits := paginateHits(lexResult.Hits, params.From, params.Size)
 		return index.SearchResult{
-			Hits:   hits,
+			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
 			Total:  lexResult.Total,
 			Facets: lexResult.Facets,
 		}, isDegraded, nil
 	}
-
-	// If lexical failed, fall back to semantic
-	if lexErr != nil || len(lexResult.Hits) == 0 {
-		isDegraded = true
-		hits := paginateHits(semResult.Hits, params.From, params.Size)
+	// Semantic returned nothing: the lexical leg alone answers.
+	if lexErr == nil && len(semResult.Hits) == 0 {
 		return index.SearchResult{
-			Hits:   hits,
+			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
+			Total:  lexResult.Total,
+			Facets: lexResult.Facets,
+		}, false, nil
+	}
+
+	// Lexical failed or matched nothing: the semantic candidates answer.
+	if lexErr != nil || len(lexResult.Hits) == 0 {
+		isDegraded = lexErr != nil
+		facets := semResult.Facets
+		switch {
+		case len(semResult.Hits) == 0 && lexErr == nil:
+			facets = lexResult.Facets // lexical matched nothing either: empty buckets
+		}
+		return index.SearchResult{
+			Hits:   paginateHits(semResult.Hits, params.From, params.Size),
 			Total:  semResult.Total,
-			Facets: semResult.Facets,
+			Facets: facets,
 		}, isDegraded, nil
 	}
 
@@ -241,20 +251,74 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score, Stock: c.Stock})
 	}
 
-	// Total estimate is max of both strategies
+	// Total and facets describe the fused candidate set the hits come from: the
+	// semantic leg's own total is k (always a full page of neighbours), so it must
+	// not inflate the total. When the fused set is exactly the lexical set the
+	// lexical facets are already right; otherwise they are re-aggregated over the
+	// fused ids under the same filters.
 	total := lexResult.Total
-	if semResult.Total > total {
-		total = semResult.Total
+	if int64(len(fused)) > total {
+		total = int64(len(fused))
 	}
-
-	// Primary facet source is lexical (or semantic if lexical empty)
 	facets := lexResult.Facets
+	if !sameSet(fused, lexResult.Hits) || lexResult.Total > int64(len(lexResult.Hits)) {
+		facets = e.facetsFor(ctx, candidateIDs(fused), params, lexResult.Facets)
+	}
 
 	return index.SearchResult{
 		Hits:   hits,
 		Total:  total,
 		Facets: facets,
 	}, false, nil
+}
+
+// facetsFor aggregates facets over exactly the given candidate ids under the
+// request's filters. An index without that capability, or a failed aggregation,
+// keeps the fallback facets rather than failing the search.
+func (e *Engine) facetsFor(ctx context.Context, ids []string, params SearchParams, fallback index.Facets) index.Facets {
+	fc, ok := e.idx.(index.FacetCounter)
+	if !ok || len(ids) == 0 {
+		return fallback
+	}
+	f, err := fc.FacetsForIDs(ctx, ids, params.Filters)
+	if err != nil {
+		log.Printf("[retrieval] facets for fused candidates: %v, keeping leg facets", err)
+		return fallback
+	}
+	return f
+}
+
+func hitIDs(hits []index.Hit) []string {
+	ids := make([]string, 0, len(hits))
+	for _, h := range hits {
+		ids = append(ids, h.ListingID)
+	}
+	return ids
+}
+
+func candidateIDs(cs []Candidate) []string {
+	ids := make([]string, 0, len(cs))
+	for _, c := range cs {
+		ids = append(ids, c.ListingID)
+	}
+	return ids
+}
+
+// sameSet reports whether the fused candidates are exactly the given hits.
+func sameSet(fused []Candidate, hits []index.Hit) bool {
+	if len(fused) != len(hits) {
+		return false
+	}
+	in := make(map[string]struct{}, len(hits))
+	for _, h := range hits {
+		in[h.ListingID] = struct{}{}
+	}
+	for _, c := range fused {
+		if _, ok := in[c.ListingID]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // isKeySort reports whether sortBy orders by a document key rather than relevance.

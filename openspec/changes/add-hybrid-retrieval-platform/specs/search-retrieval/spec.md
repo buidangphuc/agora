@@ -52,6 +52,22 @@ The system SHALL fail open cleanly when an individual retrieval strategy encount
 - **WHEN** hybrid search degrades to lexical
 - **THEN** facet counts (category, price range, rating, seller) are accurately returned
 
+### Requirement: Structured filters constrain every retrieval leg
+
+The system SHALL apply every structured filter of a request (status, `in_stock`, category, seller, price range, `tag.<group>`, `sku.<group>`) to every retrieval leg, the semantic k-NN leg included, inside the vector query's own filter so the nearest neighbours are found among the matching listings rather than post-filtered. In HYBRID mode the total and the facet aggregations SHALL describe the same filtered, fused candidate set the hits come from; a leg's own k is never reported as the total.
+
+#### Scenario: In-stock filter excludes a sold-out listing from semantic candidates
+- **WHEN** a buyer searches in HYBRID mode with `in_stock=true` for a word that only the semantic leg matches, and a sold-out listing is semantically identical to an in-stock one
+- **THEN** the in-stock listing is among the hits and the sold-out listing is not
+
+#### Scenario: Price range filter constrains semantic candidates
+- **WHEN** a buyer searches in HYBRID mode with a price range for a word that only the semantic leg matches, and one listing is inside the range and one outside
+- **THEN** only the listing inside the range is among the hits
+
+#### Scenario: Hybrid facets and total describe the fused candidate set
+- **WHEN** a buyer searches in HYBRID mode and the semantic leg contributes a listing the lexical leg does not match
+- **THEN** the category facet counts sum to the response total and count that semantic-only listing
+
 ### Requirement: Additive SearchMode Contract
 
 The system SHALL support explicit search mode selection (`HYBRID`, `LEXICAL`, `SEMANTIC`) via the `search_mode` field in `SearchListingsRequest`.

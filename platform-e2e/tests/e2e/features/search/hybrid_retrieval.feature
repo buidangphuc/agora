@@ -99,3 +99,21 @@ Feature: Multi-strategy Hybrid Retrieval Platform
     Then the answer is 200 with the same total as the lexical search at that cursor
     And the TEI fake received no embedding request for that query
     And the same query in SEARCH_MODE_HYBRID at the first page does reach the TEI fake
+
+  @needsModelserveOverlay
+  Scenario: In-stock filter excludes a sold-out listing from semantic candidates
+    Given an embedded in-stock listing and an embedded sold-out listing titled with the same unique word
+    When a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with the in-stock filter
+    Then the in-stock listing is among the hits and the sold-out listing is not
+
+  @needsModelserveOverlay
+  Scenario: Price range filter constrains semantic candidates
+    Given an embedded cheap listing and an embedded dear listing titled with the same unique word
+    When a buyer searches for the semantic alias of that word in SEARCH_MODE_HYBRID with a price range around the cheap one
+    Then the cheap listing is among the hits and the dear listing is not
+
+  @needsModelserveOverlay
+  Scenario: Hybrid facets and total describe the fused candidate set
+    Given an embedded listing matching a keyword lexically and an embedded listing matching its alias only semantically
+    When a buyer searches for the keyword and the alias in SEARCH_MODE_HYBRID, first page
+    Then the category facet counts sum to the response total and the total counts both listings

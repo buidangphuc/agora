@@ -114,6 +114,12 @@ type Index interface {
 	Suggest(ctx context.Context, prefix string, limit int) ([]string, error)
 }
 
+// FacetCounter is an optional Index capability: facet aggregations over an
+// explicit candidate set (the fused hybrid candidates) under the request filters.
+type FacetCounter interface {
+	FacetsForIDs(ctx context.Context, ids []string, filters map[string]string) (Facets, error)
+}
+
 // OpenSearchIndex implements Index against an OpenSearch cluster.
 type OpenSearchIndex struct {
 	client *opensearch.Client
@@ -898,6 +904,29 @@ func (o *OpenSearchIndex) SearchVector(
 		Total:  parsed.Hits.Total.Value,
 		Facets: parseFacets(parsed.Aggregations),
 	}, nil
+}
+
+// FacetsForIDs aggregates the facets over exactly the listings in ids that also
+// satisfy the structured filters (same aggregations as Search), so a fused
+// hybrid candidate set reports facets for the set the hits come from.
+func (o *OpenSearchIndex) FacetsForIDs(ctx context.Context, ids []string, filters map[string]string) (Facets, error) {
+	if len(ids) == 0 {
+		return parseFacets(osAggregations{}), nil
+	}
+	body := map[string]any{
+		"size": 0,
+		"query": map[string]any{
+			"bool": map[string]any{
+				"filter": append(buildFilterClauses(filters, "", 0, 0, 0), map[string]any{"terms": map[string]any{"id": ids}}),
+			},
+		},
+		"aggs": facetAggs(filters),
+	}
+	var parsed osSearchResponse
+	if err := o.doSearch(ctx, body, &parsed); err != nil {
+		return Facets{}, err
+	}
+	return parseFacets(parsed.Aggregations), nil
 }
 
 // Suggest returns type-ahead completions of listing titles for a prefix, using
