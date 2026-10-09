@@ -48,3 +48,7 @@ class RecommendationSettingsMixin(BaseModel):
     # Reported on every RecommendResponse; a serving-side label until the
     # training job stamps its own version into the artifacts it writes.
     RECS_MODEL_VERSION: str = "serving-fallback"
+
+    # Online feature store (platform-featurestore's Redis, keys ``fs:item_popularity:*``).
+    # Empty = off: ranking runs on the in-memory store, i.e. without online features.
+    RECS_FEATURESTORE_REDIS_URL: str = ""

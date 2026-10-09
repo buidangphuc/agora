@@ -99,6 +99,16 @@ class Settings(
                 "CHAT_BACKEND=llm_router outside dev/local/test requires "
                 "GRPC_RATE_LIMIT_ENABLED=true and QUOTA_ENABLED=true"
             )
+        if (
+            self.RECS_ENABLED
+            and self.RECS_BACKEND == "memory"
+            and not self.ENVIRONMENT.is_local
+        ):
+            # The memory backend serves a fake in-process catalogue.
+            raise ValueError(
+                "RECS_BACKEND=memory is refused with RECS_ENABLED outside "
+                "dev/local/test (use RECS_BACKEND=qdrant)"
+            )
         if self.LLM_TRACE_CONTENT not in {"off", "redacted", "full"}:
             raise ValueError("LLM_TRACE_CONTENT must be one of off, redacted, full")
         if self.LLM_TRACE_CONTENT == "full" and not self.ENVIRONMENT.is_local:

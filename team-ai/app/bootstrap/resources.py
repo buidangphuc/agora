@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING
@@ -238,3 +239,14 @@ async def close_application_resources(app: FastAPI) -> None:
         resources.engine = None
 
     app.state.health_service = HealthService(check_external_dependencies=False)
+
+
+def recommendation_provider(
+    app: FastAPI,
+) -> Callable[[], RecommendationService | None]:
+    """The gRPC ``recommendation_provider`` for ``app`` — shared by every entrypoint.
+
+    Read lazily so it reflects the service the addon opened (``None`` while
+    ``RECS_ENABLED=false``, which makes the servicer answer UNAVAILABLE).
+    """
+    return lambda: getattr(app.state.resources, "recommendation_service", None)

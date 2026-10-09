@@ -66,3 +66,6 @@ class RecommendResult:
     status: str = "real"
     # Explainability payload if requested
     explain: dict[str, Any] = field(default_factory=dict)
+    # True when the ladder found nothing or a dependency failed and the result is
+    # the popular-list floor (model_version is then "serving-fallback").
+    fallback: bool = False

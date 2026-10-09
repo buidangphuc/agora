@@ -5,8 +5,12 @@ Provides Cosine and GBDT ranking adapters with FeatureStore and NearlineSignal p
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import json
+import time
+from collections.abc import Callable, Iterable
 from typing import Any, Protocol
+
+from loguru import logger
 
 from app.modules.business.recommend.schemas import (
     Candidate,
@@ -38,6 +42,85 @@ class InMemoryFeatureStore:
         self, listing_ids: list[str]
     ) -> dict[str, dict[str, Any]]:
         return {lid: self._items[lid] for lid in listing_ids if lid in self._items}
+
+
+_CURRENT_TTL_S = 5.0
+_ERROR_LOG_EVERY_S = 60.0
+
+
+class RedisFeatureStore:
+    """Reads ``item_popularity`` online features written by platform-featurestore.
+
+    ``fs:item_popularity:current`` names the version (memoised 5 s); rows are the
+    flat JSON at ``fs:item_popularity:v<n>:<listing_id>``. Missing keys give no
+    entry; any Redis error gives ``{}`` for the whole batch (logged at most once a
+    minute), so ranking degrades to running without features.
+    """
+
+    VIEW = "item_popularity"
+
+    def __init__(
+        self,
+        redis: Any,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        current_ttl_s: float = _CURRENT_TTL_S,
+    ) -> None:
+        self._redis = redis
+        self._clock = clock
+        self._current_ttl_s = current_ttl_s
+        self._version: str | None = None
+        self._version_at: float | None = None
+        self._last_error_log: float | None = None
+
+    async def _current_version(self) -> str | None:
+        now = self._clock()
+        if (
+            self._version_at is not None
+            and now - self._version_at < self._current_ttl_s
+        ):
+            return self._version
+        raw = await self._redis.get(f"fs:{self.VIEW}:current")
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        self._version = str(raw) if raw else None
+        self._version_at = now
+        return self._version
+
+    def _log_error(self, exc: Exception) -> None:
+        now = self._clock()
+        if (
+            self._last_error_log is None
+            or now - self._last_error_log >= _ERROR_LOG_EVERY_S
+        ):
+            self._last_error_log = now
+            logger.warning("recs.featurestore.read_failed err={}", exc)
+
+    async def get_item_features_batch(
+        self, listing_ids: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        if not listing_ids:
+            return {}
+        try:
+            version = await self._current_version()
+            if not version:
+                return {}
+            keys = [f"fs:{self.VIEW}:v{version}:{lid}" for lid in listing_ids]
+            values = await self._redis.mget(keys)
+        except Exception as exc:
+            self._log_error(exc)
+            return {}
+        out: dict[str, dict[str, Any]] = {}
+        for lid, raw in zip(listing_ids, values, strict=False):
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            if isinstance(data, dict):
+                out[lid] = data
+        return out
 
 
 class InMemoryNearlineStore:

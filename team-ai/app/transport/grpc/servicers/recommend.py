@@ -13,10 +13,12 @@ stubs exist (server.py registers it defensively until then).
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import grpc
+from loguru import logger
 
 from app.core.errors import ServiceUnavailableError
 from app.modules.business.recommend.schemas import RecommendQuery
@@ -97,6 +99,19 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
             await context.abort(grpc.StatusCode.UNAVAILABLE, exc.message)
             raise AssertionError("unreachable") from exc
 
+        request_id = uuid.uuid4().hex
+        placement_id = getattr(result, "placement_id", "") or ""
+        # One line per response so impressions/clicks can be joined to what was
+        # served. Ids only: no user id, no token.
+        logger.bind(
+            request_id=request_id,
+            placement_id=placement_id,
+            model_version=result.model_version,
+            listing_ids=[item.listing_id for item in result.items],
+            fallback=bool(getattr(result, "fallback", False)),
+            principal_type=principal.type,
+        ).info("recs.served")
+
         return recommendation_pb2.RecommendResponse(
             items=[
                 recommendation_pb2.RecommendedItem(
@@ -107,4 +122,6 @@ class RecommendationServicer(recommendation_pb2_grpc.RecommendationServiceServic
                 for item in result.items
             ],
             model_version=result.model_version,
+            placement_id=placement_id,
+            request_id=request_id,
         )

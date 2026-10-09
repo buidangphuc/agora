@@ -2,8 +2,8 @@
 
 Reuses the application bootstrap (``open_application_resources`` + the default
 addons) so the RAG service — with its remote model-server embedding and Qdrant
-store — is wired exactly as the HTTP app wires it, then serves SearchService and
-ChatService. This is the "runnable transport" the platform expects, parallel to
+store — is wired exactly as the HTTP app wires it, then serves SearchService, ChatService
+and RecommendationService. This is the "runnable transport" the platform expects, parallel to
 the HTTP app and the queue worker.
 
 Run: ``uv run python -m scripts.run_grpc`` (needs GRPC_ENABLED=true is advisory;
@@ -22,6 +22,7 @@ from app.bootstrap.resources import (
     ApplicationResources,
     close_application_resources,
     open_application_resources,
+    recommendation_provider,
 )
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -53,6 +54,7 @@ async def _main() -> None:
             settings=settings,
             rag_provider=lambda: app.state.resources.rag_service,
             chat_streamer=chat_streamer,
+            recommendation_provider=recommendation_provider(app),
         )
     finally:
         await close_chat_streamer(chat_streamer)
