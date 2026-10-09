@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import duckdb
+import pyarrow.parquet as pq
 
 from featurestore.settings import ConfigError
 
@@ -28,6 +29,15 @@ def input_files(input_dir: Path) -> dict[str, Path]:
     return paths
 
 
+def _require_buyer_column(path: Path) -> None:
+    """order_facts must carry buyer_id (order-facts-buyer); fail loudly instead of computing zeros."""
+    if "buyer_id" not in pq.read_schema(path).names:
+        raise ConfigError(
+            f"{path.name} has no buyer_id column (written by an older team-analytics); "
+            "wait for the next export cycle after team-analytics is upgraded"
+        )
+
+
 def _retry(fn):
     try:
         return fn()
@@ -43,6 +53,7 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
     (or anything else) directly and bypass the point-in-time rule.
     """
     paths = input_files(input_dir)
+    _require_buyer_column(paths["orders"])
     con = duckdb.connect(":memory:")
     con.execute("SET TimeZone='UTC'")
     a = _lit(as_of)

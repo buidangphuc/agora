@@ -8,18 +8,20 @@ Serving features to team-ai is a later change (`recs-serving-safeguards`).
 ## Contract
 
 **Inputs** (read-only, `FEATURESTORE_INPUT_DIR`, written by team-analytics): `tracking_events_resolved.parquet`
-(`tracking_events` columns plus `user_key`), `engagement_facts.parquet`, `order_facts.parquet`.
+(`tracking_events` columns plus `user_key`), `engagement_facts.parquet`, `order_facts.parquet` (with `buyer_id`).
 
 **Registry** (`registry/features.yaml`, SQL in `registry/sql/`, hashes in `registry/features.lock`):
 
 | View | Entity | Features |
 | --- | --- | --- |
-| `user_activity@v1` | `user_key` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `follows_current` |
+| `user_activity@v2` | `user_key` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `follows_current`, `paid_orders_30d` |
 | `item_popularity@v1` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` |
 
-`paid_orders_30d` is **not** computed: `order_facts` has no buyer or user column (event_id, order_id, listing_id,
-variant_id, seller_id, quantity, unit_price, currency, occurred_at, status), so paid orders cannot be attributed to a
-`user_key`. This needs a spec/schema decision (add a buyer id to order_facts).
+`paid_orders_30d` is the number of distinct paid orders (`order_facts.status = 'PAID'`) whose `buyer_id` is the user,
+with `occurred_at` in `(AS_OF - 30d, AS_OF]`. Order lines without a `buyer_id` (rows ingested before the column
+existed) count for nobody; a buyer with orders but no events still gets a row. Refunds and cancellations do not lower
+it (order_facts only holds PAID facts). `user_activity@v1` was retired by `order-facts-buyer`; the job exits 2 if
+`order_facts.parquet` has no `buyer_id` column (upgrade team-analytics first, wait one export cycle).
 
 **Point in time.** Everything is computed as of `AS_OF` (RFC 3339 with offset; empty or unset means now, UTC). The SQL
 only sees the views `events` and `facts` (`ingested_at <= AS_OF`) and `orders` (`occurred_at <= AS_OF`), created by

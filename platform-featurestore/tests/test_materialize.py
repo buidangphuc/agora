@@ -55,7 +55,7 @@ def test_user_activity_features_and_windows(dirs, settings, redis):
         fact("f6", "seller_unfollowed", "u1", h(1), seller="S2"),
     ]
     write_inputs(dirs[0], events, facts)
-    rows = rows_by_id(run(settings, redis)["user_activity@v1"])
+    rows = rows_by_id(run(settings, redis)["user_activity@v2"])
     assert rows["u1"] == {
         "entity_id": "u1",
         "views_7d": 3,
@@ -63,9 +63,84 @@ def test_user_activity_features_and_windows(dirs, settings, redis):
         "add_to_cart_7d": 1,
         "favorites_current": 1,
         "follows_current": 1,
+        "paid_orders_30d": 0,
     }
     assert rows["anon:z"]["views_7d"] == 1 and rows["anon:z"]["favorites_current"] == 0
-    assert "paid_orders_30d" not in rows["u1"]  # order_facts has no buyer column
+
+
+def order(i, buyer, at, order_id=None, **kw):
+    return {"id": i, "order": order_id or i, "buyer": buyer, "listing": "L1", "at": at, **kw}
+
+
+def test_paid_orders_30d_window_edges_and_future(dirs, settings, redis):
+    orders = [
+        order("o31", "u1", d(31)),  # outside
+        order("o30", "u1", d(30)),  # exactly AS_OF - 30d: excluded (half-open window)
+        order("o29", "u1", d(29)),
+        order("o1", "u1", d(1)),
+        order("o0", "u1", AS_OF),  # AS_OF itself is inside
+        order("fut", "u1", h(-1)),  # after AS_OF
+    ]
+    write_inputs(dirs[0], [], [], orders)
+    rows = rows_by_id(run(settings, redis)["user_activity@v2"])
+    assert rows["u1"]["paid_orders_30d"] == 3
+
+
+def test_paid_orders_30d_counts_distinct_orders_not_lines(dirs, settings, redis):
+    orders = [
+        order("a1", "u1", h(5), order_id="A"),
+        order("a2", "u1", h(5), order_id="A"),
+        order("a3", "u1", h(5), order_id="A"),
+        order("b1", "u1", h(2), order_id="B"),
+        order("c1", "u2", h(2), order_id="C", status="CANCELLED"),
+    ]
+    write_inputs(dirs[0], [], [], orders)
+    rows = rows_by_id(run(settings, redis)["user_activity@v2"])
+    assert rows["u1"]["paid_orders_30d"] == 2
+    assert "u2" not in rows or rows["u2"]["paid_orders_30d"] == 0
+
+
+def test_order_without_buyer_counts_for_nobody(dirs, settings, redis):
+    orders = [order("n1", None, h(2)), order("n2", "", h(2)), order("k1", "u1", h(2))]
+    write_inputs(dirs[0], [ev("e1", "view", "u1", "L1", h(1))], [], orders)
+    rows = rows_by_id(run(settings, redis)["user_activity@v2"])
+    assert set(rows) == {"u1"} and rows["u1"]["paid_orders_30d"] == 1
+
+
+def test_buyer_with_only_orders_has_a_row(dirs, settings, redis):
+    write_inputs(dirs[0], [ev("e1", "view", "other", "L1", h(1))], [], [order("o1", "buyer", h(3))])
+    rows = rows_by_id(run(settings, redis)["user_activity@v2"])
+    assert rows["buyer"] == {
+        "entity_id": "buyer",
+        "views_7d": 0,
+        "clicks_7d": 0,
+        "add_to_cart_7d": 0,
+        "favorites_current": 0,
+        "follows_current": 0,
+        "paid_orders_30d": 1,
+    }
+
+
+def test_order_facts_without_buyer_column_exits_2(dirs, env, redis, capsys):
+    write_inputs(dirs[0], [ev("e1", "view", "u1", "L1", h(1))], [], [])
+    t = pq.read_table(dirs[0] / "order_facts.parquet").drop(["buyer_id"])
+    pq.write_table(t, dirs[0] / "order_facts.parquet")
+    assert cli.main(["materialize"], env, redis) == 2
+    cap = capsys.readouterr()
+    assert "buyer_id" in cap.err
+
+
+def test_tampered_paid_orders_fails_parity(dirs, env, redis, capsys):
+    write_inputs(dirs[0], [], [], [order("o1", "buyer", h(3))])
+    assert cli.main(["materialize"], env, redis) == 0
+    key = "fs:user_activity:v2:buyer"
+    row = json.loads(redis.get(key))
+    assert row["paid_orders_30d"] == 1
+    row["paid_orders_30d"] = 7
+    redis.set(key, json.dumps(row))
+    capsys.readouterr()
+    assert cli.main(["parity"], env, redis) == 3
+    assert "entity=buyer feature=paid_orders_30d online=7 offline=1" in capsys.readouterr().out
 
 
 def test_item_popularity_features(dirs, settings, redis):
@@ -110,7 +185,7 @@ def test_as_of_excludes_later_rows(dirs, settings, redis):
     ]
     facts = [fact("f1", "favorite_added", "late-fav", h(1), listing="L1", ing=h(-2))]
     write_inputs(dirs[0], events, facts)
-    assert set(rows_by_id(run(settings, redis)["user_activity@v1"])) == {"early"}
+    assert set(rows_by_id(run(settings, redis)["user_activity@v2"])) == {"early"}
 
 
 def test_snapshot_manifest_and_online(dirs, settings, redis):
@@ -118,7 +193,7 @@ def test_snapshot_manifest_and_online(dirs, settings, redis):
     views = registry.load_registry(settings.registry_dir)
     job.materialize(settings, views, redis, now=datetime(2026, 10, 9, 12, 5, 0))
     out = dirs[1]
-    snap = out / "user_activity/v1/as_of=20261009T120000Z.parquet"
+    snap = out / "user_activity/v2/as_of=20261009T120000Z.parquet"
     snap_row = pq.read_table(snap).to_pylist()[0]
     assert snap_row["user_key"] == "u1" and snap_row["views_7d"] == 1 and "entity_id" not in snap_row
     item = pq.read_table(out / "item_popularity/v1/as_of=20261009T120000Z.parquet").to_pylist()[0]
@@ -128,20 +203,20 @@ def test_snapshot_manifest_and_online(dirs, settings, redis):
     by = {v["name"]: v for v in m["views"]}
     assert by["user_activity"]["rows"] == 1 and len(by["user_activity"]["definition_sha256"]) == 64
     assert "order_facts.parquet" in {i["name"] for i in m["inputs"]}
-    assert json.loads(redis.get("fs:user_activity:v1:u1"))["views_7d"] == 1
-    assert redis.get("fs:user_activity:current") == "1"
+    assert json.loads(redis.get("fs:user_activity:v2:u1"))["views_7d"] == 1
+    assert redis.get("fs:user_activity:current") == "2"
     meta = json.loads(redis.get("fs:user_activity:meta"))
     assert meta["as_of"] == m["as_of"] and meta["materialized_at"] == "2026-10-09T12:05:00Z"
     assert meta["input_watermark"] <= meta["as_of"]
-    assert 0 < redis.ttl("fs:user_activity:v1:u1") <= 172800
+    assert 0 < redis.ttl("fs:user_activity:v2:u1") <= 172800
 
 
 def test_two_runs_keep_both_snapshots(dirs, env, redis):
     write_inputs(dirs[0], [ev("e1", "view", "u1", "L1", h(1))], [])
     for a in ("2026-10-09T12:00:00Z", "2026-10-09T13:00:00Z"):
         assert cli.main(["materialize"], {**env, "AS_OF": a}, redis) == 0
-    for view in ("user_activity", "item_popularity"):
-        assert len(list((dirs[1] / view / "v1").glob("as_of=*.parquet"))) == 2
+    for view, ver in (("user_activity", "v2"), ("item_popularity", "v1")):
+        assert len(list((dirs[1] / view / ver).glob("as_of=*.parquet"))) == 2
     assert manifest_of(dirs[1], "20261009T130000Z")["as_of"] == "2026-10-09T13:00:00Z"
 
 
@@ -149,7 +224,7 @@ def test_parity_ok_then_tampered_exits_3(dirs, env, redis, capsys):
     write_inputs(dirs[0], [ev("e1", "view", "buyer", "L1", h(1))], [])
     assert cli.main(["materialize"], env, redis) == 0
     assert cli.main(["parity"], env, redis) == 0
-    key = "fs:user_activity:v1:buyer"
+    key = "fs:user_activity:v2:buyer"
     row = json.loads(redis.get(key))
     row["views_7d"] = 99
     redis.set(key, json.dumps(row))
@@ -162,7 +237,7 @@ def test_parity_ok_then_tampered_exits_3(dirs, env, redis, capsys):
 def test_missing_online_row_is_a_mismatch(dirs, env, redis):
     write_inputs(dirs[0], [ev("e1", "view", "buyer", "L1", h(1))], [])
     assert cli.main(["materialize"], env, redis) == 0
-    redis.delete("fs:user_activity:v1:buyer")
+    redis.delete("fs:user_activity:v2:buyer")
     assert cli.main(["parity"], env, redis) == 3
 
 
@@ -187,7 +262,7 @@ def test_hash_guard_exits_4(dirs, env, redis, registry_copy, monkeypatch):
 def test_committed_lock_matches_registry(settings):
     views = registry.load_registry(settings.registry_dir)
     registry.check_lock(settings.registry_dir, views)
-    assert {v.key for v in views} == {"user_activity@v1", "item_popularity@v1"}
+    assert {v.key for v in views} == {"user_activity@v2", "item_popularity@v1"}
 
 
 def test_unlocked_view_fails(registry_copy):
