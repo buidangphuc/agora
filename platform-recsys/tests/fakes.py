@@ -16,6 +16,7 @@ class FakeQdrantClient:
     def __init__(self):
         self.collections: dict[str, dict] = {}
         self.aliases: dict[str, str] = {}
+        self.dims: dict[str, int | None] = {}
 
     def get_collections(self):
         cols = [SimpleNamespace(name=n) for n in self.collections]
@@ -31,6 +32,13 @@ class FakeQdrantClient:
 
     def create_collection(self, collection_name, vectors_config):
         self.collections[collection_name] = {}
+        self.dims[collection_name] = getattr(vectors_config, "size", None)
+
+    def get_collection(self, collection_name):
+        size = self.dims.get(self._resolve(collection_name))
+        return SimpleNamespace(
+            config=SimpleNamespace(params=SimpleNamespace(vectors=SimpleNamespace(size=size)))
+        )
 
     def count(self, collection_name, exact=True):
         return SimpleNamespace(count=len(self.collections[self._resolve(collection_name)]))
@@ -51,8 +59,13 @@ class FakeQdrantClient:
                 self.aliases[ca.alias_name] = ca.collection_name
 
     def upsert(self, collection_name, points):
-        store = self.collections.setdefault(self._resolve(collection_name), {})
+        name = self._resolve(collection_name)
+        store = self.collections.setdefault(name, {})
         for p in points:
+            size = self.dims.get(name)
+            assert (
+                size is None or len(p.vector) == size
+            ), f"dim mismatch: expected {size}, got {len(p.vector)}"
             store[p.id] = {"vector": p.vector, "payload": p.payload}
 
     def scroll(self, collection_name, limit=10, offset=None, with_vectors=False, with_payload=True):

@@ -167,13 +167,25 @@ def _move_alias(client, alias: str, collection: str) -> None:
     client.update_collection_aliases(change_aliases_operations=ops)
 
 
+def _collection_dim(client, name: str, default: int) -> int:
+    """Vector size of an existing collection (the old generation may use another ALS rank)."""
+    try:
+        vectors = client.get_collection(collection_name=name).config.params.vectors
+        return int(getattr(vectors, "size", None) or vectors["size"])
+    except Exception:  # noqa: BLE001 - unknown shape: fall back to the caller's dim
+        return default
+
+
 def _migrate_legacy(client, alias: str, dim: int) -> bool:
     """If ``alias`` is still a real collection, copy it to ``<alias>__legacy`` and let the alias
-    take its name (pointing at the copy, so readers keep seeing the same data). True if migrated."""
+    take its name (pointing at the copy, so readers keep seeing the same data). True if migrated.
+
+    The copy keeps the OLD collection's vector size, not the new model's: the legacy
+    generation keeps serving until the new one is activated."""
     if alias not in _real_collections(client):
         return False
     legacy = generation_collection(alias, "legacy")
-    _fresh_collection(client, legacy, dim)
+    _fresh_collection(client, legacy, _collection_dim(client, alias, dim))
     offset = None
     while True:
         points, offset = client.scroll(

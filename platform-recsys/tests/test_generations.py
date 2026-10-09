@@ -381,3 +381,28 @@ def test_command_rollback_exit_codes(monkeypatch):
 
 def test_command_rejects_unknown_subcommands(monkeypatch):
     assert _main_with(monkeypatch, FakeRedis(), FakeQdrantClient(), ["frobnicate"]) == 2
+
+
+
+def test_legacy_migration_keeps_the_old_vector_size(redis_client, qdrant):
+    """A legacy collection trained at another ALS rank is copied at ITS size, not the new one.
+
+    The old code sized the copy for the NEW rank, which a real Qdrant refuses ("Vector
+    dimension error"); the publish must now succeed.
+    """
+    from qdrant_client import models
+
+    old_dim = DIM + 4
+    qdrant.create_collection(
+        collection_name="item_als_vectors",
+        vectors_config=models.VectorParams(size=old_dim, distance=models.Distance.COSINE),
+    )
+    qdrant.upsert(
+        collection_name="item_als_vectors",
+        points=[models.PointStruct(id=qdrant_load.point_id("old"), vector=[1.0] * old_dim, payload={})],
+    )
+
+    out = _publish(redis_client, qdrant, "g1")
+
+    assert out["qdrant"]["legacy_migrated"] == 1
+    assert qdrant.get_collection(collection_name="item_als_vectors__g1").config.params.vectors.size == DIM
