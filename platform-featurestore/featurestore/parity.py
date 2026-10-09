@@ -30,8 +30,11 @@ class Mismatch:
 
 
 def values_equal(a, b) -> bool:
-    if isinstance(a, bool) or isinstance(b, bool) or not isinstance(a, (int, float)) or not isinstance(
-        b, (int, float)
+    if (
+        isinstance(a, bool)
+        or isinstance(b, bool)
+        or not isinstance(a, (int, float))
+        or not isinstance(b, (int, float))
     ):
         return a == b
     return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)

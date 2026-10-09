@@ -39,11 +39,10 @@ def main(argv: list[str] | None = None, env: dict | None = None, redis_client=No
         r = _redis(settings, redis_client)
         if cmd == "materialize":
             manifest = job.materialize(settings, views, r)
-            mismatches = []
-            for v in views:
-                mismatches += parity.check_view(
-                    r, v.name, v.version, manifest["_rows"][v.key], manifest["as_of"], settings.parity_sample
-                )
+            # Compare online values with the snapshot files this run wrote (not the
+            # in-memory rows), so a Parquet write or type problem fails the run too.
+            manifest.pop("_rows", None)
+            mismatches = parity.check_manifest(r, settings.offline_dir, manifest, settings.parity_sample)
             for v in manifest["views"]:
                 print(f"materialized {v['name']}@v{v['version']} rows={v['rows']} as_of={manifest['as_of']}")
         else:

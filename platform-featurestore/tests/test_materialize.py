@@ -15,8 +15,16 @@ def ev(i, typ, user, listing, at, **kw):
 
 
 def fact(i, fact_, user, at, listing=None, seller=None, rating=None, **kw):
-    return {"id": i, "fact": fact_, "user": user, "listing": listing, "seller": seller, "rating": rating,
-            "at": at, **kw}
+    return {
+        "id": i,
+        "fact": fact_,
+        "user": user,
+        "listing": listing,
+        "seller": seller,
+        "rating": rating,
+        "at": at,
+        **kw,
+    }
 
 
 def run(settings, redis):
@@ -48,8 +56,14 @@ def test_user_activity_features_and_windows(dirs, settings, redis):
     ]
     write_inputs(dirs[0], events, facts)
     rows = rows_by_id(run(settings, redis)["user_activity@v1"])
-    assert rows["u1"] == {"entity_id": "u1", "views_7d": 3, "clicks_7d": 1, "add_to_cart_7d": 1,
-                          "favorites_current": 1, "follows_current": 1}
+    assert rows["u1"] == {
+        "entity_id": "u1",
+        "views_7d": 3,
+        "clicks_7d": 1,
+        "add_to_cart_7d": 1,
+        "favorites_current": 1,
+        "follows_current": 1,
+    }
     assert rows["anon:z"]["views_7d"] == 1 and rows["anon:z"]["favorites_current"] == 0
     assert "paid_orders_30d" not in rows["u1"]  # order_facts has no buyer column
 
@@ -74,8 +88,16 @@ def test_item_popularity_features(dirs, settings, redis):
     ]
     write_inputs(dirs[0], events, facts)
     rows = rows_by_id(run(settings, redis)["item_popularity@v1"])
-    assert rows["L1"] == {"entity_id": "L1", "views_7d": 3, "clicks_7d": 1, "add_to_cart_7d": 0,
-                          "favorites_current": 1, "review_count": 2, "avg_rating": 3.5, "ctr_7d": 0.25}
+    assert rows["L1"] == {
+        "entity_id": "L1",
+        "views_7d": 3,
+        "clicks_7d": 1,
+        "add_to_cart_7d": 0,
+        "favorites_current": 1,
+        "review_count": 2,
+        "avg_rating": 3.5,
+        "ctr_7d": 0.25,
+    }
     assert rows["L3"]["ctr_7d"] == 0.0 and rows["L3"]["avg_rating"] is None
     assert "L9" not in rows  # seen only outside the window
 
@@ -154,7 +176,8 @@ def test_hash_guard_exits_4(dirs, env, redis, registry_copy, monkeypatch):
     sql.write_text(sql.read_text() + "\n-- edited without a version bump\n")
     orig = Settings.from_env.__func__
     monkeypatch.setattr(
-        Settings, "from_env",
+        Settings,
+        "from_env",
         classmethod(lambda cls, e=None: dataclasses.replace(orig(cls, e), registry_dir=registry_copy)),
     )
     assert cli.main(["materialize"], env, redis) == 4
@@ -189,3 +212,18 @@ def test_as_of_rfc3339():
         parse_as_of("yesterday")
     with pytest.raises(ConfigError):
         parse_as_of("2026-10-09T12:00:00")  # no offset
+
+
+def test_a_definition_cannot_read_parquet_directly(dirs):
+    import duckdb
+
+    from featurestore import inputs
+
+    in_dir, _ = dirs
+    write_inputs(in_dir)
+    con = inputs.connect(in_dir, AS_OF)
+    with pytest.raises(duckdb.Error):
+        con.execute(f"SELECT * FROM read_parquet('{in_dir / 'tracking_events_resolved.parquet'}')").fetchall()
+    with pytest.raises(duckdb.Error):
+        con.execute("SET enable_external_access = true")
+    assert con.execute("SELECT count(*) FROM events").fetchone()[0] == 0

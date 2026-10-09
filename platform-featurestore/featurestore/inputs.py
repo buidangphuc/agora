@@ -36,7 +36,12 @@ def _retry(fn):
 
 
 def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
-    """A connection exposing only the filtered views `events`, `facts`, `orders`."""
+    """A connection exposing only the filtered tables `events`, `facts`, `orders`.
+
+    The inputs are copied into temp tables filtered by AS_OF, then external access is
+    switched off and the configuration locked, so no definition can read a Parquet file
+    (or anything else) directly and bypass the point-in-time rule.
+    """
     paths = input_files(input_dir)
     con = duckdb.connect(":memory:")
     con.execute("SET TimeZone='UTC'")
@@ -44,21 +49,23 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
 
     def create():
         con.execute(
-            f"CREATE TEMP VIEW events AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at, "
+            f"CREATE TEMP TABLE events AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at, "
             f"ingested_at::TIMESTAMP AS ingested_at) FROM read_parquet('{paths['events']}') "
             f"WHERE ingested_at::TIMESTAMP <= {a}"
         )
         con.execute(
-            f"CREATE TEMP VIEW facts AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at, "
+            f"CREATE TEMP TABLE facts AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at, "
             f"ingested_at::TIMESTAMP AS ingested_at) FROM read_parquet('{paths['facts']}') "
             f"WHERE ingested_at::TIMESTAMP <= {a}"
         )
         con.execute(
-            f"CREATE TEMP VIEW orders AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at) "
+            f"CREATE TEMP TABLE orders AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at) "
             f"FROM read_parquet('{paths['orders']}') WHERE occurred_at::TIMESTAMP <= {a}"
         )
 
     _retry(create)
+    con.execute("SET enable_external_access = false")
+    con.execute("SET lock_configuration = true")
     return con
 
 
