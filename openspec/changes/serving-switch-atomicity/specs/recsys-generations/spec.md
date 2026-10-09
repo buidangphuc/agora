@@ -94,5 +94,5 @@ read.
 
 #### Scenario: Serving and previous collections survive retention without an alias
 
-- **WHEN** a third model is promoted and the item alias is then deleted and another publish of the serving model runs
+- **WHEN** a third model is promoted and the item alias is then deleted and another model is promoted
 - **THEN** the collections of the serving and the previous model both still exist
