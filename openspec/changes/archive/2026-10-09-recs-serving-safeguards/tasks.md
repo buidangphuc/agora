@@ -45,4 +45,4 @@
 
 ## 5. Archive
 
-- [ ] 5.1 `openspec archive recs-serving-safeguards`; retire `recommendations-end-to-end` if change 8 is also archived, else after it; verify `openspec list`
+- [x] 5.1 `openspec archive recs-serving-safeguards`; retire `recommendations-end-to-end` if change 8 is also archived, else after it; verify `openspec list`
