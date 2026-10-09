@@ -675,3 +675,25 @@ def beacons_attributed(world: World) -> None:
     for kind in ("impression", "click"):
         mine = [b for b in beacons if b.get("type") == kind and b.get("placementId") == "home_feed"]
         assert mine, f"no {kind} beacon with placementId home_feed in {beacons}"
+
+
+@when("the recommendations row has streamed in and the buyer clicks the title of its first card")
+def click_recommendation_title(world: World) -> None:
+    row = world.page.locator("[data-recs-request-id]").first
+    expect(row).to_be_visible(timeout=timeouts.LONG)
+    title = row.locator("h3 a").first
+    title.scroll_into_view_if_needed()
+    world.page.wait_for_timeout(800)
+    title.click()
+    world.page.wait_for_url(re.compile(r".*/listing/"), timeout=timeouts.NAVIGATION)
+
+
+@then('the click beacon carries placementId "home_feed" and a position')
+def title_click_attributed(world: World) -> None:
+    beacons: list[dict] = world.state.extra["beacons"]
+    deadline = time.monotonic() + 12
+    while time.monotonic() < deadline and not any(b.get("type") == "click" for b in beacons):
+        world.page.wait_for_timeout(500)
+    clicks = [b for b in beacons if b.get("type") == "click"]
+    assert clicks, f"no click beacon in {beacons}"
+    assert all(c.get("placementId") == "home_feed" and c.get("position") for c in clicks), clicks

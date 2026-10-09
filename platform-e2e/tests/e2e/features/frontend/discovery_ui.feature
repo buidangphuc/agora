@@ -145,3 +145,10 @@ Feature: Discovery routes - cards, grid, search, vouchers and the search bar
     Given a buyer with the home page open while recording tracking beacons
     When the recommendations row has streamed in, the buyer scrolls to it and clicks its first card
     Then both the impression and the click beacon carry placementId "home_feed"
+
+  # DEFECT (xfail in the binder): the card's title link sends select_item with only item_id; the image
+  # link carries placement_id and index. The spec has both links carry the same attribution.
+  Scenario: A click on the card title keeps its attribution
+    Given a buyer with the home page open while recording tracking beacons
+    When the recommendations row has streamed in and the buyer clicks the title of its first card
+    Then the click beacon carries placementId "home_feed" and a position

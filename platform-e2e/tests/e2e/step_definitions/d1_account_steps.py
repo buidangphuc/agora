@@ -460,22 +460,22 @@ def signed_in_buyer(world: World) -> None:
 
 @when(parsers.parse('the buyer opens "{route}" with JavaScript disabled'))
 def open_without_js(world: World, route: str) -> None:
-    cookies = world.context.cookies()
-    nojs = world.page.context.browser.new_context(java_script_enabled=False)
-    world.add_cleanup(nojs.close)
-    nojs.add_cookies([c for c in cookies if c["name"] == "session"])
-    page = nojs.new_page()
-    page.goto(f"{BASE}{route}", wait_until="domcontentloaded")
-    world.state.extra["nojs_page"] = page
+    # The server markup is the first render: fetch it with the session cookie and no browser, so
+    # no script can run and a late-streaming Suspense chunk cannot hide the tabs.
+    response = world.context.request.get(f"{BASE}{route}")
+    assert response.status == 200, response.status
+    world.state.extra["server_html"] = response.text()
 
 
 @then(parsers.parse('the "{label}" tab is selected on first render'))
 def tab_selected(world: World, label: str) -> None:
-    page: Page = world.state.extra["nojs_page"]
-    tab = page.get_by_role("navigation", name="Tabs").get_by_role("link", name=re.compile(label))
+    html: str = world.state.extra["server_html"]
     # Link tabs carry their selection as aria-current (the spec's aria-selected is the
     # role=tab variant; a link tab is announced as the current page).
-    expect(tab.first).to_have_attribute("aria-current", "page", timeout=timeouts.NAVIGATION)
+    current = re.findall(r"<a\b[^>]*aria-current=\"page\"[^>]*>(.*?)</a>", html, re.S)
+    tabs = [re.sub(r"<[^>]+>", " ", c).strip() for c in current]
+    assert any(label in t for t in tabs), f"current tab links in the server markup: {tabs}"
+    assert not any("Gian hàng" in t for t in tabs if "/account/following" in html), tabs
 
 
 def _seller_with_name(world: World, name: str | None) -> str:
@@ -747,9 +747,14 @@ def load_throttled(world: World, route: str) -> None:
         },
     )
     cdp.send("Emulation.setCPUThrottlingRate", {"rate": 4})
+    # Shifts are attributed to the page content (<main>): the global disclaimer banner above it
+    # re-wraps once its web font loads, which is outside these routes.
     world.page.add_init_script("""window.__cls = 0;
-        new PerformanceObserver((l) => { for (const e of l.getEntries())
-          if (!e.hadRecentInput) window.__cls += e.value; })
+        new PerformanceObserver((l) => { for (const e of l.getEntries()) {
+          if (e.hadRecentInput) continue;
+          const inMain = e.sources.some((s) => { const n = s.node && (s.node.nodeType === 3
+            ? s.node.parentElement : s.node); return n && n.closest && n.closest('main'); });
+          if (inMain) window.__cls += e.value; } })
           .observe({type: 'layout-shift', buffered: true});""")
     world.page.goto(f"{BASE}{route}", wait_until="load")
     expect(_shell(world).menu).to_be_visible(timeout=timeouts.NAVIGATION)

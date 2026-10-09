@@ -1875,6 +1875,820 @@ features:
     covered_by: null
     notes: "NOT E2E-OBSERVABLE: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them (measured: no aria-busy section after an applied filter, even with the RSC request delayed); asserted by search/loading.test.tsx."
 
+  - id: listing.selecting-a-variant-with-a-different-price-updates-the-url-a
+    title: "Selecting a variant with a different price updates the URL and the price"
+    persona: buyer
+    priority: P2
+    summary: "Selecting a variant with a different price updates the URL and the price"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer selects variant \"256GB\" whose price differs from the base listing"
+      - "Then the URL gains `?variant=<id of 256GB>` without a scroll jump or an extra history entry, the `PriceTag` shows the 256GB price, and the stock line shows that variant's stock"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Selecting a variant with a different price updates the URL and the price"
+
+  - id: listing.a-shared-variant-url-restores-the-selection
+    title: "A shared variant URL restores the selection"
+    persona: buyer
+    priority: P2
+    summary: "A shared variant URL restores the selection"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/listing/<id>?variant=<id of 256GB>` directly"
+      - "Then the 256GB radio is checked and the price, stock and SKU already show the 256GB values in the first server-rendered markup"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::A shared variant URL restores the selection"
+
+  - id: listing.an-unknown-variant-id-falls-back-safely
+    title: "An unknown variant id falls back safely"
+    persona: buyer
+    priority: P2
+    summary: "An unknown variant id falls back safely"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/listing/<id>?variant=does-not-exist`"
+      - "Then the first in-stock variant is selected and the page renders without an error"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::An unknown variant id falls back safely"
+
+  - id: listing.add-to-cart-shows-pending-then-success
+    title: "Add to cart shows pending then success"
+    persona: buyer
+    priority: P2
+    summary: "Add to cart shows pending then success"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks `Thêm vào giỏ` with quantity 2 on an in-stock variant"
+      - "Then both buttons are disabled with `aria-busy=\"true\"` on the clicked one while the action runs, then a success toast \"Đã thêm 2 sản phẩm vào giỏ hàng\" appears, the buttons re-enable and the cart counter increases"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Add to cart shows pending then success"
+
+  - id: listing.quantity-cannot-exceed-stock
+    title: "Quantity cannot exceed stock"
+    persona: buyer
+    priority: P2
+    summary: "Quantity cannot exceed stock"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the selected variant has stock 3 and the buyer presses \"+\" four times"
+      - "Then the `QuantityPicker` value is 3 and the \"+\" control is disabled"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Quantity cannot exceed stock"
+
+  - id: listing.buy-now-adds-the-selected-variant-then-goes-to-checkout
+    title: "Buy now adds the selected variant then goes to checkout"
+    persona: buyer
+    priority: P2
+    summary: "Buy now adds the selected variant then goes to checkout"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer selects variant \"256GB\", sets quantity 1 and clicks `Mua ngay`"
+      - "Then the cart contains that listing with the 256GB variant id and the browser navigates to `/checkout`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Buy now adds the selected variant then goes to checkout"
+
+  - id: listing.only-one-set-of-purchase-buttons-is-visible-per-breakpoint
+    title: "Only one set of purchase buttons is visible per breakpoint"
+    persona: buyer
+    priority: P2
+    summary: "Only one set of purchase buttons is visible per breakpoint"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the viewport is 375px wide"
+      - "Then exactly one visible `Thêm vào giỏ` button exists (in the bar); at 1280px exactly one exists (inline) and no bottom bar is rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Only one set of purchase buttons is visible per breakpoint"
+
+  - id: listing.anchor-links-point-at-the-sections
+    title: "Anchor links point at the sections"
+    persona: buyer
+    priority: P2
+    summary: "Anchor links point at the sections"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/listing/<id>`"
+      - "Then the anchor nav has links `#specs`, `#reviews` and `#qa`, each matching a section id present in the first server-rendered markup, and activating \"Đánh giá\" scrolls to `#reviews`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::Anchor links point at the sections"
+
+  - id: listing.a-listing-with-no-reviews-and-no-sale-shows-no-invented-numb
+    title: "A listing with no reviews and no sale shows no invented numbers"
+    persona: buyer
+    priority: P2
+    summary: "A listing with no reviews and no sale shows no invented numbers"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer opens a listing with zero reviews that is not on flash sale"
+      - "Then the rating row reads \"Chưa có đánh giá\", no strike-through price and no \"% GIẢM\" badge exist, and the text \"Đã Bán\", \"Mall\" and \"Official Store Partner\" do not appear"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail.feature::A listing with no reviews and no sale shows no invented numbers"
+
+  - id: listing.filtering-by-stars-is-shareable
+    title: "Filtering by stars is shareable"
+    persona: buyer
+    priority: P2
+    summary: "Filtering by stars is shareable"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks \"4 Sao\" in the reviews section"
+      - "Then the URL contains `rating=4`, only 4-star reviews are listed, and reloading the URL shows the same list"
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/review_ratings_filter.feature::Filtering by stars is shareable"
+
+  - id: listing.a-filter-with-no-matches-shows-empty-with-a-way-out
+    title: "A filter with no matches shows Empty with a way out"
+    persona: buyer
+    priority: P2
+    summary: "A filter with no matches shows Empty with a way out"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When no 2-star review exists and the buyer opens `?rating=2`"
+      - "Then an `Empty` \"Không có đánh giá 2 sao\" with a `Xem tất cả` action is shown, and that action removes `rating` from the URL"
+    tags: [buyer]
+    status: automated
+    covered_by: "buyer/review_ratings_filter.feature::A filter with no matches shows Empty with a way out"
+
+  - id: listing.desktop-layout-shows-the-header-card-above-the-sections
+    title: "Desktop layout shows the header card above the sections"
+    persona: buyer
+    priority: P2
+    summary: "Desktop layout shows the header card above the sections"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a published listing at a 1280px-wide viewport"
+      - "Then the breadcrumb, the gallery and the info column side by side, the shop header card, the anchor nav with the specs, reviews and Q&A sections, and the similar-items row appear in that vertical order, and exactly one `<h1>` contains the listing title"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Desktop layout shows the header card above the sections"
+
+  - id: listing.specs-render-in-a-descriptions-block
+    title: "Specs render in a Descriptions block"
+    persona: buyer
+    priority: P2
+    summary: "Specs render in a Descriptions block"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer views the \"Chi tiết\" section of a listing with stock 12 and a category"
+      - "Then a `Descriptions` block lists \"Kho hàng: 12 sản phẩm\" and the category, followed by the description"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Specs render in a Descriptions block"
+
+  - id: listing.no-raw-values-or-off-scale-type
+    title: "No raw values or off-scale type"
+    persona: guest
+    priority: P2
+    summary: "No raw values or off-scale type"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the token lint (`scripts/check-tokens.mjs`) runs over the files of this change"
+      - "Then it reports no raw hex value, no arbitrary pixel value and no `text-[9px]`/`text-[10px]`/`text-[11px]`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::No raw values or off-scale type"
+
+  - id: listing.a-listing-with-no-reviews-shows-no-rating-stars-and-no-sold
+    title: "A listing with no reviews shows no rating stars and no sold count"
+    persona: buyer
+    priority: P2
+    summary: "A listing with no reviews shows no rating stars and no sold count"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer opens a listing with zero reviews"
+      - "Then no star `Rate` is rendered for the listing, the text \"Chưa có đánh giá\" is shown, and no sold count (\"Đã bán\") appears in the header or the shop card"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A listing with no reviews shows no rating stars and no sold count"
+
+  - id: listing.mall-is-never-guessed
+    title: "Mall is never guessed"
+    persona: buyer
+    priority: P2
+    summary: "Mall is never guessed"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer opens a listing priced above 5,000,000 or whose title contains a brand keyword"
+      - "Then no Mall badge is rendered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Mall is never guessed"
+
+  - id: listing.a-flash-sale-listing-shows-the-real-discount
+    title: "A flash-sale listing shows the real discount"
+    persona: guest
+    priority: P2
+    summary: "A flash-sale listing shows the real discount"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the buyer opens a listing with an active flash-sale campaign"
+      - "Then the strike-through shows the listing's regular price, the `PriceTag` shows the campaign sale price, and the discount badge percentage is computed from those two values"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A flash-sale listing shows the real discount"
+
+  - id: listing.clicking-a-thumbnail-changes-the-stage-without-shifting-layo
+    title: "Clicking a thumbnail changes the stage without shifting layout"
+    persona: buyer
+    priority: P2
+    summary: "Clicking a thumbnail changes the stage without shifting layout"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks the third thumbnail of a listing with 4 images"
+      - "Then the stage shows the third image and the stage's bounding box is identical before and after"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Clicking a thumbnail changes the stage without shifting layout"
+    notes: "Object-store image keys are served as PNG through an intercepted route."
+
+  - id: listing.a-missing-image-uses-the-fallback
+    title: "A missing image uses the fallback"
+    persona: buyer
+    priority: P2
+    summary: "A missing image uses the fallback"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a listing has no `imageKeys` and no `imageUrl`"
+      - "Then the stage renders the `Image` fallback placeholder in a 1:1 box and no external stock-photo URL is requested"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A missing image uses the fallback"
+
+  - id: listing.thumbnails-are-lazy-and-the-stage-is-eager
+    title: "Thumbnails are lazy and the stage is eager"
+    persona: buyer
+    priority: P2
+    summary: "Thumbnails are lazy and the stage is eager"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the page markup is rendered for a listing with 4 images"
+      - "Then the stage `img` has no `loading=\"lazy\"` and each thumbnail `img` has `loading=\"lazy\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Thumbnails are lazy and the stage is eager"
+
+  - id: listing.an-out-of-stock-variant-cannot-be-chosen
+    title: "An out-of-stock variant cannot be chosen"
+    persona: buyer
+    priority: P2
+    summary: "An out-of-stock variant cannot be chosen"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a variant has stock 0"
+      - "Then its radio is disabled with `aria-disabled=\"true\"`, shows an \"Hết hàng\" tag, and cannot be selected by click or keyboard"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::An out-of-stock variant cannot be chosen"
+
+  - id: listing.out-of-stock-disables-both-actions
+    title: "Out of stock disables both actions"
+    persona: buyer
+    priority: P2
+    summary: "Out of stock disables both actions"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the selected variant has stock 0"
+      - "Then `Thêm vào giỏ` and `Mua ngay` are disabled, a warning `Alert` \"Phân loại này đã hết hàng\" is shown, and the `QuantityPicker` is disabled"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Out of stock disables both actions"
+
+  - id: listing.add-to-cart-failure-is-reported-and-recoverable
+    title: "Add to cart failure is reported and recoverable"
+    persona: buyer
+    priority: P2
+    summary: "Add to cart failure is reported and recoverable"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the add action returns `{ ok: false, error: \"...\" }`"
+      - "Then an error toast with that message appears, no `add_to_cart` event is fired, and both buttons are enabled again"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Add to cart failure is reported and recoverable"
+    notes: "Failure forced by deleting the listing behind the open page; the cart add then fails at the gateway."
+
+  - id: listing.add-to-cart-event-is-unchanged
+    title: "Add to cart event is unchanged"
+    persona: buyer
+    priority: P2
+    summary: "Add to cart event is unchanged"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer adds quantity 2 of a listing priced 100000"
+      - "Then one `add_to_cart` event is sent with `value=200000`, `currency=\"VND\"` and the item's id, name, price, quantity and category"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Add to cart event is unchanged"
+
+  - id: listing.one-view-event-per-pdp-load
+    title: "One view event per PDP load"
+    persona: buyer
+    priority: P2
+    summary: "One view event per PDP load"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a listing and then switches variants and uses the anchor nav"
+      - "Then exactly one `view_item` event for that listing was sent, and variant changes and anchor navigation sent none"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::One view event per PDP load"
+
+  - id: listing.the-buy-bar-is-visible-at-375px-and-tracks-the-variant
+    title: "The buy bar is visible at 375px and tracks the variant"
+    persona: buyer
+    priority: P2
+    summary: "The buy bar is visible at 375px and tracks the variant"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a listing at a 375px-wide viewport and scrolls to the reviews section"
+      - "Then the bottom bar remains visible with the selected variant's price, and clicking `Thêm vào giỏ` in the bar adds the item with the same pending and toast behaviour as the desktop button"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The buy bar is visible at 375px and tracks the variant"
+
+  - id: listing.the-bar-covers-no-content
+    title: "The bar covers no content"
+    persona: buyer
+    priority: P2
+    summary: "The bar covers no content"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer scrolls to the bottom of the page at 375px"
+      - "Then the last element of the page is fully visible above the buy bar"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "DEFECT (xfail in test_d1_pdp.py): at 375px the global footer's last lines (bottom 812px) scroll under the fixed buy bar (top 731px); the page reserves bottom padding for the PDP body but not for the footer below it."
+
+  - id: listing.the-anchor-nav-is-sticky-on-desktop-only
+    title: "The anchor nav is sticky on desktop only"
+    persona: buyer
+    priority: P2
+    summary: "The anchor nav is sticky on desktop only"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the page is rendered at 1280px and at 375px"
+      - "Then the anchor nav is sticky at 1280px, and at 375px it is not sticky and scrolls horizontally without page overflow"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The anchor nav is sticky on desktop only"
+
+  - id: listing.reviews-paginate-at-10
+    title: "Reviews paginate at 10"
+    persona: buyer
+    priority: P2
+    summary: "Reviews paginate at 10"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a listing has 23 reviews and the buyer opens `?rpage=3`"
+      - "Then 3 reviews are listed and the `Pagination` marks page 3 as current"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "DEFECT (xfail in test_d1_pdp.py): with 23 reviews the page offers 2 pages and ?rpage=3 clamps to page 2. lib/gateway/reviews.ts listReviews sends no page size, the gateway returns its default 20 of total 23, so reviews 21-23 are unreachable."
+
+  - id: listing.marking-helpful-is-single-use-and-reports-failure
+    title: "Marking helpful is single-use and reports failure"
+    persona: buyer
+    priority: P2
+    summary: "Marking helpful is single-use and reports failure"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks `review-helpful` on a review and the action succeeds"
+      - "Then the count increases by one and the button is disabled; if the action fails the count reverts and an error toast is shown"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Marking helpful is single-use and reports failure"
+    notes: "Success path only: the failure branch (count reverts, error toast) cannot be forced without breaking team-engagement."
+
+  - id: listing.a-successful-mutation-revalidates-the-page
+    title: "A successful mutation revalidates the page"
+    persona: buyer
+    priority: P2
+    summary: "A successful mutation revalidates the page"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `markReviewHelpfulAction` succeeds for listing `L`"
+      - "Then it resolves to `{ ok: true }` and `revalidatePath` was called with `/listing/L`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A successful mutation revalidates the page"
+
+  - id: listing.submitting-a-review-shows-pending-then-success
+    title: "Submitting a review shows pending then success"
+    persona: buyer
+    priority: P2
+    summary: "Submitting a review shows pending then success"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer picks 5 stars in the `Rate` input, types a comment and submits the review modal"
+      - "Then the submit button shows `isLoading` and the modal controls are disabled, then a success toast shows, the modal closes and the new review appears in the list"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Submitting a review shows pending then success"
+
+  - id: listing.asking-a-question-shows-pending-and-a-toast
+    title: "Asking a question shows pending and a toast"
+    persona: buyer
+    priority: P2
+    summary: "Asking a question shows pending and a toast"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a logged-in buyer types a question and submits"
+      - "Then the submit button shows `isLoading`, then a success toast appears, the textarea clears and the question is listed"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Asking a question shows pending and a toast"
+
+  - id: listing.empty-submit-is-blocked
+    title: "Empty submit is blocked"
+    persona: buyer
+    priority: P2
+    summary: "Empty submit is blocked"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the question textarea is empty"
+      - "Then the submit button is disabled and no request is made"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Empty submit is blocked"
+
+  - id: listing.a-guest-is-prompted-to-log-in
+    title: "A guest is prompted to log in"
+    persona: guest
+    priority: P2
+    summary: "A guest is prompted to log in"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a logged-out visitor views the Q&A section"
+      - "Then `qa-login-prompt` is shown with a link to `/login?returnUrl=/listing/<id>` and no ask form renders"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A guest is prompted to log in"
+
+  - id: listing.a-failed-action-returns-a-structured-error
+    title: "A failed action returns a structured error"
+    persona: buyer
+    priority: P2
+    summary: "A failed action returns a structured error"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `askQuestionAction` is called and the gateway rejects it"
+      - "Then it resolves to `{ ok: false, error: <non-empty string> }` and does not throw"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A failed action returns a structured error"
+    notes: "Failure forced by corrupting the session cookie after the page loads: the gateway answers unauthenticated. The error text is the raw gateway string ([unauthenticated] invalid or expired bearer token)."
+
+  - id: listing.the-shop-card-shows-the-real-shop-name
+    title: "The shop card shows the real shop name"
+    persona: buyer
+    priority: P2
+    summary: "The shop card shows the real shop name"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the seller's shop display name is \"Cửa hàng Hoa Mai\""
+      - "Then the PDP shop card and the storefront header show \"Cửa hàng Hoa Mai\" and not \"Shop #\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The shop card shows the real shop name"
+
+  - id: listing.an-empty-shop-name-falls-back
+    title: "An empty shop name falls back"
+    persona: buyer
+    priority: P2
+    summary: "An empty shop name falls back"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the shop display name is empty"
+      - "Then the shop card shows \"Shop #\" followed by the first 6 characters of the seller id"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::An empty shop name falls back"
+
+  - id: listing.the-pdp-shop-card-links-to-the-storefront
+    title: "The PDP shop card links to the storefront"
+    persona: buyer
+    priority: P2
+    summary: "The PDP shop card links to the storefront"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer clicks `Xem Shop` in the PDP shop card"
+      - "Then the browser navigates to `/shop/<sellerId>` whose header is the same component in hero variant"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The PDP shop card links to the storefront"
+
+  - id: listing.storefront-sort-is-in-the-url
+    title: "Storefront sort is in the URL"
+    persona: buyer
+    priority: P2
+    summary: "Storefront sort is in the URL"
+    entry_route: /shop/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer selects \"Giá: Thấp đến Cao\" on `/shop/<id>`"
+      - "Then the URL contains `sort=price_asc` and the grid is ordered by ascending price; reloading keeps it"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Storefront sort is in the URL"
+
+  - id: listing.a-shop-with-no-ratings-shows-an-empty-rating
+    title: "A shop with no ratings shows an empty rating"
+    persona: buyer
+    priority: P2
+    summary: "A shop with no ratings shows an empty rating"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the seller has zero reviews"
+      - "Then the shop card shows \"Chưa có đánh giá\" instead of \"0.0 / 5.0\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::A shop with no ratings shows an empty rating"
+
+  - id: listing.an-unknown-listing-renders-result-404
+    title: "An unknown listing renders Result 404"
+    persona: guest
+    priority: P2
+    summary: "An unknown listing renders Result 404"
+    entry_route: /listing/does-not-exist
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a buyer opens `/listing/does-not-exist`"
+      - "Then the response status is 404 and the page shows the `Result` 404 with \"Về trang chủ\" and \"Tìm sản phẩm khác\" actions"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::An unknown listing renders Result 404"
+
+  - id: listing.the-loading-skeleton-matches-the-final-layout
+    title: "The loading skeleton matches the final layout"
+    persona: buyer
+    priority: P2
+    summary: "The loading skeleton matches the final layout"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the route is navigated to and `loading.tsx` is shown, then the page resolves"
+      - "Then the gallery stage, title block and anchor nav keep the same top offsets and the measured layout shift is 0"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The loading skeleton matches the final layout"
+    notes: "Layout shift is attributed to <main>. FINDING: the global disclaimer banner above <main> re-wraps ~0.4 s after load under throttling (CLS 0.002-0.015 for the whole page), outside this route."
+
+  - id: listing.similar-item-impression-and-click-keep-attribution
+    title: "Similar-item impression and click keep attribution"
+    persona: buyer
+    priority: P2
+    summary: "Similar-item impression and click keep attribution"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the similar-items row scrolls into view and the buyer clicks the second card"
+      - "Then impressions with `placementId=\"similar_items\"` and positions 1..n were sent, and a `select_item` with `placementId=\"similar_items\"` and `position=2` was sent before navigation"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Similar-item impression and click keep attribution"
+    notes: "The IMAGE link of the card carries the attribution. DEFECT: a click on the card TITLE link sends select_item with only item_id (no placement_id/index) - see discovery.title-link-click-keeps-its-attribution."
+
+  - id: listing.the-summary-does-not-block-the-page
+    title: "The summary does not block the page"
+    persona: buyer
+    priority: P2
+    summary: "The summary does not block the page"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When team-ai responds slowly (>2s) to SummarizeReviews"
+      - "Then the page's header, price and actions are visible before the summary, and a `Skeleton` holds the summary's space until it resolves"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs team-ai SummarizeReviews to answer slowly (>2 s); not forced here because it would disrupt the shared stack."
+
+  - id: listing.an-unavailable-ai-service-hides-the-block
+    title: "An unavailable AI service hides the block"
+    persona: buyer
+    priority: P2
+    summary: "An unavailable AI service hides the block"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When SummarizeReviews fails with UNAVAILABLE"
+      - "Then the reviews section renders normally with no AI block, no error text and no leftover skeleton"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs team-ai SummarizeReviews to fail with UNAVAILABLE; destructive (stop team-ai), not run."
+
+  - id: listing.a-slow-recommendation-call-does-not-block-the-page
+    title: "A slow recommendation call does not block the page"
+    persona: buyer
+    priority: P2
+    summary: "A slow recommendation call does not block the page"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the recommendation service is slow"
+      - "Then the page renders fully with a one-row `Skeleton` in the row's place and no layout shift when the cards arrive"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: the recommendation service cannot be slowed non-destructively."
+
+  - id: listing.unavailable-recommendations-are-hidden
+    title: "Unavailable recommendations are hidden"
+    persona: buyer
+    priority: P2
+    summary: "Unavailable recommendations are hidden"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the recommendation service returns UNAVAILABLE"
+      - "Then the page renders without the \"Gợi ý cho bạn\" row and without an error state"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: recommendations.feature 'An unavailable recommendation service leaves neither the row nor its Skeleton on the PDP' only probes availability (recs are healthy here), so the UNAVAILABLE branch is never exercised; needs a destructive stop of team-ai."
+
+  - id: listing.a-gateway-failure-shows-a-recoverable-error
+    title: "A gateway failure shows a recoverable error"
+    persona: buyer
+    priority: P2
+    summary: "A gateway failure shows a recoverable error"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the listing fetch fails with a non-NotFound error"
+      - "Then an error `Alert` with a \"Thử lại\" button is shown, and clicking it re-renders the route"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "BLOCKED: needs the listing read to fail with a non-NotFound error (stop team-listing); destructive, not run."
+
+  - id: discovery.title-link-click-keeps-its-attribution
+    title: "Card click still records select_item"
+    persona: buyer
+    priority: P2
+    summary: "Card click still records select_item"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a visitor clicks the image or the title of a card"
+      - "Then a `select_item` event with the same attribution fields is sent before navigation to `/listing/<id>`, and navigation is not blocked"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "DEFECT (xfail in test_d1_discovery.py): scenario 'A click on the card title keeps its attribution'. Clicking a ListingCard title link sends select_item with only item_id; the image link carries placement_id and index (observed on / and on /listing/{id} similar-items rows)."
+
   # ---- d1-entries-end (append new d1 entries above this line)
 
   # ---- ui-foundation (design tokens + Exception shells). status: planned until the
@@ -3541,7 +4355,7 @@ features:
       - "Then both actions and the quantity picker are disabled and a warning \"Phân loại này đã hết hàng\" is shown"
     tags: [buyer, ui]
     status: automated
-    covered_by: "frontend/product_detail.feature::Add to cart shows a pending state then a success toast"
+    covered_by: "frontend/product_detail.feature::Add to cart shows pending then success"
 
   - id: listing.pdp-mobile-buy-bar
     title: Mobile uses a sticky bottom buy bar
@@ -3571,7 +4385,7 @@ features:
       - "Then the last element of the page is fully visible above the buy bar"
     tags: [buyer, ui]
     status: automated
-    covered_by: "frontend/product_detail.feature::The buy bar is sticky at 375px and absent at 1280px"
+    covered_by: "frontend/product_detail.feature::Only one set of purchase buttons is visible per breakpoint"
 
   - id: listing.pdp-reviews-url
     title: Review filter and pagination are URL state
@@ -3604,7 +4418,7 @@ features:
       - "Then the submit button shows loading and the controls are disabled, then a success toast shows and the new review appears"
     tags: [buyer, ui, engagement]
     status: automated
-    covered_by: "buyer/review_ratings_filter.feature::Filtering reviews by stars is shareable through the URL"
+    covered_by: "buyer/review_ratings_filter.feature::Filtering by stars is shareable"
 
   - id: listing.pdp-anchor-nav
     title: Detail content is stacked sections with an anchor nav
@@ -3635,7 +4449,7 @@ features:
       - "Then qa-login-prompt links to /login?returnUrl=/listing/<id> and no ask form renders"
     tags: [buyer, ui]
     status: automated
-    covered_by: "frontend/product_detail.feature::The anchor nav links to the always-visible sections"
+    covered_by: "frontend/product_detail.feature::Anchor links point at the sections"
 
   - id: listing.pdp-no-fabricated-data
     title: The PDP shows only real data
@@ -3663,7 +4477,7 @@ features:
       - "Then the strike-through shows the regular price, the price tag shows the campaign sale price and the discount percentage is computed from those two values"
     tags: [buyer, ui]
     status: automated
-    covered_by: "frontend/product_detail.feature::A listing with no reviews shows no invented numbers"
+    covered_by: "frontend/product_detail.feature::A listing with no reviews and no sale shows no invented numbers"
 
   - id: listing.pdp-not-found
     title: An unknown listing and a failed fetch have recoverable states

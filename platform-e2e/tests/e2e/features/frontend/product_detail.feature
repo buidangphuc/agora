@@ -26,7 +26,7 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     And the stock line shows "3 sản phẩm"
 
   @needsSeller
-  Scenario: An unknown variant id falls back to the first in-stock variant
+  Scenario: An unknown variant id falls back safely
     Given a buyer is logged in
     And a seeded listing with variants "128GB" at 1000000 and "256GB" at 1500000
     When the buyer opens the variant listing with an unknown variant in the URL
@@ -34,7 +34,7 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     And the "512GB" variant is disabled with an out-of-stock tag
 
   @needsSeller
-  Scenario: Add to cart shows a pending state then a success toast
+  Scenario: Add to cart shows pending then success
     Given a buyer is logged in
     And a seeded listing with variants "128GB" at 1000000 and "256GB" at 1500000
     When the buyer opens the variant listing
@@ -44,9 +44,10 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     Then both purchase buttons are disabled and the clicked one is busy
     And a toast "Đã thêm 2 sản phẩm vào giỏ hàng" appears
     And both purchase buttons are enabled again
+    And the cart counter shows 2
 
   @needsSeller
-  Scenario: Quantity cannot exceed the stock of the selected variant
+  Scenario: Quantity cannot exceed stock
     Given a buyer is logged in
     And a seeded listing with variants "128GB" at 1000000 and "256GB" at 1500000
     When the buyer opens the variant listing with the "256GB" variant in the URL
@@ -54,7 +55,7 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     Then the quantity is 3 and the increase control is disabled
 
   @needsSeller
-  Scenario: Buy now adds the selected variant and goes to checkout
+  Scenario: Buy now adds the selected variant then goes to checkout
     Given a buyer is logged in
     And a seeded listing with variants "128GB" at 1000000 and "256GB" at 1500000
     When the buyer opens the variant listing with the "256GB" variant in the URL
@@ -63,7 +64,7 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     And the cart contains the "256GB" variant
 
   @needsSeller
-  Scenario: The buy bar is sticky at 375px and absent at 1280px
+  Scenario: Only one set of purchase buttons is visible per breakpoint
     Given a buyer is logged in
     And a seeded listing with variants "128GB" at 1000000 and "256GB" at 1500000
     When the viewport is 375 pixels wide
@@ -76,7 +77,7 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     And exactly one Thêm vào giỏ button is visible
 
   @needsListing
-  Scenario: The anchor nav links to the always-visible sections
+  Scenario: Anchor links point at the sections
     Given a buyer is logged in
     And a listing has been seeded via the API
     When the buyer opens the seeded listing
@@ -85,7 +86,7 @@ Feature: Product detail page - variants, purchase feedback, mobile buy bar and a
     Then the reviews section is in view
 
   @needsListing
-  Scenario: A listing with no reviews shows no invented numbers
+  Scenario: A listing with no reviews and no sale shows no invented numbers
     Given a buyer is logged in
     And a listing has been seeded via the API
     When the buyer opens the seeded listing
