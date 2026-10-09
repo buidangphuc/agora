@@ -568,8 +568,6 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events
-      - ENGAGEMENT_EVENTS_TOPIC=engagement.events
-      - ENGAGEMENT_DLQ_TOPIC=engagement.events.analytics.dlq
       # Session revocation (ADR-0003 addendum): consume identity.events into the
       # in-memory sid denylist (no consumer group; earliest offset on start).
       - IDENTITY_EVENTS_TOPIC=identity.events
@@ -672,6 +670,9 @@ services:
       - DUCKDB_PATH=/data/analytics.duckdb
       - PARQUET_EXPORT_PATH=/data/tracking_events.parquet
       - PARQUET_EXPORT_INTERVAL_SECONDS=300
+      - ENGAGEMENT_EVENTS_TOPIC=engagement.events
+      - ENGAGEMENT_DLQ_TOPIC=engagement.events.analytics.dlq
+      - ENGAGEMENT_CONSUMER_GROUP=team-analytics.engagement
     volumes:
       - analytics_data:/data
 
