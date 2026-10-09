@@ -331,3 +331,89 @@ features:
     covered_by: "security/dispute_access.feature::A non-owner cannot post a shop reply"
     notes: >
       port-security-hardening dispute-and-qa-access: disputes are tied to a real order and its parties.
+
+  # ---- engagement-fact-events (planned until the merged stack run flips them) ----
+  - id: engagement.fact-favorite-added
+    title: "Favouriting a listing publishes a fact"
+    persona: buyer
+    priority: P1
+    summary: "Favouriting a listing publishes a fact."
+    entry_route: "/"
+    services: [team-engagement, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a logged-in buyer adds a listing to their favourites through the gateway
+      - Then one FavoriteAdded envelope for that buyer and listing appears on engagement.events
+    tags: [engagement, kafka]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: engagement/engagement_facts.feature::Favouriting a listing publishes a fact"
+
+  - id: engagement.fact-favorite-removed
+    title: "Removing a favourite publishes a removal"
+    persona: buyer
+    priority: P1
+    summary: "Removing a favourite publishes a removal."
+    entry_route: "/"
+    services: [team-engagement, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When the buyer then removes that favourite
+      - Then a FavoriteRemoved envelope for that buyer and listing follows it on engagement.events
+    tags: [engagement, kafka]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: engagement/engagement_facts.feature::Removing a favourite publishes a removal"
+
+  - id: engagement.fact-favorite-repeat-noop
+    title: "A repeated favourite publishes nothing new"
+    persona: buyer
+    priority: P1
+    summary: "A repeated favourite publishes nothing new."
+    entry_route: "/"
+    services: [team-engagement, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer adds the same listing to their favourites twice
+      - Then exactly one FavoriteAdded envelope for that buyer and listing appears on engagement.events
+    tags: [engagement, kafka]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: engagement/engagement_facts.feature::A repeated favourite publishes nothing new"
+
+  - id: engagement.fact-review-rating-only
+    title: "A review publishes its rating without its text"
+    persona: buyer
+    priority: P1
+    summary: "A review publishes its rating without its text."
+    entry_route: "/"
+    services: [team-engagement, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer with a delivered order reviews the listing with rating 4 and the text "rất tốt"
+      - Then a ReviewCreated envelope with rating 4, the listing and its seller appears on engagement.events, and the payload does not contain "rất tốt"
+    tags: [engagement, kafka]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: engagement/engagement_facts.feature::A review publishes its rating without its text"
+
+  - id: engagement.fact-published-after-kafka-outage
+    title: "A fact written while Kafka is down is published later"
+    persona: buyer
+    priority: P1
+    summary: "A fact written while Kafka is down is published later."
+    entry_route: "/"
+    services: [team-engagement, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When Redpanda is stopped, a buyer follows a seller, and Redpanda is started again
+      - Then one SellerFollowed envelope for that buyer and seller appears on engagement.events
+    tags: [engagement, kafka]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: engagement/engagement_facts.feature::A fact written while Kafka is down is published later"

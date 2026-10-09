@@ -406,3 +406,55 @@ features:
     status: automated
     covered_by: "analytics/tracking_quality_report.feature::A window out of range is rejected"
     notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A window out of range is rejected"
+
+  # ---- engagement-fact-events (planned until the merged stack run flips them) ----
+  - id: analytics.engagement-favorite-removed-not-current
+    title: "A favourite that was removed is not current"
+    persona: buyer
+    priority: P1
+    summary: "A favourite that was removed is not current."
+    entry_route: "/"
+    services: [team-analytics, team-engagement]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer adds two listings to their favourites and then removes the first one
+      - Then engagement_facts holds three rows for the buyer, and favorites_current lists only the second listing for the buyer
+    tags: [analytics, integration]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A favourite that was removed is not current"
+
+  - id: analytics.engagement-follow-current
+    title: "A follow appears in the current follows"
+    persona: buyer
+    priority: P1
+    summary: "A follow appears in the current follows."
+    entry_route: "/"
+    services: [team-analytics, team-engagement]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer follows a seller
+      - Then follows_current lists that buyer and seller
+    tags: [analytics, integration]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A follow appears in the current follows"
+
+  - id: analytics.engagement-malformed-dead-lettered
+    title: "A malformed engagement record is dead-lettered"
+    persona: buyer
+    priority: P1
+    summary: "A malformed engagement record is dead-lettered."
+    entry_route: "/"
+    services: [team-analytics, team-engagement]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a malformed record is produced to engagement.events, followed by a buyer favouriting a listing
+      - Then the malformed record appears on engagement.events.analytics.dlq, and the favourite still reaches engagement_facts
+    tags: [analytics, integration]
+    status: planned
+    covered_by: null
+    notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
