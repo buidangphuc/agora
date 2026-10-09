@@ -1298,6 +1298,219 @@ features:
     status: automated
     covered_by: "buyer/cart_checkout.feature::The cart fits a 375px viewport"
 
+  # >>> d2 generated (ui-phase-cart-checkout / -orders / -seller), one entry per spec scenario
+
+  - id: uicc.items-from-two-shops-render-as-two-groups
+    title: "Items from two shops render as two groups"
+    persona: buyer
+    priority: P2
+    summary: "Items from two shops render as two groups"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer has items from seller A and seller B in the cart and opens `/cart`"
+      - "Then two shop `Card`s are rendered, each with its own header and only that seller's item rows, and the summary subtotal equals the sum of all line totals"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Items from two shops render as two groups"
+
+  - id: uicc.shop-header-shows-the-real-shop-name
+    title: "Shop header shows the real shop name"
+    persona: buyer
+    priority: P2
+    summary: "Shop header shows the real shop name"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the cart has an item from a shop whose display name is \"Cửa hàng Hoa Mai\""
+      - "Then that shop's group header shows \"Cửa hàng Hoa Mai\" linking to `/shop/<sellerId>` and not \"Shop #\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Shop header shows the real shop name"
+
+  - id: uicc.empty-shop-name-falls-back-to-the-short-id
+    title: "Empty shop name falls back to the short id"
+    persona: buyer
+    priority: P2
+    summary: "Empty shop name falls back to the short id"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a shop's display name is empty"
+      - "Then its group header shows \"Shop #\" followed by the first 6 characters of the `sellerId`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Empty shop name falls back to the short id"
+
+  - id: uicc.the-cart-shows-no-invented-shop-data
+    title: "The cart shows no invented shop data"
+    persona: buyer
+    priority: P2
+    summary: "The cart shows no invented shop data"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/cart` is rendered"
+      - "Then the shop header contains no rating, response rate, follower count or badge that is not returned by the gateway"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::The cart shows no invented shop data"
+
+  - id: uicc.cart-page-is-not-a-client-component
+    title: "Cart page is not a client component"
+    persona: buyer
+    priority: P2
+    summary: "Cart page is not a client component"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the production build of `/cart` is inspected"
+      - "Then `app/cart/page.tsx` has no `\"use client\"` directive and the client bundle for the route contains only the leaf islands (quantity control, clear button, voucher modal)"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Cart page is not a client component"
+
+  - id: uicc.increasing-quantity-shows-pending-and-then-the-new-tota
+    title: "Increasing quantity shows pending and then the new total"
+    persona: buyer
+    priority: P2
+    summary: "Increasing quantity shows pending and then the new total"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks the increase button of a `QuantityPicker`"
+      - "Then that picker and the remove button are disabled with `aria-busy=\"true\"` until the action settles, and afterwards the quantity, line total and summary subtotal show the server values"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Increasing quantity shows pending and then the new total"
+
+  - id: uicc.a-failed-quantity-update-is-reported-and-not-applied
+    title: "A failed quantity update is reported and not applied"
+    persona: buyer
+    priority: P2
+    summary: "A failed quantity update is reported and not applied"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `updateCartItemAction` returns `ok:false` (for example insufficient stock)"
+      - "Then an error toast with the reason is shown, the quantity returns to its previous server value, and the picker is enabled again"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::A failed quantity update is reported and not applied"
+    notes: "Failure provoked by emptying the cart from another session, then pressing + on the stale row."
+
+  - id: uicc.clearing-the-cart-shows-the-empty-state
+    title: "Clearing the cart shows the empty state"
+    persona: buyer
+    priority: P2
+    summary: "Clearing the cart shows the empty state"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer clicks \"Xóa tất cả\" and the action succeeds"
+      - "Then the button was disabled and loading while pending, an info toast is shown, and the page renders the `Empty` state with a \"Tiếp tục mua sắm\" link to `/`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Clearing the cart shows the empty state"
+
+  - id: uicc.quantity-cannot-go-below-the-minimum
+    title: "Quantity cannot go below the minimum"
+    persona: buyer
+    priority: P2
+    summary: "Quantity cannot go below the minimum"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a cart item has quantity 1 and the buyer presses decrease"
+      - "Then the decrease control is disabled and no action is called"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Quantity cannot go below the minimum"
+
+  - id: uicc.valid-code-applies-a-discount
+    title: "Valid code applies a discount"
+    persona: buyer
+    priority: P2
+    summary: "Valid code applies a discount"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer enters \"SAVE10\" in the `VoucherModal` and presses \"Áp dụng\""
+      - "Then the button shows loading while pending, the modal closes, a success toast is shown, the summary discount row (`data-testid=\"voucher-discount\"`) shows the server-provided amount and the total (`data-testid=\"order-total\"`) is reduced by it"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Valid code applies a discount"
+
+  - id: uicc.invalid-code-is-rejected-with-a-reason
+    title: "Invalid code is rejected with a reason"
+    persona: buyer
+    priority: P2
+    summary: "Invalid code is rejected with a reason"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer enters \"BOGUS-NOPE-999\" and presses \"Áp dụng\""
+      - "Then the `FormItem` shows the reason returned by the server, an error toast is shown, no discount is applied and the modal stays open"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Invalid code is rejected with a reason"
+
+  - id: uicc.voucher-modal-traps-focus-and-closes-with-escape
+    title: "Voucher modal traps focus and closes with Escape"
+    persona: buyer
+    priority: P2
+    summary: "Voucher modal traps focus and closes with Escape"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the `VoucherModal` is open and the buyer presses Tab repeatedly and then Escape"
+      - "Then focus stays inside the modal while open, and Escape closes it and returns focus to the voucher selector that opened it"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::Voucher modal traps focus and closes with Escape"
+
+  - id: uicc.no-available-vouchers
+    title: "No available vouchers"
+    persona: buyer
+    priority: P2
+    summary: "No available vouchers"
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When no vouchers are available and the modal is opened"
+      - "Then an `Empty` block is shown and the manual code input remains usable"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_cart_page.feature::No available vouchers"
+
+  # <<< d2 generated
+
   - id: orders.list-status-tabs
     title: Order list status tabs held in the URL
     persona: buyer
