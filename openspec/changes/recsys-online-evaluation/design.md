@@ -55,6 +55,13 @@ The file is vendored into team-analytics, team-gateway and team-frontend, the sa
 - **[Event volume]** Mitigation: the windowed query over the resolved view is fine at local scale. The same
   materialisation note as the quality report applies.
 
+- **[Attribution is client-reported, so it is forgeable]**
+  - Impressions, clicks and purchase beacons all come from the browser.
+  - Mitigation: the report is descriptive and admin-only. It drives no payout and no automatic rollback.
+  - A follow-up can source purchases from the server-truth order facts once those carry a buyer.
+- **[Visitors with no anonymous id share the key `anon:`]**
+  - Mitigation: conversions on that key are not attributed.
+
 ## Migration Plan
 
 Deploy in this order: proto and vendoring, then team-analytics, then team-gateway. The change is additive.
