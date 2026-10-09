@@ -624,6 +624,8 @@ services:
       - RECS_CACHE_PREFIX=recs
       - RECS_CACHE_SCHEMA_VERSION=v1
       - RECS_CACHE_TTL_SECONDS=86400
+      # Online item features from platform-featurestore (its own Redis DB 2), recs-serving-safeguards.
+      - RECS_FEATURESTORE_REDIS_URL=redis://redis:6379/2
       - RECS_RETRIEVE_TIMEOUT_MS=15
     ports:
       - "8001:8000"
