@@ -458,3 +458,20 @@ features:
     status: automated
     covered_by: "analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
     notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
+
+  - id: analytics.resolved-export
+    title: "A tracked view reaches the resolved export"
+    persona: guest
+    priority: P1
+    summary: "A tracked view reaches the resolved export."
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view of a unique listing and the next export cycle completes
+      - Then tracking_events_resolved.parquet on the analytics volume contains that listing with a user_key
+    tags: [analytics, batch, integration]
+    status: planned
+    covered_by: null
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tracked view reaches the resolved export"
