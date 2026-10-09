@@ -326,18 +326,32 @@ const FallbackModelVersion = "serving-fallback"
 func (r *DuckDBRepository) RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
 	since, until = since.UTC(), until.UTC()
 	q := fmt.Sprintf(`
-WITH imp AS (
-  SELECT impression_id, min(placement_id) AS placement_id, min(model_version) AS model_version,
-         count(*) AS item_impressions
+WITH ie AS (
+  SELECT event_id, impression_id, placement_id, COALESCE(model_version, '') AS model_version,
+         listing_id, occurred_at
   FROM %[1]s
   WHERE event_type = 'impression' AND occurred_at >= ? AND occurred_at <= ?
     AND COALESCE(impression_id, '') <> '' AND COALESCE(placement_id, '') <> ''
-  GROUP BY impression_id
 ),
+-- An impression is the triple (impression_id, placement_id, model_version): a reused id
+-- under another placement or model is another impression, not collapsed by min().
+imp AS (
+  SELECT impression_id, placement_id, model_version, count(*) AS item_impressions
+  FROM ie GROUP BY impression_id, placement_id, model_version
+),
+-- A click counts only on a listing the impression showed, at or before the click, and is
+-- credited to exactly one impression: the latest qualifying impression event. A click that
+-- carries a placement or model must match it; an empty one matches any.
 clk AS (
-  SELECT e.event_id, e.user_key, e.listing_id, e.occurred_at, imp.placement_id, imp.model_version
-  FROM %[1]s e JOIN imp USING (impression_id)
+  SELECT e.event_id, e.user_key, e.listing_id, e.occurred_at, ie.placement_id, ie.model_version
+  FROM %[1]s e JOIN ie
+    ON e.impression_id = ie.impression_id AND e.listing_id = ie.listing_id
+   AND ie.occurred_at <= e.occurred_at
   WHERE e.event_type = 'click' AND e.occurred_at >= ? AND e.occurred_at <= ?
+    AND (COALESCE(e.placement_id, '') = '' OR e.placement_id = ie.placement_id)
+    AND (COALESCE(e.model_version, '') = '' OR e.model_version = ie.model_version)
+  QUALIFY row_number() OVER (PARTITION BY e.event_id
+          ORDER BY ie.occurred_at DESC, ie.placement_id, ie.model_version, ie.event_id) = 1
 ),
 conv AS (
   SELECT c.event_type, k.placement_id, k.model_version

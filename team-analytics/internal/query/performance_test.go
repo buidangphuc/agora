@@ -232,3 +232,73 @@ func TestGetRecommendationPerformance_AccessAndErrors(t *testing.T) {
 		t.Errorf("no interface: code = %v, want Unavailable", status.Code(err))
 	}
 }
+
+func perfRow(t *testing.T, repo *query.DuckDBRepository, now time.Time) map[string]query.PerformanceRow {
+	t.Helper()
+	got, err := repo.RecommendationPerformance(context.Background(), now.Add(-24*time.Hour), now, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]query.PerformanceRow{}
+	for _, r := range got {
+		by[r.PlacementID+"/"+r.ModelVersion] = r
+	}
+	return by
+}
+
+func tr(id, typ, listing, imp, placement, model string, at time.Time) *warehouse.TrackingRecord {
+	return &warehouse.TrackingRecord{EventID: id, EventType: typ, ListingID: listing, AnonymousID: "a", PrincipalID: "u",
+		PrincipalType: "user", ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: at}
+}
+
+// recs-attribution-hardening (b): a click on a listing the impression did not show is not counted,
+// and neither is a click that precedes the impression event.
+func TestDuckDBRecommendationPerformance_ClickMustMatchTheImpressionsListing(t *testing.T) {
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	h := time.Hour
+	repo := perfRepo(t, []*warehouse.TrackingRecord{
+		tr("i", "impression", "A", "I", "p", "M", now.Add(-5*h)),
+		tr("c-ok", "click", "A", "I", "", "", now.Add(-4*h)),
+		tr("c-other", "click", "B", "I", "", "", now.Add(-4*h)), // B was never shown
+		tr("c-early", "click", "A", "I", "", "", now.Add(-6*h)), // before the impression
+	})
+	r := perfRow(t, repo, now)["p/M"]
+	if r.Impressions != 1 || r.Clicks != 1 {
+		t.Fatalf("row = %+v, want 1 impression and exactly the matching click", r)
+	}
+}
+
+// recs-attribution-hardening (c): a reused impression id keeps placements and models apart.
+func TestDuckDBRecommendationPerformance_ReusedImpressionIDKeepsRowsApart(t *testing.T) {
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	h := time.Hour
+	repo := perfRepo(t, []*warehouse.TrackingRecord{
+		tr("i4", "impression", "A", "I", "p4", "M4", now.Add(-5*h)),
+		tr("i5", "impression", "A", "I", "p5", "M5", now.Add(-4*h)),
+		tr("c-explicit", "click", "A", "I", "p4", "M4", now.Add(-3*h)), // names its impression
+		tr("c-latest", "click", "A", "I", "", "", now.Add(-2*h)),       // ambiguous: latest event (p5) wins
+	})
+	by := perfRow(t, repo, now)
+	if len(by) != 2 {
+		t.Fatalf("rows = %+v, want one per (placement, model)", by)
+	}
+	p4, p5 := by["p4/M4"], by["p5/M5"]
+	if p4.Impressions != 1 || p4.Clicks != 1 || p5.Impressions != 1 || p5.Clicks != 1 {
+		t.Fatalf("p4 = %+v, p5 = %+v; want 1 impression and 1 click each, none lost or doubled", p4, p5)
+	}
+}
+
+// A tie on the impression time is broken by placement, then model, ascending.
+func TestDuckDBRecommendationPerformance_AmbiguousClickTieIsDeterministic(t *testing.T) {
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	h := time.Hour
+	repo := perfRepo(t, []*warehouse.TrackingRecord{
+		tr("ib", "impression", "A", "I", "pb", "M", now.Add(-5*h)),
+		tr("ia", "impression", "A", "I", "pa", "M", now.Add(-5*h)),
+		tr("c", "click", "A", "I", "", "", now.Add(-4*h)),
+	})
+	by := perfRow(t, repo, now)
+	if by["pa/M"].Clicks != 1 || by["pb/M"].Clicks != 0 {
+		t.Fatalf("rows = %+v, want the click on pa/M only", by)
+	}
+}
