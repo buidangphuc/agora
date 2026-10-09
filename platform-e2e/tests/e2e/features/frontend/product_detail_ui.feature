@@ -79,8 +79,6 @@ Feature: Product detail page - anatomy, real data, gallery, purchase, reviews, Q
     When the buyer clicks Thêm vào giỏ in the buy bar
     Then a toast "Đã thêm 1 sản phẩm vào giỏ hàng" appears and the cart counter shows 1
 
-  # DEFECT (xfail in the binder): at 375px the global footer scrolls under the buy bar - the page
-  # reserves bottom padding for the PDP body but not for the footer below it.
   Scenario: The bar covers no content
     Given a published listing with variants and a buyer on its page at 375px
     When the buyer scrolls to the bottom of the page
@@ -93,8 +91,6 @@ Feature: Product detail page - anatomy, real data, gallery, purchase, reviews, Q
     Then the anchor nav is not sticky and scrolls horizontally without page overflow
 
   # ── Reviews ───────────────────────────────────────────────────────────
-  # DEFECT (xfail in the binder): with 23 reviews the UI offers only 2 pages; ?rpage=3 clamps to page 2,
-  # so reviews 21-23 are unreachable (only the first 20 are fetched).
   Scenario: Reviews paginate at 10
     Given a published listing with 23 reviews and a buyer on its page
     When the buyer opens the third page of reviews

@@ -63,8 +63,6 @@ Feature: Discovery routes - cards, grid, search, vouchers and the search bar
     Then the home page has no flash-sale heading, countdown, sold bar or discount badge
 
   # ── Category navigation, search page state ────────────────────────────
-  # DEFECT (xfail in the binder): CategoryBar's pills variant is not mounted on /search - the
-  # category is only a facet link in the filter sidebar - so there is no pill row above the results.
   Scenario: Current category is announced
     Given listings priced 1250000 and 6000000 with a brand keyword are indexed
     When the buyer opens the search results for that keyword in the "cat-electronics" category
@@ -146,8 +144,6 @@ Feature: Discovery routes - cards, grid, search, vouchers and the search bar
     When the recommendations row has streamed in, the buyer scrolls to it and clicks its first card
     Then both the impression and the click beacon carry placementId "home_feed"
 
-  # DEFECT (xfail in the binder): the card's title link sends select_item with only item_id; the image
-  # link carries placement_id and index. The spec has both links carry the same attribution.
   Scenario: A click on the card title keeps its attribution
     Given a buyer with the home page open while recording tracking beacons
     When the recommendations row has streamed in and the buyer clicks the title of its first card

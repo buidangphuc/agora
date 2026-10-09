@@ -340,7 +340,7 @@ features:
       Black-box probe by a rejected write; the rollback-after-outbox-insert fault cannot be injected through the edge.
 
   - id: notification.order-analytics-ignores-shipped
-    title: Order analytics ignores the OrderShipped event
+    title: "Order analytics ignores the new event"
     persona: buyer
     priority: P1
     summary: team-analytics' order-facts consumer skips OrderShipped on order.events and its committed offset advances past it.
@@ -356,8 +356,7 @@ features:
       - When the seller creates a shipment (OrderShipped is published)
       - Then within 30 s team-analytics' consumer group has committed past it and is still running
     tags: [seller, analytics]
-    status: planned
-    covered_by: null
-    notes: >
-      BLOCKED (code defect): team-analytics commits offsets only inside a batch flush (consumer.go flush -> CommitUncommittedOffsets, no-op on an empty buffer), so a skipped OrderShipped is not committed until the next tracking/order-fact record. Evidence: after CreateShipment, group team-analytics sat at order.events CURRENT-OFFSET 6934 while LOG-END grew 6935 -> 6937 (LAG 3) on an idle stack. Scenario written in notification/c1_shipment_event.feature and red.
+    status: automated
+    covered_by: "notification/c1_shipment_event.feature::Order analytics ignores the new event"
+    notes: "green after the fix and rebuild: notification/c1_shipment_event.feature::Order analytics ignores the new event"
 

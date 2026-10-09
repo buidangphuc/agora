@@ -1701,9 +1701,9 @@ features:
       - "When `/search?category=c1` is rendered with `CategoryBar variant=\"pills\"`"
       - "Then the pill for `c1` has `aria-current=\"true\"` and the \"Tất cả\" pill does not"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED (DEFECT): CategoryBar variant=pills is not mounted on /search (only the sidebar facet link marks the category current), so there is no pill row; the scenario is xfail in test_d1_discovery.py."
+    status: automated
+    covered_by: "frontend/discovery_ui.feature::Current category is announced"
+    notes: "green after the fix and rebuild: frontend/discovery_ui.feature::Current category is announced"
 
   - id: discovery.changing-a-filter-resets-the-page
     title: "Changing a filter resets the page"
@@ -2447,9 +2447,9 @@ features:
       - "When the buyer scrolls to the bottom of the page at 375px"
       - "Then the last element of the page is fully visible above the buy bar"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "DEFECT (xfail in test_d1_pdp.py): at 375px the global footer's last lines (bottom 812px) scroll under the fixed buy bar (top 731px); the page reserves bottom padding for the PDP body but not for the footer below it."
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::The bar covers no content"
+    notes: "green after the fix and rebuild: frontend/product_detail_ui.feature::The bar covers no content"
 
   - id: listing.the-anchor-nav-is-sticky-on-desktop-only
     title: "The anchor nav is sticky on desktop only"
@@ -2480,9 +2480,9 @@ features:
       - "When a listing has 23 reviews and the buyer opens `?rpage=3`"
       - "Then 3 reviews are listed and the `Pagination` marks page 3 as current"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "DEFECT (xfail in test_d1_pdp.py): with 23 reviews the page offers 2 pages and ?rpage=3 clamps to page 2. lib/gateway/reviews.ts listReviews sends no page size, the gateway returns its default 20 of total 23, so reviews 21-23 are unreachable."
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Reviews paginate at 10"
+    notes: "green after the fix and rebuild: frontend/product_detail_ui.feature::Reviews paginate at 10"
 
   - id: listing.marking-helpful-is-single-use-and-reports-failure
     title: "Marking helpful is single-use and reports failure"
@@ -2826,9 +2826,9 @@ features:
       - "When a visitor clicks the image or the title of a card"
       - "Then a `select_item` event with the same attribution fields is sent before navigation to `/listing/<id>`, and navigation is not blocked"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "DEFECT (xfail in test_d1_discovery.py): scenario 'A click on the card title keeps its attribution'. Clicking a ListingCard title link sends select_item with only item_id; the image link carries placement_id and index (observed on / and on /listing/{id} similar-items rows)."
+    status: automated
+    covered_by: "tracking/discovery_tracking_unchanged.feature::Card click still records select_item"
+    notes: "green after the fix and rebuild: tracking/discovery_tracking_unchanged.feature::Card click still records select_item"
 
   - id: account.gateway-read-failure
     title: "Gateway read failure"
@@ -4138,8 +4138,9 @@ features:
       - "When the checkout kill-switch is off and the buyer opens `/checkout`"
       - "Then a `Result` with the unavailable notice and a \"Quay lại giỏ hàng\" button is shown and no wizard is rendered"
     tags: [buyer]
-    status: planned
-    notes: "Written as frontend/ui_checkout_order.feature::Kill-switch shows an info Result, @destructive (flips the stack-wide checkout-enabled flag, restored in teardown); not run in the parallel lane."
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Kill-switch shows an info Result"
+    notes: "green after the fix and rebuild: frontend/ui_checkout_order.feature::Kill-switch shows an info Result"
 
   - id: uicc.successful-payment-shows-the-success-result
     title: "Successful payment shows the success Result"
@@ -4267,8 +4268,9 @@ features:
       - "When a voucher is applied in checkout"
       - "Then the vertical position of the \"Đặt hàng\"/\"Tiếp tục\" button and of the total row is unchanged"
     tags: [buyer]
-    status: planned
-    notes: "BLOCKED code defect, scenario red: applying SAVE10 moves the summary total row down 16px because the discount row label grows from 16px to 32px when the voucher Tag appears (features/order/OrderSummary.tsx)."
+    status: automated
+    covered_by: "frontend/ui_checkout_flow.feature::Applying a voucher does not shift the layout"
+    notes: "green after the fix and rebuild: frontend/ui_checkout_flow.feature::Applying a voucher does not shift the layout"
 
   - id: uicc.below-the-fold-thumbnails-are-lazy
     title: "Below-the-fold thumbnails are lazy"
@@ -5523,8 +5525,9 @@ features:
       - "When `createBundleAction` returns `{ ok: false, error: \"Chọn ít nhất 2 sản phẩm cho combo.\" }`"
       - "Then the field-level `FormItem` or an `Alert` shows that message and an error toast appears"
     tags: [seller]
-    status: planned
-    notes: "BLOCKED code/spec mismatch, scenario red: with fewer than 2 products the form shows \"Chọn ít nhất 2 sản phẩm cho combo.\" as a field error from client-side validation but never calls createBundleAction, so no error toast appears (features/seller/BundleManager.tsx validateBundle). The spec describes the server path."
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Action errors use the error field"
+    notes: "green after the fix and rebuild: frontend/ui_seller_orders_money.feature::Action errors use the error field"
 
   - id: uisl.bundle-creation-succeeds
     title: "Bundle creation succeeds"
