@@ -31,4 +31,4 @@
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive featurestore-datasets`; verify `openspec list`
+- [x] 4.1 `openspec archive featurestore-datasets`; verify `openspec list`
