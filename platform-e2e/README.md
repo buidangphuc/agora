@@ -192,7 +192,9 @@ Ruff and black use line length 100, Python 3.10+. There is no CI workflow in thi
 - `make spec-check CHANGE=<id>` runs `features-check` plus `scripts/spec_sync.py`: every
   `#### Scenario:` in `openspec/changes/<id>/specs/**/spec.md` must match an `automated`
   feature whose `covered_by` scenario exists (name match is normalized, substring either way).
-  This is the archive gate in the root `AGENTS.md`.
+  This is the archive gate in the root `AGENTS.md`. A scenario that cannot be produced end to
+  end is exempt only if its spec body has a `**VERIFIED BY**: <unit test>` line and its
+  FEATURES entry is `status: not-testable`; the reason goes in the change's `design.md`.
 - Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC. The
   `spec-to-e2e` skill scaffolds feature, steps and page objects and flips the status to
   `automated`.
