@@ -11,15 +11,12 @@
 - [x] Update `recsys/evals/__main__.py` to run temporal split over raw interactions.
 - [x] Write execution-proof tests in `tests/test_evals_temporal_cli.py`.
 
-## 2. Code — the CLI evaluates a fixture, not a model (found 2026-09-20)
-- [ ] Read interactions from the warehouse instead of the literal at `evals/__main__.py:15-22`
-      (`u1`/`item1`…), reusing `recsys/warehouse.py:read_tracking_events`.
-- [ ] Take predictions from a trained model rather than the hand-written `predicted` dict at
-      `evals/__main__.py:26-29`. Until this lands, `make eval` cannot report on any model and
-      cannot feed the promotion gate.
-- [ ] Emit the report in a form the registry can consume as `ModelMetadata.metrics`.
+## 2. CLI over the warehouse and a trained model — retired (2026-10-09)
+The batch pipeline already evaluates each trained generation on the warehouse dataset, with the temporal protocol,
+in `pipeline.evaluate_generation`. It feeds the promotion gate and `ModelMetadata.metrics`, as the archived
+wire-pipeline-eval-registry specifies. A second, CLI-side path to the same report is therefore dropped.
+`evals/__main__.py` stays a fixture demo of the split metadata.
 
 ## 3. Verification
 - [x] Run `pytest -v tests/test_evals_temporal_cli.py`.
-- [ ] `make eval` over a sample warehouse produces NDCG@10 for the ALS run, not for a fixture.
 - [x] `openspec validate wire-temporal-split-eval-cli --strict`.

@@ -5,6 +5,11 @@
 > tick, it is that **no task or scenario constrained what the vectors contain** — and they are
 > all zero. Added as new tasks rather than un-ticking work that was performed.
 
+> **Merged 2026-10-09:** add-two-tower-retrieval is retired into this change. Its towers and model
+> (`recsys/two_tower/{user_tower,item_tower,model}.py`, `tests/test_two_tower.py`) are done. Its projection and top-K
+> requirements are in this change's spec delta. Its cold-start requirement is covered by "Cold-start item receives a
+> vector that ALS cannot produce".
+
 ## 1. Code — platform-recsys
 - [x] Add Two-Tower settings to `recsys/config.py` (`ENABLE_TWO_TOWER`, `QDRANT_TWO_TOWER_COLLECTION`, `TWO_TOWER_DIM`).
 - [x] Keep `.env.example` in sync with `_FIELDS`.
