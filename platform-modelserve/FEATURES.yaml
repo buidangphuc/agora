@@ -23,7 +23,8 @@ features:
       - "When a client posts \"/embed\" to the router with two unique texts under the key \"texts\""
       - "Then the router answers 200 with embeddings that pass the team-ai vector validation at dimension 384"
     tags: [modelserve, inference]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router serves embeddings conforming to team-ai parser"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: modelserve.router-accepts-openai-format-embeddings-request
@@ -42,7 +43,8 @@ features:
       - "When a client posts \"/v1/embeddings\" to the router with the input \"hello world\" and a unique word"
       - "Then the router answers 200 with an OpenAI list holding one 384 dimension embedding"
     tags: [modelserve, inference]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router accepts OpenAI format embeddings request"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: modelserve.embedding-cache-hit-skips-upstream-inference
@@ -62,7 +64,8 @@ features:
       - "When a client posts the same text to \"/embed\" again"
       - "Then the router returns the same vector and the upstream saw no second call for that text"
     tags: [modelserve, inference]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Embedding cache hit skips upstream inference"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: modelserve.multi-text-embedding-splits-cache-hits-and-misses
@@ -84,7 +87,8 @@ features:
       - "And the router returned four vectors in the request order"
       - "And posting the same four texts again reaches the upstream not at all"
     tags: [modelserve, inference]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Multi-text embedding splits cache hits and misses"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: modelserve.router-proxies-rerank-requests
@@ -104,7 +108,8 @@ features:
       - "Then the router returns the ranked results of the upstream with the sneakers first"
       - "And the upstream received the rerank payload unchanged"
     tags: [modelserve, inference]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router proxies rerank requests"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: modelserve.router-proxies-chat-completions-to-vllm
@@ -124,7 +129,8 @@ features:
       - "Then the router returns the completion of the vLLM upstream stand-in"
       - "And the upstream received the chat payload unchanged"
     tags: [modelserve, inference]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router proxies chat completions to vLLM"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: modelserve.backpressure-on-queue-depth-saturation
@@ -145,7 +151,8 @@ features:
       - "And the admitted ones still complete with 200"
       - "And the router serves a normal request once the load has drained"
     tags: [modelserve, resilience, destructive]
-    status: planned
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Backpressure on queue depth saturation"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive: saturates the router for a few seconds, so concurrent hybrid searches may degrade; run in the serial lane."
 
   - id: modelserve.networkpolicy-admits-team-ai-team-search-prometheus

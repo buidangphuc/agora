@@ -83,7 +83,7 @@ Feature: Multi-strategy Hybrid Retrieval Platform
     Given three embedded listings share a unique keyword
     When a buyer searches for that keyword in SEARCH_MODE_HYBRID, then again with a failing-rerank directive
     Then the TEI fake answered the rerank request with a failure
-    And the search answers 200 with the three listings in the same order as the plain search
+    And the search answers 200 with the three listings in the RRF order of the same query's lexical and semantic legs
 
   @needsModelserveOverlay
   Scenario: Search within fusion window executes multi-strategy fusion

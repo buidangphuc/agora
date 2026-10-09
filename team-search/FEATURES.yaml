@@ -930,7 +930,8 @@ features:
       - "Then the listing with that word is the first hit and the unrelated one ranks after it or is absent"
       - "And a lexical search for the same alias finds neither listing"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Semantic strategy returns dense vector nearest neighbors"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-multi-strategy-retrieval-executes-strategies-concurrently
@@ -1022,7 +1023,8 @@ features:
       - "Then the search answers 200 with the listing among the hits well before the embedding would finish"
       - "And the TEI fake did receive the slow embedding request"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Semantic strategy timeout degrades to lexical results"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-model-server-unavailability-fails-open
@@ -1042,7 +1044,8 @@ features:
       - "When a buyer searches for that keyword in SEARCH_MODE_HYBRID through the gateway"
       - "Then the search answers 200 with the listing among the hits"
     tags: [buyer, search, hybrid, destructive]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Model server unavailability fails open"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive: stops the modelserve-router container (restored in teardown); serial lane only."
 
   - id: search.hrp-degraded-search-responses-maintain-facet-aggregations
@@ -1062,7 +1065,8 @@ features:
       - "Then the TEI fake rejected the embedding of that query"
       - "And the facet counts of the degraded response equal those of the lexical search and count both listings"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Degraded search responses maintain facet aggregations"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-unspecified-search-mode-defaults-to-hybrid
@@ -1082,7 +1086,8 @@ features:
       - "Then the listing is among the hits although a lexical search for the alias finds nothing"
       - "And the TEI fake received an embedding request for that query"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Unspecified search mode defaults to hybrid"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-explicit-lexical-mode-skips-vector-embedding
@@ -1103,7 +1108,8 @@ features:
       - "And the TEI fake received no embedding request for that query"
       - "And the same query in SEARCH_MODE_HYBRID does reach the TEI fake"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Explicit lexical mode skips vector embedding"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-explicit-semantic-mode-queries-vector-index
@@ -1123,7 +1129,8 @@ features:
       - "Then the listing is the first hit"
       - "And the TEI fake received an embedding request for that query"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Explicit semantic mode queries vector index"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-reranker-scores-top-candidates
@@ -1143,7 +1150,8 @@ features:
       - "Then the TEI fake received a rerank request listing those candidates"
       - "And the three listings come back in the opposite order of the plain search"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Reranker scores top candidates"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). Expected RED until fixed: team-search HTTPRerankClient parses {\"results\":[...]} but TEI /rerank (and the router, which passes it through) answers a bare list, so the reranker order is never applied; see the e2e report."
 
   - id: search.hrp-reranker-failure-falls-back-to-rrf-order
@@ -1163,7 +1171,8 @@ features:
       - "Then the TEI fake answered the rerank request with a failure"
       - "And the search answers 200 with the three listings in the same order as the plain search"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Reranker failure falls back to RRF order"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-published-listing-receives-embedding-at-index-time
@@ -1182,7 +1191,8 @@ features:
       - "Then the read-model document holds a 384 dimension embedding that is the model server's vector of its text"
       - "And the document is not marked vector_pending"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_indexing.feature::Published listing receives embedding at index time"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-embedding-failure-marks-vector-pending-without-dlq
@@ -1201,7 +1211,8 @@ features:
       - "Then the listing is indexed and searchable with vector_pending true and no embedding"
       - "And no record of the listing is parked on the listing events DLQ"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_indexing.feature::Embedding failure marks vector_pending without DLQ"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). Also green on a stack without the overlay (every embedding fails there)."
 
   - id: search.hrp-fine-grained-price-or-status-update-preserves-existing-embedding
@@ -1220,7 +1231,8 @@ features:
       - "When a ListingPricingChanged with a new price and a newer occurred_at is published to listing.events"
       - "Then the document shows the new price and the same embedding, still not vector_pending"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_indexing.feature::Fine-grained price or status update preserves existing embedding"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-replaying-listing-events-generates-dense-embeddings
@@ -1239,7 +1251,8 @@ features:
       - "When a second indexer with a new consumer group replays listing.events onto a new index"
       - "Then the new index holds that listing with its text and a 384 dimension embedding"
     tags: [seller, search, hybrid, destructive, slow]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_indexing.feature::Replaying listing events generates dense embeddings"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive @slow: runs a short-lived indexer container reading the whole topic (image TS_IMAGE, default agora-team-search:local); serial lane only."
 
   - id: search.hrp-version-guard-prevents-stale-events-during-re-indexing
@@ -1258,7 +1271,8 @@ features:
       - "When a ListingChanged UPDATED with another title and an occurred_at older than the creation is published to listing.events"
       - "Then the read-model document keeps its title and embedding"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_indexing.feature::Version guard prevents stale events during re-indexing"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-search-within-fusion-window-executes-multi-strategy-fusion
@@ -1278,7 +1292,8 @@ features:
       - "Then both listings are among the hits although a lexical search finds only the first one"
       - "And the TEI fake received an embedding request for that query"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Search within fusion window executes multi-strategy fusion"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
   - id: search.hrp-deep-pagination-beyond-fusion-window-falls-back-to-bm25
@@ -1299,5 +1314,6 @@ features:
       - "And the TEI fake received no embedding request for that query"
       - "And the same query in SEARCH_MODE_HYBRID at the first page does reach the TEI fake"
     tags: [buyer, search, hybrid]
-    status: planned
+    status: automated
+    covered_by: "search/hybrid_retrieval.feature::Deep pagination beyond fusion window falls back to BM25"
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."

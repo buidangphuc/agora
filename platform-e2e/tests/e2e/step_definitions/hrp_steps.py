@@ -168,10 +168,13 @@ def search_slow(world: World) -> None:
 @when("a buyer searches for that keyword plus a failing-embedding directive in SEARCH_MODE_HYBRID")
 def search_failing(world: World) -> None:
     query = f"{_kw(world)} [[fake status=500]]"
+    # Scoped to this scenario's seller: the directive words also match other scenarios' listings,
+    # which would otherwise crowd the page and the facet counts.
+    only_mine = {"seller_id": s.subject(s.seller_of(world).token)}
     h.bag(world).update(
         query=query,
-        resp=h.search(query, mode=h.HYBRID),
-        lexical=h.search(query, mode=h.LEXICAL),
+        resp=h.search(query, mode=h.HYBRID, filters=only_mine),
+        lexical=h.search(query, mode=h.LEXICAL, filters=only_mine),
     )
 
 
@@ -317,10 +320,9 @@ def facets_kept(world: World) -> None:
     assert set(h.ids(bag["resp"])) >= {s.listing(world, x).id for x in ("cheap", "dear")}
     facets = degraded.get("facets") or {}
     assert facets == (lexical.get("facets") or {}), "facets differ between degraded and lexical"
-    # The lexical leg also matches other listings whose titles carry the same directive words, so the
-    # facets are checked against the response's own hits rather than a fixed count: each facet counts
-    # every hit once, and our two listings fall in two price ranges under our seller.
+    # Scoped to our seller, the hits are exactly our two listings; each facet counts every hit once.
     total = len(h.ids(bag["resp"]))
+    assert total == 2, h.ids(bag["resp"])
     assert sum(_bucket_counts(facets, "categories").values()) == total, facets.get("categories")
     prices = {k: v for k, v in _bucket_counts(facets, "priceRanges").items() if v}
     assert len(prices) >= 2 and sum(prices.values()) == total, prices
@@ -401,11 +403,32 @@ def rerank_failed(world: World) -> None:
     s.eventually(_failed, "a failed rerank request at the TEI fake", 15.0)
 
 
-@then("the search answers 200 with the three listings in the same order as the plain search")
-def same_order(world: World) -> None:
+RRF_K = 60  # HYBRID_RRF_K default (weights 1.0); the overlay does not change them
+LEG_PAGE = 100
+
+
+@then(
+    "the search answers 200 with the three listings in the RRF order of the same query's lexical "
+    "and semantic legs"
+)
+def rrf_order(world: World) -> None:
+    # Compare with the RRF fusion of THIS query's own legs: the directive words also match other
+    # listings lexically, so the plain query's order is not the baseline.
     bag = h.bag(world)
     assert bag["directed_resp"].status_code == 200
-    assert len(bag["plain"]) == 3 and bag["directed"] == bag["plain"]
+    labels = ["one", "two", "three"]
+    query = f"{_kw(world)} [[fake rerank_status=500]]"
+    legs = [
+        h.ids(h.search(query, mode=mode, page_size=LEG_PAGE)) for mode in (h.LEXICAL, h.SEMANTIC)
+    ]
+    mine = [s.listing(world, label).id for label in labels]
+
+    def score(listing_id: str) -> float:
+        return sum(1.0 / (RRF_K + leg.index(listing_id) + 1) for leg in legs if listing_id in leg)
+
+    expected = sorted(mine, key=lambda i: (-score(i), i))
+    assert len(bag["directed"]) == 3, bag["directed"]
+    assert bag["directed"] == expected, (bag["directed"], expected, legs)
 
 
 @then("both listings are among the hits although a lexical search finds only the first one")

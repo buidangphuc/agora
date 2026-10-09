@@ -76,11 +76,18 @@ def create(
 
 
 def search(
-    query: str, *, mode: str | None = None, cursor: str | None = None, page_size: int | None = None
+    query: str,
+    *,
+    mode: str | None = None,
+    cursor: str | None = None,
+    page_size: int | None = None,
+    filters: dict[str, str] | None = None,
 ) -> httpx.Response:
     body: dict[str, Any] = {"query": query}
     if mode:
         body["searchMode"] = mode
+    if filters:
+        body["filters"] = filters
     page: dict[str, Any] = {}
     if cursor is not None:
         page["cursor"] = cursor
