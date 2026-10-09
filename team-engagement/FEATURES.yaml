@@ -346,8 +346,8 @@ features:
       - When a logged-in buyer adds a listing to their favourites through the gateway
       - Then one FavoriteAdded envelope for that buyer and listing appears on engagement.events
     tags: [engagement, kafka]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/engagement_facts.feature::Favouriting a listing publishes a fact"
     notes: "engagement-fact-events: engagement/engagement_facts.feature::Favouriting a listing publishes a fact"
 
   - id: engagement.fact-favorite-removed
@@ -363,8 +363,8 @@ features:
       - When the buyer then removes that favourite
       - Then a FavoriteRemoved envelope for that buyer and listing follows it on engagement.events
     tags: [engagement, kafka]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/engagement_facts.feature::Removing a favourite publishes a removal"
     notes: "engagement-fact-events: engagement/engagement_facts.feature::Removing a favourite publishes a removal"
 
   - id: engagement.fact-favorite-repeat-noop
@@ -380,8 +380,8 @@ features:
       - When a buyer adds the same listing to their favourites twice
       - Then exactly one FavoriteAdded envelope for that buyer and listing appears on engagement.events
     tags: [engagement, kafka]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/engagement_facts.feature::A repeated favourite publishes nothing new"
     notes: "engagement-fact-events: engagement/engagement_facts.feature::A repeated favourite publishes nothing new"
 
   - id: engagement.fact-review-rating-only
@@ -397,8 +397,8 @@ features:
       - When a buyer with a delivered order reviews the listing with rating 4 and the text "rất tốt"
       - Then a ReviewCreated envelope with rating 4, the listing and its seller appears on engagement.events, and the payload does not contain "rất tốt"
     tags: [engagement, kafka]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/engagement_facts.feature::A review publishes its rating without its text"
     notes: "engagement-fact-events: engagement/engagement_facts.feature::A review publishes its rating without its text"
 
   - id: engagement.fact-published-after-kafka-outage
@@ -414,6 +414,6 @@ features:
       - When Redpanda is stopped, a buyer follows a seller, and Redpanda is started again
       - Then one SellerFollowed envelope for that buyer and seller appears on engagement.events
     tags: [engagement, kafka]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/engagement_facts.feature::A fact written while Kafka is down is published later"
     notes: "engagement-fact-events: engagement/engagement_facts.feature::A fact written while Kafka is down is published later"

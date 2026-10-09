@@ -421,8 +421,8 @@ features:
       - When a buyer adds two listings to their favourites and then removes the first one
       - Then engagement_facts holds three rows for the buyer, and favorites_current lists only the second listing for the buyer
     tags: [analytics, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/engagement_facts_warehouse.feature::A favourite that was removed is not current"
     notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A favourite that was removed is not current"
 
   - id: analytics.engagement-follow-current
@@ -438,8 +438,8 @@ features:
       - When a buyer follows a seller
       - Then follows_current lists that buyer and seller
     tags: [analytics, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/engagement_facts_warehouse.feature::A follow appears in the current follows"
     notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A follow appears in the current follows"
 
   - id: analytics.engagement-malformed-dead-lettered
@@ -455,6 +455,6 @@ features:
       - When a malformed record is produced to engagement.events, followed by a buyer favouriting a listing
       - Then the malformed record appears on engagement.events.analytics.dlq, and the favourite still reaches engagement_facts
     tags: [analytics, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
     notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
