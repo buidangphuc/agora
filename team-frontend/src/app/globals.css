@@ -72,3 +72,11 @@
   border-style: solid;
   border-width: 4px 18px 0;
 }
+
+/* The PDP buy bar is fixed to the bottom below lg: reserve its height under the page (on body,
+   not inside the footer, so the footer's own box ends above the bar). */
+@media (max-width: 1023.98px) {
+  body:has([data-testid="buy-bar"]) {
+    padding-bottom: theme("spacing.24"); /* the bar is h-20 plus a 1px border */
+  }
+}

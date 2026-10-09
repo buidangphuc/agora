@@ -2,17 +2,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// ConsumerShell is an async server component with an async child (AuthNav),
-// which jsdom cannot render; assert the footer's source structure instead.
-describe("ConsumerShell footer", () => {
-  const src = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
-  const footer = src.slice(
-    src.indexOf("<footer"),
-    src.indexOf(">", src.indexOf("className=", src.indexOf("<footer"))),
-  );
+// ConsumerShell is an async server component with an async child (AuthNav), which jsdom cannot
+// render, and jsdom has no layout; assert where the buy-bar space is reserved instead.
+describe("buy-bar space", () => {
+  const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
+  const css = readFileSync(join(__dirname, "../../app/globals.css"), "utf8");
 
-  it("reserves the buy-bar height (pb-20) below lg when the page has a buy bar", () => {
-    expect(footer).toContain("[body:has([data-testid=buy-bar])_&]:pb-20");
-    expect(footer).toContain("lg:[body:has([data-testid=buy-bar])_&]:pb-0");
+  it("is reserved on body below lg, not inside the footer", () => {
+    expect(css).toMatch(
+      /@media \(max-width: 1023\.98px\)\s*\{\s*body:has\(\[data-testid="buy-bar"\]\)\s*\{\s*padding-bottom: theme\("spacing\.24"\);/,
+    );
+    const footer = shell.slice(
+      shell.indexOf("<footer"),
+      shell.indexOf(">", shell.indexOf("<footer")),
+    );
+    expect(footer).not.toContain("buy-bar");
   });
 });
