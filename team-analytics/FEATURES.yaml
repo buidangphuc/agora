@@ -472,6 +472,6 @@ features:
       - When a visitor posts a view of a unique listing and the next export cycle completes
       - Then tracking_events_resolved.parquet on the analytics volume contains that listing with a user_key
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A tracked view reaches the resolved export"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tracked view reaches the resolved export"

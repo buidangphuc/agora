@@ -35,8 +35,8 @@ features:
       - When a new buyer views a listing three times and favourites it, the export cycle completes, and the materialisation job runs
       - Then the online features of that buyer under user_activity@v1 have 3 views in the last 7 days and 1 current favourite, and the listing's item_popularity@v1 features have at least 3 views and at least 1 current favourite
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A buyer's activity becomes features"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::A buyer's activity becomes features"
 
   - id: featurestore.as-of-exclusion
@@ -52,8 +52,8 @@ features:
       - When the job runs with AS_OF set to a time just before a new buyer's first event
       - Then that buyer has no user_activity@v1 row in the offline snapshot of that run
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::Events after AS_OF are not used"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::Events after AS_OF are not used"
 
   - id: featurestore.snapshot-and-manifest
@@ -69,8 +69,8 @@ features:
       - When the materialisation job runs twice with different AS_OF values
       - Then two snapshots exist for each view, and each manifest names its as_of, a positive row count and a 64-hex definition hash
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A run leaves a snapshot and a manifest"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::A run leaves a snapshot and a manifest"
 
   - id: featurestore.online-freshness
@@ -86,8 +86,8 @@ features:
       - When the materialisation job finishes
       - Then fs:user_activity:current is \"1\" and fs:user_activity:meta carries the run's as_of and an input watermark no later than it
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::The online store says how fresh it is"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::The online store says how fresh it is"
 
   - id: featurestore.parity-tamper
@@ -103,6 +103,6 @@ features:
       - When after a run, one buyer's user_activity@v1 online value is overwritten with a different view count, and python -m featurestore parity runs
       - Then the command exits non-zero and its output names that buyer
     tags: [analytics, batch, integration]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A tampered online value fails the parity check"
     notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tampered online value fails the parity check"
