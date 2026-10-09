@@ -6,8 +6,8 @@ import importlib.util
 
 import pytest
 
-from app.core.config import Settings
 from app.transport.grpc import chat_stream
+from tests.factories import build_test_settings
 
 
 def test_llm_router_without_the_ai_extra_fails_at_build(
@@ -19,6 +19,8 @@ def test_llm_router_without_the_ai_extra_fails_at_build(
         "find_spec",
         lambda name, *a: None if name == "langchain_core" else real(name, *a),
     )
-    settings = Settings(CHAT_BACKEND="llm_router", CHAT_MODEL="openai:primary")
+    settings = build_test_settings(
+        CHAT_BACKEND="llm_router", CHAT_MODEL="openai:primary"
+    )
     with pytest.raises(RuntimeError, match="'ai' extra"):
         chat_stream.build_chat_streamer(settings)

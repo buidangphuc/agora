@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.config import Settings
 from app.modules.platform.identity.schemas import Principal
 from app.transport.grpc.context import bind_client_ip, caller_key
 from app.transport.grpc.interceptors.auth import _principal_from_metadata
+from tests.factories import build_test_settings
 
 
 def _anon() -> Principal:
@@ -52,7 +52,7 @@ def test_llm_router_outside_local_needs_rate_limit_and_quota() -> None:
         "TRUSTED_HOSTS": "example.invalid",
     }
     with pytest.raises(ValueError, match="QUOTA_ENABLED"):
-        Settings(**base, GRPC_RATE_LIMIT_ENABLED=False, QUOTA_ENABLED=False)
+        build_test_settings(**base, GRPC_RATE_LIMIT_ENABLED=False, QUOTA_ENABLED=False)
     with pytest.raises(ValueError, match="QUOTA_ENABLED"):
-        Settings(**base, GRPC_RATE_LIMIT_ENABLED=False, QUOTA_ENABLED=True)
-    Settings(CHAT_BACKEND="llm_router", ENVIRONMENT="local")
+        build_test_settings(**base, GRPC_RATE_LIMIT_ENABLED=False, QUOTA_ENABLED=True)
+    build_test_settings(CHAT_BACKEND="llm_router", ENVIRONMENT="local")
