@@ -12,9 +12,10 @@
 ## 2. Search read-model and facet UI
 
 - [ ] 2.1 team-search: additive mapping (`facet_tags`, nested `skus`, `tags_pending`), `tag.*`/`sku.*` filter clauses and dynamic facet aggregations (`internal/index/attributes.go`)
-- [ ] 2.2 team-search: classify listings through team-ai at index time, `TAG_CLASSIFIER_URL`, outage keeps stored tags (`internal/taxonomy`, `internal/consumer/listing.go`)
+- [ ] 2.2 team-search: classify listings through team-ai gRPC `ClassifyTags` at index time (`UPSTREAM_AI_ADDR`), outage keeps stored tags (`internal/taxonomy`, `internal/consumer/listing.go`)
 - [ ] 2.3 team-search: validate `tag.*`/`sku.*` filters in the handler (`internal/handler/visibility.go`)
-- [ ] 2.4 platform-core: additive `AttributeFacet` + `Facets.tags/skus` in `search.proto` (design D4), vendor into team-search/team-frontend/team-gateway, then map `index.Facets.Tags/SKUs` in `toFacets`
+- [ ] 2.4 platform-core: additive `AttributeFacet` + `Facets.tags/skus` in `search.proto` and `AIService.ClassifyTags` in `ai.proto` (design D1, D4), vendored; team-search `toFacets` maps them
+- [ ] 2.4b team-ai: `ClassifyTags` servicer gated by scope `ai.classify` + service principal; team-gateway does not route it
 - [ ] 2.5 team-frontend: URL-driven dynamic facet groups and active-filter chips on `/search`
-- [ ] 2.6 deploy: `TAG_CLASSIFIER_URL=http://team-ai-svc:8000` on `team-search-indexer` in the root compose / gitops values; replay `listing.events` to backfill
+- [ ] 2.6 deploy: `UPSTREAM_AI_ADDR=team-ai-svc:50060` on `team-search-indexer` in the root compose / gitops values; replay `listing.events` to backfill
 - [ ] 2.7 platform-e2e: scenarios of the search requirements (`mls_` steps)

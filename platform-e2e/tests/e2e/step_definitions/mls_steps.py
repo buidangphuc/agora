@@ -165,6 +165,15 @@ def ui_select(world: World) -> None:
     search.page.wait_for_url(lambda url: "sku.color=xanh-navy" in url, timeout=timeouts.NAVIGATION)
 
 
+@when("an anonymous caller and a signed-in buyer call ClassifyTags through the gateway")
+def classify_at_edge(world: World) -> None:
+    c = s.ctx(world)
+    buyer = s.buyer_of(world)
+    path = "/platform.ai.v1.AIService/ClassifyTags"
+    body = {"title": "Tai nghe Bluetooth 5.3 chống ồn ANC"}
+    c.resps = [s.post(path, body), s.post(path, body, buyer.token)]
+
+
 # ── thens ────────────────────────────────────────────────────────────────
 @then(
     "SearchListings with the filter tag.connectivity bluetooth-5-3 returns the listing, and the "
@@ -202,6 +211,14 @@ def only_in_stock(world: World) -> None:
     # controls: A is indexed with in-stock variants (Titan 256GB) and is found by those
     assert a in _ids(world, {"sku.color": "titan-tu-nhien"})
     assert a not in _ids(world, {"sku.color": "xanh-navy"})
+
+
+@then("both calls fail with unimplemented and no classification is returned")
+def classify_unimplemented(world: World) -> None:
+    for resp in s.ctx(world).resps:
+        assert resp.status_code == 501, f"want 501, got {resp.status_code}: {resp.text}"
+        assert resp.json().get("code") == "unimplemented", resp.text
+        assert "tags" not in resp.json(), resp.text
 
 
 @then("the call fails with invalid_argument and no search is run")

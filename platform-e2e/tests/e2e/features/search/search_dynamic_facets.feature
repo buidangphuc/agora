@@ -27,3 +27,7 @@ Feature: Search dynamic facets from classified tags
     Given published listings with classified SPU tags and variants
     When a buyer searches for their keyword through the gateway
     Then facets.tags lists a connectivity group with the bluetooth-5-3 bucket and facets.skus lists color and capacity groups, each bucket counting listings
+
+  Scenario: Tag Classification Is Not Reachable At The Edge
+    When an anonymous caller and a signed-in buyer call ClassifyTags through the gateway
+    Then both calls fail with unimplemented and no classification is returned

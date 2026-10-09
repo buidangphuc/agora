@@ -757,8 +757,8 @@ features:
     covered_by: null
     notes: >-
       Feature file: search/search_dynamic_facets.feature (scenario "Listing Events Index SPU Tags").
-      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
-      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
+      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
       Written before the code is deployed; the integrator flips this to automated once green.
   - id: search.mls-sku-filters-single-variant
     title: "SKU Filters Match One Variant, Not Across Variants"
@@ -780,8 +780,8 @@ features:
     covered_by: null
     notes: >-
       Feature file: search/search_dynamic_facets.feature (scenario "SKU Filters Match One Variant, Not Across Variants").
-      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
-      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
+      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
       Written before the code is deployed; the integrator flips this to automated once green.
   - id: search.mls-sku-filters-in-stock-only
     title: "Sold-Out Variants Do Not Satisfy SKU Filters"
@@ -803,8 +803,8 @@ features:
     covered_by: null
     notes: >-
       Feature file: search/search_dynamic_facets.feature (scenario "Sold-Out Variants Do Not Satisfy SKU Filters").
-      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
-      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
+      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
       Written before the code is deployed; the integrator flips this to automated once green.
   - id: search.mls-facet-filters-rejected
     title: "Malformed Facet Filters Are Rejected"
@@ -825,8 +825,8 @@ features:
     covered_by: null
     notes: >-
       Feature file: search/search_dynamic_facets.feature (scenario "Malformed Facet Filters Are Rejected").
-      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
-      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
+      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
       Written before the code is deployed; the integrator flips this to automated once green.
   - id: search.mls-dynamic-facets-in-response
     title: "Search Response Carries Dynamic Facets"
@@ -848,8 +848,8 @@ features:
     covered_by: null
     notes: >-
       Feature file: search/search_dynamic_facets.feature (scenario "Search Response Carries Dynamic Facets").
-      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
-      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
+      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
       Written before the code is deployed; the integrator flips this to automated once green.
   - id: search.mls-dynamic-facet-ui
     title: "Selecting a Dynamic Facet Narrows Results and Reflects in the URL"
@@ -871,9 +871,30 @@ features:
     covered_by: null
     notes: >-
       Feature file: frontend/search_dynamic_facets.feature (scenario "Selecting a Dynamic Facet Narrows Results and Reflects in the URL").
-      Needs rebuild: team-search (indexer + server), team-frontend and, for the facets in the response,
-      the additive search.proto change (design.md D4) plus TAG_CLASSIFIER_URL on team-search-indexer.
+      Needs rebuild: team-search (indexer + server), team-ai, team-gateway, team-frontend and, for the facets in the response,
+      the vendored search.proto/ai.proto changes (design.md D1, D4) plus UPSTREAM_AI_ADDR=team-ai-svc:50060 on team-search-indexer and the rebuilt team-ai (gRPC ClassifyTags).
       Written before the code is deployed; the integrator flips this to automated once green.
+
+  - id: search.mls-tag-classification-is-not-reachable-at-the-edge
+    title: "Tag Classification Is Not Reachable At The Edge"
+    persona: buyer
+    priority: P1
+    summary: "Change add-tag-classifier-filter-enrichment, capability tag-taxonomy-enrichment."
+    entry_route: /search
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [ai.v1.ClassifyTags]
+    acceptance:
+      - "When an anonymous caller and a signed-in buyer call `/platform.ai.v1.AIService/ClassifyTags` through the gateway"
+      - "Then both calls fail with `unimplemented` (HTTP 501) and no classification is returned"
+    tags: [buyer, search]
+    status: planned
+    covered_by: null
+    notes: >-
+      Feature file: search/search_dynamic_facets.feature (scenario "Tag Classification Is Not Reachable At The Edge").
+      Needs rebuild: team-gateway (regenerated AIService with ClassifyTags). Unit pin: team-gateway TestInternalRPCsAreNotRoutedAtTheEdge.
 
   - id: search.mls-classifier-outage-does-not-block-indexing
     title: "Classifier Outage Does Not Block Indexing"

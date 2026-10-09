@@ -38,7 +38,7 @@ The system SHALL provide a promotion gating engine (`POST /api/v1/ai/tags/promot
 
 ### Requirement: Search Read-Model Carries Classified SPU Tags and Nested SKU Attributes
 
-The search indexer SHALL classify every created or updated listing through team-ai's tag classifier and store, on the listing's OpenSearch document, its canonical SPU tags as `group:slug` keywords (`facet_tags`) and one object per variant in a `nested` field (`skus`) with that variant's own attributes (`attrs`), price, stock and `is_in_stock`. A listing whose variant carries `is_in_stock = true` only when that variant's stock is above zero. A classifier failure SHALL NOT fail or delay indexing: the document is written with `tags_pending` and keeps the tags it already had.
+The search indexer SHALL classify every created or updated listing through team-ai's tag classifier (gRPC `AIService.ClassifyTags`, called as a service principal) and store, on the listing's OpenSearch document, its canonical SPU tags as `group:slug` keywords (`facet_tags`) and one object per variant in a `nested` field (`skus`) with that variant's own attributes (`attrs`), price, stock and `is_in_stock`. A listing whose variant carries `is_in_stock = true` only when that variant's stock is above zero. A classifier failure SHALL NOT fail or delay indexing: the document is written with `tags_pending` and keeps the tags it already had.
 
 #### Scenario: Listing Events Index SPU Tags
 
@@ -93,4 +93,13 @@ The `/search` page SHALL render one filter group per `facets.skus` and `facets.t
 - **GIVEN** published listings with different variant colors indexed for a keyword
 - **WHEN** a buyer opens `/search` for that keyword and selects the `xanh-navy` bucket of the color facet
 - **THEN** the URL contains `sku.color=xanh-navy`, only listings with an in-stock navy variant remain, and the selected value is shown as an active filter chip.
+
+### Requirement: Tag Classification Is Internal
+
+`AIService.ClassifyTags` SHALL be callable only by a service principal holding the scope `ai.classify`; it SHALL NOT be routed by the gateway, and no user role SHALL be granted the scope.
+
+#### Scenario: Tag Classification Is Not Reachable At The Edge
+
+- **WHEN** an anonymous caller and a signed-in buyer call `/platform.ai.v1.AIService/ClassifyTags` through the gateway
+- **THEN** both calls fail with `unimplemented` (HTTP 501) and no classification is returned.
 

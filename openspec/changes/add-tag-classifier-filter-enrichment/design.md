@@ -1,32 +1,16 @@
 ## Context
 
-team-ai owns the tag taxonomy and classifier (in-memory registry, REST under `/api/v1/ai`; no gRPC, no gateway route). Listing events (`platform.listing.v1.ListingChanged`, `ListingBaseInfoChanged`) carry title, description, category and `Variant{id,name,sku,price,stock}` but no tags or attributes. team-search owns the OpenSearch read-model and its indexer. The search contract (`search.proto`) has `Facets{categories, price_ranges, ratings, sellers}` only.
+team-ai owns the tag taxonomy and classifier (in-memory registry; REST under `/api/v1/ai` for tooling; the internal contract is the gRPC `AIService.ClassifyTags` added by this change; no gateway route). Listing events (`platform.listing.v1.ListingChanged`, `ListingBaseInfoChanged`) carry title, description, category and `Variant{id,name,sku,price,stock}` but no tags or attributes. team-search owns the OpenSearch read-model and its indexer. The search contract (`search.proto`) has `Facets{categories, price_ranges, ratings, sellers}` only.
 
 ## Decisions
 
-**D1 Classify at index time, from team-search, over HTTP.** The indexer calls team-ai `POST /api/v1/ai/tags/classify-sku-hierarchy` (listing with variants) or `/tags/classify` (without) for each create/update, and `/tags/classify` for a base-info event. This is a service-to-service call (AGENTS.md rule 3: a call, never a shared DB) like the existing embed call to modelserve. The alternative, putting tags on the `Listing` proto and classifying in team-domain, would change the write-model contract and make team-domain depend on team-ai; rejected. `TAG_CLASSIFIER_URL` (empty = off) configures it; the compose wiring for the `team-search-indexer` service is `TAG_CLASSIFIER_URL=http://team-ai-svc:8000`.
+**D1 Classify at index time, from team-search, over gRPC.** The indexer calls team-ai `platform.ai.v1.AIService.ClassifyTags` for each create/update (SPU tags plus per-variant tags when the listing has variants) and for a base-info event (SPU tags only). The first cut called team-ai's REST routes; the boundary review rejected that (AGENTS.md: services talk gRPC with the proto as source of truth, and the REST route is unauthenticated with its contract only in FastAPI models). Contract (`ai.proto`, additive): `ClassifyTagsRequest{title, description, category_id, variants[ClassifyVariant{variant_id, name, sku_code, price, stock}]}` and `ClassifyTagsResponse{tags[ClassifiedTag{slug, name, facet_group, confidence}], skus[SkuClassification{variant_id, tags[ClassifiedTag]}]}` with `skus` in request order. Access: scope `ai.classify` AND principal type `service`, checked in team-ai (`AIServicer.ClassifyTags`); the indexer sends the service principal `service-team-search` with only that scope (same convention as team-order and team-notification upstream clients); no team-identity role holds the scope and the gateway does not route the RPC (it embeds `UnimplementedAIServiceHandler`, so every caller gets `unimplemented`/501, pinned by `TestInternalRPCsAreNotRoutedAtTheEdge`). Configuration: `UPSTREAM_AI_ADDR` (team-ai gRPC `host:port`, empty = no classification), 2 s deadline per call. The alternative of putting tags on the `Listing` proto and classifying in team-domain would change the write-model contract and make team-domain depend on team-ai; rejected. The REST routes stay for tooling and are no longer used by the indexer. gRPC and REST share one process-wide registry in team-ai (`shared_tag_classifier`), so a promotion over REST is seen by `ClassifyTags` in the same process.
 
 **D2 Two shapes in the document.** `facet_tags`: flat `keyword` array of `group:slug` for SPU tags. `skus`: `nested`, one object per variant (`variant_id, sku_code, name, price, stock, is_in_stock, attrs[group:slug]`). One keyword field serves every facet group, so a newly promoted tag or group needs no mapping change, and a terms aggregation returns all groups at once. `nested` is what stops "navy AND 512GB" matching a listing whose navy variant is 256GB; the filter is one `nested` query holding every `sku.*` condition plus `is_in_stock = true`.
 
 **D3 Filter contract without proto change: request filter keys.** `tag.<group>` and `sku.<group>` ride in the existing `SearchListingsRequest.filters` map (comma list = OR within a group). The handler validates group and slug patterns (`effectiveFilters`, shared by SaveSearch/RunSavedSearch), and the index turns them into clauses, never into raw field names.
 
-**D4 Response needs an additive proto field.** Dynamic facets cannot be expressed in `Facets` today. Required additive change in `platform-core/packages/proto/platform/search/v1/search.proto` (non-breaking; fields 5 and 6):
-
-```proto
-// One facet group (e.g. "color") with its value buckets (key = tag slug).
-message AttributeFacet {
-  string group = 1;
-  repeated FacetBucket buckets = 2;
-}
-
-message Facets {
-  // ...existing fields 1-4 unchanged...
-  repeated AttributeFacet tags = 5; // SPU tags by group; filter key "tag.<group>"; count = listings
-  repeated AttributeFacet skus = 6; // in-stock variant attributes by group; filter key "sku.<group>"; count = listings
-}
-```
-
-After it is merged and vendored, the only handler change is in `toFacets` (`internal/handler/search.go`): map `f.Tags` / `f.SKUs` (already computed by the index as `index.Facets.Tags/SKUs`) to `[]*searchv1.AttributeFacet`. The frontend reads `facets.tags` / `facets.skus` through a structural adapter in `lib/gateway/search.ts` that becomes a plain field read after regeneration. The gateway forwards the response untouched.
+**D4 Response carries dynamic facets (additive proto, merged).** `search.proto` gains `AttributeFacet{group, buckets[FacetBucket]}` and `Facets.tags = 5` (SPU tags by group; filter key `tag.<group>`) and `Facets.skus = 6` (in-stock variant attributes by group; filter key `sku.<group>`); counts are listings. `buf lint` and `buf breaking` against `feat/ui-system` pass. team-search `toFacets` maps `index.Facets.Tags/SKUs`, the gateway forwards the response untouched, and the frontend reads `facets.tags`/`facets.skus` as generated fields.
 
 **D5 Facet counts.** `tags` count listings. `skus` runs a nested aggregation, restricted to in-stock variants that satisfy every active `sku.*` filter, then `reverse_nested` back to listings. So a selected `sku.capacity` narrows the color counts to variants of that capacity, and a group that is itself selected shows only its selected values (the UI offers the other values by deselecting). Labels are derived in the frontend (group title table, slug read as words) because the contract carries slugs only.
 
@@ -48,6 +32,6 @@ Existing documents have no tags until re-indexed, so they simply do not match a 
 
 ## Risks
 
-- Classification adds one HTTP call per event to the indexer (budget `<10ms` server side, 2 s client timeout); a slow team-ai slows indexing, not queries.
+- Classification adds one gRPC call per event to the indexer (budget `<10ms` server side, 2 s client deadline); a slow team-ai slows indexing, not queries.
 - `facet_tags` terms aggregation asks for 200 buckets over all groups and returns at most 12 per group.
 - The k-NN leg receives the same nested/terms filters inside its `filter`; a cluster that rejected it would make the engine fail open to lexical, and an integration test covers acceptance on OpenSearch 2.19.
