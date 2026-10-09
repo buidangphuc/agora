@@ -23,7 +23,7 @@ type Resources struct {
 	Index        index.Index
 	EmbedClient  retrieval.EmbedClient
 	RerankClient retrieval.RerankClient
-	Classifier   taxonomy.Classifier // nil when TAG_CLASSIFIER_URL is empty
+	Classifier   taxonomy.Classifier // nil when UPSTREAM_AI_ADDR is empty
 	Engine       *retrieval.Engine
 	Health       *health.Server
 }
@@ -46,8 +46,12 @@ func OpenResources(ctx context.Context, s *config.Settings) (*Resources, error) 
 	}
 
 	var classifier taxonomy.Classifier
-	if s.Taxonomy.TagClassifierURL != "" {
-		classifier = taxonomy.NewHTTPClassifier(s.Taxonomy.TagClassifierURL, 2*time.Second)
+	if s.Taxonomy.AIAddr != "" {
+		c, _, err := taxonomy.DialGRPCClassifier(s.Taxonomy.AIAddr)
+		if err != nil {
+			return nil, err
+		}
+		classifier = c
 	}
 
 	engine := retrieval.NewEngine(idx, embedClient, rerankClient, s.Retrieval)

@@ -59,11 +59,11 @@ type Retrieval struct {
 	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
 }
 
-// Taxonomy points the indexer at team-ai's tag classifier (REST), which supplies
-// the canonical SPU tags and per-variant attributes stored for dynamic facets.
-// Empty disables classification: listings are indexed without tags.
+// Taxonomy points the indexer at team-ai's gRPC AIService (ClassifyTags), which
+// supplies the canonical SPU tags and per-variant attributes stored for dynamic
+// facets. Empty disables classification: listings are indexed without tags.
 type Taxonomy struct {
-	TagClassifierURL string `env:"TAG_CLASSIFIER_URL" default:""`
+	AIAddr string `env:"UPSTREAM_AI_ADDR" default:""`
 }
 
 // Kafka configures the listing-events consumer (ADR-0002).

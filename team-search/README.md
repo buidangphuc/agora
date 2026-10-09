@@ -64,8 +64,8 @@ Behaviour of `SearchListings`:
   `search.proto` (see the change's `design.md` D4).
 
 Consumes: modelserve over HTTP (`MODEL_SERVER_URL`: `/embed`, and `/rerank` when enabled), and, in
-the indexer, team-ai's tag classifier over HTTP (`TAG_CLASSIFIER_URL`, e.g. `http://team-ai-svc:8000`;
-empty = no classification). No upstream gRPC calls.
+the indexer, team-ai's gRPC `AIService.ClassifyTags` (`UPSTREAM_AI_ADDR`, e.g. `team-ai-svc:50060`; service
+principal `service-team-search`, scope `ai.classify`, 2 s deadline; empty = no classification). No upstream gRPC calls.
 
 ## Events
 

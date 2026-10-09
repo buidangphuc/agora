@@ -2,44 +2,76 @@ package taxonomy_test
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
+	"net"
 	"reflect"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+
+	aiv1 "github.com/buidangphuc/team-search/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
 
-func serve(t *testing.T, status int, resp string, got *map[string]any, path *string) *taxonomy.HTTPClassifier {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		*path = r.URL.Path
-		_ = json.Unmarshal(b, got)
-		w.WriteHeader(status)
-		_, _ = io.WriteString(w, resp)
-	}))
-	t.Cleanup(srv.Close)
-	return taxonomy.NewHTTPClassifier(srv.URL, time.Second)
+type fakeAI struct {
+	aiv1.UnimplementedAIServiceServer
+	gotReq *aiv1.ClassifyTagsRequest
+	gotMD  metadata.MD
+	resp   *aiv1.ClassifyTagsResponse
+	err    error
+	delay  time.Duration
 }
 
-func TestClassify_ListingWithVariantsUsesHierarchyEndpoint(t *testing.T) {
-	var got map[string]any
-	var path string
-	c := serve(t, 200, `{
-	  "spu_canonical_tags": [
-	    {"slug": "chong-nuoc-ipx7", "facet_group": "feature"},
-	    {"slug": "bluetooth-5-3", "facet_group": "connectivity"},
-	    {"slug": "Bad Slug", "facet_group": "feature"},
-	    {"slug": "bluetooth-5-3", "facet_group": "connectivity"}],
-	  "sku_results": [
-	    {"variant_facets": {"color": "titan-tu-nhien", "capacity": "256gb"}},
-	    {"variant_facets": {"color": "xanh-navy", "capacity": "512gb", "bad": "Not A Slug"}}]
-	}`, &got, &path)
+func (f *fakeAI) ClassifyTags(ctx context.Context, r *aiv1.ClassifyTagsRequest) (*aiv1.ClassifyTagsResponse, error) {
+	f.gotReq = r
+	f.gotMD, _ = metadata.FromIncomingContext(ctx)
+	if f.delay > 0 {
+		select {
+		case <-time.After(f.delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return f.resp, f.err
+}
 
+func serve(t *testing.T, f *fakeAI, timeout time.Duration) *taxonomy.GRPCClassifier {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := grpc.NewServer()
+	aiv1.RegisterAIServiceServer(srv, f)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return taxonomy.NewGRPCClassifier(aiv1.NewAIServiceClient(conn), timeout)
+}
+
+func tag(group, slug string) *aiv1.ClassifiedTag {
+	return &aiv1.ClassifiedTag{Slug: slug, FacetGroup: group, Confidence: 1}
+}
+
+func TestClassify_SendsServicePrincipalAndMapsVariants(t *testing.T) {
+	f := &fakeAI{resp: &aiv1.ClassifyTagsResponse{
+		Tags: []*aiv1.ClassifiedTag{
+			tag("feature", "chong-nuoc-ipx7"), tag("connectivity", "bluetooth-5-3"),
+			tag("feature", "Bad Slug"), tag("connectivity", "bluetooth-5-3"),
+		},
+		Skus: []*aiv1.SkuClassification{
+			{VariantId: "v1", Tags: []*aiv1.ClassifiedTag{tag("color", "titan-tu-nhien"), tag("capacity", "256gb")}},
+			{VariantId: "v2", Tags: []*aiv1.ClassifiedTag{tag("color", "xanh-navy"), tag("capacity", "512gb"), tag("bad", "Not A Slug")}},
+		},
+	}}
+	c := serve(t, f, time.Second)
 	res, err := c.Classify(context.Background(), taxonomy.Listing{
 		Title: "iPhone 15 Pro Max", CategoryID: "cat-phones",
 		Variants: []taxonomy.Variant{
@@ -50,11 +82,17 @@ func TestClassify_ListingWithVariantsUsesHierarchyEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != "/api/v1/ai/tags/classify-sku-hierarchy" {
-		t.Errorf("path = %s", path)
+	if got := f.gotMD.Get("x-principal-type"); len(got) != 1 || got[0] != "service" {
+		t.Errorf("principal type = %v", got)
 	}
-	if got["spu_title"] != "iPhone 15 Pro Max" || len(got["variants"].([]any)) != 2 {
-		t.Errorf("request body = %v", got)
+	if got := f.gotMD.Get("x-principal-scopes"); len(got) != 1 || got[0] != "ai.classify" {
+		t.Errorf("scopes = %v, want the least-privilege ai.classify only", got)
+	}
+	if got := f.gotMD.Get("x-principal-id"); len(got) != 1 || got[0] != "service-team-search" {
+		t.Errorf("principal id = %v", got)
+	}
+	if f.gotReq.GetTitle() != "iPhone 15 Pro Max" || len(f.gotReq.GetVariants()) != 2 || f.gotReq.GetVariants()[1].GetName() != "Xanh Navy / 512GB" {
+		t.Errorf("request = %v", f.gotReq)
 	}
 	if want := []string{"connectivity:bluetooth-5-3", "feature:chong-nuoc-ipx7"}; !reflect.DeepEqual(res.FacetTags, want) {
 		t.Errorf("FacetTags = %v, want %v (sorted, deduped, malformed dropped)", res.FacetTags, want)
@@ -70,16 +108,11 @@ func TestClassify_ListingWithVariantsUsesHierarchyEndpoint(t *testing.T) {
 	}
 }
 
-func TestClassify_ListingWithoutVariantsUsesSpuEndpoint(t *testing.T) {
-	var got map[string]any
-	var path string
-	c := serve(t, 200, `{"canonical_tags":[{"slug":"bluetooth-5-3","facet_group":"connectivity"}]}`, &got, &path)
-	res, err := c.Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe Bluetooth 5.3"})
+func TestClassify_WithoutVariantsHasNoSkus(t *testing.T) {
+	f := &fakeAI{resp: &aiv1.ClassifyTagsResponse{Tags: []*aiv1.ClassifiedTag{tag("connectivity", "bluetooth-5-3")}}}
+	res, err := serve(t, f, time.Second).Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe Bluetooth 5.3"})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if path != "/api/v1/ai/tags/classify" || got["title"] != "Tai nghe Bluetooth 5.3" {
-		t.Errorf("path=%s body=%v", path, got)
 	}
 	if !reflect.DeepEqual(res.FacetTags, []string{"connectivity:bluetooth-5-3"}) || len(res.SKUs) != 0 {
 		t.Errorf("res = %+v", res)
@@ -87,28 +120,32 @@ func TestClassify_ListingWithoutVariantsUsesSpuEndpoint(t *testing.T) {
 }
 
 func TestClassify_ErrorsAreErrorsNotEmptyAnswers(t *testing.T) {
-	var got map[string]any
-	var path string
-	c := serve(t, 503, `down`, &got, &path)
+	denied := &fakeAI{err: status.Error(7, "insufficient_scope")}
+	if _, err := serve(t, denied, time.Second).Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe"}); err == nil {
+		t.Error("a PermissionDenied must be an error so the indexer marks tags_pending")
+	}
+	slow := &fakeAI{resp: &aiv1.ClassifyTagsResponse{}, delay: 2 * time.Second}
+	start := time.Now()
+	if _, err := serve(t, slow, 100*time.Millisecond).Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe"}); err == nil {
+		t.Error("a call past the deadline must be an error")
+	}
+	if time.Since(start) > time.Second {
+		t.Errorf("deadline not enforced: %v", time.Since(start))
+	}
+	c, conn, err := taxonomy.DialGRPCClassifier("127.0.0.1:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
 	if _, err := c.Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe"}); err == nil {
-		t.Error("a 503 must be an error so the indexer marks tags_pending")
-	}
-	c2 := serve(t, 200, `not json`, &got, &path)
-	if _, err := c2.Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe"}); err == nil {
-		t.Error("undecodable body must be an error")
-	}
-	unreachable := taxonomy.NewHTTPClassifier("http://127.0.0.1:1", 200*time.Millisecond)
-	if _, err := unreachable.Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe"}); err == nil {
 		t.Error("unreachable team-ai must be an error")
 	}
 }
 
 func TestClassify_TooShortTitleIsNothingToClassify(t *testing.T) {
-	var got map[string]any
-	var path string
-	c := serve(t, 500, ``, &got, &path)
-	res, err := c.Classify(context.Background(), taxonomy.Listing{Title: " a "})
-	if err != nil || len(res.FacetTags) != 0 || path != "" {
-		t.Errorf("res=%+v err=%v path=%q: must not call team-ai", res, err, path)
+	f := &fakeAI{err: status.Error(13, "must not be called")}
+	res, err := serve(t, f, time.Second).Classify(context.Background(), taxonomy.Listing{Title: " a "})
+	if err != nil || len(res.FacetTags) != 0 || f.gotReq != nil {
+		t.Errorf("res=%+v err=%v called=%v: must not call team-ai", res, err, f.gotReq != nil)
 	}
 }

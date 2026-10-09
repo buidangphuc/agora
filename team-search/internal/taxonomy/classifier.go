@@ -1,4 +1,5 @@
-// Package taxonomy is team-search's client for team-ai's tag classifier. The
+// Package taxonomy is team-search's client for team-ai's tag classifier over
+// gRPC (AIService.ClassifyTags). The
 // indexer calls it while projecting a listing event so the read-model carries
 // canonical SPU tags and per-variant (SKU) attributes (add-tag-classifier-filter-
 // enrichment). team-ai owns the taxonomy; team-search only stores what it returns
@@ -6,16 +7,17 @@
 package taxonomy
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+
+	aiv1 "github.com/buidangphuc/team-search/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-search/internal/index"
 )
 
@@ -48,115 +50,82 @@ type Classifier interface {
 	Classify(ctx context.Context, l Listing) (Classification, error)
 }
 
-// HTTPClassifier calls team-ai's REST endpoints.
-type HTTPClassifier struct {
-	baseURL string
-	client  *http.Client
+// Service-principal convention for internal gRPC calls (same wire shape as
+// team-order's and team-notification's upstream clients): the caller sets x-principal-*
+// itself because an indexer has no user request to forward. The scope is the least this
+// service needs: ai.classify, which only service principals may use (team-ai refuses it
+// for a user principal). team-gateway never routes ClassifyTags.
+const (
+	servicePrincipalID     = "service-team-search"
+	servicePrincipalType   = "service"
+	servicePrincipalScopes = "ai.classify"
+
+	// callTimeout bounds one classification; a slow team-ai must not stall indexing.
+	callTimeout = 2 * time.Second
+)
+
+// GRPCClassifier calls team-ai's AIService.ClassifyTags.
+type GRPCClassifier struct {
+	client  aiv1.AIServiceClient
+	timeout time.Duration
 }
 
-// NewHTTPClassifier builds a classifier for team-ai's base URL (e.g. http://team-ai-svc:8000).
-func NewHTTPClassifier(baseURL string, timeout time.Duration) *HTTPClassifier {
+// NewGRPCClassifier wraps an AIService client (tests inject one over a real listener).
+func NewGRPCClassifier(client aiv1.AIServiceClient, timeout time.Duration) *GRPCClassifier {
 	if timeout <= 0 {
-		timeout = 2 * time.Second
+		timeout = callTimeout
 	}
-	return &HTTPClassifier{baseURL: strings.TrimRight(baseURL, "/"), client: &http.Client{Timeout: timeout}}
+	return &GRPCClassifier{client: client, timeout: timeout}
 }
 
-type wireTag struct {
-	Slug       string `json:"slug"`
-	FacetGroup string `json:"facet_group"`
+// DialGRPCClassifier connects lazily to team-ai's gRPC address (host:port).
+func DialGRPCClassifier(addr string) (*GRPCClassifier, *grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("dial team-ai %q: %w", addr, err)
+	}
+	return NewGRPCClassifier(aiv1.NewAIServiceClient(conn), callTimeout), conn, nil
 }
 
-type wireSku struct {
-	VariantFacets map[string]string `json:"variant_facets"`
-}
-
-type wireResponse struct {
-	CanonicalTags    []wireTag `json:"canonical_tags"`
-	SpuCanonicalTags []wireTag `json:"spu_canonical_tags"`
-	SkuResults       []wireSku `json:"sku_results"`
-}
-
-// Classify uses the hierarchy endpoint when the listing has variants and the
-// plain SPU endpoint otherwise.
-func (c *HTTPClassifier) Classify(ctx context.Context, l Listing) (Classification, error) {
+// Classify calls ClassifyTags with the service principal and a 2 s deadline.
+func (c *GRPCClassifier) Classify(ctx context.Context, l Listing) (Classification, error) {
 	title := strings.TrimSpace(l.Title)
 	if len([]rune(title)) < 2 {
 		return Classification{}, nil // team-ai requires a 2+ character title; nothing to classify.
 	}
-	var (
-		path string
-		body map[string]any
-	)
-	if len(l.Variants) > 0 {
-		vs := make([]map[string]any, 0, len(l.Variants))
-		for _, v := range l.Variants {
-			name := strings.TrimSpace(v.Name)
-			if name == "" {
-				name = v.SkuCode
-			}
-			if name == "" {
-				name = v.ID
-			}
-			vs = append(vs, map[string]any{
-				"variant_id": v.ID, "name": name, "sku_code": v.SkuCode,
-				"price": max(v.Price, 0), "stock": max(v.Stock, 0),
-			})
+	req := &aiv1.ClassifyTagsRequest{Title: title, Description: l.Description, CategoryId: l.CategoryID}
+	for _, v := range l.Variants {
+		name := strings.TrimSpace(v.Name)
+		if name == "" {
+			name = v.SkuCode
 		}
-		path = "/api/v1/ai/tags/classify-sku-hierarchy"
-		body = map[string]any{"spu_title": title, "spu_description": l.Description, "category_id": l.CategoryID, "variants": vs}
-	} else {
-		path = "/api/v1/ai/tags/classify"
-		body = map[string]any{"title": title, "description": l.Description, "category_id": l.CategoryID, "top_k": 30, "include_candidates": false}
+		req.Variants = append(req.Variants, &aiv1.ClassifyVariant{
+			VariantId: v.ID, Name: name, SkuCode: v.SkuCode, Price: max(v.Price, 0), Stock: max(v.Stock, 0),
+		})
 	}
-	raw, err := json.Marshal(body)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+		"x-principal-id", servicePrincipalID,
+		"x-principal-type", servicePrincipalType,
+		"x-principal-scopes", servicePrincipalScopes,
+	))
+	res, err := c.client.ClassifyTags(ctx, req)
 	if err != nil {
-		return Classification{}, err
+		return Classification{}, fmt.Errorf("team-ai ClassifyTags: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(raw))
-	if err != nil {
-		return Classification{}, fmt.Errorf("new request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return Classification{}, fmt.Errorf("tag classifier call: %w", err)
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return Classification{}, fmt.Errorf("read tag classifier response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return Classification{}, fmt.Errorf("tag classifier status %d: %s", resp.StatusCode, truncate(string(data), 200))
-	}
-	var parsed wireResponse
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		return Classification{}, fmt.Errorf("decode tag classifier response: %w", err)
-	}
-	return build(l, parsed), nil
+	return build(l, res), nil
 }
 
-func truncate(s string, n int) string {
-	if len(s) > n {
-		return s[:n]
-	}
-	return s
-}
-
-// build maps the wire answer to document fields, dropping malformed entries.
-func build(l Listing, r wireResponse) Classification {
-	tags := r.SpuCanonicalTags
-	if len(tags) == 0 {
-		tags = r.CanonicalTags
-	}
+// build maps the response to document fields, dropping malformed entries.
+func build(l Listing, r *aiv1.ClassifyTagsResponse) Classification {
 	seen := map[string]bool{}
 	out := Classification{FacetTags: []string{}}
-	for _, t := range tags {
-		if !index.ValidAttr(t.FacetGroup, t.Slug) {
+	for _, t := range r.GetTags() {
+		if !index.ValidAttr(t.GetFacetGroup(), t.GetSlug()) {
 			continue
 		}
-		k := index.AttrKey(t.FacetGroup, t.Slug)
+		k := index.AttrKey(t.GetFacetGroup(), t.GetSlug())
 		if !seen[k] {
 			seen[k] = true
 			out.FacetTags = append(out.FacetTags, k)
@@ -164,14 +133,14 @@ func build(l Listing, r wireResponse) Classification {
 	}
 	sort.Strings(out.FacetTags)
 
-	if len(l.Variants) == 0 || len(r.SkuResults) != len(l.Variants) {
+	if len(l.Variants) == 0 || len(r.GetSkus()) != len(l.Variants) {
 		return out
 	}
 	for i, v := range l.Variants {
 		attrs := []string{}
-		for g, s := range r.SkuResults[i].VariantFacets {
-			if index.ValidAttr(g, s) {
-				attrs = append(attrs, index.AttrKey(g, s))
+		for _, t := range r.GetSkus()[i].GetTags() {
+			if index.ValidAttr(t.GetFacetGroup(), t.GetSlug()) {
+				attrs = append(attrs, index.AttrKey(t.GetFacetGroup(), t.GetSlug()))
 			}
 		}
 		sort.Strings(attrs)
