@@ -69,10 +69,24 @@ def duplicates_counted(world: World) -> None:
 def post_three_views_and_read(world: World) -> None:
     x = _x(world)
     listing = f"e2e-adq-{tii.run_id()}"
+    # Wait for THESE views, not just any three: older views already satisfy ">= 3", and a
+    # freshly (re)started sink may not have written anything new yet.
+    before = adq.count(
+        adq.type_row(adq.poll_report(x["adq_admin"], lambda r: True), "view"), "events"
+    )
     adq.post_views(3, listingId=listing)
     x["adq_report"] = adq.poll_report(
-        x["adq_admin"], lambda r: adq.count(adq.type_row(r, "view"), "events") >= 3
+        x["adq_admin"],
+        lambda r: adq.count(adq.type_row(r, "view"), "events") >= before + 3 and _fresh(r),
     )
+
+
+def _fresh(report: dict) -> bool:
+    raw = report.get("lastIngestedAt")
+    if not raw:
+        return False
+    age = datetime.now(UTC) - datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    return timedelta(seconds=-60) <= age <= FRESH_WITHIN
 
 
 @then(
