@@ -272,13 +272,14 @@ def run(
         registry.register_model(metadata)
         incumbent_version = registry.get_champion_version()
         incumbent = registry.get_model(incumbent_version) if incumbent_version else None
-        promoted, reason = registry.evaluate_and_promote(
+        decision = registry.evaluate(
             model_version,
             primary_metric=settings.promotion_primary_metric,
             min_relative_improvement=settings.promotion_min_relative_improvement,
             min_coverage_ratio=settings.promotion_min_coverage_ratio,
             force=settings.promotion_force,
         )
+        promoted, reason = decision.promoted, decision.reason
 
         summary: dict = {
             "model_version": model_version,
@@ -299,22 +300,31 @@ def run(
         }
 
         if not promoted:
+            registry.reject(decision)
             log.info("candidate model %s rejected by promotion gate: %s", model_version, reason)
             _refresh_ttl(settings, redis_client)
             return summary
 
         # ── Publish as a generation (ONLY if Promoted) ───────────────────────────
-        published = publish_generation(
-            settings,
-            model_version,
-            user_recs,
-            item_recs,
-            popular,
-            item_rows=zip(item_ids, item_vecs, strict=False),
-            user_rows=zip(user_ids, user_vecs, strict=False),
-            redis_client=redis_client,
-            qdrant_client=qdrant_client,
-        )
+        # The champion changes only once the publish has succeeded: a failed publish leaves the
+        # previous champion (and serving) untouched and the candidate recorded as rejected.
+        try:
+            published = publish_generation(
+                settings,
+                model_version,
+                user_recs,
+                item_recs,
+                popular,
+                item_rows=zip(item_ids, item_vecs, strict=False),
+                user_rows=zip(user_ids, user_vecs, strict=False),
+                redis_client=redis_client,
+                qdrant_client=qdrant_client,
+            )
+        except Exception as exc:
+            registry.reject(decision, reason=f"publish failed: {type(exc).__name__}")
+            log.error("publish of %s failed, candidate rejected: %s", model_version, exc)
+            raise
+        registry.apply_promotion(decision)
         summary["qdrant"] = published["qdrant"]
         summary["cache"] = published["cache"]
         summary["serving"] = published["serving"]

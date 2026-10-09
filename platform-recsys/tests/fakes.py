@@ -150,8 +150,10 @@ class FakeRedis:
             return old or ""
         if script == redis_cache._ROLLBACK_LUA:
             s, p = self.store.get(serving), self.store.get(previous)
+            if (s or "") != argv[0]:
+                return 0
             if not p:
-                return None
+                return -1
             self.store[serving] = p
             if s:
                 self.store[previous] = s

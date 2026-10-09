@@ -37,13 +37,18 @@ redis.call('SET', KEYS[3], ARGV[1])
 return old or ''
 """
 
-# KEYS: serving, previous, model_version. Swap serving and previous; refuse (return false)
-# when there is no previous. Returns {old_serving, new_serving}.
+# KEYS: serving, previous, model_version. ARGV[1]: the serving generation the caller expects
+# ('' when unset). Compare-and-set: swap serving and previous only if serving still equals it.
+# Returns 0 when serving has moved on (the swap was already applied), -1 when there is no
+# previous, else {old_serving, new_serving}.
 _ROLLBACK_LUA = """
 local s = redis.call('GET', KEYS[1])
+if (s or '') ~= ARGV[1] then
+  return 0
+end
 local p = redis.call('GET', KEYS[2])
 if not p then
-  return false
+  return -1
 end
 redis.call('SET', KEYS[1], p)
 if s then
@@ -54,6 +59,9 @@ end
 redis.call('SET', KEYS[3], p)
 return {s or '', p}
 """
+
+SWAP_STALE = "stale"
+SWAP_NO_PREVIOUS = "no_previous"
 
 
 def connect(settings):
@@ -139,8 +147,11 @@ def activate_generation(settings, model_version: str, client=None) -> str | None
     return _text(old) or None
 
 
-def swap_generations(settings, client=None) -> tuple[str, str] | None:
-    """Atomically swap serving and previous. Returns (old_serving, new_serving), None if no previous."""
+def swap_generations(settings, expected_serving: str | None, client=None):
+    """Compare-and-set swap of serving and previous.
+
+    Returns (old_serving, new_serving) when swapped, ``SWAP_STALE`` when serving no longer equals
+    ``expected_serving`` (nothing changed), ``SWAP_NO_PREVIOUS`` when there is no previous."""
     if client is None:
         client = connect(settings)
     out = client.eval(
@@ -149,10 +160,11 @@ def swap_generations(settings, client=None) -> tuple[str, str] | None:
         settings.serving_key,
         settings.previous_key,
         settings.model_version_cache_key,
+        expected_serving or "",
     )
-    if not out:
-        return None
-    return (_text(out[0]) or "", _text(out[1]) or "")
+    if isinstance(out, (list, tuple)):
+        return (_text(out[0]) or "", _text(out[1]) or "")
+    return SWAP_STALE if int(out) == 0 else SWAP_NO_PREVIOUS
 
 
 _GEN_KEY = re.compile(r"^(?P<gen>.+?):(?:user:|item:|popular$)")

@@ -55,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         logging.getLogger("recsys").error("cannot start: %s", exc)
         return 2
+    except Exception:  # e.g. a failed publish: the candidate was recorded as rejected
+        logging.getLogger("recsys").exception("batch failed")
+        return 1
     logging.getLogger("recsys").info("done: %s", summary)
     return 0
 
