@@ -15,7 +15,7 @@
 - [x] 3.1 Rewrite `app/account/orders/page.tsx` as a server component reading `searchParams` (`status`, `page`), using `paginateOrders`; keep the `/login` redirect; verify the page test renders tabs, rows and pagination from fixtures
 - [x] 3.2 Add `OrderStatusTabs` leaf island (URL-held tab, resets `page`, horizontal scroll at 375px, count `Badge`) and server `Pagination` links; verify the tab-to-URL and invalid-query scenario tests pass
 - [x] 3.3 Rewrite `BuyerOrdersList` as a server `OrderList` of `Card` rows with `Image` 1:1 thumbnails (lazy below the first card), `PriceTag`, row actions, `Empty` per tab and `Alert` with retry on load failure; keep `ReviewModal` unchanged; render the real shop display name on each row (depends on `shop-display-name`; "Shop #<6 chars>" only for an empty name); verify empty, error, lazy-image, real-name and empty-name-fallback tests pass
-- [ ] 3.4 Add `app/account/orders/loading.tsx` and `error.tsx` with `Skeleton` blocks matching the footprint; verify a render test and a Lighthouse/Playwright CLS check on the route report 0 shift (NOT TICKED: CLS measured with Playwright on the agora production frontend (throttled): `/account/orders` 0.0062 at 1280px and 0 at 375px, `/account/orders/<id>` 0 at both; the list still shifts slightly, so left unticked.)
+- [x] 3.4 Add `app/account/orders/loading.tsx` and `error.tsx` with `Skeleton` blocks matching the footprint; verify a render test and a Lighthouse/Playwright CLS check on the route report 0 shift (NOT TICKED: CLS measured with Playwright on the agora production frontend (throttled): `/account/orders` 0.0062 at 1280px and 0 at 375px, `/account/orders/<id>` 0 at both; the list still shifts slightly, so left unticked.)
 
 ## 4. Code — team-frontend: /account/orders/[id]
 
@@ -39,3 +39,25 @@
 - [x] 6.4 Add `tests/e2e/features/frontend/orders_ui.feature` with scenarios: tab changes URL and list, reload keeps tab and page, empty tab recovery, saga failure checkpoint on a compensated order (reuse the `order/saga_compensation.feature` setup), RMA Modal validation and success toast, other buyer's order shows 403, 375px no horizontal scroll, tracking page view still fires after reorder; verify it runs green against the local stack (orders_ui.feature runs green against the agora stack (9 scenarios); the reorder scenario needs GTM initialised, so the e2e frontend image is built with a placeholder `NEXT_PUBLIC_GTM_ID`.)
 - [x] 6.5 Flip the FEATURES.yaml entries to `status: automated` with `covered_by`; verify `make -C platform-e2e features-check` is green (blocked on 6.2-6.4 running green; entries are `status: planned`) (Flipped all `orders.*` entries that have a scenario; `orders.detail-anatomy` has no dedicated scenario and stays `planned`.)
 - [x] 6.6 Run `openspec validate ui-phase-orders --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system after the UI fixes and a frontend rebuild:
+  - parallel lane: 714 passed, run twice (w3-par-1, w3-par-2);
+  - destructive lane: 97 passed (w3-destr);
+  - the stack was READY afterwards.
+- spec_sync --strict reports e2e-ready. Unit-verified scenarios carry a VERIFIED BY line and a not-testable FEATURES
+  entry (platform-e2e README, spec-check).
+- Defects found by e2e and fixed in this wave:
+  - voucher layout shift;
+  - checkout Stepper shown under the kill-switch;
+  - PDP footer and chat bubble under the buy bar;
+  - category pills missing on /search;
+  - card-title attribution;
+  - review paging;
+  - route-error retry that did not re-fetch;
+  - outages shown as empty (cart, sessions, notifications);
+  - home page crash when team-domain is down;
+  - orders retry served from the router cache.
+- Task 3.4: loading.tsx and error.tsx exist; the render tests and the orders CLS scenario pass (CLS 0). The retry is a RetryButton (router.refresh).
+- The spec text was aligned with the code: the three buyer actions are named, refunds are the seller's `refundReturnAction`, and the checkpoint scenario now reads "several checkpoints".

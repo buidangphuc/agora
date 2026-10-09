@@ -206,5 +206,5 @@ status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these 
   listed newest first" (`features/order/OrderTimeline.test.tsx` › "lists checkpoints newest first and marks the newest as current",
   two checkpoints), "No tracking information shows Empty" (same file › "shows an empty state when there is neither shipment nor
   saga"), "Actions return the standard shape and revalidate" (`features/order/actions.test.ts` and `returns.actions.test.ts`).
-- Spec drift noted: the requirement names four actions including `mockRefundAction`, which no longer exists in
+- Spec drift (fixed 2026-10-09: the requirement now names the three buyer actions and points refunds to the seller's `refundReturnAction`): the requirement named four actions including `mockRefundAction`, which no longer exists in
   `features/order/actions.ts`; three are unit-tested.

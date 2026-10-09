@@ -41,7 +41,28 @@
 - [x] 7.1 Add `team-frontend/FEATURES.yaml` entries (`status: planned`) `listing.pdp-anatomy`, `listing.pdp-variant-url`, `listing.pdp-purchase-feedback`, `listing.pdp-mobile-buy-bar`, `listing.pdp-reviews-url`, `listing.pdp-anchor-nav`, `listing.pdp-no-fabricated-data`, `listing.pdp-not-found`, `listing.pdp-ai-recs-hidden`, one `acceptance` line per spec scenario; verify `make -C platform-e2e features-check`
 - [x] 7.2 Add `tests/e2e/features/frontend/product_detail.feature` with steps in a new `step_definitions/product_detail_steps.py` and `ListingDetailPage` page-object methods (variant radio, quantity, buy bar, anchor nav, not-found result) covering: variant URL + price, shared variant URL, add-to-cart pending/toast, buy now -> `/checkout`, 375px sticky bar, `Result` 404 for an unknown id; verify the scenarios pass on the local stack and flip them to `automated` (Ran green against the agora stack (10 scenarios). Variant order now follows the seller's list (team-domain fix); `listing.pdp-variant-url`, `purchase-feedback`, `mobile-buy-bar`, `anchor-nav`, `no-fabricated-data`, `not-found` flipped to `automated`; `pdp-anatomy` has no scenario and stays `planned`.)
 - [x] 7.3 Extend `buyer/review_ratings_filter.feature` (assert `?rating=` in the URL and a shareable reload); existing steps for reviews and Q&A (`reviews_breakdown_visible`, `qa.feature`, `rich_reviews.feature`) are NOT modified because the sections are always visible; verify `buyer/review_ratings_filter`, `engagement/qa` and `engagement/rich_reviews` stay green (review_ratings_filter, engagement/qa and rich_reviews run green against the agora stack; `listing.pdp-reviews-url` flipped to `automated`. The shop rating card is asserted against GetShopRatingSummary (the card shows 'Chưa có đánh giá' for a shop with no attributed reviews).)
-- [ ] 7.4 Extend `recommendations/recommendations.feature` (PDP scenarios): assert the Skeleton gives way to cards with `similar_items` impressions, and that an UNAVAILABLE service leaves the row and its skeleton absent; extend `tracking/emit_tracking.feature` to assert exactly one VIEW event after a variant change and an anchor-nav click; verify both features stay green (NOT TICKED: emit_tracking.feature (7 scenarios, including the variant/anchor-nav view-beacon one) runs green against the agora stack. recommendations/recommendations.feature cannot be collected in the e2e venv (needs pandas and platform-recsys), so the PDP recommendation scenarios were not run; `listing.pdp-ai-recs-hidden` stays `planned`.)
+- [x] 7.4 Extend `recommendations/recommendations.feature` (PDP scenarios): assert the Skeleton gives way to cards with `similar_items` impressions, and that an UNAVAILABLE service leaves the row and its skeleton absent; extend `tracking/emit_tracking.feature` to assert exactly one VIEW event after a variant change and an anchor-nav click; verify both features stay green (NOT TICKED: emit_tracking.feature (7 scenarios, including the variant/anchor-nav view-beacon one) runs green against the agora stack. recommendations/recommendations.feature cannot be collected in the e2e venv (needs pandas and platform-recsys), so the PDP recommendation scenarios were not run; `listing.pdp-ai-recs-hidden` stays `planned`.)
 - [x] 7.5 Extend `shop/shop_storefront.feature` to assert the shared header card with the real shop display name, `?sort=price_asc` ordering and the follow toggle; verify the scenario stays green (shop_storefront.feature runs green against the agora stack (the storefront now queries the seller-filtered search instead of the marketplace's first page).)
 - [x] 7.6 Extend `buyer/purchase.feature` / `cart_management.feature` steps only where they click `Mua Ngay`/`Thêm Vào Giỏ Hàng` (button names become `Mua ngay`/`Thêm vào giỏ`, match case-insensitively); verify both features stay green and no step still depends on the old labels (buyer/purchase.feature and cart_management.feature run green against the agora stack; no step depends on the old button labels.)
 - [x] 7.7 Run `openspec validate ui-phase-product-detail --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system after the UI fixes and a frontend rebuild:
+  - parallel lane: 714 passed, run twice (w3-par-1, w3-par-2);
+  - destructive lane: 97 passed (w3-destr);
+  - the stack was READY afterwards.
+- spec_sync --strict reports e2e-ready. Unit-verified scenarios carry a VERIFIED BY line and a not-testable FEATURES
+  entry (platform-e2e README, spec-check).
+- Defects found by e2e and fixed in this wave:
+  - voucher layout shift;
+  - checkout Stepper shown under the kill-switch;
+  - PDP footer and chat bubble under the buy bar;
+  - category pills missing on /search;
+  - card-title attribution;
+  - review paging;
+  - route-error retry that did not re-fetch;
+  - outages shown as empty (cart, sessions, notifications);
+  - home page crash when team-domain is down;
+  - orders retry served from the router cache.
+- Task 7.4: `recommendations.feature` collects, and its 7 PDP/home scenarios pass. The recs-unavailable path is covered by the uif_product_detail destructive scenarios.

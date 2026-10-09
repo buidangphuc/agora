@@ -50,3 +50,23 @@
 - [x] 9.2 Add `tests/e2e/features/frontend/account.feature` with steps and page objects (`AccountShellPage`, `AddressesPage`, `VerificationPage`, `NotificationsPage`) covering: menu `aria-current` and Back, address delete confirm modal, KYC labels by accessible name, notification tab in URL after reload, unknown favorites collection `Result`, wrong-password inline `Alert`, 375px no horizontal scroll; verify green and flip the entries to `automated` (account.feature runs green against the agora stack (7 scenarios, the login steps are now bound); `account.shell-nav`, `address-delete-confirm`, `kyc-form-labels`, `notifications-tab-url` and `auth.login-inline-error` flipped to `automated`; `account.referral`, `following-tabs`, `favorites-url-state` and `security-revoke` stay `planned`.)
 - [x] 9.3 Extend, not duplicate: add one step to `frontend/account_security.feature` for the revoke confirm modal and keep `identity/addresses.feature`, `auth/login.feature`, `auth/register.feature`, `engagement/collections.feature`, `buyer/consumer_pages.feature` green; verify `make -C platform-e2e` runs all of them green (Ran green against the agora stack after fix/sessions (team-identity records a session at login): the revoke-confirm scenario passes; `account.security-revoke` flipped to `automated`.)
 - [x] 9.4 Run `openspec validate ui-phase-account --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system after the UI fixes and a frontend rebuild:
+  - parallel lane: 714 passed, run twice (w3-par-1, w3-par-2);
+  - destructive lane: 97 passed (w3-destr);
+  - the stack was READY afterwards.
+- spec_sync --strict reports e2e-ready. Unit-verified scenarios carry a VERIFIED BY line and a not-testable FEATURES
+  entry (platform-e2e README, spec-check).
+- Defects found by e2e and fixed in this wave:
+  - voucher layout shift;
+  - checkout Stepper shown under the kill-switch;
+  - PDP footer and chat bubble under the buy bar;
+  - category pills missing on /search;
+  - card-title attribution;
+  - review paging;
+  - route-error retry that did not re-fetch;
+  - outages shown as empty (cart, sessions, notifications);
+  - home page crash when team-domain is down;
+  - orders retry served from the router cache.

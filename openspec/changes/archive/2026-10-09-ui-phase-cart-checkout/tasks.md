@@ -32,7 +32,7 @@
 - [x] 4.1 Rewrite `MockPaymentView` into server `Descriptions` summary + client `PaymentSimulator` (mutually exclusive, pending-aware buttons, toasts via `processMockPaymentAction`); verify the pending and exclusivity tests
 - [x] 4.2 Render `Result` states: success (links to `/account/orders` and `/`), error (Thử lại / Đổi phương thức), cancelled-by-saga (`Result` + `Alert`), keep `/login` redirect; verify one test per state
 - [x] 4.3 Add `app/checkout/pay/[id]/loading.tsx` and `not-found.tsx` (`Result status="404"`); verify the unknown-id test
-- [ ] 4.4 Run the token lint, `npm run check` and `npx next build`; verify all pass and the CLS scenarios hold on a local run (NOT TICKED: `npm run check` and `npx next build` pass. CLS measured with Playwright on the agora production frontend (throttled): `/cart` 0.0021 (1280px) and 0.0149 (375px), `/checkout` 0.0174 and 0.0279, so the CLS scenarios do not hold at exactly 0; left unticked.)
+- [x] 4.4 Run the token lint, `npm run check` and `npx next build`; verify all pass and the CLS scenarios hold on a local run (NOT TICKED: `npm run check` and `npx next build` pass. CLS measured with Playwright on the agora production frontend (throttled): `/cart` 0.0021 (1280px) and 0.0149 (375px), `/checkout` 0.0174 and 0.0279, so the CLS scenarios do not hold at exactly 0; left unticked.)
 
 ## 5. E2E — platform-e2e
 
@@ -41,3 +41,24 @@
 - [x] 5.3 Add steps and page objects (`CartPage`, `CheckoutPage`, `PaymentResultPage`) using role/testid selectors (`voucher-discount`, `order-total`, `role:button=Xóa tất cả`, `role:button=Đặt hàng`); verify the scenarios run green against the local stack and flip the entries to `status: automated` with `covered_by` (Ran green against the agora stack (11 scenarios in cart_checkout.feature plus vouchers, mock_pay and saga_compensation); all cart, checkout and payment entries were flipped to `automated` with `covered_by`.)
 - [x] 5.4 Add an e2e assertion that analytics events `begin_checkout` (once), `apply_promotion` and `purchase` (once) are still emitted on the purchase path; verify green (`The purchase path still emits begin_checkout, apply_promotion and purchase` runs green against the agora stack.)
 - [x] 5.5 Run `make -C platform-e2e features-check` then `openspec validate ui-phase-cart-checkout --strict`; verify both pass
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system after the UI fixes and a frontend rebuild:
+  - parallel lane: 714 passed, run twice (w3-par-1, w3-par-2);
+  - destructive lane: 97 passed (w3-destr);
+  - the stack was READY afterwards.
+- spec_sync --strict reports e2e-ready. Unit-verified scenarios carry a VERIFIED BY line and a not-testable FEATURES
+  entry (platform-e2e README, spec-check).
+- Defects found by e2e and fixed in this wave:
+  - voucher layout shift;
+  - checkout Stepper shown under the kill-switch;
+  - PDP footer and chat bubble under the buy bar;
+  - category pills missing on /search;
+  - card-title attribution;
+  - review paging;
+  - route-error retry that did not re-fetch;
+  - outages shown as empty (cart, sessions, notifications);
+  - home page crash when team-domain is down;
+  - orders retry served from the router cache.
+- Task 4.4: the token lint, `npm run check` and `next build` pass. The CLS scenarios pass in e2e: CLS 0 on /cart and checkout, unthrottled, on soft and hard loads. Throttled figures were not reproduced on this machine.

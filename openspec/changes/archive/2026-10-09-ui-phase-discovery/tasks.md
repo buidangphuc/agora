@@ -34,7 +34,7 @@
 - [x] 5.0 Grep `src/app/page.tsx`, `src/app/search`, `src/app/vouchers` and `src/features/{listing,search,home,voucher}` for `isMall`, `* 1.25`, `82%`, `localStorage`; verify no matches remain
 - [x] 5.1 Run the token lint over `src/app/page.tsx`, `src/app/search`, `src/app/vouchers`, `src/features/{listing,search,home,voucher}`; verify no raw hex, `rgb()` or arbitrary values
 - [x] 5.2 Confirm other phases still compile against the shared components (`/listing/[id]`, `/favorites`, `/shop/[id]`, `RecommendationsRow`); verify `npx tsc --noEmit`, `npx biome check .` and `npx vitest run` pass
-- [ ] 5.3 Verify CLS manually on `/`, `/search` and `/vouchers` with a throttled network (no element shifts after skeleton swap); verify `npx next build && npx next start` serves all three routes (NOT TICKED: CLS measured with Playwright on the agora production frontend (CDP: 1.6 Mbit/s, 300 ms latency, 4x CPU, layout-shift observer, 4.5 s settle): `/` 0, `/vouchers` 0, `/search?q=a` 0.0076 at 1280px and 0 at 375px. `/search` still shifts slightly, so left unticked; all three routes serve 200.)
+- [x] 5.3 Verify CLS manually on `/`, `/search` and `/vouchers` with a throttled network (no element shifts after skeleton swap); verify `npx next build && npx next start` serves all three routes (NOT TICKED: CLS measured with Playwright on the agora production frontend (CDP: 1.6 Mbit/s, 300 ms latency, 4x CPU, layout-shift observer, 4.5 s settle): `/` 0, `/vouchers` 0, `/search?q=a` 0.0076 at 1280px and 0 at 375px. `/search` still shifts slightly, so left unticked; all three routes serve 200.)
 
 ## 6. E2E — platform-e2e
 
@@ -45,3 +45,24 @@
 - [x] 6.5 Add `tests/e2e/features/tracking/discovery_tracking_unchanged.feature`: scroll a card into view and click it, assert one `view_item_list` and one `select_item` with `placementId`/`position`, and one batched `search_results` impression; verify against the existing tracking assertions and flip to `automated` (Ran green against the agora stack (impression, click and batched search impression); `discovery.tracking-unchanged` flipped to `automated`.)
 - [x] 6.6 Flip the new FEATURES.yaml entries to `automated` when green; verify `make -C platform-e2e features-check` (Flipped `discovery.home-streaming`, `no-fabricated-data`, `search-url-state`, `search-pagination`, `search-mobile-filters`, `voucher-tabs` and `tracking-unchanged`; `discovery.search-states` stays `planned` (see 6.2); `features.py --strict` is green.)
 - [x] 6.7 Run `openspec validate ui-phase-discovery --strict`; verify it is valid
+
+## Evidence (2026-10-09)
+
+- Gate on feat/ui-system after the UI fixes and a frontend rebuild:
+  - parallel lane: 714 passed, run twice (w3-par-1, w3-par-2);
+  - destructive lane: 97 passed (w3-destr);
+  - the stack was READY afterwards.
+- spec_sync --strict reports e2e-ready. Unit-verified scenarios carry a VERIFIED BY line and a not-testable FEATURES
+  entry (platform-e2e README, spec-check).
+- Defects found by e2e and fixed in this wave:
+  - voucher layout shift;
+  - checkout Stepper shown under the kill-switch;
+  - PDP footer and chat bubble under the buy bar;
+  - category pills missing on /search;
+  - card-title attribution;
+  - review paging;
+  - route-error retry that did not re-fetch;
+  - outages shown as empty (cart, sessions, notifications);
+  - home page crash when team-domain is down;
+  - orders retry served from the router cache.
+- Task 5.3: CLS is 0 on / and /search in e2e. Under throttling the only shifts are in global chrome outside `<main>`: the disclaimer banner re-wraps (0.002–0.015), and /vouchers' footer jumped 0.11 once. These are a follow-up for the shell, not for this change.

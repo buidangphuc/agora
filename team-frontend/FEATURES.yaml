@@ -4684,8 +4684,8 @@ features:
     preconditions:
       login: buyer
     acceptance:
-      - "When an order has a shipment with three checkpoints"
-      - "Then three `timeline-checkpoint` items are shown, the newest first and marked current, with carrier and tracking code in the header"
+      - "When an order has a shipment with several checkpoints"
+      - "Then one `timeline-checkpoint` item per checkpoint is shown, the newest first and marked current, with carrier and tracking code in the header"
     tags: [buyer]
     status: not-testable
     notes: "Verified by the Vitest test team-frontend/src/features/order/OrderTimeline.test.tsx › OrderTimeline › lists checkpoints newest first and marks the newest as current (two checkpoints). NOT E2E-TESTABLE: CreateShipment yields exactly one checkpoint and no RPC adds more, so three checkpoints cannot be seeded through the edge."

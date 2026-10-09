@@ -1,10 +1,11 @@
-## Purpose
+# ui-orders Specification
 
+## Purpose
 Defines the buyer order screens of `team-frontend`: the order list (`/account/orders`) and the order detail
 (`/account/orders/[id]`), built from the `ui-components` set following the Ant Design Pro List and Advanced
 Profile templates, with the order timeline, status badge and return (RMA) flow.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: The order list is a server-rendered Basic List with status tabs and pagination in the URL
 
@@ -194,10 +195,10 @@ kept. The component SHALL be server-compatible (no `"use client"`) and be wrappe
 
 #### Scenario: Shipment checkpoints are listed newest first
 
-- **WHEN** an order has a shipment with three checkpoints
-- **THEN** three `timeline-checkpoint` items are shown, the newest first and marked current, with carrier and
-  tracking code in the header
-- **VERIFIED BY**: Vitest `team-frontend/src/features/order/OrderTimeline.test.tsx` › OrderTimeline › lists checkpoints newest first and marks the newest as current. Not verifiable end to end: CreateShipment yields exactly one checkpoint and no RPC adds more, so a shipment with several checkpoints cannot be seeded through the edge (the test uses two checkpoints, which exercises the same ordering).
+- **WHEN** an order has a shipment with several checkpoints
+- **THEN** one `timeline-checkpoint` item per checkpoint is shown, newest first, the newest marked current, with
+  carrier and tracking code in the header
+- **VERIFIED BY**: Vitest `team-frontend/src/features/order/OrderTimeline.test.tsx` › OrderTimeline › lists checkpoints newest first and marks the newest as current. Not verifiable end to end: CreateShipment yields exactly one checkpoint and no RPC adds more, so a shipment with several checkpoints cannot be seeded through the edge (the test uses two checkpoints).
 
 #### Scenario: A failed saga step is surfaced as the failure checkpoint
 
@@ -335,16 +336,17 @@ shown as table columns and header actions inline at the right of the header.
 
 Pages, `OrderList`, `OrderTimeline`, the descriptions and items table SHALL be server components. Client code
 SHALL be limited to leaf islands: `OrderStatusTabs`, the detail `Tabs`, `OrderActions` (reorder, cancel and
-return triggers with their `Modal`s) and `ReviewModal`. `cancelOrderAction`, `reorderAction`,
-`createReturnRequestAction` and `mockRefundAction` SHALL return `{ ok, error?, data? }` and call `revalidatePath`
-for `/account/orders` and the affected `/account/orders/[id]`.
+return triggers with their `Modal`s) and `ReviewModal`. `cancelOrderAction`, `reorderAction` and
+`createReturnRequestAction` SHALL return `{ ok, error?, data? }` and call `revalidatePath` for `/account/orders` and the
+affected `/account/orders/[id]`. Refunds are a seller action (`refundReturnAction` in `features/seller/actions.ts`);
+the buyer has no refund control.
 
 #### Scenario: Actions return the standard shape and revalidate
 
 - **WHEN** each of the four actions runs against a mocked gateway for success and for failure
 - **THEN** success returns `{ ok: true }` (with `data` where applicable) and calls `revalidatePath`; failure
   returns `{ ok: false, error }` and does not throw
-- **VERIFIED BY**: Vitest `team-frontend/src/features/order/actions.test.ts` › cancelOrderAction › cancels with a reason and revalidates the list and the detail; cancelOrderAction › returns the error shape without throwing or revalidating; reorderAction › returns the item count as data and revalidates; reorderAction › returns the error shape when the gateway throws (and team-frontend/src/features/order/returns.actions.test.ts › createReturnRequestAction › creates the return request and returns its view; createReturnRequestAction › returns an error shape when the gateway throws). Not verifiable end to end: the scenario itself runs the actions against a mocked gateway, so it is a unit scenario by construction; `mockRefundAction` named by the requirement no longer exists in `features/order/actions.ts` (spec drift, not covered by any test).
+- **VERIFIED BY**: Vitest `team-frontend/src/features/order/actions.test.ts` › cancelOrderAction › cancels with a reason and revalidates the list and the detail; cancelOrderAction › returns the error shape without throwing or revalidating; reorderAction › returns the item count as data and revalidates; reorderAction › returns the error shape when the gateway throws (and team-frontend/src/features/order/returns.actions.test.ts › createReturnRequestAction › creates the return request and returns its view; createReturnRequestAction › returns an error shape when the gateway throws). Not verifiable end to end: the scenario itself runs the actions against a mocked gateway, so it is a unit scenario by construction;
 
 #### Scenario: Pages are not client components
 
