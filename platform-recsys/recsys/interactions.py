@@ -1,9 +1,8 @@
-"""tracking_events → implicit-feedback (user, item, weight) triples.
+"""Governed dataset → ALS-ready (user, item, weight) triples.
 
-- user_id = principal_id when authenticated, else anonymous_id (weights.choose_user_key)
-- item_id = listing_id (rows with an empty listing_id are dropped)
-- weight  = event_type confidence (weights.event_weight), optionally recency-decayed,
-            then summed per (user, item)
+The dataset (platform-featurestore ``als_interactions``) already carries stitched
+user keys and the final per-pair ``weight``; this module uses the weight AS GIVEN
+(no event map, no decay) and only prunes sparse users/items.
 
 ALS needs integer factor ids, so user/item strings are indexed with a
 StringIndexer; the reverse label maps are returned so the outputs can be
@@ -14,7 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import weights as W
 from .config import Settings
 
 
@@ -32,53 +30,25 @@ class IndexedInteractions:
     item_labels: object
 
 
-def build_triples(df, settings: Settings):
-    """Collapse tracking rows to weighted per-(user,item) interactions.
+def dataset_triples(df):
+    """Select the training triples from a governed dataset frame.
 
-    Returns a DataFrame[user_key:string, listing_id:string, weight:double].
-    Pure-column logic (no UDF) so it stays Catalyst-optimizable; the weight map
-    and user-key rule match recsys.weights exactly.
+    Returns DataFrame[user_key:string, listing_id:string, weight:double]. Rows with an
+    empty key or a non-positive weight carry no signal and are dropped; the weight
+    itself is never altered.
     """
     from pyspark.sql import functions as F  # noqa: PLC0415
 
-    # user_key = principal_id when non-empty, else anonymous_id; else null → drop.
-    principal = F.trim(F.coalesce(F.col("principal_id"), F.lit("")))
-    anon = F.trim(F.coalesce(F.col("anonymous_id"), F.lit("")))
-    user_key = F.when(principal != "", principal).otherwise(F.when(anon != "", anon).otherwise(F.lit(None)))
-
-    listing = F.trim(F.coalesce(F.col("listing_id"), F.lit("")))
-
-    # event_type → base weight via a mapping expression built from the config map,
-    # defaulting to the unknown-event floor (matches weights.event_weight).
-    etype = F.lower(F.trim(F.coalesce(F.col("event_type"), F.lit(""))))
-    weight_expr = F.lit(float(W.UNKNOWN_EVENT_WEIGHT))
-    for name, w in settings.event_weights.items():
-        weight_expr = F.when(etype == F.lit(name), F.lit(float(w))).otherwise(weight_expr)
-
-    mapped = (
-        df.withColumn("user_key", user_key)
-        .withColumn("listing_id", listing)
-        .withColumn("base_weight", weight_expr)
-        .filter(F.col("user_key").isNotNull())
-        .filter(F.col("listing_id") != "")
-    )
-
-    # Optional recency decay by occurred_at (half-life in days; 0 disables).
-    if settings.recency_half_life_days > 0 and "occurred_at" in df.columns:
-        age_days = F.datediff(F.current_timestamp(), F.col("occurred_at")).cast("double")
-        decay = F.pow(
-            F.lit(0.5), F.greatest(age_days, F.lit(0.0)) / F.lit(float(settings.recency_half_life_days))
+    return (
+        df.select(
+            F.trim(F.col("user_key")).alias("user_key"),
+            F.trim(F.col("listing_id")).alias("listing_id"),
+            F.col("weight").cast("double").alias("weight"),
         )
-        mapped = mapped.withColumn("weight_contrib", F.col("base_weight") * decay)
-    else:
-        mapped = mapped.withColumn("weight_contrib", F.col("base_weight"))
-
-    triples = (
-        mapped.groupBy("user_key", "listing_id")
-        .agg(F.sum("weight_contrib").alias("weight"))
+        .filter(F.col("user_key").isNotNull() & (F.col("user_key") != ""))
+        .filter(F.col("listing_id").isNotNull() & (F.col("listing_id") != ""))
         .filter(F.col("weight") > 0)
     )
-    return triples
 
 
 def _prune_sparse(triples, settings: Settings):

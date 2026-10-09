@@ -1,4 +1,4 @@
-"""End-to-end offline batch: warehouse → triples → ALS → Eval & Promotion Gate → Qdrant + Redis.
+"""End-to-end offline batch: governed dataset → triples → ALS → Eval & Promotion Gate → Qdrant + Redis.
 
 Orchestrates the seams. The heavy Spark work (read, map, index, fit) stays in
 the executors; the collected factor matrices are evaluated and gated before
@@ -12,9 +12,10 @@ import logging
 
 from . import recommend
 from .config import Settings, load_settings
+from .dataset import resolve_dataset
 from .evals.evaluator import ModelEvaluator
 from .evals.holdout import EVAL_PROTOCOL, leave_last_new_item_out
-from .interactions import build_triples, index_interactions
+from .interactions import dataset_triples, index_interactions
 from .load import qdrant as qdrant_load
 from .load import redis_cache
 from .model_version import resolve_model_version
@@ -23,7 +24,6 @@ from .registry.registry import ModelRegistry
 from .spark import build_spark
 from .train import train_als
 from .two_tower.pipeline import train_and_index_two_tower
-from .warehouse import read_tracking_events
 
 log = logging.getLogger("recsys.pipeline")
 
@@ -41,21 +41,16 @@ def _collect_factors(factors_df, id_col: str):
 def timestamped_interactions(events):
     """(user_id, listing_id, timestamp) rows for the offline evaluation split.
 
-    occurred_at is TIMESTAMP_NTZ in the DuckDB export (and may be a string or
-    TIMESTAMP elsewhere): cast it to TIMESTAMP before taking epoch seconds. A
-    direct CAST(... AS DOUBLE) is an analysis error on TIMESTAMP_NTZ, which used to
-    leave the evaluation set empty.
+    The timestamp is the pair's ``last_occurred_at`` from the dataset. It may be
+    TIMESTAMP_NTZ (DuckDB/pandas export) or TIMESTAMP: cast it to TIMESTAMP before
+    taking epoch seconds. A direct CAST(... AS DOUBLE) is an analysis error on
+    TIMESTAMP_NTZ, which used to leave the evaluation set empty.
     """
     from pyspark.sql import functions as F  # noqa: PLC0415
 
-    user_key_expr = F.coalesce(
-        F.when(F.col("principal_id") != "", F.col("principal_id")),
-        F.when(F.col("anonymous_id") != "", F.col("anonymous_id")),
-        F.lit("anonymous"),
-    ).alias("user_id")
-    ts = F.unix_timestamp(F.col("occurred_at").cast("timestamp")).cast("double")
+    ts = F.unix_timestamp(F.col("last_occurred_at").cast("timestamp")).cast("double")
     return events.select(
-        user_key_expr,
+        F.col("user_key").alias("user_id"),
         F.col("listing_id").alias("listing_id"),
         F.coalesce(ts, F.lit(0.0)).alias("timestamp"),
     ).filter(F.col("listing_id") != "")
@@ -64,8 +59,8 @@ def timestamped_interactions(events):
 def evaluate_generation(events, settings: Settings) -> dict:
     """Score this generation's training recipe on a holdout it never saw.
 
-    The published model is trained on every event. Evaluation instead fits a second ALS
-    model on the per-user training split (leave-last-new-item-out, evals.holdout), so
+    The published model is trained on the whole dataset. Evaluation instead fits a second
+    ALS model on the per-user training split (leave-last-new-item-out, evals.holdout), so
     the held-out pairs and anything after them are not in its training data. It ranks
     each test user's unseen items only. The returned metrics carry EVAL_PROTOCOL.
     """
@@ -83,7 +78,7 @@ def evaluate_generation(events, settings: Settings) -> dict:
             for r in timestamped_interactions(events).collect()
         ]
     except Exception as exc:
-        log.warning("could not extract raw timestamped events: %s", exc)
+        log.warning("could not extract timestamped interactions: %s", exc)
 
     holdout = leave_last_new_item_out(raw_interactions)
     if not holdout.actual:
@@ -96,19 +91,16 @@ def evaluate_generation(events, settings: Settings) -> dict:
         )
         return {**metrics, "eval_protocol": EVAL_PROTOCOL}
 
-    # Drop each test user's events from the moment they discovered the target.
-    user_key = F.when(F.col("principal_id") != "", F.col("principal_id")).otherwise(
-        F.when(F.col("anonymous_id") != "", F.col("anonymous_id"))
-    )
+    # Drop each test user's pairs last seen at or after the moment they discovered the target.
     cutoffs = events.sparkSession.createDataFrame(list(holdout.cutoffs.items()), ["_uk", "_cut"])
     train_events = (
-        events.withColumn("_uk", user_key)
-        .withColumn("_ts", F.unix_timestamp(F.col("occurred_at").cast("timestamp")).cast("double"))
+        events.withColumn("_uk", F.col("user_key"))
+        .withColumn("_ts", F.unix_timestamp(F.col("last_occurred_at").cast("timestamp")).cast("double"))
         .join(cutoffs, on="_uk", how="left")
         .filter(F.col("_cut").isNull() | (F.col("_ts") < F.col("_cut")))
         .drop("_uk", "_ts", "_cut")
     )
-    eval_triples = build_triples(train_events, settings)
+    eval_triples = dataset_triples(train_events)
     artifacts = train_als(index_interactions(eval_triples, settings), settings)
     item_ids, item_vecs = _collect_factors(artifacts.item_factors, "listing_id")
     user_ids, user_vecs = _collect_factors(artifacts.user_factors, "user_key")
@@ -140,12 +132,15 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
     """Run the full pipeline. Returns a summary dict of what was produced."""
     settings = settings or load_settings()
     model_version = resolve_model_version(settings)
-    log.info("starting ALS batch model_version=%s driver=%s", model_version, settings.warehouse_driver)
+    # Resolve the governed dataset BEFORE starting Spark: with none, refuse to run
+    # (ConfigError → exit 2) and register nothing. No fallback to raw events.
+    dataset = resolve_dataset(settings)
+    log.info("starting ALS batch model_version=%s dataset=%s", model_version, dataset.path)
 
     spark = build_spark(settings)
     try:
-        events = read_tracking_events(spark, settings)
-        triples = build_triples(events, settings)
+        events = spark.read.parquet(dataset.path)
+        triples = dataset_triples(events)
 
         from pyspark.sql import functions as F  # noqa: PLC0415
 
@@ -178,6 +173,7 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
         if not metrics.get("test_events"):
             summary = {
                 "model_version": model_version,
+                "dataset": dataset.lineage,
                 "decision": "skipped",
                 "reason": "no usable holdout: the temporal split left no test events, "
                 "so no evaluation was possible",
@@ -213,6 +209,7 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
             model_name="recsys-als",
             model_type="als",
             metrics=metrics,
+            parameters={"dataset": dataset.lineage},
             status="candidate",
         )
         registry.register_model(metadata)
@@ -228,6 +225,7 @@ def run(settings: Settings | None = None, registry: ModelRegistry | None = None)
 
         summary: dict = {
             "model_version": model_version,
+            "dataset": dataset.lineage,
             "decision": "promoted" if promoted else "rejected",
             "reason": reason,
             # The comparison the gate made, auditable from the run's own output.

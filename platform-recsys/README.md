@@ -1,7 +1,7 @@
 # platform-recsys
 
 Offline recommendation training job (bounded context: recommendation model artifacts). It reads
-behavioural events, trains an implicit-feedback ALS model with PySpark, evaluates it on a
+the governed `als_interactions` dataset, trains an implicit-feedback ALS model with PySpark, evaluates it on a
 leakage-free holdout, runs a champion/challenger promotion gate, and only when the run is promoted
 publishes item/user vectors to **Qdrant** and precomputed Top-N lists to **Redis**.
 
@@ -23,12 +23,19 @@ data out.
 
 | What | Source | Detail |
 |---|---|---|
-| `tracking_events` | Parquet exported by `team-analytics` (`PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, every `PARQUET_EXPORT_INTERVAL_SECONDS=300`) on the `analytics_data` volume; mounted read-only at `/data` | Columns listed in `recsys/warehouse.py` `TRACKING_COLUMNS` (the read contract). Only those present are kept. Rows are bounded by `occurred_at >= now - INTERACTION_WINDOW_DAYS`. |
-| Alternative source | BigQuery table via the Spark BigQuery connector | `WAREHOUSE_DRIVER=bigquery` + `BIGQUERY_PROJECT/DATASET/TABLE` |
+| Governed dataset `als_interactions@v1` | Written by `platform-featurestore` (`python -m featurestore dataset`) as `<DATASET_DIR>/as_of=<YYYYMMDDTHHMMSSZ>.parquet` plus `as_of=<stamp>.manifest.json`; the root compose mounts the `featurestore_data` volume read-only at `/features` | Columns `user_key`, `listing_id`, `weight` (double), `interactions` (int), `last_occurred_at` (timestamp). Manifest keys: `name`, `version`, `as_of`, `window_days`, `rows`, `users`, `items`, `definition_sha256`, `input_watermark`, `file_sha256`, `file`. |
 
-Triples: `user_key` = `principal_id`, else `anonymous_id` (rows with neither are dropped);
-`listing_id` must be non-empty; weight = per-event weight (unknown event types get 0.5) summed per
-(user, item), optionally recency-decayed.
+Resolution (`recsys/dataset.py`): `DATASET_PATH` (an explicit file; its manifest is the same name with
+`.parquet` replaced by `.manifest.json`) wins, otherwise the lexically latest `as_of=*.parquet` under
+`DATASET_DIR` that has a manifest. **With no dataset the job exits 2**, logs `no governed dataset under
+DATASET_DIR=...`, and registers nothing; there is no fallback to raw events.
+
+Triples: `user_key`, `listing_id` and `weight` are used **as given** (identity stitching, event weights,
+favourites and reviews are the featurestore's job). Only rows with an empty key or a weight <= 0 are
+dropped. The offline evaluation split uses `last_occurred_at`.
+
+**Lineage:** every registered model carries `parameters["dataset"] = {name, version, as_of, sha256}`
+copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run summary repeats it.
 
 **Produces (only for a promoted run)**
 
@@ -52,7 +59,7 @@ Producer/consumer agreements that must hold: `QDRANT_ITEM_COLLECTION` = team-ai 
 
 ## 2. Events
 
-None produced, none consumed. (`tracking_events` reaches the job through the Parquet export, not Kafka.)
+None produced, none consumed. (The dataset reaches the job as a file on a shared volume, not through Kafka.)
 
 ## 3. Data
 
@@ -107,37 +114,39 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 |---|---|
 | Runtime | `ENV` (local), `LOG_LEVEL` (info) |
 | Spark | `SPARK_MASTER` (local[*]), `SPARK_APP_NAME` (platform-recsys-als) |
-| Warehouse | `WAREHOUSE_DRIVER` (duckdb; or bigquery), `WAREHOUSE_PARQUET_PATH` (/data/tracking_events.parquet), `BIGQUERY_PROJECT` (empty, required for bigquery), `BIGQUERY_DATASET` (analytics), `BIGQUERY_TABLE` (tracking_events) |
-| Interactions | `INTERACTION_WINDOW_DAYS` (30), `EVENT_WEIGHTS_JSON`, `RECENCY_HALF_LIFE_DAYS` (0 = off), `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
+| Dataset | `DATASET_DIR` (/features/datasets/als_interactions/v1), `DATASET_PATH` (empty; an explicit file, overrides `DATASET_DIR`) |
+| Interactions | `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
 | ALS | `ALS_RANK` (64), `ALS_REG_PARAM` (0.05), `ALS_ALPHA` (40.0), `ALS_MAX_ITER` (15) |
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
 | Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32) |
 | Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
 
-Default event weights: impression 0.5, view 1, click 2, view_cart 2.5, add_to_cart 5,
-add_shipping_info 6, add_payment_info 7, begin_checkout 8, purchase 10 (`EVENT_WEIGHTS_JSON`
-overrides the whole map).
+Removed with the raw-events ALS path: `WAREHOUSE_PARQUET_PATH`, `INTERACTION_WINDOW_DAYS`,
+`EVENT_WEIGHTS_JSON` (the weights and window now live in the featurestore dataset definition), plus
+the now-unused `WAREHOUSE_DRIVER`, `BIGQUERY_*` and `RECENCY_HALF_LIFE_DAYS`. `recsys/weights.py`
+stays for the nearline and two-tower helpers.
 
 ## 6. Run locally
 
 **Primary (root compose)**, from the workspace root:
 
 ```bash
-docker compose up -d --build        # stack incl. qdrant, redis, team-analytics (exports the Parquet every 300 s)
+docker compose up -d --build        # stack incl. qdrant, redis, team-analytics
+# build the dataset first (platform-featurestore `dataset` command), then:
 docker compose --profile jobs run --rm platform-recsys
 ```
 
-The job service (`docker-compose.services.yaml`) builds `./platform-recsys`, mounts `analytics_data`
-at `/data:ro`, and sets `WAREHOUSE_DRIVER`, `WAREHOUSE_PARQUET_PATH`, `QDRANT_URL=http://qdrant:6333`,
-`REDIS_HOST=redis`, `REDIS_PORT`, and depends on `qdrant` and `redis`. Run order: tracking events reach
-team-analytics, its export writes the Parquet, then the job. Until the job has run and been promoted,
+The job service (`docker-compose.services.yaml`) builds `./platform-recsys`, mounts `featurestore_data`
+at `/features:ro`, and sets `DATASET_DIR`, `QDRANT_URL=http://qdrant:6333`, `REDIS_HOST=redis`,
+`REDIS_PORT`, and depends on `qdrant` and `redis` (compose wiring is owned by the root change). Run
+order: the featurestore builds the dataset, then the job. Until the job has run and been promoted,
 `team-ai` Recommend answers empty.
 
 **Standalone**
 
 ```bash
-make sample SAMPLE=./data/tracking_events.parquet      # tiny synthetic Parquet warehouse
-make run-local SAMPLE=./data/tracking_events.parquet   # needs PySpark, Java, local Qdrant + Redis
+make sample SAMPLE=./data/datasets/als_interactions/v1      # tiny governed dataset (parquet + manifest)
+make run-local SAMPLE=./data/datasets/als_interactions/v1   # needs PySpark, Java, local Qdrant + Redis
 # or: docker compose -f docker-compose.local.yaml run --rm recsys-train   (external network platform-core_default)
 make docker-build && make docker-run
 ```
@@ -149,7 +158,7 @@ make docker-build && make docker-run
 | `make compile` | byte-compile `recsys sample_data tests` |
 | `make lint` | `ruff check` + `black --check` (line length 110) |
 | `make check-env` | `.env.example` drift gate |
-| `make test-host` | PySpark-free tests (config, weights, recommend, env drift, evals, registry, nearline, ranker, point id) |
+| `make test-host` | PySpark-free tests (config, dataset, weights, recommend, env drift, evals, registry, nearline, ranker, point id) |
 | `make test` | full pytest; Spark-gated tests skip without PySpark and run in the image |
 | `make eval` | `python -m recsys.evals` offline evaluation CLI on built-in sample interactions |
 

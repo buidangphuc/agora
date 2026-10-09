@@ -1,5 +1,5 @@
 # Runtime deps (mirrors pyproject [project.dependencies]). Pinned for the Docker
-# build; the Spark BigQuery connector is a jar (recsys/spark.py), not a pip dep.
+# build.
 pyspark==3.5.1
 numpy>=1.24
 qdrant-client>=1.7

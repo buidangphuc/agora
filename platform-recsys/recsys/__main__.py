@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from .config import load_settings
+from .config import ConfigError, load_settings
 from .pipeline import run
 
 
@@ -20,7 +20,11 @@ def main(argv: list[str] | None = None) -> int:
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    summary = run(settings)
+    try:
+        summary = run(settings)
+    except ConfigError as exc:
+        logging.getLogger("recsys").error("cannot start: %s", exc)
+        return 2
     logging.getLogger("recsys").info("done: %s", summary)
     return 0
 

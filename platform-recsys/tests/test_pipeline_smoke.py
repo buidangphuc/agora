@@ -17,7 +17,7 @@ from datetime import datetime, timezone  # noqa: E402
 
 from recsys import recommend  # noqa: E402
 from recsys.config import load_settings  # noqa: E402
-from recsys.interactions import build_triples, index_interactions  # noqa: E402
+from recsys.interactions import dataset_triples, index_interactions  # noqa: E402
 from recsys.load import qdrant as qdrant_load  # noqa: E402
 from recsys.load import redis_cache  # noqa: E402
 from recsys.train import train_als  # noqa: E402
@@ -39,29 +39,25 @@ def spark():
 
 def test_train_and_load_populates_artifacts(spark):
     now = datetime.now(timezone.utc)
-    rows = []
-    # Build sample rows inline (avoid importing the packaged sample module path).
-    interactions = [
-        ("user-1", "", "listing-a", "view"),
-        ("user-1", "", "listing-a", "click"),
-        ("user-1", "", "listing-b", "view"),
-        ("user-2", "", "listing-a", "view"),
-        ("user-2", "", "listing-b", "click"),
-        ("", "anon-1", "listing-b", "view"),
-        ("", "anon-1", "listing-c", "click"),
-        ("user-3", "", "listing-c", "add_to_cart"),
-        ("user-3", "", "listing-a", "view"),
+    pairs = [
+        ("user-1", "listing-a", 3.0),
+        ("user-1", "listing-b", 1.0),
+        ("user-2", "listing-a", 1.0),
+        ("user-2", "listing-b", 2.0),
+        ("anon-1", "listing-b", 1.0),
+        ("anon-1", "listing-c", 2.0),
+        ("user-3", "listing-c", 5.0),
+        ("user-3", "listing-a", 1.0),
     ]
-    for pid, anon, listing, etype in interactions:
-        rows.append((etype, listing, anon, pid, now))
     df = spark.createDataFrame(
-        rows, ["event_type", "listing_id", "anonymous_id", "principal_id", "occurred_at"]
+        [(u, lid, w, 1, now) for u, lid, w in pairs],
+        ["user_key", "listing_id", "weight", "interactions", "last_occurred_at"],
     )
 
     settings = load_settings(environ={"ALS_RANK": "8", "ALS_MAX_ITER": "3", "TOP_N": "5"})
     model_version = "als-test-1"
 
-    triples = build_triples(df, settings)
+    triples = dataset_triples(df)
     indexed = index_interactions(triples, settings)
     artifacts = train_als(indexed, settings)
 
