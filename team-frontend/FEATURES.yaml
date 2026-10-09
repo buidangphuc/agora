@@ -2921,10 +2921,10 @@ features:
       - When a server component throws during render
       - Then the error result is shown with a "Thử lại" (retry) button
       - And clicking it re-renders the segment
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
-    notes: >-
-      Needs a server component that throws during render (fault injection); covered by render tests only.
+    covered_by: null
+    notes: "Written as frontend/uif_foundation.feature::A thrown page error is recoverable (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the product page throws and listing/error.tsx shows the Alert with \"Thử lại\"; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well). Every error.tsx that only calls reset() (cart, seller, account, listing, orders, root) has the same gap; the Vitest shell tests only assert that reset() is called."
 
   - id: ui.brand-colour-token
     title: The brand colour resolves from the design tokens
