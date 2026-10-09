@@ -43,6 +43,9 @@ def run_recsys_job(
     *,
     dataset_dir: Path | None = None,
     expect_summary: bool = True,
+    live: bool = False,
+    reset: bool = False,
+    buyer_id: str = "",
 ) -> list[JobRun]:
     """Run the job once per entry of `runs` (env overrides) over a governed dataset.
 
@@ -51,7 +54,14 @@ def run_recsys_job(
     "event_type", "ts"} (ts = epoch seconds), and passes it as DATASET_PATH. With `dataset_dir`
     (an offline dir produced by the featurestore job) that directory is mounted read-only and
     DATASET_DIR points at its datasets/als_interactions/v1. An override value of None unsets the
-    variable. `expect_summary=False` allows runs that exit before printing a summary (refusals).
+    variable.
+
+    recsys-generation-publish: a run's dict may carry the reserved keys "@fixture" (good_a,
+    better_b, third_c, regressing, one_size; every fixture includes `buyer_id` as a user) and
+    "@command" ("rollback"). `live=True` publishes to the stack's serving data (Redis DB 0, the
+    default collections and aliases) instead of the per-worker namespace, so the gateway reads what
+    the job published; `reset=True` forgets every generation first. Live runs are destructive:
+    they rewrite what every other recommendation scenario sees. `expect_summary=False` allows runs that exit before printing a summary (refusals).
     """
     settings = get_settings()
     idx = _worker_index()
@@ -61,6 +71,9 @@ def run_recsys_job(
         plan = {
             "namespace": f"e2e_recsys_gw{idx}",
             "redis_db": 10 + idx,
+            "live": live,
+            "reset": reset,
+            "buyer_id": buyer_id,
             "events": events,
             "runs": runs,
             "dataset_mounted": dataset_dir is not None,
