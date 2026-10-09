@@ -16,6 +16,8 @@ dependencies = [
     # not a Python dep; pandas/pyarrow back the local sample generator.
     "pandas>=2.0",
     "pyarrow>=14.0",
+    # nearline consumer (python -m recsys.nearline): analytics.events -> Redis
+    "confluent-kafka>=2.3",
 ]
 
 [project.optional-dependencies]

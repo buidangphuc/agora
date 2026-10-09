@@ -85,6 +85,17 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("enable_two_tower", "ENABLE_TWO_TOWER", "false", _as_bool),
     ("qdrant_two_tower_collection", "QDRANT_TWO_TOWER_COLLECTION", "item_two_tower_vectors", _as_str),
     ("two_tower_dim", "TWO_TOWER_DIM", "32", _as_int),
+    # ── Nearline signal consumer (python -m recsys.nearline) ─────────────────
+    # A long-running consumer of analytics.events that keeps the recs:nearline:* keys fresh.
+    ("kafka_brokers", "KAFKA_BROKERS", "localhost:19092", _as_str),
+    ("kafka_analytics_topic", "KAFKA_ANALYTICS_TOPIC", "analytics.events", _as_str),
+    ("nearline_consumer_group", "NEARLINE_CONSUMER_GROUP", "platform-recsys-nearline", _as_str),
+    # Where a group with no committed offset starts: "latest" (production) or "earliest".
+    ("nearline_start_offset", "NEARLINE_START_OFFSET", "latest", _as_str),
+    # Lifetime of every nearline key and the age past which an event is ignored (24 h window).
+    ("nearline_ttl_seconds", "NEARLINE_TTL_SECONDS", "86400", _as_int),
+    # 0 = run until stopped. >0 = exit 0 after this many seconds without a message (drain mode, e2e).
+    ("nearline_idle_exit_seconds", "NEARLINE_IDLE_EXIT_SECONDS", "0", _as_int),
     # ── Model Registry & Promotion Gate ──────────────────────────────────────
     ("promotion_primary_metric", "PROMOTION_PRIMARY_METRIC", "ndcg@10", _as_str),
     ("promotion_min_relative_improvement", "PROMOTION_MIN_RELATIVE_IMPROVEMENT", "0.01", _as_float),
@@ -127,6 +138,12 @@ class Settings:
     enable_two_tower: bool = False
     qdrant_two_tower_collection: str = "item_two_tower_vectors"
     two_tower_dim: int = 32
+    kafka_brokers: str = "localhost:19092"
+    kafka_analytics_topic: str = "analytics.events"
+    nearline_consumer_group: str = "platform-recsys-nearline"
+    nearline_start_offset: str = "latest"
+    nearline_ttl_seconds: int = 86400
+    nearline_idle_exit_seconds: int = 0
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_password: str = ""
@@ -196,6 +213,12 @@ class Settings:
             raise ValueError(f"ALS_MAX_ITER must be > 0: {self.als_max_iter}")
         if self.top_n <= 0:
             raise ValueError(f"TOP_N must be > 0: {self.top_n}")
+        if self.nearline_start_offset not in ("latest", "earliest"):
+            raise ValueError(
+                f"NEARLINE_START_OFFSET must be latest or earliest: {self.nearline_start_offset}"
+            )
+        if self.nearline_ttl_seconds <= 0:
+            raise ValueError(f"NEARLINE_TTL_SECONDS must be > 0: {self.nearline_ttl_seconds}")
         for name in ("gate_min_user_coverage", "gate_min_item_coverage", "gate_max_list_overlap"):
             v = getattr(self, name)
             if not 0.0 <= v <= 1.0:
