@@ -198,7 +198,9 @@ func (e *Edge) authInterceptor() connect.Interceptor {
 				ctx, life := e.watchStream(ctx, p)
 				defer life.stop()
 				err = next(ctx, conn)
-				if err != nil && life.ended() {
+				// Also when the handler ended cleanly: an upstream may turn the cancellation
+				// into EOF, and the client must not read a cut stream as a completed one.
+				if life.ended() {
 					return endedError()
 				}
 				return err

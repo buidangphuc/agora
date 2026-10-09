@@ -35,11 +35,16 @@ type blockingUp struct {
 	grpc.ClientStream
 	ctx context.Context
 	up  *atomic.Bool
+	eof bool
 }
 
 func (s *blockingUp) Recv() (*chatv1.StreamChatResponse, error) {
 	<-s.ctx.Done()
 	s.up.Store(true)
+	if s.eof {
+		// An upstream that turns the cancellation into a clean end of stream.
+		return nil, io.EOF
+	}
 	return nil, s.ctx.Err()
 }
 
@@ -49,12 +54,13 @@ type holdChat struct {
 	upCancel  atomic.Bool
 	opened    atomic.Int32
 	finishNow bool
+	eofOnEnd  bool
 }
 
 func (h *holdChat) StreamChat(ctx context.Context, _ *chatv1.StreamChatRequest, _ ...grpc.CallOption) (grpc.ServerStreamingClient[chatv1.StreamChatResponse], error) {
 	h.opened.Add(1)
 	if h.hold {
-		return &blockingUp{ctx: ctx, up: &h.upCancel}, nil
+		return &blockingUp{ctx: ctx, up: &h.upCancel, eof: h.eofOnEnd}, nil
 	}
 	return &streamUp{}, nil
 }
@@ -133,6 +139,19 @@ func TestStreamEndsUnauthenticatedWhenTokenExpires(t *testing.T) {
 	}
 	if !f.chat.upCancel.Load() {
 		t.Fatal("upstream call was not cancelled when the stream ended")
+	}
+}
+
+func TestStreamCutIsReportedWhenUpstreamEndsCleanly(t *testing.T) {
+	f := newLifeFixture(t, true)
+	f.chat.eofOnEnd = true
+	tok := mintSID(t, f.key, "kid-1", time.Now().Add(time.Hour), "sid-eof")
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		f.denylist.Add("sid-eof", time.Now().Add(time.Hour))
+	}()
+	if code, _ := f.open(t, tok); code != connect.CodeUnauthenticated {
+		t.Fatalf("code = %v, want unauthenticated even when upstream ends with a clean EOF", code)
 	}
 }
 
