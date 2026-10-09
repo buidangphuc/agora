@@ -4,7 +4,10 @@ It drives the real batch job as a black box against the stack's Redis and Qdrant
 inside an isolated namespace: a dedicated Redis DB and dedicated Qdrant collections.
 The live serving data (Redis DB 0 and the default collections) is never touched.
 
-1. It turns /work/plan.json "events" into the tracking_events Parquet the job reads.
+1. It gives the job a governed dataset (featurestore-datasets): either a small
+   `als_interactions` fixture it writes from /work/plan.json "events" (Parquet plus manifest,
+   passed as DATASET_PATH), or, when "dataset_mounted" is set, the featurestore job's offline dir
+   mounted at /dataset (DATASET_DIR). The job never reads raw tracking events.
 2. It starts from a clean namespace (the Redis DB is flushed and the collections
    are dropped).
 3. For each entry in "runs" it executes `python -m recsys` with that run's
@@ -18,6 +21,7 @@ Only the image's own dependencies are used (pandas, redis, qdrant-client).
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import os
 import subprocess
@@ -37,19 +41,65 @@ DB = int(PLAN["redis_db"])
 SUMMARY_MARK = "recsys done: "
 
 
-def _write_parquet() -> str:
+# The tracking-event weights of als_interactions@v1 (spec: featurestore-datasets).
+EVENT_WEIGHTS = {
+    "impression": 0.5,
+    "view": 1.0,
+    "click": 2.0,
+    "view_cart": 2.5,
+    "add_to_cart": 5.0,
+    "add_shipping_info": 6.0,
+    "add_payment_info": 7.0,
+    "begin_checkout": 8.0,
+    "purchase": 10.0,
+}
+
+
+def _write_dataset() -> str | None:
+    """Write a governed dataset fixture (parquet + manifest) from the plan's events."""
     rows = PLAN["events"]
+    if not rows:
+        return None
     df = pd.DataFrame(
         {
-            "event_type": [r["event_type"] for r in rows],
-            "principal_id": [r["user"] for r in rows],
-            "anonymous_id": ["" for _ in rows],
+            "user_key": [r["user"] for r in rows],
             "listing_id": [r["listing"] for r in rows],
+            "weight": [EVENT_WEIGHTS.get(r["event_type"], 0.0) for r in rows],
             "occurred_at": [datetime.fromtimestamp(r["ts"], tz=timezone.utc) for r in rows],
         }
     )
-    path = f"{WORK}/tracking_events.parquet"
-    df.to_parquet(path, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    grouped = (
+        df.groupby(["user_key", "listing_id"], as_index=False)
+        .agg(weight=("weight", "sum"), interactions=("weight", "size"), last=("occurred_at", "max"))
+        .rename(columns={"last": "last_occurred_at"})
+    )
+    grouped = grouped[grouped["weight"] > 0]
+    grouped["interactions"] = grouped["interactions"].astype("int64")
+    as_of = datetime.now(timezone.utc)
+    stamp = as_of.strftime("%Y%m%dT%H%M%SZ")
+    directory = f"{WORK}/datasets/als_interactions/v1"
+    os.makedirs(directory, exist_ok=True)
+    path = f"{directory}/as_of={stamp}.parquet"
+    grouped[["user_key", "listing_id", "weight", "interactions", "last_occurred_at"]].to_parquet(
+        path, coerce_timestamps="ms", allow_truncated_timestamps=True
+    )
+    with open(path, "rb") as f:
+        file_sha = hashlib.sha256(f.read()).hexdigest()
+    manifest = {
+        "name": "als_interactions",
+        "version": 1,
+        "as_of": as_of.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "window_days": 30,
+        "rows": int(len(grouped)),
+        "users": int(grouped["user_key"].nunique()),
+        "items": int(grouped["listing_id"].nunique()),
+        "definition_sha256": hashlib.sha256(b"e2e-fixture").hexdigest(),
+        "input_watermark": as_of.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "file_sha256": file_sha,
+        "file": os.path.basename(path),
+    }
+    with open(path[: -len(".parquet")] + ".manifest.json", "w") as f:
+        json.dump(manifest, f)
     return path
 
 
@@ -77,6 +127,7 @@ def _snapshot(redis: Redis, qdrant: QdrantClient) -> dict:
         models[meta["model_version"]] = {
             "status": meta.get("status"),
             "metrics": meta.get("metrics"),
+            "parameters": meta.get("parameters"),
         }
     return {
         "champion": redis.get("recs:model:champion"),
@@ -89,7 +140,8 @@ def _snapshot(redis: Redis, qdrant: QdrantClient) -> dict:
 
 
 def main() -> int:
-    parquet = _write_parquet()
+    fixture = _write_dataset()
+    os.makedirs(f"{WORK}/empty-dataset", exist_ok=True)
     redis_host = os.environ.get("REDIS_HOST", "redis")
     redis = Redis(host=redis_host, port=6379, db=DB, decode_responses=True)
     qdrant = QdrantClient(url=os.environ.get("QDRANT_URL", "http://qdrant:6333"))
@@ -97,7 +149,6 @@ def main() -> int:
     base_env = {
         **os.environ,
         "WAREHOUSE_DRIVER": "duckdb",
-        "WAREHOUSE_PARQUET_PATH": parquet,
         "REDIS_DATABASE": str(DB),
         "QDRANT_ITEM_COLLECTION": ITEMS,
         "QDRANT_USER_COLLECTION": USERS,
@@ -106,12 +157,21 @@ def main() -> int:
         "ALS_MAX_ITER": "3",
         "TOP_N": "5",
     }
+    if PLAN.get("dataset_mounted"):
+        base_env["DATASET_DIR"] = "/dataset/datasets/als_interactions/v1"
+        base_env.pop("DATASET_PATH", None)
+    elif fixture:
+        base_env["DATASET_PATH"] = fixture
     results = []
     try:
         for run_env in PLAN["runs"]:
+            env = {**base_env, **{k: v for k, v in run_env.items() if v is not None}}
+            for key, value in run_env.items():
+                if value is None:
+                    env.pop(key, None)
             proc = subprocess.run(
                 [sys.executable, "-m", "recsys"],
-                env={**base_env, **run_env},
+                env=env,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -126,7 +186,7 @@ def main() -> int:
                     "exit_code": proc.returncode,
                     "summary": summary,
                     "state": _snapshot(redis, qdrant),
-                    "log_tail": out[-3000:] if summary is None else "",
+                    "log_tail": out[-3000:],
                 }
             )
     finally:
