@@ -3766,9 +3766,10 @@ features:
     acceptance:
       - "When the checkout kill-switch is off and the buyer opens `/cart`"
       - "Then the \"Mua hàng\" button is disabled with `aria-disabled=\"true\"` and an `Alert` explains that checkout is temporarily unavailable"
-    tags: [buyer]
-    status: planned
-    notes: "Written as frontend/ui_checkout_order.feature::Checkout kill-switch disables the CTA, @destructive (flips the stack-wide checkout-enabled flag, restored in teardown); not run in the parallel lane."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Checkout kill-switch disables the CTA"
+    notes: "@destructive: flips the stack-wide checkout-enabled flag and restores it in teardown; passed twice serially."
 
   - id: uicc.increasing-quantity-shows-pending-and-then-the-new-tota
     title: "Increasing quantity shows pending and then the new total"
@@ -4233,9 +4234,10 @@ features:
     acceptance:
       - "When the cart read throws"
       - "Then the segment error UI shows an `Alert` with \"Thử lại\" which re-renders the route"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: the cart read can only be made to throw by faulting the gateway or order service (a bad session token renders the empty cart instead). Covered by the Vitest states.test.tsx / error.tsx of app/(shop)/cart."
+    covered_by: null
+    notes: "Written as frontend/uif_cart.feature::Gateway failure on the cart (@destructive, serial lane). RED, frontend defect kept red: with team-order stopped /cart renders the empty cart (\"Giỏ hàng của bạn đang trống\") instead of the segment error Alert: getCart in lib/gateway/cart.ts swallows the read failure and returns an empty cart, so cart/error.tsx is unreachable and an outage looks like a lost cart."
 
   - id: uicc.loading-skeleton-matches-the-page-footprint
     title: "Loading skeleton matches the page footprint"
