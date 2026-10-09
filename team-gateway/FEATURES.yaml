@@ -680,6 +680,6 @@ features:
       - "When an anonymous client and then a logged-in buyer call `GetRecommendationPerformance` through the gateway"
       - "Then the gateway answers HTTP 401 and then HTTP 403"
     tags: [security, analytics, admin]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "analytics/recommendation_performance.feature::Only admins read recommendation performance"
     notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::Only admins read recommendation performance"
