@@ -606,9 +606,12 @@ services:
       - DATABASE_ENABLED=false
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=listing_svc
-      - POSTGRES_PASSWORD=listing_pass
-      - POSTGRES_DB=listing_db
+      # team-ai owns no database here (DATABASE_ENABLED=false) and must not hold listing's creds
+      # (AGENTS.md rule 3). Settings still require the fields: placeholders, override via .env
+      # (see .env.example).
+      - POSTGRES_USER=${TEAM_AI_POSTGRES_USER:-team_ai_svc}
+      - POSTGRES_PASSWORD=${TEAM_AI_POSTGRES_PASSWORD:-team-ai-local-placeholder}
+      - POSTGRES_DB=${TEAM_AI_POSTGRES_DB:-team_ai_db}
       - REDIS_ENABLED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
