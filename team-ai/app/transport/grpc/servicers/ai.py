@@ -31,12 +31,23 @@ from app.modules.business.ai_assistant.schemas import (
     SummarizeReviewsRequest,
 )
 from app.modules.business.ai_assistant.service import AIAssistantService
+from app.modules.business.tag_classifier.schemas import (
+    ClassifySkuHierarchyRequest,
+    ClassifyTagsRequest as TagsRequest,
+    SkuVariantInput,
+    TagItem,
+)
+from app.modules.business.tag_classifier.service import (
+    TagClassifierService,
+    shared_tag_classifier,
+)
 from app.transport.grpc._pb.platform.ai.v1 import ai_pb2, ai_pb2_grpc
 from app.transport.grpc.context import ensure_scopes
 from app.transport.grpc.errors import map_errors
 from app.transport.grpc.scopes import ADMIN_SCOPE, AI_SERVICE_SCOPES, ai_use_scopes
 
 AIProvider = Callable[[], AIAssistantService]
+TagClassifierProvider = Callable[[], TagClassifierService]
 
 
 class AIServicer(ai_pb2_grpc.AIServiceServicer):
@@ -45,8 +56,10 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
         ai_provider: AIProvider | None = None,
         *,
         require_ai_use: bool = False,
+        tag_classifier_provider: TagClassifierProvider | None = None,
     ) -> None:
         self._ai_provider = ai_provider or (lambda: AIAssistantService())
+        self._tag_provider = tag_classifier_provider or shared_tag_classifier
         self._shopper_scopes = ai_use_scopes(require_ai_use)
 
     async def ShoppingAssistant(
@@ -187,3 +200,82 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
             cons=result.cons,
             sentiment=result.sentiment,
         )
+
+    async def ClassifyTags(
+        self,
+        request: ai_pb2.ClassifyTagsRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> ai_pb2.ClassifyTagsResponse:
+        principal = await ensure_scopes(context, *AI_SERVICE_SCOPES["ClassifyTags"])
+        # Internal RPC: a user token that somehow carries the scope is still refused.
+        if principal.type != "service":
+            await context.abort(
+                grpc.StatusCode.PERMISSION_DENIED,
+                "insufficient_scope: ClassifyTags is for service principals only",
+            )
+            raise AssertionError("unreachable")
+        # Outside map_errors so the abort is never re-mapped.
+        if len(request.title.strip()) < 2:
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "invalid argument: title"
+            )
+            raise AssertionError("unreachable")
+        return await self._classify_tags(request, context)
+
+    @map_errors("ClassifyTags")
+    async def _classify_tags(
+        self,
+        request: ai_pb2.ClassifyTagsRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> ai_pb2.ClassifyTagsResponse:
+        title = request.title.strip()
+        service = self._tag_provider()
+        if not request.variants:
+            spu = await service.classify_tags(
+                TagsRequest(
+                    title=title,
+                    description=request.description,
+                    category_id=request.category_id,
+                    top_k=30,
+                    include_candidates=False,
+                )
+            )
+            return ai_pb2.ClassifyTagsResponse(
+                tags=[_tag(t) for t in spu.canonical_tags]
+            )
+        res = await service.classify_sku_hierarchy(
+            ClassifySkuHierarchyRequest(
+                spu_title=title,
+                spu_description=request.description,
+                category_id=request.category_id,
+                variants=[
+                    SkuVariantInput(
+                        variant_id=v.variant_id,
+                        name=v.name or v.sku_code or v.variant_id or "variant",
+                        sku_code=v.sku_code,
+                        price=max(v.price, 0),
+                        stock=max(v.stock, 0),
+                    )
+                    for v in request.variants
+                ],
+            )
+        )
+        return ai_pb2.ClassifyTagsResponse(
+            tags=[_tag(t) for t in res.spu_canonical_tags],
+            skus=[
+                ai_pb2.SkuClassification(
+                    variant_id=sku.variant_id,
+                    tags=[_tag(t) for t in sku.sku_specific_tags],
+                )
+                for sku in res.sku_results
+            ],
+        )
+
+
+def _tag(tag: TagItem) -> ai_pb2.ClassifiedTag:
+    return ai_pb2.ClassifiedTag(
+        slug=tag.slug,
+        name=tag.name,
+        facet_group=tag.facet_group.value,
+        confidence=tag.confidence,
+    )

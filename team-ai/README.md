@@ -29,6 +29,7 @@ code default port is `50051`, compose sets `50060` (`50060:50060`). The gateway 
 
 | Service / RPC | Authorization | Notes |
 |---|---|---|
+| `platform.ai.v1.AIService` `ClassifyTags` | scope `ai.classify` AND a `service` principal (team-search's indexer); no user role holds the scope; not routed by the gateway | SPU tags plus per-variant tags with facet group and confidence, from the same in-process tag registry as the REST routes. `INVALID_ARGUMENT` for a title under 2 characters. |
 | `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. |
 | `platform.search.v1.SearchService.SearchListings` | scope `search:read` | `UNAVAILABLE` when `RAG_ENABLED=false`. |
 | `platform.chat.v1.ChatService.StreamChat` (server stream) | none beyond a resolved principal | `CHAT_BACKEND=mock` echoes the prompt; `llm_router` streams from the LLM router. Final chunk has `done=true`. |
@@ -45,7 +46,7 @@ is checked against `AUTH_BEARER_TOKEN`.
 |---|---|
 | `GET /healthz`, `GET /readyz` (also under `/api/v1`), `GET /metrics` (gRPC request counter) | none |
 | `POST /api/v1/ai/assistant`, `/magic-listing`, `/chat-copilot` | none |
-| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy`, `/tags/explore`, `/tags/promote`; `GET /api/v1/ai/tags` | none |
+| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy` (no longer used by team-search's indexer, which calls gRPC `ClassifyTags`), `/tags/explore`, `/tags/promote`; `GET /api/v1/ai/tags` | none |
 | `POST /api/v1/completions`, `/completions/stream`, `/completions/tasks`; `GET /completions/tasks/{task_id}` | `require_principal` (bearer) |
 
 `/docs` is served while `DOCS_ENABLED=true` (default). `/readyz` reports postgres, redis and

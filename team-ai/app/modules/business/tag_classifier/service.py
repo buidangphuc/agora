@@ -948,3 +948,14 @@ class TagClassifierService:
             canonical_count=len(self._canonical_tags),
             candidate_count=len(self._candidate_tags),
         )
+
+
+_shared: TagClassifierService | None = None
+
+
+def shared_tag_classifier() -> TagClassifierService:
+    """The process-wide classifier: REST and gRPC see the same registry (promotions)."""
+    global _shared
+    if _shared is None:
+        _shared = TagClassifierService()
+    return _shared
