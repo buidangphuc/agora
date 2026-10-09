@@ -1,0 +1,121 @@
+# platform-featurestore — nightly batch (CronJob), a sibling of platform-recsys. Runs the
+# three featurestore commands in ONE pod, in order (featurestore-cluster-job):
+#   init materialize -> init parity -> main dataset (als_interactions@v1)
+# Init containers run sequentially and stop at the first failure, so a parity mismatch
+# (exit 3) or registry drift (exit 4) means no dataset is built that night and recsys's
+# freshness guard then refuses to train. Mirrors docker-compose featurestore-job/-dataset.
+#
+# Inputs: team-analytics Parquet exports on PVC analytics-data (read-only).
+# Outputs: offline snapshots + datasets on PVC featurestore-data (recsys mounts it
+# read-only); online features in valkey DB 2. No secrets: valkey has no auth. If auth is
+# added, source it from an ExternalSecret (<svc>-env), never a literal here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: featurestore-config
+  namespace: marketplace
+data:
+  SCHEDULE: "15 2 * * *"         # nightly 02:15 UTC: after postgres-backup (02:00), before recsys (03:00)
+  FEATURESTORE_INPUT_DIR: /data
+  FEATURESTORE_OFFLINE_DIR: /features
+  FEATURESTORE_REDIS_URL: redis://valkey:6379/2
+  FEATURESTORE_ONLINE_TTL_SECONDS: "172800"
+  FEATURESTORE_PARITY_SAMPLE: "200"
+  DATASET_WINDOW_DAYS: "30"
+  HOME: /tmp
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: featurestore-data, namespace: marketplace }
+spec:
+  accessModes: ["ReadWriteOnce"]   # writer + recsys reader share a node (single-node kind)
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: featurestore
+  namespace: marketplace
+spec:
+  schedule: "15 2 * * *"           # mirrors featurestore-config.SCHEDULE
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: { app: featurestore }
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile: { type: RuntimeDefault }
+          initContainers:
+            - name: materialize
+              image: localhost:5001/platform-featurestore:local
+              args: ["materialize"]
+              envFrom: [{ configMapRef: { name: featurestore-config } }]
+              resources: &res
+                requests: { cpu: 250m, memory: 512Mi }
+                limits: { cpu: "1", memory: 2Gi }
+              securityContext: &sec
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              volumeMounts: &mounts
+                - { name: analytics-data, mountPath: /data, readOnly: true }
+                - { name: featurestore-data, mountPath: /features }
+                - { name: tmp, mountPath: /tmp }
+            - name: parity
+              image: localhost:5001/platform-featurestore:local
+              args: ["parity"]
+              envFrom: [{ configMapRef: { name: featurestore-config } }]
+              resources: *res
+              securityContext: *sec
+              volumeMounts: *mounts
+          containers:
+            - name: dataset
+              image: localhost:5001/platform-featurestore:local
+              args: ["dataset"]
+              envFrom: [{ configMapRef: { name: featurestore-config } }]
+              resources: *res
+              securityContext: *sec
+              volumeMounts: *mounts
+          volumes:
+            - name: analytics-data
+              persistentVolumeClaim: { claimName: analytics-data, readOnly: true }
+            - name: featurestore-data
+              persistentVolumeClaim: { claimName: featurestore-data }
+            - name: tmp
+              emptyDir: {}
+---
+# Batch pod: nothing connects to it; it only needs DNS and valkey (ADR-0010).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: featurestore, namespace: marketplace }
+spec:
+  podSelector:
+    matchLabels: { app: featurestore }
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app: valkey }
+      ports:
+        - { protocol: TCP, port: 6379 }

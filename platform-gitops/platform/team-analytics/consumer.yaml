@@ -5,6 +5,15 @@
 # cockpit's real orders, ops-cockpit-real-data); no Ingress/NetworkPolicy — otherwise
 # mirrors the platform/search-indexer consumer precedent. A CPU request is declared so the
 # HPA/KEDA path stays usable.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: analytics-data, namespace: marketplace }
+spec:
+  accessModes: ["ReadWriteOnce"]   # the featurestore CronJob reads it on the same node
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,6 +41,10 @@ spec:
             - { name: KAFKA_CONSUMER_GROUP, value: "team-analytics" }
             - { name: WAREHOUSE_DRIVER, value: "duckdb" }
             - { name: DUCKDB_PATH, value: "/data/analytics.duckdb" }
+            # Parquet exports (tracking_events_resolved, engagement_facts, order_facts) land
+            # beside this path on the analytics-data PVC; the featurestore CronJob reads them.
+            - { name: PARQUET_EXPORT_PATH, value: "/data/tracking_events.parquet" }
+            - { name: PARQUET_EXPORT_INTERVAL_SECONDS, value: "300" }
           resources:
             requests:
               cpu: 50m
@@ -51,7 +64,7 @@ spec:
             - { name: analytics-data, mountPath: /data }
       volumes:
         - name: analytics-data
-          emptyDir: {}
+          persistentVolumeClaim: { claimName: analytics-data }
 ---
 apiVersion: v1
 kind: Service
