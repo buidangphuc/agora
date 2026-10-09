@@ -15,7 +15,7 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
-func perfRepo(t *testing.T, recs []*warehouse.TrackingRecord) *query.DuckDBRepository {
+func perfRepo(t *testing.T, recs []*warehouse.TrackingRecord, orders ...*warehouse.OrderFactRecord) *query.DuckDBRepository {
 	t.Helper()
 	w, err := duckdb.Open(context.Background(), "")
 	if err != nil {
@@ -25,7 +25,16 @@ func perfRepo(t *testing.T, recs []*warehouse.TrackingRecord) *query.DuckDBRepos
 	if err := w.Write(context.Background(), recs); err != nil {
 		t.Fatal(err)
 	}
+	if err := w.WriteOrderFacts(context.Background(), orders); err != nil {
+		t.Fatal(err)
+	}
 	return query.NewDuckDBRepository(w.DB())
+}
+
+// paid is one PAID order line of buyer for listing at at.
+func paid(id, buyer, listing string, at time.Time) *warehouse.OrderFactRecord {
+	return &warehouse.OrderFactRecord{EventID: id, OrderID: "o-" + id, ListingID: listing, SellerID: "s", Quantity: 1,
+		UnitPrice: 1, Currency: "VND", OccurredAt: at, Status: "PAID", BuyerID: buyer}
 }
 
 func TestDuckDBRecommendationPerformance(t *testing.T) {
@@ -46,20 +55,24 @@ func TestDuckDBRecommendationPerformance(t *testing.T) {
 		ev("c1", "click", "l1", "u1", "I1", "", "", 4*h),
 		ev("c1b", "click", "l1", "u1", "I1", "", "", 3*h), // later click, same listing: not the earliest
 		ev("cart1", "add_to_cart", "l1", "u1", "", "", "", 2*h),
-		ev("buy1", "purchase", "l1", "u1", "", "", "", 90*time.Minute),
-		// purchase of a listing never clicked from a recommendation
-		ev("buy-other", "purchase", "l9", "u1", "", "", "", 2*h),
+		// a purchase beacon is forgeable and never counts
+		ev("buy-beacon", "purchase", "l1", "u1", "", "", "", 80*time.Minute),
 		// click with no impression id, and click with an unknown impression id
 		ev("c-none", "click", "l1", "u3", "", "", "", 4*h),
 		ev("c-unk", "click", "l1", "u3", "Ix", "", "", 4*h),
-		ev("buy-u3", "purchase", "l1", "u3", "", "", "", 3*h),
 		// serving-fallback placement, 1 impression each.
 		ev("f1", "impression", "l3", "u4", "F1", "cart_cross_sell", "serving-fallback", 2*h),
 		ev("f2", "impression", "l3", "u4", "F2", "cart_cross_sell", "M2", 2*h),
 		// impression outside the window is ignored
 		ev("old", "impression", "l1", "u5", "Iold", "home_feed", "M1", 50*h),
 		ev("oldc", "click", "l1", "u5", "Iold", "", "", 49*h),
-	})
+	},
+		paid("buy1", "u1", "l1", now.Add(-90*time.Minute)), // credited once, to the earliest click
+		paid("buy-other", "u1", "l9", now.Add(-2*h)),       // a listing never clicked from a recommendation
+		paid("buy-u3", "u3", "l1", now.Add(-3*h)),          // u3's clicks have no valid impression
+		paid("buy-u2", "u2", "l1", now.Add(-2*h)),          // u2 never clicked
+		paid("buy-nobuyer", "", "l1", now.Add(-2*h)),       // legacy line, no buyer
+	)
 
 	got, err := repo.RecommendationPerformance(context.Background(), now.Add(-24*h), now, 24)
 	if err != nil {
@@ -84,8 +97,8 @@ func TestDuckDBRecommendationPerformance(t *testing.T) {
 		t.Fatalf("real model row missing: %+v", got)
 	}
 
-	// A 1-hour attribution window drops the purchase (1.5h after the later
-	// click) but keeps the cart (1h after it).
+	// A 1-hour attribution window drops the purchase (2.5h after the earliest
+	// click) but keeps the cart (1h after the later click).
 	narrow, err := repo.RecommendationPerformance(context.Background(), now.Add(-24*h), now, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -124,9 +137,10 @@ func TestDuckDBRecommendationPerformance_OutsideAttributionWindow(t *testing.T) 
 	repo := perfRepo(t, []*warehouse.TrackingRecord{
 		ev("i", "impression", "I", "p", "M", 30*time.Hour),
 		ev("c", "click", "I", "", "", 29*time.Hour),
-		ev("in", "purchase", "", "", "", 20*time.Hour), // 9h after click
-		ev("out", "purchase", "", "", "", 1*time.Hour), // 28h after click
-	})
+	},
+		paid("in", "u", "l1", now.Add(-20*time.Hour)), // 9h after click
+		paid("out", "u", "l1", now.Add(-1*time.Hour)), // 28h after click
+	)
 	got, err := repo.RecommendationPerformance(context.Background(), now.Add(-48*time.Hour), now, 24)
 	if err != nil || len(got) != 1 || got[0].Purchases != 1 {
 		t.Fatalf("got %+v, %v; want exactly the in-window purchase", got, err)
@@ -134,7 +148,8 @@ func TestDuckDBRecommendationPerformance_OutsideAttributionWindow(t *testing.T) 
 }
 
 // Anonymous events without an anonymous id all resolve to the shared key "anon:"; one such
-// visitor's purchase must not be credited to another such visitor's click.
+// visitor's cart must not be credited to another such visitor's click, and an order line
+// with no buyer is never attributed.
 func TestDuckDBRecommendationPerformance_NoCrossCreditOnEmptyAnonymousID(t *testing.T) {
 	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	anon := func(id, typ, imp, placement, model string, ago time.Duration) *warehouse.TrackingRecord {
@@ -143,12 +158,12 @@ func TestDuckDBRecommendationPerformance_NoCrossCreditOnEmptyAnonymousID(t *test
 	}
 	repo := perfRepo(t, []*warehouse.TrackingRecord{
 		anon("i", "impression", "I", "p", "M", 3*time.Hour),
-		anon("c", "click", "I", "", "", 2*time.Hour),     // visitor A (no anonymous id)
-		anon("buy", "purchase", "", "", "", 1*time.Hour), // visitor B (no anonymous id)
-	})
+		anon("c", "click", "I", "", "", 2*time.Hour),         // visitor A (no anonymous id)
+		anon("cart", "add_to_cart", "", "", "", 1*time.Hour), // visitor B (no anonymous id)
+	}, paid("nobuyer", "", "l1", now.Add(-1*time.Hour)))
 	got, err := repo.RecommendationPerformance(context.Background(), now.Add(-24*time.Hour), now, 24)
-	if err != nil || len(got) != 1 || got[0].Clicks != 1 || got[0].Purchases != 0 {
-		t.Fatalf("got %+v, %v; want the click counted and no purchase attributed", got, err)
+	if err != nil || len(got) != 1 || got[0].Clicks != 1 || got[0].AddToCarts != 0 || got[0].Purchases != 0 {
+		t.Fatalf("got %+v, %v; want the click counted and nothing attributed", got, err)
 	}
 }
 
@@ -170,7 +185,7 @@ func TestGetRecommendationPerformance(t *testing.T) {
 	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	admin := asPrincipal("admin-1", "user", "admin")
 	stub := &stubPerf{rows: []query.PerformanceRow{
-		{PlacementID: "cart", ModelVersion: "M", Impressions: 3, ItemImpressions: 10, Clicks: 2, AddToCarts: 1, Purchases: 1},
+		{PlacementID: "cart", ModelVersion: "M", Impressions: 3, ItemImpressions: 10, Clicks: 4, AddToCarts: 1, Purchases: 3, MatureClicks: 2, MaturePurchases: 1},
 		{PlacementID: "cart", ModelVersion: "serving-fallback", Impressions: 1, ItemImpressions: 4},
 		{PlacementID: "home", ModelVersion: "M", Impressions: 2, ItemImpressions: 2},
 	}}
@@ -183,8 +198,8 @@ func TestGetRecommendationPerformance(t *testing.T) {
 		t.Fatalf("window = %d/%d, stub = %+v", resp.WindowHours, resp.AttributionWindowHours, stub)
 	}
 	r := resp.Rows[0]
-	if r.Ctr != 0.2 || r.ConversionRate != 0.5 {
-		t.Fatalf("ctr/conversion = %v/%v, want 0.2/0.5", r.Ctr, r.ConversionRate)
+	if r.Ctr != 0.4 || r.ConversionRate != 0.5 {
+		t.Fatalf("ctr/conversion = %v/%v, want 0.4/0.5 (rate over the 2 mature clicks, not all 4)", r.Ctr, r.ConversionRate)
 	}
 	if r := resp.Rows[1]; r.Ctr != 0 || r.ConversionRate != 0 {
 		t.Fatalf("no clicks: ctr/conversion = %v/%v, want 0/0", r.Ctr, r.ConversionRate)
@@ -300,5 +315,60 @@ func TestDuckDBRecommendationPerformance_AmbiguousClickTieIsDeterministic(t *tes
 	by := perfRow(t, repo, now)
 	if by["pa/M"].Clicks != 1 || by["pb/M"].Clicks != 0 {
 		t.Fatalf("rows = %+v, want the click on pa/M only", by)
+	}
+}
+
+// recs-attribution-hardening (a): purchases are paid order lines, never beacons.
+func TestDuckDBRecommendationPerformance_PurchasesComeFromOrderFacts(t *testing.T) {
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	h := time.Hour
+	base := []*warehouse.TrackingRecord{
+		tr("i", "impression", "A", "I", "p", "M", now.Add(-5*h)),
+		tr("c", "click", "A", "I", "", "", now.Add(-4*h)),
+		tr("beacon", "purchase", "A", "", "", "", now.Add(-3*h)),
+	}
+	if r := perfRow(t, perfRepo(t, base), now)["p/M"]; r.Purchases != 0 {
+		t.Fatalf("a purchase beacon without an order counted: %+v", r)
+	}
+	repo := perfRepo(t, base,
+		paid("l1", "u", "A", now.Add(-3*h)),
+		paid("l1b", "u", "A", now.Add(-3*h)), // a second line of the same buyer and listing is a second purchase
+		paid("other-buyer", "x", "A", now.Add(-3*h)),
+		paid("other-listing", "u", "B", now.Add(-3*h)),
+		paid("before-click", "u", "A", now.Add(-5*h)),
+		paid("after-end", "u", "A", now.Add(time.Hour)),
+		paid("no-buyer", "", "A", now.Add(-3*h)),
+	)
+	if r := perfRow(t, repo, now)["p/M"]; r.Purchases != 2 {
+		t.Fatalf("purchases = %d, want the 2 PAID lines of the clicking buyer on the clicked listing", r.Purchases)
+	}
+}
+
+// recs-attribution-hardening (d): a click whose attribution window is still open at the report end is
+// in clicks/purchases but not in the conversion rate's mature clicks.
+func TestDuckDBRecommendationPerformance_MatureClicks(t *testing.T) {
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	h := time.Hour
+	repo := perfRepo(t, []*warehouse.TrackingRecord{
+		tr("i1", "impression", "A", "I1", "p", "M", now.Add(-40*h)),
+		tr("i2", "impression", "B", "I2", "p", "M", now.Add(-3*h)),
+		tr("old", "click", "A", "I1", "", "", now.Add(-30*h)), // window closed at -6h: mature
+		tr("new", "click", "B", "I2", "", "", now.Add(-2*h)),  // window open until +22h: not mature
+	}, paid("pa", "u", "A", now.Add(-29*h)), paid("pb", "u", "B", now.Add(-1*h)))
+	got, err := repo.RecommendationPerformance(context.Background(), now.Add(-48*h), now, 24)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	r := got[0]
+	if r.Clicks != 2 || r.Purchases != 2 || r.MatureClicks != 1 || r.MaturePurchases != 1 {
+		t.Fatalf("row = %+v, want 2 clicks, 2 purchases, 1 mature click with 1 mature purchase", r)
+	}
+	// A click whose window closes exactly at the report end is mature.
+	edge := perfRepo(t, []*warehouse.TrackingRecord{
+		tr("ie", "impression", "A", "IE", "p", "M", now.Add(-26*h)),
+		tr("ce", "click", "A", "IE", "", "", now.Add(-24*h)),
+	})
+	if e, _ := edge.RecommendationPerformance(context.Background(), now.Add(-48*h), now, 24); len(e) != 1 || e[0].MatureClicks != 1 {
+		t.Fatalf("edge = %+v, want the click mature at exactly click+window == end", e)
 	}
 }

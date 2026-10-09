@@ -453,8 +453,10 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 		if d.ItemImpressions > 0 {
 			row.Ctr = float64(d.Clicks) / float64(d.ItemImpressions)
 		}
-		if d.Clicks > 0 {
-			row.ConversionRate = float64(d.Purchases) / float64(d.Clicks)
+		// Only clicks whose attribution window had closed can have converted fully
+		// (recs-attribution-hardening D3); open ones would bias the rate down.
+		if d.MatureClicks > 0 {
+			row.ConversionRate = float64(d.MaturePurchases) / float64(d.MatureClicks)
 		}
 		resp.Rows = append(resp.Rows, row)
 		if _, seen := total[d.PlacementID]; !seen {
