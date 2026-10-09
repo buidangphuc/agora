@@ -66,7 +66,15 @@ Producer/consumer agreements that must hold: `QDRANT_ITEM_COLLECTION` = team-ai 
 
 ## 2. Events
 
-None produced, none consumed. (The dataset reaches the job as a file on a shared volume, not through Kafka.)
+The batch job produces and consumes none (the dataset reaches it as a file on a shared volume). The separate
+**nearline consumer** (`python -m recsys.nearline`, change `add-recsys-nearline-signals`) consumes Kafka
+`analytics.events` as consumer group `platform-recsys-nearline` and keeps the `recs:nearline:*` Redis keys
+(recents, category affinity, co-views, position-debiased CTR; 24 h TTL, not generation-scoped) fresh for
+team-ai. It is a long-running process, not part of `python -m recsys`; the key layout team-ai reads is in
+`openspec/changes/add-recsys-nearline-signals/design.md`. Offsets are committed after the Redis write; a
+Redis failure exits 1 and the restart replays (idempotent by event id). Settings: `KAFKA_BROKERS`,
+`KAFKA_ANALYTICS_TOPIC`, `NEARLINE_CONSUMER_GROUP`, `NEARLINE_START_OFFSET`, `NEARLINE_TTL_SECONDS`,
+`NEARLINE_IDLE_EXIT_SECONDS`.
 
 ## 3. Data
 
@@ -157,6 +165,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | ALS | `ALS_RANK` (64), `ALS_REG_PARAM` (0.05), `ALS_ALPHA` (40.0), `ALS_MAX_ITER` (15) |
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
 | Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32) |
+| Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
 | Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
 | Structural gate | `GATE_MIN_USER_COVERAGE` (0.5), `GATE_MIN_ITEM_COVERAGE` (0.05), `GATE_MAX_LIST_OVERLAP` (0.9) |
 | Compatibility | `RECS_WRITE_LEGACY_KEYS` (true): also write the unscoped `recs:v1:{user,item,popular}` keys |
@@ -237,8 +246,9 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 10. Known gaps
 
-- `recsys/ranker/` (CVR / eGMV), `recsys/monitoring/` (PSI drift) and `recsys/nearline/` are library
-  modules with unit tests; `pipeline.py` does not call them. There is no online reranker here and
+- `recsys/ranker/` (CVR / eGMV), `recsys/monitoring/` (PSI drift) are library
+  modules with unit tests; `pipeline.py` does not call them. `recsys/nearline/` runs as its own process
+  (section 2); its compose service is proposed in the change's `design.md`, not yet in the root compose. There is no online reranker here and
   `lightgbm` is not a dependency.
 - Two-Tower is a placeholder: it runs only when `ENABLE_TWO_TOWER=true` and only after a promoted
   run, and feeds the item tower hard-coded `price=100`, `popularity=1.0`, `category_id="general"` for
