@@ -2536,21 +2536,22 @@ features:
     covered_by: "frontend/ui_orders_returns.feature::A failed submission keeps the Modal open"
     notes: "Failure provoked by filing a full-amount return from another session first."
 
-  - id: uior.mock-refund-shows-pending-and-a-toast
-    title: "Mock refund shows pending and a toast"
+  - id: uior.buyer-sees-return-status-without-refund-button
+    title: "The buyer sees the return status without a refund button"
     persona: buyer
     priority: P2
-    summary: "Mock refund shows pending and a toast"
+    summary: "The buyer sees the return status without a refund button"
     entry_route: /account/orders
     services: [team-frontend, team-gateway, team-order]
     preconditions:
       login: buyer
     acceptance:
-      - "When a buyer clicks \"Hoàn tiền (mô phỏng)\" on an approved return"
-      - "Then the button shows a pending state and is disabled, then a success toast shows and the badge reads \"refunded\""
+      - "When a buyer opens an order with an approved return"
+      - "Then the return section shows the return status, and offers no refund control (the seller refunds)"
     tags: [buyer]
-    status: planned
-    notes: "SPEC STALE vs code: the buyer return section has no refund control (ReturnRequestSection.tsx: \"the seller refunds, and the buyer only follows the status\"), by design of the return-refund-settlement change; frontend/seller/return_refund_ui.feature::The buyer sees the return status without a refund button asserts it. The spec requirement and scenario need updating."
+    status: automated
+    covered_by: "seller/return_refund_ui.feature::The buyer sees the return status without a refund button"
+    notes: "ui-phase-orders: seller/return_refund_ui.feature::The buyer sees the return status without a refund button"
 
   - id: uior.the-return-is-not-offered-for-non-eligible-orders
     title: "The return is not offered for non-eligible orders"
