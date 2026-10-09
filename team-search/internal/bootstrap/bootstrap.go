@@ -15,6 +15,7 @@ import (
 	"github.com/buidangphuc/team-search/internal/config"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
 
 // Resources is the central bag of opened handles.
@@ -22,6 +23,7 @@ type Resources struct {
 	Index        index.Index
 	EmbedClient  retrieval.EmbedClient
 	RerankClient retrieval.RerankClient
+	Classifier   taxonomy.Classifier // nil when TAG_CLASSIFIER_URL is empty
 	Engine       *retrieval.Engine
 	Health       *health.Server
 }
@@ -43,6 +45,11 @@ func OpenResources(ctx context.Context, s *config.Settings) (*Resources, error) 
 		rerankClient = retrieval.NewHTTPRerankClient(s.Retrieval.ModelServerURL, 2*time.Second)
 	}
 
+	var classifier taxonomy.Classifier
+	if s.Taxonomy.TagClassifierURL != "" {
+		classifier = taxonomy.NewHTTPClassifier(s.Taxonomy.TagClassifierURL, 2*time.Second)
+	}
+
 	engine := retrieval.NewEngine(idx, embedClient, rerankClient, s.Retrieval)
 
 	h := health.NewServer()
@@ -51,6 +58,7 @@ func OpenResources(ctx context.Context, s *config.Settings) (*Resources, error) 
 		Index:        idx,
 		EmbedClient:  embedClient,
 		RerankClient: rerankClient,
+		Classifier:   classifier,
 		Engine:       engine,
 		Health:       h,
 	}, nil

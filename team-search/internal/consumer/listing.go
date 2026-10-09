@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -11,6 +12,7 @@ import (
 	listingv1 "github.com/buidangphuc/team-search/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
 
 // Discriminator types carried in EventEnvelope.Type
@@ -31,6 +33,16 @@ func ListingEventHandler(idx index.Index) Handler {
 // ListingEventHandlerWithEmbedder decodes listing events, vectorizes content using embedder, and applies changes to OpenSearch.
 // If embedder is nil or embedding fails (D4), it sets vector_pending: true without failing the ingestion.
 func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedClient) Handler {
+	return NewListingEventHandler(idx, embedder, nil)
+}
+
+// NewListingEventHandler is ListingEventHandlerWithEmbedder plus the tag classifier
+// (add-tag-classifier-filter-enrichment): create/update events carry the
+// listing's canonical SPU tags and per-variant attributes into the read-model, and a
+// base-info event refreshes the SPU tags. A nil classifier skips classification. A
+// classifier error never fails the ingestion (like the embedder): the document is
+// written with tags_pending and keeps the tags it already had.
+func NewListingEventHandler(idx index.Index, embedder retrieval.EmbedClient, classifier taxonomy.Classifier) Handler {
 	return func(ctx context.Context, _ []byte, value []byte) error {
 		var env eventsv1.EventEnvelope
 		if err := proto.Unmarshal(value, &env); err != nil {
@@ -55,6 +67,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return idx.Delete(ctx, l.GetId(), version)
 			}
 			doc := toDoc(l, version)
+			classifyDoc(ctx, classifier, l, &doc)
 			// D7: the creation time is the CREATED envelope's occurred_at; the
 			// index keeps the earliest, so UPDATED events never touch it.
 			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_CREATED && env.GetOccurredAt() != nil {
@@ -95,6 +108,18 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				"seller_id":   base.GetSellerId(),
 				"status":      statusString(base.GetStatus()),
 				"version":     version,
+			}
+			if classifier != nil {
+				res, err := classifier.Classify(ctx, taxonomy.Listing{
+					Title: base.GetTitle(), Description: base.GetDescription(), CategoryID: base.GetCategoryId(),
+				})
+				if err != nil {
+					log.Printf("[taxonomy] classify %s: %v (tags_pending)", base.GetListingId(), err)
+					fields["tags_pending"] = true
+				} else {
+					fields["facet_tags"] = nonNil(res.FacetTags)
+					fields["tags_pending"] = false
+				}
 			}
 			if embedder != nil {
 				text := strings.TrimSpace(base.GetTitle() + " " + base.GetDescription())
@@ -167,6 +192,35 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 			return nil // not ours; ignore
 		}
 	}
+}
+
+// classifyDoc fills the doc's SPU tags and nested SKUs from the classifier; on
+// error it only sets TagsPending so the write guard keeps the stored tags.
+func classifyDoc(ctx context.Context, c taxonomy.Classifier, l *listingv1.Listing, doc *index.ListingDoc) {
+	if c == nil {
+		return
+	}
+	in := taxonomy.Listing{Title: l.GetTitle(), Description: l.GetDescription(), CategoryID: l.GetCategoryId()}
+	for _, v := range l.GetVariants() {
+		in.Variants = append(in.Variants, taxonomy.Variant{
+			ID: v.GetId(), Name: v.GetName(), SkuCode: v.GetSku(), Price: v.GetPrice(), Stock: v.GetStock(),
+		})
+	}
+	res, err := c.Classify(ctx, in)
+	if err != nil {
+		log.Printf("[taxonomy] classify %s: %v (tags_pending)", l.GetId(), err)
+		doc.TagsPending = true
+		return
+	}
+	doc.FacetTags = res.FacetTags
+	doc.SKUs = res.SKUs
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // toDoc maps a proto Listing to the indexed document, stamping the read-model

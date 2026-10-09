@@ -242,3 +242,10 @@ func parseSkuFacets(a osSkuAgg) []AttributeFacet {
 	}
 	return groupBuckets(keys, counts)
 }
+
+// ValidAttr reports whether group and slug are well-formed, i.e. a facet value a
+// tag.<group> / sku.<group> filter could ever name. The indexer drops anything
+// else so a malformed classifier answer can never produce an unfilterable facet.
+func ValidAttr(group, slug string) bool {
+	return groupPattern.MatchString(group) && slugPattern.MatchString(slug)
+}
