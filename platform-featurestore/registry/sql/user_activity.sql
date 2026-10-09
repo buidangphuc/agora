@@ -1,4 +1,5 @@
--- user_activity@v1, per user_key. Reads only the point-in-time views (events, facts) and $as_of.
+-- user_activity@v2, per user_key. Reads only the point-in-time views (events, facts, orders) and $as_of.
+-- v2 adds paid_orders_30d: distinct paid orders of the buyer in (as_of - 30d, as_of]; lines without a buyer count for nobody.
 WITH ev AS (
   SELECT user_key,
     count(*) FILTER (WHERE event_type = 'view') AS views_7d,
@@ -30,17 +31,28 @@ cur AS (
   FROM latest WHERE rn = 1
   GROUP BY user_id
 ),
+ord AS (
+  SELECT buyer_id AS user_id, count(DISTINCT order_id) AS paid_orders_30d
+  FROM orders
+  WHERE buyer_id IS NOT NULL AND buyer_id <> '' AND status = 'PAID'
+    AND occurred_at > $as_of - INTERVAL 30 DAY AND occurred_at <= $as_of
+  GROUP BY buyer_id
+),
 keys AS (
   SELECT user_key AS entity_id FROM seen
   UNION
   SELECT user_id FROM cur
+  UNION
+  SELECT user_id FROM ord
 )
 SELECT k.entity_id,
   coalesce(ev.views_7d, 0)::BIGINT AS views_7d,
   coalesce(ev.clicks_7d, 0)::BIGINT AS clicks_7d,
   coalesce(ev.add_to_cart_7d, 0)::BIGINT AS add_to_cart_7d,
   coalesce(cur.favorites_current, 0)::BIGINT AS favorites_current,
-  coalesce(cur.follows_current, 0)::BIGINT AS follows_current
+  coalesce(cur.follows_current, 0)::BIGINT AS follows_current,
+  coalesce(ord.paid_orders_30d, 0)::BIGINT AS paid_orders_30d
 FROM keys k
 LEFT JOIN ev ON ev.user_key = k.entity_id
 LEFT JOIN cur ON cur.user_id = k.entity_id
+LEFT JOIN ord ON ord.user_id = k.entity_id

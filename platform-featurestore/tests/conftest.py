@@ -52,6 +52,7 @@ ORDERS = pa.schema(
         ("currency", pa.string()),
         ("occurred_at", pa.timestamp("us")),
         ("status", pa.string()),
+        ("buyer_id", pa.string()),
     ]
 )
 
@@ -85,7 +86,7 @@ def write_inputs(d: Path, events=(), facts=(), orders=()):
     oa = [
         {
             "event_id": o["id"],
-            "order_id": o["id"],
+            "order_id": o.get("order", o["id"]),
             "listing_id": o["listing"],
             "variant_id": "",
             "seller_id": "s",
@@ -93,7 +94,8 @@ def write_inputs(d: Path, events=(), facts=(), orders=()):
             "unit_price": 1,
             "currency": "VND",
             "occurred_at": o["at"],
-            "status": "PAID",
+            "status": o.get("status", "PAID"),
+            "buyer_id": o.get("buyer"),
         }
         for o in orders
     ]

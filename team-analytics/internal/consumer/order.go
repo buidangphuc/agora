@@ -55,6 +55,7 @@ func OrderFactsFromEnvelope(value []byte) (records []*warehouse.OrderFactRecord,
 			Currency:   currency,
 			OccurredAt: occurredAt,
 			Status:     "PAID",
+			BuyerID:    ope.GetBuyerId(),
 		})
 	}
 	return records, true, nil

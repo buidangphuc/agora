@@ -8,7 +8,7 @@
 # point-in-time views `events`, `facts` and `orders` and the parameter $as_of (see featurestore/inputs.py).
 views:
   - name: user_activity
-    version: 1
+    version: 2
     entity: user_key
     sql: sql/user_activity.sql
     features:
@@ -17,7 +17,7 @@ views:
       add_to_cart_7d: int
       favorites_current: int
       follows_current: int
-      # paid_orders_30d is NOT declared: order_facts has no buyer/user column, so it cannot be computed per user.
+      paid_orders_30d: int
   - name: item_popularity
     version: 1
     entity: listing_id

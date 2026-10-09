@@ -144,11 +144,15 @@ type QualityRepository interface {
 type PerformanceRow struct {
 	PlacementID     string
 	ModelVersion    string
-	Impressions     int64 // distinct impression_id
+	Impressions     int64 // distinct (impression_id, placement_id, model_version)
 	ItemImpressions int64 // impression events
 	Clicks          int64
 	AddToCarts      int64
-	Purchases       int64
+	Purchases       int64 // PAID order lines credited to a click
+	// MatureClicks are clicks whose attribution window had closed at the report end;
+	// MaturePurchases are the purchases credited to them. The conversion rate is over these.
+	MatureClicks    int64
+	MaturePurchases int64
 }
 
 // PerformanceRepository is implemented by repositories that can attribute

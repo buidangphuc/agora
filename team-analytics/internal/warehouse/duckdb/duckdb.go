@@ -432,6 +432,7 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 			r.Currency,
 			r.OccurredAt,
 			r.Status,
+			nullIfEmpty(r.BuyerID),
 			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()
@@ -521,3 +522,11 @@ var _ warehouse.WarehouseWriter = (*Writer)(nil)
 var _ warehouse.ListingSellerWriter = (*Writer)(nil)
 var _ warehouse.IngestCounterWriter = (*Writer)(nil)
 var _ warehouse.EngagementFactWriter = (*Writer)(nil)
+
+// nullIfEmpty maps "" to SQL NULL so "unattributed" has one representation.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}

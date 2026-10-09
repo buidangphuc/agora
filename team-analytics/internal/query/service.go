@@ -314,6 +314,8 @@ const (
 	defaultQualityWindowHours = 24
 	maxQualityWindowHours     = 168
 
+	defaultPerformanceWindowHours = 168
+
 	statusOK       = "OK"
 	statusDegraded = "DEGRADED"
 )
@@ -417,7 +419,9 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 	}
 	hours := req.GetWindowHours()
 	if hours == 0 {
-		hours = defaultQualityWindowHours
+		// Seven days, not the quality report's 24 h: conversion_rate counts only clicks whose
+		// attribution window has closed, so a default no longer than that window reads 0.
+		hours = defaultPerformanceWindowHours
 	}
 	if hours > maxQualityWindowHours {
 		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
@@ -453,8 +457,10 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 		if d.ItemImpressions > 0 {
 			row.Ctr = float64(d.Clicks) / float64(d.ItemImpressions)
 		}
-		if d.Clicks > 0 {
-			row.ConversionRate = float64(d.Purchases) / float64(d.Clicks)
+		// Only clicks whose attribution window had closed can have converted fully
+		// (recs-attribution-hardening D3); open ones would bias the rate down.
+		if d.MatureClicks > 0 {
+			row.ConversionRate = float64(d.MaturePurchases) / float64(d.MatureClicks)
 		}
 		resp.Rows = append(resp.Rows, row)
 		if _, seen := total[d.PlacementID]; !seen {

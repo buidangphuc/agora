@@ -2,6 +2,8 @@ package duckdb
 
 import (
 	"context"
+	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -416,5 +418,88 @@ func TestExportRelationWritesReadableParquetForTablesAndViews(t *testing.T) {
 	var user string
 	if err := w.DB().QueryRow("SELECT user_key FROM read_parquet('" + dir + "/tracking_events_resolved.parquet')").Scan(&user); err != nil || user == "" {
 		t.Errorf("resolved export user_key = %q, %v", user, err)
+	}
+}
+
+func buyerOf(t *testing.T, w *Writer, eventID string) sql.NullString {
+	t.Helper()
+	var b sql.NullString
+	if err := w.DB().QueryRow("SELECT buyer_id FROM order_facts WHERE event_id = ?", eventID).Scan(&b); err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestWriteOrderFactsStoresBuyerAndNullForEmpty(t *testing.T) {
+	ctx := context.Background()
+	w, err := Open(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{
+		{EventID: "with", OrderID: "o1", ListingID: "l1", OccurredAt: at, Status: "PAID", BuyerID: "u-7"},
+		{EventID: "without", OrderID: "o2", ListingID: "l1", OccurredAt: at, Status: "PAID"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if b := buyerOf(t, w, "with"); !b.Valid || b.String != "u-7" {
+		t.Errorf("buyer = %+v, want u-7", b)
+	}
+	if b := buyerOf(t, w, "without"); b.Valid {
+		t.Errorf("empty buyer stored as %q, want NULL", b.String)
+	}
+}
+
+// A database created before buyer_id existed keeps its rows (NULL buyer) and accepts new ones.
+func TestOpenMigratesOrderFactsWithoutBuyerColumn(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "w.duckdb")
+	w := openAt(t, path, time.Now())
+	if _, err := w.DB().Exec("ALTER TABLE order_facts DROP COLUMN buyer_id"); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if _, err := w.DB().Exec(`INSERT INTO order_facts (event_id, order_id, listing_id, variant_id, seller_id, quantity, unit_price, currency, occurred_at, status)
+		VALUES ('old', 'o0', 'l0', '', 's', 1, 1, 'VND', ?, 'PAID')`, at); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+
+	w2 := openAt(t, path, time.Now())
+	defer w2.Close()
+	if got := count(t, w2, warehouse.OrderFactsTableName); got != 1 {
+		t.Fatalf("rows after migration = %d, want 1", got)
+	}
+	if b := buyerOf(t, w2, "old"); b.Valid {
+		t.Errorf("old row buyer = %q, want NULL", b.String)
+	}
+	if err := w2.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{{EventID: "new", OrderID: "o1", OccurredAt: at, Status: "PAID", BuyerID: "u-1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if b := buyerOf(t, w2, "new"); b.String != "u-1" {
+		t.Errorf("new row buyer = %+v", b)
+	}
+}
+
+func TestOrderFactsParquetExportHasBuyerColumn(t *testing.T) {
+	ctx := context.Background()
+	w, err := Open(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{{EventID: "e", OrderID: "o1", OccurredAt: at, Status: "PAID", BuyerID: "u-9"}}); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "order_facts.parquet")
+	if err := w.ExportRelation(ctx, warehouse.OrderFactsTableName, dst); err != nil {
+		t.Fatal(err)
+	}
+	var b string
+	if err := w.DB().QueryRow("SELECT buyer_id FROM read_parquet('" + dst + "')").Scan(&b); err != nil || b != "u-9" {
+		t.Fatalf("exported buyer_id = %q, %v", b, err)
 	}
 }

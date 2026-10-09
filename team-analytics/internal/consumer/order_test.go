@@ -68,6 +68,8 @@ func TestOrderFactsFromEnvelope(t *testing.T) {
 	assert.Equal(t, int64(150000), records[0].UnitPrice)
 	assert.Equal(t, "VND", records[0].Currency)
 	assert.Equal(t, "PAID", records[0].Status)
+	assert.Equal(t, "buyer-7", records[0].BuyerID)
+	assert.Equal(t, "buyer-7", records[1].BuyerID, "every line of an order carries the buyer")
 
 	assert.Equal(t, "evt-order-1-1", records[1].EventID)
 	assert.Equal(t, "order-456", records[1].OrderID)
@@ -115,4 +117,19 @@ func TestOrderFactsSkipsOrderShipped(t *testing.T) {
 	_, trOK, trErr := consumer.RecordFromEnvelope(value)
 	assert.NoError(t, trErr)
 	assert.False(t, trOK)
+}
+
+func TestOrderFactsWithoutBuyerKeepEmptyBuyer(t *testing.T) {
+	payload, err := proto.Marshal(&orderv1.OrderPaidEvent{
+		OrderId: "o-1",
+		Items:   []*orderv1.OrderLineItemFact{{ListingId: "l-1", Quantity: 1}},
+	})
+	require.NoError(t, err)
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{EventId: "e-1", Type: consumer.OrderPaidEventType, Payload: payload})
+	require.NoError(t, err)
+	records, ok, err := consumer.OrderFactsFromEnvelope(value)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Len(t, records, 1)
+	assert.Equal(t, "", records[0].BuyerID)
 }

@@ -149,6 +149,9 @@ type OrderFactRecord struct {
 	Currency   string
 	OccurredAt time.Time
 	Status     string
+	// BuyerID is the buyer's user id from OrderPaidEvent.buyer_id; empty is stored
+	// as NULL (unattributed), as are rows ingested before the column existed.
+	BuyerID string
 }
 
 // OrderFactsTableName is the canonical table for authoritative line-item purchase facts.
@@ -166,6 +169,7 @@ var OrderFactsSchema = []Column{
 	{"currency", "VARCHAR", "STRING"},
 	{"occurred_at", "TIMESTAMP", "TIMESTAMP"},
 	{"status", "VARCHAR", "STRING"},
+	{"buyer_id", "VARCHAR", "STRING"},
 }
 
 // OrderFactsColumnNames returns the ordered column names of order_facts.

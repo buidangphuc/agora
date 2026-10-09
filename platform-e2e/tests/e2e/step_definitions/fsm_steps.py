@@ -210,13 +210,13 @@ def buyer_activity_job(fsm, name, listing):
 
 @then(
     parsers.parse(
-        'the online features of "{name}" under user_activity@v1 have 3 views in the last 7 days '
+        'the online features of "{name}" under user_activity@v2 have 3 views in the last 7 days '
         "and 1 current favourite"
     )
 )
 def user_features(fsm, name):
     uid = fsm.data["shared"].buyer.user_id
-    key = f"fs:user_activity:v1:{uid}"
+    key = f"fs:user_activity:v2:{uid}"
     f = _features(_online(key), key)
     assert f[USER_VIEWS] == 3, f
     assert f[USER_FAVOURITES] == 1, f
@@ -245,7 +245,7 @@ def job_before_first_event(fsm, name):
     _materialize(fsm, as_of)
 
 
-@then(parsers.parse('"{name}" has no user_activity@v1 row in the offline snapshot of that run'))
+@then(parsers.parse('"{name}" has no user_activity@v2 row in the offline snapshot of that run'))
 def no_row(fsm, name):
     s = fsm.data["shared"]
     snap = job.inspect("snapshot", fsm.offline, entities=ENTITIES)
@@ -292,11 +292,11 @@ def job_finishes(fsm):
 
 
 @then(
-    'fs:user_activity:current is "1" and fs:user_activity:meta carries the run\'s as_of and an '
+    'fs:user_activity:current is "2" and fs:user_activity:meta carries the run\'s as_of and an '
     "input watermark no later than it"
 )
 def online_meta(fsm):
-    assert _online("fs:user_activity:current") == "1"
+    assert _online("fs:user_activity:current") == "2"
     meta = json.loads(_online("fs:user_activity:meta") or "null")
     assert meta, "fs:user_activity:meta is missing"
     as_of = _parse(fsm.data["as_of"])
@@ -309,14 +309,14 @@ def online_meta(fsm):
 # ── scenario 6 ───────────────────────────────────────────────────────────
 @when(
     parsers.parse(
-        'after a run, "{name}"\'s user_activity@v1 online value is overwritten with a different '
+        'after a run, "{name}"\'s user_activity@v2 online value is overwritten with a different '
         "view count, and python -m featurestore parity runs"
     )
 )
 def tamper_and_parity(fsm, name):
     s = fsm.data["shared"]
     _materialize(fsm, _iso(datetime.now(timezone.utc)))
-    key = f"fs:user_activity:v1:{s.buyer.user_id}"
+    key = f"fs:user_activity:v2:{s.buyer.user_id}"
     raw = _online(key)
     doc = json.loads(raw or "null")
     assert doc, f"{key} is not online after the run"
