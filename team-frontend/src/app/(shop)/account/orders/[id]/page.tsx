@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Result } from "@/components/ui/Result";
+import { RetryButton } from "@/features/account/RetryButton";
 import { OrderDetailView } from "@/features/order/OrderDetailView";
 import {
   OrderTimelineSection,
@@ -66,14 +67,7 @@ export default async function BuyerOrderDetailPage({
           type="error"
           title="Không tải được đơn hàng"
           description="Đã có lỗi khi tải đơn hàng này. Vui lòng thử lại."
-          action={
-            <Link
-              href={`/account/orders/${params.id}`}
-              className={linkButton.outline}
-            >
-              Thử lại
-            </Link>
-          }
+          action={<RetryButton />}
         />
       </section>
     );

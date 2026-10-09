@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,11 +26,12 @@ vi.mock("@/lib/gateway/orders", () => ({
   listOrderReturns: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
+const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw new Error("NEXT_REDIRECT");
   }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh }),
 }));
 vi.mock("@/features/order/actions", () => ({
   reorderAction: vi.fn(),
@@ -51,6 +52,7 @@ async function renderPage(id = "o1", tab?: string) {
 }
 
 beforeEach(() => {
+  refresh.mockClear();
   vi.clearAllMocks();
   vi.mocked(getPrincipal).mockReturnValue({ id: "b1" } as never);
   vi.mocked(listOrderReturns).mockResolvedValue([]);
@@ -135,10 +137,11 @@ describe("/account/orders/[id] page", () => {
     vi.mocked(getOrderResult).mockResolvedValue({ kind: "error" });
     await renderPage("o9");
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(
-      "href",
-      "/account/orders/o9",
-    );
+    // A same-URL link would be served from the router cache; the retry must be
+    // a button that re-fetches via router.refresh().
+    expect(screen.queryByRole("link", { name: "Thử lại" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Không tìm thấy đơn hàng")).toBeNull();
   });
 
