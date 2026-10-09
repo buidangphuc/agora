@@ -124,6 +124,10 @@ func run() error {
 				logger.Error("engagement consumer stopped", slog.Any("err", runErr))
 			}
 		}()
+	} else {
+		logger.Warn("engagement consumer not started: the warehouse driver cannot store engagement facts",
+			slog.String("driver", settings.Warehouse.Driver),
+			slog.String("topic", settings.Engagement.EventsTopic))
 	}
 
 	logger.Info("analytics consumer starting",
