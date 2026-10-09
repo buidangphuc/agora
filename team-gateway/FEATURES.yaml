@@ -666,3 +666,20 @@ features:
     status: automated
     covered_by: "analytics/tracking_quality_report.feature::Only admins can read the report"
     notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Only admins can read the report"
+
+  - id: gateway.roe-recommendation-performance-admin-only
+    title: "Only admins read recommendation performance"
+    persona: guest
+    priority: P1
+    summary: "Only admins read recommendation performance"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetRecommendationPerformance
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous client and then a logged-in buyer call `GetRecommendationPerformance` through the gateway"
+      - "Then the gateway answers HTTP 401 and then HTTP 403"
+    tags: [security, analytics, admin]
+    status: planned
+    covered_by: null
+    notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::Only admins read recommendation performance"
