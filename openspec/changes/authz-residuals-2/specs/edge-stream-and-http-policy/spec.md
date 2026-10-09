@@ -12,15 +12,16 @@ enforced.
 
 #### Scenario: A stream is ended when its token expires
 
-- **WHEN** a logged-in buyer whose token expires in about 8 seconds opens a `StreamChat` the model provider holds open
+- **WHEN** a logged-in buyer whose token expires in about 3 seconds opens a `StreamChat` the model provider holds open
 - **THEN** the stream ends with the Connect error code `unauthenticated` about when the token expires, not after the
   provider answers
 
 #### Scenario: A stream is ended when its session is revoked
 
-- **WHEN** a logged-in buyer opens a `StreamChat` the model provider holds open, then revokes that session through
-  `RevokeSession`
-- **THEN** the stream ends with the Connect error code `unauthenticated` within 15 seconds
+- **WHEN** a logged-in buyer opens a `StreamChat` the model provider holds open on a gateway that checks revocation
+  every second, then revokes that session through `RevokeSession`
+- **THEN** the stream ends with the Connect error code `unauthenticated` within 4 seconds of the revoke, before the
+  provider's own timeouts end it
 
 #### Scenario: A stream that finishes before expiry is unaffected
 
