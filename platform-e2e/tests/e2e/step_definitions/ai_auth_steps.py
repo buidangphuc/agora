@@ -37,6 +37,9 @@ SERVICE_ONLY_SCOPES = {
 }
 REDIS_CONTAINER = os.getenv("REDIS_CONTAINER", "agora-redis-1")
 RECS_USER_KEY = "recs:v1:user:{user_id}"
+# Since recsys-generation-publish, team-ai reads the serving generation's keys when the
+# pointer recs:v1:serving is set, and the unscoped keys only when it is absent.
+RECS_GEN_USER_KEY = "recs:v1:gen:{gen}:user:{user_id}"
 HOMEPAGE = "RECOMMENDATION_CONTEXT_HOMEPAGE"
 
 
@@ -70,6 +73,24 @@ def _redis(*args: str) -> None:
         text=True,
         timeout=30,
     )
+
+
+def _redis_get(key: str) -> str:
+    out = subprocess.run(
+        ["docker", "exec", REDIS_CONTAINER, "redis-cli", "GET", key],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return out.stdout.strip()
+
+
+def _recs_user_key(user_id: str) -> str:
+    serving = _redis_get("recs:v1:serving")
+    if serving:
+        return RECS_GEN_USER_KEY.format(gen=serving, user_id=user_id)
+    return RECS_USER_KEY.format(user_id=user_id)
 
 
 def _extra(world: World) -> dict[str, Any]:
@@ -133,7 +154,7 @@ def two_buyers_with_lists(world: World) -> None:
         _, _, token = _register("buyer", f"rec{who}")
         user_id = _claims(token)["sub"]
         ids = [f"e2e-{run}-{who}-{n}" for n in (1, 2, 3)]
-        key = RECS_USER_KEY.format(user_id=user_id)
+        key = _recs_user_key(user_id)
         _redis("set", key, json.dumps(ids), "EX", "600")
         world.add_cleanup(lambda k=key: _redis("del", k))
         extra[f"{who}_token"], extra[f"{who}_id"], extra[f"{who}_ids"] = token, user_id, ids
