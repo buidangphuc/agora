@@ -158,3 +158,80 @@ def ship_order(shop: dict[str, Any], order_id: str, *, complete: bool = False) -
     svc.update_order_status(order_id, "ORDER_STATUS_SHIPPED")
     if complete:
         svc.update_order_status(order_id, "ORDER_STATUS_COMPLETED")
+
+
+def seed_seller_session(
+    world: World, *, listings: int = 0, price: int = 100_000, stock: int = 50, image: bool = False
+) -> dict[str, Any]:
+    """Register a seller (with `listings` published listings), log the browser in as them."""
+    username, token = register("seller")
+    svc = ListingService(token=token)
+    items = []
+    for i in range(listings):
+        listing = Listing(
+            title=f"[E2E][d2] seller item {i:02d} {uuid.uuid4().hex[:6]}",
+            category_id="cat-electronics",
+            price=price,
+            stock=stock,
+            status="published",
+            description="Seed for the d2 seller UI e2e.",
+        )
+        if image:
+            res = svc.post(
+                ep.LISTING_CREATE,
+                {
+                    "listing": {
+                        "title": listing.title,
+                        "categoryId": listing.category_id,
+                        "price": price,
+                        "stock": stock,
+                        "status": "LISTING_STATUS_PUBLISHED",
+                        "currency": listing.currency,
+                        "description": listing.description,
+                        "imageKeys": ["d2/thumb.png"],
+                    }
+                },
+            )
+            listing.listing_id = res["listing"]["id"]
+        else:
+            svc.create_listing(listing)
+        items.append({"id": listing.listing_id, "title": listing.title, "stock": stock})
+    world.context.add_cookies(
+        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+    )
+    world.service_factory.set_token(token)
+    seller = {
+        "username": username,
+        "token": token,
+        "seller_id": principal_id(token),
+        "listings": items,
+    }
+    world.state.extra["d2_seller"] = seller
+    return seller
+
+
+def seller_order(world: World, seller: dict[str, Any], *, listing_index: int = 0) -> str:
+    """A buyer's COD order for one of the seller's listings; returns the order id."""
+    buyer = seed_buyer_token()
+    item = seller["listings"][listing_index]
+    CartService(token=buyer["token"]).add_to_cart(item["id"], 1)
+    res = OrderService(token=buyer["token"]).create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
+    orders = res.get("orders", [])
+    order_id = orders[0]["id"] if orders else res["order"]["id"]
+    world.state.extra["d2_order_id"] = order_id
+    world.state.extra["d2_buyer_token"] = buyer["token"]
+    return order_id
+
+
+def seed_buyer_token() -> dict[str, str]:
+    username, token = register("buyer")
+    AddressService(token=token).create_address(
+        recipient_name="Nguyen Van A",
+        phone="0912345678",
+        street="29 Lieu Giai",
+        city="Hà Nội",
+        ward="Phuong Lieu Giai",
+        district="Quan Ba Dinh",
+        is_default=True,
+    )
+    return {"username": username, "token": token}

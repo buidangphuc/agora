@@ -77,7 +77,7 @@ Feature: Seller cockpit
     Then a no-results state offers a clear-filter link
 
   @needsSeller
-  Scenario: Invalid page and status fall back to defaults
+  Scenario: Invalid page falls back
     Given a seeded seller is logged in
     When the seller opens the workplace with an invalid page and status
     Then the first page renders without an error
@@ -92,7 +92,7 @@ Feature: Seller cockpit
     Then a success toast appears and the stepper shows the order as shipped
 
   @needsSeller @needsOrder
-  Scenario: Print hides the seller chrome
+  Scenario: Print hides chrome
     Given a seeded seller is logged in
     When the seller opens the detail of their order
     Then the print layout hides the seller chrome and keeps the packing slip
@@ -122,14 +122,10 @@ Feature: Seller cockpit
     And the public shop page shows "Nhà Sách An Nhiên"
 
   @needsSeller
-  Scenario: A blank shop name is rejected inline
+  Scenario: An empty or too long name is rejected inline
     Given a seeded seller is logged in
     When the seller submits a blank shop name
     Then the shop name field shows a required error
-
-  @needsSeller
-  Scenario: A shop name longer than 80 characters is rejected inline
-    Given a seeded seller is logged in
     When the seller submits a shop name of 81 characters
     Then the shop name field shows a length error
 

@@ -544,6 +544,15 @@ def range_tab_current(world: World, label: str) -> None:
     expect(_analytics(world).active_range_tab).to_have_text(label, timeout=timeouts.NAVIGATION)
 
 
+@then("the revenue table and totals of the selected range are shown")
+def revenue_table_and_totals(world: World) -> None:
+    page = _analytics(world)
+    expect(page.revenue_table.or_(world.page.get_by_text("Chưa có dữ liệu")).first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
+    expect(page.kpi_row.or_(world.page.get_by_text("Chưa có dữ liệu phễu")).first).to_be_visible()
+
+
 @then("the Statistic row of the analytics page is visible")
 def analytics_statistic_row(world: World) -> None:
     expect(

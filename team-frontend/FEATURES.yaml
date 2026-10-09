@@ -2619,6 +2619,779 @@ features:
     status: automated
     covered_by: "frontend/orders_ui.feature::Tracking events still fire after reorder"
 
+  - id: uisl.navigation-opens-as-a-drawer-at-375px
+    title: "Navigation opens as a Drawer at 375px"
+    persona: seller
+    priority: P2
+    summary: "Navigation opens as a Drawer at 375px"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller at a 375px viewport taps the menu button"
+      - "Then a Drawer (`role=\"dialog\"`) lists the seller links, the sidebar is not rendered inline, and choosing \"Quản lý đơn hàng\" navigates to `/seller/orders` and closes the Drawer"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Navigation opens as a Drawer at 375px"
+
+  - id: uisl.shop-card-shows-the-real-shop-name
+    title: "Shop card shows the real shop name"
+    persona: seller
+    priority: P2
+    summary: "Shop card shows the real shop name"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller's shop display name is \"Cửa hàng Hoa Mai\""
+      - "Then the sidebar shop card shows \"Cửa hàng Hoa Mai\" and not \"Shop #\""
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Shop card shows the real shop name"
+
+  - id: uisl.empty-shop-name-falls-back
+    title: "Empty shop name falls back"
+    persona: seller
+    priority: P2
+    summary: "Empty shop name falls back"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the shop display name is empty"
+      - "Then the shop card shows \"Shop #\" followed by the first 6 characters of the seller id"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Empty shop name falls back"
+
+  - id: uisl.active-route-is-announced
+    title: "Active route is announced"
+    persona: seller
+    priority: P2
+    summary: "Active route is announced"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller is on `/seller/wallet`"
+      - "Then only the \"Ví người bán\" link has `aria-current=\"page\"`"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Active route is announced"
+
+  - id: uisl.missing-scope-shows-a-recovery-result
+    title: "Missing scope shows a recovery Result"
+    persona: seller
+    priority: P2
+    summary: "Missing scope shows a recovery Result"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a logged-in buyer without `listing.write` opens `/seller`"
+      - "Then a `Result` explains the seller role is required and offers a link back to `/`"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Missing scope shows a recovery Result"
+
+  - id: uisl.kpi-row-reflects-the-seller-s-data
+    title: "KPI row reflects the seller's data"
+    persona: seller
+    priority: P2
+    summary: "KPI row reflects the seller's data"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 3 published listings, one of them with stock 2, opens `/seller`"
+      - "Then the KPI row shows total 3, published 3 and low stock 1, derived from the fetched data"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::KPI row reflects the seller's data"
+
+  - id: uisl.a-kpi-without-a-source-is-hidden-not-zeroed
+    title: "A KPI without a source is hidden, not zeroed"
+    persona: seller
+    priority: P2
+    summary: "A KPI without a source is hidden, not zeroed"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the call that feeds a KPI (for example open orders) fails"
+      - "Then that `Statistic` cell is not rendered, no placeholder `0` appears in its place, and the other KPIs still render"
+    tags: [seller]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs the open-orders read (ListSellerOrders) to fail while the page still renders. Covered by the Vitest app/(shop)/seller/(dashboard)/page.test.tsx and features/seller/kpi.test.ts."
+
+  - id: uisl.no-hard-coded-metric-values
+    title: "No hard-coded metric values"
+    persona: seller
+    priority: P2
+    summary: "No hard-coded metric values"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the Workplace is rendered with an empty gateway response"
+      - "Then every `Statistic` shows a value derived from that response (total products 0 only because zero listings were returned) and no fixed number from source code"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::No hard-coded metric values"
+
+  - id: uisl.quick-actions-navigate
+    title: "Quick actions navigate"
+    persona: seller
+    priority: P2
+    summary: "Quick actions navigate"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller activates \"Ví người bán\" in quick actions"
+      - "Then the browser navigates to `/seller/wallet`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::Quick actions navigate"
+
+  - id: uisl.seller-with-no-orders-sees-an-empty-in-recent-orders
+    title: "Seller with no orders sees an Empty in recent orders"
+    persona: seller
+    priority: P2
+    summary: "Seller with no orders sees an Empty in recent orders"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller has no orders"
+      - "Then the recent-orders block shows an `Empty` with a link to `/seller/new`, not a blank area"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Seller with no orders sees an Empty in recent orders"
+
+  - id: uisl.order-status-tab-is-a-link-and-survives-reload
+    title: "Order status tab is a link and survives reload"
+    persona: seller
+    priority: P2
+    summary: "Order status tab is a link and survives reload"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller selects the \"Đang giao\" tab on `/seller/orders` and reloads the page"
+      - "Then the URL still contains `status=` for that tab, the same tab is selected, and only shipped orders are listed"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_order_management.feature::Order status tab is a link and survives reload"
+
+  - id: uisl.pagination-moves-between-pages
+    title: "Pagination moves between pages"
+    persona: seller
+    priority: P2
+    summary: "Pagination moves between pages"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with 45 listings opens `/seller?page=2`"
+      - "Then rows 21-40 are shown, `Pagination` marks page 2 current (`aria-current=\"page\"`), and Previous and Next links point at `page=1` and `page=3`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::Pagination moves between pages"
+
+  - id: uisl.invalid-page-falls-back
+    title: "Invalid page falls back"
+    persona: seller
+    priority: P2
+    summary: "Invalid page falls back"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller?page=abc` or `/seller?status=bogus`"
+      - "Then the page renders page 1 with the default status, with no error"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Invalid page falls back"
+
+  - id: uisl.no-match-shows-empty-with-a-clear-action
+    title: "No match shows Empty with a clear action"
+    persona: seller
+    priority: P2
+    summary: "No match shows Empty with a clear action"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a filter matches no rows"
+      - "Then the table shows an `Empty` (\"Không có kết quả\") with a \"Xoá bộ lọc\" link to the unfiltered route"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::No match shows Empty with a clear action"
+
+  - id: uisl.confirm-shows-pending-then-success
+    title: "Confirm shows pending then success"
+    persona: seller
+    priority: P2
+    summary: "Confirm shows pending then success"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller confirms deletion"
+      - "Then the confirm button shows a spinner and is disabled, and after success the Modal closes, a success toast appears and the row is gone from the table"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Confirm shows pending then success"
+
+  - id: uisl.failed-delete-keeps-the-modal-open
+    title: "Failed delete keeps the Modal open"
+    persona: seller
+    priority: P2
+    summary: "Failed delete keeps the Modal open"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `deleteListingAction` returns `{ ok: false, error }`"
+      - "Then the Modal stays open, shows the error in an `Alert`, an error toast appears and the confirm button is enabled again"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Failed delete keeps the Modal open"
+    notes: "Failure provoked by deleting the listing from another session before confirming."
+
+  - id: uisl.required-field-error-is-announced
+    title: "Required field error is announced"
+    persona: seller
+    priority: P2
+    summary: "Required field error is announced"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller submits the form with an empty title"
+      - "Then the title `FormItem` shows an error linked by `aria-describedby`, the Input has `aria-invalid=\"true\"`, and no request is sent"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Required field error is announced"
+
+  - id: uisl.submit-is-pending-and-non-repeatable
+    title: "Submit is pending and non-repeatable"
+    persona: seller
+    priority: P2
+    summary: "Submit is pending and non-repeatable"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller submits a valid form"
+      - "Then the submit `Button` shows a spinner with unchanged width, is disabled so a second click does nothing, and on success a toast \"Đã lưu\" appears"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Submit is pending and non-repeatable"
+
+  - id: uisl.create-succeeds-and-the-listing-appears-in-the-seller-s
+    title: "Create succeeds and the listing appears in the seller's list"
+    persona: seller
+    priority: P2
+    summary: "Create succeeds and the listing appears in the seller's list"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller creates a listing with valid data"
+      - "Then a success state offers \"Xem danh sách\" and the new listing appears on `/seller`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Create succeeds and the listing appears in the seller's list"
+
+  - id: uisl.server-error-is-surfaced
+    title: "Server error is surfaced"
+    persona: seller
+    priority: P2
+    summary: "Server error is surfaced"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `saveListingAction` returns `{ ok: false, message }`"
+      - "Then an `Alert` at the top of the form shows the message, an error toast appears, the entered values are preserved and the submit button is enabled"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Server error is surfaced"
+    notes: "Failure provoked by deleting the listing from another session before saving the edit form."
+
+  - id: uisl.editing-someone-else-s-listing-is-refused
+    title: "Editing someone else's listing is refused"
+    persona: seller
+    priority: P2
+    summary: "Editing someone else's listing is refused"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/<id>/edit` of a listing owned by another seller"
+      - "Then a 403 `Result` with a link back to `/seller` is shown and the form is not rendered"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/edit-listing.feature::Editing someone else's listing is refused"
+
+  - id: uisl.apply-fills-the-controlled-fields
+    title: "Apply fills the controlled fields"
+    persona: seller
+    priority: P2
+    summary: "Apply fills the controlled fields"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller activates \"Áp dụng tất cả\""
+      - "Then title, description and price fields show the suggestion values and submit sends them"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_listing.feature::Apply fills the controlled fields"
+
+  - id: uisl.magic-listing-failure-is-recoverable
+    title: "Magic Listing failure is recoverable"
+    persona: seller
+    priority: P2
+    summary: "Magic Listing failure is recoverable"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `magicListingAction` returns `{ ok: false, error }`"
+      - "Then an `Alert` with \"Thử lại\" and an error toast are shown, and the seller can still submit manually"
+    tags: [seller]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs team-ai to fail or run out of quota (see the destructive ai/llm_breaker.feature). Covered by the Vitest features/listing/ListingForm.test.tsx."
+
+  - id: uisl.shipping-an-order-gives-feedback
+    title: "Shipping an order gives feedback"
+    persona: seller
+    priority: P2
+    summary: "Shipping an order gives feedback"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller confirms \"Bàn giao vận chuyển\" on a paid order"
+      - "Then the confirm button is pending then disabled, a success toast appears, and the status `Tag` and `Stepper` show Shipped after revalidation"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Shipping an order gives feedback"
+
+  - id: uisl.shipping-failure-is-reported
+    title: "Shipping failure is reported"
+    persona: seller
+    priority: P2
+    summary: "Shipping failure is reported"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `updateOrderStatusAction` returns `{ ok: false, error }`"
+      - "Then an error toast and an `Alert` with the error are shown and the order status is unchanged"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Shipping failure is reported"
+    notes: "Failure provoked by shipping the order from another session before confirming the handover."
+
+  - id: uisl.unknown-order-is-a-not-found-state
+    title: "Unknown order is a not-found state"
+    persona: seller
+    priority: P2
+    summary: "Unknown order is a not-found state"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/seller/orders/does-not-exist`"
+      - "Then the seller `not-found.tsx` renders a `Result` with a link to `/seller/orders`"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Unknown order is a not-found state"
+
+  - id: uisl.print-hides-chrome
+    title: "Print hides chrome"
+    persona: seller
+    priority: P2
+    summary: "Print hides chrome"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller activates \"In phiếu\""
+      - "Then the print stylesheet hides the sidebar, header actions and toasts and prints the packing slip only"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Print hides chrome"
+
+  - id: uisl.metrics-summary-is-visible
+    title: "Metrics summary is visible"
+    persona: seller
+    priority: P2
+    summary: "Metrics summary is visible"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller opens `/seller/analytics`"
+      - "Then the dashboard and the revenue metrics summary (`Statistic` row) are visible"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_analytics.feature::Metrics summary is visible"
+
+  - id: uisl.analytics-failure-is-recoverable
+    title: "Analytics failure is recoverable"
+    persona: seller
+    priority: P2
+    summary: "Analytics failure is recoverable"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `getSellerFunnel` throws"
+      - "Then an `Alert` with a \"Thử lại\" link to the same URL is shown and the rest of the page still renders"
+    tags: [seller]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs getSellerFunnel to throw. Covered by the Vitest app/(shop)/seller/analytics/analytics.test.tsx."
+
+  - id: uisl.payout-confirms-pends-and-toasts
+    title: "Payout confirms, pends and toasts"
+    persona: seller
+    priority: P2
+    summary: "Payout confirms, pends and toasts"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller with a positive balance activates \"Rút tiền\" and confirms"
+      - "Then the confirm button is pending then disabled, a success toast appears and the balance and ledger refresh"
+    tags: [seller]
+    status: planned
+    notes: "Written as frontend/ui_seller_orders_money.feature::Payout confirms, pends and toasts, @destructive: proceeds inside the refund window cannot be paid out (failed_precondition, verified live), so it waits the window out and needs payment-ledger.override.yaml like payment/plp_payout_holdback.feature. Serial lane only, not run."
+
+  - id: uisl.payout-is-disabled-without-balance
+    title: "Payout is disabled without balance"
+    persona: seller
+    priority: P2
+    summary: "Payout is disabled without balance"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the balance is 0"
+      - "Then the payout `Button` is disabled with `aria-disabled=\"true\"` and explains why"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/fulfillment_and_payout.feature::Payout is disabled without balance"
+
+  - id: uisl.current-plan-cannot-be-re-subscribed
+    title: "Current plan cannot be re-subscribed"
+    persona: seller
+    priority: P2
+    summary: "Current plan cannot be re-subscribed"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller views `/seller/plans`"
+      - "Then the current plan shows a \"Gói hiện tại\" `Tag` and a disabled button, other plans show an enabled \"Đăng ký\" button"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Current plan cannot be re-subscribed"
+
+  - id: uisl.action-errors-use-the-error-field
+    title: "Action errors use the error field"
+    persona: seller
+    priority: P2
+    summary: "Action errors use the error field"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `createBundleAction` returns `{ ok: false, error: \"Chọn ít nhất 2 sản phẩm cho combo.\" }`"
+      - "Then the field-level `FormItem` or an `Alert` shows that message and an error toast appears"
+    tags: [seller]
+    status: planned
+    notes: "BLOCKED code/spec mismatch, scenario red: with fewer than 2 products the form shows \"Chọn ít nhất 2 sản phẩm cho combo.\" as a field error from client-side validation but never calls createBundleAction, so no error toast appears (features/seller/BundleManager.tsx validateBundle). The spec describes the server path."
+
+  - id: uisl.bundle-creation-succeeds
+    title: "Bundle creation succeeds"
+    persona: seller
+    priority: P2
+    summary: "Bundle creation succeeds"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller creates a valid bundle"
+      - "Then a success toast appears, the form resets and the bundle appears in the list after revalidation"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Bundle creation succeeds"
+
+  - id: uisl.an-empty-or-too-long-name-is-rejected-inline
+    title: "An empty or too long name is rejected inline"
+    persona: seller
+    priority: P2
+    summary: "An empty or too long name is rejected inline"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller submits a blank name or one longer than 80 characters"
+      - "Then no request is sent and the field shows an inline error linked by `aria-describedby`"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::An empty or too long name is rejected inline"
+
+  - id: uisl.skeleton-matches-the-page-footprint
+    title: "Skeleton matches the page footprint"
+    persona: seller
+    priority: P2
+    summary: "Skeleton matches the page footprint"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `/seller` is requested while its data is pending"
+      - "Then a skeleton with the KPI row and table rows is shown, and when data arrives the page content height does not shift (CLS = 0)"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_quality.feature::Skeleton matches the page footprint"
+    notes: "CLS measured 0 on an unthrottled run."
+
+  - id: uisl.route-error-offers-recovery
+    title: "Route error offers recovery"
+    persona: seller
+    priority: P2
+    summary: "Route error offers recovery"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller page throws during render"
+      - "Then `error.tsx` shows a `Result` with \"Thử lại\" calling `reset` and a link to `/seller`"
+    tags: [seller]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs a seller page to throw during render. Covered by the Vitest app/(shop)/seller/states.test.tsx."
+
+  - id: uisl.empty-product-list-shows-a-call-to-action
+    title: "Empty product list shows a call to action"
+    persona: seller
+    priority: P2
+    summary: "Empty product list shows a call to action"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller has no listings"
+      - "Then the product table area shows `Empty` (\"Shop chưa có sản phẩm\") with a primary \"Thêm sản phẩm\" link"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Empty product list shows a call to action"
+
+  - id: uisl.list-read-failure-shows-an-alert
+    title: "List read failure shows an Alert"
+    persona: seller
+    priority: P2
+    summary: "List read failure shows an Alert"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `listMyListings` throws"
+      - "Then an `Alert` with a retry link is shown above an empty table instead of a raw error string"
+    tags: [seller]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs listMyListings to throw. Covered by the Vitest app/(shop)/seller/states.test.tsx."
+
+  - id: uisl.thumbnails-reserve-their-space
+    title: "Thumbnails reserve their space"
+    persona: seller
+    priority: P2
+    summary: "Thumbnails reserve their space"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the product table renders listings with slow-loading images"
+      - "Then each thumbnail box is already 1:1 and the row height does not change when the image loads"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_quality.feature::Thumbnails reserve their space"
+
+  - id: uisl.below-the-fold-images-are-lazy
+    title: "Below-the-fold images are lazy"
+    persona: seller
+    priority: P2
+    summary: "Below-the-fold images are lazy"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller has 20 listings on the page"
+      - "Then thumbnails after the first screen have `loading=\"lazy\"`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_quality.feature::Below-the-fold images are lazy"
+
+  - id: uisl.token-lint-passes-on-seller-code
+    title: "Token lint passes on seller code"
+    persona: seller
+    priority: P2
+    summary: "Token lint passes on seller code"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `npm run check` runs after the change"
+      - "Then the token lint reports no raw hex, `rgb()` or arbitrary `-[..]` value in `src/app/seller/**`, `src/app/sell/**` or `src/features/seller/**`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_quality.feature::Token lint passes on seller code"
+
+  - id: uisl.one-primary-cta-per-page
+    title: "One primary CTA per page"
+    persona: seller
+    priority: P2
+    summary: "One primary CTA per page"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `/seller/orders` is rendered"
+      - "Then at most one brand-filled primary `Button` is visible in the page header and other actions are `outline` or `ghost`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_quality.feature::One primary CTA per page"
+
+  - id: uisl.form-actions-stay-reachable-on-mobile
+    title: "Form actions stay reachable on mobile"
+    persona: seller
+    priority: P2
+    summary: "Form actions stay reachable on mobile"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the listing studio is scrolled to the middle at 375px"
+      - "Then the Save button remains visible in the sticky bottom bar"
+    tags: [seller]
+    status: automated
+    covered_by: "seller/seller_cockpit.feature::Form actions stay reachable on mobile"
+
+  - id: uisl.desktop-shows-a-four-up-kpi-row
+    title: "Desktop shows a four-up KPI row"
+    persona: seller
+    priority: P2
+    summary: "Desktop shows a four-up KPI row"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When `/seller` is opened at 1280px"
+      - "Then the four KPI `Statistic` cells appear in one row next to the sidebar"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::Desktop shows a four-up KPI row"
+
+  - id: uisl.impression-click-and-attribution-events-still-fire
+    title: "Impression, click and attribution events still fire"
+    persona: seller
+    priority: P2
+    summary: "Impression, click and attribution events still fire"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a buyer session views a listing, clicks it from search and adds it to cart after this change"
+      - "Then the tracking events (impression, click with placement attribution) are still emitted with the same payload shape, and the seller funnel on `/seller/analytics` counts them"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_quality.feature::Impression, click and attribution events still fire"
+    notes: "Buyer view and add_to_cart events plus the seller funnel view count; the search click and impression events are asserted by tracking/discovery_tracking_unchanged.feature."
+
+  - id: uisl.row-links-keep-their-targets
+    title: "Row links keep their targets"
+    persona: seller
+    priority: P2
+    summary: "Row links keep their targets"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller activates the title link of a product row"
+      - "Then the browser opens `/listing/<id>` exactly as before"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::Row links keep their targets"
+
+  - id: uisl.sell-redirects
+    title: "/sell redirects"
+    persona: seller
+    priority: P2
+    summary: "/sell redirects"
+    entry_route: /seller
+    services: [team-frontend, team-gateway, team-domain]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller opens `/sell`"
+      - "Then the browser lands on `/seller/new`"
+    tags: [seller]
+    status: automated
+    covered_by: "frontend/ui_seller_workplace.feature::/sell redirects"
+
   # <<< d2 generated
 
   - id: orders.list-status-tabs
@@ -3299,7 +4072,7 @@ features:
       - Given getSellerFunnel throws, then an Alert with a "Thử lại" link to the same URL is shown and the rest of the page still renders
     tags: [seller, analytics]
     status: automated
-    covered_by: "seller/seller_analytics.feature::Range tab updates the URL"
+    covered_by: "seller/seller_analytics.feature::Range tab changes the data via the URL"
     notes: The failure scenario needs fault injection; covered by Vitest (analytics.test.tsx).
 
   - id: seller.wallet-payout-confirm
