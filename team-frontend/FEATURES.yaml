@@ -2705,6 +2705,6 @@ features:
       - "When a buyer opens the homepage and its recommendation row is shown"
       - "Then the impression beacons of that row carry an `impressionId` equal to the `request_id` the storefront received, and `placementId` \"home_feed\""
     tags: [buyer, recommendations, tracking, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/recommendation_attribution.feature::Storefront beacons carry the server request id"
     notes: "recs-serving-safeguards: frontend/recommendation_attribution.feature::Storefront beacons carry the server request id"

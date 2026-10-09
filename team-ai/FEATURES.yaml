@@ -720,8 +720,8 @@ features:
       - "When the Redis used by team-ai is stopped and a buyer requests homepage recommendations through the gateway"
       - "Then the call succeeds with model_version \"serving-fallback\""
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Recommendations survive a Redis outage"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Recommendations survive a Redis outage"
 
   - id: ai.rss-popular-cold-start
@@ -738,8 +738,8 @@ features:
       - "When the serving generation's popular list is L and a buyer with no recommendations of their own requests homepage recommendations"
       - "Then the returned listing ids are the first items of L, in L's order"
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::A new buyer gets the popular list"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::A new buyer gets the popular list"
 
   - id: ai.rss-memory-backend-refused
@@ -756,8 +756,8 @@ features:
       - "When the team-ai image is started with `ENVIRONMENT=production`, `RECS_ENABLED=true` and `RECS_BACKEND=memory`"
       - "Then the process exits non-zero and its log names `RECS_BACKEND`"
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
 
   - id: ai.rss-run-grpc-recommend
@@ -774,8 +774,8 @@ features:
       - "When team-ai is started with `scripts/run_grpc.py` and a buyer requests recommendations through a gateway pointed at it"
       - "Then the call succeeds instead of answering `unimplemented`"
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
 
   - id: ai.rss-distinct-request-ids
@@ -792,8 +792,8 @@ features:
       - "When a buyer requests homepage recommendations twice through the gateway"
       - "Then both responses have `placement_id` \"home_feed\" and two different non-empty `request_id`s, and team-ai logged a `recs.served` line for each"
     tags: [recommendations, ai]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Two calls get distinct request ids and the served placement"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Two calls get distinct request ids and the served placement"
 
   - id: ai.rss-online-feature-tie-break
@@ -810,6 +810,6 @@ features:
       - "When two candidates have equal model scores and only the second has `item_popularity` features with `ctr_7d` 0.5"
       - "Then the second ranks above the first in the response"
     tags: [recommendations, ai, destructive]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Online features break a tie"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Online features break a tie"
