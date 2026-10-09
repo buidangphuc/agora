@@ -3,16 +3,16 @@
 Modelled on recsys_job_flow: `docker run --rm --network <stack>` of the job image.
 
 * `run_job` runs `python -m featurestore <materialize|parity>` with the analytics volume read-only
-  at /data and a per-test temp offline dir at /features, Redis DB 2 on the stack network.
+  at /data and a per-test temp offline dir at /features, a per-worker Redis DB on the stack network.
 * `inspect` runs fsm_job_driver.py (read-only) in the same image to read Parquet/manifests.
 * `Online` is a tiny RESP client for the stack Redis as published on the host (no redis package in
-  the e2e venv). It only touches DB 2, the job's own index.
+  the e2e venv). It only touches the job's per-worker DB (see redis_db).
 
 Environment (defaults match the local `agora` compose project):
     FEATURESTORE_IMAGE            platform-featurestore:local
     FSM_ANALYTICS_VOLUME          agora_analytics_data
     FSM_REDIS_HOST / FSM_REDIS_PORT   localhost / 6380   (host-published stack Redis)
-    FSM_REDIS_DB                  2
+    FSM_REDIS_DB                  10 + xdist worker index
 STACK_NETWORK comes from the e2e settings.
 """
 
@@ -42,7 +42,16 @@ def analytics_volume() -> str:
 
 
 def redis_db() -> int:
-    return int(os.getenv("FSM_REDIS_DB", "2"))
+    """The job's Redis DB for this test process.
+
+    Each xdist worker gets its own DB (10 + worker index). Otherwise concurrent scenarios overwrite each
+    other's `fs:*:current` and `fs:*:meta`, and the runs write into DB 2, which team-ai serves its
+    online features from.
+    """
+    if "FSM_REDIS_DB" in os.environ:
+        return int(os.environ["FSM_REDIS_DB"])
+    worker = os.getenv("PYTEST_XDIST_WORKER", "gw0")
+    return 10 + int(worker.removeprefix("gw") or 0)
 
 
 def new_offline_dir() -> Path:
