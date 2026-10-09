@@ -6,6 +6,10 @@ import ListingError from "../error";
 import ListingNotFound from "../not-found";
 import Loading from "./loading";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 describe("loading.tsx", () => {
   it("renders Skeletons with the footprints of the final anatomy (gallery 1:1)", () => {
     const { container } = render(<Loading />);

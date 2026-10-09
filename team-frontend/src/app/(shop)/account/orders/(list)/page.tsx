@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Pagination } from "@/components/ui/Pagination";
+import { RetryButton } from "@/features/account/RetryButton";
 import { OrderList } from "@/features/order/OrderList";
 import { OrderStatusTabs, ordersHref } from "@/features/order/OrderStatusTabs";
 import { linkButton } from "@/features/order/linkStyles";
@@ -67,14 +68,7 @@ export default async function AccountOrdersPage({
           type="error"
           title="Không tải được danh sách đơn hàng"
           description="Đã có lỗi khi tải đơn hàng của bạn. Vui lòng thử lại."
-          action={
-            <Link
-              href={ordersHref(view.status, view.page)}
-              className={linkButton.outline}
-            >
-              Thử lại
-            </Link>
-          }
+          action={<RetryButton />}
         />
       )}
     </section>

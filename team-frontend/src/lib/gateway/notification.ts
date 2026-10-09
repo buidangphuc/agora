@@ -83,15 +83,13 @@ function mapSubscription(s: AlertSubscription): ViewAlertSubscription {
 export async function listNotifications(
   pageSize = 30,
 ): Promise<{ notifications: ViewNotification[]; totalUnread: number }> {
-  try {
-    const res = await notification().listNotifications({ pageSize });
-    return {
-      notifications: res.notifications.map(mapNotification),
-      totalUnread: res.totalUnread,
-    };
-  } catch {
-    return { notifications: [], totalUnread: 0 };
-  }
+  // Errors propagate (empty != failed) so the route's error.tsx can offer a
+  // retry instead of rendering an outage as "no notifications yet".
+  const res = await notification().listNotifications({ pageSize });
+  return {
+    notifications: res.notifications.map(mapNotification),
+    totalUnread: res.totalUnread,
+  };
 }
 
 // ── Price-drop / back-in-stock alert subscriptions ──────────────────────────

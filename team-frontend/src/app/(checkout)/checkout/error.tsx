@@ -2,6 +2,7 @@
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { useRouteRetry } from "@/lib/useRouteRetry";
 
 export default function CheckoutError({
   reset,
@@ -9,6 +10,7 @@ export default function CheckoutError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const retry = useRouteRetry(reset);
   return (
     <section className="mx-auto max-w-xl py-8">
       <Alert
@@ -16,7 +18,7 @@ export default function CheckoutError({
         title="Không thể tải trang thanh toán"
         description="Đã có lỗi xảy ra. Giỏ hàng của bạn không bị thay đổi."
         action={
-          <Button size="sm" variant="outline" onClick={() => reset()}>
+          <Button size="sm" variant="outline" onClick={retry}>
             Thử lại
           </Button>
         }
