@@ -68,9 +68,9 @@ shell env, then `.env`, then `env/.env.<ENV>` (`ENV` defaults to `local`; files 
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | Tracking assertions |
 | `KAFKA_ORDER_TOPIC` | `order.events` | Order-fact assertions |
 | `FLIPT_URL` | `http://localhost:8080` | Flag toggling |
-| `SEARCH_CONTAINER` | `team-search-svc` | Stopped by the search backend-failure scenario |
-| `GATEWAY_CONTAINER` | `team-gateway-svc` | Restarted by session revocation |
-| `NOTIFICATION_CONTAINER` | `team-notification-svc` | Restarted by notification hardening |
+| `SEARCH_CONTAINER` | `agora-team-search-svc` | Stopped by the search backend-failure scenario |
+| `GATEWAY_CONTAINER` | `agora-team-gateway-svc` | Restarted by session revocation |
+| `NOTIFICATION_CONTAINER` | `agora-team-notification-svc` | Restarted by notification hardening |
 | `RECSYS_IMAGE` | `platform-recsys:local` | Image run by the recsys job scenarios |
 | `STACK_NETWORK` | `platform-core_default` | Docker network for the job container |
 
