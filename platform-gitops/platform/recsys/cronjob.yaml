@@ -24,7 +24,7 @@ data:
   MAX_DATASET_AGE_MINUTES: "1500"
   # Artifact stores (shared infra service names in the marketplace namespace).
   QDRANT_URL: "http://qdrant:6333"
-  REDIS_HOST: "redis"
+  REDIS_HOST: "valkey"   # the cluster Service is valkey (platform/infra/valkey.yaml)
   REDIS_PORT: "6379"
   # Cache/collection contract — MUST match serve-recommendations-teamai.
   QDRANT_ITEM_COLLECTION: "item_als_vectors"
