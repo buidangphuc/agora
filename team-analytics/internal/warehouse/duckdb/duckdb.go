@@ -103,6 +103,12 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("ensure %s table: %w", warehouse.CountersTableName, err)
 	}
 
+	for _, ddl := range []string{engagementFactsDDL, favoritesCurrentDDL, followsCurrentDDL} {
+		if _, err := w.db.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("ensure engagement facts schema: %w", err)
+		}
+	}
+
 	// Create or replace standard ga4_events view
 	createViewSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW ga4_events AS
 SELECT
@@ -153,6 +159,76 @@ FROM %s`, warehouse.TableName)
 		}
 	}
 
+	return nil
+}
+
+var engagementFactsDDL = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+  event_id    VARCHAR,
+  fact        VARCHAR,
+  user_id     VARCHAR,
+  listing_id  VARCHAR,
+  seller_id   VARCHAR,
+  rating      INTEGER,
+  occurred_at TIMESTAMP,
+  ingested_at TIMESTAMP
+)`, warehouse.EngagementFactsTableName)
+
+// currentStateViewDDL keeps the (user, key) pairs whose latest fact among
+// (onFact, offFact) is onFact. Ties on occurred_at resolve by event_id order.
+func currentStateViewDDL(view, key, onFact, offFact string) string {
+	return fmt.Sprintf(`CREATE OR REPLACE VIEW %[1]s AS
+SELECT user_id, %[2]s, occurred_at
+FROM (
+  SELECT user_id, %[2]s, fact, occurred_at,
+    row_number() OVER (PARTITION BY user_id, %[2]s ORDER BY occurred_at DESC, event_id DESC) AS rn
+  FROM %[5]s
+  WHERE fact IN ('%[3]s', '%[4]s')
+) WHERE rn = 1 AND fact = '%[3]s'`, view, key, onFact, offFact, warehouse.EngagementFactsTableName)
+}
+
+var favoritesCurrentDDL = currentStateViewDDL(warehouse.FavoritesCurrentViewName, "listing_id",
+	warehouse.FactFavoriteAdded, warehouse.FactFavoriteRemoved)
+var followsCurrentDDL = currentStateViewDDL(warehouse.FollowsCurrentViewName, "seller_id",
+	warehouse.FactSellerFollowed, warehouse.FactSellerUnfollowed)
+
+var insertEngagementFactsSQL = buildIdempotentInsert(warehouse.EngagementFactsTableName,
+	[]string{"event_id", "fact", "user_id", "listing_id", "seller_id", "rating", "occurred_at", "ingested_at"},
+	[]string{"VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "TIMESTAMP", "TIMESTAMP"})
+
+// WriteEngagementFacts appends the batch in one transaction, idempotent on event_id.
+func (w *Writer) WriteEngagementFacts(ctx context.Context, batch []*warehouse.EngagementFactRecord) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, insertEngagementFactsSQL)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("prepare insert engagement facts: %w", err)
+	}
+	defer stmt.Close()
+
+	ingestedAt := w.now().UTC()
+	for _, r := range batch {
+		var rating any // NULL unless the fact carries a rating
+		if r.Fact == warehouse.FactReviewCreated {
+			rating = int64(r.Rating)
+		}
+		if _, err := stmt.ExecContext(ctx,
+			r.EventID, r.Fact, r.UserID, r.ListingID, r.SellerID, rating,
+			r.OccurredAt.UTC(), ingestedAt,
+			r.EventID, // NOT EXISTS dedupe key
+		); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("insert engagement fact %s: %w", r.EventID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit engagement facts batch: %w", err)
+	}
 	return nil
 }
 
@@ -439,3 +515,4 @@ func marshalProperties(p map[string]string) (string, error) {
 var _ warehouse.WarehouseWriter = (*Writer)(nil)
 var _ warehouse.ListingSellerWriter = (*Writer)(nil)
 var _ warehouse.IngestCounterWriter = (*Writer)(nil)
+var _ warehouse.EngagementFactWriter = (*Writer)(nil)

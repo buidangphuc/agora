@@ -217,3 +217,40 @@ type ListingSellerWriter interface {
 	// historical tracking events stay attributable to the seller.
 	UpsertListingSellers(ctx context.Context, batch []*ListingSellerRecord) error
 }
+
+// Engagement fact names stored in engagement_facts.fact (engagement-fact-events D3).
+const (
+	FactFavoriteAdded    = "favorite_added"
+	FactFavoriteRemoved  = "favorite_removed"
+	FactSellerFollowed   = "seller_followed"
+	FactSellerUnfollowed = "seller_unfollowed"
+	FactReviewCreated    = "review_created"
+)
+
+// EngagementFactRecord is one row of engagement_facts: a server-truth preference
+// signal published by team-engagement. Fields that do not apply to the fact are
+// empty (Rating is 0 and stored as NULL for every fact but review_created).
+type EngagementFactRecord struct {
+	EventID    string
+	Fact       string
+	UserID     string
+	ListingID  string
+	SellerID   string
+	Rating     int32
+	OccurredAt time.Time
+}
+
+// Engagement table and view names (DuckDB only).
+const (
+	EngagementFactsTableName = "engagement_facts"
+	FavoritesCurrentViewName = "favorites_current"
+	FollowsCurrentViewName   = "follows_current"
+)
+
+// EngagementFactWriter is implemented by adapters that keep engagement_facts
+// (the DuckDB adapter).
+type EngagementFactWriter interface {
+	// WriteEngagementFacts appends the batch in one transaction, idempotently on
+	// event_id, stamping ingested_at with the sink clock.
+	WriteEngagementFacts(ctx context.Context, batch []*EngagementFactRecord) error
+}

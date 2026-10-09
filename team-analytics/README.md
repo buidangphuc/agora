@@ -1,6 +1,6 @@
 # team-analytics
 
-Analytics bounded context: a Go worker that consumes `analytics.events` and `order.events` from Kafka, appends them to a warehouse (embedded DuckDB locally, BigQuery as a write-only prod adapter), and serves the read-only `AnalyticsQueryService` over gRPC on `:50059`. It owns the `tracking_events` and `order_facts` tables, the seller funnel, revenue breakdown, a baseline demand forecast, the admin order summaries, and the Parquet export that `platform-recsys` trains from. Status: deployed in the root compose as `team-analytics-svc`.
+Analytics bounded context: a Go worker that consumes `analytics.events`, `order.events` and `engagement.events` from Kafka, appends them to a warehouse (embedded DuckDB locally, BigQuery as a write-only prod adapter), and serves the read-only `AnalyticsQueryService` over gRPC on `:50059`. It owns the `tracking_events`, `order_facts` and `engagement_facts` tables (plus the `favorites_current` and `follows_current` views), the seller funnel, revenue breakdown, a baseline demand forecast, the admin order summaries, and the Parquet export that `platform-recsys` trains from. Status: deployed in the root compose as `team-analytics-svc`.
 
 ## 1. Contract
 
@@ -35,11 +35,13 @@ Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Up
 | Consume | `analytics.events` (`KAFKA_ANALYTICS_TOPIC`) | `platform.analytics.v1.TrackingEvent` | One row in `tracking_events`, `event_id` = envelope `event_id` |
 | Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, currency defaults to `VND` |
 | Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id` in `listing_sellers` (DuckDB only). Deletes keep the mapping. |
-| Produce | none | | |
+| Consume | `engagement.events` (`ENGAGEMENT_EVENTS_TOPIC`) | `platform.engagement.v1.FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated` | One `engagement_facts` row per envelope, `event_id` = envelope `event_id`, `fact` = `favorite_added`, `favorite_removed`, `seller_followed`, `seller_unfollowed` or `review_created`. Own group `team-analytics.engagement` (`ENGAGEMENT_CONSUMER_GROUP`). DuckDB only. |
+| Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with an `error` header | Only for an undecodable engagement record or an unknown envelope `type`; the consumer then commits past it. |
 
 The code does not use the Kafka record key.
 
 - `analytics.events` and `order.events` are read by one consumer group (`KAFKA_CONSUMER_GROUP`). `listing.events` is read by its own group (`KAFKA_LISTING_CONSUMER_GROUP`) that starts from the earliest offset, so listings created before the consumer existed are backfilled (`internal/consumer/listing.go`); records are upserted, then offsets are committed. Envelopes of any other type are skipped; an undecodable record is logged and skipped (`internal/consumer/consumer.go`).
+- `engagement.events` is read by its own group (`internal/consumer/engagement.go`). Each polled batch is mapped, bad records are republished to the DLQ, good rows are written in one transaction (idempotent on `event_id`, `ingested_at` set at write time), then offsets are committed. A failed write or DLQ publish retries the batch and commits nothing.
 - Tracking event types mapped (`internal/consumer/tracking.go`): `view`, `click`, `add_to_cart`, `impression`, `remove_from_cart`, `begin_checkout`, `apply_promotion`, `search_filter`, `favorite`, `share`, `view_cart`, `add_shipping_info`, `add_payment_info`, `purchase`; anything else is stored as `unspecified`.
 - Delivery is at-least-once: auto-commit is off and offsets are committed only after a successful batch write. Batches flush at `BATCH_MAX_SIZE` rows or every `BATCH_FLUSH_INTERVAL_SECONDS`, and on shutdown (best effort, 5s). A failed flush keeps the records in memory for retry.
 - Appends are idempotent on `event_id`: the DuckDB writer inserts with an anti-join (`INSERT ... SELECT ... WHERE NOT EXISTS (same event_id)`), one transaction per batch, so redelivered events and duplicates inside a batch are skipped (`internal/warehouse/duckdb/duckdb.go`). An anti-join is used rather than a unique index because existing volumes may already hold duplicates. The BigQuery adapter passes `event_id` as the insert id, which is best-effort deduplication only.
@@ -52,6 +54,9 @@ Database-per-service; there are no SQL migration files.
 |---|---|
 | `tracking_events` | Columns defined in `internal/warehouse/warehouse.go` (`Schema`): event and session ids, `event_type`, `listing_id`, `occurred_at`, principal id/type, `properties` JSON, placement/impression/model_version, GA4-style commerce fields (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_*`, `shipping_tier`, `payment_type`) |
 | `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status` |
+| `engagement_facts` | `event_id`, `fact`, `user_id`, `listing_id`, `seller_id`, `rating` (NULL except `review_created`), `occurred_at`, `ingested_at`. DuckDB only. |
+| `favorites_current` | View: `user_id`, `listing_id`, `occurred_at` for the pairs whose latest favourite fact is `favorite_added`. Ties on `occurred_at` resolve by `event_id` order. |
+| `follows_current` | View: `user_id`, `seller_id`, `occurred_at` for the pairs whose latest follow fact is `seller_followed`. Same tie rule. |
 | `listing_sellers` | `listing_id` (primary key), `seller_id`, `updated_at`. Maps a listing to its owner so tracking events (which carry only a listing id) can be attributed to a seller. An older event never overwrites a newer row. DuckDB only. |
 | `tracking_ingest_counters` | `hour` (UTC hour, primary key), `decode_failures`, `duplicates_skipped`. The sink adds to it: one upsert per written batch that skipped a duplicate `event_id`, and one per undecodable message. A counter write failure is logged and never blocks ingestion. DuckDB only. |
 | `ga4_events` | DuckDB view over `tracking_events` that renames event types to GA4 names (`view` -> `view_item`, `click` -> `select_item`, `impression` -> `view_item_list`) |
@@ -79,6 +84,9 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `KAFKA_CONSUMER_GROUP` | `team-analytics` | |
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
 | `KAFKA_ORDER_TOPIC` | `order.events` | |
+| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Source of `engagement_facts`; must not be empty |
+| `ENGAGEMENT_DLQ_TOPIC` | `engagement.events.analytics.dlq` | Dead-letter topic for undecodable engagement records; must not be empty |
+| `ENGAGEMENT_CONSUMER_GROUP` | `team-analytics.engagement` | Own group; must not be empty |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Source of the `listing_sellers` mapping |
 | `KAFKA_LISTING_CONSUMER_GROUP` | `team-analytics-listing-sellers` | Own group, earliest offset |
 | `WAREHOUSE_DRIVER` | `duckdb` | `duckdb` or `bigquery` |

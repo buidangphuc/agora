@@ -291,3 +291,99 @@ func TestRecordDecodeFailuresAccumulates(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func engRec(id, fact, user, listing, seller string, at time.Time) *warehouse.EngagementFactRecord {
+	return &warehouse.EngagementFactRecord{EventID: id, Fact: fact, UserID: user, ListingID: listing, SellerID: seller, OccurredAt: at}
+}
+
+func currentPairs(t *testing.T, w *Writer, q string) []string {
+	t.Helper()
+	rows, err := w.DB().Query(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var a, b string
+		if err := rows.Scan(&a, &b); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, a+"|"+b)
+	}
+	return out
+}
+
+func TestEngagementFactsIdempotentWithRatingAndIngestedAt(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	ingest := at.Add(time.Minute)
+	w := openAt(t, "", ingest)
+	review := engRec("e2", warehouse.FactReviewCreated, "u1", "l1", "s1", at)
+	review.Rating = 4
+	batch := []*warehouse.EngagementFactRecord{engRec("e1", warehouse.FactFavoriteAdded, "u1", "l1", "", at), review}
+	for i := 0; i < 3; i++ {
+		if err := w.WriteEngagementFacts(ctx, batch); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := count(t, w, warehouse.EngagementFactsTableName); got != 2 {
+		t.Fatalf("rows = %d, want 2", got)
+	}
+	var rating *int
+	var ing time.Time
+	if err := w.DB().QueryRow("SELECT rating, ingested_at FROM engagement_facts WHERE event_id='e2'").Scan(&rating, &ing); err != nil {
+		t.Fatal(err)
+	}
+	if rating == nil || *rating != 4 || !ing.Equal(ingest) {
+		t.Fatalf("rating=%v ingested_at=%v", rating, ing)
+	}
+	var n int
+	if err := w.DB().QueryRow("SELECT count(*) FROM engagement_facts WHERE event_id='e1' AND rating IS NULL").Scan(&n); err != nil || n != 1 {
+		t.Fatalf("non-review rating must be NULL (n=%d err=%v)", n, err)
+	}
+}
+
+func TestFavoritesAndFollowsCurrentViews(t *testing.T) {
+	ctx := context.Background()
+	t0 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	w := openAt(t, "", t0)
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{
+		engRec("a1", warehouse.FactFavoriteAdded, "u1", "l1", "", t0),
+		engRec("a2", warehouse.FactFavoriteAdded, "u1", "l2", "", t0.Add(time.Second)),
+		engRec("a3", warehouse.FactFavoriteRemoved, "u1", "l1", "", t0.Add(2*time.Second)),
+		// re-add after removal is current again
+		engRec("b1", warehouse.FactFavoriteAdded, "u2", "l1", "", t0),
+		engRec("b2", warehouse.FactFavoriteRemoved, "u2", "l1", "", t0.Add(time.Second)),
+		engRec("b3", warehouse.FactFavoriteAdded, "u2", "l1", "", t0.Add(2*time.Second)),
+		// same-timestamp tie resolves by event_id: f2 (removed) wins over f1
+		engRec("f1", warehouse.FactFavoriteAdded, "u3", "l9", "", t0),
+		engRec("f2", warehouse.FactFavoriteRemoved, "u3", "l9", "", t0),
+		engRec("s1", warehouse.FactSellerFollowed, "u1", "", "s1", t0),
+		engRec("s2", warehouse.FactSellerFollowed, "u1", "", "s2", t0),
+		engRec("s3", warehouse.FactSellerUnfollowed, "u1", "", "s2", t0.Add(time.Second)),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	fav := currentPairs(t, w, "SELECT user_id, listing_id FROM favorites_current ORDER BY 1, 2")
+	if len(fav) != 2 || fav[0] != "u1|l2" || fav[1] != "u2|l1" {
+		t.Fatalf("favorites_current = %v", fav)
+	}
+	fol := currentPairs(t, w, "SELECT user_id, seller_id FROM follows_current ORDER BY 1, 2")
+	if len(fol) != 1 || fol[0] != "u1|s1" {
+		t.Fatalf("follows_current = %v", fol)
+	}
+}
+
+func TestOpenIsIdempotentForEngagementSchema(t *testing.T) {
+	path := t.TempDir() + "/a.duckdb"
+	w := openAt(t, path, time.Now())
+	if err := w.WriteEngagementFacts(context.Background(), []*warehouse.EngagementFactRecord{engRec("e", warehouse.FactFavoriteAdded, "u", "l", "", time.Now())}); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+	w2 := openAt(t, path, time.Now())
+	if got := count(t, w2, warehouse.EngagementFactsTableName); got != 1 {
+		t.Fatalf("rows after reopen = %d", got)
+	}
+}
