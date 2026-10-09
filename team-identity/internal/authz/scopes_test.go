@@ -57,3 +57,23 @@ func TestUserRolesCarryRecommendationsAndAI(t *testing.T) {
 		}
 	}
 }
+
+// order.admin is a role scope held by the admin role and no other (authz-residuals-2).
+func TestOrderAdminIsAdminOnly(t *testing.T) {
+	has := func(role string) bool {
+		for _, s := range authz.ScopesForRoles([]string{role}) {
+			if s == "order.admin" {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(authz.RoleAdmin) {
+		t.Fatal("admin role must be issued order.admin")
+	}
+	for _, r := range []string{authz.RoleSeller, authz.RoleBuyer} {
+		if has(r) {
+			t.Fatalf("%s role must not be issued order.admin", r)
+		}
+	}
+}
