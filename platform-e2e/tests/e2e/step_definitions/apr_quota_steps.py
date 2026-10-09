@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from pytest_bdd import given, then, when
 
@@ -133,10 +134,18 @@ def stream_past_limit(world: World) -> None:
     window = apr.ai_int("RATE_LIMIT_WINDOW_SECONDS", 60)
     if time.time() % window > window - 15:
         time.sleep(window - time.time() % window + 1)
-    x["apr_burst"] = [
-        apr.stream(x["apr_token"], f"limit probe {i}", directive=apr.ALL_400, tagged=apr.tag())
-        for i in range(limit + 5)
-    ]
+    # Fire the burst concurrently: sent one by one, a loaded suite can stretch it past the
+    # window and the sliding counter then lets late calls through. Which calls are refused is
+    # then arbitrary, so the assertions count outcomes instead of relying on order.
+    with ThreadPoolExecutor(max_workers=limit + 5) as pool:
+        x["apr_burst"] = list(
+            pool.map(
+                lambda i: apr.stream(
+                    x["apr_token"], f"limit probe {i}", directive=apr.ALL_400, tagged=apr.tag()
+                ),
+                range(limit + 5),
+            )
+        )
 
 
 @then('the calls past the limit fail with "resource_exhausted" without reaching the provider')
@@ -144,12 +153,17 @@ def calls_past_limit_refused(world: World) -> None:
     x = _x(world)
     burst: list[apr.Reply] = x["apr_burst"]
     limit: int = x["apr_limit"]
-    inside, past = burst[:limit], burst[limit:]
-    early = [r.describe() for r in inside if r.code == "resource_exhausted"]
-    assert not early, f"refused before the limit of {limit}: {early[:2]}"
-    wrong = [r.describe() for r in past if r.code != "resource_exhausted"]
-    assert not wrong, f"calls past the limit of {limit} were not refused: {wrong[:2]}"
-    reached = [r.sent for r in past if apr.fake_requests(r.extra["tag"])]
+    # The limiter runs before the servicer, so a call it admits may still be refused by the
+    # per-principal quota ("quota exceeded": concurrent calls hold reservations before the
+    # 400s refund them). Only "rate limit exceeded" refusals are the limiter's.
+    refused = [r for r in burst if r.code == "resource_exhausted" and "rate limit" in r.message]
+    admitted = [r for r in burst if r not in refused]
+    assert len(admitted) == limit, (
+        f"the limiter admitted {len(admitted)} of {len(burst)} calls, want exactly {limit}: "
+        f"{[r.describe() for r in admitted[:2]]}"
+    )
+    assert all(r.code == "resource_exhausted" for r in refused)
+    reached = [r.sent for r in refused if apr.fake_requests(r.extra["tag"])]
     assert not reached, f"refused calls still reached the provider: {reached[:2]}"
 
 
