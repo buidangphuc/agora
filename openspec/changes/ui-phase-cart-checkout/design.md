@@ -175,3 +175,17 @@ Non-goals: see proposal.
    layout mounts the consumer header; to decide at implementation time.
 5. Shipping step has a single option. Keep it as a visible read-only step (this spec), or merge it into
    Payment until a second shipping method exists?
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A): "Checkout kill-switch disables the CTA" (`frontend/ui_checkout_order.feature`, flips the stack-wide
+  `checkout-enabled` flag and restores it) and "Gateway failure on the cart" (`frontend/uif_cart.feature`, team-order stopped).
+- Defect found, kept red: with team-order stopped `/cart` shows "Giỏ hàng của bạn đang trống": `getCart` (`lib/gateway/cart.ts`)
+  swallows the failure and returns an empty cart, so `cart/error.tsx` is unreachable and an outage looks like a lost cart.
