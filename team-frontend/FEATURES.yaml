@@ -1944,9 +1944,9 @@ features:
       - "When the feed query fails"
       - "Then an `Alert` of type error with a retry link to `/` is shown in the feed area instead of an empty grid"
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_discovery.feature::Feed failure shows a recovery action (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the whole home page is replaced by the root error (\"Đã có lỗi xảy ra\") and the feed Alert never shows; the server log shows ConnectError [unavailable] thrown from getListing inside a Promise.all of (home)/page.js, i.e. an unguarded hydration (RecentlyViewedRow maps ids through getListing, which only swallows NotFound), so one block takes the page down."
+    status: automated
+    covered_by: "frontend/uif_discovery.feature::Feed failure shows a recovery action"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_discovery.feature::Feed failure shows a recovery action"
 
   - id: discovery.countdown-ticks-without-layout-shift
     title: "Countdown ticks without layout shift"
@@ -2806,9 +2806,9 @@ features:
       - "When the listing fetch fails with a non-NotFound error"
       - "Then an error `Alert` with a \"Thử lại\" button is shown, and clicking it re-renders the route"
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_product_detail.feature::A gateway failure shows a recoverable error (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the product page shows the error Alert with \"Thử lại\"; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well)."
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::A gateway failure shows a recoverable error"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_product_detail.feature::A gateway failure shows a recoverable error"
 
   - id: discovery.title-link-click-keeps-its-attribution
     title: "Card click still records select_item"
@@ -2840,9 +2840,9 @@ features:
       - "When the sessions request fails"
       - "Then the sessions section shows an inline `Alert type=\"error\"` with a \"Thử lại\" action that reloads the route, and the history section still renders"
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_account.feature::Gateway read failure (@destructive, serial lane). RED, frontend defect kept red: with team-identity stopped /account/security shows \"Không có phiên nào đang hoạt động.\" and \"Chưa có lịch sử đăng nhập.\" instead of the inline error Alert: listSessions/listLoginHistory in lib/gateway/sessions.ts swallow the failure and return [], so settle() never reports failed. (Sessions and history both come from team-identity, so the spec's \"history still renders\" cannot hold during a real outage.)"
+    status: automated
+    covered_by: "frontend/uif_account.feature::Gateway read failure"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_account.feature::Gateway read failure"
 
   - id: account.route-error-offers-recovery
     title: "Route error offers recovery"
@@ -2857,9 +2857,9 @@ features:
       - "When a gateway call throws during rendering of `/notifications`"
       - "Then a `Result status=\"error\"` is shown with a \"Thử lại\" button that re-renders the route"
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_account.feature::Route error offers recovery (@destructive, serial lane). RED, frontend defect kept red: with team-notification stopped /notifications renders the empty state \"Chưa có thông báo nào trong mục này.\" instead of the route error Result: listNotifications swallows the failure and returns an empty list, so the page never throws and error.tsx is unreachable through an outage."
+    status: automated
+    covered_by: "frontend/uif_account.feature::Route error offers recovery"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_account.feature::Route error offers recovery"
 
   - id: account.generating-a-code
     title: "Generating a code"
@@ -2918,9 +2918,9 @@ features:
       - Then the error result is shown with a "Thử lại" (retry) button
       - And clicking it re-renders the segment
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_foundation.feature::A thrown page error is recoverable (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the product page throws and listing/error.tsx shows the Alert with \"Thử lại\"; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well). Every error.tsx that only calls reset() (cart, seller, account, listing, orders, root) has the same gap; the Vitest shell tests only assert that reset() is called."
+    status: automated
+    covered_by: "frontend/uif_foundation.feature::A thrown page error is recoverable"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_foundation.feature::A thrown page error is recoverable"
 
   - id: ui.brand-colour-token
     title: The brand colour resolves from the design tokens
@@ -4232,9 +4232,9 @@ features:
       - "When the cart read throws"
       - "Then the segment error UI shows an `Alert` with \"Thử lại\" which re-renders the route"
     tags: [buyer, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_cart.feature::Gateway failure on the cart (@destructive, serial lane). RED, frontend defect kept red: with team-order stopped /cart renders the empty cart (\"Giỏ hàng của bạn đang trống\") instead of the segment error Alert: getCart in lib/gateway/cart.ts swallows the read failure and returns an empty cart, so cart/error.tsx is unreachable and an outage looks like a lost cart."
+    status: automated
+    covered_by: "frontend/uif_cart.feature::Gateway failure on the cart"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_cart.feature::Gateway failure on the cart"
 
   - id: uicc.loading-skeleton-matches-the-page-footprint
     title: "Loading skeleton matches the page footprint"
@@ -5595,9 +5595,9 @@ features:
       - "When a seller page throws during render"
       - "Then `error.tsx` shows a `Result` with \"Thử lại\" calling `reset` and a link to `/seller`"
     tags: [seller, destructive]
-    status: planned
-    covered_by: null
-    notes: "Written as frontend/uif_seller.feature::Route error offers recovery (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the seller edit page throws and seller/error.tsx shows the Result with \"Thử lại\" and the link to /seller; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well)."
+    status: automated
+    covered_by: "frontend/uif_seller.feature::Route error offers recovery"
+    notes: "@destructive: green after the failure-path fixes (uifix3) and rebuild: frontend/uif_seller.feature::Route error offers recovery"
 
   - id: uisl.empty-product-list-shows-a-call-to-action
     title: "Empty product list shows a call to action"
