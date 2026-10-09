@@ -31,4 +31,4 @@
 
 ## 5. Archive
 
-- [ ] 5.1 `openspec archive recsys-online-evaluation`; retire `recommendations-end-to-end` (its remaining requirements are covered by changes 5–8); verify `openspec list`
+- [x] 5.1 `openspec archive recsys-online-evaluation`; retire `recommendations-end-to-end` (its remaining requirements are covered by changes 5–8); verify `openspec list`
