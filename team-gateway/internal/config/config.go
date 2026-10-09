@@ -88,6 +88,10 @@ type Edge struct {
 	AICallTimeoutSecs float64 `env:"AI_CALL_TIMEOUT_SECONDS" default:"30"`
 	// StreamMaxRequestBytes caps one StreamChat request message.
 	StreamMaxRequestBytes int `env:"STREAM_MAX_REQUEST_BYTES" default:"16384"`
+	// StreamRevocationCheckSecs is how often an open stream re-checks its session
+	// against the in-memory revocation denylist; a revoked session ends the stream
+	// with unauthenticated within this interval. (Token expiry ends it on time.)
+	StreamRevocationCheckSecs float64 `env:"STREAM_REVOCATION_CHECK_SECONDS" default:"5"`
 	// ReflectionEnabled mounts gRPC reflection. Development aid only: refused
 	// under a strict ENV (staging, production).
 	ReflectionEnabled bool `env:"EDGE_REFLECTION_ENABLED" default:"false"`

@@ -127,6 +127,7 @@ func run() error {
 		WithTrackLimit(settings.Edge.TrackRateLimitRPS, settings.Edge.TrackRateLimitBurst).
 		WithAICallTimeout(time.Duration(settings.Edge.AICallTimeoutSecs * float64(time.Second))).
 		WithStreamMaxBytes(settings.Edge.StreamMaxRequestBytes).
+		WithStreamRevocationCheck(time.Duration(settings.Edge.StreamRevocationCheckSecs * float64(time.Second))).
 		WithReflection(settings.Edge.ReflectionEnabled)
 
 	// Trusted client context: x-client-ip is the socket peer, or the X-Forwarded-For

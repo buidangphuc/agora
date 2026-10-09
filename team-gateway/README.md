@@ -151,6 +151,7 @@ is not covered by that gate.
 | `TRACK_RATE_LIMIT_RPS` / `TRACK_RATE_LIMIT_BURST` | `5` / `20` | `/api/track` bucket per user or IP |
 | `AI_CALL_TIMEOUT_SECONDS` | `30` | Single-attempt deadline of the four AI generation RPCs |
 | `STREAM_MAX_REQUEST_BYTES` | `16384` | Max `StreamChat` request message |
+| `STREAM_REVOCATION_CHECK_SECONDS` | `5` | How often an open stream re-checks its session against the revocation denylist; a revoked session or expired token ends it with `unauthenticated` |
 | `EDGE_REFLECTION_ENABLED` | `false` | gRPC reflection; refused when `ENV` is staging/production |
 | `JWKS_URL` | none, **required** | team-identity `/.well-known/jwks.json` (`.env.example` uses `http://localhost:50063/...`) |
 | `JWKS_CACHE_TTL` | `300` | Seconds, must be > 0. Also refreshed on an unknown `kid` (at most once per 10 s). |
