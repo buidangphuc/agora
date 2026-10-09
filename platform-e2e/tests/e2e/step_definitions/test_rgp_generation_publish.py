@@ -26,6 +26,7 @@ def rgp_restore_serving():
     """
     yield
     wrapper = os.getenv("DC_WRAPPER", DC_WRAPPER_DEFAULT)
+    outputs = []
     for args in (
         ["--profile", "featurestore", "run", "--rm", "featurestore-dataset"],
         ["--profile", "jobs", "run", "--rm", "-e", "PROMOTION_FORCE=true", "platform-recsys"],
@@ -33,8 +34,13 @@ def rgp_restore_serving():
         proc = subprocess.run(
             [wrapper, *args], capture_output=True, text=True, timeout=1200, check=False
         )
-        if proc.returncode != 0:  # cleanup must not mask the scenarios' result
-            print(
-                f"[rgp] restore step {args[-1]} failed: {proc.stdout[-1500:]}{proc.stderr[-1500:]}"
-            )
-            return
+        outputs.append(proc.stdout + proc.stderr)
+        # A failed restore is reported as a teardown ERROR (pytest keeps it apart from the
+        # scenarios' own result) instead of silently leaving a fixture generation serving.
+        assert proc.returncode == 0, f"[rgp] restore step {args[-1]} failed:\n{outputs[-1][-3000:]}"
+    # PROMOTION_FORCE skips only the metric gate; the structural gate can still reject the real
+    # data, and the job then exits 0 with decision "rejected".
+    assert "'decision': 'promoted'" in outputs[-1], (
+        f"[rgp] the real generation was not promoted; a fixture model may still be serving:\n"
+        f"{outputs[-1][-3000:]}"
+    )
