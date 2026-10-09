@@ -651,6 +651,31 @@ services:
       - qdrant
       - redis
 
+  # Feature materialisation job (featurestore-materialization) — a batch, not a server:
+  #   docker compose --profile featurestore run --rm featurestore-job
+  # Reads the Parquet that team-analytics exports to the shared volume, writes an
+  # offline snapshot + manifest to /features and the fs:<view>:* keys to Redis DB 2.
+  # AS_OF (RFC 3339) pins the point in time; unset means now.
+  featurestore-job:
+    build:
+      context: ./platform-featurestore
+      dockerfile: Dockerfile
+    image: platform-featurestore:local
+    profiles: ["featurestore"]
+    environment:
+      - FEATURESTORE_INPUT_DIR=/data
+      - FEATURESTORE_OFFLINE_DIR=/features
+      - FEATURESTORE_REDIS_URL=redis://redis:6379/2
+      - FEATURESTORE_ONLINE_TTL_SECONDS=172800
+      - FEATURESTORE_PARITY_SAMPLE=200
+      - AS_OF=${AS_OF:-}
+    command: ["materialize"]
+    volumes:
+      - analytics_data:/data:ro
+      - featurestore_data:/features
+    depends_on:
+      - redis
+
   team-analytics:
     build:
       context: ./team-analytics
@@ -708,3 +733,4 @@ services:
 
 volumes:
   analytics_data:
+  featurestore_data:
