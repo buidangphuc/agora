@@ -32,7 +32,7 @@ code default port is `50051`, compose sets `50060` (`50060:50060`). The gateway 
 | `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. |
 | `platform.search.v1.SearchService.SearchListings` | scope `search:read` | `UNAVAILABLE` when `RAG_ENABLED=false`. |
 | `platform.chat.v1.ChatService.StreamChat` (server stream) | none beyond a resolved principal | `CHAT_BACKEND=mock` echoes the prompt; `llm_router` streams from the LLM router. Final chunk has `done=true`. |
-| `platform.recommendation.v1.RecommendationService.Recommend` | scope `listing.read` | `UNAVAILABLE` when `RECS_ENABLED=false` or the Qdrant collection contract mismatches. |
+| `platform.recommendation.v1.RecommendationService.Recommend` | scope `listing.read` | `UNAVAILABLE` when `RECS_ENABLED=false` or the Qdrant collection contract mismatches. A cache/Qdrant error answers `OK` with the popular list (or empty) and `model_version` `serving-fallback`. Every response carries `placement_id` and a fresh `request_id` (one `recs.served` log line each). `RECS_BACKEND=memory` is refused at boot outside dev/local/test. |
 | `grpc.health.v1.Health`, server reflection | exempt from auth | Health always answers SERVING. Reflection is on unless `GRPC_REFLECTION_ENABLED=false`. |
 
 Auth (`interceptors/auth.py`): if `x-principal-id` is present, the `x-principal-{id,type,scopes}`
@@ -128,6 +128,7 @@ default and listed in `.env.example`.
 | `RECS_CANDIDATE_TOP_K`, `RECS_RESULT_TOP_K` | `100`, `10` | |
 | `RECS_CACHE_PREFIX`, `RECS_CACHE_SCHEMA_VERSION`, `RECS_CACHE_TTL_SECONDS` | `recs`, `v1`, `86400` | Redis key layout `<prefix>:<schema>:user:<id>`. |
 | `RECS_RETRIEVE_TIMEOUT_MS` | `15` | Qdrant fallback latency cap. |
+| `RECS_FEATURESTORE_REDIS_URL` | empty | Redis holding `fs:item_popularity:*` (platform-featurestore). Set: ranking boosts by `ctr_7d` / `favorites_current`; empty: no online features. Local compose uses `redis://redis:6379/2`. |
 | `RECS_MODEL_VERSION` | `serving-fallback` | Replaced by the `model_version` Redis key when present. |
 
 There is no `HOST`, `PORT`, `MODELSERVE_URL` or `QDRANT_URL` setting. Uvicorn takes host and port

@@ -12,6 +12,7 @@ from app.bootstrap.resources import (
     ApplicationResources,
     close_application_resources,
     open_application_resources,
+    recommendation_provider,
 )
 from app.bootstrap.state import get_in_flight_tracker
 from app.core.config import Settings, get_settings
@@ -124,9 +125,7 @@ async def _start_grpc_server(app: FastAPI, settings: Settings):
         settings=settings,
         rag_provider=lambda: getattr(app.state.resources, "rag_service", None),
         chat_streamer=chat_streamer,
-        recommendation_provider=lambda: getattr(
-            app.state.resources, "recommendation_service", None
-        ),
+        recommendation_provider=recommendation_provider(app),
     )
     bind = f"{settings.GRPC_HOST}:{settings.GRPC_PORT}"
     server.add_insecure_port(bind)

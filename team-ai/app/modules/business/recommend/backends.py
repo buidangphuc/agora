@@ -36,7 +36,7 @@ class RetrievalBackend(Protocol):
         ...
 
     async def popular(self, *, top_k: int) -> list[Candidate]:
-        """Popularity fallback so a Recommend call is never empty."""
+        """Backend-side popularity (memory fixture only; Qdrant has none)."""
         ...
 
     async def collection_ok(self) -> bool:
@@ -171,19 +171,11 @@ class QdrantRetrievalBackend:
 
         return await asyncio.to_thread(_query)
 
-    async def popular(self, *, top_k: int) -> list[Candidate]:  # pragma: no cover
-        import asyncio
-
-        def _scroll() -> list[Candidate]:
-            client = self._get_client()
-            points, _ = client.scroll(
-                collection_name=self._collection,
-                limit=top_k,
-                with_payload=True,
-            )
-            return [_hit_to_candidate(p) for p in points]
-
-        return await asyncio.to_thread(_scroll)
+    async def popular(self, *, top_k: int) -> list[Candidate]:
+        # Cold start reads the producer's popular list from the cache
+        # (PrecomputedCache.get_popular_candidates); a scroll of the collection is
+        # an arbitrary sample, not popularity, so there is nothing to serve here.
+        return []
 
 
 def _hit_to_candidate(hit: object) -> Candidate:

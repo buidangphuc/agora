@@ -351,3 +351,44 @@ def test_llm_trace_content_defaults_to_redacted_and_full_is_local_only():
     build_test_settings(**_PROD, LLM_TRACE_CONTENT="off")
     with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
         build_test_settings(LLM_TRACE_CONTENT="verbose")
+
+
+def test_memory_recs_backend_is_refused_outside_local():
+    for env in ("production", "prod"):
+        with pytest.raises(ValidationError, match="RECS_BACKEND"):
+            build_test_settings(
+                ENVIRONMENT=env,
+                DOCS_ENABLED=False,
+                CORS_ALLOW_ORIGINS="https://x.example",
+                TRUSTED_HOSTS="x.example",
+                AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
+                RECS_ENABLED=True,
+                RECS_BACKEND="memory",
+            )
+
+
+def test_memory_recs_backend_is_allowed_locally_or_when_disabled():
+    for env in ("dev", "local", "test"):
+        build_test_settings(ENVIRONMENT=env, RECS_ENABLED=True, RECS_BACKEND="memory")
+    build_test_settings(
+        ENVIRONMENT="production",
+        DOCS_ENABLED=False,
+        CORS_ALLOW_ORIGINS="https://x.example",
+        TRUSTED_HOSTS="x.example",
+        AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
+        RECS_ENABLED=False,
+        RECS_BACKEND="memory",
+    )
+    build_test_settings(
+        ENVIRONMENT="production",
+        DOCS_ENABLED=False,
+        CORS_ALLOW_ORIGINS="https://x.example",
+        TRUSTED_HOSTS="x.example",
+        AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
+        RECS_ENABLED=True,
+        RECS_BACKEND="qdrant",
+    )
+
+
+def test_featurestore_redis_url_is_off_by_default():
+    assert build_test_settings().RECS_FEATURESTORE_REDIS_URL == ""

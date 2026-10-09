@@ -18,9 +18,11 @@ from app.modules.business.recommend.backends import build_backend
 from app.modules.business.recommend.cache import PrecomputedCache
 from app.modules.business.recommend.placement_config import PlacementRegistry
 from app.modules.business.recommend.ranking import (
+    FeatureStorePort,
     GBDTRankerAdapter,
     InMemoryFeatureStore,
     InMemoryNearlineStore,
+    RedisFeatureStore,
 )
 from app.modules.business.recommend.service import RecommendationService
 
@@ -29,6 +31,16 @@ if TYPE_CHECKING:
 
     from app.bootstrap.resources import ApplicationResources
     from app.core.config import Settings
+
+
+def _build_feature_store(settings: Settings) -> FeatureStorePort:
+    """Online features from the feature store's Redis when configured, else none."""
+    url = settings.RECS_FEATURESTORE_REDIS_URL
+    if not url:
+        return InMemoryFeatureStore()
+    from redis.asyncio import Redis
+
+    return RedisFeatureStore(Redis.from_url(url, decode_responses=True))
 
 
 async def build_recommendation_service(
@@ -54,7 +66,7 @@ async def build_recommendation_service(
             settings.RECS_QDRANT_DISTANCE,
         )
     registry = PlacementRegistry()
-    feature_store = InMemoryFeatureStore()
+    feature_store: FeatureStorePort = _build_feature_store(settings)
     nearline_store = InMemoryNearlineStore()
     ranker = GBDTRankerAdapter()
 

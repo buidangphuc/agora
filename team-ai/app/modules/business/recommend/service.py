@@ -36,6 +36,58 @@ if TYPE_CHECKING:
     from app.modules.business.recommend.cache import PrecomputedCache
 
 
+_FALLBACK_MODEL_VERSION = "serving-fallback"
+
+# Online features break ties and add a bounded boost; the model score stays dominant.
+_FEATURE_BOOST_WEIGHT = 0.05
+_FEATURE_BOOST_CAP = 0.05
+
+
+def _feature_num(features: dict[str, Any], key: str) -> float:
+    try:
+        return float(features.get(key) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _boost(features: dict[str, Any]) -> float:
+    return min(
+        _FEATURE_BOOST_CAP,
+        max(0.0, _FEATURE_BOOST_WEIGHT * _feature_num(features, "ctr_7d")),
+    )
+
+
+def apply_online_features(
+    items: list[RecommendedItem],
+    features: dict[str, dict[str, Any]],
+    limit: int,
+) -> list[RecommendedItem]:
+    """Re-rank by ``score + bounded ctr_7d boost``; ties by ctr_7d, favorites_current.
+
+    A no-op (apart from the cut to ``limit``) when no candidate has features, so
+    missing keys leave ranking as without features.
+    """
+    if not features:
+        return items[:limit] if limit > 0 else items
+
+    boosted = [
+        (item, item.score + _boost(features.get(item.listing_id, {}))) for item in items
+    ]
+    boosted.sort(
+        key=lambda pair: (
+            -pair[1],
+            -_feature_num(features.get(pair[0].listing_id, {}), "ctr_7d"),
+            -_feature_num(features.get(pair[0].listing_id, {}), "favorites_current"),
+        )
+    )
+    if limit > 0:
+        boosted = boosted[:limit]
+    return [
+        RecommendedItem(listing_id=item.listing_id, score=score, rank=rank)
+        for rank, (item, score) in enumerate(boosted, start=1)
+    ]
+
+
 class RecommendationService:
     def __init__(
         self,
@@ -87,14 +139,54 @@ class RecommendationService:
             raise ServiceUnavailableError("recommendation collection contract mismatch")
 
     async def recommend(self, query: RecommendQuery) -> RecommendResult:
-        await self._ensure_collection_ok()
+        """Serve a request; a cache or backend failure degrades, never raises.
 
-        start_time = time.perf_counter()
-        placement_id = query.placement_id or (
+        Only the collection-contract mismatch (a deployment error, not a runtime
+        hiccup) still surfaces as ``ServiceUnavailableError``.
+        """
+        await self._ensure_collection_ok()
+        try:
+            return await self._recommend(query)
+        except ServiceUnavailableError:
+            raise
+        except Exception as exc:
+            logger.warning("recs.recommend.failed err={}", exc)
+            return await self._fallback(query)
+
+    async def _fallback(self, query: RecommendQuery) -> RecommendResult:
+        """The serving generation's popular list, else the backend's, else empty."""
+        placement_id = self._placement_id(query)
+        limit = (
+            query.limit
+            or self._registry.get(placement_id).result_limit
+            or self._result_top_k
+        )
+        popular: list[Candidate] = []
+        try:
+            popular = await self._popular()
+        except Exception as exc:
+            logger.warning("recs.fallback.popular_failed err={}", exc)
+        items = rank_and_filter(popular, query, limit)
+        return self._result(
+            items=items,
+            source="popular",
+            placement_id=placement_id,
+            fallback_tier="tier4_global_popular",
+            status="fallback",
+            model_version=_FALLBACK_MODEL_VERSION,
+            fallback=True,
+        )
+
+    def _placement_id(self, query: RecommendQuery) -> str:
+        return query.placement_id or (
             "similar_items"
             if query.seed_listing_id and not query.user_id
             else "home_feed"
         )
+
+    async def _recommend(self, query: RecommendQuery) -> RecommendResult:
+        start_time = time.perf_counter()
+        placement_id = self._placement_id(query)
         config = self._registry.get(placement_id)
         limit = query.limit or config.result_limit or self._result_top_k
         active_model_version = self._model_version
@@ -221,6 +313,7 @@ class RecommendationService:
             status="fallback",
             explain=explain_data,
             model_version=active_model_version,
+            fallback=True,
         )
 
     async def _rank_candidates(
@@ -255,7 +348,9 @@ class RecommendationService:
                     "degraded_cosine",
                 )
 
-        # 2. Ranking dispatch
+        # 2. Ranking dispatch. With online features the ranker returns every
+        # candidate and apply_online_features cuts to ``limit`` after the boost.
+        rank_limit = 0 if item_features else limit
         if ranking_model == "gbdt":
             try:
                 ranked = self._gbdt_ranker.rank_candidates(
@@ -263,8 +358,9 @@ class RecommendationService:
                     query=query,
                     item_features_map=item_features,
                     nearline_store=self._nearline_store,
-                    limit=limit,
+                    limit=rank_limit,
                 )
+                ranked = apply_online_features(ranked, item_features, limit)
                 return ranked, "ok", hit_count, "gbdt"
             except Exception as exc:
                 logger.warning("GBDT ranker failed: {}, degrading to cosine", exc)
@@ -275,7 +371,9 @@ class RecommendationService:
                     "degraded_cosine",
                 )
         else:
-            return rank_and_filter(candidates, query, limit), "ok", hit_count, "cosine"
+            ranked = rank_and_filter(candidates, query, rank_limit)
+            ranked = apply_online_features(ranked, item_features, limit)
+            return ranked, "ok", hit_count, "cosine"
 
     async def _retrieve_similar(self, seed_listing_id: str) -> list[Candidate]:
         try:
@@ -297,7 +395,11 @@ class RecommendationService:
             return []
 
     async def _popular(self) -> list[Candidate]:
-        cached = await self._cache.get_popular_candidates()
+        try:
+            cached = await self._cache.get_popular_candidates()
+        except Exception as exc:
+            logger.warning("recs.popular.cache_failed err={}", exc)
+            cached = None
         if cached:
             return cached
         try:
@@ -315,6 +417,7 @@ class RecommendationService:
         status: str = "real",
         explain: dict[str, Any] | None = None,
         model_version: str | None = None,
+        fallback: bool = False,
     ) -> RecommendResult:
         return RecommendResult(
             items=items,
@@ -324,4 +427,5 @@ class RecommendationService:
             fallback_tier=fallback_tier,
             status=status,
             explain=explain or {},
+            fallback=fallback,
         )
