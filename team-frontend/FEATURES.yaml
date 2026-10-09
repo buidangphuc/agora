@@ -1926,10 +1926,10 @@ features:
     acceptance:
       - "When the recommendations or recently-viewed query fails or returns no items"
       - "Then that block is not rendered (no empty heading) and every other block still renders"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: needs a real recommendations/recently-viewed backend failure (stopping team-ai); not forced here because it would disrupt the shared stack. The existing 'Recommendations are unavailable without breaking the page' only probes availability."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_discovery.feature::Block failure degrades locally"
+    notes: "@destructive: stops team-ai (recommendations) and team-engagement (Vừa xem) after the Vừa xem block was seen, restores both in teardown; passed twice serially."
 
   - id: discovery.feed-failure-shows-a-recovery-action
     title: "Feed failure shows a recovery action"
@@ -1943,10 +1943,10 @@ features:
     acceptance:
       - "When the feed query fails"
       - "Then an `Alert` of type error with a retry link to `/` is shown in the feed area instead of an empty grid"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs the listings read behind the feed to fail for real (stop team-listing); destructive, not run."
+    notes: "Written as frontend/uif_discovery.feature::Feed failure shows a recovery action (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the whole home page is replaced by the root error (\"Đã có lỗi xảy ra\") and the feed Alert never shows; the server log shows ConnectError [unavailable] thrown from getListing inside a Promise.all of (home)/page.js, i.e. an unguarded hydration (RecentlyViewedRow maps ids through getListing, which only swallows NotFound), so one block takes the page down."
 
   - id: discovery.countdown-ticks-without-layout-shift
     title: "Countdown ticks without layout shift"
@@ -1994,10 +1994,10 @@ features:
     acceptance:
       - "When `saveSearchAction` returns `{ ok: false, error: \"...\" }`"
       - "Then an error toast with that message is shown and the button is enabled again"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: saveSearchAction cannot be made to fail from the UI (the button is disabled without a query) and team-search cannot be broken non-destructively."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_discovery.feature::Server action failure shows an error toast"
+    notes: "@destructive: the search page is opened, then team-search is stopped so saveSearchAction fails; restored in teardown; passed twice serially."
 
   - id: discovery.loading-skeleton-matches-the-grid
     title: "Loading skeleton matches the grid"
