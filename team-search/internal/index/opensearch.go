@@ -43,6 +43,13 @@ type ListingDoc struct {
 	CreatedAt     *int64    `json:"created_at,omitempty"`
 	Embedding     []float32 `json:"embedding,omitempty"`
 	VectorPending bool      `json:"vector_pending,omitempty"`
+	// FacetTags are the listing's canonical SPU tags as "group:slug" keywords and
+	// SKUs its variants with their own attrs (nested); both come from the tag
+	// classifier (attributes.go). TagsPending marks a doc whose classification
+	// failed: the write guard then keeps the tags already stored (writeScript).
+	FacetTags   []string `json:"facet_tags,omitempty"`
+	SKUs        []SkuDoc `json:"skus,omitempty"`
+	TagsPending bool     `json:"tags_pending,omitempty"`
 }
 
 // Hit is one search result.
@@ -68,6 +75,10 @@ type Facets struct {
 	PriceRanges []FacetBucket
 	Ratings     []FacetBucket
 	Sellers     []FacetBucket
+	// Tags are the SPU-level canonical tag facets by group and SKUs the variant
+	// (nested) facets by group; both non-nil (attributes.go).
+	Tags []AttributeFacet
+	SKUs []AttributeFacet
 }
 
 // SearchResult is a page of hits plus the total match count and facet counts.
@@ -150,7 +161,21 @@ const indexMapping = `{
           "space_type": "cosinesimil"
         }
       },
-      "vector_pending": { "type": "boolean" }
+      "vector_pending": { "type": "boolean" },
+      "facet_tags":     { "type": "keyword" },
+      "tags_pending":   { "type": "boolean" },
+      "skus": {
+        "type": "nested",
+        "properties": {
+          "variant_id":  { "type": "keyword" },
+          "sku_code":    { "type": "keyword" },
+          "name":        { "type": "text" },
+          "price":       { "type": "long" },
+          "stock":       { "type": "integer" },
+          "is_in_stock": { "type": "boolean" },
+          "attrs":       { "type": "keyword" }
+        }
+      }
     }
   }
 }`
@@ -165,7 +190,21 @@ const additiveMapping = `{
     "stock":         { "type": "integer" },
     "stock_version": { "type": "long" },
     "created_at":    { "type": "date", "format": "epoch_millis" },
-    "tombstoned_at": { "type": "date", "format": "epoch_millis" }
+    "tombstoned_at": { "type": "date", "format": "epoch_millis" },
+    "facet_tags":    { "type": "keyword" },
+    "tags_pending":  { "type": "boolean" },
+    "skus": {
+      "type": "nested",
+      "properties": {
+        "variant_id":  { "type": "keyword" },
+        "sku_code":    { "type": "keyword" },
+        "name":        { "type": "text" },
+        "price":       { "type": "long" },
+        "stock":       { "type": "integer" },
+        "is_in_stock": { "type": "boolean" },
+        "attrs":       { "type": "keyword" }
+      }
+    }
   }
 }`
 
@@ -217,7 +256,7 @@ func (o *OpenSearchIndex) ensureAdditiveMapping(ctx context.Context) error {
 	}
 	defer res.Body.Close()
 	if res.IsError() {
-		return fmt.Errorf("put mapping on %q (stock, stock_version, created_at, tombstoned_at): %s", o.name, res.String())
+		return fmt.Errorf("put mapping on %q (stock, stock_version, created_at, tombstoned_at, facet_tags, tags_pending, skus): %s", o.name, res.String())
 	}
 	return nil
 }
@@ -238,7 +277,9 @@ const statusDeleted = "deleted"
 //     stock and stock_version are carried forward. created_at (D7) is
 //     set-if-absent-or-earlier from params.created_at (a CREATED event's
 //     occurred_at, also when its base fields are stale) and otherwise carried
-//     forward; it is never written onto a tombstone.
+//     forward; it is never written onto a tombstone. When the document carries
+//     tags_pending (the tag classifier failed), the stored facet_tags and skus
+//     are carried forward so an outage never wipes a listing's facets.
 //   - kind 'upsert' on a tombstone: noop when the incoming version is 0 (no
 //     occurred_at) or not newer than the tombstone's; a newer one replaces it.
 //   - kind 'delete': writes {id, status: deleted, version, tombstoned_at} and
@@ -270,6 +311,8 @@ if (params.kind == 'delete') {
   def oldStock = (absent || tomb) ? null : s.stock;
   def oldSV = (absent || tomb) ? null : s.stock_version;
   def oldCreated = (absent || tomb) ? null : s.created_at;
+  def oldFacetTags = (absent || tomb) ? null : s.facet_tags;
+  def oldSkus = (absent || tomb) ? null : s.skus;
   boolean takeStock = live && params.stock != null && (oldSV == null || ((Number) oldSV).longValue() < v);
   def created = oldCreated;
   if (live && params.created_at != null && (created == null || ((Number) created).longValue() > ((Number) params.created_at).longValue())) {
@@ -279,6 +322,10 @@ if (params.kind == 'delete') {
   if (!stale) {
     s.clear();
     s.putAll(params.doc);
+    if (Boolean.TRUE.equals(params.doc.get('tags_pending'))) {
+      if (oldFacetTags != null) { s.facet_tags = oldFacetTags; }
+      if (oldSkus != null) { s.skus = oldSkus; }
+    }
   }
   if (takeStock) {
     s.stock = params.stock;
@@ -514,6 +561,8 @@ type osAggregations struct {
 	Categories  osTermsAgg `json:"categories"`
 	Sellers     osTermsAgg `json:"sellers"`
 	PriceRanges osKeyedAgg `json:"price_ranges"`
+	TagFacets   osTermsAgg `json:"tag_facets"`
+	SkuFacets   osSkuAgg   `json:"sku_facets"`
 }
 
 type osTermsAgg struct {
@@ -550,7 +599,7 @@ var priceRangeBuckets = []priceRangeBucket{
 // facetAggs builds the aggregation block requested alongside every SearchListings
 // query. It aggregates over the post-filter matched set (aggs sit outside the
 // query in the request body but count only documents the query matched).
-func facetAggs() map[string]any {
+func facetAggs(filters map[string]string) map[string]any {
 	priceRanges := make([]map[string]any, 0, len(priceRangeBuckets))
 	for _, b := range priceRangeBuckets {
 		r := map[string]any{"key": b.label}
@@ -562,7 +611,7 @@ func facetAggs() map[string]any {
 		}
 		priceRanges = append(priceRanges, r)
 	}
-	return map[string]any{
+	aggs := map[string]any{
 		"categories": map[string]any{"terms": map[string]any{"field": "category_id", "size": 50}},
 		"sellers":    map[string]any{"terms": map[string]any{"field": "seller_id", "size": 50}},
 		"price_ranges": map[string]any{"range": map[string]any{
@@ -571,6 +620,10 @@ func facetAggs() map[string]any {
 			"ranges": priceRanges,
 		}},
 	}
+	for k, v := range attrAggs(filters) {
+		aggs[k] = v
+	}
+	return aggs
 }
 
 // parseFacets turns the raw aggregation block into Facets. Every slice is
@@ -586,6 +639,8 @@ func parseFacets(aggs osAggregations) Facets {
 		// D9: no listing event carries a rating, so there is no ratings
 		// aggregation and the facet is always an empty (non-nil) list.
 		Ratings: []FacetBucket{},
+		Tags:    parseTagFacets(aggs.TagFacets),
+		SKUs:    parseSkuFacets(aggs.SkuFacets),
 	}
 	for _, b := range aggs.Categories.Buckets {
 		f.Categories = append(f.Categories, FacetBucket{Key: termKey(b.Key), Count: b.DocCount})
@@ -639,7 +694,13 @@ func buildFilterClauses(filters map[string]string, categoryID string, minPrice, 
 	if _, has := filters[filterStatus]; !has {
 		clauses = append(clauses, statusClause(statusPublished))
 	}
+	// tag.<group> / sku.<group> become facet clauses (attributes.go), never raw terms.
+	attrClauses, _, attrKeys := attrFilterClauses(filters)
+	clauses = append(clauses, attrClauses...)
 	for k, v := range filters {
+		if attrKeys[k] {
+			continue
+		}
 		if k == filterInStock {
 			// D4: in_stock is not a document field; "true" keeps only listings with
 			// projected stock > 0 (a doc without stock does not match a range). The
@@ -721,7 +782,7 @@ func (o *OpenSearchIndex) Search(
 			},
 		},
 		// Facet aggregations over the SAME filtered set as the hits (F2).
-		"aggs": facetAggs(),
+		"aggs": facetAggs(filters),
 	}
 
 	if sort := sortClause(sortBy); sort != nil {
@@ -785,7 +846,7 @@ func (o *OpenSearchIndex) SearchVector(
 				"embedding": knnClause,
 			},
 		},
-		"aggs": facetAggs(),
+		"aggs": facetAggs(filters),
 	}
 
 	if sort := sortClause(sortBy); sort != nil {
