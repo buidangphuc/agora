@@ -16,12 +16,12 @@ Feature: Seller analytics are readable only by their owner or an admin
     When the seller requests GetRevenueBreakdown for the other seller's id
     Then the analytics gateway call returns 403 and no revenue figures
 
-  Scenario: An anonymous caller cannot read a forecast
+  Scenario: An anonymous caller is rejected
     Given no one is logged in
     When GetDemandForecast is requested for some seller without a token
     Then the analytics gateway call returns 401
 
-  Scenario: An admin reads any seller's funnel
+  Scenario: An admin can read any seller
     Given a signed-in seller
     And an admin is logged in
     When the admin requests GetSellerFunnel for that seller's id
