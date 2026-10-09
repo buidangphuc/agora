@@ -18,6 +18,7 @@ import (
 func TestAdminProcedureSetIsPinned(t *testing.T) {
 	want := []string{
 		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
+		analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure,
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
 		orderv1connect.OrderServiceForceFailSagaProcedure,

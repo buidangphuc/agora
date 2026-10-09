@@ -84,3 +84,19 @@ func (f *AnalyticsQueryForwarder) GetTrackingQualityReport(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *AnalyticsQueryForwarder) GetRecommendationPerformance(
+	ctx context.Context,
+	req *connect.Request[analyticsv1.GetRecommendationPerformanceRequest],
+) (*connect.Response[analyticsv1.GetRecommendationPerformanceResponse], error) {
+	var out *analyticsv1.GetRecommendationPerformanceResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.GetRecommendationPerformance(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

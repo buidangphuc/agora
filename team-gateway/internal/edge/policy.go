@@ -18,11 +18,12 @@ import (
 // stays the authoritative check). Adding or removing an entry is a spec change
 // (openspec service-authz-hardening, edge-route-policy); a test pins the set.
 var adminProcedures = map[string]string{
-	verificationv1connect.VerificationServiceReviewKycProcedure:               adminScope,
-	engagementv1connect.EngagementServiceResolveDisputeProcedure:              adminScope,
-	auditv1connect.AuditServiceQueryAuditLogProcedure:                         adminScope,
-	orderv1connect.OrderServiceForceFailSagaProcedure:                         adminScope,
-	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure: adminScope,
+	verificationv1connect.VerificationServiceReviewKycProcedure:                   adminScope,
+	engagementv1connect.EngagementServiceResolveDisputeProcedure:                  adminScope,
+	auditv1connect.AuditServiceQueryAuditLogProcedure:                             adminScope,
+	orderv1connect.OrderServiceForceFailSagaProcedure:                             adminScope,
+	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure:     adminScope,
+	analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure: adminScope,
 }
 
 // requireProcedureScope enforces adminProcedures for a resolved principal:
