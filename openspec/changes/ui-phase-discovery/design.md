@@ -103,7 +103,7 @@ state; every failure has a visible recovery; identical tracking. Non-goals: see 
 9. **Tracking is frozen.** `ListingCard` keeps the exact tree: `TrackImpression` (props `listingId,
    placementId, impressionId, modelVersion, position`) around the article; `TrackLink` on image and title
    with the same props; `ListingGrid` keeps passing `placementId/impressionId/modelVersion` and
-   `position=index+1`; `RecommendationsRow` keeps `home_recommendations`/`pdp_similar_items`; search keeps
+   `position=index+1`; `RecommendationsRow` keeps `home_feed`/`similar_items`; search keeps
    one `SearchImpressions` with the rendered ids and `q`; `data-testid="search-results"` is kept. A unit
    test snapshots the `trackEcommerce` payloads before and after.
 

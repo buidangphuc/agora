@@ -79,7 +79,7 @@ existing e2e scenarios are extended, not rewritten.
 - `ListingCard`, `ListingGrid`, `SearchBar`, `FilterSidebar`, `SortBar` belong to `ui-phase-discovery`; the
   similar-items row reuses `ListingGrid` unchanged.
 - No change to tracking hooks: `TrackView`, `TrackLink`, `TrackImpression`, `AnalyticsProvider`,
-  `placementId="pdp_similar_items"` attribution, `trackEcommerce("add_to_cart"|"view_item"|"select_item")`
+  `placementId="similar_items"` attribution, `trackEcommerce("add_to_cart"|"view_item"|"select_item")`
   and every `data-testid` used by existing e2e.
 - Seller-side PDP management, image zoom/lightbox video, and share-link redesign (`ShareButton` keeps its
   behaviour, only restyled by tokens).

@@ -1062,7 +1062,7 @@ features:
       - Given /search?q=ao renders 24 results
       - Then one view_item_list event with itemListId "search_results", the query and 24 indexed items is sent
       - When the recommendations row streams in after the hero
-      - Then its cards still carry placementId "home_recommendations" on impression and click events
+      - Then its cards still carry placementId "home_feed" on impression and click events
     tags: [tracking, buyer]
     status: automated
     covered_by: "tracking/discovery_tracking_unchanged.feature::Card impression still fires once"
@@ -2327,7 +2327,7 @@ features:
     summary: >-
       The AI review summary and the similar-items row stream in Suspense with a
       Skeleton, never delay the page, hide when their service is unavailable and keep
-      the pdp_similar_items attribution.
+      the similar_items attribution.
     entry_route: /listing/{listing_id}
     services: [team-frontend, team-ai, team-engagement, team-analytics]
     preconditions:
@@ -2348,7 +2348,7 @@ features:
       - "When a buyer opens a listing and then switches variants and uses the anchor nav"
       - "Then exactly one view_item event was sent"
       - "When the similar-items row scrolls into view and the buyer clicks the second card"
-      - "Then impressions with placementId pdp_similar_items and positions 1..n were sent and a select_item with position 2 was sent before navigation"
+      - "Then impressions with placementId similar_items and positions 1..n were sent and a select_item with position 2 was sent before navigation"
       - "When the buyer adds quantity 2 of a listing priced 100000"
       - "Then one add_to_cart event is sent with value 200000, currency VND and the item id, name, price, quantity and category"
     tags: [buyer, ui, recommendations]

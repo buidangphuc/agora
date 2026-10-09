@@ -45,7 +45,8 @@ SETTINGS = get_settings()
 _INDEX_WAIT_SECONDS = 60
 _FAVORITE_WAIT_SECONDS = 10
 _PURCHASE_VOUCHER = "SAVE10"
-_RECS_PLACEMENT = "home_recommendations"
+# The served placement (recs-serving-safeguards: the storefront uses RecommendResponse.placement_id).
+_RECS_PLACEMENT = "home_feed"
 
 
 def _digits(text: str) -> int:

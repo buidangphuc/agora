@@ -290,7 +290,7 @@ or the listing has no reviews, the block SHALL render nothing (no error, no empt
 
 `RecommendationsRow` seeded with the current listing SHALL be rendered in a `Suspense` boundary with a
 `Skeleton` row, SHALL render nothing when the recommendation call fails or returns no items, and SHALL continue
-to render `ListingGrid` with `placementId="pdp_similar_items"` so impression and click events carry the same
+to render `ListingGrid` with `placementId="similar_items"` so impression and click events carry the same
 placement attribution as before.
 
 #### Scenario: A slow recommendation call does not block the page
@@ -384,7 +384,7 @@ route. The existing `message` field MAY remain as a deprecated alias in this pha
 The redesign SHALL NOT alter `TrackView`, `TrackLink`, `TrackImpression`, `AnalyticsProvider`, the
 `placementId` attribution on the similar-items row, or the `trackEcommerce` events. Opening a PDP SHALL still
 fire exactly one `view_item` event with the listing id and path; cards in the similar-items row SHALL still fire
-an impression with `placementId="pdp_similar_items"`, `position` and any `impressionId`/`modelVersion`, and a
+an impression with `placementId="similar_items"`, `position` and any `impressionId`/`modelVersion`, and a
 click on one SHALL still fire `select_item` with the same attribution; a successful add to cart SHALL still fire
 one `add_to_cart` with the same payload shape.
 
@@ -396,8 +396,8 @@ one `add_to_cart` with the same payload shape.
 #### Scenario: Similar-item impression and click keep attribution
 
 - **WHEN** the similar-items row scrolls into view and the buyer clicks the second card
-- **THEN** impressions with `placementId="pdp_similar_items"` and positions 1..n were sent, and a `select_item`
-  with `placementId="pdp_similar_items"` and `position=2` was sent before navigation
+- **THEN** impressions with `placementId="similar_items"` and positions 1..n were sent, and a `select_item`
+  with `placementId="similar_items"` and `position=2` was sent before navigation
 
 #### Scenario: Add to cart event is unchanged
 

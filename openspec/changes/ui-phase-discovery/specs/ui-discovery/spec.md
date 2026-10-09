@@ -359,12 +359,12 @@ in `TrackImpression` (viewport threshold 0.3, one `view_item_list` per card) and
 title through `TrackLink` (`select_item`); both SHALL carry `listingId`, `placementId`, `impressionId`,
 `modelVersion` and `position = index + 1` as `ListingGrid` passes them. `/search` SHALL still render one
 `SearchImpressions` with the rendered listing ids and `q`. `RecommendationsRow` SHALL keep placement ids
-`home_recommendations` and `pdp_similar_items`. Existing `data-*` attributes and `data-testid` values SHALL be
+`home_feed` and `similar_items`. Existing `data-*` attributes and `data-testid` values SHALL be
 preserved.
 
 #### Scenario: Card impression still fires once
 
-- **WHEN** a `ListingCard` with `placementId="home_recommendations"`, `impressionId="i1"`,
+- **WHEN** a `ListingCard` with `placementId="home_feed"`, `impressionId="i1"`,
   `modelVersion="m1"`, `position=3` scrolls into view
 - **THEN** exactly one `view_item_list` event is sent with `itemId`, `placementId`, `impressionId`,
   `modelVersion` and `index=3`
@@ -384,4 +384,4 @@ preserved.
 #### Scenario: Attribution survives the Suspense rework
 
 - **WHEN** the recommendations row streams in after the hero
-- **THEN** its cards still carry `placementId="home_recommendations"` on both impression and click events
+- **THEN** its cards still carry `placementId="home_feed"` on both impression and click events

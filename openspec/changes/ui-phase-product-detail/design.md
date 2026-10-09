@@ -143,7 +143,7 @@ Non-goals: new data in the contract, lightbox/zoom, seller management, anything 
    variant; both purchase buttons disabled.
 
 10. **Tracking invariants (unchanged, asserted in tests).** `TrackView` stays rendered once, outside the sections,
-    with unchanged props. `RecommendationsRow` keeps `placementId="pdp_similar_items"` and renders `ListingGrid`
+    with unchanged props. `RecommendationsRow` keeps `placementId="similar_items"` and renders `ListingGrid`
     as today, so `TrackImpression`/`TrackLink` fire with `placementId`, `position`, `impressionId`,
     `modelVersion`. `PurchasePanel` keeps `trackEcommerce("add_to_cart", ...)` with the same payload (Buy now fires
     the same single add event, no extra one). These `data-testid` values are preserved: `review-item`,
