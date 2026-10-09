@@ -96,6 +96,10 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("nearline_ttl_seconds", "NEARLINE_TTL_SECONDS", "86400", _as_int),
     # 0 = run until stopped. >0 = exit 0 after this many seconds without a message (drain mode, e2e).
     ("nearline_idle_exit_seconds", "NEARLINE_IDLE_EXIT_SECONDS", "0", _as_int),
+    # ── Drift monitoring (against the generation being replaced; observational) ──
+    ("drift_alert_threshold", "DRIFT_ALERT_THRESHOLD", "0.25", _as_float),
+    # Optional Prometheus text file (node-exporter textfile collector) for each run's drift report.
+    ("drift_metrics_path", "DRIFT_METRICS_PATH", "", _as_str),
     # ── Model Registry & Promotion Gate ──────────────────────────────────────
     ("promotion_primary_metric", "PROMOTION_PRIMARY_METRIC", "ndcg@10", _as_str),
     ("promotion_min_relative_improvement", "PROMOTION_MIN_RELATIVE_IMPROVEMENT", "0.01", _as_float),
@@ -144,6 +148,8 @@ class Settings:
     nearline_start_offset: str = "latest"
     nearline_ttl_seconds: int = 86400
     nearline_idle_exit_seconds: int = 0
+    drift_alert_threshold: float = 0.25
+    drift_metrics_path: str = ""
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_password: str = ""
@@ -217,6 +223,8 @@ class Settings:
             raise ValueError(
                 f"NEARLINE_START_OFFSET must be latest or earliest: {self.nearline_start_offset}"
             )
+        if self.drift_alert_threshold < 0:
+            raise ValueError(f"DRIFT_ALERT_THRESHOLD must be >= 0: {self.drift_alert_threshold}")
         if self.nearline_ttl_seconds <= 0:
             raise ValueError(f"NEARLINE_TTL_SECONDS must be > 0: {self.nearline_ttl_seconds}")
         for name in ("gate_min_user_coverage", "gate_min_item_coverage", "gate_max_list_overlap"):

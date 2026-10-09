@@ -19,6 +19,7 @@ from .interactions import dataset_triples, index_interactions
 from .load import qdrant as qdrant_load
 from .load import redis_cache
 from .model_version import resolve_model_version
+from .monitoring import generation as drift_monitor
 from .publish import publish_generation, refresh_serving_ttl
 from .registry.metadata import ModelMetadata
 from .registry.registry import ModelRegistry
@@ -150,6 +151,32 @@ def _refresh_ttl(settings: Settings, redis_client=None) -> None:
         log.warning("could not refresh the serving generations' TTL: %s", exc)
 
 
+def assess_drift(settings: Settings, registry: ModelRegistry, current: dict[str, list[float]]) -> dict:
+    """Compare this run's distributions with the champion's (the generation it would replace).
+
+    Observational: the verdict goes to the log, the optional Prometheus file and the model metadata
+    (the caller records it), never into the gate. Returns the drift record (see monitoring.generation).
+    """
+    incumbent_version = registry.get_champion_version()
+    incumbent = registry.get_model(incumbent_version) if incumbent_version else None
+    baseline = (incumbent.parameters or {}).get("distribution") if incumbent else None
+    record, report = drift_monitor.compare(
+        baseline, current, incumbent_version, settings.drift_alert_threshold
+    )
+    if record["status"] == "drifted":
+        log.warning("drift against %s: %s", incumbent_version, record)
+    else:
+        log.info("drift against %s: %s", incumbent_version, record)
+    if report is not None and settings.drift_metrics_path:
+        try:
+            drift_monitor.write_prometheus(
+                settings.drift_metrics_path, report, settings.drift_alert_threshold
+            )
+        except OSError as exc:
+            log.warning("could not write drift metrics to %s: %s", settings.drift_metrics_path, exc)
+    return record
+
+
 def run(
     settings: Settings | None = None,
     registry: ModelRegistry | None = None,
@@ -198,6 +225,13 @@ def run(
         user_recs = recommend.top_n_for_users(user_ids, user_vecs, item_ids, item_vecs, settings.top_n)
         item_recs = recommend.similar_items(item_ids, item_vecs, settings.top_n)
 
+        # ── Drift of this run's distributions against the generation it would replace ──
+        if registry is None:
+            registry = _open_registry(settings, redis_client)
+        distribution = drift_monitor.spark_distributions(triples, user_recs)
+        drift = assess_drift(settings, registry, distribution)
+        drift_metrics = {"drift_psi_max": drift["max_psi"]} if "max_psi" in drift else {}
+
         # ── Structural gate: a degenerate candidate never reaches the metric gate ──
         structural_ok, structural_reason = structural_check(
             user_recs,
@@ -208,8 +242,6 @@ def run(
             settings,
         )
         if not structural_ok:
-            if registry is None:
-                registry = _open_registry(settings, redis_client)
             # metrics.gate_reason is a string next to eval_protocol (also a string in metrics); the
             # reason is mirrored in parameters.gate_reason for readers that treat metrics as floats.
             registry.register_model(
@@ -217,8 +249,13 @@ def run(
                     model_version=model_version,
                     model_name="recsys-als",
                     model_type="als",
-                    metrics={"gate_reason": structural_reason},
-                    parameters={"dataset": dataset.lineage, "gate_reason": structural_reason},
+                    metrics={"gate_reason": structural_reason, **drift_metrics},
+                    parameters={
+                        "dataset": dataset.lineage,
+                        "gate_reason": structural_reason,
+                        "distribution": distribution,
+                        "drift": drift,
+                    },
                     status="rejected",
                 )
             )
@@ -230,6 +267,7 @@ def run(
                 "decision": "rejected",
                 "reason": structural_reason,
                 "gate": "structural",
+                "drift": drift,
                 "items": len(item_ids),
                 "users": len(user_ids),
                 "popular": len(popular),
@@ -249,6 +287,7 @@ def run(
                 "reason": "no usable holdout: the temporal split left no test events, "
                 "so no evaluation was possible",
                 "metrics": metrics,
+                "drift": drift,
                 "items": len(item_ids),
                 "users": len(user_ids),
                 "popular": len(popular),
@@ -258,15 +297,13 @@ def run(
             return summary
 
         # ── Model Registry & Promotion Gate ──────────────────────────────────────
-        if registry is None:
-            registry = _open_registry(settings, redis_client)
-
+        metrics = {**metrics, **drift_metrics}
         metadata = ModelMetadata(
             model_version=model_version,
             model_name="recsys-als",
             model_type="als",
             metrics=metrics,
-            parameters={"dataset": dataset.lineage},
+            parameters={"dataset": dataset.lineage, "distribution": distribution, "drift": drift},
             status="candidate",
         )
         registry.register_model(metadata)
@@ -294,6 +331,7 @@ def run(
                 incumbent.metrics.get(settings.promotion_primary_metric) if incumbent else None
             ),
             "metrics": metrics,
+            "drift": drift,
             "items": len(item_ids),
             "users": len(user_ids),
             "popular": len(popular),

@@ -7,6 +7,7 @@ from recsys.monitoring.drift import (
     DriftLevel,
     calculate_categorical_psi,
     calculate_numerical_psi,
+    calculate_psi,
 )
 
 
@@ -63,3 +64,26 @@ def test_drift_detector_multi_feature_and_prometheus():
     assert 'feature="category"' in prom
     assert 'feature="price"' in prom
     assert "recsys_model_drift_alert 1" in prom
+
+
+def test_identical_distributions_have_zero_drift():
+    """Scenario: Identical distributions have zero drift."""
+    sample = [float(i % 37) for i in range(400)]
+    assert calculate_psi(sample, list(sample)) < 1e-9
+
+    report = DriftDetector().evaluate({"x": sample}, {"x": list(sample)})
+    assert report.feature_results["x"].drift_level == DriftLevel.NO_DRIFT
+    assert report.is_drifted is False
+
+
+def test_shifted_distribution_triggers_significant_drift():
+    """Scenario: Shifted distribution triggers significant drift alert."""
+    rng = random.Random(7)
+    base = [rng.gauss(10, 2) for _ in range(500)]
+    shifted = [rng.gauss(18, 2) for _ in range(500)]
+
+    assert calculate_psi(base, shifted) > 0.25
+
+    report = DriftDetector().evaluate({"x": base}, {"x": shifted})
+    assert report.feature_results["x"].drift_level == DriftLevel.SIGNIFICANT_DRIFT
+    assert report.is_drifted is True
