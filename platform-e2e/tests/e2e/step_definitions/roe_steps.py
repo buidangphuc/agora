@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import os
+import time
+
 from pytest_bdd import given, parsers, then, when
 
 from tests.e2e.support import adq_support as adq
+from tests.e2e.support import efe_support as e
+from tests.e2e.support import oic_order_support as oic
 from tests.e2e.support import roe_support as roe
 from tests.e2e.support import tii_support as tii
+from tests.e2e.support.oic_order_support import Actor, OicWorld, register
 from tests.e2e.support.world import World
+
+NO_PURCHASE_HOLD_S = float(os.getenv("RAH_POLL_TIMEOUT_S", "90"))
 
 
 def _x(world: World) -> dict:
@@ -78,40 +86,15 @@ def row_has_counts(world: World) -> None:
 
 
 # ── Attribution ──────────────────────────────────────────────────────────
-@when("a logged-in buyer clicks a recommended listing and then purchases that listing")
-def click_then_purchase(world: World) -> None:
-    i = _ids(world, "attr")
-    token, _ = tii.register_buyer()
-    listing = roe.unique("listing")
-    kw = dict(
-        anonymous_id=i["anon"],
-        impression_id=i["impression"],
-        placement_id=i["placement"],
-        model_version=i["model"],
-    )
-    roe.post([roe.beacon("impression", listing_id=listing, **kw)], token)
-    roe.post([roe.beacon("click", listing_id=listing, **kw)], token)
-    roe.post([roe.beacon("purchase", listing_id=listing, **kw)], token)
-
-
-@then("the report row for that placement and model counts that purchase")
-def row_counts_purchase(world: World) -> None:
-    x = _x(world)
-    i = x["roe"]
-
-    def ok(report: dict) -> bool:
-        return roe.num(roe.row(report, i["placement"], i["model"]), "purchases") >= 1
-
-    report = roe.poll_report(x["roe_admin"], ok)
-    assert ok(report), report
-
-
 @when("a logged-in buyer purchases a listing they never clicked from a recommendation row")
 def purchase_without_click(world: World) -> None:
     i = _ids(world, "noattr")
-    token, _ = tii.register_buyer()
-    listing = roe.unique("listing")
-    # The row exists (an impression of the listing) but the buyer never clicks it.
+    # A real paid order (purchases come from order facts, recs-attribution-hardening). The row
+    # exists (an impression of the listing) but the buyer never clicks it.
+    w = OicWorld()
+    e.seller_with_listings(w, 1)
+    buyer: Actor = register(w, "b1", "buyer")
+    listing = e.listing_id(w, "L1")
     roe.post(
         [
             roe.beacon(
@@ -123,21 +106,11 @@ def purchase_without_click(world: World) -> None:
                 model_version=i["model"],
             )
         ],
-        token,
+        buyer.token,
     )
-    roe.post(
-        [
-            roe.beacon(
-                "purchase",
-                listing_id=listing,
-                anonymous_id=i["anon"],
-                impression_id="",
-                placement_id="",
-                model_version="",
-            )
-        ],
-        token,
-    )
+    order_id = oic.place_order(w, buyer, "L1", 1)
+    oic.pay_order(w, buyer, order_id)
+    oic.wait_status(w, buyer, order_id, oic.PAID)
 
 
 @then("no report row's purchase count includes that purchase")
@@ -150,8 +123,16 @@ def no_purchase_attributed(world: World) -> None:
         x["roe_admin"],
         lambda r: roe.num(roe.row(r, i["placement"], i["model"]), "impressions") >= 1,
     )
-    mine = roe.row(report, i["placement"], i["model"])
-    assert roe.num(mine, "purchases") == 0, mine
+    # The paid order reaches the warehouse after OrderPaidEvent is consumed: keep reading for the
+    # same window an attributed purchase gets (rah), and fail if one ever shows up.
+    deadline = time.monotonic() + NO_PURCHASE_HOLD_S
+    while True:
+        mine = roe.row(report, i["placement"], i["model"])
+        assert roe.num(mine, "purchases") == 0, mine
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(5)
+        report = roe.report_json(x["roe_admin"])
     mine_models = [
         r for r in report.get("rows", []) if str(r.get("modelVersion", "")) == i["model"]
     ]

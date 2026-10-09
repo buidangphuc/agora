@@ -493,23 +493,6 @@ features:
     covered_by: "analytics/recommendation_performance.feature::Impressions and clicks are counted per placement and model"
     notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::Impressions and clicks are counted per placement and model"
 
-  - id: analytics.roe-purchase-after-click-attributed
-    title: "A purchase after a recommended click is attributed"
-    persona: admin
-    priority: P1
-    summary: "A purchase after a recommended click is attributed"
-    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetRecommendationPerformance
-    services: [team-gateway, team-analytics]
-    preconditions:
-      login: admin
-    acceptance:
-      - "When a logged-in buyer clicks a recommended listing (impression id I, placement \"similar_items\", model version M2) and then purchases that listing"
-      - "Then the report row for \"similar_items\" and M2 counts that purchase"
-    tags: [recommendations, analytics, admin]
-    status: automated
-    covered_by: "analytics/recommendation_performance.feature::A purchase after a recommended click is attributed"
-    notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::A purchase after a recommended click is attributed"
-
   - id: analytics.roe-purchase-without-click-not-attributed
     title: "A purchase without a recommended click is not attributed"
     persona: admin
@@ -520,7 +503,7 @@ features:
     preconditions:
       login: admin
     acceptance:
-      - "When a logged-in buyer purchases a listing they never clicked from a recommendation row"
+      - "When a logged-in buyer pays an order for a listing they saw but never clicked in a recommendation row"
       - "Then no report row's purchase count includes that purchase"
     tags: [recommendations, analytics, admin]
     status: automated
