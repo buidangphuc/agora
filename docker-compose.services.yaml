@@ -631,7 +631,8 @@ services:
 
   # Offline ALS training job (serve-trained-recs-locally) — a batch, not a server:
   #   docker compose --profile jobs run --rm platform-recsys
-  # Reads the Parquet that team-analytics exports to the shared volume and writes
+  # Reads the als_interactions dataset from the featurestore volume (read-only,
+  # built by featurestore-dataset) and writes
   # item/user vectors to Qdrant and the recs:v1:* lists to Redis for team-ai.
   platform-recsys:
     build:
@@ -641,12 +642,12 @@ services:
     profiles: ["jobs"]
     environment:
       - WAREHOUSE_DRIVER=duckdb
-      - WAREHOUSE_PARQUET_PATH=/data/tracking_events.parquet
+      - DATASET_DIR=/features/datasets/als_interactions/v1
       - QDRANT_URL=http://qdrant:6333
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - analytics_data:/data:ro
+      - featurestore_data:/features:ro
     depends_on:
       - qdrant
       - redis
@@ -670,6 +671,29 @@ services:
       - FEATURESTORE_PARITY_SAMPLE=200
       - AS_OF=${AS_OF:-}
     command: ["materialize"]
+    volumes:
+      - analytics_data:/data:ro
+      - featurestore_data:/features
+    depends_on:
+      - redis
+
+  # Dataset build (featurestore-datasets) — run after featurestore-job; writes
+  # /features/datasets/<name>/<version>/ that the platform-recsys job reads:
+  #   docker compose --profile featurestore run --rm featurestore-dataset
+  featurestore-dataset:
+    build:
+      context: ./platform-featurestore
+      dockerfile: Dockerfile
+    image: platform-featurestore:local
+    profiles: ["featurestore"]
+    environment:
+      - FEATURESTORE_INPUT_DIR=/data
+      - FEATURESTORE_OFFLINE_DIR=/features
+      - FEATURESTORE_REDIS_URL=redis://redis:6379/2
+      - FEATURESTORE_ONLINE_TTL_SECONDS=172800
+      - FEATURESTORE_PARITY_SAMPLE=200
+      - AS_OF=${AS_OF:-}
+    command: ["dataset"]
     volumes:
       - analytics_data:/data:ro
       - featurestore_data:/features
