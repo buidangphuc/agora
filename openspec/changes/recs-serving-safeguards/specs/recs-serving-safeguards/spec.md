@@ -4,7 +4,8 @@
 
 When reading the cache or Qdrant fails, `Recommend` SHALL still answer `OK`. It SHALL return the serving generation's
 popular list, or an empty list if that cannot be read either, with `model_version` `serving-fallback`. It SHALL answer
-`UNAVAILABLE` only when recommendations are disabled (`RECS_ENABLED=false`).
+`UNAVAILABLE` only when recommendations are disabled (`RECS_ENABLED=false`) or the vector collection does not match the
+producer's contract (a deployment error, not an outage).
 
 #### Scenario: Recommendations survive a Redis outage
 
