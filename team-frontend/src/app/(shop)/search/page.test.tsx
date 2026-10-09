@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadSearch = vi.hoisted(() => vi.fn());
@@ -105,5 +105,19 @@ describe("SearchPage", () => {
       "href",
       "/",
     );
+  });
+
+  it("mounts category pills with the current category marked", async () => {
+    render(await SearchPage({ searchParams: { category: "c1" } }));
+    const nav = screen.getByRole("navigation", { name: "Danh mục sản phẩm" });
+    expect(
+      within(nav).getByRole("link", { name: /Điện thoại/ }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(
+      within(nav).getByRole("link", { name: "Tất cả" }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      within(nav).getByRole("link", { name: /Điện thoại/ }),
+    ).toHaveAttribute("href", "/search?category=c1");
   });
 });
