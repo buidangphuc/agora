@@ -28,6 +28,7 @@ type Settings struct {
 	Warehouse     Warehouse
 	Batch         Batch
 	Tracking      Tracking
+	Recs          Recs
 	Engagement    Engagement
 	Observability Observability
 }
@@ -110,6 +111,13 @@ type Tracking struct {
 	MissingListingMaxRatio float64 `env:"TRACKING_MISSING_LISTING_MAX_RATIO" default:"0.05"`
 }
 
+// Recs configures recommendation outcome attribution (recsys-online-evaluation).
+type Recs struct {
+	// AttributionWindowHours: an add-to-cart or purchase is credited to a click
+	// when it happens within this many hours after it.
+	AttributionWindowHours int `env:"RECS_ATTRIBUTION_WINDOW_HOURS" default:"24"`
+}
+
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
@@ -154,6 +162,9 @@ func (s *Settings) Validate() error {
 	}
 	if s.Tracking.MissingListingMaxRatio < 0 || s.Tracking.MissingListingMaxRatio > 1 {
 		return fmt.Errorf("TRACKING_MISSING_LISTING_MAX_RATIO must be within [0, 1]: %v", s.Tracking.MissingListingMaxRatio)
+	}
+	if s.Recs.AttributionWindowHours <= 0 {
+		return fmt.Errorf("RECS_ATTRIBUTION_WINDOW_HOURS must be > 0: %d", s.Recs.AttributionWindowHours)
 	}
 	if strings.TrimSpace(s.Engagement.EventsTopic) == "" || strings.TrimSpace(s.Engagement.DLQTopic) == "" ||
 		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {

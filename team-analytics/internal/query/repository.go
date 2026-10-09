@@ -138,3 +138,23 @@ type TrackingQualityData struct {
 type QualityRepository interface {
 	TrackingQuality(ctx context.Context, since, until time.Time) (TrackingQualityData, error)
 }
+
+// PerformanceRow is one (placement, model_version) line of the recommendation
+// performance report (recsys-online-evaluation D1).
+type PerformanceRow struct {
+	PlacementID     string
+	ModelVersion    string
+	Impressions     int64 // distinct impression_id
+	ItemImpressions int64 // impression events
+	Clicks          int64
+	AddToCarts      int64
+	Purchases       int64
+}
+
+// PerformanceRepository is implemented by repositories that can attribute
+// recommendation outcomes (the DuckDB one). Impressions and clicks are taken
+// from [since, until] on occurred_at; add-to-carts and purchases count when they
+// fall within attributionHours after a click from the same impression.
+type PerformanceRepository interface {
+	RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error)
+}

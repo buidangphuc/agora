@@ -13,6 +13,7 @@ Served: `platform.analytics.v1.AnalyticsQueryService` (`proto/platform/analytics
 | `GetDemandForecast` | same as above |
 | `GetPlatformOrderSummary` | `admin` scope only (`RequireScopes`) |
 | `ListRecentOrders` | `admin` scope only |
+| `GetRecommendationPerformance` | Admin only. Over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`), one row per (`placement_id`, `model_version`) seen on impression events: distinct `impression_id`s, item impressions, clicks carrying one of those ids, and add-to-carts / purchases by the same `user_key` on a clicked listing within `RECS_ATTRIBUTION_WINDOW_HOURS` after the click (each credited once, to its earliest click). `ctr` = clicks / item impressions; `conversion_rate` = purchases / clicks (0 without clicks). Also the per-placement share of impressions with `model_version` `serving-fallback`. DuckDB only. |
 | `GetTrackingQualityReport` | `admin` scope only |
 
 Trust model (ADR-0003): the gateway verifies the token and forwards a resolved Principal as gRPC metadata `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`), `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` reads these headers and does no verification, so the service trusts any caller that can reach `:50059` (see Known gaps).
@@ -101,6 +102,7 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `TRACKING_STALE_AFTER_SECONDS` | `900` | Report is `DEGRADED` (`stale`) when the latest ingest is older; must be > 0 |
 | `TRACKING_LAG_P95_MAX_SECONDS` | `300` | `DEGRADED` (`lagging`) when p95 ingest lag exceeds it; must be > 0 |
 | `TRACKING_MISSING_LISTING_MAX_RATIO` | `0.05` | `DEGRADED` (`incomplete`) when a listing-scoped type's share of events without `listing_id` exceeds it; 0 to 1 |
+| `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` credits an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
 | `OTEL_ENABLED` | `false` | Inert: no tracing code reads it |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | Inert |
 | `OTEL_SERVICE_NAME` | `team-analytics` | Inert |

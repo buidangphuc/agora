@@ -81,3 +81,18 @@ func TestTrackingDefaultsAndValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestRecsAttributionDefaultAndValidation(t *testing.T) {
+	s, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Recs.AttributionWindowHours != 24 {
+		t.Errorf("attribution window default = %d, want 24", s.Recs.AttributionWindowHours)
+	}
+	bad := *s
+	bad.Recs.AttributionWindowHours = 0
+	if err := bad.Validate(); err == nil {
+		t.Error("Validate accepted RECS_ATTRIBUTION_WINDOW_HOURS=0")
+	}
+}

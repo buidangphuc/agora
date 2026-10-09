@@ -66,7 +66,7 @@ func run() error {
 			StaleAfter:             time.Duration(settings.Tracking.StaleAfterSeconds) * time.Second,
 			LagP95Max:              time.Duration(settings.Tracking.LagP95MaxSeconds) * time.Second,
 			MissingListingMaxRatio: settings.Tracking.MissingListingMaxRatio,
-		}))
+		}), query.WithAttributionWindowHours(settings.Recs.AttributionWindowHours))
 		logger.Info("analytics query service enabled", slog.String("driver", settings.Warehouse.Driver))
 	}
 	srv := grpcserver.Build(settings, res.Health, queryServer)
