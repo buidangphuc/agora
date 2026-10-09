@@ -813,3 +813,93 @@ features:
     status: automated
     covered_by: "recommendations/serving_safeguards.feature::Online features break a tie"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Online features break a tie"
+
+  - id: ai.ssa-similar-reads-serving-vectors
+    title: "A similar-items request reads the vectors of the serving generation"
+    persona: buyer
+    priority: P1
+    summary: "A similar-items request reads the vectors of the serving generation"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When two models have been promoted and a buyer opens similar items for a listing"
+      - "Then the returned listings are the nearest neighbours in the second model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+
+  - id: ai.ssa-alias-ahead-of-pointer
+    title: "An alias ahead of the pointer does not change what is served"
+    persona: buyer
+    priority: P1
+    summary: "An alias ahead of the pointer does not change what is served"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When the item alias is moved to the second model's collection while `recs:v1:serving` still names the first"
+      - "Then similar items through the gateway are the nearest neighbours in the first model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+
+  - id: ai.ssa-alias-behind-pointer
+    title: "An alias behind the pointer does not change what is served"
+    persona: buyer
+    priority: P1
+    summary: "An alias behind the pointer does not change what is served"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When `recs:v1:serving` names the second model while the item alias still points at the first model's collection"
+      - "Then similar items through the gateway are the nearest neighbours in the second model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+
+  - id: ai.ssa-no-pointer-uses-alias
+    title: "Without a pointer the alias is used"
+    persona: buyer
+    priority: P1
+    summary: "Without a pointer the alias is used"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When `recs:v1:serving` is absent and the item alias points at a generation's collection"
+      - "Then similar items through the gateway are the nearest neighbours in the alias's collection"
+    tags: [recsys, recommendations, destructive]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+
+  - id: ai.ssa-no-listing-credentials
+    title: "The team-ai container does not hold listing's credentials"
+    persona: buyer
+    priority: P1
+    summary: "The team-ai container does not hold listing's credentials"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Reads `docker inspect` of the running team-ai container."
+    acceptance:
+      - "When the running `team-ai-svc` container's environment is inspected"
+      - "Then none of its `POSTGRES_*` values is `listing_svc`, `listing_pass` or `listing_db`"
+    tags: [recsys, recommendations]
+    status: planned
+    covered_by: null
+    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"

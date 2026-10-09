@@ -161,7 +161,9 @@ async def test_anonymous_with_seed_returns_similar_items():
     )
 
     assert result.source == "ann"
-    assert redis.get_calls == []  # anonymous skips the user cache read entirely
+    # anonymous skips the user cache read entirely (only the serving pointer is read, once, to
+    # name the Qdrant collection)
+    assert redis.get_calls == ["recs:v1:serving"]
     assert [i.listing_id for i in result.items] == ["listing-1"]  # seed excluded
 
 

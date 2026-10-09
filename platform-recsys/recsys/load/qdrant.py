@@ -1,8 +1,10 @@
 """Upsert ALS and Two-Tower factors into Qdrant (:6333).
 
 Names (recsys-generations):
-- ``item_als_vectors`` / ``user_als_vectors`` are ALIASES (the names readers use). They point at the
-  serving generation's collections.
+- ``item_als_vectors`` / ``user_als_vectors`` are ALIASES, a deprecated compatibility shim for
+  readers that predate pointer-resolved collections (serving-switch-atomicity). team-ai now names
+  ``<alias>__<serving generation>`` from ``recs:v1:serving`` itself, so the aliases decide nothing for
+  it; they still point at the serving generation's collections and are removable in a later release.
 - ``item_als_vectors__<gen>`` / ``user_als_vectors__<gen>``: the vectors of one ``model_version``,
   created fresh by each publish. The alias moves only after they are written, in one atomic call.
 - two-tower collection (default ``item_two_tower_vectors``): not generation-scoped.
@@ -265,8 +267,13 @@ def activate_aliases(settings, generation: str, client=None) -> None:
 def prune_generations(settings, keep: set[str], client=None) -> list[str]:
     """Delete every ``<base>__<gen>`` collection whose generation is not in ``keep``.
 
-    Never touches a collection the aliases currently point at. Returns the names deleted.
+    Never touches a collection the aliases currently point at, and does nothing when ``keep`` is
+    empty: no serving/previous generation could be named, which means "unknown", not "delete all"
+    (serving no longer depends on the aliases protecting the live generation). Returns the names
+    deleted.
     """
+    if not keep:
+        return []
     if client is None:
         client = _connect(settings)
     live = set(_alias_targets(client).values())

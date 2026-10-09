@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable
+from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -27,6 +28,12 @@ if TYPE_CHECKING:
 
 
 _POINTER_TTL_S = 5.0
+
+# The generation fixed for the request being served (see ``pin_generation``): ``(gen,)`` so
+# "pinned to no generation" (legacy keys) is distinguishable from "not pinned".
+_PINNED: ContextVar[tuple[str | None] | None] = ContextVar(
+    "recs_pinned_generation", default=None
+)
 
 
 class PrecomputedCache:
@@ -73,7 +80,26 @@ class PrecomputedCache:
     def model_version_key(self) -> str:
         return f"{self._prefix}:{self._schema_version}:model_version"
 
+    async def pin_generation(self) -> Token:
+        """Fix the serving generation for the current request (contextvar scope).
+
+        Every cache read and every Qdrant collection choice made under the pin sees the
+        same generation even if the 5 s memo expires and the pointer moves mid-request.
+        Pass the returned token to ``unpin_generation`` in a ``finally``.
+        """
+        return _PINNED.set((await self._resolve_generation(),))
+
+    def unpin_generation(self, token: Token) -> None:
+        _PINNED.reset(token)
+
     async def serving_generation(self) -> str | None:
+        """The serving generation (the request's pinned one if any)."""
+        pinned = _PINNED.get()
+        if pinned is not None:
+            return pinned[0]
+        return await self._resolve_generation()
+
+    async def _resolve_generation(self) -> str | None:
         """The serving generation, memoised; a Redis error counts as absent."""
         if self._redis is None:
             return None

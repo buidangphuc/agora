@@ -5,6 +5,10 @@ Publish order (a crash before step 3 leaves serving exactly as it was):
   2. write the generation's Qdrant collections              (invisible: the aliases do not name them)
   3. move the Qdrant aliases, then the Redis pointers       (the switch; the Redis one is a single Lua EVAL)
   4. delete every generation that is neither serving nor previous
+
+The Redis pointer is the serving decision for BOTH stores: team-ai names its Qdrant collection from
+``recs:v1:serving``. The aliases are a deprecated shim for older readers, so a crash between the alias
+move and the pointer switch leaves current readers on one consistent generation.
 """
 
 from __future__ import annotations
