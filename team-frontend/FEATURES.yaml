@@ -2877,9 +2877,8 @@ features:
       - "When a buyer without a code presses \"Tạo mã\""
       - "Then the button is pending, a success toast appears and the code is displayed after revalidation"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-REACHABLE: team-referral GetMyReferral mints the code on first read, so a buyer without a code never reaches the Tạo mã giới thiệu button (unit-tested)."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/app/(shop)/account/referral/page.test.tsx › /account/referral › generating a code is pending, then toasts. NOT E2E-REACHABLE: team-referral GetMyReferral mints the code on first read, so a buyer without a code never reaches the Tạo mã button."
 
   # ---- d1-entries-end (append new d1 entries above this line)
 
