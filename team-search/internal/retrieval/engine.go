@@ -207,12 +207,15 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		if len(fused) < rerankLimit {
 			rerankLimit = len(fused)
 		}
-		candidateIDs := make([]string, rerankLimit)
+		docs := make([]RerankDoc, rerankLimit)
 		for i := 0; i < rerankLimit; i++ {
-			candidateIDs[i] = fused[i].ListingID
+			docs[i] = RerankDoc{ID: fused[i].ListingID, Text: fused[i].Text}
 		}
-		reorderedIDs, err := e.rerankClient.Rerank(ctx, params.Query, candidateIDs)
-		if err == nil && len(reorderedIDs) == len(candidateIDs) {
+		reorderedIDs, err := e.rerankClient.Rerank(ctx, params.Query, docs)
+		if err != nil {
+			log.Printf("[retrieval] rerank error: %v, keeping RRF order", err)
+		}
+		if err == nil && len(reorderedIDs) == len(docs) {
 			idToCand := make(map[string]Candidate, len(fused))
 			for _, c := range fused {
 				idToCand[c.ListingID] = c
@@ -272,6 +275,7 @@ func toCandidates(hits []index.Hit, strategy string) []Candidate {
 			Rank:      i + 1,
 			Strategy:  strategy,
 			Stock:     h.Stock,
+			Text:      h.Text,
 		})
 	}
 	return cands

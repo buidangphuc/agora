@@ -148,11 +148,11 @@ features:
     status: planned
     notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive: saturates the router for a few seconds, so concurrent hybrid searches may degrade; run in the serial lane."
 
-  - id: modelserve.networkpolicy-restricts-access-to-team-ai
-    title: "NetworkPolicy restricts access to team-ai"
+  - id: modelserve.networkpolicy-admits-team-ai-team-search-prometheus
+    title: "NetworkPolicy admits only team-ai, team-search and prometheus"
     persona: guest
     priority: P1
-    summary: "Static: platform-gitops/platform/infra/modelserve.yaml allows ingress to app modelserve-router :8100 only from app team-ai and app prometheus."
+    summary: "Static: platform-gitops/platform/infra/modelserve.yaml allows ingress to app modelserve-router :8100 only from app team-ai, app team-search, app team-search-indexer and app prometheus."
     entry_route: /metrics
     services: [platform-modelserve]
     preconditions:
@@ -162,8 +162,8 @@ features:
       exercised: [modelserve.http]
     acceptance:
       - "When the platform-modelserve GitOps manifest is parsed"
-      - "Then a NetworkPolicy selects app modelserve-router and its only ingress sources are app team-ai and app prometheus on port 8100"
+      - "Then a NetworkPolicy selects app modelserve-router and its only ingress sources are app team-ai, app team-search, app team-search-indexer and app prometheus on port 8100"
     tags: [modelserve, security]
     status: automated
-    covered_by: "modelserve/model_serving_gitops.feature::NetworkPolicy restricts access to team-ai"
+    covered_by: "modelserve/model_serving_gitops.feature::NetworkPolicy admits only team-ai, team-search and prometheus"
 

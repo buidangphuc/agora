@@ -29,8 +29,8 @@ def parse_manifest(gitops_ms: dict) -> None:
 
 
 @then(
-    "a NetworkPolicy selects app modelserve-router and its only ingress sources are app team-ai "
-    "and app prometheus on port 8100"
+    "a NetworkPolicy selects app modelserve-router and its only ingress sources are app team-ai, "
+    "app team-search, app team-search-indexer and app prometheus on port 8100"
 )
 def network_policy(gitops_ms: dict) -> None:
     policies = [
@@ -46,7 +46,12 @@ def network_policy(gitops_ms: dict) -> None:
     assert "Ingress" in spec["policyTypes"]
     rules = spec["ingress"]
     sources = {peer["podSelector"]["matchLabels"]["app"] for rule in rules for peer in rule["from"]}
-    assert sources == {"team-ai", "prometheus"}, f"ingress sources: {sources}"
+    assert sources == {
+        "team-ai",
+        "team-search",
+        "team-search-indexer",
+        "prometheus",
+    }, f"ingress sources: {sources}"
     assert all(
         "namespaceSelector" not in p and "ipBlock" not in p for r in rules for p in r["from"]
     )

@@ -58,6 +58,14 @@ type Hit struct {
 	Score     float64
 	// Stock is the read-model stock from _source (D3); nil when none is projected.
 	Stock *int32
+	// Text is the rerank document (title + description) from _source; empty when
+	// the doc holds neither.
+	Text string
+}
+
+// RerankText is the document a cross-encoder scores against the query.
+func (d ListingDoc) RerankText() string {
+	return strings.TrimSpace(d.Title + "\n" + d.Description)
 }
 
 // FacetBucket is one facet value and the number of matching listings that carry
@@ -819,7 +827,7 @@ func (o *OpenSearchIndex) Search(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText()})
 	}
 	return SearchResult{
 		Hits:   hits,
@@ -883,7 +891,7 @@ func (o *OpenSearchIndex) SearchVector(
 	}
 	hits := make([]Hit, 0, len(parsed.Hits.Hits))
 	for _, h := range parsed.Hits.Hits {
-		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock})
+		hits = append(hits, Hit{ListingID: h.Source.ID, Score: h.Score, Stock: h.Source.Stock, Text: h.Source.RerankText()})
 	}
 	return SearchResult{
 		Hits:   hits,

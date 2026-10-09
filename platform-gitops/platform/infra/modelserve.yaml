@@ -1,6 +1,6 @@
 # platform-modelserve — Internal ML model serving router + TEI / vLLM runtimes (ADR-0011).
 # Reconciled by the infra-shared ArgoCD Application (sync-wave 0).
-# Ingress to the router (:8100) is restricted via NetworkPolicy so only team-ai can reach it.
+# Ingress to the router (:8100) is restricted via NetworkPolicy so only team-ai and team-search (+ its indexer) can reach it.
 
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -48,7 +48,7 @@ spec:
             - name: VLLM_URL
               value: "http://vllm.marketplace.svc:8103"
             - name: REDIS_URL
-              value: "redis://redis.marketplace.svc:6379/0"
+              value: "redis://valkey.marketplace.svc:6379/0"
             - name: EMBED_CACHE_ENABLED
               value: "true"
             - name: MODEL_VERSION
@@ -211,7 +211,7 @@ spec:
       targetPort: 8102
 ---
 # ── 4. NetworkPolicy: Service-to-Service Zero-Trust (ADR-0010 / ADR-0011) ─────
-# Internal isolation: only team-ai and prometheus can access modelserve-router :8100.
+# Internal isolation: only team-ai, team-search, team-search-indexer and prometheus can access modelserve-router :8100.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -228,6 +228,12 @@ spec:
         - podSelector:
             matchLabels:
               app: team-ai
+        - podSelector:
+            matchLabels:
+              app: team-search
+        - podSelector:
+            matchLabels:
+              app: team-search-indexer
         - podSelector:
             matchLabels:
               app: prometheus

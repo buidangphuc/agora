@@ -14,7 +14,13 @@ import (
 
 // RerankClient defines the port for cross-encoder reranking.
 type RerankClient interface {
-	Rerank(ctx context.Context, query string, candidateIDs []string) ([]string, error)
+	Rerank(ctx context.Context, query string, docs []RerankDoc) ([]string, error)
+}
+
+// RerankDoc is one candidate: its listing ID and the text the cross-encoder scores.
+type RerankDoc struct {
+	ID   string
+	Text string
 }
 
 // HTTPRerankClient calls platform-modelserve /rerank.
@@ -51,16 +57,34 @@ type rerankResponse struct {
 	Results []rerankResultItem `json:"results"`
 }
 
-// Rerank sends candidates to cross-encoder and returns re-ordered candidate IDs.
-func (c *HTTPRerankClient) Rerank(ctx context.Context, query string, candidateIDs []string) ([]string, error) {
-	if len(candidateIDs) <= 1 {
-		return candidateIDs, nil
+// parseRerankResponse accepts TEI's bare list [{"index":i,"score":s}] and the
+// {"results":[...]} wrapper.
+func parseRerankResponse(body []byte) ([]rerankResultItem, error) {
+	var bare []rerankResultItem
+	if err := json.Unmarshal(body, &bare); err == nil {
+		return bare, nil
+	}
+	var wrapped rerankResponse
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, err
+	}
+	return wrapped.Results, nil
+}
+
+// Rerank sends the candidates' text to the cross-encoder and returns the IDs
+// re-ordered by score (highest first), mapping scores back by index.
+func (c *HTTPRerankClient) Rerank(ctx context.Context, query string, docs []RerankDoc) ([]string, error) {
+	ids := make([]string, len(docs))
+	texts := make([]string, len(docs))
+	for i, d := range docs {
+		ids[i] = d.ID
+		texts[i] = d.Text
+	}
+	if len(docs) <= 1 {
+		return ids, nil
 	}
 
-	payload, err := json.Marshal(rerankRequest{
-		Query: query,
-		Texts: candidateIDs, // In production, this can pass titles/texts; for ID re-scoring it uses candidate representations
-	})
+	payload, err := json.Marshal(rerankRequest{Query: query, Texts: texts})
 	if err != nil {
 		return nil, fmt.Errorf("marshal rerank request: %w", err)
 	}
@@ -78,45 +102,40 @@ func (c *HTTPRerankClient) Rerank(ctx context.Context, query string, candidateID
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("rerank failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read rerank response: %w", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("rerank failed with status %d: %s", resp.StatusCode, string(body))
+	}
 
-	var parsed rerankResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
+	results, err := parseRerankResponse(body)
+	if err != nil {
 		return nil, fmt.Errorf("unmarshal rerank response: %w", err)
 	}
-
-	if len(parsed.Results) == 0 {
-		return candidateIDs, nil
+	if len(results) == 0 {
+		return ids, nil
 	}
 
-	// Sort results by cross-encoder score desc
-	sort.Slice(parsed.Results, func(i, j int) bool {
-		return parsed.Results[i].Score > parsed.Results[j].Score
-	})
+	sort.SliceStable(results, func(i, j int) bool { return results[i].Score > results[j].Score })
 
-	reordered := make([]string, 0, len(candidateIDs))
-	seen := make(map[string]struct{}, len(candidateIDs))
-	for _, item := range parsed.Results {
-		if item.Index >= 0 && item.Index < len(candidateIDs) {
-			id := candidateIDs[item.Index]
-			reordered = append(reordered, id)
-			seen[id] = struct{}{}
+	reordered := make([]string, 0, len(ids))
+	seen := make(map[int]struct{}, len(ids))
+	for _, item := range results {
+		if item.Index < 0 || item.Index >= len(ids) {
+			continue
 		}
+		if _, dup := seen[item.Index]; dup {
+			continue
+		}
+		seen[item.Index] = struct{}{}
+		reordered = append(reordered, ids[item.Index])
 	}
-	// Append any missed candidate IDs
-	for _, id := range candidateIDs {
-		if _, ok := seen[id]; !ok {
+	for i, id := range ids {
+		if _, ok := seen[i]; !ok {
 			reordered = append(reordered, id)
 		}
 	}
-
 	return reordered, nil
 }
