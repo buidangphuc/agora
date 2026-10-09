@@ -634,6 +634,9 @@ services:
       - RECS_CACHE_TTL_SECONDS=86400
       # Online item features from platform-featurestore (its own Redis DB 2), recs-serving-safeguards.
       - RECS_FEATURESTORE_REDIS_URL=redis://redis:6379/2
+      # Nearline position-debiased CTR written by platform-recsys-nearline (add-recsys-nearline-signals),
+      # read per request for GBDT placements; an outage leaves the request on prior CTRs.
+      - RECS_NEARLINE_REDIS_URL=redis://redis:6379/0
       - RECS_RETRIEVE_TIMEOUT_MS=15
     ports:
       - "8001:8000"
@@ -644,6 +647,28 @@ services:
   # Reads the als_interactions dataset from the featurestore volume (read-only,
   # built by featurestore-dataset) and writes
   # item/user vectors to Qdrant and the recs:v1:* lists to Redis for team-ai.
+  # Nearline signals: consumes analytics.events into recs:nearline:* (Redis DB 0, TTL 24 h); the contract team-ai
+  # reads is in openspec/changes/add-recsys-nearline-signals/design.md. Same image as the batch job.
+  platform-recsys-nearline:
+    build:
+      context: ./platform-recsys
+      dockerfile: Dockerfile
+    image: platform-recsys:local
+    container_name: platform-recsys-nearline
+    entrypoint: ["python", "-m", "recsys.nearline"]
+    restart: unless-stopped
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ANALYTICS_TOPIC=analytics.events
+      - NEARLINE_CONSUMER_GROUP=platform-recsys-nearline
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+
   platform-recsys:
     build:
       context: ./platform-recsys
