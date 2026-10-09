@@ -150,13 +150,21 @@ def start_and_wait_replay(world: World) -> None:
     _act_as(world, _buyer(world))
     _wait_notifications_ready(world)
     deadline = time.monotonic() + 120
+    last = ""
     while time.monotonic() < deadline:
-        current, end = c1.group_topic_offsets(CHAT_GROUP, CHAT_TOPIC)
+        try:
+            current, end = c1.group_topic_offsets(CHAT_GROUP, CHAT_TOPIC)
+        except AssertionError as exc:
+            # right after the restart the group is PreparingRebalance and reports no
+            # offsets yet; keep polling until it is Stable (bounded by the deadline)
+            last = str(exc)
+            time.sleep(2)
+            continue
         if current >= end:
             time.sleep(_SETTLE_S)
             return
         time.sleep(2)
-    raise AssertionError(f"{CHAT_GROUP} did not catch up on {CHAT_TOPIC}")
+    raise AssertionError(f"{CHAT_GROUP} did not catch up on {CHAT_TOPIC}: {last}")
 
 
 @then("the buyer still has exactly one chat notification for the seller's reply")
