@@ -703,3 +703,113 @@ features:
     status: automated
     covered_by: "recommendations/generation_publish.feature::Serving follows a promotion within seconds"
     notes: "recsys-generation-publish: recommendations/generation_publish.feature::Serving follows a promotion within seconds"
+
+  # ---- recs-serving-safeguards (planned until the code is merged and the lane has run) ----
+
+  - id: ai.rss-redis-outage
+    title: "Recommendations survive a Redis outage"
+    persona: buyer
+    priority: P1
+    summary: "Recommendations survive a Redis outage"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Stops the stack Redis (restored and awaited in teardown)."
+    acceptance:
+      - "When the Redis used by team-ai is stopped and a buyer requests homepage recommendations through the gateway"
+      - "Then the call succeeds with model_version \"serving-fallback\""
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Recommendations survive a Redis outage"
+
+  - id: ai.rss-popular-cold-start
+    title: "A new buyer gets the popular list"
+    persona: buyer
+    priority: P1
+    summary: "A new buyer gets the popular list"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Publishes a known popular list in the serving Redis (saved and restored in teardown)."
+    acceptance:
+      - "When the serving generation's popular list is L and a buyer with no recommendations of their own requests homepage recommendations"
+      - "Then the returned listing ids are the first items of L, in L's order"
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::A new buyer gets the popular list"
+
+  - id: ai.rss-memory-backend-refused
+    title: "Production refuses the memory recommendation backend"
+    persona: buyer
+    priority: P1
+    summary: "Production refuses the memory recommendation backend"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Black-box docker run of the team-ai image (boot guard)."
+    acceptance:
+      - "When the team-ai image is started with `ENVIRONMENT=production`, `RECS_ENABLED=true` and `RECS_BACKEND=memory`"
+      - "Then the process exits non-zero and its log names `RECS_BACKEND`"
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
+
+  - id: ai.rss-run-grpc-recommend
+    title: "The standalone gRPC server answers Recommend"
+    persona: buyer
+    priority: P1
+    summary: "The standalone gRPC server answers Recommend"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "A throwaway team-ai container plus a throwaway gateway, both removed afterwards."
+    acceptance:
+      - "When team-ai is started with `scripts/run_grpc.py` and a buyer requests recommendations through a gateway pointed at it"
+      - "Then the call succeeds instead of answering `unimplemented`"
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
+
+  - id: ai.rss-distinct-request-ids
+    title: "Two calls get distinct request ids and the served placement"
+    persona: buyer
+    priority: P1
+    summary: "Two calls get distinct request ids and the served placement"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Reads `docker logs agora-team-ai-svc`."
+    acceptance:
+      - "When a buyer requests homepage recommendations twice through the gateway"
+      - "Then both responses have `placement_id` \"home_feed\" and two different non-empty `request_id`s, and team-ai logged a `recs.served` line for each"
+    tags: [recommendations, ai]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Two calls get distinct request ids and the served placement"
+
+  - id: ai.rss-online-feature-tie-break
+    title: "Online features break a tie"
+    persona: buyer
+    priority: P1
+    summary: "Online features break a tie"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes fs:item_popularity keys (Redis DB 2) and the buyer's list (saved and restored in teardown)."
+    acceptance:
+      - "When two candidates have equal model scores and only the second has `item_popularity` features with `ctr_7d` 0.5"
+      - "Then the second ranks above the first in the response"
+    tags: [recommendations, ai, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Online features break a tie"

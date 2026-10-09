@@ -2689,3 +2689,22 @@ features:
     status: automated
     covered_by: "ops/cockpit_tracking_quality.feature::The panel says unavailable when analytics is down"
     notes: "analytics-data-quality: ops/cockpit_tracking_quality.feature::The panel says unavailable when analytics is down"
+
+  - id: frontend.rss-beacons-carry-request-id
+    title: "Storefront beacons carry the server request id"
+    persona: buyer
+    priority: P1
+    summary: "Storefront beacons carry the server request id"
+    entry_route: /
+    services: [team-frontend, gateway, team-ai]
+    preconditions:
+      login: buyer
+      seed_tag: needsListing
+      data: "The buyer's recommendation list is seeded in the serving Redis (saved and restored in teardown)."
+    acceptance:
+      - "When a buyer opens the homepage and its recommendation row is shown"
+      - "Then the impression beacons of that row carry an `impressionId` equal to the `request_id` the storefront received, and `placementId` \"home_feed\""
+    tags: [buyer, recommendations, tracking, destructive]
+    status: planned
+    covered_by: null
+    notes: "recs-serving-safeguards: frontend/recommendation_attribution.feature::Storefront beacons carry the server request id"
