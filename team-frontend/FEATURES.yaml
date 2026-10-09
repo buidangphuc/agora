@@ -2740,10 +2740,10 @@ features:
     acceptance:
       - "When team-ai responds slowly (>2s) to SummarizeReviews"
       - "Then the page's header, price and actions are visible before the summary, and a `Skeleton` holds the summary's space until it resolves"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: needs team-ai SummarizeReviews to answer slowly (>2 s); not forced here because it would disrupt the shared stack."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::The summary does not block the page"
+    notes: "@destructive: team-ai is docker-paused (callers hang), header/price/actions are visible with the summary Skeleton, then unpaused and the summary card replaces it; passed twice serially."
 
   - id: listing.an-unavailable-ai-service-hides-the-block
     title: "An unavailable AI service hides the block"
@@ -2757,10 +2757,10 @@ features:
     acceptance:
       - "When SummarizeReviews fails with UNAVAILABLE"
       - "Then the reviews section renders normally with no AI block, no error text and no leftover skeleton"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: needs team-ai SummarizeReviews to fail with UNAVAILABLE; destructive (stop team-ai), not run."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::An unavailable AI service hides the block"
+    notes: "@destructive: stops team-ai, restores it in teardown; passed twice serially."
 
   - id: listing.a-slow-recommendation-call-does-not-block-the-page
     title: "A slow recommendation call does not block the page"
@@ -2774,10 +2774,10 @@ features:
     acceptance:
       - "When the recommendation service is slow"
       - "Then the page renders fully with a one-row `Skeleton` in the row's place and no layout shift when the cards arrive"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: the recommendation service cannot be slowed non-destructively."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::A slow recommendation call does not block the page"
+    notes: "@destructive: team-ai is docker-paused, the page renders with one Skeleton row; passed twice serially."
 
   - id: listing.unavailable-recommendations-are-hidden
     title: "Unavailable recommendations are hidden"
@@ -2791,10 +2791,10 @@ features:
     acceptance:
       - "When the recommendation service returns UNAVAILABLE"
       - "Then the page renders without the \"Gợi ý cho bạn\" row and without an error state"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: recommendations.feature 'An unavailable recommendation service leaves neither the row nor its Skeleton on the PDP' only probes availability (recs are healthy here), so the UNAVAILABLE branch is never exercised; needs a destructive stop of team-ai."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::Unavailable recommendations are hidden"
+    notes: "@destructive: stops team-ai, restores it in teardown; passed twice serially."
 
   - id: listing.a-gateway-failure-shows-a-recoverable-error
     title: "A gateway failure shows a recoverable error"
@@ -2808,10 +2808,10 @@ features:
     acceptance:
       - "When the listing fetch fails with a non-NotFound error"
       - "Then an error `Alert` with a \"Thử lại\" button is shown, and clicking it re-renders the route"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs the listing read to fail with a non-NotFound error (stop team-listing); destructive, not run."
+    notes: "Written as frontend/uif_product_detail.feature::A gateway failure shows a recoverable error (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the product page shows the error Alert with \"Thử lại\"; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well)."
 
   - id: discovery.title-link-click-keeps-its-attribution
     title: "Card click still records select_item"
