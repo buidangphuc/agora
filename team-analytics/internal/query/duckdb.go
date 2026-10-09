@@ -346,6 +346,9 @@ conv AS (
    AND c.occurred_at BETWEEN k.occurred_at AND k.occurred_at + to_hours(CAST(? AS BIGINT))
   WHERE c.event_type IN ('add_to_cart', 'purchase') AND c.occurred_at <= ?
     AND COALESCE(c.listing_id, '') <> ''
+    -- An event with no user and no anonymous id resolves to the shared key 'anon:';
+    -- joining on it would credit one visitor's purchase to another visitor's click.
+    AND c.user_key <> 'anon:'
   QUALIFY row_number() OVER (PARTITION BY c.event_id ORDER BY k.occurred_at, k.event_id) = 1
 ),
 i AS (

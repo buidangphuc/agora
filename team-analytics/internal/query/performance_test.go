@@ -133,6 +133,25 @@ func TestDuckDBRecommendationPerformance_OutsideAttributionWindow(t *testing.T) 
 	}
 }
 
+// Anonymous events without an anonymous id all resolve to the shared key "anon:"; one such
+// visitor's purchase must not be credited to another such visitor's click.
+func TestDuckDBRecommendationPerformance_NoCrossCreditOnEmptyAnonymousID(t *testing.T) {
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	anon := func(id, typ, imp, placement, model string, ago time.Duration) *warehouse.TrackingRecord {
+		return &warehouse.TrackingRecord{EventID: id, EventType: typ, ListingID: "l1", PrincipalType: "anonymous",
+			ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: now.Add(-ago)}
+	}
+	repo := perfRepo(t, []*warehouse.TrackingRecord{
+		anon("i", "impression", "I", "p", "M", 3*time.Hour),
+		anon("c", "click", "I", "", "", 2*time.Hour),     // visitor A (no anonymous id)
+		anon("buy", "purchase", "", "", "", 1*time.Hour), // visitor B (no anonymous id)
+	})
+	got, err := repo.RecommendationPerformance(context.Background(), now.Add(-24*time.Hour), now, 24)
+	if err != nil || len(got) != 1 || got[0].Clicks != 1 || got[0].Purchases != 0 {
+		t.Fatalf("got %+v, %v; want the click counted and no purchase attributed", got, err)
+	}
+}
+
 type stubPerf struct {
 	query.Repository
 	rows  []query.PerformanceRow
