@@ -2842,10 +2842,10 @@ features:
     acceptance:
       - "When the sessions request fails"
       - "Then the sessions section shows an inline `Alert type=\"error\"` with a \"Thử lại\" action that reloads the route, and the history section still renders"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs the sessions read to fail while login history still renders; both come from team-identity, and stopping it is destructive (container stop), not authored."
+    notes: "Written as frontend/uif_account.feature::Gateway read failure (@destructive, serial lane). RED, frontend defect kept red: with team-identity stopped /account/security shows \"Không có phiên nào đang hoạt động.\" and \"Chưa có lịch sử đăng nhập.\" instead of the inline error Alert: listSessions/listLoginHistory in lib/gateway/sessions.ts swallow the failure and return [], so settle() never reports failed. (Sessions and history both come from team-identity, so the spec's \"history still renders\" cannot hold during a real outage.)"
 
   - id: account.route-error-offers-recovery
     title: "Route error offers recovery"
@@ -2859,10 +2859,10 @@ features:
     acceptance:
       - "When a gateway call throws during rendering of `/notifications`"
       - "Then a `Result status=\"error\"` is shown with a \"Thử lại\" button that re-renders the route"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs a real gateway outage (stop team-notification); destructive, not authored."
+    notes: "Written as frontend/uif_account.feature::Route error offers recovery (@destructive, serial lane). RED, frontend defect kept red: with team-notification stopped /notifications renders the empty state \"Chưa có thông báo nào trong mục này.\" instead of the route error Result: listNotifications swallows the failure and returns an empty list, so the page never throws and error.tsx is unreachable through an outage."
 
   - id: account.generating-a-code
     title: "Generating a code"
