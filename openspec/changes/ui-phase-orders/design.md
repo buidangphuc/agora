@@ -188,3 +188,23 @@ Non-goals: backend pagination, new RPCs, new order states, seller views.
    vacuously; confirm that tightening is wanted.
 6. Is the reason `Select` option list (changed_mind, defective, wrong_item, other) the right set? The current
    free-text reason is kept in a textarea shown when "other" is chosen.
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A), `frontend/uif_orders.feature` (team-order stopped): "A failed load shows an Alert with retry" and "A transport failure
+  offers retry". The retry is a same-URL `Link`, which Next serves from its 30 s router cache, so the step retries until the page
+  recovers (a click right after the outage keeps the cached error).
+- Not through the edge (B), each verified by a named Vitest test: "An unknown status does not break the row"
+  (`features/order/OrderStatusBadge.test.tsx` › "renders an unknown status as a neutral tag with its text"), "Shipment checkpoints are
+  listed newest first" (`features/order/OrderTimeline.test.tsx` › "lists checkpoints newest first and marks the newest as current",
+  two checkpoints), "No tracking information shows Empty" (same file › "shows an empty state when there is neither shipment nor
+  saga"), "Actions return the standard shape and revalidate" (`features/order/actions.test.ts` and `returns.actions.test.ts`).
+- Spec drift noted: the requirement names four actions including `mockRefundAction`, which no longer exists in
+  `features/order/actions.ts`; three are unit-tested.

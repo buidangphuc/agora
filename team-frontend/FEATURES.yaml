@@ -4557,8 +4557,8 @@ features:
       - "When an order arrives with an unrecognised status"
       - "Then a neutral badge with its `statusText` is rendered and the page does not throw"
     tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE: the gateway never returns an unrecognised order status. Covered by the Vitest OrderStatusBadge.test.tsx and OrderList.test.tsx."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/order/OrderStatusBadge.test.tsx › OrderStatusBadge › renders an unknown status as a neutral tag with its text. NOT E2E-TESTABLE: the gateway never returns an unrecognised order status."
 
   - id: uior.a-buyer-with-no-orders-sees-empty-with-a-shopping-actio
     title: "A buyer with no orders sees Empty with a shopping action"
@@ -4687,8 +4687,8 @@ features:
       - "When an order has a shipment with three checkpoints"
       - "Then three `timeline-checkpoint` items are shown, the newest first and marked current, with carrier and tracking code in the header"
     tags: [buyer]
-    status: planned
-    notes: "PARTIAL, scenario green for what the edge can seed: CreateShipment yields exactly one checkpoint and no RPC adds more, so the three-checkpoint newest-first ordering is not verifiable end to end (covered by Vitest OrderTimeline.test.tsx)."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/order/OrderTimeline.test.tsx › OrderTimeline › lists checkpoints newest first and marks the newest as current (two checkpoints). NOT E2E-TESTABLE: CreateShipment yields exactly one checkpoint and no RPC adds more, so three checkpoints cannot be seeded through the edge."
 
   - id: uior.a-pending-saga-step-is-distinguished-from-failure
     title: "A pending saga step is distinguished from failure"
@@ -4719,8 +4719,8 @@ features:
       - "When an order has neither shipment checkpoints nor saga steps"
       - "Then `timeline-empty` renders an `Empty` with the configured text"
     tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE: every order created through the edge has saga steps, so the no-shipment-no-saga state cannot be seeded. Covered by Vitest OrderTimeline.test.tsx."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/order/OrderTimeline.test.tsx › OrderTimeline › shows an empty state when there is neither shipment nor saga. NOT E2E-TESTABLE: every order created through the edge has saga steps."
 
   - id: uior.submitting-a-valid-return
     title: "Submitting a valid return"
@@ -4946,8 +4946,8 @@ features:
       - "When each of the four actions runs against a mocked gateway for success and for failure"
       - "Then success returns `{ ok: true }` (with `data` where applicable) and calls `revalidatePath`; failure returns `{ ok: false, error }` and does not throw"
     tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE: the scenario runs the actions against a mocked gateway. Covered by the Vitest features/order/actions.test.ts."
+    status: not-testable
+    notes: "Verified by the Vitest tests team-frontend/src/features/order/actions.test.ts (cancelOrderAction, reorderAction) and returns.actions.test.ts (createReturnRequestAction). NOT E2E-TESTABLE: the scenario runs the actions against a mocked gateway. Spec drift: mockRefundAction named by the requirement no longer exists."
 
   - id: uior.pages-are-not-client-components
     title: "Pages are not client components"

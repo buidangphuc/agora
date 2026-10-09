@@ -115,6 +115,7 @@ CANCELLED) and `ReturnStatus` (PENDING, APPROVED, REJECTED, REFUNDED) to semanti
 
 - **WHEN** an order arrives with an unrecognised status
 - **THEN** a neutral badge with its `statusText` is rendered and the page does not throw
+- **VERIFIED BY**: Vitest `team-frontend/src/features/order/OrderStatusBadge.test.tsx` › OrderStatusBadge › renders an unknown status as a neutral tag with its text. Not verifiable end to end: the gateway never returns an unrecognised order status, so the state cannot be seeded through the edge.
 
 ### Requirement: Empty, error and loading states of the list
 
@@ -196,6 +197,7 @@ kept. The component SHALL be server-compatible (no `"use client"`) and be wrappe
 - **WHEN** an order has a shipment with three checkpoints
 - **THEN** three `timeline-checkpoint` items are shown, the newest first and marked current, with carrier and
   tracking code in the header
+- **VERIFIED BY**: Vitest `team-frontend/src/features/order/OrderTimeline.test.tsx` › OrderTimeline › lists checkpoints newest first and marks the newest as current. Not verifiable end to end: CreateShipment yields exactly one checkpoint and no RPC adds more, so a shipment with several checkpoints cannot be seeded through the edge (the test uses two checkpoints, which exercises the same ordering).
 
 #### Scenario: A failed saga step is surfaced as the failure checkpoint
 
@@ -213,6 +215,7 @@ kept. The component SHALL be server-compatible (no `"use client"`) and be wrappe
 
 - **WHEN** an order has neither shipment checkpoints nor saga steps
 - **THEN** `timeline-empty` renders an `Empty` with the configured text
+- **VERIFIED BY**: Vitest `team-frontend/src/features/order/OrderTimeline.test.tsx` › OrderTimeline › shows an empty state when there is neither shipment nor saga. Not verifiable end to end: every order created through the edge has saga steps, so an order with neither a shipment nor saga steps cannot be seeded.
 
 ### Requirement: Returns are requested in a Modal with validation and feedback
 
@@ -341,6 +344,7 @@ for `/account/orders` and the affected `/account/orders/[id]`.
 - **WHEN** each of the four actions runs against a mocked gateway for success and for failure
 - **THEN** success returns `{ ok: true }` (with `data` where applicable) and calls `revalidatePath`; failure
   returns `{ ok: false, error }` and does not throw
+- **VERIFIED BY**: Vitest `team-frontend/src/features/order/actions.test.ts` › cancelOrderAction › cancels with a reason and revalidates the list and the detail; cancelOrderAction › returns the error shape without throwing or revalidating; reorderAction › returns the item count as data and revalidates; reorderAction › returns the error shape when the gateway throws (and team-frontend/src/features/order/returns.actions.test.ts › createReturnRequestAction › creates the return request and returns its view; createReturnRequestAction › returns an error shape when the gateway throws). Not verifiable end to end: the scenario itself runs the actions against a mocked gateway, so it is a unit scenario by construction; `mockRefundAction` named by the requirement no longer exists in `features/order/actions.ts` (spec drift, not covered by any test).
 
 #### Scenario: Pages are not client components
 
