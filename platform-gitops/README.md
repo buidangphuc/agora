@@ -16,7 +16,7 @@ manifests. It is not a deployed service; it is read by ArgoCD in the local kind 
 | `envs/local/values.yaml` | `global.registry` plus the `images:` tag map (one key per image, `local`). CI bumps these. |
 | `envs/services/<svc>.yaml` | Invariant per-service baseline for the 16 `team-*` services. Used by the ApplicationSet only. |
 | `envs/{staging,prod}/` | `values.yaml` (registry + image tags), `services.yaml` (env-wide overlay: probe timing), `services/<svc>.yaml` (per-service overlay). |
-| `platform/` | Raw manifests, no Helm: `infra` (redpanda, opensearch, minio, valkey, flipt, modelserve), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `search-indexer`, `team-analytics`, `vault-config`. |
+| `platform/` | Raw manifests, no Helm: `infra` (redpanda, opensearch, minio, valkey, flipt, modelserve), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `search-indexer`, `team-analytics`, `vault-config`. |
 | `scripts/check_identity_seed.py` | The only check shipped in this repo. |
 | `.claude/skills/scaffold-service/` | Agent skill for adding a service. |
 
@@ -33,7 +33,7 @@ Sync waves: 0 infra, 1 operators (vault, external-secrets, keda, argo-rollouts),
 | Group | Applications |
 |---|---|
 | Services (wave 4, chart `charts/service`) | 16 Apps: `team-identity`, `team-domain`, `team-search`, `team-engagement`, `team-order`, `team-payment`, `team-chat`, `team-notification`, `team-referral`, `team-verification`, `team-sharing`, `team-audit`, `team-gateway`, `team-frontend`, `team-ai`, `team-promotion` |
-| Raw-manifest apps (wave 4) | `team-analytics` (`platform/team-analytics`), `search-indexer`, `platform-recsys` (CronJob) |
+| Raw-manifest apps (wave 4) | `team-analytics` (`platform/team-analytics`), `search-indexer`, `featurestore` (CronJob 02:15 UTC: materialize, parity, dataset; PVC `featurestore-data`), `platform-recsys` (CronJob 03:00 UTC, reads that PVC read-only, refuses stale/absent datasets) |
 | Infra (wave 0) | `infra-shared` (`platform/infra`), `platform-modelserve` (also `platform/infra`), `infra-postgres` (`platform/postgres`), `metrics-server` 3.12.2 |
 | Wave 2 | `infra-postgres-backup` (`platform/backup`), `prometheus` (`platform/monitoring`), `vault-config` |
 | Operators (wave 1) | `vault` 0.28.1, `external-secrets` 0.10.4, `keda` 2.14.0, `argo-rollouts` 2.37.3 |

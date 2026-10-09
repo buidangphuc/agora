@@ -73,3 +73,139 @@ features:
     status: automated
     covered_by: "ops/repo_doctor.feature::The real workspace passes the env check"
     notes: "Scenario: ops/repo_doctor.feature::The real workspace passes the env check. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Passes vacuously before the code lands (the check does not exist yet); the ghost scenario is the red one."
+  - id: gitops.fcj-three-steps-in-order
+    title: "The three steps run in order"
+    persona: admin
+    priority: P1
+    summary: "The three steps run in order"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the featurestore CronJob manifest is rendered"
+      - "Then its init containers run materialize then parity, its main container runs dataset, and concurrencyPolicy is Forbid"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::The three steps run in order"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::The three steps run in order"
+  - id: gitops.fcj-scheduled-before-recsys
+    title: "The featurestore is scheduled before recsys"
+    persona: admin
+    priority: P1
+    summary: "The featurestore is scheduled before recsys"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the featurestore and recsys CronJobs are rendered"
+      - "Then the featurestore schedule fires earlier in the day than recsys and an Application syncs platform/featurestore"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::The featurestore is scheduled before recsys"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::The featurestore is scheduled before recsys"
+  - id: gitops.fcj-dataset-volume-shared
+    title: "The dataset volume is shared"
+    persona: admin
+    priority: P1
+    summary: "The dataset volume is shared"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the featurestore volume manifests are rendered"
+      - "Then the featurestore writes claim featurestore-data and recsys mounts it read-only under DATASET_DIR with no emptyDir"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::The dataset volume is shared"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::The dataset volume is shared"
+  - id: gitops.fcj-analytics-export-reaches-featurestore
+    title: "The analytics export reaches the featurestore"
+    persona: admin
+    priority: P1
+    summary: "The analytics export reaches the featurestore"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the analytics export manifests are rendered"
+      - "Then team-analytics exports to claim analytics-data and the featurestore mounts it read-only at its input dir"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::The analytics export reaches the featurestore"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::The analytics export reaches the featurestore"
+  - id: gitops.fcj-absent-dataset-blocks-training
+    title: "Absent dataset blocks training"
+    persona: admin
+    priority: P1
+    summary: "Absent dataset blocks training"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the recsys freshness guard runs against a missing directory and an empty one"
+      - "Then it exits non-zero both times"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::Absent dataset blocks training"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::Absent dataset blocks training"
+  - id: gitops.fcj-stale-dataset-blocks-training
+    title: "Stale dataset blocks training"
+    persona: admin
+    priority: P1
+    summary: "Stale dataset blocks training"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the recsys freshness guard runs against a directory with only an old snapshot"
+      - "Then it exits non-zero"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::Stale dataset blocks training"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::Stale dataset blocks training"
+  - id: gitops.fcj-fresh-dataset-passes-guard
+    title: "Fresh dataset passes the guard"
+    persona: admin
+    priority: P1
+    summary: "Fresh dataset passes the guard"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the recsys freshness guard runs against a directory with a new snapshot"
+      - "Then it exits zero"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::Fresh dataset passes the guard"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::Fresh dataset passes the guard"
+  - id: gitops.fcj-job-hardened-and-isolated
+    title: "The job is hardened and isolated"
+    persona: admin
+    priority: P1
+    summary: "The job is hardened and isolated"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops raw manifests."
+    acceptance:
+      - "When the featurestore security manifests are rendered"
+      - "Then every container is locked down with resources, the NetworkPolicy allows no ingress and only DNS and valkey egress, and no secret is in Git"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/fcj_featurestore_cluster.feature::The job is hardened and isolated"
+    notes: "featurestore-cluster-job: ops/fcj_featurestore_cluster.feature::The job is hardened and isolated"
