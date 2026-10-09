@@ -45,16 +45,16 @@ function SummaryRows({
         },
         {
           key: "discount",
-          label: voucherCode ? (
-            <span className="inline-flex items-center gap-1.5">
-              Giảm giá <Tag color="success">{voucherCode}</Tag>
-            </span>
-          ) : (
-            "Giảm giá"
-          ),
+          // Label is constant: a Tag in the 1/3-width <dt> wraps to a second
+          // line (+16px). The code chip sits in the value, in a fixed-height
+          // line box, so applying/removing a voucher never shifts layout.
+          label: "Giảm giá",
           children: (
-            <span data-testid="voucher-discount">
-              {discount > 0 ? `-${formatPrice(discount)}` : "-"}
+            <span className="inline-flex h-4 items-center gap-1.5 whitespace-nowrap">
+              {voucherCode ? <Tag color="success">{voucherCode}</Tag> : null}
+              <span data-testid="voucher-discount">
+                {discount > 0 ? `-${formatPrice(discount)}` : "-"}
+              </span>
             </span>
           ),
         },

@@ -10,7 +10,7 @@ Current code (read from `team-frontend`):
 | `OrderDetailView` | whole view `"use client"`, hand-built stepper (5 steps), hand-built cancel modal | client (too large) |
 | `OrderTimeline` | server-compatible; checkpoints, else saga steps, else empty; `data-testid` order-timeline, timeline-checkpoint, timeline-saga, timeline-saga-step, timeline-empty | server |
 | `OrderDetailView` cancel modal | select of reasons; confirm sets `cancelDone` and `window.location.reload()` without calling an action (e2e POM `order_detail_page.py` clicks "Hủy đơn / Yêu cầu hoàn tiền" and "Xác nhận gửi yêu cầu") | client, fake |
-| `ReturnRequestSection` | `"use client"`, inline form, own `StatusBadge`; testids return-section, return-reason, return-amount, return-submit, return-status, return-refund | client |
+| `ReturnRequestSection` | `"use client"`, inline form, own `StatusBadge`; testids return-section, return-reason, return-amount, return-submit, return-status | client |
 | `actions.ts` | `cancelOrderAction`, `reorderAction`, `createReturnRequestAction`, `mockRefundAction` (result shapes differ per action: `OrderActionResult`, `ReturnActionResult`) | server actions |
 
 Tracking: the order routes contain no `TrackLink`, `TrackImpression`, `SearchImpressions` or
@@ -106,8 +106,9 @@ Non-goals: backend pagination, new RPCs, new order states, seller views.
    shown inline via `FormItem` status. Submit calls `createReturnRequestAction`; while pending the submit
    button shows `isLoading`, both buttons and fields are disabled and the Modal cannot be dismissed; success
    closes the Modal, toasts, and `revalidatePath` refreshes the page; failure keeps the Modal open with a
-   toast error. The mock refund button ("Hoàn tiền (mô phỏng)") keeps `data-testid="return-refund"` with the
-   same pending/toast behaviour. Existing testids return-reason, return-amount, return-submit move into the
+   toast error. The buyer section has no refund control by design: the refund is a seller action
+   (`SellerReturns`, "Hoàn tiền" + confirm Modal, `refundReturnAction`), so the former "mock refund" scenario
+   was removed from the spec (e2e "buyer sees the return status without a refund button"). Existing testids return-reason, return-amount, return-submit move into the
    Modal unchanged; return-section and return-status stay on the section.
 
 8. **Server Actions contract (§5B).** `cancelOrderAction`, `reorderAction`, `createReturnRequestAction`,
