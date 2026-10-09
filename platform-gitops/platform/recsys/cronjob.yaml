@@ -1,6 +1,7 @@
 # platform-recsys — offline ALS training job. A SCHEDULED batch (CronJob), not a
-# Deployment/Service: it has no request-serving surface. It reads the analytics
-# warehouse and writes its own artifact stores — item/user vectors into Qdrant
+# Deployment/Service: it has no request-serving surface. It trains only from the
+# governed als_interactions dataset built by platform-featurestore (ADR-0015,
+# featurestore-datasets) and writes its own artifact stores — item/user vectors into Qdrant
 # (:6333, the instance team-ai targets) and a precomputed Top-N cache into Redis
 # (:6379). Mirrors the postgres-backup CronJob shape (schedule + concurrency
 # guard + history limits); mirrors the team-analytics worker in having NO
@@ -15,10 +16,9 @@ metadata:
   namespace: marketplace
 data:
   SCHEDULE: "0 3 * * *"          # nightly 03:00 UTC (after postgres-backup at 02:00)
-  # Warehouse reader seam. Local reads the DuckDB-exported Parquet on a shared
-  # volume; prod flips WAREHOUSE_DRIVER=bigquery + the BIGQUERY_* coordinates.
-  WAREHOUSE_DRIVER: "duckdb"
-  WAREHOUSE_PARQUET_PATH: "/data/tracking_events.parquet"
+  # Governed training dataset (featurestore-datasets). The job refuses to start
+  # (exit 2) when no dataset exists here; it never falls back to raw events.
+  DATASET_DIR: "/features/datasets/als_interactions/v1"
   # Artifact stores (shared infra service names in the marketplace namespace).
   QDRANT_URL: "http://qdrant:6333"
   REDIS_HOST: "redis"
@@ -29,8 +29,8 @@ data:
   RECS_CACHE_PREFIX: "recs"
   RECS_SCHEMA_VERSION: "v1"
   RECS_CACHE_TTL_SECONDS: "172800"   # 48h > nightly cadence
-  # Interaction window + ALS hyperparameters (tunable defaults).
-  INTERACTION_WINDOW_DAYS: "30"
+  # ALS hyperparameters (tunable defaults). The interaction window and event
+  # weights live in the dataset definition (platform-featurestore registry).
   ALS_RANK: "64"
   ALS_REG_PARAM: "0.05"
   ALS_ALPHA: "40.0"
@@ -70,9 +70,11 @@ spec:
                   cpu: "2"
                   memory: 2Gi
               volumeMounts:
-                - { name: warehouse-data, mountPath: /data }
+                - { name: featurestore-data, mountPath: /features, readOnly: true }
           volumes:
-            # Local: the DuckDB-exported Parquet warehouse. In prod (BigQuery)
-            # this volume is unused; the reader talks to BigQuery instead.
-            - name: warehouse-data
+            # The featurestore dataset volume. No cluster job builds datasets yet
+            # (the featurestore runs on demand via compose/e2e/CI), so until a
+            # featurestore CronJob writes to a shared PVC this is empty and the job
+            # refuses to train, which is the intended fail-closed state.
+            - name: featurestore-data
               emptyDir: {}

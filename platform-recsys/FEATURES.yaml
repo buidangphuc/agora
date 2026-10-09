@@ -10,8 +10,8 @@ features:
     persona: guest
     priority: P2
     summary: >
-      An offline PySpark job reads tracking_events, builds implicit-feedback
-      (user, item, weight) triples, fits Spark MLlib ALS (implicitPrefs=true), and
+      An offline PySpark job reads the governed als_interactions dataset (weighted
+      per-(user,item) rows built by platform-featurestore), fits Spark MLlib ALS (implicitPrefs=true), and
       loads item/user vectors into Qdrant plus a precomputed Top-N cache into Redis,
       each stamped with a model_version.
     entry_route: /
@@ -19,11 +19,11 @@ features:
     preconditions:
       login: guest
       data: >
-        A sample tracking_events Parquet warehouse (view/click/add_to_cart events for
-        several users and listings), local Qdrant (:6333) and Redis (:6379) running,
+        A governed als_interactions dataset fixture with its manifest (several users
+        and listings), local Qdrant (:6333) and Redis (:6379) running,
         and the job run in Spark local mode (no cluster).
     acceptance:
-      - Given a sample tracking_events dataset with view/click/add-to-cart events for several users and listings
+      - Given a governed als_interactions dataset with weighted rows for several users and listings
       - When the job runs in Spark local mode against that sample warehouse
       - Then it produces an ALS model with item factors and user factors, having dropped rows with an empty listing_id and collapsed events to weighted per-(user,item) interactions
       - And the item-vector and user-vector Qdrant collections exist and are populated with one point per trained listing / user, each stamped with the run's model_version

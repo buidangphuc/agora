@@ -641,7 +641,6 @@ services:
     image: platform-recsys:local
     profiles: ["jobs"]
     environment:
-      - WAREHOUSE_DRIVER=duckdb
       - DATASET_DIR=/features/datasets/als_interactions/v1
       - QDRANT_URL=http://qdrant:6333
       - REDIS_HOST=redis
