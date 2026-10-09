@@ -178,7 +178,7 @@ describe("PDP tracking: similar-items attribution", () => {
     makeListing({ id: "R3", title: "Gợi ý 3" }),
   ];
 
-  it("seeds the row with the listing, keeps ListingGrid placement pdp_similar_items and fires impressions at positions 1..n", async () => {
+  it("seeds the row with the listing, keeps ListingGrid placement similar_items and fires impressions at positions 1..n", async () => {
     vi.mocked(getRecommendations).mockResolvedValue(withRecs(recs));
     const { container } = render(
       await RecommendationsRow({ seedListingId: "L" }),
@@ -198,8 +198,8 @@ describe("PDP tracking: similar-items attribution", () => {
     expect(impressions.map((i) => i?.itemId)).toEqual(["R1", "R2", "R3"]);
     expect(impressions.map((i) => i?.index)).toEqual([1, 2, 3]);
     for (const i of impressions) {
-      expect(i?.placementId).toBe("pdp_similar_items");
-      expect(i?.itemListId).toBe("pdp_similar_items");
+      expect(i?.placementId).toBe("similar_items");
+      expect(i?.itemListId).toBe("similar_items");
       expect(i?.impressionId).toBe("req-srv-1");
     }
   });
@@ -219,9 +219,9 @@ describe("PDP tracking: similar-items attribution", () => {
     expect(eventsOf("select_item")).toHaveLength(1);
     expect(eventsOf("select_item")[0][1]?.items?.[0]).toMatchObject({
       itemId: "R2",
-      placementId: "pdp_similar_items",
+      placementId: "similar_items",
       index: 2,
-      itemListId: "pdp_similar_items",
+      itemListId: "similar_items",
     });
   });
 

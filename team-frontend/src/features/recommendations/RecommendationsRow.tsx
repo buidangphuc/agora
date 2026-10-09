@@ -37,8 +37,7 @@ export async function RecommendationsRow({
   // Prefer the placement the server actually served; fall back to the local
   // name only when the server did not report one.
   const placementId =
-    recs.placementId ||
-    (seedListingId ? "pdp_similar_items" : "home_recommendations");
+    recs.placementId || (seedListingId ? "similar_items" : "home_feed");
 
   const heading = seedListingId ? "Sản phẩm tương tự" : "Dành riêng cho bạn";
 

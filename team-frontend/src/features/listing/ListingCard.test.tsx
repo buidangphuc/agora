@@ -117,7 +117,7 @@ describe("ListingCard", () => {
     render(
       <ListingCard
         listing={listing({ id: "abc" })}
-        placementId="home_recommendations"
+        placementId="home_feed"
         impressionId="i1"
         modelVersion="m1"
         position={3}
@@ -130,13 +130,13 @@ describe("ListingCard", () => {
       items: [
         {
           itemId: "abc",
-          placementId: "home_recommendations",
+          placementId: "home_feed",
           impressionId: "i1",
           modelVersion: "m1",
           index: 3,
           price: undefined,
           itemCategory: undefined,
-          itemListId: "home_recommendations",
+          itemListId: "home_feed",
         },
       ],
     });
@@ -150,10 +150,10 @@ describe("ListingCard", () => {
         {
           itemId: "abc",
           index: 3,
-          placementId: "home_recommendations",
+          placementId: "home_feed",
           impressionId: "i1",
           modelVersion: "m1",
-          itemListId: "home_recommendations",
+          itemListId: "home_feed",
           price: undefined,
         },
       ],
