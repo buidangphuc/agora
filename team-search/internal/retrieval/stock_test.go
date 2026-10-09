@@ -16,10 +16,10 @@ func i32(v int32) *int32 { return &v }
 // reverseRerank reorders the candidates back to front.
 type reverseRerank struct{}
 
-func (reverseRerank) Rerank(_ context.Context, _ string, ids []string) ([]string, error) {
-	out := make([]string, len(ids))
-	for i, id := range ids {
-		out[len(ids)-1-i] = id
+func (reverseRerank) Rerank(_ context.Context, _ string, docs []retrieval.RerankDoc) ([]string, error) {
+	out := make([]string, len(docs))
+	for i, d := range docs {
+		out[len(docs)-1-i] = d.ID
 	}
 	return out, nil
 }
