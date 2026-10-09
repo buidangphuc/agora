@@ -19,6 +19,9 @@ data:
   # Governed training dataset (featurestore-datasets). The job refuses to start
   # (exit 2) when no dataset exists here; it never falls back to raw events.
   DATASET_DIR: "/features/datasets/als_interactions/v1"
+  # Freshness guard (init container below): training is refused when the newest dataset
+  # snapshot is older than this. 25 h for a nightly featurestore run.
+  MAX_DATASET_AGE_MINUTES: "1500"
   # Artifact stores (shared infra service names in the marketplace namespace).
   QDRANT_URL: "http://qdrant:6333"
   REDIS_HOST: "redis"
@@ -56,6 +59,28 @@ spec:
           labels: { app: platform-recsys }
         spec:
           restartPolicy: Never
+          initContainers:
+            # Fail closed on an absent OR stale dataset: succeed only if a snapshot exists
+            # under DATASET_DIR that is newer than MAX_DATASET_AGE_MINUTES.
+            - name: dataset-fresh
+              image: busybox:1.36
+              envFrom:
+                - configMapRef: { name: recsys-config }
+              command:
+                - sh
+                - -c
+                - |
+                  if find "$DATASET_DIR" -name 'as_of=*.parquet' -mmin "-$MAX_DATASET_AGE_MINUTES" 2>/dev/null | grep -q .; then
+                    echo "dataset fresh under $DATASET_DIR"
+                  else
+                    echo "no dataset newer than ${MAX_DATASET_AGE_MINUTES} min under DATASET_DIR=$DATASET_DIR; refusing to train" >&2
+                    exit 2
+                  fi
+              resources:
+                requests: { cpu: 10m, memory: 16Mi }
+                limits: { cpu: 100m, memory: 64Mi }
+              volumeMounts:
+                - { name: featurestore-data, mountPath: /features, readOnly: true }
           containers:
             - name: recsys-train
               image: localhost:5001/platform-recsys:local
@@ -72,9 +97,8 @@ spec:
               volumeMounts:
                 - { name: featurestore-data, mountPath: /features, readOnly: true }
           volumes:
-            # The featurestore dataset volume. No cluster job builds datasets yet
-            # (the featurestore runs on demand via compose/e2e/CI), so until a
-            # featurestore CronJob writes to a shared PVC this is empty and the job
-            # refuses to train, which is the intended fail-closed state.
+            # Written nightly by the featurestore CronJob (platform/featurestore), mounted
+            # read-only here. Until its first successful run the directory is empty and
+            # training is refused, which is the intended fail-closed state.
             - name: featurestore-data
-              emptyDir: {}
+              persistentVolumeClaim: { claimName: featurestore-data, readOnly: true }
