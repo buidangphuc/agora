@@ -479,13 +479,18 @@ func (w *Writer) UpsertListingSellers(ctx context.Context, batch []*warehouse.Li
 	return nil
 }
 
-// ExportParquet writes the whole table out as columnar Parquet at dst. DuckDB's
-// COPY produces analyst-/Spark-readable Parquet — the shape the later
-// recommendation job consumes.
+// ExportParquet writes the whole tracking_events table out as columnar Parquet at
+// dst. DuckDB's COPY produces analyst-/Spark-readable Parquet.
 func (w *Writer) ExportParquet(ctx context.Context, dst string) error {
-	q := fmt.Sprintf("COPY %s TO '%s' (FORMAT PARQUET)", warehouse.TableName, dst)
+	return w.ExportRelation(ctx, warehouse.TableName, dst)
+}
+
+// ExportRelation writes a whole table or view (name must be a trusted constant,
+// never user input) to dst as Parquet.
+func (w *Writer) ExportRelation(ctx context.Context, name, dst string) error {
+	q := fmt.Sprintf("COPY %s TO '%s' (FORMAT PARQUET)", name, dst)
 	if _, err := w.db.ExecContext(ctx, q); err != nil {
-		return fmt.Errorf("export parquet to %q: %w", dst, err)
+		return fmt.Errorf("export %s to parquet %q: %w", name, dst, err)
 	}
 	return nil
 }
