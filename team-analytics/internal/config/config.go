@@ -28,6 +28,7 @@ type Settings struct {
 	Warehouse     Warehouse
 	Batch         Batch
 	Tracking      Tracking
+	Engagement    Engagement
 	Observability Observability
 }
 
@@ -58,6 +59,15 @@ type Kafka struct {
 	// backfill.
 	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
 	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-sellers"`
+}
+
+// Engagement configures the engagement.events consumer (engagement-fact-events D3).
+// It runs in its own consumer group; undecodable or unknown records are
+// republished to DLQTopic and the consumer commits past them.
+type Engagement struct {
+	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
+	DLQTopic      string `env:"ENGAGEMENT_DLQ_TOPIC" default:"engagement.events.analytics.dlq"`
+	ConsumerGroup string `env:"ENGAGEMENT_CONSUMER_GROUP" default:"team-analytics.engagement"`
 }
 
 // Warehouse selects and configures the WarehouseWriter adapter. DuckDB is the
@@ -144,6 +154,10 @@ func (s *Settings) Validate() error {
 	}
 	if s.Tracking.MissingListingMaxRatio < 0 || s.Tracking.MissingListingMaxRatio > 1 {
 		return fmt.Errorf("TRACKING_MISSING_LISTING_MAX_RATIO must be within [0, 1]: %v", s.Tracking.MissingListingMaxRatio)
+	}
+	if strings.TrimSpace(s.Engagement.EventsTopic) == "" || strings.TrimSpace(s.Engagement.DLQTopic) == "" ||
+		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {
+		return errors.New("ENGAGEMENT_EVENTS_TOPIC, ENGAGEMENT_DLQ_TOPIC and ENGAGEMENT_CONSUMER_GROUP must not be empty")
 	}
 	switch s.Warehouse.Driver {
 	case DriverDuckDB:

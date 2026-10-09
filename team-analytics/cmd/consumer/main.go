@@ -107,6 +107,25 @@ func run() error {
 		}()
 	}
 
+	// engagement.events -> engagement_facts (+ DLQ). DuckDB adapter only.
+	if ew, ok := res.Writer.(warehouse.EngagementFactWriter); ok {
+		econs, err := consumer.NewEngagementConsumer(settings.KafkaBrokers(), settings.Engagement.ConsumerGroup,
+			settings.Engagement.EventsTopic, settings.Engagement.DLQTopic)
+		if err != nil {
+			return fmt.Errorf("kafka engagement consumer: %w", err)
+		}
+		defer econs.Close()
+		logger.Info("engagement consumer starting",
+			slog.String("topic", settings.Engagement.EventsTopic),
+			slog.String("dlq_topic", settings.Engagement.DLQTopic),
+			slog.String("group", settings.Engagement.ConsumerGroup))
+		go func() {
+			if runErr := econs.Run(ctx, ew, logger); runErr != nil {
+				logger.Error("engagement consumer stopped", slog.Any("err", runErr))
+			}
+		}()
+	}
+
 	logger.Info("analytics consumer starting",
 		slog.String("analytics_topic", settings.Kafka.AnalyticsTopic),
 		slog.String("order_topic", settings.Kafka.OrderTopic),
