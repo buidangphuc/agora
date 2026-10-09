@@ -242,3 +242,75 @@ LIMIT ?`, warehouse.OrderFactsTableName)
 
 // compile-time assertion that the adapter satisfies the seam.
 var _ Repository = (*DuckDBRepository)(nil)
+
+// listingScopedTypes are the event types that must carry a listing_id.
+var listingScopedTypes = map[string]bool{"view": true, "click": true, "add_to_cart": true, "impression": true}
+
+// TrackingQuality measures the tracking stream over [since, until] on occurred_at
+// from tracking_events_resolved, plus the ingest counters of the overlapping hours.
+func (r *DuckDBRepository) TrackingQuality(ctx context.Context, since, until time.Time) (TrackingQualityData, error) {
+	var out TrackingQualityData
+	since, until = since.UTC(), until.UTC()
+
+	typeQ := fmt.Sprintf(`
+SELECT event_type,
+  COUNT(*)                          AS events,
+  COUNT(DISTINCT user_key)          AS visitors,
+  AVG(CASE WHEN COALESCE(listing_id, '') = '' THEN 1.0 ELSE 0.0 END) AS missing_ratio
+FROM %s
+WHERE occurred_at >= ? AND occurred_at <= ?
+GROUP BY event_type
+ORDER BY event_type`, warehouse.ResolvedViewName)
+	rows, err := r.db.QueryContext(ctx, typeQ, since, until)
+	if err != nil {
+		return out, fmt.Errorf("tracking quality per-type query: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t TypeQuality
+		if err := rows.Scan(&t.EventType, &t.Events, &t.Visitors, &t.MissingListingRatio); err != nil {
+			return out, fmt.Errorf("scan tracking type quality: %w", err)
+		}
+		t.ListingScoped = listingScopedTypes[t.EventType]
+		if !t.ListingScoped {
+			t.MissingListingRatio = 0
+		}
+		out.Types = append(out.Types, t)
+	}
+	if err := rows.Err(); err != nil {
+		return out, fmt.Errorf("iterate tracking type quality: %w", err)
+	}
+
+	// Rows without ingested_at (written before tracking-ingest-integrity) are
+	// excluded from the lag statistics and the freshness.
+	lagQ := fmt.Sprintf(`
+SELECT
+  quantile_cont(epoch(ingested_at) - epoch(occurred_at), 0.5),
+  quantile_cont(epoch(ingested_at) - epoch(occurred_at), 0.95),
+  max(ingested_at)
+FROM %s
+WHERE occurred_at >= ? AND occurred_at <= ? AND ingested_at IS NOT NULL`, warehouse.TableName)
+	var p50, p95 sql.NullFloat64
+	var last sql.NullTime
+	if err := r.db.QueryRowContext(ctx, lagQ, since, until).Scan(&p50, &p95, &last); err != nil {
+		return out, fmt.Errorf("tracking quality lag query: %w", err)
+	}
+	if p50.Valid && p95.Valid {
+		out.HasLag, out.LagP50Seconds, out.LagP95Seconds = true, p50.Float64, p95.Float64
+	}
+	if last.Valid {
+		out.LastIngestedAt = last.Time.UTC()
+	}
+
+	counterQ := fmt.Sprintf(`
+SELECT COALESCE(SUM(decode_failures), 0), COALESCE(SUM(duplicates_skipped), 0)
+FROM %s
+WHERE hour >= ? AND hour <= ?`, warehouse.CountersTableName)
+	if err := r.db.QueryRowContext(ctx, counterQ, since.Truncate(time.Hour), until).
+		Scan(&out.DecodeFailures, &out.Duplicates); err != nil {
+		return out, fmt.Errorf("tracking quality counters query: %w", err)
+	}
+	return out, nil
+}
+
+var _ QualityRepository = (*DuckDBRepository)(nil)

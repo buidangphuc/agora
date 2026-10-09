@@ -62,7 +62,11 @@ func run() error {
 	// follow-up; prod dashboards read BQ directly.)
 	var queryServer analyticsv1.AnalyticsQueryServiceServer
 	if w, ok := res.Writer.(*duckdb.Writer); ok {
-		queryServer = query.NewService(query.NewDuckDBRepository(w.DB()))
+		queryServer = query.NewService(query.NewDuckDBRepository(w.DB()), query.WithTrackingThresholds(query.TrackingThresholds{
+			StaleAfter:             time.Duration(settings.Tracking.StaleAfterSeconds) * time.Second,
+			LagP95Max:              time.Duration(settings.Tracking.LagP95MaxSeconds) * time.Second,
+			MissingListingMaxRatio: settings.Tracking.MissingListingMaxRatio,
+		}))
 		logger.Info("analytics query service enabled", slog.String("driver", settings.Warehouse.Driver))
 	}
 	srv := grpcserver.Build(settings, res.Health, queryServer)

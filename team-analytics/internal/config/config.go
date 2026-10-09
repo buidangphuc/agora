@@ -27,6 +27,7 @@ type Settings struct {
 	Kafka         Kafka
 	Warehouse     Warehouse
 	Batch         Batch
+	Tracking      Tracking
 	Observability Observability
 }
 
@@ -87,6 +88,18 @@ type Batch struct {
 	FlushIntervalSeconds int `env:"BATCH_FLUSH_INTERVAL_SECONDS" default:"2"`
 }
 
+// Tracking holds the thresholds GetTrackingQualityReport derives its status from
+// (analytics-data-quality D2).
+type Tracking struct {
+	// StaleAfterSeconds: the report is DEGRADED(stale) when the latest ingest is older.
+	StaleAfterSeconds int `env:"TRACKING_STALE_AFTER_SECONDS" default:"900"`
+	// LagP95MaxSeconds: DEGRADED(lagging) when the p95 ingest lag exceeds it.
+	LagP95MaxSeconds int `env:"TRACKING_LAG_P95_MAX_SECONDS" default:"300"`
+	// MissingListingMaxRatio: DEGRADED(incomplete) when a listing-scoped event
+	// type's share of events without listing_id exceeds it (0 to 1).
+	MissingListingMaxRatio float64 `env:"TRACKING_MISSING_LISTING_MAX_RATIO" default:"0.05"`
+}
+
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
@@ -122,6 +135,15 @@ func (s *Settings) Validate() error {
 	}
 	if s.Warehouse.ParquetExportIntervalSeconds < 0 {
 		return fmt.Errorf("PARQUET_EXPORT_INTERVAL_SECONDS must be >= 0: %d", s.Warehouse.ParquetExportIntervalSeconds)
+	}
+	if s.Tracking.StaleAfterSeconds <= 0 {
+		return fmt.Errorf("TRACKING_STALE_AFTER_SECONDS must be > 0: %d", s.Tracking.StaleAfterSeconds)
+	}
+	if s.Tracking.LagP95MaxSeconds <= 0 {
+		return fmt.Errorf("TRACKING_LAG_P95_MAX_SECONDS must be > 0: %d", s.Tracking.LagP95MaxSeconds)
+	}
+	if s.Tracking.MissingListingMaxRatio < 0 || s.Tracking.MissingListingMaxRatio > 1 {
+		return fmt.Errorf("TRACKING_MISSING_LISTING_MAX_RATIO must be within [0, 1]: %v", s.Tracking.MissingListingMaxRatio)
 	}
 	switch s.Warehouse.Driver {
 	case DriverDuckDB:

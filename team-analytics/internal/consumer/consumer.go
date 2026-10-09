@@ -130,6 +130,11 @@ func (c *Consumer) Run(
 
 			if errTr != nil && errOf != nil {
 				// Poison record: log and move on (offset advances with the batch).
+				if cw, ok := writer.(warehouse.IngestCounterWriter); ok {
+					if cerr := cw.RecordDecodeFailures(ctx, time.Now(), 1); cerr != nil && ctx.Err() == nil {
+						logger.Warn("decode failure counter not updated", slog.Any("err", cerr))
+					}
+				}
 				logger.Warn("decode record failed; skipping",
 					slog.String("key", string(rec.Key)),
 					slog.Any("errTr", errTr),
