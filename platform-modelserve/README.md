@@ -126,9 +126,11 @@ shapes), `test_env_drift`, `test_router` (mock upstreams).
 
 ## 7. Spec and verification
 
-- `FEATURES.yaml` is in this repo: `modelserve.embedding-router` and `modelserve.admission-control`,
-  both `status: not-testable`. There is no platform-e2e coverage; verification is the unit, contract and
-  router tests above.
+- `FEATURES.yaml` is in this repo: one entry per scenario of `add-platform-modelserve` (8). The static NetworkPolicy
+  scenario is `automated`; the other seven are `planned` until run on a stack with the overlay
+  `platform-e2e/compose/modelserve.override.yaml` (router + a deterministic TEI fake, Redis DB 4; how to bring it up:
+  `platform-e2e/compose/README.md`). The e2e features are `platform-e2e/tests/e2e/features/modelserve/`.
+  The unit, contract and router tests above remain the fast check.
 - Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>`), per the root README's ASDLC. The original
   change is `openspec/changes/add-platform-modelserve`. Architecture: ADR-0011.
@@ -152,7 +154,7 @@ shapes), `test_env_drift`, `test_router` (mock upstreams).
 - Not in the root compose, and not wired into team-ai or team-search by default.
 - `/rerank` and `/generate` have no runtime anywhere in the repo.
 - No streaming for `/generate` or chat completions.
-- No e2e coverage (features are `not-testable`).
+- The vLLM proxy is e2e-tested against the TEI fake's stand-in, not a real vLLM; the rerank and chat paths have no real runtime.
 - `.env.example` drift gate only checks one direction.
 - Stale docs elsewhere: `team-search/README.md` documents `MODELSERVE_URL` (code reads
   `MODEL_SERVER_URL`); root `AGENTS.md` lists TEI/vLLM ports `:8101`-`:8103` as if provisioned.

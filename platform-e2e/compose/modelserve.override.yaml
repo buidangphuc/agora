@@ -24,21 +24,21 @@
 # The tests reach the router and the fake on the host at MODELSERVE_URL (default
 # http://localhost:18100) and TEI_FAKE_URL (default http://localhost:18110), i.e. the
 # published ports below; change both together with the *_HOST_PORT variables.
-# The container names are fixed here because the destructive scenarios `docker stop` the
-# router; the agora isolation override renames them (see the report of this change).
+# Keys by service name only (no container_name), so it works under any project. The images are
+# named agora-*:local here, so the agora isolation override needs no entry for these two services;
+# the destructive scenarios `docker stop` the router container, default name
+# agora-modelserve-router-1 (override with MS_ROUTER_CONTAINER).
 services:
   tei-fake:
     build:
       context: ./platform-e2e/fakes/tei_fake
-    image: tei-fake:local
-    container_name: tei-fake
+    image: agora-tei-fake:local
     ports:
       - "127.0.0.1:${TEI_FAKE_HOST_PORT:-18110}:8110"
   modelserve-router:
     build:
       context: ./platform-modelserve
-    image: modelserve-router:local
-    container_name: modelserve-router
+    image: agora-modelserve-router:local
     depends_on:
       tei-fake:
         condition: service_healthy
