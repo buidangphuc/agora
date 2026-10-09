@@ -56,8 +56,16 @@ Behaviour of `SearchListings`:
   see `facetAggs` in `internal/index/opensearch.go` for buckets. `ratings` is always an empty
   list: no listing event carries a rating.
 
-Consumes: modelserve over HTTP (`MODEL_SERVER_URL`: `/embed`, and `/rerank` when enabled). No
-upstream gRPC calls.
+- Dynamic facets (change `add-tag-classifier-filter-enrichment`): the filters `tag.<group>` (SPU tags,
+  `facet_tags`) and `sku.<group>` (variants, nested `skus`) take tag slugs, comma-separated (OR inside a
+  group, AND across). All `sku.*` conditions must hold on ONE in-stock variant. A malformed group or slug
+  is `InvalidArgument` (also in saved searches). The index returns per-group buckets
+  (`index.Facets.Tags/SKUs`, counting listings); they reach the wire once `Facets.tags/skus` exist in
+  `search.proto` (see the change's `design.md` D4).
+
+Consumes: modelserve over HTTP (`MODEL_SERVER_URL`: `/embed`, and `/rerank` when enabled), and, in
+the indexer, team-ai's tag classifier over HTTP (`TAG_CLASSIFIER_URL`, e.g. `http://team-ai-svc:8000`;
+empty = no classification). No upstream gRPC calls.
 
 ## Events
 
@@ -213,7 +221,9 @@ Docker build uses `golang:1.22`.
 - `generated/` is gitignored; run `make proto` before building or testing, or the packages do not compile.
 - `proto/` is vendored from platform-core (ADR-0001). Never edit it here; change the contract in platform-core and re-vendor.
 - Compose passes `DATABASE_*` to the indexer too, but the indexer never opens Postgres.
-- The index mapping is created once; changing it (for example the vector dimension) needs a new index and a replay of the topic.
+- The index mapping is created once; changing a field's type (for example the vector dimension) needs a new index and a replay of the topic. Adding fields does not: `EnsureIndex` puts `additiveMapping` onto an existing index at boot (`stock`, `created_at`, `facet_tags`, nested `skus`, `tags_pending`, ...), idempotently.
+- Tags and nested SKUs (`facet_tags`, `skus`) are written only from events indexed after the classifier was enabled. To backfill existing listings (or to pick up tags promoted in team-ai later), replay the topic: stop the indexer, move the consumer group `team-search-indexer` back to the earliest offset (for example `rpk group seek team-search-indexer --to start`), start it. The version guard makes the replay idempotent. `team-search-migrate` is golang-migrate for the saved-search Postgres only and plays no part.
+- A classifier failure does not fail the event: the document gets `tags_pending` and keeps its stored tags (`writeScript`); a replay fixes it once team-ai is back.
 - Hybrid search fails open quietly (plain `log.Printf`); a missing modelserve shows up as lexical-only results, not errors.
 
 ## Known gaps
