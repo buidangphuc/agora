@@ -1961,9 +1961,8 @@ features:
       - "When a real `endsAt` is passed and the countdown advances from 00:59:59 to 01:00:00"
       - "Then the clock's bounding box width and height are unchanged"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-REACHABLE: FlashSaleSection/CountdownClock are not mounted on any route until a promotion source exists (spec); covered by the component unit tests."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/home/FlashSaleSection.test.tsx › CountdownClock › ticks without changing its box. NOT E2E-REACHABLE: FlashSaleSection/CountdownClock are not mounted on any route until a promotion source exists."
 
   - id: discovery.no-listings-hides-the-section
     title: "No listings hides the section"
@@ -1978,9 +1977,8 @@ features:
       - "When `FlashSaleSection` receives an empty list"
       - "Then it renders nothing"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-REACHABLE: FlashSaleSection is not mounted on any route; unit-tested."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/home/FlashSaleSection.test.tsx › FlashSaleSection › renders nothing for an empty list. NOT E2E-REACHABLE: FlashSaleSection is not mounted on any route."
 
   - id: discovery.server-action-failure-shows-an-error-toast
     title: "Server action failure shows an error toast"
@@ -2012,9 +2010,8 @@ features:
       - "When a filter change triggers navigation"
       - "Then the results column shows 24 `ListingCardSkeleton`s in the same grid, and the sidebar remains"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-OBSERVABLE: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them (measured: no aria-busy section after an applied filter, even with the RSC request delayed); asserted by search/loading.test.tsx."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/app/(shop)/search/loading.test.tsx › search loading › renders the header, filter column and 24 card skeletons in the real grid. NOT E2E-OBSERVABLE: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them (measured: no aria-busy section after an applied filter, even with the RSC request delayed)."
 
   - id: listing.selecting-a-variant-with-a-different-price-updates-the-url-a
     title: "Selecting a variant with a different price updates the URL and the price"

@@ -135,11 +135,13 @@ on desktop they form a 6-column grid.
 
 - **WHEN** a real `endsAt` is passed and the countdown advances from 00:59:59 to 01:00:00
 - **THEN** the clock's bounding box width and height are unchanged
+- **VERIFIED BY**: Vitest `team-frontend/src/features/home/FlashSaleSection.test.tsx` › CountdownClock › ticks without changing its box. Not verifiable end to end: FlashSaleSection and CountdownClock are not mounted on any route until a promotion source exists.
 
 #### Scenario: No listings hides the section
 
 - **WHEN** `FlashSaleSection` receives an empty list
 - **THEN** it renders nothing
+- **VERIFIED BY**: Vitest `team-frontend/src/features/home/FlashSaleSection.test.tsx` › FlashSaleSection › renders nothing for an empty list. Not verifiable end to end: FlashSaleSection is not mounted on any route until a promotion source exists.
 
 #### Scenario: No campaign data means no fake countdown or sold bar
 
@@ -233,6 +235,7 @@ with a retry link inside the results column and SHALL NOT be shown as "no result
 
 - **WHEN** a filter change triggers navigation
 - **THEN** the results column shows 24 `ListingCardSkeleton`s in the same grid, and the sidebar remains
+- **VERIFIED BY**: Vitest `team-frontend/src/app/(shop)/search/loading.test.tsx` › search loading › renders the header, filter column and 24 card skeletons in the real grid. Not verifiable end to end: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them, so the skeleton is not observable in a browser (measured with the RSC request delayed).
 
 #### Scenario: Zero results
 
