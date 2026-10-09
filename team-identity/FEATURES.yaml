@@ -504,8 +504,9 @@ features:
       - "When the seeded admin logs in through the gateway"
       - "Then the token's scopes include `admin` and `order.admin`"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::An admin token carries order.admin. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::An admin token carries order.admin"
+    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::An admin token carries order.admin"
 
   - id: auth.ar2-buyer-seller-no-order-admin
     title: "Buyer and seller tokens carry no order.admin"
@@ -522,5 +523,6 @@ features:
       - "When a buyer and a seller each log in through the gateway"
       - "Then neither token's scopes include `order.admin` or `admin`"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
+    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"

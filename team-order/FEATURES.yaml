@@ -1544,8 +1544,9 @@ features:
       - "When a caller whose token carries the `admin` scope but not `order.admin` calls `ForceFailSaga` on a buyer's `Pending` order"
       - "Then the call fails with `permission_denied` and the order is still `Pending` with its stock still held"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
+    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
 
   - id: order.ar2-admin-without-order-admin-cannot-read-saga
     title: "An admin token without order.admin cannot read another user's saga"
@@ -1563,8 +1564,9 @@ features:
       - "When a caller whose token carries `admin` but not `order.admin` calls `GetSagaState` on a buyer's order"
       - "Then the call fails with `permission_denied`"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
+    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
 
   - id: order.ar2-admin-can-read-saga
     title: "The admin can still read another user's saga"
@@ -1582,8 +1584,9 @@ features:
       - "When the seeded admin calls `GetSagaState` on a buyer's order"
       - "Then the call succeeds and returns that order's saga view"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::The admin can still read another user's saga. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::The admin can still read another user's saga"
+    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::The admin can still read another user's saga"
 
   - id: order.ar2-buyer-cannot-force-fail-other-buyer
     title: "A buyer cannot force-fail another buyer's order"
@@ -1601,5 +1604,6 @@ features:
       - "When buyer B calls `ForceFailSaga` on buyer A's `Pending` order"
       - "Then the gateway answers 403 and A's order is still `Pending`"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
+    notes: "needs rebuild green after rebuild: security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"

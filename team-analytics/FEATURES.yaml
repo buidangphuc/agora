@@ -540,9 +540,9 @@ features:
       - When a buyer pays an order with two lines of different listings and the next export cycle completes
       - Then order_facts.parquet on the analytics volume has two rows for that order, each with buyer_id equal to that buyer's user id
     tags: [analytics, order, integration]
-    status: planned
-    covered_by: null
-    notes: "order-facts-buyer: needs rebuild (team-analytics image with buyer_id); then run platform-e2e/tests/e2e/step_definitions/test_ofb.py [target: analytics/order_facts_buyer.feature::A paid order's lines carry the buyer]"
+    status: automated
+    covered_by: "analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
+    notes: "needs rebuild green after rebuild: analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
 
   - id: analytics.recs-paid-order-attributed
     title: "A purchase after a recommended click is attributed"
@@ -557,9 +557,9 @@ features:
       - When a logged-in buyer clicks a recommended listing and then pays an order for that listing
       - Then the report row for that placement and model counts that purchase
     tags: [recommendations, analytics, admin, integration]
-    status: planned
-    covered_by: null
-    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed]"
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
+    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
 
   - id: analytics.recs-purchase-beacon-ignored
     title: "A purchase beacon without an order is not counted"
@@ -574,9 +574,9 @@ features:
       - When a logged-in buyer clicks a recommended listing and posts a purchase tracking event for it, but pays no order
       - Then the report row for that placement and model counts the click and 0 purchases
     tags: [recommendations, analytics, admin, integration]
-    status: planned
-    covered_by: null
-    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted]"
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
+    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
 
   - id: analytics.recs-foreign-click-ignored
     title: "A click on a listing the impression did not show is not counted"
@@ -591,9 +591,9 @@ features:
       - When a visitor posts an impression of listing A and a click on listing B with the same impressionId
       - Then the report row for that placement and model counts the impression and 0 clicks
     tags: [recommendations, analytics, admin, integration]
-    status: planned
-    covered_by: null
-    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted]"
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
+    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
 
   - id: analytics.recs-reused-impression-id
     title: "A reused impression id keeps its placements and models apart"
@@ -608,9 +608,9 @@ features:
       - When a visitor posts impressions of one listing with the same impressionId under two placements with two models, and one click carrying that impressionId, the first placement and the first model
       - Then the report has a row for each placement and model with at least 1 impression, and only the first row counts the click
     tags: [recommendations, analytics, admin, integration]
-    status: planned
-    covered_by: null
-    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart]"
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
+    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
 
   - id: analytics.recs-open-window-rate
     title: "A conversion on a still-open attribution window is left out of the rate"
@@ -625,6 +625,6 @@ features:
       - When a logged-in buyer clicks a recommended listing and pays an order for it within the attribution window, and the report is read right away
       - Then the report row for that placement and model counts 1 click and 1 purchase, and its conversion rate is 0
     tags: [recommendations, analytics, admin, integration]
-    status: planned
-    covered_by: null
-    notes: "recs-attribution-hardening: needs rebuild (team-analytics with order-facts-buyer); then run platform-e2e/tests/e2e/step_definitions/test_rah.py [target: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate]"
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
+    notes: "needs rebuild green after rebuild: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"

@@ -699,8 +699,9 @@ features:
       - "When a logged-in buyer whose token expires in about 3 seconds opens a StreamChat the model provider holds open"
       - "Then the stream ends with the Connect error code unauthenticated about when the token expires, not after the provider answers"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_stream_lifetime.feature::A stream is ended when its token expires. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
+    notes: "needs rebuild green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
 
   - id: edge.ar2-stream-ends-on-session-revoke
     title: "A stream is ended when its session is revoked"
@@ -717,8 +718,9 @@ features:
       - "When a logged-in buyer opens a StreamChat the model provider holds open on a gateway that checks revocation every second, then revokes that session"
       - "Then the stream ends with unauthenticated within 4 seconds of the revoke"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
+    notes: "needs rebuild green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
 
   - id: edge.ar2-stream-finishing-before-expiry-unaffected
     title: "A stream that finishes before expiry is unaffected"
@@ -735,5 +737,6 @@ features:
       - "When a logged-in buyer whose token expires in about 60 seconds calls StreamChat and the provider answers at once"
       - "Then the stream completes with chat text and no error"
     tags: [security]
-    status: planned
-    notes: "needs rebuild. Scenario security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected. The running stack lacks the authz-residuals-2 code (identity, order, gateway images); the integrator rebuilds, runs it, then flips to automated with covered_by."
+    status: automated
+    covered_by: "security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
+    notes: "needs rebuild green after rebuild: security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"

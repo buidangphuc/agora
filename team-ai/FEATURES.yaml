@@ -900,6 +900,6 @@ features:
       - "When the running `team-ai-svc` container's environment is inspected"
       - "Then none of its `POSTGRES_*` values is `listing_svc`, `listing_pass` or `listing_db`"
     tags: [recsys, recommendations]
-    status: planned
-    covered_by: null
-    notes: "serving-switch-atomicity: needs rebuild (team-ai image + compose recreate) before this can run"
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+    notes: "needs rebuild green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
