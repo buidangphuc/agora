@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestEnvExampleInSync(t *testing.T) {
@@ -47,5 +48,24 @@ func TestKafkaDefaultsAndValidation(t *testing.T) {
 	t.Setenv("KAFKA_BROKERS", " ")
 	if _, err := LoadSettings(); err == nil {
 		t.Error("enabled with no brokers must fail validation")
+	}
+}
+
+func TestEngagementEventsDefaultsAndValidation(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Kafka.EventsTopic != "engagement.events" || s.Kafka.OutboxRelayInterval != 500*time.Millisecond {
+		t.Errorf("defaults: %+v", s.Kafka)
+	}
+	t.Setenv("ENGAGEMENT_OUTBOX_RELAY_INTERVAL", "2s")
+	if s, err = LoadSettings(); err != nil || s.Kafka.OutboxRelayInterval != 2*time.Second {
+		t.Errorf("interval: %v %v", s, err)
+	}
+	t.Setenv("ENGAGEMENT_OUTBOX_RELAY_INTERVAL", "0s")
+	if _, err := LoadSettings(); err == nil {
+		t.Error("zero interval must fail")
 	}
 }

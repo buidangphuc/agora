@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
 // PostgresRepository is the production store (engagement_db, Rule 3).
@@ -20,38 +22,60 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx,
-		`INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		userID, listingID)
+	var added bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			userID, listingID)
+		if err != nil {
+			return fmt.Errorf("add favorite: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil // already favorited: no state change, no fact
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO listing_stats (listing_id, favorite_count) VALUES ($1, 1)
+			 ON CONFLICT (listing_id) DO UPDATE SET favorite_count = listing_stats.favorite_count + 1`,
+			listingID); err != nil {
+			return fmt.Errorf("bump favorite_count: %w", err)
+		}
+		if err := enqueueFact(ctx, tx, listingID, &engagementv1.FavoriteAdded{UserId: userID, ListingId: listingID}); err != nil {
+			return err
+		}
+		added = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("add favorite: %w", err)
+		return false, err
 	}
-	if tag.RowsAffected() == 0 {
-		return false, nil // already favorited
-	}
-	if _, err := r.pool.Exec(ctx,
-		`INSERT INTO listing_stats (listing_id, favorite_count) VALUES ($1, 1)
-		 ON CONFLICT (listing_id) DO UPDATE SET favorite_count = listing_stats.favorite_count + 1`,
-		listingID); err != nil {
-		return true, fmt.Errorf("bump favorite_count: %w", err)
-	}
-	return true, nil
+	return added, nil
 }
 
 func (r *PostgresRepository) RemoveFavorite(ctx context.Context, userID, listingID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2`, userID, listingID)
+	var removed bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2`, userID, listingID)
+		if err != nil {
+			return fmt.Errorf("remove favorite: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE listing_stats SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE listing_id = $1`,
+			listingID); err != nil {
+			return fmt.Errorf("drop favorite_count: %w", err)
+		}
+		if err := enqueueFact(ctx, tx, listingID, &engagementv1.FavoriteRemoved{UserId: userID, ListingId: listingID}); err != nil {
+			return err
+		}
+		removed = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("remove favorite: %w", err)
+		return false, err
 	}
-	if tag.RowsAffected() == 0 {
-		return false, nil
-	}
-	if _, err := r.pool.Exec(ctx,
-		`UPDATE listing_stats SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE listing_id = $1`,
-		listingID); err != nil {
-		return true, fmt.Errorf("drop favorite_count: %w", err)
-	}
-	return true, nil
+	return removed, nil
 }
 
 func (r *PostgresRepository) IsFavorite(ctx context.Context, userID, listingID string) (bool, error) {
@@ -188,21 +212,49 @@ func (r *PostgresRepository) GetStats(ctx context.Context, listingID string) (St
 // ── Seller follow graph (F1) ──
 
 func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx,
-		`INSERT INTO follows (user_id, seller_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		userID, sellerID)
+	var added bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO follows (user_id, seller_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			userID, sellerID)
+		if err != nil {
+			return fmt.Errorf("follow: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		if err := enqueueFact(ctx, tx, sellerID, &engagementv1.SellerFollowed{UserId: userID, SellerId: sellerID}); err != nil {
+			return err
+		}
+		added = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("follow: %w", err)
+		return false, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return added, nil
 }
 
 func (r *PostgresRepository) Unfollow(ctx context.Context, userID, sellerID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM follows WHERE user_id = $1 AND seller_id = $2`, userID, sellerID)
+	var removed bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM follows WHERE user_id = $1 AND seller_id = $2`, userID, sellerID)
+		if err != nil {
+			return fmt.Errorf("unfollow: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		if err := enqueueFact(ctx, tx, sellerID, &engagementv1.SellerUnfollowed{UserId: userID, SellerId: sellerID}); err != nil {
+			return err
+		}
+		removed = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("unfollow: %w", err)
+		return false, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return removed, nil
 }
 
 func (r *PostgresRepository) IsFollowing(ctx context.Context, userID, sellerID string) (bool, error) {

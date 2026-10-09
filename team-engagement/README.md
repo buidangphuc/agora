@@ -39,7 +39,7 @@ Consumes: `team-order` `GetOrder` only (gRPC), called as the service principal `
 
 ## 2. Events
 
-Produces none. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) when `KAFKA_ENABLED=true`; it is the only writer of `seller_listings` (the follow-feed source).
+Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`; no review text) to `engagement.events` through a transactional outbox (migration 0010) and a relayer that publishes in `seq` order, keyed by listing id (seller id for follows), and deletes published rows older than 7 days each cycle; an idempotent no-op writes no fact. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) when `KAFKA_ENABLED=true`; it is the only writer of `seller_listings` (the follow-feed source).
 
 - `ListingChanged` with a `PUBLISHED` listing (created or updated): upsert `(seller_id, listing_id)`. `created_at` is the envelope's `occurred_at` and is kept on redelivery and later updates, so editing a listing does not bump it in the feed. A listing has one owning seller.
 - `ListingChanged` `DELETED`, or any non-published status; and `ListingStatusChanged` to a non-published status: remove the row. `ListingStatusChanged` to `PUBLISHED` is ignored (it carries no seller id; the matching `ListingChanged` upserts).
@@ -61,6 +61,7 @@ Own Postgres `engagement_db`, role `engagement_svc`. Tables by migration (`migra
 | 0007 | `follows`, `seller_listings` |
 | 0008 | `loyalty_accounts`, `checkins` |
 | 0009 | indexes for the newest-first follow feed on `seller_listings` |
+| 0010 | `outbox` (engagement facts) |
 
 Migrations are applied by golang-migrate, never by the server. Root compose: the `team-engagement-migrate` one-shot runs before `team-engagement`. Standalone: `make migrate` (runs `migrate/migrate` in docker against `DATABASE_URL`, rewriting `localhost` to `host.docker.internal`).
 
@@ -85,6 +86,8 @@ Read by `internal/config/config.go`; `.env.example` is the template.
 | `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seed brokers (root compose: `redpanda:9092`) |
 | `KAFKA_CONSUMER_GROUP` | `team-engagement-feed` | Consumer group |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Topic; the DLQ is `<topic>.dlq` |
+| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to (needs `KAFKA_ENABLED=true`) |
+| `ENGAGEMENT_OUTBOX_RELAY_INTERVAL` | `500ms` | Outbox relay poll interval (Go duration) |
 | `OTEL_ENABLED` | `false` | Tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-engagement` | Service name in traces |

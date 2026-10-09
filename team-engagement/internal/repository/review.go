@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
 // ErrReviewNotFound is returned when a review id does not exist.
@@ -93,10 +95,29 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 
 	const q = `INSERT INTO reviews (id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	if _, err := r.pool.Exec(ctx, q, review.ID, review.ListingID, review.UserID, review.UserName, review.OrderID,
-		review.Rating, review.Comment, review.MediaURLs, review.HelpfulCount, review.VerifiedPurchase,
-		review.SellerID, review.CreatedAt); err != nil {
-		return Review{}, fmt.Errorf("insert review: %w", err)
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, q, review.ID, review.ListingID, review.UserID, review.UserName, review.OrderID,
+			review.Rating, review.Comment, review.MediaURLs, review.HelpfulCount, review.VerifiedPurchase,
+			review.SellerID, review.CreatedAt); err != nil {
+			return fmt.Errorf("insert review: %w", err)
+		}
+		// Seller comes from the verified order; else from our own seller_listings
+		// projection; empty when unknown. No review text travels in the fact.
+		sellerID := review.SellerID
+		if sellerID == "" {
+			err := tx.QueryRow(ctx,
+				`SELECT seller_id FROM seller_listings WHERE listing_id = $1 LIMIT 1`, review.ListingID).Scan(&sellerID)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("lookup listing seller: %w", err)
+			}
+		}
+		return enqueueFact(ctx, tx, review.ListingID, &engagementv1.ReviewCreated{
+			ReviewId: review.ID, UserId: review.UserID, ListingId: review.ListingID,
+			SellerId: sellerID, Rating: review.Rating,
+		})
+	})
+	if err != nil {
+		return Review{}, err
 	}
 	return review, nil
 }

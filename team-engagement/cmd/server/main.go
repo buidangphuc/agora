@@ -20,6 +20,7 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/bootstrap"
 	"github.com/buidangphuc/team-engagement/internal/config"
 	"github.com/buidangphuc/team-engagement/internal/consumer"
+	"github.com/buidangphuc/team-engagement/internal/events"
 	"github.com/buidangphuc/team-engagement/internal/grpcserver"
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/observability"
@@ -135,8 +136,23 @@ func run() error {
 				consumerErr <- err
 			}
 		}()
+
+		// Outbox relayer: publishes engagement facts to engagement.events in seq order.
+		pub, err := events.NewKafkaPublisher(settings.KafkaBrokers())
+		if err != nil {
+			return fmt.Errorf("kafka producer: %w", err)
+		}
+		defer pub.Close()
+		relayer := events.NewRelayer(repository.NewPgOutbox(res.Pool), pub, events.RelayerConfig{
+			Topic:        settings.Kafka.EventsTopic,
+			PollInterval: settings.Kafka.OutboxRelayInterval,
+		}, logger)
+		go relayer.Run(ctx)
+		logger.Info("outbox relayer started",
+			slog.String("topic", settings.Kafka.EventsTopic),
+			slog.Duration("interval", settings.Kafka.OutboxRelayInterval))
 	} else {
-		logger.Info("KAFKA_ENABLED=false; follow feed is not fed from listing.events")
+		logger.Info("KAFKA_ENABLED=false; follow feed is not fed from listing.events and engagement facts stay in the outbox")
 	}
 
 	select {
