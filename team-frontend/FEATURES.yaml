@@ -1926,10 +1926,10 @@ features:
     acceptance:
       - "When the recommendations or recently-viewed query fails or returns no items"
       - "Then that block is not rendered (no empty heading) and every other block still renders"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: needs a real recommendations/recently-viewed backend failure (stopping team-ai); not forced here because it would disrupt the shared stack. The existing 'Recommendations are unavailable without breaking the page' only probes availability."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_discovery.feature::Block failure degrades locally"
+    notes: "@destructive: stops team-ai (recommendations) and team-engagement (Vừa xem) after the Vừa xem block was seen, restores both in teardown; passed twice serially."
 
   - id: discovery.feed-failure-shows-a-recovery-action
     title: "Feed failure shows a recovery action"
@@ -1943,10 +1943,10 @@ features:
     acceptance:
       - "When the feed query fails"
       - "Then an `Alert` of type error with a retry link to `/` is shown in the feed area instead of an empty grid"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs the listings read behind the feed to fail for real (stop team-listing); destructive, not run."
+    notes: "Written as frontend/uif_discovery.feature::Feed failure shows a recovery action (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the whole home page is replaced by the root error (\"Đã có lỗi xảy ra\") and the feed Alert never shows; the server log shows ConnectError [unavailable] thrown from getListing inside a Promise.all of (home)/page.js, i.e. an unguarded hydration (RecentlyViewedRow maps ids through getListing, which only swallows NotFound), so one block takes the page down."
 
   - id: discovery.countdown-ticks-without-layout-shift
     title: "Countdown ticks without layout shift"
@@ -1961,9 +1961,8 @@ features:
       - "When a real `endsAt` is passed and the countdown advances from 00:59:59 to 01:00:00"
       - "Then the clock's bounding box width and height are unchanged"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-REACHABLE: FlashSaleSection/CountdownClock are not mounted on any route until a promotion source exists (spec); covered by the component unit tests."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/home/FlashSaleSection.test.tsx › CountdownClock › ticks without changing its box. NOT E2E-REACHABLE: FlashSaleSection/CountdownClock are not mounted on any route until a promotion source exists."
 
   - id: discovery.no-listings-hides-the-section
     title: "No listings hides the section"
@@ -1978,9 +1977,8 @@ features:
       - "When `FlashSaleSection` receives an empty list"
       - "Then it renders nothing"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-REACHABLE: FlashSaleSection is not mounted on any route; unit-tested."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/home/FlashSaleSection.test.tsx › FlashSaleSection › renders nothing for an empty list. NOT E2E-REACHABLE: FlashSaleSection is not mounted on any route."
 
   - id: discovery.server-action-failure-shows-an-error-toast
     title: "Server action failure shows an error toast"
@@ -1994,10 +1992,10 @@ features:
     acceptance:
       - "When `saveSearchAction` returns `{ ok: false, error: \"...\" }`"
       - "Then an error toast with that message is shown and the button is enabled again"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: saveSearchAction cannot be made to fail from the UI (the button is disabled without a query) and team-search cannot be broken non-destructively."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_discovery.feature::Server action failure shows an error toast"
+    notes: "@destructive: the search page is opened, then team-search is stopped so saveSearchAction fails; restored in teardown; passed twice serially."
 
   - id: discovery.loading-skeleton-matches-the-grid
     title: "Loading skeleton matches the grid"
@@ -2012,9 +2010,8 @@ features:
       - "When a filter change triggers navigation"
       - "Then the results column shows 24 `ListingCardSkeleton`s in the same grid, and the sidebar remains"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-OBSERVABLE: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them (measured: no aria-busy section after an applied filter, even with the RSC request delayed); asserted by search/loading.test.tsx."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/app/(shop)/search/loading.test.tsx › search loading › renders the header, filter column and 24 card skeletons in the real grid. NOT E2E-OBSERVABLE: Next serves search-param navigations from the router prefetch cache and does not show loading.tsx for them (measured: no aria-busy section after an applied filter, even with the RSC request delayed)."
 
   - id: listing.selecting-a-variant-with-a-different-price-updates-the-url-a
     title: "Selecting a variant with a different price updates the URL and the price"
@@ -2740,10 +2737,10 @@ features:
     acceptance:
       - "When team-ai responds slowly (>2s) to SummarizeReviews"
       - "Then the page's header, price and actions are visible before the summary, and a `Skeleton` holds the summary's space until it resolves"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: needs team-ai SummarizeReviews to answer slowly (>2 s); not forced here because it would disrupt the shared stack."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::The summary does not block the page"
+    notes: "@destructive: team-ai is docker-paused (callers hang), header/price/actions are visible with the summary Skeleton, then unpaused and the summary card replaces it; passed twice serially."
 
   - id: listing.an-unavailable-ai-service-hides-the-block
     title: "An unavailable AI service hides the block"
@@ -2757,10 +2754,10 @@ features:
     acceptance:
       - "When SummarizeReviews fails with UNAVAILABLE"
       - "Then the reviews section renders normally with no AI block, no error text and no leftover skeleton"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: needs team-ai SummarizeReviews to fail with UNAVAILABLE; destructive (stop team-ai), not run."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::An unavailable AI service hides the block"
+    notes: "@destructive: stops team-ai, restores it in teardown; passed twice serially."
 
   - id: listing.a-slow-recommendation-call-does-not-block-the-page
     title: "A slow recommendation call does not block the page"
@@ -2774,10 +2771,10 @@ features:
     acceptance:
       - "When the recommendation service is slow"
       - "Then the page renders fully with a one-row `Skeleton` in the row's place and no layout shift when the cards arrive"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: the recommendation service cannot be slowed non-destructively."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::A slow recommendation call does not block the page"
+    notes: "@destructive: team-ai is docker-paused, the page renders with one Skeleton row; passed twice serially."
 
   - id: listing.unavailable-recommendations-are-hidden
     title: "Unavailable recommendations are hidden"
@@ -2791,10 +2788,10 @@ features:
     acceptance:
       - "When the recommendation service returns UNAVAILABLE"
       - "Then the page renders without the \"Gợi ý cho bạn\" row and without an error state"
-    tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "BLOCKED: recommendations.feature 'An unavailable recommendation service leaves neither the row nor its Skeleton on the PDP' only probes availability (recs are healthy here), so the UNAVAILABLE branch is never exercised; needs a destructive stop of team-ai."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_product_detail.feature::Unavailable recommendations are hidden"
+    notes: "@destructive: stops team-ai, restores it in teardown; passed twice serially."
 
   - id: listing.a-gateway-failure-shows-a-recoverable-error
     title: "A gateway failure shows a recoverable error"
@@ -2808,10 +2805,10 @@ features:
     acceptance:
       - "When the listing fetch fails with a non-NotFound error"
       - "Then an error `Alert` with a \"Thử lại\" button is shown, and clicking it re-renders the route"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs the listing read to fail with a non-NotFound error (stop team-listing); destructive, not run."
+    notes: "Written as frontend/uif_product_detail.feature::A gateway failure shows a recoverable error (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the product page shows the error Alert with \"Thử lại\"; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well)."
 
   - id: discovery.title-link-click-keeps-its-attribution
     title: "Card click still records select_item"
@@ -2842,10 +2839,10 @@ features:
     acceptance:
       - "When the sessions request fails"
       - "Then the sessions section shows an inline `Alert type=\"error\"` with a \"Thử lại\" action that reloads the route, and the history section still renders"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs the sessions read to fail while login history still renders; both come from team-identity, and stopping it is destructive (container stop), not authored."
+    notes: "Written as frontend/uif_account.feature::Gateway read failure (@destructive, serial lane). RED, frontend defect kept red: with team-identity stopped /account/security shows \"Không có phiên nào đang hoạt động.\" and \"Chưa có lịch sử đăng nhập.\" instead of the inline error Alert: listSessions/listLoginHistory in lib/gateway/sessions.ts swallow the failure and return [], so settle() never reports failed. (Sessions and history both come from team-identity, so the spec's \"history still renders\" cannot hold during a real outage.)"
 
   - id: account.route-error-offers-recovery
     title: "Route error offers recovery"
@@ -2859,10 +2856,10 @@ features:
     acceptance:
       - "When a gateway call throws during rendering of `/notifications`"
       - "Then a `Result status=\"error\"` is shown with a \"Thử lại\" button that re-renders the route"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
     covered_by: null
-    notes: "BLOCKED: needs a real gateway outage (stop team-notification); destructive, not authored."
+    notes: "Written as frontend/uif_account.feature::Route error offers recovery (@destructive, serial lane). RED, frontend defect kept red: with team-notification stopped /notifications renders the empty state \"Chưa có thông báo nào trong mục này.\" instead of the route error Result: listNotifications swallows the failure and returns an empty list, so the page never throws and error.tsx is unreachable through an outage."
 
   - id: account.generating-a-code
     title: "Generating a code"
@@ -2877,9 +2874,8 @@ features:
       - "When a buyer without a code presses \"Tạo mã\""
       - "Then the button is pending, a success toast appears and the code is displayed after revalidation"
     tags: [buyer]
-    status: planned
-    covered_by: null
-    notes: "NOT E2E-REACHABLE: team-referral GetMyReferral mints the code on first read, so a buyer without a code never reaches the Tạo mã giới thiệu button (unit-tested)."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/app/(shop)/account/referral/page.test.tsx › /account/referral › generating a code is pending, then toasts. NOT E2E-REACHABLE: team-referral GetMyReferral mints the code on first read, so a buyer without a code never reaches the Tạo mã button."
 
   # ---- d1-entries-end (append new d1 entries above this line)
 
@@ -2921,10 +2917,10 @@ features:
       - When a server component throws during render
       - Then the error result is shown with a "Thử lại" (retry) button
       - And clicking it re-renders the segment
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
-    notes: >-
-      Needs a server component that throws during render (fault injection); covered by render tests only.
+    covered_by: null
+    notes: "Written as frontend/uif_foundation.feature::A thrown page error is recoverable (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the product page throws and listing/error.tsx shows the Alert with \"Thử lại\"; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well). Every error.tsx that only calls reset() (cart, seller, account, listing, orders, root) has the same gap; the Vitest shell tests only assert that reset() is called."
 
   - id: ui.brand-colour-token
     title: The brand colour resolves from the design tokens
@@ -3767,9 +3763,10 @@ features:
     acceptance:
       - "When the checkout kill-switch is off and the buyer opens `/cart`"
       - "Then the \"Mua hàng\" button is disabled with `aria-disabled=\"true\"` and an `Alert` explains that checkout is temporarily unavailable"
-    tags: [buyer]
-    status: planned
-    notes: "Written as frontend/ui_checkout_order.feature::Checkout kill-switch disables the CTA, @destructive (flips the stack-wide checkout-enabled flag, restored in teardown); not run in the parallel lane."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/ui_checkout_order.feature::Checkout kill-switch disables the CTA"
+    notes: "@destructive: flips the stack-wide checkout-enabled flag and restores it in teardown; passed twice serially."
 
   - id: uicc.increasing-quantity-shows-pending-and-then-the-new-tota
     title: "Increasing quantity shows pending and then the new total"
@@ -4234,9 +4231,10 @@ features:
     acceptance:
       - "When the cart read throws"
       - "Then the segment error UI shows an `Alert` with \"Thử lại\" which re-renders the route"
-    tags: [buyer]
+    tags: [buyer, destructive]
     status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: the cart read can only be made to throw by faulting the gateway or order service (a bad session token renders the empty cart instead). Covered by the Vitest states.test.tsx / error.tsx of app/(shop)/cart."
+    covered_by: null
+    notes: "Written as frontend/uif_cart.feature::Gateway failure on the cart (@destructive, serial lane). RED, frontend defect kept red: with team-order stopped /cart renders the empty cart (\"Giỏ hàng của bạn đang trống\") instead of the segment error Alert: getCart in lib/gateway/cart.ts swallows the read failure and returns an empty cart, so cart/error.tsx is unreachable and an outage looks like a lost cart."
 
   - id: uicc.loading-skeleton-matches-the-page-footprint
     title: "Loading skeleton matches the page footprint"
@@ -4559,8 +4557,8 @@ features:
       - "When an order arrives with an unrecognised status"
       - "Then a neutral badge with its `statusText` is rendered and the page does not throw"
     tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE: the gateway never returns an unrecognised order status. Covered by the Vitest OrderStatusBadge.test.tsx and OrderList.test.tsx."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/order/OrderStatusBadge.test.tsx › OrderStatusBadge › renders an unknown status as a neutral tag with its text. NOT E2E-TESTABLE: the gateway never returns an unrecognised order status."
 
   - id: uior.a-buyer-with-no-orders-sees-empty-with-a-shopping-actio
     title: "A buyer with no orders sees Empty with a shopping action"
@@ -4590,9 +4588,10 @@ features:
     acceptance:
       - "When the order list request fails"
       - "Then an `Alert` with an error message and a \"Thử lại\" action is shown instead of the empty state"
-    tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs ListBuyerOrders to fail. Covered by the Vitest app/(shop)/account/orders/(list)/page.test.tsx."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_orders.feature::A failed load shows an Alert with retry"
+    notes: "@destructive: stops team-order, restores it in teardown; passed twice serially. The retry is a same-URL Link served from Next's 30 s router cache, so the step retries until the page recovers (a click right after the outage keeps the cached error)."
 
   - id: uior.loading-does-not-shift-layout
     title: "Loading does not shift layout"
@@ -4688,8 +4687,8 @@ features:
       - "When an order has a shipment with three checkpoints"
       - "Then three `timeline-checkpoint` items are shown, the newest first and marked current, with carrier and tracking code in the header"
     tags: [buyer]
-    status: planned
-    notes: "PARTIAL, scenario green for what the edge can seed: CreateShipment yields exactly one checkpoint and no RPC adds more, so the three-checkpoint newest-first ordering is not verifiable end to end (covered by Vitest OrderTimeline.test.tsx)."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/order/OrderTimeline.test.tsx › OrderTimeline › lists checkpoints newest first and marks the newest as current (two checkpoints). NOT E2E-TESTABLE: CreateShipment yields exactly one checkpoint and no RPC adds more, so three checkpoints cannot be seeded through the edge."
 
   - id: uior.a-pending-saga-step-is-distinguished-from-failure
     title: "A pending saga step is distinguished from failure"
@@ -4720,8 +4719,8 @@ features:
       - "When an order has neither shipment checkpoints nor saga steps"
       - "Then `timeline-empty` renders an `Empty` with the configured text"
     tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE: every order created through the edge has saga steps, so the no-shipment-no-saga state cannot be seeded. Covered by Vitest OrderTimeline.test.tsx."
+    status: not-testable
+    notes: "Verified by the Vitest test team-frontend/src/features/order/OrderTimeline.test.tsx › OrderTimeline › shows an empty state when there is neither shipment nor saga. NOT E2E-TESTABLE: every order created through the edge has saga steps."
 
   - id: uior.submitting-a-valid-return
     title: "Submitting a valid return"
@@ -4833,9 +4832,10 @@ features:
     acceptance:
       - "When the order request fails with a non-permission, non-not-found error"
       - "Then an `Alert` with a \"Thử lại\" action is shown, and not a 404"
-    tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs GetOrder to fail with a non-permission error. Covered by the Vitest app/(shop)/account/orders/[id]/page.test.tsx."
+    tags: [buyer, destructive]
+    status: automated
+    covered_by: "frontend/uif_orders.feature::A transport failure offers retry"
+    notes: "@destructive: stops team-order, restores it in teardown; passed twice serially (same retry-until-recovered step as the list)."
 
   - id: uior.thumbnails-reserve-their-box
     title: "Thumbnails reserve their box"
@@ -4946,8 +4946,8 @@ features:
       - "When each of the four actions runs against a mocked gateway for success and for failure"
       - "Then success returns `{ ok: true }` (with `data` where applicable) and calls `revalidatePath`; failure returns `{ ok: false, error }` and does not throw"
     tags: [buyer]
-    status: planned
-    notes: "NOT E2E-TESTABLE: the scenario runs the actions against a mocked gateway. Covered by the Vitest features/order/actions.test.ts."
+    status: not-testable
+    notes: "Verified by the Vitest tests team-frontend/src/features/order/actions.test.ts (cancelOrderAction, reorderAction) and returns.actions.test.ts (createReturnRequestAction). NOT E2E-TESTABLE: the scenario runs the actions against a mocked gateway. Spec drift: mockRefundAction named by the requirement no longer exists."
 
   - id: uior.pages-are-not-client-components
     title: "Pages are not client components"
@@ -5105,9 +5105,10 @@ features:
     acceptance:
       - "When the call that feeds a KPI (for example open orders) fails"
       - "Then that `Statistic` cell is not rendered, no placeholder `0` appears in its place, and the other KPIs still render"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs the open-orders read (ListSellerOrders) to fail while the page still renders. Covered by the Vitest app/(shop)/seller/(dashboard)/page.test.tsx and features/seller/kpi.test.ts."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::A KPI without a source is hidden, not zeroed"
+    notes: "@destructive: stops team-order, the three product KPIs render and the open-orders cell is absent; passed twice serially."
 
   - id: uisl.no-hard-coded-metric-values
     title: "No hard-coded metric values"
@@ -5363,9 +5364,10 @@ features:
     acceptance:
       - "When `magicListingAction` returns `{ ok: false, error }`"
       - "Then an `Alert` with \"Thử lại\" and an error toast are shown, and the seller can still submit manually"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs team-ai to fail or run out of quota (see the destructive ai/llm_breaker.feature). Covered by the Vitest features/listing/ListingForm.test.tsx."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::Magic Listing failure is recoverable"
+    notes: "@destructive: stops team-ai, restores it in teardown; the seller then submits manually; passed twice serially."
 
   - id: uisl.shipping-an-order-gives-feedback
     title: "Shipping an order gives feedback"
@@ -5460,9 +5462,10 @@ features:
     acceptance:
       - "When `getSellerFunnel` throws"
       - "Then an `Alert` with a \"Thử lại\" link to the same URL is shown and the rest of the page still renders"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs getSellerFunnel to throw. Covered by the Vitest app/(shop)/seller/analytics/analytics.test.tsx."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::Analytics failure is recoverable"
+    notes: "@destructive: stops team-analytics, restores it in teardown; passed twice serially."
 
   - id: uisl.payout-confirms-pends-and-toasts
     title: "Payout confirms, pends and toasts"
@@ -5476,9 +5479,10 @@ features:
     acceptance:
       - "When a seller with a positive balance activates \"Rút tiền\" and confirms"
       - "Then the confirm button is pending then disabled, a success toast appears and the balance and ledger refresh"
-    tags: [seller]
-    status: planned
-    notes: "Written as frontend/ui_seller_orders_money.feature::Payout confirms, pends and toasts, @destructive: proceeds inside the refund window cannot be paid out (failed_precondition, verified live), so it waits the window out and needs payment-ledger.override.yaml like payment/plp_payout_holdback.feature. Serial lane only, not run."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/ui_seller_orders_money.feature::Payout confirms, pends and toasts"
+    notes: "@destructive: a payout needs proceeds older than the refund window, so it waits the window out (payment-ledger override on the stack); passed twice serially."
 
   - id: uisl.payout-is-disabled-without-balance
     title: "Payout is disabled without balance"
@@ -5590,9 +5594,10 @@ features:
     acceptance:
       - "When a seller page throws during render"
       - "Then `error.tsx` shows a `Result` with \"Thử lại\" calling `reset` and a link to `/seller`"
-    tags: [seller]
+    tags: [seller, destructive]
     status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs a seller page to throw during render. Covered by the Vitest app/(shop)/seller/states.test.tsx."
+    covered_by: null
+    notes: "Written as frontend/uif_seller.feature::Route error offers recovery (@destructive, serial lane). RED, frontend defect kept red: with team-domain stopped the seller edit page throws and seller/error.tsx shows the Result with \"Thử lại\" and the link to /seller; the error Result renders, but \"Thử lại\" only calls reset(): clicking it sent no request and the page stayed on the error after team-domain was back and answering through the gateway (a server-component error needs router.refresh() in a transition as well)."
 
   - id: uisl.empty-product-list-shows-a-call-to-action
     title: "Empty product list shows a call to action"
@@ -5622,9 +5627,10 @@ features:
     acceptance:
       - "When `listMyListings` throws"
       - "Then an `Alert` with a retry link is shown above an empty table instead of a raw error string"
-    tags: [seller]
-    status: planned
-    notes: "NOT E2E-TESTABLE non-destructively: needs listMyListings to throw. Covered by the Vitest app/(shop)/seller/states.test.tsx."
+    tags: [seller, destructive]
+    status: automated
+    covered_by: "frontend/uif_seller.feature::List read failure shows an Alert"
+    notes: "@destructive: stops team-domain, restores it in teardown; passed twice serially."
 
   - id: uisl.thumbnails-reserve-their-space
     title: "Thumbnails reserve their space"

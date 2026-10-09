@@ -119,3 +119,22 @@ Non-goals: new account features, orders pages, discovery components, backend cha
    `shop-display-name` (this change depends on it); "Shop #<6 chars>" only when the name is empty.
 5. Does `ui-phase-orders` want to adopt `AccountShell` (and so a shared `AccountMenuItems` constant) from
    this change, or define its own?
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A), `frontend/uif_account.feature`: "Gateway read failure" (team-identity stopped) and "Route error offers recovery"
+  (team-notification stopped).
+- Defect found, both kept red: `listSessions`, `listLoginHistory` (`lib/gateway/sessions.ts`) and `listNotifications`
+  (`lib/gateway/notification.ts`) catch every error and return an empty list, so an outage renders "Không có phiên nào đang hoạt
+  động", "Chưa có lịch sử đăng nhập" and "Chưa có thông báo nào" instead of the inline error Alert / route error Result the spec
+  requires; `settle()` and `error.tsx` are unreachable. Also, sessions and login history are both served by team-identity, so the
+  spec's "the history section still renders" cannot hold while the sessions read fails for a real outage.
+- Not through the edge (B): "Generating a code" (team-referral mints the code on the first read) is verified by Vitest
+  `team-frontend/src/app/(shop)/account/referral/page.test.tsx` › "/account/referral › generating a code is pending, then toasts".

@@ -165,6 +165,7 @@ toasts and SHALL revalidate `/account/referral`.
 
 - **WHEN** a buyer without a code presses "Tạo mã"
 - **THEN** the button is pending, a success toast appears and the code is displayed after revalidation
+- **VERIFIED BY**: Vitest `team-frontend/src/app/(shop)/account/referral/page.test.tsx` › /account/referral › generating a code is pending, then toasts. Not verifiable end to end: team-referral mints the code on the first GetMyReferral read, so a buyer without a code never reaches the "Tạo mã" button through the edge.
 
 #### Scenario: Redeeming an invalid code
 

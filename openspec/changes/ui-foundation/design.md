@@ -43,3 +43,18 @@ Non-goals: dark mode, runtime theming UI, `antd` dependency, page redesign.
 ## Open Questions
 
 None blocking.
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A), `frontend/uif_foundation.feature`: "A thrown page error is recoverable" stops team-domain so the product page
+  throws during render. The route-level error page is therefore reachable through the edge; no fault-injection route is needed.
+- Defect found, kept red: the error Result renders, but "Thử lại" calls only `reset()`, which re-renders the cached error without a
+  request. The same applies to every `error.tsx` in `team-frontend/src/app` that only calls `reset()`; the Vitest shell tests
+  (`app/shells.test.tsx`) only assert that `reset()` is called, so they cannot see it.

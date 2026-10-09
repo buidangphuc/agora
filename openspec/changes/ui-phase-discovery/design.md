@@ -152,3 +152,25 @@ state; every failure has a visible recovery; identical tracking. Non-goals: see 
    one "Lưu mã" button. With the static list and the button removed, the scenario must instead seed a voucher
    through the gateway (seller token, `CreateVoucher`) and assert its code card, with no "Lưu mã" assertion;
    confirm the seed tag name with platform-e2e owners.
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A), `frontend/uif_discovery.feature`: "Block failure degrades locally" (team-ai and team-engagement stopped after the
+  Vừa xem block was seen), "Server action failure shows an error toast" (team-search stopped after the search page rendered, so
+  `saveSearchAction` fails), "Feed failure shows a recovery action" (team-domain stopped).
+- Defect found, "Feed failure shows a recovery action" kept red: with team-domain stopped the whole home page is replaced by the root
+  error ("Đã có lỗi xảy ra"); the server log shows `ConnectError [unavailable]` thrown from `getListing` in a `Promise.all` of
+  `(home)/page.js`. `RecentlyViewedRow` hydrates ids with `getListing`, which only swallows NotFound, so one failing block takes the
+  page down and the feed Alert never shows.
+- Not through the edge (B): "Countdown ticks without layout shift" and "No listings hides the section" (FlashSaleSection is mounted on
+  no route) are verified by Vitest `team-frontend/src/features/home/FlashSaleSection.test.tsx` › "CountdownClock › ticks without
+  changing its box" and "FlashSaleSection › renders nothing for an empty list"; "Loading skeleton matches the grid" (Next does not show
+  `loading.tsx` for search-param navigations) by `team-frontend/src/app/(shop)/search/loading.test.tsx` › "search loading › renders
+  the header, filter column and 24 card skeletons in the real grid".

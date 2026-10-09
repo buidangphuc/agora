@@ -188,3 +188,19 @@ Non-goals: see proposal.
 5. Magic Listing price suggestion: apply only on explicit "Áp dụng" (proposed) or keep the current
    auto-fill-when-low behaviour?
 6. Sidebar collapsed preference: `localStorage` only, or persist per seller server-side later?
+
+## E2E coverage of the failure-path scenarios
+
+Failure paths are verified through the real stack, never faked: a `@destructive` browser scenario stops (or `docker pause`s, for
+"slow") the `agora` compose-project container behind the read and restores it in teardown after the gateway answers again
+(`platform-e2e/tests/e2e/support/uif_support.py`; serial lane only). A scenario that cannot be produced through the edge
+without fault-injection code in the product is verified by a named Vitest test instead: its delta-spec scenario carries a
+`**VERIFIED BY**` line (file + test name) and its FEATURES.yaml entry is `status: not-testable`, the repo's existing exclusion
+status. `platform-e2e/scripts/spec_sync.py` does not read that status, so these scenarios still print as uncovered there.
+
+- Real outage (A), `frontend/uif_seller.feature`: "A KPI without a source is hidden, not zeroed" (team-order stopped), "Magic Listing
+  failure is recoverable" (team-ai stopped), "Analytics failure is recoverable" (team-analytics stopped), "List read failure shows an
+  Alert" (team-domain stopped), "Route error offers recovery" (team-domain stopped, seller edit page). "Payout confirms, pends and
+  toasts" (`frontend/ui_seller_orders_money.feature`) waits out the refund window on the stack and passes serially.
+- Defect found, "Route error offers recovery" kept red: the Result and the link to `/seller` render, but "Thử lại" calls only `reset()`
+  and the page stays on the error after the service is back (`seller/error.tsx`).
