@@ -91,9 +91,9 @@ features:
     status: automated
     covered_by: "shop/shop_storefront.feature::Buyer explores public seller shop storefront"
     notes: >
-      The two display-name acceptance lines are covered by planned scenarios in
-      shop/shop_display_name.feature ("The name is returned for a storefront",
-      "A name change is reflected"); they have not been run yet (stack was not up).
+      The two display-name acceptance lines are covered by shop/shop_display_name.feature
+      ("The name is returned for a storefront", "A name change is reflected"), green against
+      the agora stack.
 
   - id: shop.display-name-fallback
     title: Shop label falls back to the seller id prefix
@@ -173,10 +173,9 @@ features:
     status: automated
     covered_by: "shop/shop_display_name.feature::A cart with two sellers returns both names in one batch"
     notes: >
-      Scenario "A cart with two sellers returns both names in one batch" is written in
-      shop/shop_display_name.feature and asserts the batch lookup through the gateway.
-      The cart view has no per-shop group header yet; the header assertion lands with the
-      ui-phase cart grouping. "Exactly one call" is covered by Vitest (cart.test.ts).
+      Scenario "A cart with two sellers returns both names in one batch" asserts the batch
+      lookup through the gateway and the two cart shop-group headers in the browser. "Exactly
+      one call" is server-side in the Next.js process and is covered by Vitest (cart.test.ts).
 
   - id: following.shop-names
     title: Following list shows shop names
@@ -196,11 +195,50 @@ features:
       - Then one ListFollowedSellers call and one BatchGetStorefronts call are made
       - And each row shows the seller's display name, or "Shop #<6 chars>" when it has none
     tags: [buyer, shop]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Following list resolves names in one batch"
+    notes: >
+      Asserts the rows (display name, or "Shop #<6 chars>" for the seller without one) in the
+      browser; the "one batch call" is server-side in the Next.js process and is covered by
+      Vitest (follow.test.ts).
+
+  - id: shop.pdp-shop-name
+    title: Product detail shop header shows the name
+    persona: buyer
+    priority: P1
+    summary: >-
+      The product page's shop header shows the seller's display name and links to /shop/<sellerId>.
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.GetStorefront]
+    acceptance:
+      - Given a listing whose seller has the display name "Tiem Hoa Nho"
+      - When a buyer opens the listing
+      - Then the shop header shows "Tiem Hoa Nho" and links to /shop/<sellerId>
+    tags: [buyer, shop]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Product detail shop header shows the name"
+
+  - id: shop.lookup-failure-fallback
+    title: Lookup failure does not break the page
+    persona: buyer
+    priority: P1
+    summary: >-
+      With team-domain stopped (BatchGetStorefronts fails) the cart still renders every item, each group headed by the Shop #<6 chars> fallback.
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-domain, team-order]
+    api:
+      exercised: [listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given a cart with items from two sellers
+      - When BatchGetStorefronts fails
+      - Then the cart still renders every item and every group header uses the "Shop #<6 chars>" fallback
+    tags: [buyer, shop, destructive]
     status: planned
     covered_by: null
-    notes: >
-      No platform-e2e scenario yet (needs three seeded followed sellers); the one-batch
-      behaviour is covered by Vitest (follow.test.ts). Follow-up for the e2e wave.
+    notes: >-
+      @destructive: stops the team-domain container (DOMAIN_CONTAINER) and restores it in teardown; written but not run by the parallel lane. Flip to automated after the serial lane passes.
 
   - id: chat.floating-bubble
     title: Floating chat messenger bubble

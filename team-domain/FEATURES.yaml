@@ -156,6 +156,96 @@ features:
       Backend scenarios are covered by team-domain handler tests; the UI-visible
       scenarios live in team-frontend FEATURES (shop.storefront, cart.shop-names, ...).
 
+  - id: listing.shop-display-name-change
+    title: A name change is reflected
+    persona: seller
+    priority: P1
+    summary: >-
+      Renaming a storefront is visible on the next GetStorefront, BatchGetStorefronts and /shop/<id> load, with no cache purge.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given seller S upserted a storefront named "Tiem Hoa Nho"
+      - When S upserts it again with "Tiem Hoa Lon"
+      - Then the next GetStorefront, BatchGetStorefronts and the /shop/<S> page show "Tiem Hoa Lon"
+    tags: [seller, shop]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::A name change is reflected"
+
+  - id: listing.shop-display-name-invalid
+    title: Invalid names are rejected
+    persona: seller
+    priority: P1
+    summary: >-
+      An 81-character name or one with a control character is refused with invalid_argument and the stored name stays.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.UpsertStorefront]
+    acceptance:
+      - When a seller upserts a storefront with a display_name over 80 characters or containing a control character
+      - Then the call fails with InvalidArgument and the stored name is unchanged
+    tags: [seller, shop, security]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Invalid names are rejected"
+
+  - id: listing.shop-display-name-no-spoof
+    title: A seller cannot set another seller's name
+    persona: seller
+    priority: P1
+    summary: >-
+      The seller id is forced from the principal: a body naming another seller stores the name on the caller's own storefront.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When seller A sends an UpsertStorefront naming seller B's seller_id with a display_name
+      - Then the name is stored on A's storefront and B's name is unchanged
+    tags: [seller, shop, security]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::A seller cannot set another seller's name"
+
+  - id: listing.batch-storefronts-unknown
+    title: An unknown or deleted seller gives an empty name
+    persona: buyer
+    priority: P1
+    summary: >-
+      BatchGetStorefronts omits sellers with no storefront and still succeeds.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.BatchGetStorefronts]
+    acceptance:
+      - When BatchGetStorefronts is called with seller ids A (has a name) and Z (no storefront row)
+      - Then the response contains an entry for A only and the call succeeds
+    tags: [shop, contract]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::An unknown or deleted seller gives an empty name"
+    notes: >-
+      The frontend wrapper mapping the omitted id to an empty displayName is covered by Vitest (shops.test.ts).
+
+  - id: listing.batch-storefronts-limits
+    title: Duplicates and oversize requests
+    persona: buyer
+    priority: P1
+    summary: >-
+      Duplicate ids collapse to one entry and more than 100 ids fails with invalid_argument.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.BatchGetStorefronts]
+    acceptance:
+      - When BatchGetStorefronts is called with the same seller id three times
+      - Then it returns a single entry for that seller
+      - When it is called with 101 distinct ids
+      - Then it fails with InvalidArgument
+    tags: [shop, contract]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Duplicates and oversize requests"
+
   - id: listing.visibility-stranger-draft
     title: A stranger cannot read a draft
     persona: buyer
