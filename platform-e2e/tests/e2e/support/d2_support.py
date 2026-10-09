@@ -143,3 +143,18 @@ def force_fail_payment(order_id: str) -> None:
     admin = get_test_data_manager().get_user_by_role("admin")
     token = AuthService().login(admin.username, admin.password)
     OrderService(token=token).force_fail_saga(order_id)
+
+
+def order_statuses(world: World) -> dict[str, str]:
+    return {
+        o["id"]: o.get("status", "")
+        for o in buyer_orders(world).list_buyer_orders().get("orders", [])
+    }
+
+
+def ship_order(shop: dict[str, Any], order_id: str, *, complete: bool = False) -> None:
+    """Ship (and optionally complete) an order as its seller."""
+    svc = OrderService(token=shop["token"])
+    svc.update_order_status(order_id, "ORDER_STATUS_SHIPPED")
+    if complete:
+        svc.update_order_status(order_id, "ORDER_STATUS_COMPLETED")

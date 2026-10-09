@@ -1991,6 +1991,634 @@ features:
     status: automated
     covered_by: "frontend/ui_checkout_flow.feature::apply_promotion still fires for valid and invalid codes"
 
+  - id: uior.the-list-state-survives-reload-and-back-navigation
+    title: "The list state survives reload and back navigation"
+    persona: buyer
+    priority: P2
+    summary: "The list state survives reload and back navigation"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/account/orders?status=paid&page=2`, then reloads, or navigates away and back"
+      - "Then the same tab is active and the same page of orders is shown"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::The list state survives reload and back navigation"
+
+  - id: uior.an-invalid-query-falls-back-safely
+    title: "An invalid query falls back safely"
+    persona: buyer
+    priority: P2
+    summary: "An invalid query falls back safely"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/account/orders?status=bogus&page=99`"
+      - "Then the \"all\" tab is active and the last page of orders is shown, with no error"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::An invalid query falls back safely"
+
+  - id: uior.a-guest-is-redirected
+    title: "A guest is redirected"
+    persona: buyer
+    priority: P2
+    summary: "A guest is redirected"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an unauthenticated visitor opens `/account/orders`"
+      - "Then they are redirected to `/login`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::A guest is redirected"
+
+  - id: uior.reordering-shows-pending-then-success
+    title: "Reordering shows pending then success"
+    persona: buyer
+    priority: P2
+    summary: "Reordering shows pending then success"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer clicks \"Mua lại\" on an order"
+      - "Then the button shows a spinner with its width unchanged and is disabled, and on success a success toast appears and the buyer lands on `/cart`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_actions.feature::Reordering shows pending then success"
+
+  - id: uior.reorder-failure-is-reported-and-recoverable
+    title: "Reorder failure is reported and recoverable"
+    persona: buyer
+    priority: P2
+    summary: "Reorder failure is reported and recoverable"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the reorder action returns `{ ok: false, error }`"
+      - "Then an error toast shows the error, the button becomes enabled again, and the buyer stays on the list"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_actions.feature::Reorder failure is reported and recoverable"
+    notes: "Failure provoked by the seller deleting the listing before the buyer reorders."
+
+  - id: uior.cancelling-an-order-uses-a-confirmation-modal
+    title: "Cancelling an order uses a confirmation Modal"
+    persona: buyer
+    priority: P2
+    summary: "Cancelling an order uses a confirmation Modal"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer clicks \"Hủy đơn\" on a cancellable order and confirms in the `Modal`"
+      - "Then the confirm button shows a pending state and the Modal cannot be dismissed, then a success toast shows, the Modal closes and the order's badge reads \"Đã hủy\" from the revalidated server data"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_actions.feature::Cancelling an order uses a confirmation Modal"
+
+  - id: uior.cancel-failure-keeps-the-modal-open
+    title: "Cancel failure keeps the Modal open"
+    persona: buyer
+    priority: P2
+    summary: "Cancel failure keeps the Modal open"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the cancel action returns `{ ok: false, error }`"
+      - "Then an error toast shows and the Modal stays open with the confirm button enabled"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_actions.feature::Cancel failure keeps the Modal open"
+    notes: "Failure provoked by the seller completing the order after the list was rendered."
+
+  - id: uior.order-row-shows-the-real-shop-name
+    title: "Order row shows the real shop name"
+    persona: buyer
+    priority: P2
+    summary: "Order row shows the real shop name"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an order's seller has the display name \"Cửa hàng Hoa Mai\""
+      - "Then the order row shows \"Cửa hàng Hoa Mai\" and not \"Shop #\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::Order row shows the real shop name"
+
+  - id: uior.empty-shop-name-falls-back
+    title: "Empty shop name falls back"
+    persona: buyer
+    priority: P2
+    summary: "Empty shop name falls back"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the seller's display name is empty"
+      - "Then the order row shows \"Shop #\" followed by the first 6 characters of the seller id"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::Empty shop name falls back"
+
+  - id: uior.statuses-map-to-tones
+    title: "Statuses map to tones"
+    persona: buyer
+    priority: P2
+    summary: "Statuses map to tones"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `OrderStatusBadge` is rendered for PENDING, SHIPPED, COMPLETED and CANCELLED orders"
+      - "Then it renders warning, info, success and neutral tones respectively with the given label text"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::Statuses map to tones"
+
+  - id: uior.return-statuses-use-the-same-component
+    title: "Return statuses use the same component"
+    persona: buyer
+    priority: P2
+    summary: "Return statuses use the same component"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the return section shows a REFUNDED return and a REJECTED return"
+      - "Then both use `OrderStatusBadge` with success and danger tones, and `data-testid=\"return-status\"` is kept"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_returns.feature::Return statuses use the same component"
+
+  - id: uior.an-unknown-status-does-not-break-the-row
+    title: "An unknown status does not break the row"
+    persona: buyer
+    priority: P2
+    summary: "An unknown status does not break the row"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an order arrives with an unrecognised status"
+      - "Then a neutral badge with its `statusText` is rendered and the page does not throw"
+    tags: [buyer]
+    status: planned
+    notes: "NOT E2E-TESTABLE: the gateway never returns an unrecognised order status. Covered by the Vitest OrderStatusBadge.test.tsx and OrderList.test.tsx."
+
+  - id: uior.a-buyer-with-no-orders-sees-empty-with-a-shopping-actio
+    title: "A buyer with no orders sees Empty with a shopping action"
+    persona: buyer
+    priority: P2
+    summary: "A buyer with no orders sees Empty with a shopping action"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer with no orders opens `/account/orders`"
+      - "Then an `Empty` block with \"Bạn chưa có đơn hàng nào\" and a \"Mua sắm ngay\" link to `/` is shown, and the tab counts read 0"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::A buyer with no orders sees Empty with a shopping action"
+
+  - id: uior.a-failed-load-shows-an-alert-with-retry
+    title: "A failed load shows an Alert with retry"
+    persona: buyer
+    priority: P2
+    summary: "A failed load shows an Alert with retry"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the order list request fails"
+      - "Then an `Alert` with an error message and a \"Thử lại\" action is shown instead of the empty state"
+    tags: [buyer]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs ListBuyerOrders to fail. Covered by the Vitest app/(shop)/account/orders/(list)/page.test.tsx."
+
+  - id: uior.loading-does-not-shift-layout
+    title: "Loading does not shift layout"
+    persona: buyer
+    priority: P2
+    summary: "Loading does not shift layout"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the list route is loading"
+      - "Then `loading.tsx` renders a `Skeleton` of the same height as the tab bar and the order cards, and the content replaces it without moving the footer (CLS = 0)"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_list.feature::Loading does not shift layout"
+    notes: "CLS measured 0 on an unthrottled run; tasks.md 3.4 (unticked) records 0.0062 at 1280px on the throttled production build, so this can be flaky on slower machines."
+
+  - id: uior.the-detail-shows-header-progress-descriptions-items-and
+    title: "The detail shows header, progress, descriptions, items and tabs"
+    persona: buyer
+    priority: P2
+    summary: "The detail shows header, progress, descriptions, items and tabs"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens the detail of their SHIPPED order"
+      - "Then the header shows the breadcrumb, order id, a \"shipped\" `OrderStatusBadge` and the total; the `Stepper` marks \"Đang vận chuyển\" with `aria-current=\"step\"`; recipient and payment `Descriptions` and the items `Table` are visible; and the \"Hành trình\" tab is active"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::The detail shows header, progress, descriptions, items and tabs"
+
+  - id: uior.the-active-tab-is-held-in-the-url
+    title: "The active tab is held in the URL"
+    persona: buyer
+    priority: P2
+    summary: "The active tab is held in the URL"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer selects the \"Trả hàng / Hoàn tiền\" tab"
+      - "Then the URL gains `?tab=returns`, and reloading that URL shows the same tab"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::The active tab is held in the URL"
+
+  - id: uior.a-cancelled-order-shows-an-alert-instead-of-the-stepper
+    title: "A cancelled order shows an Alert instead of the Stepper"
+    persona: buyer
+    priority: P2
+    summary: "A cancelled order shows an Alert instead of the Stepper"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a CANCELLED order"
+      - "Then an `Alert` \"Đơn hàng đã hủy\" is shown, no `Stepper` is rendered, and \"Hủy đơn\" is not offered"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::A cancelled order shows an Alert instead of the Stepper"
+
+  - id: uior.cancelling-from-the-detail-really-cancels
+    title: "Cancelling from the detail really cancels"
+    persona: buyer
+    priority: P2
+    summary: "Cancelling from the detail really cancels"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer confirms \"Hủy đơn\" in the detail `Modal`"
+      - "Then `cancelOrderAction` is called once with the order id, a success toast shows, and after revalidation the header badge reads \"Đã hủy\""
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::Cancelling from the detail really cancels"
+
+  - id: uior.shipment-checkpoints-are-listed-newest-first
+    title: "Shipment checkpoints are listed newest first"
+    persona: buyer
+    priority: P2
+    summary: "Shipment checkpoints are listed newest first"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an order has a shipment with three checkpoints"
+      - "Then three `timeline-checkpoint` items are shown, the newest first and marked current, with carrier and tracking code in the header"
+    tags: [buyer]
+    status: planned
+    notes: "PARTIAL, scenario green for what the edge can seed: CreateShipment yields exactly one checkpoint and no RPC adds more, so the three-checkpoint newest-first ordering is not verifiable end to end (covered by Vitest OrderTimeline.test.tsx)."
+
+  - id: uior.a-pending-saga-step-is-distinguished-from-failure
+    title: "A pending saga step is distinguished from failure"
+    persona: buyer
+    priority: P2
+    summary: "A pending saga step is distinguished from failure"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the saga steps are order SUCCESS and payment PENDING"
+      - "Then the payment step renders as pending, no `timeline-failure` item exists, and no error `Alert` is shown"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::A pending saga step is distinguished from failure"
+
+  - id: uior.no-tracking-information-shows-empty
+    title: "No tracking information shows Empty"
+    persona: buyer
+    priority: P2
+    summary: "No tracking information shows Empty"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an order has neither shipment checkpoints nor saga steps"
+      - "Then `timeline-empty` renders an `Empty` with the configured text"
+    tags: [buyer]
+    status: planned
+    notes: "NOT E2E-TESTABLE: every order created through the edge has saga steps, so the no-shipment-no-saga state cannot be seeded. Covered by Vitest OrderTimeline.test.tsx."
+
+  - id: uior.submitting-a-valid-return
+    title: "Submitting a valid return"
+    persona: buyer
+    priority: P2
+    summary: "Submitting a valid return"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens \"Yêu cầu trả hàng\", chooses a reason, keeps the default amount and submits"
+      - "Then the submit button shows a pending state, then the Modal closes, a success toast shows, and the section shows the return with a \"pending\" `OrderStatusBadge`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_returns.feature::Submitting a valid return"
+
+  - id: uior.validation-blocks-an-invalid-form
+    title: "Validation blocks an invalid form"
+    persona: buyer
+    priority: P2
+    summary: "Validation blocks an invalid form"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer submits with no reason, or with an amount greater than the order total"
+      - "Then the corresponding `FormItem` shows an inline error, no action is called, and the Modal stays open"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_returns.feature::Validation blocks an invalid form"
+
+  - id: uior.a-failed-submission-keeps-the-modal-open
+    title: "A failed submission keeps the Modal open"
+    persona: buyer
+    priority: P2
+    summary: "A failed submission keeps the Modal open"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `createReturnRequestAction` returns `{ ok: false, error }`"
+      - "Then an error toast shows the error, the Modal stays open and the submit button is enabled again"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_returns.feature::A failed submission keeps the Modal open"
+    notes: "Failure provoked by filing a full-amount return from another session first."
+
+  - id: uior.mock-refund-shows-pending-and-a-toast
+    title: "Mock refund shows pending and a toast"
+    persona: buyer
+    priority: P2
+    summary: "Mock refund shows pending and a toast"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer clicks \"Hoàn tiền (mô phỏng)\" on an approved return"
+      - "Then the button shows a pending state and is disabled, then a success toast shows and the badge reads \"refunded\""
+    tags: [buyer]
+    status: planned
+    notes: "SPEC STALE vs code: the buyer return section has no refund control (ReturnRequestSection.tsx: \"the seller refunds, and the buyer only follows the status\"), by design of the return-refund-settlement change; frontend/seller/return_refund_ui.feature::The buyer sees the return status without a refund button asserts it. The spec requirement and scenario need updating."
+
+  - id: uior.the-return-is-not-offered-for-non-eligible-orders
+    title: "The return is not offered for non-eligible orders"
+    persona: buyer
+    priority: P2
+    summary: "The return is not offered for non-eligible orders"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a PENDING order"
+      - "Then the \"Yêu cầu trả hàng\" button is not shown"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::The return is not offered for non-eligible orders"
+
+  - id: uior.a-missing-order-shows-404
+    title: "A missing order shows 404"
+    persona: buyer
+    priority: P2
+    summary: "A missing order shows 404"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens `/account/orders/does-not-exist`"
+      - "Then a 404 `Result` is shown with a link to `/account/orders`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_detail.feature::A missing order shows 404"
+
+  - id: uior.a-transport-failure-offers-retry
+    title: "A transport failure offers retry"
+    persona: buyer
+    priority: P2
+    summary: "A transport failure offers retry"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the order request fails with a non-permission, non-not-found error"
+      - "Then an `Alert` with a \"Thử lại\" action is shown, and not a 404"
+    tags: [buyer]
+    status: planned
+    notes: "NOT E2E-TESTABLE non-destructively: needs GetOrder to fail with a non-permission error. Covered by the Vitest app/(shop)/account/orders/[id]/page.test.tsx."
+
+  - id: uior.thumbnails-reserve-their-box
+    title: "Thumbnails reserve their box"
+    persona: buyer
+    priority: P2
+    summary: "Thumbnails reserve their box"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When order thumbnails load slowly or fail"
+      - "Then each keeps a fixed 1:1 box (fallback placeholder on failure) and surrounding text does not move"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::Thumbnails reserve their box"
+
+  - id: uior.below-the-fold-images-are-lazy
+    title: "Below-the-fold images are lazy"
+    persona: buyer
+    priority: P2
+    summary: "Below-the-fold images are lazy"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the list shows more than three orders"
+      - "Then thumbnails in cards below the first screen carry `loading=\"lazy\"`"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::Below-the-fold images are lazy"
+
+  - id: uior.the-detail-does-not-jump-when-the-timeline-resolves
+    title: "The detail does not jump when the timeline resolves"
+    persona: buyer
+    priority: P2
+    summary: "The detail does not jump when the timeline resolves"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the detail renders before shipment and saga data arrive"
+      - "Then a `Skeleton` of the timeline's footprint is shown and replaced without moving the sections below it"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::The detail does not jump when the timeline resolves"
+
+  - id: uior.mobile-layout-at-375px
+    title: "Mobile layout at 375px"
+    persona: buyer
+    priority: P2
+    summary: "Mobile layout at 375px"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When `/account/orders` and a detail page are opened at a 375px wide viewport"
+      - "Then `document.documentElement.scrollWidth` does not exceed the viewport width, the tab bar scrolls inside its own container, and the action buttons are full width"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::Mobile layout at 375px"
+
+  - id: uior.desktop-layout-at-1280px
+    title: "Desktop layout at 1280px"
+    persona: buyer
+    priority: P2
+    summary: "Desktop layout at 1280px"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a detail page is opened at 1280px wide"
+      - "Then the `Stepper` is horizontal, the items are shown as table columns and the content column is at most 960px wide"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::Desktop layout at 1280px"
+
+  - id: uior.no-arbitrary-type-sizes
+    title: "No arbitrary type sizes"
+    persona: buyer
+    priority: P2
+    summary: "No arbitrary type sizes"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the token lint runs over `src/features/order/` and `src/app/account/orders/`"
+      - "Then it reports no `text-[..px]`, hex colours or other arbitrary values"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::No arbitrary type sizes"
+
+  - id: uior.actions-return-the-standard-shape-and-revalidate
+    title: "Actions return the standard shape and revalidate"
+    persona: buyer
+    priority: P2
+    summary: "Actions return the standard shape and revalidate"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When each of the four actions runs against a mocked gateway for success and for failure"
+      - "Then success returns `{ ok: true }` (with `data` where applicable) and calls `revalidatePath`; failure returns `{ ok: false, error }` and does not throw"
+    tags: [buyer]
+    status: planned
+    notes: "NOT E2E-TESTABLE: the scenario runs the actions against a mocked gateway. Covered by the Vitest features/order/actions.test.ts."
+
+  - id: uior.pages-are-not-client-components
+    title: "Pages are not client components"
+    persona: buyer
+    priority: P2
+    summary: "Pages are not client components"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the source of `app/account/orders/page.tsx` and `app/account/orders/[id]/page.tsx` is inspected"
+      - "Then neither contains `\"use client\"`, and the order data is rendered in the server HTML response"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::Pages are not client components"
+
+  - id: uior.test-ids-and-data-attributes-are-preserved
+    title: "Test ids and data attributes are preserved"
+    persona: buyer
+    priority: P2
+    summary: "Test ids and data attributes are preserved"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the existing component tests for `OrderTimeline` and `ReturnRequestSection` are run against the rebuilt components"
+      - "Then they pass without changes to their selectors (`order-timeline`, `timeline-checkpoint`, `timeline-saga`, `timeline-saga-step`, `timeline-empty`, `return-section`, `return-reason`, `return-amount`, `return-submit`, `return-status`, `return-refund`)"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/ui_orders_layout.feature::Test ids and data attributes are preserved"
+
+  - id: uior.tracking-events-still-fire-after-reorder
+    title: "Tracking events still fire after reorder"
+    persona: buyer
+    priority: P2
+    summary: "Tracking events still fire after reorder"
+    entry_route: /account/orders
+    services: [team-frontend, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer clicks \"Mua lại\" and lands on `/cart`"
+      - "Then the page view event from `AnalyticsProvider` fires and the cart page's existing tracking events are emitted exactly as before this change"
+    tags: [buyer]
+    status: automated
+    covered_by: "frontend/orders_ui.feature::Tracking events still fire after reorder"
+
   # <<< d2 generated
 
   - id: orders.list-status-tabs
@@ -2020,7 +2648,7 @@ features:
       - And an unknown status or an out-of-range page falls back to the "all" tab and the last page without an error
     tags: [buyer, order]
     status: automated
-    covered_by: "frontend/orders_ui.feature::A status tab changes the URL and the list"
+    covered_by: "frontend/orders_ui.feature::Selecting a status tab updates the URL and the list"
 
   - id: orders.list-pagination
     title: Order list pagination
@@ -2032,7 +2660,7 @@ features:
     preconditions:
       login: buyer
       seed_tag: needsListing
-      data: A buyer with 11 orders.
+      data: A buyer with 23 orders.
     api:
       seed: [order.v1.CreateOrder]
       exercised: [order.v1.ListBuyerOrders]
@@ -2040,13 +2668,13 @@ features:
       key_elements:
         pagination: "role:navigation=Phân trang"
     acceptance:
-      - Given a buyer has 11 orders
+      - Given a buyer has 23 orders
       - When the buyer opens /account/orders
-      - Then 10 orders are shown with a Pagination of 2 pages
-      - And following the "2" link shows the last order at ?page=2
+      - Then 10 orders are shown with a Pagination of 3 pages
+      - And following the "3" link shows the last 3 orders at ?page=3
     tags: [buyer, order]
     status: automated
-    covered_by: "frontend/orders_ui.feature::Pagination links page through the list"
+    covered_by: "frontend/orders_ui.feature::Pagination links page through the filtered list"
 
   - id: orders.list-empty-and-recovery
     title: Order list empty state and load-failure recovery
@@ -2129,7 +2757,7 @@ features:
       - And an error Alert with a "Mua lại" action is shown above the timeline
     tags: [buyer, order]
     status: automated
-    covered_by: "frontend/orders_ui.feature::A saga failure is shown as the failure checkpoint"
+    covered_by: "frontend/orders_ui.feature::A failed saga step is surfaced as the failure checkpoint"
 
   - id: orders.rma-modal
     title: Return request Modal with validation and feedback
@@ -2183,7 +2811,7 @@ features:
       - And no recipient, item or amount of that order appears
     tags: [buyer, order]
     status: automated
-    covered_by: "frontend/orders_ui.feature::Another buyer's order shows a 403 page"
+    covered_by: "frontend/orders_ui.feature::An order of another user shows 403"
 
   - id: orders.mobile-layout
     title: Order screens at a 375px viewport

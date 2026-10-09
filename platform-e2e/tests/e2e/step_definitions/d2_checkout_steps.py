@@ -64,14 +64,14 @@ def track_actions(world: World) -> list:
     return posts
 
 
-def slow_actions(world: World, seconds: float) -> None:
+def slow_actions(world: World, seconds: float, glob: str = "**/checkout**") -> None:
     def handler(route) -> None:  # noqa: ANN001
         req = route.request
         if req.method == "POST" and "next-action" in req.headers:
             time.sleep(seconds)
         route.continue_()
 
-    world.page.route("**/checkout**", handler)
+    world.page.route(glob, handler)
 
 
 # ── Shell, URL and redirects ─────────────────────────────────────────────
