@@ -34,4 +34,4 @@
 
 ## 5. Archive
 
-- [ ] 5.1 `openspec archive engagement-fact-events`; retire `tracking-event-platform` (its non-legal requirements are covered by changes 1–3; the consent/retention/erasure part stays in `plans/ai-first/DECISIONS.md` for the legal change); verify `openspec list`
+- [x] 5.1 `openspec archive engagement-fact-events`; retire `tracking-event-platform` (its non-legal requirements are covered by changes 1–3; the consent/retention/erasure part stays in `plans/ai-first/DECISIONS.md` for the legal change); verify `openspec list`
