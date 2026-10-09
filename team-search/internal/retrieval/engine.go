@@ -94,7 +94,11 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			res, fallbackErr := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
 			return res, true, fallbackErr
 		}
-		return res, false, nil
+		kept, dropped := e.applySemanticFloor(res, params.From)
+		if dropped {
+			kept.Facets = e.facetsFor(ctx, hitIDs(kept.Hits), params, kept.Facets)
+		}
+		return kept, false, nil
 	}
 
 	// 3. Hybrid Mode (Multi-Strategy Fusion)
@@ -126,6 +130,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		lexErr     error
 		semResult  index.SearchResult
 		semErr     error
+		semFloored bool
 		isDegraded bool
 	)
 
@@ -154,6 +159,9 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			return
 		}
 		semResult, semErr = e.idx.SearchVector(ctx, vec, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, 0, fusionPoolSize)
+		if semErr == nil {
+			semResult, semFloored = e.applySemanticFloor(semResult, 0)
+		}
 	}()
 
 	wg.Wait()
@@ -175,7 +183,8 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			Facets: lexResult.Facets,
 		}, isDegraded, nil
 	}
-	// Semantic returned nothing: the lexical leg alone answers.
+	// Semantic succeeded but nothing is above the similarity floor: the lexical
+	// leg alone answers, and it is not a degradation.
 	if lexErr == nil && len(semResult.Hits) == 0 {
 		return index.SearchResult{
 			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
@@ -184,13 +193,16 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		}, false, nil
 	}
 
-	// Lexical failed or matched nothing: the semantic candidates answer.
+	// Lexical failed or matched nothing: the semantic candidates (already above
+	// the floor) answer. Zero candidates means zero hits.
 	if lexErr != nil || len(lexResult.Hits) == 0 {
 		isDegraded = lexErr != nil
 		facets := semResult.Facets
 		switch {
 		case len(semResult.Hits) == 0 && lexErr == nil:
 			facets = lexResult.Facets // lexical matched nothing either: empty buckets
+		case semFloored && len(semResult.Hits) > 0:
+			facets = e.facetsFor(ctx, hitIDs(semResult.Hits), params, semResult.Facets)
 		}
 		return index.SearchResult{
 			Hits:   paginateHits(semResult.Hits, params.From, params.Size),
@@ -270,6 +282,38 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		Total:  total,
 		Facets: facets,
 	}, false, nil
+}
+
+// semanticMinKNNScore converts the configured cosine-similarity floor to the
+// score OpenSearch reports for a cosinesimil knn query (Lucene engine):
+// score = (1 + cosine) / 2, in [0, 1]. A floor at or below -1 disables it.
+func (e *Engine) semanticMinKNNScore() (float64, bool) {
+	if e.cfg.SemanticMinScore <= -1 {
+		return 0, false
+	}
+	return (1 + e.cfg.SemanticMinScore) / 2, true
+}
+
+// applySemanticFloor drops semantic hits whose cosine similarity is below the
+// configured floor. Hits arrive sorted by score, so everything after the first
+// miss is dropped too; total shrinks to what is left (offset + kept).
+func (e *Engine) applySemanticFloor(res index.SearchResult, from int) (index.SearchResult, bool) {
+	floor, on := e.semanticMinKNNScore()
+	if !on {
+		return res, false
+	}
+	kept := make([]index.Hit, 0, len(res.Hits))
+	for _, h := range res.Hits {
+		if h.Score >= floor {
+			kept = append(kept, h)
+		}
+	}
+	if len(kept) == len(res.Hits) {
+		return res, false
+	}
+	res.Hits = kept
+	res.Total = int64(from + len(kept))
+	return res, true
 }
 
 // facetsFor aggregates facets over exactly the given candidate ids under the

@@ -41,7 +41,7 @@ func TestEngine_KeySortBypassesFusion(t *testing.T) {
 func TestEngine_RelevanceSortStillFuses(t *testing.T) {
 	cfg := config.Retrieval{EnableHybridSearch: true, HybridFusionWindow: 200}
 	for _, sortBy := range []searchv1.SortBy{searchv1.SortBy_SORT_BY_UNSPECIFIED, searchv1.SortBy_SORT_BY_RELEVANCE} {
-		idx := &fakeIndex{lexHits: []index.Hit{{ListingID: "a"}}, vecHits: []index.Hit{{ListingID: "b"}}}
+		idx := &fakeIndex{lexHits: []index.Hit{{ListingID: "a"}}, vecHits: []index.Hit{{ListingID: "b", Score: 0.9}}}
 		e := retrieval.NewEngine(idx, &retrieval.MockEmbedClient{Dim: 4}, nil, cfg)
 		res, _, err := e.Execute(context.Background(), retrieval.SearchParams{Query: "q", SortBy: sortBy, Size: 10})
 		if err != nil {

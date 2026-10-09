@@ -1374,3 +1374,60 @@ features:
     tags: [buyer, search, hybrid]
     status: planned
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Hybrid facets and total describe the fused candidate set; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-unrelated-text-returns-no-semantic-candidates
+    title: "Unrelated text returns no semantic candidates"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: a nonexistent term yields no k-NN neighbours above the similarity floor, so zero hits and total 0."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing titled with a unique word and an embedded unrelated listing"
+      - "When a buyer searches for a nonexistent term in SEARCH_MODE_HYBRID"
+      - "Then the answer is 200 with no hits and a total of zero"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Unrelated text returns no semantic candidates; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-a-related-listing-survives-the-similarity-floor
+    title: "A related listing survives the similarity floor"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: a semantic alias still finds its listing (cosine 1) while an unrelated one is dropped."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given an embedded listing titled with a unique word and an embedded unrelated listing"
+      - "When a buyer searches for the semantic alias of that word without a search mode"
+      - "Then the related listing is among the hits and the unrelated listing is not"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::A related listing survives the similarity floor; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.hrp-unrelated-neighbours-do-not-inflate-total-or-paging
+    title: "Unrelated neighbours do not inflate total or paging"
+    persona: buyer
+    priority: P1
+    summary: "Change add-hybrid-retrieval-platform: the total is the three keyword matches and there is no next page."
+    entry_route: /search
+    services: [team-search, team-gateway, team-domain, platform-modelserve]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [search.v1.SearchListings]
+    acceptance:
+      - "Given three embedded listings share a unique keyword"
+      - "When a buyer searches for that keyword in SEARCH_MODE_HYBRID through the gateway"
+      - "Then the total is three and there is no next page"
+    tags: [buyer, search, hybrid]
+    status: planned
+    notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Unrelated neighbours do not inflate total or paging; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."

@@ -68,6 +68,22 @@ The system SHALL apply every structured filter of a request (status, `in_stock`,
 - **WHEN** a buyer searches in HYBRID mode and the semantic leg contributes a listing the lexical leg does not match
 - **THEN** the category facet counts sum to the response total and count that semantic-only listing
 
+### Requirement: Semantic similarity floor
+
+The system SHALL drop a semantic candidate whose cosine similarity to the query is below `HYBRID_SEMANTIC_MIN_SCORE` (default 0.6; a value of -1 or less disables it), in HYBRID and SEMANTIC mode, because k-NN has no natural cutoff and would otherwise return the k nearest listings for any text. A query whose lexical leg is empty and whose semantic candidates are all below the floor SHALL return zero hits and a zero total. OpenSearch reports `(1 + cosine) / 2` for a `cosinesimil` k-NN query on the Lucene engine; the floor is configured as a cosine and converted.
+
+#### Scenario: Unrelated text returns no semantic candidates
+- **WHEN** a buyer searches in HYBRID mode for a term that matches no listing lexically and is semantically unrelated to every listing
+- **THEN** the answer is 200 with no hits and a total of zero
+
+#### Scenario: A related listing survives the similarity floor
+- **WHEN** a buyer searches in HYBRID mode for a term that matches no listing lexically but is a semantic alias of a listing's title
+- **THEN** that listing is among the hits and an unrelated listing is not
+
+#### Scenario: Unrelated neighbours do not inflate total or paging
+- **WHEN** a buyer searches in HYBRID mode for a keyword shared by three listings in an index holding many unrelated listings
+- **THEN** the total is three and there is no next page
+
 ### Requirement: Additive SearchMode Contract
 
 The system SHALL support explicit search mode selection (`HYBRID`, `LEXICAL`, `SEMANTIC`) via the `search_mode` field in `SearchListingsRequest`.

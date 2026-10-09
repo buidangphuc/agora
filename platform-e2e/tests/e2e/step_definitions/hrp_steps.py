@@ -301,6 +301,12 @@ def search_deep(world: World) -> None:
     )
 
 
+@when("a buyer searches for a nonexistent term in SEARCH_MODE_HYBRID")
+def search_nonexistent(world: World) -> None:
+    query = h.word()
+    h.bag(world).update(query=query, resp=h.search(query, mode=h.HYBRID))
+
+
 # ── thens: query side ────────────────────────────────────────────────────
 @then("the listing is among the hits with a positive score")
 def positive_score(world: World) -> None:
@@ -406,6 +412,28 @@ def facets_follow_fused_set(world: World) -> None:
     assert total >= 2, total
     cats = sum(_bucket_counts(body.get("facets") or {}, "categories").values())
     assert cats == total, f"facets count {cats} listings, the total says {total}"
+
+
+@then("the answer is 200 with no hits and a total of zero")
+def no_hits(world: World) -> None:
+    resp = h.bag(world)["resp"]
+    assert h.ids(resp) == [], h.ids(resp)
+    assert s.total_of(resp) == 0, s.ok_json(resp).get("page")
+
+
+@then("the related listing is among the hits and the unrelated listing is not")
+def related_only(world: World) -> None:
+    got = h.ids(h.bag(world)["resp"])
+    assert s.listing(world, "near").id in got, got
+    assert s.listing(world, "far").id not in got, "an unrelated neighbour passed the floor"
+
+
+@then("the total is three and there is no next page")
+def total_three_single_page(world: World) -> None:
+    resp = h.bag(world)["resp"]
+    page = s.ok_json(resp).get("page") or {}
+    assert s.total_of(resp) == 3, page
+    assert not page.get("nextCursor"), page
 
 
 @then("the listing is among the hits although a lexical search for the alias finds nothing")

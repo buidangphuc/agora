@@ -117,3 +117,21 @@ Feature: Multi-strategy Hybrid Retrieval Platform
     Given an embedded listing matching a keyword lexically and an embedded listing matching its alias only semantically
     When a buyer searches for the keyword and the alias in SEARCH_MODE_HYBRID, first page
     Then the category facet counts sum to the response total and the total counts both listings
+
+  @needsModelserveOverlay
+  Scenario: Unrelated text returns no semantic candidates
+    Given an embedded listing titled with a unique word and an embedded unrelated listing
+    When a buyer searches for a nonexistent term in SEARCH_MODE_HYBRID
+    Then the answer is 200 with no hits and a total of zero
+
+  @needsModelserveOverlay
+  Scenario: A related listing survives the similarity floor
+    Given an embedded listing titled with a unique word and an embedded unrelated listing
+    When a buyer searches for the semantic alias of that word without a search mode
+    Then the related listing is among the hits and the unrelated listing is not
+
+  @needsModelserveOverlay
+  Scenario: Unrelated neighbours do not inflate total or paging
+    Given three embedded listings share a unique keyword
+    When a buyer searches for that keyword in SEARCH_MODE_HYBRID through the gateway
+    Then the total is three and there is no next page
