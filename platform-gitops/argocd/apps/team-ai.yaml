@@ -46,8 +46,23 @@ spec:
             KAFKA_ENABLED: "false"
             SEARCH_ENABLED: "false"
             DATABASE_ENABLED: "false"
-            REDIS_ENABLED: "false"
             QUEUE_ENABLED: "false"
+            # Trained recommendations (recs-on-cluster): served from the cluster Qdrant + valkey that the
+            # platform-recsys CronJob and nearline consumer write. Redis host is the Service `valkey`.
+            # No secrets: Qdrant and valkey run without auth inside the namespace.
+            REDIS_ENABLED: "true"
+            REDIS_HOST: "valkey"
+            REDIS_PORT: "6379"
+            RECS_ENABLED: "true"
+            RECS_BACKEND: "qdrant"
+            RECS_QDRANT_URL: "http://qdrant:6333"
+            RECS_QDRANT_COLLECTION: "item_als_vectors"
+            RECS_CACHE_PREFIX: "recs"
+            RECS_CACHE_SCHEMA_VERSION: "v1"
+            RECS_CACHE_TTL_SECONDS: "86400"
+            RECS_FEATURESTORE_REDIS_URL: "redis://valkey:6379/2"
+            RECS_NEARLINE_REDIS_URL: "redis://valkey:6379/0"
+            RECS_RETRIEVE_TIMEOUT_MS: "15"
             OBJECTS_ENABLED: "false"
           resources:
             requests:
