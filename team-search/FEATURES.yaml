@@ -1437,3 +1437,18 @@ features:
     status: automated
     covered_by: "search/hybrid_retrieval.feature::Unrelated neighbours do not inflate total or paging"
     notes: "needs rebuild (team-search image); scenario search/hybrid_retrieval.feature::Unrelated neighbours do not inflate total or paging; needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: search.semantic-floor-default-calibrated
+    title: "The default floor is calibrated"
+    persona: guest
+    priority: P2
+    summary: "The default floor is calibrated"
+    entry_route: /search
+    services: [team-search]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When team-search starts without HYBRID_SEMANTIC_MIN_SCORE, then the semantic floor is a cosine of 0.65"
+    tags: [search]
+    status: not-testable
+    notes: "semantic-floor-calibration: verified by team-search/internal/config/config_test.go › TestSemanticMinScoreDefault. The e2e overlay sets its own floor for the fake TEI, so the default is not observable end to end."

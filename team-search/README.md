@@ -54,9 +54,10 @@ Behaviour of `SearchListings`:
   modelserve `/rerank`; on error the fused order is kept.
 - Semantic floor: a k-NN candidate is kept only if its cosine similarity is >= `HYBRID_SEMANTIC_MIN_SCORE`
   (OpenSearch reports `(1 + cosine) / 2` for `cosinesimil` on Lucene; the engine converts). k-NN has no
-  natural cutoff, so without it a nonexistent term still returns its k nearest listings. The default 0.6
-  suits `bge-small-en-v1.5`, whose cosines are compressed (unrelated short texts about 0.4-0.55, related
-  0.65+); tune it against real traffic. No lexical match and no semantic candidate above the floor
+  natural cutoff, so without it a nonexistent term still returns its k nearest listings. The default 0.65
+  is calibrated for `bge-small-en-v1.5` with `scripts/semantic_floor_probe.py`: related query/title pairs
+  scored 0.697-0.892, unrelated pairs 0.363-0.666 with p90 0.600. The gap is narrow, so re-run the probe
+  against real queries before trusting it in production (openspec semantic-floor-calibration). No lexical match and no semantic candidate above the floor
   returns zero hits, total 0.
 - Filters constrain every leg: the structured filters (status, `in_stock`, category, seller, price,
   `tag.*`, `sku.*`) go into the k-NN query's own `filter` (Lucene engine, efficient filtering), so the k
@@ -150,7 +151,7 @@ if `.env.example` and the config structs drift in either direction.
 | `HYBRID_RRF_K` | `60` | |
 | `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
-| `HYBRID_SEMANTIC_MIN_SCORE` | `0.6` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
+| `HYBRID_SEMANTIC_MIN_SCORE` | `0.65` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
 | `KAFKA_ENABLED` | `false` | the indexer refuses to start unless true; the server does not use Kafka |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |

@@ -124,3 +124,15 @@ func TestTombstoneDefaultsFromEnv(t *testing.T) {
 		t.Fatalf("unset interval=%s warn=%q", d, w)
 	}
 }
+
+// semantic-floor-calibration: 0.65 is above all but one unrelated pair and below every related pair for
+// bge-small-en-v1.5 (scripts/semantic_floor_probe.py); 0.6 let about one unrelated pair in ten through.
+func TestSemanticMinScoreDefault(t *testing.T) {
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings with defaults: %v", err)
+	}
+	if s.Retrieval.SemanticMinScore != 0.65 {
+		t.Errorf("default HYBRID_SEMANTIC_MIN_SCORE = %v, want 0.65", s.Retrieval.SemanticMinScore)
+	}
+}
