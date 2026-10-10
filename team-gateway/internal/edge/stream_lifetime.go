@@ -94,6 +94,14 @@ func (e *Edge) watchStream(ctx context.Context, p resolvedPrincipal) (context.Co
 	return ctx, l
 }
 
+// reason is the short cause the watcher ended the stream with.
+func (l *streamLifetime) reason() string {
+	if c := l.cause.Load(); c != nil && errors.Is(*c, errStreamRevoked) {
+		return "session_revoked"
+	}
+	return "token_expired"
+}
+
 func (l *streamLifetime) end(cause error) {
 	l.cause.Store(&cause)
 	l.cancel()

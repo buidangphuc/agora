@@ -98,14 +98,15 @@ func NewSSEHandler(e *Edge, b *RealtimeBroker) *SSEHandler {
 	return &SSEHandler{edge: e, broker: b}
 }
 
-// authorizeRoom returns an HTTP status (0 = allowed) and message for the room.
-func (h *SSEHandler) authorizeRoom(r *http.Request, room string) (int, string) {
+// authorizeRoom returns an HTTP status (0 = allowed) and message for the room, plus
+// the verified principal when the room required a credential (nil for public rooms).
+func (h *SSEHandler) authorizeRoom(r *http.Request, room string) (int, string, *resolvedPrincipal) {
 	prefix, rest, _ := strings.Cut(room, ":")
 	if room == "global" || (prefix == "listing" && rest != "") {
-		return 0, ""
+		return 0, "", nil
 	}
 	if prefix != "user" && prefix != "chat" && prefix != "ops" || rest == "" {
-		return http.StatusForbidden, "unknown room"
+		return http.StatusForbidden, "unknown room", nil
 	}
 
 	header := r.Header
@@ -115,22 +116,22 @@ func (h *SSEHandler) authorizeRoom(r *http.Request, room string) (int, string) {
 	}
 	p, err := h.edge.resolve(header)
 	if err != nil {
-		return http.StatusUnauthorized, "invalid or expired bearer token"
+		return http.StatusUnauthorized, "invalid or expired bearer token", nil
 	}
 	if p.ptype == "anonymous" {
-		return http.StatusUnauthorized, "authentication required"
+		return http.StatusUnauthorized, "authentication required", nil
 	}
 	switch prefix {
 	case "user":
 		if p.ptype != "user" || p.id != rest {
-			return http.StatusForbidden, "forbidden room"
+			return http.StatusForbidden, "forbidden room", nil
 		}
 	case "ops":
 		if !hasScope(p.scopes, adminScope) {
-			return http.StatusForbidden, "insufficient_scope: admin required"
+			return http.StatusForbidden, "insufficient_scope: admin required", nil
 		}
 	}
-	return 0, ""
+	return 0, "", &p
 }
 
 // ServeHTTP handles incoming Server-Sent Events requests from browsers.
@@ -145,7 +146,8 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if room == "" {
 		room = "global"
 	}
-	if code, msg := h.authorizeRoom(r, room); code != 0 {
+	code, msg, principal := h.authorizeRoom(r, room)
+	if code != 0 {
 		if code == http.StatusUnauthorized {
 			w.Header().Set("WWW-Authenticate", "Bearer")
 		}
@@ -156,6 +158,15 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+
+	// An authenticated room is watched: the connection ends at the token's exp or
+	// when its session is revoked. Public rooms have no principal and no watcher.
+	ctx := r.Context()
+	var life *streamLifetime
+	if principal != nil {
+		ctx, life = h.edge.watchStream(ctx, *principal)
+		defer life.stop()
+	}
 
 	ch := h.broker.Subscribe(room)
 	defer h.broker.Unsubscribe(room, ch)
@@ -169,7 +180,11 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		select {
-		case <-r.Context().Done():
+		case <-ctx.Done():
+			if life != nil && life.ended() && r.Context().Err() == nil {
+				fmt.Fprintf(w, "event: unauthenticated\ndata: {\"code\":\"unauthenticated\",\"reason\":%q}\n\n", life.reason())
+				flusher.Flush()
+			}
 			return
 		case <-ticker.C:
 			fmt.Fprintf(w, ": heartbeat\n\n")
