@@ -756,7 +756,8 @@ features:
       - "When a logged-in buyer whose token expires in about 3 seconds opens /api/events/live for their own user:{id} room"
       - "Then the gateway sends an unauthenticated event about when the token expires and closes the connection"
     tags: [security]
-    status: planned
+    status: automated
+    covered_by: "security/ssl_sse_lifetime.feature::An SSE connection is ended when its token expires"
     notes: "needs rebuild (security/ssl_sse_lifetime.feature::An SSE connection is ended when its token expires)"
 
   - id: edge.sse-ends-on-session-revoke
@@ -774,7 +775,8 @@ features:
       - "When a logged-in buyer opens /api/events/live for their own user:{id} room on a gateway that checks revocation every second, then revokes that session"
       - "Then the gateway sends an unauthenticated event and closes the connection within 4 seconds of the revoke"
     tags: [security]
-    status: planned
+    status: automated
+    covered_by: "security/ssl_sse_lifetime.feature::An SSE connection is ended when its session is revoked"
     notes: "needs rebuild (security/ssl_sse_lifetime.feature::An SSE connection is ended when its session is revoked)"
 
   - id: edge.sse-public-room-unaffected-by-expiry
@@ -792,5 +794,6 @@ features:
       - "When a client opens /api/events/live for a public listing:{id} room with no credential and stays connected past the time a 3 second token would have expired"
       - "Then the connection is still open and receives no unauthenticated event"
     tags: [security]
-    status: planned
+    status: automated
+    covered_by: "security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry"
     notes: "needs rebuild (security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry)"

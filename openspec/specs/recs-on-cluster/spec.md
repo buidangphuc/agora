@@ -1,7 +1,7 @@
 # recs-on-cluster Specification
 
 ## Purpose
-TBD - created by archiving change recs-on-cluster. Update Purpose after archive.
+Defines what the cluster runs so it can serve recommendations: Qdrant, team-ai's recommendation backends and stores, the nearline consumer, the network policies between them, and publishing the featurestore and recsys images.
 
 ## Requirements
 
