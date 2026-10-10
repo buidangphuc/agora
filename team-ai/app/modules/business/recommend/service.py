@@ -38,6 +38,7 @@ from app.modules.business.recommend.schemas import (
 if TYPE_CHECKING:
     from app.modules.business.recommend.backends import RetrievalBackend
     from app.modules.business.recommend.cache import PrecomputedCache
+    from app.modules.business.recommend.ranker_artifact import TrainedRankerLoader
 
 
 _FALLBACK_MODEL_VERSION = "serving-fallback"
@@ -114,6 +115,8 @@ class RankOutcome:
     source: str  # "gbdt" | "cosine" | "degraded_cosine"
     nearline_hits: int = 0
     feature_defaults: int = 0
+    ranker_source: str = "none"  # "trained" | "fixed" (GBDT only)
+    ranker_fallback: str | None = None  # why "fixed" (see TrainedRankerLoader)
 
 
 class RecommendationService:
@@ -126,6 +129,8 @@ class RecommendationService:
         feature_store: FeatureStorePort | None = None,
         nearline_store: NearlineSignalPort | NearlineSourcePort | None = None,
         ranker: RankerPort | None = None,
+        ranker_loader: TrainedRankerLoader | None = None,
+        attribute_store: FeatureStorePort | None = None,
         nearline_timeout_ms: int = 20,
         candidate_top_k: int = 100,
         result_top_k: int = 10,
@@ -144,6 +149,8 @@ class RecommendationService:
         self._nearline_timeout_s = nearline_timeout_ms / 1000
         self._gbdt_ranker = ranker or GBDTRankerAdapter()
         self._cosine_ranker = CosineRankerAdapter()
+        self._ranker_loader = ranker_loader
+        self._attribute_store = attribute_store
         self._candidate_top_k = candidate_top_k
         self._result_top_k = result_top_k
         self._retrieve_timeout_ms = retrieve_timeout_ms
@@ -313,6 +320,13 @@ class RecommendationService:
                             "nearline_hit_count": ranked.nearline_hits,
                             "feature_defaults": ranked.feature_defaults,
                             "ctr_sources": _ctr_sources(items),
+                            "ranker_source": ranked.ranker_source,
+                            "ranker_fallback": ranked.ranker_fallback or "",
+                            "ranker_fallbacks": (
+                                self._ranker_loader.fallbacks
+                                if self._ranker_loader
+                                else 0
+                            ),
                             "nearline_enabled": self._nearline_enabled,
                             "status": status,
                         }
@@ -395,6 +409,41 @@ class RecommendationService:
         rank_limit = 0 if item_features else limit
         if ranking_model == "gbdt":
             nearline = await self._nearline_for(candidates)
+            ranker_fallback: str | None = "no_features"
+            try:
+                trained, reason = (
+                    await self._ranker_loader.get()
+                    if self._ranker_loader
+                    else (None, "no_loader")
+                )
+                if trained is not None and item_features:
+                    attrs = await self._attributes_for(candidates)
+                    trained_items = trained.rank_candidates(
+                        candidates,
+                        query,
+                        item_features,
+                        attrs,
+                        nearline_store=nearline,
+                        limit=limit,
+                    )
+                    return RankOutcome(
+                        trained_items,
+                        "ok",
+                        hit_count,
+                        "gbdt",
+                        nearline_hits=len(nearline)
+                        if isinstance(nearline, NearlineSnapshot)
+                        else 0,
+                        feature_defaults=sum(
+                            len(missing_item_features(row))
+                            for row in item_features.values()
+                        ),
+                        ranker_source="trained",
+                    )
+                ranker_fallback = reason or "no_features"
+            except Exception as exc:
+                logger.warning("recs.ranker.trained_failed err={}", exc)
+                ranker_fallback = "score_error"
             try:
                 ranked = self._gbdt_ranker.rank_candidates(
                     candidates=candidates,
@@ -416,6 +465,8 @@ class RecommendationService:
                         len(missing_item_features(row))
                         for row in item_features.values()
                     ),
+                    ranker_source="fixed",
+                    ranker_fallback=ranker_fallback,
                 )
             except Exception as exc:
                 logger.warning("GBDT ranker failed: {}, degrading to cosine", exc)
@@ -428,6 +479,19 @@ class RecommendationService:
         ranked = rank_and_filter(candidates, query, rank_limit)
         ranked = apply_online_features(ranked, item_features, limit)
         return RankOutcome(ranked, "ok", hit_count, "cosine")
+
+    async def _attributes_for(
+        self, candidates: list[Candidate]
+    ) -> dict[str, dict[str, Any]]:
+        """``item_attributes`` rows of the candidates; none (all defaults) on any failure."""
+        if self._attribute_store is None:
+            return {}
+        try:
+            ids = list({c.listing_id for c in candidates if c.listing_id})
+            return await self._attribute_store.get_item_features_batch(ids)
+        except Exception as exc:
+            logger.warning("recs.attributes.unavailable err={}", exc)
+            return {}
 
     async def _nearline_for(
         self, candidates: list[Candidate]
