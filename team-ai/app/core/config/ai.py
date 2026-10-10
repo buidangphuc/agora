@@ -59,6 +59,9 @@ class AISettingsMixin(BaseModel):
     RAG_EMBED_MODEL: str = ""
     RAG_MOCK_EMBED_DIM: int = Field(default=16, gt=0)
     RAG_RETRIEVE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
+    # ShoppingAssistant: drop RAG hits scoring below this (0 = keep the nearest k; scores
+    # are model specific, so tune per deployment).
+    ASSISTANT_RAG_MIN_SCORE: float = Field(default=0.0, ge=0)
 
     # Embedding backend — the ML/LLM decoupling seam. team-ai runs NO embedding
     # model in-process; "model_server" delegates vectorization to a remote ML
@@ -68,6 +71,13 @@ class AISettingsMixin(BaseModel):
     RAG_EMBED_SERVER_PATH: str = "/embed"  # POST {"texts": [...]} -> vectors
     RAG_EMBED_DIM: int = Field(default=384, gt=0)  # vector dim from the server
     RAG_EMBED_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
+
+    # Tag taxonomy registry persistence (tag-taxonomy-persistence): canonical tags and
+    # exploring candidates in team-ai's Redis, own database (0 serving/chat, 2 featurestore,
+    # 3-4 and 10-13 e2e are taken) and prefix. Needs REDIS_ENABLED.
+    TAXONOMY_PERSISTENCE_ENABLED: bool = False
+    TAXONOMY_REDIS_DATABASE: int = Field(default=5, ge=0)
+    TAXONOMY_REDIS_PREFIX: str = "tagtax"
 
     # Qdrant vector store (used when RAG_BACKEND=qdrant).
     RAG_QDRANT_URL: str = "http://localhost:6333"

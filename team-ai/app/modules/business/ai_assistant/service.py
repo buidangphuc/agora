@@ -323,14 +323,31 @@ def _strip_accents(text: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 
+_RAG_OVERFETCH = 3
+
+RAG_UNAVAILABLE_REPLY = (
+    "Dạ xin lỗi bạn, hiện mình chưa tra cứu được kho sản phẩm nên chưa gợi ý được "
+    "sản phẩm cụ thể. Bạn thử lại sau ít phút hoặc mô tả thêm nhu cầu để mình tư vấn nhé!"
+)
+
+
+def _as_int(value: Any) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 class AIAssistantService:
     def __init__(
         self,
         rag_service: Any = None,
         *,
         redaction_policy: RedactionPolicy | None = None,
+        rag_min_score: float = 0.0,
     ) -> None:
         self.rag_service = rag_service
+        self._rag_min_score = rag_min_score
         self._redaction = redaction_policy or RedactionPolicy(
             mode="redacted", mask_national_id=True
         )
@@ -349,11 +366,29 @@ class AIAssistantService:
             self._safe(query),
         )
 
-        # 1. Match products from catalog / RAG
-        matched_products = self._match_products(query, top_k=request.top_k)
+        # 1. Retrieve listings from the RAG store; the demo catalog only answers when no
+        #    store is configured (its ids are not real listings, so it never stands in
+        #    for an index that exists but could not be searched).
+        retrieval_failed = False
+        if self.rag_service is None:
+            matched_products = self._match_products(query, top_k=request.top_k)
+        else:
+            try:
+                matched_products = await self._retrieve_products(
+                    query, top_k=request.top_k
+                )
+            except Exception as exc:  # fail open: the assistant still answers
+                logger.warning(
+                    "shopping_assistant.rag_failed error={}", type(exc).__name__
+                )
+                matched_products = []
+                retrieval_failed = True
 
         # 2. Craft personalized reply text
-        reply_text = self._build_assistant_reply(query, matched_products)
+        if retrieval_failed:
+            reply_text = RAG_UNAVAILABLE_REPLY
+        else:
+            reply_text = self._build_assistant_reply(query, matched_products)
 
         # 3. Build suggested followups
         suggested_followups = self._build_suggested_followups(query, matched_products)
@@ -483,6 +518,38 @@ class AIAssistantService:
             parts.append(f"Điểm cần cải thiện: {cons[0]}.")
         return " ".join(parts)
 
+    async def _retrieve_products(self, query: str, *, top_k: int) -> list[ProductCard]:
+        """Distinct listings from the RAG store, best match first, at most ``top_k``."""
+        # Over-fetch: several chunks of one listing would otherwise eat the slots.
+        nodes = await self.rag_service.search(query, top_k=top_k * _RAG_OVERFETCH)
+        best: dict[str, tuple[float, dict[str, Any]]] = {}
+        for node in nodes:
+            inner = getattr(node, "node", node)
+            meta = getattr(inner, "metadata", None) or {}
+            listing_id = str(
+                meta.get("listing_id")
+                or meta.get("document_id")
+                or getattr(inner, "ref_doc_id", "")
+                or ""
+            )
+            raw_score = getattr(node, "score", None)
+            score = float(raw_score) if raw_score is not None else 0.0
+            if not listing_id or score < self._rag_min_score:
+                continue
+            if listing_id not in best or score > best[listing_id][0]:
+                best[listing_id] = (score, meta)
+        ranked = sorted(best.items(), key=lambda kv: kv[1][0], reverse=True)
+        return [
+            ProductCard(
+                listing_id=listing_id,
+                title=str(meta.get("title", "")),
+                price=_as_int(meta.get("price")),
+                currency=str(meta.get("currency") or "VND"),
+                rating_text="",
+            )
+            for listing_id, (_, meta) in ranked[:top_k]
+        ]
+
     def _match_products(self, query: str, top_k: int = 4) -> list[ProductCard]:
         norm_query = _strip_accents(query)
         words = set(re.findall(r"\w+", norm_query))
@@ -556,6 +623,12 @@ class AIAssistantService:
 
         top_item = products[0]
         count = len(products)
+        if not top_item.rating_text:  # a retrieved listing: no rating/discount facts
+            return (
+                f'Dạ chào bạn! Dựa trên tìm kiếm "{query}", AI Assistant tìm thấy {count} sản phẩm phù hợp. '
+                f"Nổi bật nhất là **{top_item.title}** với giá **{top_item.price:,.0f}đ**. "
+                "Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết nhé!"
+            )
         return (
             f'Dạ chào bạn! Dựa trên tìm kiếm "{query}", AI Assistant gợi ý cho bạn {count} sản phẩm tốt nhất. '
             f"Nổi bật nhất là **{top_item.title}** với giá chỉ **{top_item.price:,.0f}đ** "

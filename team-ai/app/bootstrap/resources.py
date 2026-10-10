@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from app.modules.ai.rag.service import KnowledgeRetrievalService
     from app.modules.business.completions.pipeline import CompletionPipeline
     from app.modules.business.recommend.service import RecommendationService
+    from app.modules.business.tag_classifier.service import TagClassifierService
     from app.modules.messaging.outbox.store import OutboxStore
     from app.modules.messaging.queue.gateway import QueueGateway
     from app.modules.messaging.tasks.store import TaskStore
@@ -67,6 +68,7 @@ class ApplicationResources:
     principal_rate_limiter: InMemoryRateLimiter | RedisRateLimiter | None = None
     ip_rate_limiter: InMemoryRateLimiter | RedisRateLimiter | None = None
     rag_service: KnowledgeRetrievalService | None = None
+    tag_classifier_service: TagClassifierService | None = None
     recommendation_service: RecommendationService | None = None
     webhook_signer: WebhookSigner | None = None
     webhook_dispatcher: HttpWebhookDispatcher | None = None

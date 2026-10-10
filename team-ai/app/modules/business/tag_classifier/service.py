@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 import unicodedata
 from collections import Counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from app.core.errors import ServiceUnavailableError
 from app.modules.business.tag_classifier.schemas import (
     ClassifySkuHierarchyRequest,
     ClassifySkuHierarchyResponse,
@@ -24,6 +26,9 @@ from app.modules.business.tag_classifier.schemas import (
     TagItem,
     TagStatus,
 )
+
+if TYPE_CHECKING:
+    from app.modules.business.tag_classifier.store import TaxonomyStore
 
 
 def _strip_accents(s: str) -> str:
@@ -427,7 +432,10 @@ class TagClassifierService:
     3. Gating and promotion pipeline to elevate candidate tags to canonical filter facets (`promote_tags`).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, store: TaxonomyStore | None = None) -> None:
+        self._store: TaxonomyStore | None = None
+        self._store_loaded = False
+        self._lock = asyncio.Lock()
         self._canonical_tags: dict[str, TagItem] = {}
         self._candidate_tags: dict[str, TagItem] = {}
         self._synonym_index: dict[str, str] = {}  # normalized_synonym -> tag_slug
@@ -436,6 +444,45 @@ class TagClassifierService:
         for item in SEED_CANONICAL_TAGS:
             tag = TagItem(**item)
             self._register_canonical_tag(tag)
+        if store is not None:
+            self._store = store
+
+    async def attach_store(self, store: TaxonomyStore) -> bool:
+        """Use ``store`` from now on and overlay its saved state on the seed.
+
+        Returns False when the store cannot be read (the service then serves the seed and
+        retries the load before the next ``promote``/``explore`` applies its change).
+        """
+        self._store = store
+        self._store_loaded = False
+        async with self._lock:
+            return await self._load_from_store()
+
+    def detach_store(self) -> None:
+        self._store = None
+        self._store_loaded = False
+
+    async def _load_from_store(self) -> bool:
+        if self._store is None or self._store_loaded:
+            return True
+        try:
+            canonical, candidates = await self._store.load()
+        except Exception as exc:
+            logger.error("taxonomy.load_failed error={}", type(exc).__name__)
+            return False
+        for tag in canonical:
+            self._candidate_tags.pop(tag.slug, None)
+            self._register_canonical_tag(tag)
+        for cand in candidates:
+            if cand.slug not in self._canonical_tags:
+                self._candidate_tags[cand.slug] = cand
+        self._store_loaded = True
+        logger.info(
+            "taxonomy.loaded canonical={} candidates={}",
+            len(canonical),
+            len(candidates),
+        )
+        return True
 
     def _register_canonical_tag(self, tag: TagItem) -> None:
         self._canonical_tags[tag.slug] = tag
@@ -816,48 +863,56 @@ class TagClassifierService:
 
         emergent specs, clustering them into candidate pools.
         """
-        initial_candidate_count = len(self._candidate_tags)
-        extracted_slugs: Counter[str] = Counter()
-        candidate_map: dict[str, TagItem] = {}
+        async with self._lock:
+            await self._load_from_store()
+            initial_candidate_count = len(self._candidate_tags)
+            extracted_slugs: Counter[str] = Counter()
+            candidate_map: dict[str, TagItem] = {}
 
-        for item in request.batch_listings:
-            # Mine from parent listing
-            combined = f"{item.title} {item.description}"
-            norm = _strip_accents(combined)
-            discovered = self._extract_emergent_patterns(norm, item.category_id)
-            for tag in discovered:
-                extracted_slugs[tag.slug] += 1
-                if tag.slug not in candidate_map:
-                    candidate_map[tag.slug] = tag
-                else:
-                    candidate_map[tag.slug].occurrence_count += 1
-
-            # Mine from child SKU variants
-            for var in item.variants:
-                var_text = f"{var.name} {' '.join(var.options.values())} {var.sku_code}"
-                var_norm = _strip_accents(var_text)
-                var_discovered = self._extract_emergent_patterns(
-                    var_norm, item.category_id
-                )
-                for tag in var_discovered:
+            for item in request.batch_listings:
+                # Mine from parent listing
+                combined = f"{item.title} {item.description}"
+                norm = _strip_accents(combined)
+                discovered = self._extract_emergent_patterns(norm, item.category_id)
+                for tag in discovered:
                     extracted_slugs[tag.slug] += 1
                     if tag.slug not in candidate_map:
                         candidate_map[tag.slug] = tag
                     else:
                         candidate_map[tag.slug].occurrence_count += 1
 
-        for slug, freq in extracted_slugs.items():
-            if freq >= request.min_frequency:
-                tag = candidate_map[slug]
-                if tag.confidence >= request.min_confidence:
-                    self._register_candidate_tag(tag)
+                # Mine from child SKU variants
+                for var in item.variants:
+                    var_text = (
+                        f"{var.name} {' '.join(var.options.values())} {var.sku_code}"
+                    )
+                    var_norm = _strip_accents(var_text)
+                    var_discovered = self._extract_emergent_patterns(
+                        var_norm, item.category_id
+                    )
+                    for tag in var_discovered:
+                        extracted_slugs[tag.slug] += 1
+                        if tag.slug not in candidate_map:
+                            candidate_map[tag.slug] = tag
+                        else:
+                            candidate_map[tag.slug].occurrence_count += 1
 
-        new_candidates = len(self._candidate_tags) - initial_candidate_count
-        discovered_list = [
-            self._candidate_tags[slug]
-            for slug in extracted_slugs
-            if slug in self._candidate_tags
-        ]
+            registered: list[str] = []
+            for slug, freq in extracted_slugs.items():
+                if freq >= request.min_frequency:
+                    tag = candidate_map[slug]
+                    if tag.confidence >= request.min_confidence:
+                        self._register_candidate_tag(tag)
+                        registered.append(slug)
+
+            new_candidates = len(self._candidate_tags) - initial_candidate_count
+            discovered_list = [
+                self._candidate_tags[slug]
+                for slug in extracted_slugs
+                if slug in self._candidate_tags
+            ]
+
+            await self._persist_candidates(registered)
 
         logger.info(
             f"Explore tags completed: processed {len(request.batch_listings)} listings, "
@@ -875,54 +930,99 @@ class TagClassifierService:
     # 5. Promotion Gating & Registry
     # ──────────────────────────────────────────────────────────────────────────
     async def promote_tags(self, request: PromoteTagRequest) -> PromoteTagResponse:
-        """Promotes candidate tag(s) to official canonical filter facets."""
-        promoted_list: list[TagItem] = []
+        """Promotes candidate tag(s) to official canonical filter facets.
 
-        for slug in request.tag_slugs:
-            if slug in self._candidate_tags:
-                tag = self._candidate_tags.pop(slug)
-                tag.status = TagStatus.PROMOTED
-                tag.is_canonical = True
-                tag.confidence = 1.0
-                if request.target_category_id:
-                    tag.category_id = request.target_category_id
-                if request.target_facet_group:
-                    tag.facet_group = request.target_facet_group
-                if request.add_synonyms:
+        Persist-first: the result is computed on copies and written to the store before it is
+        applied, so a store failure answers 503 and leaves the registry unchanged.
+        """
+        async with self._lock:
+            if self._store is not None and not await self._load_from_store():
+                raise ServiceUnavailableError("tag taxonomy store unavailable")
+            working: dict[str, TagItem] = {}
+            from_candidate: list[str] = []
+            promoted_list: list[TagItem] = []
+
+            for slug in request.tag_slugs:
+                if slug in working:
+                    tag = working[slug]
                     tag.synonyms.extend(request.add_synonyms)
+                elif slug in self._candidate_tags:
+                    tag = self._candidate_tags[slug].model_copy(deep=True)
+                    tag.status = TagStatus.PROMOTED
+                    tag.is_canonical = True
+                    tag.confidence = 1.0
+                    if request.target_category_id:
+                        tag.category_id = request.target_category_id
+                    if request.target_facet_group:
+                        tag.facet_group = request.target_facet_group
+                    if request.add_synonyms:
+                        tag.synonyms.extend(request.add_synonyms)
+                    working[slug] = tag
+                    from_candidate.append(slug)
+                    logger.info(
+                        f"Promoted candidate tag '{slug}' to canonical facet ({tag.facet_group.value})"
+                    )
+                elif slug in self._canonical_tags:
+                    tag = self._canonical_tags[slug].model_copy(deep=True)
+                    if request.add_synonyms:
+                        tag.synonyms.extend(request.add_synonyms)
+                    working[slug] = tag
+                else:
+                    tag = TagItem(
+                        tag_id=f"tag-{slug}",
+                        name=slug.replace("-", " ").title(),
+                        slug=slug,
+                        facet_group=request.target_facet_group or FacetGroup.FEATURE,
+                        category_id=request.target_category_id or "all",
+                        status=TagStatus.PROMOTED,
+                        confidence=1.0,
+                        is_canonical=True,
+                        synonyms=list(request.add_synonyms),
+                    )
+                    working[slug] = tag
+                promoted_list.append(tag)
 
+            if self._store is not None and working:
+                try:
+                    await self._store.save(
+                        canonical=list(working.values()),
+                        remove_candidates=from_candidate,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "taxonomy.save_failed op=promote error={}", type(exc).__name__
+                    )
+                    raise ServiceUnavailableError(
+                        "tag taxonomy store unavailable"
+                    ) from exc
+
+            for slug, tag in working.items():
+                self._candidate_tags.pop(slug, None)
                 self._register_canonical_tag(tag)
-                promoted_list.append(tag)
-                logger.info(
-                    f"Promoted candidate tag '{slug}' to canonical facet ({tag.facet_group.value})"
-                )
-            elif slug in self._canonical_tags:
-                tag = self._canonical_tags[slug]
-                if request.add_synonyms:
-                    tag.synonyms.extend(request.add_synonyms)
-                    for s in request.add_synonyms:
-                        self._synonym_index[_strip_accents(s)] = slug
-                promoted_list.append(tag)
-            else:
-                new_tag = TagItem(
-                    tag_id=f"tag-{slug}",
-                    name=slug.replace("-", " ").title(),
-                    slug=slug,
-                    facet_group=request.target_facet_group or FacetGroup.FEATURE,
-                    category_id=request.target_category_id or "all",
-                    status=TagStatus.PROMOTED,
-                    confidence=1.0,
-                    is_canonical=True,
-                    synonyms=request.add_synonyms,
-                )
-                self._register_canonical_tag(new_tag)
-                promoted_list.append(new_tag)
 
-        return PromoteTagResponse(
-            promoted_tags=promoted_list,
-            total_promoted=len(promoted_list),
-            active_canonical_count=len(self._canonical_tags),
-        )
+            return PromoteTagResponse(
+                promoted_tags=promoted_list,
+                total_promoted=len(promoted_list),
+                active_canonical_count=len(self._canonical_tags),
+            )
+
+    async def _persist_candidates(self, slugs: list[str]) -> None:
+        """Best effort: candidates are re-discoverable, so a store failure is only logged."""
+        if self._store is None:
+            return
+        tags = [
+            self._candidate_tags[s]
+            for s in dict.fromkeys(slugs)
+            if s in self._candidate_tags
+        ]
+        if not tags:
+            return
+        try:
+            await self._store.save(candidates=tags)
+        except Exception as exc:
+            logger.warning(
+                "taxonomy.save_failed op=explore error={}", type(exc).__name__
+            )
 
     # ──────────────────────────────────────────────────────────────────────────
     # 6. Query Tags

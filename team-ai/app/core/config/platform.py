@@ -10,6 +10,10 @@ class PlatformSettingsMixin(BaseModel):
     AUTH_BEARER_TOKEN: str = ""
     AUTH_SUBJECT: str = "local-user"
     AUTH_ROLES: str = ""
+    # Second static token for the tag taxonomy routes: resolves to a service principal
+    # holding ``admin`` + ``ai.classify``. Empty = no admin access (fail closed).
+    AUTH_ADMIN_BEARER_TOKEN: str = ""
+    AUTH_ADMIN_SUBJECT: str = "tag-admin"
 
     # Rate limit (2 layers: IP + principal)
     RATE_LIMIT_ENABLED: bool = False
