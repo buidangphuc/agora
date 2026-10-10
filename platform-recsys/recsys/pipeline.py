@@ -21,6 +21,7 @@ from .load import redis_cache
 from .model_version import resolve_model_version
 from .monitoring import generation as drift_monitor
 from .publish import publish_generation, refresh_serving_ttl
+from .ranker import stage as ranker_stage
 from .registry.metadata import ModelMetadata
 from .registry.registry import ModelRegistry
 from .spark import build_spark
@@ -196,6 +197,8 @@ def run(
     # The two-tower stage trains on governed feature snapshots only: with none, refuse to run now,
     # before Spark starts and before anything is registered (ConfigError → exit 2).
     two_tower_inputs = two_tower_stage.resolve_inputs(settings) if settings.enable_two_tower else None
+    # The GBDT stage needs its ranking dataset and feature snapshots: same refusal rule, same moment.
+    ranker_inputs = ranker_stage.resolve_inputs(settings) if settings.enable_gbdt else None
     log.info("starting ALS batch model_version=%s dataset=%s", model_version, dataset.path)
 
     spark = build_spark(settings)
@@ -361,6 +364,19 @@ def run(
                 raise
             decision.candidate.parameters["two_tower"] = two_tower.as_parameters(settings.two_tower_dim)
 
+        # ── GBDT ranker stage (optional): trained, evaluated and gated BEFORE the publish ───
+        # A rejected ranker does not block the generation (it ships without one); a stage that fails
+        # outright rejects the candidate like a failed publish does.
+        gbdt = None
+        if ranker_inputs is not None:
+            try:
+                gbdt = ranker_stage.run_stage(settings, ranker_inputs, model_version, registry)
+            except Exception as exc:
+                registry.reject(decision, reason=f"gbdt stage failed: {type(exc).__name__}: {exc}")
+                log.error("gbdt stage of %s failed, candidate rejected: %s", model_version, exc)
+                raise
+            summary["gbdt"] = gbdt.summary
+
         # ── Publish as a generation (ONLY if Promoted) ───────────────────────────
         # The champion changes only once the publish has succeeded: a failed publish leaves the
         # previous champion (and serving) untouched and the candidate recorded as rejected.
@@ -376,12 +392,18 @@ def run(
                 redis_client=redis_client,
                 qdrant_client=qdrant_client,
                 two_tower_vectors=two_tower.vectors if two_tower else None,
+                ranker_artifact=gbdt.artifact if gbdt and gbdt.promoted else None,
             )
         except Exception as exc:
+            if gbdt and gbdt.promoted:
+                gbdt.registry.reject(gbdt.decision, reason=f"publish failed: {type(exc).__name__}")
             registry.reject(decision, reason=f"publish failed: {type(exc).__name__}")
             log.error("publish of %s failed, candidate rejected: %s", model_version, exc)
             raise
         registry.apply_promotion(decision)
+        if gbdt and gbdt.promoted:
+            gbdt.registry.apply_promotion(gbdt.decision)
+            summary["gbdt"]["ranker_key"] = published["ranker_key"]
         summary["qdrant"] = published["qdrant"]
         summary["cache"] = published["cache"]
         summary["serving"] = published["serving"]

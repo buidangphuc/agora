@@ -12,6 +12,7 @@ from recsys.registry.metadata import ModelMetadata
 logger = logging.getLogger(__name__)
 
 CHAMPION_KEY = "recs:model:champion"
+GBDT_CHAMPION_KEY = "recs:model:champion:gbdt"
 METADATA_KEY_PREFIX = "recs:model:meta:"
 
 
@@ -28,10 +29,21 @@ class PromotionDecision:
 class ModelRegistry:
     """Manages registered models, metadata persistence, and promotion gates."""
 
-    def __init__(self, redis_client: Any | None = None) -> None:
+    def __init__(self, redis_client: Any | None = None, champion_key: str = CHAMPION_KEY) -> None:
         self.redis = redis_client
+        self.champion_key = champion_key
         self._in_memory_store: dict[str, str] = {}
         self._champion_version: str | None = None
+        self._scoped: dict[str, ModelRegistry] = {}
+
+    def scoped(self, champion_key: str) -> ModelRegistry:
+        """A registry over the same metadata store with a champion pointer of its own (another model family
+        is gated against its own champion, never the ALS one)."""
+        if champion_key not in self._scoped:
+            other = ModelRegistry(redis_client=self.redis, champion_key=champion_key)
+            other._in_memory_store = self._in_memory_store
+            self._scoped[champion_key] = other
+        return self._scoped[champion_key]
 
     def register_model(self, metadata: ModelMetadata) -> None:
         """Register a new model candidate in the registry."""
@@ -61,7 +73,7 @@ class ModelRegistry:
     def get_champion_version(self) -> str | None:
         """Get the current active champion version."""
         if self.redis is not None:
-            val = self.redis.get(CHAMPION_KEY)
+            val = self.redis.get(self.champion_key)
             if val is not None:
                 return val.decode("utf-8") if isinstance(val, bytes) else str(val)
             return None
@@ -192,7 +204,7 @@ class ModelRegistry:
         if target is not None:
             self._set_champion(target)
         elif self.redis is not None:
-            self.redis.set(CHAMPION_KEY, model_version)
+            self.redis.set(self.champion_key, model_version)
         else:
             self._champion_version = model_version
         return demoted if demoted != model_version else None
@@ -201,6 +213,6 @@ class ModelRegistry:
         model.status = "champion"
         self.register_model(model)
         if self.redis is not None:
-            self.redis.set(CHAMPION_KEY, model.model_version)
+            self.redis.set(self.champion_key, model.model_version)
         else:
             self._champion_version = model.model_version
