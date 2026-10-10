@@ -355,3 +355,67 @@ features:
     tags: [analytics, batch, integration]
     status: planned
     notes: "needs rebuild"
+
+  - id: featurestore.rgt-positive-row
+    title: "A clicked impression becomes a positive training row"
+    persona: buyer
+    priority: P1
+    summary: "A clicked impression becomes a positive training row"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer is shown listings in one recommendation row and clicks one of them with the same impressionId, the export cycle completes, and the dataset job runs"
+      - "Then rank_training@v1 has a row for that buyer, impression and listing with label 1"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-add-to-cart-row
+    title: "An add-to-cart is a stronger positive than a click"
+    persona: buyer
+    priority: P1
+    summary: "An add-to-cart is a stronger positive than a click"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer adds another listing of that row to the cart with the same impressionId, the export cycle completes, and the dataset job runs"
+      - "Then rank_training@v1 has a row for that listing with label 2"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-negative-row
+    title: "An impression without a click is a negative row"
+    persona: buyer
+    priority: P1
+    summary: "An impression without a click is a negative row"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a third listing of that row is never clicked"
+      - "Then rank_training@v1 has a row for it with label 0 and the row's position"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-as-of
+    title: "Impressions after AS_OF are not in the ranking dataset"
+    persona: guest
+    priority: P1
+    summary: "Impressions after AS_OF are not in the ranking dataset"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the events hold one impression before AS_OF and one after it, and the dataset job runs with that AS_OF"
+      - "Then rank_training@v1 has a row for the first and none for the second"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
