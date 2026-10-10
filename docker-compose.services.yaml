@@ -598,10 +598,20 @@ services:
       context: ./team-ai
       dockerfile: Dockerfile
       args:
-        # qdrant-client for the trained-recommendations reader (RECS_BACKEND=qdrant).
-        UV_EXTRAS: recs
+        # recs: qdrant-client for the trained-recommendations reader (RECS_BACKEND=qdrant) and the RAG store.
+        # ai: llama-index + the qdrant vector store. kafka: aiokafka (+ snappy) for the listing indexer.
+        UV_EXTRAS: "recs ai kafka"
     image: team-ai:local
     container_name: team-ai-svc
+    depends_on:
+      modelserve-router:
+        condition: service_healthy
+      qdrant:
+        # service_started: platform-core's qdrant healthcheck uses /dev/tcp under sh and never passes;
+        # a retrieval failure before Qdrant listens degrades to "catalog could not be searched", never a crash.
+        condition: service_started
+      redpanda:
+        condition: service_healthy
     environment:
       - ENVIRONMENT=local
       - PORT=8000
@@ -645,9 +655,49 @@ services:
       # read per request for GBDT placements; an outage leaves the request on prior CTRs.
       - RECS_NEARLINE_REDIS_URL=redis://redis:6379/0
       - RECS_RETRIEVE_TIMEOUT_MS=15
+      # Shopping assistant grounding (assistant-rag-default-on): ON by default. The listing indexer feeds a
+      # Qdrant RAG collection (embedded through modelserve-router -> tei-fake, below) and ShoppingAssistant
+      # answers with real listings. Turn it off (demo catalog) with platform-e2e/compose/rag-off.override.yaml.
+      - RAG_ENABLED=true
+      - RAG_BACKEND=qdrant
+      - RAG_QDRANT_URL=http://qdrant:6333
+      - RAG_QDRANT_COLLECTION=rag_documents
+      - RAG_EMBED_BACKEND=model_server
+      - RAG_EMBED_SERVER_URL=http://modelserve-router:8100
+      - RAG_EMBED_DIM=384
+      - LISTING_INDEXER_ENABLED=true
+      - KAFKA_BROKERS=redpanda:9092
     ports:
       - "${TEAM_AI_HOST_PORT:-8001}:8000"   # override when 8001 is taken on the host
       - "50060:50060"
+
+  # Embedding path for team-ai's RAG store (assistant-rag-default-on). tei-fake is a lightweight deterministic
+  # stand-in for Hugging Face TEI (dim 384, no model download); swap TEI_*_URL for a real TEI to use real embeddings.
+  # No host ports here; platform-e2e/compose/modelserve.override.yaml publishes them for the tests.
+  tei-fake:
+    build:
+      context: ./platform-e2e/fakes/tei_fake
+    image: tei-fake:local
+
+  modelserve-router:
+    build:
+      context: ./platform-modelserve
+    image: modelserve-router:local
+    depends_on:
+      tei-fake:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      ROUTER_PORT: "8100"
+      TEI_EMBED_URL: http://tei-fake:8110
+      TEI_RERANK_URL: http://tei-fake:8110
+      VLLM_URL: http://tei-fake:8110
+      REDIS_URL: redis://redis:6379/4   # embedding cache (DB 0 serving, 2 features, 3 ofb tests, 10-13 fsm are taken)
+      EMBED_CACHE_ENABLED: "true"
+      EMBED_CACHE_TTL_SECONDS: "3600"
+      MODEL_VERSION: tei-fake-v1
+      UPSTREAM_TIMEOUT_SECONDS: "30"
 
   # Offline ALS training job (serve-trained-recs-locally) — a batch, not a server:
   #   docker compose --profile jobs run --rm platform-recsys

@@ -1363,9 +1363,10 @@ features:
     acceptance:
       - "When the service runs with RAG_ENABLED=false"
       - "Then the assistant answers from its built-in demo catalog as before"
-    tags: [ai, rag]
-    status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. The e2e stack runs with the RAG store on (openspec/changes/assistant-rag-grounding/design.md)."
+    tags: [ai, rag, destructive]
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::Without a RAG store the demo catalog answers"
+    notes: "Also unit-verified by team-ai/tests/unit/modules/test_ai_assistant_rag.py. The e2e scenario recreates team-ai with platform-e2e/compose/rag-off.override.yaml (openspec/changes/assistant-rag-default-on/design.md)."
 
   - id: ai.tra-anonymous-refused
     title: "Anonymous tag requests are refused"

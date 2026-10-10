@@ -31,11 +31,8 @@ services:
     ports:
       - "127.0.0.1:${LLM_FAKE_HOST_PORT:-18099}:8099"
   team-ai:
-    # The llm_router path needs the optional `ai` extra (langchain, langchain-openai);
-    # the committed compose builds team-ai with `recs` only.
-    build:
-      args:
-        UV_EXTRAS: "recs ai"
+    # The llm_router path needs the optional `ai` extra (langchain, langchain-openai); the committed
+    # compose builds team-ai with "recs ai kafka" (assistant-rag-default-on), so no build arg here.
     depends_on:
       llm-fake:
         condition: service_healthy

@@ -126,7 +126,7 @@ default and listed in `.env.example`.
 | `QUOTA_ENABLED`, `QUOTA_BACKEND` | `false`, `memory` | With `llm_router`, one `chat.reply` unit is reserved per reply (server-minted id), finalized after delivery and refunded when nothing was delivered. |
 | `QUOTA_CHAT_REPLIES_PER_WINDOW`, `QUOTA_CHAT_WINDOW_SECONDS` | `200`, `86400` | Chat reply quota per principal. |
 | `GRPC_RATE_LIMIT_ENABLED` | `false` | Per-principal limit on `StreamChat` and `ShoppingAssistant` (`RATE_LIMIT_*`). Refused with `RATE_LIMIT_BACKEND=memory` outside dev/local/test. |
-| `RAG_ENABLED` | `false` | Gates `SearchListings` and grounds `ShoppingAssistant` in the RAG store. |
+| `RAG_ENABLED` | `false` (code); `true` in the compose stack | Gates `SearchListings` and grounds `ShoppingAssistant` in the RAG store. Compose turns it on with the `RAG_*`/`LISTING_INDEXER_ENABLED` settings listed in section 5; `platform-e2e/compose/rag-off.override.yaml` turns it off. |
 | `RAG_BACKEND` | `memory` | `memory` or `qdrant`. |
 | `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION` | `http://localhost:6333`, `rag_documents` | Used when `RAG_BACKEND=qdrant`. |
 | `RAG_EMBED_BACKEND` | `mock` | `mock` or `model_server`. |
@@ -161,10 +161,17 @@ docker compose up -d --build team-ai                       # HTTP :8001, gRPC :5
 docker compose --profile jobs run --rm platform-recsys     # fills Qdrant + Redis for Recommend
 ```
 
-The compose service builds with `UV_EXTRAS=recs` and sets `GRPC_ENABLED=true`,
+The compose service builds with `UV_EXTRAS="recs ai kafka"` and sets `GRPC_ENABLED=true`,
 `REDIS_ENABLED=true`, `CHAT_BACKEND=mock`, `RECS_ENABLED=true` and `RECS_BACKEND=qdrant`. Until
-the recsys job has run, `Recommend` returns empty results. It does not set `RAG_ENABLED`, so
-`SearchListings` answers `UNAVAILABLE` there.
+the recsys job has run, `Recommend` returns empty results. RAG grounding is **on by default in compose**
+(`RAG_ENABLED=true`, `RAG_BACKEND=qdrant`, collection `rag_documents`, `RAG_EMBED_BACKEND=model_server` through
+the `modelserve-router` + `tei-fake` services, `LISTING_INDEXER_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`),
+so `ShoppingAssistant` returns real listings and `SearchListings` is served. The code default stays
+`RAG_ENABLED=false` (unit tests, standalone). To run compose without RAG (demo catalog,
+`SearchListings` `UNAVAILABLE`) layer `platform-e2e/compose/rag-off.override.yaml`:
+`docker compose -f docker-compose.yaml -f platform-e2e/compose/rag-off.override.yaml up -d --no-deps team-ai`.
+`tei-fake` is a deterministic stand-in (dim 384, no model download); point `TEI_EMBED_URL` of the
+router at a real TEI for real embeddings.
 
 Standalone:
 
@@ -248,7 +255,8 @@ gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci
   dependency state.
 - **`ShoppingAssistant` needs the indexer running to show real listings.** With `RAG_ENABLED=true` it
   retrieves from the RAG store (empty until `LISTING_INDEXER_ENABLED=true` has consumed
-  `listing.events`); with `RAG_ENABLED=false` it answers from the demo `CATALOG`.
+  `listing.events`); with `RAG_ENABLED=false` it answers from the demo `CATALOG`. The compose stack runs with
+  `RAG_ENABLED=true` by default (the code default is still `false`).
 - **No gRPC `TagClassifier` service.** `FEATURES.yaml` lists `ai.v1.TagClassifier`, but the proto
   has no such service; tag classification is HTTP only.
 - **Tag state persistence is opt-in** (`TAXONOMY_PERSISTENCE_ENABLED`). Off, `/tags/promote` results vanish

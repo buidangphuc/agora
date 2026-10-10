@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import time
+
 import httpx
 from pytest_bdd import given, then, when
 
 from tests.e2e.flows.stack_flow import stop_container
 from tests.e2e.support import agr_support as a
+from tests.e2e.support import apr_support as apr
 from tests.e2e.support import hrp_support as h
 from tests.e2e.support import ms_support as ms
+from tests.e2e.support import pear_edge_support as pe
 from tests.e2e.support import srm_support as s
 from tests.e2e.support.world import World
 
@@ -122,3 +126,51 @@ def answers_without_cards(world: World) -> None:
 def card_returns(world: World) -> None:
     a.bag(world)["restart"]()
     a.wait_returned(world, _word(world), "L")
+
+
+RAG_OFF_OVERLAY = pe.REPO_ROOT / "platform-e2e" / "compose" / "rag-off.override.yaml"
+
+
+def _wait_assistant(
+    world: World, message: str = "ready?", timeout_s: float = 120
+) -> httpx.Response:
+    deadline = time.monotonic() + timeout_s
+    last = "no answer"
+    while time.monotonic() < deadline:
+        try:
+            resp = a.ask(world, message)
+            if resp.status_code == 200:
+                return resp
+            last = f"{resp.status_code}: {resp.text[:200]}"
+        except httpx.HTTPError as exc:
+            last = str(exc)
+        time.sleep(2)
+    raise TimeoutError(f"the assistant did not answer after the team-ai restart ({last})")
+
+
+@given("team-ai runs with RAG disabled")
+def rag_off(world: World) -> None:
+    s.buyer_of(world)
+
+    def restore() -> None:
+        apr.dc("up", "-d", "--no-deps", "team-ai")
+        pe.wait_healthy(pe.ai_container(), 120)
+
+    world.add_cleanup(restore)
+    apr.dc("-f", str(RAG_OFF_OVERLAY), "up", "-d", "--no-deps", "team-ai")
+    pe.wait_healthy(pe.ai_container(), 120)
+    assert (
+        apr.ai_env().get("RAG_ENABLED", "").lower() == "false"
+    ), "team-ai did not pick up RAG_ENABLED=false; is the wrapper applying the overlay?"
+    _wait_assistant(world)
+
+
+@when("a buyer asks the assistant for a t-shirt")
+def ask_demo(world: World) -> None:
+    a.bag(world)["resp"] = _wait_assistant(world, "áo thun")
+
+
+@then("the response carries demo catalog cards and none of the listings published to the platform")
+def demo_cards(world: World) -> None:
+    ids = a.card_ids(a.bag(world)["resp"])
+    assert ids and all(i.startswith("prod-") for i in ids), ids
