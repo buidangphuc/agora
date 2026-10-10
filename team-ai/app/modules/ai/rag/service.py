@@ -1,5 +1,6 @@
 import asyncio
-from collections.abc import Sequence
+import uuid
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from llama_index.core import Document, StorageContext, VectorStoreIndex
@@ -17,16 +18,24 @@ from app.core.redaction import RedactionPolicy
 from app.core.resilience import TimeoutPolicy
 
 
-def build_rag_node_parser(*, chunk_size: int, chunk_overlap: int) -> SentenceSplitter:
+def build_rag_node_parser(
+    *, chunk_size: int, chunk_overlap: int, uuid_ids: bool = False
+) -> SentenceSplitter:
+    """``uuid_ids``: Qdrant accepts only UUID/int point ids, so the readable
+    ``<doc>:chunk:<n>`` id becomes a deterministic UUIDv5 of it (same chunk, same id)."""
     return SentenceSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
-        id_func=_llamaindex_chunk_id,
+        id_func=_uuid_chunk_id if uuid_ids else _llamaindex_chunk_id,
     )
 
 
 def _llamaindex_chunk_id(index: int, document: BaseNode) -> str:
     return f"{document.id_}:chunk:{index}"
+
+
+def _uuid_chunk_id(index: int, document: BaseNode) -> str:
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, _llamaindex_chunk_id(index, document)))
 
 
 class KnowledgeRetrievalService:
@@ -39,6 +48,7 @@ class KnowledgeRetrievalService:
         storage_context: StorageContext | None = None,
         default_top_k: int = 5,
         retrieve_timeout: TimeoutPolicy | None = None,
+        index_exists: Callable[[], Awaitable[bool]] | None = None,
     ) -> None:
         self.embed_model = embed_model
         self.node_parser = node_parser
@@ -46,6 +56,9 @@ class KnowledgeRetrievalService:
         self.storage_context = storage_context or StorageContext.from_defaults()
         self.default_top_k = default_top_k
         self.retrieve_timeout = retrieve_timeout
+        # Backends that only create their collection on first write (Qdrant) pass a
+        # probe: searching before any document was indexed is an empty result.
+        self._index_exists = index_exists
         self.index_store = VectorStoreIndex(
             nodes=[],
             storage_context=self.storage_context,
@@ -69,6 +82,8 @@ class KnowledgeRetrievalService:
             return {"indexed_count": len(documents), "chunk_count": chunk_total}
 
     async def delete(self, document_id: str) -> None:
+        if self._index_exists is not None and not await self._index_exists():
+            return  # nothing indexed yet: nothing to delete (the store 404s otherwise)
         async with self._lock:
             await asyncio.to_thread(
                 self.index_store.delete_ref_doc,
@@ -83,6 +98,8 @@ class KnowledgeRetrievalService:
         top_k: int | None = None,
         filters: dict[str, str | int | float | bool] | None = None,
     ) -> list[NodeWithScore]:
+        if self._index_exists is not None and not await self._index_exists():
+            return []
         retriever = self.index_store.as_retriever(
             similarity_top_k=top_k or self.default_top_k,
             filters=self._build_filters(filters),

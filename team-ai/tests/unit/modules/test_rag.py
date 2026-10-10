@@ -241,3 +241,16 @@ def test_build_storage_context_raises_for_unknown_backend():
 
     with pytest.raises(RuntimeError, match="not supported"):
         build_storage_context(_rag_settings(RAG_BACKEND="nope"))
+
+
+def test_qdrant_chunk_ids_are_deterministic_uuids():
+    import uuid
+
+    parser = build_rag_node_parser(chunk_size=512, chunk_overlap=0, uuid_ids=True)
+    doc = Document(text="content", id_="doc-1")
+
+    first = parser.id_func(0, doc)
+
+    assert uuid.UUID(first)  # Qdrant rejects "doc-1:chunk:0"
+    assert first == parser.id_func(0, doc)
+    assert first != parser.id_func(1, doc)

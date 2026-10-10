@@ -1312,8 +1312,8 @@ features:
       - "When a seller publishes a listing with a unique title and a buyer asks the assistant for that title"
       - "Then the response contains a product card whose listing id is that listing's id with its title and price"
     tags: [ai, rag]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::A published listing is returned as a product card"
 
   - id: ai.arg-unpublished-disappears
     title: "An unpublished listing disappears from the assistant"
@@ -1326,8 +1326,8 @@ features:
       - "When the seller of a listing the assistant returns changes it to draft, or deletes another such listing"
       - "Then the assistant no longer returns a card for it"
     tags: [ai, rag]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::An unpublished listing disappears from the assistant"
 
   - id: ai.arg-outage-fails-open
     title: "The assistant answers when retrieval is down"
@@ -1340,8 +1340,8 @@ features:
       - "When the embedding backend the RAG store depends on is stopped and a buyer asks the assistant a question"
       - "Then the call succeeds with a non-empty reply and no product cards, and cards come back once the backend is restored"
     tags: [ai, rag, destructive]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::The assistant answers when retrieval is down"
 
   - id: ai.arg-cards-distinct-bounded
     title: "Cards are distinct, bounded and ordered by match"
@@ -1376,8 +1376,8 @@ features:
       - "When a caller without an Authorization header calls each of the five tag routes"
       - "Then every call answers 401 and the taxonomy is unchanged"
     tags: [ai, search, taxonomy]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Anonymous tag requests are refused"
 
   - id: ai.tra-buyer-token-refused
     title: "A buyer's token is refused"
@@ -1388,8 +1388,8 @@ features:
       - "When a signed-in buyer presents the gateway session JWT (or any wrong bearer token) to a read route and to promote"
       - "Then both answer 401 and the taxonomy is unchanged"
     tags: [ai, search, taxonomy]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::A buyer's token is refused"
 
   - id: ai.tra-service-read-only
     title: "A read-only service principal cannot mutate the taxonomy"
@@ -1400,8 +1400,8 @@ features:
       - "When a service principal holding only ai.classify classifies and lists tags, then calls explore and promote"
       - "Then classify and list answer 200, explore and promote answer 403, and no candidate is registered or promoted"
     tags: [ai, search, taxonomy]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::A read-only service principal cannot mutate the taxonomy"
 
   - id: ai.tra-admin-explores-promotes
     title: "An admin principal explores and promotes"
@@ -1412,8 +1412,8 @@ features:
       - "When an admin principal explores a batch and promotes the discovered candidate"
       - "Then both answer 200 and the tag is promoted and canonical"
     tags: [ai, search, taxonomy]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::An admin principal explores and promotes"
 
   - id: ai.tra-admin-token-guard
     title: "Admin access is off unless configured and strong"
@@ -1436,8 +1436,8 @@ features:
       - "When an admin promotes a tag, a second candidate is explored but left exploring, and team-ai is restarted"
       - "Then after the restart the promoted tag is canonical with its synonym and the other is still an exploring candidate"
     tags: [ai, search, taxonomy, destructive]
-    status: planned
-    notes: "needs rebuild"
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Promoted and exploring tags survive a restart"
 
   - id: ai.ttp-failed-write-fails-promote
     title: "A failed store write fails the promotion"

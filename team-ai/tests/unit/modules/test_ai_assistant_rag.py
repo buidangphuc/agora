@@ -157,3 +157,59 @@ async def test_servicer_returns_the_retrieved_listing_ids_over_grpc():
         reset_principal(token)
 
     assert [c.listing_id for c in resp.product_cards] == ["real-1"]
+
+
+async def test_empty_qdrant_collection_means_no_cards_not_an_error():
+    """First use: nothing indexed yet, so the collection does not exist."""
+    from llama_index.core.embeddings import MockEmbedding
+
+    from app.core.redaction import RedactionPolicy
+    from app.modules.ai.rag.service import (
+        KnowledgeRetrievalService,
+        build_rag_node_parser,
+    )
+
+    async def absent() -> bool:
+        return False
+
+    rag = KnowledgeRetrievalService(
+        embed_model=MockEmbedding(embed_dim=8),
+        node_parser=build_rag_node_parser(chunk_size=256, chunk_overlap=0),
+        redaction_policy=RedactionPolicy(mode="redacted"),
+        index_exists=absent,
+    )
+    assert await rag.search("laptop") == []
+    await rag.delete("never-indexed")  # would 404 against a real absent collection
+
+    result = await AIAssistantService(rag_service=rag).shopping_assistant(
+        ShoppingAssistantRequest(message="laptop")
+    )
+    assert result.product_cards == []
+    assert result.reply_text != RAG_UNAVAILABLE_REPLY
+
+
+async def test_qdrant_backed_service_searches_an_unindexed_collection(monkeypatch):
+    """Real QdrantVectorStore wiring (local in-memory qdrant): the async client is
+    present (aretrieve raises ValueError without it) and the absent collection is
+    an empty result."""
+    qdrant_client = pytest.importorskip("qdrant_client")
+    from llama_index.core.embeddings import MockEmbedding
+
+    from app.modules.ai.rag.factory import build_rag_service
+    from tests.factories import build_test_settings
+
+    real_sync, real_async = qdrant_client.QdrantClient, qdrant_client.AsyncQdrantClient
+    monkeypatch.setattr(
+        qdrant_client, "QdrantClient", lambda url: real_sync(":memory:")
+    )
+    monkeypatch.setattr(
+        qdrant_client, "AsyncQdrantClient", lambda url: real_async(":memory:")
+    )
+
+    rag = build_rag_service(
+        build_test_settings(RAG_BACKEND="qdrant", RAG_QDRANT_URL="http://unused"),
+        embed_model=MockEmbedding(embed_dim=8),
+    )
+
+    assert rag.storage_context.vector_store._aclient is not None  # type: ignore[attr-defined]
+    assert await rag.search("laptop") == []

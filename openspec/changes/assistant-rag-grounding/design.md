@@ -30,7 +30,10 @@ RAG-disabled path cannot be reached. Both have `VERIFIED BY` lines and `not-test
 ## Deployment needs (team-ai, local compose)
 
 Image build: `UV_EXTRAS: "ai kafka recs"` (llama-index + qdrant store live in `ai`, aiokafka in `kafka`, the recs reader in
-`recs`).
+`recs`). The `kafka` extra also carries `cramjam`: the Go producers compress `listing.events` with snappy and
+aiokafka cannot decode it without. Qdrant specifics: the store needs both a sync and an async client, point ids must be
+UUIDs (chunk ids are UUIDv5 of `<listing>:chunk:<n>`), and a collection that does not exist yet (nothing indexed) is an
+empty result, not an error.
 
 team-ai environment:
 

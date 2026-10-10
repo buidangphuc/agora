@@ -378,8 +378,12 @@ class AIAssistantService:
                     query, top_k=request.top_k
                 )
             except Exception as exc:  # fail open: the assistant still answers
+                # The exception text (backend/embedding errors, never the query) keeps
+                # the failure diagnosable.
                 logger.warning(
-                    "shopping_assistant.rag_failed error={}", type(exc).__name__
+                    "shopping_assistant.rag_failed error={}: {}",
+                    type(exc).__name__,
+                    str(exc)[:200],
                 )
                 matched_products = []
                 retrieval_failed = True

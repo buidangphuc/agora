@@ -64,11 +64,17 @@ def gone_but_control_stays(world: World) -> None:
     gone = {s.listing(world, "draft").id, s.listing(world, "gone").id}
 
     def _settled():
-        got = a.card_ids(a.ask(world, word))
+        resp = a.ask(world, word)
+        if resp.status_code == 429:  # product rate limit: ask again at the next tick
+            return None
+        got = a.card_ids(resp)
         return keep in got and not gone & set(got) and got
 
     s.eventually(
-        _settled, "the draft and deleted listings to leave the assistant's cards", a.INDEX_S, 2.0
+        _settled,
+        "the draft and deleted listings to leave the assistant's cards",
+        a.INDEX_S,
+        a.ASK_EVERY_S,
     )
 
 
@@ -79,6 +85,13 @@ def one_listing(world: World) -> None:
     a.wait_returned(world, word, "L")
 
 
+def _router_healthy() -> bool:
+    try:  # the published port resets connections for a moment after the container restarts
+        return httpx.get(ms.router_url() + "/healthz", timeout=3).status_code == 200
+    except httpx.HTTPError:
+        return False
+
+
 @given("the modelserve router is stopped")
 def stop_router(world: World) -> None:
     restore = stop_container(ms.router_container())
@@ -86,12 +99,7 @@ def stop_router(world: World) -> None:
 
     def _restart() -> None:
         restore()
-        s.eventually(
-            lambda: httpx.get(ms.router_url() + "/healthz", timeout=3).status_code == 200,
-            "the modelserve router to come back",
-            90.0,
-            2.0,
-        )
+        s.eventually(_router_healthy, "the modelserve router to come back", 90.0, 2.0)
 
     a.bag(world)["restart"] = _restart
     world.add_cleanup(_restart)
