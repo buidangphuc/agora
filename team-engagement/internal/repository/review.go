@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -130,11 +131,11 @@ func (r *PostgresReviewRepository) ListReviews(ctx context.Context, listingID st
 
 	if ratingFilter >= 1 && ratingFilter <= 5 {
 		_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews WHERE listing_id = $1 AND rating = $2`, listingID, ratingFilter).Scan(&total)
-		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 AND rating = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4`
+		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 AND rating = $2 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`
 		rows, err = r.pool.Query(ctx, listQ, listingID, ratingFilter, limit, offset)
 	} else {
 		_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews WHERE listing_id = $1`, listingID).Scan(&total)
-		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`
 		rows, err = r.pool.Query(ctx, listQ, listingID, limit, offset)
 	}
 
@@ -284,6 +285,13 @@ func (r *InMemoryReviewRepository) ListReviews(_ context.Context, listingID stri
 			}
 		}
 	}
+	// Same order as Postgres: newest first, id as the tiebreak.
+	sort.SliceStable(filtered, func(i, j int) bool {
+		if !filtered[i].CreatedAt.Equal(filtered[j].CreatedAt) {
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
+		}
+		return filtered[i].ID > filtered[j].ID
+	})
 
 	total := int64(len(filtered))
 	if offset > len(filtered) {
