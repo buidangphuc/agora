@@ -17,8 +17,9 @@ HTTP dependency but never uses it. The indexer stores one document per listing i
   used only when `rag_service is None` (RAG disabled), because its ids are not real listings and must not appear when a
   real index exists but is unreachable.
 - **Relevance floor.** A vector store always returns its nearest `k`, however unrelated. `ASSISTANT_RAG_MIN_SCORE`
-  (default 0, off: scores are model specific) lets a deployment drop weak hits. The e2e overlay sets 0.3 (the same
-  separation as `HYBRID_SEMANTIC_MIN_SCORE` in `modelserve.override.yaml`).
+  (default 0, off: scores are model specific) lets a deployment drop weak hits. The e2e overlay leaves it unset: the
+  indexed text embeds the listing metadata too, so with the fake TEI a unique-word query scores about 0.3 or less against
+  its listing; the scenarios rely on rank (the unique word makes the listing the nearest hit), not on a floor.
 - **Why the redaction still holds.** The RAG service redacts text and metadata on index; cards read that metadata.
 
 ## Why two scenarios are not end-to-end tests
@@ -45,7 +46,7 @@ team-ai environment:
 | `RAG_EMBED_DIM` | `384` (default) | the TEI fake dimension |
 | `LISTING_INDEXER_ENABLED` | `true` | |
 | `KAFKA_BROKERS` | `redpanda:9092` | |
-| `ASSISTANT_RAG_MIN_SCORE` | `0.3` (overlay) | fake-TEI separation |
+| `ASSISTANT_RAG_MIN_SCORE` | unset (0) | optional floor; the e2e scenarios rank by nearest hit |
 
 and `depends_on: modelserve-router` (healthy) in the overlay. The e2e scenarios need the modelserve overlay
 (`platform-e2e/compose/modelserve.override.yaml`) plus a team-ai entry in it carrying the table above (task 3.1), tagged

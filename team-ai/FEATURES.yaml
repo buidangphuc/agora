@@ -1296,3 +1296,69 @@ features:
     status: automated
     covered_by: "recommendations/placement_engine.feature::Similar items placement retrieves item similarities"
     notes: "add-placement-engine: recommendations/placement_engine.feature::Similar items placement retrieves item similarities. The category tier is unit-verified: the gateway never sends a category_id."
+
+  - id: ai.arg-published-returned
+    title: "A published listing is returned as a product card"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When a seller publishes a listing with a unique title and a buyer asks the assistant for that title"
+      - "Then the response contains a product card whose listing id is that listing's id with its title and price"
+    tags: [ai, rag]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.arg-unpublished-disappears
+    title: "An unpublished listing disappears from the assistant"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When the seller of a listing the assistant returns changes it to draft, or deletes another such listing"
+      - "Then the assistant no longer returns a card for it"
+    tags: [ai, rag]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.arg-outage-fails-open
+    title: "The assistant answers when retrieval is down"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, platform-modelserve, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When the embedding backend the RAG store depends on is stopped and a buyer asks the assistant a question"
+      - "Then the call succeeds with a non-empty reply and no product cards, and cards come back once the backend is restored"
+    tags: [ai, rag, destructive]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.arg-cards-distinct-bounded
+    title: "Cards are distinct, bounded and ordered by match"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai]
+    acceptance:
+      - "When retrieval returns several chunks of one listing and more listings than top_k"
+      - "Then each listing appears once, at most top_k cards are returned in score order, and hits under ASSISTANT_RAG_MIN_SCORE are dropped"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. Chunk counts and scores are not observable through the gateway (openspec/changes/assistant-rag-grounding/design.md)."
+
+  - id: ai.arg-demo-catalog-without-rag
+    title: "Without a RAG store the demo catalog answers"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai]
+    acceptance:
+      - "When the service runs with RAG_ENABLED=false"
+      - "Then the assistant answers from its built-in demo catalog as before"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. The e2e stack runs with the RAG store on (openspec/changes/assistant-rag-grounding/design.md)."
