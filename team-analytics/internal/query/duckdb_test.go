@@ -2,6 +2,8 @@ package query_test
 
 import (
 	"context"
+	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -274,5 +276,110 @@ func TestDuckDBRepository_SellerFunnelScopedBySeller(t *testing.T) {
 	}
 	if none.Impressions != 0 || none.Views != 0 {
 		t.Errorf("unmapped seller funnel = %+v, want zero tracking counts", none)
+	}
+}
+
+func TestDuckDBWriter_ListingAttributes(t *testing.T) {
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "")
+	if err != nil {
+		t.Fatalf("duckdb.Open: %v", err)
+	}
+	defer w.Close()
+
+	t1 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	t2 := t1.Add(time.Hour)
+	attrs := func(id string) (category sql.NullString, price sql.NullInt64) {
+		err := w.DB().QueryRowContext(ctx, "SELECT category_id, price FROM listing_sellers WHERE listing_id = ?", id).Scan(&category, &price)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return category, price
+	}
+	rec := func(id, category string, price int64, at time.Time) *warehouse.ListingSellerRecord {
+		return &warehouse.ListingSellerRecord{ListingID: id, SellerID: "s1", CategoryID: category, Price: price, UpdatedAt: at}
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{rec("l1", "cat-a", 100, t1), rec("l2", "", 0, t1)}); err != nil {
+		t.Fatal(err)
+	}
+	if c, p := attrs("l1"); c.String != "cat-a" || p.Int64 != 100 {
+		t.Fatalf("l1 = %v %v, want cat-a 100", c, p)
+	}
+	if c, p := attrs("l2"); c.Valid || p.Valid {
+		t.Fatalf("an unknown category and price must be NULL, got %v %v", c, p)
+	}
+	// A newer event replaces both attributes; a stale one changes neither.
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{rec("l1", "cat-b", 250, t2)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{rec("l1", "cat-a", 100, t1)}); err != nil {
+		t.Fatal(err)
+	}
+	if c, p := attrs("l1"); c.String != "cat-b" || p.Int64 != 250 {
+		t.Fatalf("l1 after newer+stale = %v %v, want cat-b 250", c, p)
+	}
+}
+
+// An existing database whose listing_sellers table predates the attribute columns is migrated in place.
+func TestDuckDBWriter_ListingAttributesMigration(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "wh.duckdb")
+	old, err := sql.Open("duckdb", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.ExecContext(ctx, `CREATE TABLE listing_sellers (listing_id VARCHAR PRIMARY KEY, seller_id VARCHAR NOT NULL, updated_at TIMESTAMP NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.ExecContext(ctx, `INSERT INTO listing_sellers VALUES ('l1', 's1', TIMESTAMP '2026-09-01 10:00:00')`); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+
+	w, err := duckdb.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("open an old database: %v", err)
+	}
+	defer w.Close()
+	var category sql.NullString
+	if err := w.DB().QueryRowContext(ctx, "SELECT category_id FROM listing_sellers WHERE listing_id = 'l1'").Scan(&category); err != nil || category.Valid {
+		t.Fatalf("migrated row category = %v, err %v; want NULL", category, err)
+	}
+	// Replaying the same event (equal updated_at) fills the attributes in.
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{{ListingID: "l1", SellerID: "s1", CategoryID: "cat-a", Price: 7, UpdatedAt: at}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.DB().QueryRowContext(ctx, "SELECT category_id FROM listing_sellers WHERE listing_id = 'l1'").Scan(&category); err != nil || category.String != "cat-a" {
+		t.Fatalf("after replay category = %v, err %v; want cat-a", category, err)
+	}
+}
+
+// The Parquet export of listing_sellers carries the attribute columns the featurestore reads.
+func TestDuckDBWriter_ExportsListingAttributes(t *testing.T) {
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "")
+	if err != nil {
+		t.Fatalf("duckdb.Open: %v", err)
+	}
+	defer w.Close()
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "l1", SellerID: "s1", CategoryID: "cat-a", Price: 4200, UpdatedAt: at},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "listing_sellers.parquet")
+	if err := w.ExportRelation(ctx, warehouse.ListingSellersTableName, dst); err != nil {
+		t.Fatalf("ExportRelation: %v", err)
+	}
+	var seller, category string
+	var price int64
+	q := "SELECT seller_id, category_id, price FROM read_parquet('" + dst + "') WHERE listing_id = 'l1'"
+	if err := w.DB().QueryRowContext(ctx, q).Scan(&seller, &category, &price); err != nil {
+		t.Fatalf("read the export back: %v", err)
+	}
+	if seller != "s1" || category != "cat-a" || price != 4200 {
+		t.Fatalf("exported row = %q %q %d, want s1 cat-a 4200", seller, category, price)
 	}
 }

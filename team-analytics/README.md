@@ -35,7 +35,7 @@ Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Up
 |---|---|---|---|
 | Consume | `analytics.events` (`KAFKA_ANALYTICS_TOPIC`) | `platform.analytics.v1.TrackingEvent` | One row in `tracking_events`, `event_id` = envelope `event_id` |
 | Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, `buyer_id` = `OrderPaidEvent.buyer_id` (empty -> NULL), currency defaults to `VND` |
-| Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id` in `listing_sellers` (DuckDB only). Deletes keep the mapping. |
+| Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id, category_id, price` in `listing_sellers` (DuckDB only). Deletes keep the row. |
 | Consume | `engagement.events` (`ENGAGEMENT_EVENTS_TOPIC`) | `platform.engagement.v1.FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated` | One `engagement_facts` row per envelope, `event_id` = envelope `event_id`, `fact` = `favorite_added`, `favorite_removed`, `seller_followed`, `seller_unfollowed` or `review_created`. Own group `team-analytics.engagement` (`ENGAGEMENT_CONSUMER_GROUP`). DuckDB only. |
 | Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with an `error` header | Only for an undecodable engagement record or an unknown envelope `type`; the consumer then commits past it. |
 
@@ -58,7 +58,7 @@ Database-per-service; there are no SQL migration files.
 | `engagement_facts` | `event_id`, `fact`, `user_id`, `listing_id`, `seller_id`, `rating` (NULL except `review_created`), `occurred_at`, `ingested_at`. DuckDB only. |
 | `favorites_current` | View: `user_id`, `listing_id`, `occurred_at` for the pairs whose latest favourite fact is `favorite_added`. Ties on `occurred_at` resolve by `event_id` order. |
 | `follows_current` | View: `user_id`, `seller_id`, `occurred_at` for the pairs whose latest follow fact is `seller_followed`. Same tie rule. |
-| `listing_sellers` | `listing_id` (primary key), `seller_id`, `updated_at`. Maps a listing to its owner so tracking events (which carry only a listing id) can be attributed to a seller. An older event never overwrites a newer row. DuckDB only. |
+| `listing_sellers` | `listing_id` (primary key), `seller_id`, `updated_at`, `category_id`, `price` (minor units; both NULL when unknown or recorded before the columns existed). Maps a listing to its owner so tracking events (which carry only a listing id) can be attributed to a seller, and carries the listing's attributes for the featurestore (`item_attributes@v1`, `user_preferences@v1`). An older event never overwrites a newer row. Exported as `listing_sellers.parquet` beside the other feature inputs. DuckDB only. |
 | `tracking_ingest_counters` | `hour` (UTC hour, primary key), `decode_failures`, `duplicates_skipped`. The sink adds to it: one upsert per written batch that skipped a duplicate `event_id`, and one per undecodable message. A counter write failure is logged and never blocks ingestion. DuckDB only. |
 | `ga4_events` | DuckDB view over `tracking_events` that renames event types to GA4 names (`view` -> `view_item`, `click` -> `select_item`, `impression` -> `view_item_list`) |
 
@@ -89,7 +89,7 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `ENGAGEMENT_DLQ_TOPIC` | `engagement.events.analytics.dlq` | Dead-letter topic for undecodable engagement records; must not be empty |
 | `ENGAGEMENT_CONSUMER_GROUP` | `team-analytics.engagement` | Own group; must not be empty |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Source of the `listing_sellers` mapping |
-| `KAFKA_LISTING_CONSUMER_GROUP` | `team-analytics-listing-sellers` | Own group, earliest offset |
+| `KAFKA_LISTING_CONSUMER_GROUP` | `team-analytics-listing-attrs` | Own group, earliest offset. Renamed when `category_id` and `price` were added so the topic is replayed once and existing rows are backfilled; keep an explicit override in step |
 | `WAREHOUSE_DRIVER` | `duckdb` | `duckdb` or `bigquery` |
 | `DUCKDB_PATH` | `/data/analytics.duckdb` | Required for `duckdb` |
 | `BIGQUERY_PROJECT` | empty | Required for `bigquery` |

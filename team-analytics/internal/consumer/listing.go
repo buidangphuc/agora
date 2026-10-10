@@ -19,7 +19,7 @@ import (
 const ListingChangedEventType = "platform.listing.v1.ListingChanged"
 
 // ListingSellerFromEnvelope decodes one listing.events record into a
-// listing -> seller mapping. A well-formed envelope of another type, or a
+// listing -> seller mapping plus the listing's category and price. A well-formed envelope of another type, or a
 // snapshot without a listing id or seller id, is a clean skip (ok=false). The
 // change type is deliberately ignored: a DELETED event keeps the mapping so
 // historical tracking stays attributable to the seller.
@@ -43,7 +43,9 @@ func ListingSellerFromEnvelope(value []byte) (rec *warehouse.ListingSellerRecord
 	if env.GetOccurredAt() != nil {
 		updatedAt = env.GetOccurredAt().AsTime().UTC()
 	}
-	return &warehouse.ListingSellerRecord{ListingID: l.GetId(), SellerID: l.GetSellerId(), UpdatedAt: updatedAt}, true, nil
+	return &warehouse.ListingSellerRecord{
+		ListingID: l.GetId(), SellerID: l.GetSellerId(), CategoryID: l.GetCategoryId(), Price: l.GetPrice(), UpdatedAt: updatedAt,
+	}, true, nil
 }
 
 // ListingConsumer keeps the listing_sellers table current from listing.events.

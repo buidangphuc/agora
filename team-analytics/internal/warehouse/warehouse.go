@@ -206,6 +206,10 @@ type WarehouseWriter interface {
 type ListingSellerRecord struct {
 	ListingID string
 	SellerID  string
+	// CategoryID and Price (minor units) are the listing's attributes in the same
+	// ListingChanged snapshot; empty / zero are stored as NULL (unknown).
+	CategoryID string
+	Price      int64
 	// UpdatedAt is the envelope occurred_at of the event that produced the row.
 	UpdatedAt time.Time
 }

@@ -29,12 +29,14 @@ func TestListingSellerFromEnvelope(t *testing.T) {
 	// DELETED keeps the mapping so history stays attributable.
 	for _, ct := range []listingv1.ChangeType{listingv1.ChangeType_CHANGE_TYPE_CREATED, listingv1.ChangeType_CHANGE_TYPE_DELETED} {
 		v := listingEnvelope(t, consumer.ListingChangedEventType,
-			&listingv1.ListingChanged{Listing: &listingv1.Listing{Id: "lst-1", SellerId: "seller-1"}, ChangeType: ct}, at)
+			&listingv1.ListingChanged{Listing: &listingv1.Listing{Id: "lst-1", SellerId: "seller-1", CategoryId: "cat-books", Price: 125000}, ChangeType: ct}, at)
 		rec, ok, err := consumer.ListingSellerFromEnvelope(v)
 		require.NoError(t, err)
 		require.True(t, ok)
 		assert.Equal(t, "lst-1", rec.ListingID)
 		assert.Equal(t, "seller-1", rec.SellerID)
+		assert.Equal(t, "cat-books", rec.CategoryID)
+		assert.EqualValues(t, 125000, rec.Price)
 		assert.True(t, rec.UpdatedAt.Equal(at))
 	}
 }

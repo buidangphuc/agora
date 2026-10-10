@@ -29,11 +29,12 @@ type Target struct {
 }
 
 // Targets lists every file an export cycle writes: the tracking table at path,
-// and the three feature inputs beside it, named <relation>.parquet.
+// and the feature inputs beside it, named <relation>.parquet (listing_sellers carries each
+// listing's seller, category and price).
 func Targets(path string) []Target {
 	dir := filepath.Dir(path)
 	ts := []Target{{warehouse.TableName, path}}
-	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName} {
+	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName, warehouse.ListingSellersTableName} {
 		ts = append(ts, Target{rel, filepath.Join(dir, rel+".parquet")})
 	}
 	return ts
