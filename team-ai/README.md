@@ -13,9 +13,10 @@ server that implements the platform-core contract. It is a deployed service (com
 - It owns no business data. Its only database tables are platform plumbing (see Data), and the
   compose stack runs with `DATABASE_ENABLED=false`.
 
-Most answer logic is deterministic. `ShoppingAssistant` matches against a catalog hard-coded in
-`app/modules/business/ai_assistant/service.py` (it never calls the injected RAG service), and
-`MagicListing`, `ChatCopilot` and `SummarizeReviews` are rule-based. An LLM or an embedding
+Most answer logic is deterministic. With `RAG_ENABLED=true`, `ShoppingAssistant` retrieves listings from the RAG store
+the listing indexer feeds and returns each distinct hit as a product card (`listing_id` = the real listing id; see the
+table below). Without a RAG store it matches a demo catalog hard-coded in
+`app/modules/business/ai_assistant/service.py`. `MagicListing`, `ChatCopilot` and `SummarizeReviews` are rule-based. An LLM or an embedding
 server is only reached through opt-in backends (`CHAT_BACKEND=llm_router`,
 `RAG_EMBED_BACKEND=model_server`).
 
@@ -30,7 +31,7 @@ code default port is `50051`, compose sets `50060` (`50060:50060`). The gateway 
 | Service / RPC | Authorization | Notes |
 |---|---|---|
 | `platform.ai.v1.AIService` `ClassifyTags` | scope `ai.classify` AND a `service` principal (team-search's indexer); no user role holds the scope; not routed by the gateway | SPU tags plus per-variant tags with facet group and confidence, from the same in-process tag registry as the REST routes. `INVALID_ARGUMENT` for a title under 2 characters. |
-| `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. |
+| `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. `ShoppingAssistant` with a RAG store: one card per distinct retrieved listing (at most `top_k`, best first, hits under `ASSISTANT_RAG_MIN_SCORE` dropped, title/price/currency from the index, no rating or discount). A retrieval failure still answers `OK` with no cards and a reply saying the catalog could not be searched (never the demo catalog). `RAG_ENABLED=false`: demo catalog. Listings published before the indexer ran appear after `listing.events` is replayed. |
 | `platform.search.v1.SearchService.SearchListings` | scope `search:read` | `UNAVAILABLE` when `RAG_ENABLED=false`. |
 | `platform.chat.v1.ChatService.StreamChat` (server stream) | none beyond a resolved principal | `CHAT_BACKEND=mock` echoes the prompt; `llm_router` streams from the LLM router. Final chunk has `done=true`. |
 | `platform.recommendation.v1.RecommendationService.Recommend` | scope `listing.read` | `UNAVAILABLE` when `RECS_ENABLED=false` or the Qdrant collection contract mismatches. A cache/Qdrant error answers `OK` with the popular list (or empty) and `model_version` `serving-fallback`. Every response carries `placement_id` and a fresh `request_id` (one `recs.served` log line each). `RECS_BACKEND=memory` is refused at boot outside dev/local/test. |
@@ -119,12 +120,13 @@ default and listed in `.env.example`.
 | `QUOTA_ENABLED`, `QUOTA_BACKEND` | `false`, `memory` | With `llm_router`, one `chat.reply` unit is reserved per reply (server-minted id), finalized after delivery and refunded when nothing was delivered. |
 | `QUOTA_CHAT_REPLIES_PER_WINDOW`, `QUOTA_CHAT_WINDOW_SECONDS` | `200`, `86400` | Chat reply quota per principal. |
 | `GRPC_RATE_LIMIT_ENABLED` | `false` | Per-principal limit on `StreamChat` and `ShoppingAssistant` (`RATE_LIMIT_*`). Refused with `RATE_LIMIT_BACKEND=memory` outside dev/local/test. |
-| `RAG_ENABLED` | `false` | Gates `SearchListings`. |
+| `RAG_ENABLED` | `false` | Gates `SearchListings` and grounds `ShoppingAssistant` in the RAG store. |
 | `RAG_BACKEND` | `memory` | `memory` or `qdrant`. |
 | `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION` | `http://localhost:6333`, `rag_documents` | Used when `RAG_BACKEND=qdrant`. |
 | `RAG_EMBED_BACKEND` | `mock` | `mock` or `model_server`. |
 | `RAG_EMBED_SERVER_URL`, `RAG_EMBED_SERVER_PATH`, `RAG_EMBED_DIM`, `RAG_EMBED_TIMEOUT_SECONDS` | `""`, `/embed`, `384`, `10.0` | Embedding server seam. |
 | `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_DEFAULT_TOP_K`, `RAG_MOCK_EMBED_DIM`, `RAG_RETRIEVE_TIMEOUT_SECONDS`, `RAG_EMBED_MODEL` | `512`, `50`, `5`, `16`, `10.0`, `""` | |
+| `ASSISTANT_RAG_MIN_SCORE` | `0.0` | `ShoppingAssistant` drops RAG hits scoring below this (0 keeps the nearest k; scores are model specific). |
 | `LANGFUSE_ENABLED` | `false` in code, `true` in `.env.example` | Pairs with `make docker-run-langfuse`. Needs the `ai` extra. |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`, `LANGFUSE_PROMPT_CACHE_TTL_SECONDS` | `""`, `""`, `https://cloud.langfuse.com`, `60` | |
 | `RECS_ENABLED` | `false` | Gates `Recommend`. |

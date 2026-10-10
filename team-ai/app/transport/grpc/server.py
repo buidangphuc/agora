@@ -96,6 +96,7 @@ def build_grpc_server(
         AIServicer(
             lambda: AIAssistantService(
                 rag_service=rag_provider(),
+                rag_min_score=settings.ASSISTANT_RAG_MIN_SCORE,
                 redaction_policy=RedactionPolicy.from_trace_content(
                     settings.LLM_TRACE_CONTENT, mask_national_id=True
                 ),

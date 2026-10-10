@@ -59,6 +59,9 @@ class AISettingsMixin(BaseModel):
     RAG_EMBED_MODEL: str = ""
     RAG_MOCK_EMBED_DIM: int = Field(default=16, gt=0)
     RAG_RETRIEVE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
+    # ShoppingAssistant: drop RAG hits scoring below this (0 = keep the nearest k; scores
+    # are model specific, so tune per deployment).
+    ASSISTANT_RAG_MIN_SCORE: float = Field(default=0.0, ge=0)
 
     # Embedding backend — the ML/LLM decoupling seam. team-ai runs NO embedding
     # model in-process; "model_server" delegates vectorization to a remote ML

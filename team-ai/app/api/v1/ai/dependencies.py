@@ -26,7 +26,13 @@ def get_ai_service(request: Request) -> AIAssistantService:
             if settings is not None
             else None
         )
-        service = AIAssistantService(rag_service=rag_service, redaction_policy=policy)
+        service = AIAssistantService(
+            rag_service=rag_service,
+            redaction_policy=policy,
+            rag_min_score=(
+                settings.ASSISTANT_RAG_MIN_SCORE if settings is not None else 0.0
+            ),
+        )
         resources.ai_service = service
         return service
     return AIAssistantService()
