@@ -17,6 +17,7 @@ from loguru import logger
 from app.modules.business.recommend.backends import build_backend
 from app.modules.business.recommend.cache import PrecomputedCache
 from app.modules.business.recommend.placement_config import PlacementRegistry
+from app.modules.business.recommend.ranker_artifact import TrainedRankerLoader
 from app.modules.business.recommend.ranking import (
     FeatureStorePort,
     GBDTRankerAdapter,
@@ -42,6 +43,18 @@ def _build_feature_store(settings: Settings) -> FeatureStorePort:
     from redis.asyncio import Redis
 
     return RedisFeatureStore(Redis.from_url(url, decode_responses=True))
+
+
+def _build_attribute_store(settings: Settings) -> FeatureStorePort | None:
+    """``item_attributes`` online rows (the trained ranker's ``price``) from the same Redis."""
+    url = settings.RECS_FEATURESTORE_REDIS_URL
+    if not url:
+        return None
+    from redis.asyncio import Redis
+
+    return RedisFeatureStore(
+        Redis.from_url(url, decode_responses=True), view="item_attributes"
+    )
 
 
 def _build_nearline_store(settings: Settings) -> NearlineSourcePort | None:
@@ -86,6 +99,7 @@ async def build_recommendation_service(
     feature_store: FeatureStorePort = _build_feature_store(settings)
     nearline_store = _build_nearline_store(settings)
     ranker = GBDTRankerAdapter()
+    ranker_loader = TrainedRankerLoader(redis, cache) if redis is not None else None
 
     return RecommendationService(
         backend=backend,
@@ -95,6 +109,8 @@ async def build_recommendation_service(
         nearline_store=nearline_store,
         nearline_timeout_ms=settings.RECS_NEARLINE_TIMEOUT_MS,
         ranker=ranker,
+        ranker_loader=ranker_loader,
+        attribute_store=_build_attribute_store(settings),
         candidate_top_k=settings.RECS_CANDIDATE_TOP_K,
         result_top_k=settings.RECS_RESULT_TOP_K,
         retrieve_timeout_ms=settings.RECS_RETRIEVE_TIMEOUT_MS,

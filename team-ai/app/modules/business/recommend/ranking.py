@@ -95,10 +95,12 @@ class RedisFeatureStore:
         self,
         redis: Any,
         *,
+        view: str = ITEM_POPULARITY_VIEW,
         clock: Callable[[], float] = time.monotonic,
         current_ttl_s: float = _CURRENT_TTL_S,
     ) -> None:
         self._redis = redis
+        self.VIEW = view
         self._clock = clock
         self._current_ttl_s = current_ttl_s
         self._version: str | None = None

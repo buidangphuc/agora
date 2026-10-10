@@ -77,6 +77,10 @@ class PrecomputedCache:
     def item_key(self, item_id: str, gen: str | None = None) -> str:
         return f"{self._base(gen)}:item:{item_id}"
 
+    def ranker_key(self, gen: str) -> str:
+        """The trained GBDT ranker artifact of generation ``gen`` (recsys-gbdt-trainer D7)."""
+        return f"{self._base(gen)}:ranker"
+
     def model_version_key(self) -> str:
         return f"{self._prefix}:{self._schema_version}:model_version"
 

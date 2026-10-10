@@ -13,5 +13,9 @@
 ## 3. Code - team-ai (feature list file only)
 - [ ] `RANKING_FEATURES` in `recommend/features.py`. verify: recsys parity test reads it.
 
+## 3b. Code - team-ai (loader)
+- [ ] `recommend/ranker_artifact.py` (parse `agora-gbdt/1`, feature-list gate, pure-Python scorer, per-generation loader), `PrecomputedCache.ranker_key`, `RedisFeatureStore(view=)`, service/factory wiring, `explain` fields. verify: `tests/unit/modules/recommend/test_trained_ranker.py` (parse, hand-computed tree, wrong features -> fixed, generation switch, artifact reorders vs fixed); `make check`, `make test`.
+
 ## 4. E2E - platform-e2e (real job images; FEATURES `planned`, note `needs rebuild`)
 - [ ] `featurestore/ranking_dataset.feature`, `recommendations/gbdt_ranker.feature`; FEATURES.yaml entries in platform-featurestore and platform-recsys.
+- [ ] `recommendations/gbl_ranker_serving.feature` (published artifact reorders home_feed through the gateway); FEATURES.yaml entry in team-ai (`planned`, `needs rebuild`).
