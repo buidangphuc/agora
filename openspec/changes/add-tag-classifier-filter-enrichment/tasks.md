@@ -11,11 +11,23 @@
 
 ## 2. Search read-model and facet UI
 
-- [ ] 2.1 team-search: additive mapping (`facet_tags`, nested `skus`, `tags_pending`), `tag.*`/`sku.*` filter clauses and dynamic facet aggregations (`internal/index/attributes.go`)
-- [ ] 2.2 team-search: classify listings through team-ai gRPC `ClassifyTags` at index time (`UPSTREAM_AI_ADDR`), outage keeps stored tags (`internal/taxonomy`, `internal/consumer/listing.go`)
-- [ ] 2.3 team-search: validate `tag.*`/`sku.*` filters in the handler (`internal/handler/visibility.go`)
-- [ ] 2.4 platform-core: additive `AttributeFacet` + `Facets.tags/skus` in `search.proto` and `AIService.ClassifyTags` in `ai.proto` (design D1, D4), vendored; team-search `toFacets` maps them
-- [ ] 2.4b team-ai: `ClassifyTags` servicer gated by scope `ai.classify` + service principal; team-gateway does not route it
-- [ ] 2.5 team-frontend: URL-driven dynamic facet groups and active-filter chips on `/search`
-- [ ] 2.6 deploy: `UPSTREAM_AI_ADDR=team-ai-svc:50060` on `team-search-indexer` in the root compose / gitops values; replay `listing.events` to backfill
-- [ ] 2.7 platform-e2e: scenarios of the search requirements (`mls_` steps)
+- [x] 2.1 team-search: additive mapping (`facet_tags`, nested `skus`, `tags_pending`), `tag.*`/`sku.*` filter clauses and dynamic facet aggregations (`internal/index/attributes.go`)
+- [x] 2.2 team-search: classify listings through team-ai gRPC `ClassifyTags` at index time (`UPSTREAM_AI_ADDR`), outage keeps stored tags (`internal/taxonomy`, `internal/consumer/listing.go`)
+- [x] 2.3 team-search: validate `tag.*`/`sku.*` filters in the handler (`internal/handler/visibility.go`)
+- [x] 2.4 platform-core: additive `AttributeFacet` + `Facets.tags/skus` in `search.proto` and `AIService.ClassifyTags` in `ai.proto` (design D1, D4), vendored; team-search `toFacets` maps them
+- [x] 2.4b team-ai: `ClassifyTags` servicer gated by scope `ai.classify` + service principal; team-gateway does not route it
+- [x] 2.5 team-frontend: URL-driven dynamic facet groups and active-filter chips on `/search`
+- [x] 2.6 deploy: `UPSTREAM_AI_ADDR=team-ai-svc:50060` on `team-search-indexer` in the root compose / gitops values; replay `listing.events` to backfill
+- [x] 2.7 platform-e2e: scenarios of the search requirements (`mls_` steps)
+
+## Evidence (2026-10-10)
+
+- Code and unit tests: each repo's `make check` / test suite was green at merge (see the commit bodies).
+- e2e after rebuilding team-ai, team-search (server and indexer), gateway, frontend and the recsys image, with
+  platform-recsys-nearline and the modelserve overlay (fake TEI + router) running:
+  - ML scenarios: 23/23, twice;
+  - modelserve, hybrid and taxonomy: 27/27, three times;
+  - placement and serve-trained scenarios: green three times.
+- Scenarios that cannot be produced end to end carry a VERIFIED BY line in the spec and a not-testable FEATURES
+  entry.
+- spec_sync --strict reports e2e-ready.

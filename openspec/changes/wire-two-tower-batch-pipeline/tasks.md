@@ -18,20 +18,37 @@
 - [x] Write execution-proof tests in `tests/test_two_tower_pipeline.py`.
 
 ## 2. Code — the wire carries nothing (found 2026-09-20)
-- [ ] Feed real item features into the tower (item_popularity@v1 / user_activity@v2 snapshots, `two_tower/features.py`,
+- [x] Feed real item features into the tower (item_popularity@v1 / user_activity@v2 snapshots, `two_tower/features.py`,
       `stage.py`; ConfigError exit 2 without them).
-- [ ] Give the tower an actual training step (`two_tower/train.py`, in-batch softmax; loss in the summary and metadata).
-- [ ] Refuse zero / non-finite vectors, fail the stage when none remain (`two_tower/pipeline.py`).
-- [ ] Generation-named collection written by `publish_generation` before the switch, retired by retention
+- [x] Give the tower an actual training step (`two_tower/train.py`, in-batch softmax; loss in the summary and metadata).
+- [x] Refuse zero / non-finite vectors, fail the stage when none remain (`two_tower/pipeline.py`).
+- [x] Generation-named collection written by `publish_generation` before the switch, retired by retention
       (`load/qdrant.py`, `publish.py`).
 
 ## 3. Verification
 - [x] Run `pytest -v tests/test_two_tower_pipeline.py tests/test_env_drift.py`.
-- [ ] Strengthen "Cold-start item receives a vector that ALS cannot produce": non-zero and distinct
+- [x] Strengthen "Cold-start item receives a vector that ALS cannot produce": non-zero and distinct
       (`test_items_with_different_categories_embed_differently_and_non_zero`, `tests/test_pipeline_two_tower.py`).
-- [ ] Tests for the merged tower requirements: `test_towers_projection_and_normalization`,
+- [x] Tests for the merged tower requirements: `test_towers_projection_and_normalization`,
       `test_top_k_is_ranked_by_similarity_and_bounded`.
 - [x] `openspec validate wire-two-tower-batch-pipeline --strict`.
-- [ ] e2e (`platform-e2e` `features/recommendations/mlr_two_tower.feature`): the real job image with feature snapshot
+- [x] e2e (`platform-e2e` `features/recommendations/mlr_two_tower.feature`): the real job image with feature snapshot
       fixtures. Needs the rebuilt image.
-- [ ] Follow-up (featurestore): item/user attribute view with category, price, preferred categories.
+
+## Evidence (2026-10-10)
+
+- Code and unit tests: each repo's `make check` / test suite was green at merge (see the commit bodies).
+- e2e after rebuilding team-ai, team-search (server and indexer), gateway, frontend and the recsys image, with
+  platform-recsys-nearline and the modelserve overlay (fake TEI + router) running:
+  - ML scenarios: 23/23, twice;
+  - modelserve, hybrid and taxonomy: 27/27, three times;
+  - placement and serve-trained scenarios: green three times.
+- Scenarios that cannot be produced end to end carry a VERIFIED BY line in the spec and a not-testable FEATURES
+  entry.
+- spec_sync --strict reports e2e-ready.
+
+## Follow-ups (not done in this change)
+
+- Follow-up (featurestore): item/user attribute view with category, price, preferred categories.
+
+The featurestore needs an item/user attribute view (category, price, preferred categories) before the towers see attribute features.

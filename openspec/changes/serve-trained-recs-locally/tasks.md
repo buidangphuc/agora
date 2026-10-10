@@ -28,3 +28,15 @@
 - Qdrant 1.9 → 1.19, to match qdrant-client 1.19 (query API).
 - platform-recsys: bitnami/spark is gone (rebuilt on python-slim + JRE). Evaluation always ran on an empty set (TIMESTAMP_NTZ cast). PROMOTION_FORCE was added for reseeding the stores.
 - Out of scope: the 6 offline-pipeline scenarios in recommendations.feature need pandas and platform-recsys in the e2e venv (the runner ignores that module).
+
+## Evidence (2026-10-10)
+
+- Code and unit tests: each repo's `make check` / test suite was green at merge (see the commit bodies).
+- e2e after rebuilding team-ai, team-search (server and indexer), gateway, frontend and the recsys image, with
+  platform-recsys-nearline and the modelserve overlay (fake TEI + router) running:
+  - ML scenarios: 23/23, twice;
+  - modelserve, hybrid and taxonomy: 27/27, three times;
+  - placement and serve-trained scenarios: green three times.
+- Scenarios that cannot be produced end to end carry a VERIFIED BY line in the spec and a not-testable FEATURES
+  entry.
+- spec_sync --strict reports e2e-ready.

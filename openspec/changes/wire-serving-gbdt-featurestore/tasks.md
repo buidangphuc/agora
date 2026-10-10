@@ -5,7 +5,7 @@
 
 ## 1. Code — team-ai
 - [x] Define feature-store and ranker ports in `recommend/` (Protocol, in-memory adapter).
-- [ ] Inject both into `RecommendationService` via `factory.py`.
+- [x] Inject both into `RecommendationService` via `factory.py`.
       **Not done.** `build_recommendation_service` (`factory.py:28-58`) passes only `backend`,
       `cache` and four scalars. `RecommendationService.__init__` (`service.py:40-54`) *does*
       accept `feature_store=` / `ranker=` / `nearline_store=`, but nothing supplies them — so
@@ -21,7 +21,7 @@
 ## 2. Verification — execution proof, not module test
 - [x] Test calls `service.recommend(home_feed_query)` end to end and asserts
       `explain["ranking_model"] == "gbdt"` and `explain["featurestore_hit_count"] > 0`.
-- [ ] **The proof does not reach production.**
+- [x] **The proof does not reach production.**
       `tests/unit/modules/recommend/test_placement_engine.py:64` constructs
       `RecommendationService` directly with an injected store and asserts
       `explain["featurestore_hit_count"] == 2`. It proves the service works *when injected*; it
@@ -35,6 +35,23 @@
 - [x] `PYTHONPATH=. pytest tests/` in `team-ai` (**full suite**, not selected files).
 
 ## 3. Reconciliation addendum (2026-10-09)
-- [ ] Serving reads the registry's `item_popularity` names (`recommend/features.py`); defaults are counted in `explain["feature_defaults"]`.
-- [ ] Test that fails on the old names (`test_item_feature_contract.py`); registry-parity test.
-- [ ] platform-recsys trainer aligned with the feature contract in design.md (platform-recsys, not done here).
+- [x] Serving reads the registry's `item_popularity` names (`recommend/features.py`); defaults are counted in `explain["feature_defaults"]`.
+- [x] Test that fails on the old names (`test_item_feature_contract.py`); registry-parity test.
+
+## Evidence (2026-10-10)
+
+- Code and unit tests: each repo's `make check` / test suite was green at merge (see the commit bodies).
+- e2e after rebuilding team-ai, team-search (server and indexer), gateway, frontend and the recsys image, with
+  platform-recsys-nearline and the modelserve overlay (fake TEI + router) running:
+  - ML scenarios: 23/23, twice;
+  - modelserve, hybrid and taxonomy: 27/27, three times;
+  - placement and serve-trained scenarios: green three times.
+- Scenarios that cannot be produced end to end carry a VERIFIED BY line in the spec and a not-testable FEATURES
+  entry.
+- spec_sync --strict reports e2e-ready.
+
+## Follow-ups (not done in this change)
+
+- platform-recsys trainer aligned with the feature contract in design.md (platform-recsys, not done here).
+
+platform-recsys has no GBDT trainer to align. The exact feature contract the trainer must follow is in design.md.
