@@ -52,6 +52,8 @@
   entry.
 - spec_sync --strict reports e2e-ready.
 
+- Final gate (2026-10-10): parallel lane 775/775 (w10-par) and 775/776 (w9-par; its one failure was the gateway-wide denylist gauge scenario, moved to the serial lane in e8373e00). Destructive lane 100/101 (w9-dfull); its one failure, backpressure, was fixed in 7f4ae454 and 4d325f2f and then passed twice in the outage-then-backpressure order.
+
 ## Follow-ups (not done in this change)
 
 - Record which CTR source fed each training row so offline and serving are comparable.

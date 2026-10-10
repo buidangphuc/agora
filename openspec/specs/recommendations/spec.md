@@ -237,10 +237,18 @@ runnable on a developer laptop and in CI on a small sample dataset.
 
 ### Requirement: The training run SHALL evaluate the generation it produced
 
-Every pipeline run SHALL score the model it just trained against a temporal holdout drawn from
-the same interaction window, using the existing `ModelEvaluator`, and SHALL record the resulting
-metrics against that run's `model_version`. A run that cannot produce metrics SHALL NOT be
-treated as a promotable candidate.
+Every pipeline run SHALL score its training recipe against a temporal holdout drawn from the
+same interaction window, using the existing `ModelEvaluator`. It SHALL record the resulting
+metrics against that run's `model_version`, stamped with the evaluation protocol. The holdout
+SHALL NOT leak into the scored model:
+- for each user with at least two distinct listings, the target is the most recently
+  discovered listing;
+- the evaluation model is trained only on that user's events before the discovery;
+- the scored ranking excludes the user's training items.
+
+The published model MAY be trained on every event. A run that cannot produce metrics SHALL NOT
+be treated as a promotable candidate. The promotion gate SHALL NOT compare metrics produced
+under different evaluation protocols.
 
 #### Scenario: A run produces ranking metrics for the generation it trained
 
@@ -255,6 +263,19 @@ treated as a promotable candidate.
 - **WHEN** the interaction window yields no test events after the temporal split
 - **THEN** the run records that no evaluation was possible
 - **AND** no candidate is registered, so the promotion gate is not consulted
+
+#### Scenario: The evaluation model never trains on its targets
+
+- **WHEN** a run evaluates its training recipe
+- **THEN** no held-out (user, listing) pair, and none of that user's later events, is in the
+  evaluation model's training data
+- **AND** the metrics carry the evaluation protocol identifier
+
+#### Scenario: Metrics from another evaluation protocol are not compared
+
+- **WHEN** the incumbent champion's metrics were produced under a different evaluation protocol
+- **THEN** the gate does not compare the two values, and the candidate becomes the champion with
+  a reason that names both protocols
 
 ### Requirement: A candidate SHALL reach serving only after passing the promotion gate
 
@@ -335,3 +356,359 @@ external so reports produced under different splits are not silently compared.
 - **WHEN** evaluation runs against caller-supplied ground-truth sets
 - **THEN** `split_strategy` in the report is `"external"`
 - **VERIFIED BY**: platform-recsys/tests/test_evals_temporal_cli.py › test_external_ground_truth_is_marked_external. Not verifiable end to end: offline evaluation logic over a fixture with no edge-visible effect; the pipeline's use of it is covered by the archived wire-pipeline-eval-registry e2e.
+
+### Requirement: Nearline real-time session signals
+
+The system SHALL maintain real-time user session signals and recent interactions in Redis updated within seconds of tracking event receipt.
+
+#### Scenario: User recent views update nearline signals
+
+- **WHEN** a user views item `item-A` and then `item-B`
+- **THEN** the nearline signal layer records `[item-B, item-A]` in the user's recent items list in Redis and increments the respective category affinities
+
+#### Scenario: Real-time item co-occurrence is tracked
+
+- **WHEN** multiple users view `item-A` and `item-B` within the same session
+- **THEN** the co-view count between `item-A` and `item-B` is incremented in Redis
+
+### Requirement: Serving ranks with the nearline signals
+
+The recommendation serving path SHALL read the position-debiased CTR from the nearline Redis keys (`recs:nearline:ctr:<listing_id>`,
+see design.md) for the candidates of a GBDT-ranked request, and SHALL rank with it. When the nearline store is unreachable, slow, or has
+no usable data for a candidate, serving SHALL continue on the prior CTR without failing or degrading the request.
+
+#### Scenario: Serving ranks with the nearline CTR written by the consumer
+
+- **WHEN** two home-feed candidates have equal model scores and only the second has a nearline CTR in Redis
+- **THEN** a `Recommend` call through the gateway ranks the second above the first
+- **AND** with no nearline row for either, the order is the candidates' own order
+
+#### Scenario: Nearline outage leaves the request served
+
+- **WHEN** the nearline Redis cannot be read, or has only rows below the impression floor
+- **THEN** the request is answered with the prior ordering and a non-degraded status
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_nearline_outage_does_not_fail_or_degrade_the_request, test_nearline_below_the_impression_floor_is_not_used; team-ai/tests/unit/modules/recommend/test_redis_nearline_store.py. Not verifiable end to end: it needs the stack's Redis (also the serving cache) to fail and `status` is not on the gateway wire.
+
+### Requirement: Nearline signals are consumed from analytics.events
+
+A process (`python -m recsys.nearline`) SHALL consume the Kafka topic `analytics.events` as its own consumer group and
+apply each tracking event to the Redis keys of the nearline layer. Views, clicks and add-to-carts feed the actor's
+recents, category affinity and the session's co-views; impressions and clicks feed the position-debiased click-through
+rate. The actor SHALL be the warehouse `user_key` (the principal's id for a signed-in user, else `anon:<anonymous_id>`).
+It SHALL commit an offset only after the events it covers were written to Redis, so a Redis failure replays them. An
+event delivered twice within 15 minutes, or older than the 24 hour window, SHALL change nothing. A message that is not
+a tracking event or cannot be decoded SHALL be skipped and counted, not stop the consumer.
+
+#### Scenario: Redelivered and stale events change nothing
+
+- **WHEN** the same event id is delivered twice, and an event older than the window is delivered
+- **THEN** the recents, category affinities, co-view counts and click-through counters are as after one delivery of the
+  first and none of the second
+- **VERIFIED BY**: platform-recsys/tests/test_nearline.py › test_a_redelivered_event_is_applied_once and test_events_older_than_the_window_are_ignored. Not verifiable end to end: the gateway stamps every event's id and time, so no public-edge call can redeliver an envelope or produce an old one.
+
+#### Scenario: An undecodable message is skipped
+
+- **WHEN** a message on `analytics.events` is not a protobuf message, and a valid tracking event follows it
+- **THEN** the consumer counts the first as undecodable and applies the second
+- **VERIFIED BY**: platform-recsys/tests/test_nearline_consumer.py › test_other_envelopes_and_garbage_are_skipped_not_fatal. Not verifiable end to end: the gateway only produces well-formed envelopes, and e2e has no way to write raw bytes to the topic through the public edge.
+
+### Requirement: Nearline keys live outside the generation namespace
+
+Nearline keys (`recs:nearline:*`) SHALL NOT be scoped to a model generation and SHALL NOT be written, moved or deleted
+by publishing a generation, by retention or by rollback; they expire by their own TTL (24 hours). Their layout is the
+contract team-ai reads (see `design.md`).
+
+#### Scenario: A generation switch leaves nearline keys alone
+
+- **WHEN** nearline keys exist and the recsys job promotes three generations in a row
+- **THEN** the nearline keys are unchanged and keep their TTL
+
+### Requirement: Ranker features use position-debiased CTR
+
+Candidate feature extraction SHALL source `historical_ctr` from the nearline position-debiased
+CTR when a value is available for that item, so that ranking is not driven by raw click-through
+rates inflated by favourable display positions.
+
+#### Scenario: Equal raw CTR, worse positions, higher debiased CTR
+
+- **WHEN** two candidates have accumulated identical raw click-through rates, but one item's
+  impressions occurred at consistently worse positions
+- **THEN** the item shown at worse positions receives the higher `historical_ctr` feature value
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_debiased_ctr_ranking.py › test_equal_raw_ctr_worse_position_yields_higher_debiased_ctr_and_gbdt_score, test_extract_features_records_source_and_keeps_the_prior_value_on_fallback. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`). The accumulation of positions happens in the platform-recsys consumer, outside team-ai.
+
+#### Scenario: Debiased value changes the ranking score
+
+- **WHEN** the candidates above are scored by the GBDT ranker
+- **THEN** the item with the higher debiased CTR receives the higher ranking score
+
+### Requirement: CTR source is recorded
+
+The feature vector SHALL record which source produced `historical_ctr`, so that training-time and
+serving-time feature provenance can be compared.
+
+#### Scenario: Nearline data present
+
+- **WHEN** the nearline store holds a debiased CTR for the candidate
+- **THEN** the feature vector reports `ctr_source` as `"nearline"`
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_debiased_ctr_ranking.py › test_extract_features_records_source_and_keeps_the_prior_value_on_fallback, test_ranked_items_carry_the_ctr_source_of_their_feature_vector; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_explain_reports_the_ctr_source_of_every_returned_item. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
+
+#### Scenario: Nearline data absent
+
+- **WHEN** the nearline store holds no usable data for the candidate
+- **THEN** `historical_ctr` retains its prior value
+- **AND** the feature vector reports `ctr_source` as `"fallback"`
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_debiased_ctr_ranking.py › test_extract_features_records_source_and_keeps_the_prior_value_on_fallback; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_without_nearline_every_item_reports_fallback. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
+
+### Requirement: Serving path supplies the nearline source
+
+The recommendation serving path SHALL provide the nearline signal source during candidate
+enrichment, so that debiased CTR reaches the ranker at request time and not only in offline
+training.
+
+#### Scenario: Serving request enriches from nearline
+
+- **WHEN** a recommendation request runs for a placement whose ranking model is `gbdt`
+- **THEN** candidate features were built with the nearline source
+- **AND** the response `explain` payload reports the nearline enrichment (`nearline_enabled`, `nearline_hit_count`, and `ctr_sources`, the count of returned items per CTR source)
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_consults_the_nearline_store, test_explain_reports_the_ctr_source_of_every_returned_item (service built by `build_recommendation_service`). Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
+
+### Requirement: Declared ranking model governs the serving path
+
+The recommendation service SHALL rank candidates with the model named by the active placement's
+`ranking.model`. When the value is `gbdt`, ordering SHALL be produced by the GBDT ranker rather
+than by retrieval-score sorting, and the response `explain` payload SHALL report the model that
+actually ran.
+
+#### Scenario: GBDT placement produces ranker ordering, not cosine ordering
+
+- **WHEN** `service.recommend` is called for a placement whose `ranking.model` is `gbdt`, against
+  a candidate fixture where the GBDT weights rank two candidates opposite to their cosine order
+- **THEN** the returned item order matches the GBDT ordering and differs from the cosine ordering
+- **AND** `explain["ranking_model"]` equals `"gbdt"`
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_home_feed_personalized_gbdt_and_featurestore_hit_count; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+
+#### Scenario: Placement without a GBDT model keeps retrieval ordering
+
+- **WHEN** `service.recommend` is called for a placement whose `ranking.model` is not `gbdt`
+- **THEN** the returned order is the retrieval-score order
+- **AND** `explain["ranking_model"]` reports that model
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_similar_items_placement_keeps_cosine_order; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_non_gbdt_placement_keeps_retrieval_order_through_the_factory. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+
+### Requirement: Feature-store enrichment is observable per request
+
+When the active placement declares `use_featurestore: true`, the service SHALL enrich candidates
+with item features before ranking and SHALL report how many candidates were enriched.
+
+#### Scenario: Enrichment count proves the feature store was read
+
+- **WHEN** `service.recommend` runs for a placement with `use_featurestore: true` and the feature
+  store holds features for at least one returned candidate
+- **THEN** `explain["featurestore_hit_count"]` is greater than zero
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt (RedisFeatureStore built from RECS_FEATURESTORE_REDIS_URL). Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id). The feature store's effect on order is covered end to end by `recommendations/serving_safeguards.feature` (Online features break a tie).
+
+### Requirement: Placements cannot declare unbound capabilities
+
+The application SHALL reject, at startup, any placement declaring a ranking model or capability
+that has no bound implementation. A declared capability that no code reads SHALL NOT be loadable.
+
+#### Scenario: Unbound ranking model fails at startup
+
+- **WHEN** the placement registry loads a placement whose `ranking.model` names a model with no
+  registered implementation
+- **THEN** application startup fails with an error naming the placement and the missing binding
+- **AND** no request is served with the unbound configuration
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_startup_validation_rejects_unbound_ranking_model. Not verifiable end to end: it needs a placement file with an unbound model and a service restart, and a refused start serves nothing to probe.
+
+### Requirement: Ranking failure degrades rather than errors
+
+Ranker or feature-store failure SHALL NOT fail the request. The service SHALL fall back to
+retrieval-score ordering and mark the response degraded.
+
+#### Scenario: Ranker failure falls back and marks degraded
+
+- **WHEN** the ranker raises during `service.recommend`
+- **THEN** items are returned in retrieval-score order
+- **AND** the response `status` is `"degraded"`
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_ranker_failure_degrades_to_cosine_order. Not verifiable end to end: it needs the ranker to raise inside the running service, and `status` is not on the gateway wire.
+
+### Requirement: The factory binds what the placements declare
+
+`build_recommendation_service` SHALL construct the service with the feature store implied by `RECS_FEATURESTORE_REDIS_URL`
+and the ranker that `ranking.model` selects, so a declared `use_featurestore` or `gbdt` reaches behaviour in the built service
+and not only in a service assembled by hand.
+
+#### Scenario: A factory-built service honours use_featurestore and gbdt
+
+- **WHEN** a service is built with `build_recommendation_service` from settings that set `RECS_FEATURESTORE_REDIS_URL`, and a `home_feed` request runs against features that invert the cosine order
+- **THEN** `explain["featurestore_hit_count"]` is greater than zero and the order differs from the cosine order
+- **AND** with the setting empty, `featurestore_hit_count` is `0` and the order is the cosine order
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt, test_without_a_feature_store_url_the_same_request_keeps_cosine_order. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+
+### Requirement: Serving reads the feature store's registry features
+
+The ranker SHALL read item features by the names the feature registry declares for `item_popularity`, from the version named by
+`fs:item_popularity:current`. A declared feature that is missing or not a finite number SHALL take its documented default, be
+counted in `explain["feature_defaults"]`, and SHALL NOT fail the request.
+
+#### Scenario: Registry feature names drive the ranking and defaults are counted
+
+- **WHEN** a request ranks candidates whose online rows carry the registry names, and another whose row carries only names the registry does not declare
+- **THEN** the first rows' `ctr_7d` and engagement counts reach the ranker's inputs, the other row ranks as an empty row, and `explain["feature_defaults"]` counts its missing registry features
+- **AND** the request is not degraded
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_item_feature_contract.py › test_registry_names_drive_the_ranker_vector, test_service_counts_defaulted_features_and_does_not_crash, test_item_feature_list_matches_the_registry_view. Not verifiable end to end: `explain` is not on the gateway wire (the feature store's effect on order is covered by `recommendations/serving_safeguards.feature`).
+
+### Requirement: Batch pipeline produces two-tower vectors
+
+The offline recommendation pipeline SHALL, when the two-tower stage is enabled, train the
+two-tower model and load its item vectors into a dedicated vector-store collection named for the run's generation
+(`<QDRANT_TWO_TOWER_COLLECTION>__<model_version>`) as part of the same run that produces ALS factors. The collection SHALL
+be written before the serving pointer moves, so a generation is complete or not visible. The run summary SHALL report the
+number of items indexed.
+
+The stage SHALL read only governed inputs: the catalogue and item features from the latest `item_popularity@v1`
+featurestore snapshot, user features from the latest `user_activity@v2` snapshot, and the training pairs from the run's own
+`als_interactions` dataset. With no snapshot the run SHALL exit 2 before Spark starts and register nothing. Item category and
+price are not in those views yet; the towers read them as 0 and nothing substitutes a constant.
+
+The towers SHALL be trained (in-batch softmax over the dataset's pairs) and the run summary SHALL report the first and last
+epoch loss. A vector that is all zeros or not finite SHALL NOT be written to the vector store; it SHALL be counted in the
+summary, and when no usable vector remains the stage SHALL fail, reject the candidate and publish nothing.
+
+#### Scenario: Pipeline run indexes two-tower vectors and reports the count
+
+- **WHEN** `pipeline.run()` executes with the two-tower stage enabled over a sample catalog
+- **THEN** the returned summary contains `two_tower_items` greater than zero
+- **AND** the vector-store loader received that many points in the two-tower collection
+
+#### Scenario: Two-tower vectors carry the run generation
+
+- **WHEN** the two-tower stage loads vectors during a run
+- **THEN** every loaded point carries the run's `model_version`
+- **AND** points from earlier generations are pruned
+
+#### Scenario: Cold-start item receives a vector that ALS cannot produce
+
+- **WHEN** the catalog contains an item with no recorded interactions
+- **THEN** that item has a two-tower vector after the run
+- **AND** that item has no ALS factor
+- **AND** that vector is non-zero and differs from the vector of an item with different recorded features
+
+#### Scenario: A run trains the towers on the dataset's pairs
+
+- **WHEN** the two-tower stage runs over a dataset with interactions
+- **THEN** the summary reports a first-epoch and a last-epoch loss, and the model's metadata records the number of pairs,
+  the epochs and the feature snapshots (view, version, file, SHA-256) it trained on
+
+#### Scenario: Missing feature snapshots stop the run
+
+- **WHEN** the two-tower stage is enabled and no `item_popularity` snapshot exists
+- **THEN** the job exits 2, its log names `ITEM_FEATURES_DIR`, and no model is registered
+
+#### Scenario: A degenerate vector never reaches the vector store
+
+- **WHEN** the catalog contains an item whose features are all zero and the towers are untrained
+- **THEN** the summary counts one refused vector and the two-tower collection has no point for that item
+
+### Requirement: Two-tower stage is additive to the ALS baseline
+
+Enabling the two-tower stage SHALL NOT change ALS training, its output contract, or its
+collection. With the stage disabled the pipeline SHALL behave exactly as before.
+
+#### Scenario: Disabled stage leaves the ALS run unchanged
+
+- **WHEN** `pipeline.run()` executes with the two-tower stage disabled
+- **THEN** the summary matches the ALS-only summary produced before this change
+- **AND** no two-tower collection is written
+
+### Requirement: The towers project users and items into one space
+
+Merged from the retired add-two-tower-retrieval. The user tower and the item tower SHALL project user features
+(category preferences, activity, lifetime purchases) and item features (category, price, click-through rate, popularity)
+into one D-dimensional space. Their vectors SHALL be normalised for cosine similarity.
+
+#### Scenario: User tower and item tower embedding generation
+
+- **GIVEN** user features and item features
+- **WHEN** the user tower and the item tower compute embeddings
+- **THEN** both vectors have dimension D and unit norm
+- **VERIFIED BY**: platform-recsys/tests/test_two_tower.py › test_towers_projection_and_normalization. Not verifiable end to end: the projection is an in-process function; no deployed surface takes a feature dict and returns an embedding.
+
+### Requirement: Two-tower candidates are retrieved by similarity
+
+Merged from the retired add-two-tower-retrieval. Top-K retrieval for a user vector SHALL return item ids ranked by
+similarity against the item index.
+
+#### Scenario: Top-K candidate generation for user
+
+- **GIVEN** an item catalog indexed into candidate vectors
+- **WHEN** top-K retrieval is requested for a user vector
+- **THEN** the top-K item ids are returned ranked by similarity score
+- **VERIFIED BY**: platform-recsys/tests/test_two_tower.py › test_top_k_is_ranked_by_similarity_and_bounded. Not verifiable end to end: `TwoTowerModel.retrieve` is in-process and this change has no serving surface (serving-side blending is the placement engine's, a non-goal).
+
+### Requirement: GBDT candidate re-ranking stage
+
+The system SHALL provide a GBDT re-ranking model in `platform-recsys/recsys/ranker/` that scores candidate items using multi-signal feature vectors (similarity score, popularity weight, category affinity match, price affinity) and achieves higher NDCG@10 than raw cosine sorting.
+
+#### Scenario: GBDT ranker outperforms raw cosine baseline on offline eval
+
+- **WHEN** candidates are ranked by the GBDT model versus raw similarity cosine score on the evaluation holdout dataset
+- **THEN** the GBDT ranker achieves a higher `ndcg@10` than the baseline cosine sorting
+
+- **VERIFIED BY**: platform-recsys/tests/test_ranker.py › test_gbdt_ranker_outperforms_raw_cosine_ndcg. Not verifiable end to end: the NDCG comparison is offline arithmetic over a labelled holdout; no deployed surface takes a holdout and returns both rankings, and the serving path (team-ai) exposes only the re-ranked list, never the raw-cosine baseline.
+
+### Requirement: Placement-specific recommendation execution
+
+The recommendation service in `team-ai` SHALL route requests by `placement_id` (`home_feed`, `similar_items`, `cart_cross_sell`) and execute the 4-tier fallback ladder when candidates are sparse or cold-start conditions occur.
+
+#### Scenario: Home feed surfaces personalized recommendations with popularity fallback
+
+- **WHEN** a user queries the `home_feed` placement
+- **THEN** the service attempts personalized retrieval (Tier 1) and falls back to global popular items (Tier 4) if personalized candidates are unavailable, stamping `placement_id: "home_feed"` and `fallback_tier` in the result
+
+#### Scenario: Similar items placement retrieves item similarities
+
+- **WHEN** a client queries `similar_items` with `seed_listing_id`
+- **THEN** the service retrieves similar items via vector similarity and falls back to category/global popular items if sparse
+
+### Requirement: Tracking events are exported for offline training
+
+team-analytics SHALL keep its DuckDB warehouse on persistent storage and, when
+`PARQUET_EXPORT_PATH` and a positive `PARQUET_EXPORT_INTERVAL_SECONDS` are set, SHALL
+periodically export the `tracking_events` table to that path as Parquet. It SHALL
+replace the file atomically, so a reader never sees a partial export. An export
+failure SHALL NOT stop event consumption.
+
+#### Scenario: The export replaces the file atomically
+
+- **WHEN** an export runs while a previous export file exists
+- **THEN** the new data is written to a temporary file and renamed over the old one
+
+#### Scenario: Export disabled by default
+
+- **WHEN** `PARQUET_EXPORT_INTERVAL_SECONDS` is 0 or unset
+- **THEN** no export runs
+
+### Requirement: team-ai reads the trained item vectors by listing id
+
+team-ai's Qdrant backend SHALL look up a seed listing by the producer's point id
+(uuid5 of the listing id in the shared namespace), and SHALL return the payload
+`listing_id` of each hit as the candidate id, never the Qdrant point id.
+
+#### Scenario: Similar items come back as listing ids
+
+- **WHEN** similar items are requested for a listing present in the trained collection
+- **THEN** the query uses that listing's uuid5 point id, and every returned candidate id
+  is a listing id from the payload
+
+### Requirement: The local stack serves trained recommendations
+
+The local compose stack SHALL provide a runnable training job that reads the exported
+tracking events and fills Qdrant and Redis, and team-ai SHALL serve recommendations
+from them (`RECS_ENABLED=true`, Qdrant backend).
+
+#### Scenario: Home page shows trained recommendations
+
+- **WHEN** the training job has run against the stack's tracking events and a buyer opens
+  the home page
+- **THEN** the "Gợi ý cho bạn" row shows product cards for real listings, sourced from
+  team-ai
