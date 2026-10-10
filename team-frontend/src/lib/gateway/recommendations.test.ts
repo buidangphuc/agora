@@ -44,17 +44,20 @@ describe("getRecommendations", () => {
           { listingId: "a", score: 0.9, rank: 1 },
         ],
         modelVersion: "als-2026-09",
+        placementId: "home_feed",
+        requestId: "req-abc",
       }),
     );
     vi.mocked(getListing).mockImplementation(
       async (id: string) => card(id) as never,
     );
 
-    const items = await getRecommendations({
-      seedListingId: "seed-1",
-      context: RecommendationContext.SIMILAR_ITEMS,
-      limit: 5,
-    });
+    const { items, requestId, placementId, modelVersion } =
+      await getRecommendations({
+        seedListingId: "seed-1",
+        context: RecommendationContext.SIMILAR_ITEMS,
+        limit: 5,
+      });
 
     // Over-fetch: requested 5 cards, ask team-ai for 5 * 3 = 15 ids.
     expect(recommend).toHaveBeenCalledWith({
@@ -66,6 +69,11 @@ describe("getRecommendations", () => {
     });
     // Best-first by rank: a (rank 1) then b (rank 2).
     expect(items.map((l) => l.id)).toEqual(["a", "b"]);
+    expect({ requestId, placementId, modelVersion }).toEqual({
+      requestId: "req-abc",
+      placementId: "home_feed",
+      modelVersion: "als-2026-09",
+    });
   });
 
   it("drops ids that no longer resolve to a listing", async () => {
@@ -82,7 +90,7 @@ describe("getRecommendations", () => {
       id === "gone" ? null : (card(id) as never),
     );
 
-    const items = await getRecommendations();
+    const { items } = await getRecommendations();
     expect(items.map((l) => l.id)).toEqual(["a"]);
   });
 
@@ -90,7 +98,12 @@ describe("getRecommendations", () => {
     stubRecommend(
       vi.fn().mockRejectedValue(new ConnectError("recs off", Code.Unavailable)),
     );
-    await expect(getRecommendations()).resolves.toEqual([]);
+    await expect(getRecommendations()).resolves.toEqual({
+      items: [],
+      requestId: "",
+      placementId: "",
+      modelVersion: "",
+    });
     expect(getListing).not.toHaveBeenCalled();
   });
 
@@ -133,7 +146,7 @@ describe("getRecommendations", () => {
       id === "sold" ? (card(id, 0) as never) : (card(id) as never),
     );
 
-    const items = await getRecommendations({ limit: 5 });
+    const { items } = await getRecommendations({ limit: 5 });
     expect(items.map((l) => l.id)).toEqual(["a", "c"]);
   });
 
@@ -156,7 +169,7 @@ describe("getRecommendations", () => {
       id === "sold" ? (card(id, 0) as never) : (card(id) as never),
     );
 
-    const items = await getRecommendations({ limit: 2 });
+    const { items } = await getRecommendations({ limit: 2 });
     expect(recommend).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 6 }),
     );
@@ -179,7 +192,7 @@ describe("getRecommendations", () => {
       id.startsWith("sold") ? (card(id, 0) as never) : (card(id) as never),
     );
 
-    const items = await getRecommendations({ limit: 5 });
+    const { items } = await getRecommendations({ limit: 5 });
     expect(items.map((l) => l.id)).toEqual(["a"]);
   });
 

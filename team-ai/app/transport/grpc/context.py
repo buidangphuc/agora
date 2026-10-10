@@ -14,6 +14,11 @@ import grpc
 from app.modules.platform.identity.schemas import Principal
 
 _principal: ContextVar[Principal | None] = ContextVar("grpc_principal", default=None)
+# The client IP team-gateway observed (``x-client-ip``), only ever set from gateway
+# metadata. It keys anonymous callers so one visitor cannot exhaust everyone's bucket.
+_client_ip: ContextVar[str] = ContextVar("grpc_client_ip", default="")
+
+_MAX_CLIENT_IP_LEN = 64
 
 
 def current_principal() -> Principal | None:
@@ -26,6 +31,28 @@ def bind_principal(principal: Principal) -> Token[Principal | None]:
 
 def reset_principal(token: Token[Principal | None]) -> None:
     _principal.reset(token)
+
+
+def bind_client_ip(value: str) -> Token[str]:
+    ip = value.strip()
+    if len(ip) > _MAX_CLIENT_IP_LEN or any(c.isspace() for c in ip):
+        ip = ""
+    return _client_ip.set(ip)
+
+
+def current_client_ip() -> str:
+    return _client_ip.get()
+
+
+def caller_key(principal: Principal) -> str:
+    """Rate-limit key of a call: the principal, or the client IP for anonymous callers.
+
+    Anonymous callers without a forwarded IP share one bucket (the previous behaviour).
+    """
+    if principal.type == "anonymous":
+        ip = current_client_ip()
+        return f"anonymous:ip:{ip}" if ip else "anonymous:anonymous"
+    return f"{principal.type}:{principal.id}"
 
 
 async def ensure_scopes(context: grpc.aio.ServicerContext, *required: str) -> Principal:

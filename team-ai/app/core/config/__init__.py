@@ -68,6 +68,75 @@ class Settings(
     def validate_runtime_safety(self) -> Settings:
         if not self.ENVIRONMENT.is_local and not self.AUTH_BEARER_TOKEN:
             raise ValueError("AUTH_BEARER_TOKEN is required outside dev/local/test")
+        if self.AUTH_ADMIN_BEARER_TOKEN and not self.ENVIRONMENT.is_local:
+            if (
+                self.AUTH_ADMIN_BEARER_TOKEN in WEAK_AUTH_TOKENS
+                or len(self.AUTH_ADMIN_BEARER_TOKEN) < 24
+            ):
+                raise ValueError(
+                    "AUTH_ADMIN_BEARER_TOKEN is too weak outside dev/local/test"
+                )
+            if self.AUTH_ADMIN_BEARER_TOKEN == self.AUTH_BEARER_TOKEN:
+                raise ValueError(
+                    "AUTH_ADMIN_BEARER_TOKEN must differ from AUTH_BEARER_TOKEN"
+                )
+        if self.TAXONOMY_PERSISTENCE_ENABLED:
+            if not self.REDIS_ENABLED:
+                raise ValueError(
+                    "TAXONOMY_PERSISTENCE_ENABLED requires REDIS_ENABLED=true"
+                )
+            if self.TAXONOMY_REDIS_DATABASE == self.REDIS_DATABASE:
+                raise ValueError(
+                    "TAXONOMY_REDIS_DATABASE must differ from REDIS_DATABASE"
+                )
+        if self.GRPC_BEARER_FALLBACK_ENABLED and not self.ENVIRONMENT.is_local:
+            raise ValueError(
+                "GRPC_BEARER_FALLBACK_ENABLED must be false outside dev/local/test"
+            )
+        if (
+            self.GRPC_RATE_LIMIT_ENABLED
+            and self.RATE_LIMIT_BACKEND == "redis"
+            and not self.REDIS_ENABLED
+        ):
+            raise ValueError("RATE_LIMIT_BACKEND=redis requires REDIS_ENABLED=true")
+        if (
+            self.GRPC_RATE_LIMIT_ENABLED
+            and self.RATE_LIMIT_BACKEND == "memory"
+            and not self.ENVIRONMENT.is_local
+        ):
+            # A per-process limiter multiplies the limit by the replica count.
+            raise ValueError(
+                "RATE_LIMIT_BACKEND=memory is refused with GRPC_RATE_LIMIT_ENABLED "
+                "outside dev/local/test (use RATE_LIMIT_BACKEND=redis)"
+            )
+        if (
+            self.CHAT_BACKEND == "llm_router"
+            and not self.ENVIRONMENT.is_local
+            and not (self.GRPC_RATE_LIMIT_ENABLED and self.QUOTA_ENABLED)
+        ):
+            # The real-LLM path costs money per call and anonymous chat is allowed
+            # (ai:use is not enforced), so it must be rate limited and metered.
+            raise ValueError(
+                "CHAT_BACKEND=llm_router outside dev/local/test requires "
+                "GRPC_RATE_LIMIT_ENABLED=true and QUOTA_ENABLED=true"
+            )
+        if (
+            self.RECS_ENABLED
+            and self.RECS_BACKEND == "memory"
+            and not self.ENVIRONMENT.is_local
+        ):
+            # The memory backend serves a fake in-process catalogue.
+            raise ValueError(
+                "RECS_BACKEND=memory is refused with RECS_ENABLED outside "
+                "dev/local/test (use RECS_BACKEND=qdrant)"
+            )
+        if self.LLM_TRACE_CONTENT not in {"off", "redacted", "full"}:
+            raise ValueError("LLM_TRACE_CONTENT must be one of off, redacted, full")
+        if self.LLM_TRACE_CONTENT == "full" and not self.ENVIRONMENT.is_local:
+            raise ValueError(
+                "LLM_TRACE_CONTENT=full is refused outside dev/local/test "
+                "(raw user text must not reach logs or traces)"
+            )
         if not self.ENVIRONMENT.is_production:
             return self
 

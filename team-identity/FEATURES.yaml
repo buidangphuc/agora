@@ -263,10 +263,10 @@ features:
       - And the current device's token still works
     tags: [auth, buyer]
     status: automated
-    covered_by: "auth/session_revocation.feature::A revoked session's token stops working within 5 seconds"
+    covered_by: "auth/session_revocation.feature::A revoked session's token stops working"
     notes: >-
-      Scenario written in auth/session_revocation.feature ("A revoked session's token stops
-      working within 5 seconds"); flip to automated after a run against the stack.
+      Scenario "A revoked session's token stops working" (auth/session_revocation.feature); green
+      against the agora stack.
 
   - id: auth.session-revocation-survives-restart
     title: A revocation survives a gateway restart
@@ -288,10 +288,10 @@ features:
       - Then the revoked token is rejected with 401 once the topic has been replayed
     tags: [auth, buyer, destructive]
     status: automated
-    covered_by: "auth/session_revocation.feature::A revocation survives a gateway restart"
+    covered_by: "auth/session_revocation.feature::Revocations survive a gateway restart"
     notes: >-
       @destructive: restarts the container named by GATEWAY_CONTAINER (default
-      team-gateway-svc); run serially. Scenario "A revocation survives a gateway restart".
+      team-gateway-svc); run serially. Scenario "Revocations survive a gateway restart".
 
   - id: auth.session-device-and-ip
     title: A new session shows the device and IP it was created from
@@ -313,6 +313,216 @@ features:
       - Then the security page lists a session with the browser's user agent and a non-empty IP
     tags: [auth, buyer]
     status: automated
-    covered_by: "auth/session_revocation.feature::A new session shows the device and IP it was created from"
+    covered_by: "auth/session_revocation.feature::A new session records device and IP"
     notes: >-
-      Scenario "A new session shows the device and IP it was created from".
+      Scenario "A new session records device and IP".
+
+  - id: auth.login-token-bound-to-session
+    title: Login returns a token bound to a listed session
+    persona: buyer
+    priority: P1
+    summary: >-
+      Every user login creates a session row and signs its id into the JWT as `sid`; the id
+      is one that ListSessions returns for that buyer.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    api:
+      exercised: [identity.v1.Login, identity.v1.ListSessions]
+    acceptance:
+      - Given a registered buyer
+      - When the buyer logs in
+      - Then the token's sid equals the id of a session ListSessions returns for the buyer
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_revocation.feature::Login returns a token bound to a listed session"
+
+  - id: auth.denylist-entry-expires
+    title: Expired denylist entries are dropped
+    persona: buyer
+    priority: P2
+    summary: >-
+      The gateway keeps a revoked session id only until the token's expiry; a SessionRevoked
+      event with a short expiry is added to the denylist (gateway_revocation_denylist_size
+      grows) and swept once the expiry has passed.
+    entry_route: /account/security
+    services: [team-identity, team-gateway]
+    api:
+      exercised: [identity.v1.RevokeSession]
+    acceptance:
+      - Given the gateway's denylist size is recorded
+      - When a SessionRevoked event expiring in 15 seconds is published to identity.events
+      - Then the gateway denylist grows by that entry
+      - And once the expiry has passed the gateway denylist no longer holds it
+    tags: [auth, slow]
+    status: automated
+    covered_by: "auth/session_revocation.feature::Expired denylist entries are dropped"
+    notes: >-
+      Reads the gateway's own gauge through Prometheus (PROMETHEUS_URL, default
+      http://localhost:9090) and publishes the event straight to identity.events; takes up to
+      about a minute (the gateway sweeps once a minute).
+
+  - id: auth.admin-seed-default-off
+    title: Default configuration creates no admin
+    persona: admin
+    priority: P1
+    summary: >-
+      team-identity started with no SEED_ADMIN_* variables creates no admin and ships no built-in password; run against a scratch database migrated with the real migrations.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    acceptance:
+      - When team-identity starts with no SEED_ADMIN_* variables against an empty database
+      - Then no admin user exists and a login as admin / admin123 fails
+    tags: [auth, admin, security]
+    status: automated
+    covered_by: "auth/admin_bootstrap.feature::Default configuration creates no admin"
+
+  - id: auth.admin-seed-requires-password
+    title: Enabled seeding without a password refuses to start
+    persona: admin
+    priority: P1
+    summary: >-
+      SEED_ADMIN_ENABLED=true with an empty SEED_ADMIN_PASSWORD makes the process exit non-zero naming SEED_ADMIN_PASSWORD.
+    entry_route: /login
+    services: [team-identity]
+    acceptance:
+      - When team-identity starts with SEED_ADMIN_ENABLED=true and no SEED_ADMIN_PASSWORD
+      - Then the process exits non-zero with an error naming SEED_ADMIN_PASSWORD
+    tags: [auth, admin, security]
+    status: automated
+    covered_by: "auth/admin_bootstrap.feature::Enabled seeding without a password refuses to start"
+
+  - id: auth.admin-seed-local-stack
+    title: Local stack seeds the dev admin from env
+    persona: admin
+    priority: P1
+    summary: >-
+      The local compose stack enables the seed with a dev password; the admin can log in with it.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    acceptance:
+      - When the local compose stack starts with SEED_ADMIN_ENABLED=true and a dev password set in its env
+      - Then the e2e admin login with those credentials succeeds
+    tags: [auth, admin]
+    status: automated
+    covered_by: "auth/admin_bootstrap.feature::Local stack seeds the dev admin from env"
+
+  - id: auth.admin-seed-not-in-gitops
+    title: Deployment manifests never enable seeding
+    persona: admin
+    priority: P1
+    summary: >-
+      helm-rendered team-identity manifests for every environment contain no SEED_ADMIN_ENABLED=true and no admin password; the platform-gitops check passes on them and fails on a crafted bad sample.
+    entry_route: /login
+    services: [team-identity, platform-gitops]
+    acceptance:
+      - When the platform-gitops manifests for team-identity are rendered
+      - Then they contain no SEED_ADMIN_ENABLED=true and no admin password literal
+    tags: [auth, admin, security]
+    status: automated
+    covered_by: "auth/admin_bootstrap.feature::Deployment manifests never enable seeding"
+    notes: >-
+      Static: needs helm on the runner; no stack involved.
+
+  - id: auth.buyer-token-ai-scopes
+    title: A buyer token carries the AI scopes and no service scope
+    persona: buyer
+    priority: P1
+    summary: Role tokens include recommendations:read and ai:use and never a service-only scope.
+    entry_route: /login
+    services: [team-identity, team-gateway]
+    api:
+      exercised: [identity.v1.Login]
+    acceptance:
+      - Given a registered buyer account
+      - When a buyer logs in through the gateway
+      - Then the token's scopes include recommendations:read and ai:use and include none of the service-only scopes
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/login_history.feature::A buyer token carries the AI scopes and no service scope"
+
+  - id: auth.login-history-records-attempts
+    title: Login history shows a failed and a successful attempt
+    persona: buyer
+    priority: P1
+    summary: A wrong password adds a failure entry, a right one a success entry, visible in the login history.
+    entry_route: /account/security
+    services: [team-identity, team-gateway]
+    api:
+      exercised: [identity.v1.Login, identity.v1.ListLoginHistory]
+    acceptance:
+      - Given a registered buyer account
+      - When a user logs in once with a wrong password and then with the right one, and lists their login history through the gateway
+      - Then the history contains a failure entry followed by a success entry
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/login_history.feature::Login history shows a failed and a successful attempt"
+
+  - id: ops.identity-boot-guard-dev-key
+    title: team-identity refuses the development signing key in production
+    persona: admin
+    priority: P1
+    summary: With ENV=production and the compose development signing key the real image exits non-zero naming the signing key.
+    entry_route: /
+    services: [team-identity]
+    api:
+      exercised: [identity.v1.AuthService]
+    acceptance:
+      - When the team-identity image is started with ENV=production and the development signing key from the local compose file
+      - Then the process exits non-zero and its log names the signing key
+    tags: [auth]
+    status: automated
+    covered_by: "ops/boot_guard_identity.feature::team-identity refuses the development signing key in production"
+
+  - id: ops.identity-boot-guard-reset-token-staging
+    title: team-identity refuses an exposed reset token in staging
+    persona: admin
+    priority: P1
+    summary: team-identity refuses an exposed reset token in staging (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When the team-identity image is started with ENV=staging, its own non-development signing key, and PASSWORD_RESET_EXPOSE_TOKEN=true"
+      - "Then the process exits non-zero and its log names PASSWORD_RESET_EXPOSE_TOKEN"
+    tags: [security]
+    status: automated
+    covered_by: "ops/boot_guard_identity.feature::team-identity refuses an exposed reset token in staging"
+    notes: >-
+      Scenario "team-identity refuses an exposed reset token in staging" in ops/boot_guard_identity.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: auth.ar2-admin-token-carries-order-admin
+    title: "An admin token carries order.admin"
+    persona: admin
+    priority: P0
+    summary: "An admin token carries order.admin (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.AuthService.Login]
+    acceptance:
+      - "When the seeded admin logs in through the gateway"
+      - "Then the token's scopes include `admin` and `order.admin`"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::An admin token carries order.admin"
+    notes: "green after rebuild: security/ar2_order_admin.feature::An admin token carries order.admin"
+
+  - id: auth.ar2-buyer-seller-no-order-admin
+    title: "Buyer and seller tokens carry no order.admin"
+    persona: buyer
+    priority: P0
+    summary: "Buyer and seller tokens carry no order.admin (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.AuthService.Register]
+    acceptance:
+      - "When a buyer and a seller each log in through the gateway"
+      - "Then neither token's scopes include `order.admin` or `admin`"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
+    notes: "green after rebuild: security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"

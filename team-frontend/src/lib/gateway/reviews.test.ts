@@ -5,6 +5,7 @@ import {
   createReview,
   getListingRatingSummary,
   listReviews,
+  listReviewsPage,
 } from "./reviews.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -61,6 +62,59 @@ describe("reviews gateway wrapper", () => {
     await expect(createReview("l1", 4, "ok")).rejects.toThrow(
       "create review failed",
     );
+  });
+
+  it("listReviewsPage asks the server for page N as an offset cursor", async () => {
+    const engagement = stubEngagement({
+      listReviews: vi
+        .fn()
+        .mockResolvedValue({ reviews: [protoReview], page: { total: 105n } }),
+    });
+    const res = await listReviewsPage("l1", { rating: 4, page: 11 });
+    expect(engagement.listReviews).toHaveBeenCalledWith({
+      listingId: "l1",
+      ratingFilter: 4,
+      page: { cursor: "100", pageSize: 10 },
+    });
+    expect(res).toMatchObject({ total: 105, page: 11, pages: 11 });
+    expect(res.reviews).toHaveLength(1);
+  });
+
+  it("listReviewsPage re-requests the last page when the page is past the end", async () => {
+    const listReviewsRpc = vi
+      .fn()
+      .mockResolvedValueOnce({ reviews: [], page: { total: 23n } })
+      .mockResolvedValueOnce({ reviews: [protoReview], page: { total: 23n } });
+    stubEngagement({ listReviews: listReviewsRpc });
+    const res = await listReviewsPage("l1", { page: 99 });
+    expect(listReviewsRpc).toHaveBeenLastCalledWith({
+      listingId: "l1",
+      ratingFilter: 0,
+      page: { cursor: "20", pageSize: 10 },
+    });
+    expect(res).toMatchObject({ page: 3, pages: 3 });
+  });
+
+  it("listReviewsPage normalizes errors to an empty page", async () => {
+    stubEngagement({ listReviews: vi.fn().mockRejectedValue(new Error("x")) });
+    await expect(listReviewsPage("l1")).resolves.toEqual({
+      reviews: [],
+      total: 0,
+      page: 1,
+      pages: 1,
+    });
+  });
+
+  it("listReviews asks for the server's maximum page size", async () => {
+    const engagement = stubEngagement({
+      listReviews: vi.fn().mockResolvedValue({ reviews: [] }),
+    });
+    await listReviews("l1", 4);
+    expect(engagement.listReviews).toHaveBeenCalledWith({
+      listingId: "l1",
+      ratingFilter: 4,
+      page: { pageSize: 100 },
+    });
   });
 
   it("listReviews normalizes errors to an empty list", async () => {

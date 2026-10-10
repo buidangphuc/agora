@@ -20,7 +20,7 @@ from .session_flow import (
 )
 from .stack_flow import restart_container, stop_container, wait_for_gateway, wait_for_search
 from .tracking_flow import consume_tracking_events, tracking_event_type
-from .wallet_flow import request_seller_payout_via_api
+from .wallet_flow import request_seller_payout_via_api, settle_seeded_order_to_seller
 
 __all__ = [
     "login_via_api",
@@ -35,6 +35,7 @@ __all__ = [
     "submit_product_question_via_api",
     "toggle_favorite_via_api",
     "request_seller_payout_via_api",
+    "settle_seeded_order_to_seller",
     "consume_order_paid_events",
     "decode_order_paid_envelope",
     "consume_tracking_events",

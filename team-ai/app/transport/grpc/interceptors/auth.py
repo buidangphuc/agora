@@ -5,9 +5,10 @@ and forwards a trusted principal as ``x-principal-{id,type,scopes}`` metadata,
 rebuilt on every hop. When those headers are present we trust them — this is how
 every other platform service authenticates gateway traffic.
 
-Fallback: a direct caller (tests, local tooling) may still present an
-``authorization: bearer`` token, resolved via the transport-neutral
-``authenticate_bearer_token`` so both surfaces issue the same Principal.
+Fallback (off by default, ``GRPC_BEARER_FALLBACK_ENABLED``): a direct caller
+(tests, local tooling) may present an ``authorization: bearer`` token, resolved via
+the transport-neutral ``authenticate_bearer_token`` so both surfaces issue the same
+Principal. Startup refuses to enable it outside local environments.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from app.core.config import Settings
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.modules.platform.identity.auth import authenticate_bearer_token
 from app.modules.platform.identity.schemas import Principal
-from app.transport.grpc.context import _principal
+from app.transport.grpc.context import _principal, bind_client_ip
 from app.transport.grpc.interceptors._wrap import wrap_handler
 
 _PRINCIPAL_TYPES = {"user", "service", "anonymous"}
@@ -43,12 +44,15 @@ def _principal_from_metadata(metadata: dict[str, Any]) -> Principal | None:
     if "x-principal-id" not in metadata:
         return None
     ptype = _decode(metadata.get("x-principal-type")) or "anonymous"
-    if ptype not in _PRINCIPAL_TYPES:
-        ptype = "user"
+    pid = _decode(metadata.get("x-principal-id")).strip()
+    if ptype not in _PRINCIPAL_TYPES or not pid:
+        # fail closed: an unrecognised type or an empty id gets no identity
+        ptype = "anonymous"
+        pid = pid or "anonymous"
     scopes_raw = _decode(metadata.get("x-principal-scopes"))
     scopes = tuple(s.strip() for s in scopes_raw.split(",") if s.strip())
     return Principal(
-        id=_decode(metadata.get("x-principal-id")),
+        id=pid,
         type=ptype,  # type: ignore[arg-type]
         scopes=scopes,
     )
@@ -73,6 +77,8 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
 
         async def before(context: grpc.aio.ServicerContext) -> Token[Principal | None]:
             principal = await self._authenticate(context)
+            metadata = dict(context.invocation_metadata() or ())
+            bind_client_ip(_decode(metadata.get("x-client-ip")))
             return _principal.set(principal)
 
         return wrap_handler(handler, before)
@@ -85,6 +91,12 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
         forwarded = _principal_from_metadata(metadata)
         if forwarded is not None:
             return forwarded
+
+        if not self._settings.GRPC_BEARER_FALLBACK_ENABLED:
+            await context.abort(
+                grpc.StatusCode.UNAUTHENTICATED, "Missing gateway principal"
+            )
+            raise AssertionError("unreachable")  # abort raises
 
         raw = metadata.get("authorization")
         authorization = raw.decode() if isinstance(raw, bytes) else raw

@@ -8,7 +8,9 @@ REG=localhost:5001
 VALUES="${ROOT}/platform-gitops/envs/local/values.yaml"
 TAG="${TAG:-local}"
 
-# "<service> <source-image-on-host>" — source images are the :local builds.
+# "<service> <source-image-on-host>" — source images are the :local builds
+# (docker compose builds them: team-ai:local carries the `recs` extra that RECS_BACKEND=qdrant needs;
+# platform-recsys:local also runs the nearline Deployment; platform-featurestore:local runs the nightly CronJob).
 MAP="
 team-gateway team-gateway:local
 team-identity team-identity:local
@@ -19,7 +21,9 @@ team-order team-order:local
 team-payment team-payment:local
 team-chat team-chat:local
 team-notification team-notification:local
-team-ai ai-platform:local
+team-ai team-ai:local
+platform-featurestore platform-featurestore:local
+platform-recsys platform-recsys:local
 "
 
 while read -r svc src; do

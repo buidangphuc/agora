@@ -109,7 +109,45 @@ const (
 	ScopeAdmin = "admin"
 	// ScopeListingWrite is granted to seller and admin roles, never to buyers.
 	ScopeListingWrite = "listing.write"
+	// ScopePromoReserve is service-only (held by service-team-order, granted to no
+	// user role): it gates the voucher redemption saga RPCs.
+	ScopePromoReserve = "promotion.reserve"
 )
+
+// RequireScopes authenticates the caller (none or anonymous is UNAUTHENTICATED) and
+// then requires every scope in want (PERMISSION_DENIED otherwise). It returns the
+// principal so the handler can bind identity from it.
+func RequireScopes(ctx context.Context, want ...string) (*commonv1.Principal, error) {
+	p, err := RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range want {
+		if !HasScope(p, s) {
+			return nil, status.Errorf(codes.PermissionDenied, "insufficient_scope: missing %q", s)
+		}
+	}
+	return p, nil
+}
+
+// IsService reports whether p is a service principal (type SERVICE).
+func IsService(p *commonv1.Principal) bool {
+	return p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+}
+
+// RequireService demands a principal of type SERVICE that also holds scope. The
+// type is checked, not only the scope string: a user principal that carries the
+// scope is PERMISSION_DENIED.
+func RequireService(ctx context.Context, scope string) (*commonv1.Principal, error) {
+	p, err := RequireScopes(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
+	if !IsService(p) {
+		return nil, status.Error(codes.PermissionDenied, "service principal required")
+	}
+	return p, nil
+}
 
 // HasScope reports whether p carries the given scope.
 func HasScope(p *commonv1.Principal, scope string) bool {

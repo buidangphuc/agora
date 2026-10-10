@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Settings is the whole configuration surface, grouped by capability.
@@ -20,7 +21,9 @@ type Settings struct {
 	Server        Server
 	OpenSearch    OpenSearch
 	Retrieval     Retrieval
+	Taxonomy      Taxonomy
 	Kafka         Kafka
+	Tombstone     Tombstone
 	Database      Database
 	Observability Observability
 }
@@ -54,6 +57,16 @@ type Retrieval struct {
 	HybridRRFK         int     `env:"HYBRID_RRF_K" default:"60"`
 	LexicalWeight      float64 `env:"HYBRID_LEXICAL_WEIGHT" default:"1.0"`
 	SemanticWeight     float64 `env:"HYBRID_SEMANTIC_WEIGHT" default:"1.0"`
+	// SemanticMinScore is the minimum cosine similarity (-1..1) a semantic
+	// candidate needs to be kept; a value <= -1 disables the floor.
+	SemanticMinScore float64 `env:"HYBRID_SEMANTIC_MIN_SCORE" default:"0.65"`
+}
+
+// Taxonomy points the indexer at team-ai's gRPC AIService (ClassifyTags), which
+// supplies the canonical SPU tags and per-variant attributes stored for dynamic
+// facets. Empty disables classification: listings are indexed without tags.
+type Taxonomy struct {
+	AIAddr string `env:"UPSTREAM_AI_ADDR" default:""`
 }
 
 // Kafka configures the listing-events consumer (ADR-0002).
@@ -62,6 +75,42 @@ type Kafka struct {
 	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-search-indexer"`
 	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+}
+
+// Tombstone tunes the retention of deleted-listing tombstones in the read-model
+// and the indexer's purge loop (D6). Both are Go duration strings; read them
+// through TombstoneTTL and TombstonePurgeInterval, which never fail: an unusable
+// value falls back to the default with a warning so a typo cannot stop the indexer.
+type Tombstone struct {
+	TTL           string `env:"TOMBSTONE_TTL" default:"336h"`
+	PurgeInterval string `env:"TOMBSTONE_PURGE_INTERVAL" default:"1h"`
+}
+
+// DefaultTombstoneTTL (14 days) is how long a tombstone outlives its delete,
+// measured from when the indexer applied it, before the purge removes it.
+const DefaultTombstoneTTL = 336 * time.Hour
+
+// DefaultTombstonePurgeInterval is how often the indexer purges expired tombstones.
+const DefaultTombstonePurgeInterval = time.Hour
+
+// TombstoneTTL parses TOMBSTONE_TTL. An empty, unparsable, zero or negative value
+// yields the default and a non-empty warning naming the variable.
+func (s *Settings) TombstoneTTL() (time.Duration, string) {
+	return positiveDuration("TOMBSTONE_TTL", s.Tombstone.TTL, DefaultTombstoneTTL)
+}
+
+// TombstonePurgeInterval parses TOMBSTONE_PURGE_INTERVAL with the same rules.
+func (s *Settings) TombstonePurgeInterval() (time.Duration, string) {
+	return positiveDuration("TOMBSTONE_PURGE_INTERVAL", s.Tombstone.PurgeInterval, DefaultTombstonePurgeInterval)
+}
+
+func positiveDuration(key, raw string, def time.Duration) (time.Duration, string) {
+	raw = strings.TrimSpace(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return def, fmt.Sprintf("invalid %s %q (want a positive Go duration such as 30s or 336h); using default %s", key, raw, def)
+	}
+	return d, ""
 }
 
 // Database configures the Postgres store for saved searches (migrations/
@@ -111,6 +160,36 @@ func (s *Settings) Validate() error {
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"
+}
+
+// durableStorageEnvs are the ENV values (normalised: trimmed, lowercase) in which
+// the query server must never run on the in-memory saved-search repository.
+// Anything else ("local", "test", unset, unknown) is non-strict.
+var durableStorageEnvs = []string{"staging", "stage", "prod", "production"}
+
+// RequiresDurableStorage reports whether ENV names an environment that must use
+// the database (staging / production).
+func (s *Settings) RequiresDurableStorage() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range durableStorageEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireDurableStorage is the boot guard against the silent in-memory fallback:
+// in a strict ENV it fails when the database is disabled. Other environments
+// always pass. (An enabled-but-unreachable database already fails the boot in
+// bootstrap.OpenSavedSearchRepository.)
+func (s *Settings) RequireDurableStorage() error {
+	if !s.RequiresDurableStorage() || s.Database.Enabled {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to start with in-memory saved-search storage: ENV=%q requires a database (strict for ENV in %s) but DATABASE_ENABLED=false; set DATABASE_ENABLED=true with a reachable DATABASE_URL",
+		s.Runtime.Env, strings.Join(durableStorageEnvs, ", "))
 }
 
 // KafkaBrokers splits KAFKA_BROKERS into seed addresses.

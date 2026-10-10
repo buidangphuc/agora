@@ -30,8 +30,10 @@ type AnalyticsPublisher interface {
 	// PublishTrackingEvent wraps ev in an EventEnvelope (stamping principal +
 	// requestID) and produces it to the analytics topic. The Kafka record key is
 	// the session id (falling back to the anonymous id) so a visitor's activity
-	// keeps per-session ordering on the topic.
-	PublishTrackingEvent(ctx context.Context, ev *analyticsv1.TrackingEvent, principal *commonv1.Principal, requestID string) error
+	// keeps per-session ordering on the topic. A non-empty eventID becomes the
+	// envelope event_id (deterministic, so a re-sent beacon dedupes downstream);
+	// an empty one keeps a freshly minted random UUID.
+	PublishTrackingEvent(ctx context.Context, ev *analyticsv1.TrackingEvent, principal *commonv1.Principal, requestID, eventID string) error
 	Close()
 }
 
@@ -39,7 +41,7 @@ type AnalyticsPublisher interface {
 // nothing is emitted. Telemetry is best-effort, so this never errors.
 type NoopPublisher struct{}
 
-func (NoopPublisher) PublishTrackingEvent(context.Context, *analyticsv1.TrackingEvent, *commonv1.Principal, string) error {
+func (NoopPublisher) PublishTrackingEvent(context.Context, *analyticsv1.TrackingEvent, *commonv1.Principal, string, string) error {
 	return nil
 }
 func (NoopPublisher) Close() {}
@@ -69,13 +71,17 @@ func (p *KafkaPublisher) PublishTrackingEvent(
 	ev *analyticsv1.TrackingEvent,
 	principal *commonv1.Principal,
 	requestID string,
+	eventID string,
 ) error {
+	if eventID == "" {
+		eventID = uuid.NewString()
+	}
 	payload, err := proto.Marshal(ev)
 	if err != nil {
 		return fmt.Errorf("marshal TrackingEvent: %w", err)
 	}
 	envelope := &eventsv1.EventEnvelope{
-		EventId:    uuid.NewString(),
+		EventId:    eventID,
 		Type:       trackingEventType,
 		OccurredAt: timestamppb.Now(),
 		Principal:  principal,

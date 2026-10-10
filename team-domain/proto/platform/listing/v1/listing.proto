@@ -28,10 +28,22 @@ service ListingService {
   rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
   // GetCategory returns details of a single category by id.
   rpc GetCategory(GetCategoryRequest) returns (GetCategoryResponse);
+  // Stock reservations (service-only: a SERVICE principal with listing.write; not
+  // routed at the edge). A reservation is keyed by reservation_id and moves
+  // active -> committed | released; only an active reservation expires and is
+  // restored by the TTL sweeper.
+  //
   // ReserveStock atomically reserves inventory for checkout (called by team-order).
+  // reservation_id is required; reserving an id that was already released fails.
   rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
-  // ReleaseStock releases previously reserved inventory when an order is cancelled.
+  // ReleaseStock releases a reservation by reservation_id, restoring the quantity
+  // stored with it exactly once; an unknown, swept or already released id is a
+  // no-op. listing_id, variant_id and quantity are informational.
   rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+  // CommitReservation makes an active reservation permanent once its order is
+  // placed, so the TTL sweeper never restores it. Idempotent for an already
+  // committed reservation; a released reservation cannot be committed.
+  rpc CommitReservation(CommitReservationRequest) returns (CommitReservationResponse);
 
   // ── Seller Storefront ──
   // UpsertStorefront creates or replaces the calling seller's storefront page.
@@ -167,6 +179,12 @@ message ReleaseStockRequest {
 message ReleaseStockResponse {
   bool success = 1;
 }
+
+message CommitReservationRequest {
+  string reservation_id = 1;
+}
+
+message CommitReservationResponse {}
 
 message Category {
   string id = 1;

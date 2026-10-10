@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
-	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
@@ -19,12 +19,18 @@ import (
 var (
 	ErrEmptyCart             = errors.New("cart is empty")
 	ErrInsufficientStock     = errors.New("insufficient stock for item")
+	ErrSelfPurchase          = errors.New("cannot buy your own listing")
 	ErrInvalidStatus         = errors.New("invalid order status transition")
 	ErrInvalidReturnReason   = errors.New("return reason is required")
 	ErrInvalidRefundAmount   = errors.New("invalid refund amount")
 	ErrUnauthorizedReturn    = errors.New("only buyer can request return for this order")
 	ErrOrderCannotBeReturned = errors.New("order cannot be returned in current status")
 	ErrInvalidReturnStatus   = errors.New("invalid return status transition")
+	// ErrNothingToReturn: the order's non-rejected returns already cover its total.
+	ErrNothingToReturn = errors.New("order has no returnable amount left")
+	// ErrNotPaidOnline: a return of an order with no paid_at (never paid through
+	// team-payment, e.g. cash on delivery) cannot be moved to REFUNDED.
+	ErrNotPaidOnline = errors.New("order was not paid online; cash-on-delivery refunds are handled outside the system")
 )
 
 type OrderService struct {
@@ -40,6 +46,10 @@ type OrderService struct {
 
 	reservationTTL time.Duration
 	releaseCfg     releaseRetryConfig
+
+	// placer places a checkout's orders and binds their reservations atomically
+	// (design D6). Resolved in NewOrderService.
+	placer repository.OrderPlacer
 }
 
 func NewOrderService(
@@ -76,6 +86,14 @@ func NewOrderService(
 	for _, opt := range opts {
 		opt(s)
 	}
+	if s.placer == nil {
+		s.placer = defaultPlacer(orderRepo, s.sagaRepo)
+	}
+	// The in-memory saga store answers "reservations of Cancelled orders" through
+	// the order store (Postgres joins); bind it for local/test wiring.
+	if b, ok := s.sagaRepo.(interface{ BindOrders(repository.OrderReader) }); ok && orderRepo != nil {
+		b.BindOrders(orderRepo)
+	}
 	return s
 }
 
@@ -97,242 +115,310 @@ func (s *OrderService) CreateOrdersFromCart(
 	targetItemIDs []string,
 	paymentMethod int32,
 	voucherCode string,
+	checkoutOpts ...CheckoutOption,
 ) ([]repository.Order, error) {
-	cartItems, err := s.cartRepo.GetCart(ctx, buyerID)
-	if err != nil {
-		return nil, fmt.Errorf("get cart: %w", err)
-	}
-	if len(cartItems) == 0 {
-		return nil, ErrEmptyCart
+	var cfg checkoutConfig
+	for _, opt := range checkoutOpts {
+		opt(&cfg)
 	}
 
-	// Filter target items if specified
-	var itemsToCheckout []repository.CartItem
-	if len(targetItemIDs) > 0 {
-		idMap := make(map[string]struct{}, len(targetItemIDs))
-		for _, id := range targetItemIDs {
-			idMap[id] = struct{}{}
+	// With a client key the saga header is the dedupe record (design D8), taken
+	// BEFORE the cart is read: a replay must work after the first attempt emptied
+	// the cart, and concurrent same-key requests collapse here, before reserving.
+	var saga repository.Saga
+	keyed := cfg.idempotencyKey != ""
+	if keyed {
+		sg, created, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID, IdempotencyKey: cfg.idempotencyKey})
+		if err != nil {
+			return nil, fmt.Errorf("create saga: %w", err)
 		}
-		for _, it := range cartItems {
-			if _, ok := idMap[it.ID]; ok {
-				itemsToCheckout = append(itemsToCheckout, it)
+		if !created {
+			return s.replayCheckout(ctx, buyerID, sg)
+		}
+		saga = sg
+	}
+	// abandon frees the key of a keyed saga whose checkout never reserved anything.
+	abandon := func(cause error) ([]repository.Order, error) {
+		if keyed {
+			bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+			defer cancel()
+			if err := s.sagaRepo.UpdateSagaStatus(bg, saga.ID, repository.SagaStatusFailed); err != nil {
+				s.logger.ErrorContext(ctx, "failed to free the idempotency key of an abandoned checkout",
+					slog.String("saga_id", saga.ID), slog.Any("err", err))
 			}
-		}
-	} else {
-		itemsToCheckout = cartItems
-	}
-
-	if len(itemsToCheckout) == 0 {
-		return nil, ErrEmptyCart
-	}
-
-	// Group items by seller_id for multi-vendor orders
-	sellerGroups := make(map[string][]repository.CartItem)
-	for _, it := range itemsToCheckout {
-		sellerID := it.SellerID
-		if sellerID == "" {
-			sellerID = "unknown_seller"
-		}
-		sellerGroups[sellerID] = append(sellerGroups[sellerID], it)
-	}
-
-	// Persist a durable saga header so reservations are recoverable across a
-	// crash/restart (AD3). Compensation always fetches reservation state from this
-	// store — never from a request-scoped in-memory slice that a crash would lose.
-	saga, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID})
-	if err != nil {
-		return nil, fmt.Errorf("create saga: %w", err)
-	}
-	expiresAt := time.Now().Add(s.reservationTTL)
-
-	// voucherReservationID is the id of the voucher hold placed for this checkout
-	// (empty until a voucher is reserved). It equals the order id it discounts so
-	// compensation and the settle-time commit can address the same hold with only
-	// the order id (see redemption.go). Captured by the compensation closure below.
-	var voucherReservationID string
-
-	// failAndCompensate releases the stock held by this saga's un-committed
-	// reservations. It reads the durable reservation set (not a cached slice) so
-	// COMMITTED rows — those of already-persisted seller-orders — are skipped and
-	// their stock is never released (M7). It uses a background context because the
-	// request context may already be cancelled/timed out (AD3). Any voucher hold
-	// placed for this checkout is released on the same background context.
-	failAndCompensate := func(cause error) ([]repository.Order, error) {
-		bg := context.Background()
-		all, lerr := s.sagaRepo.ListReservationsBySaga(bg, saga.ID)
-		if lerr != nil {
-			s.logger.ErrorContext(bg, "failed to load reservations for compensation",
-				slog.String("saga_id", saga.ID), slog.Any("err", lerr))
-		}
-		s.compensate(all)
-		s.releaseVoucher(bg, voucherReservationID)
-		if uerr := s.sagaRepo.UpdateSagaStatus(bg, saga.ID, repository.SagaStatusCompensated); uerr != nil {
-			s.logger.ErrorContext(bg, "failed to mark saga compensated",
-				slog.String("saga_id", saga.ID), slog.Any("err", uerr))
 		}
 		return nil, cause
 	}
 
-	var createdOrders []repository.Order
-	var checkedOutCartItemIDs []string
+	cartItems, err := s.cartRepo.GetCart(ctx, buyerID)
+	if err != nil {
+		return abandon(fmt.Errorf("get cart: %w", err))
+	}
+	itemsToCheckout := selectItems(cartItems, targetItemIDs)
+	if len(itemsToCheckout) == 0 {
+		return abandon(ErrEmptyCart)
+	}
 
-	// Process one seller-order at a time: reserve its items, persist the order,
-	// then COMMIT its reservations. A failure for a later seller therefore only
-	// releases the failing seller's un-committed reservations (M7).
-	for sellerID, group := range sellerGroups {
-		var sellerReservations []repository.Reservation
-		var orderItems []repository.OrderItem
-		var itemsSubtotal int64
-
-		for _, it := range group {
-			resID := ReservationID(buyerID, it) // AD5/M6: stable per (cart_item, attempt)
-			res := repository.Reservation{
-				ID:        resID,
-				SagaID:    saga.ID,
-				SellerID:  sellerID,
-				BuyerID:   buyerID,
-				ListingID: it.ListingID,
-				VariantID: it.VariantID,
-				Quantity:  it.Quantity,
-				Status:    repository.ReservationStatusPending,
-				ExpiresAt: expiresAt,
-			}
-			// Persist reservation intent BEFORE the external effect (AD3).
-			if _, cerr := s.sagaRepo.CreateReservation(ctx, res); cerr != nil {
-				return failAndCompensate(fmt.Errorf("persist reservation: %w", cerr))
-			}
-
-			resp, rerr := s.domainClient.ReserveStock(ctx, &listingv1.ReserveStockRequest{
-				ListingId:     it.ListingID,
-				VariantId:     it.VariantID,
-				Quantity:      it.Quantity,
-				ReservationId: resID,
-			})
-			// team-domain reports "insufficient stock" as a normal response with
-			// Success=false and no transport error, so both outcomes are a failed hold.
-			if rerr == nil && !resp.GetSuccess() {
-				rerr = fmt.Errorf("reserve stock declined: %s", resp.GetMessage())
-			}
-			if rerr != nil {
-				s.logger.WarnContext(ctx, "stock reservation failed",
-					slog.String("listing_id", it.ListingID),
-					slog.String("variant_id", it.VariantID),
-					slog.Int("qty", int(it.Quantity)),
-					slog.Any("err", rerr),
-				)
-				// This reservation never held stock — mark FAILED so the sweep skips it.
-				if uerr := s.sagaRepo.UpdateReservationStatus(ctx, resID, repository.ReservationStatusFailed); uerr != nil {
-					s.logger.WarnContext(ctx, "failed to mark reservation failed",
-						slog.String("reservation_id", resID), slog.Any("err", uerr))
-				}
-				return failAndCompensate(fmt.Errorf("%w: %s (%v)", ErrInsufficientStock, it.Title, rerr))
-			}
-			// Stock is now held; record that durably so the sweep/compensation can
-			// reclaim it if we crash before the order persists (fixes SA-C2).
-			if uerr := s.sagaRepo.UpdateReservationStatus(ctx, resID, repository.ReservationStatusReserved); uerr != nil {
-				s.logger.WarnContext(ctx, "failed to mark reservation reserved",
-					slog.String("reservation_id", resID), slog.Any("err", uerr))
-			}
-			res.Status = repository.ReservationStatusReserved
-			sellerReservations = append(sellerReservations, res)
-
-			orderItems = append(orderItems, repository.OrderItem{
-				ListingID:   it.ListingID,
-				VariantID:   it.VariantID,
-				Title:       it.Title,
-				VariantName: it.VariantName,
-				Quantity:    it.Quantity,
-				UnitPrice:   it.UnitPrice,
-				ImageURL:    it.ImageURL,
-			})
-			itemsSubtotal += it.UnitPrice * int64(it.Quantity)
+	// A buyer may not buy their own listing: reject the whole checkout before any
+	// stock or voucher is reserved.
+	for _, it := range itemsToCheckout {
+		if it.SellerID != "" && it.SellerID == buyerID {
+			return abandon(ErrSelfPurchase)
 		}
+	}
 
-		shippingFee, _, _ := s.CalculateShippingFee(shippingAddr.City, itemsSubtotal)
-		totalAmount := itemsSubtotal + shippingFee
-
-		if paymentMethod <= 0 {
-			paymentMethod = 1 // default COD
-		}
-
-		// Voucher redemption (W1-T2): apply once per checkout, on the first
-		// seller-order. The order id is pre-generated and used as the reservation_id
-		// (idempotency key) so CommitReservation on PaymentSettled and
-		// ReleaseReservation on cancel/compensation address the same hold with just
-		// the order id. Empty voucher_code, or no promotion client, leaves this path
-		// byte-for-byte unchanged from the pre-voucher behavior. A declined voucher
-		// aborts the saga (ErrVoucherRejected → FailedPrecondition), releasing the
-		// stock reserved so far — it is never silently dropped.
-		orderID := uuid.NewString()
-		var discountAmount int64
-		var appliedVoucher string
-		if voucherCode != "" && s.promo != nil && voucherReservationID == "" {
-			discount, verr := s.reserveVoucher(ctx, orderID, voucherCode, buyerID, itemsSubtotal, sellerID)
-			if verr != nil {
-				return failAndCompensate(verr)
-			}
-			discountAmount = discount
-			appliedVoucher = voucherCode
-			voucherReservationID = orderID
-			totalAmount = itemsSubtotal + shippingFee - discountAmount
-			if totalAmount < 0 {
-				totalAmount = 0 // floor at 0: a discount never yields a negative total
-			}
-		}
-
-		order := repository.Order{
-			ID:              orderID,
-			BuyerID:         buyerID,
-			SellerID:        sellerID,
-			Status:          repository.OrderStatusPending,
-			TotalAmount:     totalAmount,
-			ItemsSubtotal:   itemsSubtotal,
-			ShippingFee:     shippingFee,
-			PaymentMethod:   paymentMethod,
-			Currency:        "VND",
-			ShippingAddress: shippingAddr,
-			Items:           orderItems,
-			VoucherCode:     appliedVoucher,
-			DiscountAmount:  discountAmount,
-		}
-
-		savedOrder, err := s.orderRepo.CreateOrder(ctx, order)
+	if !keyed {
+		// One durable saga header per checkout attempt (AD3).
+		sg, _, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID})
 		if err != nil {
-			s.logger.ErrorContext(ctx, "failed to persist order", slog.Any("err", err))
-			return failAndCompensate(fmt.Errorf("create order: %w", err))
+			return nil, fmt.Errorf("create saga: %w", err)
 		}
+		saga = sg
+	}
+	return s.runCheckout(ctx, saga, buyerID, shippingAddr, itemsToCheckout, paymentMethod, voucherCode)
+}
 
-		// Order is durably persisted → COMMIT its reservations (M7): from here their
-		// stock is owned by a real order and must never be released.
-		for i := range sellerReservations {
-			if uerr := s.sagaRepo.CommitReservation(ctx, sellerReservations[i].ID, savedOrder.ID); uerr != nil {
-				s.logger.WarnContext(ctx, "failed to commit reservation",
-					slog.String("reservation_id", sellerReservations[i].ID), slog.Any("err", uerr))
+// selectItems returns the cart items to check out: all of them, or only those
+// whose id is in targetItemIDs.
+func selectItems(cartItems []repository.CartItem, targetItemIDs []string) []repository.CartItem {
+	if len(targetItemIDs) == 0 {
+		return cartItems
+	}
+	idMap := make(map[string]struct{}, len(targetItemIDs))
+	for _, id := range targetItemIDs {
+		idMap[id] = struct{}{}
+	}
+	var out []repository.CartItem
+	for _, it := range cartItems {
+		if _, ok := idMap[it.ID]; ok {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// sellerGroup is one seller's share of a checkout: its cart items, the order id
+// they are placed under (pre-generated) and what reserving them produced.
+type sellerGroup struct {
+	sellerID string
+	orderID  string
+	items    []repository.CartItem
+
+	reservations   []repository.Reservation
+	orderItems     []repository.OrderItem
+	itemsSubtotal  int64
+	discountAmount int64
+	voucherCode    string
+}
+
+// groupBySeller splits items by seller (multi-vendor), sorted by seller id so a
+// checkout is deterministic, with one pre-generated order id per group.
+func groupBySeller(items []repository.CartItem) []*sellerGroup {
+	bySeller := map[string]*sellerGroup{}
+	var ids []string
+	for _, it := range items {
+		sellerID := it.SellerID
+		if sellerID == "" {
+			sellerID = "unknown_seller"
+		}
+		g, ok := bySeller[sellerID]
+		if !ok {
+			g = &sellerGroup{sellerID: sellerID, orderID: uuid.NewString()}
+			bySeller[sellerID] = g
+			ids = append(ids, sellerID)
+		}
+		g.items = append(g.items, it)
+	}
+	sort.Strings(ids)
+	out := make([]*sellerGroup, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, bySeller[id])
+	}
+	return out
+}
+
+// runCheckout turns the selected cart items into orders, all of them or none
+// (design D6):
+//
+//	A. reserve every item of every seller group (sorted), plus the voucher hold on
+//	   the first group;
+//	B. commit every reservation in team-domain, so its TTL sweep can no longer
+//	   restore the stock of an order about to exist;
+//	C. place every order and bind its reservations in one order_db transaction
+//	   (OrderPlacer), which also completes the saga.
+//
+// Any failure in A or B, or a definite failure in C, compensates every hold of the
+// attempt. An ambiguous C error is reconciled by looking the pre-generated order
+// ids up before anything is released.
+func (s *OrderService) runCheckout(
+	ctx context.Context,
+	saga repository.Saga,
+	buyerID string,
+	shippingAddr repository.Address,
+	items []repository.CartItem,
+	paymentMethod int32,
+	voucherCode string,
+) ([]repository.Order, error) {
+	groups := groupBySeller(items)
+	expiresAt := time.Now().Add(s.reservationTTL)
+	if paymentMethod <= 0 {
+		paymentMethod = 1 // default COD
+	}
+
+	// voucherReservationID is the voucher hold placed for this checkout (empty until
+	// one is placed). It equals the order id it discounts, so compensation, cancel
+	// and the settle-time commit address the same hold with only the order id.
+	var voucherReservationID string
+	fail := func(cause error) ([]repository.Order, error) {
+		s.failAndCompensate(saga.ID, voucherReservationID)
+		return nil, cause
+	}
+
+	// Phase A — reserve every group.
+	for idx, g := range groups {
+		if err := s.reserveGroup(ctx, g, buyerID, saga.ID, expiresAt); err != nil {
+			return fail(err)
+		}
+		// Voucher redemption (W1-T2): once per checkout, on the first seller group.
+		// A declined voucher aborts the checkout (ErrVoucherRejected).
+		if idx == 0 && voucherCode != "" && s.promo != nil {
+			discount, verr := s.reserveVoucher(ctx, g.orderID, voucherCode, buyerID, g.itemsSubtotal, g.sellerID)
+			if verr != nil {
+				return fail(verr)
 			}
-		}
-
-		createdOrders = append(createdOrders, savedOrder)
-		for _, it := range group {
-			checkedOutCartItemIDs = append(checkedOutCartItemIDs, it.ID)
+			g.discountAmount = discount
+			g.voucherCode = voucherCode
+			voucherReservationID = g.orderID
 		}
 	}
 
-	if uerr := s.sagaRepo.UpdateSagaStatus(ctx, saga.ID, repository.SagaStatusCompleted); uerr != nil {
-		s.logger.WarnContext(ctx, "failed to mark saga completed",
-			slog.String("saga_id", saga.ID), slog.Any("err", uerr))
+	// Phase B — make every reservation permanent in team-domain before any order
+	// row exists.
+	var all []repository.Reservation
+	for _, g := range groups {
+		all = append(all, g.reservations...)
+	}
+	if err := s.commitDomainReservations(ctx, all); err != nil {
+		return fail(err)
 	}
 
-	// Remove checked-out items from the cart. The orders already exist, so this is
-	// best-effort — but a failure must be handled, not silently discarded.
-	if err := s.cartRepo.RemoveItems(ctx, buyerID, checkedOutCartItemIDs); err != nil {
+	// Phase C — place every order and bind its reservations in one transaction.
+	placed := make([]repository.PlacedOrder, 0, len(groups))
+	var checkedOut []string
+	for _, g := range groups {
+		shippingFee, _, _ := s.CalculateShippingFee(shippingAddr.City, g.itemsSubtotal)
+		total := g.itemsSubtotal + shippingFee - g.discountAmount
+		if total < 0 {
+			total = 0 // a discount never yields a negative total
+		}
+		resIDs := make([]string, 0, len(g.reservations))
+		for _, r := range g.reservations {
+			resIDs = append(resIDs, r.ID)
+		}
+		placed = append(placed, repository.PlacedOrder{
+			Order: repository.Order{
+				ID:              g.orderID,
+				BuyerID:         buyerID,
+				SellerID:        g.sellerID,
+				Status:          repository.OrderStatusPending,
+				TotalAmount:     total,
+				ItemsSubtotal:   g.itemsSubtotal,
+				ShippingFee:     shippingFee,
+				PaymentMethod:   paymentMethod,
+				Currency:        "VND",
+				ShippingAddress: shippingAddr,
+				Items:           g.orderItems,
+				VoucherCode:     g.voucherCode,
+				DiscountAmount:  g.discountAmount,
+			},
+			ReservationIDs: resIDs,
+		})
+		for _, it := range g.items {
+			checkedOut = append(checkedOut, it.ID)
+		}
+	}
+
+	created, perr := s.placer.PlaceOrders(ctx, saga.ID, placed)
+	if perr != nil {
+		if errors.Is(perr, repository.ErrReservationLost) {
+			// Definite: the transaction rolled back because a reservation (or the
+			// attempt) is gone. Nothing was placed.
+			return fail(fmt.Errorf("place orders: %w", perr))
+		}
+		// An error is not proof that nothing was written (lost commit ack, deadline):
+		// find out before releasing anything.
+		s.logger.ErrorContext(ctx, "order placement failed; reconciling before compensating",
+			slog.String("saga_id", saga.ID), slog.Any("err", perr))
+		existing, outcome := s.reconcilePlacement(placed)
+		switch outcome {
+		case placementAbsent:
+			return fail(fmt.Errorf("place orders: %w", perr))
+		case placementComplete:
+			s.logger.WarnContext(ctx, "placement reported an error but every order exists; treating the checkout as placed",
+				slog.String("saga_id", saga.ID))
+			created = existing
+		default:
+			return nil, fmt.Errorf("%w: %v", ErrPlacementUnknown, perr)
+		}
+	}
+
+	// The orders exist; removing the checked-out items is best effort.
+	s.clearCart(buyerID, checkedOut)
+	return created, nil
+}
+
+// clearCart removes checked-out items on a fresh context (the orders already
+// exist, so a cancelled request must not leave them in the cart).
+func (s *OrderService) clearCart(buyerID string, itemIDs []string) {
+	if len(itemIDs) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	defer cancel()
+	if err := s.cartRepo.RemoveItems(ctx, buyerID, itemIDs); err != nil {
 		s.logger.ErrorContext(ctx, "failed to remove checked-out items from cart",
 			slog.String("buyer_id", buyerID),
-			slog.Int("item_count", len(checkedOutCartItemIDs)),
+			slog.Int("item_count", len(itemIDs)),
 			slog.Any("err", err),
 		)
 	}
+}
 
-	return createdOrders, nil
+// reserveGroup persists a reservation for every item of the group BEFORE asking
+// team-domain to hold its stock (AD3), recording the order items and subtotal.
+func (s *OrderService) reserveGroup(ctx context.Context, g *sellerGroup, buyerID, sagaID string, expiresAt time.Time) error {
+	for _, it := range g.items {
+		res := repository.Reservation{
+			ID:        ReservationID(sagaID, it), // attempt-scoped (D7)
+			SagaID:    sagaID,
+			SellerID:  g.sellerID,
+			BuyerID:   buyerID,
+			ListingID: it.ListingID,
+			VariantID: it.VariantID,
+			Quantity:  it.Quantity,
+			Status:    repository.ReservationStatusPending,
+			ExpiresAt: expiresAt,
+		}
+		if _, err := s.sagaRepo.CreateReservation(ctx, res); err != nil {
+			return fmt.Errorf("persist reservation: %w", err)
+		}
+		if err := s.reserveStock(ctx, res, it.Title); err != nil {
+			return err
+		}
+		res.Status = repository.ReservationStatusReserved
+		g.reservations = append(g.reservations, res)
+		g.orderItems = append(g.orderItems, repository.OrderItem{
+			ListingID:   it.ListingID,
+			VariantID:   it.VariantID,
+			Title:       it.Title,
+			VariantName: it.VariantName,
+			Quantity:    it.Quantity,
+			UnitPrice:   it.UnitPrice,
+			ImageURL:    it.ImageURL,
+		})
+		g.itemsSubtotal += it.UnitPrice * int64(it.Quantity)
+	}
+	return nil
 }
 
 func (s *OrderService) GetOrder(ctx context.Context, id string) (repository.Order, error) {
@@ -347,69 +433,102 @@ func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, st
 	return s.orderRepo.ListSellerOrders(ctx, sellerID, statusFilter)
 }
 
-// sellerTransitions lists the status changes a seller (or admin) may drive
-// through the UpdateOrderStatus RPC. PAID is deliberately absent as a target:
-// payment settlement drives it via the payment.events consumer. CANCELLED is
-// absent too: cancelling goes through CancelOrder so stock is released.
-var sellerTransitions = map[repository.OrderStatus][]repository.OrderStatus{
-	repository.OrderStatusPending: {repository.OrderStatusShipped}, // COD hand-over
-	repository.OrderStatusPaid:    {repository.OrderStatusShipped},
-	repository.OrderStatusShipped: {repository.OrderStatusCompleted},
+// UpdateOrderStatus applies a status change requested through the
+// UpdateOrderStatus RPC by an actor class (the handler resolves it: the order's
+// seller, or an admin acting as seller). Cancelling is never possible here (it
+// goes through CancelOrder so stock is released). A target the class may never
+// request is ErrActorForbidden; a permitted target from the wrong status is
+// ErrInvalidStatus, decided by the compare-and-set write itself.
+func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor Actor, to repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+	if to == repository.OrderStatusCancelled {
+		return repository.Order{}, ErrActorForbidden
+	}
+	from := AllowedFrom(to, actor)
+	if len(from) == 0 {
+		return repository.Order{}, ErrActorForbidden
+	}
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber)
+	if errors.Is(err, repository.ErrStatusConflict) {
+		return repository.Order{}, fmt.Errorf("%w: order cannot move to %v from its current status", ErrInvalidStatus, to)
+	}
+	return updated, err
 }
 
-// UpdateOrderStatus moves an order along a valid seller transition; any other
-// transition (including to PAID) returns ErrInvalidStatus.
-func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	order, err := s.orderRepo.GetOrder(ctx, id)
-	if err != nil {
-		return repository.Order{}, err
-	}
-	allowed := false
-	for _, to := range sellerTransitions[order.Status] {
-		if to == status {
-			allowed = true
-			break
-		}
-	}
-	if !allowed {
-		return repository.Order{}, fmt.Errorf("%w: %v -> %v", ErrInvalidStatus, order.Status, status)
-	}
-	return s.orderRepo.UpdateOrderStatus(ctx, id, status, trackingNumber)
+// CancelResult is a won cancel: the cancelled order, and whether a stock release
+// is still outstanding (parked RELEASE_FAILED for the sweep). The order IS
+// Cancelled either way; ReleasePending only says the stock is not back yet.
+type CancelResult struct {
+	repository.Order
+	ReleasePending bool
 }
 
-func (s *OrderService) CancelOrder(ctx context.Context, id string) (repository.Order, error) {
-	order, err := s.orderRepo.GetOrder(ctx, id)
+// CancelOrder claims Cancelled FIRST with the compare-and-set write (from Pending
+// or Paid, design D10). Only the caller that wins the claim then releases the
+// order's own reservations by their original ids and the voucher hold placed for
+// it, so concurrent cancels restore stock once and a Shipped/Completed/Cancelled
+// order releases nothing (ErrInvalidStatus). A failing release is parked
+// RELEASE_FAILED and retried by the sweep, which also releases reservations still
+// held by a Cancelled order (a crash between claim and release). A voucher release
+// failure is logged and never fails the cancel.
+func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult, error) {
+	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
 	if err != nil {
-		return repository.Order{}, err
+		if errors.Is(err, repository.ErrStatusConflict) {
+			msg := "order is not in a cancellable status"
+			if cur, gerr := s.orderRepo.GetOrder(ctx, id); gerr == nil {
+				msg = fmt.Sprintf("cannot cancel order in status %v", cur.Status)
+			}
+			return CancelResult{}, fmt.Errorf("%w: %s", ErrInvalidStatus, msg)
+		}
+		return CancelResult{}, err
 	}
 
-	if order.Status == repository.OrderStatusCancelled || order.Status == repository.OrderStatusCompleted {
-		return repository.Order{}, fmt.Errorf("%w: cannot cancel order in status %v", ErrInvalidStatus, order.Status)
-	}
+	// Everything after the claim runs on a fresh context (AD3): the request may be
+	// gone, and neither release may be abandoned because of it. The budget is the
+	// short inline one: a release that cannot finish in time is parked and the
+	// sweep retries it, so the buyer's cancel still succeeds.
+	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.inlineTimeout)
+	defer cancel()
 
-	// Release stock for all items in the cancelled order
-	for _, it := range order.Items {
-		// Idempotent release: a stable cancel-scoped reservation_id so a retried
-		// cancel does not double-restore stock (parity with saga compensation, AD5).
-		relID := ReservationID(order.BuyerID, repository.CartItem{
-			ID: "cancel:" + it.ID, ListingID: it.ListingID, VariantID: it.VariantID, Quantity: it.Quantity,
-		})
-		_, err := s.domainClient.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
-			ListingId:     it.ListingID,
-			VariantId:     it.VariantID,
-			Quantity:      it.Quantity,
-			ReservationId: relID,
-		})
-		if err != nil {
-			s.logger.WarnContext(ctx, "failed to release stock on cancel",
-				slog.String("order_id", id),
-				slog.String("listing_id", it.ListingID),
-				slog.Any("err", err),
-			)
+	pending, rerr := s.releaseOrderReservations(bg, claimed)
+	if rerr != nil {
+		// The order is Cancelled; its reservations still hold stock and the sweep
+		// releases them. Never fail a cancel the buyer has been granted.
+		s.logger.ErrorContext(ctx, "order cancelled but its release could not be recorded; the sweep will release it",
+			slog.String("order_id", claimed.ID), slog.Any("err", rerr))
+		pending = true
+	}
+	if claimed.VoucherCode != "" {
+		s.releaseVoucher(bg, claimed.ID) // the hold id is the order id
+	}
+	return CancelResult{Order: claimed, ReleasePending: pending}, nil
+}
+
+// releaseOrderReservations releases every reservation of the order that still
+// holds stock (COMMITTED, or parked RELEASE_FAILED) by its original id. pending is
+// true when any release was parked for the sweep.
+func (s *OrderService) releaseOrderReservations(ctx context.Context, order repository.Order) (pending bool, err error) {
+	reservations, err := s.sagaRepo.ListReservationsByOrder(ctx, order.ID)
+	if err != nil {
+		return true, fmt.Errorf("load reservations of order %s: %w", order.ID, err)
+	}
+	if len(reservations) == 0 && len(order.Items) > 0 {
+		s.logger.WarnContext(ctx, "cancelled order has no reservations to release (placed before reservation tracking?)",
+			slog.String("order_id", order.ID))
+	}
+	for _, res := range reservations {
+		if res.Status != repository.ReservationStatusCommitted && res.Status != repository.ReservationStatusReleaseFailed {
+			continue
+		}
+		released, perr := s.releaseOrPark(ctx, res)
+		if perr != nil {
+			return true, perr
+		}
+		if !released {
+			pending = true
 		}
 	}
-
-	return s.orderRepo.UpdateOrderStatus(ctx, id, repository.OrderStatusCancelled, "")
+	return pending, nil
 }
 
 // ── RMA / Return Management ──
@@ -435,33 +554,43 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 		return repository.OrderReturn{}, fmt.Errorf("%w: status %v", ErrOrderCannotBeReturned, order.Status)
 	}
 
-	if refundAmount <= 0 {
-		refundAmount = order.TotalAmount
-	} else if refundAmount > order.TotalAmount {
-		return repository.OrderReturn{}, fmt.Errorf("%w: refund amount %d exceeds order total %d", ErrInvalidRefundAmount, refundAmount, order.TotalAmount)
-	}
-
 	req := repository.OrderReturn{
 		OrderID:      orderID,
 		BuyerID:      buyerID,
 		SellerID:     order.SellerID,
 		Reason:       reason,
-		RefundAmount: refundAmount,
+		RefundAmount: refundAmount, // <= 0 means "the remainder"
 		Status:       repository.ReturnStatusPending,
 	}
 
-	created, err := s.returnRepo.CreateReturn(ctx, req)
+	// The cap (order total minus the order's non-rejected returns) is checked and
+	// the return inserted under one per-order lock, so concurrent requests never
+	// exceed the order total.
+	created, err := s.returnRepo.CreateReturnCapped(ctx, req, order.TotalAmount)
 	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrReturnExceedsRemainder):
+			return repository.OrderReturn{}, fmt.Errorf("%w: %v", ErrInvalidRefundAmount, err)
+		case errors.Is(err, repository.ErrNoReturnableRemainder):
+			return repository.OrderReturn{}, ErrNothingToReturn
+		case errors.Is(err, repository.ErrOrderNotFound):
+			return repository.OrderReturn{}, err
+		}
 		return repository.OrderReturn{}, fmt.Errorf("create return in repo: %w", err)
 	}
-
 	s.logger.InfoContext(ctx, "created return request",
 		slog.String("return_id", created.ID),
 		slog.String("order_id", orderID),
-		slog.Int64("refund_amount", refundAmount),
+		slog.Int64("refund_amount", created.RefundAmount),
 	)
 
 	return created, nil
+}
+
+// ListOrderReturns lists an order's returns, newest first. Authorisation (the
+// order's buyer, seller or an admin) is the caller's job.
+func (s *OrderService) ListOrderReturns(ctx context.Context, orderID string) ([]repository.OrderReturn, error) {
+	return s.returnRepo.ListReturnsByOrder(ctx, orderID)
 }
 
 func (s *OrderService) GetReturnRequest(ctx context.Context, id string) (repository.OrderReturn, error) {
@@ -486,10 +615,30 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 		}
 	case repository.ReturnStatusRejected, repository.ReturnStatusRefunded:
 		return repository.OrderReturn{}, fmt.Errorf("%w: return is already in terminal state %v", ErrInvalidReturnStatus, existing.Status)
+	default:
+		return repository.OrderReturn{}, fmt.Errorf("%w: unknown return status %v", ErrInvalidReturnStatus, existing.Status)
 	}
 
-	updated, err := s.returnRepo.UpdateReturnStatus(ctx, id, newStatus)
+	// Only an order paid through team-payment can have its return refunded in the
+	// system (design D5). paid_at is written only by the Pending -> Paid CAS and
+	// never cleared, so checking it outside the transition cannot be raced.
+	if newStatus == repository.ReturnStatusRefunded {
+		order, err := s.orderRepo.GetOrder(ctx, existing.OrderID)
+		if err != nil {
+			return repository.OrderReturn{}, fmt.Errorf("get order %s of return %s: %w", existing.OrderID, id, err)
+		}
+		if order.PaidAt == nil {
+			return repository.OrderReturn{}, ErrNotPaidOnline
+		}
+	}
+
+	// A compare-and-set from the status read above: a concurrent transition that
+	// got there first makes this one lose (ErrInvalidReturnStatus).
+	updated, err := s.returnRepo.TransitionReturn(ctx, id, existing.Status, newStatus)
 	if err != nil {
+		if errors.Is(err, repository.ErrReturnStatusConflict) {
+			return repository.OrderReturn{}, fmt.Errorf("%w: return status changed concurrently", ErrInvalidReturnStatus)
+		}
 		return repository.OrderReturn{}, err
 	}
 
@@ -504,20 +653,19 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 
 // ── Shipment & Logistics Tracking ──
 
+// CreateShipment claims Shipped FIRST with the compare-and-set write (from Pending
+// for a cash-on-delivery hand-over, or Paid) and creates the shipment, with its
+// OrderShipped outbox row, only if that claim won (design D12). An order in any
+// other status is ErrInvalidStatus and gets no shipment. A shipment insert that
+// fails after a won claim is returned (INTERNAL) and logged for a manual fix; a
+// retry then conflicts because the order is already Shipped.
 func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, trackingCode string) (repository.Shipment, error) {
 	if orderID == "" {
 		return repository.Shipment{}, repository.ErrOrderNotFound
 	}
-
-	order, err := s.orderRepo.GetOrder(ctx, orderID)
-	if err != nil {
-		return repository.Shipment{}, err
-	}
-
 	if carrier == "" {
 		carrier = "SPX"
 	}
-
 	if trackingCode == "" {
 		orderShort := orderID
 		if len(orderShort) > 8 {
@@ -526,32 +674,39 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 		trackingCode = fmt.Sprintf("%s-VN-%s-%d", strings.ToUpper(carrier), strings.ToUpper(orderShort), time.Now().Unix()%1000000)
 	}
 
-	now := time.Now()
-	initialCheckpoint := repository.ShipmentCheckpoint{
-		Timestamp:   now,
-		Location:    "Trung tâm phân loại & Bưu cục tiếp nhận",
-		Description: fmt.Sprintf("Người bán đã bàn giao kiện hàng cho đơn vị vận chuyển %s", carrier),
-		CreatedAt:   now,
+	order, err := s.orderRepo.UpdateOrderStatusFrom(ctx, orderID, repository.OrderStatusShipped,
+		AllowedFrom(repository.OrderStatusShipped, ActorSeller), trackingCode)
+	if err != nil {
+		if errors.Is(err, repository.ErrStatusConflict) {
+			msg := "order cannot be shipped in its current status"
+			if cur, gerr := s.orderRepo.GetOrder(ctx, orderID); gerr == nil {
+				msg = fmt.Sprintf("order in status %v cannot be shipped", cur.Status)
+			}
+			return repository.Shipment{}, fmt.Errorf("%w: %s", ErrInvalidStatus, msg)
+		}
+		return repository.Shipment{}, err
 	}
 
+	now := time.Now()
 	shipment := repository.Shipment{
 		OrderID:      orderID,
 		Carrier:      carrier,
 		TrackingCode: trackingCode,
 		Status:       repository.ShipmentStatusPending,
-		Checkpoints:  []repository.ShipmentCheckpoint{initialCheckpoint},
-		BuyerID:      order.BuyerID,
-		SellerID:     order.SellerID,
+		Checkpoints: []repository.ShipmentCheckpoint{{
+			Timestamp:   now,
+			Location:    "Trung tâm phân loại & Bưu cục tiếp nhận",
+			Description: fmt.Sprintf("Người bán đã bàn giao kiện hàng cho đơn vị vận chuyển %s", carrier),
+			CreatedAt:   now,
+		}},
+		BuyerID:  order.BuyerID,
+		SellerID: order.SellerID,
 	}
-
 	created, err := s.shipmentRepo.CreateShipment(ctx, shipment)
 	if err != nil {
+		s.logger.ErrorContext(ctx, "order marked Shipped but its shipment could not be created; fix by hand",
+			slog.String("order_id", orderID), slog.String("tracking_code", trackingCode), slog.Any("err", err))
 		return repository.Shipment{}, fmt.Errorf("create shipment: %w", err)
-	}
-
-	// Update order status to SHIPPED and record tracking number if not yet shipped
-	if order.Status != repository.OrderStatusShipped {
-		_, _ = s.orderRepo.UpdateOrderStatus(ctx, orderID, repository.OrderStatusShipped, trackingCode)
 	}
 
 	s.logger.InfoContext(ctx, "created shipment tracking",
@@ -560,7 +715,6 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 		slog.String("carrier", carrier),
 		slog.String("tracking_code", trackingCode),
 	)
-
 	return created, nil
 }
 

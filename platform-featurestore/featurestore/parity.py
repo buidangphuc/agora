@@ -1,79 +1,86 @@
-"""Online-offline feature parity validation to detect training-serving skew."""
+"""Online/offline parity (design D5)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import hashlib
+import json
 import math
-from typing import Any
+from dataclasses import dataclass
+from pathlib import Path
 
-from featurestore.offline import OfflineFeatureStore
-from featurestore.online import OnlineFeatureStore
+import pyarrow.parquet as pq
 
-
-@dataclass
-class ParityReport:
-    is_consistent: bool
-    total_checked: int
-    mismatches: list[str] = field(default_factory=list)
+from featurestore.online import read_row
+from featurestore.settings import ConfigError
 
 
-def _values_match(v1: Any, v2: Any, tol: float = 1e-4) -> bool:
-    if v1 is None and v2 is None:
-        return True
-    if v1 is None or v2 is None:
-        return False
-    if isinstance(v1, (int, float)) and isinstance(v2, (int, float)):
-        return math.isclose(float(v1), float(v2), rel_tol=tol, abs_tol=tol)
-    return bool(v1 == v2)
+@dataclass(frozen=True)
+class Mismatch:
+    view: str
+    entity: str
+    feature: str
+    online: object
+    offline: object
+
+    def line(self) -> str:
+        return (
+            f"parity mismatch view={self.view} entity={self.entity} feature={self.feature} "
+            f"online={self.online} offline={self.offline}"
+        )
 
 
-def validate_parity(
-    online_store: OnlineFeatureStore,
-    offline_store: OfflineFeatureStore,
-    user_ids: list[str],
-    item_ids: list[str],
-    tolerance: float = 1e-4,
-) -> ParityReport:
-    """Validates parity across online and offline stores for given entities."""
-    mismatches: list[str] = []
-    total_checked = 0
+def values_equal(a, b) -> bool:
+    if (
+        isinstance(a, bool)
+        or isinstance(b, bool)
+        or not isinstance(a, (int, float))
+        or not isinstance(b, (int, float))
+    ):
+        return a == b
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)
 
-    for uid in user_ids:
-        total_checked += 1
-        on_u = online_store.get_user_features(uid)
-        off_u_list = offline_store.get_user_features([uid])
-        off_u = off_u_list[0] if off_u_list else None
 
-        if on_u is None and off_u is None:
+def sample_ids(ids: list[str], as_of_key: str, n: int) -> list[str]:
+    def h(i: str) -> str:
+        return hashlib.sha256(f"{i}|{as_of_key}".encode()).hexdigest()
+
+    return sorted(ids, key=h)[:n]
+
+
+def check_view(r, view: str, version: int, rows: list[dict], as_of_key: str, n: int) -> list[Mismatch]:
+    by_id = {row["entity_id"]: row for row in rows}
+    out: list[Mismatch] = []
+    for eid in sample_ids(list(by_id), as_of_key, n):
+        offline = {k: v for k, v in by_id[eid].items() if k != "entity_id"}
+        online = read_row(r, view, version, eid)
+        if online is None:
+            out.append(Mismatch(view, eid, "<row>", None, "present"))
             continue
-        if on_u is None or off_u is None:
-            mismatches.append(f"User {uid}: online={on_u is not None}, offline={off_u is not None}")
-            continue
+        for feat, ov in offline.items():
+            if feat not in online or not values_equal(online[feat], ov):
+                out.append(Mismatch(view, eid, feat, online.get(feat), ov))
+    return out
 
-        for k, v_on in on_u.to_dict().items():
-            v_off = getattr(off_u, k, None)
-            if not _values_match(v_on, v_off, tolerance):
-                mismatches.append(f"User {uid}.{k}: online={v_on} != offline={v_off}")
 
-    for lid in item_ids:
-        total_checked += 1
-        on_i = online_store.get_item_features(lid)
-        off_i_list = offline_store.get_item_features([lid])
-        off_i = off_i_list[0] if off_i_list else None
+def latest_manifest(offline_dir: Path) -> dict:
+    best = None
+    for p in (offline_dir / "runs").glob("*/manifest.json"):
+        m = json.loads(p.read_text())
+        k = (m["materialized_at"], p.parent.name)
+        if best is None or k > best[0]:
+            best = (k, m)
+    if best is None:
+        raise ConfigError(f"no manifest under {offline_dir / 'runs'}")
+    return best[1]
 
-        if on_i is None and off_i is None:
-            continue
-        if on_i is None or off_i is None:
-            mismatches.append(f"Item {lid}: online={on_i is not None}, offline={off_i is not None}")
-            continue
 
-        for k, v_on in on_i.to_dict().items():
-            v_off = getattr(off_i, k, None)
-            if not _values_match(v_on, v_off, tolerance):
-                mismatches.append(f"Item {lid}.{k}: online={v_on} != offline={v_off}")
-
-    return ParityReport(
-        is_consistent=len(mismatches) == 0,
-        total_checked=total_checked,
-        mismatches=mismatches,
-    )
+def check_manifest(r, offline_dir: Path, manifest: dict, n: int) -> list[Mismatch]:
+    out: list[Mismatch] = []
+    for v in manifest["views"]:
+        ent = v.get("entity", "entity_id")
+        rows = [
+            {("entity_id" if k == ent else k): val for k, val in r.items()}
+            for r in pq.read_table(offline_dir / v["snapshot"]).to_pylist()
+        ]
+        out += check_view(r, v["name"], v["version"], rows, manifest["as_of"], n)
+    return out

@@ -164,13 +164,14 @@ func TestListListings_Page(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.ListListings(ctx, &listingv1.ListListingsRequest{
-		Page: &commonv1.PageRequest{PageSize: 2},
+		Page: &commonv1.PageRequest{PageSize: 1},
 	})
 	if err != nil {
 		t.Fatalf("ListListings: %v", err)
 	}
-	if len(resp.GetListings()) != 2 || resp.GetPage().GetTotal() != 3 {
-		t.Fatalf("want 2 items of total 3, got %d/%d", len(resp.GetListings()), resp.GetPage().GetTotal())
+	// Empty status means published: the seeded draft (b2) is excluded from the total.
+	if len(resp.GetListings()) != 1 || resp.GetPage().GetTotal() != 2 {
+		t.Fatalf("want 1 item of total 2 (published only), got %d/%d", len(resp.GetListings()), resp.GetPage().GetTotal())
 	}
 }
 
@@ -447,8 +448,9 @@ func TestReserveStock_Success(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{
-		ListingId: "prod-1",
-		Quantity:  3,
+		ListingId:     "prod-1",
+		Quantity:      3,
+		ReservationId: "r1",
 	})
 	if err != nil {
 		t.Fatalf("ReserveStock: %v", err)
@@ -475,8 +477,9 @@ func TestReserveStock_OutOfStock(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{
-		ListingId: "prod-1",
-		Quantity:  5,
+		ListingId:     "prod-1",
+		Quantity:      5,
+		ReservationId: "r1",
 	})
 	if err != nil {
 		t.Fatalf("ReserveStock: %v", err)
@@ -490,26 +493,51 @@ func TestReleaseStock_Success(t *testing.T) {
 	repo := repository.NewInMemoryListingRepository(repository.Listing{
 		ID:    "prod-1",
 		Title: "Phone",
-		Stock: 7,
+		Stock: 10,
 	})
 	client := startServer(t, repo)
-	ctx, cancel := principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
+	ctx, cancel := serviceCtx(t)
 	defer cancel()
 
-	resp, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
-		ListingId: "prod-1",
-		Quantity:  3,
-	})
-	if err != nil {
-		t.Fatalf("ReleaseStock: %v", err)
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
 	}
-	if !resp.GetSuccess() {
-		t.Fatal("expected ReleaseStock success")
+	// The request quantity is ignored: the stored 3 is restored, once.
+	for i := 0; i < 2; i++ {
+		resp, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 99, ReservationId: "r1"})
+		if err != nil {
+			t.Fatalf("ReleaseStock #%d: %v", i+1, err)
+		}
+		if !resp.GetSuccess() {
+			t.Fatalf("expected ReleaseStock #%d success", i+1)
+		}
 	}
-
-	got, _ := repo.Get(ctx, "prod-1")
-	if got.Stock != 10 {
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
 		t.Fatalf("want 10 stock after release, got %d", got.Stock)
+	}
+	// Unknown id: successful no-op.
+	if _, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 5, ReservationId: "never-reserved"}); err != nil {
+		t.Fatalf("ReleaseStock unknown id: %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+		t.Fatalf("unknown-id release changed stock to %d", got.Stock)
+	}
+}
+
+// ReleaseStock without a reservation_id is INVALID_ARGUMENT and leaves stock
+// unchanged (the blind stock = stock + quantity path is gone).
+func TestReleaseStock_EmptyReservationIDRejected(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 7})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	_, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 3})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("want InvalidArgument, got %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 7 {
+		t.Fatalf("stock changed to %d", got.Stock)
 	}
 }
 
@@ -543,11 +571,11 @@ func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
 			}
 			defer cancel()
 
-			_, rerr := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1})
+			_, rerr := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r1"})
 			if got := status.Code(rerr); got != tc.want {
 				t.Fatalf("ReserveStock: want %v, got %v (%v)", tc.want, got, rerr)
 			}
-			_, lerr := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 1})
+			_, lerr := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r1"})
 			if got := status.Code(lerr); got != tc.want {
 				t.Fatalf("ReleaseStock: want %v, got %v (%v)", tc.want, got, lerr)
 			}
@@ -556,5 +584,212 @@ func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
 				t.Fatalf("stock changed: %d", got.Stock)
 			}
 		})
+	}
+}
+
+func serviceCtx(t *testing.T) (context.Context, context.CancelFunc) {
+	t.Helper()
+	return principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")
+}
+
+func TestCommitReservation_Outcomes(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
+	}
+	for i := 0; i < 2; i++ { // the second call is the idempotent repeat
+		if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
+			t.Fatalf("CommitReservation #%d: %v", i+1, err)
+		}
+	}
+	// A committed reservation is not restored by the sweep.
+	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); err != nil || n != 0 {
+		t.Fatalf("sweep of committed: n=%d err=%v, want 0/nil", n, err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 8 {
+		t.Fatalf("stock after sweep = %d, want 8", got.Stock)
+	}
+
+	// A reservation swept (released) before the commit fails FAILED_PRECONDITION.
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r2"}); err != nil {
+		t.Fatalf("ReserveStock r2: %v", err)
+	}
+	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); err != nil || n != 1 {
+		t.Fatalf("sweep n=%d err=%v, want 1/nil", n, err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r2"}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("released id: want FailedPrecondition, got %v", err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "missing"}); status.Code(err) != codes.NotFound {
+		t.Fatalf("unknown id: want NotFound, got %v", err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("empty id: want InvalidArgument, got %v", err)
+	}
+}
+
+// CommitReservation needs the same authority as the other stock RPCs: a service
+// principal holding listing.write. A denied caller leaves the reservation active.
+func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
+	cases := []struct {
+		name   string
+		id     string
+		typ    string // "" = no principal metadata at all
+		scopes string
+		want   codes.Code
+	}{
+		{"service without listing.write denied", "service-team-order", "service", "listing.read", codes.PermissionDenied},
+		{"user denied", "u1", "user", "listing.read", codes.PermissionDenied},
+		{"seller user with listing.write denied", "seller-1", "user", "listing.read,listing.write", codes.PermissionDenied},
+		{"anonymous principal denied", "anon", "anonymous", "listing.read", codes.PermissionDenied},
+		{"no principal denied", "", "", "", codes.Unauthenticated},
+		{"service allowed", "service-team-order", "service", "listing.read,listing.write", codes.OK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+			client := startServer(t, repo)
+			sctx, scancel := serviceCtx(t)
+			defer scancel()
+			if _, err := client.ReserveStock(sctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+				t.Fatalf("ReserveStock: %v", err)
+			}
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if tc.typ == "" {
+				ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+			} else {
+				ctx, cancel = principalCtxAs(t, tc.id, tc.typ, tc.scopes)
+			}
+			defer cancel()
+			_, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r1"})
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("CommitReservation: want %v, got %v (%v)", tc.want, got, err)
+			}
+
+			// Only an allowed commit protects the stock from the sweep.
+			n, err := repo.SweepExpiredReservations(sctx, time.Now().Add(service.DefaultReservationTTL+time.Minute))
+			if err != nil {
+				t.Fatalf("sweep: %v", err)
+			}
+			wantSwept := 1
+			if tc.want == codes.OK {
+				wantSwept = 0
+			}
+			if n != wantSwept {
+				t.Fatalf("sweep released %d, want %d", n, wantSwept)
+			}
+		})
+	}
+}
+
+// ReserveStock without a reservation_id is INVALID_ARGUMENT with stock unchanged:
+// there is no ledger-less decrement.
+func TestReserveStock_EmptyReservationIDRejected(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("want InvalidArgument, got %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+		t.Fatalf("stock changed to %d", got.Stock)
+	}
+}
+
+// reserve -> release -> reserve again under the same id fails FAILED_PRECONDITION
+// and leaves stock unchanged (the caller must use a new id).
+func TestReserveStock_ReleasedIDFailsPrecondition(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	req := &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3, ReservationId: "r1"}
+	if _, err := client.ReserveStock(ctx, req); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if _, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ReservationId: "r1"}); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if _, err := client.ReserveStock(ctx, req); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("re-reserve of released id: want FailedPrecondition, got %v", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 10 {
+		t.Fatalf("stock = %d, want 10", got.Stock)
+	}
+}
+
+// With the real builder wired, a reserve and a release each announce a decodable
+// ListingStockChanged envelope carrying the post-change stock; a commit and a
+// repeated release announce nothing.
+func TestStockEvents_WireEnvelope(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10}).
+		WithStockEvents(handler.NewStockEventBuilder())
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 3, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
+	}
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
+		t.Fatalf("CommitReservation: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{ReservationId: "r1"}); err != nil {
+			t.Fatalf("ReleaseStock: %v", err)
+		}
+	}
+	rows := repo.StockEventRows()
+	if len(rows) != 2 {
+		t.Fatalf("want 2 stock events, got %d", len(rows))
+	}
+	for i, want := range []int32{7, 10} {
+		var env eventsv1.EventEnvelope
+		if err := proto.Unmarshal(rows[i].Payload, &env); err != nil {
+			t.Fatalf("unmarshal envelope: %v", err)
+		}
+		if env.GetType() != "platform.listing.v1.ListingStockChanged" || env.GetEventId() != rows[i].EventID || env.GetOccurredAt() == nil {
+			t.Fatalf("bad envelope: %+v", &env)
+		}
+		if env.GetPrincipal().GetId() != "service-team-order" {
+			t.Errorf("principal = %q, want service-team-order", env.GetPrincipal().GetId())
+		}
+		var ev listingv1.ListingStockChanged
+		if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
+			t.Fatalf("unmarshal ListingStockChanged: %v", err)
+		}
+		if ev.GetListingId() != "prod-1" || ev.GetStock() != want || rows[i].AggregateID != "prod-1" {
+			t.Errorf("event %d = %+v, want listing prod-1 stock %d", i, &ev, want)
+		}
+	}
+}
+
+func TestReserveStock_MismatchedRetryIsFailedPrecondition(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+		t.Fatalf("ReserveStock: %v", err)
+	}
+	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r1"}); err != nil {
+		t.Fatalf("identical retry must succeed: %v", err)
+	}
+	_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 5, ReservationId: "r1"})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("mismatched retry: %v, want FailedPrecondition", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 8 {
+		t.Fatalf("stock = %d, want 8", got.Stock)
 	}
 }

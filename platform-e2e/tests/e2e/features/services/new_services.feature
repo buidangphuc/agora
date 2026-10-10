@@ -14,12 +14,6 @@ Feature: New backend services API round-trips
     Then resolving the short code returns target "listing" "listing_001"
     And the resolved link carries OG meta
 
-  Scenario: A written audit event is returned by QueryAuditLog
-    Given an authenticated seller
-    When an audit event is written for the seller
-    Then the seeded admin querying the audit log sees that event
-    And the stored actor is the seller's own id, not the client-supplied one
-
   Scenario: Submitting KYC yields a PENDING verification status
     Given an authenticated buyer
     When the buyer submits a KYC document

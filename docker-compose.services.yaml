@@ -33,7 +33,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.analytics.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -246,9 +246,15 @@ services:
       dockerfile: Dockerfile
     image: team-search:local
     container_name: team-search-svc
+    # it ensures the OpenSearch index at boot and exits if OpenSearch is not up yet
+    restart: unless-stopped
     depends_on:
       team-search-migrate:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
@@ -262,12 +268,26 @@ services:
     image: team-search:local
     container_name: team-search-indexer-svc
     entrypoint: ["/indexer"]
+    # without these the indexer can start before OpenSearch/Redpanda are ready and exit
+    restart: unless-stopped
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      team-search-migrate:
+        condition: service_completed_successfully
+      team-ai:
+        condition: service_started
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
       - OPENSEARCH_URL=http://opensearch:9200
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
+      # Tag classification during ingestion (AIService.ClassifyTags, service principal, scope ai.classify).
+      # A failed call never blocks ingestion: the listing is indexed with tags_pending.
+      - UPSTREAM_AI_ADDR=team-ai-svc:50060
       - ENV=local
 
   team-engagement:
@@ -279,11 +299,21 @@ services:
     depends_on:
       team-engagement-migrate:
         condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
       # verified-purchase check: engagement calls team-order to confirm a delivered order (no cross-DB join)
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      # Follow feed: consume listing.events into seller_listings (DLQ listing.events.dlq).
+      - KAFKA_ENABLED=true
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_CONSUMER_GROUP=team-engagement-feed
+      - KAFKA_LISTING_TOPIC=listing.events
+      # Engagement fact events: outbox relayer publishes to engagement.events (efe D4).
+      - ENGAGEMENT_EVENTS_TOPIC=engagement.events
+      - ENGAGEMENT_OUTBOX_RELAY_INTERVAL=500ms
       - GRPC_PORT=50054
       - ENV=local
 
@@ -347,6 +377,8 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - PROMOTION_EVENTS_TOPIC=promotion.events
+      # CreateCampaign checks listing ownership against team-domain (fails closed if unset).
+      - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - GRPC_PORT=50061
       - ENV=local
 
@@ -371,8 +403,17 @@ services:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - PAYMENT_EVENTS_TOPIC=payment.events
+      # Seller ledger consumer of order.events (OrderPaidEvent credit, OrderCancelled
+      # refund); poison records go to its own DLQ (order.events.dlq is team-notification's).
+      # The payout hold stays at its 7-day default; the e2e overlay
+      # platform-e2e/compose/payment-ledger.override.yaml shortens it.
+      - ORDER_EVENTS_TOPIC=order.events
+      - PAYMENT_SETTLEMENT_CONSUMER_GROUP=team-payment.settlement
+      - PAYMENT_SETTLEMENT_DLQ_TOPIC=order.events.payment-settlement.dlq
       - GRPC_PORT=50056
       - ENV=local
+      # local/e2e only: enables ProcessMockPayment (refused at boot in staging/prod)
+      - MOCK_PAYMENTS=true
 
   team-chat:
     build:
@@ -525,6 +566,10 @@ services:
       - CORS_ORIGINS=http://localhost:3000,http://team-frontend:3000,http://127.0.0.1:3000
       - RATE_LIMIT_RPS=1000
       - RATE_LIMIT_BURST=2000
+      # Every e2e browser shares the docker host IP, so the per-IP collector limit is raised
+      # locally too (shipped default 5 rps / burst 20; the flood scenario uses its own gateway).
+      - TRACK_RATE_LIMIT_RPS=1000
+      - TRACK_RATE_LIMIT_BURST=2000
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events
@@ -539,6 +584,9 @@ services:
       - OTEL_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=team-gateway
+      # Local only: export metrics every 10 s (SDK default 60 s) so the admin cockpit
+      # reflects traffic quickly; the PeriodicReader reads this standard variable.
+      - OTEL_METRIC_EXPORT_INTERVAL=10000
       - PROMETHEUS_URL=http://prometheus:9090
       - JAEGER_QUERY_URL=http://jaeger:16686
       - JAEGER_UI_URL=http://localhost:16686
@@ -563,12 +611,22 @@ services:
       - DATABASE_ENABLED=false
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=listing_svc
-      - POSTGRES_PASSWORD=listing_pass
-      - POSTGRES_DB=listing_db
+      # team-ai owns no database here (DATABASE_ENABLED=false) and must not hold listing's creds
+      # (AGENTS.md rule 3). Settings still require the fields: placeholders, override via .env
+      # (see .env.example).
+      - POSTGRES_USER=${TEAM_AI_POSTGRES_USER:-team_ai_svc}
+      - POSTGRES_PASSWORD=${TEAM_AI_POSTGRES_PASSWORD:-team-ai-local-placeholder}
+      - POSTGRES_DB=${TEAM_AI_POSTGRES_DB:-team_ai_db}
       - REDIS_ENABLED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Internal tag routes (/api/v1/ai/tags/*, tag-routes-authz): a service token for reads, an admin
+      # token for explore/promote. Local placeholders only; override via .env (see .env.example).
+      - AUTH_BEARER_TOKEN=${TEAM_AI_SERVICE_TOKEN:-agora-local-team-ai-service}
+      - AUTH_ROLES=ai.classify
+      - AUTH_ADMIN_BEARER_TOKEN=${TEAM_AI_ADMIN_TOKEN:-agora-local-team-ai-admin}
+      # Promoted/explored tags survive restarts (tag-taxonomy-persistence): Redis DB 5, tagtax:v1:*.
+      - TAXONOMY_PERSISTENCE_ENABLED=true
       - CHAT_BACKEND=mock
       # Recommendations (serve-recommendations-teamai) — reuses GRPC_PORT, no new
       # port. Served from what the platform-recsys job (below, profile "jobs")
@@ -581,15 +639,43 @@ services:
       - RECS_CACHE_PREFIX=recs
       - RECS_CACHE_SCHEMA_VERSION=v1
       - RECS_CACHE_TTL_SECONDS=86400
+      # Online item features from platform-featurestore (its own Redis DB 2), recs-serving-safeguards.
+      - RECS_FEATURESTORE_REDIS_URL=redis://redis:6379/2
+      # Nearline position-debiased CTR written by platform-recsys-nearline (add-recsys-nearline-signals),
+      # read per request for GBDT placements; an outage leaves the request on prior CTRs.
+      - RECS_NEARLINE_REDIS_URL=redis://redis:6379/0
       - RECS_RETRIEVE_TIMEOUT_MS=15
     ports:
-      - "8001:8000"
+      - "${TEAM_AI_HOST_PORT:-8001}:8000"   # override when 8001 is taken on the host
       - "50060:50060"
 
   # Offline ALS training job (serve-trained-recs-locally) — a batch, not a server:
   #   docker compose --profile jobs run --rm platform-recsys
-  # Reads the Parquet that team-analytics exports to the shared volume and writes
+  # Reads the als_interactions dataset from the featurestore volume (read-only,
+  # built by featurestore-dataset) and writes
   # item/user vectors to Qdrant and the recs:v1:* lists to Redis for team-ai.
+  # Nearline signals: consumes analytics.events into recs:nearline:* (Redis DB 0, TTL 24 h); the contract team-ai
+  # reads is in openspec/changes/add-recsys-nearline-signals/design.md. Same image as the batch job.
+  platform-recsys-nearline:
+    build:
+      context: ./platform-recsys
+      dockerfile: Dockerfile
+    image: platform-recsys:local
+    container_name: platform-recsys-nearline
+    entrypoint: ["python", "-m", "recsys.nearline"]
+    restart: unless-stopped
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_ANALYTICS_TOPIC=analytics.events
+      - NEARLINE_CONSUMER_GROUP=platform-recsys-nearline
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+
   platform-recsys:
     build:
       context: ./platform-recsys
@@ -597,15 +683,62 @@ services:
     image: platform-recsys:local
     profiles: ["jobs"]
     environment:
-      - WAREHOUSE_DRIVER=duckdb
-      - WAREHOUSE_PARQUET_PATH=/data/tracking_events.parquet
+      - DATASET_DIR=/features/datasets/als_interactions/v1
       - QDRANT_URL=http://qdrant:6333
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - analytics_data:/data:ro
+      - featurestore_data:/features:ro
     depends_on:
       - qdrant
+      - redis
+
+  # Feature materialisation job (featurestore-materialization) — a batch, not a server:
+  #   docker compose --profile featurestore run --rm featurestore-job
+  # Reads the Parquet that team-analytics exports to the shared volume, writes an
+  # offline snapshot + manifest to /features and the fs:<view>:* keys to Redis DB 2.
+  # AS_OF (RFC 3339) pins the point in time; unset means now.
+  featurestore-job:
+    build:
+      context: ./platform-featurestore
+      dockerfile: Dockerfile
+    image: platform-featurestore:local
+    profiles: ["featurestore"]
+    environment:
+      - FEATURESTORE_INPUT_DIR=/data
+      - FEATURESTORE_OFFLINE_DIR=/features
+      - FEATURESTORE_REDIS_URL=redis://redis:6379/2
+      - FEATURESTORE_ONLINE_TTL_SECONDS=172800
+      - FEATURESTORE_PARITY_SAMPLE=200
+      - AS_OF=${AS_OF:-}
+    command: ["materialize"]
+    volumes:
+      - analytics_data:/data:ro
+      - featurestore_data:/features
+    depends_on:
+      - redis
+
+  # Dataset build (featurestore-datasets) — run after featurestore-job; writes
+  # /features/datasets/<name>/<version>/ that the platform-recsys job reads:
+  #   docker compose --profile featurestore run --rm featurestore-dataset
+  featurestore-dataset:
+    build:
+      context: ./platform-featurestore
+      dockerfile: Dockerfile
+    image: platform-featurestore:local
+    profiles: ["featurestore"]
+    environment:
+      - FEATURESTORE_INPUT_DIR=/data
+      - FEATURESTORE_OFFLINE_DIR=/features
+      - FEATURESTORE_REDIS_URL=redis://redis:6379/2
+      - FEATURESTORE_ONLINE_TTL_SECONDS=172800
+      - FEATURESTORE_PARITY_SAMPLE=200
+      - AS_OF=${AS_OF:-}
+    command: ["dataset"]
+    volumes:
+      - analytics_data:/data:ro
+      - featurestore_data:/features
+    depends_on:
       - redis
 
   team-analytics:
@@ -627,6 +760,9 @@ services:
       - DUCKDB_PATH=/data/analytics.duckdb
       - PARQUET_EXPORT_PATH=/data/tracking_events.parquet
       - PARQUET_EXPORT_INTERVAL_SECONDS=300
+      - ENGAGEMENT_EVENTS_TOPIC=engagement.events
+      - ENGAGEMENT_DLQ_TOPIC=engagement.events.analytics.dlq
+      - ENGAGEMENT_CONSUMER_GROUP=team-analytics.engagement
     volumes:
       - analytics_data:/data
 
@@ -662,3 +798,4 @@ services:
 
 volumes:
   analytics_data:
+  featurestore_data:

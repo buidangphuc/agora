@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Result } from "@/components/ui/Result";
+import { RetryButton } from "@/features/account/RetryButton";
 import { OrderDetailView } from "@/features/order/OrderDetailView";
 import {
   OrderTimelineSection,
@@ -12,6 +13,7 @@ import {
 import { ReturnStateProvider } from "@/features/order/ReturnState";
 import { parseDetailTab } from "@/features/order/detailTab";
 import { linkButton } from "@/features/order/linkStyles";
+import { listOrderReturns } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import { loadOrderResult } from "./data";
@@ -65,22 +67,18 @@ export default async function BuyerOrderDetailPage({
           type="error"
           title="Không tải được đơn hàng"
           description="Đã có lỗi khi tải đơn hàng này. Vui lòng thử lại."
-          action={
-            <Link
-              href={`/account/orders/${params.id}`}
-              className={linkButton.outline}
-            >
-              Thử lại
-            </Link>
-          }
+          action={<RetryButton />}
         />
       </section>
     );
   }
 
+  // Server data, so the returns are still listed after a reload.
+  const returns = await listOrderReturns(res.order.id);
+
   return (
     <section className="py-2">
-      <ReturnStateProvider>
+      <ReturnStateProvider initialReturns={returns}>
         <OrderDetailView
           order={res.order}
           tab={parseDetailTab(searchParams.tab)}

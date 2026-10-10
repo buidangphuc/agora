@@ -26,6 +26,10 @@ const LOADERS: Record<string, () => React.JSX.Element> = {
   register: RegisterLoading,
 };
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 describe("account route loading states", () => {
   for (const [name, Loading] of Object.entries(LOADERS)) {
     it(`/${name} renders a busy skeleton`, () => {

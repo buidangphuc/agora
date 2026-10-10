@@ -10,7 +10,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	// Registers the "duckdb" database/sql driver. Requires CGO at build time;
 	// the worker image builds it in Docker/CI (Go is not on the host).
@@ -23,6 +25,7 @@ import (
 type Writer struct {
 	db   *sql.DB
 	path string
+	now  func() time.Time // ingested_at clock; overridable in tests
 }
 
 // Open dials (opens/creates) the DuckDB file at path and ensures the schema.
@@ -31,7 +34,7 @@ func Open(ctx context.Context, path string) (*Writer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open duckdb %q: %w", path, err)
 	}
-	w := &Writer{db: db, path: path}
+	w := &Writer{db: db, path: path, now: time.Now}
 	if err := w.ensureSchema(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -87,6 +90,33 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		}
 	}
 
+	listingSellersDDL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+  listing_id VARCHAR PRIMARY KEY,
+  seller_id  VARCHAR NOT NULL,
+  updated_at TIMESTAMP NOT NULL
+)`, warehouse.ListingSellersTableName)
+	if _, err := w.db.ExecContext(ctx, listingSellersDDL); err != nil {
+		return fmt.Errorf("ensure %s table: %w", warehouse.ListingSellersTableName, err)
+	}
+	// Idempotent column migration (featurestore-item-attributes): rows stored before these
+	// columns existed keep NULL until the listing's events are replayed.
+	for _, col := range []struct{ name, typ string }{{"category_id", "VARCHAR"}, {"price", "BIGINT"}} {
+		alterSQL := fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", warehouse.ListingSellersTableName, col.name, col.typ)
+		if _, err := w.db.ExecContext(ctx, alterSQL); err != nil {
+			return fmt.Errorf("migrate %s column %s: %w", warehouse.ListingSellersTableName, col.name, err)
+		}
+	}
+
+	if _, err := w.db.ExecContext(ctx, countersDDL); err != nil {
+		return fmt.Errorf("ensure %s table: %w", warehouse.CountersTableName, err)
+	}
+
+	for _, ddl := range []string{engagementFactsDDL, favoritesCurrentDDL, followsCurrentDDL} {
+		if _, err := w.db.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("ensure engagement facts schema: %w", err)
+		}
+	}
+
 	// Create or replace standard ga4_events view
 	createViewSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW ga4_events AS
 SELECT
@@ -129,8 +159,139 @@ FROM %s`, warehouse.TableName)
 		return fmt.Errorf("ensure ga4_events view: %w", err)
 	}
 
+	// Stitching views (tracking-ingest-integrity D5). Created after the column
+	// migrations so t.* includes ingested_at.
+	for _, ddl := range []string{identityViewDDL, resolvedViewDDL} {
+		if _, err := w.db.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("ensure stitching view: %w", err)
+		}
+	}
+
 	return nil
 }
+
+var engagementFactsDDL = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+  event_id    VARCHAR,
+  fact        VARCHAR,
+  user_id     VARCHAR,
+  listing_id  VARCHAR,
+  seller_id   VARCHAR,
+  rating      INTEGER,
+  occurred_at TIMESTAMP,
+  ingested_at TIMESTAMP
+)`, warehouse.EngagementFactsTableName)
+
+// currentStateViewDDL keeps the (user, key) pairs whose latest fact among
+// (onFact, offFact) is onFact. Ties on occurred_at resolve by event_id order.
+func currentStateViewDDL(view, key, onFact, offFact string) string {
+	return fmt.Sprintf(`CREATE OR REPLACE VIEW %[1]s AS
+SELECT user_id, %[2]s, occurred_at
+FROM (
+  SELECT user_id, %[2]s, fact, occurred_at,
+    row_number() OVER (PARTITION BY user_id, %[2]s ORDER BY occurred_at DESC, event_id DESC) AS rn
+  FROM %[5]s
+  WHERE fact IN ('%[3]s', '%[4]s')
+) WHERE rn = 1 AND fact = '%[3]s'`, view, key, onFact, offFact, warehouse.EngagementFactsTableName)
+}
+
+var favoritesCurrentDDL = currentStateViewDDL(warehouse.FavoritesCurrentViewName, "listing_id",
+	warehouse.FactFavoriteAdded, warehouse.FactFavoriteRemoved)
+var followsCurrentDDL = currentStateViewDDL(warehouse.FollowsCurrentViewName, "seller_id",
+	warehouse.FactSellerFollowed, warehouse.FactSellerUnfollowed)
+
+var insertEngagementFactsSQL = buildIdempotentInsert(warehouse.EngagementFactsTableName,
+	[]string{"event_id", "fact", "user_id", "listing_id", "seller_id", "rating", "occurred_at", "ingested_at"},
+	[]string{"VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "TIMESTAMP", "TIMESTAMP"})
+
+// WriteEngagementFacts appends the batch in one transaction, idempotent on event_id.
+func (w *Writer) WriteEngagementFacts(ctx context.Context, batch []*warehouse.EngagementFactRecord) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, insertEngagementFactsSQL)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("prepare insert engagement facts: %w", err)
+	}
+	defer stmt.Close()
+
+	ingestedAt := w.now().UTC()
+	for _, r := range batch {
+		var rating any // NULL unless the fact carries a rating
+		if r.Fact == warehouse.FactReviewCreated {
+			rating = int64(r.Rating)
+		}
+		if _, err := stmt.ExecContext(ctx,
+			r.EventID, r.Fact, r.UserID, r.ListingID, r.SellerID, rating,
+			r.OccurredAt.UTC(), ingestedAt,
+			r.EventID, // NOT EXISTS dedupe key
+		); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("insert engagement fact %s: %w", r.EventID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit engagement facts batch: %w", err)
+	}
+	return nil
+}
+
+// countersDDL is the per-UTC-hour ingest counter table (analytics-data-quality D1).
+var countersDDL = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+  hour TIMESTAMP PRIMARY KEY,
+  decode_failures BIGINT NOT NULL DEFAULT 0,
+  duplicates_skipped BIGINT NOT NULL DEFAULT 0
+)`, warehouse.CountersTableName)
+
+var addCountersSQL = fmt.Sprintf(
+	`INSERT INTO %[1]s (hour, decode_failures, duplicates_skipped) VALUES (?, ?, ?)
+ON CONFLICT (hour) DO UPDATE SET
+  decode_failures = %[1]s.decode_failures + excluded.decode_failures,
+  duplicates_skipped = %[1]s.duplicates_skipped + excluded.duplicates_skipped`,
+	warehouse.CountersTableName)
+
+// addCounters upserts the deltas into the UTC hour containing at. All-zero
+// deltas write nothing.
+func (w *Writer) addCounters(ctx context.Context, at time.Time, decodeFailures, duplicates int64) error {
+	if decodeFailures == 0 && duplicates == 0 {
+		return nil
+	}
+	hour := at.UTC().Truncate(time.Hour)
+	if _, err := w.db.ExecContext(ctx, addCountersSQL, hour, decodeFailures, duplicates); err != nil {
+		return fmt.Errorf("upsert %s: %w", warehouse.CountersTableName, err)
+	}
+	return nil
+}
+
+// RecordDecodeFailures counts n undecodable messages in the hour of at.
+func (w *Writer) RecordDecodeFailures(ctx context.Context, at time.Time, n int64) error {
+	return w.addCounters(ctx, at, n, 0)
+}
+
+// identityViewDDL maps each anonymous id seen on USER-principal events to that
+// principal. The anonymous id comes from the beacon body (unauthenticated), so an
+// id seen with more than one account is ambiguous and is not stitched: a logged-in
+// user cannot claim another visitor's anonymous history by replaying its id.
+var identityViewDDL = fmt.Sprintf(`CREATE OR REPLACE VIEW %s AS
+SELECT anonymous_id, any_value(principal_id) AS principal_id
+FROM %s
+WHERE principal_type = 'user' AND anonymous_id <> ''
+GROUP BY anonymous_id
+HAVING count(DISTINCT principal_id) = 1`, warehouse.IdentityViewName, warehouse.TableName)
+
+// resolvedViewDDL adds user_key: the event's own USER principal, else the
+// stitched principal, else "anon:<anonymous_id>".
+var resolvedViewDDL = fmt.Sprintf(`CREATE OR REPLACE VIEW %s AS
+SELECT t.*, CASE
+  WHEN t.principal_type = 'user' THEN t.principal_id
+  WHEN i.principal_id IS NOT NULL THEN i.principal_id
+  ELSE 'anon:' || t.anonymous_id END AS user_key
+FROM %s t LEFT JOIN %s i USING (anonymous_id)`,
+	warehouse.ResolvedViewName, warehouse.TableName, warehouse.IdentityViewName)
 
 // insertSQL is the parameterized append for one row, column order == Schema.
 var insertSQL = buildInsertSQL()
@@ -188,13 +349,15 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	}
 	defer stmt.Close()
 
+	ingestedAt := w.now().UTC()
+	var inserted int64
 	for _, r := range batch {
 		props, err := marshalProperties(r.Properties)
 		if err != nil {
 			_ = tx.Rollback()
 			return err
 		}
-		if _, err := stmt.ExecContext(ctx,
+		res, err := stmt.ExecContext(ctx,
 			r.EventID,
 			r.EventType,
 			r.ListingID,
@@ -223,14 +386,28 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.EventGroupID,
 			r.ShippingTier,
 			r.PaymentType,
+			ingestedAt,
 			r.EventID, // NOT EXISTS dedupe key
-		); err != nil {
+		)
+		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert row %s: %w", r.EventID, err)
+		}
+		// The anti-join inserts 0 rows for a duplicate event_id.
+		if n, rerr := res.RowsAffected(); rerr == nil {
+			inserted += n
+		} else {
+			inserted++ // driver reports nothing: do not invent duplicates
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit batch: %w", err)
+	}
+	// Counter failures must never block ingestion (analytics-data-quality D1).
+	if dup := int64(len(batch)) - inserted; dup > 0 {
+		if err := w.addCounters(ctx, ingestedAt, 0, dup); err != nil {
+			slog.Warn("tracking ingest counters not updated", slog.Any("err", err))
+		}
 	}
 	return nil
 }
@@ -263,6 +440,7 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 			r.Currency,
 			r.OccurredAt,
 			r.Status,
+			nullIfEmpty(r.BuyerID),
 			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()
@@ -275,13 +453,62 @@ func (w *Writer) WriteOrderFacts(ctx context.Context, batch []*warehouse.OrderFa
 	return nil
 }
 
-// ExportParquet writes the whole table out as columnar Parquet at dst. DuckDB's
-// COPY produces analyst-/Spark-readable Parquet — the shape the later
-// recommendation job consumes.
+// upsertListingSellerSQL refreshes a mapping only when the incoming event is not
+// older than the stored one, so an out-of-order redelivery cannot regress it.
+var upsertListingSellerSQL = fmt.Sprintf(
+	`INSERT INTO %[1]s (listing_id, seller_id, updated_at, category_id, price) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (listing_id) DO UPDATE SET seller_id = excluded.seller_id, updated_at = excluded.updated_at,
+  category_id = excluded.category_id, price = excluded.price
+WHERE excluded.updated_at >= %[1]s.updated_at`, warehouse.ListingSellersTableName)
+
+// UpsertListingSellers idempotently upserts listing -> seller mappings in one
+// transaction (all-or-nothing, so the caller can commit offsets after nil).
+func (w *Writer) UpsertListingSellers(ctx context.Context, batch []*warehouse.ListingSellerRecord) error {
+	if len(batch) == 0 {
+		return nil
+	}
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, upsertListingSellerSQL)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("prepare upsert listing_sellers: %w", err)
+	}
+	defer stmt.Close()
+	for _, r := range batch {
+		var category any
+		if r.CategoryID != "" {
+			category = r.CategoryID
+		}
+		var price any
+		if r.Price > 0 {
+			price = r.Price
+		}
+		if _, err := stmt.ExecContext(ctx, r.ListingID, r.SellerID, r.UpdatedAt.UTC(), category, price); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("upsert listing_sellers %s: %w", r.ListingID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit listing_sellers batch: %w", err)
+	}
+	return nil
+}
+
+// ExportParquet writes the whole tracking_events table out as columnar Parquet at
+// dst. DuckDB's COPY produces analyst-/Spark-readable Parquet.
 func (w *Writer) ExportParquet(ctx context.Context, dst string) error {
-	q := fmt.Sprintf("COPY %s TO '%s' (FORMAT PARQUET)", warehouse.TableName, dst)
+	return w.ExportRelation(ctx, warehouse.TableName, dst)
+}
+
+// ExportRelation writes a whole table or view (name must be a trusted constant,
+// never user input) to dst as Parquet.
+func (w *Writer) ExportRelation(ctx context.Context, name, dst string) error {
+	q := fmt.Sprintf("COPY %s TO '%s' (FORMAT PARQUET)", name, dst)
 	if _, err := w.db.ExecContext(ctx, q); err != nil {
-		return fmt.Errorf("export parquet to %q: %w", dst, err)
+		return fmt.Errorf("export %s to parquet %q: %w", name, dst, err)
 	}
 	return nil
 }
@@ -309,3 +536,14 @@ func marshalProperties(p map[string]string) (string, error) {
 
 // compile-time assertion that the adapter satisfies the seam.
 var _ warehouse.WarehouseWriter = (*Writer)(nil)
+var _ warehouse.ListingSellerWriter = (*Writer)(nil)
+var _ warehouse.IngestCounterWriter = (*Writer)(nil)
+var _ warehouse.EngagementFactWriter = (*Writer)(nil)
+
+// nullIfEmpty maps "" to SQL NULL so "unattributed" has one representation.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}

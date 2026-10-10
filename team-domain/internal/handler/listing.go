@@ -95,6 +95,13 @@ func (h *ListingHandler) GetListing(
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
+	// Non-published (draft, rejected) listings are visible only to the owner,
+	// admin or an internal service; everyone else gets the same NOT_FOUND as an
+	// unknown id so the response is not an existence oracle.
+	if l.Status != statusPublished && !canSeeNonPublished(ctx, l.SellerID) {
+		return nil, status.Error(codes.NotFound, "not_found")
+	}
+
 	return &listingv1.GetListingResponse{Listing: toWire(l)}, nil
 }
 
@@ -114,7 +121,21 @@ func (h *ListingHandler) ListListings(
 		pageSize = p.GetPageSize()
 	}
 
-	page, err := h.svc.List(ctx, cursor, pageSize, req.GetStatus())
+	// An empty status means published. Any other status (draft, rejected) is a
+	// moderation view: admin or internal service only. A seller's own drafts
+	// live on ListMyListings.
+	st := req.GetStatus()
+	if st == "" {
+		st = statusPublished
+	}
+	if st != statusPublished {
+		_, admin := principalOwner(ctx)
+		if !admin && !isService(ctx) {
+			return nil, status.Error(codes.PermissionDenied, "permission denied")
+		}
+	}
+
+	page, err := h.svc.List(ctx, cursor, pageSize, st)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "internal error")
 	}
@@ -243,7 +264,7 @@ func (h *ListingHandler) GetImageUploadUrl(
 		req.GetFilename(),
 	)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to generate upload url: %v", err)
+		return nil, internalErr("generate upload url", err)
 	}
 	return &listingv1.GetImageUploadUrlResponse{
 		UploadUrl: uploadURL,
@@ -265,7 +286,7 @@ func (h *ListingHandler) ListCategories(
 	}
 	items, err := h.categories.List(ctx, req.GetParentId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list categories: %v", err)
+		return nil, internalErr("list categories", err)
 	}
 	wire := make([]*listingv1.Category, 0, len(items))
 	for _, c := range items {
@@ -300,7 +321,7 @@ func (h *ListingHandler) GetCategory(
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return nil, status.Error(codes.NotFound, "category not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get category: %v", err)
+		return nil, internalErr("get category", err)
 	}
 	return &listingv1.GetCategoryResponse{
 		Category: &listingv1.Category{
@@ -324,15 +345,19 @@ func (h *ListingHandler) ReserveStock(
 	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
+	if req.GetReservationId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
+	}
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
 	if req.GetQuantity() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "quantity must be > 0")
 	}
-	// Idempotent on the caller-supplied reservation_id (AD5): a retried checkout
-	// with the same id is a no-op, so stock is decremented exactly once. An empty
-	// id falls back to a plain (non-idempotent) reserve in the service layer.
+	// Idempotent on the caller-supplied reservation_id: a retried checkout with
+	// the id of an active or committed reservation is a no-op, so stock is
+	// decremented exactly once. There is no reserve without an id, so every
+	// decrement leaves a reservation that can be committed, released and swept.
 	if err := h.svc.ReserveStockIdempotent(ctx, req.GetReservationId(), req.GetListingId(), req.GetVariantId(), req.GetQuantity()); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "listing not found")
@@ -340,18 +365,28 @@ func (h *ListingHandler) ReserveStock(
 		if errors.Is(err, repository.ErrVariantNotFound) {
 			return nil, status.Error(codes.NotFound, "variant not found")
 		}
+		if errors.Is(err, repository.ErrReservationReleased) {
+			// The id belongs to a released reservation: reserve under a new id.
+			return nil, status.Error(codes.FailedPrecondition, "reservation already released; reserve with a new reservation_id")
+		}
+		if errors.Is(err, repository.ErrReservationMismatch) {
+			return nil, status.Error(codes.FailedPrecondition, "reservation_id already used for a different listing, variant or quantity")
+		}
 		if errors.Is(err, repository.ErrOutOfStock) {
 			return &listingv1.ReserveStockResponse{
 				Success: false,
 				Message: "insufficient stock",
 			}, nil
 		}
-		return nil, status.Errorf(codes.Internal, "reserve stock: %v", err)
+		return nil, internalErr("reserve stock", err)
 	}
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
 
-// ReleaseStock releases previously reserved inventory back into stock.
+// ReleaseStock releases a reservation by reservation_id, restoring the quantity
+// stored on it exactly once. listing_id, variant_id and quantity are ignored
+// (kept on the wire for compatibility). A repeated, already swept or unknown id
+// is a successful no-op; an empty id is INVALID_ARGUMENT.
 func (h *ListingHandler) ReleaseStock(
 	ctx context.Context,
 	req *listingv1.ReleaseStockRequest,
@@ -361,22 +396,42 @@ func (h *ListingHandler) ReleaseStock(
 	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
-	if req.GetListingId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
+	if req.GetReservationId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
-	if req.GetQuantity() <= 0 {
-		return nil, status.Error(codes.InvalidArgument, "quantity must be > 0")
-	}
-	if err := h.svc.ReleaseStock(ctx, req.GetListingId(), req.GetVariantId(), req.GetQuantity()); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "listing not found")
-		}
-		if errors.Is(err, repository.ErrVariantNotFound) {
-			return nil, status.Error(codes.NotFound, "variant not found")
-		}
-		return nil, status.Errorf(codes.Internal, "release stock: %v", err)
+	if err := h.svc.ReleaseStock(ctx, req.GetReservationId()); err != nil {
+		return nil, internalErr("release stock", err)
 	}
 	return &listingv1.ReleaseStockResponse{Success: true}, nil
+}
+
+// CommitReservation makes an active reservation permanent (team-order calls it
+// for every reservation of a checkout before placing the orders). Idempotent on
+// reservation_id: OK for active or already committed; FAILED_PRECONDITION when
+// the reservation was released (the order must not be placed); NOT_FOUND for an
+// unknown id; INVALID_ARGUMENT for an empty id.
+func (h *ListingHandler) CommitReservation(
+	ctx context.Context,
+	req *listingv1.CommitReservationRequest,
+) (*listingv1.CommitReservationResponse, error) {
+	// Internal inventory mutation: same authority as ReserveStock/ReleaseStock.
+	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+		return nil, err
+	}
+	if req.GetReservationId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
+	}
+	if err := h.svc.CommitReservation(ctx, req.GetReservationId()); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrReservationNotFound):
+			return nil, status.Error(codes.NotFound, "reservation not found")
+		case errors.Is(err, repository.ErrReservationReleased):
+			return nil, status.Error(codes.FailedPrecondition, "reservation already released")
+		default:
+			return nil, internalErr("commit reservation", err)
+		}
+	}
+	return &listingv1.CommitReservationResponse{}, nil
 }
 
 // enqueueListingChanged returns the EnqueueFn the service invokes inside the
@@ -408,6 +463,66 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 			RequestID:     requestID,
 		}, nil
 	}
+}
+
+// NewStockEventBuilder returns the repository.StockEventBuilder that turns a
+// stock snapshot into a ListingStockChanged outbox row. The repository calls it
+// INSIDE the reserve / release / sweep transaction, so the row commits (or rolls
+// back) with the stock change. The principal and request id come from the
+// request context when present (the TTL sweep has neither).
+func NewStockEventBuilder() repository.StockEventBuilder {
+	return func(ctx context.Context, snap repository.StockSnapshot) (repository.OutboxRow, error) {
+		var principal *commonv1.Principal
+		if p, ok := interceptor.PrincipalFromContext(ctx); ok {
+			principal = p
+		}
+		requestID, _ := interceptor.RequestIDFromContext(ctx)
+		change := &listingv1.ListingStockChanged{
+			ListingId: snap.ListingID,
+			Stock:     snap.Stock,
+			Variants:  toWire(repository.Listing{Variants: snap.Variants}).GetVariants(),
+		}
+		eventID := uuid.NewString()
+		payload, err := events.BuildListingStockChangedEnvelope(eventID, change, principal, requestID)
+		if err != nil {
+			return repository.OutboxRow{}, err
+		}
+		return repository.OutboxRow{
+			EventID:       eventID,
+			AggregateType: "Listing",
+			AggregateID:   snap.ListingID,
+			EventType:     events.ListingStockChangedEventType,
+			Payload:       payload,
+			RequestID:     requestID,
+		}, nil
+	}
+}
+
+const statusPublished = "published"
+
+// isService reports whether the caller is an internal service principal
+// (type SERVICE) holding listing.read. The type check matters: a user principal
+// carrying the same scopes gets no extra access.
+func isService(ctx context.Context) bool {
+	p, ok := interceptor.PrincipalFromContext(ctx)
+	if !ok || p.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE {
+		return false
+	}
+	for _, s := range p.GetScopes() {
+		if s == "listing.read" {
+			return true
+		}
+	}
+	return false
+}
+
+// canSeeNonPublished is the read rule for draft/rejected listings.
+func canSeeNonPublished(ctx context.Context, sellerID string) bool {
+	id, admin := principalOwner(ctx)
+	if admin || isService(ctx) {
+		return true
+	}
+	return id != "" && id == sellerID
 }
 
 // principalOwner extracts the owner id + admin flag from the context Principal.

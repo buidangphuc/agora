@@ -59,3 +59,40 @@ func TestValidateBigQueryRequiresTarget(t *testing.T) {
 		t.Fatal("expected error: BIGQUERY_PROJECT required for bigquery driver")
 	}
 }
+
+func TestTrackingDefaultsAndValidation(t *testing.T) {
+	s, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Tracking.StaleAfterSeconds != 900 || s.Tracking.LagP95MaxSeconds != 300 || s.Tracking.MissingListingMaxRatio != 0.05 {
+		t.Errorf("tracking defaults = %+v, want 900/300/0.05", s.Tracking)
+	}
+	for _, mut := range []func(*config.Settings){
+		func(s *config.Settings) { s.Tracking.StaleAfterSeconds = 0 },
+		func(s *config.Settings) { s.Tracking.LagP95MaxSeconds = 0 },
+		func(s *config.Settings) { s.Tracking.MissingListingMaxRatio = 1.1 },
+		func(s *config.Settings) { s.Tracking.MissingListingMaxRatio = -0.1 },
+	} {
+		bad := *s
+		mut(&bad)
+		if err := bad.Validate(); err == nil {
+			t.Errorf("Validate accepted %+v", bad.Tracking)
+		}
+	}
+}
+
+func TestRecsAttributionDefaultAndValidation(t *testing.T) {
+	s, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Recs.AttributionWindowHours != 24 {
+		t.Errorf("attribution window default = %d, want 24", s.Recs.AttributionWindowHours)
+	}
+	bad := *s
+	bad.Recs.AttributionWindowHours = 0
+	if err := bad.Validate(); err == nil {
+		t.Error("Validate accepted RECS_ATTRIBUTION_WINDOW_HOURS=0")
+	}
+}

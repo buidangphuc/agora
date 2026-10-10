@@ -23,6 +23,7 @@ import (
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/service"
 )
 
 // paymentSettledType is the fully-qualified proto name the EventEnvelope carries
@@ -35,7 +36,7 @@ const consumerName = "team-order.payment"
 // OrderStore is the slice of the order repository the consumer needs.
 type OrderStore interface {
 	GetOrder(ctx context.Context, id string) (repository.Order, error)
-	UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error)
+	UpdateOrderStatusFrom(ctx context.Context, id string, to repository.OrderStatus, allowedFrom []repository.OrderStatus, trackingNumber string) (repository.Order, error)
 }
 
 // VoucherCommitter commits a voucher reservation once its order is settled. The
@@ -137,8 +138,14 @@ func (c *PaymentConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.Even
 	return nil
 }
 
-// apply transitions the order to PAID on a settled payment. It is idempotent: an
-// order not in PENDING is left unchanged.
+// apply moves the order to PAID on a settled payment (design D11). The move is a
+// compare-and-set from Pending only, which also records paid_at: a settlement for
+// an order in any other status (a late payment after a cancel, a redelivery) is
+// acknowledged without changing the order and logged with its current status.
+// The voucher hold is committed only for an order that reached Paid (paid_at set,
+// by this write or an earlier delivery), so a cancelled order's voucher is never
+// redeemed by a late payment. A commit error is returned so the event redelivers;
+// the redelivery's CAS conflicts but paid_at is set, so the commit is retried.
 func (c *PaymentConsumer) apply(ctx context.Context, settled *paymentv1.PaymentSettled) error {
 	if settled.GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_PAID {
 		// FAILED (or unspecified): do not drive the order to PAID. Leave the order in
@@ -150,43 +157,42 @@ func (c *PaymentConsumer) apply(ctx context.Context, settled *paymentv1.PaymentS
 		return nil
 	}
 
-	order, err := c.orders.GetOrder(ctx, settled.GetOrderId())
-	if err != nil {
-		if errors.Is(err, repository.ErrOrderNotFound) {
-			// The order should exist; treat absence as permanent so it is DLQ'd for
-			// inspection rather than retried forever.
-			return fmt.Errorf("%w: order %q not found for settled payment", ErrPermanent, settled.GetOrderId())
+	// the transition table is the single source of truth for which statuses
+	// settlement may move to PAID (today only PENDING)
+	order, err := c.orders.UpdateOrderStatusFrom(ctx, settled.GetOrderId(), repository.OrderStatusPaid,
+		service.AllowedFrom(repository.OrderStatusPaid, service.ActorSystem), "")
+	switch {
+	case err == nil:
+		c.logger.InfoContext(ctx, "order transitioned to PAID from PaymentSettled",
+			slog.String("order_id", order.ID),
+			slog.String("payment_id", settled.GetPaymentId()),
+		)
+	case errors.Is(err, repository.ErrOrderNotFound):
+		// The order should exist; treat absence as permanent so it is DLQ'd for
+		// inspection rather than retried forever.
+		return fmt.Errorf("%w: order %q not found for settled payment", ErrPermanent, settled.GetOrderId())
+	case errors.Is(err, repository.ErrStatusConflict):
+		current, gerr := c.orders.GetOrder(ctx, settled.GetOrderId())
+		if gerr != nil {
+			return fmt.Errorf("get order %q: %w", settled.GetOrderId(), gerr)
 		}
-		return fmt.Errorf("get order %q: %w", settled.GetOrderId(), err)
+		order = current
+		c.logger.WarnContext(ctx, "settled payment for an order that is no longer pending; acknowledged without change",
+			slog.String("order_id", order.ID),
+			slog.Int("status", int(order.Status)),
+			slog.String("payment_id", settled.GetPaymentId()),
+		)
+	default:
+		return fmt.Errorf("transition order %q to PAID: %w", settled.GetOrderId(), err)
 	}
 
-	// Commit the voucher hold for this settled order (idempotent on
-	// reservation_id = order id). Done for any settled order carrying a voucher,
-	// regardless of whether the PAID transition is still pending, so a redelivery
-	// after a transient commit failure still commits exactly once. A commit failure
-	// is transient → return so the offset is not committed and the event redelivers.
-	if c.promo != nil && order.VoucherCode != "" {
+	if c.promo != nil && order.VoucherCode != "" && order.PaidAt != nil {
 		if _, err := c.promo.CommitReservation(ctx, &promotionv1.CommitReservationRequest{ReservationId: order.ID}); err != nil {
 			return fmt.Errorf("commit voucher for order %q: %w", order.ID, err)
 		}
 		c.logger.InfoContext(ctx, "committed voucher reservation on settle",
 			slog.String("order_id", order.ID), slog.String("voucher_code", order.VoucherCode))
 	}
-
-	if order.Status != repository.OrderStatusPending {
-		// Already advanced (redelivery, or manually progressed) — nothing to do.
-		c.logger.InfoContext(ctx, "order already past PENDING; skipping PAID transition",
-			slog.String("order_id", order.ID), slog.Int("status", int(order.Status)))
-		return nil
-	}
-
-	if _, err := c.orders.UpdateOrderStatus(ctx, order.ID, repository.OrderStatusPaid, ""); err != nil {
-		return fmt.Errorf("transition order %q to PAID: %w", order.ID, err)
-	}
-	c.logger.InfoContext(ctx, "order transitioned to PAID from PaymentSettled",
-		slog.String("order_id", order.ID),
-		slog.String("payment_id", settled.GetPaymentId()),
-	)
 	return nil
 }
 

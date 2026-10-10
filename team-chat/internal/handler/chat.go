@@ -63,7 +63,7 @@ func (h *ChatHandler) GetOrCreateThread(
 		if errors.Is(err, service.ErrSelfChat) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		return nil, status.Errorf(codes.Internal, "get or create thread: %v", err)
+		return nil, internalErr(ctx, h.logger, "get or create thread", err)
 	}
 
 	return &chatv1.GetOrCreateThreadResponse{
@@ -94,7 +94,7 @@ func (h *ChatHandler) ListThreads(
 
 	threads, total, err := h.svc.ListThreads(ctx, principal.GetId(), page, pageSize)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list threads: %v", err)
+		return nil, internalErr(ctx, h.logger, "list threads", err)
 	}
 
 	wireThreads := make([]*chatv1.ChatThread, 0, len(threads))
@@ -148,7 +148,7 @@ func (h *ChatHandler) GetThreadMessages(
 		if errors.Is(err, repository.ErrThreadNotFound) {
 			return nil, status.Error(codes.NotFound, "thread not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get thread messages: %v", err)
+		return nil, internalErr(ctx, h.logger, "get thread messages", err)
 	}
 
 	wireMsgs := make([]*chatv1.ChatMessage, 0, len(msgs))
@@ -193,7 +193,7 @@ func (h *ChatHandler) SearchMessages(
 
 	msgs, total, err := h.svc.SearchMessages(ctx, principal.GetId(), req.GetQuery(), page, pageSize)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "search messages: %v", err)
+		return nil, internalErr(ctx, h.logger, "search messages", err)
 	}
 
 	wireMsgs := make([]*chatv1.ChatMessage, 0, len(msgs))
@@ -252,7 +252,7 @@ func (h *ChatHandler) SendMessage(
 		if errors.Is(err, repository.ErrThreadNotFound) {
 			return nil, status.Error(codes.NotFound, "thread not found")
 		}
-		return nil, status.Errorf(codes.Internal, "send message: %v", err)
+		return nil, internalErr(ctx, h.logger, "send message", err)
 	}
 
 	wireMsg := toWireMessage(msg)
@@ -281,7 +281,7 @@ func (h *ChatHandler) MarkThreadRead(
 		if errors.Is(err, repository.ErrThreadNotFound) {
 			return nil, status.Error(codes.NotFound, "thread not found")
 		}
-		return nil, status.Errorf(codes.Internal, "mark thread read: %v", err)
+		return nil, internalErr(ctx, h.logger, "mark thread read", err)
 	}
 
 	return &chatv1.MarkThreadReadResponse{}, nil
@@ -305,7 +305,7 @@ func (h *ChatHandler) ListQuickReplies(
 
 	replies, err := h.svc.ListQuickReplies(ctx, sellerID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list quick replies: %v", err)
+		return nil, internalErr(ctx, h.logger, "list quick replies", err)
 	}
 
 	return &chatv1.ListQuickRepliesResponse{

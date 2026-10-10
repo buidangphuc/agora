@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import httpx
@@ -36,16 +37,32 @@ class PaymentService(BaseService):
             {"orderId": order_id, "method": method},
         )
 
-    def refund(self, payment_id: str, amount: int = 5000000, reason: str = "") -> dict[str, Any]:
+    def refund(
+        self,
+        payment_id: str,
+        amount: int = 5000000,
+        reason: str = "",
+        refund_id: str | None = None,
+    ) -> dict[str, Any]:
+        # refund_id is required (cumulative refunds): one id = one refund; a retry reuses it
         return self.post(
             "/platform.payment.v1.PaymentService/RefundPayment",
-            {"paymentId": payment_id, "amount": amount, "reason": reason},
+            {
+                "paymentId": payment_id,
+                "amount": amount,
+                "reason": reason,
+                "refundId": refund_id or f"e2e-{uuid.uuid4().hex}",
+            },
         )
 
     def refund_payment(
-        self, payment_id: str, amount: int = 5000000, reason: str = ""
+        self,
+        payment_id: str,
+        amount: int = 5000000,
+        reason: str = "",
+        refund_id: str | None = None,
     ) -> dict[str, Any]:
-        return self.refund(payment_id, amount, reason)
+        return self.refund(payment_id, amount, reason, refund_id)
 
     def get_seller_wallet(self, seller_id: str) -> dict[str, Any]:
         return self.post(

@@ -7,11 +7,10 @@ import { setupUser } from "@/test/user";
 
 import { ReturnRequestSection } from "./ReturnRequestSection";
 import { ReturnStateProvider } from "./ReturnState";
-import { createReturnRequestAction, mockRefundAction } from "./actions";
+import { createReturnRequestAction } from "./actions";
 
 vi.mock("./actions", () => ({
   createReturnRequestAction: vi.fn(),
-  mockRefundAction: vi.fn(),
 }));
 
 const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
@@ -162,54 +161,41 @@ describe("ReturnRequestSection", () => {
     expect(await screen.findByTestId("return-status")).toBeInTheDocument();
   });
 
-  it("renders an existing return and can run the mock refund", async () => {
-    vi.mocked(mockRefundAction).mockResolvedValue({
-      ok: true,
-      data: {
-        ...pendingReturn,
-        status: ReturnStatus.REFUNDED,
-        statusText: "Đã hoàn tiền",
-      },
-    });
-
+  it.each([
+    [ReturnStatus.PENDING, "Chờ duyệt"],
+    [ReturnStatus.APPROVED, "Đã duyệt"],
+    [ReturnStatus.REJECTED, "Đã từ chối"],
+    [ReturnStatus.REFUNDED, "Đã hoàn tiền"],
+  ])("lists a return in status %s with no refund button", (status, text) => {
     render(
       <ReturnRequestSection
         orderId="o1"
         orderTotal={50000}
-        initialReturn={pendingReturn}
+        initialReturns={[{ ...pendingReturn, status, statusText: text }]}
       />,
     );
-    const user = setupUser();
-    await user.click(screen.getByTestId("return-refund"));
-
-    await waitFor(() =>
-      expect(mockRefundAction).toHaveBeenCalledWith("r1", "o1", 50000),
-    );
-    expect(await screen.findByTestId("return-status")).toHaveTextContent(
-      "Đã hoàn tiền",
-    );
+    expect(screen.getByTestId("return-status")).toHaveTextContent(text);
+    expect(screen.queryByRole("button", { name: /Hoàn tiền/ })).toBeNull();
     expect(screen.queryByTestId("return-refund")).toBeNull();
-    expect(toast.success).toHaveBeenCalled();
   });
 
-  it("toasts an error when the refund fails", async () => {
-    vi.mocked(mockRefundAction).mockResolvedValue({ ok: false, error: "nope" });
+  it("lists every return of the order", () => {
     render(
       <ReturnRequestSection
         orderId="o1"
         orderTotal={50000}
-        initialReturn={pendingReturn}
+        initialReturns={[
+          pendingReturn,
+          { ...pendingReturn, id: "r2", statusText: "Đã duyệt" },
+        ]}
       />,
     );
-    const user = setupUser();
-    await user.click(screen.getByTestId("return-refund"));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("nope"));
-    expect(screen.getByTestId("return-status")).toHaveTextContent("Chờ duyệt");
+    expect(screen.getAllByTestId("return-status")).toHaveLength(2);
   });
 
   it("shows a return created elsewhere through the shared provider", () => {
     render(
-      <ReturnStateProvider initialReturn={pendingReturn}>
+      <ReturnStateProvider initialReturns={[pendingReturn]}>
         <ReturnRequestSection orderId="o1" orderTotal={50000} />
       </ReturnStateProvider>,
     );

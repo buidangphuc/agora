@@ -1,7 +1,7 @@
 # feature-flags Specification
 
 ## Purpose
-TBD - created by archiving change add-flipt-infra. Update Purpose after archive.
+Defines the self-hosted feature-flag server (Flipt), its GitOps deployment, the OpenFeature wiring in the Go services and the frontend (server-side only), and the checkout kill-switch that flips without a redeploy.
 
 ## Requirements
 

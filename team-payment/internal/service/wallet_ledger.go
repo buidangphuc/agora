@@ -76,7 +76,9 @@ func (s *PaymentService) ListLedgerEntries(
 
 // RequestWalletPayout books a MOCK payout as a PENDING debit ledger entry (no real
 // money moves). The debit reduces the seller's balance immediately (balance = sum of
-// ledger). Rejects non-positive amounts and payouts exceeding the current balance.
+// ledger). Rejects non-positive amounts, payouts exceeding the current balance
+// (ErrInsufficientBalance) and payouts exceeding the withdrawable amount, i.e. proceeds
+// still inside the refund hold window (*repository.FundsOnHoldError).
 func (s *PaymentService) RequestWalletPayout(
 	ctx context.Context,
 	sellerID string,
@@ -94,16 +96,18 @@ func (s *PaymentService) RequestWalletPayout(
 
 	// Balance check and debit are one atomic repository step: a separate
 	// Balance-then-Append let concurrent payouts each pass the check and overdraw.
+	// The hold (design D7) is checked inside the same seller-locked step.
 	return s.ledgerRepo.AppendDebit(ctx, repository.LedgerEntry{
 		SellerID: sellerID,
 		Type:     repository.LedgerTypePayout,
 		Amount:   -amount, // debit
 		Status:   repository.LedgerStatusPending,
-	})
+	}, repository.Holdback{Window: s.holdWindow, Now: s.now()})
 }
 
-// CreditWallet records a COMPLETED credit ledger entry for a seller (e.g. an order
-// settlement). Not exposed as its own RPC; used by the settlement path and tests.
+// CreditWallet records an unreferenced COMPLETED credit ledger entry for a seller.
+// Test seeding only: the settlement credit is CreditSettlement (referenced, idempotent),
+// and the Postgres store refuses an unreferenced ORDER_SETTLEMENT.
 func (s *PaymentService) CreditWallet(
 	ctx context.Context,
 	sellerID string,

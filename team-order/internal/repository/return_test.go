@@ -61,9 +61,9 @@ func TestInMemoryReturnRepository(t *testing.T) {
 	}
 
 	// 5. Update Status
-	updated, err := repo.UpdateReturnStatus(ctx, created.ID, repository.ReturnStatusApproved)
+	updated, err := repo.TransitionReturn(ctx, created.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved)
 	if err != nil {
-		t.Fatalf("UpdateReturnStatus failed: %v", err)
+		t.Fatalf("TransitionReturn failed: %v", err)
 	}
 	if updated.Status != repository.ReturnStatusApproved {
 		t.Errorf("expected APPROVED, got %d", updated.Status)

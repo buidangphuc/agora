@@ -47,5 +47,7 @@ class FavoritesPage(BasePage):
         return self.page.locator(f'[data-testid="collection-row"][data-name="{name}"]')
 
     def create_collection(self, name: str) -> None:
+        # typing before hydration leaves React state empty and the submit disabled
+        self.wait_until_interactive(self.collection_name_input)
         self.collection_name_input.fill(name)
         self.create_collection_submit.click()

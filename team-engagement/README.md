@@ -29,17 +29,22 @@ Defined in `proto/platform/engagement/v1/engagement.proto` (vendored, see Gotcha
 | `GetDispute` | `engagement:read` | No party check: any reader with a dispute id can read it. |
 | `ResolveDispute` | `engagement:write` **and** `admin` | Sets status to `INVESTIGATING`, `RESOLVED` or `REJECTED` plus a resolution text. |
 | `FollowSeller`, `UnfollowSeller` | `engagement:write` | Cannot follow yourself. |
-| `ListFollowedSellers`, `IsFollowing`, `ListFollowedListings` | `engagement:read` | See Known gaps for the feed. |
+| `ListFollowedSellers`, `IsFollowing`, `ListFollowedListings` | `engagement:read` | The feed is newest first (`created_at` then listing id, descending) with an opaque keyset cursor; a malformed cursor is `InvalidArgument`. Needs the listing consumer (see Events). |
 | `CheckIn` | `engagement:write` | Idempotent per calendar day; advances streak, awards coins. |
 | `GetLoyalty` | `engagement:read` | |
 
 Verified purchase (`CreateReview`): only when `UPSTREAM_ORDER_ADDR` is set **and** the request has an `order_id`, the service calls `team-order` `GetOrder` (`internal/upstream/order.go`). `verified_purchase = true` requires the order's `buyer_id` to equal the caller, status `ORDER_STATUS_COMPLETED`, and the order to contain the listing. The order's `seller_id` is stored on the review. If the address is empty, no `order_id` is given, or the upstream call fails, the review is saved unverified (upstream errors are logged as a warning, never returned).
 
-Consumes: `team-order` `GetOrder` only (gRPC). No other upstream.
+Consumes: `team-order` `GetOrder` only (gRPC), called as the service principal `service-team-engagement` (type `service`, scope `order.read`; team-order requires a principal). No other upstream.
 
 ## 2. Events
 
-Produces none. Consumes none. `proto/platform/events` is vendored but unused here.
+Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`; no review text) to `engagement.events` through a transactional outbox (migration 0010) and a relayer that publishes in `seq` order, keyed by listing id (seller id for follows), and deletes published rows older than 7 days each cycle; an idempotent no-op writes no fact. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) when `KAFKA_ENABLED=true`; it is the only writer of `seller_listings` (the follow-feed source).
+
+- `ListingChanged` with a `PUBLISHED` listing (created or updated): upsert `(seller_id, listing_id)`. `created_at` is the envelope's `occurred_at` and is kept on redelivery and later updates, so editing a listing does not bump it in the feed. A listing has one owning seller.
+- `ListingChanged` `DELETED`, or any non-published status; and `ListingStatusChanged` to a non-published status: remove the row. `ListingStatusChanged` to `PUBLISHED` is ignored (it carries no seller id; the matching `ListingChanged` upserts).
+- Delivery is at-least-once with idempotent writes. A failing record is retried with backoff (5 attempts), then parked on `<topic>.dlq`; if it cannot be parked the service exits without committing. A malformed record (bad envelope, no listing id, published without seller id) takes the same path.
+- A new consumer group starts from the earliest offset, which backfills the feed. The consumer runs inside the server process (`cmd/server`), not as a separate binary.
 
 ## 3. Data
 
@@ -55,6 +60,8 @@ Own Postgres `engagement_db`, role `engagement_svc`. Tables by migration (`migra
 | 0006 | `view_history` |
 | 0007 | `follows`, `seller_listings` |
 | 0008 | `loyalty_accounts`, `checkins` |
+| 0009 | indexes for the newest-first follow feed on `seller_listings` |
+| 0010 | `outbox` (engagement facts) |
 
 Migrations are applied by golang-migrate, never by the server. Root compose: the `team-engagement-migrate` one-shot runs before `team-engagement`. Standalone: `make migrate` (runs `migrate/migrate` in docker against `DATABASE_URL`, rewriting `localhost` to `host.docker.internal`).
 
@@ -75,6 +82,12 @@ Read by `internal/config/config.go`; `.env.example` is the template.
 | `DATABASE_URL` | empty | Required when enabled. Standalone `postgresql://engagement_svc:engagement_pass@localhost:5436/engagement_db`; in root compose the host is `postgres:5432` |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `UPSTREAM_ORDER_ADDR` | empty | `team-order` gRPC address. Empty disables verified-purchase checks. Root compose sets `team-order-svc:50055` |
+| `KAFKA_ENABLED` | `false` | Run the `listing.events` consumer that fills the follow feed. Off means the feed stays empty |
+| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seed brokers (root compose: `redpanda:9092`) |
+| `KAFKA_CONSUMER_GROUP` | `team-engagement-feed` | Consumer group |
+| `KAFKA_LISTING_TOPIC` | `listing.events` | Topic; the DLQ is `<topic>.dlq` |
+| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to (needs `KAFKA_ENABLED=true`) |
+| `ENGAGEMENT_OUTBOX_RELAY_INTERVAL` | `500ms` | Outbox relay poll interval (Go duration) |
 | `OTEL_ENABLED` | `false` | Tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-engagement` | Service name in traces |
@@ -133,10 +146,8 @@ This repo has no CI workflow of its own; `make check` is the gate. Go 1.22 (`go.
 
 ## 9. Known gaps
 
-- **Follow feed is empty in production.** `ListFollowedListings` joins `follows` to `seller_listings` and pages by `listing_id` (not chronologically). `seller_listings` is only written by `IndexSellerListing`, which has no production caller (tests only), and there is no event consumer, so the feed returns nothing outside tests.
-- **Shop replies depend on a scope, not ownership.** The service does not know which seller owns a listing, so `AnswerQuestion` honours `is_shop_reply` for any caller with `listing.write`, even on another seller's listing.
-- **`GetDispute` has no party check.** Any caller with `engagement:read` and a dispute id can read it.
-- **Dispute state machine is loose.** `ResolveDispute` accepts `INVESTIGATING`, `RESOLVED` or `REJECTED` from any non-closed state, so `OPEN` can go straight to `RESOLVED` and `INVESTIGATING` can be set repeatedly. Closed disputes return `FailedPrecondition`. `CreateDispute` does not verify the order or the parties against `team-order`.
+- **Follow feed depends on the consumer.** It is empty unless `KAFKA_ENABLED=true` and the group has read `listing.events`. Root compose does not set the Kafka variables for this service yet. A stale redelivery of an old `PUBLISHED` event after a `DELETED` can re-add a listing (events for one listing are keyed together, so this needs a replay or rebalance race).
+- **Dispute state machine is loose.** `ResolveDispute` accepts `INVESTIGATING`, `RESOLVED` or `REJECTED` from any non-closed state, so `OPEN` can go straight to `RESOLVED` and `INVESTIGATING` can be set repeatedly. Closed disputes return `FailedPrecondition`. `CreateDispute` verifies the order, its buyer and its seller against `team-order` (fails closed with `UNAVAILABLE` when `UPSTREAM_ORDER_ADDR` is unset or team-order is down); `GetDispute` is limited to the claimant, defendant or an admin; `is_shop_reply` is honoured only for the listing owner per the `seller_listings` projection.
 - **Review display name is synthetic.** `CreateReview` sets `user_name` to `"User " + first 6 chars of id` (or a Vietnamese placeholder for short ids).
 - Root `AGENTS.md` describes this service as "Favorites, stats, reviews, Q&A, disputes"; it omits wishlist, follows and loyalty.
 

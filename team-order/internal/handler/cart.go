@@ -35,7 +35,7 @@ func (h *CartHandler) GetCart(ctx context.Context, _ *orderv1.GetCartRequest) (*
 	}
 	items, subtotal, err := h.svc.GetCart(ctx, principal.GetId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get cart: %v", err)
+		return nil, internalErr(h.logger, "get cart", err)
 	}
 	return &orderv1.GetCartResponse{Cart: toWireCart(principal.GetId(), items, subtotal)}, nil
 }
@@ -50,7 +50,7 @@ func (h *CartHandler) AddToCart(ctx context.Context, req *orderv1.AddToCartReque
 	}
 	items, subtotal, err := h.svc.AddToCart(ctx, principal.GetId(), req.GetListingId(), req.GetVariantId(), req.GetQuantity())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "add to cart: %v", err)
+		return nil, internalErr(h.logger, "add to cart", err)
 	}
 	return &orderv1.AddToCartResponse{Cart: toWireCart(principal.GetId(), items, subtotal)}, nil
 }
@@ -65,7 +65,7 @@ func (h *CartHandler) UpdateCartItem(ctx context.Context, req *orderv1.UpdateCar
 	}
 	items, subtotal, err := h.svc.UpdateCartItem(ctx, principal.GetId(), req.GetItemId(), req.GetQuantity())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "update cart item: %v", err)
+		return nil, internalErr(h.logger, "update cart item", err)
 	}
 	return &orderv1.UpdateCartItemResponse{Cart: toWireCart(principal.GetId(), items, subtotal)}, nil
 }
@@ -80,7 +80,7 @@ func (h *CartHandler) RemoveFromCart(ctx context.Context, req *orderv1.RemoveFro
 	}
 	items, subtotal, err := h.svc.RemoveFromCart(ctx, principal.GetId(), req.GetItemId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "remove from cart: %v", err)
+		return nil, internalErr(h.logger, "remove from cart", err)
 	}
 	return &orderv1.RemoveFromCartResponse{Cart: toWireCart(principal.GetId(), items, subtotal)}, nil
 }
@@ -91,7 +91,7 @@ func (h *CartHandler) ClearCart(ctx context.Context, _ *orderv1.ClearCartRequest
 		return nil, err
 	}
 	if err := h.svc.ClearCart(ctx, principal.GetId()); err != nil {
-		return nil, status.Errorf(codes.Internal, "clear cart: %v", err)
+		return nil, internalErr(h.logger, "clear cart", err)
 	}
 	return &orderv1.ClearCartResponse{}, nil
 }
@@ -112,7 +112,7 @@ func (h *CartHandler) Reorder(ctx context.Context, req *orderv1.ReorderRequest) 
 		if errors.Is(err, service.ErrReorderNotOwner) {
 			return nil, status.Error(codes.PermissionDenied, "cannot reorder another user's order")
 		}
-		return nil, status.Errorf(codes.Internal, "reorder: %v", err)
+		return nil, internalErr(h.logger, "reorder", err)
 	}
 	return &orderv1.ReorderResponse{Cart: toWireCart(principal.GetId(), items, subtotal)}, nil
 }

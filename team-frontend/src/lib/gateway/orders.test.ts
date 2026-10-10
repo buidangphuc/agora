@@ -1,7 +1,10 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import {
+  OrderStatus,
+  ReturnStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 
 import { makeClients } from "./client.js";
@@ -13,6 +16,7 @@ import {
   getOrderResult,
   listBuyerOrders,
   listBuyerOrdersResult,
+  listOrderReturns,
   updateOrderStatus,
 } from "./orders.js";
 
@@ -96,6 +100,22 @@ describe("orders gateway wrapper", () => {
       recipientName: "A",
     });
     expect(res[0].items[0]).toMatchObject({ id: "it1", unitPrice: 50000 });
+  });
+
+  it("createOrder sends the Idempotency-Key call header when a key is given", async () => {
+    const order = stubOrder({
+      createOrder: vi.fn().mockResolvedValue({ orders: [] }),
+    });
+    await createOrder("a", [], PaymentMethod.COD, "V", "key-1");
+    expect(order.createOrder).toHaveBeenCalledWith(
+      {
+        addressId: "a",
+        itemIds: [],
+        paymentMethod: PaymentMethod.COD,
+        voucherCode: "V",
+      },
+      { headers: { "Idempotency-Key": "key-1" } },
+    );
   });
 
   it("createOrder applies defaults for missing args (COD, empty ids)", async () => {
@@ -212,5 +232,45 @@ describe("orders gateway wrapper", () => {
       reason: "changed mind",
     });
     expect(res.id).toBe("o1");
+  });
+
+  it("getOrder maps paid_at (empty when never paid online)", async () => {
+    stubOrder({
+      getOrder: vi
+        .fn()
+        .mockResolvedValueOnce({ order: protoOrder })
+        .mockResolvedValueOnce({
+          order: { ...protoOrder, paidAt: { seconds: 1_700_000_000 } },
+        }),
+    });
+    expect((await getOrder("o1"))?.paidAt).toBe("");
+    expect((await getOrder("o1"))?.paidAt).not.toBe("");
+  });
+
+  it("listOrderReturns maps the returns through the gateway", async () => {
+    const listOrderReturnsRpc = vi.fn().mockResolvedValue({
+      returns: [
+        {
+          id: "r1",
+          orderId: "o1",
+          reason: "hỏng",
+          refundAmount: 200000n,
+          status: ReturnStatus.REFUNDED,
+        },
+      ],
+    });
+    stubOrder({ listOrderReturns: listOrderReturnsRpc });
+    const res = await listOrderReturns("o1");
+    expect(listOrderReturnsRpc).toHaveBeenCalledWith({ orderId: "o1" });
+    expect(res).toEqual([
+      {
+        id: "r1",
+        orderId: "o1",
+        reason: "hỏng",
+        refundAmount: 200000,
+        status: ReturnStatus.REFUNDED,
+        statusText: "Đã hoàn tiền",
+      },
+    ]);
   });
 });

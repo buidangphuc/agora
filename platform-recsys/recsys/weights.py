@@ -16,6 +16,21 @@ import math
 # rather than dropping it or (worse) treating it as zero confidence.
 UNKNOWN_EVENT_WEIGHT = 0.5
 
+# Reference per-event weights for the nearline / two-tower helpers. The ALS job no
+# longer uses them: its weights are computed by platform-featurestore and read from
+# the governed dataset as given.
+DEFAULT_EVENT_WEIGHTS = {
+    "impression": 0.5,
+    "view": 1.0,
+    "click": 2.0,
+    "view_cart": 2.5,
+    "add_to_cart": 5.0,
+    "add_shipping_info": 6.0,
+    "add_payment_info": 7.0,
+    "begin_checkout": 8.0,
+    "purchase": 10.0,
+}
+
 
 def choose_user_key(principal_id: str | None, anonymous_id: str | None) -> str | None:
     """user = principal_id when authenticated, else anonymous_id.

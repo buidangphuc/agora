@@ -15,6 +15,7 @@ import (
 	"github.com/buidangphuc/team-search/internal/config"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
 
 // Resources is the central bag of opened handles.
@@ -22,6 +23,7 @@ type Resources struct {
 	Index        index.Index
 	EmbedClient  retrieval.EmbedClient
 	RerankClient retrieval.RerankClient
+	Classifier   taxonomy.Classifier // nil when UPSTREAM_AI_ADDR is empty
 	Engine       *retrieval.Engine
 	Health       *health.Server
 }
@@ -43,6 +45,15 @@ func OpenResources(ctx context.Context, s *config.Settings) (*Resources, error) 
 		rerankClient = retrieval.NewHTTPRerankClient(s.Retrieval.ModelServerURL, 2*time.Second)
 	}
 
+	var classifier taxonomy.Classifier
+	if s.Taxonomy.AIAddr != "" {
+		c, _, err := taxonomy.DialGRPCClassifier(s.Taxonomy.AIAddr)
+		if err != nil {
+			return nil, err
+		}
+		classifier = c
+	}
+
 	engine := retrieval.NewEngine(idx, embedClient, rerankClient, s.Retrieval)
 
 	h := health.NewServer()
@@ -51,6 +62,7 @@ func OpenResources(ctx context.Context, s *config.Settings) (*Resources, error) 
 		Index:        idx,
 		EmbedClient:  embedClient,
 		RerankClient: rerankClient,
+		Classifier:   classifier,
 		Engine:       engine,
 		Health:       h,
 	}, nil

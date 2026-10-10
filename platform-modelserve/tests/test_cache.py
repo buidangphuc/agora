@@ -75,3 +75,32 @@ def test_embedding_cache_get_set() -> None:
         assert mixed_results == [[0.1, 0.2, 0.3], None]
 
     asyncio.run(_run())
+
+
+class HangingRedis(FakeRedis):
+    """A Redis whose connection never answers (a stopped container: SYN into the void)."""
+
+    async def mget(self, keys: list[str]) -> list[str | None]:
+        await asyncio.sleep(3600)
+        return []
+
+    def pipeline(self) -> FakePipeline:
+        pipe = FakePipeline(self)
+
+        async def _hang() -> list[bool]:
+            await asyncio.sleep(3600)
+            return []
+
+        pipe.execute = _hang  # type: ignore[method-assign]
+        return pipe
+
+
+def test_embedding_cache_fails_open_on_a_hanging_redis() -> None:
+    async def _run() -> None:
+        settings = Settings(embed_cache_enabled=True, embed_cache_timeout_seconds=0.05)
+        cache = EmbeddingCache(settings, redis_client=HangingRedis())
+        got = await asyncio.wait_for(cache.get_many(["a", "b"]), 2)
+        assert got == [None, None]
+        await asyncio.wait_for(cache.set_many(["a"], [[0.1]]), 2)
+
+    asyncio.run(_run())

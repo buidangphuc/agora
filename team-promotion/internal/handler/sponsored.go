@@ -31,10 +31,11 @@ func NewSponsoredHandler(svc *service.SponsoredService, logger *slog.Logger) *Sp
 }
 
 // CreateAdCampaign records a sponsored campaign for the authenticated seller
-// (MOCK — no charge). The seller id is bound from the principal, never the wire,
-// so a caller can only create campaigns for themselves.
+// (MOCK — no charge). Requires listing.write and, for non-admins, ownership of the
+// listing (verified against team-domain in the service). The seller id is bound
+// from the principal, never the wire.
 func (h *SponsoredHandler) CreateAdCampaign(ctx context.Context, req *promotionv1.CreateAdCampaignRequest) (*promotionv1.CreateAdCampaignResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := interceptor.RequireScopes(ctx, interceptor.ScopeListingWrite)
 	if err != nil {
 		return nil, err
 	}
@@ -46,12 +47,16 @@ func (h *SponsoredHandler) CreateAdCampaign(ctx context.Context, req *promotionv
 		ListingID: req.GetListingId(),
 		Budget:    req.GetBudget(),
 		Bid:       req.GetBid(),
+		IsAdmin:   interceptor.IsAdmin(principal),
 	})
 	if err != nil {
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
 		if errors.Is(err, service.ErrInvalidAdCampaign) {
 			return nil, status.Error(codes.InvalidArgument, "invalid ad campaign")
 		}
-		return nil, status.Errorf(codes.Internal, "create ad campaign: %v", err)
+		return nil, internalError(ctx, h.logger, "create ad campaign", err)
 	}
 	return &promotionv1.CreateAdCampaignResponse{Campaign: service.AdCampaignToProto(campaign)}, nil
 }
@@ -62,7 +67,7 @@ func (h *SponsoredHandler) CreateAdCampaign(ctx context.Context, req *promotionv
 func (h *SponsoredHandler) ListSponsoredSlots(ctx context.Context, req *promotionv1.ListSponsoredSlotsRequest) (*promotionv1.ListSponsoredSlotsResponse, error) {
 	listingIDs, err := h.svc.ListSponsoredSlots(ctx, req.GetContextStr())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list sponsored slots: %v", err)
+		return nil, internalError(ctx, h.logger, "list sponsored slots", err)
 	}
 	return &promotionv1.ListSponsoredSlotsResponse{ListingIds: listingIDs}, nil
 }

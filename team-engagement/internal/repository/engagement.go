@@ -5,10 +5,16 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
+
+// ErrInvalidCursor is returned for a malformed follow-feed cursor.
+var ErrInvalidCursor = errors.New("invalid feed cursor")
 
 const (
 	DefaultPageSize = 50
@@ -77,13 +83,25 @@ type Repository interface {
 	IsFollowing(ctx context.Context, userID, sellerID string) (bool, error)
 	// ListFollowedSellers returns the user's followed seller ids, keyset by id.
 	ListFollowedSellers(ctx context.Context, userID, cursor string, pageSize int32) (ids []string, next string, total int64, err error)
-	// ListFollowedListings returns the distinct listing ids belonging to sellers
-	// the user follows (the follow feed), keyset by listing id.
+	// ListFollowedListings returns the listing ids belonging to sellers the user
+	// follows (the follow feed), newest first (created_at DESC, listing id DESC).
+	// The cursor is opaque (see feedCursor).
 	ListFollowedListings(ctx context.Context, userID, cursor string, pageSize int32) (ids []string, next string, total int64, err error)
 	// IndexSellerListing records that listingID belongs to sellerID — the
-	// feed source ListFollowedListings joins against. Idempotent. Called by the
-	// listing-event consumer (integration wave); exercised directly in tests.
+	// feed source ListFollowedListings joins against. Idempotent. Shorthand for
+	// UpsertSellerListing stamped with the current time.
 	IndexSellerListing(ctx context.Context, sellerID, listingID string) error
+	// UpsertSellerListing records a published listing for its seller. Idempotent:
+	// a redelivered event keeps the original createdAt (the feed's sort key), and
+	// a listing is only ever owned by one seller.
+	UpsertSellerListing(ctx context.Context, sellerID, listingID string, createdAt time.Time) error
+	// ListingSeller returns the seller that owns listingID per the seller_listings
+	// projection (fed by listing.events). found=false when the projection has no
+	// owner for it (not yet consumed, or removed).
+	ListingSeller(ctx context.Context, listingID string) (sellerID string, found bool, err error)
+	// RemoveSellerListing drops a deleted or unpublished listing from the feed
+	// source. Idempotent; removing an unknown listing is a no-op.
+	RemoveSellerListing(ctx context.Context, listingID string) error
 
 	// ── Loyalty / daily check-in (F4) ──
 
@@ -100,13 +118,13 @@ type Repository interface {
 // InMemoryRepository is a fake store for tests.
 type InMemoryRepository struct {
 	mu       sync.Mutex
-	favs     map[string]map[string]struct{} // userID -> set(listingID)
-	views    map[string]int64               // listingID -> view count
-	hist     map[string][]string            // userID -> listingIDs, most-recent-first
-	follows  map[string]map[string]struct{} // userID -> set(sellerID)
-	sellerLs map[string]map[string]struct{} // sellerID -> set(listingID)
-	loyalty  map[string]Loyalty             // userID -> loyalty snapshot
-	checkins map[string]map[string]struct{} // userID -> set(day "2006-01-02")
+	favs     map[string]map[string]struct{}  // userID -> set(listingID)
+	views    map[string]int64                // listingID -> view count
+	hist     map[string][]string             // userID -> listingIDs, most-recent-first
+	follows  map[string]map[string]struct{}  // userID -> set(sellerID)
+	sellerLs map[string]map[string]time.Time // sellerID -> listingID -> created_at
+	loyalty  map[string]Loyalty              // userID -> loyalty snapshot
+	checkins map[string]map[string]struct{}  // userID -> set(day "2006-01-02")
 }
 
 func NewInMemoryRepository() *InMemoryRepository {
@@ -115,7 +133,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		views:    map[string]int64{},
 		hist:     map[string][]string{},
 		follows:  map[string]map[string]struct{}{},
-		sellerLs: map[string]map[string]struct{}{},
+		sellerLs: map[string]map[string]time.Time{},
 		loyalty:  map[string]Loyalty{},
 		checkins: map[string]map[string]struct{}{},
 	}
@@ -290,30 +308,89 @@ func (r *InMemoryRepository) ListFollowedSellers(_ context.Context, userID, curs
 func (r *InMemoryRepository) ListFollowedListings(_ context.Context, userID, cursor string, pageSize int32) ([]string, string, int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	// Union of listings across every followed seller, deduped.
-	seen := map[string]struct{}{}
+	type entry struct {
+		id string
+		at time.Time
+	}
+	var all []entry
 	for sellerID := range r.follows[userID] {
-		for lid := range r.sellerLs[sellerID] {
-			seen[lid] = struct{}{}
+		for lid, at := range r.sellerLs[sellerID] {
+			all = append(all, entry{lid, at})
 		}
 	}
-	all := make([]string, 0, len(seen))
-	for lid := range seen {
-		all = append(all, lid)
+	// Newest first; listing id breaks ties so the order is total.
+	sort.Slice(all, func(i, j int) bool {
+		if !all[i].at.Equal(all[j].at) {
+			return all[i].at.After(all[j].at)
+		}
+		return all[i].id > all[j].id
+	})
+	curAt, curID, hasCur, err := parseFeedCursor(cursor)
+	if err != nil {
+		return nil, "", 0, err
 	}
-	ids, next := keysetPage(all, cursor, pageSize)
+	limit := clampPageSize(pageSize)
+	ids := make([]string, 0, limit)
+	var next string
+	var lastAt time.Time
+	for _, e := range all {
+		if hasCur && !(e.at.Before(curAt) || (e.at.Equal(curAt) && e.id < curID)) {
+			continue
+		}
+		if len(ids) == limit {
+			next = feedCursor(lastAt, ids[len(ids)-1])
+			break
+		}
+		ids = append(ids, e.id)
+		lastAt = e.at
+	}
 	return ids, next, int64(len(all)), nil
 }
 
-func (r *InMemoryRepository) IndexSellerListing(_ context.Context, sellerID, listingID string) error {
+func (r *InMemoryRepository) IndexSellerListing(ctx context.Context, sellerID, listingID string) error {
+	return r.UpsertSellerListing(ctx, sellerID, listingID, time.Now())
+}
+
+func (r *InMemoryRepository) UpsertSellerListing(_ context.Context, sellerID, listingID string, createdAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// A listing has exactly one owner: drop it from any other seller first,
+	// keeping the original created_at when the owner is unchanged.
+	prev, owned := r.sellerLs[sellerID][listingID]
+	for sid, set := range r.sellerLs {
+		if sid != sellerID {
+			delete(set, listingID)
+		}
+	}
 	set := r.sellerLs[sellerID]
 	if set == nil {
-		set = map[string]struct{}{}
+		set = map[string]time.Time{}
 		r.sellerLs[sellerID] = set
 	}
-	set[listingID] = struct{}{}
+	if owned {
+		createdAt = prev
+	}
+	set[listingID] = createdAt.UTC()
+	return nil
+}
+
+func (r *InMemoryRepository) ListingSeller(_ context.Context, listingID string) (string, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for sid, set := range r.sellerLs {
+		if _, ok := set[listingID]; ok {
+			return sid, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func (r *InMemoryRepository) RemoveSellerListing(_ context.Context, listingID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, set := range r.sellerLs {
+		delete(set, listingID)
+	}
 	return nil
 }
 
@@ -379,3 +456,28 @@ func keysetPage(all []string, cursor string, pageSize int32) ([]string, string) 
 }
 
 var _ Repository = (*InMemoryRepository)(nil)
+
+// feedCursor encodes the keyset position of the follow feed: the last row's
+// created_at and listing id, so paging stays stable while new listings arrive
+// at the head.
+func feedCursor(createdAt time.Time, listingID string) string {
+	return createdAt.UTC().Format(time.RFC3339Nano) + "|" + listingID
+}
+
+// parseFeedCursor decodes a cursor produced by feedCursor. An empty cursor means
+// "first page" (ok=false). A malformed cursor is an error rather than silently
+// restarting the feed.
+func parseFeedCursor(cursor string) (createdAt time.Time, listingID string, ok bool, err error) {
+	if cursor == "" {
+		return time.Time{}, "", false, nil
+	}
+	ts, id, found := strings.Cut(cursor, "|")
+	if !found || id == "" {
+		return time.Time{}, "", false, ErrInvalidCursor
+	}
+	t, perr := time.Parse(time.RFC3339Nano, ts)
+	if perr != nil {
+		return time.Time{}, "", false, fmt.Errorf("%w: %v", ErrInvalidCursor, perr)
+	}
+	return t, id, true, nil
+}

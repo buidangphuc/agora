@@ -69,7 +69,7 @@ func TestOrderFactsSchemaParity(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		"event_id", "order_id", "listing_id", "seller_id", "quantity", "unit_price", "currency", "occurred_at", "status",
+		"event_id", "order_id", "listing_id", "seller_id", "quantity", "unit_price", "currency", "occurred_at", "status", "buyer_id",
 	} {
 		if !seen[required] {
 			t.Errorf("canonical order_facts schema missing required column %q", required)

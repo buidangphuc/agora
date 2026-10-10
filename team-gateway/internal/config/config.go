@@ -58,7 +58,7 @@ type Upstream struct {
 	VerificationAddr string  `env:"UPSTREAM_VERIFICATION_ADDR" default:"team-verification-svc:50064"`
 	SharingAddr      string  `env:"UPSTREAM_SHARING_ADDR" default:"team-sharing-svc:50065"`
 	AuditAddr        string  `env:"UPSTREAM_AUDIT_ADDR" default:"team-audit-svc:50066"`
-	DialTimeout      float64 `env:"DIAL_TIMEOUT_SECONDS" default:"5"`
+	DialTimeout      float64 `env:"DIAL_TIMEOUT_SECONDS" default:"2"`
 }
 
 // Auth is the edge verification config (ADR-0006). The gateway holds no signing
@@ -79,6 +79,22 @@ type Edge struct {
 	CallTimeoutSecs float64 `env:"CALL_TIMEOUT_SECONDS" default:"5"`
 	RetryMax        int     `env:"RETRY_MAX" default:"2"`
 	CORSOrigins     string  `env:"CORS_ORIGINS" default:"http://localhost:3000"` // comma-separated
+	// TrackRateLimitRPS/Burst bound POST /api/track per visitor (user id, else
+	// client IP) in a bucket separate from the RPC one: beacons are bursty.
+	TrackRateLimitRPS   float64 `env:"TRACK_RATE_LIMIT_RPS" default:"5"`
+	TrackRateLimitBurst int     `env:"TRACK_RATE_LIMIT_BURST" default:"20"`
+	// AICallTimeoutSecs is the single-attempt deadline of the AI generation RPCs
+	// (MagicListing, ChatCopilot, SummarizeReviews, ShoppingAssistant); never retried.
+	AICallTimeoutSecs float64 `env:"AI_CALL_TIMEOUT_SECONDS" default:"30"`
+	// StreamMaxRequestBytes caps one StreamChat request message.
+	StreamMaxRequestBytes int `env:"STREAM_MAX_REQUEST_BYTES" default:"16384"`
+	// StreamRevocationCheckSecs is how often an open stream re-checks its session
+	// against the in-memory revocation denylist; a revoked session ends the stream
+	// with unauthenticated within this interval. (Token expiry ends it on time.)
+	StreamRevocationCheckSecs float64 `env:"STREAM_REVOCATION_CHECK_SECONDS" default:"5"`
+	// ReflectionEnabled mounts gRPC reflection. Development aid only: refused
+	// under a strict ENV (staging, production).
+	ReflectionEnabled bool `env:"EDGE_REFLECTION_ENABLED" default:"false"`
 	// PrometheusURL is where the Admin Cockpit handler runs its fixed server-side
 	// PromQL set (GET /api/v1/query). Read-only, never exposed to the browser.
 	// Empty/unreachable → the handler degrades to zeroed values (never random).
@@ -152,6 +168,9 @@ func (s *Settings) Validate() error {
 	if s.Server.ShutdownGrace < 0 {
 		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
 	}
+	if s.IsStrictEnv() && s.Edge.ReflectionEnabled {
+		return fmt.Errorf("EDGE_REFLECTION_ENABLED must not be true when ENV=%s", s.Runtime.Env)
+	}
 	return nil
 }
 
@@ -184,6 +203,16 @@ func splitCSV(v string) []string {
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"
+}
+
+// IsStrictEnv reports staging or production: environments where dev-only
+// switches must refuse to boot.
+func (s *Settings) IsStrictEnv() bool {
+	switch strings.ToLower(strings.TrimSpace(s.Runtime.Env)) {
+	case "staging", "stage", "prod", "production":
+		return true
+	}
+	return false
 }
 
 // DeclaredEnvKeys returns every env key declared by Settings, in struct order.

@@ -118,3 +118,32 @@ def test_champion_from_another_eval_protocol_is_not_compared() -> None:
     assert "not comparable" in reason
     assert registry.get_champion_version() == "als_new"
     assert registry.get_model("als_old").status == "archived"
+
+
+def _model(version: str, metrics: dict) -> ModelMetadata:
+    return ModelMetadata(model_name="als", model_version=version, model_type="als", metrics=metrics)
+
+
+def test_evaluate_changes_nothing_until_the_decision_is_applied():
+    registry = ModelRegistry()
+    registry.register_model(_model("als_v1", {"ndcg@10": 0.30, "coverage@10": 0.9}))
+    registry.evaluate_and_promote("als_v1")
+    registry.register_model(_model("als_v2", {"ndcg@10": 0.40, "coverage@10": 0.9}))
+
+    decision = registry.evaluate("als_v2")
+
+    assert decision.promoted is True
+    assert registry.get_champion_version() == "als_v1"
+    assert registry.get_model("als_v2").status == "candidate"
+
+    registry.reject(decision, reason="publish failed: RuntimeError")
+
+    assert registry.get_champion_version() == "als_v1"
+    assert registry.get_model("als_v1").status == "champion"
+    assert registry.get_model("als_v2").status == "rejected"
+    assert registry.get_model("als_v2").metrics["gate_reason"] == "publish failed: RuntimeError"
+
+    registry.register_model(_model("als_v3", {"ndcg@10": 0.50, "coverage@10": 0.9}))
+    registry.apply_promotion(registry.evaluate("als_v3"))
+    assert registry.get_champion_version() == "als_v3"
+    assert registry.get_model("als_v1").status == "archived"

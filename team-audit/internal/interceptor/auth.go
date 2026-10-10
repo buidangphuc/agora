@@ -28,6 +28,8 @@ const (
 
 	// ScopeAdmin is held only by the admin role (team-identity/internal/authz).
 	ScopeAdmin = "admin"
+	// ScopeAuditWrite is the scope a service principal must hold to append audit events.
+	ScopeAuditWrite = "audit.write"
 )
 
 // Principal is the caller identity forwarded by the gateway.
@@ -103,6 +105,24 @@ func RequireAdmin(ctx context.Context) (Principal, error) {
 	}
 	if !p.HasScope(ScopeAdmin) {
 		return Principal{}, status.Errorf(codes.PermissionDenied, "insufficient_scope: missing %q", ScopeAdmin)
+	}
+	return p, nil
+}
+
+// RequireService authenticates the caller and requires a principal of type
+// service holding scope. Users (admins included), anonymous callers and
+// scopeless services are refused: Unauthenticated when there is no principal,
+// PermissionDenied otherwise.
+func RequireService(ctx context.Context, scope string) (Principal, error) {
+	p, err := RequirePrincipal(ctx)
+	if err != nil {
+		return Principal{}, err
+	}
+	if !p.IsService() {
+		return Principal{}, status.Error(codes.PermissionDenied, "service principal required")
+	}
+	if !p.HasScope(scope) {
+		return Principal{}, status.Errorf(codes.PermissionDenied, "insufficient_scope: missing %q", scope)
 	}
 	return p, nil
 }

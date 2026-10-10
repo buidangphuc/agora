@@ -1,6 +1,6 @@
 # team-analytics
 
-Analytics bounded context: a Go worker that consumes `analytics.events` and `order.events` from Kafka, appends them to a warehouse (embedded DuckDB locally, BigQuery as a write-only prod adapter), and serves the read-only `AnalyticsQueryService` over gRPC on `:50059`. It owns the `tracking_events` and `order_facts` tables, the seller funnel, revenue breakdown, a baseline demand forecast, the admin order summaries, and the Parquet export that `platform-recsys` trains from. Status: deployed in the root compose as `team-analytics-svc`.
+Analytics bounded context: a Go worker that consumes `analytics.events`, `order.events` and `engagement.events` from Kafka, appends them to a warehouse (embedded DuckDB locally, BigQuery as a write-only prod adapter), and serves the read-only `AnalyticsQueryService` over gRPC on `:50059`. It owns the `tracking_events`, `order_facts` and `engagement_facts` tables (plus the `favorites_current` and `follows_current` views), the seller funnel, revenue breakdown, a baseline demand forecast, the admin order summaries, and the Parquet export that `platform-recsys` trains from. Status: deployed in the root compose as `team-analytics-svc`.
 
 ## 1. Contract
 
@@ -13,16 +13,19 @@ Served: `platform.analytics.v1.AnalyticsQueryService` (`proto/platform/analytics
 | `GetDemandForecast` | same as above |
 | `GetPlatformOrderSummary` | `admin` scope only (`RequireScopes`) |
 | `ListRecentOrders` | `admin` scope only |
+| `GetRecommendationPerformance` | Admin only. Over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`), one row per (`placement_id`, `model_version`) seen on impression events. An impression is the triple (`impression_id`, `placement_id`, `model_version`), so a reused id keeps its placements apart. A click counts only on a listing the impression showed, at or before the click, and goes to exactly one impression (latest event; the click's own placement/model must match if it carries them). Add-to-carts (beacons) and purchases (PAID `order_facts` lines whose `buyer_id` is the click's `user_key`; purchase beacons are ignored) are credited once, to the earliest click at most `RECS_ATTRIBUTION_WINDOW_HOURS` earlier. `ctr` = clicks / item impressions; `conversion_rate` = purchases credited to *mature* clicks / mature clicks (a click is mature when its attribution window closed by the report end; 0 without mature clicks, so use a `window_hours` above the attribution window). Also the per-placement share of impressions with `model_version` `serving-fallback`. DuckDB only. |
+| `GetTrackingQualityReport` | `admin` scope only |
 
 Trust model (ADR-0003): the gateway verifies the token and forwards a resolved Principal as gRPC metadata `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`), `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` reads these headers and does no verification, so the service trusts any caller that can reach `:50059` (see Known gaps).
 
 | RPC | Behavior |
 |---|---|
-| `GetSellerFunnel` | Returns `impressions`, `views`, `adds`, `begin_checkouts`, `purchases` (counts from `tracking_events`) and `orders` (distinct `order_id` from `order_facts` for the seller). Window: optional `from`/`to`, open-ended when omitted. |
+| `GetSellerFunnel` | Returns `impressions`, `views`, `adds`, `begin_checkouts`, `purchases` (counts from `tracking_events`, joined to `listing_sellers` so only events on the seller's own listings count; events on listings with no known seller are excluded, including events with no `listing_id` such as a cart-level `begin_checkout`) and `orders` (distinct `order_id` from `order_facts` for the seller). Window: optional `from`/`to`, open-ended when omitted. |
 | `GetRevenueBreakdown` | Per-day revenue and order count, plus the top 10 SKUs by revenue (`SUM(quantity * unit_price)`), from `order_facts`. |
 | `GetDemandForecast` | Baseline forecast, `model_version = duckdb_baseline_v1`. Mean and population std-dev of `quantity` per order line (not per day, not time-windowed) for the seller and listing/variant; `is_cold_start` when there is no history, with fallback mean 2.0 and std 1.0. Daily P10/P50/P90 = `max(0, mu - 1.28*sigma)`, `mu`, `mu + 1.28*sigma`. Defaults: horizon 28 days, lead time 3 days, service level 0.95. `z` is 2.33 for service level >= 0.99, 1.28 for 0.90 to below 0.95, else 1.65. `safety_stock = z * mean(P90 - P50 over lead time)`, `reorder_point = sum(P50 over lead time) + safety_stock`. |
 | `GetPlatformOrderSummary` | Distinct paid orders and GMV over the trailing window (default 24h), all sellers. |
 | `ListRecentOrders` | Latest orders, newest first; default 10, max 100; no buyer PII. |
+| `GetTrackingQualityReport` | Health of the tracking stream over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`). Per event type: events, distinct `user_key` visitors (from `tracking_events_resolved`) and, for `view`/`click`/`add_to_cart`/`impression`, the share of events with an empty `listing_id`. Also ingest lag p50/p95 (`ingested_at - occurred_at`, rows with null `ingested_at` excluded), the latest `ingested_at`, and the summed `decode_failures` and `duplicates_skipped`. `status` is `OK` or `DEGRADED` with sorted `reasons`: `stale` (no event in the window, or latest ingest older than `TRACKING_STALE_AFTER_SECONDS`), `lagging` (p95 lag above `TRACKING_LAG_P95_MAX_SECONDS`), `incomplete` (a listing-scoped missing ratio above `TRACKING_MISSING_LISTING_MAX_RATIO`). DuckDB only. |
 
 Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Upstream RPCs consumed: none. Data consumed: the two Kafka topics below.
 
@@ -31,12 +34,15 @@ Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Up
 | Direction | Topic | Envelope `type` | Effect |
 |---|---|---|---|
 | Consume | `analytics.events` (`KAFKA_ANALYTICS_TOPIC`) | `platform.analytics.v1.TrackingEvent` | One row in `tracking_events`, `event_id` = envelope `event_id` |
-| Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, currency defaults to `VND` |
-| Produce | none | | |
+| Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, `buyer_id` = `OrderPaidEvent.buyer_id` (empty -> NULL), currency defaults to `VND` |
+| Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id, category_id, price` in `listing_sellers` (DuckDB only). Deletes keep the row. |
+| Consume | `engagement.events` (`ENGAGEMENT_EVENTS_TOPIC`) | `platform.engagement.v1.FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated` | One `engagement_facts` row per envelope, `event_id` = envelope `event_id`, `fact` = `favorite_added`, `favorite_removed`, `seller_followed`, `seller_unfollowed` or `review_created`. Own group `team-analytics.engagement` (`ENGAGEMENT_CONSUMER_GROUP`). DuckDB only. |
+| Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with an `error` header | Only for an undecodable engagement record or an unknown envelope `type`; the consumer then commits past it. |
 
 The code does not use the Kafka record key.
 
-- Both topics are read by one consumer group (`KAFKA_CONSUMER_GROUP`). Envelopes of any other type are skipped; an undecodable record is logged and skipped (`internal/consumer/consumer.go`).
+- `analytics.events` and `order.events` are read by one consumer group (`KAFKA_CONSUMER_GROUP`). `listing.events` is read by its own group (`KAFKA_LISTING_CONSUMER_GROUP`) that starts from the earliest offset, so listings created before the consumer existed are backfilled (`internal/consumer/listing.go`); records are upserted, then offsets are committed. Envelopes of any other type are skipped; an undecodable record is logged and skipped (`internal/consumer/consumer.go`).
+- `engagement.events` is read by its own group (`internal/consumer/engagement.go`). Each polled batch is mapped, bad records are republished to the DLQ, good rows are written in one transaction (idempotent on `event_id`, `ingested_at` set at write time), then offsets are committed. A failed write or DLQ publish retries the batch and commits nothing.
 - Tracking event types mapped (`internal/consumer/tracking.go`): `view`, `click`, `add_to_cart`, `impression`, `remove_from_cart`, `begin_checkout`, `apply_promotion`, `search_filter`, `favorite`, `share`, `view_cart`, `add_shipping_info`, `add_payment_info`, `purchase`; anything else is stored as `unspecified`.
 - Delivery is at-least-once: auto-commit is off and offsets are committed only after a successful batch write. Batches flush at `BATCH_MAX_SIZE` rows or every `BATCH_FLUSH_INTERVAL_SECONDS`, and on shutdown (best effort, 5s). A failed flush keeps the records in memory for retry.
 - Appends are idempotent on `event_id`: the DuckDB writer inserts with an anti-join (`INSERT ... SELECT ... WHERE NOT EXISTS (same event_id)`), one transaction per batch, so redelivered events and duplicates inside a batch are skipped (`internal/warehouse/duckdb/duckdb.go`). An anti-join is used rather than a unique index because existing volumes may already hold duplicates. The BigQuery adapter passes `event_id` as the insert id, which is best-effort deduplication only.
@@ -48,12 +54,17 @@ Database-per-service; there are no SQL migration files.
 | Object | Notes |
 |---|---|
 | `tracking_events` | Columns defined in `internal/warehouse/warehouse.go` (`Schema`): event and session ids, `event_type`, `listing_id`, `occurred_at`, principal id/type, `properties` JSON, placement/impression/model_version, GA4-style commerce fields (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_*`, `shipping_tier`, `payment_type`) |
-| `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status` |
+| `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status`, `buyer_id` (nullable; NULL for rows ingested before the column existed) |
+| `engagement_facts` | `event_id`, `fact`, `user_id`, `listing_id`, `seller_id`, `rating` (NULL except `review_created`), `occurred_at`, `ingested_at`. DuckDB only. |
+| `favorites_current` | View: `user_id`, `listing_id`, `occurred_at` for the pairs whose latest favourite fact is `favorite_added`. Ties on `occurred_at` resolve by `event_id` order. |
+| `follows_current` | View: `user_id`, `seller_id`, `occurred_at` for the pairs whose latest follow fact is `seller_followed`. Same tie rule. |
+| `listing_sellers` | `listing_id` (primary key), `seller_id`, `updated_at`, `category_id`, `price` (minor units; both NULL when unknown or recorded before the columns existed). Maps a listing to its owner so tracking events (which carry only a listing id) can be attributed to a seller, and carries the listing's attributes for the featurestore (`item_attributes@v1`, `user_preferences@v1`). An older event never overwrites a newer row. Exported as `listing_sellers.parquet` beside the other feature inputs. DuckDB only. |
+| `tracking_ingest_counters` | `hour` (UTC hour, primary key), `decode_failures`, `duplicates_skipped`. The sink adds to it: one upsert per written batch that skipped a duplicate `event_id`, and one per undecodable message. A counter write failure is logged and never blocks ingestion. DuckDB only. |
 | `ga4_events` | DuckDB view over `tracking_events` that renames event types to GA4 names (`view` -> `view_item`, `click` -> `select_item`, `impression` -> `view_item_list`) |
 
 - Schema is applied at boot by the writer: `CREATE TABLE IF NOT EXISTS`, then `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for every schema column (additive only), then `CREATE OR REPLACE VIEW ga4_events`. The BigQuery adapter creates its tables at boot and treats "already exists" as success. `warehouse.Schema` and `OrderFactsSchema` are the single source for both adapters.
 - DuckDB is an embedded file (`DUCKDB_PATH`, default `/data/analytics.duckdb`) on the `analytics_data` volume in the root compose. The query service reuses the writer's `*sql.DB` because DuckDB holds an exclusive file lock.
-- Parquet export (`internal/export`): DuckDB only. At start and then every `PARQUET_EXPORT_INTERVAL_SECONDS`, `tracking_events` is written to `PARQUET_EXPORT_PATH.tmp` and renamed over `PARQUET_EXPORT_PATH`, so readers never see a partial file. Enabled only when the path is non-empty and the interval is positive. In the root compose it writes `/data/tracking_events.parquet` every 300s; `platform-recsys` (profile `jobs`) mounts the volume read-only and reads it. `order_facts` is not exported.
+- Parquet export (`internal/export`): DuckDB only. At start and then every `PARQUET_EXPORT_INTERVAL_SECONDS`, four files are written into the directory of `PARQUET_EXPORT_PATH`: `tracking_events.parquet` (the path itself), `tracking_events_resolved.parquet` (stitched `user_key`, `ingested_at`), `engagement_facts.parquet` and `order_facts.parquet`. Each is written to `<file>.tmp` and renamed over the target, so readers never see a partial file. A failure on one file is logged and does not block the others; the previous version of that file is kept. Enabled only when the path is non-empty and the interval is positive. In the root compose it writes `/data/*.parquet` every 300s; `platform-recsys` (profile `jobs`) and `platform-featurestore` (profile `featurestore`) mount the volume read-only and read it.
 - BigQuery (`WAREHOUSE_DRIVER=bigquery`) is write-only: no query path and no Parquet export; it is only unit/parity-tested.
 
 ## 4. Configuration
@@ -74,15 +85,24 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `KAFKA_CONSUMER_GROUP` | `team-analytics` | |
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
 | `KAFKA_ORDER_TOPIC` | `order.events` | |
+| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Source of `engagement_facts`; must not be empty |
+| `ENGAGEMENT_DLQ_TOPIC` | `engagement.events.analytics.dlq` | Dead-letter topic for undecodable engagement records; must not be empty |
+| `ENGAGEMENT_CONSUMER_GROUP` | `team-analytics.engagement` | Own group; must not be empty |
+| `KAFKA_LISTING_TOPIC` | `listing.events` | Source of the `listing_sellers` mapping |
+| `KAFKA_LISTING_CONSUMER_GROUP` | `team-analytics-listing-attrs` | Own group, earliest offset. Renamed when `category_id` and `price` were added so the topic is replayed once and existing rows are backfilled; keep an explicit override in step |
 | `WAREHOUSE_DRIVER` | `duckdb` | `duckdb` or `bigquery` |
 | `DUCKDB_PATH` | `/data/analytics.duckdb` | Required for `duckdb` |
 | `BIGQUERY_PROJECT` | empty | Required for `bigquery` |
 | `BIGQUERY_DATASET` | `analytics` | Required for `bigquery` |
 | `BIGQUERY_TABLE` | `tracking_events` | Tracking table; order facts go to `order_facts` in the same dataset |
-| `PARQUET_EXPORT_PATH` | empty | Export disabled when empty |
+| `PARQUET_EXPORT_PATH` | empty | Export disabled when empty; the other three files go beside it |
 | `PARQUET_EXPORT_INTERVAL_SECONDS` | `0` | 0 disables; must be >= 0 |
 | `BATCH_MAX_SIZE` | `500` | Must be > 0 |
 | `BATCH_FLUSH_INTERVAL_SECONDS` | `2` | 0 disables the interval flush (size and shutdown flush only) |
+| `TRACKING_STALE_AFTER_SECONDS` | `900` | Report is `DEGRADED` (`stale`) when the latest ingest is older; must be > 0 |
+| `TRACKING_LAG_P95_MAX_SECONDS` | `300` | `DEGRADED` (`lagging`) when p95 ingest lag exceeds it; must be > 0 |
+| `TRACKING_MISSING_LISTING_MAX_RATIO` | `0.05` | `DEGRADED` (`incomplete`) when a listing-scoped type's share of events without `listing_id` exceeds it; 0 to 1 |
+| `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` credits an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
 | `OTEL_ENABLED` | `false` | Inert: no tracing code reads it |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | Inert |
 | `OTEL_SERVICE_NAME` | `team-analytics` | Inert |
@@ -130,7 +150,6 @@ There is no CI workflow in this directory; `make check` is the gate. Go is 1.23 
 
 ## 9. Known gaps
 
-- Seller funnel tracking counts are platform-wide, not per seller. `tracking_events` carries no seller id, so `impressions`, `views`, `adds`, `begin_checkouts` and `purchases` in `GetSellerFunnel` filter only by time window; only `orders` is seller-scoped. Authorization is per seller, but those numbers are not.
 - Trusted principal metadata: any caller that reaches `:50059` can set `x-principal-*` and act as a seller or admin. Protection relies on network policy (ADR-0010); this service does no token or mTLS check.
 - BigQuery has no query path and no Parquet export; with `WAREHOUSE_DRIVER=bigquery` the five RPCs are not registered (Health only).
 - Deduplication on `event_id` is exact in DuckDB only; BigQuery relies on best-effort insert-id deduplication.

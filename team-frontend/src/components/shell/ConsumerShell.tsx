@@ -296,7 +296,10 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
       <FloatingChatBubble />
 
       {/* ── Footer ── */}
-      <footer className="mt-16 border-t-4 border-brand bg-white text-gray-600 text-xs">
+      <footer
+        data-testid="shell-footer"
+        className="mt-16 border-t-4 border-brand bg-white text-gray-600 text-xs"
+      >
         <div className="mx-auto max-w-page px-4 py-10 grid grid-cols-2 md:grid-cols-5 gap-8">
           <div>
             <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">

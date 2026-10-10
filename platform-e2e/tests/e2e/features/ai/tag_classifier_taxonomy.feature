@@ -21,6 +21,31 @@ Feature: Product Tag Classifier & Taxonomy Filter Enrichment
     Then candidate tags are discovered and registered with status EXPLORING
 
   Scenario: Candidate Tag Promoted to Canonical Filter Facet
-    Given an exploring candidate tag "cong-suat-100w"
-    When promotion is executed with synonyms "sac 100w"
+    Given an exploring candidate tag with a wattage no earlier run used
+    When promotion is executed with target category "cat-electronics" and a bound synonym
     Then the tag status becomes PROMOTED and is active for search filter facets
+
+  Scenario: Anonymous tag requests are refused
+    Given an exploring candidate tag with a wattage no earlier run used
+    When a caller without credentials calls each of the five tag routes
+    Then every call answers 401 and the taxonomy is unchanged
+
+  Scenario: A buyer's token is refused
+    Given an exploring candidate tag with a wattage no earlier run used
+    When a signed-in buyer presents the gateway session token to a read route and to promote
+    Then both answer 401 and the taxonomy is unchanged
+
+  Scenario: A read-only service principal cannot mutate the taxonomy
+    Given an exploring candidate tag with a wattage no earlier run used
+    When the service principal classifies and lists tags, then calls explore and promote
+    Then classify and list answer 200, explore and promote answer 403, and no candidate is registered or promoted
+
+  Scenario: An admin principal explores and promotes
+    When an admin principal explores a batch and promotes the discovered candidate
+    Then both answer 200 and the tag is promoted and canonical
+
+  @destructive
+  Scenario: Promoted and exploring tags survive a restart
+    Given a promoted tag with a bound synonym and a second candidate left exploring
+    When team-ai is restarted
+    Then the promoted tag is canonical with its synonym and the other is still an exploring candidate

@@ -42,7 +42,8 @@ def test_settings_defaults_are_local_safe():
     assert settings.CHAT_FALLBACK_MODELS == ""
     assert settings.JUDGE_CHAT_MODEL == ""
     assert settings.AUTH_SUBJECT == "local-user"
-    assert settings.auth_roles == ["admin"]
+    assert settings.auth_roles == []
+    assert settings.GRPC_BEARER_FALLBACK_ENABLED is False
     assert "API_KEY_PEPPER" not in Settings.model_fields
     assert "API_KEY_BOOTSTRAP_TOKEN" not in Settings.model_fields
 
@@ -278,3 +279,116 @@ def test_env_langfuse_example_carries_compose_only_overrides():
     assert "LANGFUSE_DOCKER_BASE_URL=http://langfuse-web:3000" in langfuse_example
     assert project_id_line in langfuse_example
     assert "LANGFUSE_NEXTAUTH_URL=http://localhost:3000" in langfuse_example
+
+
+def test_grpc_bearer_fallback_defaults_off_and_is_allowed_locally():
+    assert build_test_settings().GRPC_BEARER_FALLBACK_ENABLED is False
+    settings = build_test_settings(
+        ENVIRONMENT="local", GRPC_BEARER_FALLBACK_ENABLED=True
+    )
+    assert settings.GRPC_BEARER_FALLBACK_ENABLED is True
+
+
+def test_grpc_bearer_fallback_refused_outside_local():
+    with pytest.raises(ValidationError, match="GRPC_BEARER_FALLBACK_ENABLED"):
+        build_test_settings(
+            ENVIRONMENT="prod",
+            AUTH_BEARER_TOKEN="prod-token-with-enough-entropy",
+            DOCS_ENABLED=False,
+            CORS_ALLOW_ORIGINS="https://app.example.com",
+            TRUSTED_HOSTS="api.example.com",
+            GRPC_BEARER_FALLBACK_ENABLED=True,
+        )
+
+
+def test_grpc_rate_limit_is_opt_in_and_redis_backend_needs_redis():
+    assert build_test_settings().GRPC_RATE_LIMIT_ENABLED is False
+    # Off: the backend/redis combination is not checked.
+    build_test_settings(RATE_LIMIT_BACKEND="redis", REDIS_ENABLED=False)
+    with pytest.raises(ValidationError, match="requires REDIS_ENABLED"):
+        build_test_settings(
+            GRPC_RATE_LIMIT_ENABLED=True,
+            RATE_LIMIT_BACKEND="redis",
+            REDIS_ENABLED=False,
+        )
+
+
+_PROD = {
+    "ENVIRONMENT": "production",
+    "AUTH_BEARER_TOKEN": "prod-token-with-enough-entropy",
+    "DOCS_ENABLED": False,
+    "CORS_ALLOW_ORIGINS": "https://app.example.com",
+    "TRUSTED_HOSTS": "api.example.com",
+}
+
+
+def test_production_refuses_a_per_process_grpc_rate_limiter():
+    with pytest.raises(ValidationError, match="RATE_LIMIT_BACKEND"):
+        build_test_settings(
+            **_PROD, GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory"
+        )
+
+
+def test_production_accepts_the_redis_grpc_rate_limiter_and_memory_when_off():
+    build_test_settings(
+        **_PROD,
+        GRPC_RATE_LIMIT_ENABLED=True,
+        RATE_LIMIT_BACKEND="redis",
+        REDIS_ENABLED=True,
+    )
+    build_test_settings(**_PROD, GRPC_RATE_LIMIT_ENABLED=False)
+
+
+def test_local_allows_the_memory_grpc_rate_limiter():
+    build_test_settings(GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory")
+
+
+def test_llm_trace_content_defaults_to_redacted_and_full_is_local_only():
+    assert build_test_settings().LLM_TRACE_CONTENT == "redacted"
+    build_test_settings(LLM_TRACE_CONTENT="full")  # local/test is fine
+    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
+        build_test_settings(**_PROD, LLM_TRACE_CONTENT="full")
+    build_test_settings(**_PROD, LLM_TRACE_CONTENT="off")
+    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
+        build_test_settings(LLM_TRACE_CONTENT="verbose")
+
+
+def test_memory_recs_backend_is_refused_outside_local():
+    for env in ("production", "prod"):
+        with pytest.raises(ValidationError, match="RECS_BACKEND"):
+            build_test_settings(
+                ENVIRONMENT=env,
+                DOCS_ENABLED=False,
+                CORS_ALLOW_ORIGINS="https://x.example",
+                TRUSTED_HOSTS="x.example",
+                AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
+                RECS_ENABLED=True,
+                RECS_BACKEND="memory",
+            )
+
+
+def test_memory_recs_backend_is_allowed_locally_or_when_disabled():
+    for env in ("dev", "local", "test"):
+        build_test_settings(ENVIRONMENT=env, RECS_ENABLED=True, RECS_BACKEND="memory")
+    build_test_settings(
+        ENVIRONMENT="production",
+        DOCS_ENABLED=False,
+        CORS_ALLOW_ORIGINS="https://x.example",
+        TRUSTED_HOSTS="x.example",
+        AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
+        RECS_ENABLED=False,
+        RECS_BACKEND="memory",
+    )
+    build_test_settings(
+        ENVIRONMENT="production",
+        DOCS_ENABLED=False,
+        CORS_ALLOW_ORIGINS="https://x.example",
+        TRUSTED_HOSTS="x.example",
+        AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
+        RECS_ENABLED=True,
+        RECS_BACKEND="qdrant",
+    )
+
+
+def test_featurestore_redis_url_is_off_by_default():
+    assert build_test_settings().RECS_FEATURESTORE_REDIS_URL == ""

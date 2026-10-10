@@ -12,7 +12,8 @@ export function FloatingChatBubble() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 md:bottom-6 md:right-6 select-none group">
+    // Below lg the PDP buy bar is fixed to the bottom: sit above it instead of over its CTA.
+    <div className="fixed bottom-5 right-5 z-40 md:bottom-6 md:right-6 [body:has([data-testid=buy-bar])_&]:bottom-24 lg:[body:has([data-testid=buy-bar])_&]:bottom-6 select-none group">
       <Link
         href="/chat"
         aria-label="Mở hộp thư tin nhắn và hỗ trợ"

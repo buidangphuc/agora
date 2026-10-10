@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { type ActionResult, fail, ok } from "@/lib/action-result";
 import {
   type ViewBundle,
@@ -9,6 +10,7 @@ import {
   getStorefront,
   upsertStorefront,
 } from "@/lib/gateway/listings";
+import { type ViewOrderReturn, updateReturnStatus } from "@/lib/gateway/orders";
 import { requestWalletPayout } from "@/lib/gateway/payment";
 import {
   type ViewAdCampaign,
@@ -38,6 +40,66 @@ export async function requestWalletPayoutAction(
   }
   revalidatePath("/seller/wallet");
   return ok();
+}
+
+// ── Returns (RMA) ───────────────────────────────────────────────────────────
+
+/**
+ * Move one return through `UpdateReturnStatus` and nothing else: for REFUNDED
+ * the order service emits the fact and the payment applies it. The page is
+ * revalidated on failure too, so it shows the status the gateway reports.
+ */
+async function moveReturn(
+  returnId: string,
+  orderId: string,
+  status: ReturnStatus,
+  failure: string,
+): Promise<ActionResult<ViewOrderReturn>> {
+  try {
+    const ret = await updateReturnStatus(returnId, status);
+    return ok(ret);
+  } catch (err: unknown) {
+    return fail(messageOf(err, failure));
+  } finally {
+    revalidatePath(`/seller/orders/${orderId}`);
+    revalidatePath("/seller/orders");
+  }
+}
+
+export async function approveReturnAction(
+  returnId: string,
+  orderId: string,
+): Promise<ActionResult<ViewOrderReturn>> {
+  return moveReturn(
+    returnId,
+    orderId,
+    ReturnStatus.APPROVED,
+    "Duyệt thất bại.",
+  );
+}
+
+export async function rejectReturnAction(
+  returnId: string,
+  orderId: string,
+): Promise<ActionResult<ViewOrderReturn>> {
+  return moveReturn(
+    returnId,
+    orderId,
+    ReturnStatus.REJECTED,
+    "Từ chối thất bại.",
+  );
+}
+
+export async function refundReturnAction(
+  returnId: string,
+  orderId: string,
+): Promise<ActionResult<ViewOrderReturn>> {
+  return moveReturn(
+    returnId,
+    orderId,
+    ReturnStatus.REFUNDED,
+    "Hoàn tiền thất bại.",
+  );
 }
 
 // ── Plans ───────────────────────────────────────────────────────────────────

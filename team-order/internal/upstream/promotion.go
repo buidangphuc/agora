@@ -1,6 +1,7 @@
 package upstream
 
 import (
+	"context"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -35,7 +36,7 @@ func DialPromotion(addr string) (*PromotionClients, error) {
 	}
 	return &PromotionClients{
 		conn:    conn,
-		Voucher: promotionv1.NewVoucherServiceClient(conn),
+		Voucher: NewServicePromotionClient(promotionv1.NewVoucherServiceClient(conn)),
 	}, nil
 }
 
@@ -43,4 +44,38 @@ func (c *PromotionClients) Close() {
 	if c != nil && c.conn != nil {
 		_ = c.conn.Close()
 	}
+}
+
+// servicePromotionClient marks exactly the three saga RPCs AsService with the
+// scope promotion.reserve (team-promotion gates Commit/ReleaseReservation, and the
+// service path of ValidateAndReserve, on it). Every other VoucherService RPC is
+// left untouched so a forwarded buyer principal is never replaced.
+type servicePromotionClient struct {
+	promotionv1.VoucherServiceClient
+}
+
+// NewServicePromotionClient wraps inner so ValidateAndReserve, CommitReservation
+// and ReleaseReservation are sent as team-order's service principal with scope
+// promotion.reserve, in a buyer's request, the PaymentSettled consumer and
+// compensation alike.
+func NewServicePromotionClient(inner promotionv1.VoucherServiceClient) promotionv1.VoucherServiceClient {
+	if inner == nil {
+		return nil
+	}
+	if already, ok := inner.(servicePromotionClient); ok {
+		return already
+	}
+	return servicePromotionClient{VoucherServiceClient: inner}
+}
+
+func (c servicePromotionClient) ValidateAndReserve(ctx context.Context, req *promotionv1.ValidateAndReserveRequest, opts ...grpc.CallOption) (*promotionv1.ValidateAndReserveResponse, error) {
+	return c.VoucherServiceClient.ValidateAndReserve(asServiceWithPromotion(ctx), req, opts...)
+}
+
+func (c servicePromotionClient) CommitReservation(ctx context.Context, req *promotionv1.CommitReservationRequest, opts ...grpc.CallOption) (*promotionv1.CommitReservationResponse, error) {
+	return c.VoucherServiceClient.CommitReservation(asServiceWithPromotion(ctx), req, opts...)
+}
+
+func (c servicePromotionClient) ReleaseReservation(ctx context.Context, req *promotionv1.ReleaseReservationRequest, opts ...grpc.CallOption) (*promotionv1.ReleaseReservationResponse, error) {
+	return c.VoucherServiceClient.ReleaseReservation(asServiceWithPromotion(ctx), req, opts...)
 }

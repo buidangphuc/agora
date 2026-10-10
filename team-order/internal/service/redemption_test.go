@@ -29,6 +29,7 @@ type fakePromotion struct {
 	valid      bool
 	reason     string
 	reserveErr error
+	releaseErr error
 }
 
 func newFakePromotion(discount int64) *fakePromotion {
@@ -59,6 +60,9 @@ func (f *fakePromotion) ReleaseReservation(_ context.Context, in *promotionv1.Re
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.releasedIDs = append(f.releasedIDs, in.GetReservationId())
+	if f.releaseErr != nil {
+		return nil, f.releaseErr
+	}
 	return &promotionv1.ReleaseReservationResponse{Released: true}, nil
 }
 

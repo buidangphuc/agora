@@ -2,9 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-promotion/internal/producer"
 	"github.com/buidangphuc/team-promotion/internal/repository"
 )
@@ -17,7 +23,7 @@ func (s stubFlags) BooleanEnabled(_ context.Context, _ string, _ bool) bool { re
 func newFlashSvc(t *testing.T, flagEnabled bool) (*FlashSaleService, *capturePublisher) {
 	t.Helper()
 	repo := repository.NewInMemoryFlashSaleRepository()
-	svc := NewFlashSaleService(repo, nil, stubFlags{enabled: flagEnabled}, nil)
+	svc := NewFlashSaleService(repo, nil, stubFlags{enabled: flagEnabled}, nil, nil)
 	pub := &capturePublisher{}
 	svc.emitter = producer.NewEmitter(pub, nil)
 	return svc, pub
@@ -31,6 +37,7 @@ func TestCreateCampaignEmitsEvent(t *testing.T) {
 		StockCap:  100,
 		StartsAt:  time.Now().Add(-time.Hour),
 		EndsAt:    time.Now().Add(time.Hour),
+		IsAdmin:   true,
 	})
 	if err != nil {
 		t.Fatalf("CreateCampaign: %v", err)
@@ -76,12 +83,12 @@ func TestGetActiveFlashSaleWindow(t *testing.T) {
 
 	// Active campaign (window brackets now).
 	active, _ := svc.CreateCampaign(ctx, CreateCampaignParams{
-		ListingID: "live", SalePrice: 1, StockCap: 5,
+		ListingID: "live", SalePrice: 1, StockCap: 5, IsAdmin: true,
 		StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
 	})
 	// Expired campaign for a different listing.
 	_, _ = svc.CreateCampaign(ctx, CreateCampaignParams{
-		ListingID: "dead", SalePrice: 1, StockCap: 5,
+		ListingID: "dead", SalePrice: 1, StockCap: 5, IsAdmin: true,
 		StartsAt: now.Add(-2 * time.Hour), EndsAt: now.Add(-time.Hour),
 	})
 
@@ -108,7 +115,7 @@ func TestFlashSaleKillSwitchSuppresses(t *testing.T) {
 	now := time.Now()
 	svc.nowFn = func() time.Time { return now }
 	_, _ = svc.CreateCampaign(ctx, CreateCampaignParams{
-		ListingID: "live", SalePrice: 1, StockCap: 5,
+		ListingID: "live", SalePrice: 1, StockCap: 5, IsAdmin: true,
 		StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
 	})
 
@@ -118,5 +125,59 @@ func TestFlashSaleKillSwitchSuppresses(t *testing.T) {
 	}
 	if ok {
 		t.Fatal("kill-switch OFF must suppress the active flash sale")
+	}
+}
+
+// fakeListings is an in-memory team-domain listing client: id -> seller id.
+type fakeListings struct {
+	owners map[string]string
+	err    error
+	calls  int
+}
+
+func (f *fakeListings) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	seller, ok := f.owners[req.GetId()]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "not_found")
+	}
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller}}, nil
+}
+
+func TestCreateCampaignOwnership(t *testing.T) {
+	owners := map[string]string{"mine": "seller-1", "theirs": "seller-2"}
+	cases := []struct {
+		name     string
+		listings *fakeListings // nil interface when unset
+		unset    bool
+		params   CreateCampaignParams
+		want     codes.Code
+	}{
+		{"own listing ok", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.OK},
+		{"foreign listing denied", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "theirs", CallerID: "seller-1"}, codes.PermissionDenied},
+		{"listing not found", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "ghost", CallerID: "seller-1"}, codes.InvalidArgument},
+		{"upstream error", &fakeListings{err: status.Error(codes.Internal, "boom")}, false, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.Unavailable},
+		{"upstream down", &fakeListings{err: errors.New("dial tcp: refused")}, false, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.Unavailable},
+		{"admin skips lookup", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "theirs", CallerID: "admin-1", IsAdmin: true}, codes.OK},
+		{"unset fails closed for seller", nil, true, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.Unavailable},
+		{"unset still allows admin", nil, true, CreateCampaignParams{ListingID: "mine", CallerID: "admin-1", IsAdmin: true}, codes.OK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, _ := newFlashSvc(t, true)
+			if !tc.unset {
+				svc.listings = tc.listings
+			}
+			_, err := svc.CreateCampaign(context.Background(), tc.params)
+			if got := status.Code(err); got != tc.want {
+				t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+			}
+			if tc.params.IsAdmin && tc.listings != nil && tc.listings.calls != 0 {
+				t.Fatalf("admin must not trigger an ownership lookup")
+			}
+		})
 	}
 }

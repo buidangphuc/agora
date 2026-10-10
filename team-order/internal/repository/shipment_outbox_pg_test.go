@@ -42,15 +42,27 @@ func TestCreateShipment_OutboxSameTransaction_Postgres(t *testing.T) {
 		return outbox, shipments
 	}
 
+	// shipments.order_id references orders: create the orders first, with ids and
+	// tracking codes unique per run so the test can re-run against one database.
+	orders := repository.NewPostgresOrderRepository(pool)
+	okOrder, err := orders.CreateOrder(ctx, repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10})
+	if err != nil {
+		t.Fatalf("create order: %v", err)
+	}
+	badOrder, err := orders.CreateOrder(ctx, repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10})
+	if err != nil {
+		t.Fatalf("create order: %v", err)
+	}
+
 	ok := repository.NewPostgresShipmentRepository(pool, repository.WithShipmentOutbox(
 		func(s repository.Shipment) (repository.OutboxRow, error) {
 			return repository.OutboxRow{EventID: "evt-ship-" + s.ID, AggregateType: "Order", AggregateID: s.OrderID,
 				EventType: "platform.order.v1.OrderShipped", Payload: []byte("env")}, nil
 		}))
-	if _, err := ok.CreateShipment(ctx, repository.Shipment{OrderID: "pg-ship-ok", Carrier: "SPX", TrackingCode: "PG-OK"}); err != nil {
+	if _, err := ok.CreateShipment(ctx, repository.Shipment{OrderID: okOrder.ID, Carrier: "SPX", TrackingCode: "PG-OK-" + okOrder.ID}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if o, s := count("pg-ship-ok"); o != 1 || s != 1 {
+	if o, s := count(okOrder.ID); o != 1 || s != 1 {
 		t.Fatalf("commit path: outbox=%d shipments=%d, want 1/1", o, s)
 	}
 
@@ -58,10 +70,10 @@ func TestCreateShipment_OutboxSameTransaction_Postgres(t *testing.T) {
 		func(repository.Shipment) (repository.OutboxRow, error) {
 			return repository.OutboxRow{}, errors.New("boom")
 		}))
-	if _, err := bad.CreateShipment(ctx, repository.Shipment{OrderID: "pg-ship-bad", Carrier: "SPX", TrackingCode: "PG-BAD"}); err == nil {
+	if _, err := bad.CreateShipment(ctx, repository.Shipment{OrderID: badOrder.ID, Carrier: "SPX", TrackingCode: "PG-BAD-" + badOrder.ID}); err == nil {
 		t.Fatal("expected error from failing outbox builder")
 	}
-	if o, s := count("pg-ship-bad"); o != 0 || s != 0 {
+	if o, s := count(badOrder.ID); o != 0 || s != 0 {
 		t.Fatalf("rollback path: outbox=%d shipments=%d, want 0/0", o, s)
 	}
 }

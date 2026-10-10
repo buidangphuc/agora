@@ -49,7 +49,8 @@ func (v *Verifier) Prime(ctx context.Context) error {
 }
 
 // Verify parses and validates a bearer token, returning its claims. It requires
-// RS256, reads the token's kid, and matches it to a public key in the JWKS.
+// RS256, reads the token's kid, and matches it to a public key in the JWKS. A
+// token must carry `exp` and a non-empty `sub`.
 func (v *Verifier) Verify(tokenString string) (*Claims, error) {
 	if tokenString == "" {
 		return nil, fmt.Errorf("token: empty token")
@@ -64,9 +65,15 @@ func (v *Verifier) Verify(tokenString string) (*Claims, error) {
 			return nil, fmt.Errorf("token: missing kid")
 		}
 		return v.keys.keyForKID(kid)
-	}, jwt.WithValidMethods([]string{"RS256"}))
+	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, err
+	}
+	// A token without a subject identifies nobody: reject it (the edge reports any
+	// Verify error as an invalid token). iss/aud are not required: identity does
+	// not set them.
+	if claims.Subject == "" {
+		return nil, fmt.Errorf("token: missing sub")
 	}
 	return claims, nil
 }

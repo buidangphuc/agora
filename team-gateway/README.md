@@ -16,7 +16,7 @@ domain logic** (AGENTS.md rules 1-3). Status: deployed service, part of the root
 
 The gateway serves 22 services; each RPC is a thin forward to the upstream below. Registered in
 `internal/edge/server.go`, dialed in `internal/upstream/clients.go`. Server reflection (v1 and
-v1alpha) is enabled.
+v1alpha) is served only when `EDGE_REFLECTION_ENABLED=true` (default off; refused in staging/production).
 
 | Contract service(s) | Upstream (env var) |
 |---|---|
@@ -147,7 +147,12 @@ is not covered by that gate.
 | `UPSTREAM_VERIFICATION_ADDR` | `team-verification-svc:50064` | |
 | `UPSTREAM_SHARING_ADDR` | `team-sharing-svc:50065` | |
 | `UPSTREAM_AUDIT_ADDR` | `team-audit-svc:50066` | |
-| `DIAL_TIMEOUT_SECONDS` | `5` | Loaded but never read (see Known gaps) |
+| `DIAL_TIMEOUT_SECONDS` | `2` | Cap of the upstream reconnect backoff and min connect timeout |
+| `TRACK_RATE_LIMIT_RPS` / `TRACK_RATE_LIMIT_BURST` | `5` / `20` | `/api/track` bucket per user or IP |
+| `AI_CALL_TIMEOUT_SECONDS` | `30` | Single-attempt deadline of the four AI generation RPCs |
+| `STREAM_MAX_REQUEST_BYTES` | `16384` | Max `StreamChat` request message |
+| `STREAM_REVOCATION_CHECK_SECONDS` | `5` | How often an open stream re-checks its session against the revocation denylist; a revoked session or expired token ends it with `unauthenticated` (also an authenticated `/api/events/live` SSE room: final `event: unauthenticated`, then close) |
+| `EDGE_REFLECTION_ENABLED` | `false` | gRPC reflection; refused when `ENV` is staging/production |
 | `JWKS_URL` | none, **required** | team-identity `/.well-known/jwks.json` (`.env.example` uses `http://localhost:50063/...`) |
 | `JWKS_CACHE_TTL` | `300` | Seconds, must be > 0. Also refreshed on an unknown `kid` (at most once per 10 s). |
 | `PUBLIC_SCOPES` | `listing.read,search:read` | Scopes of anonymous callers (comma-separated) |
@@ -240,12 +245,10 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
   `/api/events/live` currently delivers only the `connected` handshake and heartbeats, for every
   room. The room list in the code comments (flash-sale stock, chat, notifications, `ops:orders`)
   describes intent, not a wired feed.
-- **`DIAL_TIMEOUT_SECONDS` is inert.** It is loaded and documented but `upstream.Dial` takes no
-  timeout (connections are lazy `grpc.NewClient` dials).
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
-- Revocation is fail-open and per replica, and `ReviewKyc` is the only RPC with an edge-side
-  scope check.
+- Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
+  in `policy.go` (`ReviewKyc`, `ResolveDispute`, `QueryAuditLog`, `ForceFailSaga`).
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at

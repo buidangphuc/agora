@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,7 +23,7 @@ func NewSharingHandler(svc *service.ShareService) *SharingHandler {
 }
 
 // mapErr turns a service/repository error into the right gRPC status.
-func mapErr(err error) error {
+func mapErr(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, service.ErrEmptyTargetType),
 		errors.Is(err, service.ErrEmptyTargetID),
@@ -31,14 +32,15 @@ func mapErr(err error) error {
 	case errors.Is(err, service.ErrShareLinkNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "%v", err)
+		slog.ErrorContext(ctx, "internal error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 
 func (h *SharingHandler) CreateShareLink(ctx context.Context, req *sharingv1.CreateShareLinkRequest) (*sharingv1.CreateShareLinkResponse, error) {
 	link, err := h.svc.CreateShareLink(ctx, interceptor.CallerID(ctx), req.GetTargetType(), req.GetTargetId(), req.GetUtm())
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &sharingv1.CreateShareLinkResponse{ShortCode: link.ShortCode}, nil
 }
@@ -46,7 +48,7 @@ func (h *SharingHandler) CreateShareLink(ctx context.Context, req *sharingv1.Cre
 func (h *SharingHandler) ResolveShareLink(ctx context.Context, req *sharingv1.ResolveShareLinkRequest) (*sharingv1.ResolveShareLinkResponse, error) {
 	link, err := h.svc.ResolveShareLink(ctx, req.GetShortCode())
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &sharingv1.ResolveShareLinkResponse{
 		TargetType: link.TargetType,

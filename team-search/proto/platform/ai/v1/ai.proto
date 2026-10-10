@@ -9,6 +9,12 @@ service AIService {
   rpc MagicListing(MagicListingRequest) returns (MagicListingResponse);
   // Chat Copilot: generates 3 quick smart reply suggestions for shop seller
   rpc ChatCopilot(ChatCopilotRequest) returns (ChatCopilotResponse);
+  // Summarize Reviews: condenses many buyer reviews into pros/cons + sentiment.
+  rpc SummarizeReviews(SummarizeReviewsRequest) returns (SummarizeReviewsResponse);
+  // Classify Tags: canonical SPU tags and per-variant (SKU) attributes of a listing, from team-ai's
+  // tag taxonomy. Internal: called by team-search's indexer as a service principal (scope
+  // "ai.classify"); the gateway does not route it.
+  rpc ClassifyTags(ClassifyTagsRequest) returns (ClassifyTagsResponse);
 }
 
 message ProductCardSnippet {
@@ -56,4 +62,62 @@ message ChatCopilotRequest {
 
 message ChatCopilotResponse {
   repeated string quick_replies = 1;
+}
+
+message ReviewInput {
+  int32 rating = 1; // 1 to 5 stars
+  string comment = 2;
+}
+
+message SummarizeReviewsRequest {
+  string listing_id = 1;
+  repeated ReviewInput reviews = 2;
+}
+
+message SummarizeReviewsResponse {
+  string summary = 1;
+  repeated string pros = 2;
+  repeated string cons = 3;
+  string sentiment = 4; // e.g. "positive", "mixed", "negative"
+}
+
+// ── Tag classification (add-tag-classifier-filter-enrichment) ──
+
+// One variant (SKU) of the listing being classified.
+message ClassifyVariant {
+  string variant_id = 1;
+  string name = 2;     // e.g. "Xanh Navy / 512GB"
+  string sku_code = 3;
+  int64 price = 4;     // minor units
+  int32 stock = 5;
+}
+
+message ClassifyTagsRequest {
+  string title = 1;        // required
+  string description = 2;
+  string category_id = 3;  // optional hint
+  // Optional. When present each variant is classified for its own dimensions
+  // (color, capacity, size, ...) in addition to the listing's SPU tags.
+  repeated ClassifyVariant variants = 4;
+}
+
+// A canonical taxonomy tag.
+message ClassifiedTag {
+  string slug = 1;         // e.g. "bluetooth-5-3"
+  string name = 2;         // display name, e.g. "Bluetooth 5.3"
+  string facet_group = 3;  // e.g. "connectivity", "color", "capacity"
+  double confidence = 4;   // 0..1
+}
+
+// The variant-specific tags of one input variant (same order as the request).
+message SkuClassification {
+  string variant_id = 1;
+  repeated ClassifiedTag tags = 2;
+}
+
+message ClassifyTagsResponse {
+  // Canonical SPU tags, each carrying its facet_group.
+  repeated ClassifiedTag tags = 1;
+  // One entry per request variant, in request order; empty without variants.
+  repeated SkuClassification skus = 2;
 }

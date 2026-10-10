@@ -19,6 +19,7 @@ type Settings struct {
 	FeatureFlags  FeatureFlags
 	Kafka         Kafka
 	Outbox        Outbox
+	Reservation   Reservation
 }
 
 type Runtime struct {
@@ -84,6 +85,46 @@ type Outbox struct {
 	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
 }
 
+// Reservation tunes the stock-reservation lifetime and the reservation sweeper.
+// Both are Go duration strings ("20s", "1m", "15m"); read them through
+// ReservationTTL and ReservationSweepInterval, which never fail: an unusable value
+// falls back to the default with a warning so a typo cannot stop the service.
+type Reservation struct {
+	TTL           string `env:"RESERVATION_TTL" default:"15m"`
+	SweepInterval string `env:"RESERVATION_SWEEP_INTERVAL" default:"1m"`
+}
+
+// DefaultReservationTTL is used when RESERVATION_TTL is empty or unusable. It
+// matches team-domain's own default.
+const DefaultReservationTTL = 15 * time.Minute
+
+// DefaultReservationSweepInterval is used when RESERVATION_SWEEP_INTERVAL is empty
+// or unusable.
+const DefaultReservationSweepInterval = time.Minute
+
+// ReservationTTL parses RESERVATION_TTL, the lifetime of a checkout's stock hold
+// before the sweep may reclaim it (and of an unfinished checkout attempt). An
+// empty, unparsable, zero or negative value yields the default and a non-empty
+// warning naming the variable for the caller to log.
+func (s *Settings) ReservationTTL() (time.Duration, string) {
+	return positiveDuration("RESERVATION_TTL", s.Reservation.TTL, DefaultReservationTTL)
+}
+
+// ReservationSweepInterval parses RESERVATION_SWEEP_INTERVAL, how often the
+// reservation sweeper runs. Same fallback rules as ReservationTTL.
+func (s *Settings) ReservationSweepInterval() (time.Duration, string) {
+	return positiveDuration("RESERVATION_SWEEP_INTERVAL", s.Reservation.SweepInterval, DefaultReservationSweepInterval)
+}
+
+func positiveDuration(key, raw string, def time.Duration) (time.Duration, string) {
+	raw = strings.TrimSpace(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return def, fmt.Sprintf("invalid %s %q (want a positive Go duration such as 20s or 15m); using default %s", key, raw, def)
+	}
+	return d, ""
+}
+
 // KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
 func (s *Settings) KafkaBrokers() []string {
 	parts := strings.Split(s.Kafka.Brokers, ",")
@@ -130,6 +171,38 @@ func (s *Settings) Validate() error {
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"
+}
+
+// durableStorageEnvs are the ENV values (trimmed, lowercase) in which the service
+// must never run on in-memory repositories. Anything else (local, test, unknown)
+// is non-strict, matching the "local" default.
+var durableStorageEnvs = []string{"staging", "stage", "prod", "production"}
+
+// RequiresDurableStorage reports whether ENV names a staging/production environment.
+func (s *Settings) RequiresDurableStorage() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range durableStorageEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireDurableStorage is the boot guard against the silent in-memory fallback:
+// in a strict ENV it fails when the database is disabled or no pool was obtained,
+// so a mis-set flag refuses to boot instead of serving orders that vanish on
+// restart. Other environments always pass.
+func (s *Settings) RequireDurableStorage(dbAvailable bool) error {
+	if !s.RequiresDurableStorage() {
+		return nil
+	}
+	if s.Database.Enabled && dbAvailable {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to start with in-memory storage: ENV=%q requires a database (strict for ENV in %s) but DATABASE_ENABLED=%t and the database pool available=%t; set DATABASE_ENABLED=true with a reachable DATABASE_URL",
+		s.Runtime.Env, strings.Join(durableStorageEnvs, ", "), s.Database.Enabled, dbAvailable)
 }
 
 func DeclaredEnvKeys() []string {

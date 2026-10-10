@@ -46,7 +46,7 @@ describe("BundleManager", () => {
     expect(within(table).getByText("Combo hè")).toBeInTheDocument();
   });
 
-  it("shows the field error and sends nothing when fewer than 2 are picked", () => {
+  it("shows the field error and an error toast, and sends nothing when fewer than 2 are picked", () => {
     render(<BundleManager listings={listings} bundles={[]} />);
     fireEvent.change(screen.getByLabelText(/Tên combo/), {
       target: { value: "X" },
@@ -59,6 +59,9 @@ describe("BundleManager", () => {
     expect(
       screen.getByText("Chọn ít nhất 2 sản phẩm cho combo."),
     ).toBeInTheDocument();
+    expect(toastError).toHaveBeenCalledWith(
+      "Chọn ít nhất 2 sản phẩm cho combo.",
+    );
     expect(createBundleAction).not.toHaveBeenCalled();
   });
 

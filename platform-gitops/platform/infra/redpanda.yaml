@@ -83,10 +83,11 @@ spec:
               set -u
               BROKERS=redpanda.marketplace.svc:9092
               for t in payment.events payment.events.dlq \
-                       order.events order.events.dlq \
+                       order.events order.events.dlq order.events.payment-settlement.dlq \
                        chat.events chat.events.dlq \
                        listing.events listing.events.dlq \
-                       identity.events promotion.events analytics.events; do
+                       identity.events promotion.events analytics.events \
+                       engagement.events engagement.events.analytics.dlq; do
                 rpk topic create "$t" -X brokers="$BROKERS" -p 1 -r 1 || true
               done
               rpk topic list -X brokers="$BROKERS"

@@ -26,7 +26,14 @@ type DBTX interface {
 // PostgresListingRepository implements ListingRepository against a real pgxpool.
 type PostgresListingRepository struct {
 	pool *pgxpool.Pool
+	// outbox + stockEvent, when both set (WithStockEvents), make every real stock
+	// change (reserve, release, sweep) enqueue a ListingStockChanged row INSIDE
+	// the same transaction. Unset means no event.
+	outbox     *OutboxStore
+	stockEvent StockEventBuilder
 }
+
+func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
 
 func NewPostgresListingRepository(pool *pgxpool.Pool) *PostgresListingRepository {
 	return &PostgresListingRepository{pool: pool}
@@ -253,37 +260,33 @@ func deleteListing(ctx context.Context, q DBTX, id string) (Listing, error) {
 	return out, nil
 }
 
-// ReserveStock atomically decrements inventory if sufficient stock is available.
-func (r *PostgresListingRepository) ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	if quantity <= 0 {
-		return errors.New("quantity must be positive")
-	}
+// decrementStock subtracts quantity iff enough stock remains (the conditional
+// UPDATE is the oversell guard). ErrNotFound / ErrVariantNotFound when the row
+// does not exist, ErrOutOfStock when it exists but has too little.
+func decrementStock(ctx context.Context, q DBTX, listingID, variantID string, quantity int32) error {
 	if variantID == "" {
-		const q = `UPDATE listings SET stock = stock - $1 WHERE id = $2 AND stock >= $1`
-		res, err := r.pool.Exec(ctx, q, quantity, listingID)
+		res, err := q.Exec(ctx, `UPDATE listings SET stock = stock - $1 WHERE id = $2 AND stock >= $1`, quantity, listingID)
 		if err != nil {
 			return fmt.Errorf("reserve base stock: %w", err)
 		}
 		if res.RowsAffected() == 0 {
-			var exists bool
-			_ = r.pool.QueryRow(ctx, `SELECT true FROM listings WHERE id = $1`, listingID).Scan(&exists)
-			if !exists {
+			var ex bool
+			_ = q.QueryRow(ctx, `SELECT true FROM listings WHERE id = $1`, listingID).Scan(&ex)
+			if !ex {
 				return ErrNotFound
 			}
 			return ErrOutOfStock
 		}
 		return nil
 	}
-
-	const q = `UPDATE listing_variants SET stock = stock - $1 WHERE id = $2 AND listing_id = $3 AND stock >= $1`
-	res, err := r.pool.Exec(ctx, q, quantity, variantID, listingID)
+	res, err := q.Exec(ctx, `UPDATE listing_variants SET stock = stock - $1 WHERE id = $2 AND listing_id = $3 AND stock >= $1`, quantity, variantID, listingID)
 	if err != nil {
 		return fmt.Errorf("reserve variant stock: %w", err)
 	}
 	if res.RowsAffected() == 0 {
-		var exists bool
-		_ = r.pool.QueryRow(ctx, `SELECT true FROM listing_variants WHERE id = $1 AND listing_id = $2`, variantID, listingID).Scan(&exists)
-		if !exists {
+		var ex bool
+		_ = q.QueryRow(ctx, `SELECT true FROM listing_variants WHERE id = $1 AND listing_id = $2`, variantID, listingID).Scan(&ex)
+		if !ex {
 			return ErrVariantNotFound
 		}
 		return ErrOutOfStock
@@ -292,16 +295,24 @@ func (r *PostgresListingRepository) ReserveStock(ctx context.Context, listingID,
 }
 
 // ReserveStockIdempotent decrements stock and records a reservation keyed on
-// reservationID, in ONE transaction so the two commit together (AD5). If the
-// reservation_id was already applied, it is a no-op returning nil — so a retried
-// checkout never double-decrements. An empty reservationID falls back to a plain
-// (non-idempotent) reserve.
+// reservationID, in ONE transaction so the two commit together.
+//
+// The reservation row is inserted FIRST with ON CONFLICT DO NOTHING, which makes
+// the idempotency check race-free: two concurrent reserves of one id serialise on
+// the row, and the loser sees the existing row instead of failing on the PK.
+//   - existing row active/committed -> no-op success (no stock change);
+//   - existing row released         -> ErrReservationReleased: the stock was given
+//     back, so a "success" would let the caller place an order on stock it does
+//     not hold; the caller must reserve under a new id.
+//
+// reservationID is required (ErrReservationIDRequired): there is no ledger-less
+// decrement.
 func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
 	if quantity <= 0 {
 		return errors.New("quantity must be positive")
 	}
 	if reservationID == "" {
-		return r.ReserveStock(ctx, listingID, variantID, quantity)
+		return ErrReservationIDRequired
 	}
 
 	tx, err := r.pool.Begin(ctx)
@@ -310,49 +321,39 @@ func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Idempotency guard: a reservation already applied for this id is a no-op.
-	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM reservations WHERE reservation_id = $1)`, reservationID).Scan(&exists); err != nil {
-		return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
-	}
-	if exists {
-		return nil
-	}
-
-	if variantID == "" {
-		const q = `UPDATE listings SET stock = stock - $1 WHERE id = $2 AND stock >= $1`
-		res, err := tx.Exec(ctx, q, quantity, listingID)
-		if err != nil {
-			return fmt.Errorf("reserve base stock: %w", err)
-		}
-		if res.RowsAffected() == 0 {
-			var ex bool
-			_ = tx.QueryRow(ctx, `SELECT true FROM listings WHERE id = $1`, listingID).Scan(&ex)
-			if !ex {
-				return ErrNotFound
-			}
-			return ErrOutOfStock
-		}
-	} else {
-		const q = `UPDATE listing_variants SET stock = stock - $1 WHERE id = $2 AND listing_id = $3 AND stock >= $1`
-		res, err := tx.Exec(ctx, q, quantity, variantID, listingID)
-		if err != nil {
-			return fmt.Errorf("reserve variant stock: %w", err)
-		}
-		if res.RowsAffected() == 0 {
-			var ex bool
-			_ = tx.QueryRow(ctx, `SELECT true FROM listing_variants WHERE id = $1 AND listing_id = $2`, variantID, listingID).Scan(&ex)
-			if !ex {
-				return ErrVariantNotFound
-			}
-			return ErrOutOfStock
-		}
-	}
-
 	const ins = `INSERT INTO reservations (reservation_id, listing_id, variant_id, quantity, status, expires_at)
-		VALUES ($1, $2, $3, $4, 'active', $5)`
-	if _, err := tx.Exec(ctx, ins, reservationID, listingID, variantID, quantity, expiresAt); err != nil {
+		VALUES ($1, $2, $3, $4, 'active', $5)
+		ON CONFLICT (reservation_id) DO NOTHING`
+	tag, err := tx.Exec(ctx, ins, reservationID, listingID, variantID, quantity, expiresAt)
+	if err != nil {
 		return fmt.Errorf("insert reservation %q: %w", reservationID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		var (
+			st, gotListing, gotVariant string
+			gotQty                     int32
+		)
+		if err := tx.QueryRow(ctx, `SELECT status, listing_id, variant_id, quantity FROM reservations WHERE reservation_id = $1`,
+			reservationID).Scan(&st, &gotListing, &gotVariant, &gotQty); err != nil {
+			return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
+		}
+		if st == ReservationReleased {
+			return ErrReservationReleased
+		}
+		if gotListing != listingID || gotVariant != variantID || gotQty != quantity {
+			return ErrReservationMismatch
+		}
+		return nil // active or committed: idempotent success for an identical retry
+	}
+	// New reservation: take the stock. A failure here (out of stock, unknown
+	// listing) rolls the inserted row back with the tx.
+	if err := decrementStock(ctx, tx, listingID, variantID, quantity); err != nil {
+		return err
+	}
+	changes := stockChanges{}
+	changes.add(listingID, variantID)
+	if err := r.emitStockChanges(ctx, tx, changes); err != nil {
+		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit reserve tx: %w", err)
@@ -396,52 +397,145 @@ func (r *PostgresListingRepository) SweepExpiredReservations(ctx context.Context
 		return 0, fmt.Errorf("iterate expired reservations: %w", err)
 	}
 
+	released := 0
+	changes := stockChanges{}
 	for _, e := range batch {
-		if e.variantID == "" {
-			if _, err := tx.Exec(ctx, `UPDATE listings SET stock = stock + $1 WHERE id = $2`, e.quantity, e.listingID); err != nil {
-				return 0, fmt.Errorf("restore base stock: %w", err)
-			}
-		} else {
-			if _, err := tx.Exec(ctx, `UPDATE listing_variants SET stock = stock + $1 WHERE id = $2 AND listing_id = $3`, e.quantity, e.variantID, e.listingID); err != nil {
-				return 0, fmt.Errorf("restore variant stock: %w", err)
-			}
-		}
-		if _, err := tx.Exec(ctx, `UPDATE reservations SET status = 'released', released_at = now() WHERE reservation_id = $1`, e.id); err != nil {
+		// The row is locked (FOR UPDATE) and was 'active' in the SELECT; the status
+		// guard keeps "released at most once" true even if that ever changed.
+		tag, err := tx.Exec(ctx, `UPDATE reservations SET status = 'released', released_at = now() WHERE reservation_id = $1 AND status = 'active'`, e.id)
+		if err != nil {
 			return 0, fmt.Errorf("mark reservation %q released: %w", e.id, err)
 		}
+		if tag.RowsAffected() == 0 {
+			continue
+		}
+		released++
+		// A since-deleted listing/variant is still marked released so the sweep
+		// stays idempotent and never loops on it (and announces nothing).
+		if err := incrementStock(ctx, tx, e.listingID, e.variantID, e.quantity); err != nil {
+			if errors.Is(err, ErrNotFound) || errors.Is(err, ErrVariantNotFound) {
+				continue
+			}
+			return 0, err
+		}
+		changes.add(e.listingID, e.variantID)
+	}
+	// One ListingStockChanged per affected listing (its final stock), same tx.
+	if err := r.emitStockChanges(ctx, tx, changes); err != nil {
+		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit sweep tx: %w", err)
 	}
-	return len(batch), nil
+	return released, nil
 }
 
-// ReleaseStock releases previously reserved inventory back into stock.
-func (r *PostgresListingRepository) ReleaseStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	if quantity <= 0 {
-		return errors.New("quantity must be positive")
-	}
+// incrementStock adds quantity to the listing's (or variant's) stock over any
+// DBTX. ErrNotFound / ErrVariantNotFound when no row matched.
+func incrementStock(ctx context.Context, q DBTX, listingID, variantID string, quantity int32) error {
 	if variantID == "" {
-		const q = `UPDATE listings SET stock = stock + $1 WHERE id = $2`
-		res, err := r.pool.Exec(ctx, q, quantity, listingID)
+		res, err := q.Exec(ctx, `UPDATE listings SET stock = stock + $1 WHERE id = $2`, quantity, listingID)
 		if err != nil {
-			return fmt.Errorf("release base stock: %w", err)
+			return fmt.Errorf("restore base stock: %w", err)
 		}
 		if res.RowsAffected() == 0 {
 			return ErrNotFound
 		}
 		return nil
 	}
-
-	const q = `UPDATE listing_variants SET stock = stock + $1 WHERE id = $2 AND listing_id = $3`
-	res, err := r.pool.Exec(ctx, q, quantity, variantID, listingID)
+	res, err := q.Exec(ctx, `UPDATE listing_variants SET stock = stock + $1 WHERE id = $2 AND listing_id = $3`, quantity, variantID, listingID)
 	if err != nil {
-		return fmt.Errorf("release variant stock: %w", err)
+		return fmt.Errorf("restore variant stock: %w", err)
 	}
 	if res.RowsAffected() == 0 {
 		return ErrVariantNotFound
 	}
 	return nil
+}
+
+// ReleaseReservation releases by reservation_id. ONE statement flips the state
+// and returns what to restore, so two concurrent releases (or a release racing
+// the sweep, which leases the same rows with FOR UPDATE) can never both restore:
+// the loser re-evaluates the WHERE after the winner commits and updates zero
+// rows. The stock restore runs in the same transaction. No caller-supplied
+// quantity is involved.
+func (r *PostgresListingRepository) ReleaseReservation(ctx context.Context, reservationID string) (ReleaseOutcome, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return ReleaseNoOp, fmt.Errorf("begin release tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const upd = `UPDATE reservations SET status = 'released', released_at = now()
+		WHERE reservation_id = $1 AND status IN ('active', 'committed')
+		RETURNING listing_id, variant_id, quantity`
+	var listingID, variantID string
+	var quantity int32
+	if err := tx.QueryRow(ctx, upd, reservationID).Scan(&listingID, &variantID, &quantity); err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return ReleaseNoOp, fmt.Errorf("release reservation %q: %w", reservationID, err)
+		}
+		// Zero rows: already released/swept, or never existed.
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM reservations WHERE reservation_id = $1)`, reservationID).Scan(&exists); err != nil {
+			return ReleaseNoOp, fmt.Errorf("lookup reservation %q: %w", reservationID, err)
+		}
+		if exists {
+			return ReleaseNoOp, nil
+		}
+		return ReleaseUnknown, nil
+	}
+	// A since-deleted listing/variant is still marked released (idempotent, like
+	// the sweep); there is simply no stock to restore and nothing to announce.
+	if err := incrementStock(ctx, tx, listingID, variantID, quantity); err != nil {
+		if !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrVariantNotFound) {
+			return ReleaseNoOp, err
+		}
+	} else {
+		changes := stockChanges{}
+		changes.add(listingID, variantID)
+		if err := r.emitStockChanges(ctx, tx, changes); err != nil {
+			return ReleaseNoOp, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return ReleaseNoOp, fmt.Errorf("commit release tx: %w", err)
+	}
+	return ReleaseApplied, nil
+}
+
+// CommitReservation moves an active reservation to committed in one guarded
+// UPDATE. The WHERE clause requires status = 'active', the same predicate the
+// sweep leases with FOR UPDATE, so a concurrent sweep and commit cannot both win:
+// the loser re-evaluates the predicate after the winner commits. Zero rows is
+// disambiguated by a follow-up read: committed -> idempotent success, released ->
+// ErrReservationReleased, absent -> ErrReservationNotFound. No stock changes, so
+// no outbox event is written.
+func (r *PostgresListingRepository) CommitReservation(ctx context.Context, reservationID string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE reservations SET status = 'committed' WHERE reservation_id = $1 AND status = 'active'`, reservationID)
+	if err != nil {
+		return fmt.Errorf("commit reservation %q: %w", reservationID, err)
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	var st string
+	if err := r.pool.QueryRow(ctx, `SELECT status FROM reservations WHERE reservation_id = $1`, reservationID).Scan(&st); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrReservationNotFound
+		}
+		return fmt.Errorf("lookup reservation %q: %w", reservationID, err)
+	}
+	switch st {
+	case ReservationCommitted:
+		return nil
+	case ReservationReleased:
+		return ErrReservationReleased
+	default:
+		// 'active' here would mean the row moved backwards between the two
+		// statements, which the lifecycle forbids; surface it rather than guess.
+		return fmt.Errorf("commit reservation %q: unexpected status %q", reservationID, st)
+	}
 }
 
 func (r *PostgresListingRepository) count(ctx context.Context, q, arg string) (int64, error) {

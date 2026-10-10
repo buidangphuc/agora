@@ -1,0 +1,96 @@
+# platform-modelserve router + a deterministic TEI fake, wired into team-search
+# (changes add-platform-modelserve and add-hybrid-retrieval-platform; e2e features
+# modelserve/*.feature, search/hybrid_retrieval.feature, search/hybrid_indexing.feature).
+#
+# Layer it on top of the stack, from the workspace root (any compose project name):
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/modelserve.override.yaml \
+#     up -d --build tei-fake modelserve-router team-search team-search-indexer
+# Add the same `-f` pair to any other `docker compose` call against that project. The
+# `dc-agora-ov.sh` wrapper carries it next to the other e2e overlays.
+#
+# What it adds:
+# * tei-fake: platform-e2e/fakes/tei_fake, a deterministic stand-in for Hugging Face TEI
+#   (/embed, /rerank, dim 384) that also plays the vLLM upstream (/v1/chat/completions,
+#   /generate). No model or TEI image is downloaded.
+# * modelserve-router: the real platform-modelserve router built from ./platform-modelserve,
+#   its three upstreams all pointed at tei-fake. The embedding cache lives in Redis DB 4
+#   (0 serving, 2 features, 3 ofb tests, 10-13 fsm workers are taken).
+#   MAX_QUEUE_DEPTH is 10 (default 100) so the backpressure scenario can saturate it with a
+#   few dozen slow requests; the real traffic of the suite stays far below that.
+# * team-search and team-search-indexer: MODEL_SERVER_URL -> the router (the committed
+#   default is localhost:8100, i.e. nothing, so every search degrades to lexical and every
+#   listing is indexed with vector_pending), ENABLE_RERANKER=true on the query side.
+#
+# The tests reach the router and the fake on the host at MODELSERVE_URL (default
+# http://localhost:18100) and TEI_FAKE_URL (default http://localhost:18110), i.e. the
+# published ports below; change both together with the *_HOST_PORT variables.
+# Keys by service name only (no container_name), so it works under any project. The images are
+# named agora-*:local here, so the agora isolation override needs no entry for these two services;
+# the destructive scenarios `docker stop` the router container, default name
+# agora-modelserve-router-1 (override with MS_ROUTER_CONTAINER).
+services:
+  tei-fake:
+    build:
+      context: ./platform-e2e/fakes/tei_fake
+    image: agora-tei-fake:local
+    ports:
+      - "127.0.0.1:${TEI_FAKE_HOST_PORT:-18110}:8110"
+  modelserve-router:
+    build:
+      context: ./platform-modelserve
+    image: agora-modelserve-router:local
+    depends_on:
+      tei-fake:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      ROUTER_PORT: "8100"
+      TEI_EMBED_URL: http://tei-fake:8110
+      TEI_RERANK_URL: http://tei-fake:8110
+      VLLM_URL: http://tei-fake:8110
+      REDIS_URL: redis://redis:6379/4
+      EMBED_CACHE_ENABLED: "true"
+      EMBED_CACHE_TTL_SECONDS: "3600"
+      MODEL_VERSION: tei-fake-v1
+      MAX_QUEUE_DEPTH: "10"
+      UPSTREAM_TIMEOUT_SECONDS: "30"
+    ports:
+      - "127.0.0.1:${MODELSERVE_HOST_PORT:-18100}:8100"
+  # assistant-rag-grounding: the listing indexer feeds team-ai's RAG store (Qdrant collection rag_documents),
+  # embedded through the router, so ShoppingAssistant answers with real listings.
+  team-ai:
+    build:
+      args:
+        UV_EXTRAS: "recs ai kafka"
+    depends_on:
+      modelserve-router:
+        condition: service_healthy
+    environment:
+      RAG_ENABLED: "true"
+      RAG_BACKEND: qdrant
+      RAG_QDRANT_URL: http://qdrant:6333
+      RAG_QDRANT_COLLECTION: rag_documents
+      RAG_EMBED_BACKEND: model_server
+      RAG_EMBED_SERVER_URL: http://modelserve-router:8100
+      RAG_EMBED_DIM: "384"
+      LISTING_INDEXER_ENABLED: "true"
+      KAFKA_BROKERS: redpanda:9092
+  team-search:
+    depends_on:
+      modelserve-router:
+        condition: service_healthy
+    environment:
+      MODEL_SERVER_URL: http://modelserve-router:8100
+      ENABLE_RERANKER: "true"
+      # The fake sums one dense direction per concept, so a one-concept query against a document with N
+      # distinct concepts that contains it scores about 1/sqrt(N) (0.58 for three), while unrelated texts
+      # score about 0 +-0.05. 0.3 separates them for titles of up to about ten concepts. 0.6 (the service
+      # default) is tuned for bge-small's compressed cosine range and would drop real matches here.
+      HYBRID_SEMANTIC_MIN_SCORE: "0.3"
+  team-search-indexer:
+    depends_on:
+      modelserve-router:
+        condition: service_healthy
+    environment:
+      MODEL_SERVER_URL: http://modelserve-router:8100

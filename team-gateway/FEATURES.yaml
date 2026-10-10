@@ -84,7 +84,7 @@ features:
     covered_by: "tracking/emit_tracking.feature::A browsing action still succeeds when the event cannot be delivered"
 
   - id: gateway.client-ip-not-spoofable
-    title: A client cannot spoof the recorded session IP
+    title: A client cannot spoof the forwarded IP
     persona: guest
     priority: P1
     summary: >-
@@ -104,6 +104,696 @@ features:
       - Then the recorded session IP is the socket address, not 1.2.3.4
     tags: [auth]
     status: automated
-    covered_by: "auth/session_revocation.feature::A client cannot spoof the recorded session IP"
+    covered_by: "auth/session_revocation.feature::A client cannot spoof the forwarded IP"
     notes: >-
-      Scenario "A client cannot spoof the recorded session IP" in auth/session_revocation.feature.
+      Scenario "A client cannot spoof the forwarded IP" in auth/session_revocation.feature.
+
+  - id: edge.internal-rpcs-not-routed
+    title: Internal stock and voucher saga RPCs are not routed at the edge
+    persona: seller
+    priority: P0
+    summary: The saga-internal RPCs answer unimplemented (501) for every caller without contacting the upstream.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-domain
+    - team-promotion
+    preconditions:
+      login: seller
+    api:
+      exercised:
+      - listing.v1.ListingService.ReserveStock
+      - listing.v1.ListingService.ReleaseStock
+      - promotion.v1.VoucherService.CommitReservation
+      - promotion.v1.VoucherService.ReleaseReservation
+    acceptance:
+    - Given a logged-in seller with a listing in stock
+    - When the seller calls ReserveStock, ReleaseStock, CommitReservation and ReleaseReservation through
+      the gateway
+    - Then each call answers HTTP 501 with code unimplemented
+    - And the listing's stock is unchanged
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Internal stock and voucher saga RPCs answer 501 at the
+      edge
+
+  - id: edge.audit-write-not-routed
+    title: Writing an audit event is not exposed at the edge
+    persona: seller
+    priority: P0
+    summary: 'WriteAuditEvent is service-only: a seller or the admin gets 501 and nothing is stored.'
+    entry_route: /
+    services:
+    - team-gateway
+    - team-audit
+    preconditions:
+      login: seller
+    api:
+      exercised:
+      - audit.v1.AuditService.WriteAuditEvent
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given a logged-in seller and the seeded admin
+    - When the seller and the seeded admin call WriteAuditEvent through the gateway for a fresh target type
+    - Then the gateway answers HTTP 501 for each write
+    - And no audit event is stored for that target type
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Writing an audit event is not exposed at the edge
+
+  - id: edge.admin-rpc-anonymous-401
+    title: Anonymous callers are refused on admin-only RPCs
+    persona: guest
+    priority: P0
+    summary: QueryAuditLog, ReviewKyc and ResolveDispute need authentication at the edge before being forwarded.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: guest
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+      - verification.v1.VerificationService.ReviewKyc
+      - engagement.v1.EngagementService.ResolveDispute
+    acceptance:
+    - Given an anonymous client
+    - When the client calls QueryAuditLog, ReviewKyc and ResolveDispute through the gateway
+    - Then each admin-only call answers HTTP 401
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Anonymous call to an admin-only RPC
+
+  - id: edge.admin-rpc-buyer-403
+    title: A buyer is refused on admin-only RPCs
+    persona: buyer
+    priority: P0
+    summary: A verified caller without the admin scope gets permission_denied (403) on the admin-only RPCs.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+      - verification.v1.VerificationService.ReviewKyc
+      - engagement.v1.EngagementService.ResolveDispute
+    acceptance:
+    - Given a logged-in buyer
+    - When the buyer calls QueryAuditLog, ReviewKyc and ResolveDispute through the gateway
+    - Then each admin-only call answers HTTP 403
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Buyer call to an admin-only RPC
+
+  - id: edge.admin-may-query-audit
+    title: The seeded admin may query the audit log
+    persona: admin
+    priority: P1
+    summary: The admin scope passes the edge gate and QueryAuditLog answers with an events list.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-audit
+    - team-identity
+    preconditions:
+      login: admin
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given the seeded admin
+    - When the seeded admin calls QueryAuditLog through the gateway
+    - Then the request succeeds with an events list
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::Admin may query the audit log
+
+  - id: edge.upstream-unavailable-no-detail
+    title: An unreachable upstream is reported without internal detail
+    persona: admin
+    priority: P1
+    summary: 'With team-audit stopped the gateway answers 503 ''service unavailable'' or 504 ''upstream
+      timed out'' and leaks no host, port, dial or load-balancer text. Destructive: stops
+      agora-team-audit-svc and restores it in teardown.'
+    entry_route: /
+    services:
+    - team-gateway
+    - team-audit
+    preconditions:
+      login: admin
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Given the seeded admin and team-audit is stopped
+    - When the seeded admin calls QueryAuditLog through the gateway while team-audit is down
+    - Then the gateway answers with a fixed upstream-failure message
+    - And the body contains no host, port or dial error text
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::An unreachable upstream is reported without internal detail
+    notes: 'DESTRUCTIVE (@destructive): runs in the serial lane only. A stopped container loses its DNS
+      name, so the gateway times out (504) rather than getting a refused connection (503).'
+
+  - id: edge.token-without-exp-rejected
+    title: A signed token without an expiry is rejected
+    persona: buyer
+    priority: P1
+    summary: A token that verifies against the JWKS but has no exp claim is refused with 401.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-identity
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - order.v1.OrderService.ListBuyerOrders
+    acceptance:
+    - Given a token signed by the identity key is accepted when it carries exp and sub
+    - When a client calls an authenticated RPC with a token signed by the identity key that has no exp claim
+    - Then the gateway answers HTTP 401
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A signed token without an expiry is rejected
+
+  - id: edge.token-without-sub-rejected
+    title: A signed token without a subject is rejected
+    persona: buyer
+    priority: P1
+    summary: A token that verifies against the JWKS but has an empty sub is refused with 401.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-identity
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - order.v1.OrderService.ListBuyerOrders
+    acceptance:
+    - Given a token signed by the identity key is accepted when it carries exp and sub
+    - When a client calls an authenticated RPC with a token signed by the identity key whose sub is empty
+    - Then the gateway answers HTTP 401
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A signed token without a subject is rejected
+
+  - id: edge.request-id-echoed
+    title: A well-formed request id is echoed
+    persona: guest
+    priority: P2
+    summary: A client X-Request-Id matching ^[A-Za-z0-9._-]{1,64}$ is returned unchanged.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: guest
+    api:
+      exercised:
+      - search.v1.SearchService.SearchListings
+    acceptance:
+    - When a client sends X-Request-Id "e2e-req.42" on an RPC
+    - Then the response header X-Request-Id is "e2e-req.42"
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A well-formed request id is echoed
+
+  - id: edge.request-id-replaced
+    title: A malformed request id is replaced
+    persona: guest
+    priority: P2
+    summary: An X-Request-Id with spaces or angle brackets is replaced by a fresh well-formed id.
+    entry_route: /
+    services:
+    - team-gateway
+    preconditions:
+      login: guest
+    api:
+      exercised:
+      - search.v1.SearchService.SearchListings
+    acceptance:
+    - When a client sends an X-Request-Id containing spaces and angle brackets
+    - Then the response header X-Request-Id is a different, well-formed id
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A malformed request id is replaced
+
+  - id: edge.idempotency-key-validated
+    title: A malformed idempotency key is rejected
+    persona: buyer
+    priority: P2
+    summary: CreateOrder with an Idempotency-Key longer than 255 bytes is refused with 400.
+    entry_route: /
+    services:
+    - team-gateway
+    - team-order
+    preconditions:
+      login: buyer
+    api:
+      exercised:
+      - order.v1.OrderService.CreateOrder
+    acceptance:
+    - Given a logged-in buyer
+    - When the buyer calls CreateOrder with an Idempotency-Key longer than 255 bytes
+    - Then the gateway answers HTTP 400
+    tags:
+    - security
+    - edge
+    status: automated
+    covered_by: security/edge_route_policy.feature::A malformed idempotency key is rejected
+
+  - id: edge.listing-commit-not-routed
+    title: The listing stock commit RPC answers 501 at the edge
+    persona: seller
+    priority: P0
+    summary: >-
+      ListingService/CommitReservation is service-to-service: the gateway answers unimplemented (501) to a logged-in seller and to an anonymous caller without changing stock.
+    entry_route: /
+    services: [team-gateway, team-domain, team-order]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.ListingService.CommitReservation, listing.v1.GetListing]
+    acceptance:
+      - WHEN a logged-in seller, then an anonymous caller, calls ListingService/CommitReservation through the gateway with the reservation id of a buyer's live order
+      - THEN each call answers HTTP 501 with code unimplemented and the listing's stock is unchanged
+    tags: [security, edge]
+    status: automated
+    covered_by: "security/oic_inv_edge_listing_commit.feature::The listing stock commit RPC answers 501 at the edge"
+    notes: >-
+      Scenario in security/oic_inv_edge_listing_commit.feature. Written ahead of the code (port-order-inventory-correctness); flip to automated once green. RED on the pre-change stack: the running gateway image predates the re-vendored proto and answers HTTP 404 (page not found) instead of 501.
+
+  - id: edge.stream-invalid-token-refused
+    title: An invalid token on a stream is refused
+    persona: buyer
+    priority: P0
+    summary: An invalid token on a stream is refused (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a client calls StreamChat through the gateway with a bearer token whose signature is invalid"
+      - "Then the stream ends with the Connect error code unauthenticated and no chat message is streamed"
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_streams.feature::An invalid token on a stream is refused"
+    notes: >-
+      Scenario "An invalid token on a stream is refused" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.stream-echoes-request-id
+    title: A stream echoes the request id
+    persona: buyer
+    priority: P2
+    summary: A stream echoes the request id (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a logged-in buyer calls StreamChat through the gateway with X-Request-Id \"e2e-stream-<random>\""
+      - "Then the stream completes and the response carries X-Request-Id \"e2e-stream-<random>\""
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_streams.feature::A stream echoes the request id"
+    notes: >-
+      Scenario "A stream echoes the request id" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.stream-rate-limited-per-caller
+    title: Streams are rate limited per caller
+    persona: buyer
+    priority: P1
+    summary: Streams are rate limited per caller (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When one freshly registered buyer opens more StreamChat calls at once than the gateway's rate-limit burst"
+      - "Then at least one of them fails with resource_exhausted, and a different buyer's StreamChat call made right after succeeds"
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_streams.feature::Streams are rate limited per caller"
+    notes: >-
+      Scenario "Streams are rate limited per caller" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.stream-oversized-request-refused
+    title: An oversized stream request is refused
+    persona: buyer
+    priority: P1
+    summary: An oversized stream request is refused (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a logged-in buyer calls StreamChat with a 20 000-byte message"
+      - "Then the call fails with resource_exhausted"
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_streams.feature::An oversized stream request is refused"
+    notes: >-
+      Scenario "An oversized stream request is refused" in security/edge_streams.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.track-beacon-flood-throttled
+    title: A beacon flood is throttled
+    persona: guest
+    priority: P1
+    summary: A beacon flood is throttled (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    acceptance:
+      - "When one anonymous visitor sends 40 POST /api/track batches back to back, each with one event carrying a unique marker"
+      - "Then some requests answer HTTP 429, and none of the markers of the 429 requests reach analytics.events"
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_http_routes.feature::A beacon flood is throttled"
+    notes: >-
+      Scenario "A beacon flood is throttled" in security/edge_http_routes.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.track-echoes-request-id
+    title: The collector echoes the request id
+    persona: guest
+    priority: P2
+    summary: The collector echoes the request id (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    acceptance:
+      - "When a visitor sends one valid POST /api/track batch with X-Request-Id \"e2e-track-<random>\""
+      - "Then the response is accepted and carries X-Request-Id \"e2e-track-<random>\""
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_http_routes.feature::The collector echoes the request id"
+    notes: >-
+      Scenario "The collector echoes the request id" in security/edge_http_routes.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.ai-generation-not-retried
+    title: A generation call is not retried when team-ai is down
+    persona: seller
+    priority: P1
+    summary: A generation call is not retried when team-ai is down (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [ai.v1.MagicListing]
+    acceptance:
+      - "When team-ai is stopped and a logged-in seller calls MagicListing through the gateway with X-Request-Id \"e2e-ai-<random>\""
+      - "Then the call fails with unavailable, and the gateway's edge.request log line for that request id reports one upstream attempt"
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_ai_and_reflection.feature::A generation call is not retried when team-ai is down"
+    notes: >-
+      Scenario "A generation call is not retried when team-ai is down" in security/edge_ai_and_reflection.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.reflection-not-served-by-default
+    title: Reflection is not served by default
+    persona: guest
+    priority: P1
+    summary: Reflection is not served by default (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "When a client posts a reflection request to /grpc.reflection.v1.ServerReflection/ServerReflectionInfo on the local gateway"
+      - "Then the gateway answers HTTP 404"
+    tags: [security]
+    status: automated
+    covered_by: "security/edge_ai_and_reflection.feature::Reflection is not served by default"
+    notes: >-
+      Scenario "Reflection is not served by default" in security/edge_ai_and_reflection.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: ops.gateway-boot-guard-reflection
+    title: The gateway refuses reflection in production
+    persona: admin
+    priority: P1
+    summary: The gateway refuses reflection in production (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "When the team-gateway image is started with ENV=production and EDGE_REFLECTION_ENABLED=true"
+      - "Then the process exits non-zero and its log names EDGE_REFLECTION_ENABLED"
+    tags: [security]
+    status: automated
+    covered_by: "ops/boot_guard_gateway.feature::The gateway refuses reflection in production"
+    notes: >-
+      Scenario "The gateway refuses reflection in production" in ops/boot_guard_gateway.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: edge.upstream-recovers-after-recreate
+    title: A recreated upstream is reachable again within seconds
+    persona: seller
+    priority: P1
+    summary: A recreated upstream is reachable again within seconds (port-edge-authz-residuals).
+    entry_route: /
+    services: [team-gateway]
+    api:
+      exercised: [payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the team-payment container is recreated and its gRPC port answers"
+      - "Then within 5 seconds a seller's GetWalletBalance through the gateway succeeds, and it keeps succeeding on 3 consecutive calls"
+    tags: [security]
+    status: automated
+    covered_by: "ops/upstream_recovery.feature::A recreated upstream is reachable again within seconds"
+    notes: >-
+      Scenario "A recreated upstream is reachable again within seconds" in ops/upstream_recovery.feature. Written red-first (code not merged); the integrator flips this to automated with covered_by after the merge.
+
+  - id: tracking.one-bad-event-does-not-drop-the-batch
+    title: "One bad event in a tracking batch does not drop the batch"
+    persona: guest
+    priority: P1
+    summary: "POST /api/track validates each event on its own: an unknown type is dropped and the valid events of the batch are produced, with a 202 reporting accepted and dropped counts."
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a batch of three events, two valid views carrying unique markers and one of type "teleport"
+      - Then the response is 202 with accepted 2 and dropped 1, and both valid markers reach analytics.events
+    tags: [tracking]
+    status: automated
+    covered_by: "tracking/ingest_validation.feature::One bad event does not drop the batch"
+    notes: "tracking-ingest-integrity: tracking/ingest_validation.feature::One bad event does not drop the batch"
+
+  - id: tracking.oversized-properties-drops-only-that-event
+    title: "An oversized properties map drops only that tracking event"
+    persona: guest
+    priority: P1
+    summary: "An event whose properties exceed 20 keys is dropped while the valid events of the same batch are produced."
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a batch with one valid view and one view whose `properties` has 21 keys
+      - Then the response is 202 with accepted 1 and dropped 1, and only the valid view reaches analytics.events
+    tags: [tracking]
+    status: automated
+    covered_by: "tracking/ingest_validation.feature::An oversized properties map drops only that event"
+    notes: "tracking-ingest-integrity: tracking/ingest_validation.feature::An oversized properties map drops only that event"
+
+  - id: tracking.query-email-and-phone-masked
+    title: "An email and a phone in a search query are masked at the edge"
+    persona: guest
+    priority: P1
+    summary: "The gateway replaces emails with [email], Vietnamese phone numbers with [phone] and 13+ digit runs with [number] before producing; short numbers such as prices are kept."
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view whose `query` is "a.b@example.com 0912 345 678 tủ lạnh 850000"
+      - Then the event on analytics.events has `search_query` "[email] [phone] tủ lạnh 850000"
+    tags: [tracking]
+    status: automated
+    covered_by: "tracking/ingest_scrubbing.feature::An email and a phone in a search query are masked"
+    notes: "tracking-ingest-integrity: tracking/ingest_scrubbing.feature::An email and a phone in a search query are masked"
+
+  - id: tracking.referrer-loses-query-string
+    title: "A tracked referrer is reduced to scheme, host and path"
+    persona: guest
+    priority: P1
+    summary: "The gateway drops the query string and fragment of the referrer before producing."
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view whose `referrer` is "https://news.example.com/a/b?utm_source=x&email=a@b.co#top"
+      - Then the event on analytics.events has `referrer` "https://news.example.com/a/b"
+    tags: [tracking]
+    status: automated
+    covered_by: "tracking/ingest_scrubbing.feature::A referrer loses its query string"
+    notes: "tracking-ingest-integrity: tracking/ingest_scrubbing.feature::A referrer loses its query string"
+
+  - id: gateway.adq-tracking-quality-report-admin-only
+    title: "Only admins can read the report"
+    persona: guest
+    priority: P1
+    summary: "Only admins can read the report"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetTrackingQualityReport
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous client and then a logged-in buyer call `GetTrackingQualityReport` through the gateway"
+      - "Then the gateway answers HTTP 401 and then HTTP 403"
+    tags: [security, analytics, admin]
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::Only admins can read the report"
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Only admins can read the report"
+
+  - id: gateway.roe-recommendation-performance-admin-only
+    title: "Only admins read recommendation performance"
+    persona: guest
+    priority: P1
+    summary: "Only admins read recommendation performance"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetRecommendationPerformance
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous client and then a logged-in buyer call `GetRecommendationPerformance` through the gateway"
+      - "Then the gateway answers HTTP 401 and then HTTP 403"
+    tags: [security, analytics, admin]
+    status: automated
+    covered_by: "analytics/recommendation_performance.feature::Only admins read recommendation performance"
+    notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::Only admins read recommendation performance"
+
+  - id: edge.ar2-stream-ends-at-token-expiry
+    title: "A stream is ended when its token expires"
+    persona: buyer
+    priority: P0
+    summary: "A stream is ended when its token expires (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [chat.v1.ChatService.StreamChat]
+    acceptance:
+      - "When a logged-in buyer whose token expires in about 3 seconds opens a StreamChat the model provider holds open"
+      - "Then the stream ends with the Connect error code unauthenticated about when the token expires, not after the provider answers"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
+    notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its token expires"
+
+  - id: edge.ar2-stream-ends-on-session-revoke
+    title: "A stream is ended when its session is revoked"
+    persona: buyer
+    priority: P0
+    summary: "A stream is ended when its session is revoked (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-identity, team-ai]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [chat.v1.ChatService.StreamChat, identity.v1.SessionService.RevokeSession]
+    acceptance:
+      - "When a logged-in buyer opens a StreamChat the model provider holds open on a gateway that checks revocation every second, then revokes that session"
+      - "Then the stream ends with unauthenticated within 4 seconds of the revoke"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
+    notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream is ended when its session is revoked"
+
+  - id: edge.ar2-stream-finishing-before-expiry-unaffected
+    title: "A stream that finishes before expiry is unaffected"
+    persona: buyer
+    priority: P0
+    summary: "A stream that finishes before expiry is unaffected (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [chat.v1.ChatService.StreamChat]
+    acceptance:
+      - "When a logged-in buyer whose token expires in about 60 seconds calls StreamChat and the provider answers at once"
+      - "Then the stream completes with chat text and no error"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
+    notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
+
+  - id: edge.sse-ends-at-token-expiry
+    title: "An SSE connection is ended when its token expires"
+    persona: buyer
+    priority: P0
+    summary: "An authenticated /api/events/live connection gets a final unauthenticated event and is closed at token expiry (sse-stream-lifetime)."
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [http.GET /api/events/live]
+    acceptance:
+      - "When a logged-in buyer whose token expires in about 3 seconds opens /api/events/live for their own user:{id} room"
+      - "Then the gateway sends an unauthenticated event about when the token expires and closes the connection"
+    tags: [security]
+    status: automated
+    covered_by: "security/ssl_sse_lifetime.feature::An SSE connection is ended when its token expires"
+    notes: "needs rebuild (security/ssl_sse_lifetime.feature::An SSE connection is ended when its token expires)"
+
+  - id: edge.sse-ends-on-session-revoke
+    title: "An SSE connection is ended when its session is revoked"
+    persona: buyer
+    priority: P0
+    summary: "An authenticated /api/events/live connection gets a final unauthenticated event and is closed after its session is revoked (sse-stream-lifetime)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [http.GET /api/events/live, identity.v1.SessionService.RevokeSession]
+    acceptance:
+      - "When a logged-in buyer opens /api/events/live for their own user:{id} room on a gateway that checks revocation every second, then revokes that session"
+      - "Then the gateway sends an unauthenticated event and closes the connection within 4 seconds of the revoke"
+    tags: [security]
+    status: automated
+    covered_by: "security/ssl_sse_lifetime.feature::An SSE connection is ended when its session is revoked"
+    notes: "needs rebuild (security/ssl_sse_lifetime.feature::An SSE connection is ended when its session is revoked)"
+
+  - id: edge.sse-public-room-unaffected-by-expiry
+    title: "A public SSE room is unaffected by token expiry"
+    persona: guest
+    priority: P2
+    summary: "A public-room /api/events/live connection with no credential is never cut (sse-stream-lifetime)."
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [http.GET /api/events/live]
+    acceptance:
+      - "When a client opens /api/events/live for a public listing:{id} room with no credential and stays connected past the time a 3 second token would have expired"
+      - "Then the connection is still open and receives no unauthenticated event"
+    tags: [security]
+    status: automated
+    covered_by: "security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry"
+    notes: "needs rebuild (security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry)"

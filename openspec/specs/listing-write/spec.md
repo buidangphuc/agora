@@ -1,7 +1,7 @@
 # listing-write Specification
 
 ## Purpose
-TBD - created by archiving change add-domain-transactional-outbox. Update Purpose after archive.
+Defines how listing writes publish their events reliably: each write records its event in the same transaction (outbox), and a relayer publishes pending events at least once, with failure handling.
 
 ## Requirements
 

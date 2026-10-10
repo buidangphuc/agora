@@ -12,30 +12,14 @@ Redis on the host.
 
 from __future__ import annotations
 
-import json
 import os
 from collections.abc import Callable
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from typing import Any
 
-# Warehouse driver identifiers selected by WAREHOUSE_DRIVER (mirrors
-# team-analytics' DriverDuckDB / DriverBigQuery — same env value both sides).
-DRIVER_DUCKDB = "duckdb"
-DRIVER_BIGQUERY = "bigquery"
 
-# The default per-event confidence weights (implicit feedback). JSON so the whole
-# map is overridable from a single env var.
-DEFAULT_EVENT_WEIGHTS = {
-    "impression": 0.5,
-    "view": 1.0,
-    "click": 2.0,
-    "view_cart": 2.5,
-    "add_to_cart": 5.0,
-    "add_shipping_info": 6.0,
-    "add_payment_info": 7.0,
-    "begin_checkout": 8.0,
-    "purchase": 10.0,
-}
+class ConfigError(ValueError):
+    """A run cannot start because a required input is missing (the job exits 2)."""
 
 
 def _as_bool(v: str) -> bool:
@@ -54,12 +38,6 @@ def _as_str(v: str) -> str:
     return v
 
 
-def _as_weights(v: str) -> dict[str, float]:
-    """Parse the JSON event->weight map, keyed by lowercase event_type."""
-    raw = json.loads(v)
-    return {str(k).lower(): float(w) for k, w in raw.items()}
-
-
 # (attr, env, default_str, caster). default_str is the exact literal that must
 # appear in .env.example, so the drift gate compares like-for-like.
 _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
@@ -70,20 +48,12 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     # Local dev / CI runs in-process local mode; a real cluster overrides this.
     ("spark_master", "SPARK_MASTER", "local[*]", _as_str),
     ("spark_app_name", "SPARK_APP_NAME", "platform-recsys-als", _as_str),
-    # ── Warehouse reader seam (the only driver-specific seam) ────────────────
-    ("warehouse_driver", "WAREHOUSE_DRIVER", "duckdb", _as_str),
-    # Local: DuckDB-exported Parquet on the warehouse volume
-    # (team-analytics `ExportParquet`), read via spark.read.parquet(...).
-    ("warehouse_parquet_path", "WAREHOUSE_PARQUET_PATH", "/data/tracking_events.parquet", _as_str),
-    # Prod: BigQuery table via the Spark BigQuery connector.
-    ("bigquery_project", "BIGQUERY_PROJECT", "", _as_str),
-    ("bigquery_dataset", "BIGQUERY_DATASET", "analytics", _as_str),
-    ("bigquery_table", "BIGQUERY_TABLE", "tracking_events", _as_str),
+    # ── Governed training dataset (written by platform-featurestore) ─────────
+    # The ALS job reads ONLY this: DATASET_PATH (an explicit file) wins over the
+    # latest as_of=*.parquet snapshot under DATASET_DIR. Never raw tracking events.
+    ("dataset_dir", "DATASET_DIR", "/features/datasets/als_interactions/v1", _as_str),
+    ("dataset_path", "DATASET_PATH", "", _as_str),
     # ── Interactions ─────────────────────────────────────────────────────────
-    ("interaction_window_days", "INTERACTION_WINDOW_DAYS", "30", _as_int),
-    ("event_weights_json", "EVENT_WEIGHTS_JSON", json.dumps(DEFAULT_EVENT_WEIGHTS), _as_weights),
-    # Half-life (days) for optional recency decay; 0 disables decay.
-    ("recency_half_life_days", "RECENCY_HALF_LIFE_DAYS", "0", _as_float),
     ("min_interactions_per_user", "MIN_INTERACTIONS_PER_USER", "1", _as_int),
     ("min_interactions_per_item", "MIN_INTERACTIONS_PER_ITEM", "1", _as_int),
     # ── ALS hyperparameters (Spark MLlib) ────────────────────────────────────
@@ -115,6 +85,63 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("enable_two_tower", "ENABLE_TWO_TOWER", "false", _as_bool),
     ("qdrant_two_tower_collection", "QDRANT_TWO_TOWER_COLLECTION", "item_two_tower_vectors", _as_str),
     ("two_tower_dim", "TWO_TOWER_DIM", "32", _as_int),
+    # Governed feature snapshots written by platform-featurestore (`materialize`): the stage trains
+    # on these only. *_PATH (an explicit file) wins over the latest as_of=*.parquet under *_DIR.
+    ("item_features_dir", "ITEM_FEATURES_DIR", "/features/item_popularity/v1", _as_str),
+    ("item_features_path", "ITEM_FEATURES_PATH", "", _as_str),
+    ("user_features_dir", "USER_FEATURES_DIR", "/features/user_activity/v2", _as_str),
+    ("user_features_path", "USER_FEATURES_PATH", "", _as_str),
+    # Attribute snapshots (item_attributes@v1: category, price; user_preferences@v1: preferred categories).
+    # Optional: without an item snapshot the towers read category/price/preferences as 0, unless
+    # TWO_TOWER_REQUIRE_ATTRIBUTES makes a missing item_attributes snapshot a configuration error (exit 2).
+    ("item_attributes_dir", "ITEM_ATTRIBUTES_DIR", "/features/item_attributes/v1", _as_str),
+    ("item_attributes_path", "ITEM_ATTRIBUTES_PATH", "", _as_str),
+    ("user_preferences_dir", "USER_PREFERENCES_DIR", "/features/user_preferences/v1", _as_str),
+    ("user_preferences_path", "USER_PREFERENCES_PATH", "", _as_str),
+    ("two_tower_require_attributes", "TWO_TOWER_REQUIRE_ATTRIBUTES", "false", _as_bool),
+    # The category vocabulary is built from the item_attributes snapshot (most frequent first), capped here.
+    ("two_tower_max_categories", "TWO_TOWER_MAX_CATEGORIES", "64", _as_int),
+    # In-batch softmax training on the dataset's pairs (sampled to TWO_TOWER_MAX_PAIRS).
+    ("two_tower_epochs", "TWO_TOWER_EPOCHS", "5", _as_int),
+    ("two_tower_lr", "TWO_TOWER_LR", "0.05", _as_float),
+    ("two_tower_batch_size", "TWO_TOWER_BATCH_SIZE", "256", _as_int),
+    ("two_tower_temperature", "TWO_TOWER_TEMPERATURE", "0.1", _as_float),
+    ("two_tower_max_pairs", "TWO_TOWER_MAX_PAIRS", "200000", _as_int),
+    # ── GBDT ranker trainer (optional; change recsys-gbdt-trainer) ───────────
+    # Trains a LambdaRank GBDT on the governed rank_training@v1 impressions and, when the gate promotes it,
+    # publishes it as recs:v1:gen:<generation>:ranker. Features come from the featurestore snapshots under
+    # ITEM_FEATURES_DIR (item_popularity@v1, every as_of kept) and ITEM_ATTRIBUTES_DIR (item_attributes@v1).
+    ("enable_gbdt", "ENABLE_GBDT", "false", _as_bool),
+    ("rank_dataset_dir", "RANK_DATASET_DIR", "/features/datasets/rank_training/v1", _as_str),
+    ("rank_dataset_path", "RANK_DATASET_PATH", "", _as_str),
+    ("gbdt_trees", "GBDT_TREES", "40", _as_int),
+    ("gbdt_max_depth", "GBDT_MAX_DEPTH", "3", _as_int),
+    ("gbdt_learning_rate", "GBDT_LEARNING_RATE", "0.1", _as_float),
+    ("gbdt_min_leaf", "GBDT_MIN_LEAF", "10", _as_int),
+    # The latest share of impressions (by time) is the holdout the gate evaluates on.
+    ("gbdt_holdout_fraction", "GBDT_HOLDOUT_FRACTION", "0.2", _as_float),
+    # Bounds on the training set: items per impression (lowest positions) and impressions (latest).
+    ("gbdt_max_list", "GBDT_MAX_LIST", "30", _as_int),
+    ("gbdt_max_lists", "GBDT_MAX_LISTS", "50000", _as_int),
+    # An item needs this many other train impressions for the debiased CTR (else the snapshot's ctr_7d).
+    ("gbdt_ctr_min_impressions", "GBDT_CTR_MIN_IMPRESSIONS", "3", _as_int),
+    # Optional Parquet file with every training row (features, label, ctr_source) for audit.
+    ("gbdt_rows_path", "GBDT_ROWS_PATH", "", _as_str),
+    # ── Nearline signal consumer (python -m recsys.nearline) ─────────────────
+    # A long-running consumer of analytics.events that keeps the recs:nearline:* keys fresh.
+    ("kafka_brokers", "KAFKA_BROKERS", "localhost:19092", _as_str),
+    ("kafka_analytics_topic", "KAFKA_ANALYTICS_TOPIC", "analytics.events", _as_str),
+    ("nearline_consumer_group", "NEARLINE_CONSUMER_GROUP", "platform-recsys-nearline", _as_str),
+    # Where a group with no committed offset starts: "latest" (production) or "earliest".
+    ("nearline_start_offset", "NEARLINE_START_OFFSET", "latest", _as_str),
+    # Lifetime of every nearline key and the age past which an event is ignored (24 h window).
+    ("nearline_ttl_seconds", "NEARLINE_TTL_SECONDS", "86400", _as_int),
+    # 0 = run until stopped. >0 = exit 0 after this many seconds without a message (drain mode, e2e).
+    ("nearline_idle_exit_seconds", "NEARLINE_IDLE_EXIT_SECONDS", "0", _as_int),
+    # ── Drift monitoring (against the generation being replaced; observational) ──
+    ("drift_alert_threshold", "DRIFT_ALERT_THRESHOLD", "0.25", _as_float),
+    # Optional Prometheus text file (node-exporter textfile collector) for each run's drift report.
+    ("drift_metrics_path", "DRIFT_METRICS_PATH", "", _as_str),
     # ── Model Registry & Promotion Gate ──────────────────────────────────────
     ("promotion_primary_metric", "PROMOTION_PRIMARY_METRIC", "ndcg@10", _as_str),
     ("promotion_min_relative_improvement", "PROMOTION_MIN_RELATIVE_IMPROVEMENT", "0.01", _as_float),
@@ -122,6 +149,15 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     # Operator override: promote (and publish) this run even if the gate rejects it,
     # e.g. to repopulate Qdrant/Redis after they were reset. Never set it on a schedule.
     ("promotion_force", "PROMOTION_FORCE", "false", _as_bool),
+    # ── Structural gate (before the metric gate; recsys-generations) ─────────
+    # Reject a degenerate candidate: too few users with a list, too little of the catalogue
+    # in any list, lists that are nearly identical across users. NaN/inf factors always reject.
+    ("gate_min_user_coverage", "GATE_MIN_USER_COVERAGE", "0.5", _as_float),
+    ("gate_min_item_coverage", "GATE_MIN_ITEM_COVERAGE", "0.05", _as_float),
+    ("gate_max_list_overlap", "GATE_MAX_LIST_OVERLAP", "0.9", _as_float),
+    # Compatibility shim for one release: also write the unscoped recs:v1:{user,item,popular}
+    # keys so a reverted team-ai keeps serving the latest generation. Follow-up removes it.
+    ("write_legacy_keys", "RECS_WRITE_LEGACY_KEYS", "true", _as_bool),
     # Provenance stamped on every artifact; empty ⇒ derive from the run clock.
     ("model_version", "MODEL_VERSION", "", _as_str),
 ]
@@ -133,14 +169,8 @@ class Settings:
     log_level: str = "info"
     spark_master: str = "local[*]"
     spark_app_name: str = "platform-recsys-als"
-    warehouse_driver: str = "duckdb"
-    warehouse_parquet_path: str = "/data/tracking_events.parquet"
-    bigquery_project: str = ""
-    bigquery_dataset: str = "analytics"
-    bigquery_table: str = "tracking_events"
-    interaction_window_days: int = 30
-    event_weights_json: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_EVENT_WEIGHTS))
-    recency_half_life_days: float = 0.0
+    dataset_dir: str = "/features/datasets/als_interactions/v1"
+    dataset_path: str = ""
     min_interactions_per_user: int = 1
     min_interactions_per_item: int = 1
     als_rank: int = 64
@@ -154,6 +184,41 @@ class Settings:
     enable_two_tower: bool = False
     qdrant_two_tower_collection: str = "item_two_tower_vectors"
     two_tower_dim: int = 32
+    item_features_dir: str = "/features/item_popularity/v1"
+    item_features_path: str = ""
+    user_features_dir: str = "/features/user_activity/v2"
+    user_features_path: str = ""
+    item_attributes_dir: str = "/features/item_attributes/v1"
+    item_attributes_path: str = ""
+    user_preferences_dir: str = "/features/user_preferences/v1"
+    user_preferences_path: str = ""
+    two_tower_require_attributes: bool = False
+    two_tower_max_categories: int = 64
+    two_tower_epochs: int = 5
+    two_tower_lr: float = 0.05
+    two_tower_batch_size: int = 256
+    two_tower_temperature: float = 0.1
+    two_tower_max_pairs: int = 200000
+    enable_gbdt: bool = False
+    rank_dataset_dir: str = "/features/datasets/rank_training/v1"
+    rank_dataset_path: str = ""
+    gbdt_trees: int = 40
+    gbdt_max_depth: int = 3
+    gbdt_learning_rate: float = 0.1
+    gbdt_min_leaf: int = 10
+    gbdt_holdout_fraction: float = 0.2
+    gbdt_max_list: int = 30
+    gbdt_max_lists: int = 50000
+    gbdt_ctr_min_impressions: int = 3
+    gbdt_rows_path: str = ""
+    kafka_brokers: str = "localhost:19092"
+    kafka_analytics_topic: str = "analytics.events"
+    nearline_consumer_group: str = "platform-recsys-nearline"
+    nearline_start_offset: str = "latest"
+    nearline_ttl_seconds: int = 86400
+    nearline_idle_exit_seconds: int = 0
+    drift_alert_threshold: float = 0.25
+    drift_metrics_path: str = ""
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_password: str = ""
@@ -165,16 +230,16 @@ class Settings:
     promotion_min_relative_improvement: float = 0.01
     promotion_min_coverage_ratio: float = 0.8
     promotion_force: bool = False
+    gate_min_user_coverage: float = 0.5
+    gate_min_item_coverage: float = 0.05
+    gate_max_list_overlap: float = 0.9
+    write_legacy_keys: bool = True
     model_version: str = ""
 
     # ── Derived helpers ──────────────────────────────────────────────────────
     @property
     def is_prod(self) -> bool:
         return self.env.strip().lower() in ("prod", "production")
-
-    @property
-    def event_weights(self) -> dict[str, float]:
-        return self.event_weights_json
 
     def user_cache_key(self, user_key: str) -> str:
         return f"{self.cache_prefix}:{self.cache_schema_version}:user:{user_key}"
@@ -190,35 +255,73 @@ class Settings:
     def model_version_cache_key(self) -> str:
         return f"{self.cache_prefix}:{self.cache_schema_version}:model_version"
 
+    # Generation-scoped keys (recsys-generations): everything one model_version published.
+    @property
+    def _prefix(self) -> str:
+        return f"{self.cache_prefix}:{self.cache_schema_version}"
+
+    @property
+    def gen_key_prefix(self) -> str:
+        return f"{self._prefix}:gen:"
+
+    def gen_user_key(self, gen: str, user_key: str) -> str:
+        return f"{self.gen_key_prefix}{gen}:user:{user_key}"
+
+    def gen_item_key(self, gen: str, listing_id: str) -> str:
+        return f"{self.gen_key_prefix}{gen}:item:{listing_id}"
+
+    def gen_popular_key(self, gen: str) -> str:
+        return f"{self.gen_key_prefix}{gen}:popular"
+
+    def gen_ranker_key(self, gen: str) -> str:
+        """The GBDT ranker artifact of a generation (JSON, ``agora-gbdt/1``)."""
+        return f"{self.gen_key_prefix}{gen}:ranker"
+
+    @property
+    def serving_key(self) -> str:
+        return f"{self._prefix}:serving"
+
+    @property
+    def previous_key(self) -> str:
+        return f"{self._prefix}:previous"
+
     def validate(self) -> None:
-        if self.warehouse_driver == DRIVER_DUCKDB:
-            if not self.warehouse_parquet_path.strip():
-                raise ValueError("WAREHOUSE_PARQUET_PATH is required when WAREHOUSE_DRIVER=duckdb")
-        elif self.warehouse_driver == DRIVER_BIGQUERY:
-            if not (
-                self.bigquery_project.strip()
-                and self.bigquery_dataset.strip()
-                and self.bigquery_table.strip()
-            ):
-                raise ValueError(
-                    "BIGQUERY_PROJECT, BIGQUERY_DATASET and BIGQUERY_TABLE are required "
-                    "when WAREHOUSE_DRIVER=bigquery"
-                )
-        else:
-            raise ValueError(
-                f"WAREHOUSE_DRIVER must be {DRIVER_DUCKDB!r} or {DRIVER_BIGQUERY!r}, "
-                f"got {self.warehouse_driver!r}"
-            )
         if self.als_rank <= 0:
             raise ValueError(f"ALS_RANK must be > 0: {self.als_rank}")
         if self.als_max_iter <= 0:
             raise ValueError(f"ALS_MAX_ITER must be > 0: {self.als_max_iter}")
         if self.top_n <= 0:
             raise ValueError(f"TOP_N must be > 0: {self.top_n}")
-        if self.interaction_window_days <= 0:
-            raise ValueError(f"INTERACTION_WINDOW_DAYS must be > 0: {self.interaction_window_days}")
-        if not self.event_weights:
-            raise ValueError("EVENT_WEIGHTS_JSON must map at least one event_type to a weight")
+        if self.nearline_start_offset not in ("latest", "earliest"):
+            raise ValueError(
+                f"NEARLINE_START_OFFSET must be latest or earliest: {self.nearline_start_offset}"
+            )
+        if self.two_tower_dim <= 0:
+            raise ValueError(f"TWO_TOWER_DIM must be > 0: {self.two_tower_dim}")
+        if self.two_tower_epochs < 0:
+            raise ValueError(f"TWO_TOWER_EPOCHS must be >= 0: {self.two_tower_epochs}")
+        if self.two_tower_batch_size < 2:
+            raise ValueError(f"TWO_TOWER_BATCH_SIZE must be >= 2: {self.two_tower_batch_size}")
+        if self.two_tower_max_categories <= 0:
+            raise ValueError(f"TWO_TOWER_MAX_CATEGORIES must be > 0: {self.two_tower_max_categories}")
+        if self.two_tower_temperature <= 0:
+            raise ValueError(f"TWO_TOWER_TEMPERATURE must be > 0: {self.two_tower_temperature}")
+        if self.gbdt_trees <= 0 or self.gbdt_max_depth <= 0 or self.gbdt_min_leaf <= 0:
+            raise ValueError("GBDT_TREES, GBDT_MAX_DEPTH and GBDT_MIN_LEAF must be > 0")
+        if self.gbdt_learning_rate <= 0:
+            raise ValueError(f"GBDT_LEARNING_RATE must be > 0: {self.gbdt_learning_rate}")
+        if not 0.0 < self.gbdt_holdout_fraction < 1.0:
+            raise ValueError(f"GBDT_HOLDOUT_FRACTION must be within (0, 1): {self.gbdt_holdout_fraction}")
+        if self.gbdt_max_list < 2 or self.gbdt_max_lists < 1 or self.gbdt_ctr_min_impressions < 1:
+            raise ValueError("GBDT_MAX_LIST must be >= 2, GBDT_MAX_LISTS and GBDT_CTR_MIN_IMPRESSIONS >= 1")
+        if self.drift_alert_threshold < 0:
+            raise ValueError(f"DRIFT_ALERT_THRESHOLD must be >= 0: {self.drift_alert_threshold}")
+        if self.nearline_ttl_seconds <= 0:
+            raise ValueError(f"NEARLINE_TTL_SECONDS must be > 0: {self.nearline_ttl_seconds}")
+        for name in ("gate_min_user_coverage", "gate_min_item_coverage", "gate_max_list_overlap"):
+            v = getattr(self, name)
+            if not 0.0 <= v <= 1.0:
+                raise ValueError(f"{name.upper()} must be within [0, 1]: {v}")
 
 
 def env_names() -> list[str]:

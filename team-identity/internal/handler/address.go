@@ -40,7 +40,7 @@ func (h *AddressHandler) ListAddresses(
 	}
 	items, err := h.repo.List(ctx, principal.GetId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list addresses: %v", err)
+		return nil, internalErr(h.logger, "list addresses", err)
 	}
 	wire := make([]*identityv1.Address, 0, len(items))
 	for _, a := range items {
@@ -72,7 +72,7 @@ func (h *AddressHandler) CreateAddress(
 		IsDefault:     req.GetIsDefault(),
 	})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "create address: %v", err)
+		return nil, internalErr(h.logger, "create address", err)
 	}
 	return &identityv1.CreateAddressResponse{Address: toWireAddress(created)}, nil
 }
@@ -107,7 +107,7 @@ func (h *AddressHandler) UpdateAddress(
 		if errors.Is(err, repository.ErrAddressNotFound) {
 			return nil, status.Error(codes.NotFound, "address not found")
 		}
-		return nil, status.Errorf(codes.Internal, "update address: %v", err)
+		return nil, internalErr(h.logger, "update address", err)
 	}
 	return &identityv1.UpdateAddressResponse{Address: toWireAddress(updated)}, nil
 }
@@ -127,7 +127,7 @@ func (h *AddressHandler) DeleteAddress(
 		if errors.Is(err, repository.ErrAddressNotFound) {
 			return nil, status.Error(codes.NotFound, "address not found")
 		}
-		return nil, status.Errorf(codes.Internal, "delete address: %v", err)
+		return nil, internalErr(h.logger, "delete address", err)
 	}
 	return &identityv1.DeleteAddressResponse{}, nil
 }
@@ -148,7 +148,7 @@ func (h *AddressHandler) SetDefaultAddress(
 		if errors.Is(err, repository.ErrAddressNotFound) {
 			return nil, status.Error(codes.NotFound, "address not found")
 		}
-		return nil, status.Errorf(codes.Internal, "set default address: %v", err)
+		return nil, internalErr(h.logger, "set default address", err)
 	}
 	return &identityv1.SetDefaultAddressResponse{Address: toWireAddress(updated)}, nil
 }

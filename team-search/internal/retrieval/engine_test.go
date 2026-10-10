@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/config"
@@ -19,6 +20,9 @@ type fakeIndex struct {
 	lexCalled  bool
 	vecCalled  bool
 	lastVector []float32
+	lexSort    searchv1.SortBy
+	lexFrom    int
+	lexSize    int
 }
 
 func (f *fakeIndex) EnsureIndex(ctx context.Context) error                  { return nil }
@@ -26,13 +30,16 @@ func (f *fakeIndex) Upsert(ctx context.Context, doc index.ListingDoc) error { re
 func (f *fakeIndex) PartialUpdate(ctx context.Context, id string, p map[string]interface{}) error {
 	return nil
 }
-func (f *fakeIndex) Delete(ctx context.Context, id string) error { return nil }
+func (f *fakeIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
+func (f *fakeIndex) PurgeTombstones(context.Context, time.Time) (int64, error)  { return 0, nil }
+func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error    { return nil }
 func (f *fakeIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
 	return nil, nil
 }
 
 func (f *fakeIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	f.lexCalled = true
+	f.lexSort, f.lexFrom, f.lexSize = sortBy, from, size
 	if f.lexErr != nil {
 		return index.SearchResult{}, f.lexErr
 	}

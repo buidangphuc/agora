@@ -1,53 +1,176 @@
 # Feature manifest for platform-modelserve (model serving platform capability).
 # Schema: platform-e2e/schemas/features.schema.json
+# One entry per scenario of change add-platform-modelserve (spec model-serving); the titles equal the spec's.
+# Run with the overlay platform-e2e/compose/modelserve.override.yaml (see platform-e2e/compose/README.md).
 
 repo: platform-modelserve
 owner: platform-ml-team
 
 features:
-  - id: modelserve.embedding-router
-    title: Model server routes vector embedding requests with Redis caching and upstream TEI integration
+  - id: modelserve.router-serves-embeddings-conforming-to-team-ai-parser
+    title: "Router serves embeddings conforming to team-ai parser"
     persona: guest
     priority: P1
-    summary: >
-      Provides an HTTP serving endpoint conforming to team-ai's embedding contract,
-      caching embeddings in Redis by model version and input hash, and proxying cache
-      misses to Hugging Face TEI.
+    summary: "POST /embed {texts} returns {embeddings} of 384-dim vectors that satisfy team-ai _extract_vectors."
     entry_route: /embed
-    services: [platform-modelserve]
+    services: [platform-modelserve, redis]
     preconditions:
       login: guest
-      data: >
-        ModelServe router (:8100) running with Redis (:6379) and upstream TEI embed runtime (:8101).
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
     acceptance:
-      - Given an embedding request payload with texts
-      - When team-ai posts to /embed or /v1/embeddings
-      - Then the router returns embedding vectors matching the contract expected by _extract_vectors
-      - And subsequent requests for identical texts under the same model_version hit Redis cache directly
-    tags: [modelserve, ai, inference]
-    status: not-testable
-    notes: >
-      Internal platform capability called only by team-ai (no browser-facing UI).
-      Verified via automated unit, integration, and contract conformance tests in platform-modelserve.
+      - "When a client posts \"/embed\" to the router with two unique texts under the key \"texts\""
+      - "Then the router answers 200 with embeddings that pass the team-ai vector validation at dimension 384"
+    tags: [modelserve, inference]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router serves embeddings conforming to team-ai parser"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
 
-  - id: modelserve.admission-control
-    title: Model server enforces queue-depth admission control with 429 backpressure
+  - id: modelserve.router-accepts-openai-format-embeddings-request
+    title: "Router accepts OpenAI format embeddings request"
     persona: guest
-    priority: P2
-    summary: >
-      Tracks in-flight requests and rejects new requests with HTTP 429 Too Many Requests
-      and Retry-After header when queue depth exceeds threshold.
+    priority: P1
+    summary: "POST /v1/embeddings {input} returns the OpenAI list shape."
+    entry_route: /v1/embeddings
+    services: [platform-modelserve, redis]
+    preconditions:
+      login: guest
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
+    acceptance:
+      - "When a client posts \"/v1/embeddings\" to the router with the input \"hello world\" and a unique word"
+      - "Then the router answers 200 with an OpenAI list holding one 384 dimension embedding"
+    tags: [modelserve, inference]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router accepts OpenAI format embeddings request"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: modelserve.embedding-cache-hit-skips-upstream-inference
+    title: "Embedding cache hit skips upstream inference"
+    persona: guest
+    priority: P1
+    summary: "A repeated text is served from Redis; the TEI fake's request log shows no second call."
     entry_route: /embed
+    services: [platform-modelserve, redis]
+    preconditions:
+      login: guest
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
+    acceptance:
+      - "Given the router has embedded a unique text once and the upstream saw exactly one call for it"
+      - "When a client posts the same text to \"/embed\" again"
+      - "Then the router returns the same vector and the upstream saw no second call for that text"
+    tags: [modelserve, inference]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Embedding cache hit skips upstream inference"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: modelserve.multi-text-embedding-splits-cache-hits-and-misses
+    title: "Multi-text embedding splits cache hits and misses"
+    persona: guest
+    priority: P1
+    summary: "Only the misses go upstream, in order; the answer keeps the request order."
+    entry_route: /embed
+    services: [platform-modelserve, redis]
+    preconditions:
+      login: guest
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
+    acceptance:
+      - "Given the router has cached the vectors of two unique texts"
+      - "When a client posts those two texts and two new ones in an interleaved order"
+      - "Then the upstream received only the two new texts in their request order"
+      - "And the router returned four vectors in the request order"
+      - "And posting the same four texts again reaches the upstream not at all"
+    tags: [modelserve, inference]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Multi-text embedding splits cache hits and misses"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: modelserve.router-proxies-rerank-requests
+    title: "Router proxies rerank requests"
+    persona: guest
+    priority: P1
+    summary: "POST /rerank is forwarded unchanged to the TEI rerank upstream."
+    entry_route: /rerank
+    services: [platform-modelserve, redis]
+    preconditions:
+      login: guest
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
+    acceptance:
+      - "When a client posts a rerank request for \"shoes\" with the texts \"red sneakers\" and \"blue jacket\" to the router"
+      - "Then the router returns the ranked results of the upstream with the sneakers first"
+      - "And the upstream received the rerank payload unchanged"
+    tags: [modelserve, inference]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router proxies rerank requests"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: modelserve.router-proxies-chat-completions-to-vllm
+    title: "Router proxies chat completions to vLLM"
+    persona: guest
+    priority: P1
+    summary: "POST /v1/chat/completions is forwarded to the vLLM upstream (the TEI fake's stand-in; a real vLLM is not run)."
+    entry_route: /v1/chat/completions
+    services: [platform-modelserve, redis]
+    preconditions:
+      login: guest
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
+    acceptance:
+      - "When a client posts an OpenAI chat completion with a unique message to the router"
+      - "Then the router returns the completion of the vLLM upstream stand-in"
+      - "And the upstream received the chat payload unchanged"
+    tags: [modelserve, inference]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Router proxies chat completions to vLLM"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml)."
+
+  - id: modelserve.backpressure-on-queue-depth-saturation
+    title: "Backpressure on queue depth saturation"
+    persona: guest
+    priority: P1
+    summary: "Above MAX_QUEUE_DEPTH (10 in the overlay) the router answers 429 with Retry-After."
+    entry_route: /embed
+    services: [platform-modelserve, redis]
+    preconditions:
+      login: guest
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
+    acceptance:
+      - "When 40 slow embedding requests arrive at the router at the same moment"
+      - "Then some of them are answered 429 with a Retry-After header"
+      - "And the admitted ones still complete with 200"
+      - "And the router serves a normal request once the load has drained"
+    tags: [modelserve, resilience, destructive]
+    status: automated
+    covered_by: "modelserve/model_serving.feature::Backpressure on queue depth saturation"
+    notes: "needs modelserve overlay (platform-e2e/compose/modelserve.override.yaml). @destructive: saturates the router for a few seconds, so concurrent hybrid searches may degrade; run in the serial lane."
+
+  - id: modelserve.networkpolicy-admits-team-ai-team-search-prometheus
+    title: "NetworkPolicy admits only team-ai, team-search and prometheus"
+    persona: guest
+    priority: P1
+    summary: "Static: platform-gitops/platform/infra/modelserve.yaml allows ingress to app modelserve-router :8100 only from app team-ai, app team-search, app team-search-indexer and app prometheus."
+    entry_route: /metrics
     services: [platform-modelserve]
     preconditions:
       login: guest
-      data: >
-        ModelServe router (:8100) running with MAX_QUEUE_DEPTH configured.
+      data: "ModelServe router (:8100) with Redis and a TEI fake upstream, from platform-e2e/compose/modelserve.override.yaml (host port 18100)."
+    api:
+      exercised: [modelserve.http]
     acceptance:
-      - Given the router is saturated beyond MAX_QUEUE_DEPTH concurrent requests
-      - When an additional request arrives
-      - Then the router responds with HTTP 429 and Retry-After header to prevent collapse
-    tags: [modelserve, resilience]
-    status: not-testable
-    notes: >
-      Internal platform capability verified via unit and concurrency tests.
+      - "When the platform-modelserve GitOps manifest is parsed"
+      - "Then a NetworkPolicy selects app modelserve-router and its only ingress sources are app team-ai, app team-search, app team-search-indexer and app prometheus on port 8100"
+    tags: [modelserve, security]
+    status: automated
+    covered_by: "modelserve/model_serving_gitops.feature::NetworkPolicy admits only team-ai, team-search and prometheus"
+

@@ -40,6 +40,37 @@ function many(n: number): ViewListing[] {
 
 beforeEach(() => trackEcommerce.mockClear());
 
+describe("ListingCard title link attribution", () => {
+  it("sends the same select_item attribution as the image link", () => {
+    render(
+      <ListingCard
+        listing={listing({ id: "abc" })}
+        placementId="home_feed"
+        impressionId="i1"
+        modelVersion="m1"
+        position={3}
+      />,
+    );
+    const titleLink = screen
+      .getByRole("heading", { name: "Áo thun cotton" })
+      .querySelector("a") as HTMLAnchorElement;
+    titleLink.addEventListener("click", (e) => e.preventDefault());
+    fireEvent.click(titleLink);
+    expect(trackEcommerce).toHaveBeenLastCalledWith("select_item", {
+      items: [
+        expect.objectContaining({
+          itemId: "abc",
+          index: 3,
+          placementId: "home_feed",
+          impressionId: "i1",
+          modelVersion: "m1",
+          itemListId: "home_feed",
+        }),
+      ],
+    });
+  });
+});
+
 describe("ListingCard", () => {
   it("reserves a 1:1 image box", () => {
     const { container } = render(<ListingCard listing={listing()} />);
@@ -117,7 +148,7 @@ describe("ListingCard", () => {
     render(
       <ListingCard
         listing={listing({ id: "abc" })}
-        placementId="home_recommendations"
+        placementId="home_feed"
         impressionId="i1"
         modelVersion="m1"
         position={3}
@@ -130,13 +161,13 @@ describe("ListingCard", () => {
       items: [
         {
           itemId: "abc",
-          placementId: "home_recommendations",
+          placementId: "home_feed",
           impressionId: "i1",
           modelVersion: "m1",
           index: 3,
           price: undefined,
           itemCategory: undefined,
-          itemListId: "home_recommendations",
+          itemListId: "home_feed",
         },
       ],
     });
@@ -150,10 +181,10 @@ describe("ListingCard", () => {
         {
           itemId: "abc",
           index: 3,
-          placementId: "home_recommendations",
+          placementId: "home_feed",
           impressionId: "i1",
           modelVersion: "m1",
-          itemListId: "home_recommendations",
+          itemListId: "home_feed",
           price: undefined,
         },
       ],

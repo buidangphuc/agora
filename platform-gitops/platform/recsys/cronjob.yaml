@@ -1,10 +1,11 @@
 # platform-recsys — offline ALS training job. A SCHEDULED batch (CronJob), not a
-# Deployment/Service: it has no request-serving surface. It reads the analytics
-# warehouse and writes its own artifact stores — item/user vectors into Qdrant
+# Deployment/Service: it has no request-serving surface. It trains only from the
+# governed als_interactions dataset built by platform-featurestore (ADR-0015,
+# featurestore-datasets) and writes its own artifact stores — item/user vectors into Qdrant
 # (:6333, the instance team-ai targets) and a precomputed Top-N cache into Redis
 # (:6379). Mirrors the postgres-backup CronJob shape (schedule + concurrency
-# guard + history limits); mirrors the team-analytics worker in having NO
-# Service/Ingress/NetworkPolicy.
+# guard + history limits); has NO Service/Ingress. Its NetworkPolicy (recs-on-cluster, end of file) allows no ingress and egress to
+# DNS, qdrant and valkey only.
 #
 # Non-secret job config. Schedule is duplicated on CronJob.spec.schedule (a static
 # field that cannot read a ConfigMap) — keep the two in sync when changing cadence.
@@ -15,13 +16,15 @@ metadata:
   namespace: marketplace
 data:
   SCHEDULE: "0 3 * * *"          # nightly 03:00 UTC (after postgres-backup at 02:00)
-  # Warehouse reader seam. Local reads the DuckDB-exported Parquet on a shared
-  # volume; prod flips WAREHOUSE_DRIVER=bigquery + the BIGQUERY_* coordinates.
-  WAREHOUSE_DRIVER: "duckdb"
-  WAREHOUSE_PARQUET_PATH: "/data/tracking_events.parquet"
+  # Governed training dataset (featurestore-datasets). The job refuses to start
+  # (exit 2) when no dataset exists here; it never falls back to raw events.
+  DATASET_DIR: "/features/datasets/als_interactions/v1"
+  # Freshness guard (init container below): training is refused when the newest dataset
+  # snapshot is older than this. 25 h for a nightly featurestore run.
+  MAX_DATASET_AGE_MINUTES: "1500"
   # Artifact stores (shared infra service names in the marketplace namespace).
   QDRANT_URL: "http://qdrant:6333"
-  REDIS_HOST: "redis"
+  REDIS_HOST: "valkey"   # the cluster Service is valkey (platform/infra/valkey.yaml)
   REDIS_PORT: "6379"
   # Cache/collection contract — MUST match serve-recommendations-teamai.
   QDRANT_ITEM_COLLECTION: "item_als_vectors"
@@ -29,8 +32,8 @@ data:
   RECS_CACHE_PREFIX: "recs"
   RECS_SCHEMA_VERSION: "v1"
   RECS_CACHE_TTL_SECONDS: "172800"   # 48h > nightly cadence
-  # Interaction window + ALS hyperparameters (tunable defaults).
-  INTERACTION_WINDOW_DAYS: "30"
+  # ALS hyperparameters (tunable defaults). The interaction window and event
+  # weights live in the dataset definition (platform-featurestore registry).
   ALS_RANK: "64"
   ALS_REG_PARAM: "0.05"
   ALS_ALPHA: "40.0"
@@ -56,6 +59,28 @@ spec:
           labels: { app: platform-recsys }
         spec:
           restartPolicy: Never
+          initContainers:
+            # Fail closed on an absent OR stale dataset: succeed only if a snapshot exists
+            # under DATASET_DIR that is newer than MAX_DATASET_AGE_MINUTES.
+            - name: dataset-fresh
+              image: busybox:1.36
+              envFrom:
+                - configMapRef: { name: recsys-config }
+              command:
+                - sh
+                - -c
+                - |
+                  if find "$DATASET_DIR" -name 'as_of=*.parquet' -mmin "-$MAX_DATASET_AGE_MINUTES" 2>/dev/null | grep -q .; then
+                    echo "dataset fresh under $DATASET_DIR"
+                  else
+                    echo "no dataset newer than ${MAX_DATASET_AGE_MINUTES} min under DATASET_DIR=$DATASET_DIR; refusing to train" >&2
+                    exit 2
+                  fi
+              resources:
+                requests: { cpu: 10m, memory: 16Mi }
+                limits: { cpu: 100m, memory: 64Mi }
+              volumeMounts:
+                - { name: featurestore-data, mountPath: /features, readOnly: true }
           containers:
             - name: recsys-train
               image: localhost:5001/platform-recsys:local
@@ -70,9 +95,39 @@ spec:
                   cpu: "2"
                   memory: 2Gi
               volumeMounts:
-                - { name: warehouse-data, mountPath: /data }
+                - { name: featurestore-data, mountPath: /features, readOnly: true }
           volumes:
-            # Local: the DuckDB-exported Parquet warehouse. In prod (BigQuery)
-            # this volume is unused; the reader talks to BigQuery instead.
-            - name: warehouse-data
-              emptyDir: {}
+            # Written nightly by the featurestore CronJob (platform/featurestore), mounted
+            # read-only here. Until its first successful run the directory is empty and
+            # training is refused, which is the intended fail-closed state.
+            - name: featurestore-data
+              persistentVolumeClaim: { claimName: featurestore-data, readOnly: true }
+---
+# Batch pod: nothing connects to it; it needs DNS, Qdrant (vectors) and valkey (Top-N cache) only (ADR-0010).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: platform-recsys, namespace: marketplace }
+spec:
+  podSelector:
+    matchLabels: { app: platform-recsys }
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app: qdrant }
+      ports:
+        - { protocol: TCP, port: 6333 }
+        - { protocol: TCP, port: 6334 }
+    - to:
+        - podSelector:
+            matchLabels: { app: valkey }
+      ports:
+        - { protocol: TCP, port: 6379 }

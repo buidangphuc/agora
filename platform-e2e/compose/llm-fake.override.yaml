@@ -1,0 +1,64 @@
+# Fault-injecting LLM provider + team-ai on the real `llm_router` chat path
+# (change ai-path-resilience, design D8; e2e features ai/llm_*.feature, ops/boot_guard_ai.feature).
+#
+# Layer it on top of the stack, from the workspace root (any compose project name):
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/llm-fake.override.yaml up -d --build llm-fake team-ai
+# Add the same `-f` pair to any other `docker compose` call against that project. The
+# `dc-agora-ov.sh` wrapper carries it next to the other e2e overlays.
+#
+# What it changes: team-ai stops using the canned CHAT_BACKEND=mock and talks, through
+# `init_chat_model("openai:<name>")` + OPENAI_BASE_URL, to the `llm-fake` container. The
+# fake answers every target `ok` unless a message carries a `[[fake primary=429 fb1=ok]]`
+# directive (see platform-e2e/fakes/llm_fake/server.py), so the existing assistant/chat
+# scenarios keep working. Relative paths resolve from the workspace root (the project dir).
+#
+# The tests reach the fake on the host at LLM_FAKE_URL (default http://localhost:18099),
+# i.e. the published port below; change both together with LLM_FAKE_HOST_PORT.
+#
+# Deviation from design D8: QUOTA_CHAT_REPLIES_PER_WINDOW is 15, not 30. The per-principal
+# rate limit is 20 calls/min, so a quota of 30 could never be exhausted inside one window.
+# The quota steps read this value from the running container, so changing it is safe as long
+# as it stays below RATE_LIMIT_PRINCIPAL_PER_MINUTE.
+#
+# The Langfuse trace scenario needs LANGFUSE_* on as well; that is a second overlay,
+# llm-fake-langfuse.override.yaml, applied (and removed) by the scenario itself.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  llm-fake:
+    build:
+      context: ./platform-e2e/fakes/llm_fake
+    image: agora-llm-fake:local
+    ports:
+      - "127.0.0.1:${LLM_FAKE_HOST_PORT:-18099}:8099"
+  team-ai:
+    # The llm_router path needs the optional `ai` extra (langchain, langchain-openai);
+    # the committed compose builds team-ai with `recs` only.
+    build:
+      args:
+        UV_EXTRAS: "recs ai"
+    depends_on:
+      llm-fake:
+        condition: service_healthy
+    environment:
+      CHAT_BACKEND: llm_router
+      CHAT_MODEL: openai:primary
+      CHAT_FALLBACK_MODELS: openai:fb1,openai:fb2
+      OPENAI_BASE_URL: http://llm-fake:8099/v1
+      OPENAI_API_KEY: fake
+      CHAT_SYSTEM_PROMPT: "You are the Agora shopping assistant. (e2e fixed system prompt)"
+      LLM_FIRST_TOKEN_TIMEOUT_SECONDS: "2"
+      LLM_MAX_ATTEMPTS: "3"
+      # Breaker state lives in the team-ai process and is shared by every scenario, so the
+      # standing stack keeps it effectively off (parallel routing scenarios inject failures
+      # into the same targets). ai/llm_breaker.feature layers llm-fake-breaker.override.yaml
+      # (threshold 2) for its own serial run and restores this afterwards.
+      LLM_BREAKER_THRESHOLD: "1000"
+      LLM_BREAKER_COOLDOWN_SECONDS: "5"
+      CHAT_HISTORY_MAX_TURNS: "4"
+      QUOTA_ENABLED: "true"
+      QUOTA_BACKEND: memory
+      QUOTA_CHAT_REPLIES_PER_WINDOW: "15"
+      QUOTA_CHAT_WINDOW_SECONDS: "3600"
+      GRPC_RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_BACKEND: memory
+      RATE_LIMIT_PRINCIPAL_PER_MINUTE: "20"

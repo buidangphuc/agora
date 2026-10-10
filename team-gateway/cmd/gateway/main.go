@@ -75,6 +75,7 @@ func run() error {
 	}()
 
 	clients, err := upstream.Dial(
+		time.Duration(settings.Upstream.DialTimeout*float64(time.Second)),
 		settings.Upstream.SearchAddr,
 		settings.Upstream.ListingAddr,
 		settings.Upstream.IdentityAddr,
@@ -122,7 +123,12 @@ func run() error {
 		settings.Edge.RetryMax,
 		settings.Edge.RateLimitRPS,
 		settings.Edge.RateLimitBurst,
-	)
+	).
+		WithTrackLimit(settings.Edge.TrackRateLimitRPS, settings.Edge.TrackRateLimitBurst).
+		WithAICallTimeout(time.Duration(settings.Edge.AICallTimeoutSecs * float64(time.Second))).
+		WithStreamMaxBytes(settings.Edge.StreamMaxRequestBytes).
+		WithStreamRevocationCheck(time.Duration(settings.Edge.StreamRevocationCheckSecs * float64(time.Second))).
+		WithReflection(settings.Edge.ReflectionEnabled)
 
 	// Trusted client context: x-client-ip is the socket peer, or the X-Forwarded-For
 	// client only when the peer is listed in TRUSTED_PROXIES (ADR-0003 addendum).
@@ -156,7 +162,7 @@ func run() error {
 	corsMW := cors.New(cors.Options{
 		AllowedOrigins:   settings.CORSOriginsList(),
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodOptions},
-		AllowedHeaders:   []string{"Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Authorization", "X-Request-Id"},
+		AllowedHeaders:   []string{"Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Authorization", "X-Request-Id", "Idempotency-Key"},
 		ExposedHeaders:   []string{"X-Request-Id"},
 		AllowCredentials: true,
 	})

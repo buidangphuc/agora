@@ -68,9 +68,9 @@ shell env, then `.env`, then `env/.env.<ENV>` (`ENV` defaults to `local`; files 
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | Tracking assertions |
 | `KAFKA_ORDER_TOPIC` | `order.events` | Order-fact assertions |
 | `FLIPT_URL` | `http://localhost:8080` | Flag toggling |
-| `SEARCH_CONTAINER` | `team-search-svc` | Stopped by the search backend-failure scenario |
-| `GATEWAY_CONTAINER` | `team-gateway-svc` | Restarted by session revocation |
-| `NOTIFICATION_CONTAINER` | `team-notification-svc` | Restarted by notification hardening |
+| `SEARCH_CONTAINER` | `agora-team-search-svc` | Stopped by the search backend-failure scenario |
+| `GATEWAY_CONTAINER` | `agora-team-gateway-svc` | Restarted by session revocation |
+| `NOTIFICATION_CONTAINER` | `agora-team-notification-svc` | Restarted by notification hardening |
 | `RECSYS_IMAGE` | `platform-recsys:local` | Image run by the recsys job scenarios |
 | `STACK_NETWORK` | `platform-core_default` | Docker network for the job container |
 
@@ -129,6 +129,44 @@ be running on the network (hosts `redis`, `qdrant`). Isolation is per xdist work
 `10+N` and Qdrant collections `e2e_recsys_gwN_*`; live serving data (Redis DB 0, default
 collections) is not touched.
 
+### Order / inventory scenarios (short reservation TTL)
+
+The reservation-expiry scenarios need `team-domain` and `team-order` to expire holds in seconds,
+not 15 minutes. `compose/order-inventory.override.yaml` sets `RESERVATION_TTL=20s` and
+`RESERVATION_SWEEP_INTERVAL=2s` on both services. Layer it as an extra `-f` on the stack, from
+the workspace root, whatever the compose project name is (it names services only, no container
+names; add `-p <project>` if your stack runs under a non-default project, and any extra override
+you already use as another `-f`):
+
+```bash
+docker compose -f docker-compose.yaml -f platform-e2e/compose/order-inventory.override.yaml up -d
+# check: shows the values; plain `docker compose config` does not
+docker compose -f docker-compose.yaml -f platform-e2e/compose/order-inventory.override.yaml config | grep RESERVATION
+```
+
+Only uncommitted holds expire that fast; placed orders are committed and immune to the sweep, so
+the whole suite can run with the overlay. TTL scenarios wait TTL + 2 x interval + margin. Do not
+use it for deployed environments (their defaults, 15m / 1m, apply).
+
+### Payment and search scenarios (short hold window, short tombstone TTL)
+
+Two more overlays shorten windows the same way, and the full suite runs with all of them:
+
+- `compose/payment-ledger.override.yaml` sets `PAYOUT_HOLD_WINDOW=20s` on `team-payment`, so a fresh
+  sale's proceeds leave the payout hold in seconds instead of `PAYOUT_HOLD_DAYS` (7). The hold-back
+  scenarios and the bank-payout scenario wait the window out and fail fast, naming this file, without it.
+- `compose/search-tombstones.override.yaml` sets `TOMBSTONE_TTL=30s` and a 2s purge interval on
+  `team-search-indexer`, for the tombstone purge scenario (destructive lane).
+
+```bash
+docker compose -f docker-compose.yaml \
+  -f platform-e2e/compose/order-inventory.override.yaml \
+  -f platform-e2e/compose/payment-ledger.override.yaml \
+  -f platform-e2e/compose/search-tombstones.override.yaml up -d
+```
+
+Deployed environments keep the defaults (7-day hold, 336h tombstone TTL).
+
 ## Build, test, lint
 
 | Command | Does |
@@ -154,7 +192,9 @@ Ruff and black use line length 100, Python 3.10+. There is no CI workflow in thi
 - `make spec-check CHANGE=<id>` runs `features-check` plus `scripts/spec_sync.py`: every
   `#### Scenario:` in `openspec/changes/<id>/specs/**/spec.md` must match an `automated`
   feature whose `covered_by` scenario exists (name match is normalized, substring either way).
-  This is the archive gate in the root `AGENTS.md`.
+  This is the archive gate in the root `AGENTS.md`. A scenario that cannot be produced end to
+  end is exempt only if its spec body has a `**VERIFIED BY**: <unit test>` line and its
+  FEATURES entry is `status: not-testable`; the reason goes in the change's `design.md`.
 - Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC. The
   `spec-to-e2e` skill scaffolds feature, steps and page objects and flips the status to
   `automated`.

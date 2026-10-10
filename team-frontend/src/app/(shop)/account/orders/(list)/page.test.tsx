@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,17 +17,17 @@ vi.mock("@/lib/gateway/shops", async (orig) => ({
   ...(await orig<typeof import("@/lib/gateway/shops")>()),
   batchGetShopNames: vi.fn(),
 }));
+const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw new Error("NEXT_REDIRECT");
   }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh }),
 }));
 vi.mock("@/features/order/actions", () => ({
   reorderAction: vi.fn(),
   cancelOrderAction: vi.fn(),
   createReturnRequestAction: vi.fn(),
-  mockRefundAction: vi.fn(),
 }));
 vi.mock("@/features/review/ReviewModal", () => ({ ReviewModal: () => null }));
 
@@ -50,6 +50,7 @@ async function renderPage(
 }
 
 beforeEach(() => {
+  refresh.mockClear();
   vi.clearAllMocks();
   vi.mocked(getPrincipal).mockReturnValue({ userId: "b1" } as never);
   vi.mocked(batchGetShopNames).mockResolvedValue(new Map());
@@ -117,10 +118,11 @@ describe("/account/orders page", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Không tải được danh sách đơn hàng",
     );
-    expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(
-      "href",
-      "/account/orders?status=paid",
-    );
+    // A same-URL link would be served from the router cache; the retry must be
+    // a button that re-fetches via router.refresh().
+    expect(screen.queryByRole("link", { name: "Thử lại" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Bạn chưa có đơn hàng nào")).toBeNull();
   });
 

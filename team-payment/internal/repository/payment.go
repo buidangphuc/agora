@@ -14,6 +14,11 @@ import (
 
 var ErrTransactionNotFound = errors.New("payment transaction not found")
 
+// ErrNotSettleable: a status write found the payment no longer PENDING or FAILED
+// (it was paid or refunded meanwhile). Only PENDING/FAILED payments are settled
+// or failed, so a refunded payment is never reopened, even by a racing call.
+var ErrNotSettleable = errors.New("payment is no longer pending or failed")
+
 type PaymentMethod int32
 
 const (
@@ -32,6 +37,8 @@ const (
 	PaymentStatusPaid        PaymentStatus = 2
 	PaymentStatusFailed      PaymentStatus = 3
 	PaymentStatusRefunded    PaymentStatus = 4
+	// PaymentStatusPartiallyRefunded: 0 < RefundedAmount < Amount (more refunds possible).
+	PaymentStatusPartiallyRefunded PaymentStatus = 5
 )
 
 type PaymentTransaction struct {
@@ -43,8 +50,14 @@ type PaymentTransaction struct {
 	Method            PaymentMethod
 	Status            PaymentStatus
 	ProviderReference string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// RefundedAmount is the cumulative applied amount of the payment's refunds
+	// (0..Amount; the sum of its payment_refunds rows, LEGACY included).
+	RefundedAmount int64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	// Refunds are the payment's refunds, oldest first. Filled by the service for the
+	// RPC responses; the payment repositories never read or write it.
+	Refunds []Refund
 }
 
 type PaymentRepository interface {
@@ -65,11 +78,11 @@ func NewPostgresPaymentRepository(pool *pgxpool.Pool) *PostgresPaymentRepository
 	return &PostgresPaymentRepository{pool: pool}
 }
 
-const txColumns = `id, order_id, buyer_id, amount, currency, method, status, provider_reference, created_at, updated_at`
+const txColumns = `id, order_id, buyer_id, amount, currency, method, status, provider_reference, refunded_amount, created_at, updated_at`
 
 func scanTransaction(row pgx.Row, t *PaymentTransaction) error {
 	var methodInt, statusInt int32
-	if err := row.Scan(&t.ID, &t.OrderID, &t.BuyerID, &t.Amount, &t.Currency, &methodInt, &statusInt, &t.ProviderReference, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.OrderID, &t.BuyerID, &t.Amount, &t.Currency, &methodInt, &statusInt, &t.ProviderReference, &t.RefundedAmount, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return err
 	}
 	t.Method = PaymentMethod(methodInt)
@@ -123,16 +136,7 @@ func (r *PostgresPaymentRepository) GetTransactionByOrderID(ctx context.Context,
 }
 
 func (r *PostgresPaymentRepository) UpdateStatus(ctx context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	const q = `UPDATE payment_transactions SET status = $1, provider_reference = $2, updated_at = NOW() WHERE id = $3
-		RETURNING ` + txColumns
-	var t PaymentTransaction
-	if err := scanTransaction(r.pool.QueryRow(ctx, q, int32(status), providerRef, id), &t); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return PaymentTransaction{}, ErrTransactionNotFound
-		}
-		return PaymentTransaction{}, fmt.Errorf("update payment status: %w", err)
-	}
-	return t, nil
+	return updatePaymentStatusTx(ctx, r.pool, id, status, providerRef)
 }
 
 func (r *PostgresPaymentRepository) UpdateTransactionStatus(ctx context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
@@ -205,6 +209,25 @@ func (r *InMemoryPaymentRepository) UpdateStatus(_ context.Context, id string, s
 	return t, nil
 }
 
-func (r *InMemoryPaymentRepository) UpdateTransactionStatus(ctx context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	return r.UpdateStatus(ctx, id, status, providerRef)
+func (r *InMemoryPaymentRepository) UpdateTransactionStatus(_ context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
+	return r.updateStatusFromSettleable(id, status, providerRef)
+}
+
+// updateStatusFromSettleable is the compare-and-set the Postgres writer runs:
+// the write applies only to a PENDING or FAILED payment.
+func (r *InMemoryPaymentRepository) updateStatusFromSettleable(id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.data[id]
+	if !ok {
+		return PaymentTransaction{}, ErrTransactionNotFound
+	}
+	if t.Status != PaymentStatusPending && t.Status != PaymentStatusFailed {
+		return PaymentTransaction{}, ErrNotSettleable
+	}
+	t.Status = status
+	t.ProviderReference = providerRef
+	t.UpdatedAt = time.Now()
+	r.data[id] = t
+	return t, nil
 }

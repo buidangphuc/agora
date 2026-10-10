@@ -10,6 +10,7 @@ import {
   getListingRatingSummary,
   getShopRatingSummary,
   listReviews,
+  listReviewsPage,
 } from "@/lib/gateway/reviews";
 import { setupUser } from "@/test/user";
 import ProductDetailPage from "./page";
@@ -47,6 +48,7 @@ vi.mock("@/lib/gateway/reviews", () => ({
   getListingRatingSummary: vi.fn(),
   getShopRatingSummary: vi.fn(),
   listReviews: vi.fn(),
+  listReviewsPage: vi.fn(),
 }));
 vi.mock("@/lib/gateway/recommendations", () => ({
   getRecommendations: vi.fn(),
@@ -89,6 +91,13 @@ const { RecommendationsRow } = await vi.importActual<
   typeof import("@/features/recommendations/RecommendationsRow")
 >("@/features/recommendations/RecommendationsRow");
 
+const withRecs = (items: ReturnType<typeof makeListing>[]) => ({
+  items,
+  requestId: "req-srv-1",
+  placementId: "",
+  modelVersion: "m1",
+});
+
 function setupPage(listing = makeListing({ price: 100_000 })) {
   vi.mocked(getListing).mockResolvedValue(listing);
   vi.mocked(getCategory).mockResolvedValue(null);
@@ -97,7 +106,13 @@ function setupPage(listing = makeListing({ price: 100_000 })) {
   vi.mocked(getShopRatingSummary).mockResolvedValue(shopUnrated);
   vi.mocked(getActiveFlashSale).mockResolvedValue({ active: false });
   vi.mocked(listReviews).mockResolvedValue([]);
-  vi.mocked(getRecommendations).mockResolvedValue([]);
+  vi.mocked(listReviewsPage).mockResolvedValue({
+    reviews: [],
+    total: 0,
+    page: 1,
+    pages: 1,
+  });
+  vi.mocked(getRecommendations).mockResolvedValue(withRecs([]));
 }
 
 beforeEach(() => {
@@ -171,10 +186,17 @@ describe("PDP tracking: similar-items attribution", () => {
     makeListing({ id: "R3", title: "Gợi ý 3" }),
   ];
 
-  it("seeds the row with the listing, keeps ListingGrid placement pdp_similar_items and fires impressions at positions 1..n", async () => {
-    vi.mocked(getRecommendations).mockResolvedValue(recs);
-    render(await RecommendationsRow({ seedListingId: "L" }));
+  it("seeds the row with the listing, keeps ListingGrid placement similar_items and fires impressions at positions 1..n", async () => {
+    vi.mocked(getRecommendations).mockResolvedValue(withRecs(recs));
+    const { container } = render(
+      await RecommendationsRow({ seedListingId: "L" }),
+    );
 
+    expect(
+      container
+        .querySelector("section[data-recs-request-id]")
+        ?.getAttribute("data-recs-request-id"),
+    ).toBe("req-srv-1");
     expect(getRecommendations).toHaveBeenCalledWith(
       expect.objectContaining({ seedListingId: "L", context: 2 }),
     );
@@ -184,14 +206,15 @@ describe("PDP tracking: similar-items attribution", () => {
     expect(impressions.map((i) => i?.itemId)).toEqual(["R1", "R2", "R3"]);
     expect(impressions.map((i) => i?.index)).toEqual([1, 2, 3]);
     for (const i of impressions) {
-      expect(i?.placementId).toBe("pdp_similar_items");
-      expect(i?.itemListId).toBe("pdp_similar_items");
+      expect(i?.placementId).toBe("similar_items");
+      expect(i?.itemListId).toBe("similar_items");
+      expect(i?.impressionId).toBe("req-srv-1");
     }
   });
 
   it("fires select_item with the placement and position when a card is clicked", async () => {
     const user = setupUser();
-    vi.mocked(getRecommendations).mockResolvedValue(recs);
+    vi.mocked(getRecommendations).mockResolvedValue(withRecs(recs));
     const { container } = render(
       await RecommendationsRow({ seedListingId: "L" }),
     );
@@ -204,16 +227,16 @@ describe("PDP tracking: similar-items attribution", () => {
     expect(eventsOf("select_item")).toHaveLength(1);
     expect(eventsOf("select_item")[0][1]?.items?.[0]).toMatchObject({
       itemId: "R2",
-      placementId: "pdp_similar_items",
+      placementId: "similar_items",
       index: 2,
-      itemListId: "pdp_similar_items",
+      itemListId: "similar_items",
     });
   });
 
   it("renders nothing when the recommendation service fails or returns no items", async () => {
     vi.mocked(getRecommendations).mockRejectedValue(new Error("UNAVAILABLE"));
     expect(await RecommendationsRow({ seedListingId: "L" })).toBeNull();
-    vi.mocked(getRecommendations).mockResolvedValue([]);
+    vi.mocked(getRecommendations).mockResolvedValue(withRecs([]));
     expect(await RecommendationsRow({ seedListingId: "L" })).toBeNull();
   });
 });

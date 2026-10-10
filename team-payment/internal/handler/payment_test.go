@@ -38,10 +38,11 @@ func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.Upda
 	return nil, service.ErrOrderNotFound
 }
 
-func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRepository, *repository.InMemoryWalletRepository, *mockOrderClient) {
+func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRepository, *repository.InMemoryLedgerRepository, *mockOrderClient) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	paymentRepo := repository.NewInMemoryPaymentRepository()
 	walletRepo := repository.NewInMemoryWalletRepository()
+	ledger := repository.NewInMemoryLedgerRepository()
 	orderClient := &mockOrderClient{
 		orders: map[string]*orderv1.Order{
 			"order-1": {
@@ -53,9 +54,10 @@ func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRep
 			},
 		},
 	}
-	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger)
-	h := handler.NewPaymentHandler(svc, logger)
-	return h, paymentRepo, walletRepo, orderClient
+	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, service.WithLedgerRepo(ledger),
+		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(paymentRepo, ledger)))
+	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true))
+	return h, paymentRepo, ledger, orderClient
 }
 
 func TestPaymentHandler_Payments(t *testing.T) {
@@ -246,12 +248,12 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 				if byOrderID {
 					ref = "order-1"
 				}
-				_, err := h.RefundPayment(tc.ctx, &paymentv1.RefundPaymentRequest{PaymentId: ref, Amount: 1000, Reason: "r"})
+				_, err := h.RefundPayment(tc.ctx, &paymentv1.RefundPaymentRequest{PaymentId: ref, RefundId: "R1", Amount: 1000, Reason: "r"})
 				if got := status.Code(err); got != tc.want {
 					t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
 				}
 				after, _ := repo.GetTransaction(context.Background(), seeded.ID)
-				refunded := after.Status == repository.PaymentStatusRefunded
+				refunded := after.RefundedAmount > 0
 				if refunded != (tc.want == codes.OK) {
 					t.Fatalf("refunded = %v for %s", refunded, tc.name)
 				}
@@ -261,12 +263,12 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 }
 
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
-	h, _, walletRepo, _ := setupHandlerTest()
+	h, _, ledger, _ := setupHandlerTest()
 
 	principal := &commonv1.Principal{
 		Id:     "seller-1",
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:write", "payment:read"},
+		Scopes: []string{"payment:write", "payment:read", "listing.write"},
 	}
 	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
 
@@ -286,8 +288,11 @@ func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 	})
 
 	t.Run("RequestPayout and ListPayoutHistory", func(t *testing.T) {
-		// Credit seller wallet
-		_, _ = walletRepo.UpdateWalletBalance(ctx, "seller-1", 1000000)
+		// Settlement credit on the ledger
+		_, _ = ledger.AppendEntry(ctx, repository.LedgerEntry{
+			SellerID: "seller-1", Type: repository.LedgerTypeOrderSettlement,
+			Amount: 1000000, Status: repository.LedgerStatusCompleted,
+		})
 
 		// Request Payout
 		payoutRes, err := h.RequestPayout(ctx, &paymentv1.RequestPayoutRequest{
@@ -357,6 +362,7 @@ func TestPaymentHandler_RefundPayment(t *testing.T) {
 	t.Run("success refund", func(t *testing.T) {
 		res, err := h.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
 			PaymentId: tx.ID,
+			RefundId:  "R1",
 			Amount:    500000,
 			Reason:    "Customer return",
 		})
@@ -374,6 +380,7 @@ func TestPaymentHandler_RefundPayment(t *testing.T) {
 	t.Run("refund not found", func(t *testing.T) {
 		_, err := h.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{
 			PaymentId: "missing-tx",
+			RefundId:  "R1",
 			Amount:    100000,
 			Reason:    "reason",
 		})

@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
 // PostgresRepository is the production store (engagement_db, Rule 3).
@@ -20,38 +22,60 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx,
-		`INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		userID, listingID)
+	var added bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			userID, listingID)
+		if err != nil {
+			return fmt.Errorf("add favorite: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil // already favorited: no state change, no fact
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO listing_stats (listing_id, favorite_count) VALUES ($1, 1)
+			 ON CONFLICT (listing_id) DO UPDATE SET favorite_count = listing_stats.favorite_count + 1`,
+			listingID); err != nil {
+			return fmt.Errorf("bump favorite_count: %w", err)
+		}
+		if err := enqueueFact(ctx, tx, listingID, &engagementv1.FavoriteAdded{UserId: userID, ListingId: listingID}); err != nil {
+			return err
+		}
+		added = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("add favorite: %w", err)
+		return false, err
 	}
-	if tag.RowsAffected() == 0 {
-		return false, nil // already favorited
-	}
-	if _, err := r.pool.Exec(ctx,
-		`INSERT INTO listing_stats (listing_id, favorite_count) VALUES ($1, 1)
-		 ON CONFLICT (listing_id) DO UPDATE SET favorite_count = listing_stats.favorite_count + 1`,
-		listingID); err != nil {
-		return true, fmt.Errorf("bump favorite_count: %w", err)
-	}
-	return true, nil
+	return added, nil
 }
 
 func (r *PostgresRepository) RemoveFavorite(ctx context.Context, userID, listingID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2`, userID, listingID)
+	var removed bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2`, userID, listingID)
+		if err != nil {
+			return fmt.Errorf("remove favorite: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE listing_stats SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE listing_id = $1`,
+			listingID); err != nil {
+			return fmt.Errorf("drop favorite_count: %w", err)
+		}
+		if err := enqueueFact(ctx, tx, listingID, &engagementv1.FavoriteRemoved{UserId: userID, ListingId: listingID}); err != nil {
+			return err
+		}
+		removed = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("remove favorite: %w", err)
+		return false, err
 	}
-	if tag.RowsAffected() == 0 {
-		return false, nil
-	}
-	if _, err := r.pool.Exec(ctx,
-		`UPDATE listing_stats SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE listing_id = $1`,
-		listingID); err != nil {
-		return true, fmt.Errorf("drop favorite_count: %w", err)
-	}
-	return true, nil
+	return removed, nil
 }
 
 func (r *PostgresRepository) IsFavorite(ctx context.Context, userID, listingID string) (bool, error) {
@@ -188,21 +212,49 @@ func (r *PostgresRepository) GetStats(ctx context.Context, listingID string) (St
 // ── Seller follow graph (F1) ──
 
 func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx,
-		`INSERT INTO follows (user_id, seller_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		userID, sellerID)
+	var added bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO follows (user_id, seller_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			userID, sellerID)
+		if err != nil {
+			return fmt.Errorf("follow: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		if err := enqueueFact(ctx, tx, sellerID, &engagementv1.SellerFollowed{UserId: userID, SellerId: sellerID}); err != nil {
+			return err
+		}
+		added = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("follow: %w", err)
+		return false, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return added, nil
 }
 
 func (r *PostgresRepository) Unfollow(ctx context.Context, userID, sellerID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM follows WHERE user_id = $1 AND seller_id = $2`, userID, sellerID)
+	var removed bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM follows WHERE user_id = $1 AND seller_id = $2`, userID, sellerID)
+		if err != nil {
+			return fmt.Errorf("unfollow: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		if err := enqueueFact(ctx, tx, sellerID, &engagementv1.SellerUnfollowed{UserId: userID, SellerId: sellerID}); err != nil {
+			return err
+		}
+		removed = true
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("unfollow: %w", err)
+		return false, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return removed, nil
 }
 
 func (r *PostgresRepository) IsFollowing(ctx context.Context, userID, sellerID string) (bool, error) {
@@ -255,24 +307,36 @@ func (r *PostgresRepository) ListFollowedSellers(ctx context.Context, userID, cu
 
 func (r *PostgresRepository) ListFollowedListings(ctx context.Context, userID, cursor string, pageSize int32) ([]string, string, int64, error) {
 	limit := clampPageSize(pageSize)
+	curAt, curID, hasCur, err := parseFeedCursor(cursor)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	// Newest first, keyset on (created_at, listing_id). A listing has a single
+	// owner row (UpsertSellerListing), so no DISTINCT is needed.
 	rows, err := r.pool.Query(ctx,
-		`SELECT DISTINCT sl.listing_id FROM follows f
+		`SELECT sl.listing_id, sl.created_at FROM follows f
 		 JOIN seller_listings sl ON sl.seller_id = f.seller_id
-		 WHERE f.user_id = $1 AND ($2 = '' OR sl.listing_id > $2)
-		 ORDER BY sl.listing_id LIMIT $3`,
-		userID, cursor, limit+1)
+		 WHERE f.user_id = $1
+		   AND (NOT $2::boolean OR (sl.created_at, sl.listing_id) < ($3::timestamptz, $4::text))
+		 ORDER BY sl.created_at DESC, sl.listing_id DESC LIMIT $5`,
+		userID, hasCur, curAt, curID, limit+1)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list followed listings: %w", err)
 	}
 	defer rows.Close()
 
 	ids := make([]string, 0, limit)
+	ats := make([]time.Time, 0, limit)
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
+		var (
+			id string
+			at time.Time
+		)
+		if err := rows.Scan(&id, &at); err != nil {
 			return nil, "", 0, fmt.Errorf("scan followed listing: %w", err)
 		}
 		ids = append(ids, id)
+		ats = append(ats, at)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", 0, err
@@ -281,12 +345,12 @@ func (r *PostgresRepository) ListFollowedListings(ctx context.Context, userID, c
 	var next string
 	if len(ids) > limit {
 		ids = ids[:limit]
-		next = ids[len(ids)-1]
+		next = feedCursor(ats[limit-1], ids[limit-1])
 	}
 
 	var total int64
 	if err := r.pool.QueryRow(ctx,
-		`SELECT count(DISTINCT sl.listing_id) FROM follows f
+		`SELECT count(*) FROM follows f
 		 JOIN seller_listings sl ON sl.seller_id = f.seller_id
 		 WHERE f.user_id = $1`,
 		userID).Scan(&total); err != nil {
@@ -296,10 +360,51 @@ func (r *PostgresRepository) ListFollowedListings(ctx context.Context, userID, c
 }
 
 func (r *PostgresRepository) IndexSellerListing(ctx context.Context, sellerID, listingID string) error {
-	if _, err := r.pool.Exec(ctx,
-		`INSERT INTO seller_listings (seller_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		sellerID, listingID); err != nil {
-		return fmt.Errorf("index seller listing: %w", err)
+	return r.UpsertSellerListing(ctx, sellerID, listingID, time.Now())
+}
+
+func (r *PostgresRepository) UpsertSellerListing(ctx context.Context, sellerID, listingID string, createdAt time.Time) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("upsert seller listing begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// One owner per listing: drop any row under a different seller.
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM seller_listings WHERE listing_id = $1 AND seller_id <> $2`,
+		listingID, sellerID); err != nil {
+		return fmt.Errorf("upsert seller listing (reassign): %w", err)
+	}
+	// DO NOTHING keeps the first created_at, so redelivery and later UPDATED
+	// events never reorder the feed.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO seller_listings (seller_id, listing_id, created_at) VALUES ($1, $2, $3)
+		 ON CONFLICT DO NOTHING`,
+		sellerID, listingID, createdAt.UTC()); err != nil {
+		return fmt.Errorf("upsert seller listing: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("upsert seller listing commit: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListingSeller(ctx context.Context, listingID string) (string, bool, error) {
+	var sellerID string
+	err := r.pool.QueryRow(ctx,
+		`SELECT seller_id FROM seller_listings WHERE listing_id = $1 LIMIT 1`, listingID).Scan(&sellerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("listing seller: %w", err)
+	}
+	return sellerID, true, nil
+}
+
+func (r *PostgresRepository) RemoveSellerListing(ctx context.Context, listingID string) error {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM seller_listings WHERE listing_id = $1`, listingID); err != nil {
+		return fmt.Errorf("remove seller listing: %w", err)
 	}
 	return nil
 }

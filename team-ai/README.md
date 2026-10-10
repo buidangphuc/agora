@@ -9,13 +9,14 @@ server that implements the platform-core contract. It is a deployed service (com
 - The AI surface behind the gateway: shopping assistant, magic listing, chat copilot, review
   summary (`AIService`), RAG search (`SearchService`), streaming chat (`ChatService`) and
   recommendations (`RecommendationService`).
-- The SPU/SKU tag classifier (HTTP only, in-memory state).
+- The SPU/SKU tag classifier (HTTP, plus gRPC `ClassifyTags` for the indexer); its registry is persisted in Redis when `TAXONOMY_PERSISTENCE_ENABLED=true`.
 - It owns no business data. Its only database tables are platform plumbing (see Data), and the
   compose stack runs with `DATABASE_ENABLED=false`.
 
-Most answer logic is deterministic. `ShoppingAssistant` matches against a catalog hard-coded in
-`app/modules/business/ai_assistant/service.py` (it never calls the injected RAG service), and
-`MagicListing`, `ChatCopilot` and `SummarizeReviews` are rule-based. An LLM or an embedding
+Most answer logic is deterministic. With `RAG_ENABLED=true`, `ShoppingAssistant` retrieves listings from the RAG store
+the listing indexer feeds and returns each distinct hit as a product card (`listing_id` = the real listing id; see the
+table below). Without a RAG store it matches a demo catalog hard-coded in
+`app/modules/business/ai_assistant/service.py`. `MagicListing`, `ChatCopilot` and `SummarizeReviews` are rule-based. An LLM or an embedding
 server is only reached through opt-in backends (`CHAT_BACKEND=llm_router`,
 `RAG_EMBED_BACKEND=model_server`).
 
@@ -29,10 +30,11 @@ code default port is `50051`, compose sets `50060` (`50060:50060`). The gateway 
 
 | Service / RPC | Authorization | Notes |
 |---|---|---|
-| `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. |
+| `platform.ai.v1.AIService` `ClassifyTags` | scope `ai.classify` AND a `service` principal (team-search's indexer); no user role holds the scope; not routed by the gateway | SPU tags plus per-variant tags with facet group and confidence, from the same in-process tag registry as the REST routes. `INVALID_ARGUMENT` for a title under 2 characters. |
+| `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. `ShoppingAssistant` with a RAG store: one card per distinct retrieved listing (at most `top_k`, best first, hits under `ASSISTANT_RAG_MIN_SCORE` dropped, title/price/currency from the index, no rating or discount). A retrieval failure still answers `OK` with no cards and a reply saying the catalog could not be searched (never the demo catalog). `RAG_ENABLED=false`: demo catalog. Listings published before the indexer ran appear after `listing.events` is replayed. |
 | `platform.search.v1.SearchService.SearchListings` | scope `search:read` | `UNAVAILABLE` when `RAG_ENABLED=false`. |
 | `platform.chat.v1.ChatService.StreamChat` (server stream) | none beyond a resolved principal | `CHAT_BACKEND=mock` echoes the prompt; `llm_router` streams from the LLM router. Final chunk has `done=true`. |
-| `platform.recommendation.v1.RecommendationService.Recommend` | scope `listing.read` | `UNAVAILABLE` when `RECS_ENABLED=false` or the Qdrant collection contract mismatches. |
+| `platform.recommendation.v1.RecommendationService.Recommend` | scope `listing.read` | `UNAVAILABLE` when `RECS_ENABLED=false` or the Qdrant collection contract mismatches. A cache/Qdrant error answers `OK` with the popular list (or empty) and `model_version` `serving-fallback`. Every response carries `placement_id` and a fresh `request_id` (one `recs.served` log line each). `RECS_BACKEND=memory` is refused at boot outside dev/local/test. |
 | `grpc.health.v1.Health`, server reflection | exempt from auth | Health always answers SERVING. Reflection is on unless `GRPC_REFLECTION_ENABLED=false`. |
 
 Auth (`interceptors/auth.py`): if `x-principal-id` is present, the `x-principal-{id,type,scopes}`
@@ -45,7 +47,8 @@ is checked against `AUTH_BEARER_TOKEN`.
 |---|---|
 | `GET /healthz`, `GET /readyz` (also under `/api/v1`), `GET /metrics` (gRPC request counter) | none |
 | `POST /api/v1/ai/assistant`, `/magic-listing`, `/chat-copilot` | none |
-| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy`, `/tags/explore`, `/tags/promote`; `GET /api/v1/ai/tags` | none |
+| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy` (no longer used by team-search's indexer, which calls gRPC `ClassifyTags`); `GET /api/v1/ai/tags` | `Authorization: Bearer` service or admin token: scope `ai.classify` or `admin` (401 without a valid token, 403 without the scope). Not routed by the gateway; a user JWT is not accepted. |
+| `POST /api/v1/ai/tags/explore`, `/tags/promote` (mutate the taxonomy) | bearer token of an `admin` principal (`AUTH_ADMIN_BEARER_TOKEN`); 403 for the service token |
 | `POST /api/v1/completions`, `/completions/stream`, `/completions/tasks`; `GET /completions/tasks/{task_id}` | `require_principal` (bearer) |
 
 `/docs` is served while `DOCS_ENABLED=true` (default). `/readyz` reports postgres, redis and
@@ -68,9 +71,14 @@ popular; the other placements are configured in the same file.
 
 ## 2. Events
 
-None. There is no Kafka or RabbitMQ producer or consumer wired. The `outbox`, `queue`, `tasks` and
-`webhooks` modules exist but are disabled by default, and `ListingEventIndexer`
-(`app/modules/messaging/indexer`) is not hooked to any consumer.
+Consumes `listing.events` (Kafka, `platform.events.v1.EventEnvelope` wrapping
+`platform.listing.v1.ListingChanged`) when `LISTING_INDEXER_ENABLED=true` (needs `RAG_ENABLED=true`
+and the `kafka` extra). `app/modules/messaging/indexer` indexes created/updated published listings
+into the RAG store and removes deleted, draft and rejected ones. Delivery is at-least-once with manual
+commits: a redelivered event is applied once, a failing record is retried `LISTING_INDEXER_MAX_ATTEMPTS`
+times and then parked on `listing.events.dlq`. Settings: `KAFKA_BROKERS`, `LISTING_INDEXER_TOPIC`,
+`LISTING_INDEXER_GROUP`. No producer is wired. The `outbox`, `queue`, `tasks` and `webhooks` modules
+exist but are disabled by default.
 
 ## 3. Data
 
@@ -79,8 +87,12 @@ None. There is no Kafka or RabbitMQ producer or consumer wired. The `outbox`, `q
   `outbox_events`, `quota_counters` and `quota_reservations` (platform plumbing, no domain tables).
 - Apply with `make migrate` (`alembic upgrade head`). The Docker image copies `alembic/` but its
   `CMD` does not run migrations, and the root compose has no migrate job for team-ai.
-- Tag classifier state (canonical and candidate tags) is in process memory and is lost on
-  restart. The recommendation feature and nearline stores are in-memory too.
+- Tag classifier state (canonical and candidate tags): with `TAXONOMY_PERSISTENCE_ENABLED=true` (needs
+  `REDIS_ENABLED`) it lives in Redis database `TAXONOMY_REDIS_DATABASE` (default 5) as the hashes
+  `tagtax:v1:canonical` and `tagtax:v1:candidates` (`slug -> TagItem JSON`, only changed tags; the code seed is the
+  base layer). It is loaded at startup; `promote` writes before it answers (503 and no change if Redis cannot be
+  written), `explore` writes best effort, and candidates registered by online `classify` are not stored. REST and gRPC
+  share one registry. With the flag off the state is in process memory and lost on restart. The recommendation feature and nearline stores are in-memory too.
 - Redis (`REDIS_ENABLED`) holds the recs lists it reads, plus rate-limit or cache data if those
   features are enabled.
 
@@ -95,6 +107,7 @@ default and listed in `.env.example`.
 | Variable | Default | Meaning |
 |---|---|---|
 | `ENVIRONMENT` | `dev` | `prod` or `production` rejects `DOCS_ENABLED=true`, wildcard CORS or hosts, and a weak `AUTH_BEARER_TOKEN`. |
+| `AUTH_ADMIN_BEARER_TOKEN`, `AUTH_ADMIN_SUBJECT` | `""`, `tag-admin` | Second token for the tag routes: a service principal with `admin` + `ai.classify`. Empty means nobody is admin; outside dev/local/test it must be 24+ characters, not a known weak value and different from `AUTH_BEARER_TOKEN`. The service token's scopes are `AUTH_ROLES` (use `ai.classify` for read-only callers). |
 | `AUTH_BEARER_TOKEN` | `""` | Bearer fallback for HTTP and direct gRPC calls. Required outside dev, local and test. |
 | `GRPC_ENABLED` | `false` | Start gRPC inside the HTTP app lifespan. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, `50051` | Bind address. Compose uses `50060`. |
@@ -105,12 +118,22 @@ default and listed in `.env.example`.
 | `REDIS_HOST` | none (required) | No default. |
 | `CHAT_BACKEND` | `mock` | `mock` or `llm_router`. |
 | `CHAT_MODEL`, `CHAT_FALLBACK_MODELS`, `JUDGE_CHAT_MODEL` | `""` | LangChain model ids such as `openai:gpt-4.1-mini`. Empty `CHAT_MODEL` means the local fake model. |
-| `RAG_ENABLED` | `false` | Gates `SearchListings`. |
+| `LLM_FIRST_TOKEN_TIMEOUT_SECONDS`, `LLM_MAX_ATTEMPTS` | `8.0`, `3` | `llm_router`: each attempt is cancelled when no chunk arrives in time; `LLM_MAX_ATTEMPTS` bounds all pre-first-chunk attempts across the chain (the same target is retried only in a single-target chain). The gRPC deadline caps every wait. |
+| `LLM_BREAKER_THRESHOLD`, `LLM_BREAKER_COOLDOWN_SECONDS` | `3`, `30.0` | Per-target breaker: consecutive 429/5xx/timeout/connection failures open it; after the cooldown one probe request is let through. Request-caused 4xx never count. |
+| `CHAT_SYSTEM_PROMPT` | `""` | System prompt used when Langfuse is off or unreachable; empty means the built-in prompt. |
+| `CHAT_HISTORY_MAX_TURNS`, `CHAT_HISTORY_MAX_TOKENS`, `CHAT_HISTORY_TTL_SECONDS` | `10`, `1500`, `1800` | Earlier exchanges of the same `(principal, session_id)` sent to the model (a turn = one user+assistant exchange; tokens estimated as chars/4). Redis when `REDIS_ENABLED`, else per process. |
+| `LLM_TRACE_CONTENT` | `redacted` | User text in logs and Langfuse traces: `redacted`, `off` or `full` (`full` refused outside dev/local/test). Text sent to the model is always redacted. |
+| `QUOTA_ENABLED`, `QUOTA_BACKEND` | `false`, `memory` | With `llm_router`, one `chat.reply` unit is reserved per reply (server-minted id), finalized after delivery and refunded when nothing was delivered. |
+| `QUOTA_CHAT_REPLIES_PER_WINDOW`, `QUOTA_CHAT_WINDOW_SECONDS` | `200`, `86400` | Chat reply quota per principal. |
+| `GRPC_RATE_LIMIT_ENABLED` | `false` | Per-principal limit on `StreamChat` and `ShoppingAssistant` (`RATE_LIMIT_*`). Refused with `RATE_LIMIT_BACKEND=memory` outside dev/local/test. |
+| `RAG_ENABLED` | `false` | Gates `SearchListings` and grounds `ShoppingAssistant` in the RAG store. |
 | `RAG_BACKEND` | `memory` | `memory` or `qdrant`. |
 | `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION` | `http://localhost:6333`, `rag_documents` | Used when `RAG_BACKEND=qdrant`. |
 | `RAG_EMBED_BACKEND` | `mock` | `mock` or `model_server`. |
 | `RAG_EMBED_SERVER_URL`, `RAG_EMBED_SERVER_PATH`, `RAG_EMBED_DIM`, `RAG_EMBED_TIMEOUT_SECONDS` | `""`, `/embed`, `384`, `10.0` | Embedding server seam. |
 | `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_DEFAULT_TOP_K`, `RAG_MOCK_EMBED_DIM`, `RAG_RETRIEVE_TIMEOUT_SECONDS`, `RAG_EMBED_MODEL` | `512`, `50`, `5`, `16`, `10.0`, `""` | |
+| `TAXONOMY_PERSISTENCE_ENABLED`, `TAXONOMY_REDIS_DATABASE`, `TAXONOMY_REDIS_PREFIX` | `false`, `5`, `tagtax` | Persist the tag taxonomy in Redis (needs `REDIS_ENABLED`; the database must differ from `REDIS_DATABASE`). |
+| `ASSISTANT_RAG_MIN_SCORE` | `0.0` | `ShoppingAssistant` drops RAG hits scoring below this (0 keeps the nearest k; scores are model specific). |
 | `LANGFUSE_ENABLED` | `false` in code, `true` in `.env.example` | Pairs with `make docker-run-langfuse`. Needs the `ai` extra. |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`, `LANGFUSE_PROMPT_CACHE_TTL_SECONDS` | `""`, `""`, `https://cloud.langfuse.com`, `60` | |
 | `RECS_ENABLED` | `false` | Gates `Recommend`. |
@@ -120,6 +143,7 @@ default and listed in `.env.example`.
 | `RECS_CANDIDATE_TOP_K`, `RECS_RESULT_TOP_K` | `100`, `10` | |
 | `RECS_CACHE_PREFIX`, `RECS_CACHE_SCHEMA_VERSION`, `RECS_CACHE_TTL_SECONDS` | `recs`, `v1`, `86400` | Redis key layout `<prefix>:<schema>:user:<id>`. |
 | `RECS_RETRIEVE_TIMEOUT_MS` | `15` | Qdrant fallback latency cap. |
+| `RECS_FEATURESTORE_REDIS_URL` | empty | Redis holding `fs:item_popularity:*` (platform-featurestore). Set: ranking boosts by `ctr_7d` / `favorites_current`; empty: no online features. Local compose uses `redis://redis:6379/2`. |
 | `RECS_MODEL_VERSION` | `serving-fallback` | Replaced by the `model_version` Redis key when present. |
 
 There is no `HOST`, `PORT`, `MODELSERVE_URL` or `QDRANT_URL` setting. Uvicorn takes host and port
@@ -211,20 +235,24 @@ gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci
   `make ci` fails at that step.
 - **`.github/workflows/ci.yaml` is stale.** It runs `pytest tests/test_env_drift.py`, which does
   not exist, and installs with pip on Python 3.11 while the project requires 3.12.
-- **No authorization on the AI RPCs or the `/api/v1/ai/*` HTTP routes.** `AIService` and
-  `ChatService` rely on the gateway alone, and the HTTP AI and tag routes (including
-  `/tags/promote`, which mutates state) have no auth dependency.
+- **`ai:use` is not enforced yet.** `MagicListing` and `ChatCopilot` need `listing.write`
+  (`ChatCopilot` also rejects another seller's `seller_id`), `SummarizeReviews` needs
+  `listing.read`, and `AIService` errors are mapped to field names or fixed text. But
+  `ShoppingAssistant` and `StreamChat` stay open to any principal until team-identity grants
+  `ai:use` to buyer, seller and admin and `AI_USE_SCOPE_REQUIRED=true` is set. The HTTP AI
+  routes `/assistant`, `/magic-listing` and `/chat-copilot` still have no auth dependency (the tag routes now do).
 - **`make grpc` (`scripts/run_grpc.py`) does not wire recommendations.** It builds the server
   without `recommendation_provider`, so `Recommend` answers `UNAVAILABLE` there. Use the HTTP app
   with `GRPC_ENABLED=true`, as compose does.
 - **gRPC is plaintext** (`add_insecure_port`), and `Check` always reports SERVING regardless of
   dependency state.
-- **`ShoppingAssistant` ignores RAG.** It matches the hard-coded `CATALOG`, whatever `RAG_ENABLED`
-  is. `SearchListings` is the only RAG-backed RPC.
+- **`ShoppingAssistant` needs the indexer running to show real listings.** With `RAG_ENABLED=true` it
+  retrieves from the RAG store (empty until `LISTING_INDEXER_ENABLED=true` has consumed
+  `listing.events`); with `RAG_ENABLED=false` it answers from the demo `CATALOG`.
 - **No gRPC `TagClassifier` service.** `FEATURES.yaml` lists `ai.v1.TagClassifier`, but the proto
   has no such service; tag classification is HTTP only.
-- **Tag state is not persisted** and is per process, so `/tags/promote` results vanish on restart
-  and differ between replicas.
+- **Tag state persistence is opt-in** (`TAXONOMY_PERSISTENCE_ENABLED`). Off, `/tags/promote` results vanish
+  on restart; on, replicas load at startup and on their next mutation, with no live sync between them.
 - **The listing indexer has no input.** `ListingEventIndexer` is not connected to any event
   source.
 - The root `AGENTS.md` service table lists team-ai as `:8000` and omits gRPC and recommendations.

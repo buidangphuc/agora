@@ -80,6 +80,61 @@ features:
     tags: [ai, seller, search, taxonomy]
     status: automated
     covered_by: "ai/tag_classifier_taxonomy.feature::SPU Level Tag Classification"
+    notes: "needs rebuild"
+
+  - id: ai.tag-sku-hierarchy
+    title: Granular SKU level hierarchical classification
+    persona: seller
+    priority: P1
+    summary: Each child SKU inherits the parent's tags and gets its own color and capacity facets, plus an OpenSearch nested document.
+    entry_route: /seller/new
+    services: [team-ai]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given a parent listing with child SKU variants
+      - When hierarchical SKU classification is executed
+      - Then each SKU inherits common tags, receives variant facets and a nested document payload is generated
+    tags: [ai, seller, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Granular SKU Level Hierarchical Classification"
+    notes: "needs rebuild"
+
+  - id: ai.tag-candidate-discovery
+    title: Candidate tag discovery from a raw batch
+    persona: seller
+    priority: P1
+    summary: Offline exploration mines recurring specs from unclassified listings and registers them as EXPLORING candidates.
+    entry_route: /seller/new
+    services: [team-ai]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given a batch of unclassified listings with emergent specs
+      - When offline exploration is executed with frequency threshold 2
+      - Then candidate tags are discovered and registered with status EXPLORING
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Candidate Tag Discovery from Raw Batch"
+    notes: "needs rebuild"
+
+  - id: ai.tag-candidate-promotion
+    title: Candidate tag promoted to a canonical filter facet
+    persona: seller
+    priority: P1
+    summary: Promotion turns an exploring candidate into a canonical tag that later classifications carry.
+    entry_route: /seller/new
+    services: [team-ai]
+    api:
+      exercised: [ai.v1.TagClassifier]
+    acceptance:
+      - Given an exploring candidate tag
+      - When promotion is executed with a target category and a bound synonym
+      - Then the tag status becomes PROMOTED and later classifications carry it
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Candidate Tag Promoted to Canonical Filter Facet"
+    notes: "needs rebuild"
 
   - id: ai.summarize-reviews
     title: AI review summarization
@@ -142,3 +197,1344 @@ features:
     tags: [recommendations, contract]
     status: automated
     covered_by: "recommendations/recommendation_contract.feature::A ranked result set is expressible with provenance"
+
+  - id: ai.buyer-cannot-use-listing-generator
+    title: A buyer cannot use the listing generator
+    persona: buyer
+    priority: P1
+    summary: MagicListing needs listing.write; a buyer token is refused at the gateway.
+    entry_route: /seller/new
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [ai.v1.MagicListing]
+    acceptance:
+      - Given a logged-in buyer
+      - When a logged-in buyer calls MagicListing through the gateway
+      - Then the gateway answers HTTP 403
+    tags: [ai, security]
+    status: automated
+    covered_by: "security/ai_access.feature::A buyer cannot use the listing generator"
+
+  - id: ai.seller-cannot-run-copilot-as-another-seller
+    title: A seller cannot run the copilot as another seller
+    persona: seller
+    priority: P1
+    summary: ChatCopilot refuses a seller_id other than the caller's own.
+    entry_route: /seller/chat
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [ai.v1.ChatCopilot]
+    acceptance:
+      - Given a logged-in seller and another seller
+      - When the seller calls ChatCopilot through the gateway with the other seller's seller_id
+      - Then the gateway answers HTTP 403
+    tags: [ai, security]
+    status: automated
+    covered_by: "security/ai_access.feature::A seller cannot run the copilot as another seller"
+
+  - id: recommendations.recommend-bound-to-caller
+    title: A buyer cannot fetch another user's recommendations
+    persona: buyer
+    priority: P1
+    summary: Recommend serves a signed-in user as themselves whatever user_id the request carries (distinguished by per-user precomputed lists seeded in Redis).
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [recommendation.v1.Recommend]
+    acceptance:
+      - Given two buyers with distinct precomputed recommendation lists
+      - When a logged-in buyer calls Recommend through the gateway with another user's user_id
+      - Then the response is computed for the calling buyer, not for the named user
+    tags: [recommendations, security]
+    status: automated
+    covered_by: "security/ai_access.feature::A buyer cannot fetch another user's recommendations"
+  - id: ai.apr-a-healthy-primary-serves-the-reply
+    title: "A healthy primary serves the reply"
+    persona: buyer
+    priority: P1
+    summary: "A healthy primary serves the reply"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message through the gateway and every fake target is healthy"
+      - "Then the full reply comes from the primary target"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::A healthy primary serves the reply"
+    notes: "Scenario: ai/llm_routing.feature::A healthy primary serves the reply. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-primary-429-before-the-first-token-falls-back
+    title: "A primary 429 before the first token falls back"
+    persona: buyer
+    priority: P1
+    summary: "A primary 429 before the first token falls back"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary target answers 429 and the first fallback is healthy"
+      - "Then the buyer receives one complete reply from the first fallback and no error"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::A primary 429 before the first token falls back"
+    notes: "Scenario: ai/llm_routing.feature::A primary 429 before the first token falls back. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-whole-chain-is-tried-in-order
+    title: "The whole chain is tried in order"
+    persona: buyer
+    priority: P1
+    summary: "The whole chain is tried in order"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary answers 500 and the first fallback answers 429"
+      - "Then the buyer receives one complete reply from the second fallback"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::The whole chain is tried in order"
+    notes: "Scenario: ai/llm_routing.feature::The whole chain is tried in order. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failure-after-the-first-chunk-does-not-switch-models
+    title: "A failure after the first chunk does not switch models"
+    persona: buyer
+    priority: P1
+    summary: "A failure after the first chunk does not switch models"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary streams two chunks and then breaks the connection"
+      - "Then the buyer receives those two chunks, then an error status, and no chunk from any other target"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::A failure after the first chunk does not switch models"
+    notes: "Scenario: ai/llm_routing.feature::A failure after the first chunk does not switch models. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-an-exhausted-chain-fails-cleanly
+    title: "An exhausted chain fails cleanly"
+    persona: buyer
+    priority: P1
+    summary: "An exhausted chain fails cleanly"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which every target answers 500"
+      - "Then the call fails with `unavailable`, the error message contains no exception or provider text, and no reply chunk was streamed"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::An exhausted chain fails cleanly"
+    notes: "Scenario: ai/llm_routing.feature::An exhausted chain fails cleanly. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-hung-primary-times-out-and-falls-back
+    title: "A hung primary times out and falls back"
+    persona: buyer
+    priority: P1
+    summary: "A hung primary times out and falls back"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which the primary never sends a first token and the first fallback is healthy"
+      - "Then the reply comes from the first fallback within `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` plus 3 seconds"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::A hung primary times out and falls back"
+    notes: "Scenario: ai/llm_routing.feature::A hung primary times out and falls back. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-attempts-are-bounded
+    title: "Attempts are bounded"
+    persona: buyer
+    priority: P1
+    summary: "Attempts are bounded"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message for which every target answers 500"
+      - "Then the fake provider received at most `LLM_MAX_ATTEMPTS` requests for that message"
+    tags: [ai, resilience]
+    status: automated
+    covered_by: "ai/llm_routing.feature::Attempts are bounded"
+    notes: "Scenario: ai/llm_routing.feature::Attempts are bounded. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-repeated-5xx-opens-the-primary-s-breaker
+    title: "Repeated 5xx opens the primary's breaker"
+    persona: buyer
+    priority: P1
+    summary: "Repeated 5xx opens the primary's breaker"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When the primary target answers 500 for `LLM_BREAKER_THRESHOLD` consecutive chat requests and then becomes healthy"
+      - "Then the next chat request made within the cooldown is served by the first fallback without the primary being called"
+    tags: [ai, resilience, destructive]
+    status: automated
+    covered_by: "ai/llm_breaker.feature::Repeated 5xx opens the primary's breaker"
+    notes: "Scenario: ai/llm_breaker.feature::Repeated 5xx opens the primary's breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-request-caused-400-does-not-open-the-breaker
+    title: "A request-caused 400 does not open the breaker"
+    persona: buyer
+    priority: P1
+    summary: "A request-caused 400 does not open the breaker"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When the primary answers 400 for `LLM_BREAKER_THRESHOLD` consecutive chat requests and then becomes healthy"
+      - "Then the next chat request is served by the primary"
+    tags: [ai, resilience, destructive]
+    status: automated
+    covered_by: "ai/llm_breaker.feature::A request-caused 400 does not open the breaker"
+    notes: "Scenario: ai/llm_breaker.feature::A request-caused 400 does not open the breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-successful-probe-closes-the-breaker
+    title: "A successful probe closes the breaker"
+    persona: buyer
+    priority: P1
+    summary: "A successful probe closes the breaker"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When the primary's breaker is open, the cooldown elapses and the primary is healthy again"
+      - "Then the next chat request is served by the primary, and so is the one after it"
+    tags: [ai, resilience, destructive]
+    status: automated
+    covered_by: "ai/llm_breaker.feature::A successful probe closes the breaker"
+    notes: "Scenario: ai/llm_breaker.feature::A successful probe closes the breaker. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-usage-is-recorded-for-a-completed-reply
+    title: "Usage is recorded for a completed reply"
+    persona: buyer
+    priority: P1
+    summary: "Usage is recorded for a completed reply"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer's chat reply completes and the fake provider reported 11 input and 7 output tokens"
+      - "Then team-ai's log has one usage line for that request id with 11 input tokens, 7 output tokens and the target"
+    tags: [ai, quota]
+    status: automated
+    covered_by: "ai/llm_quota_and_limits.feature::Usage is recorded for a completed reply"
+    notes: "Scenario: ai/llm_quota_and_limits.feature::Usage is recorded for a completed reply. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-an-exhausted-quota-refuses-the-call
+    title: "An exhausted quota refuses the call"
+    persona: buyer
+    priority: P1
+    summary: "An exhausted quota refuses the call"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer has used up the per-principal quota configured on the e2e stack and streams another chat message"
+      - "Then the call fails with `resource_exhausted` and the fake provider received no request for that message"
+    tags: [ai, quota]
+    status: automated
+    covered_by: "ai/llm_quota_and_limits.feature::An exhausted quota refuses the call"
+    notes: "Scenario: ai/llm_quota_and_limits.feature::An exhausted quota refuses the call. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failed-call-does-not-consume-quota
+    title: "A failed call does not consume quota"
+    persona: buyer
+    priority: P1
+    summary: "A failed call does not consume quota"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer with quota for exactly one more reply streams a message for which every target answers 500, then streams a message with healthy targets"
+      - "Then the first call fails with `unavailable` and the second reply completes"
+    tags: [ai, quota]
+    status: automated
+    covered_by: "ai/llm_quota_and_limits.feature::A failed call does not consume quota"
+    notes: "Scenario: ai/llm_quota_and_limits.feature::A failed call does not consume quota. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-one-buyer-over-the-limit-does-not-affect-another
+    title: "One buyer over the limit does not affect another"
+    persona: buyer
+    priority: P1
+    summary: "One buyer over the limit does not affect another"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When one buyer streams more chat messages within a minute than the per-principal limit on the e2e stack"
+      - "Then the calls past the limit fail with `resource_exhausted`, and a different buyer's chat message right after succeeds"
+    tags: [ai, rate-limit, security]
+    status: automated
+    covered_by: "ai/llm_quota_and_limits.feature::One buyer over the limit does not affect another"
+    notes: "Scenario: ai/llm_quota_and_limits.feature::One buyer over the limit does not affect another. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-production-refuses-a-per-process-rate-limiter
+    title: "Production refuses a per-process rate limiter"
+    persona: admin
+    priority: P1
+    summary: "Production refuses a per-process rate limiter"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When the team-ai image is started with `ENVIRONMENT=production`, `GRPC_RATE_LIMIT_ENABLED=true` and `RATE_LIMIT_BACKEND=memory`"
+      - "Then the process exits non-zero and its log names `RATE_LIMIT_BACKEND`"
+    tags: [ai, ops, destructive]
+    status: automated
+    covered_by: "ops/boot_guard_ai.feature::Production refuses a per-process rate limiter"
+    notes: "Scenario: ops/boot_guard_ai.feature::Production refuses a per-process rate limiter. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-production-refuses-an-unmetered-llm-chat-path
+    title: "Production refuses an unmetered LLM chat path"
+    persona: admin
+    priority: P1
+    summary: "Production refuses an unmetered LLM chat path"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image."
+    acceptance:
+      - "When the team-ai image is started with `ENVIRONMENT=production`, `CHAT_BACKEND=llm_router`, `GRPC_RATE_LIMIT_ENABLED=false` and `QUOTA_ENABLED=false`"
+      - "Then the process exits non-zero and its log names `QUOTA_ENABLED`"
+    tags: [ai, ops, security, destructive]
+    status: automated
+    covered_by: "ops/boot_guard_ai.feature::Production refuses an unmetered LLM chat path"
+    notes: "Added after the auth-scope review of ai-path-resilience (anonymous chat on the paid path must be rate limited and metered). Destructive lane: docker run of the stack's team-ai image."
+  - id: ai.apr-the-system-prompt-is-always-first
+    title: "The system prompt is always first"
+    persona: buyer
+    priority: P1
+    summary: "The system prompt is always first"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a chat message on the e2e stack, where Langfuse is off"
+      - "Then the request the fake provider received starts with a system message equal to the configured system prompt"
+    tags: [ai, prompt]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::The system prompt is always first"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::The system prompt is always first. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-follow-up-carries-the-session-history
+    title: "A follow-up carries the session history"
+    persona: buyer
+    priority: P1
+    summary: "A follow-up carries the session history"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"first question\" and then \"second question\" with the same `session_id`"
+      - "Then the second request the fake provider received contains, after the system message, the first user turn, the first assistant reply and the second user turn, in that order"
+    tags: [ai, prompt]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::A follow-up carries the session history"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::A follow-up carries the session history. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-history-is-bounded
+    title: "History is bounded"
+    persona: buyer
+    priority: P1
+    summary: "History is bounded"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams more messages in one session than `CHAT_HISTORY_MAX_TURNS`"
+      - "Then the last request the fake provider received contains only the most recent `CHAT_HISTORY_MAX_TURNS` earlier turns"
+    tags: [ai, prompt]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::History is bounded"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::History is bounded. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-failed-reply-is-not-kept-as-history
+    title: "A failed reply is not kept as history"
+    persona: buyer
+    priority: P1
+    summary: "A failed reply is not kept as history"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams a message for which every target answers 500, then streams a follow-up with the same `session_id`"
+      - "Then the follow-up request the fake provider received contains no turn from the failed message"
+    tags: [ai, prompt]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::A failed reply is not kept as history"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::A failed reply is not kept as history. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-phone-and-citizen-id-are-masked-before-the-model
+    title: "Phone and citizen ID are masked before the model"
+    persona: buyer
+    priority: P1
+    summary: "Phone and citizen ID are masked before the model"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"gọi 0912 345 678, CCCD 079123456789\""
+      - "Then the request the fake provider received contains redaction markers and neither \"0912 345 678\" nor \"079123456789\""
+    tags: [ai, privacy, security]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::Phone and citizen ID are masked before the model"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Phone and citizen ID are masked before the model. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-prices-and-order-numbers-are-not-masked
+    title: "Prices and order numbers are not masked"
+    persona: buyer
+    priority: P1
+    summary: "Prices and order numbers are not masked"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer streams \"giá 850000000, order id 123456789\""
+      - "Then the request the fake provider received contains \"850000000\" and \"123456789\""
+    tags: [ai, privacy]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::Prices and order numbers are not masked"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Prices and order numbers are not masked. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-assistant-logs-carry-redacted-text
+    title: "Assistant logs carry redacted text"
+    persona: buyer
+    priority: P1
+    summary: "Assistant logs carry redacted text"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When a buyer asks the Shopping Assistant through the gateway a question containing \"a.b@example.com\""
+      - "Then no team-ai log line contains \"a.b@example.com\""
+    tags: [ai, privacy, security]
+    status: automated
+    covered_by: "ai/llm_prompt_and_privacy.feature::Assistant logs carry redacted text"
+    notes: "Scenario: ai/llm_prompt_and_privacy.feature::Assistant logs carry redacted text. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-chat-trace-carries-the-request-id
+    title: "A chat trace carries the request id"
+    persona: buyer
+    priority: P1
+    summary: "A chat trace carries the request id"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+      data: "Compose overlay platform-e2e/compose/llm-fake.override.yaml applied (team-ai on CHAT_BACKEND=llm_router against the llm-fake provider)."
+    api:
+      exercised: [chat.v1.StreamChat]
+    acceptance:
+      - "When team-ai runs with Langfuse enabled against the fake provider's ingestion endpoint and a buyer streams a chat message with `X-Request-Id` \"e2e-trace-<random>\""
+      - "Then the fake ingestion endpoint receives a trace containing \"e2e-trace-<random>\" and the buyer's id"
+    tags: [ai, tracing, destructive]
+    status: automated
+    covered_by: "ai/llm_tracing.feature::A chat trace carries the request id"
+    notes: "Scenario: ai/llm_tracing.feature::A chat trace carries the request id. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-the-eval-gate-runs-the-chat-resilience-cases
+    title: "The eval gate runs the chat resilience cases"
+    persona: admin
+    priority: P1
+    summary: "The eval gate runs the chat resilience cases"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When `make eval` runs in team-ai with no judge configured and no judge cases"
+      - "Then it exits zero and its report lists the primary-429, all-fail and after-first-chunk cases as passed"
+    tags: [ai, eval]
+    status: automated
+    covered_by: "ai/llm_eval_gate.feature::The eval gate runs the chat resilience cases"
+    notes: "Scenario: ai/llm_eval_gate.feature::The eval gate runs the chat resilience cases. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+  - id: ai.apr-a-judge-case-without-a-judge-fails-the-gate
+    title: "A judge case without a judge fails the gate"
+    persona: admin
+    priority: P1
+    summary: "A judge case without a judge fails the gate"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: admin
+      data: "None: black-box run of the team-ai image / Makefile."
+    acceptance:
+      - "When `make eval` runs with an eval set containing one judge case and `JUDGE_CHAT_MODEL` empty"
+      - "Then it exits non-zero, names that case, and reports a pass rate below 100%"
+    tags: [ai, eval]
+    status: automated
+    covered_by: "ai/llm_eval_gate.feature::A judge case without a judge fails the gate"
+    notes: "Scenario: ai/llm_eval_gate.feature::A judge case without a judge fails the gate. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+
+  - id: ai.rgp-serving-follows-within-10s
+    title: "Serving follows a promotion within seconds"
+    persona: buyer
+    priority: P1
+    summary: "Serving follows a promotion within seconds"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When a new model is promoted"
+      - "Then within 10 seconds a buyer's recommendations through the gateway report the new model's version"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::Serving follows a promotion within seconds"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::Serving follows a promotion within seconds"
+
+  # ---- recs-serving-safeguards (planned until the code is merged and the lane has run) ----
+
+  - id: ai.rss-redis-outage
+    title: "Recommendations survive a Redis outage"
+    persona: buyer
+    priority: P1
+    summary: "Recommendations survive a Redis outage"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Stops the stack Redis (restored and awaited in teardown)."
+    acceptance:
+      - "When the Redis used by team-ai is stopped and a buyer requests homepage recommendations through the gateway"
+      - "Then the call succeeds with model_version \"serving-fallback\""
+    tags: [recommendations, ai, destructive]
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Recommendations survive a Redis outage"
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Recommendations survive a Redis outage"
+
+  - id: ai.rss-popular-cold-start
+    title: "A new buyer gets the popular list"
+    persona: buyer
+    priority: P1
+    summary: "A new buyer gets the popular list"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Publishes a known popular list in the serving Redis (saved and restored in teardown)."
+    acceptance:
+      - "When the serving generation's popular list is L and a buyer with no recommendations of their own requests homepage recommendations"
+      - "Then the returned listing ids are the first items of L, in L's order"
+    tags: [recommendations, ai, destructive]
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::A new buyer gets the popular list"
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::A new buyer gets the popular list"
+
+  - id: ai.rss-memory-backend-refused
+    title: "Production refuses the memory recommendation backend"
+    persona: buyer
+    priority: P1
+    summary: "Production refuses the memory recommendation backend"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Black-box docker run of the team-ai image (boot guard)."
+    acceptance:
+      - "When the team-ai image is started with `ENVIRONMENT=production`, `RECS_ENABLED=true` and `RECS_BACKEND=memory`"
+      - "Then the process exits non-zero and its log names `RECS_BACKEND`"
+    tags: [recommendations, ai, destructive]
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
+
+  - id: ai.rss-run-grpc-recommend
+    title: "The standalone gRPC server answers Recommend"
+    persona: buyer
+    priority: P1
+    summary: "The standalone gRPC server answers Recommend"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "A throwaway team-ai container plus a throwaway gateway, both removed afterwards."
+    acceptance:
+      - "When team-ai is started with `scripts/run_grpc.py` and a buyer requests recommendations through a gateway pointed at it"
+      - "Then the call succeeds instead of answering `unimplemented`"
+    tags: [recommendations, ai, destructive]
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
+
+  - id: ai.rss-distinct-request-ids
+    title: "Two calls get distinct request ids and the served placement"
+    persona: buyer
+    priority: P1
+    summary: "Two calls get distinct request ids and the served placement"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Reads `docker logs agora-team-ai-svc`."
+    acceptance:
+      - "When a buyer requests homepage recommendations twice through the gateway"
+      - "Then both responses have `placement_id` \"home_feed\" and two different non-empty `request_id`s, and team-ai logged a `recs.served` line for each"
+    tags: [recommendations, ai]
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Two calls get distinct request ids and the served placement"
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Two calls get distinct request ids and the served placement"
+
+  - id: ai.rss-online-feature-tie-break
+    title: "Online features break a tie"
+    persona: buyer
+    priority: P1
+    summary: "Online features break a tie"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes fs:item_popularity keys (Redis DB 2) and the buyer's list (saved and restored in teardown)."
+    acceptance:
+      - "When two candidates have equal model scores and only the second has `item_popularity` features with `ctr_7d` 0.5"
+      - "Then the second ranks above the first in the response"
+    tags: [recommendations, ai, destructive]
+    status: automated
+    covered_by: "recommendations/serving_safeguards.feature::Online features break a tie"
+    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Online features break a tie"
+
+  - id: ai.ssa-similar-reads-serving-vectors
+    title: "A similar-items request reads the vectors of the serving generation"
+    persona: buyer
+    priority: P1
+    summary: "A similar-items request reads the vectors of the serving generation"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When two models have been promoted and a buyer opens similar items for a listing"
+      - "Then the returned listings are the nearest neighbours in the second model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::A similar-items request reads the vectors of the serving generation"
+
+  - id: ai.ssa-alias-ahead-of-pointer
+    title: "An alias ahead of the pointer does not change what is served"
+    persona: buyer
+    priority: P1
+    summary: "An alias ahead of the pointer does not change what is served"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When the item alias is moved to the second model's collection while `recs:v1:serving` still names the first"
+      - "Then similar items through the gateway are the nearest neighbours in the first model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::An alias ahead of the pointer does not change what is served"
+
+  - id: ai.ssa-alias-behind-pointer
+    title: "An alias behind the pointer does not change what is served"
+    persona: buyer
+    priority: P1
+    summary: "An alias behind the pointer does not change what is served"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When `recs:v1:serving` names the second model while the item alias still points at the first model's collection"
+      - "Then similar items through the gateway are the nearest neighbours in the second model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::An alias behind the pointer does not change what is served"
+
+  - id: ai.ssa-no-pointer-uses-alias
+    title: "Without a pointer the alias is used"
+    persona: buyer
+    priority: P1
+    summary: "Without a pointer the alias is used"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When `recs:v1:serving` is absent and the item alias points at a generation's collection"
+      - "Then similar items through the gateway are the nearest neighbours in the alias's collection"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
+
+  - id: ai.ssa-no-listing-credentials
+    title: "The team-ai container does not hold listing's credentials"
+    persona: buyer
+    priority: P1
+    summary: "The team-ai container does not hold listing's credentials"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Reads `docker inspect` of the running team-ai container."
+    acceptance:
+      - "When the running `team-ai-svc` container's environment is inspected"
+      - "Then none of its `POSTGRES_*` values is `listing_svc`, `listing_pass` or `listing_db`"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+
+  - id: ai.aci-created-indexed
+    title: "Created listing is indexed into RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged CREATED/UPDATED event arrives on listing.events"
+      - "Then the listing is retrievable in the RAG store"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. The RAG store has no gateway-reachable read path (openspec/changes/add-ai-content-indexer/design.md)."
+
+  - id: ai.aci-deleted-removed
+    title: "Deleted listing is removed from RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged DELETED event arrives on listing.events"
+      - "Then the listing's documents are removed from the RAG store"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+
+  - id: ai.aci-unpublished-removed
+    title: "Unpublished listing is removed from RAG"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a ListingChanged event carries a DRAFT or REJECTED listing"
+      - "Then the listing is removed from the RAG store instead of indexed"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+
+  - id: ai.aci-redelivered-once
+    title: "Redelivered event is applied once"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the same event or an older event for a listing is delivered again"
+      - "Then it causes no second index or delete"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Redelivery cannot be forced through the gateway."
+
+  - id: ai.aci-failing-parked
+    title: "A failing event is retried and then parked"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When indexing keeps failing or the record is undecodable"
+      - "Then it is retried, parked on listing.events.dlq and committed; an unparkable record is not committed"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Needs fault injection the stack does not expose."
+
+  - id: ai.aci-consumer-lifecycle
+    title: "The consumer runs with the application"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When LISTING_INDEXER_ENABLED and RAG_ENABLED are true"
+      - "Then startup starts the consumer, a crash restarts it and shutdown stops it"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Effect only visible in the RAG store."
+
+  - id: ai.wsg-gbdt-ordering
+    title: "GBDT placement produces ranker ordering, not cosine ordering"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then gBDT placement produces ranker ordering, not cosine ordering"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. The gateway wire carries no explain/status."
+
+  - id: ai.wsg-cosine-ordering
+    title: "Placement without a GBDT model keeps retrieval ordering"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then placement without a GBDT model keeps retrieval ordering"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. The gateway wire carries no explain/status."
+
+  - id: ai.wsg-featurestore-count
+    title: "Enrichment count proves the feature store was read"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then enrichment count proves the feature store was read"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire; the order effect is covered by recommendations/serving_safeguards.feature."
+
+  - id: ai.wsg-unbound-startup
+    title: "Unbound ranking model fails at startup"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then unbound ranking model fails at startup"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. Needs a placement file edit and a restart."
+
+  - id: ai.wsg-ranker-degrades
+    title: "Ranker failure falls back and marks degraded"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then ranker failure falls back and marks degraded"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. Needs a failing ranker in the running service; status is not on the wire."
+
+  - id: ai.wsg-factory-binds
+    title: "A factory-built service honours use_featurestore and gbdt"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the recommendation service runs for the placement"
+      - "Then a factory-built service honours use_featurestore and gbdt"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-serving-gbdt-featurestore/specs. explain is not on the gateway wire."
+
+  - id: ai.mla-serving-ranks-nearline
+    title: "Serving ranks with the nearline CTR written by the consumer"
+    persona: buyer
+    priority: P1
+    summary: "Serving ranks with the nearline CTR written by the consumer"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the nearline CTR hash (recs:nearline:ctr:<id>) and the buyer's user list in the stack Redis DB 0; keys are unique/restored."
+    acceptance:
+      - "When two home-feed candidates have equal model scores and only the second has a nearline CTR in Redis"
+      - "Then a Recommend call through the gateway ranks the second above the first"
+      - "And with no nearline row for either, the order is the candidates' own order"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer"
+    notes: "green after rebuild: recommendations/nearline_ctr.feature::Serving ranks with the nearline CTR written by the consumer"
+
+  - id: ai.mla-debiased-changes-score
+    title: "Debiased value changes the ranking score"
+    persona: buyer
+    priority: P1
+    summary: "Debiased value changes the ranking score"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the nearline CTR hash (recs:nearline:ctr:<id>) and the buyer's user list in the stack Redis DB 0; keys are unique/restored."
+    acceptance:
+      - "When two candidates have equal model scores and equal raw click-through but the second's clicks came from worse positions"
+      - "Then the second ranks above the first in the Recommend response"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/nearline_ctr.feature::Debiased value changes the ranking score"
+    notes: "green after rebuild: recommendations/nearline_ctr.feature::Debiased value changes the ranking score"
+
+  - id: ai.mla-outage-served
+    title: "Nearline outage leaves the request served"
+    persona: buyer
+    priority: P1
+    summary: "Nearline outage leaves the request served"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline outage leaves the request served"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/add-recsys-nearline-signals/specs. Needs the stack Redis (also the serving cache) to fail; status is not on the wire."
+
+  - id: ai.mla-equal-raw-ctr
+    title: "Equal raw CTR, worse positions, higher debiased CTR"
+    persona: buyer
+    priority: P1
+    summary: "Equal raw CTR, worse positions, higher debiased CTR"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then equal raw CTR, worse positions, higher debiased CTR"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. The feature vector is not on the wire; the ordering effect is e2e scenario Debiased value changes the ranking score."
+
+  - id: ai.mla-source-present
+    title: "Nearline data present"
+    persona: buyer
+    priority: P1
+    summary: "Nearline data present"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline data present"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. ctr_source is not on the gateway wire."
+
+  - id: ai.mla-source-absent
+    title: "Nearline data absent"
+    persona: buyer
+    priority: P1
+    summary: "Nearline data absent"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then nearline data absent"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. ctr_source is not on the gateway wire."
+
+  - id: ai.mla-serving-enriches
+    title: "Serving request enriches from nearline"
+    persona: buyer
+    priority: P1
+    summary: "Serving request enriches from nearline"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the scenario's condition holds in team-ai's recommendation service"
+      - "Then serving request enriches from nearline"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY unit tests named in openspec/changes/wire-debiased-ctr-ranker-features/specs. explain is not on the gateway wire; the effect is e2e scenario Debiased value changes the ranking score."
+
+  - id: ai.wsg-registry-features
+    title: "Registry feature names drive the ranking and defaults are counted"
+    persona: buyer
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When candidates' online rows carry the registry names, or only names the registry does not declare"
+      - "Then the registry values reach the ranker and defaulted features are counted without failing the request"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/recommend/test_item_feature_contract.py. explain is not on the gateway wire."
+
+  - id: recommendations.tpr-similar-listing-ids
+    title: "Similar items come back as listing ids"
+    persona: buyer
+    priority: P2
+    summary: "Similar items come back as listing ids"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When similar items are requested for a listing present in the trained collection"
+      - "Then the query uses that listing's uuid5 point id, and every returned candidate id is a listing id from the payload"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Similar items come back as listing ids"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Similar items come back as listing ids"
+
+  - id: recommendations.tpr-home-trained
+    title: "Home page shows trained recommendations"
+    persona: buyer
+    priority: P2
+    summary: "Home page shows trained recommendations"
+    entry_route: /
+    services: [team-ai, team-gateway, team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the training job has run against the stack's tracking events and a buyer opens the home page"
+      - "Then the Gợi ý cho bạn row shows product cards for real listings of the serving trained generation, sourced from team-ai"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Home page shows trained recommendations"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Home page shows trained recommendations"
+
+  - id: recommendations.ple-home-feed
+    title: "Home feed surfaces personalized recommendations with popularity fallback"
+    persona: buyer
+    priority: P2
+    summary: "Home feed surfaces personalized recommendations with popularity fallback"
+    entry_route: /
+    services: [team-ai, team-gateway, platform-recsys]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on a governed dataset fixture that includes the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When a user the trained model knows and a user it never saw query the home_feed placement"
+      - "Then the first is answered from its personalized list and the second from the global popular items, both stamped placementId home_feed"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/placement_engine.feature::Home feed surfaces personalized recommendations with popularity fallback"
+    notes: "add-placement-engine: recommendations/placement_engine.feature::Home feed surfaces personalized recommendations with popularity fallback. Destructive lane (publishes a fixture generation with the buyer; the binder republishes a real one). fallback_tier is internal to team-ai and not on the gateway wire; the tier is unit-verified in team-ai/tests/unit/modules/recommend/test_placement_engine.py."
+
+  - id: recommendations.ple-similar-items
+    title: "Similar items placement retrieves item similarities"
+    persona: buyer
+    priority: P2
+    summary: "Similar items placement retrieves item similarities"
+    entry_route: /
+    services: [team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a client queries similar_items with seed_listing_id"
+      - "Then the service retrieves similar items via vector similarity and falls back to global popular items if the seed is unknown, stamping placementId similar_items"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/placement_engine.feature::Similar items placement retrieves item similarities"
+    notes: "add-placement-engine: recommendations/placement_engine.feature::Similar items placement retrieves item similarities. The category tier is unit-verified: the gateway never sends a category_id."
+
+  - id: ai.arg-published-returned
+    title: "A published listing is returned as a product card"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When a seller publishes a listing with a unique title and a buyer asks the assistant for that title"
+      - "Then the response contains a product card whose listing id is that listing's id with its title and price"
+    tags: [ai, rag]
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::A published listing is returned as a product card"
+
+  - id: ai.arg-unpublished-disappears
+    title: "An unpublished listing disappears from the assistant"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, team-domain, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When the seller of a listing the assistant returns changes it to draft, or deletes another such listing"
+      - "Then the assistant no longer returns a card for it"
+    tags: [ai, rag]
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::An unpublished listing disappears from the assistant"
+
+  - id: ai.arg-outage-fails-open
+    title: "The assistant answers when retrieval is down"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai, platform-modelserve, team-gateway]
+    api:
+      exercised: [ai.v1.ShoppingAssistant]
+    acceptance:
+      - "When the embedding backend the RAG store depends on is stopped and a buyer asks the assistant a question"
+      - "Then the call succeeds with a non-empty reply and no product cards, and cards come back once the backend is restored"
+    tags: [ai, rag, destructive]
+    status: automated
+    covered_by: "ai/assistant_grounding.feature::The assistant answers when retrieval is down"
+
+  - id: ai.arg-cards-distinct-bounded
+    title: "Cards are distinct, bounded and ordered by match"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai]
+    acceptance:
+      - "When retrieval returns several chunks of one listing and more listings than top_k"
+      - "Then each listing appears once, at most top_k cards are returned in score order, and hits under ASSISTANT_RAG_MIN_SCORE are dropped"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. Chunk counts and scores are not observable through the gateway (openspec/changes/assistant-rag-grounding/design.md)."
+
+  - id: ai.arg-demo-catalog-without-rag
+    title: "Without a RAG store the demo catalog answers"
+    persona: buyer
+    entry_route: /assistant
+    services: [team-ai]
+    acceptance:
+      - "When the service runs with RAG_ENABLED=false"
+      - "Then the assistant answers from its built-in demo catalog as before"
+    tags: [ai, rag]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. The e2e stack runs with the RAG store on (openspec/changes/assistant-rag-grounding/design.md)."
+
+  - id: ai.tra-anonymous-refused
+    title: "Anonymous tag requests are refused"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a caller without an Authorization header calls each of the five tag routes"
+      - "Then every call answers 401 and the taxonomy is unchanged"
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Anonymous tag requests are refused"
+
+  - id: ai.tra-buyer-token-refused
+    title: "A buyer's token is refused"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a signed-in buyer presents the gateway session JWT (or any wrong bearer token) to a read route and to promote"
+      - "Then both answer 401 and the taxonomy is unchanged"
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::A buyer's token is refused"
+
+  - id: ai.tra-service-read-only
+    title: "A read-only service principal cannot mutate the taxonomy"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a service principal holding only ai.classify classifies and lists tags, then calls explore and promote"
+      - "Then classify and list answer 200, explore and promote answer 403, and no candidate is registered or promoted"
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::A read-only service principal cannot mutate the taxonomy"
+
+  - id: ai.tra-admin-explores-promotes
+    title: "An admin principal explores and promotes"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When an admin principal explores a batch and promotes the discovered candidate"
+      - "Then both answer 200 and the tag is promoted and canonical"
+    tags: [ai, search, taxonomy]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::An admin principal explores and promotes"
+
+  - id: ai.tra-admin-token-guard
+    title: "Admin access is off unless configured and strong"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When AUTH_ADMIN_BEARER_TOKEN is unset, or outside dev/local/test is weak or equal to AUTH_BEARER_TOKEN"
+      - "Then no principal holds admin on the REST routes, and startup refuses the weak or equal configuration"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_routes_authz.py. The stack runs with the local environment and a configured admin token (openspec/changes/tag-routes-authz/design.md)."
+
+  - id: ai.ttp-survives-restart
+    title: "Promoted and exploring tags survive a restart"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When an admin promotes a tag, a second candidate is explored but left exploring, and team-ai is restarted"
+      - "Then after the restart the promoted tag is canonical with its synonym and the other is still an exploring candidate"
+    tags: [ai, search, taxonomy, destructive]
+    status: automated
+    covered_by: "ai/tag_classifier_taxonomy.feature::Promoted and exploring tags survive a restart"
+
+  - id: ai.ttp-failed-write-fails-promote
+    title: "A failed store write fails the promotion"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the taxonomy store cannot be written during promote"
+      - "Then the call answers 503 and the tag is still only a candidate"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. Failing the shared Redis would break every service on the stack (openspec/changes/tag-taxonomy-persistence/design.md)."
+
+  - id: ai.ttp-startup-outage
+    title: "A store outage at startup serves the seed taxonomy"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the store cannot be read at startup and later recovers"
+      - "Then the service starts with the seed taxonomy and the next promote or explore loads the stored state before applying its change"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. Same reason: the shared Redis cannot be failed (openspec/changes/tag-taxonomy-persistence/design.md)."
+
+  - id: ai.ttp-rest-grpc-shared
+    title: "REST and gRPC share one registry"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a tag is promoted through the REST route"
+      - "Then gRPC ClassifyTags returns it for a matching title and a restart restores it for both"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The gateway does not route ClassifyTags (internal, service principal only)."
+
+  - id: ai.ttp-off-by-default
+    title: "Persistence is off unless enabled"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When TAXONOMY_PERSISTENCE_ENABLED is false"
+      - "Then nothing is written to Redis and a restart returns to the seed taxonomy; enabling it without REDIS_ENABLED or on REDIS_DATABASE fails startup"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The stack runs with persistence on (openspec/changes/tag-taxonomy-persistence/design.md)."
+
+  - id: ai.gbl-ranker-serving
+    title: "A published ranker artifact changes the home feed order"
+    persona: buyer
+    priority: P1
+    summary: "A published ranker artifact changes the home feed order"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the ranker artifact, two feature rows per view and the buyer's user list in the stack Redis DB 0/2; keys are unique/restored."
+    acceptance:
+      - "When the serving generation carries a ranker artifact that scores the second of two home-feed candidates higher, and the candidates' online features exist"
+      - "Then a Recommend call through the gateway ranks the second above the first"
+      - "And without the artifact the same candidates were ranked in their own order"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/gbl_ranker_serving.feature::A published ranker artifact changes the home feed order"
+    notes: "needs rebuild"
+
+  - id: ai.gbl-ranker-feature-mismatch-ignored
+    title: "A ranker with another feature list is ignored"
+    persona: buyer
+    priority: P1
+    summary: "A ranker with another feature list is ignored"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes a ranker artifact whose features differ from RANKING_FEATURES, plus feature rows and the buyer's list in the stack Redis; keys are restored."
+    acceptance:
+      - "When the serving generation carries a ranker artifact that would score the second candidate higher but lists other features"
+      - "Then every Recommend call through the gateway keeps the candidates' own order"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/gbl_ranker_serving.feature::A ranker with another feature list is ignored"
+    notes: "recsys-gbdt-trainer: green twice after rebuilding team-ai"
+
+  - id: ai.gbl-generation-switch-reloads
+    title: "A generation switch reloads the model"
+    persona: buyer
+    priority: P2
+    summary: "A generation switch reloads the model"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the serving pointer moves to a generation whose ranker artifact differs or is absent, then the next request scores with that generation's artifact or the fixed weights"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "recsys-gbdt-trainer: verified by team-ai/tests/unit/modules/recommend/test_trained_ranker.py › test_generation_switch_reloads_the_model. Moving the serving pointer is the publish flow, covered end to end by recsys-generation-publish; the per-process cache reload is unit-level."

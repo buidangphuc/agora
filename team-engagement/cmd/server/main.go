@@ -19,6 +19,8 @@ import (
 
 	"github.com/buidangphuc/team-engagement/internal/bootstrap"
 	"github.com/buidangphuc/team-engagement/internal/config"
+	"github.com/buidangphuc/team-engagement/internal/consumer"
+	"github.com/buidangphuc/team-engagement/internal/events"
 	"github.com/buidangphuc/team-engagement/internal/grpcserver"
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/observability"
@@ -68,7 +70,7 @@ func run() error {
 		}
 	}()
 
-	orderClient, err := upstream.NewOrderClient(settings.Upstream.OrderAddr)
+	orderClient, err := upstream.NewOrderClient(settings.Upstream.OrderAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
 	if err != nil {
 		return fmt.Errorf("dial team-order: %w", err)
 	}
@@ -76,7 +78,7 @@ func run() error {
 		defer func() { _ = orderClient.Close() }()
 		logger.Info("verified-purchase enrichment enabled", slog.String("order_addr", settings.Upstream.OrderAddr))
 	} else {
-		logger.Info("UPSTREAM_ORDER_ADDR unset; verified-purchase enrichment disabled")
+		logger.Warn("UPSTREAM_ORDER_ADDR unset; verified-purchase enrichment disabled and CreateDispute fails closed")
 	}
 
 	reviewRepo := repository.NewPostgresReviewRepository(res.Pool)
@@ -91,7 +93,12 @@ func run() error {
 	disputeSvc := service.NewDisputeService(disputeRepo, logger)
 	collectionRepo := repository.NewPostgresCollectionRepository(res.Pool)
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
-	h := handler.NewEngagementHandler(repository.NewPostgresRepository(res.Pool), reviewSvc, qaSvc, disputeSvc, collectionSvc)
+	engagementRepo := repository.NewPostgresRepository(res.Pool)
+	var handlerOpts []handler.Option
+	if orderClient != nil {
+		handlerOpts = append(handlerOpts, handler.WithOrderParties(orderClient))
+	}
+	h := handler.NewEngagementHandler(engagementRepo, reviewSvc, qaSvc, disputeSvc, collectionSvc, handlerOpts...)
 	srv := grpcserver.Build(settings, h, res.Health, logger)
 
 	addr := net.JoinHostPort(settings.Server.Host, strconv.Itoa(settings.Server.Port))
@@ -110,7 +117,54 @@ func run() error {
 		serveErr <- nil
 	}()
 
+	// listing.events consumer: fills the follow feed. A fatal consumer error (a
+	// record that can neither be handled nor parked to the DLQ) stops the service
+	// so the orchestrator restarts it and the group resumes from its last commit.
+	consumerErr := make(chan error, 1)
+	if settings.Kafka.Enabled {
+		cons, err := consumer.New(settings.KafkaBrokers(), settings.Kafka.ConsumerGroup, settings.Kafka.ListingTopic)
+		if err != nil {
+			return fmt.Errorf("kafka consumer: %w", err)
+		}
+		defer cons.Close()
+		logger.Info("follow-feed consumer started",
+			slog.String("topic", settings.Kafka.ListingTopic),
+			slog.String("group", settings.Kafka.ConsumerGroup))
+		go func() {
+			// Run returns nil on shutdown; only an unexpected stop is reported.
+			if err := cons.Run(ctx, consumer.ListingEventHandler(engagementRepo), logger); err != nil || ctx.Err() == nil {
+				consumerErr <- err
+			}
+		}()
+
+		// Outbox relayer: publishes engagement facts to engagement.events in seq order.
+		pub, err := events.NewKafkaPublisher(settings.KafkaBrokers())
+		if err != nil {
+			return fmt.Errorf("kafka producer: %w", err)
+		}
+		defer pub.Close()
+		relayer := events.NewRelayer(repository.NewPgOutbox(res.Pool), pub, events.RelayerConfig{
+			Topic:        settings.Kafka.EventsTopic,
+			PollInterval: settings.Kafka.OutboxRelayInterval,
+		}, logger)
+		go relayer.Run(ctx)
+		logger.Info("outbox relayer started",
+			slog.String("topic", settings.Kafka.EventsTopic),
+			slog.Duration("interval", settings.Kafka.OutboxRelayInterval))
+	} else {
+		logger.Info("KAFKA_ENABLED=false; follow feed is not fed from listing.events and engagement facts stay in the outbox")
+	}
+
 	select {
+	case err := <-consumerErr:
+		if err == nil {
+			err = errors.New("follow-feed consumer stopped")
+		} else {
+			err = fmt.Errorf("follow-feed consumer: %w", err)
+		}
+		gracefulStop(srv, settings.Server.ShutdownGrace)
+		<-serveErr
+		return err
 	case err := <-serveErr:
 		return err
 	case <-ctx.Done():

@@ -12,7 +12,7 @@ import (
 )
 
 // mapAlertErr turns a service validation error into the right gRPC status.
-func mapAlertErr(err error) error {
+func mapAlertErr(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, service.ErrEmptyListing),
 		errors.Is(err, service.ErrInvalidType),
@@ -20,7 +20,7 @@ func mapAlertErr(err error) error {
 		errors.Is(err, service.ErrEmptyUser):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "%v", err)
+		return internalErr(ctx, "service call", err)
 	}
 }
 
@@ -34,7 +34,7 @@ func (h *NotificationHandler) SubscribeAlert(ctx context.Context, req *notificat
 	}
 	sub, err := h.alerts.Subscribe(ctx, userID, req.GetListingId(), req.GetType())
 	if err != nil {
-		return nil, mapAlertErr(err)
+		return nil, mapAlertErr(ctx, err)
 	}
 	return &notificationv1.SubscribeAlertResponse{Subscription: sub}, nil
 }
@@ -48,7 +48,7 @@ func (h *NotificationHandler) UnsubscribeAlert(ctx context.Context, req *notific
 		return nil, err
 	}
 	if err := h.alerts.Unsubscribe(ctx, userID, req.GetSubscriptionId()); err != nil {
-		return nil, mapAlertErr(err)
+		return nil, mapAlertErr(ctx, err)
 	}
 	return &notificationv1.UnsubscribeAlertResponse{}, nil
 }
@@ -63,7 +63,7 @@ func (h *NotificationHandler) ListAlertSubscriptions(ctx context.Context, _ *not
 	}
 	subs, err := h.alerts.List(ctx, userID)
 	if err != nil {
-		return nil, mapAlertErr(err)
+		return nil, mapAlertErr(ctx, err)
 	}
 	return &notificationv1.ListAlertSubscriptionsResponse{Subscriptions: subs}, nil
 }

@@ -17,7 +17,7 @@ Feature: Notification delivery hardening
   # The last-seen price lives in listing_last_seen, so the restarted consumer still
   # has the 2,000,000 baseline when the price drops to 500,000.
   @buyer @destructive
-  Scenario: A price drop after a team-notification restart is still detected
+  Scenario: A price drop after a restart is still detected
     Given a buyer subscribed to a "price_drop" alert on a seeded listing
     And the notification consumer has recorded the listing's price
     When team-notification is restarted

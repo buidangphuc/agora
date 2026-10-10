@@ -26,6 +26,7 @@ export function isOwnedBy(
   me: SessionPrincipal | null,
 ): boolean {
   return (
-    me !== null && (order.sellerId === me.id || me.scopes.includes("admin"))
+    me !== null &&
+    (order.sellerId === me.id || me.scopes.includes("order.admin"))
   );
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/buidangphuc/team-order/internal/repository"
 )
 
-// countingOrderStore records how many times UpdateOrderStatus is called so the
+// countingOrderStore records how many status writes succeed so the
 // test can prove the PAID transition happens exactly once.
 type countingOrderStore struct {
 	mu      sync.Mutex
@@ -34,14 +34,30 @@ func (s *countingOrderStore) GetOrder(_ context.Context, id string) (repository.
 	return o, nil
 }
 
-func (s *countingOrderStore) UpdateOrderStatus(_ context.Context, id string, st repository.OrderStatus, _ string) (repository.Order, error) {
+func (s *countingOrderStore) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	o, ok := s.orders[id]
 	if !ok {
 		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	o.Status = st
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
 	s.orders[id] = o
 	s.updates++
 	return o, nil
@@ -135,24 +151,36 @@ func TestPaymentConsumer_FailedPayment_NoTransition(t *testing.T) {
 // ── AD1: the Run loop commits only after apply/DLQ, and DLQs poison records ──
 
 type fakeReader struct {
+	mu        sync.Mutex
 	records   []consumer.Record
 	idx       int
 	committed []consumer.Record
 }
 
 func (r *fakeReader) Fetch(ctx context.Context) (consumer.Record, error) {
+	r.mu.Lock()
 	if r.idx >= len(r.records) {
+		r.mu.Unlock()
 		<-ctx.Done() // block until cancelled once records are drained
 		return consumer.Record{}, ctx.Err()
 	}
 	rec := r.records[r.idx]
 	r.idx++
+	r.mu.Unlock()
 	return rec, nil
 }
 
 func (r *fakeReader) Commit(_ context.Context, rec consumer.Record) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.committed = append(r.committed, rec)
 	return nil
+}
+
+func (r *fakeReader) committedCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.committed)
 }
 
 type fakeDLQ struct {
@@ -187,7 +215,7 @@ func TestPaymentConsumer_Run_PoisonRecordGoesToDLQ_ThenCommits(t *testing.T) {
 	}()
 
 	// Wait until both records have been committed, then stop the loop.
-	waitFor(t, func() bool { return len(reader.committed) == 2 })
+	waitFor(t, func() bool { return reader.committedCount() == 2 })
 	cancel()
 	<-done
 
@@ -197,7 +225,7 @@ func TestPaymentConsumer_Run_PoisonRecordGoesToDLQ_ThenCommits(t *testing.T) {
 	if store.updates != 1 {
 		t.Fatalf("expected the good record applied once, got %d", store.updates)
 	}
-	if len(reader.committed) != 2 {
+	if reader.committedCount() != 2 {
 		t.Fatalf("expected both records committed after handling, got %d", len(reader.committed))
 	}
 }
@@ -249,7 +277,7 @@ func TestPaymentConsumer_Run_TransientFetchErrorsDoNotStopTheLoop(t *testing.T) 
 		done <- c.Run(ctx, reader, &fakeDLQ{}, consumer.RunConfig{MaxAttempts: 1, BaseBackoff: 1, FetchRetryBackoff: time.Millisecond})
 	}()
 
-	waitFor(t, func() bool { return len(reader.committed) == 1 })
+	waitFor(t, func() bool { return reader.committedCount() == 1 })
 	select {
 	case err := <-done:
 		t.Fatalf("loop stopped on a transient error: %v", err)

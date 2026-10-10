@@ -76,12 +76,10 @@ function mapLoginEvent(e: LoginEvent): ViewLoginEvent {
 }
 
 export async function listSessions(): Promise<ViewSession[]> {
-  try {
-    const res = await sessions().listSessions({});
-    return res.sessions.map(mapSession);
-  } catch {
-    return [];
-  }
+  // Errors propagate (empty != failed): the page settles the read and shows an
+  // error Alert with retry instead of "no active sessions".
+  const res = await sessions().listSessions({});
+  return res.sessions.map(mapSession);
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
@@ -89,10 +87,6 @@ export async function revokeSession(sessionId: string): Promise<void> {
 }
 
 export async function listLoginHistory(): Promise<ViewLoginEvent[]> {
-  try {
-    const res = await sessions().listLoginHistory({});
-    return res.events.map(mapLoginEvent);
-  } catch {
-    return [];
-  }
+  const res = await sessions().listLoginHistory({});
+  return res.events.map(mapLoginEvent);
 }

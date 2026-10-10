@@ -94,10 +94,21 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			res, fallbackErr := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
 			return res, true, fallbackErr
 		}
-		return res, false, nil
+		kept, dropped := e.applySemanticFloor(res, params.From)
+		if dropped {
+			kept.Facets = e.facetsFor(ctx, hitIDs(kept.Hits), params, kept.Facets)
+		}
+		return kept, false, nil
 	}
 
 	// 3. Hybrid Mode (Multi-Strategy Fusion)
+	// D8: RRF ranks by relevance and would destroy a key order, so an explicit
+	// newest/price sort is served by the lexical leg with that sort and page.
+	if isKeySort(params.SortBy) {
+		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
+		return res, false, err
+	}
+
 	// D8: Deep paging beyond fusion window falls back to BM25
 	if params.From >= e.cfg.HybridFusionWindow {
 		res, err := e.idx.Search(ctx, params.Query, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, params.From, params.Size)
@@ -119,6 +130,7 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		lexErr     error
 		semResult  index.SearchResult
 		semErr     error
+		semFloored bool
 		isDegraded bool
 	)
 
@@ -147,6 +159,9 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 			return
 		}
 		semResult, semErr = e.idx.SearchVector(ctx, vec, params.Filters, params.CategoryID, params.MinPrice, params.MaxPrice, params.MinRating, params.SortBy, 0, fusionPoolSize)
+		if semErr == nil {
+			semResult, semFloored = e.applySemanticFloor(semResult, 0)
+		}
 	}()
 
 	wg.Wait()
@@ -156,29 +171,43 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		return index.SearchResult{}, false, lexErr
 	}
 
-	// If semantic failed, fail open cleanly to lexical
-	if semErr != nil || len(semResult.Hits) == 0 {
+	// Semantic failed: fail open cleanly to lexical.
+	if semErr != nil {
 		isDegraded = true
 		if lexErr != nil {
 			return index.SearchResult{}, false, lexErr
 		}
-		// Paginate lexical results
-		hits := paginateHits(lexResult.Hits, params.From, params.Size)
 		return index.SearchResult{
-			Hits:   hits,
+			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
 			Total:  lexResult.Total,
 			Facets: lexResult.Facets,
 		}, isDegraded, nil
 	}
-
-	// If lexical failed, fall back to semantic
-	if lexErr != nil || len(lexResult.Hits) == 0 {
-		isDegraded = true
-		hits := paginateHits(semResult.Hits, params.From, params.Size)
+	// Semantic succeeded but nothing is above the similarity floor: the lexical
+	// leg alone answers, and it is not a degradation.
+	if lexErr == nil && len(semResult.Hits) == 0 {
 		return index.SearchResult{
-			Hits:   hits,
+			Hits:   paginateHits(lexResult.Hits, params.From, params.Size),
+			Total:  lexResult.Total,
+			Facets: lexResult.Facets,
+		}, false, nil
+	}
+
+	// Lexical failed or matched nothing: the semantic candidates (already above
+	// the floor) answer. Zero candidates means zero hits.
+	if lexErr != nil || len(lexResult.Hits) == 0 {
+		isDegraded = lexErr != nil
+		facets := semResult.Facets
+		switch {
+		case len(semResult.Hits) == 0 && lexErr == nil:
+			facets = lexResult.Facets // lexical matched nothing either: empty buckets
+		case semFloored && len(semResult.Hits) > 0:
+			facets = e.facetsFor(ctx, hitIDs(semResult.Hits), params, semResult.Facets)
+		}
+		return index.SearchResult{
+			Hits:   paginateHits(semResult.Hits, params.From, params.Size),
 			Total:  semResult.Total,
-			Facets: semResult.Facets,
+			Facets: facets,
 		}, isDegraded, nil
 	}
 
@@ -200,12 +229,15 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 		if len(fused) < rerankLimit {
 			rerankLimit = len(fused)
 		}
-		candidateIDs := make([]string, rerankLimit)
+		docs := make([]RerankDoc, rerankLimit)
 		for i := 0; i < rerankLimit; i++ {
-			candidateIDs[i] = fused[i].ListingID
+			docs[i] = RerankDoc{ID: fused[i].ListingID, Text: fused[i].Text}
 		}
-		reorderedIDs, err := e.rerankClient.Rerank(ctx, params.Query, candidateIDs)
-		if err == nil && len(reorderedIDs) == len(candidateIDs) {
+		reorderedIDs, err := e.rerankClient.Rerank(ctx, params.Query, docs)
+		if err != nil {
+			log.Printf("[retrieval] rerank error: %v, keeping RRF order", err)
+		}
+		if err == nil && len(reorderedIDs) == len(docs) {
 			idToCand := make(map[string]Candidate, len(fused))
 			for _, c := range fused {
 				idToCand[c.ListingID] = c
@@ -228,23 +260,118 @@ func (e *Engine) Execute(ctx context.Context, params SearchParams) (index.Search
 	pagedCandidates := paginateCandidates(fused, params.From, params.Size)
 	hits := make([]index.Hit, 0, len(pagedCandidates))
 	for _, c := range pagedCandidates {
-		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score})
+		hits = append(hits, index.Hit{ListingID: c.ListingID, Score: c.Score, Stock: c.Stock})
 	}
 
-	// Total estimate is max of both strategies
+	// Total and facets describe the fused candidate set the hits come from: the
+	// semantic leg's own total is k (always a full page of neighbours), so it must
+	// not inflate the total. When the fused set is exactly the lexical set the
+	// lexical facets are already right; otherwise they are re-aggregated over the
+	// fused ids under the same filters.
 	total := lexResult.Total
-	if semResult.Total > total {
-		total = semResult.Total
+	if int64(len(fused)) > total {
+		total = int64(len(fused))
 	}
-
-	// Primary facet source is lexical (or semantic if lexical empty)
 	facets := lexResult.Facets
+	if !sameSet(fused, lexResult.Hits) || lexResult.Total > int64(len(lexResult.Hits)) {
+		facets = e.facetsFor(ctx, candidateIDs(fused), params, lexResult.Facets)
+	}
 
 	return index.SearchResult{
 		Hits:   hits,
 		Total:  total,
 		Facets: facets,
 	}, false, nil
+}
+
+// semanticMinKNNScore converts the configured cosine-similarity floor to the
+// score OpenSearch reports for a cosinesimil knn query (Lucene engine):
+// score = (1 + cosine) / 2, in [0, 1]. A floor at or below -1 disables it.
+func (e *Engine) semanticMinKNNScore() (float64, bool) {
+	if e.cfg.SemanticMinScore <= -1 {
+		return 0, false
+	}
+	return (1 + e.cfg.SemanticMinScore) / 2, true
+}
+
+// applySemanticFloor drops semantic hits whose cosine similarity is below the
+// configured floor. Hits arrive sorted by score, so everything after the first
+// miss is dropped too; total shrinks to what is left (offset + kept).
+func (e *Engine) applySemanticFloor(res index.SearchResult, from int) (index.SearchResult, bool) {
+	floor, on := e.semanticMinKNNScore()
+	if !on {
+		return res, false
+	}
+	kept := make([]index.Hit, 0, len(res.Hits))
+	for _, h := range res.Hits {
+		if h.Score >= floor {
+			kept = append(kept, h)
+		}
+	}
+	if len(kept) == len(res.Hits) {
+		return res, false
+	}
+	res.Hits = kept
+	res.Total = int64(from + len(kept))
+	return res, true
+}
+
+// facetsFor aggregates facets over exactly the given candidate ids under the
+// request's filters. An index without that capability, or a failed aggregation,
+// keeps the fallback facets rather than failing the search.
+func (e *Engine) facetsFor(ctx context.Context, ids []string, params SearchParams, fallback index.Facets) index.Facets {
+	fc, ok := e.idx.(index.FacetCounter)
+	if !ok || len(ids) == 0 {
+		return fallback
+	}
+	f, err := fc.FacetsForIDs(ctx, ids, params.Filters)
+	if err != nil {
+		log.Printf("[retrieval] facets for fused candidates: %v, keeping leg facets", err)
+		return fallback
+	}
+	return f
+}
+
+func hitIDs(hits []index.Hit) []string {
+	ids := make([]string, 0, len(hits))
+	for _, h := range hits {
+		ids = append(ids, h.ListingID)
+	}
+	return ids
+}
+
+func candidateIDs(cs []Candidate) []string {
+	ids := make([]string, 0, len(cs))
+	for _, c := range cs {
+		ids = append(ids, c.ListingID)
+	}
+	return ids
+}
+
+// sameSet reports whether the fused candidates are exactly the given hits.
+func sameSet(fused []Candidate, hits []index.Hit) bool {
+	if len(fused) != len(hits) {
+		return false
+	}
+	in := make(map[string]struct{}, len(hits))
+	for _, h := range hits {
+		in[h.ListingID] = struct{}{}
+	}
+	for _, c := range fused {
+		if _, ok := in[c.ListingID]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// isKeySort reports whether sortBy orders by a document key rather than relevance.
+func isKeySort(sortBy searchv1.SortBy) bool {
+	switch sortBy {
+	case searchv1.SortBy_SORT_BY_NEWEST, searchv1.SortBy_SORT_BY_PRICE_ASC, searchv1.SortBy_SORT_BY_PRICE_DESC:
+		return true
+	}
+	return false
 }
 
 func toCandidates(hits []index.Hit, strategy string) []Candidate {
@@ -255,6 +382,8 @@ func toCandidates(hits []index.Hit, strategy string) []Candidate {
 			Score:     h.Score,
 			Rank:      i + 1,
 			Strategy:  strategy,
+			Stock:     h.Stock,
+			Text:      h.Text,
 		})
 	}
 	return cands

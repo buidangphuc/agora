@@ -10,8 +10,8 @@ features:
     persona: guest
     priority: P2
     summary: >
-      An offline PySpark job reads tracking_events, builds implicit-feedback
-      (user, item, weight) triples, fits Spark MLlib ALS (implicitPrefs=true), and
+      An offline PySpark job reads the governed als_interactions dataset (weighted
+      per-(user,item) rows built by platform-featurestore), fits Spark MLlib ALS (implicitPrefs=true), and
       loads item/user vectors into Qdrant plus a precomputed Top-N cache into Redis,
       each stamped with a model_version.
     entry_route: /
@@ -19,11 +19,11 @@ features:
     preconditions:
       login: guest
       data: >
-        A sample tracking_events Parquet warehouse (view/click/add_to_cart events for
-        several users and listings), local Qdrant (:6333) and Redis (:6379) running,
+        A governed als_interactions dataset fixture with its manifest (several users
+        and listings), local Qdrant (:6333) and Redis (:6379) running,
         and the job run in Spark local mode (no cluster).
     acceptance:
-      - Given a sample tracking_events dataset with view/click/add-to-cart events for several users and listings
+      - Given a governed als_interactions dataset with weighted rows for several users and listings
       - When the job runs in Spark local mode against that sample warehouse
       - Then it produces an ALS model with item factors and user factors, having dropped rows with an empty listing_id and collapsed events to weighted per-(user,item) interactions
       - And the item-vector and user-vector Qdrant collections exist and are populated with one point per trained listing / user, each stamped with the run's model_version
@@ -144,3 +144,868 @@ features:
     tags: [recsys, observability]
     status: automated
     covered_by: "recommendations/pipeline_eval_registry.feature::The run summary states the decision and its reason"
+
+  - id: recsys.model-dataset-lineage
+    title: "A trained model names its dataset"
+    persona: guest
+    priority: P1
+    summary: "A trained model names its dataset."
+    entry_route: "/"
+    services: [platform-recsys, platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the dataset is built and the recsys ALS job runs on it
+      - Then the model the job registered records als_interactions, version 1, the dataset's as_of and the file SHA-256 from its manifest
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::A trained model names its dataset"
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::A trained model names its dataset"
+
+  - id: recsys.dataset-required
+    title: "Recsys refuses to train without a dataset"
+    persona: guest
+    priority: P1
+    summary: "Recsys refuses to train without a dataset."
+    entry_route: "/"
+    services: [platform-recsys, platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the recsys ALS job starts with DATASET_DIR pointing at an empty directory
+      - Then it exits non-zero, its log names DATASET_DIR, and no model is registered
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::Recsys refuses to train without a dataset"
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::Recsys refuses to train without a dataset"
+
+  - id: recsys.gen-second-promotion-keeps-previous
+    title: "A second promotion keeps the first as previous"
+    persona: buyer
+    priority: P1
+    summary: "A second promotion keeps the first as previous"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When the recsys job promotes a model on one dataset and then promotes a better model on a second dataset"
+      - "Then `recs:v1:serving` is the second model, `recs:v1:previous` is the first, the alias points at the second model's collection, and a buyer's recommendations through the gateway report the second model's version"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A second promotion keeps the first as previous"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::A second promotion keeps the first as previous"
+
+  - id: recsys.gen-third-promotion-drops-oldest
+    title: "A third promotion drops the oldest generation"
+    persona: buyer
+    priority: P1
+    summary: "A third promotion drops the oldest generation"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When a third model is promoted after the two above"
+      - "Then no key or collection of the first model remains, and `recs:v1:previous` is the second model"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A third promotion drops the oldest generation"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::A third promotion drops the oldest generation"
+
+  - id: recsys.gen-rejected-candidate-leaves-serving
+    title: "A rejected candidate leaves serving untouched"
+    persona: buyer
+    priority: P1
+    summary: "A rejected candidate leaves serving untouched"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When the recsys job runs on a dataset whose candidate fails the promotion gate"
+      - "Then `recs:v1:serving`, `recs:v1:previous` and the alias are the same as before the run"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A rejected candidate leaves serving untouched"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::A rejected candidate leaves serving untouched"
+
+  - id: recsys.gen-one-size-fits-all-rejected
+    title: "A one-size-fits-all model is rejected"
+    persona: buyer
+    priority: P1
+    summary: "A one-size-fits-all model is rejected"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When the recsys job runs on a dataset in which every user interacted with the same three items only"
+      - "Then the candidate is registered as `rejected` with a reason naming the list overlap or item coverage check, and serving is unchanged"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::A one-size-fits-all model is rejected"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::A one-size-fits-all model is rejected"
+
+  - id: recsys.gen-rollback-restores-earlier-model
+    title: "Rolling back restores the earlier model"
+    persona: buyer
+    priority: P1
+    summary: "Rolling back restores the earlier model"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When two models were promoted and `python -m recsys rollback` runs"
+      - "Then `recs:v1:serving` is the first model, `recs:v1:previous` is the second, the registry champion is the first, and a buyer's recommendations through the gateway report the first model's version"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::Rolling back restores the earlier model"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::Rolling back restores the earlier model"
+
+  - id: recsys.gen-rollback-refused-without-previous
+    title: "Rollback without a previous generation is refused"
+    persona: buyer
+    priority: P1
+    summary: "Rollback without a previous generation is refused"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures that include the buyer; destructive lane (rewrites the shared serving pointer)."
+    acceptance:
+      - "When only one generation was ever promoted and `python -m recsys rollback` runs"
+      - "Then it exits non-zero and `recs:v1:serving` is unchanged"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/generation_publish.feature::Rollback without a previous generation is refused"
+    notes: "recsys-generation-publish: recommendations/generation_publish.feature::Rollback without a previous generation is refused"
+
+  - id: recsys.ssa-retention-spares-serving-previous
+    title: "Serving and previous collections survive retention without an alias"
+    persona: buyer
+    priority: P1
+    summary: "Serving and previous collections survive retention without an alias"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When a third model is promoted and the item alias is then deleted and another model is promoted"
+      - "Then the collections of the serving and the previous model both still exist"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Serving and previous collections survive retention without an alias"
+
+  - id: recsys.ssa-rollback-restores-vectors
+    title: "Rollback restores the earlier model's vectors"
+    persona: buyer
+    priority: P1
+    summary: "Rollback restores the earlier model's vectors"
+    entry_route: /
+    services: [platform-recsys, team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image on governed dataset fixtures; rewrites the shared serving pointer/aliases (destructive lane)."
+    acceptance:
+      - "When two models were promoted and `python -m recsys rollback` runs"
+      - "Then similar items through the gateway are the nearest neighbours in the first model's collection"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Rollback restores the earlier model's vectors"
+
+  - id: recsys.mlr-nearline-recent-views
+    title: "User recent views update nearline signals"
+    persona: buyer
+    priority: P1
+    summary: "User recent views update nearline signals"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When a user views item A and then item B"
+      - "Then the nearline layer records [B, A] in the user's recent items list in Redis and increments the category affinities"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::User recent views update nearline signals"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::User recent views update nearline signals"
+
+  - id: recsys.mlr-nearline-coview
+    title: "Real-time item co-occurrence is tracked"
+    persona: buyer
+    priority: P1
+    summary: "Real-time item co-occurrence is tracked"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: buyer
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When multiple users view A and B within the same session"
+      - "Then the co-view count between A and B is incremented in Redis"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Real-time item co-occurrence is tracked"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Real-time item co-occurrence is tracked"
+
+  - id: recsys.mlr-nearline-generation-isolation
+    title: "A generation switch leaves nearline keys alone"
+    persona: guest
+    priority: P1
+    summary: "A generation switch leaves nearline keys alone"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When nearline keys exist and the recsys job promotes three generations in a row"
+      - "Then the nearline keys are unchanged and keep their TTL"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A generation switch leaves nearline keys alone"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A generation switch leaves nearline keys alone"
+
+  - id: recsys.mlr-drift-first-run
+    title: "The first run has no drift baseline"
+    persona: guest
+    priority: P1
+    summary: "The first run has no drift baseline"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the recsys job runs with an empty registry"
+      - "Then the summary and model metadata report drift status no_baseline and the distribution is stored"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::The first run has no drift baseline"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::The first run has no drift baseline"
+
+  - id: recsys.mlr-drift-second-run
+    title: "A second run records its drift against the first"
+    persona: guest
+    priority: P1
+    summary: "A second run records its drift against the first"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the recsys job runs twice on the same governed dataset"
+      - "Then the second run's drift names the first as baseline with a PSI and level per feature, none flagged"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A second run records its drift against the first"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A second run records its drift against the first"
+
+  - id: recsys.mlr-drift-flagged-still-promoted
+    title: "A drifted run is flagged and still decided by the gate"
+    persona: guest
+    priority: P1
+    summary: "A drifted run is flagged and still decided by the gate"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the recsys job runs a second time with DRIFT_ALERT_THRESHOLD set to 0"
+      - "Then every feature is flagged, the metadata carries the verdict and the run is promoted"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A drifted run is flagged and still decided by the gate"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A drifted run is flagged and still decided by the gate"
+
+  - id: recsys.mlr-drift-prometheus-file
+    title: "A drift report is written as Prometheus text"
+    persona: guest
+    priority: P1
+    summary: "A drift report is written as Prometheus text"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the recsys job runs twice with DRIFT_METRICS_PATH set"
+      - "Then the file holds recsys_feature_psi per feature and recsys_model_drift_alert"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A drift report is written as Prometheus text"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A drift report is written as Prometheus text"
+
+  - id: recsys.mlr-tt-indexes-vectors
+    title: "Pipeline run indexes two-tower vectors and reports the count"
+    persona: guest
+    priority: P1
+    summary: "Pipeline run indexes two-tower vectors and reports the count"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When pipeline.run() executes with the two-tower stage enabled over a sample catalog"
+      - "Then the summary has two_tower_items greater than zero and the collection holds that many points"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Pipeline run indexes two-tower vectors and reports the count"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Pipeline run indexes two-tower vectors and reports the count"
+
+  - id: recsys.mlr-tt-generation
+    title: "Two-tower vectors carry the run generation"
+    persona: guest
+    priority: P1
+    summary: "Two-tower vectors carry the run generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the two-tower stage loads vectors during three runs"
+      - "Then every point carries its run's model_version and earlier generations' collections are pruned"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Two-tower vectors carry the run generation"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Two-tower vectors carry the run generation"
+
+  - id: recsys.mlr-tt-cold-start
+    title: "Cold-start item receives a vector that ALS cannot produce"
+    persona: guest
+    priority: P1
+    summary: "Cold-start item receives a vector that ALS cannot produce"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the catalog contains an item with no recorded interactions"
+      - "Then it has a non-zero two-tower vector that differs from another item's, and no ALS vector"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Cold-start item receives a vector that ALS cannot produce"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Cold-start item receives a vector that ALS cannot produce"
+
+  - id: recsys.mlr-tt-trains
+    title: "A run trains the towers on the dataset's pairs"
+    persona: guest
+    priority: P1
+    summary: "A run trains the towers on the dataset's pairs"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the two-tower stage runs over a dataset with interactions"
+      - "Then the summary reports first and last epoch loss and the metadata records pairs, epochs and feature snapshots"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A run trains the towers on the dataset's pairs"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A run trains the towers on the dataset's pairs"
+
+  - id: recsys.mlr-tt-missing-snapshots
+    title: "Missing feature snapshots stop the run"
+    persona: guest
+    priority: P1
+    summary: "Missing feature snapshots stop the run"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the stage is enabled and no item_popularity snapshot exists"
+      - "Then the job exits 2, its log names ITEM_FEATURES_DIR and no model is registered"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Missing feature snapshots stop the run"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Missing feature snapshots stop the run"
+
+  - id: recsys.mlr-tt-degenerate-refused
+    title: "A degenerate vector never reaches the vector store"
+    persona: guest
+    priority: P1
+    summary: "A degenerate vector never reaches the vector store"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When the catalogue has an item with all-zero features and the towers are untrained"
+      - "Then one refused vector is counted and the collection has no point for that item"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::A degenerate vector never reaches the vector store"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::A degenerate vector never reaches the vector store"
+
+  - id: recsys.mlr-tt-disabled
+    title: "Disabled stage leaves the ALS run unchanged"
+    persona: guest
+    priority: P1
+    summary: "Disabled stage leaves the ALS run unchanged"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+      data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
+    acceptance:
+      - "When pipeline.run() executes with the two-tower stage disabled"
+      - "Then the summary has no two-tower entries and no two-tower collection is written"
+    tags: [recsys, recommendations, batch]
+    status: automated
+    covered_by: "recommendations/mlr_ml_recsys.feature::Disabled stage leaves the ALS run unchanged"
+    notes: "green after rebuild: recommendations/mlr_ml_recsys.feature::Disabled stage leaves the ALS run unchanged"
+
+  - id: recsys.mlr-nearline-redelivery-stale
+    title: "Redelivered and stale events change nothing"
+    persona: guest
+    priority: P2
+    summary: "Redelivered and stale events change nothing"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Redelivered and stale events change nothing (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-recsys-nearline-signals: VERIFIED BY platform-recsys/tests/test_nearline.py. Not verifiable end to end: the gateway stamps every event's id and time, so no public-edge call can redeliver an envelope or produce an old one."
+
+  - id: recsys.mlr-nearline-undecodable
+    title: "An undecodable message is skipped"
+    persona: guest
+    priority: P2
+    summary: "An undecodable message is skipped"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An undecodable message is skipped (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-recsys-nearline-signals: VERIFIED BY platform-recsys/tests/test_nearline_consumer.py. Not verifiable end to end: the gateway only produces well-formed envelopes."
+
+  - id: recsys.mlr-drift-psi-identical
+    title: "Identical distributions have zero drift"
+    persona: guest
+    priority: P2
+    summary: "Identical distributions have zero drift"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Identical distributions have zero drift (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-recsys-drift-monitoring: VERIFIED BY platform-recsys/tests/test_drift.py. Not verifiable end to end: PSI is arithmetic over two in-memory samples."
+
+  - id: recsys.mlr-drift-psi-shifted
+    title: "Shifted distribution triggers significant drift alert"
+    persona: guest
+    priority: P2
+    summary: "Shifted distribution triggers significant drift alert"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Shifted distribution triggers significant drift alert (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-recsys-drift-monitoring: VERIFIED BY platform-recsys/tests/test_drift.py. Not verifiable end to end: PSI is arithmetic over two in-memory samples."
+
+  - id: recsys.mlr-drift-multi-feature
+    title: "Multi-feature dataset drift evaluation"
+    persona: guest
+    priority: P2
+    summary: "Multi-feature dataset drift evaluation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Multi-feature dataset drift evaluation (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-recsys-drift-monitoring: VERIFIED BY platform-recsys/tests/test_drift.py. Not verifiable end to end: the report is a library return value; its deployed form is covered by the per-run scenarios."
+
+  - id: recsys.mlr-tt-tower-projection
+    title: "User tower and item tower embedding generation"
+    persona: guest
+    priority: P2
+    summary: "User tower and item tower embedding generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "User tower and item tower embedding generation (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "wire-two-tower-batch-pipeline: VERIFIED BY platform-recsys/tests/test_two_tower.py. Not verifiable end to end: the projection is an in-process function with no deployed surface."
+
+  - id: recsys.mlr-tt-top-k
+    title: "Top-K candidate generation for user"
+    persona: guest
+    priority: P2
+    summary: "Top-K candidate generation for user"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Top-K candidate generation for user (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "wire-two-tower-batch-pipeline: VERIFIED BY platform-recsys/tests/test_two_tower.py. Not verifiable end to end: TwoTowerModel.retrieve is in-process; this change has no serving surface."
+
+  - id: recsys.wtse-evaluation-report-exposes-split
+    title: "Evaluation report exposes the split it performed"
+    persona: admin
+    priority: P2
+    summary: "Evaluation report exposes the split it performed"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: Evaluation report exposes the split it performed"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_evaluator_owns_temporal_split_and_reports_metadata. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.wtse-split-admits-no-temporal-leakage
+    title: "Split admits no temporal leakage"
+    persona: admin
+    priority: P2
+    summary: "Split admits no temporal leakage"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: Split admits no temporal leakage"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_temporal_split_zero_leakage. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.wtse-post-cutoff-signal-not-learnable
+    title: "Post-cutoff-only signal is not learnable from the training half"
+    persona: admin
+    priority: P2
+    summary: "Post-cutoff-only signal is not learnable from the training half"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: Post-cutoff-only signal is not learnable from the training half"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_post_cutoff_only_signal_yields_zero_recall_on_training_model. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.wtse-external-split-marked
+    title: "External split is marked in the report"
+    persona: admin
+    priority: P2
+    summary: "External split is marked in the report"
+    entry_route: /recsys/evals
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "See openspec/changes/wire-temporal-split-eval-cli: External split is marked in the report"
+    tags: [recsys]
+    status: not-testable
+    notes: "wire-temporal-split-eval-cli: verified by platform-recsys/tests/test_evals_temporal_cli.py › test_external_ground_truth_is_marked_external. Offline evaluation logic, no edge-visible effect."
+
+  - id: recsys.gbdt-outperforms-cosine
+    title: "GBDT ranker outperforms raw cosine baseline on offline eval"
+    persona: guest
+    priority: P2
+    summary: "GBDT ranker outperforms raw cosine baseline on offline eval"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "GBDT ranker outperforms raw cosine baseline on offline eval (unit-verified)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "add-gbdt-ranker: VERIFIED BY platform-recsys/tests/test_ranker.py › test_gbdt_ranker_outperforms_raw_cosine_ndcg. Not verifiable end to end: offline NDCG arithmetic over a labelled holdout; the serving path exposes only the re-ranked list, never the cosine baseline."
+
+  - id: recsys.tpr-eval-never-trains-on-targets
+    title: "The evaluation model never trains on its targets"
+    persona: guest
+    priority: P2
+    summary: "The evaluation model never trains on its targets"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a run evaluates its training recipe"
+      - "Then no held-out pair or later event of that user is in the evaluation model's training data, and the metrics carry the evaluation protocol identifier"
+    tags: [recsys, evals]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::The evaluation model never trains on its targets"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::The evaluation model never trains on its targets. Real job image on a fixture whose targets are unique per user: exact train/test event counts, zero hit rate for the evaluation model, published model holds the targets."
+
+  - id: recsys.tpr-protocol-not-compared
+    title: "Metrics from another evaluation protocol are not compared"
+    persona: guest
+    priority: P2
+    summary: "Metrics from another evaluation protocol are not compared"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the incumbent champion's metrics were produced under a different evaluation protocol"
+      - "Then the gate does not compare the two values, and the candidate becomes the champion with a reason that names both protocols"
+    tags: [recsys, evals, registry]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared. The incumbent is seeded in the registry store without an eval_protocol (as a pre-protocol champion is)."
+
+  - id: recsys.fia-cold-start-categories
+    title: "Cold-start items with different categories get different vectors"
+    persona: guest
+    priority: P1
+    summary: "Cold-start items with different categories get different vectors"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled over attribute snapshots that hold two listings with no engagement and no ALS factor, with different categories and the same price"
+      - "Then both have a non-zero two-tower vector and the vectors differ"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/recsys_item_attributes.feature::Cold-start items with different categories get different vectors"
+    notes: "needs rebuild"
+
+  - id: recsys.fia-lineage
+    title: "The model records the attribute snapshots it trained on"
+    persona: guest
+    priority: P1
+    summary: "The model records the attribute snapshots it trained on"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled over attribute and preference snapshots"
+      - "Then the model's metadata records item_attributes@v1 and user_preferences@v1 with their file and SHA-256 and the category vocabulary size"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/recsys_item_attributes.feature::The model records the attribute snapshots it trained on"
+    notes: "needs rebuild"
+
+  - id: recsys.fia-required
+    title: "Required attribute snapshots missing stop the run"
+    persona: guest
+    priority: P1
+    summary: "Required attribute snapshots missing stop the run"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled, TWO_TOWER_REQUIRE_ATTRIBUTES true and no attribute snapshots"
+      - "Then it exits 2, its log names ITEM_ATTRIBUTES_DIR, and no model is registered"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/recsys_item_attributes.feature::Required attribute snapshots missing stop the run"
+    notes: "needs rebuild"
+
+  - id: recsys.fia-optional
+    title: "Without attribute snapshots the stage runs as before"
+    persona: guest
+    priority: P1
+    summary: "Without attribute snapshots the stage runs as before"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled over popularity and activity snapshots only"
+      - "Then it exits 0 and the model's metadata records no attribute snapshot"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/recsys_item_attributes.feature::Without attribute snapshots the stage runs as before"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-beats-baseline
+    title: "The trainer learns from clicks and beats the fixed-weight baseline"
+    persona: guest
+    priority: P1
+    summary: "The trainer learns from clicks and beats the fixed-weight baseline"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs with the GBDT stage enabled over a ranking dataset whose clicks depend on item price"
+      - "Then the run summary reports the GBDT candidate as promoted with an ndcg@10 greater than the baseline_ndcg@10 of the fixed-weight ranker"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::The trainer learns from clicks and beats the fixed-weight baseline"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-feature-contract
+    title: "The model's feature list is the serving contract"
+    persona: guest
+    priority: P1
+    summary: "The model's feature list is the serving contract"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT stage publishes its artifact"
+      - "Then the artifact lists the features item_popularity.views_7d, item_popularity.clicks_7d, item_popularity.add_to_cart_7d, item_popularity.favorites_current, item_popularity.review_count, item_popularity.avg_rating, item_popularity.ctr_7d and item_attributes.price, in that order, with the view versions"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::The model's feature list is the serving contract"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-ctr-source
+    title: "Each training row records where its CTR came from"
+    persona: guest
+    priority: P1
+    summary: "Each training row records where its CTR came from"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT stage runs with a path set for the training rows"
+      - "Then every row records a ctr_source of debiased or fallback, both occur, and the model's metadata counts each"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::Each training row records where its CTR came from"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-temporal-holdout
+    title: "Evaluation uses a temporal holdout"
+    persona: guest
+    priority: P1
+    summary: "Evaluation uses a temporal holdout"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT stage evaluates its candidate"
+      - "Then the model's metadata records an evaluation protocol, a cutoff, and that every held-out impression is later than every training impression"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::Evaluation uses a temporal holdout"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-missing-dataset
+    title: "A missing ranking dataset stops the run"
+    persona: guest
+    priority: P1
+    summary: "A missing ranking dataset stops the run"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs with the GBDT stage enabled and no ranking dataset"
+      - "Then it exits 2, its log names RANK_DATASET_DIR, and no model is registered"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::A missing ranking dataset stops the run"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-disabled
+    title: "A disabled trainer leaves the run unchanged"
+    persona: guest
+    priority: P1
+    summary: "A disabled trainer leaves the run unchanged"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs without enabling the GBDT stage"
+      - "Then the summary has no GBDT entry and the generation has no ranker artifact"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::A disabled trainer leaves the run unchanged"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-artifact-scores
+    title: "The published artifact scores items the way the trainer does"
+    persona: guest
+    priority: P1
+    summary: "The published artifact scores items the way the trainer does"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an independent evaluator reads the artifact from recs:v1:gen:<generation>:ranker and scores a cheap and an expensive item"
+      - "Then its scores equal the trainer's to 1e-9 and the cheap item scores higher"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::The published artifact scores items the way the trainer does"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-rejected
+    title: "A model below the promotion threshold is rejected and the generation ships without a ranker"
+    persona: guest
+    priority: P1
+    summary: "A model below the promotion threshold is rejected and the generation ships without a ranker"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs with the GBDT stage enabled and a promotion improvement threshold no model can reach"
+      - "Then the GBDT candidate is recorded as rejected with its reason, the generation is serving, and no ranker artifact exists for it"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::A model below the promotion threshold is rejected and the generation ships without a ranker"
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-retention
+    title: "The ranker artifact lives and dies with its generation"
+    persona: guest
+    priority: P1
+    summary: "The ranker artifact lives and dies with its generation"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job promotes three generations in a row with the GBDT stage enabled"
+      - "Then a ranker artifact with a TTL exists for the serving and previous generations and none for the oldest"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "recommendations/gbdt_ranker.feature::The ranker artifact lives and dies with its generation"
+    notes: "needs rebuild"

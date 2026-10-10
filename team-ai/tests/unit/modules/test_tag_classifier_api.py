@@ -9,7 +9,9 @@ from tests.factories import build_test_settings
 
 @pytest.fixture
 def test_settings():
-    return build_test_settings()
+    return build_test_settings(
+        AUTH_ADMIN_BEARER_TOKEN="test-admin-token"  # pragma: allowlist secret
+    )
 
 
 @pytest.mark.asyncio
@@ -17,7 +19,11 @@ async def test_tag_classifier_endpoints(test_settings):
     app = create_app(settings=test_settings, init_resources=False)
     transport = ASGITransport(app=app)
 
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": "Bearer test-admin-token"},
+    ) as client:
         # 1. SPU Classify endpoint
         classify_res = await client.post(
             "/api/v1/ai/tags/classify",

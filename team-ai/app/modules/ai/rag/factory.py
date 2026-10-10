@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
@@ -53,22 +54,41 @@ def build_embed_model(settings: Settings) -> BaseEmbedding:
 
 
 def build_storage_context(settings: Settings) -> StorageContext:
+    storage, _ = _build_storage(settings)
+    return storage
+
+
+def _build_storage(
+    settings: Settings,
+) -> tuple[StorageContext, Callable[[], Awaitable[bool]] | None]:
+    """Storage context plus an async "does the index exist yet" probe (or None)."""
     require_llama_index()
     from llama_index.core import StorageContext
 
     if settings.RAG_BACKEND == "memory":
-        return StorageContext.from_defaults()
+        return StorageContext.from_defaults(), None
 
     if settings.RAG_BACKEND == "qdrant":
         from llama_index.vector_stores.qdrant import QdrantVectorStore
-        from qdrant_client import QdrantClient
+        from qdrant_client import AsyncQdrantClient, QdrantClient
 
+        # Both clients: indexing is synchronous (insert_nodes), retrieval async
+        # (aretrieve raises "Async client is not initialized" without `aclient`).
         client = QdrantClient(url=settings.RAG_QDRANT_URL)
+        aclient = AsyncQdrantClient(url=settings.RAG_QDRANT_URL)
+        collection = settings.RAG_QDRANT_COLLECTION
         vector_store = QdrantVectorStore(
             client=client,
-            collection_name=settings.RAG_QDRANT_COLLECTION,
+            aclient=aclient,
+            collection_name=collection,
         )
-        return StorageContext.from_defaults(vector_store=vector_store)
+
+        async def collection_exists() -> bool:
+            return await aclient.collection_exists(collection)
+
+        return StorageContext.from_defaults(
+            vector_store=vector_store
+        ), collection_exists
 
     raise RuntimeError(
         f"RAG_BACKEND={settings.RAG_BACKEND!r} not supported "
@@ -87,14 +107,17 @@ def build_rag_service(
         build_rag_node_parser,
     )
 
+    storage_context, index_exists = _build_storage(settings)
     return KnowledgeRetrievalService(
         embed_model=embed_model,
         node_parser=build_rag_node_parser(
             chunk_size=settings.RAG_CHUNK_SIZE,
             chunk_overlap=settings.RAG_CHUNK_OVERLAP,
+            uuid_ids=settings.RAG_BACKEND == "qdrant",
         ),
         redaction_policy=RedactionPolicy(mode="redacted"),
-        storage_context=build_storage_context(settings),
+        storage_context=storage_context,
+        index_exists=index_exists,
         default_top_k=settings.RAG_DEFAULT_TOP_K,
         retrieve_timeout=TimeoutPolicy(
             timeout_seconds=settings.RAG_RETRIEVE_TIMEOUT_SECONDS
