@@ -222,9 +222,9 @@ class TrainedRankerLoader:
     returned, else why the fixed weights are used: ``no_generation``, ``absent``,
     ``malformed``, ``format_mismatch``, ``feature_mismatch``, ``read_error``. Every
     non-``None`` reason except ``no_generation`` and ``absent`` is a defect and counted in
-    ``fallbacks``. A model or a parse verdict is remembered per generation (the key is written
-    before the pointer moves); absence is re-checked after ``absent_recheck_s`` (a late or
-    manual publish is picked up) and a Redis error is not remembered at all.
+    ``fallbacks``. The key is re-read after ``recheck_s`` whatever the last verdict was, so a late,
+    replaced or deleted artifact is picked up within that delay; an unchanged payload is not
+    re-parsed. A Redis error is not remembered at all.
     """
 
     def __init__(
@@ -233,13 +233,18 @@ class TrainedRankerLoader:
         cache: PrecomputedCache,
         *,
         clock: Callable[[], float] = time.monotonic,
-        absent_recheck_s: float = 5.0,
+        recheck_s: float = 5.0,
+        absent_recheck_s: float | None = None,
     ) -> None:
         self._redis = redis
         self._cache = cache
         self._clock = clock
-        self._absent_recheck_s = absent_recheck_s
+        # ``absent_recheck_s`` is the older name of ``recheck_s``.
+        self._recheck_s = (
+            absent_recheck_s if absent_recheck_s is not None else recheck_s
+        )
         self._loaded_at = 0.0
+        self._raw: str | bytes | None = None
         self._generation: str | None = None
         self._ranker: TrainedRanker | None = None
         self._reason: str | None = "no_generation"
@@ -253,9 +258,9 @@ class TrainedRankerLoader:
             return self._fail("read_error")
         if not gen or self._redis is None:
             return None, "no_generation"
-        if gen == self._generation and not (
-            self._reason == "absent"
-            and self._clock() - self._loaded_at >= self._absent_recheck_s
+        if (
+            gen == self._generation
+            and self._clock() - self._loaded_at < self._recheck_s
         ):
             return self._ranker, self._reason
         try:
@@ -263,6 +268,9 @@ class TrainedRankerLoader:
         except Exception as exc:
             logger.warning("recs.ranker.read_failed gen={} err={}", gen, exc)
             return self._fail("read_error")
+        if gen == self._generation and raw == self._raw:
+            self._loaded_at = self._clock()
+            return self._ranker, self._reason
         ranker: TrainedRanker | None = None
         reason: str | None = None
         if not raw:
@@ -275,7 +283,12 @@ class TrainedRankerLoader:
                 logger.warning("recs.ranker.rejected gen={} reason={}", gen, reason)
         if reason not in (None, "absent"):
             self.fallbacks += 1
-        self._generation, self._ranker, self._reason = gen, ranker, reason
+        self._generation, self._ranker, self._reason, self._raw = (
+            gen,
+            ranker,
+            reason,
+            raw,
+        )
         self._loaded_at = self._clock()
         return ranker, reason
 

@@ -195,7 +195,25 @@ async def test_late_publish_in_the_same_generation_is_picked_up(service_for) -> 
     redis = await _stack()
     service = await service_for(redis)
     loader = service._ranker_loader
-    loader._absent_recheck_s = 0.0
+    loader._recheck_s = 0.0
     assert (await _home(service)).explain["ranker_source"] == "fixed"
     await redis.set("recs:v1:gen:g1:ranker", json.dumps(artifact()))
     assert (await _home(service)).explain["ranker_source"] == "trained"
+
+
+async def test_a_deleted_or_replaced_artifact_is_seen_in_the_same_generation(
+    service_for,
+) -> None:
+    # Artifacts are written once per generation, but an operator can remove or replace one
+    # (a bad model, an e2e teardown): the loader must not keep serving what is gone.
+    redis = await _stack(ranker=json.dumps(artifact()))
+    service = await service_for(redis)
+    service._ranker_loader._recheck_s = 0.0
+    assert (await _home(service)).explain["ranker_source"] == "trained"
+    await redis.delete("recs:v1:gen:g1:ranker")
+    gone = await _home(service)
+    assert gone.explain["ranker_source"] == "fixed"
+    assert [i.listing_id for i in gone.items] == ["cheap", "dear"]
+    await redis.set("recs:v1:gen:g1:ranker", json.dumps(artifact(base_score=1.0)))
+    replaced = await _home(service)
+    assert replaced.items[0].score == pytest.approx(1.0 + 0.1 * 1.0)
