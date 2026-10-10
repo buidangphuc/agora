@@ -239,8 +239,9 @@ gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci
   with `GRPC_ENABLED=true`, as compose does.
 - **gRPC is plaintext** (`add_insecure_port`), and `Check` always reports SERVING regardless of
   dependency state.
-- **`ShoppingAssistant` ignores RAG.** It matches the hard-coded `CATALOG`, whatever `RAG_ENABLED`
-  is. `SearchListings` is the only RAG-backed RPC.
+- **`ShoppingAssistant` needs the indexer running to show real listings.** With `RAG_ENABLED=true` it
+  retrieves from the RAG store (empty until `LISTING_INDEXER_ENABLED=true` has consumed
+  `listing.events`); with `RAG_ENABLED=false` it answers from the demo `CATALOG`.
 - **No gRPC `TagClassifier` service.** `FEATURES.yaml` lists `ai.v1.TagClassifier`, but the proto
   has no such service; tag classification is HTTP only.
 - **Tag state is not persisted** and is per process, so `/tags/promote` results vanish on restart
