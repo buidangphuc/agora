@@ -88,7 +88,7 @@ spec:
           # Only the gateway (sole gRPC caller) and Prometheus (KEDA metric source) may reach team-ai.
           networkPolicy:
             enabled: true
-            allowFrom: [team-gateway, prometheus]
+            allowFrom: [team-gateway, team-search-indexer, prometheus]   # same as envs/services/team-ai.yaml
           secrets:
             enabled: true
   syncPolicy:
