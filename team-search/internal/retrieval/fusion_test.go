@@ -85,3 +85,33 @@ func TestRRF_CarriesStock(t *testing.T) {
 		t.Errorf("stock not carried through RRF: a=%v b=%v c=%v", got["a"], got["b"], got["c"])
 	}
 }
+
+func TestRRFTiesAreOrderedByListingIDOnEveryCall(t *testing.T) {
+	// "b" and "c" each get rank 1 in one leg, and "a" and "d" rank 2: two exact ties per pair.
+	legs := map[string][]retrieval.Candidate{
+		"lexical":  {{ListingID: "c"}, {ListingID: "d"}},
+		"semantic": {{ListingID: "b"}, {ListingID: "a"}},
+	}
+	for i := 0; i < 200; i++ {
+		got := retrieval.RRF(legs, 60, nil)
+		ids := make([]string, len(got))
+		for j, c := range got {
+			ids[j] = c.ListingID
+		}
+		if want := []string{"b", "c", "a", "d"}; !equalIDs(ids, want) {
+			t.Fatalf("call %d: order %v, want %v", i, ids, want)
+		}
+	}
+}
+
+func equalIDs(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
