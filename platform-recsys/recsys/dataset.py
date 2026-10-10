@@ -56,22 +56,34 @@ def _load(parquet: Path, setting: str) -> Dataset:
     return Dataset(path=str(parquet), manifest=manifest)
 
 
-def resolve_dataset(settings: Settings) -> Dataset:
-    """DATASET_PATH, else the lexically latest complete as_of=*.parquet under DATASET_DIR."""
-    explicit = settings.dataset_path.strip()
+def resolve_named(directory: str, explicit: str, dir_setting: str, path_setting: str) -> Dataset:
+    """``explicit`` (a file), else the lexically latest complete ``as_of=*.parquet`` under ``directory``.
+    The settings' names are used in the errors so the operator knows what to set."""
+    explicit = explicit.strip()
     if explicit:
         parquet = Path(explicit)
         if not parquet.is_file():
-            raise ConfigError(f"no governed dataset at DATASET_PATH={explicit}")
+            raise ConfigError(f"no governed dataset at {path_setting}={explicit}")
         if parquet.suffix != ".parquet":
-            raise ConfigError(f"DATASET_PATH={explicit} must be a .parquet file")
-        return _load(parquet, "DATASET_PATH")
+            raise ConfigError(f"{path_setting}={explicit} must be a .parquet file")
+        return _load(parquet, path_setting)
 
-    directory = Path(settings.dataset_dir)
     # A snapshot without its manifest is not a governed dataset (and may be mid-write).
     candidates = sorted(
-        p for p in directory.glob("as_of=*.parquet") if p.is_file() and manifest_path_for(p).is_file()
+        p for p in Path(directory).glob("as_of=*.parquet") if p.is_file() and manifest_path_for(p).is_file()
     )
     if not candidates:
-        raise ConfigError(f"no governed dataset under DATASET_DIR={settings.dataset_dir}")
-    return _load(candidates[-1], "DATASET_DIR")
+        raise ConfigError(f"no governed dataset under {dir_setting}={directory}")
+    return _load(candidates[-1], dir_setting)
+
+
+def resolve_dataset(settings: Settings) -> Dataset:
+    """DATASET_PATH, else the latest complete as_of=*.parquet under DATASET_DIR."""
+    return resolve_named(settings.dataset_dir, settings.dataset_path, "DATASET_DIR", "DATASET_PATH")
+
+
+def resolve_rank_dataset(settings: Settings) -> Dataset:
+    """RANK_DATASET_PATH, else the latest complete snapshot under RANK_DATASET_DIR (``rank_training@v1``)."""
+    return resolve_named(
+        settings.rank_dataset_dir, settings.rank_dataset_path, "RANK_DATASET_DIR", "RANK_DATASET_PATH"
+    )

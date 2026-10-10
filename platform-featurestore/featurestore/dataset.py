@@ -25,15 +25,27 @@ SCHEMA = pa.schema(
         ("last_occurred_at", pa.timestamp("us")),
     ]
 )
+_TYPES = {"string": pa.string(), "int": pa.int64(), "float": pa.float64(), "timestamp": pa.timestamp("us")}
+
+
+def schema_of(ds: Dataset) -> pa.Schema:
+    """The dataset's Arrow schema: its declared `columns`, else the als_interactions columns."""
+    if not ds.columns:
+        return SCHEMA
+    unknown = {c: t for c, t in ds.columns.items() if t not in _TYPES}
+    if unknown:
+        raise ValueError(f"{ds.key} declares unknown column types {unknown}")
+    return pa.schema([(c, _TYPES[t]) for c, t in ds.columns.items()])
 
 
 def compute_dataset(con: duckdb.DuckDBPyConnection, ds: Dataset, settings: Settings) -> pa.Table:
     cur = con.execute(ds.sql_text, {"as_of": settings.as_of, "window_days": settings.dataset_window_days})
+    schema = schema_of(ds)
     cols = [d[0] for d in cur.description]
-    if cols != COLUMNS:
-        raise ValueError(f"{ds.key} returns columns {cols}, a dataset must return {COLUMNS}")
+    if cols != schema.names:
+        raise ValueError(f"{ds.key} returns columns {cols}, a dataset must return {schema.names}")
     rows = [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]
-    return pa.Table.from_pylist(rows, schema=SCHEMA)
+    return pa.Table.from_pylist(rows, schema=schema)
 
 
 def _sha256(path) -> str:
@@ -69,8 +81,8 @@ def build_all(settings: Settings, datasets: list[Dataset]) -> list[dict]:
             "as_of": iso(settings.as_of),
             "window_days": settings.dataset_window_days,
             "rows": table.num_rows,
-            "users": len(set(table.column("user_key").to_pylist())),
-            "items": len(set(table.column("listing_id").to_pylist())),
+            "users": len(set(table.column("user_key").to_pylist())) if "user_key" in table.column_names else 0,
+            "items": len(set(table.column("listing_id").to_pylist())) if "listing_id" in table.column_names else 0,
             "definition_sha256": ds.sha256,
             "input_watermark": iso(wm),
             "file_sha256": _sha256(dest),  # of the bytes after the atomic rename

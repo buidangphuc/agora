@@ -1,11 +1,13 @@
 # Feature registry. One entry per (view, version). The SQL file is the definition; changing it without bumping
 # `version` fails the job (registry/features.lock holds the accepted hashes; regenerate with `python -m featurestore lock`).
 #
-# `datasets` are governed training datasets (one SELECT, columns user_key, listing_id, weight, interactions,
-# last_occurred_at; may also read $window_days). They share the version + hash lock with the views.
+# `datasets` are governed training datasets (one SELECT; may also read $window_days). Output columns: the optional
+# `columns` map (name -> string|int|float|timestamp, in SELECT order), else user_key, listing_id, weight, interactions,
+# last_occurred_at (als_interactions). They share the version + hash lock with the views.
 #
 # SQL contract: the file is one SELECT returning `entity_id` plus every column named in `features`. It may read the
-# point-in-time views `events`, `facts` and `orders` and the parameter $as_of (see featurestore/inputs.py).
+# point-in-time views `events`, `facts`, `orders` and `listings` (listing -> seller, category, price; empty when the
+# export is absent) and the parameter $as_of (see featurestore/inputs.py). Feature types: int, float, string.
 views:
   - name: user_activity
     version: 2
@@ -30,8 +32,32 @@ views:
       review_count: int
       avg_rating: float
       ctr_7d: float
+  - name: item_attributes
+    version: 1
+    entity: listing_id
+    sql: sql/item_attributes.sql
+    features:
+      seller_id: string
+      category_id: string
+      price: int
+  - name: user_preferences
+    version: 1
+    entity: user_key
+    sql: sql/user_preferences.sql
+    features:
+      preferred_categories: string
 
 datasets:
   - name: als_interactions
     version: 1
     sql: sql/als_interactions_v1.sql
+  - name: rank_training
+    version: 1
+    sql: sql/rank_training_v1.sql
+    columns:
+      user_key: string
+      impression_id: string
+      listing_id: string
+      position: int
+      label: int
+      occurred_at: timestamp

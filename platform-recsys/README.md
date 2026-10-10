@@ -45,10 +45,11 @@ copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run
 | Qdrant | `user_als_vectors__<model_version>` | Same for users; payload `user_key`. |
 | Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Deprecated compatibility shim (serving-switch-atomicity): team-ai names `<alias>__<recs:v1:serving>` itself, so one pointer decides Redis and Qdrant; the alias is only for readers that predate that and for a deployment with no pointer yet. |
 | Qdrant | alias `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users. |
-| Qdrant | `item_two_tower_vectors__<model_version>` (`QDRANT_TWO_TOWER_COLLECTION` + `__` + generation) | Only when `ENABLE_TWO_TOWER=true`: L2-normalised item vectors, dim `TWO_TOWER_DIM`, written with the generation before the switch, retired with it, no alias (name it from `recs:v1:serving`). Needs the `item_popularity@v1` and `user_activity@v2` featurestore snapshots under `/features` (else exit 2). |
+| Qdrant | `item_two_tower_vectors__<model_version>` (`QDRANT_TWO_TOWER_COLLECTION` + `__` + generation) | Only when `ENABLE_TWO_TOWER=true`: L2-normalised item vectors, dim `TWO_TOWER_DIM`, written with the generation before the switch, retired with it, no alias (name it from `recs:v1:serving`). Needs the `item_popularity@v1` and `user_activity@v2` featurestore snapshots under `/features` (else exit 2). Also reads `item_attributes@v1` (category, price; attribute-only listings join the catalogue) and `user_preferences@v1` (preferred categories) when present; `TWO_TOWER_REQUIRE_ATTRIBUTES=true` makes a missing item snapshot exit 2. |
 | Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |
 | Redis | `recs:v1:gen:<model_version>:item:{listing_id}` | Similar items, same shape |
 | Redis | `recs:v1:gen:<model_version>:popular` | Popularity fallback (summed weight), same shape |
+| Redis | `recs:v1:gen:<model_version>:ranker` | Only when `ENABLE_GBDT=true` and the GBDT candidate was promoted: the trained ranker as JSON (`agora-gbdt/1`: feature list, defaults, trees, learning rate, metrics), written before the switch, TTL-refreshed and retired with its generation. A rejected candidate leaves the generation without one. Format and loader contract: change `recsys-gbdt-trainer` design D7. |
 | Redis | `recs:v1:serving` | The generation being served. No TTL. Moved last, by one Lua script |
 | Redis | `recs:v1:previous` | The generation `serving` replaced (rollback target). No TTL. Same script |
 | Redis | `recs:v1:model_version` | Mirrors `serving` (same script) for readers that predate generations |
@@ -174,7 +175,8 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | Interactions | `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
 | ALS | `ALS_RANK` (64), `ALS_REG_PARAM` (0.05), `ALS_ALPHA` (40.0), `ALS_MAX_ITER` (15) |
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
-| Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32), `ITEM_FEATURES_DIR` (/features/item_popularity/v1), `ITEM_FEATURES_PATH`, `USER_FEATURES_DIR` (/features/user_activity/v2), `USER_FEATURES_PATH`, `TWO_TOWER_EPOCHS` (5), `_LR` (0.05), `_BATCH_SIZE` (256), `_TEMPERATURE` (0.1), `TWO_TOWER_MAX_PAIRS` (200000) |
+| Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32), `ITEM_FEATURES_DIR` (/features/item_popularity/v1), `ITEM_FEATURES_PATH`, `USER_FEATURES_DIR` (/features/user_activity/v2), `USER_FEATURES_PATH`, `ITEM_ATTRIBUTES_DIR` (/features/item_attributes/v1), `ITEM_ATTRIBUTES_PATH`, `USER_PREFERENCES_DIR` (/features/user_preferences/v1), `USER_PREFERENCES_PATH`, `TWO_TOWER_REQUIRE_ATTRIBUTES` (false), `TWO_TOWER_MAX_CATEGORIES` (64), `TWO_TOWER_EPOCHS` (5), `_LR` (0.05), `_BATCH_SIZE` (256), `_TEMPERATURE` (0.1), `TWO_TOWER_MAX_PAIRS` (200000) |
+| GBDT ranker | `ENABLE_GBDT` (false), `RANK_DATASET_DIR` (/features/datasets/rank_training/v1), `RANK_DATASET_PATH`, `GBDT_TREES` (40), `GBDT_MAX_DEPTH` (3), `GBDT_LEARNING_RATE` (0.1), `GBDT_MIN_LEAF` (10), `GBDT_HOLDOUT_FRACTION` (0.2), `GBDT_MAX_LIST` (30), `GBDT_MAX_LISTS` (50000), `GBDT_CTR_MIN_IMPRESSIONS` (3), `GBDT_ROWS_PATH` (empty). Features: every `as_of` snapshot under `ITEM_FEATURES_DIR` and `ITEM_ATTRIBUTES_DIR` |
 | Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
 | Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
 | Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
@@ -276,3 +278,16 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
   [ADR-0011 Model serving](../platform-core/docs/ADR/0011-model-serving.md)
 - OpenSpec: `../openspec/changes/` (`serve-trained-recs-locally`, `add-recsys-offline-eval`; archived
   `2026-09-20-wire-pipeline-eval-registry`)
+
+## GBDT ranker (optional, `ENABLE_GBDT=true`)
+
+`recsys/ranker/` trains a LambdaRank gradient-boosted tree model (numpy, no new dependency; the artifact is JSON a
+service scores in pure Python) on the governed `rank_training@v1` impressions (platform-featurestore `dataset`). The input
+vector is `contract.RANKING_FEATURES`: the seven `item_popularity@v1` features in registry order, then
+`item_attributes@v1.price`, from the featurestore snapshot in force at each impression (rows older than every snapshot are
+dropped). The `ctr_7d` slot is replaced by a position-debiased CTR over the TRAIN rows (the row's own outcome removed), recorded per row as
+`ctr_source` `debiased` or `fallback`; `GBDT_ROWS_PATH` writes every row for audit. The latest `GBDT_HOLDOUT_FRACTION` of
+impressions is the holdout: the candidate must beat the fixed-weight ranker (`0.15 * popularity + 0.10 * ctr`) on graded
+NDCG@10 by `PROMOTION_MIN_RELATIVE_IMPROVEMENT`, then the GBDT champion (`recs:model:champion:gbdt`, separate from ALS), and
+`PROMOTION_FORCE` skips both. The stage runs after the ALS promotion decision and before the publish; a rejected candidate does
+not block the generation. With no dataset or no `item_popularity` snapshot the run exits 2 before Spark starts.

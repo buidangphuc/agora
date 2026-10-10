@@ -60,3 +60,20 @@ def popularity(row: dict[str, Any]) -> float:
         w * max(0.0, item_feature(row, n)[0]) for n, w in POPULARITY_WEIGHTS.items()
     )
     return min(1.0, math.log1p(weighted) / math.log1p(POPULARITY_SATURATION))
+
+
+# The feature list of the trained GBDT ranker artifact (platform-recsys ``recsys/ranker/contract.py``
+# ``RANKING_FEATURES``, change recsys-gbdt-trainer): ``<view>.<feature>`` registry names, in the order of the
+# artifact's ``features`` list. ``item_popularity`` is read from ``fs:item_popularity:v<N>:<listing_id>``,
+# ``item_attributes`` from ``fs:item_attributes:v<N>:<listing_id>``. A loader accepts an artifact only when its
+# ``features`` equal this tuple. ``recsys/tests/test_ranker_contract.py`` fails when the two lists drift.
+RANKING_FEATURES: tuple[str, ...] = (
+    "item_popularity.views_7d",
+    "item_popularity.clicks_7d",
+    "item_popularity.add_to_cart_7d",
+    "item_popularity.favorites_current",
+    "item_popularity.review_count",
+    "item_popularity.avg_rating",
+    "item_popularity.ctr_7d",
+    "item_attributes.price",
+)

@@ -26,6 +26,8 @@ EVENTS = pa.schema(
         ("ingested_at", pa.timestamp("us")),
         ("principal_type", pa.string()),
         ("user_key", pa.string()),
+        ("position", pa.int32()),
+        ("impression_id", pa.string()),
     ]
 )
 FACTS = pa.schema(
@@ -55,9 +57,36 @@ ORDERS = pa.schema(
         ("buyer_id", pa.string()),
     ]
 )
+LISTINGS = pa.schema(
+    [
+        ("listing_id", pa.string()),
+        ("seller_id", pa.string()),
+        ("updated_at", pa.timestamp("us")),
+        ("category_id", pa.string()),
+        ("price", pa.int64()),
+    ]
+)
 
 
-def write_inputs(d: Path, events=(), facts=(), orders=()):
+def write_listings(d: Path, listings, drop=()):
+    """listing_sellers.parquet in the warehouse schema; `drop` removes columns (an older exporter)."""
+    rows = [
+        {
+            "listing_id": x["id"],
+            "seller_id": x.get("seller", "s1"),
+            "updated_at": x["at"],
+            "category_id": x.get("category"),
+            "price": x.get("price"),
+        }
+        for x in listings
+    ]
+    table = pa.Table.from_pylist(rows, schema=LISTINGS)
+    for col in drop:
+        table = table.drop_columns([col])
+    pq.write_table(table, d / "listing_sellers.parquet")
+
+
+def write_inputs(d: Path, events=(), facts=(), orders=(), listings=None):
     ev = [
         {
             "event_id": e["id"],
@@ -67,6 +96,8 @@ def write_inputs(d: Path, events=(), facts=(), orders=()):
             "ingested_at": e.get("ing", e["at"]),
             "principal_type": e.get("ptype", "USER"),
             "user_key": e["user"],
+            "position": e.get("position"),
+            "impression_id": e.get("impression"),
         }
         for e in events
     ]
@@ -102,6 +133,8 @@ def write_inputs(d: Path, events=(), facts=(), orders=()):
     pq.write_table(pa.Table.from_pylist(ev, schema=EVENTS), d / "tracking_events_resolved.parquet")
     pq.write_table(pa.Table.from_pylist(fa, schema=FACTS), d / "engagement_facts.parquet")
     pq.write_table(pa.Table.from_pylist(oa, schema=ORDERS), d / "order_facts.parquet")
+    if listings is not None:
+        write_listings(d, listings)
 
 
 def h(hours_before):

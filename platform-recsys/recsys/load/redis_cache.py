@@ -6,6 +6,7 @@ generation's (recsys-generations):
 - ``recs:v1:gen:<gen>:user:{user_key}``    → ranked ``[{listing_id, score}, ...]`` (JSON), capped at TOP_N
 - ``recs:v1:gen:<gen>:item:{listing_id}``  → precomputed similar items (same shape)
 - ``recs:v1:gen:<gen>:popular``            → global popularity fallback list (same shape)
+- ``recs:v1:gen:<gen>:ranker``             → the GBDT ranker artifact (JSON ``agora-gbdt/1``), if promoted
 
 Pointers (no TTL), moved together by ONE Lua script so readers never see them disagree:
 
@@ -127,6 +128,16 @@ def load_cache(
     return {"users": n_users, "items": n_items}
 
 
+def load_ranker(settings, model_version: str, artifact: dict, client=None) -> str:
+    """Write the generation's GBDT ranker artifact (JSON) with the generation's TTL. Invisible until the
+    pointer moves, deleted with the generation. Returns the key."""
+    if client is None:
+        client = connect(settings)
+    key = settings.gen_ranker_key(model_version)
+    client.set(key, json.dumps(artifact, separators=(",", ":")), ex=settings.cache_ttl_seconds)
+    return key
+
+
 def pointers(settings, client) -> tuple[str | None, str | None]:
     """(serving, previous) generations, None when unset."""
     return _text(client.get(settings.serving_key)), _text(client.get(settings.previous_key))
@@ -167,7 +178,7 @@ def swap_generations(settings, expected_serving: str | None, client=None):
     return SWAP_STALE if int(out) == 0 else SWAP_NO_PREVIOUS
 
 
-_GEN_KEY = re.compile(r"^(?P<gen>.+?):(?:user:|item:|popular$)")
+_GEN_KEY = re.compile(r"^(?P<gen>.+?):(?:user:|item:|popular$|ranker$)")
 
 
 def _scan_generation_keys(settings, client):

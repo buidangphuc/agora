@@ -55,11 +55,13 @@ type Kafka struct {
 	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
 	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
-	// ListingTopic feeds the listing -> seller mapping (ListingChanged). It is read
-	// by its own consumer group, from the earliest offset, so existing listings
-	// backfill.
+	// ListingTopic feeds the listing -> seller / category / price table (ListingChanged). It is
+	// read by its own consumer group, from the earliest offset, so existing listings backfill.
+	// The group name was bumped from team-analytics-listing-sellers when category and price
+	// were added (featurestore-item-attributes): a new group replays the topic once and
+	// refreshes every row.
 	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
-	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-sellers"`
+	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-attrs"`
 }
 
 // Engagement configures the engagement.events consumer (engagement-fact-events D3).

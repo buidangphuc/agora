@@ -91,12 +91,42 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("item_features_path", "ITEM_FEATURES_PATH", "", _as_str),
     ("user_features_dir", "USER_FEATURES_DIR", "/features/user_activity/v2", _as_str),
     ("user_features_path", "USER_FEATURES_PATH", "", _as_str),
+    # Attribute snapshots (item_attributes@v1: category, price; user_preferences@v1: preferred categories).
+    # Optional: without an item snapshot the towers read category/price/preferences as 0, unless
+    # TWO_TOWER_REQUIRE_ATTRIBUTES makes a missing item_attributes snapshot a configuration error (exit 2).
+    ("item_attributes_dir", "ITEM_ATTRIBUTES_DIR", "/features/item_attributes/v1", _as_str),
+    ("item_attributes_path", "ITEM_ATTRIBUTES_PATH", "", _as_str),
+    ("user_preferences_dir", "USER_PREFERENCES_DIR", "/features/user_preferences/v1", _as_str),
+    ("user_preferences_path", "USER_PREFERENCES_PATH", "", _as_str),
+    ("two_tower_require_attributes", "TWO_TOWER_REQUIRE_ATTRIBUTES", "false", _as_bool),
+    # The category vocabulary is built from the item_attributes snapshot (most frequent first), capped here.
+    ("two_tower_max_categories", "TWO_TOWER_MAX_CATEGORIES", "64", _as_int),
     # In-batch softmax training on the dataset's pairs (sampled to TWO_TOWER_MAX_PAIRS).
     ("two_tower_epochs", "TWO_TOWER_EPOCHS", "5", _as_int),
     ("two_tower_lr", "TWO_TOWER_LR", "0.05", _as_float),
     ("two_tower_batch_size", "TWO_TOWER_BATCH_SIZE", "256", _as_int),
     ("two_tower_temperature", "TWO_TOWER_TEMPERATURE", "0.1", _as_float),
     ("two_tower_max_pairs", "TWO_TOWER_MAX_PAIRS", "200000", _as_int),
+    # ── GBDT ranker trainer (optional; change recsys-gbdt-trainer) ───────────
+    # Trains a LambdaRank GBDT on the governed rank_training@v1 impressions and, when the gate promotes it,
+    # publishes it as recs:v1:gen:<generation>:ranker. Features come from the featurestore snapshots under
+    # ITEM_FEATURES_DIR (item_popularity@v1, every as_of kept) and ITEM_ATTRIBUTES_DIR (item_attributes@v1).
+    ("enable_gbdt", "ENABLE_GBDT", "false", _as_bool),
+    ("rank_dataset_dir", "RANK_DATASET_DIR", "/features/datasets/rank_training/v1", _as_str),
+    ("rank_dataset_path", "RANK_DATASET_PATH", "", _as_str),
+    ("gbdt_trees", "GBDT_TREES", "40", _as_int),
+    ("gbdt_max_depth", "GBDT_MAX_DEPTH", "3", _as_int),
+    ("gbdt_learning_rate", "GBDT_LEARNING_RATE", "0.1", _as_float),
+    ("gbdt_min_leaf", "GBDT_MIN_LEAF", "10", _as_int),
+    # The latest share of impressions (by time) is the holdout the gate evaluates on.
+    ("gbdt_holdout_fraction", "GBDT_HOLDOUT_FRACTION", "0.2", _as_float),
+    # Bounds on the training set: items per impression (lowest positions) and impressions (latest).
+    ("gbdt_max_list", "GBDT_MAX_LIST", "30", _as_int),
+    ("gbdt_max_lists", "GBDT_MAX_LISTS", "50000", _as_int),
+    # An item needs this many other train impressions for the debiased CTR (else the snapshot's ctr_7d).
+    ("gbdt_ctr_min_impressions", "GBDT_CTR_MIN_IMPRESSIONS", "3", _as_int),
+    # Optional Parquet file with every training row (features, label, ctr_source) for audit.
+    ("gbdt_rows_path", "GBDT_ROWS_PATH", "", _as_str),
     # ── Nearline signal consumer (python -m recsys.nearline) ─────────────────
     # A long-running consumer of analytics.events that keeps the recs:nearline:* keys fresh.
     ("kafka_brokers", "KAFKA_BROKERS", "localhost:19092", _as_str),
@@ -158,11 +188,29 @@ class Settings:
     item_features_path: str = ""
     user_features_dir: str = "/features/user_activity/v2"
     user_features_path: str = ""
+    item_attributes_dir: str = "/features/item_attributes/v1"
+    item_attributes_path: str = ""
+    user_preferences_dir: str = "/features/user_preferences/v1"
+    user_preferences_path: str = ""
+    two_tower_require_attributes: bool = False
+    two_tower_max_categories: int = 64
     two_tower_epochs: int = 5
     two_tower_lr: float = 0.05
     two_tower_batch_size: int = 256
     two_tower_temperature: float = 0.1
     two_tower_max_pairs: int = 200000
+    enable_gbdt: bool = False
+    rank_dataset_dir: str = "/features/datasets/rank_training/v1"
+    rank_dataset_path: str = ""
+    gbdt_trees: int = 40
+    gbdt_max_depth: int = 3
+    gbdt_learning_rate: float = 0.1
+    gbdt_min_leaf: int = 10
+    gbdt_holdout_fraction: float = 0.2
+    gbdt_max_list: int = 30
+    gbdt_max_lists: int = 50000
+    gbdt_ctr_min_impressions: int = 3
+    gbdt_rows_path: str = ""
     kafka_brokers: str = "localhost:19092"
     kafka_analytics_topic: str = "analytics.events"
     nearline_consumer_group: str = "platform-recsys-nearline"
@@ -225,6 +273,10 @@ class Settings:
     def gen_popular_key(self, gen: str) -> str:
         return f"{self.gen_key_prefix}{gen}:popular"
 
+    def gen_ranker_key(self, gen: str) -> str:
+        """The GBDT ranker artifact of a generation (JSON, ``agora-gbdt/1``)."""
+        return f"{self.gen_key_prefix}{gen}:ranker"
+
     @property
     def serving_key(self) -> str:
         return f"{self._prefix}:serving"
@@ -250,8 +302,18 @@ class Settings:
             raise ValueError(f"TWO_TOWER_EPOCHS must be >= 0: {self.two_tower_epochs}")
         if self.two_tower_batch_size < 2:
             raise ValueError(f"TWO_TOWER_BATCH_SIZE must be >= 2: {self.two_tower_batch_size}")
+        if self.two_tower_max_categories <= 0:
+            raise ValueError(f"TWO_TOWER_MAX_CATEGORIES must be > 0: {self.two_tower_max_categories}")
         if self.two_tower_temperature <= 0:
             raise ValueError(f"TWO_TOWER_TEMPERATURE must be > 0: {self.two_tower_temperature}")
+        if self.gbdt_trees <= 0 or self.gbdt_max_depth <= 0 or self.gbdt_min_leaf <= 0:
+            raise ValueError("GBDT_TREES, GBDT_MAX_DEPTH and GBDT_MIN_LEAF must be > 0")
+        if self.gbdt_learning_rate <= 0:
+            raise ValueError(f"GBDT_LEARNING_RATE must be > 0: {self.gbdt_learning_rate}")
+        if not 0.0 < self.gbdt_holdout_fraction < 1.0:
+            raise ValueError(f"GBDT_HOLDOUT_FRACTION must be within (0, 1): {self.gbdt_holdout_fraction}")
+        if self.gbdt_max_list < 2 or self.gbdt_max_lists < 1 or self.gbdt_ctr_min_impressions < 1:
+            raise ValueError("GBDT_MAX_LIST must be >= 2, GBDT_MAX_LISTS and GBDT_CTR_MIN_IMPRESSIONS >= 1")
         if self.drift_alert_threshold < 0:
             raise ValueError(f"DRIFT_ALERT_THRESHOLD must be >= 0: {self.drift_alert_threshold}")
         if self.nearline_ttl_seconds <= 0:

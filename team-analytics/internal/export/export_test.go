@@ -108,14 +108,14 @@ func TestRun_FailuresDoNotStopTheLoop(t *testing.T) {
 	}
 }
 
-func TestCycle_WritesAllFourFilesBesideTheTrackingFile(t *testing.T) {
+func TestCycle_WritesEveryFileBesideTheTrackingFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tracking_events.parquet")
 	e := &fileExporter{body: "x-"}
 	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
 		t.Fatalf("Cycle: %v", err)
 	}
-	for _, name := range []string{"tracking_events", "tracking_events_resolved", "engagement_facts", "order_facts"} {
+	for _, name := range []string{"tracking_events", "tracking_events_resolved", "engagement_facts", "order_facts", "listing_sellers"} {
 		got, err := os.ReadFile(filepath.Join(dir, name+".parquet"))
 		if err != nil || string(got) != "x-"+name {
 			t.Errorf("%s.parquet = %q, %v", name, got, err)

@@ -262,7 +262,12 @@ def test_hash_guard_exits_4(dirs, env, redis, registry_copy, monkeypatch):
 def test_committed_lock_matches_registry(settings):
     views = registry.load_registry(settings.registry_dir)
     registry.check_lock(settings.registry_dir, views)
-    assert {v.key for v in views} == {"user_activity@v2", "item_popularity@v1"}
+    assert {v.key for v in views} == {
+        "user_activity@v2",
+        "item_popularity@v1",
+        "item_attributes@v1",
+        "user_preferences@v1",
+    }
 
 
 def test_unlocked_view_fails(registry_copy):

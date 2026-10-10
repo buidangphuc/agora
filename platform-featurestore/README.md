@@ -8,7 +8,9 @@ Serving features to team-ai is a later change (`recs-serving-safeguards`).
 ## Contract
 
 **Inputs** (read-only, `FEATURESTORE_INPUT_DIR`, written by team-analytics): `tracking_events_resolved.parquet`
-(`tracking_events` columns plus `user_key`), `engagement_facts.parquet`, `order_facts.parquet` (with `buyer_id`).
+(`tracking_events` columns plus `user_key`), `engagement_facts.parquet`, `order_facts.parquet` (with `buyer_id`). Optional: `listing_sellers.parquet` (`listing_id`,
+`seller_id`, `updated_at`, `category_id`, `price`; the table of `ListingChanged` snapshots). Without it the attribute views
+are empty and the job warns; with it but without `category_id` or `price` the job exits 2 naming the column.
 
 **Registry** (`registry/features.yaml`, SQL in `registry/sql/`, hashes in `registry/features.lock`):
 
@@ -16,6 +18,13 @@ Serving features to team-ai is a later change (`recs-serving-safeguards`).
 | --- | --- | --- |
 | `user_activity@v2` | `user_key` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `follows_current`, `paid_orders_30d` |
 | `item_popularity@v1` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` |
+| `item_attributes@v1` | `listing_id` | `seller_id`, `category_id` (strings), `price` (int, minor units); null when unknown |
+| `user_preferences@v1` | `user_key` | `preferred_categories`: up to three category ids, comma-joined |
+
+`item_attributes@v1` is the latest recorded change of each listing with `updated_at <= AS_OF` (a listing edited later is
+absent from that snapshot). `user_preferences@v1` ranks categories by the user's views (1), clicks (2) and add-to-carts (5) on
+listings with a known category in `(AS_OF - 30d, AS_OF]`, weight descending then name; users with none have no row.
+Feature types are `int`, `float` and `string`.
 
 `paid_orders_30d` is the number of distinct paid orders (`order_facts.status = 'PAID'`) whose `buyer_id` is the user,
 with `occurred_at` in `(AS_OF - 30d, AS_OF]`. Order lines without a `buyer_id` (rows ingested before the column
@@ -43,11 +52,17 @@ RFC 3339 UTC ending in `Z`. The old `fs:u:` / `fs:i:` keys are gone.
 | --- | --- |
 | `materialize` | compute, write offline + online, parity gate |
 | `parity` | compare Redis with the latest run's snapshots |
-| `dataset` | build governed datasets (`als_interactions@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
+| `dataset` | build governed datasets (`als_interactions@v1`, `rank_training@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
 | `lock` | regenerate `registry/features.lock` after a deliberate definition change |
 
 Exit codes: 0 ok, 2 config/missing input, 3 parity mismatch (`parity mismatch view=.. entity=.. feature=..
 online=.. offline=..`), 4 registry drift (a definition changed without a version bump, or a view missing from the lock).
+
+**Ranking dataset.** `rank_training@v1` has one row per (`impression_id`, `listing_id`) of an `impression` event in the
+window: `user_key`, `impression_id`, `listing_id`, `position`, `label`, `occurred_at`. `label` is 2 when an `add_to_cart`
+with the same `impression_id` and `listing_id` happened at or after the impression, else 1 for a `click`, else 0. Registry
+datasets may declare `columns:` (name to `string|int|float|timestamp`); without it the `als_interactions` columns apply.
+platform-recsys' GBDT trainer reads it (change `recsys-gbdt-trainer`).
 
 ## Configuration
 

@@ -2,7 +2,7 @@
 
 Publish order (a crash before step 3 leaves serving exactly as it was):
   1. write the generation's Redis keys                      (invisible: no pointer names it)
-  2. write the generation's Qdrant collections (ALS, and two-tower when the stage ran)
+  2. write the generation's Qdrant collections (ALS, and two-tower when the stage ran) and its ranker artifact
                                                             (invisible: the aliases do not name them)
   3. move the Qdrant aliases, then the Redis pointers       (the switch; the Redis one is a single Lua EVAL)
   4. delete every generation that is neither serving nor previous
@@ -41,11 +41,13 @@ def publish_generation(
     redis_client=None,
     qdrant_client=None,
     two_tower_vectors: dict[str, list[float]] | None = None,
+    ranker_artifact: dict | None = None,
 ) -> dict:
     """Write ``model_version`` as a generation, switch serving to it, drop older generations.
 
     ``two_tower_vectors`` (the optional two-tower stage) is written with the ALS collections, before
-    the switch, so a generation is complete or not visible at all."""
+    the switch, so a generation is complete or not visible at all. ``ranker_artifact`` (the promoted GBDT
+    ranker) is written to ``recs:v1:gen:<generation>:ranker`` at the same point."""
     if redis_client is None:
         redis_client = redis_cache.connect(settings)
     if qdrant_client is None:
@@ -62,6 +64,10 @@ def publish_generation(
         two_tower_items = qdrant_load.load_two_tower_vectors(
             settings, model_version, two_tower_vectors, client=qdrant_client
         )
+
+    ranker_key = None
+    if ranker_artifact is not None:
+        ranker_key = redis_cache.load_ranker(settings, model_version, ranker_artifact, client=redis_client)
 
     qdrant_load.activate_aliases(settings, model_version, client=qdrant_client)
     replaced = redis_cache.activate_generation(settings, model_version, client=redis_client)
@@ -83,6 +89,7 @@ def publish_generation(
         "qdrant": qdrant_counts,
         "cache": cache_counts,
         "two_tower_items": two_tower_items,
+        "ranker_key": ranker_key,
         "serving": serving,
         "previous": previous,
         "dropped_keys": dropped_keys,
