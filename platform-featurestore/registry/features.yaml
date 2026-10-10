@@ -5,7 +5,8 @@
 # last_occurred_at; may also read $window_days). They share the version + hash lock with the views.
 #
 # SQL contract: the file is one SELECT returning `entity_id` plus every column named in `features`. It may read the
-# point-in-time views `events`, `facts` and `orders` and the parameter $as_of (see featurestore/inputs.py).
+# point-in-time views `events`, `facts`, `orders` and `listings` (listing -> seller, category, price; empty when the
+# export is absent) and the parameter $as_of (see featurestore/inputs.py). Feature types: int, float, string.
 views:
   - name: user_activity
     version: 2
@@ -30,6 +31,20 @@ views:
       review_count: int
       avg_rating: float
       ctr_7d: float
+  - name: item_attributes
+    version: 1
+    entity: listing_id
+    sql: sql/item_attributes.sql
+    features:
+      seller_id: string
+      category_id: string
+      price: int
+  - name: user_preferences
+    version: 1
+    entity: user_key
+    sql: sql/user_preferences.sql
+    features:
+      preferred_categories: string
 
 datasets:
   - name: als_interactions
