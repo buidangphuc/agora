@@ -259,3 +259,99 @@ features:
     status: automated
     covered_by: "featurestore/order_features.feature::A tampered order count fails the parity check"
     notes: "green after rebuild: featurestore/order_features.feature::A tampered order count fails the parity check"
+
+  - id: featurestore.fia-item-features
+    title: "A listing's attributes become item features"
+    persona: seller
+    priority: P1
+    summary: "A listing's attributes become item features"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller creates a listing with a category and a price, the export cycle completes, and the materialisation job runs"
+      - "Then the online features of that listing under item_attributes@v1 carry that category and price and the seller"
+    tags: [analytics, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-preferred-categories
+    title: "A buyer's preferred categories follow their interactions"
+    persona: buyer
+    priority: P1
+    summary: "A buyer's preferred categories follow their interactions"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer views a listing of category A three times and a listing of category B once, the export cycle completes, and the materialisation job runs"
+      - "Then the online preferred_categories of that buyer under user_preferences@v1 is \"A,B\""
+    tags: [analytics, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-as-of
+    title: "A listing changed after AS_OF is not in the snapshot"
+    persona: guest
+    priority: P1
+    summary: "A listing changed after AS_OF is not in the snapshot"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the listing export holds one listing last changed before AS_OF and one changed after it, and the job runs"
+      - "Then the item_attributes@v1 snapshot has a row for the first and none for the second"
+    tags: [analytics, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-parity
+    title: "A tampered attribute fails the parity check"
+    persona: guest
+    priority: P1
+    summary: "A tampered attribute fails the parity check"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When after a run, one listing's item_attributes@v1 online category is overwritten with a different value, and python -m featurestore parity runs"
+      - "Then the command exits non-zero and its output names that listing and category_id"
+    tags: [analytics, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-no-listing-export
+    title: "Without a listing export the attribute views are empty"
+    persona: guest
+    priority: P1
+    summary: "Without a listing export the attribute views are empty"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs over inputs without listing_sellers.parquet"
+      - "Then it exits 0 with a warning naming the file, and the item_attributes@v1 and user_preferences@v1 snapshots have no rows"
+    tags: [analytics, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-old-exporter
+    title: "A listing export without the new columns stops the run"
+    persona: guest
+    priority: P1
+    summary: "A listing export without the new columns stops the run"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs over a listing_sellers.parquet that has no category_id column"
+      - "Then it exits 2 and its output names category_id"
+    tags: [analytics, batch, integration]
+    status: planned
+    notes: "needs rebuild"
