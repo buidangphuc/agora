@@ -47,8 +47,9 @@ spec:
               value: "http://tei-rerank.marketplace.svc:8102"
             - name: VLLM_URL
               value: "http://vllm.marketplace.svc:8103"
+            # Embedding cache on DB 4, as in compose: DB 0 is the recsys nearline CTR store team-ai reads.
             - name: REDIS_URL
-              value: "redis://valkey.marketplace.svc:6379/0"
+              value: "redis://valkey.marketplace.svc:6379/4"
             - name: EMBED_CACHE_ENABLED
               value: "true"
             - name: MODEL_VERSION
