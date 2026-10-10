@@ -76,7 +76,7 @@ Feature: Multi-strategy Hybrid Retrieval Platform
     Given three embedded listings share a unique keyword
     When a buyer searches for that keyword in SEARCH_MODE_HYBRID, then again with a reverse-rerank directive
     Then the TEI fake received a rerank request listing those candidates
-    And the three listings come back in the opposite order of the plain search
+    And the three listings come back in the reverse of the same query's RRF order
 
   @needsModelserveOverlay
   Scenario: Reranker failure falls back to RRF order

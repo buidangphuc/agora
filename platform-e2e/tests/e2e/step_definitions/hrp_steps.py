@@ -492,12 +492,15 @@ def rerank_seen(world: World) -> None:
     s.eventually(_found, "a rerank request carrying the three candidates' titles", 15.0)
 
 
-@then("the three listings come back in the opposite order of the plain search")
+@then("the three listings come back in the reverse of the same query's RRF order")
 def reversed_order(world: World) -> None:
+    # The fake reverses the fused window it is sent, which is THIS query's RRF order (the directive
+    # words change the lexical leg), so the baseline is that order, not the plain query's.
     bag = h.bag(world)
-    assert len(bag["plain"]) == 3 and bag["directed"] == list(
-        reversed(bag["plain"])
-    ), f"plain {bag['plain']} directed {bag['directed']}: the reranker order was not applied"
+    expected = list(reversed(_rrf_order(world, f"{_kw(world)} [[fake rerank=reverse]]")))
+    assert (
+        len(bag["directed"]) == 3 and bag["directed"] == expected
+    ), f"directed {bag['directed']} expected {expected}: the reranker order was not applied"
 
 
 @then("the TEI fake answered the rerank request with a failure")
@@ -521,19 +524,25 @@ def rrf_order(world: World) -> None:
     # listings lexically, so the plain query's order is not the baseline.
     bag = h.bag(world)
     assert bag["directed_resp"].status_code == 200
-    labels = ["one", "two", "three"]
-    query = f"{_kw(world)} [[fake rerank_status=500]]"
+    expected = _rrf_order(world, f"{_kw(world)} [[fake rerank_status=500]]")
+    assert len(bag["directed"]) == 3, bag["directed"]
+    assert bag["directed"] == expected, (bag["directed"], expected)
+
+
+def _rrf_order(world: World, query: str) -> list[str]:
+    """Our three listings in the RRF order of `query`'s own lexical and semantic legs.
+
+    Ties go to the lower listing id, as in team-search's fusion.
+    """
     legs = [
         h.ids(h.search(query, mode=mode, page_size=LEG_PAGE)) for mode in (h.LEXICAL, h.SEMANTIC)
     ]
-    mine = [s.listing(world, label).id for label in labels]
+    mine = [s.listing(world, label).id for label in ("one", "two", "three")]
 
     def score(listing_id: str) -> float:
         return sum(1.0 / (RRF_K + leg.index(listing_id) + 1) for leg in legs if listing_id in leg)
 
-    expected = sorted(mine, key=lambda i: (-score(i), i))
-    assert len(bag["directed"]) == 3, bag["directed"]
-    assert bag["directed"] == expected, (bag["directed"], expected, legs)
+    return sorted(mine, key=lambda i: (-score(i), i))
 
 
 @then("both listings are among the hits although a lexical search finds only the first one")
