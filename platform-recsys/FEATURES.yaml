@@ -852,3 +852,147 @@ features:
     tags: [recsys, batch, integration]
     status: planned
     notes: "needs rebuild"
+
+  - id: recsys.rgt-beats-baseline
+    title: "The trainer learns from clicks and beats the fixed-weight baseline"
+    persona: guest
+    priority: P1
+    summary: "The trainer learns from clicks and beats the fixed-weight baseline"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs with the GBDT stage enabled over a ranking dataset whose clicks depend on item price"
+      - "Then the run summary reports the GBDT candidate as promoted with an ndcg@10 greater than the baseline_ndcg@10 of the fixed-weight ranker"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-feature-contract
+    title: "The model's feature list is the serving contract"
+    persona: guest
+    priority: P1
+    summary: "The model's feature list is the serving contract"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT stage publishes its artifact"
+      - "Then the artifact lists the features item_popularity.views_7d, item_popularity.clicks_7d, item_popularity.add_to_cart_7d, item_popularity.favorites_current, item_popularity.review_count, item_popularity.avg_rating, item_popularity.ctr_7d and item_attributes.price, in that order, with the view versions"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-ctr-source
+    title: "Each training row records where its CTR came from"
+    persona: guest
+    priority: P1
+    summary: "Each training row records where its CTR came from"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT stage runs with a path set for the training rows"
+      - "Then every row records a ctr_source of debiased or fallback, both occur, and the model's metadata counts each"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-temporal-holdout
+    title: "Evaluation uses a temporal holdout"
+    persona: guest
+    priority: P1
+    summary: "Evaluation uses a temporal holdout"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT stage evaluates its candidate"
+      - "Then the model's metadata records an evaluation protocol, a cutoff, and that every held-out impression is later than every training impression"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-missing-dataset
+    title: "A missing ranking dataset stops the run"
+    persona: guest
+    priority: P1
+    summary: "A missing ranking dataset stops the run"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs with the GBDT stage enabled and no ranking dataset"
+      - "Then it exits 2, its log names RANK_DATASET_DIR, and no model is registered"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-disabled
+    title: "A disabled trainer leaves the run unchanged"
+    persona: guest
+    priority: P1
+    summary: "A disabled trainer leaves the run unchanged"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs without enabling the GBDT stage"
+      - "Then the summary has no GBDT entry and the generation has no ranker artifact"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-artifact-scores
+    title: "The published artifact scores items the way the trainer does"
+    persona: guest
+    priority: P1
+    summary: "The published artifact scores items the way the trainer does"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an independent evaluator reads the artifact from recs:v1:gen:<generation>:ranker and scores a cheap and an expensive item"
+      - "Then its scores equal the trainer's to 1e-9 and the cheap item scores higher"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-rejected
+    title: "A model below the promotion threshold is rejected and the generation ships without a ranker"
+    persona: guest
+    priority: P1
+    summary: "A model below the promotion threshold is rejected and the generation ships without a ranker"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job runs with the GBDT stage enabled and a promotion improvement threshold no model can reach"
+      - "Then the GBDT candidate is recorded as rejected with its reason, the generation is serving, and no ranker artifact exists for it"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.rgt-retention
+    title: "The ranker artifact lives and dies with its generation"
+    persona: guest
+    priority: P1
+    summary: "The ranker artifact lives and dies with its generation"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys job promotes three generations in a row with the GBDT stage enabled"
+      - "Then a ranker artifact with a TTL exists for the serving and previous generations and none for the oldest"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
