@@ -91,6 +91,16 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("item_features_path", "ITEM_FEATURES_PATH", "", _as_str),
     ("user_features_dir", "USER_FEATURES_DIR", "/features/user_activity/v2", _as_str),
     ("user_features_path", "USER_FEATURES_PATH", "", _as_str),
+    # Attribute snapshots (item_attributes@v1: category, price; user_preferences@v1: preferred categories).
+    # Optional: without an item snapshot the towers read category/price/preferences as 0, unless
+    # TWO_TOWER_REQUIRE_ATTRIBUTES makes a missing item_attributes snapshot a configuration error (exit 2).
+    ("item_attributes_dir", "ITEM_ATTRIBUTES_DIR", "/features/item_attributes/v1", _as_str),
+    ("item_attributes_path", "ITEM_ATTRIBUTES_PATH", "", _as_str),
+    ("user_preferences_dir", "USER_PREFERENCES_DIR", "/features/user_preferences/v1", _as_str),
+    ("user_preferences_path", "USER_PREFERENCES_PATH", "", _as_str),
+    ("two_tower_require_attributes", "TWO_TOWER_REQUIRE_ATTRIBUTES", "false", _as_bool),
+    # The category vocabulary is built from the item_attributes snapshot (most frequent first), capped here.
+    ("two_tower_max_categories", "TWO_TOWER_MAX_CATEGORIES", "64", _as_int),
     # In-batch softmax training on the dataset's pairs (sampled to TWO_TOWER_MAX_PAIRS).
     ("two_tower_epochs", "TWO_TOWER_EPOCHS", "5", _as_int),
     ("two_tower_lr", "TWO_TOWER_LR", "0.05", _as_float),
@@ -158,6 +168,12 @@ class Settings:
     item_features_path: str = ""
     user_features_dir: str = "/features/user_activity/v2"
     user_features_path: str = ""
+    item_attributes_dir: str = "/features/item_attributes/v1"
+    item_attributes_path: str = ""
+    user_preferences_dir: str = "/features/user_preferences/v1"
+    user_preferences_path: str = ""
+    two_tower_require_attributes: bool = False
+    two_tower_max_categories: int = 64
     two_tower_epochs: int = 5
     two_tower_lr: float = 0.05
     two_tower_batch_size: int = 256
@@ -250,6 +266,8 @@ class Settings:
             raise ValueError(f"TWO_TOWER_EPOCHS must be >= 0: {self.two_tower_epochs}")
         if self.two_tower_batch_size < 2:
             raise ValueError(f"TWO_TOWER_BATCH_SIZE must be >= 2: {self.two_tower_batch_size}")
+        if self.two_tower_max_categories <= 0:
+            raise ValueError(f"TWO_TOWER_MAX_CATEGORIES must be > 0: {self.two_tower_max_categories}")
         if self.two_tower_temperature <= 0:
             raise ValueError(f"TWO_TOWER_TEMPERATURE must be > 0: {self.two_tower_temperature}")
         if self.drift_alert_threshold < 0:

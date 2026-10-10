@@ -63,16 +63,19 @@ def train_and_index_two_tower(
     batch_size: int = 256,
     temperature: float = 0.1,
     seed: int = 42,
+    category_vocab: list[str] | None = None,
 ) -> tuple[TwoTowerModel, dict[str, list[float]]]:
     """Train the towers on ``pairs`` of (user_key, listing_id), then embed the whole catalogue.
 
     ``catalog_items`` are item feature dicts with a ``listing_id`` (cold items included: an item needs
     features, not interactions). ``user_profiles`` are user feature dicts with a ``user_key``. Without
-    ``pairs`` (or ``epochs=0``) the towers keep their initial weights. Returns the model (its
-    ``report`` says what happened) and the vectors that are safe to publish: a zero or non-finite
-    vector is refused and counted, and if no vector is left ``DegenerateEmbeddingError`` is raised.
+    ``pairs`` (or ``epochs=0``) the towers keep their initial weights. ``category_vocab`` replaces the
+    towers' built-in category names (the stage builds it from the item attribute snapshot). Returns the
+    model (its ``report`` says what happened) and the vectors that are safe to publish: a zero or
+    non-finite vector is refused and counted, and if no vector is left ``DegenerateEmbeddingError`` is
+    raised.
     """
-    model = TwoTowerModel(embedding_dim=embedding_dim, seed=seed)
+    model = TwoTowerModel(embedding_dim=embedding_dim, category_vocab=category_vocab, seed=seed)
 
     item_features = {
         str(it.get("listing_id") or it.get("id", "")): it
