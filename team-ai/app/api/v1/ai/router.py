@@ -27,8 +27,18 @@ from app.modules.business.tag_classifier.schemas import (
     TagStatus,
 )
 from app.modules.business.tag_classifier.service import TagClassifierService
+from app.modules.platform.identity.auth import (
+    ADMIN_SCOPE,
+    AI_CLASSIFY_SCOPE,
+    require_tag_access,
+)
 
 router = APIRouter(tags=["ai"])
+
+# Tag routes (internal, not routed by the gateway): a service or admin bearer token.
+# Reads need ai.classify or admin; the routes that mutate the taxonomy need admin.
+_tag_read = Depends(require_tag_access(AI_CLASSIFY_SCOPE, ADMIN_SCOPE))
+_tag_admin = Depends(require_tag_access(ADMIN_SCOPE))
 
 
 @router.post(
@@ -77,6 +87,7 @@ async def chat_copilot_endpoint(
 
 @router.post(
     "/tags/classify",
+    dependencies=[_tag_read],
     response_model=ClassifyTagsResponse,
     summary="Classify SPU Product Tags (Online Fast Inference)",
     description="Fast online inference: extracts and predicts canonical filter tags and emergent candidate tags from parent title & description.",
@@ -90,6 +101,7 @@ async def classify_tags_endpoint(
 
 @router.post(
     "/tags/classify-sku-hierarchy",
+    dependencies=[_tag_read],
     response_model=ClassifySkuHierarchyResponse,
     summary="Classify SKU Hierarchy (Granular SPU & Variant Level Inference)",
     description="Scales tag classification across parent listing and all child SKU variants (color, storage, ram, size, power, material), returning OpenSearch nested document payload.",
@@ -103,6 +115,7 @@ async def classify_sku_hierarchy_endpoint(
 
 @router.post(
     "/tags/explore",
+    dependencies=[_tag_admin],
     response_model=ExploreTagsResponse,
     summary="Explore Candidate Tags (Offline Discovery & Clustering)",
     description="Offline MLOps pipeline: processes a batch of raw product listings & SKU variants, extracts emergent specs/features, clusters keywords, and registers candidate tags into exploration pool.",
@@ -116,6 +129,7 @@ async def explore_tags_endpoint(
 
 @router.post(
     "/tags/promote",
+    dependencies=[_tag_admin],
     response_model=PromoteTagResponse,
     summary="Promote Candidate Tags (Gating & Promotion to Canonical Facets)",
     description="Elevates candidate tags that passed confidence/frequency thresholds to official canonical filter facets, enriching search filter aggregations.",
@@ -129,6 +143,7 @@ async def promote_tags_endpoint(
 
 @router.get(
     "/tags",
+    dependencies=[_tag_read],
     response_model=ListTagsResponse,
     summary="List Tags (Canonical Filter Facets & Exploration Candidates)",
     description="Lists marketplace tags filtered by category, facet group (connectivity, material, power, color, size, capacity), and lifecycle status.",

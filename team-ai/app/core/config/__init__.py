@@ -68,6 +68,18 @@ class Settings(
     def validate_runtime_safety(self) -> Settings:
         if not self.ENVIRONMENT.is_local and not self.AUTH_BEARER_TOKEN:
             raise ValueError("AUTH_BEARER_TOKEN is required outside dev/local/test")
+        if self.AUTH_ADMIN_BEARER_TOKEN and not self.ENVIRONMENT.is_local:
+            if (
+                self.AUTH_ADMIN_BEARER_TOKEN in WEAK_AUTH_TOKENS
+                or len(self.AUTH_ADMIN_BEARER_TOKEN) < 24
+            ):
+                raise ValueError(
+                    "AUTH_ADMIN_BEARER_TOKEN is too weak outside dev/local/test"
+                )
+            if self.AUTH_ADMIN_BEARER_TOKEN == self.AUTH_BEARER_TOKEN:
+                raise ValueError(
+                    "AUTH_ADMIN_BEARER_TOKEN must differ from AUTH_BEARER_TOKEN"
+                )
         if self.GRPC_BEARER_FALLBACK_ENABLED and not self.ENVIRONMENT.is_local:
             raise ValueError(
                 "GRPC_BEARER_FALLBACK_ENABLED must be false outside dev/local/test"

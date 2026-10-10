@@ -47,7 +47,8 @@ is checked against `AUTH_BEARER_TOKEN`.
 |---|---|
 | `GET /healthz`, `GET /readyz` (also under `/api/v1`), `GET /metrics` (gRPC request counter) | none |
 | `POST /api/v1/ai/assistant`, `/magic-listing`, `/chat-copilot` | none |
-| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy` (no longer used by team-search's indexer, which calls gRPC `ClassifyTags`), `/tags/explore`, `/tags/promote`; `GET /api/v1/ai/tags` | none |
+| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy` (no longer used by team-search's indexer, which calls gRPC `ClassifyTags`); `GET /api/v1/ai/tags` | `Authorization: Bearer` service or admin token: scope `ai.classify` or `admin` (401 without a valid token, 403 without the scope). Not routed by the gateway; a user JWT is not accepted. |
+| `POST /api/v1/ai/tags/explore`, `/tags/promote` (mutate the taxonomy) | bearer token of an `admin` principal (`AUTH_ADMIN_BEARER_TOKEN`); 403 for the service token |
 | `POST /api/v1/completions`, `/completions/stream`, `/completions/tasks`; `GET /completions/tasks/{task_id}` | `require_principal` (bearer) |
 
 `/docs` is served while `DOCS_ENABLED=true` (default). `/readyz` reports postgres, redis and
@@ -102,6 +103,7 @@ default and listed in `.env.example`.
 | Variable | Default | Meaning |
 |---|---|---|
 | `ENVIRONMENT` | `dev` | `prod` or `production` rejects `DOCS_ENABLED=true`, wildcard CORS or hosts, and a weak `AUTH_BEARER_TOKEN`. |
+| `AUTH_ADMIN_BEARER_TOKEN`, `AUTH_ADMIN_SUBJECT` | `""`, `tag-admin` | Second token for the tag routes: a service principal with `admin` + `ai.classify`. Empty means nobody is admin; outside dev/local/test it must be 24+ characters, not a known weak value and different from `AUTH_BEARER_TOKEN`. The service token's scopes are `AUTH_ROLES` (use `ai.classify` for read-only callers). |
 | `AUTH_BEARER_TOKEN` | `""` | Bearer fallback for HTTP and direct gRPC calls. Required outside dev, local and test. |
 | `GRPC_ENABLED` | `false` | Start gRPC inside the HTTP app lifespan. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, `50051` | Bind address. Compose uses `50060`. |
@@ -232,8 +234,8 @@ gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci
   (`ChatCopilot` also rejects another seller's `seller_id`), `SummarizeReviews` needs
   `listing.read`, and `AIService` errors are mapped to field names or fixed text. But
   `ShoppingAssistant` and `StreamChat` stay open to any principal until team-identity grants
-  `ai:use` to buyer, seller and admin and `AI_USE_SCOPE_REQUIRED=true` is set. The HTTP AI and
-  tag routes (including `/tags/promote`, which mutates state) still have no auth dependency.
+  `ai:use` to buyer, seller and admin and `AI_USE_SCOPE_REQUIRED=true` is set. The HTTP AI
+  routes `/assistant`, `/magic-listing` and `/chat-copilot` still have no auth dependency (the tag routes now do).
 - **`make grpc` (`scripts/run_grpc.py`) does not wire recommendations.** It builds the server
   without `recommendation_provider`, so `Recommend` answers `UNAVAILABLE` there. Use the HTTP app
   with `GRPC_ENABLED=true`, as compose does.
