@@ -788,3 +788,67 @@ features:
     status: automated
     covered_by: "recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared"
     notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared. The incumbent is seeded in the registry store without an eval_protocol (as a pre-protocol champion is)."
+
+  - id: recsys.fia-cold-start-categories
+    title: "Cold-start items with different categories get different vectors"
+    persona: guest
+    priority: P1
+    summary: "Cold-start items with different categories get different vectors"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled over attribute snapshots that hold two listings with no engagement and no ALS factor, with different categories and the same price"
+      - "Then both have a non-zero two-tower vector and the vectors differ"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.fia-lineage
+    title: "The model records the attribute snapshots it trained on"
+    persona: guest
+    priority: P1
+    summary: "The model records the attribute snapshots it trained on"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled over attribute and preference snapshots"
+      - "Then the model's metadata records item_attributes@v1 and user_preferences@v1 with their file and SHA-256 and the category vocabulary size"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.fia-required
+    title: "Required attribute snapshots missing stop the run"
+    persona: guest
+    priority: P1
+    summary: "Required attribute snapshots missing stop the run"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled, TWO_TOWER_REQUIRE_ATTRIBUTES true and no attribute snapshots"
+      - "Then it exits 2, its log names ITEM_ATTRIBUTES_DIR, and no model is registered"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: recsys.fia-optional
+    title: "Without attribute snapshots the stage runs as before"
+    persona: guest
+    priority: P1
+    summary: "Without attribute snapshots the stage runs as before"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs with the two-tower stage enabled over popularity and activity snapshots only"
+      - "Then it exits 0 and the model's metadata records no attribute snapshot"
+    tags: [recsys, batch, integration]
+    status: planned
+    notes: "needs rebuild"
