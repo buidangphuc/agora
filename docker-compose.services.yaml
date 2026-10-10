@@ -620,6 +620,13 @@ services:
       - REDIS_ENABLED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Internal tag routes (/api/v1/ai/tags/*, tag-routes-authz): a service token for reads, an admin
+      # token for explore/promote. Local placeholders only; override via .env (see .env.example).
+      - AUTH_BEARER_TOKEN=${TEAM_AI_SERVICE_TOKEN:-agora-local-team-ai-service}
+      - AUTH_ROLES=ai.classify
+      - AUTH_ADMIN_BEARER_TOKEN=${TEAM_AI_ADMIN_TOKEN:-agora-local-team-ai-admin}
+      # Promoted/explored tags survive restarts (tag-taxonomy-persistence): Redis DB 5, tagtax:v1:*.
+      - TAXONOMY_PERSISTENCE_ENABLED=true
       - CHAT_BACKEND=mock
       # Recommendations (serve-recommendations-teamai) — reuses GRPC_PORT, no new
       # port. Served from what the platform-recsys job (below, profile "jobs")

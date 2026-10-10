@@ -57,6 +57,25 @@ services:
       UPSTREAM_TIMEOUT_SECONDS: "30"
     ports:
       - "127.0.0.1:${MODELSERVE_HOST_PORT:-18100}:8100"
+  # assistant-rag-grounding: the listing indexer feeds team-ai's RAG store (Qdrant collection rag_documents),
+  # embedded through the router, so ShoppingAssistant answers with real listings.
+  team-ai:
+    build:
+      args:
+        UV_EXTRAS: "recs ai kafka"
+    depends_on:
+      modelserve-router:
+        condition: service_healthy
+    environment:
+      RAG_ENABLED: "true"
+      RAG_BACKEND: qdrant
+      RAG_QDRANT_URL: http://qdrant:6333
+      RAG_QDRANT_COLLECTION: rag_documents
+      RAG_EMBED_BACKEND: model_server
+      RAG_EMBED_SERVER_URL: http://modelserve-router:8100
+      RAG_EMBED_DIM: "384"
+      LISTING_INDEXER_ENABLED: "true"
+      KAFKA_BROKERS: redpanda:9092
   team-search:
     depends_on:
       modelserve-router:
