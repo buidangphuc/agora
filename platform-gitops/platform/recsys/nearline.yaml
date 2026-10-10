@@ -1,0 +1,84 @@
+# platform-recsys-nearline — long-running consumer of analytics.events that keeps the recs:nearline:*
+# position-debiased CTR keys fresh in valkey DB 0 (TTL 24 h), which team-ai reads per request
+# (RECS_NEARLINE_REDIS_URL). Mirrors docker-compose `platform-recsys-nearline`: the recsys image with its
+# entrypoint overridden. One replica keeps the counters single-writer. No Service (nothing connects to it).
+# No secrets: redpanda and valkey run without auth.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recsys-nearline-config
+  namespace: marketplace
+data:
+  KAFKA_BROKERS: "redpanda:9092"
+  KAFKA_ANALYTICS_TOPIC: "analytics.events"
+  NEARLINE_CONSUMER_GROUP: "platform-recsys-nearline"
+  REDIS_HOST: "valkey"   # the cluster Service is valkey (platform/infra/valkey.yaml)
+  REDIS_PORT: "6379"
+  REDIS_DATABASE: "0"    # the DB team-ai reads via RECS_NEARLINE_REDIS_URL
+  HOME: /tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-recsys-nearline
+  namespace: marketplace
+  labels: { app: platform-recsys-nearline }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: platform-recsys-nearline }
+  template:
+    metadata:
+      labels: { app: platform-recsys-nearline }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: nearline
+          image: localhost:5001/platform-recsys:local
+          command: ["python", "-m", "recsys.nearline"]
+          envFrom:
+            - configMapRef: { name: recsys-nearline-config }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# Consumer pod: nothing connects to it; it needs DNS, redpanda (analytics.events) and valkey only (ADR-0010).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: platform-recsys-nearline, namespace: marketplace }
+spec:
+  podSelector:
+    matchLabels: { app: platform-recsys-nearline }
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app: redpanda }
+      ports:
+        - { protocol: TCP, port: 9092 }
+    - to:
+        - podSelector:
+            matchLabels: { app: valkey }
+      ports:
+        - { protocol: TCP, port: 6379 }
