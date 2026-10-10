@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -30,6 +31,8 @@ class EmbeddingCache:
                 self._client = aioredis.from_url(
                     self._settings.redis_url,
                     decode_responses=True,
+                    socket_connect_timeout=self._settings.embed_cache_timeout_seconds,
+                    socket_timeout=self._settings.embed_cache_timeout_seconds,
                 )
             except Exception as exc:
                 logger.warning("Failed to initialize Redis client: %s", exc)
@@ -57,7 +60,9 @@ class EmbeddingCache:
         keys = [make_embedding_cache_key(version, t) for t in texts]
 
         try:
-            raw_results = await self._client.mget(keys)
+            raw_results = await asyncio.wait_for(
+                self._client.mget(keys), self._settings.embed_cache_timeout_seconds
+            )
             results: list[list[float] | None] = []
             for item in raw_results:
                 if item is not None:
@@ -69,7 +74,7 @@ class EmbeddingCache:
                     results.append(None)
             return results
         except Exception as exc:
-            logger.warning("Redis mget error: %s", exc)
+            logger.warning("Redis mget error: %s", exc or type(exc).__name__)
             return [None] * len(texts)
 
     async def set_many(
@@ -91,6 +96,6 @@ class EmbeddingCache:
             for text, vector in zip(texts, vectors, strict=False):
                 key = make_embedding_cache_key(version, text)
                 pipeline.set(key, json.dumps(vector), ex=ttl)
-            await pipeline.execute()
+            await asyncio.wait_for(pipeline.execute(), self._settings.embed_cache_timeout_seconds)
         except Exception as exc:
             logger.warning("Redis set_many error: %s", exc)
