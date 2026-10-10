@@ -433,8 +433,8 @@ features:
       - "When a listing has 105 reviews and a client requests pages of 10 following `next_cursor` from the start"
       - "Then every review appears exactly once, in newest-first order, `total` is 105 on every page and the eleventh page holds the 5 oldest reviews with an empty `next_cursor`"
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/rvp_reviews_pagination.feature::Pages are disjoint and newest first"
     notes: "needs rebuild"
 
   - id: engagement.reviews-pagination-page-size-bounded
@@ -452,8 +452,8 @@ features:
       - "When a client requests `page_size` 500 for that listing"
       - "Then at most 100 reviews are returned and `next_cursor` is set"
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/rvp_reviews_pagination.feature::Page size is bounded"
     notes: "needs rebuild"
 
   - id: engagement.reviews-pagination-malformed-cursor
@@ -471,6 +471,6 @@ features:
       - 'When a client sends `cursor` "abc" or "-5"'
       - "Then the call fails with `InvalidArgument`"
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "engagement/rvp_reviews_pagination.feature::A malformed cursor is rejected"
     notes: "needs rebuild"

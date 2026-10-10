@@ -7222,8 +7222,8 @@ features:
       - "When a buyer opens a listing with 105 reviews"
       - "Then the reviews list shows 10 reviews and the `Pagination` offers 11 pages"
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/rvp_reviews_pagination_ui.feature::A listing with 105 reviews shows 11 pages"
     notes: "needs rebuild"
 
   - id: listing.reviews-pagination-last-page-oldest
@@ -7241,6 +7241,6 @@ features:
       - "When the buyer opens `?rpage=11` of that listing"
       - "Then 5 reviews are listed, they are the 5 oldest, and the `Pagination` marks page 11 as current"
     tags: [buyer]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/rvp_reviews_pagination_ui.feature::The last page shows the oldest reviews"
     notes: "needs rebuild"
