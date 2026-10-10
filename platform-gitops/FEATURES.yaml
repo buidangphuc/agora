@@ -447,3 +447,20 @@ features:
     status: automated
     covered_by: "ops/lcw_local_cluster_image_wiring.feature::A single-writer volume is replaced, not surged"
     notes: "local-cluster-image-wiring: ops/lcw_local_cluster_image_wiring.feature::A single-writer volume is replaced, not surged"
+  - id: gitops.rdt-broker-data-on-claim
+    title: "The broker data dir is on a claim"
+    persona: admin
+    priority: P1
+    summary: "The broker data dir is on a claim"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops manifests."
+    acceptance:
+      - "When the redpanda Deployment of platform-gitops is read"
+      - "Then its data directory /var/lib/redpanda/data is mounted from a PersistentVolumeClaim, so topics survive a pod restart"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::The broker data dir is on a claim"
+    notes: "redpanda-durable-topics: ops/lcw_local_cluster_image_wiring.feature::The broker data dir is on a claim"

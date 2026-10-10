@@ -212,3 +212,39 @@ def rwo_recreate(lcw):
         and (doc["spec"].get("strategy") or {}).get("type") != "Recreate"
     ]
     assert not wrong, wrong
+
+
+@when("the Redpanda manifest of platform-gitops is read")
+def read_redpanda(lcw):
+    path = GITOPS / "platform" / "infra" / "redpanda.yaml"
+    lcw["redpanda"] = [d for d in yaml.safe_load_all(path.read_text()) if isinstance(d, dict)]
+
+
+@then(
+    "the redpanda container mounts a volume at `/var/lib/redpanda/data` that is backed by a "
+    "`PersistentVolumeClaim` declared in the same manifest, and the pod's `fsGroup` lets the "
+    "`redpanda` user (gid 101) write it"
+)
+def redpanda_on_claim(lcw):
+    docs = lcw["redpanda"]
+    claims = {d["metadata"]["name"] for d in docs if d.get("kind") == "PersistentVolumeClaim"}
+    deploy = next(
+        d for d in docs if d.get("kind") == "Deployment" and d["metadata"]["name"] == "redpanda"
+    )
+    pod = deploy["spec"]["template"]["spec"]
+    container = next(c for c in pod["containers"] if c["name"] == "redpanda")
+    mount = next(
+        (
+            m
+            for m in container.get("volumeMounts") or []
+            if m["mountPath"] == "/var/lib/redpanda/data"
+        ),
+        None,
+    )
+    assert mount, "redpanda container has no volumeMount at /var/lib/redpanda/data"
+    volume = next(v for v in pod.get("volumes") or [] if v["name"] == mount["name"])
+    claim = (volume.get("persistentVolumeClaim") or {}).get("claimName")
+    assert (
+        claim in claims
+    ), f"volume {volume['name']} claim {claim!r} not declared in {sorted(claims)}"
+    assert (pod.get("securityContext") or {}).get("fsGroup") == 101

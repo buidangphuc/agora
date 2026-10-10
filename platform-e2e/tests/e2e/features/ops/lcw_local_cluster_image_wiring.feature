@@ -21,3 +21,7 @@ Feature: Images and gitops content reach the local cluster
   Scenario: A single-writer volume is replaced, not surged
     When the Deployments of platform-gitops that mount a ReadWriteOnce claim are read
     Then each one with a single replica uses the Recreate strategy, so a rollout never runs two pods on one volume
+
+  Scenario: The broker data dir is on a claim
+    When the Redpanda manifest of platform-gitops is read
+    Then the redpanda container mounts a volume at `/var/lib/redpanda/data` that is backed by a `PersistentVolumeClaim` declared in the same manifest, and the pod's `fsGroup` lets the `redpanda` user (gid 101) write it
