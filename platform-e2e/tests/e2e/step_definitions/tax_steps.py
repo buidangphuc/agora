@@ -203,3 +203,147 @@ def promoted_active(tax_ctx: dict) -> None:
         assert slug in res["suggested_facet_filters"].get("power", []), res[
             "suggested_facet_filters"
         ]
+
+
+# ── Authorization of the tag routes (change tag-routes-authz) ─────────────────
+_BATCH_ROUTES = (
+    (
+        "post",
+        "/classify",
+        lambda c: {"title": "Sạc nhanh GaN 65W", "category_id": "cat-electronics"},
+    ),
+    (
+        "post",
+        "/classify-sku-hierarchy",
+        lambda c: {
+            "spu_title": "iPhone 15 Pro Max",
+            "category_id": "cat-electronics",
+            "variants": [
+                {
+                    "variant_id": "v-1",
+                    "name": "Titan / 256GB",
+                    "sku_code": "S1",
+                    "price": 1,
+                    "stock": 1,
+                    "options": {"color": "Titan"},
+                }
+            ],
+        },
+    ),
+    ("get", "", lambda c: None),
+    ("post", "/explore", lambda c: _explore_body(c)),
+    ("post", "/promote", lambda c: _promote_body(c)),
+)
+
+
+def _explore_body(tax_ctx: dict) -> dict:
+    (watt,) = tax.fresh_watts(1) if "fresh" not in tax_ctx else (tax_ctx["fresh"],)
+    tax_ctx["fresh"] = watt
+    return {"batch_listings": _explore_batch(watt), "min_frequency": 2, "min_confidence": 0.80}
+
+
+def _promote_body(tax_ctx: dict) -> dict:
+    return {
+        "tag_slugs": [tax_ctx["slug"]],
+        "target_category_id": "cat-electronics",
+        "add_synonyms": [f"sac {tax_ctx['watt']}w"],
+    }
+
+
+def _call(tax_ctx: dict, method: str, path: str, body, token) -> object:
+    if method == "get":
+        return tax.get(token=token)
+    return tax.post(path, body, token=token)
+
+
+def _assert_taxonomy_unchanged(tax_ctx: dict) -> None:
+    slug = tax_ctx["slug"]
+    exploring = {t["slug"] for t in tax.list_tags(status="exploring")}
+    assert slug in exploring, "the candidate left the exploring pool"
+    assert slug not in {t["slug"] for t in tax.list_tags(status="promoted")}
+    fresh = tax_ctx.get("fresh")
+    if fresh is not None:
+        assert tax.slug_for(fresh) not in {t["slug"] for t in tax.list_tags()}
+
+
+@when("a caller without credentials calls each of the five tag routes")
+def anonymous_calls(tax_ctx: dict) -> None:
+    tax_ctx["statuses"] = {
+        path or "/": _call(tax_ctx, m, path, body(tax_ctx), tax.ANONYMOUS).status_code
+        for m, path, body in _BATCH_ROUTES
+    }
+
+
+@then("every call answers 401 and the taxonomy is unchanged")
+def all_401(tax_ctx: dict) -> None:
+    assert set(tax_ctx["statuses"].values()) == {401}, tax_ctx["statuses"]
+    assert len(tax_ctx["statuses"]) == 5
+    _assert_taxonomy_unchanged(tax_ctx)
+
+
+@when("a signed-in buyer presents the gateway session token to a read route and to promote")
+def buyer_token_calls(tax_ctx: dict) -> None:
+    from config.settings import get_settings
+    from src.api.services import AuthService
+    from src.utils import data as fake
+
+    token = AuthService().register(
+        fake.unique_username("taxbuyer"), get_settings().seed_password, "buyer"
+    )
+    assert token, "registering the buyer returned no token"
+    tax_ctx["statuses"] = {
+        "classify": tax.post("/classify", _BATCH_ROUTES[0][2](tax_ctx), token=token).status_code,
+        "promote": tax.post("/promote", _promote_body(tax_ctx), token=token).status_code,
+    }
+
+
+@then("both answer 401 and the taxonomy is unchanged")
+def both_401(tax_ctx: dict) -> None:
+    assert set(tax_ctx["statuses"].values()) == {401}, tax_ctx["statuses"]
+    _assert_taxonomy_unchanged(tax_ctx)
+
+
+@when("the service principal classifies and lists tags, then calls explore and promote")
+def service_calls(tax_ctx: dict) -> None:
+    token = tax.service_token()
+    tax_ctx["statuses"] = {
+        (path or "/"): _call(tax_ctx, m, path, body(tax_ctx), token).status_code
+        for m, path, body in (
+            _BATCH_ROUTES[0],
+            _BATCH_ROUTES[2],
+            _BATCH_ROUTES[3],
+            _BATCH_ROUTES[4],
+        )
+    }
+
+
+@then(
+    "classify and list answer 200, explore and promote answer 403, and no candidate is registered "
+    "or promoted"
+)
+def read_only(tax_ctx: dict) -> None:
+    st = tax_ctx["statuses"]
+    assert (st["/classify"], st["/"]) == (200, 200), st
+    assert (st["/explore"], st["/promote"]) == (403, 403), st
+    _assert_taxonomy_unchanged(tax_ctx)
+
+
+@when("an admin principal explores a batch and promotes the discovered candidate")
+def admin_flow(tax_ctx: dict) -> None:
+    (watt,) = tax.fresh_watts(1)
+    tax_ctx.update(watt=watt, slug=tax.slug_for(watt))
+    token = tax.admin_token()
+    body = {"batch_listings": _explore_batch(watt), "min_frequency": 2, "min_confidence": 0.80}
+    tax_ctx["explore_status"] = tax.post("/explore", body, token=token).status_code
+    promote_body = {"tag_slugs": [tax_ctx["slug"]], "target_category_id": "cat-electronics"}
+    res = tax.post("/promote", promote_body, token=token)
+    tax_ctx["promote_status"] = res.status_code
+    tax_ctx["promote"] = res.json() if res.status_code == 200 else {}
+
+
+@then("both answer 200 and the tag is promoted and canonical")
+def admin_promoted(tax_ctx: dict) -> None:
+    assert (tax_ctx["explore_status"], tax_ctx["promote_status"]) == (200, 200), tax_ctx
+    tag = tax_ctx["promote"]["promoted_tags"][0]
+    assert tag["slug"] == tax_ctx["slug"] and tag["is_canonical"] is True
+    assert tax_ctx["slug"] in {t["slug"] for t in tax.list_tags(status="promoted")}

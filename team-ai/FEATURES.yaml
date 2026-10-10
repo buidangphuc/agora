@@ -80,6 +80,7 @@ features:
     tags: [ai, seller, search, taxonomy]
     status: automated
     covered_by: "ai/tag_classifier_taxonomy.feature::SPU Level Tag Classification"
+    notes: "needs rebuild"
 
   - id: ai.tag-sku-hierarchy
     title: Granular SKU level hierarchical classification
@@ -97,6 +98,7 @@ features:
     tags: [ai, seller, search, taxonomy]
     status: automated
     covered_by: "ai/tag_classifier_taxonomy.feature::Granular SKU Level Hierarchical Classification"
+    notes: "needs rebuild"
 
   - id: ai.tag-candidate-discovery
     title: Candidate tag discovery from a raw batch
@@ -114,6 +116,7 @@ features:
     tags: [ai, search, taxonomy]
     status: automated
     covered_by: "ai/tag_classifier_taxonomy.feature::Candidate Tag Discovery from Raw Batch"
+    notes: "needs rebuild"
 
   - id: ai.tag-candidate-promotion
     title: Candidate tag promoted to a canonical filter facet
@@ -131,6 +134,7 @@ features:
     tags: [ai, search, taxonomy]
     status: automated
     covered_by: "ai/tag_classifier_taxonomy.feature::Candidate Tag Promoted to Canonical Filter Facet"
+    notes: "needs rebuild"
 
   - id: ai.summarize-reviews
     title: AI review summarization
@@ -1362,3 +1366,63 @@ features:
     tags: [ai, rag]
     status: not-testable
     notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. The e2e stack runs with the RAG store on (openspec/changes/assistant-rag-grounding/design.md)."
+
+  - id: ai.tra-anonymous-refused
+    title: "Anonymous tag requests are refused"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a caller without an Authorization header calls each of the five tag routes"
+      - "Then every call answers 401 and the taxonomy is unchanged"
+    tags: [ai, search, taxonomy]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.tra-buyer-token-refused
+    title: "A buyer's token is refused"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a signed-in buyer presents the gateway session JWT (or any wrong bearer token) to a read route and to promote"
+      - "Then both answer 401 and the taxonomy is unchanged"
+    tags: [ai, search, taxonomy]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.tra-service-read-only
+    title: "A read-only service principal cannot mutate the taxonomy"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a service principal holding only ai.classify classifies and lists tags, then calls explore and promote"
+      - "Then classify and list answer 200, explore and promote answer 403, and no candidate is registered or promoted"
+    tags: [ai, search, taxonomy]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.tra-admin-explores-promotes
+    title: "An admin principal explores and promotes"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When an admin principal explores a batch and promotes the discovered candidate"
+      - "Then both answer 200 and the tag is promoted and canonical"
+    tags: [ai, search, taxonomy]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.tra-admin-token-guard
+    title: "Admin access is off unless configured and strong"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When AUTH_ADMIN_BEARER_TOKEN is unset, or outside dev/local/test is weak or equal to AUTH_BEARER_TOKEN"
+      - "Then no principal holds admin on the REST routes, and startup refuses the weak or equal configuration"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_routes_authz.py. The stack runs with the local environment and a configured admin token (openspec/changes/tag-routes-authz/design.md)."
