@@ -81,23 +81,35 @@ func (s *ReviewService) CreateReview(
 	return saved, nil
 }
 
+const (
+	// DefaultReviewPageSize applies when the caller sends no page size.
+	DefaultReviewPageSize = 20
+	// MaxReviewPageSize is the largest page a caller can get; bigger requests are clamped.
+	MaxReviewPageSize = 100
+)
+
+// ListReviews returns one page of a listing's reviews, newest first (id as the
+// tiebreak), plus the total for the rating filter. offset < 0 is treated as 0;
+// limit <= 0 uses the default and limit above the maximum is clamped.
 func (s *ReviewService) ListReviews(
 	ctx context.Context,
 	listingID string,
 	ratingFilter int32,
-	page, pageSize int,
+	offset, limit int,
 ) ([]repository.Review, int64, error) {
 	if listingID == "" {
 		return nil, 0, ErrEmptyListing
 	}
-	if page < 1 {
-		page = 1
+	if offset < 0 {
+		offset = 0
 	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
+	if limit <= 0 {
+		limit = DefaultReviewPageSize
 	}
-	offset := (page - 1) * pageSize
-	return s.repo.ListReviews(ctx, listingID, ratingFilter, offset, pageSize)
+	if limit > MaxReviewPageSize {
+		limit = MaxReviewPageSize
+	}
+	return s.repo.ListReviews(ctx, listingID, ratingFilter, offset, limit)
 }
 
 func (s *ReviewService) GetRatingSummary(ctx context.Context, listingID string) (repository.RatingSummary, error) {

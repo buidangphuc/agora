@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -346,12 +347,23 @@ func (h *EngagementHandler) ListReviews(
 		return &engagementv1.ListReviewsResponse{}, nil
 	}
 
+	offset := 0
+	if c := req.GetPage().GetCursor(); c != "" {
+		n, err := strconv.Atoi(c)
+		if err != nil || n < 0 {
+			return nil, status.Error(codes.InvalidArgument, "invalid page cursor")
+		}
+		offset = n
+	}
 	pageSize := int(req.GetPage().GetPageSize())
 	if pageSize <= 0 {
-		pageSize = 20
+		pageSize = service.DefaultReviewPageSize
+	}
+	if pageSize > service.MaxReviewPageSize {
+		pageSize = service.MaxReviewPageSize
 	}
 
-	revs, total, err := h.reviewSvc.ListReviews(ctx, req.GetListingId(), req.GetRatingFilter(), 1, pageSize)
+	revs, total, err := h.reviewSvc.ListReviews(ctx, req.GetListingId(), req.GetRatingFilter(), offset, pageSize)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list reviews: %v", err)
 	}
@@ -361,10 +373,17 @@ func (h *EngagementHandler) ListReviews(
 		wireRevs = append(wireRevs, toWireReview(r))
 	}
 
+	// Cursor is the offset of the next page; empty once the last page is served.
+	nextCursor := ""
+	if next := offset + len(revs); int64(next) < total && len(revs) > 0 {
+		nextCursor = strconv.Itoa(next)
+	}
+
 	return &engagementv1.ListReviewsResponse{
 		Reviews: wireRevs,
 		Page: &commonv1.PageResponse{
-			Total: total,
+			NextCursor: nextCursor,
+			Total:      total,
 		},
 	}, nil
 }

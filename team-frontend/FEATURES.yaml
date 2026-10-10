@@ -7206,3 +7206,41 @@ features:
     status: automated
     covered_by: "journeys/buyer_full_funnel_journey.feature::Home page shows AI recommendations with viewable impressions"
     notes: "serve-trained-recs-locally task 4.1: the strict xfail is gone; green 3 runs on the agora stack."
+
+  - id: listing.reviews-pagination-105-reviews-11-pages
+    title: "A listing with 105 reviews shows 11 pages"
+    persona: buyer
+    priority: P2
+    summary: "A listing with 105 reviews shows 11 pages"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListReviews, engagement.v1.CreateReview]
+    acceptance:
+      - "When a buyer opens a listing with 105 reviews"
+      - "Then the reviews list shows 10 reviews and the `Pagination` offers 11 pages"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "needs rebuild"
+
+  - id: listing.reviews-pagination-last-page-oldest
+    title: "The last page shows the oldest reviews"
+    persona: buyer
+    priority: P2
+    summary: "The last page shows the oldest reviews"
+    entry_route: /listing/{id}
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListReviews, engagement.v1.CreateReview]
+    acceptance:
+      - "When the buyer opens `?rpage=11` of that listing"
+      - "Then 5 reviews are listed, they are the 5 oldest, and the `Pagination` marks page 11 as current"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "needs rebuild"

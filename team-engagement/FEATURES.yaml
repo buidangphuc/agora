@@ -417,3 +417,60 @@ features:
     status: automated
     covered_by: "engagement/engagement_facts.feature::A fact written while Kafka is down is published later"
     notes: "engagement-fact-events: engagement/engagement_facts.feature::A fact written while Kafka is down is published later"
+
+  - id: engagement.reviews-pagination-disjoint-newest-first
+    title: "Pages are disjoint and newest first"
+    persona: buyer
+    priority: P2
+    summary: "Pages are disjoint and newest first"
+    entry_route: /listing/{listing_id}
+    services: [team-engagement]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListReviews, engagement.v1.CreateReview]
+    acceptance:
+      - "When a listing has 105 reviews and a client requests pages of 10 following `next_cursor` from the start"
+      - "Then every review appears exactly once, in newest-first order, `total` is 105 on every page and the eleventh page holds the 5 oldest reviews with an empty `next_cursor`"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "needs rebuild"
+
+  - id: engagement.reviews-pagination-page-size-bounded
+    title: "Page size is bounded"
+    persona: buyer
+    priority: P2
+    summary: "Page size is bounded"
+    entry_route: /listing/{listing_id}
+    services: [team-engagement]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListReviews, engagement.v1.CreateReview]
+    acceptance:
+      - "When a client requests `page_size` 500 for that listing"
+      - "Then at most 100 reviews are returned and `next_cursor` is set"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "needs rebuild"
+
+  - id: engagement.reviews-pagination-malformed-cursor
+    title: "A malformed cursor is rejected"
+    persona: buyer
+    priority: P2
+    summary: "A malformed cursor is rejected"
+    entry_route: /listing/{listing_id}
+    services: [team-engagement]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListReviews, engagement.v1.CreateReview]
+    acceptance:
+      - 'When a client sends `cursor` "abc" or "-5"'
+      - "Then the call fails with `InvalidArgument`"
+    tags: [buyer]
+    status: planned
+    covered_by: null
+    notes: "needs rebuild"

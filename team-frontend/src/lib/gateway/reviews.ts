@@ -1,5 +1,6 @@
 import "server-only";
 
+import { REVIEWS_PAGE_SIZE } from "@/features/listing/pdp";
 import type { Review } from "@/generated/platform/engagement/v1/engagement_pb.js";
 import { makeClients } from "./client.js";
 import { getToken } from "./session.js";
@@ -128,10 +129,9 @@ export async function getShopRatingSummary(
 }
 
 /**
- * The UI paginates reviews client-side (REVIEWS_PAGE_SIZE per page) over one
- * fetched list, and the engagement handler always serves page 1 with a default
- * of 20 when no size is sent. Ask for the server's maximum (100) so the page
- * count follows the real review count.
+ * Sample of a listing's reviews (the server's first page of at most 100, newest
+ * first) for features that read many reviews at once, such as the AI summary.
+ * The PDP review list pages on the server via `listReviewsPage`.
  */
 export const REVIEWS_FETCH_SIZE = 100;
 
@@ -148,6 +148,49 @@ export async function listReviews(
     return res.reviews.map(mapReview);
   } catch {
     return [];
+  }
+}
+
+export interface ViewReviewsPage {
+  reviews: ViewReview[];
+  /** Reviews matching the star filter, across all pages. */
+  total: number;
+  /** The 1-based page actually served (clamped to the last page). */
+  page: number;
+  pages: number;
+}
+
+/**
+ * One server page of reviews, newest first. The engagement cursor is the offset
+ * of the first review, so page N is `(N - 1) * REVIEWS_PAGE_SIZE`. A page past
+ * the end is re-requested as the last page.
+ */
+export async function listReviewsPage(
+  listingId: string,
+  opts: { rating?: number; page?: number } = {},
+): Promise<ViewReviewsPage> {
+  const rating = opts.rating ?? 0;
+  const fetchPage = (page: number) =>
+    publicGateway().engagement.listReviews({
+      listingId,
+      ratingFilter: rating,
+      page: {
+        cursor: String((page - 1) * REVIEWS_PAGE_SIZE),
+        pageSize: REVIEWS_PAGE_SIZE,
+      },
+    });
+  try {
+    let page = Math.max(1, Math.floor(opts.page ?? 1));
+    let res = await fetchPage(page);
+    const total = Number(res.page?.total ?? 0);
+    const pages = Math.max(1, Math.ceil(total / REVIEWS_PAGE_SIZE));
+    if (page > pages) {
+      page = pages;
+      res = await fetchPage(page);
+    }
+    return { reviews: res.reviews.map(mapReview), total, page, pages };
+  } catch {
+    return { reviews: [], total: 0, page: 1, pages: 1 };
   }
 }
 

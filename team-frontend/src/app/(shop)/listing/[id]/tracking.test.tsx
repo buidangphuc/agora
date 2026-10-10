@@ -10,6 +10,7 @@ import {
   getListingRatingSummary,
   getShopRatingSummary,
   listReviews,
+  listReviewsPage,
 } from "@/lib/gateway/reviews";
 import { setupUser } from "@/test/user";
 import ProductDetailPage from "./page";
@@ -47,6 +48,7 @@ vi.mock("@/lib/gateway/reviews", () => ({
   getListingRatingSummary: vi.fn(),
   getShopRatingSummary: vi.fn(),
   listReviews: vi.fn(),
+  listReviewsPage: vi.fn(),
 }));
 vi.mock("@/lib/gateway/recommendations", () => ({
   getRecommendations: vi.fn(),
@@ -104,6 +106,12 @@ function setupPage(listing = makeListing({ price: 100_000 })) {
   vi.mocked(getShopRatingSummary).mockResolvedValue(shopUnrated);
   vi.mocked(getActiveFlashSale).mockResolvedValue({ active: false });
   vi.mocked(listReviews).mockResolvedValue([]);
+  vi.mocked(listReviewsPage).mockResolvedValue({
+    reviews: [],
+    total: 0,
+    page: 1,
+    pages: 1,
+  });
   vi.mocked(getRecommendations).mockResolvedValue(withRecs([]));
 }
 
