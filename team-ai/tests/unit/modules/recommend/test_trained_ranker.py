@@ -189,3 +189,13 @@ async def test_generation_switch_reloads_the_model(service_for) -> None:
     again = await _home(service)
     assert again.explain["ranker_source"] == "trained"
     assert again.items[0].score == pytest.approx(1.0 + 0.1 * 1.0)
+
+
+async def test_late_publish_in_the_same_generation_is_picked_up(service_for) -> None:
+    redis = await _stack()
+    service = await service_for(redis)
+    loader = service._ranker_loader
+    loader._absent_recheck_s = 0.0
+    assert (await _home(service)).explain["ranker_source"] == "fixed"
+    await redis.set("recs:v1:gen:g1:ranker", json.dumps(artifact()))
+    assert (await _home(service)).explain["ranker_source"] == "trained"

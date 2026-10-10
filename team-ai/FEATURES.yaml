@@ -1486,3 +1486,21 @@ features:
     tags: [ai, search, taxonomy]
     status: not-testable
     notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The stack runs with persistence on (openspec/changes/tag-taxonomy-persistence/design.md)."
+
+  - id: ai.gbl-ranker-serving
+    title: "A published ranker artifact changes the home feed order"
+    persona: buyer
+    priority: P1
+    summary: "A published ranker artifact changes the home feed order"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes the ranker artifact, two feature rows per view and the buyer's user list in the stack Redis DB 0/2; keys are unique/restored."
+    acceptance:
+      - "When the serving generation carries a ranker artifact that scores the second of two home-feed candidates higher, and the candidates' online features exist"
+      - "Then a Recommend call through the gateway ranks the second above the first"
+      - "And without the artifact the same candidates were ranked in their own order"
+    tags: [recsys, recommendations]
+    status: planned
+    notes: "needs rebuild"

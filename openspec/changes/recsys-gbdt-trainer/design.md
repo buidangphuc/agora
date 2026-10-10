@@ -89,15 +89,19 @@ Node `i` of a tree is internal when `feature[i] >= 0`: go to `left[i]` if `x[fea
 a leaf has `feature[i] = -1` and score `value[i]`. Root is node 0. `score(x) = base_score + learning_rate * sum(leaf values)`;
 higher ranks first. `x` has one entry per name in `features`, in order.
 
-**Loader contract (not implemented here, team-ai).** Per request: read `recs:v1:serving`, then the `ranker` key of that
+**Loader contract (implemented in team-ai `recommend/ranker_artifact.py`).** Per request: read `recs:v1:serving`, then the `ranker` key of that
 generation (cache by generation name; on any miss, parse error, `format` other than `agora-gbdt/1`, or a `features` list that is
 not equal to team-ai's `RANKING_FEATURES`, keep the built-in weights and count the fallback). Build `x` per candidate from
 `fs:item_popularity:v<N>:<listing_id>` (N from `fs:item_popularity:current`) and `fs:item_attributes:v<N>:<listing_id>` (N from
 `fs:item_attributes:current`): value of `<view>.<feature>`, 0.0 when the row, key or value is missing, null or not finite;
 for `item_popularity.ctr_7d` use the nearline debiased CTR when usable (that is what `ctr_source` means in training), else
 `ctr_7d`. Score with the loop above in pure Python (no new dependency) and sort descending; similarity from retrieval can stay
-the tie-break. `RedisFeatureStore` needs a second view reader for `item_attributes`; `GBDTRankerAdapter` needs a
-`from_artifact` constructor beside the weights one. Nothing else in serving changes.
+the tie-break. `RedisFeatureStore` takes a `view` so a second instance reads `item_attributes`; `TrainedRanker.parse` is the
+`from_artifact` side, beside the weights adapter. A trained ranking skips the bounded `ctr_7d` re-rank of
+`apply_online_features` (it is calibrated for the fixed score scale); only the cut to `limit` applies. `explain` carries
+`ranker_source` (`trained`|`fixed`), `ranker_fallback` (`absent`, `malformed`, `format_mismatch`, `feature_mismatch`,
+`read_error`, `no_features`, `no_generation`, `score_error`) and `ranker_fallbacks` (rejected artifacts counted once per
+generation load, plus read errors). A model or parse verdict is remembered per generation; absence is re-checked every 5 s (a late publish is seen) and a Redis error is not remembered.
 
 ## Risks / Trade-offs
 - Item-only features cannot beat a good item CTR by much; the model's value grows with the attribute views and, later, user

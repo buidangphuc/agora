@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -221,13 +222,24 @@ class TrainedRankerLoader:
     returned, else why the fixed weights are used: ``no_generation``, ``absent``,
     ``malformed``, ``format_mismatch``, ``feature_mismatch``, ``read_error``. Every
     non-``None`` reason except ``no_generation`` and ``absent`` is a defect and counted in
-    ``fallbacks``. Absence and parse verdicts are remembered per generation (the key is
-    written before the pointer moves); a Redis error is not, so the next request retries.
+    ``fallbacks``. A model or a parse verdict is remembered per generation (the key is written
+    before the pointer moves); absence is re-checked after ``absent_recheck_s`` (a late or
+    manual publish is picked up) and a Redis error is not remembered at all.
     """
 
-    def __init__(self, redis: Any, cache: PrecomputedCache) -> None:
+    def __init__(
+        self,
+        redis: Any,
+        cache: PrecomputedCache,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        absent_recheck_s: float = 5.0,
+    ) -> None:
         self._redis = redis
         self._cache = cache
+        self._clock = clock
+        self._absent_recheck_s = absent_recheck_s
+        self._loaded_at = 0.0
         self._generation: str | None = None
         self._ranker: TrainedRanker | None = None
         self._reason: str | None = "no_generation"
@@ -241,7 +253,10 @@ class TrainedRankerLoader:
             return self._fail("read_error")
         if not gen or self._redis is None:
             return None, "no_generation"
-        if gen == self._generation:
+        if gen == self._generation and not (
+            self._reason == "absent"
+            and self._clock() - self._loaded_at >= self._absent_recheck_s
+        ):
             return self._ranker, self._reason
         try:
             raw = await self._redis.get(self._cache.ranker_key(gen))
@@ -261,6 +276,7 @@ class TrainedRankerLoader:
         if reason not in (None, "absent"):
             self.fallbacks += 1
         self._generation, self._ranker, self._reason = gen, ranker, reason
+        self._loaded_at = self._clock()
         return ranker, reason
 
     def _fail(self, reason: str) -> tuple[None, str]:
