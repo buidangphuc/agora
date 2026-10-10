@@ -740,3 +740,57 @@ features:
     status: automated
     covered_by: "security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
     notes: "green after rebuild: security/ar2_stream_lifetime.feature::A stream that finishes before expiry is unaffected"
+
+  - id: edge.sse-ends-at-token-expiry
+    title: "An SSE connection is ended when its token expires"
+    persona: buyer
+    priority: P0
+    summary: "An authenticated /api/events/live connection gets a final unauthenticated event and is closed at token expiry (sse-stream-lifetime)."
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [http.GET /api/events/live]
+    acceptance:
+      - "When a logged-in buyer whose token expires in about 3 seconds opens /api/events/live for their own user:{id} room"
+      - "Then the gateway sends an unauthenticated event about when the token expires and closes the connection"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild (security/ssl_sse_lifetime.feature::An SSE connection is ended when its token expires)"
+
+  - id: edge.sse-ends-on-session-revoke
+    title: "An SSE connection is ended when its session is revoked"
+    persona: buyer
+    priority: P0
+    summary: "An authenticated /api/events/live connection gets a final unauthenticated event and is closed after its session is revoked (sse-stream-lifetime)."
+    entry_route: /
+    services: [team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [http.GET /api/events/live, identity.v1.SessionService.RevokeSession]
+    acceptance:
+      - "When a logged-in buyer opens /api/events/live for their own user:{id} room on a gateway that checks revocation every second, then revokes that session"
+      - "Then the gateway sends an unauthenticated event and closes the connection within 4 seconds of the revoke"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild (security/ssl_sse_lifetime.feature::An SSE connection is ended when its session is revoked)"
+
+  - id: edge.sse-public-room-unaffected-by-expiry
+    title: "A public SSE room is unaffected by token expiry"
+    persona: guest
+    priority: P2
+    summary: "A public-room /api/events/live connection with no credential is never cut (sse-stream-lifetime)."
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [http.GET /api/events/live]
+    acceptance:
+      - "When a client opens /api/events/live for a public listing:{id} room with no credential and stays connected past the time a 3 second token would have expired"
+      - "Then the connection is still open and receives no unauthenticated event"
+    tags: [security]
+    status: planned
+    notes: "needs rebuild (security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry)"
