@@ -72,6 +72,13 @@ class AISettingsMixin(BaseModel):
     RAG_EMBED_DIM: int = Field(default=384, gt=0)  # vector dim from the server
     RAG_EMBED_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
 
+    # Tag taxonomy registry persistence (tag-taxonomy-persistence): canonical tags and
+    # exploring candidates in team-ai's Redis, own database (0 serving/chat, 2 featurestore,
+    # 3-4 and 10-13 e2e are taken) and prefix. Needs REDIS_ENABLED.
+    TAXONOMY_PERSISTENCE_ENABLED: bool = False
+    TAXONOMY_REDIS_DATABASE: int = Field(default=5, ge=0)
+    TAXONOMY_REDIS_PREFIX: str = "tagtax"
+
     # Qdrant vector store (used when RAG_BACKEND=qdrant).
     RAG_QDRANT_URL: str = "http://localhost:6333"
     RAG_QDRANT_COLLECTION: str = "rag_documents"

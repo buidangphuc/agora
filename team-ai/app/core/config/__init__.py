@@ -80,6 +80,15 @@ class Settings(
                 raise ValueError(
                     "AUTH_ADMIN_BEARER_TOKEN must differ from AUTH_BEARER_TOKEN"
                 )
+        if self.TAXONOMY_PERSISTENCE_ENABLED:
+            if not self.REDIS_ENABLED:
+                raise ValueError(
+                    "TAXONOMY_PERSISTENCE_ENABLED requires REDIS_ENABLED=true"
+                )
+            if self.TAXONOMY_REDIS_DATABASE == self.REDIS_DATABASE:
+                raise ValueError(
+                    "TAXONOMY_REDIS_DATABASE must differ from REDIS_DATABASE"
+                )
         if self.GRPC_BEARER_FALLBACK_ENABLED and not self.ENVIRONMENT.is_local:
             raise ValueError(
                 "GRPC_BEARER_FALLBACK_ENABLED must be false outside dev/local/test"

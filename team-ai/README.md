@@ -9,7 +9,7 @@ server that implements the platform-core contract. It is a deployed service (com
 - The AI surface behind the gateway: shopping assistant, magic listing, chat copilot, review
   summary (`AIService`), RAG search (`SearchService`), streaming chat (`ChatService`) and
   recommendations (`RecommendationService`).
-- The SPU/SKU tag classifier (HTTP only, in-memory state).
+- The SPU/SKU tag classifier (HTTP, plus gRPC `ClassifyTags` for the indexer); its registry is persisted in Redis when `TAXONOMY_PERSISTENCE_ENABLED=true`.
 - It owns no business data. Its only database tables are platform plumbing (see Data), and the
   compose stack runs with `DATABASE_ENABLED=false`.
 
@@ -87,8 +87,12 @@ exist but are disabled by default.
   `outbox_events`, `quota_counters` and `quota_reservations` (platform plumbing, no domain tables).
 - Apply with `make migrate` (`alembic upgrade head`). The Docker image copies `alembic/` but its
   `CMD` does not run migrations, and the root compose has no migrate job for team-ai.
-- Tag classifier state (canonical and candidate tags) is in process memory and is lost on
-  restart. The recommendation feature and nearline stores are in-memory too.
+- Tag classifier state (canonical and candidate tags): with `TAXONOMY_PERSISTENCE_ENABLED=true` (needs
+  `REDIS_ENABLED`) it lives in Redis database `TAXONOMY_REDIS_DATABASE` (default 5) as the hashes
+  `tagtax:v1:canonical` and `tagtax:v1:candidates` (`slug -> TagItem JSON`, only changed tags; the code seed is the
+  base layer). It is loaded at startup; `promote` writes before it answers (503 and no change if Redis cannot be
+  written), `explore` writes best effort, and candidates registered by online `classify` are not stored. REST and gRPC
+  share one registry. With the flag off the state is in process memory and lost on restart. The recommendation feature and nearline stores are in-memory too.
 - Redis (`REDIS_ENABLED`) holds the recs lists it reads, plus rate-limit or cache data if those
   features are enabled.
 
@@ -128,6 +132,7 @@ default and listed in `.env.example`.
 | `RAG_EMBED_BACKEND` | `mock` | `mock` or `model_server`. |
 | `RAG_EMBED_SERVER_URL`, `RAG_EMBED_SERVER_PATH`, `RAG_EMBED_DIM`, `RAG_EMBED_TIMEOUT_SECONDS` | `""`, `/embed`, `384`, `10.0` | Embedding server seam. |
 | `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_DEFAULT_TOP_K`, `RAG_MOCK_EMBED_DIM`, `RAG_RETRIEVE_TIMEOUT_SECONDS`, `RAG_EMBED_MODEL` | `512`, `50`, `5`, `16`, `10.0`, `""` | |
+| `TAXONOMY_PERSISTENCE_ENABLED`, `TAXONOMY_REDIS_DATABASE`, `TAXONOMY_REDIS_PREFIX` | `false`, `5`, `tagtax` | Persist the tag taxonomy in Redis (needs `REDIS_ENABLED`; the database must differ from `REDIS_DATABASE`). |
 | `ASSISTANT_RAG_MIN_SCORE` | `0.0` | `ShoppingAssistant` drops RAG hits scoring below this (0 keeps the nearest k; scores are model specific). |
 | `LANGFUSE_ENABLED` | `false` in code, `true` in `.env.example` | Pairs with `make docker-run-langfuse`. Needs the `ai` extra. |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`, `LANGFUSE_PROMPT_CACHE_TTL_SECONDS` | `""`, `""`, `https://cloud.langfuse.com`, `60` | |
@@ -246,8 +251,8 @@ gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci
   `listing.events`); with `RAG_ENABLED=false` it answers from the demo `CATALOG`.
 - **No gRPC `TagClassifier` service.** `FEATURES.yaml` lists `ai.v1.TagClassifier`, but the proto
   has no such service; tag classification is HTTP only.
-- **Tag state is not persisted** and is per process, so `/tags/promote` results vanish on restart
-  and differ between replicas.
+- **Tag state persistence is opt-in** (`TAXONOMY_PERSISTENCE_ENABLED`). Off, `/tags/promote` results vanish
+  on restart; on, replicas load at startup and on their next mutation, with no live sync between them.
 - **The listing indexer has no input.** `ListingEventIndexer` is not connected to any event
   source.
 - The root `AGENTS.md` service table lists team-ai as `:8000` and omits gRPC and recommendations.
