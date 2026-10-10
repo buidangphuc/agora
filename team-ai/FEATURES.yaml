@@ -1426,3 +1426,63 @@ features:
     tags: [ai, search, taxonomy]
     status: not-testable
     notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_routes_authz.py. The stack runs with the local environment and a configured admin token (openspec/changes/tag-routes-authz/design.md)."
+
+  - id: ai.ttp-survives-restart
+    title: "Promoted and exploring tags survive a restart"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When an admin promotes a tag, a second candidate is explored but left exploring, and team-ai is restarted"
+      - "Then after the restart the promoted tag is canonical with its synonym and the other is still an exploring candidate"
+    tags: [ai, search, taxonomy, destructive]
+    status: planned
+    notes: "needs rebuild"
+
+  - id: ai.ttp-failed-write-fails-promote
+    title: "A failed store write fails the promotion"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the taxonomy store cannot be written during promote"
+      - "Then the call answers 503 and the tag is still only a candidate"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. Failing the shared Redis would break every service on the stack (openspec/changes/tag-taxonomy-persistence/design.md)."
+
+  - id: ai.ttp-startup-outage
+    title: "A store outage at startup serves the seed taxonomy"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When the store cannot be read at startup and later recovers"
+      - "Then the service starts with the seed taxonomy and the next promote or explore loads the stored state before applying its change"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. Same reason: the shared Redis cannot be failed (openspec/changes/tag-taxonomy-persistence/design.md)."
+
+  - id: ai.ttp-rest-grpc-shared
+    title: "REST and gRPC share one registry"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When a tag is promoted through the REST route"
+      - "Then gRPC ClassifyTags returns it for a matching title and a restart restores it for both"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The gateway does not route ClassifyTags (internal, service principal only)."
+
+  - id: ai.ttp-off-by-default
+    title: "Persistence is off unless enabled"
+    persona: guest
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "When TAXONOMY_PERSISTENCE_ENABLED is false"
+      - "Then nothing is written to Redis and a restart returns to the seed taxonomy; enabling it without REDIS_ENABLED or on REDIS_DATABASE fails startup"
+    tags: [ai, search, taxonomy]
+    status: not-testable
+    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The stack runs with persistence on (openspec/changes/tag-taxonomy-persistence/design.md)."

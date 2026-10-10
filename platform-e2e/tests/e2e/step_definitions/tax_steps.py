@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import time
+
+import httpx
 import pytest
 from pytest_bdd import given, parsers, then, when
 
+from tests.e2e.flows import restart_container
 from tests.e2e.support import tax_support as tax
+from tests.e2e.support.world import World
 
 
 @pytest.fixture
@@ -347,3 +353,71 @@ def admin_promoted(tax_ctx: dict) -> None:
     tag = tax_ctx["promote"]["promoted_tags"][0]
     assert tag["slug"] == tax_ctx["slug"] and tag["is_canonical"] is True
     assert tax_ctx["slug"] in {t["slug"] for t in tax.list_tags(status="promoted")}
+
+
+# ── Persistence across a restart (change tag-taxonomy-persistence) ────────────
+AI_CONTAINER = os.getenv("AI_CONTAINER", "agora-team-ai-svc")
+RESTART_READY_S = 120.0
+
+
+def _wait_ready() -> None:
+    deadline = time.monotonic() + RESTART_READY_S
+    last = "no response"
+    while time.monotonic() < deadline:
+        try:
+            r = tax.get()
+            if r.status_code == 200:
+                return
+            last = f"HTTP {r.status_code}"
+        except httpx.HTTPError as exc:
+            last = str(exc)
+        time.sleep(1)
+    raise TimeoutError(f"team-ai not ready within {RESTART_READY_S}s ({last})")
+
+
+@given("a promoted tag with a bound synonym and a second candidate left exploring")
+def promoted_and_exploring(tax_ctx: dict) -> None:
+    promoted, exploring = tax.fresh_watts(2)
+    for watt in (promoted, exploring):
+        body = {"batch_listings": _explore_batch(watt), "min_frequency": 2, "min_confidence": 0.80}
+        _ok(tax.post("/explore", body))
+    tax_ctx.update(
+        watt=promoted,
+        slug=tax.slug_for(promoted),
+        synonym=f"sac {promoted}w",
+        other=tax.slug_for(exploring),
+    )
+    _ok(
+        tax.post(
+            "/promote",
+            {
+                "tag_slugs": [tax_ctx["slug"]],
+                "target_category_id": "cat-electronics",
+                "add_synonyms": [tax_ctx["synonym"]],
+            },
+        )
+    )
+    assert tax_ctx["other"] in {t["slug"] for t in tax.list_tags(status="exploring")}
+
+
+@when("team-ai is restarted")
+def restart_team_ai(world: World, tax_ctx: dict) -> None:
+    """The registry was in process memory; with persistence it must come back from Redis."""
+    world.add_cleanup(_wait_ready)
+    restart_container(AI_CONTAINER)
+    _wait_ready()
+
+
+@then(
+    "the promoted tag is canonical with its synonym and the other is still an exploring candidate"
+)
+def survived(tax_ctx: dict) -> None:
+    slug, other = tax_ctx["slug"], tax_ctx["other"]
+    promoted = {t["slug"]: t for t in tax.list_tags(status="promoted")}
+    assert slug in promoted and promoted[slug]["is_canonical"] is True, list(promoted)[:5]
+    assert tax_ctx["synonym"] in promoted[slug]["synonyms"]
+    exploring = {t["slug"]: t for t in tax.list_tags(status="exploring")}
+    assert other in exploring and exploring[other]["is_canonical"] is False
+    title = f"Củ sạc nhanh công suất {tax_ctx['watt']}W"
+    res = _ok(tax.post("/classify", {"title": title, "category_id": "cat-electronics"}))
+    assert slug in [t["slug"] for t in res["canonical_tags"]], res["canonical_tags"]

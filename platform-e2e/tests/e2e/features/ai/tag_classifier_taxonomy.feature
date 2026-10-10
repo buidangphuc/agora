@@ -43,3 +43,9 @@ Feature: Product Tag Classifier & Taxonomy Filter Enrichment
   Scenario: An admin principal explores and promotes
     When an admin principal explores a batch and promotes the discovered candidate
     Then both answer 200 and the tag is promoted and canonical
+
+  @destructive
+  Scenario: Promoted and exploring tags survive a restart
+    Given a promoted tag with a bound synonym and a second candidate left exploring
+    When team-ai is restarted
+    Then the promoted tag is canonical with its synonym and the other is still an exploring candidate
