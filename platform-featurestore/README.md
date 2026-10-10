@@ -52,11 +52,17 @@ RFC 3339 UTC ending in `Z`. The old `fs:u:` / `fs:i:` keys are gone.
 | --- | --- |
 | `materialize` | compute, write offline + online, parity gate |
 | `parity` | compare Redis with the latest run's snapshots |
-| `dataset` | build governed datasets (`als_interactions@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
+| `dataset` | build governed datasets (`als_interactions@v1`, `rank_training@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
 | `lock` | regenerate `registry/features.lock` after a deliberate definition change |
 
 Exit codes: 0 ok, 2 config/missing input, 3 parity mismatch (`parity mismatch view=.. entity=.. feature=..
 online=.. offline=..`), 4 registry drift (a definition changed without a version bump, or a view missing from the lock).
+
+**Ranking dataset.** `rank_training@v1` has one row per (`impression_id`, `listing_id`) of an `impression` event in the
+window: `user_key`, `impression_id`, `listing_id`, `position`, `label`, `occurred_at`. `label` is 2 when an `add_to_cart`
+with the same `impression_id` and `listing_id` happened at or after the impression, else 1 for a `click`, else 0. Registry
+datasets may declare `columns:` (name to `string|int|float|timestamp`); without it the `als_interactions` columns apply.
+platform-recsys' GBDT trainer reads it (change `recsys-gbdt-trainer`).
 
 ## Configuration
 

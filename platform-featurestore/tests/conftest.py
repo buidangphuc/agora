@@ -26,6 +26,8 @@ EVENTS = pa.schema(
         ("ingested_at", pa.timestamp("us")),
         ("principal_type", pa.string()),
         ("user_key", pa.string()),
+        ("position", pa.int32()),
+        ("impression_id", pa.string()),
     ]
 )
 FACTS = pa.schema(
@@ -94,6 +96,8 @@ def write_inputs(d: Path, events=(), facts=(), orders=(), listings=None):
             "ingested_at": e.get("ing", e["at"]),
             "principal_type": e.get("ptype", "USER"),
             "user_key": e["user"],
+            "position": e.get("position"),
+            "impression_id": e.get("impression"),
         }
         for e in events
     ]

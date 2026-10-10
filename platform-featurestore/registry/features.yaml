@@ -1,8 +1,9 @@
 # Feature registry. One entry per (view, version). The SQL file is the definition; changing it without bumping
 # `version` fails the job (registry/features.lock holds the accepted hashes; regenerate with `python -m featurestore lock`).
 #
-# `datasets` are governed training datasets (one SELECT, columns user_key, listing_id, weight, interactions,
-# last_occurred_at; may also read $window_days). They share the version + hash lock with the views.
+# `datasets` are governed training datasets (one SELECT; may also read $window_days). Output columns: the optional
+# `columns` map (name -> string|int|float|timestamp, in SELECT order), else user_key, listing_id, weight, interactions,
+# last_occurred_at (als_interactions). They share the version + hash lock with the views.
 #
 # SQL contract: the file is one SELECT returning `entity_id` plus every column named in `features`. It may read the
 # point-in-time views `events`, `facts`, `orders` and `listings` (listing -> seller, category, price; empty when the
@@ -50,3 +51,13 @@ datasets:
   - name: als_interactions
     version: 1
     sql: sql/als_interactions_v1.sql
+  - name: rank_training
+    version: 1
+    sql: sql/rank_training_v1.sql
+    columns:
+      user_key: string
+      impression_id: string
+      listing_id: string
+      position: int
+      label: int
+      occurred_at: timestamp

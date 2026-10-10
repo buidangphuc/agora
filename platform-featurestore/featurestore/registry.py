@@ -36,6 +36,8 @@ class Dataset:
     version: int
     sql_text: str
     sha256: str
+    # Output columns (name -> string|int|float|timestamp); empty means the als_interactions columns.
+    columns: dict[str, str] | None = None
 
     @property
     def key(self) -> str:
@@ -82,6 +84,7 @@ def load_datasets(registry_dir: Path) -> list[Dataset]:
                 version=int(entry["version"]),
                 sql_text=sql_text,
                 sha256=_entry_hash(entry, sql_text),
+                columns=dict(entry["columns"]) if entry.get("columns") else None,
             )
         )
     return out
