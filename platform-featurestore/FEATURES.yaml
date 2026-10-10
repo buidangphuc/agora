@@ -273,7 +273,8 @@ features:
       - "When a seller creates a listing with a category and a price, the export cycle completes, and the materialisation job runs"
       - "Then the online features of that listing under item_attributes@v1 carry that category and price and the seller"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing's attributes become item features"
     notes: "needs rebuild"
 
   - id: featurestore.fia-preferred-categories
@@ -289,7 +290,8 @@ features:
       - "When a buyer views a listing of category A three times and a listing of category B once, the export cycle completes, and the materialisation job runs"
       - "Then the online preferred_categories of that buyer under user_preferences@v1 is \"A,B\""
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A buyer's preferred categories follow their interactions"
     notes: "needs rebuild"
 
   - id: featurestore.fia-as-of
@@ -305,7 +307,8 @@ features:
       - "When the listing export holds one listing last changed before AS_OF and one changed after it, and the job runs"
       - "Then the item_attributes@v1 snapshot has a row for the first and none for the second"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing changed after AS_OF is not in the snapshot"
     notes: "needs rebuild"
 
   - id: featurestore.fia-parity
@@ -321,7 +324,8 @@ features:
       - "When after a run, one listing's item_attributes@v1 online category is overwritten with a different value, and python -m featurestore parity runs"
       - "Then the command exits non-zero and its output names that listing and category_id"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A tampered attribute fails the parity check"
     notes: "needs rebuild"
 
   - id: featurestore.fia-no-listing-export
@@ -337,7 +341,8 @@ features:
       - "When the job runs over inputs without listing_sellers.parquet"
       - "Then it exits 0 with a warning naming the file, and the item_attributes@v1 and user_preferences@v1 snapshots have no rows"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::Without a listing export the attribute views are empty"
     notes: "needs rebuild"
 
   - id: featurestore.fia-old-exporter
@@ -353,7 +358,8 @@ features:
       - "When the job runs over a listing_sellers.parquet that has no category_id column"
       - "Then it exits 2 and its output names category_id"
     tags: [analytics, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing export without the new columns stops the run"
     notes: "needs rebuild"
 
   - id: featurestore.rgt-positive-row
@@ -369,7 +375,8 @@ features:
       - "When a buyer is shown listings in one recommendation row and clicks one of them with the same impressionId, the export cycle completes, and the dataset job runs"
       - "Then rank_training@v1 has a row for that buyer, impression and listing with label 1"
     tags: [recsys, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::A clicked impression becomes a positive training row"
     notes: "needs rebuild"
 
   - id: featurestore.rgt-add-to-cart-row
@@ -385,7 +392,8 @@ features:
       - "When the buyer adds another listing of that row to the cart with the same impressionId, the export cycle completes, and the dataset job runs"
       - "Then rank_training@v1 has a row for that listing with label 2"
     tags: [recsys, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::An add-to-cart is a stronger positive than a click"
     notes: "needs rebuild"
 
   - id: featurestore.rgt-negative-row
@@ -401,7 +409,8 @@ features:
       - "When a third listing of that row is never clicked"
       - "Then rank_training@v1 has a row for it with label 0 and the row's position"
     tags: [recsys, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::An impression without a click is a negative row"
     notes: "needs rebuild"
 
   - id: featurestore.rgt-as-of
@@ -417,5 +426,6 @@ features:
       - "When the events hold one impression before AS_OF and one after it, and the dataset job runs with that AS_OF"
       - "Then rank_training@v1 has a row for the first and none for the second"
     tags: [recsys, batch, integration]
-    status: planned
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::Impressions after AS_OF are not in the ranking dataset"
     notes: "needs rebuild"

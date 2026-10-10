@@ -28,14 +28,14 @@ PRICE_INDEX = FEATURES.index("item_attributes.price")
 PRICE_THRESHOLD = 100.0
 
 
-def artifact() -> str:
+def artifact(features: list[str] | None = None) -> str:
     """One tree: price above the threshold scores 1.0 more, so the dearer item ranks first."""
     return json.dumps(
         {
             "format": "agora-gbdt/1",
             "objective": "lambdarank",
             "model_version": "gbdt-e2e",
-            "features": FEATURES,
+            "features": FEATURES if features is None else features,
             "feature_views": {"item_popularity": 1, "item_attributes": 1},
             "ctr_feature": "item_popularity.ctr_7d",
             "base_score": 0.0,

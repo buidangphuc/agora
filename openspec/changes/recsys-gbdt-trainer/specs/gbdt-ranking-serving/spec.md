@@ -25,3 +25,4 @@ SHALL rank with the built-in fixed weights, never fail or degrade the request, a
 
 - **WHEN** the serving pointer moves to a generation whose ranker artifact differs or is absent
 - **THEN** the next request scores with that generation's artifact, or with the fixed weights when it has none
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_trained_ranker.py › test_generation_switch_reloads_the_model. Not verifiable end to end: moving the serving pointer is the publish flow (covered end to end by recsys-generation-publish), and the per-process cache reload has no edge-visible signal beyond that.

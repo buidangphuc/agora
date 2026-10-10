@@ -1502,5 +1502,39 @@ features:
       - "Then a Recommend call through the gateway ranks the second above the first"
       - "And without the artifact the same candidates were ranked in their own order"
     tags: [recsys, recommendations]
-    status: planned
+    status: automated
+    covered_by: "recommendations/gbl_ranker_serving.feature::A published ranker artifact changes the home feed order"
     notes: "needs rebuild"
+
+  - id: ai.gbl-ranker-feature-mismatch-ignored
+    title: "A ranker with another feature list is ignored"
+    persona: buyer
+    priority: P1
+    summary: "A ranker with another feature list is ignored"
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+      data: "Writes a ranker artifact whose features differ from RANKING_FEATURES, plus feature rows and the buyer's list in the stack Redis; keys are restored."
+    acceptance:
+      - "When the serving generation carries a ranker artifact that would score the second candidate higher but lists other features"
+      - "Then every Recommend call through the gateway keeps the candidates' own order"
+    tags: [recsys, recommendations]
+    status: automated
+    covered_by: "recommendations/gbl_ranker_serving.feature::A ranker with another feature list is ignored"
+    notes: "recsys-gbdt-trainer: green twice after rebuilding team-ai"
+
+  - id: ai.gbl-generation-switch-reloads
+    title: "A generation switch reloads the model"
+    persona: buyer
+    priority: P2
+    summary: "A generation switch reloads the model"
+    entry_route: /
+    services: [team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the serving pointer moves to a generation whose ranker artifact differs or is absent, then the next request scores with that generation's artifact or the fixed weights"
+    tags: [recsys, recommendations]
+    status: not-testable
+    notes: "recsys-gbdt-trainer: verified by team-ai/tests/unit/modules/recommend/test_trained_ranker.py › test_generation_switch_reloads_the_model. Moving the serving pointer is the publish flow, covered end to end by recsys-generation-publish; the per-process cache reload is unit-level."
