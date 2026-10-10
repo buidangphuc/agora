@@ -185,12 +185,24 @@ def chat_payload(mctx: dict) -> None:
 # ── backpressure ─────────────────────────────────────────────────────────
 @when("40 slow embedding requests arrive at the router at the same moment")
 def flood(mctx: dict) -> None:
+    # A router restarted by an earlier destructive scenario answers /healthz before its published
+    # port takes a burst of new connections: settle on a few sequential embeds first, so the flood
+    # measures admission control rather than the restart.
+    streak, deadline = 0, time.monotonic() + 60
+    while streak < 5 and time.monotonic() < deadline:
+        try:
+            ok = ms.router_post("/embed", {"texts": [f"warm {ms.uid()}"]}, timeout=10.0).is_success
+        except httpx.HTTPError:
+            ok = False
+        streak = streak + 1 if ok else 0
+        time.sleep(0.2)
+
     def one(i: int) -> tuple[int, str | None]:
         text = f"slow {i} {ms.uid()} [[fake delay=2500]]"
         try:
             r = httpx.post(ms.router_url() + "/embed", json={"texts": [text]}, timeout=60.0)
         except httpx.HTTPError as exc:  # pragma: no cover - surfaced by the assertions below
-            return -1, str(exc)
+            return -1, f"{type(exc).__name__}: {exc}"
         return r.status_code, r.headers.get("retry-after")
 
     with ThreadPoolExecutor(max_workers=40) as pool:
@@ -200,7 +212,9 @@ def flood(mctx: dict) -> None:
 @then("some of them are answered 429 with a Retry-After header")
 def some_429(mctx: dict) -> None:
     rejected = [r for r in mctx["results"] if r[0] == 429]
-    assert rejected, f"no 429 among {sorted(r[0] for r in mctx['results'])}"
+    assert (
+        rejected
+    ), f"no 429 among {mctx['results'][:3]} ... {sorted(r[0] for r in mctx['results'])}"
     assert all(r[1] for r in rejected), "a 429 without Retry-After"
 
 
