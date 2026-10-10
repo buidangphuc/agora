@@ -44,8 +44,9 @@ Feature: Session revocation and trusted client context
 
   # The denylist entry lives until the revoked token's expiry. A SessionRevoked event with a
   # short expiry is produced to identity.events (the real topic the gateway consumes); the
-  # gateway's own gauge (scraped by Prometheus) shows the entry added, then pruned.
-  @slow
+  # gateway's own gauge (scraped by Prometheus) shows the entry added, then pruned. The gauge is
+  # gateway-wide, so other revocations running in parallel move it: the scenario runs in the serial lane.
+  @slow @destructive
   Scenario: Expired denylist entries are dropped
     Given the gateway's denylist size is recorded
     When a SessionRevoked event expiring in 15 seconds is published to identity.events
