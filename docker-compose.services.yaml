@@ -646,7 +646,7 @@ services:
       - RECS_NEARLINE_REDIS_URL=redis://redis:6379/0
       - RECS_RETRIEVE_TIMEOUT_MS=15
     ports:
-      - "8001:8000"
+      - "${TEAM_AI_HOST_PORT:-8001}:8000"   # override when 8001 is taken on the host
       - "50060:50060"
 
   # Offline ALS training job (serve-trained-recs-locally) — a batch, not a server:
