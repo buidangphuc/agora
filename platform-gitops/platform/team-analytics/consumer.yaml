@@ -21,6 +21,9 @@ metadata:
   namespace: marketplace
 spec:
   replicas: 1
+  # DuckDB holds a file lock on the RWO analytics-data volume: a rolling update's new pod
+  # cannot open it while the old one runs, so replace instead of surge.
+  strategy: { type: Recreate }
   selector:
     matchLabels: { app: team-analytics }
   template:
@@ -29,7 +32,7 @@ spec:
     spec:
       containers:
         - name: consumer
-          image: localhost:5001/team-analytics:local
+          image: localhost:5001/team-analytics
           env:
             - { name: KAFKA_ENABLED, value: "true" }
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }

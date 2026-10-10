@@ -60,7 +60,7 @@ spec:
             seccompProfile: { type: RuntimeDefault }
           initContainers:
             - name: materialize
-              image: localhost:5001/platform-featurestore:local
+              image: localhost:5001/platform-featurestore
               args: ["materialize"]
               envFrom: [{ configMapRef: { name: featurestore-config } }]
               resources: &res
@@ -75,7 +75,7 @@ spec:
                 - { name: featurestore-data, mountPath: /features }
                 - { name: tmp, mountPath: /tmp }
             - name: parity
-              image: localhost:5001/platform-featurestore:local
+              image: localhost:5001/platform-featurestore
               args: ["parity"]
               envFrom: [{ configMapRef: { name: featurestore-config } }]
               resources: *res
@@ -83,7 +83,7 @@ spec:
               volumeMounts: *mounts
           containers:
             - name: dataset
-              image: localhost:5001/platform-featurestore:local
+              image: localhost:5001/platform-featurestore
               args: ["dataset"]
               envFrom: [{ configMapRef: { name: featurestore-config } }]
               resources: *res

@@ -83,7 +83,7 @@ spec:
                 - { name: featurestore-data, mountPath: /features, readOnly: true }
           containers:
             - name: recsys-train
-              image: localhost:5001/platform-recsys:local
+              image: localhost:5001/platform-recsys
               # The image ENTRYPOINT is `python -m recsys` (the batch job itself).
               envFrom:
                 - configMapRef: { name: recsys-config }

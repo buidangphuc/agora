@@ -8,10 +8,8 @@ cluster-up:            ## kind + registry + ingress + argocd + gitea + app-of-ap
 images:                ## retag local service images -> registry (ECR) and push
 	bash images/push-images.sh
 
-gitops-push:           ## commit + push platform-gitops to Gitea (ArgoCD will sync)
-	cd ../platform-gitops && git add -A && \
-	  git -c user.email=ci@local -c user.name=ci commit -q -m "gitops: manual push" || true; \
-	  git push -q origin main
+gitops-push:           ## publish platform-gitops to LOCAL Gitea only (scratch clone; no commit/push in the agora repo)
+	bash gitea/publish-gitops.sh
 
 argocd-ui:             ## port-forward ArgoCD UI to https://localhost:8083 (admin / printed pw)
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo

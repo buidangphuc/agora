@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: indexer
-          image: localhost:5001/team-search-indexer:local
+          image: localhost:5001/team-search-indexer
+          command: ["/indexer"]   # cmd/indexer ships in the team-search image beside /server
           envFrom:
             - secretRef: { name: team-search-env }
           env:

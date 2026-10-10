@@ -1,0 +1,23 @@
+Feature: Images and gitops content reach the local cluster
+  Static, no stack and no cluster: `kubectl kustomize` renders the raw-manifest apps of platform-gitops, and the deploy
+  scripts and compose files are parsed. (local-cluster-image-wiring)
+
+  Scenario: No recsys manifest hardcodes a local tag
+    When the manifests of the raw-manifest apps are rendered with kustomize
+    Then no manifest file carries a localhost:5001 image with a tag, and every rendered image is localhost:5001/<repo> with the newTag of its kustomization
+
+  Scenario: Kustomize tags follow the local values
+    When the local values and the kustomizations of the raw-manifest apps are read
+    Then each kustomization image tag equals the images value of its image key, and their Applications set no directory
+
+  Scenario: The push list names real compose images
+    When the push script, the compose files and the local values are read
+    Then every source image of the push list is an image of the compose files, every values image key is on the list, and every repo a gitops manifest pulls from localhost:5001 is on the list
+
+  Scenario: gitops-push does not target origin
+    When the Makefile target, the bootstrap script and the publish script are read
+    Then none runs git add, git commit or git push origin inside the agora checkout, the target calls publish-gitops.sh, and the publish script pushes to a Gitea remote from a temporary clone
+
+  Scenario: A single-writer volume is replaced, not surged
+    When the Deployments of platform-gitops that mount a ReadWriteOnce claim are read
+    Then each one with a single replica uses the Recreate strategy, so a rollout never runs two pods on one volume

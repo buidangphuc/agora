@@ -100,6 +100,8 @@ metadata:
     app: tei-embed
 spec:
   replicas: 1
+  # Shares the ReadWriteOnce modelserve-models-cache claim: replace, never run two pods on it.
+  strategy: { type: Recreate }
   selector:
     matchLabels:
       app: tei-embed
@@ -160,6 +162,8 @@ metadata:
     app: tei-rerank
 spec:
   replicas: 1
+  # Shares the ReadWriteOnce modelserve-models-cache claim: replace, never run two pods on it.
+  strategy: { type: Recreate }
   selector:
     matchLabels:
       app: tei-rerank

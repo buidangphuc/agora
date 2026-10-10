@@ -292,7 +292,10 @@ def egress_limited(roc):
 def read_push(roc):
     script = (ROOT / "deploy/images/push-images.sh").read_text()
     block = script.split('MAP="', 1)[1].split('"', 1)[0]
-    roc["push"] = dict(line.split() for line in block.splitlines() if line.strip())
+    # "<values-key> <registry-repo> <compose-image>"
+    roc["push"] = {
+        k: src for k, _repo, src in (ln.split() for ln in block.splitlines() if ln.strip())
+    }
     roc["values"] = yaml.safe_load((GITOPS / "envs/local/values.yaml").read_text())
 
 
@@ -312,7 +315,7 @@ def push_list(roc):
         "platform/recsys/nearline.yaml",
         "platform/featurestore/featurestore.yaml",
     ):
-        used |= set(re.findall(r"localhost:5001/([a-z0-9-]+):local", (GITOPS / rel).read_text()))
+        used |= set(re.findall(r"localhost:5001/([a-z0-9-]+)", (GITOPS / rel).read_text()))
     assert used == {"platform-recsys", "platform-featurestore"}, used
     assert used <= set(push), used - set(push)
 
@@ -338,6 +341,9 @@ def apps_sync(roc):
             for a in _apps()
             if parent
             in {s.get("path") for s in [a["spec"].get("source", {}), *a["spec"].get("sources", [])]}
-            and a["spec"].get("source", {}).get("directory", {}).get("recurse")
+            and (  # plain-directory sync, or kustomize when the directory holds a kustomization.yaml
+                a["spec"].get("source", {}).get("directory", {}).get("recurse")
+                or (GITOPS / parent / "kustomization.yaml").is_file()
+            )
         ]
         assert syncing, f"no Application syncs {parent}: {sorted(roc['paths'])}"

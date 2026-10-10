@@ -362,3 +362,88 @@ features:
     status: automated
     covered_by: "ops/roc_recs_on_cluster.feature::Qdrant and nearline are synced by an Application"
     notes: "recs-on-cluster: ops/roc_recs_on_cluster.feature::Qdrant and nearline are synced by an Application"
+  - id: gitops.lcw-no-hardcoded-tag
+    title: "No recsys manifest hardcodes a local tag"
+    persona: admin
+    priority: P1
+    summary: "No recsys manifest hardcodes a local tag"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static kubectl kustomize render and parse of platform-gitops and deploy scripts."
+    acceptance:
+      - "When the manifests of the raw-manifest apps are rendered with kustomize"
+      - "Then no manifest file carries a localhost:5001 image with a tag, and every rendered image is localhost:5001/<repo> with the newTag of its kustomization"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::No recsys manifest hardcodes a local tag"
+    notes: "local-cluster-image-wiring: ops/lcw_local_cluster_image_wiring.feature::No recsys manifest hardcodes a local tag"
+  - id: gitops.lcw-kustomize-follows-values
+    title: "Kustomize tags follow the local values"
+    persona: admin
+    priority: P1
+    summary: "Kustomize tags follow the local values"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static kubectl kustomize render and parse of platform-gitops and deploy scripts."
+    acceptance:
+      - "When the local values and the kustomizations of the raw-manifest apps are read"
+      - "Then each kustomization image tag equals the images value of its image key, and their Applications set no directory"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::Kustomize tags follow the local values"
+    notes: "local-cluster-image-wiring: ops/lcw_local_cluster_image_wiring.feature::Kustomize tags follow the local values"
+  - id: gitops.lcw-push-list-matches-compose
+    title: "The push list names real compose images"
+    persona: admin
+    priority: P1
+    summary: "The push list names real compose images"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static kubectl kustomize render and parse of platform-gitops and deploy scripts."
+    acceptance:
+      - "When the push script, the compose files and the local values are read"
+      - "Then every source image of the push list is an image of the compose files, every values image key is on the list, and every repo a gitops manifest pulls from localhost:5001 is on the list"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::The push list names real compose images"
+    notes: "local-cluster-image-wiring: ops/lcw_local_cluster_image_wiring.feature::The push list names real compose images"
+  - id: gitops.lcw-gitops-push-local-only
+    title: "gitops-push does not target origin"
+    persona: admin
+    priority: P1
+    summary: "gitops-push does not target origin"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static kubectl kustomize render and parse of platform-gitops and deploy scripts."
+    acceptance:
+      - "When the Makefile target, the bootstrap script and the publish script are read"
+      - "Then none runs git add, git commit or git push origin inside the agora checkout, the target calls publish-gitops.sh, and the publish script pushes to a Gitea remote from a temporary clone"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::gitops-push does not target origin"
+    notes: "local-cluster-image-wiring: ops/lcw_local_cluster_image_wiring.feature::gitops-push does not target origin"
+  - id: gitops.lcw-rwo-recreate
+    title: "A single-writer volume is replaced, not surged"
+    persona: admin
+    priority: P1
+    summary: "A single-writer volume is replaced, not surged"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops manifests."
+    acceptance:
+      - "When the Deployments of platform-gitops that mount a ReadWriteOnce claim are read"
+      - "Then each one with a single replica uses the Recreate strategy, so a rollout never runs two pods on one volume"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::A single-writer volume is replaced, not surged"
+    notes: "local-cluster-image-wiring: ops/lcw_local_cluster_image_wiring.feature::A single-writer volume is replaced, not surged"

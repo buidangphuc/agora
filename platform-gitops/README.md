@@ -16,7 +16,7 @@ manifests. It is not a deployed service; it is read by ArgoCD in the local kind 
 | `envs/local/values.yaml` | `global.registry` plus the `images:` tag map (one key per image, `local`). CI bumps these. |
 | `envs/services/<svc>.yaml` | Invariant per-service baseline for the 16 `team-*` services. Used by the ApplicationSet only. |
 | `envs/{staging,prod}/` | `values.yaml` (registry + image tags), `services.yaml` (env-wide overlay: probe timing), `services/<svc>.yaml` (per-service overlay). |
-| `platform/` | Raw manifests, no Helm: `infra` (redpanda, opensearch, minio, valkey, flipt, modelserve, qdrant), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `search-indexer`, `team-analytics`, `vault-config`. |
+| `platform/` | Raw manifests, no Helm (`recsys`, `featurestore`, `team-analytics`, `search-indexer` carry a `kustomization.yaml`: manifests have tagless images, `images[].newTag` is the deployed tag, written by `push-images.sh` next to `envs/local/values.yaml`): `infra` (redpanda, opensearch, minio, valkey, flipt, modelserve, qdrant), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `search-indexer`, `team-analytics`, `vault-config`. |
 | `scripts/check_identity_seed.py` | The only check shipped in this repo. |
 | `.claude/skills/scaffold-service/` | Agent skill for adding a service. |
 
@@ -99,8 +99,8 @@ need it (cluster e2e or smoke): it contends for resources and caused flakes (roo
 
 ```bash
 make -C deploy cluster-up     # kind + registry + ingress + argocd + gitea + app-of-apps
-make -C deploy images         # retag local images -> registry, bump tags here
-make -C deploy gitops-push    # commit + push this repo to Gitea; ArgoCD syncs
+make -C deploy images         # retag local images (agora-<name> or <name>) -> registry, content tag sha-<12>; writes envs/local/values.yaml + platform/*/kustomization.yaml
+make -C deploy gitops-push    # publish this directory to LOCAL Gitea via a scratch clone (no commit/push in the agora repo); ArgoCD syncs
 make -C deploy status         # ArgoCD apps + marketplace pods
 make -C deploy argocd-ui      # https://localhost:8083
 make -C deploy smoke          # platform-e2e against the cluster ingress

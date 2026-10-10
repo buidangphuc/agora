@@ -38,7 +38,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: nearline
-          image: localhost:5001/platform-recsys:local
+          image: localhost:5001/platform-recsys
           command: ["python", "-m", "recsys.nearline"]
           envFrom:
             - configMapRef: { name: recsys-nearline-config }
