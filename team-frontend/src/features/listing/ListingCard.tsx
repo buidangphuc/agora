@@ -50,6 +50,7 @@ export function ListingCard({
   placementId,
   impressionId,
   modelVersion,
+  query,
   position,
   review,
   freeShip = false,
@@ -58,6 +59,7 @@ export function ListingCard({
   placementId?: string;
   impressionId?: string;
   modelVersion?: string;
+  query?: string;
   position?: number;
   /** Real review aggregate; omitted or count 0 renders no rating. */
   review?: ListingReviewSummary;
@@ -76,6 +78,7 @@ export function ListingCard({
       placementId={placementId}
       impressionId={impressionId}
       modelVersion={modelVersion}
+      query={query}
       position={position}
     >
       <Card hoverable className="group relative flex h-full flex-col">

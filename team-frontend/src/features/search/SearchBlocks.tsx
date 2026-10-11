@@ -149,7 +149,11 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
             />
           </Card>
         ) : (
-          <ListingGrid listings={result.items} placementId="search_results" />
+          <ListingGrid
+            listings={result.items}
+            placementId="search_results"
+            query={state.q}
+          />
         )}
       </div>
 

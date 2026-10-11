@@ -10,12 +10,14 @@ export function ListingGrid({
   placementId,
   impressionId,
   modelVersion,
+  query,
 }: {
   listings: ViewListing[];
   empty?: string;
   placementId?: string;
   impressionId?: string;
   modelVersion?: string;
+  query?: string;
 }) {
   if (listings.length === 0) {
     return (
@@ -46,6 +48,7 @@ export function ListingGrid({
           placementId={placementId}
           impressionId={impressionId}
           modelVersion={modelVersion}
+          query={query}
           position={index + 1}
         />
       ))}
