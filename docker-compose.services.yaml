@@ -607,9 +607,7 @@ services:
       modelserve-router:
         condition: service_healthy
       qdrant:
-        # service_started: platform-core's qdrant healthcheck uses /dev/tcp under sh and never passes;
-        # a retrieval failure before Qdrant listens degrades to "catalog could not be searched", never a crash.
-        condition: service_started
+        condition: service_healthy
       redpanda:
         condition: service_healthy
     environment:

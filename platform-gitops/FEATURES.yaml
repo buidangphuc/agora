@@ -515,3 +515,54 @@ features:
     status: automated
     covered_by: "ops/lcw_local_cluster_image_wiring.feature::No third-party image floats on latest"
     notes: "minio-client-image: ops/lcw_local_cluster_image_wiring.feature::No third-party image floats on latest"
+  - id: gitops.lci-no-sh-dev-tcp
+    title: "No healthcheck probes /dev/tcp through sh"
+    persona: admin
+    priority: P1
+    summary: "No healthcheck probes /dev/tcp through sh"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of the compose files."
+    acceptance:
+      - "When the healthchecks of the compose files are read"
+      - "Then none uses CMD-SHELL with /dev/tcp, and the qdrant healthcheck is CMD with bash"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lci_local_compose_infra.feature::No healthcheck probes /dev/tcp through sh"
+    notes: "compose-infra-probes: ops/lci_local_compose_infra.feature::No healthcheck probes /dev/tcp through sh"
+  - id: gitops.lci-qdrant-dependency-healthy
+    title: "The qdrant dependency waits for health"
+    persona: admin
+    priority: P1
+    summary: "The qdrant dependency waits for health"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of the compose files."
+    acceptance:
+      - "When the depends_on of the root compose services are read"
+      - "Then every map-form dependency on qdrant has condition service_healthy"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lci_local_compose_infra.feature::The qdrant dependency waits for health"
+    notes: "compose-infra-probes: ops/lci_local_compose_infra.feature::The qdrant dependency waits for health"
+  - id: gitops.lci-compose-images-pinned
+    title: "No compose infra image floats on latest"
+    persona: admin
+    priority: P1
+    summary: "No compose infra image floats on latest"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of the compose files."
+    acceptance:
+      - "When the images of platform-core/infra/docker-compose.yaml are read"
+      - "Then each has a tag that is not latest except the known exceptions, and minio-init runs bitnamilegacy/minio-client"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lci_local_compose_infra.feature::No compose infra image floats on latest"
+    notes: "compose-infra-probes: ops/lci_local_compose_infra.feature::No compose infra image floats on latest"
