@@ -35,7 +35,7 @@ export async function RecentlyViewedRow({ limit = 12 }: { limit?: number }) {
           Sản phẩm bạn đã xem gần đây
         </span>
       </h2>
-      <ListingGrid listings={items} />
+      <ListingGrid listings={items} placementId="recently_viewed" />
     </section>
   );
 }

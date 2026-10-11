@@ -44,7 +44,7 @@ export function ListingFeed({
 
   return (
     <div>
-      <ListingGrid listings={items} />
+      <ListingGrid listings={items} placementId="listing_feed" />
       {cursor && (
         <div className="mt-6 text-center">
           <button

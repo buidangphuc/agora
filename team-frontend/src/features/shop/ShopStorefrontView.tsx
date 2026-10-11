@@ -89,6 +89,7 @@ export function ShopStorefrontView({
         </h2>
         <ListingGrid
           listings={sortedListings}
+          placementId="shop_storefront"
           empty="Shop này hiện chưa có sản phẩm nào đang bày bán."
         />
       </div>

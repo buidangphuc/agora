@@ -146,7 +146,7 @@ export default async function FavoritesPage(props: {
           />
         </Card>
       ) : (
-        <ListingGrid listings={items} />
+        <ListingGrid listings={items} placementId="favorites" />
       )}
 
       <Pagination

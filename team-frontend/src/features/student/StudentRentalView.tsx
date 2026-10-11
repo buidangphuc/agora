@@ -248,6 +248,7 @@ export function StudentRentalView({
 
         <ListingGrid
           listings={listings}
+          placementId="student_rentals"
           empty="Không tìm thấy phòng trọ nào phù hợp với bộ lọc đã chọn."
         />
       </section>
