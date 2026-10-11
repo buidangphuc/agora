@@ -383,6 +383,7 @@ _NULL_PAYLOAD = {
 def cockpit_gets_null_payload(world: World) -> None:
     # Browser-level stub of the poll response only (the SSR first paint stays real):
     # the page contract under test is how it RENDERS null, not what the backend sends.
+    # asdlc: allow-mock UI rendering of a null payload the real backend cannot be made to send
     world.page.route(
         "**/api/admin/metrics",
         lambda route: route.fulfill(

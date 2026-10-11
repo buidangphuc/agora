@@ -593,6 +593,7 @@ def stays_home(world: World) -> None:
 
 @given("the suggestion endpoint fails")
 def suggest_fails(world: World) -> None:
+    # asdlc: allow-mock fault injection: the UI must degrade when suggest returns 5xx
     world.page.route("**/api/suggest**", lambda route: route.fulfill(status=500, body="boom"))
     world.add_cleanup(lambda: world.page.unroute_all(behavior="ignoreErrors"))
 
