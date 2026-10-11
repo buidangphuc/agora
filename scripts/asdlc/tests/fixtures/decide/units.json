@@ -1,0 +1,5 @@
+[{"id": "s_pass", "parts": {"SPEC": "x", "TEST": "y"}, "paths": ["svc/a.go"]},
+ {"id": "s_block", "parts": {"SPEC": "x"}, "paths": []},
+ {"id": "s_unc", "parts": {"SPEC": "x"}, "paths": []},
+ {"id": "s_fail", "parts": {"SPEC": "x"}, "paths": []},
+ {"id": "s_human", "parts": {"SPEC": "x"}, "paths": ["svc/auth/login.go"]}]

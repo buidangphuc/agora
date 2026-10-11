@@ -1,0 +1,113 @@
+# Feature gate: is the e2e test for ONE spec scenario trustworthy?
+# State unit = one scenario: the scenario text from the spec, its .feature text,
+# the step-definition code it runs, and the implementation hunk(s) the steps reach.
+# Thresholds (0.85 / 0.6) are initial values; W3-6 recalibrates them from the
+# precision/recall curve on the eval set (plan section 14). Changing one = new version.
+gate: feature
+version: 1
+pins:
+  asvs: "4.0.3"
+  iso29119_4: "2021"
+  google_eng_practices: "What to look for in a code review"
+state_unit: scenario
+max_state_tokens: 8000
+questions:
+  - id: assertion_kind
+    source: "Meszaros, xUnit Test Patterns (2007) - State Verification vs Behavior Verification; tsDetect test smell catalog"
+    type: choice
+    severity: veto
+    instructions: "Looking at the Then-step code, what do its assertions mainly check?"
+    criteria:
+      real: "Persisted state or user-observable behaviour that the scenario's Then clause promises (e.g. row stored, page shows the new value, event consumed)"
+      proxy: "Only an HTTP status code, a toast, or something that is true whether or not the promised outcome happened"
+      mock: "Only that a mock, stub or spy was called; no real outcome is checked"
+      none: "No assertion at all, or assertions that can never fail"
+    pass_values: [real]
+    min_confidence: 0.6
+
+  - id: promise_match
+    source: "ISO/IEC/IEEE 29119-4:2021 Scenario testing; Google Engineering Practices, What to look for in a code review - Tests"
+    type: score
+    severity: veto
+    instructions: "How completely do the step assertions cover the outcome promised by the scenario's Then/And clauses?"
+    levels:
+      unrelated: "Assertions check something the scenario does not promise"
+      partial: "Some promised outcomes are asserted, but the main one is missing"
+      main_outcome: "The main promised outcome is asserted; a secondary And clause is not"
+      full: "Every Then/And clause has a matching assertion"
+    pass_min: main_outcome
+    min_confidence: 0.6
+
+  - id: sut_not_bypassed
+    source: "Meszaros, xUnit Test Patterns (2007) - Principles of Test Automation: Don't Modify the SUT"
+    type: noul
+    severity: veto
+    instructions: "Do the When-steps drive the system through its public interface (browser UI or gateway API) without stubbing, patching or calling internals of the service under test?"
+    pass_when: true
+    threshold: 0.85
+
+  - id: permission_probe
+    source: "OWASP ASVS 4.0.3 V4.2.1 (IDOR protection); V4.1.1 (access control enforced on a trusted service layer)"
+    type: choice
+    severity: veto
+    instructions: "If the scenario is about who may access or change a resource, how does the test check the permission?"
+    criteria:
+      not_applicable: "The scenario is not about access control or resource ownership"
+      cross_user_probe: "A second principal (user B or an anonymous caller) attempts the action on user A's resource and the test asserts denial and that the resource is unchanged"
+      same_user_only: "Only the owner's allowed path is exercised; no other principal tries the action"
+      ui_only: "Denial is checked only by a hidden button or client-side check, not by calling the backend"
+    pass_values: [not_applicable, cross_user_probe]
+    min_confidence: 0.6
+
+  - id: invalid_partition_assert
+    source: "ISO/IEC/IEEE 29119-4:2021 Equivalence partitioning (invalid partitions)"
+    type: choice
+    severity: normal
+    instructions: "If the scenario covers an invalid or error input, what does the test assert about the rejection?"
+    criteria:
+      not_applicable: "The scenario only covers valid input"
+      specific: "Asserts the specific error (code or message the spec names) and that no state changed"
+      generic: "Asserts only that something failed (any error, any 4xx) or does not check that state is unchanged"
+    pass_values: [not_applicable, specific]
+    min_confidence: 0.6
+
+  - id: boundary_values
+    source: "ISO/IEC/IEEE 29119-4:2021 Boundary value analysis"
+    type: choice
+    severity: normal
+    instructions: "If the scenario states a limit or range (length, amount, count, date), which boundary values does the test exercise?"
+    criteria:
+      not_applicable: "The scenario states no limit or range"
+      both_sides: "Values on and just beyond the boundary are exercised"
+      one_side: "Only the boundary itself or only one side of it is exercised"
+      missing: "A limit is stated but only a typical mid-range value is used"
+    pass_values: [not_applicable, both_sides]
+    min_confidence: 0.6
+
+  - id: mystery_guest
+    source: "tsDetect test smell catalog - Mystery Guest; Meszaros, xUnit Test Patterns (2007) - Obscure Test"
+    type: noul
+    severity: normal
+    instructions: "Does the test depend on data or resources that are not created or named in the scenario or its step code (pre-seeded IDs, shared accounts, external files)?"
+    pass_when: false
+    threshold: 0.85
+
+  - id: sensitive_equality
+    source: "tsDetect test smell catalog - Sensitive Equality"
+    type: noul
+    severity: normal
+    instructions: "Does any assertion compare a whole serialized value (full JSON body, toString output, page snapshot) where only specific promised fields matter?"
+    pass_when: false
+    threshold: 0.85
+
+  - id: code_beyond_tests
+    source: "Google Engineering Practices, What to look for in a code review - Complexity (functionality not presently needed) and Tests"
+    type: choice
+    severity: normal
+    instructions: "Compared with what the scenario's test exercises, does the implementation hunk add behaviour?"
+    criteria:
+      none: "Every branch and side effect in the hunk is exercised by this scenario's test"
+      incidental: "Only logging, wiring or defensive code that the scenario cannot observe is unexercised"
+      untested_behaviour: "The hunk adds user-visible behaviour, branches or side effects that no step exercises"
+    pass_values: [none, incidental]
+    min_confidence: 0.6

@@ -1,0 +1,79 @@
+# W4-4: log-only alert receiver (stdlib python, no image build). Every POST body is printed as one
+# JSON line to stdout. It is the "local channel" the alert drill reads.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-logger-src
+  namespace: marketplace
+data:
+  server.py: |
+    import json, sys
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            try:
+                p = json.loads(body)
+                for a in p.get("alerts", []):
+                    print(json.dumps({"event": "alert", "status": a.get("status"),
+                          "alertname": a.get("labels", {}).get("alertname"),
+                          "service": a.get("labels", {}).get("service") or a.get("labels", {}).get("job"),
+                          "severity": a.get("labels", {}).get("severity"),
+                          "summary": a.get("annotations", {}).get("summary"),
+                          "runbook": a.get("annotations", {}).get("runbook")}), flush=True)
+            except Exception as e:
+                print(json.dumps({"event": "raw", "error": str(e), "body": body.decode("utf-8", "replace")[:2000]}), flush=True)
+            self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+        def do_GET(self):
+            self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+        def log_message(self, *a):
+            pass
+
+    print(json.dumps({"event": "start", "port": 8080}), flush=True)
+    HTTPServer(("0.0.0.0", 8080), H).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-logger
+  namespace: marketplace
+  labels: { app: webhook-logger }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: webhook-logger }
+  template:
+    metadata:
+      labels: { app: webhook-logger }
+    spec:
+      containers:
+        - name: webhook-logger
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/server.py"]
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+          volumeMounts:
+            - name: src
+              mountPath: /app
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+      volumes:
+        - name: src
+          configMap: { name: webhook-logger-src }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-logger
+  namespace: marketplace
+  labels: { app: webhook-logger }
+spec:
+  selector: { app: webhook-logger }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -1,0 +1,16 @@
+# plans/<id>/slices.yaml — one slice = one OpenSpec change (plan section 13).
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/<id>/slices.yaml
+# Every openspec/changes/<slice id>/proposal.md must contain a line `initiative: <initiative>`.
+initiative: seller-payout-v2
+slices:
+  - id: payout-contract          # = OpenSpec change name
+    owner: platform-core         # repo that holds the slice's FEATURES.yaml (contract slices: platform-core, built first)
+    depends_on: []               # slice ids that must land first
+    provides: []                 # optional: Service.Rpc or <topic>/<Event> this slice introduces (else parsed from its proto snippets)
+  - id: payout-holdback
+    owner: team-payment
+    depends_on: [payout-contract]
+    uses: [PaymentService.HoldPayout, payment.events/PayoutHeld]   # Service.Rpc | <topic>/<Event>; must exist in proto or a dependency
+  - id: payout-seller-ui
+    owner: team-frontend
+    depends_on: [payout-holdback]

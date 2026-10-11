@@ -58,3 +58,8 @@ Thumbs.db
 **/.uv-cache/
 .codegraph/
 **/.turbo/
+
+# Kev eval harness (W3-6): stored states and raw run output stay local
+metrics/kev-eval/states/
+metrics/kev-eval/runs/*/raw/
+metrics/kev-eval/runs/*/*/raw/

@@ -209,6 +209,14 @@ so many changes/agents run in parallel (each change is an isolated
 - Archive: `openspec archive <id>` folds the delta into `openspec/specs/`.
 - Conventions for OpenSpec live in `openspec/config.yaml`; e2e conventions in `platform-e2e/AGENTS.md` + `docs/FEATURE_MANIFEST.md`.
 
+## 9c. ASDLC v2 (agentic SDLC)
+
+- Process source of truth: [`docs/ASDLC-v2.md`](docs/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan: `ASDLC-v2-PLAN.md`.
+- Config and profile (`solo` / `team`): `asdlc.config.yaml`; gates: `gates/`; scripts: `scripts/asdlc/`; agents/skills: `.claude/`.
+- Skills: `initiative-plan` -> human lock -> `initiative-build` -> `feature-run`; `spec-clarify` before the lock; `release` for phase 8.
+- The `implementer` subagent cannot edit test files (`.claude/hooks/guard-tests.sh`); only `test-author` / `e2e-author` do.
+- **Superpowers scope:** the Superpowers plugin is enabled at project scope (`.claude/settings.json` `enabledPlugins`). Workers may use only `superpowers:test-driven-development`, `superpowers:systematic-debugging`, `superpowers:using-git-worktrees` and `superpowers:verification-before-completion`. Its `brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development` and `finishing-a-development-branch` skills must not be used (even if its SessionStart hook suggests them): OpenSpec + `parallel-scrum` / `initiative-plan` own planning, so there is exactly one planning process.
+
 ## 10. Deeper docs
 
 - `platform-core/docs/ROADMAP.md` — core ecommerce feature plan (phases 3–7).

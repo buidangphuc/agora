@@ -1,0 +1,13 @@
+initiative: seller-payout-v2
+slices:
+  - id: payout-seller-ui
+    owner: team-frontend
+    depends_on: [payout-holdback]
+    uses: [PaymentService.HoldPayout]
+  - id: payout-holdback
+    owner: team-payment
+    depends_on: [payout-contract]
+    uses: [PaymentService.HoldPayout, PaymentService.GetPayment, payment.events/PayoutHeld, payment.events/OrderPaid]
+  - id: payout-contract
+    owner: platform-core
+    depends_on: []

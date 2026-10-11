@@ -1,0 +1,23 @@
+# <values-key> <registry-repo> <compose-image>  (read by push-images.sh and release-tag.sh)
+team-gateway team-gateway team-gateway:local
+team-identity team-identity team-identity:local
+team-domain team-domain team-domain:local
+team-search team-search team-search:local
+search-indexer team-search-indexer team-search:local
+team-engagement team-engagement team-engagement:local
+team-order team-order team-order:local
+team-payment team-payment team-payment:local
+team-chat team-chat team-chat:local
+team-notification team-notification team-notification:local
+team-referral team-referral team-referral:local
+team-verification team-verification team-verification:local
+team-sharing team-sharing team-sharing:local
+team-audit team-audit team-audit:local
+team-promotion team-promotion team-promotion:local
+team-frontend team-frontend team-frontend:local
+team-analytics team-analytics team-analytics:local
+team-ai team-ai team-ai:local
+platform-featurestore platform-featurestore platform-featurestore:local
+platform-recsys platform-recsys platform-recsys:local
+platform-modelserve platform-modelserve modelserve-router:local
+tei-fake tei-fake tei-fake:local

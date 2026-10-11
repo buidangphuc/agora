@@ -1,0 +1,43 @@
+# kind-only layer for the staging gateway (see argocd/apps/appset-staging-kind.yaml).
+# - upstreams/JWKS/Kafka point at the shared local backends in ns `marketplace` (staging runs only the edge).
+# - secrets off: the Vault k8s-auth roles are bound to ns `marketplace` (platform/vault-config), not marketplace-staging.
+#   Cost: the gateway runs without its team-gateway/config Vault keys; enable once vault-config binds the staging ns.
+# - OTEL on, so the canary AnalysisTemplate and the alerts see real RED series (platform/monitoring/otel-collector.yaml).
+# - Sized for a laptop: 1 replica floor, small requests.
+env:
+  ENV: staging
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.marketplace.svc:4317"
+  OTEL_SERVICE_NAME: team-gateway
+  OTEL_METRIC_EXPORT_INTERVAL: "10000"
+  UPSTREAM_IDENTITY_ADDR: "team-identity.marketplace.svc:50053"
+  UPSTREAM_LISTING_ADDR: "team-domain.marketplace.svc:50051"
+  UPSTREAM_SEARCH_ADDR: "team-search.marketplace.svc:50052"
+  UPSTREAM_ENGAGEMENT_ADDR: "team-engagement.marketplace.svc:50054"
+  UPSTREAM_ORDER_ADDR: "team-order.marketplace.svc:50055"
+  UPSTREAM_PAYMENT_ADDR: "team-payment.marketplace.svc:50056"
+  UPSTREAM_CHAT_ADDR: "team-chat.marketplace.svc:50057"
+  UPSTREAM_AI_ADDR: "team-ai.marketplace.svc:50060"
+  UPSTREAM_RECOMMENDATION_ADDR: "team-ai.marketplace.svc:50060"
+  UPSTREAM_PROMOTION_ADDR: "team-promotion.marketplace.svc:50061"
+  UPSTREAM_NOTIFICATION_ADDR: "team-notification.marketplace.svc:50058"
+  UPSTREAM_ANALYTICS_ADDR: "team-analytics.marketplace.svc:50059"
+  UPSTREAM_REFERRAL_ADDR: "team-referral.marketplace.svc:50062"
+  UPSTREAM_VERIFICATION_ADDR: "team-verification.marketplace.svc:50064"
+  UPSTREAM_SHARING_ADDR: "team-sharing.marketplace.svc:50065"
+  UPSTREAM_AUDIT_ADDR: "team-audit.marketplace.svc:50066"
+  JWKS_URL: "http://team-identity.marketplace.svc:50063/.well-known/jwks.json"
+secrets:
+  enabled: false
+resources:
+  requests: { cpu: 25m, memory: 64Mi }
+  limits: { cpu: 300m, memory: 256Mi }
+ingress:
+  enabled: true
+  host: api.staging.localtest.me
+autoscaling:
+  enabled: true
+  type: cpu
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 70

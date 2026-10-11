@@ -1,0 +1,89 @@
+# Release gate: is ONE change ready to roll out (Production Readiness Review)?
+# State unit = one change: its release note, migration files, rollout / GitOps manifest
+# diff, and the alert-rule and runbook diff.
+# Thresholds (0.85 / 0.6) are initial values; W3-6 recalibrates them from the
+# precision/recall curve on the eval set (plan section 14). Changing one = new version.
+gate: release
+version: 1
+pins:
+  sre_book: "Site Reliability Engineering, O'Reilly 2016"
+state_unit: change
+max_state_tokens: 8000
+questions:
+  - id: rollback_plan
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - Production Readiness Review (change management)"
+    type: choice
+    severity: veto
+    instructions: "How is rolling this change back described?"
+    criteria:
+      tested: "A rollback procedure is written (command, revision or flag) and the note says it was exercised"
+      documented: "A concrete rollback procedure is written but not shown to be exercised"
+      missing: "No rollback procedure, or only 'revert if needed'"
+    pass_values: [tested, documented]
+    min_confidence: 0.6
+
+  - id: migration_reversible
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - Production Readiness Review (change management)"
+    type: choice
+    severity: veto
+    instructions: "If the change contains a schema or data migration, can the previous release run after it?"
+    criteria:
+      not_applicable: "No schema or data migration"
+      reversible: "A down migration exists and loses no data"
+      expand_contract: "The migration is additive (expand) and old code keeps working; destructive steps are deferred"
+      irreversible: "The migration drops or rewrites data the previous release needs, with no down path"
+    pass_values: [not_applicable, reversible, expand_contract]
+    min_confidence: 0.6
+
+  - id: monitoring_alerting
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - PRR (instrumentation, metrics, monitoring); Monitoring Distributed Systems (symptoms vs causes)"
+    type: score
+    severity: normal
+    instructions: "How will a failure of the new behaviour be noticed in production?"
+    levels:
+      none: "No new metric, log or alert relates to the new behaviour"
+      metrics_only: "Metrics or logs exist but nothing alerts on them"
+      symptom_alert: "An alert fires on a user-visible symptom (error rate, latency, lag) of the new behaviour"
+      alert_with_runbook: "A symptom alert exists and links to a runbook entry for it"
+    pass_min: symptom_alert
+    min_confidence: 0.6
+
+  - id: capacity
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - PRR (capacity planning)"
+    type: choice
+    severity: normal
+    instructions: "If the change adds load (new service, consumer, query, job or storage), is its resource need addressed?"
+    criteria:
+      not_applicable: "The change adds no meaningful load"
+      estimated: "Expected load is estimated and resource requests / limits or quotas are set to match"
+      not_considered: "Load is added but requests, limits or quotas are absent or copied without reasoning"
+    pass_values: [not_applicable, estimated]
+    min_confidence: 0.6
+
+  - id: gradual_rollout
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - PRR (change management); Release Engineering"
+    type: choice
+    severity: normal
+    instructions: "How does the change reach users?"
+    criteria:
+      staged: "Behind a flag or staged (canary, one environment first) with a stated check before widening"
+      all_at_once_low_risk: "All at once, and the change is config-only or invisible to users"
+      all_at_once: "All at once although it changes user-visible or data-writing behaviour"
+    pass_values: [staged, all_at_once_low_risk]
+    min_confidence: 0.6
+
+  - id: breaking_change_noted
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - PRR (change management, dependencies)"
+    type: noul
+    severity: normal
+    instructions: "Does the release note list every breaking change visible in the diff (removed or renamed API field, changed event schema, changed config key), or state that there is none when there is none?"
+    pass_when: true
+    threshold: 0.85
+
+  - id: emergency_response
+    source: "Google SRE Book (2016), The Evolving SRE Engagement Model - PRR (emergency response)"
+    type: noul
+    severity: normal
+    instructions: "For the new failure modes the change introduces (new dependency down, queue backlog, bad migration), does the runbook or release note say what the on-call does?"
+    pass_when: true
+    threshold: 0.85

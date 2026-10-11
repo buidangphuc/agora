@@ -1,0 +1,238 @@
+name: asdlc-gates
+
+# ASDLC v2 gates (W1-6, W5-4). Mirrors scripts/asdlc/ci_local.sh job by job.
+# Pushing this file and marking the jobs as *required checks* is a human approval point.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: asdlc-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BASE_REF: ${{ github.base_ref || 'main' }}
+
+jobs:
+  specs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: pip install pyyaml jsonschema
+      - run: npm i -g @fission-ai/openspec@1.12.0
+      - name: specs gate (validate, spec_lint, spec_sync, cross_change_check)
+        # PR-controlled change/slice names never reach the shell as code: spec_job.sh reads them from
+        # git, skips any not matching ^[a-z0-9][a-z0-9-]*$, and quotes every use.
+        # spec_sync is --strict only for finished changes (all tasks checked, or moved to archive).
+        run: |
+          git fetch origin "$BASE_REF" --depth=1000 || true
+          bash scripts/asdlc/spec_job.sh "$(git merge-base "origin/$BASE_REF" HEAD)"
+
+  features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml jsonschema
+      - run: make -C platform-e2e features-check VENV=
+
+  repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml jsonschema
+      - run: python3 scripts/repo_doctor.py
+      - run: |
+          for d in plans/*/; do
+            [ "$(basename "$d")" = "_template" ] && continue
+            [ -f "$d/slices.yaml" ] || continue
+            python3 scripts/validate_plan.py "$d"
+          done
+      - run: python3 scripts/asdlc_config.py --check
+      - run: python3 scripts/asdlc/check_gates.py
+
+  proto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: bufbuild/buf-setup-action@v1
+        with: { github_token: "${{ github.token }}" }
+      - run: buf lint
+        working-directory: platform-core/packages/proto
+      - name: buf breaking against base
+        working-directory: platform-core/packages/proto
+        # actions/checkout (fetch-depth 0) fetches origin/* as remote-tracking refs, not local branches,
+        # so address the base as a ref: `.git#ref=origin/<base>` (buf resolves refs/remotes/origin/...).
+        run: |
+          git fetch origin "$BASE_REF" --depth=1000 || true
+          buf breaking --against "../../../.git#ref=origin/${BASE_REF},subdir=platform-core/packages/proto"
+
+  tests-asdlc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pytest pyyaml jsonschema
+      - name: pytest
+        run: |
+          dirs="scripts/asdlc/tests platform-e2e/scripts/tests"
+          [ -d scripts/asdlc/kev_eval/tests ] && dirs="$dirs scripts/asdlc/kev_eval/tests"
+          python3 -m pytest -q --ignore-glob="*/fixtures/*" $dirs
+      - name: guard hook test
+        run: bash .claude/hooks/tests/test_guard_tests.sh
+      - name: red_first test
+        run: bash scripts/asdlc/tests/test_red_first.sh
+
+  tdd:
+    # red_first runs the real tests at base and head, so it needs their dependencies. CI therefore
+    # runs Go (go mod download per changed module) and Python (deps of changed dirs) only;
+    # TypeScript is skipped here (no node_modules) and stays a local `red_first.sh` check. See docs/ci.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - run: pip install pytest pyyaml jsonschema
+      - run: git fetch origin "$BASE_REF" --depth=1000 || true
+      - name: install deps of changed test dirs
+        run: |
+          set +e +o pipefail   # greps below legitimately match nothing; red_first reports real dep problems
+          mb=$(git merge-base "origin/$BASE_REF" HEAD)
+          changed=$(git diff --name-only --diff-filter=ACMR "$mb" HEAD)
+          # Go: one `go mod download` per module that owns a changed *_test.go
+          printf '%s\n' "$changed" | grep -E '_test\.go$' | while IFS= read -r f; do
+            d=$(dirname "$f")
+            while [ ! -f "$d/go.mod" ] && [ "$d" != "." ]; do d=$(dirname "$d"); done
+            [ -f "$d/go.mod" ] && echo "$d"
+          done | sort -u | while IFS= read -r m; do
+            echo "go mod download: $m"; (cd "$m" && go mod download)
+          done
+          # Python (outside platform-e2e): top-level dirs with a changed test and a requirements/pyproject
+          printf '%s\n' "$changed" | grep -E '(^|/)(test_[^/]*|[^/]*_test)\.py$' | grep -v '^platform-e2e/' | cut -d/ -f1 | sort -u |
+          while IFS= read -r d; do
+            [[ "$d" =~ ^[A-Za-z0-9._-]+$ ]] && [ -d "$d" ] || continue
+            [ -f "$d/requirements.txt" ] && pip install -r "$d/requirements.txt"
+            if [ -f "$d/pyproject.toml" ]; then pip install -e "./$d[dev]" || pip install -e "./$d"; fi
+          done
+          true
+      - name: red-first (go, python)
+        env: { REDFIRST_PYTHON: python3 }
+        run: |
+          echo "::notice::red_first runs --only go,python in CI; TypeScript tests are skipped here (run scripts/asdlc/red_first.sh locally)"
+          bash scripts/asdlc/red_first.sh --only go,python --base "$(git merge-base "origin/$BASE_REF" HEAD)"
+      - name: no self-mock
+        run: python3 scripts/asdlc/no_self_mock.py --base "origin/$BASE_REF"
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+      - name: trivy fs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: semgrep (advisory)
+        # Starts non-blocking: the rule pack is unproven on this polyrepo and may be noisy.
+        # Promote to blocking (remove continue-on-error) after a clean baseline run.
+        continue-on-error: true
+        run: |
+          pip install semgrep
+          semgrep scan --config p/default --error --metrics=off
+
+  mutation:
+    # W5-4: advisory, manual or label-triggered; never blocks.
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'mutation') }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      THRESHOLD: "40"
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: git fetch origin "$BASE_REF" --depth=1000 || true
+      - name: Changed files
+        id: ch
+        run: |
+          d=$(git diff --name-only --diff-filter=AM "origin/$BASE_REF"...HEAD || true)
+          echo "$d" | grep -E '^team-ai/.*\.py$' | grep -v test | tr '\n' ' ' > py.txt || true
+          echo "$d" | grep -E '^[^/]+/.*\.go$' | grep -v _test.go | cut -d/ -f1 | sort -u | grep -E '^[A-Za-z0-9._-]+$' | tr '\n' ' ' > go.txt || true
+          echo "$d" | grep -E '^team-frontend/.*\.(ts|tsx)$' | grep -v test | tr '\n' ',' | sed 's/,$//' > ts.txt || true
+          echo "## Mutation (advisory, threshold ${THRESHOLD}%)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Python (mutmut)
+        run: |
+          [ -s py.txt ] || { echo "- python: no changed team-ai modules" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          cd team-ai && pip install -r requirements.txt -e ".[dev]" mutmut
+          mutmut run --paths-to-mutate "$(sed 's#team-ai/##g; s/ /,/g; s/,$//' ../py.txt)" || true
+          mutmut results | tee ../mut-py.txt || true
+          k=$(grep -c "Killed" ../mut-py.txt || true); s=$(grep -c "Survived" ../mut-py.txt || true)
+          t=$((k+s)); sc=$([ "$t" -gt 0 ] && echo $((100*k/t)) || echo 0)
+          echo "- python mutmut: score ${sc}% (${k}/${t})" >> "$GITHUB_STEP_SUMMARY"
+          [ "$t" -eq 0 ] || [ "$sc" -ge "$THRESHOLD" ]
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - name: Go (gremlins)
+        run: |
+          [ -s go.txt ] || { echo "- go: no changed packages" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+          for p in $(cat go.txt); do
+            (cd "$p" && gremlins unleash --threshold-efficacy "$THRESHOLD" 2>&1 | tee -a "$GITHUB_WORKSPACE/mut-go.txt") || true
+          done
+          echo "- go gremlins: see log; threshold ${THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "efficacy" mut-go.txt >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: TypeScript (Stryker)
+        run: |
+          [ -s ts.txt ] || { echo "- ts: no changed team-frontend files" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          cd team-frontend && npm ci
+          npx --yes @stryker-mutator/core@8 run --mutate "$(cat ../ts.txt | sed 's#team-frontend/##g')" --thresholds.break "$THRESHOLD" || true
+          echo "- ts stryker: ran on changed files, break threshold ${THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
+
+  security-review:
+    # Optional; never required. Runs only when the repo has an ANTHROPIC_API_KEY secret.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
+        with: { fetch-depth: 0 }
+      - uses: anthropics/claude-code-action@v1
+        if: env.HAS_KEY == 'true'
+        continue-on-error: true
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/security-review"

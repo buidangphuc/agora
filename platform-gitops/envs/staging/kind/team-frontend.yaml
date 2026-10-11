@@ -1,0 +1,8 @@
+# kind-only layer for the staging frontend: reachable at http://marketplace-staging.localtest.me,
+# talks to the staging gateway in the same namespace (GATEWAY_URL baseline http://team-gateway:8080).
+ingress:
+  enabled: true
+  host: marketplace-staging.localtest.me
+resources:
+  requests: { cpu: 25m, memory: 96Mi }
+  limits: { cpu: 300m, memory: 256Mi }

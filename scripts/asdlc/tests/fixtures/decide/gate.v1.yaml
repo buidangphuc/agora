@@ -1,0 +1,35 @@
+gate: feature
+version: 1
+state_unit: scenario
+max_state_tokens: 100
+questions:
+  - id: checks_store
+    source: "ISO/IEC/IEEE 29119-4:2021 §5.2.1"
+    type: noul
+    severity: veto
+    instructions: "Does the test verify persisted state?"
+    pass_when: true
+    threshold: 0.85
+  - id: has_mock_only
+    source: "xUnit Test Patterns"
+    type: noul
+    severity: normal
+    instructions: "Does the test only assert mock calls?"
+    pass_when: false
+    threshold: 0.8
+  - id: assertion_kind
+    source: "xUnit Test Patterns"
+    type: choice
+    severity: normal
+    instructions: "What do the assertions mainly check?"
+    criteria: {real: "persisted state", proxy: "status code only", mock: "mock called"}
+    pass_values: [real]
+    min_confidence: 0.6
+  - id: depth
+    source: "ISO 29119-4 §5"
+    type: score
+    severity: normal
+    instructions: "How deep is the coverage?"
+    levels: {none: "nothing", partial: "some", full: "complete"}
+    pass_min: partial
+    min_confidence: 0.6

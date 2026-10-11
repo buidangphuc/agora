@@ -1,0 +1,108 @@
+# Spec gate: is ONE requirement in a spec delta good enough to build and test against?
+# State unit = one requirement block: its "### Requirement:" statement plus all of its
+# "#### Scenario:" blocks, and the change's proposal "Why" for context.
+# Thresholds (0.85 / 0.6) are initial values; W3-6 recalibrates them from the
+# precision/recall curve on the eval set (plan section 14). Changing one = new version.
+gate: spec
+version: 1
+pins:
+  iso29148: "2018"
+  ears: "Mavin et al. 2009"
+  asvs: "4.0.3"
+  pdpa_vn: "Decree 13/2023/ND-CP"
+state_unit: scenario
+max_state_tokens: 8000
+questions:
+  - id: ears_pattern
+    source: "Mavin et al. 2009, Easy Approach to Requirements Syntax (EARS), IEEE RE'09; ISO/IEC/IEEE 29148:2018 §5.2.5 (conforming)"
+    type: choice
+    severity: normal
+    instructions: "Which EARS pattern does the requirement statement follow?"
+    criteria:
+      ubiquitous: "The <system> shall <response> (always active)"
+      event_driven: "When <trigger>, the <system> shall <response>"
+      state_driven: "While <state>, the <system> shall <response>"
+      unwanted_behaviour: "If <unwanted condition>, then the <system> shall <response>"
+      optional_feature: "Where <feature is included>, the <system> shall <response>"
+      complex: "A combination of the patterns above (e.g. While ... when ...)"
+      none: "No recognisable pattern: trigger, system or response cannot be identified"
+    pass_values: [ubiquitous, event_driven, state_driven, unwanted_behaviour, optional_feature, complex]
+    min_confidence: 0.6
+
+  - id: unambiguous
+    source: "ISO/IEC/IEEE 29148:2018 §5.2.5 (unambiguous)"
+    type: noul
+    severity: veto
+    instructions: "Can the requirement and its scenarios be read only one way (no vague terms such as fast, user-friendly or appropriate; no undefined actor or object)?"
+    pass_when: true
+    threshold: 0.85
+
+  - id: singular
+    source: "ISO/IEC/IEEE 29148:2018 §5.2.5 (singular)"
+    type: noul
+    severity: normal
+    instructions: "Does the requirement statement state exactly one capability, rather than several joined by and/or that could pass or fail separately?"
+    pass_when: true
+    threshold: 0.85
+
+  - id: verifiable_outcome
+    source: "ISO/IEC/IEEE 29148:2018 §5.2.5 (verifiable)"
+    type: score
+    severity: veto
+    instructions: "How verifiable is the outcome stated in the scenarios' THEN clauses?"
+    levels:
+      none: "No outcome is stated, or it is an intention (the system supports X)"
+      vague: "An outcome is stated but a tester could not tell pass from fail"
+      observable: "The outcome is an observable state or response a test can check"
+      measurable: "The outcome is observable and quantified where it matters (values, limits, time)"
+    pass_min: observable
+    min_confidence: 0.6
+
+  - id: error_case
+    source: "ISO/IEC/IEEE 29148:2018 §5.2.5 (complete); EARS unwanted-behaviour pattern (Mavin et al. 2009)"
+    type: choice
+    severity: normal
+    instructions: "Does the requirement specify what happens when its trigger or input is invalid or a dependency fails?"
+    criteria:
+      not_applicable: "The requirement has no input or dependency that can fail"
+      covered: "At least one scenario states an error or unwanted condition and the expected response"
+      missing: "Only success scenarios are given although inputs or dependencies can fail"
+    pass_values: [not_applicable, covered]
+    min_confidence: 0.6
+
+  - id: permission_case
+    source: "ISO/IEC/IEEE 29148:2018 §5.2.5 (complete); OWASP ASVS 4.0.3 V4.2.1"
+    type: choice
+    severity: normal
+    instructions: "If the requirement acts on a resource owned by a user or restricted to a role, does it specify who is denied and how?"
+    criteria:
+      not_applicable: "The requirement touches no owned or role-restricted resource"
+      covered: "A scenario states that a non-owner or unauthorised role is denied and what they receive"
+      missing: "The resource is owned or restricted but no denial scenario is given"
+    pass_values: [not_applicable, covered]
+    min_confidence: 0.6
+
+  - id: nfr_stated
+    source: "ISO/IEC/IEEE 29148:2018 §5.2.5 (complete, verifiable)"
+    type: choice
+    severity: normal
+    instructions: "Where the requirement implies a quality constraint (latency, throughput, availability, retention, size limit), how is it stated?"
+    criteria:
+      not_applicable: "The requirement implies no quality constraint beyond the platform defaults"
+      measurable: "The constraint is stated with a number and unit"
+      vague: "The constraint is mentioned without a measurable value"
+      missing: "A constraint is clearly implied but not stated"
+    pass_values: [not_applicable, measurable]
+    min_confidence: 0.6
+
+  - id: data_classification
+    source: "Decree 13/2023/ND-CP on personal data protection, Art. 2 (basic and sensitive personal data)"
+    type: choice
+    severity: normal
+    instructions: "If the requirement collects, stores or shows personal data, is that data named and classified?"
+    criteria:
+      no_personal_data: "The requirement handles no personal data"
+      classified: "The personal data fields are named and marked basic or sensitive"
+      unclassified: "Personal data is handled but its fields or class (basic / sensitive) are not stated"
+    pass_values: [no_personal_data, classified]
+    min_confidence: 0.6

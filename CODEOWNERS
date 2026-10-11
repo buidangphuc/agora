@@ -1,0 +1,118 @@
+# CODEOWNERS (repo root). Team handles are PLACEHOLDERS: replace @agora/<x> with real GitHub teams.
+# Last matching pattern wins, so broad rules come first and specific ones last.
+# Spec -> team mapping derived from the repo that holds the capability's FEATURES.yaml entries, or, where
+# the FEATURES.yaml carries no capability reference, from the repo most named in the spec text and the
+# archived proposals that touched it (heuristic; confirm per team). Approvals per risk tier: asdlc.config.yaml.
+
+# --- default owner for process/meta paths ---
+*                                  @agora/platform-team
+/openspec/                         @agora/platform-team
+/.claude/                          @agora/platform-team
+/scripts/                          @agora/platform-team
+/gates/                            @agora/platform-team
+/metrics/                          @agora/platform-team
+/docs/                             @agora/platform-team
+/asdlc.config.yaml                 @agora/platform-team
+/deploy/                           @agora/platform-gitops
+
+# --- code, one team per top-level repo dir ---
+/platform-core/                    @agora/platform-core
+/platform-e2e/                     @agora/platform-e2e
+/platform-featurestore/            @agora/platform-featurestore
+/platform-forecast/                @agora/platform-forecast
+/platform-gitops/                  @agora/platform-gitops
+/platform-modelserve/              @agora/platform-modelserve
+/platform-recsys/                  @agora/platform-recsys
+/team-ai/                          @agora/team-ai
+/team-analytics/                   @agora/team-analytics
+/team-audit/                       @agora/team-audit
+/team-chat/                        @agora/team-chat
+/team-domain/                      @agora/team-domain
+/team-engagement/                  @agora/team-engagement
+/team-frontend/                    @agora/team-frontend
+/team-gateway/                     @agora/team-gateway
+/team-identity/                    @agora/team-identity
+/team-notification/                @agora/team-notification
+/team-order/                       @agora/team-order
+/team-payment/                     @agora/team-payment
+/team-promotion/                   @agora/team-promotion
+/team-referral/                    @agora/team-referral
+/team-search/                      @agora/team-search
+/team-sharing/                     @agora/team-sharing
+/team-verification/                @agora/team-verification
+
+# --- proto contracts: platform-core owners (a proto change needs them in addition to the consuming team) ---
+/platform-core/packages/proto/     @agora/platform-core
+
+# --- openspec/specs/<capability>/ -> owning repo team ---
+/openspec/specs/admin-bootstrap/                            @agora/team-identity
+/openspec/specs/ai-access-control/                          @agora/team-ai
+/openspec/specs/ai-assistant/                               @agora/team-ai
+/openspec/specs/audit-access-control/                       @agora/team-audit
+/openspec/specs/auth/                                       @agora/team-identity
+/openspec/specs/backup-dr/                                  @agora/platform-gitops
+/openspec/specs/buyer-notifications/                        @agora/team-notification
+/openspec/specs/deploy-runtime/                             @agora/platform-gitops
+/openspec/specs/edge-route-policy/                          @agora/team-gateway
+/openspec/specs/edge-stream-and-http-policy/                @agora/team-gateway
+/openspec/specs/engagement-facts/                           @agora/team-engagement
+/openspec/specs/feature-materialization/                    @agora/platform-featurestore
+/openspec/specs/featurestore-cluster-job/                   @agora/platform-featurestore
+/openspec/specs/frontend-quality/                           @agora/team-frontend
+/openspec/specs/frontend-search-rating/                     @agora/team-frontend
+/openspec/specs/gbdt-ranking-serving/                       @agora/team-ai
+/openspec/specs/gbdt-ranking-training/                      @agora/platform-recsys
+/openspec/specs/inventory-reservations/                     @agora/team-domain
+/openspec/specs/listing-read-visibility/                    @agora/team-domain
+/openspec/specs/listing-write/                              @agora/team-domain
+/openspec/specs/llm-inference-resilience/                   @agora/team-ai
+/openspec/specs/local-cluster-image-wiring/                 @agora/platform-gitops
+/openspec/specs/model-serving/                              @agora/platform-modelserve
+/openspec/specs/ops-cockpit/                                @agora/team-analytics
+/openspec/specs/order-checkout-correctness/                 @agora/team-order
+/openspec/specs/order-facts/                                @agora/team-order
+/openspec/specs/order-lifecycle-guards/                     @agora/team-order
+/openspec/specs/order-read-access/                          @agora/team-order
+/openspec/specs/order-upstream-principals/                  @agora/team-order
+/openspec/specs/payment-access-control/                     @agora/team-payment
+/openspec/specs/payment-cumulative-refunds/                 @agora/team-payment
+/openspec/specs/promo-vouchers/                             @agora/team-promotion
+/openspec/specs/promotion-access-control/                   @agora/team-promotion
+/openspec/specs/recommendations/                            @agora/team-ai
+/openspec/specs/recs-serving-safeguards/                    @agora/team-ai
+/openspec/specs/recsys-generations/                         @agora/platform-recsys
+/openspec/specs/recsys-online-evaluation/                   @agora/team-analytics
+/openspec/specs/return-refund-settlement/                   @agora/team-payment
+/openspec/specs/review-pagination/                          @agora/team-engagement
+/openspec/specs/search-query-correctness/                   @agora/team-search
+/openspec/specs/search-read-model-deletes/                  @agora/team-search
+/openspec/specs/search-retrieval/                           @agora/team-search
+/openspec/specs/search-stock-read-model/                    @agora/team-search
+/openspec/specs/seller-analytics-access/                    @agora/team-analytics
+/openspec/specs/seller-payout-holdback/                     @agora/team-payment
+/openspec/specs/seller-refund-deduction/                    @agora/team-payment
+/openspec/specs/seller-return-refund-ui/                    @agora/team-frontend
+/openspec/specs/seller-settlement-credit/                   @agora/team-payment
+/openspec/specs/tag-taxonomy-enrichment/                    @agora/team-ai
+/openspec/specs/tracking/                                   @agora/team-analytics
+/openspec/specs/tracking-data-quality/                      @agora/team-analytics
+/openspec/specs/ui-account/                                 @agora/team-frontend
+/openspec/specs/ui-cart-checkout/                           @agora/team-frontend
+/openspec/specs/ui-components/                              @agora/team-frontend
+/openspec/specs/ui-design-tokens/                           @agora/team-frontend
+/openspec/specs/ui-discovery/                               @agora/team-frontend
+/openspec/specs/ui-orders/                                  @agora/team-frontend
+/openspec/specs/ui-product-detail/                          @agora/team-frontend
+/openspec/specs/ui-seller/                                  @agora/team-frontend
+
+# --- UNMAPPED specs (no clear single owner; fall back to @agora/platform-team until assigned) ---
+# /openspec/specs/dispute-and-qa-access/
+# /openspec/specs/feature-flags/
+# /openspec/specs/governed-datasets/
+# /openspec/specs/item-attributes/
+# /openspec/specs/local-compose-infra/
+# /openspec/specs/observability/
+# /openspec/specs/recs-on-cluster/
+# /openspec/specs/repo-coherence/
+# /openspec/specs/shop-display-name/
+# /openspec/specs/tracking-ingest-integrity/
