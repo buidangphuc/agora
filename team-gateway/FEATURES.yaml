@@ -797,3 +797,123 @@ features:
     status: automated
     covered_by: "security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry"
     notes: "needs rebuild (security/ssl_sse_lifetime.feature::A public SSE room is unaffected by token expiry)"
+
+  - id: tracking.unit-ga4-alias-accepted
+    title: "GA4 alias accepted"
+    persona: guest
+    priority: P2
+    summary: "GA4 alias accepted"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "GA4 alias accepted (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_test.go. Not producible end to end."
+
+  - id: tracking.unit-batch-of-101-rejected
+    title: "Batch of 101 rejected"
+    persona: guest
+    priority: P2
+    summary: "Batch of 101 rejected"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Batch of 101 rejected (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_test.go. Not producible end to end."
+
+  - id: tracking.unit-batch-of-exactly-100-accepted
+    title: "Batch of exactly 100 accepted"
+    persona: guest
+    priority: P2
+    summary: "Batch of exactly 100 accepted"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Batch of exactly 100 accepted (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_boundary_test.go. Not producible end to end."
+
+  - id: tracking.unit-malformed-event-does-not-drop-its-siblings
+    title: "Malformed event does not drop its siblings"
+    persona: guest
+    priority: P2
+    summary: "Malformed event does not drop its siblings"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Malformed event does not drop its siblings (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_integrity_test.go. Not producible end to end."
+
+  - id: tracking.unit-anonymous-caller-allowed
+    title: "Anonymous caller allowed"
+    persona: guest
+    priority: P2
+    summary: "Anonymous caller allowed"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Anonymous caller allowed (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_boundary_test.go. Not producible end to end."
+
+  - id: tracking.unit-handler-p99-under-budget
+    title: "Handler p99 under budget"
+    persona: guest
+    priority: P2
+    summary: "Handler p99 under budget"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Handler p99 under budget (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_boundary_test.go. Not producible end to end."
+
+  - id: tracking.unit-oversized-body-rejected-without-publishing
+    title: "Oversized body rejected without publishing"
+    persona: guest
+    priority: P2
+    summary: "Oversized body rejected without publishing"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Oversized body rejected without publishing (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_boundary_test.go. Not producible end to end."
+
+  - id: tracking.unit-oversized-properties-rejected
+    title: "Oversized properties rejected"
+    persona: guest
+    priority: P2
+    summary: "Oversized properties rejected"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Oversized properties rejected (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_integrity_test.go. Not producible end to end."
