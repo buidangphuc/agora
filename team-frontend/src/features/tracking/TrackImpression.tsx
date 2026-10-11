@@ -10,6 +10,8 @@ interface TrackImpressionProps {
   readonly modelVersion?: string;
   readonly position?: number;
   readonly query?: string;
+  /** Group id of the owning list instance; all its beacons share it. */
+  readonly groupId?: string;
   readonly price?: number;
   readonly category?: string;
   readonly properties?: Record<string, string>;
@@ -23,6 +25,7 @@ type ImpressionItem = NonNullable<
 interface PendingBatch {
   query?: string;
   properties?: Record<string, string>;
+  groupId?: string;
   items: ImpressionItem[];
   timer: ReturnType<typeof setTimeout>;
 }
@@ -34,15 +37,17 @@ const pending = new Map<string, PendingBatch>();
 function enqueueImpression(
   key: string,
   query: string | undefined,
+  groupId: string | undefined,
   properties: Record<string, string> | undefined,
   item: ImpressionItem,
 ) {
-  const mapKey = `${key}\u0000${query ?? ""}`;
+  const mapKey = `${groupId ?? ""}\u0000${key}\u0000${query ?? ""}`;
   let batch = pending.get(mapKey);
   if (!batch) {
     const created: PendingBatch = {
       query,
       properties,
+      groupId,
       items: [],
       timer: setTimeout(() => {
         pending.delete(mapKey);
@@ -50,6 +55,7 @@ function enqueueImpression(
           trackEcommerce("view_item_list", {
             query: created.query,
             properties: created.properties,
+            eventGroupId: created.groupId,
             items: created.items,
           });
         } catch {
@@ -74,6 +80,7 @@ export function TrackImpression({
   modelVersion,
   position,
   query,
+  groupId,
   price,
   category,
   properties,
@@ -87,7 +94,7 @@ export function TrackImpression({
 
     const fireTracking = () => {
       trackedRef.current = true;
-      enqueueImpression(placementId ?? "", query, properties, {
+      enqueueImpression(placementId ?? "", query, groupId, properties, {
         itemId: listingId,
         placementId,
         impressionId,
@@ -130,6 +137,7 @@ export function TrackImpression({
     modelVersion,
     position,
     query,
+    groupId,
     price,
     category,
     properties,

@@ -1,6 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import type { ViewListing } from "@/lib/gateway/listings";
+import { randomId } from "@/lib/analytics/dispatcher";
 import { ListingCard } from "./ListingCard";
 import { LISTING_GRID_CLASS } from "./gridClass";
 
@@ -19,6 +23,8 @@ export function ListingGrid({
   modelVersion?: string;
   query?: string;
 }) {
+  // One group id per list instance (per mount); not rendered, so SSR-safe.
+  const [groupId] = useState(randomId);
   if (listings.length === 0) {
     return (
       <Card>
@@ -49,6 +55,7 @@ export function ListingGrid({
           impressionId={impressionId}
           modelVersion={modelVersion}
           query={query}
+          groupId={groupId}
           position={index + 1}
         />
       ))}

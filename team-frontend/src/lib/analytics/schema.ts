@@ -61,6 +61,8 @@ export interface EcommerceParams {
   referrer?: string;
   query?: string;
   properties?: Record<string, string>;
+  /** Caller-provided group id shared by all beacons of one list instance. */
+  eventGroupId?: string;
 }
 
 /** Wire format sent to gateway collector /api/track */
