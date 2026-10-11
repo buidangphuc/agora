@@ -16,6 +16,28 @@ var (
 	ErrNotFound        = errors.New("listing not found")
 	ErrOutOfStock      = errors.New("insufficient stock")
 	ErrVariantNotFound = errors.New("variant not found")
+
+	// ErrReservationNotFound: the reservation_id is unknown (CommitReservation).
+	ErrReservationNotFound = errors.New("reservation not found")
+	// ErrReservationReleased: the reservation was already released (its stock
+	// was given back). CommitReservation and a re-reserve under the same id fail
+	// with it instead of reporting a false success.
+	ErrReservationReleased = errors.New("reservation already released")
+	// ErrReservationMismatch: a reserve repeated an existing reservation_id with
+	// a different listing, variant or quantity. A retry must be identical.
+	ErrReservationMismatch = errors.New("reservation id reused with different listing, variant or quantity")
+	// ErrReservationIDRequired: ReserveStockIdempotent was called without a
+	// reservation id. There is no ledger-less reserve path.
+	ErrReservationIDRequired = errors.New("reservation id required")
+)
+
+// Reservation lifecycle (owned by team-domain): active -> committed | released,
+// and committed -> released. Only an active reservation expires (TTL sweep);
+// stock is restored once, when a reservation becomes released.
+const (
+	ReservationActive    = "active"
+	ReservationCommitted = "committed"
+	ReservationReleased  = "released"
 )
 
 // Page sizing: a page request of 0 uses the default; anything above the max is
@@ -43,13 +65,13 @@ type Listing struct {
 	ID          string
 	Title       string
 	Description string
-	Price       int64    // minor units (e.g. VND), integer to avoid float money
-	Currency    string   // ISO 4217
-	Status      string   // "draft" | "published" | "rejected"
-	SellerID    string   // owner Principal id (server-assigned on create)
-	ImageKeys   []string // storage keys in object store
-	CategoryID  string   // category ID
-	Stock       int32    // base stock if no variants
+	Price       int64     // minor units (e.g. VND), integer to avoid float money
+	Currency    string    // ISO 4217
+	Status      string    // "draft" | "published" | "rejected"
+	SellerID    string    // owner Principal id (server-assigned on create)
+	ImageKeys   []string  // storage keys in object store
+	CategoryID  string    // category ID
+	Stock       int32     // base stock if no variants
 	Variants    []Variant // product variants
 }
 
@@ -75,21 +97,44 @@ type ListingRepository interface {
 	// Delete removes the listing by id, returning the deleted row (for the
 	// event); ErrNotFound if absent.
 	Delete(ctx context.Context, id string) (Listing, error)
-	// ReserveStock atomically decrements inventory if sufficient stock is available.
-	ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error
-	// ReleaseStock releases previously reserved inventory back into stock.
-	ReleaseStock(ctx context.Context, listingID, variantID string, quantity int32) error
-	// ReserveStockIdempotent decrements inventory keyed on a stable reservationID
-	// (AD5): a repeat call with the same id finds the prior reservation and is a
-	// no-op returning nil, so a retried checkout never double-decrements. The
-	// reservation is recorded with the given expiresAt TTL; an empty reservationID
-	// falls back to a plain (non-idempotent) ReserveStock.
+	// ReserveStockIdempotent decrements inventory keyed on a stable reservationID:
+	// a repeat call with the id of an active or committed reservation is a no-op
+	// returning nil, so a retried checkout never double-decrements; a repeat with
+	// the id of a RELEASED reservation returns ErrReservationReleased (its stock
+	// was given back, the caller must use a new id). The reservation is recorded
+	// with the given expiresAt. reservationID is required
+	// (ErrReservationIDRequired): there is no ledger-less decrement, so every
+	// decrement can be committed, released and swept.
 	ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error
 	// SweepExpiredReservations releases every still-active reservation whose
 	// expires_at is at or before now, restoring the reserved stock, and returns how
 	// many were released (AD3 domain side). Idempotent and safe to re-run.
 	SweepExpiredReservations(ctx context.Context, now time.Time) (int, error)
+	// CommitReservation moves an active reservation to committed so the TTL
+	// sweeper never restores it. Idempotent: an already committed reservation is
+	// a no-op success. ErrReservationReleased if it was released;
+	// ErrReservationNotFound if the id is unknown.
+	CommitReservation(ctx context.Context, reservationID string) error
+	// ReleaseReservation releases a reservation by id: if it is active or
+	// committed it moves to released and the quantity STORED on the reservation
+	// is restored, exactly once, in the same transaction. A repeat, or a
+	// reservation the sweep already released, is ReleaseNoOp; an id that was
+	// never reserved is ReleaseUnknown (also a no-op, reported separately so the
+	// caller can log it). The caller-supplied quantity is never used.
+	ReleaseReservation(ctx context.Context, reservationID string) (ReleaseOutcome, error)
 }
+
+// ReleaseOutcome reports what ReleaseReservation did.
+type ReleaseOutcome int
+
+const (
+	// ReleaseApplied: the reservation moved to released and stock was restored.
+	ReleaseApplied ReleaseOutcome = iota
+	// ReleaseNoOp: the reservation was already released (or swept); nothing changed.
+	ReleaseNoOp
+	// ReleaseUnknown: no reservation with that id exists; nothing changed.
+	ReleaseUnknown
+)
 
 // clampPageSize normalizes a requested page size into [1, MaxPageSize].
 func clampPageSize(pageSize int32) int {
@@ -112,6 +157,11 @@ type InMemoryListingRepository struct {
 	// re-reserve with the same id is a no-op and the sweeper can restore expired
 	// holds. It mirrors the Postgres `reservations` table.
 	reservations map[string]memReservation
+
+	// stockEvent, when set, is called for every REAL stock change (reserve,
+	// release, sweep); its rows are kept in stockRows.
+	stockEvent StockEventBuilder
+	stockRows  []OutboxRow
 }
 
 // memReservation is the in-memory analogue of one `reservations` row.
@@ -120,7 +170,7 @@ type memReservation struct {
 	variantID string
 	quantity  int32
 	expiresAt time.Time
-	released  bool
+	status    string // ReservationActive | ReservationCommitted | ReservationReleased
 }
 
 // NewInMemoryListingRepository returns a store seeded with the given rows (or a
@@ -231,20 +281,6 @@ func (r *InMemoryListingRepository) Delete(_ context.Context, id string) (Listin
 	return l, nil
 }
 
-// ReserveStock reserves inventory in memory.
-func (r *InMemoryListingRepository) ReserveStock(_ context.Context, listingID, variantID string, quantity int32) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.reserveLocked(listingID, variantID, quantity)
-}
-
-// ReleaseStock releases inventory in memory.
-func (r *InMemoryListingRepository) ReleaseStock(_ context.Context, listingID, variantID string, quantity int32) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.releaseLocked(listingID, variantID, quantity)
-}
-
 // reserveLocked decrements stock; the caller must hold r.mu.
 func (r *InMemoryListingRepository) reserveLocked(listingID, variantID string, quantity int32) error {
 	l, ok := r.byID[listingID]
@@ -293,49 +329,119 @@ func (r *InMemoryListingRepository) releaseLocked(listingID, variantID string, q
 	return ErrVariantNotFound
 }
 
-// ReserveStockIdempotent reserves stock at most once per reservationID (AD5): a
-// repeat call with an already-applied id returns nil without touching stock.
-func (r *InMemoryListingRepository) ReserveStockIdempotent(_ context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
+// ReserveStockIdempotent reserves stock at most once per reservationID: a repeat
+// call with the id of an active or committed reservation returns nil without
+// touching stock; the id of a released one returns ErrReservationReleased.
+func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
+	if reservationID == "" {
+		return ErrReservationIDRequired
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if reservationID != "" {
-		if _, ok := r.reservations[reservationID]; ok {
-			return nil // already applied: prior result was success
+	if res, ok := r.reservations[reservationID]; ok {
+		if res.status == ReservationReleased {
+			return ErrReservationReleased // stock was given back: never report success
 		}
+		if res.listingID != listingID || res.variantID != variantID || res.quantity != quantity {
+			return ErrReservationMismatch
+		}
+		return nil // active/committed: already applied, no stock change, no event
 	}
-	if err := r.reserveLocked(listingID, variantID, quantity); err != nil {
-		return err
-	}
-	if reservationID != "" {
+	return r.txLocked(ctx, func(changes stockChanges) error {
+		if err := r.reserveLocked(listingID, variantID, quantity); err != nil {
+			return err
+		}
 		r.reservations[reservationID] = memReservation{
 			listingID: listingID,
 			variantID: variantID,
 			quantity:  quantity,
 			expiresAt: expiresAt,
+			status:    ReservationActive,
 		}
-	}
-	return nil
+		changes.add(listingID, variantID)
+		return nil
+	})
 }
 
 // SweepExpiredReservations restores stock for every active reservation whose TTL
 // has passed and marks it released (AD3). Re-running is a no-op for already
 // released rows.
-func (r *InMemoryListingRepository) SweepExpiredReservations(_ context.Context, now time.Time) (int, error) {
+func (r *InMemoryListingRepository) SweepExpiredReservations(ctx context.Context, now time.Time) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	released := 0
-	for id, res := range r.reservations {
-		if res.released || res.expiresAt.After(now) {
-			continue
+	err := r.txLocked(ctx, func(changes stockChanges) error {
+		for id, res := range r.reservations {
+			if res.status != ReservationActive || res.expiresAt.After(now) {
+				continue
+			}
+			// Best-effort restore: a since-deleted listing is still marked released
+			// so the sweep stays idempotent and never loops on it (and announces
+			// nothing).
+			if err := r.releaseLocked(res.listingID, res.variantID, res.quantity); err == nil {
+				changes.add(res.listingID, res.variantID)
+			}
+			res.status = ReservationReleased
+			r.reservations[id] = res
+			released++
 		}
-		// Best-effort restore: a since-deleted listing is still marked released so
-		// the sweep stays idempotent and never loops on it.
-		_ = r.releaseLocked(res.listingID, res.variantID, res.quantity)
-		res.released = true
-		r.reservations[id] = res
-		released++
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 	return released, nil
+}
+
+// ReleaseReservation is the in-memory analogue of the single
+// UPDATE ... WHERE status IN ('active','committed') RETURNING statement: the
+// STORED quantity is restored once; a repeat is a no-op.
+func (r *InMemoryListingRepository) ReleaseReservation(ctx context.Context, reservationID string) (ReleaseOutcome, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	res, ok := r.reservations[reservationID]
+	if !ok {
+		return ReleaseUnknown, nil
+	}
+	if res.status == ReservationReleased {
+		return ReleaseNoOp, nil
+	}
+	err := r.txLocked(ctx, func(changes stockChanges) error {
+		// Best-effort restore, like the sweep: a since-deleted listing still ends
+		// up released so the call stays idempotent (and announces nothing).
+		if err := r.releaseLocked(res.listingID, res.variantID, res.quantity); err == nil {
+			changes.add(res.listingID, res.variantID)
+		}
+		res.status = ReservationReleased
+		r.reservations[reservationID] = res
+		return nil
+	})
+	if err != nil {
+		return ReleaseNoOp, err
+	}
+	return ReleaseApplied, nil
+}
+
+// CommitReservation is the in-memory analogue of the Postgres guarded UPDATE:
+// active -> committed; committed is an idempotent success; released fails with
+// ErrReservationReleased; an unknown id is ErrReservationNotFound.
+func (r *InMemoryListingRepository) CommitReservation(_ context.Context, reservationID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	res, ok := r.reservations[reservationID]
+	if !ok {
+		return ErrReservationNotFound
+	}
+	switch res.status {
+	case ReservationActive:
+		res.status = ReservationCommitted
+		r.reservations[reservationID] = res
+		return nil
+	case ReservationCommitted:
+		return nil
+	default:
+		return ErrReservationReleased
+	}
 }
 
 // compile-time assertion that the fake satisfies the port.

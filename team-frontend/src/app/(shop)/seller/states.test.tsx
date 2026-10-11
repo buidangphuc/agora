@@ -5,6 +5,10 @@ import SellerLoading from "./(dashboard)/loading";
 import SellerError from "./error";
 import SellerNotFound from "./not-found";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 describe("seller segment states", () => {
   it("loading renders a busy skeleton", () => {
     render(<SellerLoading />);

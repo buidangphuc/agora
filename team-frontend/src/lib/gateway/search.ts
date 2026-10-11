@@ -10,6 +10,7 @@ import "server-only";
 
 import { SortBy } from "@/generated/platform/search/v1/search_pb.js";
 import type {
+  AttributeFacet,
   Facets,
   SavedSearch,
 } from "@/generated/platform/search/v1/search_pb.js";
@@ -37,11 +38,21 @@ export interface ViewFacetBucket {
   count: number;
 }
 
+/** One dynamic facet group (e.g. "color") with its tag-slug buckets. */
+export interface ViewAttributeFacet {
+  group: string;
+  buckets: ViewFacetBucket[];
+}
+
 export interface ViewFacets {
   categories: ViewFacetBucket[];
   priceRanges: ViewFacetBucket[];
   ratings: ViewFacetBucket[];
   sellers: ViewFacetBucket[];
+  /** SPU-level canonical tag facets; filter key `tag.<group>`. */
+  tags: ViewAttributeFacet[];
+  /** Variant (nested SKU) facets; filter key `sku.<group>`. */
+  skus: ViewAttributeFacet[];
 }
 
 export interface FacetedSearchResult {
@@ -62,12 +73,20 @@ export const EMPTY_FACETS: ViewFacets = {
   priceRanges: [],
   ratings: [],
   sellers: [],
+  tags: [],
+  skus: [],
 };
 
 function mapBuckets(
   buckets: { key: string; count: bigint }[],
 ): ViewFacetBucket[] {
   return buckets.map((b) => ({ key: b.key, count: Number(b.count) }));
+}
+
+function mapAttributes(groups: AttributeFacet[]): ViewAttributeFacet[] {
+  return groups
+    .filter((g) => g.group && g.buckets.length > 0)
+    .map((g) => ({ group: g.group, buckets: mapBuckets(g.buckets) }));
 }
 
 function mapFacets(f?: Facets): ViewFacets {
@@ -77,6 +96,8 @@ function mapFacets(f?: Facets): ViewFacets {
     priceRanges: mapBuckets(f.priceRanges),
     ratings: mapBuckets(f.ratings),
     sellers: mapBuckets(f.sellers),
+    tags: mapAttributes(f.tags),
+    skus: mapAttributes(f.skus),
   };
 }
 
@@ -86,8 +107,9 @@ export interface SearchOptions {
   sellerId?: string;
   minPrice?: number;
   maxPrice?: number;
-  minRating?: number;
   sortBy?: SortBy;
+  /** Dynamic facet selections: filter key (`tag.x` / `sku.x`) -> tag slugs. */
+  attrs?: Record<string, string[]>;
   /** 1-based page; resolved by walking next_cursor (capped at SEARCH_MAX_PAGE). */
   page?: number;
 }
@@ -97,7 +119,7 @@ export interface SearchOptions {
  * aggregations over the matched set; we resolve each hit to a full listing via
  * the listing service so the UI can render cards, and pass the facet counts
  * through for filter navigation. Facet selections arrive as request filters
- * (category_id / min_price / max_price / min_rating / seller_id).
+ * (category_id / min_price / max_price / seller_id).
  */
 export async function searchListings(
   query: string,
@@ -107,6 +129,9 @@ export async function searchListings(
   filters.status = opts.status ?? "published";
   if (opts.categoryId) filters.category_id = opts.categoryId;
   if (opts.sellerId) filters.seller_id = opts.sellerId;
+  for (const [key, slugs] of Object.entries(opts.attrs ?? {})) {
+    if (slugs.length > 0) filters[key] = slugs.join(",");
+  }
 
   const wanted = Math.min(
     SEARCH_MAX_PAGE,
@@ -123,7 +148,8 @@ export async function searchListings(
     maxPrice: opts.maxPrice
       ? BigInt(Math.max(0, Math.round(opts.maxPrice)))
       : 0n,
-    minRating: opts.minRating ? Math.max(0, Math.round(opts.minRating)) : 0,
+    // Search indexes no rating: a minimum rating is never requested.
+    minRating: 0,
     sortBy: opts.sortBy ?? SortBy.UNSPECIFIED,
   };
 

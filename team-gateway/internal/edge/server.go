@@ -63,7 +63,13 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	paymentPath, paymentHandler := paymentv1connect.NewPaymentServiceHandler(NewPaymentForwarder(clients.Payment, e), opts)
 	mux.Handle(paymentPath, paymentHandler)
 
-	chatPath, chatHandler := chatv1connect.NewChatServiceHandler(NewChatForwarder(clients.Chat, clients.AIChat, e), opts)
+	// Every ChatService request (StreamChat and the unary chat RPCs) is capped:
+	// an oversized message is refused with resource_exhausted before the handler.
+	streamMax := e.streamMaxBytes
+	if streamMax <= 0 {
+		streamMax = defaultStreamMaxBytes
+	}
+	chatPath, chatHandler := chatv1connect.NewChatServiceHandler(NewChatForwarder(clients.Chat, clients.AIChat, e), opts, connect.WithReadMaxBytes(streamMax))
 	mux.Handle(chatPath, chatHandler)
 
 	aiPath, aiHandler := aiv1connect.NewAIServiceHandler(NewAIForwarder(clients.AI, e), opts)
@@ -102,32 +108,36 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(NewAuditForwarder(clients.Audit, e), opts)
 	mux.Handle(auditPath, auditHandler)
 
-	reflector := grpcreflect.NewStaticReflector(
-		identityv1connect.AuthServiceName,
-		identityv1connect.AddressServiceName,
-		identityv1connect.SessionServiceName,
-		searchv1connect.SearchServiceName,
-		listingv1connect.ListingServiceName,
-		engagementv1connect.EngagementServiceName,
-		orderv1connect.CartServiceName,
-		orderv1connect.OrderServiceName,
-		paymentv1connect.PaymentServiceName,
-		chatv1connect.ChatServiceName,
-		aiv1connect.AIServiceName,
-		recommendationv1connect.RecommendationServiceName,
-		promotionv1connect.VoucherServiceName,
-		promotionv1connect.FlashSaleServiceName,
-		promotionv1connect.SubscriptionServiceName,
-		promotionv1connect.SponsoredServiceName,
-		notificationv1connect.NotificationServiceName,
-		analyticsv1connect.AnalyticsQueryServiceName,
-		referralv1connect.ReferralServiceName,
-		verificationv1connect.VerificationServiceName,
-		sharingv1connect.SharingServiceName,
-		auditv1connect.AuditServiceName,
-	)
-	mux.Handle(grpcreflect.NewHandlerV1(reflector))
-	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
+	// Reflection is a development aid: mounted only on EDGE_REFLECTION_ENABLED
+	// (config refuses it in staging/production).
+	if e.reflection {
+		reflector := grpcreflect.NewStaticReflector(
+			identityv1connect.AuthServiceName,
+			identityv1connect.AddressServiceName,
+			identityv1connect.SessionServiceName,
+			searchv1connect.SearchServiceName,
+			listingv1connect.ListingServiceName,
+			engagementv1connect.EngagementServiceName,
+			orderv1connect.CartServiceName,
+			orderv1connect.OrderServiceName,
+			paymentv1connect.PaymentServiceName,
+			chatv1connect.ChatServiceName,
+			aiv1connect.AIServiceName,
+			recommendationv1connect.RecommendationServiceName,
+			promotionv1connect.VoucherServiceName,
+			promotionv1connect.FlashSaleServiceName,
+			promotionv1connect.SubscriptionServiceName,
+			promotionv1connect.SponsoredServiceName,
+			notificationv1connect.NotificationServiceName,
+			analyticsv1connect.AnalyticsQueryServiceName,
+			referralv1connect.ReferralServiceName,
+			verificationv1connect.VerificationServiceName,
+			sharingv1connect.SharingServiceName,
+			auditv1connect.AuditServiceName,
+		)
+		mux.Handle(grpcreflect.NewHandlerV1(reflector))
+		mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
+	}
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -137,14 +147,14 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	// Edge telemetry collector: a browser beacon becomes a TrackingEvent on the
 	// `analytics.events` topic. Pure edge concern (validate → stamp principal →
 	// produce), the same class as auth resolution and rate limiting (Rule 2).
-	mux.HandleFunc("POST /api/track", HandleTrack(e, analytics, logger))
+	mux.Handle("POST /api/track", e.edgeHTTP(HandleTrack(e, analytics, logger), "POST /api/track", e.trackLimiter, logger))
 
 	// Real-time SSE Multiplexing & Cockpit Metrics (Golden Demo Spine).
 	// The cockpit handler is admin-gated; it queries Prometheus (fixed PromQL),
 	// team-analytics (admin RPCs) and Jaeger (fixed query) server-side and shapes
 	// the results — it never exposes raw upstream payloads to the browser.
 	mux.Handle("/api/events/live", NewSSEHandler(e, GlobalBroker))
-	mux.Handle("/api/admin/metrics", NewCockpitHandler(e, cockpit, clients.AnalyticsQuery))
+	mux.Handle("/api/admin/metrics", e.edgeHTTP(NewCockpitHandler(e, cockpit, clients.AnalyticsQuery), "/api/admin/metrics", e.limiter, logger))
 
 	return mux
 }

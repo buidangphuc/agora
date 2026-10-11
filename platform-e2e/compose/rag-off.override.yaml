@@ -1,0 +1,10 @@
+# Turns team-ai's RAG grounding OFF (change assistant-rag-default-on): ShoppingAssistant answers from its
+# built-in demo catalog and SearchListings answers UNAVAILABLE, as before the default flipped.
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/rag-off.override.yaml up -d --no-deps team-ai
+# Used by ai/assistant_grounding.feature (@destructive, "Without a RAG store the demo catalog answers"), which
+# recreates team-ai with it and restores the standing configuration in teardown. Keys by service name only.
+services:
+  team-ai:
+    environment:
+      RAG_ENABLED: "false"
+      LISTING_INDEXER_ENABLED: "false"

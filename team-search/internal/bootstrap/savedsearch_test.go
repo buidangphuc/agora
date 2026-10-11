@@ -57,3 +57,22 @@ func TestSelect_EnabledOpenErrorFailsFast(t *testing.T) {
 		t.Fatalf("err = %v, want boom (no silent in-memory fallback when DB is configured)", err)
 	}
 }
+
+func TestSelect_StrictEnvRefusesInMemory(t *testing.T) {
+	for _, env := range []string{"staging", "production"} {
+		s := &config.Settings{Runtime: config.Runtime{Env: env}}
+		repo, _, err := selectSavedSearchRepository(context.Background(), s, quiet, failOpener)
+		if err == nil || repo != nil {
+			t.Fatalf("ENV=%s DATABASE_ENABLED=false: got repo=%v err=%v, want a boot error", env, repo, err)
+		}
+	}
+}
+
+func TestSelect_StrictEnvUnreachableDBRefusesToBoot(t *testing.T) {
+	s := &config.Settings{Runtime: config.Runtime{Env: "production"}, Database: config.Database{Enabled: true, URL: "x"}}
+	_, _, err := selectSavedSearchRepository(context.Background(), s, quiet,
+		func(context.Context, string) (*sql.DB, error) { return nil, errors.New("down") })
+	if err == nil {
+		t.Fatal("unreachable database in production must fail the boot")
+	}
+}

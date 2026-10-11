@@ -5,6 +5,8 @@ function gatewayUrl(): string {
   return url && url.length > 0 ? url : "http://localhost:8080";
 }
 
+const RETRY_DELAY_MS = 1000;
+
 class BeaconQueue {
   private buffer: WireTrackBeacon[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -74,6 +76,14 @@ class BeaconQueue {
       // Fall through to fetch
     }
 
+    this.postWithRetry(url, body, true);
+  }
+
+  /**
+   * fetch fallback. A network error re-sends once after RETRY_DELAY_MS with the
+   * same body, so the same eventIds dedupe at the gateway/warehouse.
+   */
+  private postWithRetry(url: string, body: string, canRetry: boolean): void {
     try {
       void fetch(url, {
         method: "POST",
@@ -82,7 +92,8 @@ class BeaconQueue {
         headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body,
       }).catch(() => {
-        // Best-effort: swallow network errors
+        if (!canRetry) return; // Best-effort: swallow the second failure
+        setTimeout(() => this.postWithRetry(url, body, false), RETRY_DELAY_MS);
       });
     } catch {
       // Never throw into caller

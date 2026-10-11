@@ -101,4 +101,27 @@ describe("OrderSummary", () => {
     expect(card.className).toContain("lg:sticky");
     expect(card.className).toContain("lg:block");
   });
+
+  it("keeps the discount label identical with and without a voucher (no layout shift)", () => {
+    const props = {
+      itemCount: 1,
+      subtotal: 100000,
+      shipping: { fee: 0, isFree: true },
+      action,
+    };
+    const { rerender } = render(<OrderSummary {...props} discount={0} />);
+    const dtText = () =>
+      within(screen.getByTestId("order-summary"))
+        .getAllByText("Giảm giá")
+        .map((el) => el.closest("dt")?.textContent);
+    expect(dtText()).toEqual(["Giảm giá"]);
+    rerender(<OrderSummary {...props} discount={10000} voucherCode="SAVE10" />);
+    const card = screen.getByTestId("order-summary");
+    // chip lives in the value (fixed-height line), never in the wrapping label
+    expect(dtText()).toEqual(["Giảm giá"]);
+    expect(within(card).getByText("SAVE10").closest("dt")).toBeNull();
+    expect(within(card).getByTestId("voucher-discount")).toHaveTextContent(
+      "-₫10.000",
+    );
+  });
 });

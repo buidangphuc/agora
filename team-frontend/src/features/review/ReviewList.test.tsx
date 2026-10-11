@@ -9,18 +9,25 @@ vi.mock("./actions", () => ({
   createReviewAction: vi.fn(),
 }));
 
+// The server serves one page of `reviews` out of `total` matching reviews.
 async function renderList(
   props: Partial<Parameters<typeof ReviewList>[0]> & {
     reviews: ReturnType<typeof makeReviews>;
+    total?: number;
+    page?: number;
   },
 ) {
-  const { reviews, ...rest } = props;
+  const { reviews, total = reviews.length, page = 1, ...rest } = props;
   const ui = await ReviewList({
     listingId: "L",
     productTitle: "Áo",
-    reviewsPromise: Promise.resolve(reviews),
+    pagePromise: Promise.resolve({
+      reviews,
+      total,
+      page,
+      pages: Math.max(1, Math.ceil(total / 10)),
+    }),
     rating: 0,
-    rpage: 1,
     loggedIn: false,
     ...rest,
   });
@@ -28,8 +35,8 @@ async function renderList(
 }
 
 describe("ReviewList", () => {
-  it("paginates 23 reviews at 10 per page: page 3 lists 3 and marks page 3 current", async () => {
-    await renderList({ reviews: makeReviews(23), rpage: 3 });
+  it("renders the served page of 23 reviews: page 3 lists 3 and marks page 3 current", async () => {
+    await renderList({ reviews: makeReviews(3), total: 23, page: 3 });
     expect(screen.getAllByTestId("review-item")).toHaveLength(3);
     expect(screen.getByRole("link", { name: "Trang 3" })).toHaveAttribute(
       "aria-current",
@@ -43,7 +50,8 @@ describe("ReviewList", () => {
 
   it("shows 10 on page 1 and keeps the rating filter and variant in page links", async () => {
     await renderList({
-      reviews: makeReviews(23, () => 4),
+      reviews: makeReviews(10, () => 4),
+      total: 23,
       rating: 4,
       variant: "v2",
     });
@@ -54,19 +62,18 @@ describe("ReviewList", () => {
     );
   });
 
-  it("lists only the reviews of the selected star filter", async () => {
-    await renderList({ reviews: makeReviews(10), rating: 3 });
-    expect(screen.getAllByTestId("review-item")).toHaveLength(2);
-    for (const item of screen.getAllByTestId("review-item")) {
-      expect(
-        within(item).getByRole("img", { name: "3 trên 5 sao" }),
-      ).toBeInTheDocument();
-    }
+  it("offers 11 pages for 105 reviews and does not slice the served page", async () => {
+    await renderList({ reviews: makeReviews(5), total: 105, page: 11 });
+    expect(screen.getAllByTestId("review-item")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "Trang 11" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("shows an Empty with a way out when no review matches the filter", async () => {
     await renderList({
-      reviews: makeReviews(5, () => 5),
+      reviews: [],
       rating: 2,
       variant: "v1",
     });

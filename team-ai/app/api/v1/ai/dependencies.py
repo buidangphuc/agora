@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from fastapi import Request
 
+from app.core.redaction import RedactionPolicy
 from app.modules.business.ai_assistant.service import AIAssistantService
-from app.modules.business.tag_classifier.service import TagClassifierService
+from app.modules.business.tag_classifier.service import (
+    TagClassifierService,
+    shared_tag_classifier,
+)
 
 
 def get_ai_service(request: Request) -> AIAssistantService:
@@ -14,7 +18,21 @@ def get_ai_service(request: Request) -> AIAssistantService:
             return service
         # If resources exist but ai_service not yet cached, create and cache it
         rag_service = getattr(resources, "rag_service", None)
-        service = AIAssistantService(rag_service=rag_service)
+        settings = getattr(request.app.state, "settings", None)
+        policy = (
+            RedactionPolicy.from_trace_content(
+                settings.LLM_TRACE_CONTENT, mask_national_id=True
+            )
+            if settings is not None
+            else None
+        )
+        service = AIAssistantService(
+            rag_service=rag_service,
+            redaction_policy=policy,
+            rag_min_score=(
+                settings.ASSISTANT_RAG_MIN_SCORE if settings is not None else 0.0
+            ),
+        )
         resources.ai_service = service
         return service
     return AIAssistantService()
@@ -26,7 +44,7 @@ def get_tag_classifier_service(request: Request) -> TagClassifierService:
         service = getattr(resources, "tag_classifier_service", None)
         if service is not None:
             return service
-        service = TagClassifierService()
+        service = shared_tag_classifier()
         resources.tag_classifier_service = service
         return service
-    return TagClassifierService()
+    return shared_tag_classifier()

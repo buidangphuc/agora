@@ -14,7 +14,7 @@ spec:
     helm:
       values: |
         # Local dev mode: single unsealed node, known root token, in-memory.
-        # Config is re-seeded idempotently by deploy/vault/bootstrap-vault.sh.
+        # Config is seeded declaratively by the vault-config app (platform/vault-config).
         server:
           dev:
             enabled: true

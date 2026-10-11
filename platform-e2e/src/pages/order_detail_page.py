@@ -83,6 +83,16 @@ class OrderDetailPage(BasePage):
         return self.page.get_by_test_id("return-status")
 
     @property
+    def return_statuses(self) -> Locator:
+        """One status label per return listed on the returns tab."""
+        return self.page.get_by_test_id("return-status")
+
+    @property
+    def return_refund_buttons(self) -> Locator:
+        """Refund controls: the buyer's page must never render one."""
+        return self.page.get_by_role("button", name="Hoàn tiền")
+
+    @property
     def rma_success_alert(self) -> Locator:
         return self.page.get_by_text("Đã gửi yêu cầu trả hàng / hoàn tiền", exact=False)
 

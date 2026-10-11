@@ -1,86 +1,64 @@
-from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
-
-import pandas as pd
+import json
+from datetime import datetime, timezone
 
 from recsys.config import Settings
 from recsys.pipeline import run
 from recsys.registry.metadata import ModelMetadata
 from recsys.registry.registry import ModelRegistry
-
-
-def _create_sample_df():
-    now = datetime.now(timezone.utc)
-    interactions = [
-        ("u1", "l1", "view", now - timedelta(hours=9)),
-        ("u1", "l1", "click", now - timedelta(hours=8)),
-        ("u1", "l2", "view", now - timedelta(hours=7)),
-        ("u1", "l3", "view", now - timedelta(hours=6)),
-        ("u2", "l1", "view", now - timedelta(hours=5)),
-        ("u2", "l2", "click", now - timedelta(hours=4)),
-        ("u2", "l3", "view", now - timedelta(hours=3)),
-        ("u3", "l2", "view", now - timedelta(hours=2)),
-        ("u3", "l3", "add_to_cart", now - timedelta(hours=1)),
-        ("u3", "l1", "view", now),
-    ]
-    return pd.DataFrame(
-        {
-            "event_type": [x[2] for x in interactions],
-            "principal_id": [x[0] for x in interactions],
-            "anonymous_id": ["" for _ in interactions],
-            "listing_id": [x[1] for x in interactions],
-            "occurred_at": [x[3] for x in interactions],
-        }
-    )
+from tests.dataset_fixture import sample_rows, write_dataset
+from tests.fakes import FakeQdrantClient, FakeRedis
 
 
 def test_pipeline_evaluates_and_promotes_initial_model(tmp_path, monkeypatch):
     """A pipeline run evaluates metrics and automatically promotes initial model."""
-    parquet_file = tmp_path / "tracking_events.parquet"
-    df = _create_sample_df()
-    df.to_parquet(parquet_file, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    write_dataset(tmp_path, sample_rows())
 
     settings = Settings(
         spark_master="local[1]",
-        warehouse_driver="duckdb",
-        warehouse_parquet_path=str(parquet_file),
+        dataset_dir=str(tmp_path),
         als_max_iter=3,
         als_rank=4,
         top_n=5,
         redis_host="localhost",
         redis_port=6379,
+        gate_max_list_overlap=1.0,  # a 3-item catalogue always yields identical lists
     )
 
     registry = ModelRegistry()
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
 
-    import recsys.load.qdrant as qdrant_load
-    import recsys.load.redis_cache as redis_cache
-
-    monkeypatch.setattr(qdrant_load, "load_vectors", lambda *args, **kwargs: {"items": 3, "users": 3})
-    monkeypatch.setattr(redis_cache, "load_cache", lambda *args, **kwargs: {"items": 3, "users": 3})
-
-    summary = run(settings=settings, registry=registry)
+    summary = run(settings=settings, registry=registry, redis_client=fake_r, qdrant_client=fake_q)
 
     assert summary["decision"] == "promoted"
     assert "metrics" in summary
     assert "ndcg@10" in summary["metrics"]
     assert summary["qdrant"]["items"] == 3
+    assert summary["serving"] == summary["model_version"]
+    assert fake_r.store[settings.serving_key] == summary["model_version"]
+    # The registered model names the dataset it was trained on (from the manifest).
+    manifest = json.loads((tmp_path / "as_of=20261005T020000Z.manifest.json").read_text())
+    lineage = {
+        "name": "als_interactions",
+        "version": 1,
+        "as_of": "20261005T020000Z",
+        "sha256": manifest["file_sha256"],
+    }
+    assert registry.get_model(summary["model_version"]).parameters["dataset"] == lineage
+    assert summary["dataset"] == lineage
 
 
 def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypatch):
     """A candidate with degraded NDCG is rejected by the gate and does not load to stores."""
-    parquet_file = tmp_path / "tracking_events.parquet"
-    df = _create_sample_df()
-    df.to_parquet(parquet_file, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    write_dataset(tmp_path, sample_rows())
 
     settings = Settings(
         spark_master="local[1]",
-        warehouse_driver="duckdb",
-        warehouse_parquet_path=str(parquet_file),
+        dataset_dir=str(tmp_path),
         als_max_iter=3,
         als_rank=4,
         top_n=5,
         promotion_min_relative_improvement=0.10,
+        gate_max_list_overlap=1.0,
     )
 
     registry = ModelRegistry()
@@ -98,20 +76,13 @@ def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypat
     registry.register_model(champion)
     registry._set_champion(champion)
 
-    import recsys.load.qdrant as qdrant_load
-    import recsys.load.redis_cache as redis_cache
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
 
-    qdrant_mock = MagicMock()
-    redis_mock = MagicMock()
-    monkeypatch.setattr(qdrant_load, "load_vectors", qdrant_mock)
-    monkeypatch.setattr(redis_cache, "load_cache", redis_mock)
-
-    summary = run(settings=settings, registry=registry)
+    summary = run(settings=settings, registry=registry, redis_client=fake_r, qdrant_client=fake_q)
 
     assert summary["decision"] == "rejected"
-    # Verify qdrant and redis loads were NOT called on rejected model
-    qdrant_mock.assert_not_called()
-    redis_mock.assert_not_called()
+    # Nothing was published for the rejected model.
+    assert not fake_r.store and not fake_q.collections
     # The summary carries the comparison the gate made (auditable from the run).
     assert summary["primary_metric"] == "ndcg@10"
     assert summary["incumbent_version"] == "champ-v1"
@@ -122,43 +93,31 @@ def test_pipeline_rejects_degraded_candidate_without_loading(tmp_path, monkeypat
 def test_pipeline_without_a_holdout_is_not_a_candidate(tmp_path, monkeypatch):
     """One event per user leaves no test events: nothing is registered, gated or published."""
     now = datetime.now(timezone.utc)
-    df = pd.DataFrame(
-        {
-            "event_type": ["view", "view", "view"],
-            "principal_id": ["u1", "u2", "u3"],
-            "anonymous_id": ["", "", ""],
-            "listing_id": ["l1", "l2", "l3"],
-            "occurred_at": [now, now, now],
-        }
+    write_dataset(
+        tmp_path,
+        [
+            {"user_key": u, "listing_id": lid, "weight": 1.0, "interactions": 1, "last_occurred_at": now}
+            for u, lid in [("u1", "l1"), ("u2", "l2"), ("u3", "l3")]
+        ],
     )
-    parquet_file = tmp_path / "tracking_events.parquet"
-    df.to_parquet(parquet_file, coerce_timestamps="ms", allow_truncated_timestamps=True)
     settings = Settings(
         spark_master="local[1]",
-        warehouse_driver="duckdb",
-        warehouse_parquet_path=str(parquet_file),
+        dataset_dir=str(tmp_path),
         als_max_iter=2,
         als_rank=4,
         top_n=5,
+        gate_max_list_overlap=1.0,
     )
     registry = ModelRegistry()
+    fake_r, fake_q = FakeRedis(), FakeQdrantClient()
 
-    import recsys.load.qdrant as qdrant_load
-    import recsys.load.redis_cache as redis_cache
-
-    qdrant_mock = MagicMock()
-    redis_mock = MagicMock()
-    monkeypatch.setattr(qdrant_load, "load_vectors", qdrant_mock)
-    monkeypatch.setattr(redis_cache, "load_cache", redis_mock)
-
-    summary = run(settings=settings, registry=registry)
+    summary = run(settings=settings, registry=registry, redis_client=fake_r, qdrant_client=fake_q)
 
     assert summary["decision"] == "skipped"
     assert "no usable holdout" in summary["reason"]
     assert registry.get_model(summary["model_version"]) is None
     assert registry.get_champion_version() is None
-    qdrant_mock.assert_not_called()
-    redis_mock.assert_not_called()
+    assert not fake_r.store and not fake_q.collections
 
 
 def test_evaluation_model_never_trains_on_the_holdout(tmp_path, monkeypatch):
@@ -168,34 +127,31 @@ def test_evaluation_model_never_trains_on_the_holdout(tmp_path, monkeypatch):
 
     import recsys.pipeline as pipeline
     from recsys.evals.holdout import EVAL_PROTOCOL
-    from recsys.warehouse import read_tracking_events
 
-    parquet_file = tmp_path / "tracking_events.parquet"
-    _create_sample_df().to_parquet(parquet_file, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    parquet_file = write_dataset(tmp_path, sample_rows())
     settings = Settings(
         spark_master="local[1]",
-        warehouse_driver="duckdb",
-        warehouse_parquet_path=str(parquet_file),
+        dataset_dir=str(tmp_path),
         als_max_iter=2,
         als_rank=4,
         top_n=5,
     )
     seen_pairs: list[set] = []
-    real_build = pipeline.build_triples
+    real_build = pipeline.dataset_triples
 
-    def recording_build(df, s):
-        triples = real_build(df, s)
+    def recording_build(df):
+        triples = real_build(df)
         seen_pairs.append({(r["user_key"], r["listing_id"]) for r in triples.collect()})
         return triples
 
-    monkeypatch.setattr(pipeline, "build_triples", recording_build)
+    monkeypatch.setattr(pipeline, "dataset_triples", recording_build)
     spark = SparkSession.builder.master("local[1]").appName("leak-test").getOrCreate()
     try:
-        metrics = pipeline.evaluate_generation(read_tracking_events(spark, settings), settings)
+        metrics = pipeline.evaluate_generation(spark.read.parquet(str(parquet_file)), settings)
     finally:
         spark.stop()
 
-    # Targets: each user's most recently discovered listing (see _create_sample_df).
+    # Targets: each user's most recently discovered listing (see sample_rows).
     heldout = {("u1", "l3"), ("u2", "l3"), ("u3", "l1")}
     (eval_training,) = seen_pairs
     assert not heldout & eval_training, heldout & eval_training

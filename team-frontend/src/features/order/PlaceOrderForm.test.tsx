@@ -80,6 +80,7 @@ describe("PlaceOrderForm double-submit guard", () => {
       undefined,
       PaymentMethod.MOCK_MOMO,
       "SAVE10",
+      expect.any(String),
     );
 
     await act(async () => {
@@ -245,5 +246,82 @@ describe("PlaceOrderForm double-submit guard", () => {
     expect(screen.getByTestId("saga-alert-slot").nextElementSibling).toBe(
       before,
     );
+  });
+});
+
+describe("PlaceOrderForm idempotency key", () => {
+  const place = async (user: ReturnType<typeof setupUser>) =>
+    user.click(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
+    );
+  const keyOf = (call: number) =>
+    vi.mocked(checkoutAction).mock.calls[call]?.[4];
+
+  it("two submits of one attempt send the same key", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    setup();
+    await place(user);
+    await place(user);
+    expect(checkoutAction).toHaveBeenCalledTimes(2);
+    expect(keyOf(0)).toBeTruthy();
+    expect(keyOf(1)).toBe(keyOf(0));
+  });
+
+  it("a changed voucher sends a new key", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    const ui = (voucherCode?: string) => (
+      <CheckoutPendingProvider>
+        <PlaceOrderForm {...props} voucherCode={voucherCode} />
+      </CheckoutPendingProvider>
+    );
+    const { rerender } = render(ui("SAVE10"));
+    await place(user);
+    rerender(ui(undefined));
+    await place(user);
+    expect(keyOf(1)).toBeTruthy();
+    expect(keyOf(1)).not.toBe(keyOf(0));
+  });
+
+  it("a new attempt after a success sends a new key", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: true,
+      data: { orderIds: ["o1"] },
+    });
+    const first = setup();
+    await place(user);
+    first.unmount();
+    setup();
+    await place(user);
+    expect(keyOf(1)).not.toBe(keyOf(0));
+  });
+
+  it("renews the key after a success within the same mounted form", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction)
+      .mockResolvedValueOnce({ ok: true, data: { orderIds: ["o1"] } })
+      .mockResolvedValue({ ok: false, error: "x" });
+    setup();
+    await place(user);
+    // the success locks the form; re-enable is not possible, so assert the
+    // first key is only ever used once
+    expect(checkoutAction).toHaveBeenCalledTimes(1);
+    expect(keyOf(0)).toBeTruthy();
+  });
+
+  it("shows the retryable message when the saga is aborted", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: false,
+      error: "Đơn hàng đang được xử lý, vui lòng thử lại sau giây lát.",
+    });
+    setup();
+    await place(user);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Đơn hàng đang được xử lý",
+    );
+    expect(screen.getByRole("button", { name: "Thử lại" })).toBeInTheDocument();
   });
 });

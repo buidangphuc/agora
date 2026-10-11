@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
+	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/handler"
 	"github.com/buidangphuc/team-promotion/internal/interceptor"
@@ -25,6 +26,12 @@ import (
 // real handlers over in-memory repositories.
 func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.FlashSaleServiceClient) {
 	t.Helper()
+	v, f, _, _ := startAll(t, ownedListings{"l1": "seller-1", "l2": "seller-2"})
+	return v, f
+}
+
+func startAll(t *testing.T, listings upstreamListings) (promotionv1.VoucherServiceClient, promotionv1.FlashSaleServiceClient, promotionv1.SubscriptionServiceClient, promotionv1.SponsoredServiceClient) {
+	t.Helper()
 	lis := bufconn.Listen(1024 * 1024)
 
 	voucherSvc := service.NewVoucherService(
@@ -32,11 +39,15 @@ func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.Fl
 		repository.NewInMemoryReservationRepository(),
 		nil, nil, nil,
 	)
-	flashSvc := service.NewFlashSaleService(repository.NewInMemoryFlashSaleRepository(), nil, nil, nil)
+	flashSvc := service.NewFlashSaleService(repository.NewInMemoryFlashSaleRepository(), nil, nil, listings, nil)
 
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.AuthUnaryInterceptor()))
 	promotionv1.RegisterVoucherServiceServer(srv, handler.NewVoucherHandler(voucherSvc, nil))
 	promotionv1.RegisterFlashSaleServiceServer(srv, handler.NewFlashSaleHandler(flashSvc, nil))
+	promotionv1.RegisterSubscriptionServiceServer(srv, handler.NewSubscriptionHandler(
+		service.NewSubscriptionService(repository.NewInMemorySubscriptionRepository(), nil), nil))
+	promotionv1.RegisterSponsoredServiceServer(srv, handler.NewSponsoredHandler(
+		service.NewSponsoredService(repository.NewInMemoryAdCampaignRepository(), listings, nil).WithLimits(1000, 5000), nil))
 
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
@@ -50,7 +61,24 @@ func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.Fl
 		t.Fatalf("dial bufconn: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	return promotionv1.NewVoucherServiceClient(conn), promotionv1.NewFlashSaleServiceClient(conn)
+	return promotionv1.NewVoucherServiceClient(conn), promotionv1.NewFlashSaleServiceClient(conn),
+		promotionv1.NewSubscriptionServiceClient(conn), promotionv1.NewSponsoredServiceClient(conn)
+}
+
+// upstreamListings is the listing lookup the services depend on.
+type upstreamListings interface {
+	GetListing(ctx context.Context, req *listingv1.GetListingRequest, opts ...grpc.CallOption) (*listingv1.GetListingResponse, error)
+}
+
+// ownedListings is a fake team-domain listing client: listing id -> seller id.
+type ownedListings map[string]string
+
+func (o ownedListings) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
+	seller, ok := o[req.GetId()]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "not_found")
+	}
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), SellerId: seller}}, nil
 }
 
 // authCtx attaches a resolved principal via the metadata the auth interceptor reads.
@@ -92,7 +120,7 @@ func TestVoucherServiceEndToEnd(t *testing.T) {
 
 	// Idempotent ValidateAndReserve over the wire.
 	req := &promotionv1.ValidateAndReserveRequest{
-		ReservationId: "wire-resv", Code: "GRPC20", BuyerId: "b1", CartSubtotal: 100000, SellerId: "seller-1",
+		ReservationId: "preview:seller-1:wire-resv", Code: "GRPC20", BuyerId: "b1", CartSubtotal: 100000, SellerId: "seller-1",
 	}
 	r1, err := vc.ValidateAndReserve(ctx, req)
 	if err != nil {
@@ -111,7 +139,7 @@ func TestVoucherServiceEndToEnd(t *testing.T) {
 
 	// Reject unknown code with a reason, no error.
 	rej, err := vc.ValidateAndReserve(ctx, &promotionv1.ValidateAndReserveRequest{
-		ReservationId: "bad", Code: "NOPE", CartSubtotal: 1000,
+		ReservationId: "preview:seller-1:bad", Code: "NOPE", CartSubtotal: 1000,
 	})
 	if err != nil {
 		t.Fatalf("reserve reject: %v", err)
@@ -200,7 +228,7 @@ func TestCheckoutPathAllowedForServicePrincipal(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	// team-order calls reserve/commit/release as a service principal with no admin/seller scope.
-	svc := principalCtx("service-team-order", "service", "identity.read")
+	svc := principalCtx("service-team-order", "service", "identity.read", "promotion.reserve")
 	if _, err := vc.ValidateAndReserve(svc, &promotionv1.ValidateAndReserveRequest{
 		ReservationId: "r1", Code: "SVC10", BuyerId: "b1", CartSubtotal: 1000, SellerId: "seller-1",
 	}); err != nil {
@@ -225,9 +253,14 @@ func TestCreateCampaignAuthz(t *testing.T) {
 		{"anonymous", principalCtx("anonymous", "anonymous"), codes.Unauthenticated},
 		{"buyer", authCtx("buyer-1", "listing.read"), codes.PermissionDenied},
 		{"seller", authCtx("seller-1", "listing.write"), codes.OK},
+		{"seller foreign listing", authCtx("seller-1", "listing.write"), codes.PermissionDenied},
 		{"admin", authCtx("admin-1", "admin"), codes.OK},
 	} {
-		if _, err := fc.CreateCampaign(tc.ctx, req); code(err) != tc.want {
+		r := req
+		if tc.name == "seller foreign listing" {
+			r = &promotionv1.CreateCampaignRequest{ListingId: "l2", SalePrice: 1000, StockCap: 5}
+		}
+		if _, err := fc.CreateCampaign(tc.ctx, r); code(err) != tc.want {
 			t.Errorf("%s: got %v, want %v (err=%v)", tc.name, code(err), tc.want, err)
 		}
 	}

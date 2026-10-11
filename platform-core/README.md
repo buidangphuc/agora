@@ -151,7 +151,7 @@ Proto change recipe: edit `packages/proto` additively, `make check`, then re-ven
   this directory with no git history skips the breaking check.
 - Consumers vendor `proto/` as a plain directory copy (for example `team-order/proto`)
   and gitignore their generated code. Never edit a vendored copy; edit here.
-- `minio/minio:latest` and `minio/mc:latest` are unpinned.
+- Every compose image is pinned to a tag (`minio/minio` to a `RELEASE.` tag, `mc` to `bitnamilegacy/minio-client`).
 - Postgres, MinIO and Grafana use default dev credentials; local only.
 - Docs mix languages: `CONTRACT_VERSIONING_GUIDE.md` is Vietnamese.
 

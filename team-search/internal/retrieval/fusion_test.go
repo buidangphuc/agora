@@ -70,3 +70,48 @@ func TestRRF_WeightsScaleStrategyInfluence(t *testing.T) {
 		t.Errorf("expected item-Y to rank 1st with 3x semantic weight, got %s", fused[0].ListingID)
 	}
 }
+
+func TestRRF_CarriesStock(t *testing.T) {
+	three, zero := int32(3), int32(0)
+	fused := retrieval.RRF(map[string][]retrieval.Candidate{
+		"lexical":  {{ListingID: "a", Stock: &three}, {ListingID: "b"}},
+		"semantic": {{ListingID: "b", Stock: &zero}, {ListingID: "c"}},
+	}, 60, nil)
+	got := map[string]*int32{}
+	for _, c := range fused {
+		got[c.ListingID] = c.Stock
+	}
+	if got["a"] == nil || *got["a"] != 3 || got["b"] == nil || *got["b"] != 0 || got["c"] != nil {
+		t.Errorf("stock not carried through RRF: a=%v b=%v c=%v", got["a"], got["b"], got["c"])
+	}
+}
+
+func TestRRFTiesAreOrderedByListingIDOnEveryCall(t *testing.T) {
+	// "b" and "c" each get rank 1 in one leg, and "a" and "d" rank 2: two exact ties per pair.
+	legs := map[string][]retrieval.Candidate{
+		"lexical":  {{ListingID: "c"}, {ListingID: "d"}},
+		"semantic": {{ListingID: "b"}, {ListingID: "a"}},
+	}
+	for i := 0; i < 200; i++ {
+		got := retrieval.RRF(legs, 60, nil)
+		ids := make([]string, len(got))
+		for j, c := range got {
+			ids[j] = c.ListingID
+		}
+		if want := []string{"b", "c", "a", "d"}; !equalIDs(ids, want) {
+			t.Fatalf("call %d: order %v, want %v", i, ids, want)
+		}
+	}
+}
+
+func equalIDs(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

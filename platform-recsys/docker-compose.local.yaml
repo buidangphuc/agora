@@ -1,8 +1,8 @@
-# Local run recipe: run the ALS batch once against a sample Parquet warehouse,
+# Local run recipe: run the ALS batch once against a sample governed dataset,
 # writing to the Qdrant (:6333) and Redis (:6379) already in platform-core's
 # compose. Join platform-core's network so `qdrant` / `redis` resolve.
 #
-#   make sample SAMPLE=./data/tracking_events.parquet
+#   make sample SAMPLE=./data/datasets/als_interactions/v1
 #   docker compose -f docker-compose.local.yaml run --rm recsys-train
 #
 # This is a batch job (restart: "no"), not a long-running service — it mirrors
@@ -14,8 +14,7 @@ services:
     restart: "no"
     environment:
       ENV: local
-      WAREHOUSE_DRIVER: duckdb
-      WAREHOUSE_PARQUET_PATH: /data/tracking_events.parquet
+      DATASET_DIR: /data/datasets/als_interactions/v1
       QDRANT_URL: http://qdrant:6333
       REDIS_HOST: redis
       REDIS_PORT: "6379"

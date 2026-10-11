@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { CheckoutPendingProvider } from "@/features/order/CheckoutPending";
 import { CheckoutStepper } from "@/features/order/CheckoutStepper";
+import { isCheckoutEnabled } from "@/lib/flags";
 
 /**
  * Distraction-free checkout shell (the (checkout) route group): minimal header
@@ -10,7 +11,12 @@ import { CheckoutStepper } from "@/features/order/CheckoutStepper";
  * chrome. The root layout still mounts AnalyticsProvider and ToastProvider
  * around it.
  */
-export default function CheckoutLayout({ children }: { children: ReactNode }) {
+export default async function CheckoutLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const checkoutEnabled = await isCheckoutEnabled();
   return (
     <CheckoutPendingProvider>
       <main
@@ -29,7 +35,7 @@ export default function CheckoutLayout({ children }: { children: ReactNode }) {
             <p className="text-xs text-text-secondary">Thanh toán an toàn</p>
           </div>
           <div className="mt-4">
-            <CheckoutStepper />
+            <CheckoutStepper checkoutEnabled={checkoutEnabled} />
           </div>
         </header>
         {children}

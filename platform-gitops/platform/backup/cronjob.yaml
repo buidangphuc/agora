@@ -1,6 +1,6 @@
 # Single CronJob that iterates every service DB on the shared Postgres (logical
 # isolation only), pg_dumps each to MinIO, and prunes old dumps. One schedule, one
-# Secret, one retention policy. `mc` is copied from the minio/mc image via an
+# Secret, one retention policy. `mc` is copied from the bitnami minio-client image via an
 # initContainer into a shared /tools dir so the postgres image can stay upstream.
 # Schedule mirrors pg-backup-config.SCHEDULE (CronJob.spec.schedule can't read a CM).
 apiVersion: batch/v1
@@ -22,8 +22,9 @@ spec:
           restartPolicy: Never
           initContainers:
             - name: fetch-mc
-              image: minio/mc:latest
-              command: ["sh", "-c", "cp /usr/bin/mc /tools/mc && chmod +x /tools/mc"]
+              image: bitnamilegacy/minio-client:2025.5.21-debian-12-r4  # static mc binary; minio/mc is no longer published
+              imagePullPolicy: IfNotPresent
+              command: ["sh", "-c", "cp /opt/bitnami/minio-client/bin/mc /tools/mc && chmod +x /tools/mc"]
               volumeMounts:
                 - { name: tools, mountPath: /tools }
           containers:

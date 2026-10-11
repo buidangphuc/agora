@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -60,14 +61,30 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	if o, ok := m.orders[id]; ok {
-		o.Status = status
-		o.TrackingNumber = trackingNumber
-		m.orders[id] = o
-		return o, nil
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+	o, ok := m.orders[id]
+	if !ok {
+		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	return repository.Order{}, repository.ErrOrderNotFound
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
+	m.orders[id] = o
+	return o, nil
 }
 
 func incomingPrincipalCtx(userID, userType string) context.Context {
@@ -77,6 +94,12 @@ func incomingPrincipalCtx(userID, userType string) context.Context {
 		Scopes: []string{"order.read", "order.write"},
 	}
 	return interceptor.ContextWithPrincipal(context.Background(), p)
+}
+
+func serviceCtx(scopes ...string) context.Context {
+	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+		Id: "svc_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE, Scopes: scopes,
+	})
 }
 
 func TestOrderHandler_CalculateShippingFee(t *testing.T) {
@@ -205,7 +228,7 @@ func TestOrderHandler_ForceFailSaga(t *testing.T) {
 	}
 	svc := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
 	h := handler.NewOrderHandler(svc, nil, nil)
-	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+	ctx := adminCtx()
 
 	res, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
 	if err != nil {
@@ -332,7 +355,7 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 		return &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: to}
 	}
 	adminCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"},
+		Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"},
 	})
 	anonCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 		Id: "anonymous", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS,
@@ -378,14 +401,37 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 	})
 	t.Run("seller cannot set PAID", func(t *testing.T) {
 		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PAID))
-		if status.Code(err) != codes.FailedPrecondition {
-			t.Fatalf("want FailedPrecondition, got %v", err)
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
 		}
 	})
 	t.Run("admin cannot set PAID", func(t *testing.T) {
 		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
+		}
+	})
+	t.Run("completed order cannot be reopened", func(t *testing.T) {
+		h := newHandler(repository.OrderStatusCompleted)
+		if _, err := h.UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PENDING)); err == nil {
+			t.Fatal("reopening a completed order must fail")
+		}
+	})
+	t.Run("paid straight to completed is refused", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
 		if status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+	t.Run("seller cannot cancel through UpdateOrderStatus", func(t *testing.T) {
+		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_CANCELLED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("seller ships a pending (COD) order", func(t *testing.T) {
+		if _, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED)); err != nil {
+			t.Fatalf("COD hand-over must be allowed: %v", err)
 		}
 	})
 	t.Run("invalid transition rejected", func(t *testing.T) {
@@ -394,4 +440,99 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 			t.Fatalf("want FailedPrecondition, got %v", err)
 		}
 	})
+}
+
+func TestOrderHandler_GetOrder_Authz(t *testing.T) {
+	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1"},
+	}}
+	h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+	principal := func(id string, typ commonv1.PrincipalType, scopes ...string) context.Context {
+		return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: id, Type: typ, Scopes: scopes})
+	}
+	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"no principal", context.Background(), codes.Unauthenticated},
+		{"anonymous", principal("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS), codes.Unauthenticated},
+		{"buyer", principal("buyer_1", user), codes.OK},
+		{"seller", principal("seller_1", user), codes.OK},
+		{"other user", principal("user_9", user, "order.read"), codes.PermissionDenied},
+		{"admin", principal("admin_1", user, "admin", "order.admin"), codes.OK},
+		{"service with order.read", principal("service-team-payment", svc, "order.read"), codes.OK},
+		{"service without order.read", principal("service-x", svc, "listing.read"), codes.PermissionDenied},
+		{"user claiming order.read is not a service", principal("user_9", user, "order.read"), codes.PermissionDenied},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := h.GetOrder(tc.ctx, &orderv1.GetOrderRequest{Id: "ord_1"})
+			if status.Code(err) != tc.want {
+				t.Fatalf("want %v, got %v", tc.want, err)
+			}
+			if tc.want == codes.OK && res.GetOrder().GetId() != "ord_1" {
+				t.Fatalf("wrong order: %v", res)
+			}
+		})
+	}
+}
+
+func TestOrderHandler_ForceFailSaga_AdminOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"buyer owner": incomingPrincipalCtx("buyer_1", "buyer"),
+		"service":     serviceCtx("order.read", "order.write"),
+		"anonymous":   context.Background(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+				"ord_123": {ID: "ord_123", BuyerID: "buyer_1", Status: repository.OrderStatusPending},
+			}}
+			h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+			_, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
+			want := codes.PermissionDenied
+			if name == "anonymous" {
+				want = status.Code(err)
+				if want == codes.OK {
+					t.Fatal("anonymous must be refused")
+				}
+			}
+			if status.Code(err) != want {
+				t.Fatalf("want %v, got %v", want, err)
+			}
+			if repo.orders["ord_123"].Status != repository.OrderStatusPending {
+				t.Fatalf("order must be unchanged, got %v", repo.orders["ord_123"].Status)
+			}
+		})
+	}
+}
+
+func TestOrderHandler_CreateOrder_UserOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"service":       serviceCtx("order.write", "admin"),
+		"admin service": serviceCtx("admin"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			// Kill-switch is OFF: a refusal on PermissionDenied proves the type check runs first.
+			h := handler.NewOrderHandler(service.NewOrderService(nil, nil, nil, nil, nil, nil, nil), nil, nil,
+				handler.WithFeatureFlags(fakeFlags{enabled: false}))
+			_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+			if status.Code(err) != codes.PermissionDenied {
+				t.Fatalf("want PermissionDenied, got %v", err)
+			}
+		})
+	}
+	h, domain, orders := checkoutHandler(t)
+	if _, err := h.CreateOrder(serviceCtx("order.write"), &orderv1.CreateOrderRequest{}); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("want PermissionDenied, got %v", err)
+	}
+	if domain.Calls.Reserve != 0 || domain.Stock("lst_1") != 10 {
+		t.Fatalf("nothing may be reserved: calls %d stock %d", domain.Calls.Reserve, domain.Stock("lst_1"))
+	}
+	if l, _ := orders.ListBuyerOrders(context.Background(), "buyer_1", 0); len(l) != 0 {
+		t.Fatalf("no order may exist: %v", l)
+	}
 }

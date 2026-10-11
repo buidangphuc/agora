@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,7 +37,7 @@ func (h *VerificationHandler) SubmitKyc(ctx context.Context, req *verificationv1
 	}
 	sub, err := h.svc.Submit(ctx, p.GetId(), req.GetDocType(), req.GetDocRef())
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &verificationv1.SubmitKycResponse{
 		Id:     sub.ID,
@@ -67,7 +68,7 @@ func (h *VerificationHandler) GetVerificationStatus(ctx context.Context, req *ve
 	}
 	st, badge, err := h.svc.GetStatus(ctx, userID)
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &verificationv1.GetVerificationStatusResponse{
 		Status: toProtoStatus(st),
@@ -87,20 +88,20 @@ func (h *VerificationHandler) ReviewKyc(ctx context.Context, req *verificationv1
 	}
 	sub, err := h.svc.Get(ctx, req.GetId())
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	if sub.UserID == p.GetId() {
 		return nil, status.Error(codes.PermissionDenied, "reviewers cannot review their own submission")
 	}
 	st, err := h.svc.Review(ctx, req.GetId(), req.GetDecision())
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &verificationv1.ReviewKycResponse{Status: toProtoStatus(st)}, nil
 }
 
 // mapErr turns a service/repository error into the right gRPC status.
-func mapErr(err error) error {
+func mapErr(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, service.ErrEmptyUser),
 		errors.Is(err, service.ErrEmptyDocType),
@@ -113,7 +114,8 @@ func mapErr(err error) error {
 	case errors.Is(err, repository.ErrAlreadyReviewed):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "%v", err)
+		slog.ErrorContext(ctx, "internal error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 

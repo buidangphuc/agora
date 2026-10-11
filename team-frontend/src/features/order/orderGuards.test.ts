@@ -41,7 +41,6 @@ const REQUIRED_TEST_IDS = [
   "return-amount",
   "return-submit",
   "return-status",
-  "return-refund",
 ];
 
 describe("order screens source guards", () => {
@@ -57,6 +56,11 @@ describe("order screens source guards", () => {
   it("uses no data-* attribute other than data-testid", () => {
     const attrs = [...all.matchAll(/\bdata-([a-z-]+)=/g)].map((m) => m[1]);
     expect(attrs.filter((a) => a !== "testid")).toEqual([]);
+  });
+
+  it("offers the buyer no refund control", () => {
+    expect(all).not.toContain('"return-refund"');
+    expect(all).not.toMatch(new RegExp(["mock", "RefundAction"].join("")));
   });
 
   it("keeps every existing e2e test id", () => {

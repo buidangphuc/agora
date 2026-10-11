@@ -1,0 +1,97 @@
+# Qdrant — vector store for recommendations (recs-on-cluster). platform-recsys writes the item/user ALS
+# vectors here nightly; team-ai reads them (RECS_BACKEND=qdrant). Reconciled by infra-shared (wave 0).
+# Image tag matches platform-core/infra/docker-compose.yaml: qdrant-client 1.19 rejects a server more than one
+# minor version apart. No auth, like compose; reachability is limited by the NetworkPolicy below.
+# RWO claim: single-node kind cluster.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: qdrant
+  namespace: marketplace
+  labels: { app: qdrant }
+spec:
+  serviceName: qdrant
+  replicas: 1
+  selector:
+    matchLabels: { app: qdrant }
+  template:
+    metadata:
+      labels: { app: qdrant }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:v1.19.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 6333 }
+            - { name: grpc, containerPort: 6334 }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 6333 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 6333 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - { name: qdrant-storage, mountPath: /qdrant/storage }
+            - { name: snapshots, mountPath: /qdrant/snapshots }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: snapshots
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: qdrant-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: marketplace
+  labels: { app: qdrant }
+spec:
+  selector: { app: qdrant }
+  ports:
+    - { name: http, port: 6333, targetPort: 6333 }
+    - { name: grpc, port: 6334, targetPort: 6334 }
+---
+# Only the recommendation reader (team-ai) and writer (platform-recsys job) may reach Qdrant (ADR-0010).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-isolation
+  namespace: marketplace
+spec:
+  podSelector:
+    matchLabels: { app: qdrant }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: team-ai }
+        - podSelector:
+            matchLabels: { app: platform-recsys }
+      ports:
+        - { protocol: TCP, port: 6333 }
+        - { protocol: TCP, port: 6334 }

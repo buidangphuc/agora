@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -87,10 +88,10 @@ func TestQueryAuditLogCursorPaging(t *testing.T) {
 // action with InvalidArgument.
 func TestWriteAuditEventValidation(t *testing.T) {
 	h := newAuditHandler()
-	ctx := asUser("u1")
+	ctx := asService("svc-order")
 
-	if _, err := h.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{Action: ""}); err == nil {
-		t.Fatalf("expected error on empty action")
+	if _, err := h.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{Action: ""}); code(err) != codes.InvalidArgument {
+		t.Fatalf("empty action: got %v, want InvalidArgument", code(err))
 	}
 	resp, err := h.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{Action: "system.ping"})
 	if err != nil {
@@ -129,14 +130,33 @@ func TestWriteAuditEventRequiresAuthentication(t *testing.T) {
 	}
 }
 
-func TestWriteAuditEventUserActorIsPrincipalNotClientSupplied(t *testing.T) {
+func TestWriteAuditEventRejectsNonServiceCallers(t *testing.T) {
 	h := newAuditHandler()
-	if _, err := h.WriteAuditEvent(asUser("seller-7"), &auditv1.WriteAuditEventRequest{ActorId: "victim-9", Action: "forged"}); err != nil {
-		t.Fatalf("write: %v", err)
+	noScope := interceptor.ContextWithPrincipal(context.Background(), interceptor.Principal{ID: "svc-x", Type: "service", Scopes: []string{"promotion.reserve"}})
+	userWithScope := interceptor.ContextWithPrincipal(context.Background(), interceptor.Principal{ID: "u1", Type: "user", Scopes: []string{"audit.write"}})
+	for name, ctx := range map[string]context.Context{
+		"buyer/seller user":      asUser("seller-7"),
+		"admin user":             asAdmin(),
+		"user holding the scope": userWithScope,
+		"service without scope":  noScope,
+	} {
+		_, err := h.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{ActorId: "victim-9", Action: "forged"})
+		if code(err) != codes.PermissionDenied {
+			t.Fatalf("%s: got %v, want PermissionDenied", name, code(err))
+		}
 	}
-	got := storedActors(t, h)
-	if len(got) != 1 || got[0] != "seller-7" {
-		t.Fatalf("stored actors = %v, want [seller-7]", got)
+	if got := storedActors(t, h); len(got) != 0 {
+		t.Fatalf("rejected writes must not be stored, got %v", got)
+	}
+}
+
+func TestInternalErrorIsGenericAndNotLeaked(t *testing.T) {
+	err := handler.MapAuditErrForTest(errors.New("pq: password authentication failed for user audit"))
+	if code(err) != codes.Internal {
+		t.Fatalf("got %v, want Internal", code(err))
+	}
+	if msg := status.Convert(err).Message(); msg != "internal error" {
+		t.Fatalf("message %q leaks the cause", msg)
 	}
 }
 
@@ -156,7 +176,7 @@ func TestWriteAuditEventServicePrincipalMayActOnBehalf(t *testing.T) {
 
 func TestQueryAuditLogAdminOnly(t *testing.T) {
 	h := newAuditHandler()
-	if _, err := h.WriteAuditEvent(asUser("u1"), &auditv1.WriteAuditEventRequest{Action: "x"}); err != nil {
+	if _, err := h.WriteAuditEvent(asService("svc-order"), &auditv1.WriteAuditEventRequest{Action: "x"}); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	cases := []struct {

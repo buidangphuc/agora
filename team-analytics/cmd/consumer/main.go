@@ -24,6 +24,7 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/grpcserver"
 	"github.com/buidangphuc/team-analytics/internal/observability"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
@@ -61,7 +62,11 @@ func run() error {
 	// follow-up; prod dashboards read BQ directly.)
 	var queryServer analyticsv1.AnalyticsQueryServiceServer
 	if w, ok := res.Writer.(*duckdb.Writer); ok {
-		queryServer = query.NewService(query.NewDuckDBRepository(w.DB()))
+		queryServer = query.NewService(query.NewDuckDBRepository(w.DB()), query.WithTrackingThresholds(query.TrackingThresholds{
+			StaleAfter:             time.Duration(settings.Tracking.StaleAfterSeconds) * time.Second,
+			LagP95Max:              time.Duration(settings.Tracking.LagP95MaxSeconds) * time.Second,
+			MissingListingMaxRatio: settings.Tracking.MissingListingMaxRatio,
+		}), query.WithAttributionWindowHours(settings.Recs.AttributionWindowHours))
 		logger.Info("analytics query service enabled", slog.String("driver", settings.Warehouse.Driver))
 	}
 	srv := grpcserver.Build(settings, res.Health, queryServer)
@@ -83,6 +88,47 @@ func run() error {
 		return fmt.Errorf("kafka consumer: %w", err)
 	}
 	defer cons.Close()
+
+	// listing.events -> listing_sellers: lets the seller funnel attribute tracking
+	// events (which carry only a listing id) to a seller. DuckDB adapter only.
+	if lw, ok := res.Writer.(warehouse.ListingSellerWriter); ok {
+		lcons, err := consumer.NewListingConsumer(settings.KafkaBrokers(), settings.Kafka.ListingConsumerGroup, settings.Kafka.ListingTopic)
+		if err != nil {
+			return fmt.Errorf("kafka listing consumer: %w", err)
+		}
+		defer lcons.Close()
+		logger.Info("listing seller consumer starting",
+			slog.String("listing_topic", settings.Kafka.ListingTopic),
+			slog.String("group", settings.Kafka.ListingConsumerGroup))
+		go func() {
+			if runErr := lcons.Run(ctx, lw, logger); runErr != nil {
+				logger.Error("listing seller consumer stopped", slog.Any("err", runErr))
+			}
+		}()
+	}
+
+	// engagement.events -> engagement_facts (+ DLQ). DuckDB adapter only.
+	if ew, ok := res.Writer.(warehouse.EngagementFactWriter); ok {
+		econs, err := consumer.NewEngagementConsumer(settings.KafkaBrokers(), settings.Engagement.ConsumerGroup,
+			settings.Engagement.EventsTopic, settings.Engagement.DLQTopic)
+		if err != nil {
+			return fmt.Errorf("kafka engagement consumer: %w", err)
+		}
+		defer econs.Close()
+		logger.Info("engagement consumer starting",
+			slog.String("topic", settings.Engagement.EventsTopic),
+			slog.String("dlq_topic", settings.Engagement.DLQTopic),
+			slog.String("group", settings.Engagement.ConsumerGroup))
+		go func() {
+			if runErr := econs.Run(ctx, ew, logger); runErr != nil {
+				logger.Error("engagement consumer stopped", slog.Any("err", runErr))
+			}
+		}()
+	} else {
+		logger.Warn("engagement consumer not started: the warehouse driver cannot store engagement facts",
+			slog.String("driver", settings.Warehouse.Driver),
+			slog.String("topic", settings.Engagement.EventsTopic))
+	}
 
 	logger.Info("analytics consumer starting",
 		slog.String("analytics_topic", settings.Kafka.AnalyticsTopic),

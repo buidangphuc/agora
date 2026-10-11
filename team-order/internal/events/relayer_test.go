@@ -72,7 +72,7 @@ func TestPaidTransitionWritesOutboxRow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, outbox.EnqueuedRows(), "PENDING must not emit")
 
-	_, err = orders.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusPaid, "")
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
 	require.NoError(t, err)
 	rows := outbox.EnqueuedRows()
 	require.Len(t, rows, 1)
@@ -80,13 +80,16 @@ func TestPaidTransitionWritesOutboxRow(t *testing.T) {
 	assert.Equal(t, OrderPaidEventType, rows[0].EventType)
 	assert.Equal(t, "Order", rows[0].AggregateType)
 
-	// Re-applying PAID, and later states, do not emit another PAID fact.
-	_, err = orders.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusPaid, "")
-	require.NoError(t, err)
-	_, err = orders.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusShipped, "TRK1")
+	// Re-applying PAID conflicts (no longer Pending) and later states do not emit
+	// another PAID fact.
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
+	require.ErrorIs(t, err, repository.ErrStatusConflict)
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPaid}, "TRK1")
 	require.NoError(t, err)
 	assert.Len(t, outbox.EnqueuedRows(), 1)
 }
+
+var pendingOnly = []repository.OrderStatus{repository.OrderStatusPending}
 
 type failingOutbox struct{ repository.OutboxRepository }
 
@@ -106,7 +109,7 @@ func TestPaidTransitionRollsBackWhenOutboxFails(t *testing.T) {
 		)
 		created, err := orders.CreateOrder(ctx, sampleOrder())
 		require.NoError(t, err)
-		_, err = orders.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusPaid, "")
+		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
 		require.Error(t, err)
 		got, err := orders.GetOrder(ctx, created.ID)
 		require.NoError(t, err)
@@ -123,7 +126,7 @@ func TestPaidTransitionRollsBackWhenOutboxFails(t *testing.T) {
 		)
 		created, err := orders.CreateOrder(ctx, sampleOrder())
 		require.NoError(t, err)
-		_, err = orders.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusPaid, "")
+		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
 		require.Error(t, err)
 		got, _ := orders.GetOrder(ctx, created.ID)
 		assert.Equal(t, repository.OrderStatusPending, got.Status)
@@ -141,7 +144,7 @@ func TestRelayerPublishesAndMarksPublished(t *testing.T) {
 
 	created, err := orders.CreateOrder(ctx, sampleOrder())
 	require.NoError(t, err)
-	_, err = orders.UpdateOrderStatus(ctx, created.ID, repository.OrderStatusPaid, "")
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
 	require.NoError(t, err)
 
 	n, err := relayer.SweepClaims(ctx)

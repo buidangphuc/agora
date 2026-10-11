@@ -1,9 +1,9 @@
 "use server";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
@@ -13,13 +13,8 @@ import {
   createOrder,
   createReturnRequest,
   updateOrderStatus,
-  updateReturnStatus,
 } from "@/lib/gateway/orders";
-import {
-  createPayment,
-  processMockPayment,
-  refundPayment,
-} from "@/lib/gateway/payment";
+import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 
 export interface OrderActionResult {
   ok: boolean;
@@ -33,11 +28,15 @@ export interface CheckoutData {
   paymentUrl?: string;
 }
 
+const CHECKOUT_IN_PROGRESS =
+  "Đơn hàng đang được xử lý, vui lòng thử lại sau giây lát.";
+
 export async function checkoutAction(
   addressId?: string,
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
   voucherCode?: string,
+  idempotencyKey?: string,
 ): Promise<ActionResult<CheckoutData>> {
   try {
     const orders = await createOrder(
@@ -45,6 +44,7 @@ export async function checkoutAction(
       itemIds,
       paymentMethod,
       voucherCode,
+      idempotencyKey,
     );
     revalidatePath("/cart");
     revalidatePath("/checkout");
@@ -67,6 +67,11 @@ export async function checkoutAction(
 
     return ok({ orderIds, paymentUrl });
   } catch (err: unknown) {
+    // `aborted`: the same idempotency key is still being processed by a
+    // concurrent request. Nothing failed; the buyer can safely retry.
+    if (err instanceof ConnectError && err.code === Code.Aborted) {
+      return fail(CHECKOUT_IN_PROGRESS);
+    }
     return fail(err instanceof Error ? err.message : "Đặt hàng thất bại.");
   }
 }
@@ -183,28 +188,5 @@ export async function createReturnRequestAction(
     return fail(
       err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
     );
-  }
-}
-
-/**
- * MOCK refund: mark the return REFUNDED (authoritative state on the order) and
- * simulate the money-back leg via the mock payment helper. No real money moves
- * (AGENTS.md §7).
- */
-export async function mockRefundAction(
-  returnId: string,
-  orderId: string,
-  amount: number,
-): Promise<ActionResult<ViewOrderReturn>> {
-  try {
-    const returnRequest = await updateReturnStatus(
-      returnId,
-      ReturnStatus.REFUNDED,
-    );
-    await refundPayment(orderId, amount);
-    revalidateBuyerOrder(orderId);
-    return ok(returnRequest);
-  } catch (err: unknown) {
-    return fail(err instanceof Error ? err.message : "Hoàn tiền thất bại.");
   }
 }

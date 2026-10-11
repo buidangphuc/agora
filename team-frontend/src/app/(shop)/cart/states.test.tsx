@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import CartError from "./error";
 import CartLoading from "./loading";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 describe("cart route states", () => {
   it("loading reserves a shop card, three item rows and the summary", () => {
     render(<CartLoading />);

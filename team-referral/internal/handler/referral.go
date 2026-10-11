@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,7 +37,7 @@ func (h *ReferralHandler) callerID(ctx context.Context) (string, error) {
 }
 
 // mapErr turns a service error into the right gRPC status.
-func mapErr(err error) error {
+func mapErr(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, service.ErrEmptyUser):
 		return status.Error(codes.Unauthenticated, err.Error())
@@ -48,7 +49,8 @@ func mapErr(err error) error {
 		errors.Is(err, service.ErrAlreadyRedeemed):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "%v", err)
+		slog.ErrorContext(ctx, "internal error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 
@@ -59,7 +61,7 @@ func (h *ReferralHandler) CreateReferralCode(ctx context.Context, _ *referralv1.
 	}
 	code, err := h.svc.CreateCode(ctx, userID)
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &referralv1.CreateReferralCodeResponse{Code: code}, nil
 }
@@ -71,7 +73,7 @@ func (h *ReferralHandler) GetMyReferral(ctx context.Context, _ *referralv1.GetMy
 	}
 	mr, err := h.svc.GetMyReferral(ctx, userID)
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &referralv1.GetMyReferralResponse{
 		Code:         mr.Code,
@@ -86,7 +88,7 @@ func (h *ReferralHandler) RedeemReferral(ctx context.Context, req *referralv1.Re
 		return nil, err
 	}
 	if err := h.svc.Redeem(ctx, userID, req.GetCode()); err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &referralv1.RedeemReferralResponse{}, nil
 }
@@ -98,7 +100,7 @@ func (h *ReferralHandler) ListReferralRewards(ctx context.Context, req *referral
 	}
 	rewards, nextCursor, err := h.svc.ListRewards(ctx, userID, req)
 	if err != nil {
-		return nil, mapErr(err)
+		return nil, mapErr(ctx, err)
 	}
 	return &referralv1.ListReferralRewardsResponse{
 		Rewards: rewards,

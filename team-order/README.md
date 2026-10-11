@@ -6,7 +6,7 @@ Go 1.22 (`go.mod`; the Dockerfile builds with `golang:1.22`), module `github.com
 
 ## Contract
 
-Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/interceptor/auth.go`). `RequirePrincipal` rejects missing, `anonymous` and ANONYMOUS-type principals. "Owner or admin" below means `isAdminOrUser` (`internal/handler/order.go`): the principal id equals the named user, or its scopes include `admin`, `order.admin` or `all`. This service does not check `order.read` / `order.write` scopes.
+Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/interceptor/auth.go`). `RequirePrincipal` rejects missing, `anonymous` and ANONYMOUS-type principals. "Owner or admin" below means `isAdminOrUser` (`internal/handler/order.go`): the principal id equals the named user, or its scopes include `order.admin` (the bare `admin` scope does not open orders). This service does not check `order.read` / `order.write` scopes.
 
 ### CartService (`internal/handler/cart.go`)
 
@@ -21,56 +21,80 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 
 | RPC | Authorization / behaviour |
 |---|---|
-| `CreateOrder` | authenticated. Evaluates Flipt flag `checkout-enabled` first (off -> `FailedPrecondition`). Runs the purchase saga below. Returns one order per seller. |
-| `GetOrder` | buyer or seller of the order. If no principal is present the ownership check is skipped (see Known gaps). |
+| `CreateOrder` | authenticated. Evaluates Flipt flag `checkout-enabled` first (off -> `FailedPrecondition`). Optional `idempotency-key` metadata (see below). Runs the purchase saga below. Returns one order per seller, all or none. |
+| `GetOrder` | Principal required (`Unauthenticated` otherwise). Allowed: the order's buyer or seller, an admin scope, or a `service` principal with `order.read` (used by team-payment and team-engagement); others get `PermissionDenied`. `Order.paid_at` is set when the order moved to PAID through a payment; unset means it was never paid online (e.g. cash on delivery). |
 | `ListBuyerOrders`, `ListSellerOrders` | authenticated; lists the caller's orders, optional status filter |
-| `UpdateOrderStatus` | `RequirePrincipal`; the order's seller or admin only (`PermissionDenied` otherwise; buyers cancel via `CancelOrder`). Only PENDING or PAID -> SHIPPED and SHIPPED -> COMPLETED are allowed (`sellerTransitions` in `service/order.go`); any other transition, including to PAID or CANCELLED, returns `FailedPrecondition`. |
-| `CancelOrder` | authenticated; buyer only. Releases stock per item, then sets CANCELLED. Rejects orders already CANCELLED or COMPLETED. |
+| `UpdateOrderStatus` | `RequirePrincipal`; the order's seller or admin only (`PermissionDenied` otherwise; buyers cancel via `CancelOrder`). Follows the transition table below: a target the seller may never request (PAID, PENDING, CANCELLED) -> `PermissionDenied`; a permitted target from the wrong status -> `FailedPrecondition`. |
+| `CancelOrder` | authenticated; buyer only. Claims CANCELLED from PENDING or PAID (else `FailedPrecondition`, nothing released), then releases the order's reservations by id and its voucher hold. |
 | `CalculateShippingFee` | none. Free at subtotal >= 500000; 20000 for HCM / Ha Noi city strings; otherwise 35000 (`service/order.go`). |
-| `GetSagaState` | owner or admin (buyer). The response is **derived from the order status**, not read from the saga tables. |
-| `ForceFailSaga` | owner or admin (buyer). Cancels the order via `CancelOrder` and returns the derived saga state. `fail_step` is ignored. |
-| `CreateReturnRequest` | authenticated; buyer of the order; order must not be PENDING or CANCELLED; `refund_amount` defaults to the order total and may not exceed it |
+| `GetSagaState` | owner or admin (buyer). Built from the order, its reservations and `paid_at` (see Saga view). |
+| `ForceFailSaga` | admin only: scopes `admin` AND `order.admin` (owners get `PermissionDenied`). `fail_step` must be empty, `payment` or `shipping` (`InvalidArgument`). Cancels via `CancelOrder`; `success=false` when a stock release is parked. |
+| `CreateReturnRequest` | authenticated; buyer of the order; order must not be PENDING or CANCELLED. **Return cap:** `refund_amount` may not exceed the order's returnable remainder, the order total minus the `refund_amount` of the order's returns that are not REJECTED (`InvalidArgument`, also when the remainder is 0). No amount (`<= 0`) defaults to the remainder; no amount with a remainder of 0 is `FailedPrecondition`. The check and the insert run under the order row lock (`SELECT ... FOR UPDATE`), so concurrent requests never exceed the total; a rejected return frees its amount. |
 | `GetReturnRequest` | buyer or seller of the return, or admin |
-| `UpdateReturnStatus` | seller of the return or admin. PENDING -> APPROVED/REJECTED; APPROVED -> REFUNDED/REJECTED; REJECTED and REFUNDED are terminal. |
-| `CreateShipment` | seller of the order or admin. Defaults carrier to `SPX` and generates a tracking code. Also sets the order to SHIPPED. |
+| `ListOrderReturns` | buyer or seller of the order, or admin (else `PermissionDenied`; unknown order `NotFound`). All returns of the order, newest first. |
+| `UpdateReturnStatus` | seller of the return or admin (the buyer gets `PermissionDenied`). PENDING -> APPROVED/REJECTED; APPROVED -> REFUNDED/REJECTED; REJECTED and REFUNDED are terminal (`FailedPrecondition`). Every transition is a compare-and-set on the status read (`TransitionReturn`): of concurrent transitions one wins, the others get `FailedPrecondition`. The won APPROVED -> REFUNDED writes `ReturnRefunded` to the outbox in the same transaction. A move to REFUNDED on an order with no `paid_at` (never paid online, e.g. cash on delivery) is refused with `FailedPrecondition: order was not paid online; cash-on-delivery refunds are handled outside the system`, keeps the return's status and writes nothing; approve and reject still work. team-order never calls team-payment to refund. |
+| `CreateShipment` | seller of the order or admin. Claims SHIPPED from PENDING or PAID first (else `FailedPrecondition`, no shipment), then creates the shipment. Defaults carrier to `SPX` and generates a tracking code. |
 | `GetShipmentTracking` | none; by `tracking_code`, `order_id` or `shipment_id` |
 
 The gRPC server also registers `grpc.health.v1` and, when `GRPC_REFLECTION_ENABLED=true`, reflection.
 
-### Purchase saga (`CreateOrdersFromCart`: `internal/service/order.go`, `saga.go`, `redemption.go`)
+### Purchase saga (`CreateOrdersFromCart`: `internal/service/order.go`, `saga.go`, `idempotency.go`, `redemption.go`)
 
-1. Load the cart (optionally only `item_ids`); empty -> `FailedPrecondition`. Group items by `seller_id`.
-2. Persist an `order_sagas` header, then per item persist an `order_reservations` row (stable id per buyer / cart item / quantity) **before** calling team-domain `ReserveStock`; mark it RESERVED.
-3. If `voucher_code` is set and `UPSTREAM_PROMOTION_ADDR` is configured: `ValidateAndReserve` on team-promotion, once per checkout, on the first seller-order. The order id is the reservation id. A rejected voucher aborts with `FailedPrecondition`.
-4. Create the PENDING order; mark its reservations COMMITTED.
-5. Any failure runs compensation on a fresh background context: `ReleaseStock` with retries (3 attempts), release parked as RELEASE_FAILED on repeated failure, voucher hold released, saga marked COMPENSATED.
-6. Payment is **not** a synchronous saga step. The order moves PENDING -> PAID when the `PaymentSettled` event arrives (see Events).
+A checkout places **every order or none** (design D6 of `port-order-inventory-correctness`):
 
-A background sweeper (every 1 minute, only with Postgres) releases reservations past their 15 minute TTL that were never committed. Both values are hard-coded.
+1. Load the cart (optionally only `item_ids`); empty -> `FailedPrecondition`; buying your own listing -> `FailedPrecondition`. Group items by `seller_id`, **sorted**, one pre-generated order id per group.
+2. Persist an `order_sagas` header (one per attempt). Reservation ids are `sha1(saga_id | cart item | listing | variant | qty)`: every attempt holds its own reservations.
+3. **Phase A, reserve:** per item persist an `order_reservations` row (PENDING) **before** team-domain `ReserveStock`, then RESERVED. Short stock -> `ResourceExhausted`. If `voucher_code` is set and `UPSTREAM_PROMOTION_ADDR` is configured: `ValidateAndReserve` once, on the first group; the hold id is that order's id. A rejected voucher -> `FailedPrecondition`.
+4. **Phase B, commit:** `CommitReservation` for every hold in team-domain (its TTL sweep then never restores them). A hold already released -> `FailedPrecondition` ("item no longer reserved"); any other commit error fails the checkout too.
+5. **Phase C, place:** one `order_db` transaction inserts every order and its items, binds each reservation RESERVED -> COMMITTED with its `order_id`, and marks the saga COMPLETED (`OrderPlacer`, `internal/repository/placer.go`).
+6. Any failure in A/B, or a definite failure in C, compensates on a fresh context: every held reservation released by id (3 attempts; a failure is parked RELEASE_FAILED for the sweep), the voucher hold released, saga COMPENSATED. An ambiguous C error is reconciled by looking the order ids up: all present -> placed; none -> compensate; partial -> `Internal`, nothing released.
+7. The cart is cleared after C (best effort).
+8. Payment is **not** a synchronous step. The order moves PENDING -> PAID when `PaymentSettled` arrives (see Events).
+
+**Idempotency.** `CreateOrder` reads the `idempotency-key` metadata (the gateway forwards `Idempotency-Key`), trimmed, 1-255 printable ASCII bytes, else `InvalidArgument` before anything is reserved. Keys are unique per buyer on `order_sagas` (`(buyer_id, idempotency_key)` partial unique index). A repeat of a COMPLETED checkout returns its orders and retries the cart clear; one still running -> `Aborted` (retry); a compensated checkout frees its key. No key = a fresh checkout every time.
+
+**Status changes** follow one table (`internal/service/transitions.go`) written with a compare-and-set (`UpdateOrderStatusFrom`: `UPDATE ... WHERE status = ANY(allowed)`):
+
+| From | To | Who |
+|---|---|---|
+| Pending | Paid | payment consumer only (records `paid_at`) |
+| Pending | Shipped | seller (COD hand-over), via `UpdateOrderStatus` or `CreateShipment` |
+| Paid | Shipped | seller |
+| Shipped | Completed | seller |
+| Pending, Paid | Cancelled | buyer (`CancelOrder`), admin (`ForceFailSaga`) |
+
+An admin acts as the seller on `UpdateOrderStatus`. A target the caller may never request -> `PermissionDenied`; a permitted target from the wrong status -> `FailedPrecondition`. `CancelOrder` claims Cancelled first; only the winner releases the order's own reservations (by id) and its voucher hold. `CreateShipment` claims Shipped first and creates the shipment only on a won claim. The `orders_status_check` constraint rejects any status outside 1..5.
+
+**Sweep.** Only with Postgres, every `RESERVATION_SWEEP_INTERVAL` (default 1m): releases reservations older than `RESERVATION_TTL` (default 15m) that no order owns, releases holds still on Cancelled orders (a crash between a cancel's claim and its release, or a parked release), and compensates checkout attempts still PENDING a full TTL after they started (freeing their key). Both values are logged at sweeper start (`reservation sweeper starting`).
+
+**Saga view.** `GetSagaState` is built from the order row, its reservations and `paid_at` (no invented times). `ForceFailSaga` accepts `fail_step` "", `payment` or `shipping`, cancels through `CancelOrder`, and answers `success=false` ("stock release is pending retry") when a release is parked.
 
 ### Consumes (upstream)
 
 | Upstream | Calls | Used by |
 |---|---|---|
-| team-domain (`UPSTREAM_DOMAIN_ADDR`) | `GetListing`, `ReserveStock`, `ReleaseStock` | cart add, checkout, cancel, compensation |
+| team-domain (`UPSTREAM_DOMAIN_ADDR`) | `GetListing`, `ReserveStock`, `CommitReservation`, `ReleaseStock` | cart add, checkout, cancel, compensation, sweep, `cmd/resync-commits` |
 | team-identity (`UPSTREAM_IDENTITY_ADDR`) | `ListAddresses` | `CreateOrder` shipping address (matched by `address_id`, else default, else first; lookup errors are ignored and the address stays empty) |
 | team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | voucher hold, commit on settle, release on saga failure |
 
-`ReserveStock` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`, scopes `listing.read,listing.write,identity.read,identity.write`), never the end user's principal. Other upstream calls forward the incoming principal metadata (plus `listing.read,identity.read` scopes); with none they use the same service principal (`internal/upstream/domain.go`).
+`ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the incoming principal metadata unchanged; with none they use the same service principal with only `listing.read` (`internal/upstream/domain.go`).
 
 ## Events
 
 | Direction | Topic | Type (`EventEnvelope.type`) | Key | Trigger |
 |---|---|---|---|---|
-| consume | `payment.events` (`PAYMENT_EVENTS_TOPIC`) | `platform.payment.v1.PaymentSettled` | n/a | Sets a PENDING order to PAID when the payment status is PAID; commits the voucher hold if the order has one. Other statuses are ignored (the order is not cancelled). |
+| consume | `payment.events` (`PAYMENT_EVENTS_TOPIC`) | `platform.payment.v1.PaymentSettled` | n/a | Sets a PENDING order to PAID (compare-and-set, records `paid_at`) when the payment status is PAID; an order in any other status is left unchanged and logged. Commits the voucher hold only for an order that reached PAID. Other payment statuses are ignored. |
 | produce | `order.events` (`ORDER_EVENTS_TOPIC`) | `platform.order.v1.OrderPaidEvent` | `order_id` | Outbox row written in the same transaction as the first transition to PAID |
 | produce | `order.events` | `platform.order.v1.OrderShipped` | `order_id` | Outbox row written in the same transaction as `CreateShipment` |
+| produce | `order.events` | `platform.order.v1.OrderCancelled` | `order_id` | Outbox row written in the same transaction as the compare-and-set claim to CANCELLED (`CancelOrder`, `ForceFailSaga`), only when the claim wins. `previous_status` is `ORDER_STATUS_PAID` when the order was cancelled from Paid (it has `paid_at`), else `ORDER_STATUS_PENDING` |
+| produce | `order.events` | `platform.order.v1.ReturnRefunded` | `order_id` | Outbox row written in the same transaction as the won APPROVED -> REFUNDED compare-and-set of a return (`UpdateReturnStatus`); never for an order without `paid_at`. Carries the return, order, buyer and seller ids, the stored `refund_amount` (never a client value), the order currency and `refunded_at`. Consumed by team-payment, which refunds the order's payment once under refund id `return:<return_id>` (clamped to what the payment still has) |
 | produce | `payment.events.dlq` (`PAYMENT_EVENTS_DLQ_TOPIC`) | original record | original key | Poison records, or records that exhausted retries |
 
 - The payment consumer commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process, dedupes on `processed_events` (consumer `team-order.payment`), and runs only with Postgres and `KAFKA_ENABLED=true`.
 - The outbox relayer claims rows with a lease, publishes the stored envelope verbatim, retries with backoff (1s doubling to 5m), and parks a row (`status='failed'`) after `OUTBOX_MAX_ATTEMPTS`. It runs only when Postgres, `KAFKA_ENABLED` and `OUTBOX_ENABLED` are all true.
 - With `KAFKA_ENABLED=false` (the default) outbox rows are still written but never published, and orders do not move to PAID from payment events.
-- Event ids are deterministic (per order for paid, per shipment for shipped). Consumers in this workspace include team-analytics (`OrderPaidEvent`) and team-notification (`order.events`).
+- Event ids are deterministic UUIDv5s (per order for paid and cancelled, per shipment for shipped, per return for `ReturnRefunded`, namespace `agora/team-order/order.events/<Type>`). Consumers in this workspace include team-analytics (`OrderPaidEvent`), team-notification (`order.events`) and team-payment (consumer group `team-payment.settlement`: `OrderPaidEvent` credits the seller, `OrderCancelled` with `previous_status = ORDER_STATUS_PAID` refunds what remains of the payment and deducts the seller, `ReturnRefunded` refunds the return). Consumers filter on `EventEnvelope.type`, so ones that do not handle `OrderCancelled` or `ReturnRefunded` ignore them.
+- Deploy order: team-payment (which understands `ReturnRefunded`) must be deployed before this service emits it; an older team-payment ignores and commits the record, losing it.
 
 ## Data
 
@@ -84,6 +108,7 @@ Postgres `order_db` (compose credentials `order_svc` / `order_pass`, shared Post
 | 0004 | `order_sagas`, `order_reservations`, `processed_events` |
 | 0005 | `orders.voucher_code`, `discount_amount` |
 | 0006 | `order_outbox_events` (status `pending` / `published` / `failed`) |
+| 0007 | `order_sagas.idempotency_key` + unique `(buyer_id, idempotency_key)`, `orders.paid_at`, `orders_status_check` (`NOT VALID`; validate with `ALTER TABLE orders VALIDATE CONSTRAINT orders_status_check` after `SELECT count(*) FROM orders WHERE status NOT BETWEEN 1 AND 5` returns 0) |
 
 The service does **not** migrate on boot. Compose applies migrations with the one-shot `team-order-migrate` job (`migrate/migrate:v4.17.1`, `up`, idempotent), which `team-order` depends on. Standalone, run golang-migrate against `migrations/` yourself.
 
@@ -124,6 +149,8 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `OUTBOX_BATCH_SIZE` | `100` | |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
 | `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `RESERVATION_TTL` | `15m` | Go duration: stock-hold lifetime before the sweep releases it; also how long an unfinished checkout attempt may stay pending. Empty, invalid or non-positive falls back to the default with a WARN; boot never fails |
+| `RESERVATION_SWEEP_INTERVAL` | `1m` | Go duration: sweep cadence. Same fallback rule |
 
 Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `.env.example` and the declared env keys differ in either direction. `.env.example` points `DATABASE_URL` at `localhost:5437`; compose uses `postgres:5432`.
 
@@ -180,15 +207,22 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 
 ## Known gaps
 
-- `GetOrder` skips the ownership check when no principal is present (team-payment and team-engagement call it without metadata, so it cannot simply be tightened), and denies any principal that is not the buyer or seller (no admin or service-scope exception).
 - `CalculateShippingFee` and `GetShipmentTracking` are unauthenticated.
 - Scopes `order.read` / `order.write` are not enforced here; authorization is only the id and admin-scope checks above. Principal metadata is trusted as forwarded.
-- `GetSagaState` is synthesized from the order status with fixed text and timestamps; it does not read `order_sagas` or `order_reservations`. `ForceFailSaga` ignores `fail_step` and cancels any order that is not already CANCELLED or COMPLETED.
-- `CancelOrder` allows cancelling PAID and SHIPPED orders, only logs `ReleaseStock` errors, and does not release a voucher hold.
 - A failed `PaymentSettled` leaves the order PENDING; nothing cancels it automatically.
 - `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` and `ENV` are inert: only the otelgrpc stats handler is attached, and no tracer provider or exporter is configured in this repo.
-- `CreateShipment` does not check order status.
 - `FEATURES.yaml` references `order.v1.ListOrders`, which does not exist (the RPCs are `ListBuyerOrders` and `ListSellerOrders`).
+
+## Runbook: commit re-sync (after deploying port-order-inventory-correctness)
+
+Orders placed before team-order started calling `CommitReservation` have `active` reservations in team-domain, which its TTL sweep would restore. Right after deploying team-domain and then team-order, run once (same env as the server):
+
+```bash
+go run ./cmd/resync-commits -dry-run   # counts local COMMITTED reservations
+go run ./cmd/resync-commits            # commits them in team-domain
+```
+
+It reads `order_reservations` (no local write) and calls `CommitReservation` per row as `service-team-order`; it is idempotent, so re-running changes nothing. Exit 0 = all committed; 2 = some rows need attention: `FAILED_PRECONDITION` (already swept in team-domain: that order's stock was given back before the upgrade) and `NOT_FOUND` are logged and skipped; other errors are safe to retry. Exit 1 = fatal (including team-domain answering `UNIMPLEMENTED`: deploy it first).
 
 ## Links
 

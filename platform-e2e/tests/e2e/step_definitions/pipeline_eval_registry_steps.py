@@ -121,7 +121,7 @@ def not_a_candidate(world: World) -> None:
     assert run.summary["metrics"].get("test_events", 0) == 0
     assert run.state["models"] == {}, run.state["models"]
     assert run.state["champion"] is None
-    assert run.state["items"]["count"] == 0 and run.state["serving_model_version"] is None
+    assert run.state["items"]["count"] == 0 and run.state["serving_model_version"] is None, run.state
 
 
 @then("the candidate status is recorded as rejected")

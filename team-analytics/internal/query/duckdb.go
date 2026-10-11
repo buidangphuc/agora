@@ -24,21 +24,25 @@ func NewDuckDBRepository(db *sql.DB) *DuckDBRepository {
 }
 
 // SellerFunnel aggregates impressions, views, adds from tracking_events and
-// distinct orders from order_facts (ADR-0013).
+// distinct orders from order_facts (ADR-0013). Tracking events carry no seller
+// id, so they are attributed through listing_sellers (listing_id -> seller_id);
+// events on a listing with no known seller are excluded from every seller funnel.
 func (r *DuckDBRepository) SellerFunnel(ctx context.Context, sellerID string, from, to time.Time) (Funnel, error) {
 	trackingQ := fmt.Sprintf(`
 SELECT
-  COUNT(*) FILTER (WHERE event_type = 'impression') AS impressions,
-  COUNT(*) FILTER (WHERE event_type = 'view')       AS views,
-  COUNT(*) FILTER (WHERE event_type = 'add_to_cart') AS adds,
-  COUNT(*) FILTER (WHERE event_type = 'begin_checkout') AS begin_checkouts,
-  COUNT(*) FILTER (WHERE event_type = 'purchase') AS purchases
-FROM %s
-WHERE occurred_at >= ? AND occurred_at <= ?`,
-		warehouse.TableName)
+  COUNT(*) FILTER (WHERE t.event_type = 'impression') AS impressions,
+  COUNT(*) FILTER (WHERE t.event_type = 'view')       AS views,
+  COUNT(*) FILTER (WHERE t.event_type = 'add_to_cart') AS adds,
+  COUNT(*) FILTER (WHERE t.event_type = 'begin_checkout') AS begin_checkouts,
+  COUNT(*) FILTER (WHERE t.event_type = 'purchase') AS purchases
+FROM %s t
+JOIN %s ls ON ls.listing_id = t.listing_id
+WHERE ls.seller_id = ?
+  AND t.occurred_at >= ? AND t.occurred_at <= ?`,
+		warehouse.TableName, warehouse.ListingSellersTableName)
 
 	var f Funnel
-	row := r.db.QueryRowContext(ctx, trackingQ, from.UTC(), to.UTC())
+	row := r.db.QueryRowContext(ctx, trackingQ, sellerID, from.UTC(), to.UTC())
 	if err := row.Scan(&f.Impressions, &f.Views, &f.Adds, &f.BeginCheckouts, &f.Purchases); err != nil {
 		return Funnel{}, fmt.Errorf("seller funnel tracking query: %w", err)
 	}
@@ -238,3 +242,190 @@ LIMIT ?`, warehouse.OrderFactsTableName)
 
 // compile-time assertion that the adapter satisfies the seam.
 var _ Repository = (*DuckDBRepository)(nil)
+
+// listingScopedTypes are the event types that must carry a listing_id.
+var listingScopedTypes = map[string]bool{"view": true, "click": true, "add_to_cart": true, "impression": true}
+
+// TrackingQuality measures the tracking stream over [since, until] on occurred_at
+// from tracking_events_resolved, plus the ingest counters of the overlapping hours.
+func (r *DuckDBRepository) TrackingQuality(ctx context.Context, since, until time.Time) (TrackingQualityData, error) {
+	var out TrackingQualityData
+	since, until = since.UTC(), until.UTC()
+
+	typeQ := fmt.Sprintf(`
+SELECT event_type,
+  COUNT(*)                          AS events,
+  COUNT(DISTINCT user_key)          AS visitors,
+  AVG(CASE WHEN COALESCE(listing_id, '') = '' THEN 1.0 ELSE 0.0 END) AS missing_ratio
+FROM %s
+WHERE occurred_at >= ? AND occurred_at <= ?
+GROUP BY event_type
+ORDER BY event_type`, warehouse.ResolvedViewName)
+	rows, err := r.db.QueryContext(ctx, typeQ, since, until)
+	if err != nil {
+		return out, fmt.Errorf("tracking quality per-type query: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t TypeQuality
+		if err := rows.Scan(&t.EventType, &t.Events, &t.Visitors, &t.MissingListingRatio); err != nil {
+			return out, fmt.Errorf("scan tracking type quality: %w", err)
+		}
+		t.ListingScoped = listingScopedTypes[t.EventType]
+		if !t.ListingScoped {
+			t.MissingListingRatio = 0
+		}
+		out.Types = append(out.Types, t)
+	}
+	if err := rows.Err(); err != nil {
+		return out, fmt.Errorf("iterate tracking type quality: %w", err)
+	}
+
+	// Rows without ingested_at (written before tracking-ingest-integrity) are
+	// excluded from the lag statistics and the freshness.
+	lagQ := fmt.Sprintf(`
+SELECT
+  quantile_cont(epoch(ingested_at) - epoch(occurred_at), 0.5),
+  quantile_cont(epoch(ingested_at) - epoch(occurred_at), 0.95),
+  max(ingested_at)
+FROM %s
+WHERE occurred_at >= ? AND occurred_at <= ? AND ingested_at IS NOT NULL`, warehouse.TableName)
+	var p50, p95 sql.NullFloat64
+	var last sql.NullTime
+	if err := r.db.QueryRowContext(ctx, lagQ, since, until).Scan(&p50, &p95, &last); err != nil {
+		return out, fmt.Errorf("tracking quality lag query: %w", err)
+	}
+	if p50.Valid && p95.Valid {
+		out.HasLag, out.LagP50Seconds, out.LagP95Seconds = true, p50.Float64, p95.Float64
+	}
+	if last.Valid {
+		out.LastIngestedAt = last.Time.UTC()
+	}
+
+	counterQ := fmt.Sprintf(`
+SELECT COALESCE(SUM(decode_failures), 0), COALESCE(SUM(duplicates_skipped), 0)
+FROM %s
+WHERE hour >= ? AND hour <= ?`, warehouse.CountersTableName)
+	if err := r.db.QueryRowContext(ctx, counterQ, since.Truncate(time.Hour), until).
+		Scan(&out.DecodeFailures, &out.Duplicates); err != nil {
+		return out, fmt.Errorf("tracking quality counters query: %w", err)
+	}
+	return out, nil
+}
+
+var _ QualityRepository = (*DuckDBRepository)(nil)
+
+// FallbackModelVersion is the model_version serving stamps on fallback lists.
+const FallbackModelVersion = "serving-fallback"
+
+// RecommendationPerformance attributes clicks, add-to-carts and purchases to the
+// (placement, model_version) of the impression that was served, over
+// tracking_events_resolved (recs-attribution-hardening). Purchases are PAID
+// order_facts lines, not beacons. A conversion is credited once, to the earliest
+// click by the same user_key on the same listing that precedes it by at most
+// attributionHours. MatureClicks counts clicks whose attribution window had
+// closed at until; MaturePurchases the purchases credited to them.
+func (r *DuckDBRepository) RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
+	since, until = since.UTC(), until.UTC()
+	q := fmt.Sprintf(`
+WITH ie AS (
+  SELECT event_id, impression_id, placement_id, COALESCE(model_version, '') AS model_version,
+         listing_id, occurred_at
+  FROM %[1]s
+  WHERE event_type = 'impression' AND occurred_at >= ? AND occurred_at <= ?
+    AND COALESCE(impression_id, '') <> '' AND COALESCE(placement_id, '') <> ''
+),
+-- An impression is the triple (impression_id, placement_id, model_version): a reused id
+-- under another placement or model is another impression, not collapsed by min().
+imp AS (
+  SELECT impression_id, placement_id, model_version, count(*) AS item_impressions
+  FROM ie GROUP BY impression_id, placement_id, model_version
+),
+-- A click counts only on a listing the impression showed, at or before the click, and is
+-- credited to exactly one impression: the latest qualifying impression event. A click that
+-- carries a placement or model must match it; an empty one matches any.
+clk AS (
+  SELECT e.event_id, e.user_key, e.listing_id, e.occurred_at, ie.placement_id, ie.model_version,
+         (e.occurred_at + to_hours(CAST(? AS BIGINT)) <= ?) AS mature
+  FROM %[1]s e JOIN ie
+    ON e.impression_id = ie.impression_id AND e.listing_id = ie.listing_id
+   AND ie.occurred_at <= e.occurred_at
+  WHERE e.event_type = 'click' AND e.occurred_at >= ? AND e.occurred_at <= ?
+    AND (COALESCE(e.placement_id, '') = '' OR e.placement_id = ie.placement_id)
+    AND (COALESCE(e.model_version, '') = '' OR e.model_version = ie.model_version)
+  QUALIFY row_number() OVER (PARTITION BY e.event_id
+          ORDER BY ie.occurred_at DESC, ie.placement_id, ie.model_version, ie.event_id) = 1
+),
+-- Add-to-carts stay client beacons (no server-side cart fact in the warehouse).
+atc AS (
+  SELECT k.placement_id, k.model_version
+  FROM %[1]s c JOIN clk k
+    ON c.user_key = k.user_key AND c.listing_id = k.listing_id
+   AND c.occurred_at BETWEEN k.occurred_at AND k.occurred_at + to_hours(CAST(? AS BIGINT))
+  WHERE c.event_type = 'add_to_cart' AND c.occurred_at <= ?
+    AND COALESCE(c.listing_id, '') <> ''
+    -- An event with no user and no anonymous id resolves to the shared key 'anon:';
+    -- joining on it would credit one visitor's cart to another visitor's click.
+    AND c.user_key <> 'anon:'
+  QUALIFY row_number() OVER (PARTITION BY c.event_id ORDER BY k.occurred_at, k.event_id) = 1
+),
+-- Purchases are server truth: PAID order lines whose buyer is the click's user. A purchase
+-- beacon is ignored (forgeable); a line with no buyer is never attributed.
+pur AS (
+  SELECT k.placement_id, k.model_version, k.mature
+  FROM %[2]s o JOIN clk k
+    ON o.buyer_id = k.user_key AND o.listing_id = k.listing_id
+   AND o.occurred_at BETWEEN k.occurred_at AND k.occurred_at + to_hours(CAST(? AS BIGINT))
+  WHERE o.status = 'PAID' AND COALESCE(o.buyer_id, '') <> '' AND o.occurred_at <= ?
+  QUALIFY row_number() OVER (PARTITION BY o.event_id ORDER BY k.occurred_at, k.event_id) = 1
+),
+i AS (
+  SELECT placement_id, model_version, count(*) AS impressions, sum(item_impressions) AS item_impressions
+  FROM imp GROUP BY placement_id, model_version
+),
+k AS (
+  SELECT placement_id, model_version, count(*) AS clicks,
+         count(*) FILTER (WHERE mature) AS mature_clicks
+  FROM clk GROUP BY placement_id, model_version
+),
+v AS (
+  SELECT placement_id, model_version, count(*) AS add_to_carts FROM atc GROUP BY placement_id, model_version
+),
+p AS (
+  SELECT placement_id, model_version, count(*) AS purchases,
+         count(*) FILTER (WHERE mature) AS mature_purchases
+  FROM pur GROUP BY placement_id, model_version
+)
+SELECT i.placement_id, i.model_version, i.impressions, i.item_impressions,
+       COALESCE(k.clicks, 0), COALESCE(v.add_to_carts, 0), COALESCE(p.purchases, 0),
+       COALESCE(k.mature_clicks, 0), COALESCE(p.mature_purchases, 0)
+FROM i
+LEFT JOIN k USING (placement_id, model_version)
+LEFT JOIN v USING (placement_id, model_version)
+LEFT JOIN p USING (placement_id, model_version)
+ORDER BY i.placement_id, i.model_version`, warehouse.ResolvedViewName, warehouse.OrderFactsTableName)
+	rows, err := r.db.QueryContext(ctx, q,
+		since, until, // ie
+		attributionHours, until, since, until, // clk: mature flag, window
+		attributionHours, until, // atc
+		attributionHours, until) // pur
+	if err != nil {
+		return nil, fmt.Errorf("recommendation performance query: %w", err)
+	}
+	defer rows.Close()
+	var out []PerformanceRow
+	for rows.Next() {
+		var p PerformanceRow
+		if err := rows.Scan(&p.PlacementID, &p.ModelVersion, &p.Impressions, &p.ItemImpressions,
+			&p.Clicks, &p.AddToCarts, &p.Purchases, &p.MatureClicks, &p.MaturePurchases); err != nil {
+			return nil, fmt.Errorf("scan recommendation performance: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate recommendation performance: %w", err)
+	}
+	return out, nil
+}
+
+var _ PerformanceRepository = (*DuckDBRepository)(nil)

@@ -1,11 +1,10 @@
-"""Interaction-mapping logic (event→weight, principal-vs-anonymous, empty drop).
+"""Event→weight and principal-vs-anonymous helpers (nearline / two-tower; not the ALS path).
 
-Pure Python — runs on the host without PySpark. These same rules drive the Spark
-column pipeline in interactions.py.
+Pure Python — runs on the host without PySpark.
 """
 
 from recsys import weights as W
-from recsys.config import DEFAULT_EVENT_WEIGHTS
+from recsys.weights import DEFAULT_EVENT_WEIGHTS
 
 
 def test_event_weight_known_types():

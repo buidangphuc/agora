@@ -11,8 +11,7 @@ spec:
     repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
     targetRevision: main
     path: platform/search-indexer
-    directory:
-      recurse: true
+    kustomize: {}   # path holds a kustomization.yaml: images[].newTag carries the tag
   destination:
     server: https://kubernetes.default.svc
     namespace: marketplace

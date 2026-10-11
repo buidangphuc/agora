@@ -4,19 +4,28 @@ from __future__ import annotations
 
 try:
     from faker import Faker
+
     _fake = Faker("vi_VN")
 except ImportError:
     _fake = None
 
 import random
-import time
+import uuid
 
 
 def unique_username(prefix: str = "e2e") -> str:
-    """A username safe for repeated seeding (register is idempotent-ish)."""
+    """A username that is unique across runs, workers and days.
+
+    The stack keeps every account it was ever seeded with (tens of thousands), and
+    register() falls back to login on AlreadyExists, so a colliding name silently
+    reuses an old account and its data (a "fresh" seller turned up with a listing).
+    The uuid suffix makes a collision practically impossible; the faker part only
+    keeps names readable in logs.
+    """
+    suffix = uuid.uuid4().hex[:12]
     if _fake:
-        return f"{prefix}_{_fake.user_name()}_{_fake.random_number(digits=4)}".lower()
-    return f"{prefix}_user_{int(time.time()*1000) % 1000000}".lower()
+        return f"{prefix}_{_fake.user_name()}_{suffix}".lower()
+    return f"{prefix}_user_{suffix}".lower()
 
 
 def vietnamese_name() -> str:

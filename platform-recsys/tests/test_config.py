@@ -1,13 +1,12 @@
 """Config defaults, env overrides, validation, and cache-key contract."""
 
-import pytest
-
 from recsys import config
 
 
 def test_defaults_load_without_env():
     s = config.load_settings(environ={})
-    assert s.warehouse_driver == "duckdb"
+    assert s.dataset_dir == "/features/datasets/als_interactions/v1"
+    assert s.dataset_path == ""
     assert s.als_rank == 64
     assert s.top_n == 50
     # Contract literals shared with serve-recommendations-teamai.
@@ -23,10 +22,14 @@ def test_env_override():
     assert s.qdrant_url == "http://qdrant:6333"
 
 
-def test_event_weights_parsed_from_json():
-    s = config.load_settings(environ={"EVENT_WEIGHTS_JSON": '{"view": 3, "PURCHASE": 9}'})
-    assert s.event_weights["view"] == 3.0
-    assert s.event_weights["purchase"] == 9.0  # keys lowercased
+def test_dataset_settings_from_env():
+    s = config.load_settings(environ={"DATASET_DIR": "/d", "DATASET_PATH": "/d/as_of=x.parquet"})
+    assert (s.dataset_dir, s.dataset_path) == ("/d", "/d/as_of=x.parquet")
+
+
+def test_raw_event_als_settings_are_gone():
+    names = set(config.env_names())
+    assert not names & {"WAREHOUSE_PARQUET_PATH", "INTERACTION_WINDOW_DAYS", "EVENT_WEIGHTS_JSON"}
 
 
 def test_cache_key_shapes_match_consumer_contract():
@@ -35,25 +38,6 @@ def test_cache_key_shapes_match_consumer_contract():
     assert s.item_cache_key("listing-a") == "recs:v1:item:listing-a"
     assert s.popular_cache_key == "recs:v1:popular"
     assert s.model_version_cache_key == "recs:v1:model_version"
-
-
-def test_bigquery_requires_coordinates():
-    with pytest.raises(ValueError):
-        config.load_settings(environ={"WAREHOUSE_DRIVER": "bigquery", "BIGQUERY_PROJECT": ""})
-    s = config.load_settings(
-        environ={
-            "WAREHOUSE_DRIVER": "bigquery",
-            "BIGQUERY_PROJECT": "p",
-            "BIGQUERY_DATASET": "analytics",
-            "BIGQUERY_TABLE": "tracking_events",
-        }
-    )
-    assert s.warehouse_driver == "bigquery"
-
-
-def test_invalid_driver_rejected():
-    with pytest.raises(ValueError):
-        config.load_settings(environ={"WAREHOUSE_DRIVER": "postgres"})
 
 
 def test_promotion_force_is_off_by_default_and_parsed():

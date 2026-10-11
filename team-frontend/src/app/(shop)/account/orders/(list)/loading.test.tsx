@@ -7,6 +7,10 @@ import { setupUser } from "@/test/user";
 import OrdersError from "../error";
 import OrdersLoading from "./loading";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 describe("orders list route states", () => {
   it("loading renders a busy skeleton of the tab bar and three cards", () => {
     const { container } = render(<OrdersLoading />);

@@ -21,14 +21,14 @@ func setupLedgerHandler() (*handler.PaymentHandler, *repository.InMemoryLedgerRe
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ledger := repository.NewInMemoryLedgerRepository()
 	svc := service.NewPaymentService(nil, nil, nil, logger, service.WithLedgerRepo(ledger))
-	return handler.NewPaymentHandler(svc, logger), ledger
+	return handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true)), ledger
 }
 
 func authCtx(id string) context.Context {
 	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
 		Id:     id,
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:read", "payment:write"},
+		Scopes: []string{"payment:read", "payment:write", "listing.write"},
 	})
 }
 

@@ -5,15 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "platform-featurestore"
 version = "0.1.0"
-description = "Online/Offline Feature Store for recommendations and ML ranking."
+description = "Batch feature materialisation (DuckDB over warehouse Parquet) to offline snapshots and Redis."
 requires-python = ">=3.10"
 dependencies = [
-    "pydantic>=2.6.0",
+    "duckdb>=1.0.0",
+    "pyarrow>=15.0.0",
+    "pyyaml>=6.0",
     "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "fakeredis>=2.20.0",
     "pytest>=8.0.0",
     "ruff>=0.4.0",
 ]
@@ -27,3 +30,8 @@ target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint.per-file-ignores]
+# fixtures build naive UTC timestamps on purpose (the warehouse Parquet columns are naive TIMESTAMP)
+"tests/*" = ["DTZ001"]

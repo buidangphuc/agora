@@ -10,13 +10,17 @@ import { type ViewListing, getListing } from "@/lib/gateway/listings";
  * search/recommendations use.
  *
  * Renders nothing when there is no history (anonymous user or service
- * unavailable), so the home page degrades gracefully.
+ * unavailable). A failed id lookup (e.g. team-domain down) is treated like a
+ * missing listing, never thrown: the block degrades locally and the rest of
+ * the home page still renders.
  */
 export async function RecentlyViewedRow({ limit = 12 }: { limit?: number }) {
   const ids = await getRecentlyViewed(limit).catch(() => []);
   if (ids.length === 0) return null;
 
-  const resolved = await Promise.all(ids.map((id) => getListing(id)));
+  const resolved = await Promise.all(
+    ids.map((id) => getListing(id).catch(() => null)),
+  );
   const items = resolved.filter((l): l is ViewListing => l !== null);
   if (items.length === 0) return null;
 

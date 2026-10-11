@@ -41,6 +41,14 @@ func run() error {
 		return fmt.Errorf("load settings: %w", err)
 	}
 	logger := newLogger(settings)
+	// fail fast on an unusable or development signing key, before connecting to anything
+	signer, err := token.NewSigner(settings.JWT.PrivateKey, settings.JWT.KID)
+	if err != nil {
+		return fmt.Errorf("build token signer: %w", err)
+	}
+	if err := settings.RequireNonDevSigningKey(signer.KID(), signer.PublicKey()); err != nil {
+		return err
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -73,10 +81,6 @@ func run() error {
 	addrRepo := repository.NewPostgresAddressRepository(res.Pool)
 	sessionRepo := repository.NewPostgresSessionRepository(res.Pool)
 
-	signer, err := token.NewSigner(settings.JWT.PrivateKey, settings.JWT.KID)
-	if err != nil {
-		return fmt.Errorf("build token signer: %w", err)
-	}
 	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second).WithSessions(sessionRepo)
 
 	// Seed the first admin only when explicitly enabled; the password comes from

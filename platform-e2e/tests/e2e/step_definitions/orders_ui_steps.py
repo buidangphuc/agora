@@ -77,8 +77,14 @@ def buyer_has_n_orders(world: World, count: str) -> None:
 @given("the buyer has an order whose payment failed")
 def buyer_has_failed_payment_order(world: World) -> None:
     order_id = _place_order(world)
-    world.service_factory.set_token(_buyer(world).token)
-    world.service_factory.order.force_fail_saga(order_id)
+    sf = world.service_factory
+    # ForceFailSaga is admin-only; act as the seeded admin, then back as the buyer.
+    admin = get_test_data_manager().get_user_by_role("admin")
+    sf.set_token(sf.auth.login(admin.username, admin.password))
+    try:
+        sf.order.force_fail_saga(order_id)
+    finally:
+        sf.set_token(_buyer(world).token)
 
 
 @given("the buyer has a delivered order")

@@ -41,6 +41,7 @@ spec:
             GRPC_PORT: "50061"
             KAFKA_ENABLED: "true"
             PROMOTION_EVENTS_TOPIC: "promotion.events"
+            UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
           secrets:
             enabled: true
   syncPolicy:

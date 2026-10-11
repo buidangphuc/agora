@@ -16,7 +16,6 @@ vi.mock("./actions", () => ({
   cancelOrderAction: vi.fn(),
   reorderAction: vi.fn(),
   createReturnRequestAction: vi.fn(),
-  mockRefundAction: vi.fn(),
 }));
 
 const push = vi.fn();

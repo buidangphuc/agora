@@ -25,6 +25,26 @@ func TestConfigLoadSettings(t *testing.T) {
 	}
 }
 
+func TestAdCapsAndTimeoutDefaultsAndValidation(t *testing.T) {
+	t.Setenv("DATABASE_ENABLED", "false")
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Ads.MaxBid != 1_000_000 || cfg.Ads.MaxBudget != 1_000_000_000 || cfg.Upstream.CallTimeoutSeconds != 2 {
+		t.Errorf("defaults = %d/%d/%v", cfg.Ads.MaxBid, cfg.Ads.MaxBudget, cfg.Upstream.CallTimeoutSeconds)
+	}
+	for _, k := range []string{"MAX_AD_BID", "MAX_AD_BUDGET", "UPSTREAM_CALL_TIMEOUT_SECONDS"} {
+		for _, v := range []string{"0", "-5", "abc"} {
+			t.Setenv(k, v)
+			if _, err := config.LoadSettings(); err == nil {
+				t.Errorf("%s=%s accepted, want error", k, v)
+			}
+		}
+		t.Setenv(k, "5")
+	}
+}
+
 // TestDeclaredEnvKeysNoDrift guards against config/.env.example drift: every key
 // declared in Settings must be documented in .env.example (and vice-versa).
 func TestDeclaredEnvKeysNoDrift(t *testing.T) {

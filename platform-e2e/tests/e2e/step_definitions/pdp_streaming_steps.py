@@ -95,7 +95,7 @@ def skeleton_gone_cards_shown(world: World) -> None:
     expect(world.page.locator("section[aria-busy='true']")).to_have_count(0)
 
 
-@then("a pdp_similar_items impression beacon was sent for position 1")
+@then("a similar_items impression beacon was sent for position 1")
 def similar_items_impression_sent(world: World) -> None:
     # Impressions are viewability-gated and the row sits below the fold, so bring
     # the first card into view (as the home-row journey step does).
@@ -105,13 +105,13 @@ def similar_items_impression_sent(world: World) -> None:
     while time.monotonic() < deadline:
         if any(
             b.get("type") == "impression"
-            and b.get("placementId") == "pdp_similar_items"
+            and b.get("placementId") == "similar_items"
             and b.get("position") == 1
             for b in beacons
         ):
             return
         world.page.wait_for_timeout(500)
-    raise AssertionError(f"no pdp_similar_items impression for position 1 in {beacons}")
+    raise AssertionError(f"no similar_items impression for position 1 in {beacons}")
 
 
 @then("the product page renders without the similar-items row or its Skeleton")

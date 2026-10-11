@@ -1,7 +1,7 @@
 # backup-dr Specification
 
 ## Purpose
-TBD - created by archiving change add-postgres-backup-cronjob. Update Purpose after archive.
+Defines the scheduled logical backups of every service database, their retention, and the GitOps-provisioned bucket they are written to, so a database can be restored.
 
 ## Requirements
 

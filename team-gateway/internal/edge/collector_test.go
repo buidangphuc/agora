@@ -16,6 +16,7 @@ import (
 
 type mockAnalyticsPublisher struct {
 	events []*analyticsv1.TrackingEvent
+	ids    []string
 }
 
 func (m *mockAnalyticsPublisher) PublishTrackingEvent(
@@ -23,7 +24,9 @@ func (m *mockAnalyticsPublisher) PublishTrackingEvent(
 	ev *analyticsv1.TrackingEvent,
 	principal *commonv1.Principal,
 	requestID string,
+	eventID string,
 ) error {
+	m.ids = append(m.ids, eventID)
 	m.events = append(m.events, ev)
 	return nil
 }
@@ -65,8 +68,8 @@ func TestHandleTrackWithAttribution(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("expected 204 No Content, got %d", rec.Code)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 Accepted, got %d", rec.Code)
 	}
 
 	if len(pub.events) != 1 {
@@ -98,16 +101,16 @@ func TestHandleTrackEcommerceBatchAndGA4Aliases(t *testing.T) {
 
 	batch := []trackBeacon{
 		{
-			Type:          "view_item_list", // GA4 alias for impression
-			ListingID:     "prod-1",
-			SessionID:     "sess-1",
-			AnonymousID:   "anon-1",
-			Price:         50000,
-			Currency:      "VND",
-			ItemListID:    "search_results",
-			Position:      1,
-			EventGroupID:  "group-abc",
-			ItemCategory:  "Fashion",
+			Type:         "view_item_list", // GA4 alias for impression
+			ListingID:    "prod-1",
+			SessionID:    "sess-1",
+			AnonymousID:  "anon-1",
+			Price:        50000,
+			Currency:     "VND",
+			ItemListID:   "search_results",
+			Position:     1,
+			EventGroupID: "group-abc",
+			ItemCategory: "Fashion",
 		},
 		{
 			Type:          "purchase",
@@ -134,8 +137,8 @@ func TestHandleTrackEcommerceBatchAndGA4Aliases(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("expected 204 No Content, got %d", rec.Code)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 Accepted, got %d", rec.Code)
 	}
 
 	if len(pub.events) != 2 {

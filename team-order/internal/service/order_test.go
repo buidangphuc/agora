@@ -2,7 +2,9 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/service"
@@ -47,14 +49,30 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatus(ctx context.Context, id string, status repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	if o, ok := m.orders[id]; ok {
-		o.Status = status
-		o.TrackingNumber = trackingNumber
-		m.orders[id] = o
-		return o, nil
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+	o, ok := m.orders[id]
+	if !ok {
+		return repository.Order{}, repository.ErrOrderNotFound
 	}
-	return repository.Order{}, repository.ErrOrderNotFound
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return repository.Order{}, repository.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == repository.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
+	m.orders[id] = o
+	return o, nil
 }
 
 func TestOrderService_CalculateShippingFee(t *testing.T) {
@@ -118,8 +136,17 @@ func TestOrderService_CancelOrder(t *testing.T) {
 }
 
 func TestOrderService_ReturnRequest(t *testing.T) {
+	paidAt := time.Now()
 	orderRepo := &mockOrderServiceRepo{
 		orders: map[string]repository.Order{
+			"ord_paid_online": {
+				ID:          "ord_paid_online",
+				BuyerID:     "buyer_1",
+				SellerID:    "seller_1",
+				TotalAmount: 500000,
+				Status:      repository.OrderStatusCompleted,
+				PaidAt:      &paidAt,
+			},
 			"ord_delivered": {
 				ID:          "ord_delivered",
 				BuyerID:     "buyer_1",
@@ -187,7 +214,7 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 	})
 
 	t.Run("Update Return Status - Valid Transitions", func(t *testing.T) {
-		ret, err := s.CreateReturnRequest(ctx, "buyer_1", "ord_delivered", "Đổi trả hàng", 200000)
+		ret, err := s.CreateReturnRequest(ctx, "buyer_1", "ord_paid_online", "Đổi trả hàng", 200000)
 		if err != nil {
 			t.Fatalf("create return failed: %v", err)
 		}
@@ -322,5 +349,28 @@ func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
 	}
 	if len(outbox.EnqueuedRows()) != 1 {
 		t.Errorf("expected 1 outbox row, got %d", len(outbox.EnqueuedRows()))
+	}
+}
+
+func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
+	cartRepo := repository.NewInMemoryCartRepository()
+	orderRepo := repository.NewInMemoryOrderRepository()
+	ctx := context.Background()
+	for _, it := range []repository.CartItem{
+		{UserID: "seller_1", ListingID: "l1", Quantity: 1, UnitPrice: 1000, SellerID: "seller_2"},
+		{UserID: "seller_1", ListingID: "l2", Quantity: 1, UnitPrice: 1000, SellerID: "seller_1"},
+	} {
+		if _, err := cartRepo.AddItem(ctx, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// nil domain client: the guard must trip before any stock call.
+	s := service.NewOrderService(orderRepo, cartRepo, nil, nil, nil, nil, nil)
+	_, err := s.CreateOrdersFromCart(ctx, "seller_1", repository.Address{}, nil, 0, "")
+	if !errors.Is(err, service.ErrSelfPurchase) {
+		t.Fatalf("err = %v, want ErrSelfPurchase", err)
+	}
+	if got, _ := orderRepo.ListBuyerOrders(ctx, "seller_1", 0); len(got) != 0 {
+		t.Fatalf("no order may be created, got %d", len(got))
 	}
 }

@@ -28,7 +28,7 @@ type TrackingRecord struct {
 	PagePath    string
 	Referrer    string
 	// Position is the 1-based rank within a result set (0 when N/A).
-	Position uint32
+	Position    uint32
 	SearchQuery string
 	// OccurredAt is the envelope occurred_at (producer clock), UTC.
 	OccurredAt time.Time
@@ -43,7 +43,7 @@ type TrackingRecord struct {
 	// ImpressionID is the unique impression uuid linking downstream interactions.
 	ImpressionID string
 	// ModelVersion is the model generation identifier.
-	ModelVersion string
+	ModelVersion  string
 	Currency      string
 	Value         int64
 	Price         int64
@@ -101,6 +101,30 @@ var Schema = []Column{
 	{"event_group_id", "VARCHAR", "STRING"},
 	{"shipping_tier", "VARCHAR", "STRING"},
 	{"payment_type", "VARCHAR", "STRING"},
+	// ingested_at is the sink's own clock at write time (tracking-ingest-integrity
+	// D4); occurred_at stays the edge receive time. Null on rows written before
+	// the column existed.
+	{"ingested_at", "TIMESTAMP", "TIMESTAMP"},
+}
+
+// Stitching view names (tracking-ingest-integrity D5). The principal_type
+// literal for an authenticated visitor is "user" (consumer.principalTypeName).
+const (
+	IdentityViewName = "tracking_identity"
+	ResolvedViewName = "tracking_events_resolved"
+)
+
+// CountersTableName is the per-UTC-hour table of what the tracking sink absorbed
+// (analytics-data-quality D1): undecodable messages and skipped duplicates.
+const CountersTableName = "tracking_ingest_counters"
+
+// IngestCounterWriter is implemented by adapters that keep the ingest counters
+// (the DuckDB adapter). The consumer counts a message it cannot decode through it.
+// Duplicates are counted by the adapter itself inside Write.
+type IngestCounterWriter interface {
+	// RecordDecodeFailures adds n to the decode_failures counter of the UTC hour
+	// containing at.
+	RecordDecodeFailures(ctx context.Context, at time.Time, n int64) error
 }
 
 // ColumnNames returns the ordered column names of the canonical schema.
@@ -125,6 +149,9 @@ type OrderFactRecord struct {
 	Currency   string
 	OccurredAt time.Time
 	Status     string
+	// BuyerID is the buyer's user id from OrderPaidEvent.buyer_id; empty is stored
+	// as NULL (unattributed), as are rows ingested before the column existed.
+	BuyerID string
 }
 
 // OrderFactsTableName is the canonical table for authoritative line-item purchase facts.
@@ -142,6 +169,7 @@ var OrderFactsSchema = []Column{
 	{"currency", "VARCHAR", "STRING"},
 	{"occurred_at", "TIMESTAMP", "TIMESTAMP"},
 	{"status", "VARCHAR", "STRING"},
+	{"buyer_id", "VARCHAR", "STRING"},
 }
 
 // OrderFactsColumnNames returns the ordered column names of order_facts.
@@ -170,4 +198,67 @@ type WarehouseWriter interface {
 	WriteOrderFacts(ctx context.Context, batch []*OrderFactRecord) error
 	// Close flushes and releases the underlying handle.
 	Close() error
+}
+
+// ListingSellerRecord maps a listing to its owning seller. Tracking events carry
+// only a listing id, so the seller funnel joins through this table. It is
+// derived from team-domain's ListingChanged events (listing.events).
+type ListingSellerRecord struct {
+	ListingID string
+	SellerID  string
+	// CategoryID and Price (minor units) are the listing's attributes in the same
+	// ListingChanged snapshot; empty / zero are stored as NULL (unknown).
+	CategoryID string
+	Price      int64
+	// UpdatedAt is the envelope occurred_at of the event that produced the row.
+	UpdatedAt time.Time
+}
+
+// ListingSellersTableName is the listing -> seller mapping table (DuckDB only).
+const ListingSellersTableName = "listing_sellers"
+
+// ListingSellerWriter is implemented by adapters that keep the listing -> seller
+// mapping (the DuckDB adapter, which also serves the seller queries).
+type ListingSellerWriter interface {
+	// UpsertListingSellers idempotently inserts or refreshes the mappings in one
+	// transaction. Mappings are never deleted: a deleted listing keeps its row so
+	// historical tracking events stay attributable to the seller.
+	UpsertListingSellers(ctx context.Context, batch []*ListingSellerRecord) error
+}
+
+// Engagement fact names stored in engagement_facts.fact (engagement-fact-events D3).
+const (
+	FactFavoriteAdded    = "favorite_added"
+	FactFavoriteRemoved  = "favorite_removed"
+	FactSellerFollowed   = "seller_followed"
+	FactSellerUnfollowed = "seller_unfollowed"
+	FactReviewCreated    = "review_created"
+)
+
+// EngagementFactRecord is one row of engagement_facts: a server-truth preference
+// signal published by team-engagement. Fields that do not apply to the fact are
+// empty (Rating is 0 and stored as NULL for every fact but review_created).
+type EngagementFactRecord struct {
+	EventID    string
+	Fact       string
+	UserID     string
+	ListingID  string
+	SellerID   string
+	Rating     int32
+	OccurredAt time.Time
+}
+
+// Engagement table and view names (DuckDB only).
+const (
+	EngagementFactsTableName = "engagement_facts"
+	FavoritesCurrentViewName = "favorites_current"
+	FollowsCurrentViewName   = "follows_current"
+)
+
+// EngagementFactWriter is implemented by adapters that keep engagement_facts
+// (the DuckDB adapter).
+type EngagementFactWriter interface {
+	// WriteEngagementFacts appends the batch in one transaction, idempotently on
+	// event_id, stamping ingested_at with the sink clock.
+	WriteEngagementFacts(ctx context.Context, batch []*EngagementFactRecord) error
 }

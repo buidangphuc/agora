@@ -77,7 +77,7 @@ func (w *InMemoryTxWriter) SettleTx(ctx context.Context, id string, status Payme
 	if err != nil {
 		return PaymentTransaction{}, err
 	}
-	updated, err := w.repo.UpdateStatus(ctx, id, status, providerRef)
+	updated, err := w.repo.updateStatusFromSettleable(id, status, providerRef)
 	if err != nil {
 		return PaymentTransaction{}, err
 	}

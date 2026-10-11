@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +23,10 @@ var ErrForbidden = errors.New("not the listing owner")
 // reserved stock after this window instead of leaking it.
 const DefaultReservationTTL = 15 * time.Minute
 
+// DefaultSweepInterval is how often ReservationSweeper runs when no (or a
+// non-positive) interval is configured.
+const DefaultSweepInterval = time.Minute
+
 type ListingService struct {
 	repo repository.ListingRepository
 	// tx is the transactional writer used by the *WithEvent paths: it persists
@@ -29,6 +34,27 @@ type ListingService struct {
 	// unit tests with only an in-memory repo), the *WithEvent methods fall back
 	// to a plain repo write with no event — matching the prior no-emit behaviour.
 	tx repository.TxWriter
+	// reservationTTL is the hold time stamped on new reservations; zero means
+	// DefaultReservationTTL. Set via WithReservationTTL (RESERVATION_TTL).
+	reservationTTL time.Duration
+}
+
+// WithReservationTTL sets how long new reservations hold stock before the
+// sweeper may restore them. A non-positive ttl is ignored (the default stays).
+// Returns the service for chaining; the constructors are unchanged.
+func (s *ListingService) WithReservationTTL(ttl time.Duration) *ListingService {
+	if ttl > 0 {
+		s.reservationTTL = ttl
+	}
+	return s
+}
+
+// ReservationTTL returns the effective reservation hold time.
+func (s *ListingService) ReservationTTL() time.Duration {
+	if s.reservationTTL > 0 {
+		return s.reservationTTL
+	}
+	return DefaultReservationTTL
 }
 
 func NewListingService(repo repository.ListingRepository) *ListingService {
@@ -142,23 +168,33 @@ func (s *ListingService) DeleteWithEvent(ctx context.Context, id, ownerID string
 	return s.tx.DeleteTx(ctx, id, enqueue)
 }
 
-// ReserveStock delegates to repository.ReserveStock.
-func (s *ListingService) ReserveStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	return s.repo.ReserveStock(ctx, listingID, variantID, quantity)
-}
-
-// ReleaseStock delegates to repository.ReleaseStock.
-func (s *ListingService) ReleaseStock(ctx context.Context, listingID, variantID string, quantity int32) error {
-	return s.repo.ReleaseStock(ctx, listingID, variantID, quantity)
+// ReleaseStock releases the reservation reservationID: the quantity STORED on it
+// is restored exactly once. A repeat, a release of a reservation the sweep
+// already returned, and an unknown id are successful no-ops, each logged at WARN
+// (a zero-row release is expected on a retry but can also mask a caller bug).
+// The handler rejects an empty reservationID before this is called.
+func (s *ListingService) ReleaseStock(ctx context.Context, reservationID string) error {
+	outcome, err := s.repo.ReleaseReservation(ctx, reservationID)
+	if err != nil {
+		return err
+	}
+	switch outcome {
+	case repository.ReleaseUnknown:
+		slog.WarnContext(ctx, "release of unknown reservation_id treated as no-op", slog.String("reservation_id", reservationID))
+	case repository.ReleaseNoOp:
+		slog.WarnContext(ctx, "release of already released reservation treated as no-op", slog.String("reservation_id", reservationID))
+	}
+	return nil
 }
 
 // ReserveStockIdempotent reserves stock keyed on a stable reservationID so a
-// retried checkout decrements exactly once (AD5). The reservation is held for
-// DefaultReservationTTL, after which SweepExpiredReservations restores it. The
-// caller supplies reservationID (stable per cart-item + attempt); an empty id
-// falls back to a plain, non-idempotent reserve.
+// retried checkout decrements exactly once. The reservation is held for the
+// configured reservation TTL, after which SweepExpiredReservations restores it
+// unless it was committed. Re-reserving the id of a released reservation fails
+// with repository.ErrReservationReleased. reservationID is required
+// (repository.ErrReservationIDRequired): there is no ledger-less decrement.
 func (s *ListingService) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32) error {
-	return s.repo.ReserveStockIdempotent(ctx, reservationID, listingID, variantID, quantity, time.Now().Add(DefaultReservationTTL))
+	return s.repo.ReserveStockIdempotent(ctx, reservationID, listingID, variantID, quantity, time.Now().Add(s.ReservationTTL()))
 }
 
 // SweepExpiredReservations releases reservations past their TTL and restores the
@@ -168,3 +204,10 @@ func (s *ListingService) SweepExpiredReservations(ctx context.Context, now time.
 	return s.repo.SweepExpiredReservations(ctx, now)
 }
 
+// CommitReservation makes an active reservation permanent so the TTL sweeper
+// never restores it. Idempotent on reservationID. Errors are the repository
+// sentinels ErrReservationReleased / ErrReservationNotFound; the handler maps
+// them to FAILED_PRECONDITION / NOT_FOUND.
+func (s *ListingService) CommitReservation(ctx context.Context, reservationID string) error {
+	return s.repo.CommitReservation(ctx, reservationID)
+}

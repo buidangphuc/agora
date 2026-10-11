@@ -1,0 +1,11 @@
+# A real breaker threshold on top of llm-fake.override.yaml, for ai/llm_breaker.feature only
+# (change ai-path-resilience). The standing stack runs with LLM_BREAKER_THRESHOLD=1000 so the
+# parallel routing scenarios cannot open each other's breakers; the breaker scenarios apply
+# this file with
+#   <DC_WRAPPER> -f <this file> up -d --no-deps team-ai
+# and restore the standing configuration in teardown with
+#   <DC_WRAPPER> up -d --no-deps team-ai
+services:
+  team-ai:
+    environment:
+      LLM_BREAKER_THRESHOLD: "2"

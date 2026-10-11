@@ -21,3 +21,411 @@ features:
       - Then the feature store returns typed numerical and categorical features within 10ms
     tags: [featurestore, ml]
     status: not-testable
+
+  - id: featurestore.buyer-activity-features
+    title: "A buyer's activity becomes features"
+    persona: buyer
+    priority: P1
+    summary: "A buyer's activity becomes features."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a new buyer views a listing three times and favourites it, the export cycle completes, and the materialisation job runs
+      - Then the online features of that buyer under user_activity@v2 have 3 views in the last 7 days and 1 current favourite, and the listing's item_popularity@v1 features have at least 3 views and at least 1 current favourite
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A buyer's activity becomes features"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::A buyer's activity becomes features"
+
+  - id: featurestore.as-of-exclusion
+    title: "Events after AS_OF are not used"
+    persona: buyer
+    priority: P1
+    summary: "Events after AS_OF are not used."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When the job runs with AS_OF set to a time just before a new buyer's first event
+      - Then that buyer has no user_activity@v2 row in the offline snapshot of that run
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::Events after AS_OF are not used"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::Events after AS_OF are not used"
+
+  - id: featurestore.snapshot-and-manifest
+    title: "A run leaves a snapshot and a manifest"
+    persona: guest
+    priority: P1
+    summary: "A run leaves a snapshot and a manifest."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the materialisation job runs twice with different AS_OF values
+      - Then two snapshots exist for each view, and each manifest names its as_of, a positive row count and a 64-hex definition hash
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A run leaves a snapshot and a manifest"
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A run leaves a snapshot and a manifest"
+
+  - id: featurestore.online-freshness
+    title: "The online store says how fresh it is"
+    persona: guest
+    priority: P1
+    summary: "The online store says how fresh it is."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the materialisation job finishes
+      - Then fs:user_activity:current is \"2\" and fs:user_activity:meta carries the run's as_of and an input watermark no later than it
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::The online store says how fresh it is"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::The online store says how fresh it is"
+
+  - id: featurestore.parity-tamper
+    title: "A tampered online value fails the parity check"
+    persona: buyer
+    priority: P1
+    summary: "A tampered online value fails the parity check."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When after a run, one buyer's user_activity@v2 online view count is overwritten with a different value, and python -m featurestore parity runs
+      - Then the command exits non-zero and its output names that buyer
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A tampered online value fails the parity check"
+    notes: "green after rebuild: featurestore/feature_materialization.feature::A tampered online value fails the parity check"
+
+  - id: featurestore.dataset-weighted-row
+    title: "A buyer's views and favourite become one weighted row"
+    persona: buyer
+    priority: P1
+    summary: "A buyer's views and favourite become one weighted row."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a new buyer views a listing twice and favourites it, the export cycle completes, and the dataset is built
+      - Then the dataset has one row for that buyer and listing, with weight 5 and 3 interactions
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::A buyer's views and favourite become one weighted row"
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::A buyer's views and favourite become one weighted row"
+
+  - id: featurestore.dataset-stitched-row
+    title: "Pre-login views count toward the buyer"
+    persona: buyer
+    priority: P1
+    summary: "Pre-login views count toward the buyer."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a visitor views a listing anonymously, logs in as a new buyer and views it again with the same anonymous id, the export cycle completes, and the dataset is built
+      - Then the dataset has one row for that buyer and listing, with weight 2
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::Pre-login views count toward the buyer"
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::Pre-login views count toward the buyer"
+
+  - id: featurestore.dataset-as-of-exclusion
+    title: "Events after AS_OF are not in the dataset"
+    persona: buyer
+    priority: P1
+    summary: "Events after AS_OF are not in the dataset."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When the dataset is built with AS_OF just before a new buyer's first event
+      - Then the dataset has no row for that buyer
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::Events after AS_OF are not in the dataset"
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::Events after AS_OF are not in the dataset"
+
+  - id: featurestore.dataset-manifest
+    title: "A dataset manifest describes its file"
+    persona: guest
+    priority: P1
+    summary: "A dataset manifest describes its file."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When the dataset is built
+      - Then its manifest names the as_of, a positive row count, and a file SHA-256 equal to the SHA-256 of the dataset file
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/governed_datasets.feature::A dataset manifest describes its file"
+    notes: "featurestore-datasets: featurestore/governed_datasets.feature::A dataset manifest describes its file"
+
+  - id: featurestore.paid-order-feature
+    title: "A paid order becomes a user feature"
+    persona: buyer
+    priority: P1
+    summary: "A paid order becomes a user feature."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a new buyer pays one order, the export cycle completes, and the materialisation job runs
+      - Then the online paid_orders_30d of that buyer under user_activity@v2 is 1, and that buyer has a row although they posted no tracking event
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/order_features.feature::A paid order becomes a user feature"
+    notes: "green after rebuild: featurestore/order_features.feature::A paid order becomes a user feature"
+
+  - id: featurestore.paid-orders-window
+    title: "Only orders in the 30 days before AS_OF count"
+    persona: buyer
+    priority: P1
+    summary: "Only orders in the 30 days before AS_OF count."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a user has paid orders 31 days, 29 days and 1 day before AS_OF and one after AS_OF, and the job runs
+      - Then the user's paid_orders_30d is 2
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/order_features.feature::Only orders in the 30 days before AS_OF count"
+    notes: "green after rebuild: featurestore/order_features.feature::Only orders in the 30 days before AS_OF count"
+
+  - id: featurestore.paid-orders-multiline
+    title: "A multi-line order counts once"
+    persona: buyer
+    priority: P1
+    summary: "A multi-line order counts once."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a user has one paid order with three lines and one paid order with one line within the window, and the job runs
+      - Then the user's paid_orders_30d is 2
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/order_features.feature::A multi-line order counts once"
+    notes: "green after rebuild: featurestore/order_features.feature::A multi-line order counts once"
+
+  - id: featurestore.paid-orders-no-buyer
+    title: "An order without a buyer counts for nobody"
+    persona: buyer
+    priority: P1
+    summary: "An order without a buyer counts for nobody."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When the order facts hold a paid order line with no buyer_id, and the job runs
+      - Then no user_activity@v2 row has a paid_orders_30d that includes that order
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/order_features.feature::An order without a buyer counts for nobody"
+    notes: "green after rebuild: featurestore/order_features.feature::An order without a buyer counts for nobody"
+
+  - id: featurestore.paid-orders-parity
+    title: "A tampered order count fails the parity check"
+    persona: buyer
+    priority: P1
+    summary: "A tampered order count fails the parity check."
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When after a run, one buyer's user_activity@v2 online paid_orders_30d is overwritten with a different value, and python -m featurestore parity runs
+      - Then the command exits non-zero and its output names that buyer and paid_orders_30d
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/order_features.feature::A tampered order count fails the parity check"
+    notes: "green after rebuild: featurestore/order_features.feature::A tampered order count fails the parity check"
+
+  - id: featurestore.fia-item-features
+    title: "A listing's attributes become item features"
+    persona: seller
+    priority: P1
+    summary: "A listing's attributes become item features"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller creates a listing with a category and a price, the export cycle completes, and the materialisation job runs"
+      - "Then the online features of that listing under item_attributes@v1 carry that category and price and the seller"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing's attributes become item features"
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-preferred-categories
+    title: "A buyer's preferred categories follow their interactions"
+    persona: buyer
+    priority: P1
+    summary: "A buyer's preferred categories follow their interactions"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer views a listing of category A three times and a listing of category B once, the export cycle completes, and the materialisation job runs"
+      - "Then the online preferred_categories of that buyer under user_preferences@v1 is \"A,B\""
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A buyer's preferred categories follow their interactions"
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-as-of
+    title: "A listing changed after AS_OF is not in the snapshot"
+    persona: guest
+    priority: P1
+    summary: "A listing changed after AS_OF is not in the snapshot"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the listing export holds one listing last changed before AS_OF and one changed after it, and the job runs"
+      - "Then the item_attributes@v1 snapshot has a row for the first and none for the second"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing changed after AS_OF is not in the snapshot"
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-parity
+    title: "A tampered attribute fails the parity check"
+    persona: guest
+    priority: P1
+    summary: "A tampered attribute fails the parity check"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When after a run, one listing's item_attributes@v1 online category is overwritten with a different value, and python -m featurestore parity runs"
+      - "Then the command exits non-zero and its output names that listing and category_id"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A tampered attribute fails the parity check"
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-no-listing-export
+    title: "Without a listing export the attribute views are empty"
+    persona: guest
+    priority: P1
+    summary: "Without a listing export the attribute views are empty"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs over inputs without listing_sellers.parquet"
+      - "Then it exits 0 with a warning naming the file, and the item_attributes@v1 and user_preferences@v1 snapshots have no rows"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::Without a listing export the attribute views are empty"
+    notes: "needs rebuild"
+
+  - id: featurestore.fia-old-exporter
+    title: "A listing export without the new columns stops the run"
+    persona: guest
+    priority: P1
+    summary: "A listing export without the new columns stops the run"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs over a listing_sellers.parquet that has no category_id column"
+      - "Then it exits 2 and its output names category_id"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing export without the new columns stops the run"
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-positive-row
+    title: "A clicked impression becomes a positive training row"
+    persona: buyer
+    priority: P1
+    summary: "A clicked impression becomes a positive training row"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer is shown listings in one recommendation row and clicks one of them with the same impressionId, the export cycle completes, and the dataset job runs"
+      - "Then rank_training@v1 has a row for that buyer, impression and listing with label 1"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::A clicked impression becomes a positive training row"
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-add-to-cart-row
+    title: "An add-to-cart is a stronger positive than a click"
+    persona: buyer
+    priority: P1
+    summary: "An add-to-cart is a stronger positive than a click"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When the buyer adds another listing of that row to the cart with the same impressionId, the export cycle completes, and the dataset job runs"
+      - "Then rank_training@v1 has a row for that listing with label 2"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::An add-to-cart is a stronger positive than a click"
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-negative-row
+    title: "An impression without a click is a negative row"
+    persona: buyer
+    priority: P1
+    summary: "An impression without a click is a negative row"
+    entry_route: "/"
+    services: [platform-featurestore, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a third listing of that row is never clicked"
+      - "Then rank_training@v1 has a row for it with label 0 and the row's position"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::An impression without a click is a negative row"
+    notes: "needs rebuild"
+
+  - id: featurestore.rgt-as-of
+    title: "Impressions after AS_OF are not in the ranking dataset"
+    persona: guest
+    priority: P1
+    summary: "Impressions after AS_OF are not in the ranking dataset"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the events hold one impression before AS_OF and one after it, and the dataset job runs with that AS_OF"
+      - "Then rank_training@v1 has a row for the first and none for the second"
+    tags: [recsys, batch, integration]
+    status: automated
+    covered_by: "featurestore/ranking_dataset.feature::Impressions after AS_OF are not in the ranking dataset"
+    notes: "needs rebuild"

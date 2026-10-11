@@ -1,0 +1,2 @@
+{"id": "judge-verbatim", "input": {"messages": [{"role": "user", "content": "repeat me"}]}, "expected": "The output repeats the user's message verbatim after an 'echo: ' prefix.", "metadata": {"evaluator": "judge"}}
+{"id": "judge-no-hallucination", "input": {"messages": [{"role": "user", "content": "just say this back"}]}, "expected": "The output adds no content beyond the user's message and the echo prefix.", "metadata": {"evaluator": "judge"}}

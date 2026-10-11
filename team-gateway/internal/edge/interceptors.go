@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -96,8 +97,30 @@ func (r *rateLimiter) size() int {
 	return len(r.limiters)
 }
 
+// edgeInterceptor adapts one edge step to all three Connect shapes: unary
+// handlers, streaming handlers, and (pass-through) streaming clients. The same
+// steps therefore run for unary calls and streams (Connect skips unary-only
+// interceptors for streaming handlers).
+type edgeInterceptor struct {
+	unary  func(connect.UnaryFunc) connect.UnaryFunc
+	stream func(connect.StreamingHandlerFunc) connect.StreamingHandlerFunc
+}
+
+func (i edgeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return i.unary(next)
+}
+
+func (i edgeInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (i edgeInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return i.stream(next)
+}
+
 // Interceptors returns the ordered edge interceptor chain (outermost first):
-// request-id -> auth (resolve Principal) -> logging -> rate limit.
+// request-id -> auth (resolve Principal) -> logging -> rate limit. Every step
+// covers unary calls and server/bidi streams.
 func (e *Edge) Interceptors(logger *slog.Logger) []connect.Interceptor {
 	return []connect.Interceptor{
 		e.requestIDInterceptor(),
@@ -107,81 +130,157 @@ func (e *Edge) Interceptors(logger *slog.Logger) []connect.Interceptor {
 	}
 }
 
-func (e *Edge) requestIDInterceptor() connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			rid := strings.TrimSpace(req.Header().Get("X-Request-Id"))
-			if rid == "" {
-				rid = newRequestID()
+func (e *Edge) requestIDInterceptor() connect.Interceptor {
+	return edgeInterceptor{
+		unary: func(next connect.UnaryFunc) connect.UnaryFunc {
+			return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+				rid := sanitizeRequestID(strings.TrimSpace(req.Header().Get("X-Request-Id")))
+				ctx = withRequestID(ctx, rid)
+				res, err := next(ctx, req)
+				// On error, res is a typed-nil AnyResponse — calling Header() would
+				// panic. Only stamp the header on a successful response.
+				if err == nil && res != nil {
+					res.Header().Set("X-Request-Id", rid)
+				}
+				return res, err
 			}
-			ctx = withRequestID(ctx, rid)
-			res, err := next(ctx, req)
-			// On error, res is a typed-nil AnyResponse — calling Header() would
-			// panic. Only stamp the header on a successful response.
-			if err == nil && res != nil {
-				res.Header().Set("X-Request-Id", rid)
+		},
+		stream: func(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+			return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+				rid := sanitizeRequestID(strings.TrimSpace(conn.RequestHeader().Get("X-Request-Id")))
+				// Before the first message, so the header is sent with the stream.
+				conn.ResponseHeader().Set("X-Request-Id", rid)
+				return next(withRequestID(ctx, rid), conn)
 			}
-			return res, err
-		}
+		},
 	}
 }
 
-func (e *Edge) authInterceptor() connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			p, err := e.resolve(req.Header())
-			if err != nil {
-				// RFC 6750 §3.1: a presented-but-invalid token is a 401 on every
-				// route, public ones included — never a silent anonymous downgrade.
-				cerr := connect.NewError(connect.CodeUnauthenticated, err)
-				cerr.Meta().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
-				return nil, cerr
+// admit resolves the principal for a call and applies the edge procedure
+// policy. A presented-but-invalid token is a 401 (RFC 6750 §3.1), never a
+// silent anonymous downgrade.
+func (e *Edge) admit(ctx context.Context, procedure, peer string, header http.Header) (context.Context, error) {
+	p, err := e.resolve(header)
+	if err != nil {
+		cerr := connect.NewError(connect.CodeUnauthenticated, err)
+		cerr.Meta().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+		return ctx, cerr
+	}
+	// Edge procedure policy (adminProcedures): gate before forwarding.
+	if err := requireProcedureScope(procedure, p); err != nil {
+		return ctx, err
+	}
+	ctx = withPrincipal(ctx, p)
+	ctx = withClient(ctx, e.clientInfoFor(peer, header))
+	return ctx, nil
+}
+
+func (e *Edge) authInterceptor() connect.Interceptor {
+	return edgeInterceptor{
+		unary: func(next connect.UnaryFunc) connect.UnaryFunc {
+			return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+				ctx, err := e.admit(ctx, req.Spec().Procedure, req.Peer().Addr, req.Header())
+				if err != nil {
+					return nil, err
+				}
+				return next(ctx, req)
 			}
-			ctx = withPrincipal(ctx, p)
-			ctx = withClient(ctx, e.clientInfoFor(req.Peer().Addr, req.Header()))
-			return next(ctx, req)
-		}
+		},
+		stream: func(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+			return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+				ctx, err := e.admit(ctx, conn.Spec().Procedure, conn.Peer().Addr, conn.RequestHeader())
+				if err != nil {
+					return err
+				}
+				// The token was valid at open; end the stream when it expires or
+				// its session is revoked (the upstream call is cancelled with it).
+				p, _ := principalFrom(ctx)
+				ctx, life := e.watchStream(ctx, p)
+				defer life.stop()
+				err = next(ctx, conn)
+				// Also when the handler ended cleanly: an upstream may turn the cancellation
+				// into EOF, and the client must not read a cut stream as a completed one.
+				if life.ended() {
+					return endedError()
+				}
+				return err
+			}
+		},
 	}
 }
 
-func (e *Edge) loggingInterceptor(logger *slog.Logger) connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			start := time.Now()
-			res, err := next(ctx, req)
-			code := "ok"
-			if err != nil {
-				code = connect.CodeOf(err).String()
+func (e *Edge) logRequest(logger *slog.Logger, ctx context.Context, procedure string, start time.Time, err error, attempts *attemptCounter) {
+	code := "ok"
+	if err != nil {
+		code = connect.CodeOf(err).String()
+		logUpstreamError(logger, procedure, requestIDFrom(ctx), err)
+	}
+	principalID := "anonymous"
+	if p, ok := principalFrom(ctx); ok {
+		principalID = p.id
+	}
+	logger.Info("edge.request",
+		slog.String("method", procedure),
+		slog.String("principal", principalID),
+		slog.String("code", code),
+		slog.Int64("latency_ms", time.Since(start).Milliseconds()),
+		slog.String("request_id", requestIDFrom(ctx)),
+		slog.Int("attempts", attempts.value()),
+	)
+}
+
+func (e *Edge) loggingInterceptor(logger *slog.Logger) connect.Interceptor {
+	return edgeInterceptor{
+		unary: func(next connect.UnaryFunc) connect.UnaryFunc {
+			return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+				start := time.Now()
+				attempts := &attemptCounter{}
+				res, err := next(withAttempts(ctx, attempts), req)
+				e.logRequest(logger, ctx, req.Spec().Procedure, start, err, attempts)
+				return res, err
 			}
-			principalID := "anonymous"
-			if p, ok := principalFrom(ctx); ok {
-				principalID = p.id
+		},
+		stream: func(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+			return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+				start := time.Now()
+				attempts := &attemptCounter{}
+				err := next(withAttempts(ctx, attempts), conn)
+				e.logRequest(logger, ctx, conn.Spec().Procedure, start, err, attempts)
+				return err
 			}
-			logger.Info("edge.request",
-				slog.String("method", req.Spec().Procedure),
-				slog.String("principal", principalID),
-				slog.String("code", code),
-				slog.Int64("latency_ms", time.Since(start).Milliseconds()),
-				slog.String("request_id", requestIDFrom(ctx)),
-			)
-			return res, err
-		}
+		},
 	}
 }
 
-func (e *Edge) rateLimitInterceptor() connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			// Key by identity; anonymous callers share a bucket per client IP
-			// (strip the ephemeral port so a caller can't dodge the limit).
-			key := "ip:" + clientIP(req.Peer().Addr)
-			if p, ok := principalFrom(ctx); ok && p.id != "anonymous" {
-				key = "user:" + p.id
+// limitKey keys a bucket by identity; anonymous callers share a bucket per
+// client IP (the ephemeral port is stripped so a caller can't dodge the limit).
+func limitKey(ctx context.Context, peer string) string {
+	if p, ok := principalFrom(ctx); ok && p.id != "anonymous" {
+		return "user:" + p.id
+	}
+	return "ip:" + clientIP(peer)
+}
+
+var errRateLimited = errors.New("rate limit exceeded")
+
+func (e *Edge) rateLimitInterceptor() connect.Interceptor {
+	return edgeInterceptor{
+		unary: func(next connect.UnaryFunc) connect.UnaryFunc {
+			return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+				if !e.limiter.allow(limitKey(ctx, req.Peer().Addr)) {
+					return nil, connect.NewError(connect.CodeResourceExhausted, errRateLimited)
+				}
+				return next(ctx, req)
 			}
-			if !e.limiter.allow(key) {
-				return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("rate limit exceeded"))
+		},
+		stream: func(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+			return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+				// One stream costs one token, the same as a unary call.
+				if !e.limiter.allow(limitKey(ctx, conn.Peer().Addr)) {
+					return connect.NewError(connect.CodeResourceExhausted, errRateLimited)
+				}
+				return next(ctx, conn)
 			}
-			return next(ctx, req)
-		}
+		},
 	}
 }

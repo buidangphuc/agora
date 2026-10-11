@@ -51,6 +51,10 @@ class RecommendedItem:
     listing_id: str
     score: float
     rank: int
+    # Where the GBDT ranker's ``ctr_7d`` feature came from for this item:
+    # "nearline" (position-debiased CTR) | "fallback" (the item's prior value).
+    # Empty when the item was not scored by the GBDT ranker. Not on the wire.
+    ctr_source: str = ""
 
 
 @dataclass(frozen=True)
@@ -66,3 +70,6 @@ class RecommendResult:
     status: str = "real"
     # Explainability payload if requested
     explain: dict[str, Any] = field(default_factory=dict)
+    # True when the ladder found nothing or a dependency failed and the result is
+    # the popular-list floor (model_version is then "serving-fallback").
+    fallback: bool = False

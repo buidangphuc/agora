@@ -57,7 +57,11 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
    frontend holds no business logic — UI shaping only.
 2. **Gateway routes + orchestrates; holds no business logic.** It knows *who to
    call* and *deadlines*, not *what the answer is*. It verifies auth **once** and
-   forwards a resolved principal downstream.
+   forwards a resolved principal downstream. Allowed edge policy is coarse and
+   per-procedure only: not routing internal RPCs (501), a required scope such as
+   `admin` (`team-gateway/internal/edge/policy.go`), header validation and error
+   sanitising. Ownership and resource-level checks stay in the owning service,
+   which remains authoritative even where the edge also gates.
 3. **Each service owns its DB.** No service holds another's DB connection string.
    Need another service's data? Call its gRPC — never join across DBs.
 4. **Contract is source of truth.** A message/RPC is defined only in
@@ -201,7 +205,7 @@ so many changes/agents run in parallel (each change is an isolated
 
 - Propose: `/opsx:propose "<idea>"` (or author `openspec/changes/<id>/{proposal,tasks}.md` + `specs/<capability>/spec.md`); `openspec validate <id> --strict`.
 - Build in parallel with the **`spec-dispatch`** skill: code track (per repo, obey rules §3) ∥ e2e track (**`spec-to-e2e`** skill → updates the owning repo's `FEATURES.yaml` + a `.feature` in `platform-e2e`).
-- Every user-facing `#### Scenario:` must become an automated e2e (shift-left). Gate before archive: `make -C platform-e2e spec-check CHANGE=<id>` (manifests valid + every change scenario has a green test) + `pytest` green + lint.
+- Every user-facing `#### Scenario:` must become an automated e2e (shift-left). Gate before archive: `make -C platform-e2e spec-check CHANGE=<id>` (manifests valid + every change scenario has a green test, except one that cannot be produced end to end: it names its unit test in a `**VERIFIED BY**:` line and its FEATURES entry is `not-testable`) + `pytest` green + lint.
 - Archive: `openspec archive <id>` folds the delta into `openspec/specs/`.
 - Conventions for OpenSpec live in `openspec/config.yaml`; e2e conventions in `platform-e2e/AGENTS.md` + `docs/FEATURE_MANIFEST.md`.
 

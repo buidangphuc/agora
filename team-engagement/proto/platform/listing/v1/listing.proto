@@ -5,6 +5,7 @@ syntax = "proto3";
 // it emits when a listing changes.
 package platform.listing.v1;
 
+import "google/protobuf/timestamp.proto";
 import "platform/common/v1/common.proto";
 
 // Owned by team-domain. DB-per-service: only this service touches listing_db.
@@ -31,6 +32,107 @@ service ListingService {
   rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
   // ReleaseStock releases previously reserved inventory when an order is cancelled.
   rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+
+  // ── Seller Storefront ──
+  // UpsertStorefront creates or replaces the calling seller's storefront page.
+  rpc UpsertStorefront(UpsertStorefrontRequest) returns (UpsertStorefrontResponse);
+  // GetStorefront fetches a storefront by seller_id or slug.
+  rpc GetStorefront(GetStorefrontRequest) returns (GetStorefrontResponse);
+  // BatchGetStorefronts resolves shop display names for up to 100 seller ids in one call.
+  // Unknown sellers are omitted from the response; duplicates are ignored.
+  rpc BatchGetStorefronts(BatchGetStorefrontsRequest) returns (BatchGetStorefrontsResponse);
+
+  // ── Listing Bundles ──
+  // A bundle groups several of a seller's listings for a single bundle price.
+  rpc CreateBundle(CreateBundleRequest) returns (CreateBundleResponse);
+  rpc GetBundle(GetBundleRequest) returns (GetBundleResponse);
+  rpc ListBundlesBySeller(ListBundlesBySellerRequest) returns (ListBundlesBySellerResponse);
+}
+
+// A seller-defined bundle of listings sold together at bundle_price.
+message Bundle {
+  string id = 1;
+  string seller_id = 2;
+  string title = 3;
+  repeated string listing_ids = 4;
+  int64 bundle_price = 5; // minor units (e.g. VND)
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message CreateBundleRequest {
+  string title = 1;
+  repeated string listing_ids = 2;
+  int64 bundle_price = 3;
+}
+
+message CreateBundleResponse {
+  Bundle bundle = 1;
+}
+
+message GetBundleRequest {
+  string id = 1;
+}
+
+message GetBundleResponse {
+  Bundle bundle = 1;
+}
+
+message ListBundlesBySellerRequest {
+  string seller_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListBundlesBySellerResponse {
+  repeated Bundle bundles = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// A seller's public storefront/shop page.
+message Storefront {
+  string seller_id = 1;
+  string slug = 2;
+  string banner_url = 3;
+  string tagline = 4;
+  // Listing ids the seller pins/features on the storefront.
+  repeated string featured_listing_ids = 5;
+  // Visual theme key (e.g. "default", "dark", "festive").
+  string theme = 6;
+  // Seller-chosen public shop name. Trimmed; 1-80 characters when set; empty = unset.
+  string display_name = 7;
+}
+
+message UpsertStorefrontRequest {
+  Storefront storefront = 1;
+}
+
+message UpsertStorefrontResponse {
+  Storefront storefront = 1;
+}
+
+message GetStorefrontRequest {
+  // Look up by seller_id; if empty, slug is used.
+  string seller_id = 1;
+  string slug = 2;
+}
+
+message GetStorefrontResponse {
+  Storefront storefront = 1;
+}
+
+// Compact public view of a shop, used for name lookups.
+message ShopSummary {
+  string seller_id = 1;
+  string display_name = 2;
+  string slug = 3;
+}
+
+message BatchGetStorefrontsRequest {
+  // Max 100 ids; more fails with INVALID_ARGUMENT.
+  repeated string seller_ids = 1;
+}
+
+message BatchGetStorefrontsResponse {
+  repeated ShopSummary shops = 1;
 }
 
 message Variant {
@@ -197,9 +299,48 @@ enum ChangeType {
   CHANGE_TYPE_DELETED = 3;
 }
 
-// ListingChanged is the domain event emitted on every write, carrying the new
-// listing state (event-carried state transfer) so read-models need no callback.
+// ListingChanged is the monolithic domain event emitted on write (kept for backward compatibility).
 message ListingChanged {
   Listing listing = 1;
   ChangeType change_type = 2;
 }
+
+// ListingBaseInfoChanged is emitted when core metadata changes (title, description, category, images).
+message ListingBaseInfoChanged {
+  string listing_id = 1;
+  string title = 2;
+  string description = 3;
+  string category_id = 4;
+  repeated string image_keys = 5;
+  string seller_id = 6;
+  ListingStatus status = 7;
+  ChangeType change_type = 8;
+}
+
+// ListingPricingChanged is emitted when base price or promotional/discount pricing values change.
+// Promotion team triggers campaign values (flash sale, seasonal discounts, coupons), domain holds the pricing values.
+message ListingPricingChanged {
+  string listing_id = 1;
+  int64 original_price = 2; // Giá niêm yết gốc
+  int64 promotional_price = 3; // Giá sau khi áp dụng khuyến mãi / flash sale (nếu có)
+  string currency = 4;
+  int32 discount_rate = 5; // % giảm giá, ví dụ: 25 (%)
+  bool is_on_sale = 6; // true nếu đang trong đợt sale / giảm giá
+  string promotion_type = 7; // e.g. "FLASH_SALE", "MEGA_SALE", "DIRECT_DISCOUNT"
+  string campaign_id = 8; // ID chiến dịch do Promotion Team cấp
+}
+
+// ListingStockChanged is emitted when inventory levels change (purchases, reservations, restock).
+message ListingStockChanged {
+  string listing_id = 1;
+  int32 stock = 2;
+  repeated Variant variants = 3;
+}
+
+// ListingStatusChanged is emitted when publication/moderation status changes.
+message ListingStatusChanged {
+  string listing_id = 1;
+  ListingStatus status = 2;
+}
+
+

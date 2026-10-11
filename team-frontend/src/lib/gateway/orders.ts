@@ -53,6 +53,8 @@ export interface ViewOrder {
   trackingNumber: string;
   items: ViewOrderItem[];
   createdAt: string;
+  /** Empty = never paid online (e.g. cash on delivery). */
+  paidAt: string;
 }
 
 function getStatusText(s: OrderStatus): string {
@@ -125,6 +127,9 @@ function mapOrder(o: Order): ViewOrder {
     trackingNumber: o.trackingNumber,
     items: o.items.map(mapOrderItem),
     createdAt,
+    paidAt: o.paidAt
+      ? new Date(Number(o.paidAt.seconds) * 1000).toLocaleString("vi-VN")
+      : "",
   };
 }
 
@@ -156,13 +161,21 @@ export async function createOrder(
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
   voucherCode?: string,
+  idempotencyKey?: string,
 ): Promise<ViewOrder[]> {
-  const res = await gateway().order.createOrder({
+  const req = {
     addressId: addressId ?? "",
     itemIds: itemIds ?? [],
     paymentMethod: paymentMethod ?? PaymentMethod.COD,
     voucherCode: voucherCode ?? "",
-  });
+  };
+  // One key per checkout attempt: the gateway forwards it to team-order, which
+  // replays the same orders for a repeated key instead of placing a second set.
+  const res = idempotencyKey
+    ? await gateway().order.createOrder(req, {
+        headers: { "Idempotency-Key": idempotencyKey },
+      })
+    : await gateway().order.createOrder(req);
   return res.orders.map(mapOrder);
 }
 
@@ -436,4 +449,16 @@ export async function updateReturnStatus(
   const res = await gateway().order.updateReturnStatus({ id, status });
   if (!res.returnRequest) throw new Error("update return status failed");
   return mapReturn(res.returnRequest);
+}
+
+/** The order's returns, newest first (buyer, seller or admin of the order). */
+export async function listOrderReturns(
+  orderId: string,
+): Promise<ViewOrderReturn[]> {
+  try {
+    const res = await gateway().order.listOrderReturns({ orderId });
+    return res.returns.map(mapReturn);
+  } catch {
+    return [];
+  }
 }

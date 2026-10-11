@@ -4,22 +4,26 @@ Feature: Account screens
   state in the URL and give inline, accessible feedback. They need the full stack (a logged-in
   buyer backed by the gateway), so these scenarios run against the e2e docker stack.
 
-  Scenario: The account menu reflects the URL and Back returns to the previous page
+  Scenario: The menu reflects the URL
     Given a signed-in buyer on the account security page
     Then the account menu marks "Bảo mật" as the current page
     And the account page heading is "Bảo mật tài khoản"
+
+  Scenario: Menu navigation is a real navigation
+    Given a signed-in buyer on the account security page
     When the buyer opens "Xác minh" from the account menu
     Then the account menu marks "Xác minh" as the current page
     When the buyer goes back in the browser
     Then the account menu marks "Bảo mật" as the current page
 
-  Scenario: The account menu is one scrollable row on a phone with no sideways page scroll
+  Scenario: Menu collapses on mobile
     Given a signed-in buyer on the account security page
     When the viewport is 375 pixels wide
     Then the account menu sits above the page content
     And the page content does not scroll sideways
+    And the whole document does not scroll sideways
 
-  Scenario: Deleting an address needs confirmation
+  Scenario: Delete requires confirmation
     Given a signed-in buyer with a default and a second delivery address
     When the buyer opens the delivery addresses page
     And the buyer asks to delete the second address
@@ -43,7 +47,7 @@ Feature: Account screens
     When the buyer reloads the page
     Then the "Đơn hàng" notification tab is still the selected one
 
-  Scenario: An unknown favorites collection shows a not-found result
+  Scenario: Unknown collection
     Given a signed-in buyer on the favorites page for the collection "does-not-exist"
     Then a not-found result offers "Xem tất cả sản phẩm yêu thích"
 

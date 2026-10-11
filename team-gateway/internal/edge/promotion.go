@@ -85,37 +85,11 @@ func (f *VoucherForwarder) ValidateAndReserve(
 	return connect.NewResponse(out), nil
 }
 
-func (f *VoucherForwarder) CommitReservation(
-	ctx context.Context,
-	req *connect.Request[promotionv1.CommitReservationRequest],
-) (*connect.Response[promotionv1.CommitReservationResponse], error) {
-	var out *promotionv1.CommitReservationResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
-		var e error
-		out, e = f.client.CommitReservation(c, req.Msg)
-		return e
-	})
-	if err != nil {
-		return nil, toConnectErr(err)
-	}
-	return connect.NewResponse(out), nil
-}
-
-func (f *VoucherForwarder) ReleaseReservation(
-	ctx context.Context,
-	req *connect.Request[promotionv1.ReleaseReservationRequest],
-) (*connect.Response[promotionv1.ReleaseReservationResponse], error) {
-	var out *promotionv1.ReleaseReservationResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
-		var e error
-		out, e = f.client.ReleaseReservation(c, req.Msg)
-		return e
-	})
-	if err != nil {
-		return nil, toConnectErr(err)
-	}
-	return connect.NewResponse(out), nil
-}
+// CommitReservation and ReleaseReservation are intentionally NOT forwarded: they
+// are saga RPCs called by team-order over gRPC with a service principal, never by
+// a browser. The embedded UnimplementedVoucherServiceHandler answers
+// `unimplemented` (HTTP 501) for every caller. ValidateAndReserve stays routed
+// because the checkout preview uses it.
 
 // ── FlashSaleService ──
 

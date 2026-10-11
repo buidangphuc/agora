@@ -17,10 +17,14 @@ from loguru import logger
 from app.modules.business.recommend.backends import build_backend
 from app.modules.business.recommend.cache import PrecomputedCache
 from app.modules.business.recommend.placement_config import PlacementRegistry
+from app.modules.business.recommend.ranker_artifact import TrainedRankerLoader
 from app.modules.business.recommend.ranking import (
+    FeatureStorePort,
     GBDTRankerAdapter,
     InMemoryFeatureStore,
-    InMemoryNearlineStore,
+    NearlineSourcePort,
+    RedisFeatureStore,
+    RedisNearlineStore,
 )
 from app.modules.business.recommend.service import RecommendationService
 
@@ -31,17 +35,55 @@ if TYPE_CHECKING:
     from app.core.config import Settings
 
 
+def _build_feature_store(settings: Settings) -> FeatureStorePort:
+    """Online features from the feature store's Redis when configured, else none."""
+    url = settings.RECS_FEATURESTORE_REDIS_URL
+    if not url:
+        return InMemoryFeatureStore()
+    from redis.asyncio import Redis
+
+    return RedisFeatureStore(Redis.from_url(url, decode_responses=True))
+
+
+def _build_attribute_store(settings: Settings) -> FeatureStorePort | None:
+    """``item_attributes`` online rows (the trained ranker's ``price``) from the same Redis."""
+    url = settings.RECS_FEATURESTORE_REDIS_URL
+    if not url:
+        return None
+    from redis.asyncio import Redis
+
+    return RedisFeatureStore(
+        Redis.from_url(url, decode_responses=True), view="item_attributes"
+    )
+
+
+def _build_nearline_store(settings: Settings) -> NearlineSourcePort | None:
+    """Nearline signals from the recsys consumer's Redis when configured, else none."""
+    url = settings.RECS_NEARLINE_REDIS_URL
+    if not url:
+        return None
+    from redis.asyncio import Redis
+
+    return RedisNearlineStore(
+        Redis.from_url(url, decode_responses=True),
+        prefix=settings.RECS_NEARLINE_PREFIX,
+        min_impressions=settings.RECS_NEARLINE_MIN_IMPRESSIONS,
+    )
+
+
 async def build_recommendation_service(
     settings: Settings,
     *,
     redis: object | None,
 ) -> RecommendationService:
-    backend = build_backend(settings)
     cache = PrecomputedCache(
         redis,  # type: ignore[arg-type]
         prefix=settings.RECS_CACHE_PREFIX,
         schema_version=settings.RECS_CACHE_SCHEMA_VERSION,
     )
+    # One pointer decides both stores: the backend names its Qdrant collection from the same
+    # serving generation the cache scopes its Redis keys with.
+    backend = build_backend(settings, generation_source=cache.serving_generation)
     # Startup collection-contract check (name/dim/metric vs the training job).
     # A mismatch makes Recommend return UNAVAILABLE rather than serve empty.
     collection_ok = await backend.collection_ok()
@@ -54,9 +96,10 @@ async def build_recommendation_service(
             settings.RECS_QDRANT_DISTANCE,
         )
     registry = PlacementRegistry()
-    feature_store = InMemoryFeatureStore()
-    nearline_store = InMemoryNearlineStore()
+    feature_store: FeatureStorePort = _build_feature_store(settings)
+    nearline_store = _build_nearline_store(settings)
     ranker = GBDTRankerAdapter()
+    ranker_loader = TrainedRankerLoader(redis, cache) if redis is not None else None
 
     return RecommendationService(
         backend=backend,
@@ -64,7 +107,10 @@ async def build_recommendation_service(
         registry=registry,
         feature_store=feature_store,
         nearline_store=nearline_store,
+        nearline_timeout_ms=settings.RECS_NEARLINE_TIMEOUT_MS,
         ranker=ranker,
+        ranker_loader=ranker_loader,
+        attribute_store=_build_attribute_store(settings),
         candidate_top_k=settings.RECS_CANDIDATE_TOP_K,
         result_top_k=settings.RECS_RESULT_TOP_K,
         retrieve_timeout_ms=settings.RECS_RETRIEVE_TIMEOUT_MS,

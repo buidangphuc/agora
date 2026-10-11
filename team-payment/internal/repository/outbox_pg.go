@@ -182,11 +182,21 @@ func (w *PgTxWriter) SettleTx(ctx context.Context, id string, status PaymentStat
 // updatePaymentStatusTx runs the status UPDATE over any DBTX (pool or tx) and
 // returns the updated row.
 func updatePaymentStatusTx(ctx context.Context, q DBTX, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	const sql = `UPDATE payment_transactions SET status = $1, provider_reference = $2, updated_at = NOW() WHERE id = $3
+	// compare-and-set: only a PENDING (1) or FAILED (3) payment is settled or failed,
+	// so a racing call can never reopen a paid or refunded payment
+	const sql = `UPDATE payment_transactions SET status = $1, provider_reference = $2, updated_at = NOW()
+		WHERE id = $3 AND status IN (1, 3)
 		RETURNING ` + txColumns
 	var t PaymentTransaction
 	if err := scanTransaction(q.QueryRow(ctx, sql, int32(status), providerRef, id), &t); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			var exists bool
+			if qerr := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM payment_transactions WHERE id = $1)`, id).Scan(&exists); qerr != nil {
+				return PaymentTransaction{}, fmt.Errorf("check payment tx: %w", qerr)
+			}
+			if exists {
+				return PaymentTransaction{}, ErrNotSettleable
+			}
 			return PaymentTransaction{}, ErrTransactionNotFound
 		}
 		return PaymentTransaction{}, fmt.Errorf("update payment status: %w", err)

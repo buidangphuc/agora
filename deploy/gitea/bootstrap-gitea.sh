@@ -4,7 +4,6 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "${HERE}/../.." && pwd)"
-GITOPS_DIR="${ROOT}/platform-gitops"
 GITEA_URL="http://gitea.localtest.me"
 GIT_USER="ci"
 GIT_PASS="ci-pass-123"
@@ -33,14 +32,8 @@ curl -s -H "Authorization: token ${TOKEN}" -X POST "${GITEA_URL}/api/v1/user/rep
   -H 'Content-Type: application/json' \
   -d "{\"name\":\"${REPO}\",\"private\":false,\"default_branch\":\"main\",\"auto_init\":false}" >/dev/null || true
 
-log "4/6 push platform-gitops"
-cd "${GITOPS_DIR}"
-git init -q -b main 2>/dev/null || true
-git add -A
-git -c user.email=ci@local -c user.name=ci commit -q -m "gitops: sync $(git rev-parse --short HEAD 2>/dev/null || echo init)" || echo "  (nothing to commit)"
-git remote remove origin 2>/dev/null || true
-git remote add origin "http://${GIT_USER}:${GIT_PASS}@gitea.localtest.me/${GIT_USER}/${REPO}.git"
-git push -q -f -u origin main
+log "4/6 publish platform-gitops to Gitea (scratch clone; never touches the agora repo)"
+GIT_USER="${GIT_USER}" GIT_PASS="${GIT_PASS}" bash "${HERE}/publish-gitops.sh"
 
 log "5/6 register repo creds in ArgoCD"
 kubectl apply -f - <<EOF

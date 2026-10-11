@@ -110,7 +110,14 @@ export function ListingCard({
 
         <div className="flex flex-1 flex-col gap-2 p-3">
           <h3 className="line-clamp-2 min-h-10 text-sm font-normal leading-5 text-text-primary transition duration-150 group-hover:text-action-primary">
-            <TrackLink listingId={listing.id} href={`/listing/${listing.id}`}>
+            <TrackLink
+              listingId={listing.id}
+              placementId={placementId}
+              impressionId={impressionId}
+              modelVersion={modelVersion}
+              position={position}
+              href={`/listing/${listing.id}`}
+            >
               {listing.title}
             </TrackLink>
           </h3>

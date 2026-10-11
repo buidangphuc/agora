@@ -1,5 +1,7 @@
 import "server-only";
 
+import { Code, ConnectError } from "@connectrpc/connect";
+
 import type { Cart, CartItem } from "@/generated/platform/order/v1/order_pb.js";
 import { makeClients } from "./client.js";
 import { getToken } from "./session.js";
@@ -82,15 +84,20 @@ const EMPTY_CART: ViewCart = {
 
 /**
  * The caller's cart without shop names: one GetCart RPC. Use it where only the
- * items or the item count matter (root layout badge, checkout). Any RPC error
- * yields an empty cart.
+ * items or the item count matter (root layout badge, checkout). An anonymous
+ * caller (Unauthenticated) has an empty cart; any other RPC error is a real
+ * failure and is thrown so the route's error.tsx can offer a retry, instead of
+ * rendering an outage as "cart is empty".
  */
 export async function getCart(): Promise<ViewCart> {
   try {
     const res = await gateway().cart.getCart({});
     return mapCart(res.cart);
-  } catch {
-    return { ...EMPTY_CART };
+  } catch (err) {
+    if (ConnectError.from(err).code === Code.Unauthenticated) {
+      return { ...EMPTY_CART };
+    }
+    throw err;
   }
 }
 

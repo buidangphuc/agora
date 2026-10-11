@@ -6,7 +6,6 @@ from app.modules.business.tag_classifier.schemas import (
     ClassifySkuHierarchyRequest,
     ClassifyTagsRequest,
     ExploreTagsRequest,
-    FacetGroup,
     ListTagsRequest,
     PromoteTagRequest,
     RawListingItem,
@@ -108,7 +107,7 @@ async def test_classify_sku_hierarchy_electronics(tag_service: TagClassifierServ
     assert sku1.variant_facets["capacity"] == "256gb"
     effective1_slugs = [t.slug for t in sku1.all_effective_tags]
     assert "chong-nuoc-ipx7" in effective1_slugs  # inherited from SPU
-    assert "256gb" in effective1_slugs           # SKU-specific
+    assert "256gb" in effective1_slugs  # SKU-specific
 
     # Verify SKU 2: Blue Navy / 512GB
     sku2 = res.sku_results[1]
@@ -134,7 +133,9 @@ async def test_classify_sku_hierarchy_electronics(tag_service: TagClassifierServ
 
 
 @pytest.mark.asyncio
-async def test_offline_exploration_and_promotion_pipeline(tag_service: TagClassifierService):
+async def test_offline_exploration_and_promotion_pipeline(
+    tag_service: TagClassifierService,
+):
     raw_listings = [
         RawListingItem(
             listing_id="list-001",
@@ -184,7 +185,9 @@ async def test_offline_exploration_and_promotion_pipeline(tag_service: TagClassi
     assert "vai-linen-tu-nhien" in discovered_slugs
 
     # Verify candidates are in exploring state
-    list_cand_res = await tag_service.list_tags(ListTagsRequest(status=TagStatus.EXPLORING))
+    list_cand_res = await tag_service.list_tags(
+        ListTagsRequest(status=TagStatus.EXPLORING)
+    )
     cand_slugs = [t.slug for t in list_cand_res.tags]
     assert "dung-luong-20000mah" in cand_slugs
 

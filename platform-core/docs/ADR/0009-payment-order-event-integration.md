@@ -37,3 +37,34 @@ money-adjacent inconsistency decided ad hoc in code, with no ADR.
   team-order. Order transition is now **eventually** consistent (consumer lag) rather
   than synchronous — acceptable, and consistent with the CQRS posture; lag is an SLO
   to quantify. New topic `payment.events` must be provisioned (integration wave).
+
+## Addendum (2026-10): seller ledger driven by `order.events`
+
+Status: accepted. Change: `openspec/changes/port-payment-ledger-integrity`.
+
+- **The seller settlement credit is driven by `OrderPaidEvent`.** `team-payment` now
+  also consumes `order.events` (consumer group `team-payment.settlement`, dead-letter
+  topic `order.events.payment-settlement.dlq`). Each `platform.order.v1.OrderPaidEvent`
+  appends one `ORDER_SETTLEMENT` credit for the order's seller, of the payment
+  transaction's amount, referencing that transaction. `team-order` writes the event once,
+  in the same transaction as the only `Pending → Paid` compare-and-set, so a payment
+  that loses to a cancel (late payment) never credits the seller.
+- **The inline credit is gone.** `ProcessMockPayment` writes no ledger entry; the
+  credit appears asynchronously after the payment (two outbox hops).
+- **Cancelling a paid order refunds automatically.** `team-order` writes
+  `platform.order.v1.OrderCancelled` (with `previous_status`) to `order.events` through
+  its outbox, in the cancel claim's transaction. The same `team-payment` consumer
+  refunds the payment in full when `previous_status` is `PAID`, and leaves an already
+  refunded payment alone.
+- **Refund deduction and payout hold-back live in `team-payment`'s ledger.** A refund
+  moves `PAID → REFUNDED` by compare-and-set and writes exactly one `REFUND_DEDUCTION`
+  for a credited payment, whichever of the refund and the credit is applied first
+  (both serialise on the payment row; the ledger's unique `(type, reference_id)` index
+  makes each write once). Payouts draw only on proceeds outside the refund hold window
+  (`PAYOUT_HOLD_DAYS`, default 7).
+- Delivery stays at-least-once: the consumer commits only after the ledger write or the
+  DLQ produce, and redelivery is a no-op through the unique index (no dedupe table).
+- **`payment.events` stays single-type** (`PaymentSettled`, emitted only as `PAID`). The
+  payment outbox claim can let a later row of one order overtake an earlier one; that
+  is not observable today, but per-order ordering must be ported before a second event
+  type (e.g. `PaymentRefunded`) joins `payment.events`.

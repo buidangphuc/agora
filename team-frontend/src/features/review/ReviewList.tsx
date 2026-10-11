@@ -6,8 +6,8 @@ import { Image } from "@/components/ui/Image";
 import { Pagination } from "@/components/ui/Pagination";
 import { Rate } from "@/components/ui/Rate";
 import { Tag } from "@/components/ui/Tag";
-import { REVIEWS_PAGE_SIZE, paginate, pdpHref } from "@/features/listing/pdp";
-import type { ViewReview } from "@/lib/gateway/reviews";
+import { REVIEWS_PAGE_SIZE, pdpHref } from "@/features/listing/pdp";
+import type { ViewReview, ViewReviewsPage } from "@/lib/gateway/reviews";
 import { ReviewHelpfulButton } from "./ReviewHelpfulButton";
 import { WriteReviewButton } from "./WriteReviewButton";
 
@@ -60,29 +60,27 @@ function ReviewItem({ review }: { review: ViewReview }) {
 
 /**
  * The reviews of the "Đánh giá" section: filtered by `?rating=`, 10 per page
- * (`?rpage=`), with Empty states that give the buyer a way out. An async server
+ * (`?rpage=`) as served by team-engagement (the page is requested, not sliced), with Empty states that give the buyer a way out. An async server
  * component, rendered inside its own Suspense boundary.
  */
 export async function ReviewList({
   listingId,
   productTitle,
-  reviewsPromise,
+  pagePromise,
   rating,
-  rpage,
   variant,
   loggedIn,
 }: {
   listingId: string;
   productTitle?: string;
-  reviewsPromise: Promise<ViewReview[]>;
+  pagePromise: Promise<ViewReviewsPage>;
   rating: number;
-  rpage: number;
   variant?: string;
   loggedIn: boolean;
 }) {
-  const all = await reviewsPromise;
+  const result = await pagePromise;
 
-  if (all.length === 0) {
+  if (result.total === 0 && rating === 0) {
     return (
       <Empty
         description="Chưa có đánh giá nào"
@@ -98,9 +96,7 @@ export async function ReviewList({
     );
   }
 
-  const filtered = rating === 0 ? all : all.filter((r) => r.rating === rating);
-
-  if (filtered.length === 0) {
+  if (result.total === 0) {
     return (
       <Empty
         description={`Không có đánh giá ${rating} sao`}
@@ -118,18 +114,16 @@ export async function ReviewList({
     );
   }
 
-  const page = paginate(filtered, rpage, REVIEWS_PAGE_SIZE);
-
   return (
     <div className="space-y-4">
       <ul className="divide-y divide-border-subtle">
-        {page.items.map((r) => (
+        {result.reviews.map((r) => (
           <ReviewItem key={r.id} review={r} />
         ))}
       </ul>
       <Pagination
-        current={page.page}
-        total={page.total}
+        current={result.page}
+        total={result.total}
         pageSize={REVIEWS_PAGE_SIZE}
         hrefFor={(p) =>
           pdpHref(listingId, { variant, rating, rpage: p }, "reviews")

@@ -37,6 +37,7 @@ import {
   getListingRatingSummary,
   getShopRatingSummary,
   listReviews,
+  listReviewsPage,
 } from "@/lib/gateway/reviews";
 import { getPrincipal } from "@/lib/gateway/session";
 import { getImageUrl } from "@/lib/media";
@@ -63,10 +64,15 @@ export default async function ProductDetailPage({
   const me = getPrincipal();
   const loggedIn = me !== null;
 
-  // Reviews are fetched once and shared by the AI summary and the review list;
-  // both await it inside their own Suspense boundaries, so the page does not
-  // wait for them (nor for team-ai).
+  // The AI summary samples the newest reviews; the review list asks the server
+  // for just the `?rpage=` page (and `?rating=` filter). Both are awaited inside
+  // their own Suspense boundaries, so the page does not wait for them (nor for
+  // team-ai).
   const reviewsPromise = listReviews(params.id);
+  const reviewsPagePromise = listReviewsPage(params.id, {
+    rating: query.rating,
+    page: query.rpage,
+  });
 
   // Critical set only: everything the header needs for its first paint.
   const [
@@ -284,8 +290,8 @@ export default async function ProductDetailPage({
             productTitle={listing.title}
             summary={ratingSummary}
             reviewsPromise={reviewsPromise}
+            pagePromise={reviewsPagePromise}
             rating={query.rating}
-            rpage={query.rpage}
             variant={query.variant}
             loggedIn={loggedIn}
           />

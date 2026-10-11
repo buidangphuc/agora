@@ -14,7 +14,11 @@ function randomId(): string {
   } catch {
     // Fall through
   }
-  return `id-${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+  // UUID v4 shape, so the gateway still accepts it as an eventId.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 
 function safeStorage(kind: "local" | "session"): Storage | undefined {
@@ -73,6 +77,7 @@ export function trackEcommerce(
       const eventGroupId = randomId();
       const beacons: WireTrackBeacon[] = items.map((it) => {
         return {
+          eventId: randomId(),
           type: internalEventType,
           listingId: it.itemId,
           sessionId,
@@ -110,6 +115,7 @@ export function trackEcommerce(
     } else {
       // Single event (e.g. general page view or empty cart view)
       const beacon: WireTrackBeacon = {
+        eventId: randomId(),
         type: internalEventType,
         listingId: "",
         sessionId,

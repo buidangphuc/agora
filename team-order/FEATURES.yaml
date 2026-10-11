@@ -169,28 +169,447 @@ features:
     covered_by: "order/shipment_tracking.feature::Order shipment generates trackable timeline"
 
   - id: order.rma-return
-    title: RMA return and refund
-    persona: buyer
+    title: Seller handles an RMA return from the order page
+    persona: seller
     priority: P2
-    summary: Buyer requests a return; seller approval refunds and restocks.
-    entry_route: /account/orders/{order_id}
-    services: [team-order, team-payment]
+    summary: >-
+      The seller approves, rejects and refunds a buyer's return from the order page and sees the refund the payment
+      applied; the buyer follows the return without a refund control. Owned by the payment-refund-model change; the
+      journey is the frontend.seller-return-refund-ui feature (the stub-based acceptance is removed).
+    entry_route: "/seller/orders/{order_id}?tab=returns"
+    services: [team-frontend, team-gateway, team-order, team-payment]
     preconditions:
-      login: buyer
-      data: A delivered, paid order belonging to the buyer.
+      login: seller
+      data: A paid order of the seller with a PENDING return requested by the buyer.
     api:
-      exercised: [order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+      exercised: [order.v1.ListOrderReturns, order.v1.UpdateReturnStatus, payment.v1.GetPayment]
     ui:
       key_elements:
-        open_rma: "role:button=Yêu cầu trả hàng"
+        returns: "testid:seller-returns"
+        refund: "testid:return-refund"
     acceptance:
-      - Given a buyer has a delivered order
-      - When the buyer submits a return request
-      - And the seller approves it
-      - Then the payment is refunded and stock restored
-    tags: [buyer]
+      - "See frontend.seller-return-refund-ui (features/seller/return_refund_ui.feature): approve, refund, reject, COD message, stale-refund error, processing state, partial refund, buyer without a refund button"
+    tags: [seller, order]
     status: automated
-    covered_by: "order/rma_return.feature::Buyer submits return request and seller updates status"
+    covered_by: "seller/return_refund_ui.feature::The seller refunds an approved return and it reads refunded"
+    notes: >-
+      Rewritten for change payment-refund-model (task 7.2). Feature: seller/return_refund_ui.feature (red-first, code not
+      merged); the integrator flips it once the code is merged and the scenarios are green. The processing-state scenario
+      stops team-payment (@destructive, serial lane).
+
+  - id: order.rrs-refunding-an-approved-return-emits-one-returnrefunded-with-t
+    title: Refunding an approved return emits one ReturnRefunded with the stored amount
+    persona: seller
+    priority: P1
+    summary: Refunding an approved return emits one ReturnRefunded with the stored amount
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 200000
+      - When the seller approves the return "R1"
+      - And the seller moves the return "R1" to REFUNDED
+      - Then the return "R1" reads REFUNDED
+      - And order.events carries exactly 1 ReturnRefunded record for the return "R1", keyed by the order id, with refund_amount 200000
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Refunding an approved return emits one ReturnRefunded with the stored amount
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-refunding-a-pending-return-is-refused-and-emits-nothing
+    title: Refunding a pending return is refused and emits nothing
+    persona: seller
+    priority: P1
+    summary: Refunding a pending return is refused and emits nothing
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 200000
+      - When the seller moves the return "R1" to REFUNDED
+      - Then the call fails with "failed_precondition"
+      - And the return "R1" reads PENDING
+      - And order.events carries no ReturnRefunded record for the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Refunding a pending return is refused and emits nothing
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-concurrent-refunds-of-one-return-emit-one-fact
+    title: Concurrent refunds of one return emit one fact
+    persona: seller
+    priority: P1
+    summary: Concurrent refunds of one return emit one fact
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When the seller sends 8 concurrent UpdateReturnStatus calls moving the return "R1" to REFUNDED
+      - Then exactly 1 of the calls succeeds and the others fail with "failed_precondition"
+      - And order.events carries exactly 1 ReturnRefunded record for the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Concurrent refunds of one return emit one fact
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-refunding-a-return-on-an-order-never-paid-online-is-refused
+    title: Refunding a return on an order never paid online is refused
+    persona: seller
+    priority: P1
+    summary: Refunding a return on an order never paid online is refused
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has a cash-on-delivery order of the listing that the seller handed over without an online payment
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When the seller moves the return "R1" to REFUNDED
+      - Then the call fails with "failed_precondition" and message "order was not paid online; cash-on-delivery refunds are handled outside the system"
+      - And the return "R1" reads APPROVED
+      - And order.events carries no ReturnRefunded record for the return "R1"
+      - And the settlement dead-letter topic has no record for the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Refunding a return on an order never paid online is refused
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-the-buyer-cannot-refund-their-own-return
+    title: The buyer cannot refund their own return
+    persona: seller
+    priority: P1
+    summary: The buyer cannot refund their own return
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When "b1" moves the return "R1" to REFUNDED
+      - Then the call fails with "permission_denied"
+      - And the return "R1" reads APPROVED
+      - And order.events carries no ReturnRefunded record for the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::The buyer cannot refund their own return
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-an-rma-refund-refunds-the-buyer-and-deducts-the-seller
+    title: An RMA refund refunds the buyer and deducts the seller
+    persona: seller
+    priority: P1
+    summary: An RMA refund refunds the buyer and deducts the seller
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - When the seller approves the return "R1"
+      - And the seller moves the return "R1" to REFUNDED
+      - Then within the settle window the payment read by "b1" is PARTIALLY_REFUNDED with 200000 refunded
+      - And the payment lists 1 RETURN refund whose source id is the return "R1"
+      - And within the settle window the seller has exactly 1 REFUND_DEDUCTION of -200000 referencing the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::An RMA refund refunds the buyer and deducts the seller
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-an-rma-refund-while-team-payment-is-stopped-is-applied-when
+    title: An RMA refund while team-payment is stopped is applied when it restarts
+    persona: seller
+    priority: P1
+    summary: An RMA refund while team-payment is stopped is applied when it restarts
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When team-payment is stopped
+      - And the seller moves the return "R1" to REFUNDED
+      - Then the return "R1" reads REFUNDED
+      - When team-payment is started again
+      - Then within the settle window the payment read by "b1" is PARTIALLY_REFUNDED with 200000 refunded
+      - And within the settle window the seller has exactly 1 REFUND_DEDUCTION of -200000 referencing the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::An RMA refund while team-payment is stopped is applied when it restarts
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-a-redelivered-returnrefunded-does-not-refund-again
+    title: A redelivered ReturnRefunded does not refund again
+    persona: seller
+    priority: P1
+    summary: A redelivered ReturnRefunded does not refund again
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - And the seller moves the return "R1" to REFUNDED
+      - And within the settle window the payment read by "b1" is PARTIALLY_REFUNDED with 200000 refunded
+      - When the ReturnRefunded record of the return "R1" is produced to order.events again, byte for byte
+      - And a sentinel order of the seller is credited
+      - Then the payment read by "b1" lists 1 RETURN refund and has 200000 refunded
+      - And the seller has exactly 1 REFUND_DEDUCTION referencing the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::A redelivered ReturnRefunded does not refund again
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-two-returns-on-one-order-refund-cumulatively
+    title: Two returns on one order refund cumulatively
+    persona: seller
+    priority: P1
+    summary: Two returns on one order refund cumulatively
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And "b1" requests the return "R2" of 300000
+      - When the seller approves the return "R1"
+      - And the seller moves the return "R1" to REFUNDED
+      - Then within the settle window the payment read by "b1" is PARTIALLY_REFUNDED with 200000 refunded
+      - When the seller approves the return "R2"
+      - And the seller moves the return "R2" to REFUNDED
+      - Then within the settle window the payment read by "b1" is REFUNDED with 500000 refunded
+      - And the payment lists 2 RETURN refunds
+      - And within the settle window the seller has exactly 2 REFUND_DEDUCTION entries
+      - And the seller has a REFUND_DEDUCTION of -200000 referencing the return "R1"
+      - And the seller has a REFUND_DEDUCTION of -300000 referencing the return "R2"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Two returns on one order refund cumulatively
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-a-return-refund-and-a-cancel-of-the-same-paid-order-refund-t
+    title: A return refund and a cancel of the same paid order refund the payment once in total
+    persona: seller
+    priority: P1
+    summary: A return refund and a cancel of the same paid order refund the payment once in total
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When the seller moves the return "R1" to REFUNDED
+      - And "b1" cancels the order
+      - Then within the settle window the payment read by "b1" is REFUNDED with 500000 refunded
+      - And the payment lists 1 RETURN refund and 1 ORDER_CANCEL refund whose applied amounts sum to 500000
+      - And within the settle window the seller's REFUND_DEDUCTION entries sum to -500000
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::A return refund and a cancel of the same paid order refund the payment once in total
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-a-return-above-the-order-s-remaining-returnable-amount-is-re
+    title: A return above the order's remaining returnable amount is refused
+    persona: seller
+    priority: P1
+    summary: A return above the order's remaining returnable amount is refused
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 300000
+      - When "b1" requests a return of 300000
+      - Then the call fails with "invalid_argument"
+      - And "b1" requests the return "R2" of 200000
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::A return above the order's remaining returnable amount is refused
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-a-rejected-return-frees-its-amount-for-a-new-return
+    title: A rejected return frees its amount for a new return
+    persona: seller
+    priority: P1
+    summary: A rejected return frees its amount for a new return
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 500000
+      - And the seller rejects the return "R1"
+      - When "b1" requests the return "R2" of 500000
+      - Then the return "R2" reads PENDING
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::A rejected return frees its amount for a new return
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-concurrent-return-requests-cannot-exceed-the-order-total
+    title: Concurrent return requests cannot exceed the order total
+    persona: seller
+    priority: P1
+    summary: Concurrent return requests cannot exceed the order total
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - When "b1" sends 8 concurrent return requests of 100000
+      - Then exactly 5 of the calls succeed and the others fail with "invalid_argument"
+      - And ListOrderReturns lists 5 returns totalling 500000
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Concurrent return requests cannot exceed the order total
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-an-rma-refund-larger-than-what-remains-refunds-only-the-rema
+    title: An RMA refund larger than what remains refunds only the remainder
+    persona: seller
+    priority: P1
+    summary: An RMA refund larger than what remains refunds only the remainder
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And "b1" requests the return "R1" of 300000
+      - And the seller approves the return "R1"
+      - And the seller refunds 400000 of the payment directly
+      - When the seller moves the return "R1" to REFUNDED
+      - Then within the settle window the payment read by "b1" is REFUNDED with 500000 refunded
+      - And the RETURN refund of the return "R1" lists requested 300000 and applied 100000
+      - And within the settle window the seller's REFUND_DEDUCTION amounts are -400000 and -100000
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::An RMA refund larger than what remains refunds only the remainder
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-an-rma-refund-after-the-payment-was-fully-refunded-records-n
+    title: An RMA refund after the payment was fully refunded records nothing to refund
+    persona: seller
+    priority: P1
+    summary: An RMA refund after the payment was fully refunded records nothing to refund
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing and the seller is credited
+      - And the seller refunds 500000 of the payment directly
+      - And "b1" requests the return "R1" of 200000
+      - And the seller approves the return "R1"
+      - When the seller moves the return "R1" to REFUNDED
+      - Then the RETURN refund of the return "R1" lists requested 200000 and applied 0
+      - And the payment read by "b1" is REFUNDED with 500000 refunded
+      - And the seller has no REFUND_DEDUCTION referencing the return "R1"
+      - And the settlement dead-letter topic has no record for the return "R1"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::An RMA refund after the payment was fully refunded records nothing to refund
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-a-returnrefunded-for-an-order-without-a-paid-payment-is-dead
+    title: A ReturnRefunded for an order without a paid payment is dead-lettered
+    persona: seller
+    priority: P1
+    summary: A ReturnRefunded for an order without a paid payment is dead-lettered
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has an unpaid order of the listing
+      - When a well-formed ReturnRefunded record for that unpaid order is produced to order.events
+      - And "b2" pays a new order of the listing
+      - Then the ReturnRefunded record appears on the settlement dead-letter topic
+      - And the seller has no REFUND_DEDUCTION
+      - And within the settle window the seller is credited exactly 1 time of 500000
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::A ReturnRefunded for an order without a paid payment is dead-lettered
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-the-seller-lists-the-returns-of-their-order
+    title: The seller lists the returns of their order
+    persona: seller
+    priority: P1
+    summary: The seller lists the returns of their order
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 200000
+      - And "b1" requests the return "R2" of 100000
+      - When the seller lists the returns of the order through the gateway
+      - Then both returns are listed newest first, each with its reason, refund amount and status
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::The seller lists the returns of their order
+    notes: payment-refund-model; green against the stack on 2026-10-08.
+
+  - id: order.rrs-another-buyer-cannot-list-the-returns-of-an-order
+    title: Another buyer cannot list the returns of an order
+    persona: seller
+    priority: P1
+    summary: Another buyer cannot list the returns of an order
+    entry_route: "/seller/orders/{order_id}"
+    services: [team-order, team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a seller with a listing whose order pays 500000
+      - And "b1" has paid an order of the listing
+      - And "b1" requests the return "R1" of 200000
+      - And a buyer "b2"
+      - When "b2" lists the returns of the order through the gateway
+      - Then the call fails with "permission_denied"
+    tags: [order, fintech]
+    status: automated
+    covered_by: order/return_refund_settlement.feature::Another buyer cannot list the returns of an order
+    notes: payment-refund-model; green against the stack on 2026-10-08.
 
   - id: order.detail-timeline
     title: Order detail and 5-step delivery timeline
@@ -445,3 +864,746 @@ features:
       Ran green against the agora stack (2026-10-05): the paid order's outbox row is
       published and the envelope is read back from order.events. Needs team-order with
       KAFKA_ENABLED=true / OUTBOX_ENABLED=true and the order.events topic.
+
+  - id: order.checkout-reserves-and-commits-stock-and-voucher
+    title: A buyer checkout reserves and commits stock and voucher
+    persona: buyer
+    priority: P0
+    summary: >-
+      After checkout with a voucher and mock payment the listing stock drops by the quantity and the voucher is redeemed once.
+    entry_route: /
+    services: [team-order, team-promotion, team-domain, team-payment, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, promotion.v1.CommitReservation]
+    acceptance:
+      - Given a buyer with a voucher and a listing in stock
+      - When the buyer checks out with the voucher and the payment settles
+      - Then the stock decreases by the ordered quantity and the voucher is redeemed once
+    tags: [order, saga]
+    status: automated
+    covered_by: "order/self_purchase.feature::A buyer checkout reserves and commits stock and voucher"
+
+  - id: order.seller-cannot-buy-own-listing
+    title: A seller cannot check out their own listing
+    persona: seller
+    priority: P0
+    summary: >-
+      CreateOrder with the buyer as seller of an item is refused (failed_precondition, HTTP 400) before stock or voucher is reserved.
+    entry_route: /
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder]
+    acceptance:
+      - Given a seller with a listing in their cart
+      - When the seller places the order
+      - Then the order is refused and the listing stock is unchanged
+    tags: [order, authz]
+    status: automated
+    covered_by: "order/self_purchase.feature::A seller cannot check out their own listing"
+
+  # ---- port-order-inventory-correctness / order-checkout-correctness (written from the spec; planned until the code lands).
+
+  - id: order.oic-checkout-one-seller-out-of-stock-fails-the-whole-two-sell
+    title: "One seller out of stock fails the whole two-seller checkout"
+    persona: buyer
+    priority: P1
+    summary: "One seller out of stock fails the whole two-seller checkout"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer checks out a cart with one item from seller A (stock available) and one item from seller B whose quantity exceeds B's stock"
+      - "Then the call fails with `resource_exhausted`, the buyer has no new order from either seller, seller A's listing stock is back to its value before the checkout, and the cart still holds both items"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::One seller out of stock fails the whole two-seller checkout"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::One seller out of stock fails the whole two-seller checkout.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-checkout-a-two-seller-checkout-places-one-order-per-selle
+    title: "A two-seller checkout places one order per seller"
+    persona: buyer
+    priority: P1
+    summary: "A two-seller checkout places one order per seller"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer checks out a cart with in-stock items from two sellers"
+      - "Then exactly two `Pending` orders are returned, one per seller, each listing's stock is reduced by its quantity, and the checked-out items are removed from the cart"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::A two-seller checkout places one order per seller"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::A two-seller checkout places one order per seller.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-checkout-an-unkeyed-retry-after-a-failed-checkout-succeed
+    title: "An unkeyed retry after a failed checkout succeeds"
+    persona: buyer
+    priority: P1
+    summary: "An unkeyed retry after a failed checkout succeeds"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer's two-seller checkout without an `Idempotency-Key` fails because seller B is out of stock, seller B restocks the listing, and the buyer checks out the same cart again without a key"
+      - "Then the second checkout returns one order per seller and seller A's listing stock is reduced by its quantity once"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::An unkeyed retry after a failed checkout succeeds"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::An unkeyed retry after a failed checkout succeeds.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-checkout-the-same-idempotency-key-returns-the-same-orders
+    title: "The same idempotency key returns the same orders"
+    persona: buyer
+    priority: P1
+    summary: "The same idempotency key returns the same orders"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer calls `CreateOrder` twice with the same `Idempotency-Key` for a cart with quantity 2 of a listing with stock 10"
+      - "Then both calls return the same order ids, the buyer has exactly one new order, and the listing's stock is 8"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::The same idempotency key returns the same orders"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::The same idempotency key returns the same orders.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-checkout-concurrent-checkouts-with-one-key-create-one-set
+    title: "Concurrent checkouts with one key create one set of orders"
+    persona: buyer
+    priority: P1
+    summary: "Concurrent checkouts with one key create one set of orders"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer sends two `CreateOrder` calls with the same `Idempotency-Key` at the same time"
+      - "Then each call either returns the same order ids or fails with `aborted`, at least one returns orders, and exactly one order exists with its stock reduced once"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::Concurrent checkouts with one key create one set of orders"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::Concurrent checkouts with one key create one set of orders.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-checkout-a-failed-checkout-frees-its-idempotency-key
+    title: "A failed checkout frees its idempotency key"
+    persona: buyer
+    priority: P1
+    summary: "A failed checkout frees its idempotency key"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer's checkout with key K fails because an item is out of stock, the seller restocks it, and the buyer checks out with key K again"
+      - "Then the second call creates the order"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::A failed checkout frees its idempotency key"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::A failed checkout frees its idempotency key.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-checkout-idempotency-keys-are-scoped-to-the-buyer
+    title: "Idempotency keys are scoped to the buyer"
+    persona: buyer
+    priority: P1
+    summary: "Idempotency keys are scoped to the buyer"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When two different buyers each check out with the same `Idempotency-Key` value"
+      - "Then each buyer receives their own new order"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer"
+    notes: "Written from the spec ahead of the code (order/oic_checkout_correctness.feature::Idempotency keys are scoped to the buyer.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  # ---- port-order-inventory-correctness / order-lifecycle-guards (written from the spec; planned until the code lands).
+
+  - id: order.oic-lifecycle-a-completed-order-cannot-be-reopened
+    title: "A completed order cannot be reopened"
+    persona: buyer
+    priority: P1
+    summary: "A completed order cannot be reopened"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Pending` on their `Completed` order"
+      - "Then the call fails and the order read through the gateway is still `Completed`"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A completed order cannot be reopened"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A completed order cannot be reopened.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-a-seller-cannot-mark-an-order-paid
+    title: "A seller cannot mark an order paid"
+    persona: buyer
+    priority: P1
+    summary: "A seller cannot mark an order paid"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Paid` on their `Pending` order"
+      - "Then the call fails with `permission_denied` and the order is still `Pending`"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A seller cannot mark an order paid"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A seller cannot mark an order paid.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-skipping-from-paid-straight-to-completed-is-refu
+    title: "Skipping from paid straight to completed is refused"
+    persona: buyer
+    priority: P1
+    summary: "Skipping from paid straight to completed is refused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Completed` on their `Paid` order"
+      - "Then the call fails with `failed_precondition` and the order is still `Paid`"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Skipping from paid straight to completed is refused"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Skipping from paid straight to completed is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-the-seller-ships-a-paid-order
+    title: "The seller ships a paid order"
+    persona: buyer
+    priority: P1
+    summary: "The seller ships a paid order"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `UpdateOrderStatus` to `Shipped` on their `Paid` order"
+      - "Then the order is `Shipped`"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::The seller ships a paid order"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::The seller ships a paid order.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-a-stranger-cannot-change-an-order-s-status
+    title: "A stranger cannot change an order's status"
+    persona: buyer
+    priority: P1
+    summary: "A stranger cannot change an order's status"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer who is neither the order's buyer nor its seller calls `UpdateOrderStatus` on it"
+      - "Then the call fails with `permission_denied` and the order is unchanged"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A stranger cannot change an order's status"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A stranger cannot change an order's status.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-concurrent-cancels-restore-stock-once
+    title: "Concurrent cancels restore stock once"
+    persona: buyer
+    priority: P1
+    summary: "Concurrent cancels restore stock once"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer sends two `CancelOrder` calls for the same `Pending` order (quantity 2, listing stock 8) at the same time"
+      - "Then exactly one succeeds, the other fails with `failed_precondition`, and the listing's stock is 10"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Concurrent cancels restore stock once"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Concurrent cancels restore stock once.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-a-cancel-racing-a-shipment-applies-exactly-one-o
+    title: "A cancel racing a shipment applies exactly one of them"
+    persona: buyer
+    priority: P1
+    summary: "A cancel racing a shipment applies exactly one of them"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller ships a `Paid` order while its buyer cancels it at the same time"
+      - "Then exactly one call succeeds; the order is `Shipped` with stock unchanged, or `Cancelled` with its stock restored once"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A cancel racing a shipment applies exactly one of them"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A cancel racing a shipment applies exactly one of them.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-cancelling-a-paid-order-restores-its-stock-once
+    title: "Cancelling a paid order restores its stock once"
+    persona: buyer
+    priority: P1
+    summary: "Cancelling a paid order restores its stock once"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer cancels their `Paid` order for quantity 2 of a listing with stock 8"
+      - "Then the order is `Cancelled` and the listing's stock is 10"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Cancelling a paid order restores its stock once"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Cancelling a paid order restores its stock once.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-cancelling-a-shipped-order-is-refused-and-keeps
+    title: "Cancelling a shipped order is refused and keeps its stock"
+    persona: buyer
+    priority: P1
+    summary: "Cancelling a shipped order is refused and keeps its stock"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer cancels their `Shipped` order"
+      - "Then the call fails with `failed_precondition`, the order is still `Shipped` and the listing's stock is unchanged"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Cancelling a shipped order is refused and keeps its stock"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Cancelling a shipped order is refused and keeps its stock.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-a-cancel-whose-stock-release-fails-is-retried-un
+    title: "A cancel whose stock release fails is retried until the stock returns"
+    persona: buyer
+    priority: P1
+    summary: "A cancel whose stock release fails is retried until the stock returns"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer cancels a `Pending` order for quantity 2 of a listing with stock 8 while `team-domain` is stopped, and `team-domain` is then started again"
+      - "Then the cancel succeeds with the order `Cancelled`, and within the configured reservation TTL plus two sweep intervals the listing's stock is 10, and stays 10"
+    tags: [order, destructive]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A cancel whose stock release fails is retried until the stock returns"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A cancel whose stock release fails is retried until the stock returns.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+  - id: order.oic-lifecycle-a-late-payment-after-cancel-is-ignored
+    title: "A late payment after cancel is ignored"
+    persona: buyer
+    priority: P1
+    summary: "A late payment after cancel is ignored"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer starts an online payment for a `Pending` order, cancels the order, and the payment then succeeds"
+      - "Then the order read through the gateway stays `Cancelled` and its listing's stock is restored once"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A late payment after cancel is ignored"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A late payment after cancel is ignored.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-payment-racing-cancel-ends-cancelled-with-stock
+    title: "Payment racing cancel ends cancelled with stock restored once"
+    persona: buyer
+    priority: P1
+    summary: "Payment racing cancel ends cancelled with stock restored once"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer's online payment succeeds while the buyer cancels the same `Pending` order at the same time"
+      - "Then the order ends `Cancelled` and its listing's stock is restored once"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Payment racing cancel ends cancelled with stock restored once"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Payment racing cancel ends cancelled with stock restored once.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-a-late-payment-of-a-cancelled-voucher-order-leav
+    title: "A late payment of a cancelled voucher order leaves the voucher unused"
+    persona: buyer
+    priority: P1
+    summary: "A late payment of a cancelled voucher order leaves the voucher unused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer checks out with a voucher whose quota is 1, cancels the order, and a payment for that order then succeeds"
+      - "Then the order stays `Cancelled` and another buyer can still check out with that voucher"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-lifecycle-shipping-a-cancelled-order-is-refused
+    title: "Shipping a cancelled order is refused"
+    persona: buyer
+    priority: P1
+    summary: "Shipping a cancelled order is refused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the seller calls `CreateShipment` for an order the buyer has cancelled"
+      - "Then the call fails with `failed_precondition`, no shipment exists for the order, and the order is still `Cancelled`"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_lifecycle_guards.feature::Shipping a cancelled order is refused"
+    notes: "Written from the spec ahead of the code (order/oic_lifecycle_guards.feature::Shipping a cancelled order is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  # ---- port-order-inventory-correctness / order-read-access (written from the spec; planned until the code lands).
+
+  - id: order.oic-saga-a-pending-order-s-saga-view-shows-payment-pendin
+    title: "A pending order's saga view shows payment pending"
+    persona: buyer
+    priority: P1
+    summary: "A pending order's saga view shows payment pending"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the buyer reads the saga view of their `Pending` order"
+      - "Then the created and reserved steps are `SUCCESS`, the payment and confirmation steps are `PENDING`, and `is_compensated` is false"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A pending order's saga view shows payment pending"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A pending order's saga view shows payment pending.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-saga-a-paid-order-s-saga-view-shows-the-payment-time
+    title: "A paid order's saga view shows the payment time"
+    persona: buyer
+    priority: P1
+    summary: "A paid order's saga view shows the payment time"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the buyer reads the saga view of an order whose online payment succeeded"
+      - "Then the payment step is `SUCCESS` with a timestamp and no compensation is reported"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A paid order's saga view shows the payment time"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A paid order's saga view shows the payment time.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-saga-a-cancelled-order-with-released-stock-shows-comp
+    title: "A cancelled order with released stock shows completed compensation"
+    persona: buyer
+    priority: P1
+    summary: "A cancelled order with released stock shows completed compensation"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the buyer reads the saga view of their `Pending` order after cancelling it"
+      - "Then the payment step is `SKIPPED`, the compensation step is `COMPENSATED`, and `is_compensated` is true"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A cancelled order with released stock shows completed compensation"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A cancelled order with released stock shows completed compensation.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-saga-a-cancelled-order-awaiting-a-stock-release-shows
+    title: "A cancelled order awaiting a stock release shows compensation pending"
+    persona: buyer
+    priority: P1
+    summary: "A cancelled order awaiting a stock release shows compensation pending"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the buyer reads the saga view of an order cancelled while `team-domain` was stopped, before it is started again"
+      - "Then the compensation step is `PENDING` and `is_compensated` is false"
+    tags: [order, destructive]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A cancelled order awaiting a stock release shows compensation pending"
+    notes: "Written from the spec ahead of the code (order/oic_saga_view.feature::A cancelled order awaiting a stock release shows compensation pending.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+  - id: order.oic-saga-an-unknown-fail-step-is-rejected
+    title: "An unknown fail_step is rejected"
+    persona: admin
+    priority: P1
+    summary: "An unknown fail_step is rejected"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the admin calls `ForceFailSaga` with `fail_step` \"banana\" on a buyer's `Pending` order"
+      - "Then the call fails with `invalid_argument` and the order is still `Pending` with its stock still held"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::An unknown fail_step is rejected"
+    notes: "Scenario: order/oic_saga_view.feature::An unknown fail_step is rejected. Written from the spec ahead of the code (order/oic_saga_view.feature::An unknown fail_step is rejected.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-saga-a-clean-force-fail-reports-success
+    title: "A clean force-fail reports success"
+    persona: admin
+    priority: P1
+    summary: "A clean force-fail reports success"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the admin calls `ForceFailSaga` with `fail_step` \"payment\" on a buyer's `Pending` order for quantity 2 of a listing with stock 8"
+      - "Then `success` is true, the order is `Cancelled`, the returned saga view is compensated, and the stock is 10"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A clean force-fail reports success"
+    notes: "Scenario: order/oic_saga_view.feature::A clean force-fail reports success. Written from the spec ahead of the code (order/oic_saga_view.feature::A clean force-fail reports success.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+  - id: order.oic-saga-a-force-fail-with-a-parked-release-reports-failu
+    title: "A force-fail with a parked release reports failure"
+    persona: admin
+    priority: P1
+    summary: "A force-fail with a parked release reports failure"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the admin calls `ForceFailSaga` on a buyer's `Pending` order while `team-domain` is stopped"
+      - "Then `success` is false, the message says the stock release is pending retry, and the order is `Cancelled`"
+    tags: [order, destructive]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::A force-fail with a parked release reports failure"
+    notes: "Scenario: order/oic_saga_view.feature::A force-fail with a parked release reports failure. Written from the spec ahead of the code (order/oic_saga_view.feature::A force-fail with a parked release reports failure.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s) and stops team-domain."
+  - id: order.oic-saga-force-failing-a-shipped-order-is-refused
+    title: "Force-failing a shipped order is refused"
+    persona: admin
+    priority: P1
+    summary: "Force-failing a shipped order is refused"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When the admin calls `ForceFailSaga` on a buyer's `Shipped` order"
+      - "Then the call fails with `failed_precondition` and the order is still `Shipped`"
+    tags: [order]
+    status: automated
+    covered_by: "order/oic_saga_view.feature::Force-failing a shipped order is refused"
+    notes: "Scenario: order/oic_saga_view.feature::Force-failing a shipped order is refused. Written from the spec ahead of the code (order/oic_saga_view.feature::Force-failing a shipped order is refused.) — red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  # ---- port-order-inventory-correctness / order-upstream-principals (written from the spec; planned until the code lands).
+
+  - id: order.oic-upstream-a-buyer-checkout-commits-stock-as-the-order-serv
+    title: "A buyer checkout commits stock as the order service"
+    persona: buyer
+    priority: P1
+    summary: "A buyer checkout commits stock as the order service"
+    entry_route: /account/orders
+    services: [team-order, team-domain, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer, whose own scopes do not include `listing.write`, checks out a cart and the configured reservation TTL plus two sweep intervals then pass"
+      - "Then the order is created and the listing's stock stays reduced by the ordered quantity"
+    tags: [order, destructive]
+    status: automated
+    covered_by: "order/oic_upstream_principals.feature::A buyer checkout commits stock as the order service"
+    notes: "Written from the spec ahead of the code (order/oic_upstream_principals.feature::A buyer checkout commits stock as the order service.) — red on the pre-change stack, green after the code landed (2026-10-08). Serial lane (@destructive); needs platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s, RESERVATION_SWEEP_INTERVAL=2s)."
+
+  # ---- port-edge-authz-residuals (written from the spec; planned until the code lands).
+
+  - id: order.pear-buyer-cannot-force-fail-own-order
+    title: "A buyer cannot force-fail their own order"
+    persona: buyer
+    priority: P0
+    summary: "A buyer cannot force-fail their own order"
+    entry_route: /account/orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [order.v1.ForceFailSaga, order.v1.GetOrder]
+    acceptance:
+      - "When a buyer calls `ForceFailSaga` through the gateway on their own `Pending` order"
+      - "Then the gateway answers HTTP 403 and the order is still `Pending` with its stock still held"
+    tags: [order, security]
+    status: automated
+    covered_by: "security/edge_route_policy.feature::A buyer cannot force-fail their own order"
+    notes: "Scenario: security/edge_route_policy.feature::A buyer cannot force-fail their own order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+  - id: order.pear-service-token-cannot-place-an-order
+    title: "A service token cannot place an order"
+    persona: buyer
+    priority: P0
+    summary: "A service token cannot place an order"
+    entry_route: /checkout
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway. The SERVICE token is signed with the local dev identity key.
+    api:
+      exercised: [order.v1.CreateOrder]
+    acceptance:
+      - "When a client calls `CreateOrder` through the gateway with a validly signed SERVICE token for a cart line of a listing with stock 5"
+      - "Then the call fails with `permission_denied`, no order is created, and the listing's stock is still 5"
+    tags: [order, security]
+    status: automated
+    covered_by: "order/checkout_principal.feature::A service token cannot place an order"
+    notes: "Scenario: order/checkout_principal.feature::A service token cannot place an order. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+
+  - id: order.ar2-admin-without-order-admin-cannot-force-fail
+    title: "An admin token without order.admin cannot force-fail"
+    persona: admin
+    priority: P0
+    summary: "An admin token without order.admin cannot force-fail (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.ForceFailSaga, order.v1.GetOrder]
+    acceptance:
+      - "When a caller whose token carries the `admin` scope but not `order.admin` calls `ForceFailSaga` on a buyer's `Pending` order"
+      - "Then the call fails with `permission_denied` and the order is still `Pending` with its stock still held"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
+    notes: "green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot force-fail"
+
+  - id: order.ar2-admin-without-order-admin-cannot-read-saga
+    title: "An admin token without order.admin cannot read another user's saga"
+    persona: admin
+    priority: P0
+    summary: "An admin token without order.admin cannot read another user's saga (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.GetSagaState]
+    acceptance:
+      - "When a caller whose token carries `admin` but not `order.admin` calls `GetSagaState` on a buyer's order"
+      - "Then the call fails with `permission_denied`"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
+    notes: "green after rebuild: security/ar2_order_admin.feature::An admin token without order.admin cannot read another user's saga"
+
+  - id: order.ar2-admin-can-read-saga
+    title: "The admin can still read another user's saga"
+    persona: admin
+    priority: P0
+    summary: "The admin can still read another user's saga (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.GetSagaState]
+    acceptance:
+      - "When the seeded admin calls `GetSagaState` on a buyer's order"
+      - "Then the call succeeds and returns that order's saga view"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::The admin can still read another user's saga"
+    notes: "green after rebuild: security/ar2_order_admin.feature::The admin can still read another user's saga"
+
+  - id: order.ar2-buyer-cannot-force-fail-other-buyer
+    title: "A buyer cannot force-fail another buyer's order"
+    persona: buyer
+    priority: P0
+    summary: "A buyer cannot force-fail another buyer's order (authz-residuals-2)."
+    entry_route: /
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller and buyers through the gateway; the admin-marker-only token is signed with the local dev identity key."
+    api:
+      exercised: [order.v1.ForceFailSaga]
+    acceptance:
+      - "When buyer B calls `ForceFailSaga` on buyer A's `Pending` order"
+      - "Then the gateway answers 403 and A's order is still `Pending`"
+    tags: [security]
+    status: automated
+    covered_by: "security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
+    notes: "green after rebuild: security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"

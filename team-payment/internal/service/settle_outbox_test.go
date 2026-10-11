@@ -8,8 +8,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	eventsv1 "github.com/buidangphuc/team-payment/generated/platform/events/v1"
+	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-payment/internal/events"
 	"github.com/buidangphuc/team-payment/internal/repository"

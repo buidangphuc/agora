@@ -4,10 +4,12 @@ import { OrderDetailView } from "@/features/seller/OrderDetailView";
 import { PrintButton } from "@/features/seller/PrintButton";
 import { PrintStyles } from "@/features/seller/PrintStyles";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
+import { SellerReturns } from "@/features/seller/SellerReturns";
 import { ShipOrderButton } from "@/features/seller/ShipOrderButton";
 import { isShippable } from "@/features/seller/status";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { getShipmentTracking } from "@/lib/gateway/orders";
+import { getShipmentTracking, listOrderReturns } from "@/lib/gateway/orders";
+import { getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import { isOwnedBy, loadSellerOrder } from "./data";
@@ -30,7 +32,19 @@ export default async function SellerOrderDetailPage({
   }
 
   const shipment = await getShipmentTracking(order.id);
-  const tab = searchParams.tab === "shipment" ? "shipment" : "items";
+  const tab =
+    searchParams.tab === "shipment" || searchParams.tab === "returns"
+      ? searchParams.tab
+      : "items";
+  // Returns come from the order service, the refund each one got from the
+  // payment; both through the gateway. An unreadable payment is passed as null.
+  const [returns, payment] =
+    tab === "returns"
+      ? await Promise.all([
+          listOrderReturns(order.id),
+          getPayment(undefined, order.id),
+        ])
+      : [[], null];
   const base = `/seller/orders/${order.id}`;
 
   return (
@@ -60,6 +74,14 @@ export default async function SellerOrderDetailPage({
         shipment={shipment}
         tab={tab}
         tabHref={(id) => (id === "items" ? base : `${base}?tab=${id}`)}
+        returnsPanel={
+          <SellerReturns
+            orderId={order.id}
+            paidOnline={order.paidAt !== ""}
+            returns={returns}
+            payment={payment}
+          />
+        }
       />
     </>
   );

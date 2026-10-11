@@ -22,13 +22,16 @@ type ReservationSweeper struct {
 // interval defaults to one minute; a nil logger uses slog.Default().
 func NewReservationSweeper(svc *ListingService, interval time.Duration, logger *slog.Logger) *ReservationSweeper {
 	if interval <= 0 {
-		interval = time.Minute
+		interval = DefaultSweepInterval
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ReservationSweeper{svc: svc, interval: interval, logger: logger}
 }
+
+// Interval returns the effective polling interval.
+func (s *ReservationSweeper) Interval() time.Duration { return s.interval }
 
 // SweepOnce runs a single sweep as of now, returning the number of reservations
 // released.
@@ -39,6 +42,11 @@ func (s *ReservationSweeper) SweepOnce(ctx context.Context, now time.Time) (int,
 // Run sweeps on the configured interval until ctx is cancelled. A sweep error is
 // transient (e.g. a DB blip) — it is logged and retried on the next tick.
 func (s *ReservationSweeper) Run(ctx context.Context) {
+	// The effective values are logged as strings ("15m0s") so operators and the
+	// e2e config scenarios can read them in either log format.
+	s.logger.InfoContext(ctx, "reservation sweeper started",
+		slog.String("reservation_ttl", s.svc.ReservationTTL().String()),
+		slog.String("sweep_interval", s.interval.String()))
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 	for {

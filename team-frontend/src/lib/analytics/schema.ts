@@ -65,6 +65,8 @@ export interface EcommerceParams {
 
 /** Wire format sent to gateway collector /api/track */
 export interface WireTrackBeacon {
+  /** Client-chosen UUID; the gateway derives the envelope event_id from it so a re-send dedupes. */
+  eventId: string;
   type: string;
   listingId: string;
   sessionId: string;

@@ -112,6 +112,8 @@ service OrderService {
   rpc CreateReturnRequest(CreateReturnRequestRequest) returns (CreateReturnRequestResponse);
   rpc GetReturnRequest(GetReturnRequestRequest) returns (GetReturnRequestResponse);
   rpc UpdateReturnStatus(UpdateReturnStatusRequest) returns (UpdateReturnStatusResponse);
+  // ListOrderReturns lists an order's returns (buyer, seller or admin of the order).
+  rpc ListOrderReturns(ListOrderReturnsRequest) returns (ListOrderReturnsResponse);
 
   // Shipment & Logistics Tracking
   rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse);
@@ -277,6 +279,16 @@ message Order {
   // Voucher discount applied at checkout; total_amount = items_subtotal + shipping_fee - discount_amount.
   int64 discount_amount = 15;
   string voucher_code = 16;
+  // When the order was paid online; unset = never paid online (e.g. cash on delivery).
+  google.protobuf.Timestamp paid_at = 17;
+}
+
+message ListOrderReturnsRequest {
+  string order_id = 1;
+}
+
+message ListOrderReturnsResponse {
+  repeated OrderReturn returns = 1;
 }
 
 message CreateOrderRequest {
@@ -344,4 +356,65 @@ message CalculateShippingFeeResponse {
   int64 shipping_fee = 1;
   bool is_free_shipping = 2;
   string message = 3;
+}
+
+// ── Order Events (Kafka payload for order.events) ──
+
+message OrderLineItemFact {
+  string listing_id = 1;
+  string variant_id = 2;
+  string seller_id = 3;
+  int32 quantity = 4;
+  int64 unit_price = 5;
+  string currency = 6;
+}
+
+message OrderPaidEvent {
+  string order_id = 1;
+  string buyer_id = 2;
+  repeated OrderLineItemFact items = 3;
+  int64 total_amount = 4;
+  string currency = 5;
+  google.protobuf.Timestamp paid_at = 6;
+}
+
+// ReturnRefunded is emitted (via the outbox, to order.events) in the same transaction
+// as the compare-and-set that moves a return from APPROVED to REFUNDED; only orders
+// paid online can get there. refund_amount is the server-side return amount.
+// team-payment refunds it once, keyed by return_id. The event id is stable per return.
+message ReturnRefunded {
+  string return_id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  string seller_id = 4;
+  int64 refund_amount = 5;
+  string currency = 6;
+  google.protobuf.Timestamp refunded_at = 7;
+}
+
+// OrderCancelled is emitted (via the outbox, to order.events) in the same
+// transaction as the compare-and-set that cancels an order, so only a cancel that
+// won the claim produces it (CancelOrder and ForceFailSaga). previous_status is
+// the status the order was cancelled from; team-payment refunds the buyer and
+// deducts the seller exactly once when it is ORDER_STATUS_PAID. The event id is
+// stable per order, so redelivery is harmless.
+message OrderCancelled {
+  string order_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  OrderStatus previous_status = 4;
+  int64 total_amount = 5;
+  string currency = 6;
+  google.protobuf.Timestamp cancelled_at = 7;
+}
+
+// OrderShipped is emitted (via the outbox, to order.events) when a seller creates
+// a shipment for an order. Consumed by team-notification to notify the buyer.
+message OrderShipped {
+  string order_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  string carrier = 4;
+  string tracking_code = 5;
+  google.protobuf.Timestamp shipped_at = 6;
 }

@@ -69,4 +69,10 @@ message RecommendResponse {
   // Version of the offline artifact that produced this ranking, tying the
   // result back to the model that built it (provenance).
   string model_version = 2;
+  // Placement the server actually served (e.g. "home_feed"). Empty when the
+  // service cannot tell which placement produced this list.
+  string placement_id = 3;
+  // Server-minted id, unique per response. The storefront uses it as the
+  // impressionId so click/view beacons join back to the exact list served.
+  string request_id = 4;
 }

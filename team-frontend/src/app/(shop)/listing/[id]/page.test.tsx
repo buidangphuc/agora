@@ -9,6 +9,7 @@ import {
   getListingRatingSummary,
   getShopRatingSummary,
   listReviews,
+  listReviewsPage,
 } from "@/lib/gateway/reviews";
 import { getPrincipal } from "@/lib/gateway/session";
 import ProductDetailPage from "./page";
@@ -48,6 +49,7 @@ vi.mock("@/lib/gateway/reviews", () => ({
   getListingRatingSummary: vi.fn(),
   getShopRatingSummary: vi.fn(),
   listReviews: vi.fn(),
+  listReviewsPage: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn(() => null) }));
 vi.mock("@/features/cart/actions", () => ({ addToCartAction: vi.fn() }));
@@ -121,6 +123,12 @@ function setup(
     over.flash ?? { active: false },
   );
   vi.mocked(listReviews).mockResolvedValue([]);
+  vi.mocked(listReviewsPage).mockResolvedValue({
+    reviews: [],
+    total: 0,
+    page: 1,
+    pages: 1,
+  });
 }
 
 beforeEach(() => {
@@ -326,6 +334,11 @@ describe("ProductDetailPage: anatomy", () => {
     vi.mocked(listReviews).mockReturnValue(new Promise(() => {}));
     await renderPage();
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  });
+
+  it("asks the server for the ?rpage page and ?rating filter instead of all reviews", async () => {
+    await renderPage({ rpage: "11", rating: "4" });
+    expect(listReviewsPage).toHaveBeenCalledWith("L", { rating: 4, page: 11 });
   });
 
   it("calls notFound only when the listing does not exist", async () => {

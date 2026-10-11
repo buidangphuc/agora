@@ -126,8 +126,16 @@ func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
 	if _, err := LoadSettings(); err != nil {
 		t.Fatalf("local env should allow it: %v", err)
 	}
-	t.Setenv("ENV", "prod")
-	if _, err := LoadSettings(); err == nil || !strings.Contains(err.Error(), "PASSWORD_RESET_EXPOSE_TOKEN") {
-		t.Fatalf("prod must refuse it, got %v", err)
+	for _, env := range []string{"staging", "stage", "prod", "production", "Production"} {
+		t.Setenv("ENV", env)
+		if _, err := LoadSettings(); err == nil || !strings.Contains(err.Error(), "PASSWORD_RESET_EXPOSE_TOKEN") {
+			t.Fatalf("ENV=%s must refuse it, got %v", env, err)
+		}
+	}
+	for _, env := range []string{"local", "test", "dev"} {
+		t.Setenv("ENV", env)
+		if _, err := LoadSettings(); err != nil {
+			t.Fatalf("ENV=%s should allow it: %v", env, err)
+		}
 	}
 }

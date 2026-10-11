@@ -37,6 +37,10 @@ func run() error {
 		return fmt.Errorf("load settings: %w", err)
 	}
 	logger := observability.NewLogger(settings)
+	// fail fast on unsafe config, before connecting to anything
+	if err := settings.RequireDurableStorage(); err != nil {
+		return err
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

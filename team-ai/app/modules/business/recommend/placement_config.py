@@ -45,7 +45,11 @@ class PlacementRegistry:
 
     def __init__(self, config_path: str | Path | None = None) -> None:
         self._placements: dict[str, PlacementConfig] = {}
-        path = Path(config_path) if config_path else Path(__file__).parent / "config" / "placements.yaml"
+        path = (
+            Path(config_path)
+            if config_path
+            else Path(__file__).parent / "config" / "placements.yaml"
+        )
         if path.exists():
             self._load_from_yaml(path)
         else:
@@ -88,8 +92,16 @@ class PlacementRegistry:
             placement_id="home_feed",
             name="Home Feed Default",
             candidate_ladder=[
-                LadderStep(tier="tier1_personalized", strategy="user_precomputed", min_candidates=5),
-                LadderStep(tier="tier4_global_popular", strategy="global_popular", min_candidates=1),
+                LadderStep(
+                    tier="tier1_personalized",
+                    strategy="user_precomputed",
+                    min_candidates=5,
+                ),
+                LadderStep(
+                    tier="tier4_global_popular",
+                    strategy="global_popular",
+                    min_candidates=1,
+                ),
             ],
         )
 
@@ -109,9 +121,13 @@ class PlacementRegistry:
                     )
 
     def get(self, placement_id: str) -> PlacementConfig:
-        return self._placements.get(placement_id) or self._placements.get("home_feed") or PlacementConfig(
-            placement_id=placement_id,
-            name=placement_id,
+        return (
+            self._placements.get(placement_id)
+            or self._placements.get("home_feed")
+            or PlacementConfig(
+                placement_id=placement_id,
+                name=placement_id,
+            )
         )
 
     def list_placements(self) -> list[str]:

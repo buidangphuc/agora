@@ -127,7 +127,7 @@ type InMemoryOutbox struct {
 	mu        sync.Mutex
 	pending   []PendingEvent
 	Published map[string]time.Time
-	Failed    map[string]string   // event_id -> last error (parked)
+	Failed    map[string]string    // event_id -> last error (parked)
 	Retried   map[string]time.Time // event_id -> next available_at
 	Attempts  map[string]int
 }

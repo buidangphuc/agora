@@ -21,6 +21,18 @@ enum PaymentStatus {
   PAYMENT_STATUS_PAID = 2;
   PAYMENT_STATUS_FAILED = 3;
   PAYMENT_STATUS_REFUNDED = 4;
+  // Some but not all of the paid amount has been refunded (cumulative refunds).
+  PAYMENT_STATUS_PARTIALLY_REFUNDED = 5;
+}
+
+// Where a refund came from. The stored refund key is prefixed by source, so an id a
+// seller chooses can never collide with a return or cancel refund.
+enum PaymentRefundSource {
+  PAYMENT_REFUND_SOURCE_UNSPECIFIED = 0;
+  PAYMENT_REFUND_SOURCE_SELLER_OR_ADMIN = 1; // RefundPayment
+  PAYMENT_REFUND_SOURCE_RETURN = 2;          // ReturnRefunded (RMA)
+  PAYMENT_REFUND_SOURCE_ORDER_CANCEL = 3;    // OrderCancelled of a paid order
+  PAYMENT_REFUND_SOURCE_LEGACY = 4;          // migrated single refund
 }
 
 enum PayoutStatus {
@@ -60,6 +72,22 @@ message PaymentTransaction {
   string provider_reference = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+  // Cumulative amount refunded so far (0..amount).
+  int64 refunded_amount = 11;
+  // Every refund applied to this payment, oldest first.
+  repeated PaymentRefund refunds = 12;
+}
+
+// One refund of a payment. requested_amount is what was asked; amount is what was
+// applied (it may be less, or 0, when a return asked for more than was left).
+message PaymentRefund {
+  string id = 1;
+  PaymentRefundSource source = 2;
+  string source_id = 3; // refund_id, return id or order id
+  int64 requested_amount = 4;
+  int64 amount = 5;
+  string reason = 6;
+  google.protobuf.Timestamp created_at = 7;
 }
 
 message SellerWallet {
@@ -115,6 +143,9 @@ message WalletEntry {
   int64 amount = 4;     // minor units; sign indicates credit/debit
   string status = 5;    // e.g. "PENDING", "COMPLETED", "REJECTED"
   google.protobuf.Timestamp created_at = 6;
+  // What the entry is about: the payment for ORDER_SETTLEMENT, the refund for
+  // REFUND_DEDUCTION; empty for payouts and legacy credits.
+  string reference_id = 7;
 }
 
 message GetWalletBalanceRequest {
@@ -206,6 +237,9 @@ message RefundPaymentRequest {
   string payment_id = 1;
   int64 amount = 2;
   string reason = 3;
+  // Required. Idempotency key of this refund: 1-64 chars of [A-Za-z0-9._:-]. A retry
+  // with the same id returns the same refund; a new id is a new refund.
+  string refund_id = 4;
 }
 
 message RefundPaymentResponse {

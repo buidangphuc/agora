@@ -1,7 +1,7 @@
 # platform-recsys
 
 Offline recommendation training job (bounded context: recommendation model artifacts). It reads
-behavioural events, trains an implicit-feedback ALS model with PySpark, evaluates it on a
+the governed `als_interactions` dataset, trains an implicit-feedback ALS model with PySpark, evaluates it on a
 leakage-free holdout, runs a champion/challenger promotion gate, and only when the run is promoted
 publishes item/user vectors to **Qdrant** and precomputed Top-N lists to **Redis**.
 
@@ -23,27 +23,42 @@ data out.
 
 | What | Source | Detail |
 |---|---|---|
-| `tracking_events` | Parquet exported by `team-analytics` (`PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, every `PARQUET_EXPORT_INTERVAL_SECONDS=300`) on the `analytics_data` volume; mounted read-only at `/data` | Columns listed in `recsys/warehouse.py` `TRACKING_COLUMNS` (the read contract). Only those present are kept. Rows are bounded by `occurred_at >= now - INTERACTION_WINDOW_DAYS`. |
-| Alternative source | BigQuery table via the Spark BigQuery connector | `WAREHOUSE_DRIVER=bigquery` + `BIGQUERY_PROJECT/DATASET/TABLE` |
+| Governed dataset `als_interactions@v1` | Written by `platform-featurestore` (`python -m featurestore dataset`) as `<DATASET_DIR>/as_of=<YYYYMMDDTHHMMSSZ>.parquet` plus `as_of=<stamp>.manifest.json`; the root compose mounts the `featurestore_data` volume read-only at `/features` | Columns `user_key`, `listing_id`, `weight` (double), `interactions` (int), `last_occurred_at` (timestamp). Manifest keys: `name`, `version`, `as_of`, `window_days`, `rows`, `users`, `items`, `definition_sha256`, `input_watermark`, `file_sha256`, `file`. |
 
-Triples: `user_key` = `principal_id`, else `anonymous_id` (rows with neither are dropped);
-`listing_id` must be non-empty; weight = per-event weight (unknown event types get 0.5) summed per
-(user, item), optionally recency-decayed.
+Resolution (`recsys/dataset.py`): `DATASET_PATH` (an explicit file; its manifest is the same name with
+`.parquet` replaced by `.manifest.json`) wins, otherwise the lexically latest `as_of=*.parquet` under
+`DATASET_DIR` that has a manifest. **With no dataset the job exits 2**, logs `no governed dataset under
+DATASET_DIR=...`, and registers nothing; there is no fallback to raw events.
+
+Triples: `user_key`, `listing_id` and `weight` are used **as given** (identity stitching, event weights,
+favourites and reviews are the featurestore's job). Only rows with an empty key or a weight <= 0 are
+dropped. The offline evaluation split uses `last_occurred_at`.
+
+**Lineage:** every registered model carries `parameters["dataset"] = {name, version, as_of, sha256}`
+copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run summary repeats it.
 
 **Produces (only for a promoted run)**
 
 | Store | Name | Content |
 |---|---|---|
-| Qdrant | `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at`. |
-| Qdrant | `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users; payload `user_key`. |
-| Qdrant | `QDRANT_TWO_TOWER_COLLECTION` (`item_two_tower_vectors`) | Only when `ENABLE_TWO_TOWER=true` (see Known gaps). |
-| Redis | `recs:v1:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |
-| Redis | `recs:v1:item:{listing_id}` | Similar items, same shape |
-| Redis | `recs:v1:popular` | Popularity fallback (summed weight), same shape |
-| Redis | `recs:v1:model_version` | Written last, flips only after the generation is loaded |
+| Qdrant | `item_als_vectors__<model_version>` | One generation's L2-normalised item factors, cosine, dim = `ALS_RANK`. Payload `listing_id`, `model_version`, `updated_at`. Created fresh by each publish. |
+| Qdrant | `user_als_vectors__<model_version>` | Same for users; payload `user_key`. |
+| Qdrant | alias `QDRANT_ITEM_COLLECTION` (`item_als_vectors`) | Alias, not a collection: points at the serving generation's item collection. Deprecated compatibility shim (serving-switch-atomicity): team-ai names `<alias>__<recs:v1:serving>` itself, so one pointer decides Redis and Qdrant; the alias is only for readers that predate that and for a deployment with no pointer yet. |
+| Qdrant | alias `QDRANT_USER_COLLECTION` (`user_als_vectors`) | Same for users. |
+| Qdrant | `item_two_tower_vectors__<model_version>` (`QDRANT_TWO_TOWER_COLLECTION` + `__` + generation) | Only when `ENABLE_TWO_TOWER=true`: L2-normalised item vectors, dim `TWO_TOWER_DIM`, written with the generation before the switch, retired with it, no alias (name it from `recs:v1:serving`). Needs the `item_popularity@v1` and `user_activity@v2` featurestore snapshots under `/features` (else exit 2). Also reads `item_attributes@v1` (category, price; attribute-only listings join the catalogue) and `user_preferences@v1` (preferred categories) when present; `TWO_TOWER_REQUIRE_ATTRIBUTES=true` makes a missing item snapshot exit 2. |
+| Redis | `recs:v1:gen:<model_version>:user:{user_key}` | JSON `[{listing_id, score}]`, capped at `TOP_N` |
+| Redis | `recs:v1:gen:<model_version>:item:{listing_id}` | Similar items, same shape |
+| Redis | `recs:v1:gen:<model_version>:popular` | Popularity fallback (summed weight), same shape |
+| Redis | `recs:v1:gen:<model_version>:ranker` | Only when `ENABLE_GBDT=true` and the GBDT candidate was promoted: the trained ranker as JSON (`agora-gbdt/1`: feature list, defaults, trees, learning rate, metrics), written before the switch, TTL-refreshed and retired with its generation. A rejected candidate leaves the generation without one. Format and loader contract: change `recsys-gbdt-trainer` design D7. |
+| Redis | `recs:v1:serving` | The generation being served. No TTL. Moved last, by one Lua script |
+| Redis | `recs:v1:previous` | The generation `serving` replaced (rollback target). No TTL. Same script |
+| Redis | `recs:v1:model_version` | Mirrors `serving` (same script) for readers that predate generations |
+| Redis | `recs:v1:user:{user_key}`, `:item:{listing_id}`, `:popular` | Unscoped compatibility copies of the latest generation. Written while `RECS_WRITE_LEGACY_KEYS=true` (default); to be removed in a follow-up release |
 | Redis | `recs:model:champion`, `recs:model:meta:{model_version}` | Registry state (champion pointer, metadata JSON incl. metrics and status) |
 
-All cache keys carry TTL `RECS_CACHE_TTL_SECONDS` (172800 s). Qdrant point id is
+All generation and unscoped cache keys carry TTL `RECS_CACHE_TTL_SECONDS` (172800 s); the three
+pointers do not. Every run (promoted or not) refreshes the TTL of the serving and previous generations
+so a rollback never lands on expired keys. Qdrant point id is
 `uuid5(namespace, source_id)` (`recsys/load/qdrant.py`), pinned by `tests/test_point_id.py`; consumers
 depend on it. After upserting, points whose `model_version` differs from the current one are deleted.
 
@@ -52,7 +67,15 @@ Producer/consumer agreements that must hold: `QDRANT_ITEM_COLLECTION` = team-ai 
 
 ## 2. Events
 
-None produced, none consumed. (`tracking_events` reaches the job through the Parquet export, not Kafka.)
+The batch job produces and consumes none (the dataset reaches it as a file on a shared volume). The separate
+**nearline consumer** (`python -m recsys.nearline`, change `add-recsys-nearline-signals`) consumes Kafka
+`analytics.events` as consumer group `platform-recsys-nearline` and keeps the `recs:nearline:*` Redis keys
+(recents, category affinity, co-views, position-debiased CTR; 24 h TTL, not generation-scoped) fresh for
+team-ai. It is a long-running process, not part of `python -m recsys`; the key layout team-ai reads is in
+`openspec/changes/add-recsys-nearline-signals/design.md`. Offsets are committed after the Redis write; a
+Redis failure exits 1 and the restart replays (idempotent by event id). Settings: `KAFKA_BROKERS`,
+`KAFKA_ANALYTICS_TOPIC`, `NEARLINE_CONSUMER_GROUP`, `NEARLINE_START_OFFSET`, `NEARLINE_TTL_SECONDS`,
+`NEARLINE_IDLE_EXIT_SECONDS`.
 
 ## 3. Data
 
@@ -82,8 +105,8 @@ Spark MLlib), collect factors and L2-normalise, precompute Top-N, **evaluate**, 
 | decision | When | Effect |
 |---|---|---|
 | `skipped` | The split yields no test events (no usable holdout) | Nothing registered, gate not consulted, nothing published |
-| `promoted` | No champion yet (first run bootstraps), or champion metadata missing, or protocol mismatch, or the gate passes, or `PROMOTION_FORCE=true` | Registered as `champion`, Qdrant + Redis published, optional Two-Tower stage |
-| `rejected` | Gate fails against the same-protocol champion | Candidate marked `rejected`; previous generation keeps serving, nothing published |
+| `promoted` | Structural gate passed and: no champion yet (first run bootstraps), or champion metadata missing, or protocol mismatch, or the gate passes, or `PROMOTION_FORCE=true` | Registered as `champion`, published as a generation (summary adds `serving`, `previous`), optional Two-Tower stage |
+| `rejected` | Structural gate fails (`gate: structural`), or the metric gate fails against the same-protocol champion | Candidate marked `rejected`; the serving generation is untouched, nothing published |
 
 Gate (`ModelEvaluator.compare_models`): primary metric `PROMOTION_PRIMARY_METRIC` (`ndcg@10`) must
 improve by at least `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01) and, when both runs report it,
@@ -96,7 +119,48 @@ improve by at least `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01) and, when both r
 repopulate Qdrant/Redis after a reset. Never set it on a schedule. The first run with an empty
 registry bootstraps on its own.
 
+**Structural gate** (`recsys/structural_gate.py`, spec `recsys-generations`) runs on the candidate's
+own Top-N lists and factors *before* evaluation and the metric gate. The first failing check rejects:
+
+| Check | Rejects when | Setting (default) |
+|---|---|---|
+| Factors | any NaN or infinite value in the user or item factors | none, always on |
+| User coverage | users with at least one recommendation / dataset users is below | `GATE_MIN_USER_COVERAGE` (0.5) |
+| Item coverage | distinct items in any user's top-N / dataset items is below | `GATE_MIN_ITEM_COVERAGE` (0.05) |
+| List overlap | mean Jaccard of users' top-N lists (all pairs, or a deterministic sample of 500) is above | `GATE_MAX_LIST_OVERLAP` (0.9) |
+
+A rejection registers the model with status `rejected`, the reason in `metrics.gate_reason` (a string,
+like `eval_protocol`; also mirrored in `parameters.gate_reason`), returns `decision: rejected` with
+`gate: structural`, and publishes nothing. `PROMOTION_FORCE` does not bypass it. A catalogue no larger
+than `TOP_N` gives every user the same list, so it trips the overlap check; lower `TOP_N` or raise
+`GATE_MAX_LIST_OVERLAP` for such toy datasets.
+
+**Generations.** A promoted model is published as one generation (its `model_version`):
+1. its Redis keys and Qdrant collections are written (invisible to readers);
+2. the Qdrant aliases move to them, then one Lua script sets `recs:v1:previous` to the old `serving`,
+   `recs:v1:serving` to the new one and mirrors `recs:v1:model_version` (the switch);
+3. every generation that is neither serving nor previous is deleted (keys and collections).
+A crash before step 2 leaves serving as it was. The first publish on a deployment with plain
+`item_als_vectors` / `user_als_vectors` collections copies them to `<name>__legacy`, deletes them and
+lets the aliases take the names; retention drops `__legacy` after the first switch.
+
+**Rollback**: `python -m recsys rollback` swaps `serving` and `previous`, moves the aliases to the
+restored generation's collections and makes its model the registry champion (the demoted model becomes
+`archived`). Exit 0 on success; exit 2, changing nothing, when there is no previous generation or its
+keys/collections are gone; exit 1 when Redis is unreachable. Running it twice goes forward again. The
+next training run compares against the restored champion.
+
 `MODEL_VERSION` overrides the stamp; otherwise `als-<UTC yyyymmddThhmmssZ>`.
+
+**Drift** (`recsys/monitoring/generation.py`, change `add-recsys-drift-monitoring`). Before the structural
+gate every run summarises four distributions as quantile sketches (`weight` of the dataset pairs,
+`user_items`, `item_users`, and each user's best recommendation score `top_score`), computes PSI against the
+champion's stored sketches (the generation it would replace) and records the verdict: `parameters.distribution`
+(the sketches, the next run's baseline), `parameters.drift` (`status` no_baseline/ok/drifted, `baseline_version`,
+per-feature `psi` and `drift_level`, `is_drifted`), `metrics.drift_psi_max`, the summary's `drift`, a log line
+(WARNING when flagged) and, with `DRIFT_METRICS_PATH`, a Prometheus text file. A feature is flagged at
+`DRIFT_ALERT_THRESHOLD` (0.25). It is observational: it never changes `decision`. ALS factors are not compared
+(they are only defined up to a rotation).
 
 ## 5. Configuration
 
@@ -107,37 +171,44 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 |---|---|
 | Runtime | `ENV` (local), `LOG_LEVEL` (info) |
 | Spark | `SPARK_MASTER` (local[*]), `SPARK_APP_NAME` (platform-recsys-als) |
-| Warehouse | `WAREHOUSE_DRIVER` (duckdb; or bigquery), `WAREHOUSE_PARQUET_PATH` (/data/tracking_events.parquet), `BIGQUERY_PROJECT` (empty, required for bigquery), `BIGQUERY_DATASET` (analytics), `BIGQUERY_TABLE` (tracking_events) |
-| Interactions | `INTERACTION_WINDOW_DAYS` (30), `EVENT_WEIGHTS_JSON`, `RECENCY_HALF_LIFE_DAYS` (0 = off), `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
+| Dataset | `DATASET_DIR` (/features/datasets/als_interactions/v1), `DATASET_PATH` (empty; an explicit file, overrides `DATASET_DIR`) |
+| Interactions | `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
 | ALS | `ALS_RANK` (64), `ALS_REG_PARAM` (0.05), `ALS_ALPHA` (40.0), `ALS_MAX_ITER` (15) |
 | Outputs | `TOP_N` (50), `QDRANT_URL` (http://localhost:6333), `QDRANT_ITEM_COLLECTION`, `QDRANT_USER_COLLECTION`, `REDIS_HOST` (localhost), `REDIS_PORT` (6379), `REDIS_PASSWORD` (empty), `REDIS_DATABASE` (0), `RECS_CACHE_PREFIX` (recs), `RECS_SCHEMA_VERSION` (v1), `RECS_CACHE_TTL_SECONDS` (172800) |
-| Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32) |
+| Two-Tower | `ENABLE_TWO_TOWER` (false), `QDRANT_TWO_TOWER_COLLECTION` (item_two_tower_vectors), `TWO_TOWER_DIM` (32), `ITEM_FEATURES_DIR` (/features/item_popularity/v1), `ITEM_FEATURES_PATH`, `USER_FEATURES_DIR` (/features/user_activity/v2), `USER_FEATURES_PATH`, `ITEM_ATTRIBUTES_DIR` (/features/item_attributes/v1), `ITEM_ATTRIBUTES_PATH`, `USER_PREFERENCES_DIR` (/features/user_preferences/v1), `USER_PREFERENCES_PATH`, `TWO_TOWER_REQUIRE_ATTRIBUTES` (false), `TWO_TOWER_MAX_CATEGORIES` (64), `TWO_TOWER_EPOCHS` (5), `_LR` (0.05), `_BATCH_SIZE` (256), `_TEMPERATURE` (0.1), `TWO_TOWER_MAX_PAIRS` (200000) |
+| GBDT ranker | `ENABLE_GBDT` (false), `RANK_DATASET_DIR` (/features/datasets/rank_training/v1), `RANK_DATASET_PATH`, `GBDT_TREES` (40), `GBDT_MAX_DEPTH` (3), `GBDT_LEARNING_RATE` (0.1), `GBDT_MIN_LEAF` (10), `GBDT_HOLDOUT_FRACTION` (0.2), `GBDT_MAX_LIST` (30), `GBDT_MAX_LISTS` (50000), `GBDT_CTR_MIN_IMPRESSIONS` (3), `GBDT_ROWS_PATH` (empty). Features: every `as_of` snapshot under `ITEM_FEATURES_DIR` and `ITEM_ATTRIBUTES_DIR` |
+| Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
+| Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
 | Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
+| Structural gate | `GATE_MIN_USER_COVERAGE` (0.5), `GATE_MIN_ITEM_COVERAGE` (0.05), `GATE_MAX_LIST_OVERLAP` (0.9) |
+| Compatibility | `RECS_WRITE_LEGACY_KEYS` (true): also write the unscoped `recs:v1:{user,item,popular}` keys |
 
-Default event weights: impression 0.5, view 1, click 2, view_cart 2.5, add_to_cart 5,
-add_shipping_info 6, add_payment_info 7, begin_checkout 8, purchase 10 (`EVENT_WEIGHTS_JSON`
-overrides the whole map).
+Removed with the raw-events ALS path: `WAREHOUSE_PARQUET_PATH`, `INTERACTION_WINDOW_DAYS`,
+`EVENT_WEIGHTS_JSON` (the weights and window now live in the featurestore dataset definition), plus
+the now-unused `WAREHOUSE_DRIVER`, `BIGQUERY_*` and `RECENCY_HALF_LIFE_DAYS`. `recsys/weights.py`
+stays for the nearline and two-tower helpers.
 
 ## 6. Run locally
 
 **Primary (root compose)**, from the workspace root:
 
 ```bash
-docker compose up -d --build        # stack incl. qdrant, redis, team-analytics (exports the Parquet every 300 s)
+docker compose up -d --build        # stack incl. qdrant, redis, team-analytics
+# build the dataset first (platform-featurestore `dataset` command), then:
 docker compose --profile jobs run --rm platform-recsys
 ```
 
-The job service (`docker-compose.services.yaml`) builds `./platform-recsys`, mounts `analytics_data`
-at `/data:ro`, and sets `WAREHOUSE_DRIVER`, `WAREHOUSE_PARQUET_PATH`, `QDRANT_URL=http://qdrant:6333`,
-`REDIS_HOST=redis`, `REDIS_PORT`, and depends on `qdrant` and `redis`. Run order: tracking events reach
-team-analytics, its export writes the Parquet, then the job. Until the job has run and been promoted,
+The job service (`docker-compose.services.yaml`) builds `./platform-recsys`, mounts `featurestore_data`
+at `/features:ro`, and sets `DATASET_DIR`, `QDRANT_URL=http://qdrant:6333`, `REDIS_HOST=redis`,
+`REDIS_PORT`, and depends on `qdrant` and `redis` (compose wiring is owned by the root change). Run
+order: the featurestore builds the dataset, then the job. Until the job has run and been promoted,
 `team-ai` Recommend answers empty.
 
 **Standalone**
 
 ```bash
-make sample SAMPLE=./data/tracking_events.parquet      # tiny synthetic Parquet warehouse
-make run-local SAMPLE=./data/tracking_events.parquet   # needs PySpark, Java, local Qdrant + Redis
+make sample SAMPLE=./data/datasets/als_interactions/v1      # tiny governed dataset (parquet + manifest)
+make run-local SAMPLE=./data/datasets/als_interactions/v1   # needs PySpark, Java, local Qdrant + Redis
 # or: docker compose -f docker-compose.local.yaml run --rm recsys-train   (external network platform-core_default)
 make docker-build && make docker-run
 ```
@@ -149,7 +220,7 @@ make docker-build && make docker-run
 | `make compile` | byte-compile `recsys sample_data tests` |
 | `make lint` | `ruff check` + `black --check` (line length 110) |
 | `make check-env` | `.env.example` drift gate |
-| `make test-host` | PySpark-free tests (config, weights, recommend, env drift, evals, registry, nearline, ranker, point id) |
+| `make test-host` | PySpark-free tests (config, dataset, weights, recommend, env drift, evals, registry, nearline, ranker, point id, structural gate, generations). The Lua pointer tests need `fakeredis` + `lupa` (in `requirements-dev.txt`) and skip without them |
 | `make test` | full pytest; Spark-gated tests skip without PySpark and run in the image |
 | `make eval` | `python -m recsys.evals` offline evaluation CLI on built-in sample interactions |
 
@@ -177,6 +248,9 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 - Java must be on `PATH` for PySpark (the image has it).
 - `data/` and `*.parquet` are gitignored; generate a sample with `make sample`.
 - Collection and key names are a contract with `team-ai`; change them on both sides.
+- The registry champion is set before the publish step: a crash mid-publish leaves serving untouched
+  but the registry naming the unpublished model champion. Re-run with `PROMOTION_FORCE=true` or
+  `python -m recsys rollback` once the stores are healthy.
 - Nothing is published unless the run is `promoted`. After resetting Qdrant/Redis while the registry
   still names a champion, the next run may be rejected or skipped: use `PROMOTION_FORCE=true` once.
 - The registry falls back to in-memory when Redis is unreachable at start (logged at info level).
@@ -185,12 +259,13 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 10. Known gaps
 
-- `recsys/ranker/` (CVR / eGMV), `recsys/monitoring/` (PSI drift) and `recsys/nearline/` are library
-  modules with unit tests; `pipeline.py` does not call them. There is no online reranker here and
+- `recsys/ranker/` (CVR / eGMV) is a library module with unit tests; `pipeline.py` does not call it. `recsys/nearline/` runs as its own process
+  (section 2); its compose service is proposed in the change's `design.md`, not yet in the root compose. There is no online reranker here and
   `lightgbm` is not a dependency.
-- Two-Tower is a placeholder: it runs only when `ENABLE_TWO_TOWER=true` and only after a promoted
-  run, and feeds the item tower hard-coded `price=100`, `popularity=1.0`, `category_id="general"` for
-  every item. It is not evaluated or gated.
+- Two-Tower (change `wire-two-tower-batch-pipeline`) trains on featurestore snapshots and the dataset's pairs and is
+  published with the generation, but it is not evaluated or gated, and the snapshots carry no item category/price or user
+  categories, so those tower inputs are 0 until the featurestore adds an attribute view. A zero vector is refused; if none
+  is usable the candidate is rejected (nothing published).
 - With Redis unreachable the in-memory registry has no champion, so every run is a bootstrap and the
   gate is bypassed; the run then still attempts to publish to Redis.
 - A user with fewer than two distinct listings is never a test user; with no test users the run is
@@ -203,3 +278,16 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
   [ADR-0011 Model serving](../platform-core/docs/ADR/0011-model-serving.md)
 - OpenSpec: `../openspec/changes/` (`serve-trained-recs-locally`, `add-recsys-offline-eval`; archived
   `2026-09-20-wire-pipeline-eval-registry`)
+
+## GBDT ranker (optional, `ENABLE_GBDT=true`)
+
+`recsys/ranker/` trains a LambdaRank gradient-boosted tree model (numpy, no new dependency; the artifact is JSON a
+service scores in pure Python) on the governed `rank_training@v1` impressions (platform-featurestore `dataset`). The input
+vector is `contract.RANKING_FEATURES`: the seven `item_popularity@v1` features in registry order, then
+`item_attributes@v1.price`, from the featurestore snapshot in force at each impression (rows older than every snapshot are
+dropped). The `ctr_7d` slot is replaced by a position-debiased CTR over the TRAIN rows (the row's own outcome removed), recorded per row as
+`ctr_source` `debiased` or `fallback`; `GBDT_ROWS_PATH` writes every row for audit. The latest `GBDT_HOLDOUT_FRACTION` of
+impressions is the holdout: the candidate must beat the fixed-weight ranker (`0.15 * popularity + 0.10 * ctr`) on graded
+NDCG@10 by `PROMOTION_MIN_RELATIVE_IMPROVEMENT`, then the GBDT champion (`recs:model:champion:gbdt`, separate from ALS), and
+`PROMOTION_FORCE` skips both. The stage runs after the ALS promotion decision and before the publish; a rejected candidate does
+not block the generation. With no dataset or no `item_popularity` snapshot the run exits 2 before Spark starts.

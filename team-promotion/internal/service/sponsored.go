@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/buidangphuc/team-promotion/internal/upstream"
 )
 
 // ErrInvalidAdCampaign is returned for malformed CreateAdCampaign input.
@@ -16,16 +17,39 @@ var ErrInvalidAdCampaign = errors.New("invalid ad campaign")
 // Campaigns are a MOCK ledger: CreateAdCampaign records the chosen budget/bid but
 // never moves money (payments/wallet stay mock, AGENTS.md §7).
 type SponsoredService struct {
-	repo   repository.AdCampaignRepository
-	logger *slog.Logger
+	repo      repository.AdCampaignRepository
+	listings  upstream.ListingGetter // nil when UPSTREAM_DOMAIN_ADDR is unset
+	logger    *slog.Logger
+	maxBid    int64
+	maxBudget int64
 }
 
-// NewSponsoredService wires the ad-campaign repository.
-func NewSponsoredService(repo repository.AdCampaignRepository, logger *slog.Logger) *SponsoredService {
+// Default ceilings (minor units) used when none are configured; they match the
+// MAX_AD_BID / MAX_AD_BUDGET config defaults.
+const (
+	DefaultMaxAdBid    int64 = 1_000_000
+	DefaultMaxAdBudget int64 = 1_000_000_000
+)
+
+// NewSponsoredService wires the ad-campaign repository and the team-domain listing
+// client used to verify listing ownership (nil = fail closed for non-admins).
+func NewSponsoredService(repo repository.AdCampaignRepository, listings upstream.ListingGetter, logger *slog.Logger) *SponsoredService {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &SponsoredService{repo: repo, logger: logger}
+	return &SponsoredService{repo: repo, listings: listings, logger: logger, maxBid: DefaultMaxAdBid, maxBudget: DefaultMaxAdBudget}
+}
+
+// WithLimits sets the bid and budget ceilings. A non-positive value keeps the
+// default, so a zero-value config can never mean "unbounded".
+func (s *SponsoredService) WithLimits(maxBid, maxBudget int64) *SponsoredService {
+	if maxBid > 0 {
+		s.maxBid = maxBid
+	}
+	if maxBudget > 0 {
+		s.maxBudget = maxBudget
+	}
+	return s
 }
 
 // CreateAdCampaignParams is the validated input for CreateAdCampaign. SellerID is
@@ -36,11 +60,15 @@ type CreateAdCampaignParams struct {
 	ListingID string
 	Budget    int64
 	Bid       int64
+
+	// IsAdmin skips the listing-ownership check.
+	IsAdmin bool
 }
 
 // CreateAdCampaign records a sponsored campaign for a seller (MOCK — no charge).
-// It validates the listing id and non-negative budget/bid, then persists an active
-// campaign. Returns the stored campaign.
+// It validates the listing id and non-negative budget/bid within the configured
+// maxima, requires non-admin callers to own the listing, then persists an active
+// campaign. Ownership errors are gRPC status errors (PermissionDenied, Unavailable).
 func (s *SponsoredService) CreateAdCampaign(ctx context.Context, p CreateAdCampaignParams) (repository.AdCampaign, error) {
 	if strings.TrimSpace(p.SellerID) == "" {
 		return repository.AdCampaign{}, ErrInvalidAdCampaign
@@ -48,8 +76,13 @@ func (s *SponsoredService) CreateAdCampaign(ctx context.Context, p CreateAdCampa
 	if strings.TrimSpace(p.ListingID) == "" {
 		return repository.AdCampaign{}, ErrInvalidAdCampaign
 	}
-	if p.Budget < 0 || p.Bid < 0 {
+	if p.Budget < 0 || p.Bid < 0 || p.Budget > s.maxBudget || p.Bid > s.maxBid {
 		return repository.AdCampaign{}, ErrInvalidAdCampaign
+	}
+	if !p.IsAdmin {
+		if err := requireListingOwner(ctx, s.listings, s.logger, strings.TrimSpace(p.ListingID), p.SellerID); err != nil {
+			return repository.AdCampaign{}, err
+		}
 	}
 	created, err := s.repo.Create(ctx, repository.AdCampaign{
 		SellerID:  strings.TrimSpace(p.SellerID),

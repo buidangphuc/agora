@@ -183,3 +183,36 @@ func TestVerifierRejectsEmptyToken(t *testing.T) {
 		t.Error("expected error for empty token")
 	}
 }
+
+// A correctly signed token without exp, or with an empty sub, must not verify.
+func TestVerifierRequiresExpAndSub(t *testing.T) {
+	js := newJWKSServer()
+	defer js.close()
+	key := genKey(t)
+	js.publish("kid-1", &key.PublicKey)
+	v := token.NewVerifier(js.url(), time.Minute)
+	if err := v.Prime(context.Background()); err != nil {
+		t.Fatalf("prime: %v", err)
+	}
+	mint := func(rc jwt.RegisteredClaims) string {
+		claims := &token.Claims{Type: "user", Scopes: []string{"admin"}, RegisteredClaims: rc}
+		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+		tok.Header["kid"] = "kid-1"
+		s, err := tok.SignedString(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	exp := jwt.NewNumericDate(time.Now().Add(time.Hour))
+
+	if _, err := v.Verify(mint(jwt.RegisteredClaims{Subject: "user-1", ExpiresAt: exp})); err != nil {
+		t.Fatalf("valid token rejected: %v", err)
+	}
+	if _, err := v.Verify(mint(jwt.RegisteredClaims{Subject: "user-1"})); err == nil {
+		t.Error("token without exp must be rejected")
+	}
+	if _, err := v.Verify(mint(jwt.RegisteredClaims{ExpiresAt: exp})); err == nil {
+		t.Error("token with empty sub must be rejected")
+	}
+}

@@ -21,7 +21,14 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/lib/gateway/search", () => ({
-  EMPTY_FACETS: { categories: [], priceRanges: [], ratings: [], sellers: [] },
+  EMPTY_FACETS: {
+    categories: [],
+    priceRanges: [],
+    ratings: [],
+    sellers: [],
+    tags: [],
+    skus: [],
+  },
 }));
 vi.mock("@/lib/gateway/shops", () => ({
   batchGetShopNames: async () => new Map<string, string>(),
@@ -66,7 +73,14 @@ function ok(over: Partial<FacetedSearchResult> = {}) {
       total: 60,
       page: 1,
       pageSize: 24,
-      facets: { categories: [], priceRanges: [], ratings: [], sellers: [] },
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [],
+        skus: [],
+      },
       ...over,
     } satisfies FacetedSearchResult,
   };
@@ -189,7 +203,7 @@ describe("SearchResultsBlock", () => {
     loadSearch.mockResolvedValue(ok());
     render(
       await SearchResultsBlock({
-        state: state({ q: "ao", category: "c1", rating: "4" }),
+        state: state({ q: "ao", category: "c1", seller: "s1" }),
       }),
     );
     const tags = screen.getByTestId("active-filters");
@@ -198,7 +212,7 @@ describe("SearchResultsBlock", () => {
     );
     expect(
       within(tags).getByRole("link", { name: "Bỏ lọc Danh mục: Điện thoại" }),
-    ).toHaveAttribute("href", "/search?q=ao&rating=4");
+    ).toHaveAttribute("href", "/search?q=ao&seller=s1");
     expect(
       within(tags).getByRole("link", { name: "Xóa tất cả bộ lọc" }),
     ).toHaveAttribute("href", "/search?q=ao");
@@ -215,6 +229,24 @@ describe("ResultCount / FilterPanel", () => {
     expect(await ResultCount({ state: state({}) })).toBeNull();
   });
 
+  it("renders no rating group even when facets.ratings is non-empty", async () => {
+    loadSearch.mockResolvedValue(
+      ok({
+        facets: {
+          categories: [],
+          priceRanges: [],
+          ratings: [{ key: "4", count: 3 }],
+          sellers: [],
+          tags: [],
+          skus: [],
+        },
+      }),
+    );
+    const { container } = render(await FilterPanel({ state: state({}) }));
+    expect(screen.queryByTestId("facet-ratings")).toBeNull();
+    expect(container.textContent).not.toContain("Đánh giá");
+  });
+
   it("keeps the filter column when the search fails", async () => {
     loadSearch.mockResolvedValue({ ok: false });
     render(await FilterPanel({ state: state({ q: "ao" }) }));
@@ -229,6 +261,8 @@ describe("ResultCount / FilterPanel", () => {
           priceRanges: [],
           ratings: [],
           sellers: [{ key: "abcdef123456", count: 2 }],
+          tags: [],
+          skus: [],
         },
       }),
     );

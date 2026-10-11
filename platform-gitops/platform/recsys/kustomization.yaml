@@ -1,0 +1,10 @@
+# Raw manifests + kustomize: manifests carry a tagless image; newTag below is the tag ArgoCD deploys. deploy/images/push-images.sh
+# writes it together with envs/local/values.yaml (images.<key>); the static render tests assert the two agree.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cronjob.yaml
+  - nearline.yaml
+images:
+  - name: localhost:5001/platform-recsys
+    newTag: sha-bb214f3fd631

@@ -27,7 +27,7 @@ Feature: Cart and checkout UI
     Then the cart displays the empty state
     And the empty cart offers a link to continue shopping
 
-  Scenario: Checkout step lives in the URL and survives a reload
+  Scenario: Step state lives in the URL
     Given a promotion buyer has a qualifying cart and a saved address
     When the buyer opens the checkout page
     Then the checkout page shows the stepper without the global search
@@ -36,7 +36,7 @@ Feature: Cart and checkout UI
     When the buyer reloads the checkout page
     Then the "shipping" step is the current step
 
-  Scenario: Buyer changes the delivery address in the selector modal
+  Scenario: Changing the address updates the URL
     Given a promotion buyer has a qualifying cart and a saved address
     And the buyer has a second saved address for "Tran Thi B"
     When the buyer opens the checkout page
@@ -50,14 +50,14 @@ Feature: Cart and checkout UI
     And the buyer presses the Down arrow on the selected payment method
     Then exactly one payment method is selected and the URL pay parameter follows it
 
-  Scenario: Double-clicking Place order creates exactly one order
+  Scenario: Rapid double click creates one order
     Given a promotion buyer has a qualifying cart and a saved address
     When the buyer opens the checkout page
     And the buyer goes to the "confirm" checkout step
     And the buyer double-clicks the place order button
     Then exactly one order exists for the buyer
 
-  Scenario: A saga failure is shown as a recoverable alert
+  Scenario: Out-of-stock failure shows a recoverable error
     Given a promotion buyer has a qualifying cart and a saved address
     And another buyer exhausts the listing stock
     When the buyer opens the checkout page
@@ -81,7 +81,7 @@ Feature: Cart and checkout UI
     And the buyer presses "Thanh toán thất bại" on the payment page
     Then an error result offers retry and change of payment method
 
-  Scenario: The cart fits a 375px viewport
+  Scenario: Mobile cart fits the viewport
     Given a promotion buyer has a qualifying cart and a saved address
     When the buyer opens the cart at 375px width
     Then the cart has no horizontal overflow and the quantity control and buy button are visible

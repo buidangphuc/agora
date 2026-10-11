@@ -1,16 +1,18 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeOrder } from "@/features/order/orderFixtures";
+import { ReturnStatus } from "@/generated/platform/order/v1/order_pb.js";
 import {
   getOrderResult,
   getSagaState,
   getShipmentTracking,
+  listOrderReturns,
 } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -21,19 +23,20 @@ vi.mock("@/lib/gateway/orders", () => ({
   getOrderResult: vi.fn(),
   getShipmentTracking: vi.fn(),
   getSagaState: vi.fn(),
+  listOrderReturns: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
+const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw new Error("NEXT_REDIRECT");
   }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh }),
 }));
 vi.mock("@/features/order/actions", () => ({
   reorderAction: vi.fn(),
   cancelOrderAction: vi.fn(),
   createReturnRequestAction: vi.fn(),
-  mockRefundAction: vi.fn(),
 }));
 vi.mock("@/features/review/ReviewModal", () => ({ ReviewModal: () => null }));
 // The async timeline loader cannot render in jsdom; the page only needs its props.
@@ -49,8 +52,10 @@ async function renderPage(id = "o1", tab?: string) {
 }
 
 beforeEach(() => {
+  refresh.mockClear();
   vi.clearAllMocks();
   vi.mocked(getPrincipal).mockReturnValue({ id: "b1" } as never);
+  vi.mocked(listOrderReturns).mockResolvedValue([]);
 });
 
 describe("/account/orders/[id] page", () => {
@@ -64,6 +69,29 @@ describe("/account/orders/[id] page", () => {
       "Order #o1",
     );
     expect(screen.getByTestId("timeline-section")).toHaveTextContent("o1");
+  });
+
+  it("renders the order's returns from server data, with no refund button", async () => {
+    vi.mocked(getOrderResult).mockResolvedValue({
+      kind: "ok",
+      order: makeOrder("o1"),
+    });
+    vi.mocked(listOrderReturns).mockResolvedValue([
+      {
+        id: "r1",
+        orderId: "o1",
+        reason: "hỏng",
+        refundAmount: 50000,
+        status: ReturnStatus.REFUNDED,
+        statusText: "Đã hoàn tiền",
+      },
+    ]);
+    await renderPage("o1", "returns");
+    expect(listOrderReturns).toHaveBeenCalledWith("o1");
+    expect(screen.getByTestId("return-status")).toHaveTextContent(
+      "Đã hoàn tiền",
+    );
+    expect(screen.queryByRole("button", { name: /Hoàn tiền/ })).toBeNull();
   });
 
   it("opens the returns tab from ?tab=returns", async () => {
@@ -109,10 +137,11 @@ describe("/account/orders/[id] page", () => {
     vi.mocked(getOrderResult).mockResolvedValue({ kind: "error" });
     await renderPage("o9");
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Thử lại" })).toHaveAttribute(
-      "href",
-      "/account/orders/o9",
-    );
+    // A same-URL link would be served from the router cache; the retry must be
+    // a button that re-fetches via router.refresh().
+    expect(screen.queryByRole("link", { name: "Thử lại" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Không tìm thấy đơn hàng")).toBeNull();
   });
 

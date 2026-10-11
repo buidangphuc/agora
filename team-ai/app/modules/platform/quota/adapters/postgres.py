@@ -192,7 +192,8 @@ async def _ensure_counter(session: AsyncSession, command: ReserveQuota) -> None:
         .on_conflict_do_update(
             index_elements=["subject_id", "resource", "window_key"],
             set_={
-                "limit": command.limit,
+                # Column name, not the ``limit`` attribute (mapped to quota_limit).
+                "quota_limit": command.limit,
                 "reset_at": command.reset_at,
             },
         )

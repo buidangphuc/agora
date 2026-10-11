@@ -1,0 +1,4 @@
+# Per-service, per-env overlay for team-promotion in prod. Sets ENV so the service's strict-ENV boot
+# guards engage (config reads ENV; "production" => IsProd()). Merged over the baseline env map.
+env:
+  ENV: "production"

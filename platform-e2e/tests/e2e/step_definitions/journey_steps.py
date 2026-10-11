@@ -45,7 +45,8 @@ SETTINGS = get_settings()
 _INDEX_WAIT_SECONDS = 60
 _FAVORITE_WAIT_SECONDS = 10
 _PURCHASE_VOUCHER = "SAVE10"
-_RECS_PLACEMENT = "home_recommendations"
+# The served placement (recs-serving-safeguards: the storefront uses RecommendResponse.placement_id).
+_RECS_PLACEMENT = "home_feed"
 
 
 def _digits(text: str) -> int:
@@ -119,6 +120,11 @@ def buyer_searches_seeded_listing_and_filters_price(world: World) -> None:
     search: SearchPage = world.get_page(PageName.SEARCH)  # type: ignore[assignment]
     expect(search.results_wrapper).to_be_visible(timeout=timeouts.NAVIGATION)
     # Facet keys are "<min>-<max>" or "<min>+"; click the bucket the listing's price falls in.
+    # The facet sidebar streams in after the results wrapper; reading the buckets before it
+    # renders returned [] under -n 4 load, so wait for the first bucket first.
+    expect(search.facet_group("price_ranges").locator("[data-key]").first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
     keys = (
         search.facet_group("price_ranges")
         .locator("[data-key]")
@@ -446,7 +452,7 @@ def verify_probabilistic_forecast_quantiles(world: World) -> None:
 # reads state back through a read RPC. What the backend does today (verified in
 # the services, see the feature file notes):
 #   * @needsOrder seeds a COD order that stays ORDER_STATUS_PENDING;
-#   * CreateShipment (seller) works on any order status and moves it to SHIPPED
+#   * CreateShipment (seller) works on a PENDING or PAID order and moves it to SHIPPED
 #     with the tracking code (team-order service/order.go CreateShipment);
 #   * a return may be opened on any non-PENDING, non-CANCELLED order, so a
 #     SHIPPED one qualifies (service/order.go CreateReturnRequest);

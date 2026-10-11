@@ -1,5 +1,8 @@
 # Per-service, per-env overlay for team-gateway in staging (applied LAST → highest
 # precedence). Real ingress host + a slightly wider HPA ceiling than local.
+# Strict-ENV guards (config.Validate) key off this; omitting it runs local defaults.
+env:
+  ENV: staging
 ingress:
   enabled: true
   host: api.staging.example.com

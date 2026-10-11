@@ -4,7 +4,7 @@
 
 PY ?= python3
 IMAGE ?= localhost:5001/platform-recsys:local
-SAMPLE ?= /data/tracking_events.parquet
+SAMPLE ?= ./data/datasets/als_interactions/v1
 
 .PHONY: help
 help:
@@ -12,9 +12,9 @@ help:
 	@echo "lint         - ruff + black --check"
 	@echo "fmt          - black + ruff --fix"
 	@echo "test         - full pytest (Spark tests auto-skip without PySpark)"
-	@echo "test-host    - only the PySpark-free tests (config, weights, recommend, env drift)"
+	@echo "test-host    - only the PySpark-free tests (config, dataset, weights, recommend, env drift)"
 	@echo "check-env    - .env.example drift gate"
-	@echo "sample       - generate a tiny Parquet warehouse at SAMPLE"
+	@echo "sample       - generate a tiny governed dataset (parquet + manifest) in the SAMPLE dir"
 	@echo "run-local    - run the batch in local[*] (needs PySpark + Qdrant/Redis)"
 	@echo "docker-build - build the Spark job image"
 	@echo "docker-run   - run the job container on platform-core_default"
@@ -39,7 +39,7 @@ test:
 
 .PHONY: test-host
 test-host:
-	$(PY) -m pytest -q tests/test_config.py tests/test_weights.py tests/test_recommend.py tests/test_env_drift.py tests/test_evals.py tests/test_registry.py tests/test_nearline.py tests/test_ranker.py tests/test_point_id.py
+	$(PY) -m pytest -q tests/test_config.py tests/test_dataset.py tests/test_weights.py tests/test_recommend.py tests/test_env_drift.py tests/test_evals.py tests/test_registry.py tests/test_drift.py tests/test_drift_generation.py tests/test_nearline.py tests/test_nearline_wire.py tests/test_nearline_consumer.py tests/test_ranker.py tests/test_point_id.py tests/test_structural_gate.py tests/test_generations.py tests/test_two_tower.py tests/test_two_tower_train.py tests/test_two_tower_features.py tests/test_two_tower_pipeline.py tests/test_two_tower_attributes.py tests/test_gbdt.py tests/test_ranker_contract.py tests/test_ranker_training.py tests/test_ranker_stage.py
 
 .PHONY: eval
 eval:
@@ -55,7 +55,7 @@ sample:
 
 .PHONY: run-local
 run-local:
-	WAREHOUSE_DRIVER=duckdb WAREHOUSE_PARQUET_PATH=$(SAMPLE) $(PY) -m recsys
+	DATASET_DIR=$(SAMPLE) $(PY) -m recsys
 
 .PHONY: docker-build
 docker-build:
@@ -64,8 +64,7 @@ docker-build:
 .PHONY: docker-run
 docker-run:
 	docker run --rm --network platform-core_default \
-		-e WAREHOUSE_DRIVER=duckdb \
-		-e WAREHOUSE_PARQUET_PATH=/data/tracking_events.parquet \
+		-e DATASET_DIR=/data/datasets/als_interactions/v1 \
 		-e QDRANT_URL=http://qdrant:6333 \
 		-e REDIS_HOST=redis -e REDIS_PORT=6379 \
 		-v $(PWD)/data:/data \

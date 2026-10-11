@@ -74,9 +74,10 @@ func TestReserveStockIdempotent(t *testing.T) {
 	})
 }
 
-// TestSweepExpiredReservations proves SA-C2 (domain side): a reservation past its
-// TTL is released by the sweeper and the stock restored, and the sweep is
-// idempotent.
+// TestSweepExpiredReservations proves SA-C2 (domain side): an ACTIVE reservation
+// past its TTL is released by the sweeper and the stock restored, and the sweep
+// is idempotent. Committed and released reservations are not swept (see
+// TestSweepOnlyRestoresActiveReservations).
 func TestSweepExpiredReservations(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
@@ -121,5 +122,89 @@ func TestSweepExpiredReservations(t *testing.T) {
 	}
 	if got := stockOf(t, repo, "L1"); got != 10 {
 		t.Errorf("stock after second sweep = %d, want 10", got)
+	}
+}
+
+// Reserving under the id of a released reservation fails (the stock was given
+// back) and leaves stock unchanged; active and committed ids stay idempotent.
+func TestReserveStockIdempotent_ReleasedIDFails(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := service.NewListingService(repo)
+
+	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if err := svc.CommitReservation(ctx, "r1"); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); err != nil {
+		t.Fatalf("re-reserve committed id: %v, want nil", err)
+	}
+	if got := stockOf(t, repo, "L1"); got != 7 {
+		t.Fatalf("stock = %d, want 7", got)
+	}
+	if err := svc.ReleaseStock(ctx, "r1"); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); !errors.Is(err, repository.ErrReservationReleased) {
+		t.Fatalf("re-reserve released id: %v, want ErrReservationReleased", err)
+	}
+	if got := stockOf(t, repo, "L1"); got != 10 {
+		t.Fatalf("stock = %d, want 10", got)
+	}
+}
+
+func TestReserveStockIdempotent_EmptyIDRequired(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := service.NewListingService(repo)
+	if err := svc.ReserveStockIdempotent(context.Background(), "", "L1", "", 3); !errors.Is(err, repository.ErrReservationIDRequired) {
+		t.Fatalf("got %v, want ErrReservationIDRequired", err)
+	}
+	if got := stockOf(t, repo, "L1"); got != 10 {
+		t.Fatalf("stock = %d, want 10", got)
+	}
+}
+
+// The sweep restores only ACTIVE reservations past their TTL: a committed one (a
+// placed order) keeps its stock, and an explicitly released one is not restored
+// a second time.
+func TestSweepOnlyRestoresActiveReservations(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := service.NewListingService(repo)
+	sweeper := service.NewReservationSweeper(svc, 0, nil)
+
+	for id, qty := range map[string]int32{"active": 1, "committed": 2, "released": 3} {
+		if err := svc.ReserveStockIdempotent(ctx, id, "L1", "", qty); err != nil {
+			t.Fatalf("reserve %s: %v", id, err)
+		}
+	}
+	if err := svc.CommitReservation(ctx, "committed"); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	if err := svc.ReleaseStock(ctx, "released"); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if got := stockOf(t, repo, "L1"); got != 7 {
+		t.Fatalf("before sweep stock = %d, want 7", got)
+	}
+
+	released, err := sweeper.SweepOnce(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute))
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if released != 1 {
+		t.Errorf("released = %d, want 1 (only the active reservation)", released)
+	}
+	if got := stockOf(t, repo, "L1"); got != 8 {
+		t.Errorf("after sweep stock = %d, want 8 (committed 2 still held)", got)
+	}
+	// The swept id is now released: reserving under it fails, committing it fails.
+	if err := svc.ReserveStockIdempotent(ctx, "active", "L1", "", 1); !errors.Is(err, repository.ErrReservationReleased) {
+		t.Errorf("re-reserve swept id: %v, want ErrReservationReleased", err)
+	}
+	if err := svc.CommitReservation(ctx, "active"); !errors.Is(err, repository.ErrReservationReleased) {
+		t.Errorf("commit swept id: %v, want ErrReservationReleased", err)
 	}
 }

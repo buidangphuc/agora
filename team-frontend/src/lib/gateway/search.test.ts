@@ -48,6 +48,18 @@ describe("searchListings paging", () => {
     expect(res.items.map((l) => l.id)).toEqual(["p1-a", "p1-b"]);
   });
 
+  it("never requests a minimum rating", async () => {
+    rpc
+      .mockResolvedValueOnce(pageOf(1, "c1"))
+      .mockResolvedValueOnce(pageOf(2, "c2"))
+      .mockResolvedValueOnce(pageOf(3, ""));
+    await searchListings("ao", { page: 3, categoryId: "c1" });
+    expect(rpc).toHaveBeenCalledTimes(3);
+    for (const call of rpc.mock.calls) {
+      expect(call[0]).toMatchObject({ minRating: 0 });
+    }
+  });
+
   it("walks next_cursor to page 3", async () => {
     rpc
       .mockResolvedValueOnce(pageOf(1, "c1"))
@@ -93,5 +105,59 @@ describe("searchListings paging", () => {
   it("lets failures propagate", async () => {
     rpc.mockRejectedValueOnce(new Error("search down"));
     await expect(searchListings("ao")).rejects.toThrow("search down");
+  });
+});
+
+describe("searchListings dynamic facets", () => {
+  it("sends tag.* / sku.* selections as comma-joined request filters", async () => {
+    rpc.mockResolvedValueOnce(pageOf(1, ""));
+    await searchListings("tai nghe", {
+      attrs: {
+        "sku.color": ["xanh-navy", "den"],
+        "tag.connectivity": ["wifi-6"],
+        "sku.ram": [],
+      },
+    });
+    expect(rpc.mock.calls[0]?.[0].filters).toEqual({
+      status: "published",
+      "sku.color": "xanh-navy,den",
+      "tag.connectivity": "wifi-6",
+    });
+  });
+
+  it("maps facets.tags and facets.skus (bigint counts) and an empty response", async () => {
+    rpc.mockResolvedValueOnce({
+      ...pageOf(1, ""),
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [
+          { group: "connectivity", buckets: [{ key: "wifi-6", count: 2n }] },
+        ],
+        skus: [{ group: "color", buckets: [] }],
+      },
+    });
+    const res = await searchListings("x");
+    expect(res.facets.tags).toEqual([
+      { group: "connectivity", buckets: [{ key: "wifi-6", count: 2 }] },
+    ]);
+    expect(res.facets.skus).toEqual([]); // an empty group is not rendered
+
+    rpc.mockResolvedValueOnce({
+      ...pageOf(1, ""),
+      facets: {
+        categories: [],
+        priceRanges: [],
+        ratings: [],
+        sellers: [],
+        tags: [],
+        skus: [],
+      },
+    });
+    const old = await searchListings("x");
+    expect(old.facets.tags).toEqual([]);
+    expect(old.facets.skus).toEqual([]);
   });
 });

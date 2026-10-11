@@ -23,8 +23,9 @@ async def test_build_chat_model_delegates_provider_and_model_to_init_chat_model(
 ):
     calls: dict[str, str] = {}
 
-    def fake_init_chat_model(target: str) -> BaseChatModel:
+    def fake_init_chat_model(target: str, **kwargs: object) -> BaseChatModel:
         calls["target"] = target
+        calls.update({k: str(v) for k, v in kwargs.items()})
         return FakeListChatModel(responses=["provider-chat response"])
 
     # init_chat_model is imported lazily inside _default_model_builder (the
@@ -42,5 +43,10 @@ async def test_build_chat_model_delegates_provider_and_model_to_init_chat_model(
     model = build_chat_model(settings)
     response = await model.ainvoke([HumanMessage(content="hello")])
 
-    assert calls == {"target": "openai:gpt-4.1-mini"}
+    # OpenAI targets always ask for streamed token usage (metering needs it).
+    assert calls == {
+        "target": "openai:gpt-4.1-mini",
+        "stream_usage": "True",
+        "max_retries": "0",
+    }
     assert response.content == "provider-chat response"

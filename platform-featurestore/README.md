@@ -1,97 +1,102 @@
 # platform-featurestore
 
-**Status: unused Python library prototype. Not deployed, not imported by anything.** It is not a
-service: no server, no port, no compose entry, no proto, no events, no database. The Dockerfile
-only runs the unit tests. Nothing else in the agora polyrepo imports `featurestore`.
-`team-ai` has its own `FeatureStorePort` / `InMemoryFeatureStore`
-(`app/modules/business/recommend/ranking.py`), and its factory wires `InMemoryFeatureStore()`.
-
-The system of record for features is the feature store in **team-analytics** (C2, ADR-0015,
-status Proposed; DuckDB-backed). This package was scaffolded by the OpenSpec change
-`add-platform-featurestore` (P3-T2) and predates that decision. Treat it as a reference for the
-`UserFeatures` / `ItemFeatures` shape and the online/offline parity check, not as shared
-infrastructure. A decision is needed before extending it: wire it in, move it, or delete it.
-
-Bounded context: ML/recsys feature schemas and in-process stores. Owns no data.
+**Status: batch job** (`python -m featurestore materialize`), introduced by the OpenSpec change
+`featurestore-materialization` (AI-first 4/7). It is not a server: no port, no proto, no events, no database.
+It reads the warehouse Parquet exports and writes an offline snapshot plus an online copy in Redis.
+Serving features to team-ai is a later change (`recs-serving-safeguards`).
 
 ## Contract
 
-None served or consumed. Public Python API (`featurestore/__init__.py`):
+**Inputs** (read-only, `FEATURESTORE_INPUT_DIR`, written by team-analytics): `tracking_events_resolved.parquet`
+(`tracking_events` columns plus `user_key`), `engagement_facts.parquet`, `order_facts.parquet` (with `buyer_id`). Optional: `listing_sellers.parquet` (`listing_id`,
+`seller_id`, `updated_at`, `category_id`, `price`; the table of `ListingChanged` snapshots). Without it the attribute views
+are empty and the job warns; with it but without `category_id` or `price` the job exits 2 naming the column.
 
-| Symbol | Behaviour |
-| --- | --- |
-| `UserFeatures`, `ItemFeatures` | Dataclasses (`definitions.py`) with `to_dict/from_dict/to_json/from_json`. Fields are listed in that file. |
-| `OnlineFeatureStore(redis_client=None, prefix="fs:")` | Get/set per user and item, plus `get_item_features_batch`. Keys `fs:u:<user_id>` and `fs:i:<listing_id>`, JSON values, `setex` with `ttl_seconds=86400` by default. Batch read uses `mget`. |
-| `OfflineFeatureStore()` | In-memory dicts keyed by id (`offline.py`). Last write wins. `build_training_dataset(interactions)` joins `user_id`/`listing_id`/`label` rows with features, prefixing columns `u_` / `i_`. |
-| `validate_parity(online, offline, user_ids, item_ids, tolerance=1e-4)` | Returns `ParityReport(is_consistent, total_checked, mismatches)`. Numbers compared with `math.isclose(rel_tol=abs_tol=tolerance)`. |
+**Registry** (`registry/features.yaml`, SQL in `registry/sql/`, hashes in `registry/features.lock`):
 
-## Events
+| View | Entity | Features |
+| --- | --- | --- |
+| `user_activity@v2` | `user_key` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `follows_current`, `paid_orders_30d` |
+| `item_popularity@v1` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` |
+| `item_attributes@v1` | `listing_id` | `seller_id`, `category_id` (strings), `price` (int, minor units); null when unknown |
+| `user_preferences@v1` | `user_key` | `preferred_categories`: up to three category ids, comma-joined |
 
-None.
+`item_attributes@v1` is the latest recorded change of each listing with `updated_at <= AS_OF` (a listing edited later is
+absent from that snapshot). `user_preferences@v1` ranks categories by the user's views (1), clicks (2) and add-to-carts (5) on
+listings with a known category in `(AS_OF - 30d, AS_OF]`, weight descending then name; users with none have no row.
+Feature types are `int`, `float` and `string`.
 
-## Data
+`paid_orders_30d` is the number of distinct paid orders (`order_facts.status = 'PAID'`) whose `buyer_id` is the user,
+with `occurred_at` in `(AS_OF - 30d, AS_OF]`. Order lines without a `buyer_id` (rows ingested before the column
+existed) count for nobody; a buyer with orders but no events still gets a row. Refunds and cancellations do not lower
+it (order_facts only holds PAID facts). `user_activity@v1` was retired by `order-facts-buyer`; the job exits 2 if
+`order_facts.parquet` has no `buyer_id` column (upgrade team-analytics first, wait one export cycle).
 
-None. No database, tables or migrations. Redis is optional and only reached through an injected
-client; the package never opens a connection. Without a client, `OnlineFeatureStore` keeps a
-per-process dict (not shared, TTL ignored).
+**Point in time.** Everything is computed as of `AS_OF` (RFC 3339 with offset; empty or unset means now, UTC). The SQL
+only sees the views `events` and `facts` (`ingested_at <= AS_OF`) and `orders` (`occurred_at <= AS_OF`), created by
+the job. 7-day windows are `(AS_OF - 7d, AS_OF]`. Current favourites/follows use the latest fact per pair
+(`occurred_at`, then `event_id`).
 
-## Configuration
+**Offline output.** `<offline dir>/<view>/v<ver>/as_of=<YYYYMMDDTHHMMSSZ>.parquet` (entity column plus feature columns)
+and `<offline dir>/runs/<YYYYMMDDTHHMMSSZ>/manifest.json` (`as_of`, `materialized_at`, `input_watermark`, per-view
+`rows`/`definition_sha256`/`snapshot`, input files with size and mtime). Earlier runs are kept.
 
-None. The code reads no environment variables; there is no `.env.example` and no drift gate.
-Redis client, key prefix and TTL are constructor / method arguments.
+**Online output.** `fs:<view>:v<ver>:<entity_id>` = flat JSON `{feature: value}` with TTL; then `fs:<view>:current`
+(the version) and `fs:<view>:meta` (JSON `as_of`, `materialized_at`, `input_watermark`), written last. Timestamps are
+RFC 3339 UTC ending in `Z`. The old `fs:u:` / `fs:i:` keys are gone.
 
-## Run locally
-
-Library only; there is no service and it is not in the root `docker-compose.services.yaml`.
-Standalone:
-
-```bash
-cd platform-featurestore
-pip install -r requirements.txt   # pydantic, redis, pytest, ruff (pyproject: python >=3.10)
-docker build -t platform-featurestore . && docker run --rm platform-featurestore   # runs pytest on python 3.12
-```
-
-## Build, test and lint
+**Parity.** After writing, a deterministic sample per view is read back from Redis and compared with the snapshot
+(`isclose` 1e-9, equality otherwise). `python -m featurestore parity` repeats this on the latest manifest.
 
 | Command | Does |
 | --- | --- |
-| `make test` | `pytest -v tests/` (`test_featurestore.py`, `test_parity.py`) |
-| `make lint` | `ruff check .` (line length 110, target py310) |
-| `make format` | `ruff format .` (missing from `.PHONY` in the Makefile) |
+| `materialize` | compute, write offline + online, parity gate |
+| `parity` | compare Redis with the latest run's snapshots |
+| `dataset` | build governed datasets (`als_interactions@v1`, `rank_training@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
+| `lock` | regenerate `registry/features.lock` after a deliberate definition change |
 
-There is no CI workflow for this repo. Run `make lint test` before a PR; `pytest` and `ruff` must
-be installed first (`pip install -r requirements.txt`).
+Exit codes: 0 ok, 2 config/missing input, 3 parity mismatch (`parity mismatch view=.. entity=.. feature=..
+online=.. offline=..`), 4 registry drift (a definition changed without a version bump, or a view missing from the lock).
 
-## Spec and verification
+**Ranking dataset.** `rank_training@v1` has one row per (`impression_id`, `listing_id`) of an `impression` event in the
+window: `user_key`, `impression_id`, `listing_id`, `position`, `label`, `occurred_at`. `label` is 2 when an `add_to_cart`
+with the same `impression_id` and `listing_id` happened at or after the impression, else 1 for a `click`, else 0. Registry
+datasets may declare `columns:` (name to `string|int|float|timestamp`); without it the `als_interactions` columns apply.
+platform-recsys' GBDT trainer reads it (change `recsys-gbdt-trainer`).
 
-- Change: `openspec/changes/add-platform-featurestore` (tasks all ticked). Related:
-  `wire-serving-gbdt-featurestore`, which wires the `team-ai` port, not this package. Further
-  changes go through `openspec/changes/<id>` per the root README's ASDLC.
-- `FEATURES.yaml` has one entry, `featurestore.online-features`, status `not-testable`: there is
-  no service or route to drive from platform-e2e. Gates: `make -C platform-e2e features-check`
-  and `make -C platform-e2e spec-check CHANGE=<id>`.
+## Configuration
+
+| Variable | Default |
+| --- | --- |
+| `FEATURESTORE_INPUT_DIR` | `/data` |
+| `FEATURESTORE_OFFLINE_DIR` | `/features` |
+| `FEATURESTORE_REDIS_URL` | required |
+| `FEATURESTORE_ONLINE_TTL_SECONDS` | `172800` |
+| `FEATURESTORE_PARITY_SAMPLE` | `200` |
+| `AS_OF` | now (UTC) |
+
+## Run locally
+
+```bash
+docker build -t platform-featurestore .        # job image, entrypoint python -m featurestore
+docker build --target test -t featurestore-test . && docker run --rm featurestore-test   # unit tests
+docker run --rm -v analytics_data:/data:ro -v featurestore_data:/features \
+  -e FEATURESTORE_REDIS_URL=redis://host:6379/2 platform-featurestore materialize
+```
+
+The compose `featurestore-job` service (profile `featurestore`) is owned by the root compose change.
+
+## Build, test and lint
+
+`make test` runs pytest over pyarrow fixture Parquet files with fakeredis; `make lint` runs `ruff check .`
+(`pip install -r requirements.txt` first). There is no CI workflow for this repo.
 
 ## Gotchas
 
-- The "offline store" is an in-memory dict, not Parquet/DuckDB and not point-in-time. There are
-  no timestamps and no as-of join; `build_training_dataset` is a plain key join (missing features
-  yield rows without those columns).
-- The proposal promised Parquet/DuckDB and sub-5ms lookups; neither is implemented or measured.
-- `validate_parity` skips ids absent from both stores but still counts them in `total_checked`.
-- `OnlineFeatureStore` falls back silently to memory when `redis_client` is falsy.
-
-## Known gaps
-
-- Nothing imports this package; the `use_featurestore` flag in `team-ai` placements does not use it.
-- Overlaps with the team-analytics feature store (ADR-0015). No decision is recorded on retiring it.
-- `FEATURES.yaml` is inconsistent: the summary says sub-5ms, the acceptance says 10ms; `entry_route: /`
-  and persona `guest` do not fit a library.
-- Not listed in the root `AGENTS.md` repo table or in `docker-compose.services.yaml`.
-- `pydantic` is declared as a dependency but no module imports it.
-- No CI workflow.
+- Features are at most one export cycle behind the warehouse (`PARQUET_EXPORT_INTERVAL_SECONDS`).
+- Users without events or facts before `AS_OF` have no row at all.
+- `user_key` equals the user id for logged-in users and `anon:<id>` otherwise; engagement facts join on `user_id`.
 
 ## Links
 
-- Root `AGENTS.md` (rules, repo table).
-- ADR-0015, feature store in team-analytics: `platform-core/docs/ADR/0015-feature-store-in-team-analytics.md`
-  (present in the full_team_repo checkout, not in agora).
+Root `AGENTS.md`; change `openspec/changes/featurestore-materialization`; ADR-0015 (platform-core, change task 1.3).

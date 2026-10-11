@@ -173,7 +173,7 @@ features:
       (OpenSpec change secure-seller-analytics-and-admin-seed, task 4.1).
 
   - id: analytics.anonymous-forecast-401
-    title: An anonymous caller cannot read a forecast
+    title: An anonymous caller is rejected
     persona: guest
     priority: P1
     summary: >-
@@ -187,14 +187,14 @@ features:
       - Then the gateway returns 401
     tags: [analytics, seller, authz]
     status: automated
-    covered_by: "analytics/seller_analytics_access.feature::An anonymous caller cannot read a forecast"
+    covered_by: "analytics/seller_analytics_access.feature::An anonymous caller is rejected"
     notes: >
-      Written in analytics/seller_analytics_access.feature ("An anonymous caller cannot read a forecast"); flip to
+      Written in analytics/seller_analytics_access.feature ("An anonymous caller is rejected"); flip to
       automated, with covered_by, after it passes against the stack
       (OpenSpec change secure-seller-analytics-and-admin-seed, task 4.1).
 
   - id: analytics.admin-reads-any-seller
-    title: An admin reads any seller's funnel
+    title: An admin can read any seller
     persona: admin
     priority: P1
     summary: >-
@@ -209,8 +209,491 @@ features:
       - Then the gateway returns 200 with the funnel
     tags: [analytics, seller, authz]
     status: automated
-    covered_by: "analytics/seller_analytics_access.feature::An admin reads any seller's funnel"
+    covered_by: "analytics/seller_analytics_access.feature::An admin can read any seller"
     notes: >
-      Written in analytics/seller_analytics_access.feature ("An admin reads any seller's funnel"); flip to
+      Written in analytics/seller_analytics_access.feature ("An admin can read any seller"); flip to
       automated, with covered_by, after it passes against the stack
       (OpenSpec change secure-seller-analytics-and-admin-seed, task 4.1).
+
+  - id: analytics.seller-funnel-scoped-to-seller
+    title: Seller funnel tracking counts are scoped to the seller's own listings
+    persona: seller
+    priority: P1
+    summary: >-
+      GetSellerFunnel counts only tracking events on listings the seller owns; the
+      listing -> seller mapping comes from listing.events (listing_sellers table).
+    entry_route: /seller/analytics
+    services: [team-analytics, team-gateway, team-domain]
+    preconditions:
+      login: seller
+      data: Requires the listing.events consumer in team-analytics (KAFKA_LISTING_TOPIC).
+    acceptance:
+      - Given seller A and seller B exist and seller A has published a listing
+      - When view beacons are collected through the gateway for seller A's listing
+      - Then seller A's funnel reports those views
+      - And seller B's funnel reports no views
+    tags: [analytics, seller, tracking, integration]
+    status: automated
+    covered_by: "analytics/seller_funnel_scope.feature::Events on seller A's listing do not appear in seller B's funnel"
+    notes: >
+      Authored against the fix/funnel-seller-scope change; collect-only and lint
+      verified, not yet run against the stack (needs the team-analytics image rebuilt
+      and KAFKA_LISTING_* env, see the change notes).
+
+  - id: tracking.same-event-twice-stored-once
+    title: "A re-sent tracking event is stored once in the warehouse"
+    persona: guest
+    priority: P1
+    summary: "The envelope event_id is derived from the visitor and the client eventId, so a re-sent beacon carries the same id and the warehouse keeps one row."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts the same view (same `eventId` and `anonymousId`, unique listing id) twice
+      - Then both envelopes on analytics.events carry the same `event_id`, and the warehouse holds exactly one row for that listing id
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/ingest_idempotency.feature::Posting the same event twice stores one row"
+    notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Posting the same event twice stores one row"
+
+  - id: tracking.two-visitors-cannot-collide-on-event-id
+    title: "Two visitors reusing an eventId keep one warehouse row each"
+    persona: guest
+    priority: P1
+    summary: "The event id is scoped by visitor, so one visitor cannot suppress another's event by reusing its eventId."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When two different anonymous visitors post views with the same `eventId`
+      - Then the warehouse holds one row for each visitor
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/ingest_idempotency.feature::Two visitors cannot collide on an event id"
+    notes: "tracking-ingest-integrity: tracking/ingest_idempotency.feature::Two visitors cannot collide on an event id"
+
+  - id: tracking.stored-event-has-ingest-time
+    title: "A stored tracking event has an ingest time not before its occurrence"
+    persona: guest
+    priority: P1
+    summary: "The warehouse sink stamps ingested_at with its own clock at write time; occurred_at stays the edge receive time."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts one view with a unique listing id and the sink writes it
+      - Then the warehouse row has a non-null `ingested_at` that is not earlier than its `occurred_at`
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/ingest_time.feature::A stored event has an ingest time after its occurrence"
+    notes: "tracking-ingest-integrity: tracking/ingest_time.feature::A stored event has an ingest time after its occurrence"
+
+  - id: tracking.pre-login-browsing-resolves-to-user
+    title: "Pre-login browsing resolves to the account after login"
+    persona: guest
+    priority: P1
+    summary: "tracking_identity maps an anonymous id seen on a USER event to that principal, and tracking_events_resolved exposes it as user_key for the anonymous events too."
+    entry_route: "/"
+    services: [team-gateway, team-analytics, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view anonymously with `anonymousId` X, then logs in as a new buyer and posts a view with the same `anonymousId` X
+      - Then in `tracking_events_resolved` both views have `user_key` equal to the buyer's id
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/identity_stitching.feature::Pre-login browsing resolves to the user after login"
+    notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::Pre-login browsing resolves to the user after login"
+
+  - id: analytics.tii-ambiguous-anonymous-id-is-not-stitched
+    title: "An anonymous id seen with two accounts is not stitched"
+    persona: buyer
+    priority: P1
+    summary: "An anonymous id seen with two accounts is not stitched"
+    entry_route: /
+    services: [team-gateway, team-analytics]
+    acceptance:
+      - "When a visitor posts a view anonymously with `anonymousId` Z, then two different new buyers each post a view with the same `anonymousId` Z"
+      - "Then in `tracking_events_resolved` the anonymous view has `user_key` \"anon:Z\" and each buyer's view has that buyer's id"
+    tags: [tracking, security]
+    status: automated
+    covered_by: "tracking/identity_stitching.feature::An anonymous id seen with two accounts is not stitched"
+    notes: "Added after the boundary review of tracking-ingest-integrity: the anonymous id is client-supplied, so an id seen with two accounts must not be stitched."
+  - id: tracking.never-logged-in-keeps-anon-key
+    title: "A never-logged-in visitor resolves to an anonymous key"
+    persona: guest
+    priority: P1
+    summary: "A visitor with no USER event keeps user_key anon:<anonymous_id> in tracking_events_resolved."
+    entry_route: "/"
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view anonymously with a fresh `anonymousId` Y and never logs in
+      - Then in `tracking_events_resolved` that view has `user_key` "anon:Y"
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/identity_stitching.feature::A never-logged-in visitor keeps an anonymous key"
+    notes: "tracking-ingest-integrity: tracking/identity_stitching.feature::A never-logged-in visitor keeps an anonymous key"
+
+  - id: analytics.adq-resent-event-counted-as-duplicate
+    title: "A re-sent event is counted as a skipped duplicate"
+    persona: admin
+    priority: P1
+    summary: "A re-sent event is counted as a skipped duplicate"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts the same view (same `eventId` and `anonymousId`) twice and the admin then reads the tracking quality report for the last hour"
+      - "Then the report's `duplicates_skipped` is at least 1 higher than it was before the two posts"
+    tags: [tracking, analytics, admin]
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::A re-sent event is counted as a skipped duplicate"
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A re-sent event is counted as a skipped duplicate"
+
+  - id: analytics.adq-fresh-views-appear-in-report
+    title: "Fresh views appear in the report"
+    persona: admin
+    priority: P1
+    summary: "Fresh views appear in the report"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts three views of a listing and the admin reads the report for the last hour"
+      - "Then the view count is at least 3, the latest ingest time is within the last 5 minutes, and the status is not degraded for `stale`"
+    tags: [tracking, analytics, admin]
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::Fresh views appear in the report"
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Fresh views appear in the report"
+
+  - id: analytics.adq-views-without-listing-incomplete
+    title: "Views without a listing make the report incomplete"
+    persona: admin
+    priority: P1
+    summary: "Views without a listing make the report incomplete"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts 50 views without a `listingId` and the admin reads the report for the last hour"
+      - "Then the view type's missing-listing ratio is above 0 and, if it exceeds the configured maximum, the status is `DEGRADED` with reason `incomplete`"
+    tags: [tracking, analytics, admin]
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::Views without a listing make the report incomplete"
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::Views without a listing make the report incomplete"
+
+  - id: analytics.adq-window-out-of-range-rejected
+    title: "A window out of range is rejected"
+    persona: admin
+    priority: P1
+    summary: "A window out of range is rejected"
+    entry_route: /admin/cockpit
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When the admin reads the report with a window of 500 hours"
+      - "Then the call fails with `invalid_argument`"
+    tags: [tracking, analytics, admin]
+    status: automated
+    covered_by: "analytics/tracking_quality_report.feature::A window out of range is rejected"
+    notes: "analytics-data-quality: analytics/tracking_quality_report.feature::A window out of range is rejected"
+
+  # ---- engagement-fact-events (planned until the merged stack run flips them) ----
+  - id: analytics.engagement-favorite-removed-not-current
+    title: "A favourite that was removed is not current"
+    persona: buyer
+    priority: P1
+    summary: "A favourite that was removed is not current."
+    entry_route: "/"
+    services: [team-analytics, team-engagement]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer adds two listings to their favourites and then removes the first one
+      - Then engagement_facts holds three rows for the buyer, and favorites_current lists only the second listing for the buyer
+    tags: [analytics, integration]
+    status: automated
+    covered_by: "analytics/engagement_facts_warehouse.feature::A favourite that was removed is not current"
+    notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A favourite that was removed is not current"
+
+  - id: analytics.engagement-follow-current
+    title: "A follow appears in the current follows"
+    persona: buyer
+    priority: P1
+    summary: "A follow appears in the current follows."
+    entry_route: "/"
+    services: [team-analytics, team-engagement]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer follows a seller
+      - Then follows_current lists that buyer and seller
+    tags: [analytics, integration]
+    status: automated
+    covered_by: "analytics/engagement_facts_warehouse.feature::A follow appears in the current follows"
+    notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A follow appears in the current follows"
+
+  - id: analytics.engagement-malformed-dead-lettered
+    title: "A malformed engagement record is dead-lettered"
+    persona: buyer
+    priority: P1
+    summary: "A malformed engagement record is dead-lettered."
+    entry_route: "/"
+    services: [team-analytics, team-engagement]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a malformed record is produced to engagement.events, followed by a buyer favouriting a listing
+      - Then the malformed record appears on engagement.events.analytics.dlq, and the favourite still reaches engagement_facts
+    tags: [analytics, integration]
+    status: automated
+    covered_by: "analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
+    notes: "engagement-fact-events: analytics/engagement_facts_warehouse.feature::A malformed engagement record is dead-lettered"
+
+  - id: analytics.resolved-export
+    title: "A tracked view reaches the resolved export"
+    persona: guest
+    priority: P1
+    summary: "A tracked view reaches the resolved export."
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view of a unique listing and the next export cycle completes
+      - Then tracking_events_resolved.parquet on the analytics volume contains that listing with a user_key
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/feature_materialization.feature::A tracked view reaches the resolved export"
+    notes: "featurestore-materialization: featurestore/feature_materialization.feature::A tracked view reaches the resolved export"
+
+  - id: analytics.roe-impressions-clicks-per-placement-model
+    title: "Impressions and clicks are counted per placement and model"
+    persona: admin
+    priority: P1
+    summary: "Impressions and clicks are counted per placement and model"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetRecommendationPerformance
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts 2 impressions of a recommendation row (one `impressionId`, placement \"home_feed\", model version M) and 1 click on one of its listings with the same `impressionId`"
+      - "Then the admin's report for the last hour has a row for \"home_feed\" and M with at least 1 impression, at least 2 item impressions and at least 1 click"
+    tags: [recommendations, analytics, admin]
+    status: automated
+    covered_by: "analytics/recommendation_performance.feature::Impressions and clicks are counted per placement and model"
+    notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::Impressions and clicks are counted per placement and model"
+
+  - id: analytics.roe-purchase-without-click-not-attributed
+    title: "A purchase without a recommended click is not attributed"
+    persona: admin
+    priority: P1
+    summary: "A purchase without a recommended click is not attributed"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetRecommendationPerformance
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a logged-in buyer pays an order for a listing they saw but never clicked in a recommendation row"
+      - "Then no report row's purchase count includes that purchase"
+    tags: [recommendations, analytics, admin]
+    status: automated
+    covered_by: "analytics/recommendation_performance.feature::A purchase without a recommended click is not attributed"
+    notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::A purchase without a recommended click is not attributed"
+
+  - id: analytics.roe-fallback-share-reported
+    title: "The fallback share is reported"
+    persona: admin
+    priority: P1
+    summary: "The fallback share is reported"
+    entry_route: /platform.analytics.v1.AnalyticsQueryService/GetRecommendationPerformance
+    services: [team-gateway, team-analytics]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a visitor posts impressions for placement \"cart_cross_sell\" with model version \"serving-fallback\" and with a real model version, 1 each"
+      - "Then the report gives \"cart_cross_sell\" a fallback share above 0 and below 1"
+    tags: [recommendations, analytics, admin]
+    status: automated
+    covered_by: "analytics/recommendation_performance.feature::The fallback share is reported"
+    notes: "recsys-online-evaluation: analytics/recommendation_performance.feature::The fallback share is reported"
+
+  - id: analytics.order-facts-buyer
+    title: "A paid order's lines carry the buyer"
+    persona: buyer
+    priority: P1
+    summary: "OrderPaidEvent.buyer_id is stored on every order_facts row and exported in order_facts.parquet."
+    entry_route: "/"
+    services: [team-analytics, team-order]
+    preconditions:
+      login: buyer
+    acceptance:
+      - When a buyer pays an order with two lines of different listings and the next export cycle completes
+      - Then order_facts.parquet on the analytics volume has two rows for that order, each with buyer_id equal to that buyer's user id
+    tags: [analytics, order, integration]
+    status: automated
+    covered_by: "analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
+    notes: "green after rebuild: analytics/order_facts_buyer.feature::A paid order's lines carry the buyer"
+
+  - id: analytics.recs-paid-order-attributed
+    title: "A purchase after a recommended click is attributed"
+    persona: admin
+    priority: P1
+    summary: "A purchase after a recommended click is attributed."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a logged-in buyer clicks a recommended listing and then pays an order for that listing
+      - Then the report row for that placement and model counts that purchase
+    tags: [recommendations, analytics, admin, integration]
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A purchase after a recommended click is attributed"
+
+  - id: analytics.recs-purchase-beacon-ignored
+    title: "A purchase beacon without an order is not counted"
+    persona: admin
+    priority: P1
+    summary: "A purchase beacon without an order is not counted."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a logged-in buyer clicks a recommended listing and posts a purchase tracking event for it, but pays no order
+      - Then the report row for that placement and model counts the click and 0 purchases
+    tags: [recommendations, analytics, admin, integration]
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A purchase beacon without an order is not counted"
+
+  - id: analytics.recs-foreign-click-ignored
+    title: "A click on a listing the impression did not show is not counted"
+    persona: admin
+    priority: P1
+    summary: "A click on a listing the impression did not show is not counted."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a visitor posts an impression of listing A and a click on listing B with the same impressionId
+      - Then the report row for that placement and model counts the impression and 0 clicks
+    tags: [recommendations, analytics, admin, integration]
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A click on a listing the impression did not show is not counted"
+
+  - id: analytics.recs-reused-impression-id
+    title: "A reused impression id keeps its placements and models apart"
+    persona: admin
+    priority: P1
+    summary: "A reused impression id keeps its placements and models apart."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a visitor posts impressions of one listing with the same impressionId under two placements with two models, and one click carrying that impressionId, the first placement and the first model
+      - Then the report has a row for each placement and model with at least 1 impression, and only the first row counts the click
+    tags: [recommendations, analytics, admin, integration]
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A reused impression id keeps its placements and models apart"
+
+  - id: analytics.recs-open-window-rate
+    title: "A conversion on a still-open attribution window is left out of the rate"
+    persona: admin
+    priority: P1
+    summary: "A conversion on a still-open attribution window is left out of the rate."
+    entry_route: "/"
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - When a logged-in buyer clicks a recommended listing and pays an order for it within the attribution window, and the report is read right away
+      - Then the report row for that placement and model counts 1 click and 1 purchase, and its conversion rate is 0
+    tags: [recommendations, analytics, admin, integration]
+    status: automated
+    covered_by: "analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
+    notes: "green after rebuild: analytics/recs_attribution_hardening.feature::A conversion on a still-open attribution window is left out of the rate"
+
+  - id: analytics.tpr-export-atomic
+    title: "The export replaces the file atomically"
+    persona: guest
+    priority: P2
+    summary: "The export replaces the file atomically"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+      data: "The real team-analytics image on the stack network, exporting every second into a scratch directory."
+    acceptance:
+      - "When an export runs while a previous export file exists"
+      - "Then the new data is written to a temporary file and renamed over the old one: a reader opening the file throughout sees a complete Parquet file each time and a new file at each export"
+    tags: [analytics, recsys]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::The export replaces the file atomically"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::The export replaces the file atomically. Runs the real team-analytics image as a throwaway container with its own warehouse dir and consumer groups."
+
+  - id: analytics.tpr-export-disabled
+    title: "Export disabled by default"
+    persona: guest
+    priority: P2
+    summary: "Export disabled by default"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When PARQUET_EXPORT_INTERVAL_SECONDS is 0 or unset"
+      - "Then no export runs"
+    tags: [analytics, recsys]
+    status: automated
+    covered_by: "recommendations/trained_recs_local.feature::Export disabled by default"
+    notes: "serve-trained-recs-locally: recommendations/trained_recs_local.feature::Export disabled by default. Two throwaway team-analytics containers (interval 0 and unset) write no Parquet file while running."
+
+  - id: analytics.fia-listing-export
+    title: "A listing's category and price reach the listing export"
+    persona: seller
+    priority: P1
+    summary: "A listing's category and price reach the listing export"
+    entry_route: "/"
+    services: [team-analytics, platform-featurestore]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When a seller creates a listing with a category and a price and the next export cycle completes"
+      - "Then listing_sellers.parquet on the analytics volume has a row for that listing with that category_id and price"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::A listing's category and price reach the listing export"
+    notes: "needs rebuild"
+
+  - id: analytics.fia-listing-edit
+    title: "An edited listing's attributes replace the old ones"
+    persona: seller
+    priority: P1
+    summary: "An edited listing's attributes replace the old ones"
+    entry_route: "/"
+    services: [team-analytics, platform-featurestore]
+    preconditions:
+      login: seller
+    acceptance:
+      - "When the seller changes that listing's price and the next export cycle completes"
+      - "Then listing_sellers.parquet holds the new price for that listing and exactly one row for it"
+    tags: [analytics, batch, integration]
+    status: automated
+    covered_by: "featurestore/item_attributes.feature::An edited listing's attributes replace the old ones"
+    notes: "needs rebuild"

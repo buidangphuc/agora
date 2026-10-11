@@ -6,6 +6,7 @@ import type { ViewListing } from "@/lib/gateway/listings";
 const loadFeed = vi.hoisted(() => vi.fn());
 const getRecentlyViewed = vi.hoisted(() => vi.fn());
 const listCategories = vi.hoisted(() => vi.fn());
+const getListing = vi.hoisted(() => vi.fn());
 
 vi.mock("./data", () => ({ loadFeed }));
 vi.mock("@/lib/analytics", () => ({ trackEcommerce: vi.fn() }));
@@ -15,7 +16,7 @@ vi.mock("@/features/engagement/FavoriteButton", () => ({
 vi.mock("@/lib/gateway/engagement", () => ({ getRecentlyViewed }));
 vi.mock("@/lib/gateway/listings", () => ({
   listCategories,
-  getListing: vi.fn(),
+  getListing,
 }));
 
 import { CategoryGridBlock } from "./CategoryGridBlock";
@@ -46,6 +47,7 @@ beforeEach(() => {
   loadFeed.mockReset();
   getRecentlyViewed.mockReset();
   listCategories.mockReset();
+  getListing.mockReset();
 });
 
 describe("FeedBlock", () => {
@@ -101,6 +103,23 @@ describe("hidden blocks", () => {
     expect(await RecentlyViewedRow({})).toBeNull();
     getRecentlyViewed.mockRejectedValue(new Error("down"));
     expect(await RecentlyViewedRow({})).toBeNull();
+  });
+
+  it("RecentlyViewedRow survives a listing-service outage (hides, never throws)", async () => {
+    getRecentlyViewed.mockResolvedValue(["a", "b"]);
+    getListing.mockRejectedValue(new Error("team-domain down"));
+    expect(await RecentlyViewedRow({})).toBeNull();
+  });
+
+  it("RecentlyViewedRow keeps the listings that resolved when one lookup fails", async () => {
+    getRecentlyViewed.mockResolvedValue(["a", "b"]);
+    getListing.mockImplementation(async (id: string) => {
+      if (id === "b") throw new Error("down");
+      return listing(id);
+    });
+    render(await RecentlyViewedRow({}));
+    expect(screen.getByText("Vừa xem")).toBeInTheDocument();
+    expect(screen.getAllByText(/Apple chính hãng/)).toHaveLength(1);
   });
 });
 

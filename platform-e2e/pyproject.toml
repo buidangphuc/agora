@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "python-dotenv>=1.0",
     "confluent-kafka>=2.4",
+    "duckdb>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -43,8 +44,12 @@ markers = [
     "promo: promotion vouchers and discounts",
     "shop: public seller storefront and shop journeys",
     "search: catalog search and filtering journeys",
+    "modelserve: platform-modelserve router contract (compose overlay modelserve.override.yaml)",
+    "hybrid: hybrid retrieval (lexical + semantic) through the gateway, needs the modelserve overlay",
+    "needsModelserveOverlay: needs platform-e2e/compose/modelserve.override.yaml layered on the stack",
     "chat: buyer seller messaging and threads",
     "destructive: stops a real stack service, turns off a stack-wide switch (checkout-enabled) or needs an idle stack for the scenario (restored in teardown); never run in parallel",
+    "slow: waits on a real timer (a prune cycle, an expiry) and takes over a minute",
     "killswitch: checkout-enabled emergency kill-switch scenarios",
     "wap: mobile/WAP emulation scenarios",
     "needsSeller: Before-seeds a seller account via the gateway API",

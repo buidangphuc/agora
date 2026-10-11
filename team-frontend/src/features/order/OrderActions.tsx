@@ -115,7 +115,7 @@ export function OrderActions({
   const [reason, setReason] = useState(CANCEL_REASONS[0].value);
   const [cancelling, runCancel] = usePendingAction();
   const [returnOpen, setReturnOpen] = useState(false);
-  const [ret, setRet] = useReturnState(null);
+  const [returns, addReturn] = useReturnState();
 
   const busy = reorder.pending || cancelling;
 
@@ -150,7 +150,7 @@ export function OrderActions({
         Mua lại
       </Button>
 
-      {canReturn && !ret && (
+      {canReturn && returns.length === 0 && (
         <Button
           variant="outline"
           size={primaryReorder ? "md" : "sm"}
@@ -214,7 +214,7 @@ export function OrderActions({
         onClose={() => setReturnOpen(false)}
         orderId={orderId}
         orderTotal={orderTotal}
-        onCreated={setRet}
+        onCreated={addReturn}
       />
     </>
   );

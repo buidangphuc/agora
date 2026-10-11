@@ -42,8 +42,13 @@ function renderSection(summary: ViewRatingSummary, rating = 0) {
       productTitle="Áo"
       summary={summary}
       reviewsPromise={Promise.resolve([])}
+      pagePromise={Promise.resolve({
+        reviews: [],
+        total: 0,
+        page: 1,
+        pages: 1,
+      })}
       rating={rating}
-      rpage={1}
       loggedIn
     />,
   );

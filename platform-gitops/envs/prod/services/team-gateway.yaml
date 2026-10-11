@@ -1,5 +1,8 @@
 # Per-service, per-env overlay for team-gateway in prod: real ingress host, higher
 # replica floor/ceiling and prod-sized resources on top of the hardened chart.
+# Strict-ENV guards (config.Validate) key off this; omitting it runs local defaults.
+env:
+  ENV: production
 ingress:
   enabled: true
   host: api.example.com

@@ -1,3 +1,5 @@
+import React from "react";
+
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
@@ -162,11 +164,14 @@ export function OrderDetailView({
   shipment,
   tab,
   tabHref,
+  returnsPanel,
 }: {
   order: ViewOrder;
   shipment: ViewShipment | null;
-  tab: "items" | "shipment";
+  tab: "items" | "shipment" | "returns";
   tabHref: (tab: string) => string;
+  /** The returns tab body (server-composed: returns and payment are fetched by the page). */
+  returnsPanel?: React.ReactNode;
 }) {
   const cancelled = order.status === OrderStatus.CANCELLED;
   return (
@@ -225,11 +230,14 @@ export function OrderDetailView({
               items={[
                 { id: "items", label: "Hàng hoá", badge: order.items.length },
                 { id: "shipment", label: "Vận chuyển" },
+                { id: "returns", label: "Trả hàng / Hoàn tiền" },
               ]}
             />
           </div>
           {tab === "shipment" ? (
             <ShipmentPanel shipment={shipment} />
+          ) : tab === "returns" ? (
+            returnsPanel
           ) : (
             <ItemsPanel order={order} />
           )}

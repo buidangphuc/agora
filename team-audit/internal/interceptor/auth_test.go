@@ -60,3 +60,25 @@ func TestPrincipalResolution(t *testing.T) {
 		t.Fatalf("RequireAdmin without principal: %v", err)
 	}
 }
+
+func TestRequireService(t *testing.T) {
+	mk := func(p interceptor.Principal) context.Context {
+		return interceptor.ContextWithPrincipal(context.Background(), p)
+	}
+	cases := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"none", context.Background(), codes.Unauthenticated},
+		{"anonymous", mk(interceptor.Principal{ID: "anonymous", Type: "anonymous"}), codes.Unauthenticated},
+		{"admin user", mk(interceptor.Principal{ID: "a", Type: "user", Scopes: []string{"admin", "audit.write"}}), codes.PermissionDenied},
+		{"service no scope", mk(interceptor.Principal{ID: "s", Type: "service"}), codes.PermissionDenied},
+		{"service ok", mk(interceptor.Principal{ID: "s", Type: "service", Scopes: []string{"audit.write"}}), codes.OK},
+	}
+	for _, c := range cases {
+		if _, err := interceptor.RequireService(c.ctx, interceptor.ScopeAuditWrite); status.Code(err) != c.want {
+			t.Fatalf("%s: got %v want %v", c.name, status.Code(err), c.want)
+		}
+	}
+}

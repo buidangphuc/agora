@@ -83,6 +83,13 @@ data:
         REDIS_HOST="valkey.marketplace.svc" REDIS_PORT="6379" \
         KAFKA_BROKERS="redpanda.marketplace.svc:9092" KAFKA_BROKER="redpanda.marketplace.svc:9092" \
         HTTP_PORT="8080" >/dev/null
+      if [ "$svc" = "team-ai" ]; then
+        # Internal tag routes (tag-routes-authz): random per-cluster tokens, generated here so no secret
+        # is committed. Service token reads, admin token explores/promotes; both at least 24 chars.
+        vault kv patch "svc/team-ai/config" \
+          AUTH_BEARER_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -d '/+=\n')" AUTH_ROLES="ai.classify" \
+          AUTH_ADMIN_BEARER_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -d '/+=\n')" >/dev/null
+      fi
       # policy: read ONLY its own path. The RS256 signing key at shared/jwt is
       # readable by team-identity ALONE (ADR-0006) — the edge/gateway and every
       # other service no longer hold any JWT secret.

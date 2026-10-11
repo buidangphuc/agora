@@ -35,6 +35,7 @@ export function makeOrder(
     addressFull: "1 Main, HCM",
     trackingNumber: "",
     createdAt: "01/09/2026",
+    paidAt: "",
     items: [
       {
         id: `${id}-it1`,

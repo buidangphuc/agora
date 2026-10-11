@@ -18,8 +18,8 @@ the cluster. CI only builds images + bumps tags in `platform-gitops`.
 ## Bring it up
 ```bash
 make -C deploy cluster-up     # kind + registry + ingress + argocd + gitea + app-of-apps
-make -C deploy images         # retag local :local images -> registry, bump gitops tags
-make -C deploy gitops-push    # push tag bumps; ArgoCD auto-syncs
+make -C deploy images         # retag local images (agora-<name>:local or <name>:local) -> registry with a sha-<12> tag, bump gitops tags
+make -C deploy gitops-push    # publish platform-gitops to LOCAL Gitea via scratch clone (never commits/pushes the agora repo); ArgoCD auto-syncs
 make -C deploy status         # argocd apps + pods
 make -C deploy argocd-ui      # ArgoCD UI (admin / printed password)
 make -C deploy smoke          # platform-e2e against the cluster ingress
@@ -35,6 +35,10 @@ deploy/images/      retag+push local images to the registry (ECR stand-in)
 deploy/act/         local GitHub Actions payloads (P4)
 ../platform-gitops/ desired-state repo (Helm charts + envs/local + argocd/apps)
 ```
+
+Vault is configured declaratively by the `vault-config` ArgoCD app
+(`platform-gitops/platform/vault-config`, a PostSync Job); there is no manual
+bootstrap script. To add a service, append it to `SERVICES` in that manifest.
 
 ## GitOps flow
 `dev push → CI (act): buf + make check + build/push image + e2e gate + bump tag in

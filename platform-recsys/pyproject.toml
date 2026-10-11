@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "platform-recsys"
 version = "0.1.0"
-description = "Offline PySpark ALS training job — behavioral warehouse → Qdrant + Redis recommendation artifacts."
+description = "Offline PySpark ALS training job — governed dataset → Qdrant + Redis recommendation artifacts."
 requires-python = ">=3.10"
 dependencies = [
     "pyspark==3.5.1",
@@ -16,6 +16,8 @@ dependencies = [
     # not a Python dep; pandas/pyarrow back the local sample generator.
     "pandas>=2.0",
     "pyarrow>=14.0",
+    # nearline consumer (python -m recsys.nearline): analytics.events -> Redis
+    "confluent-kafka>=2.3",
 ]
 
 [project.optional-dependencies]

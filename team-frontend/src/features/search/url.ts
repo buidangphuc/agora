@@ -1,6 +1,7 @@
 /**
  * URL state of /search (UI_SYSTEM_DESIGN.md section 5.B): `q, category, seller,
- * rating, minPrice, maxPrice, sort, page`. Pure helpers (no React, no gateway)
+ * minPrice, maxPrice, sort, page`, plus one `tag.<group>` / `sku.<group>` param per
+ * dynamic facet group (comma-separated tag slugs; OR inside a group, AND across). Pure helpers (no React, no gateway)
  * so the server page, the link-based filters and the tests share one parser and
  * one builder. Unknown or malformed values fall back to defaults, never throw.
  */
@@ -18,13 +19,33 @@ export interface SearchState {
   q: string;
   category: string;
   seller: string;
-  /** "1".."5" or "" when not filtering by rating. */
-  rating: string;
   minPrice?: number;
   maxPrice?: number;
   sort: SortKey;
+  /**
+   * Dynamic facet selections keyed by the request filter key (`tag.connectivity`,
+   * `sku.color`) -> selected tag slugs. Always present; empty when none.
+   */
+  attrs: Record<string, string[]>;
   /** 1-based. */
   page: number;
+}
+
+const ATTR_KEY = /^(tag|sku)\.[a-z][a-z0-9_]{0,31}$/;
+const ATTR_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+function parseAttrs(raw: RawSearchParams): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const key of Object.keys(raw).sort()) {
+    if (!ATTR_KEY.test(key)) continue;
+    const slugs = first(raw[key])
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => ATTR_SLUG.test(v));
+    const unique = [...new Set(slugs)];
+    if (unique.length > 0) out[key] = unique;
+  }
+  return out;
 }
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
@@ -41,18 +62,17 @@ function positiveInt(v: string): number | undefined {
 }
 
 export function parseSearchParams(raw: RawSearchParams): SearchState {
-  const rating = first(raw.rating);
   const sort = first(raw.sort);
   return {
     q: first(raw.q),
     category: first(raw.category),
     seller: first(raw.seller),
-    rating: /^[1-5]$/.test(rating) ? rating : "",
     minPrice: positiveInt(first(raw.minPrice)),
     maxPrice: positiveInt(first(raw.maxPrice)),
     sort: (SORT_KEYS as readonly string[]).includes(sort)
       ? (sort as SortKey)
       : "relevance",
+    attrs: parseAttrs(raw),
     page: positiveInt(first(raw.page)) ?? 1,
   };
 }
@@ -80,9 +100,12 @@ export function buildSearchHref(
   if (next.q) params.set("q", next.q);
   if (next.category) params.set("category", next.category);
   if (next.seller) params.set("seller", next.seller);
-  if (next.rating) params.set("rating", next.rating);
   if (next.minPrice) params.set("minPrice", String(next.minPrice));
   if (next.maxPrice) params.set("maxPrice", String(next.maxPrice));
+  for (const key of Object.keys(next.attrs ?? {}).sort()) {
+    const slugs = next.attrs[key];
+    if (slugs && slugs.length > 0) params.set(key, slugs.join(","));
+  }
   if (next.sort && next.sort !== "relevance") params.set("sort", next.sort);
   if (next.page > 1) params.set("page", String(next.page));
   const qs = params.toString();
@@ -94,8 +117,8 @@ export function activeFilterCount(state: SearchState): number {
   return (
     (state.category ? 1 : 0) +
     (state.seller ? 1 : 0) +
-    (state.rating ? 1 : 0) +
-    (state.minPrice || state.maxPrice ? 1 : 0)
+    (state.minPrice || state.maxPrice ? 1 : 0) +
+    Object.values(state.attrs ?? {}).filter((v) => v.length > 0).length
   );
 }
 
@@ -104,8 +127,24 @@ export function clearFiltersHref(state: SearchState): string {
   return buildSearchHref(state, {
     category: "",
     seller: "",
-    rating: "",
     minPrice: undefined,
     maxPrice: undefined,
+    attrs: {},
   });
+}
+
+/** `attrs` with `slug` toggled in `key` (added when absent, removed when present). */
+export function toggleAttr(
+  attrs: Record<string, string[]>,
+  key: string,
+  slug: string,
+): Record<string, string[]> {
+  const current = attrs[key] ?? [];
+  const next = current.includes(slug)
+    ? current.filter((v) => v !== slug)
+    : [...current, slug];
+  const out = { ...attrs };
+  if (next.length > 0) out[key] = next;
+  else delete out[key];
+  return out;
 }

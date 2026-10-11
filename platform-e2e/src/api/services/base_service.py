@@ -87,7 +87,7 @@ class BaseService:
         """Low-level request returning the raw response WITHOUT raising on 4xx/5xx.
 
         Used by edge collectors (e.g. POST /api/track) where the status code itself
-        is the assertion target (204 accepted, 4xx rejected).
+        is the assertion target (202 accepted, 4xx rejected).
         """
         headers = self._headers()
         if content is not None and json_body is None:

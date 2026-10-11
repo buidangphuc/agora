@@ -48,6 +48,10 @@ func (m *mockDomainClient) ReserveStock(_ context.Context, req *listingv1.Reserv
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
 
+func (m *mockDomainClient) CommitReservation(_ context.Context, _ *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return &listingv1.CommitReservationResponse{}, nil
+}
+
 func (m *mockDomainClient) ReleaseStock(_ context.Context, req *listingv1.ReleaseStockRequest, _ ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
 	key := req.GetListingId()
 	if req.GetVariantId() != "" {

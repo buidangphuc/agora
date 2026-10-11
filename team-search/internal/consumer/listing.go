@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -11,6 +12,7 @@ import (
 	listingv1 "github.com/buidangphuc/team-search/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
 
 // Discriminator types carried in EventEnvelope.Type
@@ -31,6 +33,16 @@ func ListingEventHandler(idx index.Index) Handler {
 // ListingEventHandlerWithEmbedder decodes listing events, vectorizes content using embedder, and applies changes to OpenSearch.
 // If embedder is nil or embedding fails (D4), it sets vector_pending: true without failing the ingestion.
 func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedClient) Handler {
+	return NewListingEventHandler(idx, embedder, nil)
+}
+
+// NewListingEventHandler is ListingEventHandlerWithEmbedder plus the tag classifier
+// (add-tag-classifier-filter-enrichment): create/update events carry the
+// listing's canonical SPU tags and per-variant attributes into the read-model, and a
+// base-info event refreshes the SPU tags. A nil classifier skips classification. A
+// classifier error never fails the ingestion (like the embedder): the document is
+// written with tags_pending and keeps the tags it already had.
+func NewListingEventHandler(idx index.Index, embedder retrieval.EmbedClient, classifier taxonomy.Classifier) Handler {
 	return func(ctx context.Context, _ []byte, value []byte) error {
 		var env eventsv1.EventEnvelope
 		if err := proto.Unmarshal(value, &env); err != nil {
@@ -52,9 +64,16 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
-				return idx.Delete(ctx, l.GetId())
+				return idx.Delete(ctx, l.GetId(), version)
 			}
 			doc := toDoc(l, version)
+			classifyDoc(ctx, classifier, l, &doc)
+			// D7: the creation time is the CREATED envelope's occurred_at; the
+			// index keeps the earliest, so UPDATED events never touch it.
+			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_CREATED && env.GetOccurredAt() != nil {
+				ms := env.GetOccurredAt().AsTime().UnixMilli()
+				doc.CreatedAt = &ms
+			}
 			if embedder != nil {
 				text := strings.TrimSpace(l.GetTitle() + " " + l.GetDescription())
 				if text != "" {
@@ -78,7 +97,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if base.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
-				return idx.Delete(ctx, base.GetListingId())
+				return idx.Delete(ctx, base.GetListingId(), version)
 			}
 			// Partial update base descriptive fields
 			fields := map[string]interface{}{
@@ -89,6 +108,18 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				"seller_id":   base.GetSellerId(),
 				"status":      statusString(base.GetStatus()),
 				"version":     version,
+			}
+			if classifier != nil {
+				res, err := classifier.Classify(ctx, taxonomy.Listing{
+					Title: base.GetTitle(), Description: base.GetDescription(), CategoryID: base.GetCategoryId(),
+				})
+				if err != nil {
+					log.Printf("[taxonomy] classify %s: %v (tags_pending)", base.GetListingId(), err)
+					fields["tags_pending"] = true
+				} else {
+					fields["facet_tags"] = nonNil(res.FacetTags)
+					fields["tags_pending"] = false
+				}
 			}
 			if embedder != nil {
 				text := strings.TrimSpace(base.GetTitle() + " " + base.GetDescription())
@@ -123,6 +154,33 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				"version":  version,
 			})
 
+		case listingStockChangedType:
+			var sc listingv1.ListingStockChanged
+			if err := proto.Unmarshal(env.GetPayload(), &sc); err != nil {
+				return fmt.Errorf("unmarshal ListingStockChanged: %w", err)
+			}
+			// A malformed stock event is an error, never a silent ack: AD1 retries
+			// it and parks it on the DLQ. Variants only refresh the nested skus' stock (below).
+			if sc.GetListingId() == "" {
+				return fmt.Errorf("ListingStockChanged has no listing id")
+			}
+			if sc.GetStock() < 0 {
+				return fmt.Errorf("ListingStockChanged %q: negative stock %d", sc.GetListingId(), sc.GetStock())
+			}
+			if version <= 0 {
+				return fmt.Errorf("ListingStockChanged %q: missing occurred_at", sc.GetListingId())
+			}
+			// Variant stock keeps the nested skus' is_in_stock current (a sold-out
+			// variant must stop matching sku.* filters); same stock_version guard.
+			if vu, ok := idx.(index.VariantStockUpdater); ok && len(sc.GetVariants()) > 0 {
+				vs := make([]index.VariantStock, 0, len(sc.GetVariants()))
+				for _, v := range sc.GetVariants() {
+					vs = append(vs, index.VariantStock{ID: v.GetId(), Stock: max(v.GetStock(), 0)})
+				}
+				return vu.UpdateStockWithVariants(ctx, sc.GetListingId(), sc.GetStock(), version, vs)
+			}
+			return idx.UpdateStock(ctx, sc.GetListingId(), sc.GetStock(), version)
+
 		case listingStatusChangedType:
 			var st listingv1.ListingStatusChanged
 			if err := proto.Unmarshal(env.GetPayload(), &st); err != nil {
@@ -132,7 +190,7 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 				return fmt.Errorf("event has no listing id")
 			}
 			if st.GetStatus() == listingv1.ListingStatus_LISTING_STATUS_REJECTED {
-				return idx.Delete(ctx, st.GetListingId())
+				return idx.Delete(ctx, st.GetListingId(), version)
 			}
 			return idx.PartialUpdate(ctx, st.GetListingId(), map[string]interface{}{
 				"status":  statusString(st.GetStatus()),
@@ -145,10 +203,41 @@ func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedCl
 	}
 }
 
+// classifyDoc fills the doc's SPU tags and nested SKUs from the classifier; on
+// error it only sets TagsPending so the write guard keeps the stored tags.
+func classifyDoc(ctx context.Context, c taxonomy.Classifier, l *listingv1.Listing, doc *index.ListingDoc) {
+	if c == nil {
+		return
+	}
+	in := taxonomy.Listing{Title: l.GetTitle(), Description: l.GetDescription(), CategoryID: l.GetCategoryId()}
+	for _, v := range l.GetVariants() {
+		in.Variants = append(in.Variants, taxonomy.Variant{
+			ID: v.GetId(), Name: v.GetName(), SkuCode: v.GetSku(), Price: v.GetPrice(), Stock: v.GetStock(),
+		})
+	}
+	res, err := c.Classify(ctx, in)
+	if err != nil {
+		log.Printf("[taxonomy] classify %s: %v (tags_pending)", l.GetId(), err)
+		doc.TagsPending = true
+		return
+	}
+	doc.FacetTags = res.FacetTags
+	doc.SKUs = res.SKUs
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
 // toDoc maps a proto Listing to the indexed document, stamping the read-model
 // version (AD2) so the index can reject out-of-order writes.
 func toDoc(l *listingv1.Listing, version int64) index.ListingDoc {
+	stock := l.GetStock()
 	return index.ListingDoc{
+		Stock:       &stock,
 		ID:          l.GetId(),
 		Title:       l.GetTitle(),
 		Description: l.GetDescription(),

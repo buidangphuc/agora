@@ -130,4 +130,3 @@ func (b *OrderFactBatcher) flushLocked(ctx context.Context) error {
 	b.buf = nil
 	return nil
 }
-

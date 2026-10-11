@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from app.modules.ai.rag.service import KnowledgeRetrievalService
     from app.modules.business.completions.pipeline import CompletionPipeline
     from app.modules.business.recommend.service import RecommendationService
+    from app.modules.business.tag_classifier.service import TagClassifierService
     from app.modules.messaging.outbox.store import OutboxStore
     from app.modules.messaging.queue.gateway import QueueGateway
     from app.modules.messaging.tasks.store import TaskStore
@@ -66,6 +68,7 @@ class ApplicationResources:
     principal_rate_limiter: InMemoryRateLimiter | RedisRateLimiter | None = None
     ip_rate_limiter: InMemoryRateLimiter | RedisRateLimiter | None = None
     rag_service: KnowledgeRetrievalService | None = None
+    tag_classifier_service: TagClassifierService | None = None
     recommendation_service: RecommendationService | None = None
     webhook_signer: WebhookSigner | None = None
     webhook_dispatcher: HttpWebhookDispatcher | None = None
@@ -193,6 +196,11 @@ def validate_core_resource_requirements(
 ) -> None:
     if not init_resources:
         return
+    if settings.LISTING_INDEXER_ENABLED:
+        _require_enabled(
+            settings.RAG_ENABLED,
+            "LISTING_INDEXER_ENABLED requires RAG_ENABLED",
+        )
     if settings.TASKS_ENABLED and not settings.QUEUE_ENABLED:
         raise RuntimeError("TASKS_ENABLED requires QUEUE_ENABLED")
     if settings.QUEUE_ENABLED and settings.QUEUE_BACKEND == "redis":
@@ -238,3 +246,14 @@ async def close_application_resources(app: FastAPI) -> None:
         resources.engine = None
 
     app.state.health_service = HealthService(check_external_dependencies=False)
+
+
+def recommendation_provider(
+    app: FastAPI,
+) -> Callable[[], RecommendationService | None]:
+    """The gRPC ``recommendation_provider`` for ``app`` — shared by every entrypoint.
+
+    Read lazily so it reflects the service the addon opened (``None`` while
+    ``RECS_ENABLED=false``, which makes the servicer answer UNAVAILABLE).
+    """
+    return lambda: getattr(app.state.resources, "recommendation_service", None)

@@ -32,6 +32,21 @@ func main() {
 	}
 }
 
+// reservationSettings resolves RESERVATION_TTL and RESERVATION_SWEEP_INTERVAL,
+// logging a warning naming each unusable variable (it falls back to the default;
+// boot never fails on these).
+func reservationSettings(settings *config.Settings, logger *slog.Logger) (ttl, interval time.Duration) {
+	ttl, warn := settings.ReservationTTL()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	interval, warn = settings.ReservationSweepInterval()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	return ttl, interval
+}
+
 // runReservationSweeper releases stock held by reservations past their TTL (AD3)
 // on a fixed interval until ctx is cancelled. A sweep error is transient (a DB
 // blip) — it is logged and retried on the next tick.
@@ -82,6 +97,16 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("init resources: %w", err)
 	}
+	// Fail fast before any port opens: staging/prod must never fall back to the
+	// in-memory repositories (orders would vanish on restart).
+	if err := settings.RequireDurableStorage(res.Pool != nil); err != nil {
+		_ = bootstrap.CloseResources(context.Background(), res)
+		return err
+	}
+	if res.Pool == nil {
+		logger.Warn("running with IN-MEMORY repositories: orders, carts and sagas are NOT durable and are lost on restart",
+			slog.String("env", settings.Runtime.Env))
+	}
 	defer func() {
 		cctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -114,10 +139,15 @@ func run() error {
 	var shipmentRepo repository.ShipmentRepository
 	if res.Pool != nil {
 		cartRepo = repository.NewPostgresCartRepository(res.Pool)
-		// Every first transition to PAID writes its order.events outbox row in the
-		// same transaction (ADR-0013); the relayer below publishes it.
-		orderRepo = repository.NewPostgresOrderRepository(res.Pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow))
-		returnRepo = repository.NewPostgresReturnRepository(res.Pool)
+		// Every first transition to PAID, and every won claim to CANCELLED, writes
+		// its order.events outbox row in the same transaction (ADR-0013); the
+		// relayer below publishes it.
+		orderRepo = repository.NewPostgresOrderRepository(res.Pool,
+			repository.WithPaidOutbox(events.BuildPaidOutboxRow),
+			repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
+		// A won APPROVED -> REFUNDED writes ReturnRefunded to the outbox in the
+		// transition's own transaction (team-payment applies it).
+		returnRepo = repository.NewPostgresReturnRepository(res.Pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow))
 		// OrderShipped is written to the outbox in the shipment's own transaction.
 		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool, repository.WithShipmentOutbox(events.BuildShippedOutboxRow))
 	} else {
@@ -132,7 +162,8 @@ func run() error {
 	// Durable saga/reservation store (AD3): persist reservation state in Postgres
 	// so a crashed checkout's stock is swept and released, and compensation is not
 	// best-effort in-memory. Falls back to the in-memory store when DB is disabled.
-	var orderOpts []service.OrderServiceOption
+	reservationTTL, sweepInterval := reservationSettings(settings, logger)
+	orderOpts := []service.OrderServiceOption{service.WithReservationTTL(reservationTTL)}
 	if res.Pool != nil {
 		orderOpts = append(orderOpts, service.WithSagaRepository(repository.NewPostgresSagaRepository(res.Pool)))
 	}
@@ -208,7 +239,10 @@ func run() error {
 	// Reservation sweeper (AD3): periodically release stock held past its TTL so a
 	// crashed checkout never leaks inventory. Gated on Postgres like the saga repo.
 	if res.Pool != nil {
-		go runReservationSweeper(ctx, orderSvc, time.Minute, logger)
+		logger.Info("reservation sweeper starting",
+			slog.String("reservation_ttl", reservationTTL.String()),
+			slog.String("sweep_interval", sweepInterval.String()))
+		go runReservationSweeper(ctx, orderSvc, sweepInterval, logger)
 	}
 
 	srv := grpcserver.Build(settings, cartHandler, orderHandler, res.Health, logger)

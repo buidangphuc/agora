@@ -248,13 +248,15 @@ func TestCockpitEmptyPrometheusIsNoDataNotZero(t *testing.T) {
 // the principal metadata it was called with.
 type fakeAnalytics struct {
 	analyticsv1.AnalyticsQueryServiceClient
-	calls   atomic.Int32
-	err     error
-	summary *analyticsv1.GetPlatformOrderSummaryResponse
-	recent  *analyticsv1.ListRecentOrdersResponse
-	window  time.Duration
-	limit   int32
-	md      metadata.MD
+	calls        atomic.Int32
+	err          error
+	summary      *analyticsv1.GetPlatformOrderSummaryResponse
+	recent       *analyticsv1.ListRecentOrdersResponse
+	quality      *analyticsv1.GetTrackingQualityReportResponse
+	qualityHours uint32
+	window       time.Duration
+	limit        int32
+	md           metadata.MD
 }
 
 func (a *fakeAnalytics) GetPlatformOrderSummary(ctx context.Context, in *analyticsv1.GetPlatformOrderSummaryRequest, _ ...grpc.CallOption) (*analyticsv1.GetPlatformOrderSummaryResponse, error) {
@@ -265,6 +267,15 @@ func (a *fakeAnalytics) GetPlatformOrderSummary(ctx context.Context, in *analyti
 		return nil, a.err
 	}
 	return a.summary, nil
+}
+
+func (a *fakeAnalytics) GetTrackingQualityReport(_ context.Context, in *analyticsv1.GetTrackingQualityReportRequest, _ ...grpc.CallOption) (*analyticsv1.GetTrackingQualityReportResponse, error) {
+	a.calls.Add(1)
+	a.qualityHours = in.GetWindowHours()
+	if a.err != nil {
+		return nil, a.err
+	}
+	return a.quality, nil
 }
 
 func (a *fakeAnalytics) ListRecentOrders(_ context.Context, in *analyticsv1.ListRecentOrdersRequest, _ ...grpc.CallOption) (*analyticsv1.ListRecentOrdersResponse, error) {
@@ -468,5 +479,75 @@ func TestCockpitJaegerUnavailable(t *testing.T) {
 		if _, ok := raw["services"]; !ok {
 			t.Errorf("%s: services missing", name)
 		}
+	}
+}
+
+// TestCockpitTrackingQuality: the section is copied from one 24h call with
+// snake_case names, last_ingested_at as RFC3339.
+func TestCockpitTrackingQuality(t *testing.T) {
+	f := newCockpitFixture(t)
+	ingested := time.Date(2026, 10, 9, 7, 0, 0, 0, time.UTC)
+	fa := &fakeAnalytics{
+		summary: &analyticsv1.GetPlatformOrderSummaryResponse{},
+		recent:  &analyticsv1.ListRecentOrdersResponse{},
+		quality: &analyticsv1.GetTrackingQualityReportResponse{
+			Status: "DEGRADED", Reasons: []string{"lagging", "incomplete"},
+			LastIngestedAt: timestamppb.New(ingested),
+			LagP50Seconds:  1.5, LagP95Seconds: 400, DecodeFailures: 3, DuplicatesSkipped: 9,
+			Types: []*analyticsv1.TrackingTypeQuality{
+				{EventType: "listing_view", Events: 12, Visitors: 4, MissingListingRatio: 0.25, ListingScoped: true},
+				{EventType: "search", Events: 5, Visitors: 2},
+			},
+		},
+	}
+	w := f.get(f.handler(edge.CockpitConfig{}, fa), "Bearer "+f.token(t, "admin"))
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	var tq map[string]any
+	if err := json.Unmarshal(raw["tracking_quality"], &tq); err != nil {
+		t.Fatalf("tracking_quality = %s: %v", raw["tracking_quality"], err)
+	}
+	if tq["status"] != "DEGRADED" || tq["last_ingested_at"] != "2026-10-09T07:00:00Z" ||
+		tq["lag_p50_seconds"] != 1.5 || tq["lag_p95_seconds"] != 400.0 ||
+		tq["decode_failures"] != 3.0 || tq["duplicates_skipped"] != 9.0 {
+		t.Errorf("tracking_quality = %v", tq)
+	}
+	if r, _ := tq["reasons"].([]any); len(r) != 2 || r[0] != "lagging" {
+		t.Errorf("reasons = %v", tq["reasons"])
+	}
+	types, _ := tq["types"].([]any)
+	if len(types) != 2 {
+		t.Fatalf("types = %v", tq["types"])
+	}
+	first, _ := types[0].(map[string]any)
+	if first["event_type"] != "listing_view" || first["events"] != 12.0 || first["visitors"] != 4.0 ||
+		first["missing_listing_ratio"] != 0.25 || first["listing_scoped"] != true {
+		t.Errorf("types[0] = %v", first)
+	}
+	if fa.qualityHours != 24 {
+		t.Errorf("window_hours = %d, want 24", fa.qualityHours)
+	}
+}
+
+// TestCockpitTrackingQualityNull: an upstream error leaves the section null
+// while the rest of the payload (orders) is unaffected.
+func TestCockpitTrackingQualityNull(t *testing.T) {
+	f := newCockpitFixture(t)
+	fa := &fakeAnalytics{err: status.Error(codes.Unavailable, "down")}
+	w := f.get(f.handler(edge.CockpitConfig{}, fa), "Bearer "+f.token(t, "admin"))
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if string(raw["tracking_quality"]) != "null" {
+		t.Errorf("tracking_quality = %s, want null", raw["tracking_quality"])
+	}
+	// A report with no ingest yet: last_ingested_at is null, not a zero time.
+	fa = &fakeAnalytics{quality: &analyticsv1.GetTrackingQualityReportResponse{Status: "DEGRADED", Reasons: []string{"stale"}}}
+	body := decodeCockpit(t, f, f.handler(edge.CockpitConfig{}, fa))
+	if body.TrackingQuality == nil || body.TrackingQuality.LastIngestedAt != nil {
+		t.Errorf("tracking_quality = %+v, want section with null last_ingested_at", body.TrackingQuality)
 	}
 }

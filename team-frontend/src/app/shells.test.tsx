@@ -7,6 +7,10 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 import ErrorPage from "./error";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 describe("app exception and loading shells", () => {
   it("not-found shows a 404 result with a link home", () => {
     render(<NotFoundResult />);

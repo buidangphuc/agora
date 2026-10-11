@@ -1,0 +1,17 @@
+# Short tombstone retention for the search read-model e2e scenarios
+# (change port-search-read-model-correctness, design D6; spec search-read-model-deletes,
+# scenario "An expired tombstone is purged").
+#
+# Layer it on top of the stack, from the workspace root (any compose project name):
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/search-tombstones.override.yaml up -d team-search-indexer
+# Add the same `-f` pair to any other `docker compose` call against that project.
+#
+# Tombstones older than 30s are purged by a sweep that runs every 2s, so the purge scenario
+# waits TTL + one interval (~35s) instead of the 14-day default. Only deleted-listing
+# tombstones are ever purged, so the rest of the suite is safe with this overlay.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  team-search-indexer:
+    environment:
+      TOMBSTONE_TTL: 30s
+      TOMBSTONE_PURGE_INTERVAL: 2s

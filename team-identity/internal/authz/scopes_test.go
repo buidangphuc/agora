@@ -43,3 +43,37 @@ func TestNormalizeRole(t *testing.T) {
 		t.Errorf("expected fallback to RoleBuyer")
 	}
 }
+
+func TestUserRolesCarryRecommendationsAndAI(t *testing.T) {
+	for _, role := range []string{authz.RoleBuyer, authz.RoleSeller, authz.RoleAdmin} {
+		got := map[string]bool{}
+		for _, s := range authz.ScopesForRoles([]string{role}) {
+			got[s] = true
+		}
+		for _, want := range []string{"recommendations:read", "ai:use"} {
+			if !got[want] {
+				t.Errorf("role %s missing scope %s", role, want)
+			}
+		}
+	}
+}
+
+// order.admin is a role scope held by the admin role and no other (authz-residuals-2).
+func TestOrderAdminIsAdminOnly(t *testing.T) {
+	has := func(role string) bool {
+		for _, s := range authz.ScopesForRoles([]string{role}) {
+			if s == "order.admin" {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(authz.RoleAdmin) {
+		t.Fatal("admin role must be issued order.admin")
+	}
+	for _, r := range []string{authz.RoleSeller, authz.RoleBuyer} {
+		if has(r) {
+			t.Fatalf("%s role must not be issued order.admin", r)
+		}
+	}
+}

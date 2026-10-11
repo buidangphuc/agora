@@ -1,5 +1,7 @@
 """Unit tests for Two-Tower candidate retrieval model and pipeline."""
 
+import pytest
+
 from recsys.two_tower.item_tower import ItemTower
 from recsys.two_tower.model import TwoTowerModel
 from recsys.two_tower.pipeline import train_and_index_two_tower
@@ -10,19 +12,23 @@ def test_towers_projection_and_normalization():
     u_tower = UserTower(embedding_dim=16)
     i_tower = ItemTower(embedding_dim=16)
 
-    u_vec = u_tower.project({
-        "preferred_categories": ["electronics"],
-        "lifetime_purchases": 5,
-        "avg_order_value": 50.0,
-        "activity_score": 0.8,
-    })
+    u_vec = u_tower.project(
+        {
+            "preferred_categories": ["electronics"],
+            "lifetime_purchases": 5,
+            "avg_order_value": 50.0,
+            "activity_score": 0.8,
+        }
+    )
 
-    i_vec = i_tower.project({
-        "category_id": "electronics",
-        "price": 45.0,
-        "historical_ctr": 0.05,
-        "popularity_score": 0.7,
-    })
+    i_vec = i_tower.project(
+        {
+            "category_id": "electronics",
+            "price": 45.0,
+            "historical_ctr": 0.05,
+            "popularity_score": 0.7,
+        }
+    )
 
     assert len(u_vec) == 16
     assert len(i_vec) == 16
@@ -96,3 +102,32 @@ def test_two_tower_pipeline_indexing():
     assert "item-1" in vectors
     assert len(vectors["item-1"]) == 16
     assert isinstance(model, TwoTowerModel)
+
+
+def test_top_k_is_ranked_by_similarity_and_bounded():
+    """Scenario: Top-K candidate generation for user."""
+    model = TwoTowerModel(embedding_dim=32)
+    model.index_items(
+        [
+            {"listing_id": f"i{n}", "category_id": cat, "price": 10.0 * (n + 1), "popularity_score": 0.1 * n}
+            for n, cat in enumerate(["electronics", "fashion", "books", "home", "toys", "sports"])
+        ]
+    )
+    user = {"preferred_categories": ["fashion"], "lifetime_purchases": 3, "activity_score": 0.6}
+
+    ranked = model.retrieve(user, top_k=4)
+
+    assert len(ranked) == 4
+    scores = [s for _, s in ranked]
+    assert scores == sorted(scores, reverse=True)
+    u_vec = model.user_tower.project(user)
+    for lid, score in ranked:  # the score is the cosine (dot of unit vectors) with the item's vector
+        assert score == pytest.approx(
+            sum(a * b for a, b in zip(u_vec, model._item_vectors[lid], strict=True))
+        )
+    best = max(
+        model._item_vectors,
+        key=lambda i: sum(a * b for a, b in zip(u_vec, model._item_vectors[i], strict=True)),
+    )
+    assert ranked[0][0] == best
+    assert [lid for lid, _ in model.retrieve(user, top_k=4, exclude_item_ids={best})][0] != best

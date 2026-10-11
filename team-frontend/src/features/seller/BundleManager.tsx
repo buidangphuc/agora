@@ -85,7 +85,10 @@ export function BundleManager({
     e.preventDefault();
     setSubmitted(true);
     setError("");
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      if (errors.items) toast.error(errors.items);
+      return;
+    }
     const res = await run(() =>
       createBundleAction(title, selected, Number(price)),
     );

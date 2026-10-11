@@ -4,22 +4,25 @@ global:
   registry: localhost:5001
   imagePullPolicy: IfNotPresent
 images:
-  team-identity: local
-  team-domain: local
-  team-search: local
-  team-engagement: local
-  team-order: local
-  team-payment: local
-  team-chat: local
-  team-notification: local
-  team-referral: local
-  team-verification: local
-  team-sharing: local
-  team-audit: local
-  team-gateway: local
-  team-frontend: local
-  team-ai: local
-  team-promotion: local
-  search-indexer: local
-  team-analytics: local
-  platform-recsys: local
+  team-identity: sha-fa1299bec716
+  team-domain: sha-85d55b9c3a0f
+  team-search: sha-c54d65acc3d9
+  team-engagement: sha-bcd537bcaf17
+  team-order: sha-75219218819c
+  team-payment: sha-5ad53cca61ae
+  team-chat: sha-983828040efa
+  team-notification: sha-b789fd70fa86
+  team-referral: sha-a95429078379
+  team-verification: sha-fac350e49c3c
+  team-sharing: sha-579de5eeae9b
+  team-audit: sha-0cbd57268313
+  team-gateway: sha-0cb4441cbbe8
+  team-frontend: sha-26c131479c3a
+  team-ai: sha-6cebe4d43966
+  team-promotion: sha-c093899d416e
+  search-indexer: sha-c54d65acc3d9
+  team-analytics: sha-bcbb4d0a089c
+  platform-recsys: sha-bb214f3fd631
+  platform-featurestore: sha-222b8d04da59
+  platform-modelserve: sha-26f0039817dc
+  tei-fake: sha-ead800669078

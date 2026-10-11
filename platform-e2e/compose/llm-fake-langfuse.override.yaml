@@ -1,0 +1,16 @@
+# Langfuse tracing on top of llm-fake.override.yaml, for the single scenario
+# ai/llm_tracing.feature::A chat trace carries the request id (change ai-path-resilience, D8).
+#
+# Not part of the standing stack: the scenario applies it with
+#   <DC_WRAPPER> -f <this file> up -d --no-deps team-ai
+# and restores the standing configuration in teardown with
+#   <DC_WRAPPER> up -d --no-deps team-ai
+# (the wrapper already carries llm-fake.override.yaml). Langfuse's ingestion API is the
+# fake's own /api/public/ingestion, so no real Langfuse is needed; the keys are dummies.
+services:
+  team-ai:
+    environment:
+      LANGFUSE_ENABLED: "true"
+      LANGFUSE_PUBLIC_KEY: pk-lf-e2e-dummy
+      LANGFUSE_SECRET_KEY: sk-lf-e2e-dummy
+      LANGFUSE_BASE_URL: http://llm-fake:8099

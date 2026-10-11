@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Settings struct {
@@ -18,6 +19,7 @@ type Settings struct {
 	Database      Database
 	Observability Observability
 	Upstream      Upstream
+	Kafka         Kafka
 }
 
 type Runtime struct {
@@ -50,6 +52,36 @@ type Observability struct {
 // DBs, Rule 3). Empty OrderAddr disables verified-purchase enrichment.
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:""`
+	// CallTimeoutSeconds bounds each upstream lookup (also capped to the inbound
+	// request deadline minus a margin), so a dead sibling cannot hang a handler.
+	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+}
+
+// Kafka configures the listing.events consumer that fills the follow-feed source
+// (seller_listings). Off by default; the consumer group starts from the earliest
+// offset so a fresh deployment backfills the feed.
+type Kafka struct {
+	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
+	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-engagement-feed"`
+	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+
+	// Producer side: the outbox relayer publishes engagement facts (reuses
+	// KAFKA_ENABLED / KAFKA_BROKERS). With Kafka off, rows still accumulate in the
+	// outbox and publish once Kafka is enabled.
+	EventsTopic         string        `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
+	OutboxRelayInterval time.Duration `env:"ENGAGEMENT_OUTBOX_RELAY_INTERVAL" default:"500ms"`
+}
+
+// KafkaBrokers splits KAFKA_BROKERS into seed addresses.
+func (s *Settings) KafkaBrokers() []string {
+	var out []string
+	for _, p := range strings.Split(s.Kafka.Brokers, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func LoadSettings() (*Settings, error) {
@@ -66,6 +98,18 @@ func LoadSettings() (*Settings, error) {
 func (s *Settings) Validate() error {
 	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
 		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
+	}
+	if s.Kafka.Enabled && (len(s.KafkaBrokers()) == 0 || strings.TrimSpace(s.Kafka.ListingTopic) == "" || strings.TrimSpace(s.Kafka.ConsumerGroup) == "") {
+		return errors.New("KAFKA_BROKERS, KAFKA_LISTING_TOPIC and KAFKA_CONSUMER_GROUP are required when KAFKA_ENABLED=true")
+	}
+	if s.Kafka.Enabled && strings.TrimSpace(s.Kafka.EventsTopic) == "" {
+		return errors.New("ENGAGEMENT_EVENTS_TOPIC is required when KAFKA_ENABLED=true")
+	}
+	if s.Kafka.OutboxRelayInterval <= 0 {
+		return errors.New("ENGAGEMENT_OUTBOX_RELAY_INTERVAL must be > 0")
+	}
+	if s.Upstream.CallTimeoutSeconds <= 0 {
+		return errors.New("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0")
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
@@ -116,6 +160,14 @@ func bindGroups(v reflect.Value) error {
 }
 
 func setField(fv reflect.Value, raw string) error {
+	if fv.Type() == reflect.TypeOf(time.Duration(0)) {
+		d, err := time.ParseDuration(strings.TrimSpace(raw))
+		if err != nil {
+			return err
+		}
+		fv.SetInt(int64(d))
+		return nil
+	}
 	switch fv.Kind() {
 	case reflect.String:
 		fv.SetString(raw)

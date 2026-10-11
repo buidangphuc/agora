@@ -27,6 +27,9 @@ type Settings struct {
 	Kafka         Kafka
 	Warehouse     Warehouse
 	Batch         Batch
+	Tracking      Tracking
+	Recs          Recs
+	Engagement    Engagement
 	Observability Observability
 }
 
@@ -52,6 +55,22 @@ type Kafka struct {
 	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
 	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
+	// ListingTopic feeds the listing -> seller / category / price table (ListingChanged). It is
+	// read by its own consumer group, from the earliest offset, so existing listings backfill.
+	// The group name was bumped from team-analytics-listing-sellers when category and price
+	// were added (featurestore-item-attributes): a new group replays the topic once and
+	// refreshes every row.
+	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-attrs"`
+}
+
+// Engagement configures the engagement.events consumer (engagement-fact-events D3).
+// It runs in its own consumer group; undecodable or unknown records are
+// republished to DLQTopic and the consumer commits past them.
+type Engagement struct {
+	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
+	DLQTopic      string `env:"ENGAGEMENT_DLQ_TOPIC" default:"engagement.events.analytics.dlq"`
+	ConsumerGroup string `env:"ENGAGEMENT_CONSUMER_GROUP" default:"team-analytics.engagement"`
 }
 
 // Warehouse selects and configures the WarehouseWriter adapter. DuckDB is the
@@ -80,6 +99,25 @@ type Warehouse struct {
 type Batch struct {
 	MaxSize              int `env:"BATCH_MAX_SIZE" default:"500"`
 	FlushIntervalSeconds int `env:"BATCH_FLUSH_INTERVAL_SECONDS" default:"2"`
+}
+
+// Tracking holds the thresholds GetTrackingQualityReport derives its status from
+// (analytics-data-quality D2).
+type Tracking struct {
+	// StaleAfterSeconds: the report is DEGRADED(stale) when the latest ingest is older.
+	StaleAfterSeconds int `env:"TRACKING_STALE_AFTER_SECONDS" default:"900"`
+	// LagP95MaxSeconds: DEGRADED(lagging) when the p95 ingest lag exceeds it.
+	LagP95MaxSeconds int `env:"TRACKING_LAG_P95_MAX_SECONDS" default:"300"`
+	// MissingListingMaxRatio: DEGRADED(incomplete) when a listing-scoped event
+	// type's share of events without listing_id exceeds it (0 to 1).
+	MissingListingMaxRatio float64 `env:"TRACKING_MISSING_LISTING_MAX_RATIO" default:"0.05"`
+}
+
+// Recs configures recommendation outcome attribution (recsys-online-evaluation).
+type Recs struct {
+	// AttributionWindowHours: an add-to-cart or purchase is credited to a click
+	// when it happens within this many hours after it.
+	AttributionWindowHours int `env:"RECS_ATTRIBUTION_WINDOW_HOURS" default:"24"`
 }
 
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
@@ -117,6 +155,22 @@ func (s *Settings) Validate() error {
 	}
 	if s.Warehouse.ParquetExportIntervalSeconds < 0 {
 		return fmt.Errorf("PARQUET_EXPORT_INTERVAL_SECONDS must be >= 0: %d", s.Warehouse.ParquetExportIntervalSeconds)
+	}
+	if s.Tracking.StaleAfterSeconds <= 0 {
+		return fmt.Errorf("TRACKING_STALE_AFTER_SECONDS must be > 0: %d", s.Tracking.StaleAfterSeconds)
+	}
+	if s.Tracking.LagP95MaxSeconds <= 0 {
+		return fmt.Errorf("TRACKING_LAG_P95_MAX_SECONDS must be > 0: %d", s.Tracking.LagP95MaxSeconds)
+	}
+	if s.Tracking.MissingListingMaxRatio < 0 || s.Tracking.MissingListingMaxRatio > 1 {
+		return fmt.Errorf("TRACKING_MISSING_LISTING_MAX_RATIO must be within [0, 1]: %v", s.Tracking.MissingListingMaxRatio)
+	}
+	if s.Recs.AttributionWindowHours <= 0 {
+		return fmt.Errorf("RECS_ATTRIBUTION_WINDOW_HOURS must be > 0: %d", s.Recs.AttributionWindowHours)
+	}
+	if strings.TrimSpace(s.Engagement.EventsTopic) == "" || strings.TrimSpace(s.Engagement.DLQTopic) == "" ||
+		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {
+		return errors.New("ENGAGEMENT_EVENTS_TOPIC, ENGAGEMENT_DLQ_TOPIC and ENGAGEMENT_CONSUMER_GROUP must not be empty")
 	}
 	switch s.Warehouse.Driver {
 	case DriverDuckDB:

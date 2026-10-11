@@ -33,7 +33,7 @@ func (f *ChatForwarder) StreamChat(
 ) error {
 	up, err := f.aiChat.StreamChat(f.edge.outgoing(ctx, req.Header()), req.Msg)
 	if err != nil {
-		return toConnectErr(err)
+		return f.streamErr(ctx, err)
 	}
 	for {
 		msg, err := up.Recv()
@@ -41,12 +41,18 @@ func (f *ChatForwarder) StreamChat(
 			return nil
 		}
 		if err != nil {
-			return toConnectErr(err)
+			return f.streamErr(ctx, err)
 		}
 		if err := stream.Send(msg); err != nil {
 			return err
 		}
 	}
+}
+
+// streamErr sanitises an upstream stream error; the edge logging interceptor
+// logs it with the request id.
+func (f *ChatForwarder) streamErr(_ context.Context, err error) error {
+	return toConnectErr(err)
 }
 
 func (f *ChatForwarder) GetOrCreateThread(

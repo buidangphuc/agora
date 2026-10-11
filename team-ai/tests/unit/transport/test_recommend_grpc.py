@@ -32,6 +32,8 @@ class _FakeRecs:
         return SimpleNamespace(
             items=[SimpleNamespace(listing_id="lst-1", score=0.8, rank=1)],
             model_version="als-test",
+            placement_id="home_feed",
+            fallback=False,
         )
 
 
@@ -39,6 +41,7 @@ async def _start(recs, roles="listing.read"):
     settings = build_test_settings(
         AUTH_BEARER_TOKEN="secret",
         AUTH_ROLES=roles,
+        GRPC_BEARER_FALLBACK_ENABLED=True,
         GRPC_REFLECTION_ENABLED=False,
         CHAT_BACKEND="mock",
     )
@@ -101,3 +104,94 @@ async def test_recommend_requires_the_listing_read_scope():
     finally:
         await server.stop(None)
     assert exc.value.code() == grpc.StatusCode.PERMISSION_DENIED
+
+
+def _forwarded(pid: str, ptype: str, scopes: str = "listing.read"):
+    return (
+        ("x-principal-id", pid),
+        ("x-principal-type", ptype),
+        ("x-principal-scopes", scopes),
+    )
+
+
+async def _recommend_as(metadata, **request_fields):
+    recs = _FakeRecs()
+    server, port = await _start(recs)
+    try:
+        async with grpc.aio.insecure_channel(f"localhost:{port}") as ch:
+            stub = recommendation_pb2_grpc.RecommendationServiceStub(ch)
+            await stub.Recommend(
+                recommendation_pb2.RecommendRequest(**request_fields),
+                metadata=metadata,
+            )
+    finally:
+        await server.stop(None)
+    return recs.queries[0]
+
+
+async def test_user_principal_cannot_request_another_users_recommendations():
+    q = await _recommend_as(
+        _forwarded("buyer-1", "user"), user_id="victim", anonymous_id="dev-1"
+    )
+    assert (q.user_id, q.anonymous_id) == ("buyer-1", "")
+
+
+async def test_anonymous_principal_cannot_claim_a_user_id():
+    q = await _recommend_as(
+        _forwarded("anonymous", "anonymous"), user_id="victim", anonymous_id="dev-1"
+    )
+    assert (q.user_id, q.anonymous_id) == ("", "dev-1")
+
+
+async def test_admin_and_service_principals_may_request_on_behalf_of_a_user():
+    admin = await _recommend_as(
+        _forwarded("admin-1", "user", "listing.read,admin"), user_id="u-9"
+    )
+    service = await _recommend_as(_forwarded("svc", "service"), user_id="u-9")
+    assert admin.user_id == "u-9"
+    assert service.user_id == "u-9"
+
+
+async def _two_calls():
+    recs = _FakeRecs()
+    server, port = await _start(recs)
+    try:
+        async with grpc.aio.insecure_channel(f"localhost:{port}") as ch:
+            stub = recommendation_pb2_grpc.RecommendationServiceStub(ch)
+            req = recommendation_pb2.RecommendRequest(
+                context=recommendation_pb2.RECOMMENDATION_CONTEXT_HOMEPAGE
+            )
+            return [await stub.Recommend(req, metadata=_AUTH) for _ in range(2)]
+    finally:
+        await server.stop(None)
+
+
+async def test_every_response_carries_the_placement_and_a_distinct_request_id():
+    first, second = await _two_calls()
+    assert first.placement_id == second.placement_id == "home_feed"
+    assert first.request_id and second.request_id
+    assert first.request_id != second.request_id
+
+
+async def test_one_recs_served_line_per_response_with_structured_fields():
+    from loguru import logger
+
+    records = []
+    sink = logger.add(lambda m: records.append(m.record), level="INFO")
+    try:
+        first, second = await _two_calls()
+    finally:
+        logger.remove(sink)
+
+    served = [r for r in records if r["message"] == "recs.served"]
+    assert len(served) == 2
+    assert [r["extra"]["request_id"] for r in served] == [
+        first.request_id,
+        second.request_id,
+    ]
+    extra = served[0]["extra"]
+    assert extra["placement_id"] == "home_feed"
+    assert extra["model_version"] == "als-test"
+    assert extra["listing_ids"] == ["lst-1"]
+    assert extra["fallback"] is False
+    assert extra["principal_type"]

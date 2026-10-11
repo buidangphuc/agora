@@ -155,3 +155,332 @@ features:
     notes: >
       Backend scenarios are covered by team-domain handler tests; the UI-visible
       scenarios live in team-frontend FEATURES (shop.storefront, cart.shop-names, ...).
+
+  - id: listing.shop-display-name-change
+    title: A name change is reflected
+    persona: seller
+    priority: P1
+    summary: >-
+      Renaming a storefront is visible on the next GetStorefront, BatchGetStorefronts and /shop/<id> load, with no cache purge.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.BatchGetStorefronts]
+    acceptance:
+      - Given seller S upserted a storefront named "Tiem Hoa Nho"
+      - When S upserts it again with "Tiem Hoa Lon"
+      - Then the next GetStorefront, BatchGetStorefronts and the /shop/<S> page show "Tiem Hoa Lon"
+    tags: [seller, shop]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::A name change is reflected"
+
+  - id: listing.shop-display-name-invalid
+    title: Invalid names are rejected
+    persona: seller
+    priority: P1
+    summary: >-
+      An 81-character name or one with a control character is refused with invalid_argument and the stored name stays.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.UpsertStorefront]
+    acceptance:
+      - When a seller upserts a storefront with a display_name over 80 characters or containing a control character
+      - Then the call fails with InvalidArgument and the stored name is unchanged
+    tags: [seller, shop, security]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Invalid names are rejected"
+
+  - id: listing.shop-display-name-no-spoof
+    title: A seller cannot set another seller's name
+    persona: seller
+    priority: P1
+    summary: >-
+      The seller id is forced from the principal: a body naming another seller stores the name on the caller's own storefront.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.UpsertStorefront, listing.v1.GetStorefront]
+    acceptance:
+      - When seller A sends an UpsertStorefront naming seller B's seller_id with a display_name
+      - Then the name is stored on A's storefront and B's name is unchanged
+    tags: [seller, shop, security]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::A seller cannot set another seller's name"
+
+  - id: listing.batch-storefronts-unknown
+    title: An unknown or deleted seller gives an empty name
+    persona: buyer
+    priority: P1
+    summary: >-
+      BatchGetStorefronts omits sellers with no storefront and still succeeds.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.BatchGetStorefronts]
+    acceptance:
+      - When BatchGetStorefronts is called with seller ids A (has a name) and Z (no storefront row)
+      - Then the response contains an entry for A only and the call succeeds
+    tags: [shop, contract]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::An unknown or deleted seller gives an empty name"
+    notes: >-
+      The frontend wrapper mapping the omitted id to an empty displayName is covered by Vitest (shops.test.ts).
+
+  - id: listing.batch-storefronts-limits
+    title: Duplicates and oversize requests
+    persona: buyer
+    priority: P1
+    summary: >-
+      Duplicate ids collapse to one entry and more than 100 ids fails with invalid_argument.
+    entry_route: "/shop/{id}"
+    services: [team-domain, team-gateway]
+    api:
+      exercised: [listing.v1.BatchGetStorefronts]
+    acceptance:
+      - When BatchGetStorefronts is called with the same seller id three times
+      - Then it returns a single entry for that seller
+      - When it is called with 101 distinct ids
+      - Then it fails with InvalidArgument
+    tags: [shop, contract]
+    status: automated
+    covered_by: "shop/shop_display_name.feature::Duplicates and oversize requests"
+
+  - id: listing.visibility-stranger-draft
+    title: A stranger cannot read a draft
+    persona: buyer
+    priority: P0
+    summary: >-
+      GetListing answers not_found for a draft listing unless the caller owns it, is an admin or a service.
+    entry_route: /seller/new
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing]
+    acceptance:
+      - WHEN a buyer calls GetListing through the gateway for another seller's draft listing
+      - THEN the gateway answers HTTP 404
+    tags: [security, authz]
+    status: automated
+    covered_by: "security/listing_visibility.feature::A stranger cannot read a draft"
+
+  - id: listing.visibility-owner-draft
+    title: The owner can read their draft
+    persona: seller
+    priority: P0
+    summary: >-
+      The seller who owns a draft can still read it.
+    entry_route: /seller/new
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: seller
+    api:
+      exercised: [listing.v1.GetListing]
+    acceptance:
+      - WHEN the seller who owns a draft listing calls GetListing for it through the gateway
+      - THEN the listing is returned with status draft
+    tags: [security, seller]
+    status: automated
+    covered_by: "security/listing_visibility.feature::The owner can read their draft"
+
+  - id: listing.visibility-list-published-only
+    title: Listing without a status returns only published listings
+    persona: guest
+    priority: P0
+    summary: >-
+      ListListings defaults to published listings, so unpublished items stay private.
+    entry_route: /
+    services: [team-domain, team-gateway]
+    preconditions:
+      login: guest
+    api:
+      exercised: [listing.v1.ListListings]
+    acceptance:
+      - WHEN an anonymous client calls ListListings through the gateway without a status filter
+      - THEN every returned listing has status published
+    tags: [security, contract]
+    status: automated
+    covered_by: "security/listing_visibility.feature::Listing without a status returns only published listings"
+
+  - id: inventory.checkout-holds-stock-once
+    title: A checkout holds the ordered quantity exactly once
+    persona: buyer
+    priority: P0
+    summary: >-
+      A buyer's checkout decrements the listing's stock by the ordered quantity once.
+    entry_route: /cart
+    services: [team-domain, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing, order.v1.CreateOrder]
+    acceptance:
+      - WHEN a buyer checks out quantity 2 of a listing whose stock is 10 through the gateway
+      - THEN the listing's stock read through the gateway is 8
+    tags: [order]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A checkout holds the ordered quantity exactly once"
+    notes: >-
+      Scenario in inventory/oic_inv_inventory_reservations.feature. Written ahead of the code (port-order-inventory-correctness); flip to automated once green after the code lands. Observed GREEN on the
+      pre-change stack (stock 10 -> 8).
+
+  - id: inventory.placed-order-keeps-stock
+    title: A placed order keeps its stock after the reservation TTL
+    persona: buyer
+    priority: P0
+    summary: >-
+      CommitReservation makes a placed order's stock permanent: the TTL sweep never restores it.
+    entry_route: /cart
+    services: [team-domain, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing, order.v1.CreateOrder, order.v1.GetOrder]
+    acceptance:
+      - WHEN a buyer checks out quantity 2 of a listing with stock 10, and more than the configured reservation TTL plus two sweep intervals of both services pass
+      - THEN the listing's stock read through the gateway is still 8 and the order is still Pending
+    tags: [order, destructive]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A placed order keeps its stock after the reservation TTL"
+    notes: >-
+      Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
+      RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). Scenario in
+      inventory/oic_inv_inventory_reservations.feature. RED on the pre-change stack (default 15m TTL, waited 17m): stock 10 instead of 8, the sweep returned a placed order's stock (no CommitReservation yet).
+
+  - id: inventory.failed-checkout-returns-stock-once
+    title: A failed checkout returns its stock once even after the TTL sweep
+    persona: buyer
+    priority: P0
+    summary: >-
+      A two-seller checkout that fails on the second seller's stock gives the first seller's stock back exactly once, also across the TTL sweep.
+    entry_route: /cart
+    services: [team-domain, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing, order.v1.CreateOrder]
+    acceptance:
+      - WHEN a buyer's two-seller checkout fails because the second seller's item is out of stock, and more than the configured reservation TTL plus two sweep intervals then pass
+      - THEN the first seller's listing stock read through the gateway equals its stock before the checkout
+    tags: [order, destructive]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A failed checkout returns its stock once even after the TTL sweep"
+    notes: >-
+      Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
+      RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). The failing item belongs
+      to the seller whose id sorts last. Scenario in inventory/oic_inv_inventory_reservations.feature.
+      On the pre-change stack it passed by chance (17m run): the map-ordered saga reserved the failing seller first; red whenever the first seller is reserved before the failure (double restore, as in the cancel case).
+
+  - id: inventory.cancel-returns-stock-once
+    title: A cancelled order's stock is returned once even after the TTL sweep
+    persona: buyer
+    priority: P0
+    summary: >-
+      Cancelling a Pending order restores its reserved stock once; the TTL sweep must not restore it a second time.
+    entry_route: /account/orders
+    services: [team-domain, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing, order.v1.CreateOrder, order.v1.CancelOrder]
+    acceptance:
+      - WHEN a buyer cancels a Pending order for quantity 2 of a listing with stock 10, and more than the configured reservation TTL plus two sweep intervals then pass
+      - THEN the listing's stock read through the gateway is 10
+    tags: [order, destructive]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A cancelled order's stock is returned once even after the TTL sweep"
+    notes: >-
+      Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
+      RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). Scenario in
+      inventory/oic_inv_inventory_reservations.feature. RED on the pre-change stack (17m run): stock 12 instead of 10, release by quantity plus the sweep restored the reservation twice.
+
+  - id: inventory.invalid-ttl-falls-back
+    title: An invalid reservation TTL falls back to the default
+    persona: admin
+    priority: P1
+    summary: >-
+      team-domain started with an unparsable TTL and a non-positive sweep interval still boots, warns about both variables and logs the 15m/1m defaults.
+    entry_route: /
+    services: [team-domain]
+    preconditions:
+      login: guest
+    api:
+      exercised: [listing.v1.ListingService]
+    acceptance:
+      - WHEN the team-domain image is started with RESERVATION_TTL=banana and RESERVATION_SWEEP_INTERVAL=0s
+      - THEN it starts, logs a warning naming each variable, and logs the effective TTL 15m0s and interval 1m0s
+    tags: [order]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::An invalid reservation TTL falls back to the default"
+    notes: >-
+      Scenario in inventory/oic_inv_inventory_reservations.feature. Runs the real team-domain image with
+      docker run against a throwaway database created in the stack's postgres (dropped afterwards); the
+      live service is untouched. RED on the pre-change stack: the service ignores both variables, logs no warning and no effective values.
+
+  - id: inventory.overlay-sweeper-cadence
+    title: The e2e stack runs the sweeper on the configured short cadence
+    persona: admin
+    priority: P1
+    summary: >-
+      With the e2e overlay, team-domain and team-order each log the overlay values as their effective reservation TTL and sweep interval.
+    entry_route: /
+    services: [team-domain, team-order]
+    preconditions:
+      login: guest
+    api:
+      exercised: [listing.v1.ListingService, order.v1.OrderService]
+    acceptance:
+      - WHEN the stack is started with the e2e overlay that sets a short RESERVATION_TTL and RESERVATION_SWEEP_INTERVAL for team-domain and team-order
+      - THEN each service logs the overlay values as its effective reservation TTL and sweep interval
+    tags: [order, destructive]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::The e2e stack runs the sweeper on the configured short cadence"
+    notes: >-
+      Needs the short-TTL overlay platform-e2e/compose/order-inventory.override.yaml (RESERVATION_TTL=20s,
+      RESERVATION_SWEEP_INTERVAL=2s); tagged @destructive (serial/overlay lane). Scenario in
+      inventory/oic_inv_inventory_reservations.feature. RED on the pre-change stack: no overlay applied (RESERVATION_TTL unset on the containers).
+
+  - id: inventory.checkout-announces-stock
+    title: A checkout announces the listing's new stock
+    persona: buyer
+    priority: P1
+    summary: >-
+      A reserve writes a ListingStockChanged envelope (stock after the change) to listing.events keyed by listing id.
+    entry_route: /cart
+    services: [team-domain, team-order, team-gateway, redpanda]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing, order.v1.CreateOrder]
+    acceptance:
+      - WHEN a buyer checks out quantity 2 of a listing with stock 10
+      - THEN a ListingStockChanged envelope keyed by that listing id with stock 8 appears on listing.events
+    tags: [order]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A checkout announces the listing's new stock"
+    notes: >-
+      Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
+      (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.
+
+  - id: inventory.cancel-announces-stock
+    title: A cancel announces the restored stock
+    persona: buyer
+    priority: P1
+    summary: >-
+      A release writes a later ListingStockChanged envelope with the restored stock.
+    entry_route: /account/orders
+    services: [team-domain, team-order, team-gateway, redpanda]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [listing.v1.GetListing, order.v1.CreateOrder, order.v1.CancelOrder]
+    acceptance:
+      - WHEN the buyer then cancels that order
+      - THEN a later ListingStockChanged envelope for the listing with stock 10 appears on listing.events
+    tags: [order]
+    status: automated
+    covered_by: "inventory/oic_inv_inventory_reservations.feature::A cancel announces the restored stock"
+    notes: >-
+      Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
+      (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.

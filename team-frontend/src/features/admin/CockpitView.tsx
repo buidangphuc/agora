@@ -2,6 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 
+import {
+  type TrackingQuality,
+  TrackingQualityPanel,
+} from "./TrackingQualityPanel";
+
 // Every figure on this page comes from the gateway's GET /api/admin/metrics
 // (Prometheus telemetry, team-analytics order facts, Jaeger traces). The first
 // payload is fetched server-side with the session token and passed in as
@@ -56,6 +61,8 @@ export interface CockpitData {
   services: ServiceHealth[] | null;
   recent_orders: RecentOrder[] | null;
   recent_traces: TraceSummary[] | null;
+  /** Null when team-analytics cannot be reached (or an older gateway). */
+  tracking_quality?: TrackingQuality | null;
 }
 
 function num(v: number | null | undefined, digits: number, unit = ""): string {
@@ -401,6 +408,8 @@ export function CockpitView({ initial }: { initial: CockpitData | null }) {
           </div>
         </div>
       </div>
+
+      <TrackingQualityPanel quality={data?.tracking_quality} />
 
       {/* Tracing: real Jaeger deep-links only */}
       <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-xl mt-6">

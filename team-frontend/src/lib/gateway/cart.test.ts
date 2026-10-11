@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -167,8 +168,26 @@ describe("cart gateway wrapper", () => {
     expect(batch).not.toHaveBeenCalled();
   });
 
-  it("getCart normalizes any RPC error to an empty cart", async () => {
+  it("getCart throws on an RPC failure instead of returning an empty cart", async () => {
+    stubCart({
+      getCart: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("down", Code.Unavailable)),
+    });
+    await expect(getCart()).rejects.toThrow("down");
+  });
+
+  it("getCartWithShopNames propagates a cart outage", async () => {
     stubCart({ getCart: vi.fn().mockRejectedValue(new Error("boom")) });
+    await expect(getCartWithShopNames()).rejects.toThrow("boom");
+  });
+
+  it("getCart treats an anonymous caller (Unauthenticated) as an empty cart", async () => {
+    stubCart({
+      getCart: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("no", Code.Unauthenticated)),
+    });
     await expect(getCart()).resolves.toEqual({
       userId: "",
       items: [],

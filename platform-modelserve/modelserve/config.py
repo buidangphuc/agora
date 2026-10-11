@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://redis:6379/0", alias="REDIS_URL")
     embed_cache_enabled: bool = Field(default=True, alias="EMBED_CACHE_ENABLED")
     embed_cache_ttl_seconds: int = Field(default=86400, alias="EMBED_CACHE_TTL_SECONDS")
+    embed_cache_timeout_seconds: float = Field(default=0.5, alias="EMBED_CACHE_TIMEOUT_SECONDS")
     model_version: str = Field(default="v1", alias="MODEL_VERSION")
 
     # Admission Control & Resilience

@@ -5,7 +5,11 @@ import { Progress } from "@/components/ui/Progress";
 import { Rate } from "@/components/ui/Rate";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { starCount } from "@/features/listing/pdp";
-import type { ViewRatingSummary, ViewReview } from "@/lib/gateway/reviews";
+import type {
+  ViewRatingSummary,
+  ViewReview,
+  ViewReviewsPage,
+} from "@/lib/gateway/reviews";
 import { AiReviewSummary } from "./AiReviewSummary";
 import { ReviewList } from "./ReviewList";
 import { ReviewRatingFilter } from "./ReviewRatingFilter";
@@ -42,17 +46,19 @@ export function ReviewSection({
   productTitle,
   summary,
   reviewsPromise,
+  pagePromise,
   rating,
-  rpage,
   variant,
   loggedIn,
 }: {
   listingId: string;
   productTitle?: string;
   summary: ViewRatingSummary;
+  /** First-100 sample for the AI summary. */
   reviewsPromise: Promise<ViewReview[]>;
+  /** The server page of the list for `?rpage=` / `?rating=`. */
+  pagePromise: Promise<ViewReviewsPage>;
   rating: number;
-  rpage: number;
   variant?: string;
   loggedIn: boolean;
 }) {
@@ -155,9 +161,8 @@ export function ReviewSection({
           <ReviewList
             listingId={listingId}
             productTitle={productTitle}
-            reviewsPromise={reviewsPromise}
+            pagePromise={pagePromise}
             rating={rating}
-            rpage={rpage}
             variant={variant}
             loggedIn={loggedIn}
           />

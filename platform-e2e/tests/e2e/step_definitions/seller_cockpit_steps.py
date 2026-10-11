@@ -11,7 +11,6 @@ state comes from the `needsSeller` / `needsListing` / `needsOrder` tags.
 from __future__ import annotations
 
 import re
-import time
 
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
@@ -29,7 +28,7 @@ from src.pages import (
     SellerWalletPage,
 )
 from src.utils import data as fake
-from tests.e2e.flows import seed_listing
+from tests.e2e.flows import seed_listing, settle_seeded_order_to_seller
 from tests.e2e.step_definitions.follow_seller_steps import _principal_id
 from tests.e2e.support.world import World
 
@@ -226,14 +225,19 @@ def recent_orders_empty(world: World) -> None:
 
 @when(parsers.parse('the seller types "{text}" in the product search box'))
 def type_in_product_search(world: World, text: str) -> None:
-    _workplace(world).search_box.fill(text)
+    page = _workplace(world)
+    # The search box pushes ?q= from its change handler; a fill before hydration is lost.
+    page.wait_until_interactive(page.search_box)
+    page.search_box.fill(text)
 
 
 @when("the seller searches for the seeded listing by title")
 def search_seeded_listing(world: World) -> None:
     title = world.state.listing.title  # type: ignore[union-attr]
     world.state.extra["search_text"] = title
-    _workplace(world).search_box.fill(title)
+    page = _workplace(world)
+    page.wait_until_interactive(page.search_box)
+    page.search_box.fill(title)
 
 
 @then("the URL carries the search text and the matching product is listed")
@@ -540,6 +544,15 @@ def range_tab_current(world: World, label: str) -> None:
     expect(_analytics(world).active_range_tab).to_have_text(label, timeout=timeouts.NAVIGATION)
 
 
+@then("the revenue table and totals of the selected range are shown")
+def revenue_table_and_totals(world: World) -> None:
+    page = _analytics(world)
+    expect(page.revenue_table.or_(world.page.get_by_text("Chưa có dữ liệu")).first).to_be_visible(
+        timeout=timeouts.NAVIGATION
+    )
+    expect(page.kpi_row.or_(world.page.get_by_text("Chưa có dữ liệu phễu")).first).to_be_visible()
+
+
 @then("the Statistic row of the analytics page is visible")
 def analytics_statistic_row(world: World) -> None:
     expect(
@@ -565,19 +578,7 @@ def payout_disabled(world: World) -> None:
 def buyer_paid_seeded_order(world: World) -> None:
     # A settled payment credits the order's seller in the wallet ledger, which is
     # what makes the payout button usable; wait for the credit before the UI reads it.
-    buyer = world.state.extra["seeded_buyer"]
-    seller = world.state.seeded_seller
-    assert seller and seller.token, "scenario must be tagged @needsSeller @needsOrder"
-    world.service_factory.set_token(buyer.token)
-    world.service_factory.payment.mock_pay(world.state.order_id, 5_000_000, success=True)
-    world.service_factory.set_token(seller.token)
-    deadline = time.monotonic() + 20.0
-    while time.monotonic() < deadline:
-        balance = int(world.service_factory.payment.wallet_balance() or 0)
-        if balance > 0:
-            return
-        time.sleep(0.5)
-    raise AssertionError("the paid order never credited the seller's wallet ledger")
+    settle_seeded_order_to_seller(world)
 
 
 @when("the seller starts a payout")

@@ -39,6 +39,7 @@ def _settings(**overrides):
     base = {
         "AUTH_BEARER_TOKEN": "secret",
         "AUTH_ROLES": "search:read,chat:read",
+        "GRPC_BEARER_FALLBACK_ENABLED": True,
         "GRPC_REFLECTION_ENABLED": False,
         "CHAT_BACKEND": "mock",
     }
@@ -131,5 +132,41 @@ async def test_chat_streams_tokens_then_done():
         assert chunks[-1].done is True
         streamed = "".join(c.delta for c in chunks)
         assert "hello" in streamed and "world" in streamed
+    finally:
+        await server.stop(None)
+
+
+async def test_bearer_ignored_on_grpc_by_default():
+    server, port = await _start(
+        _settings(GRPC_BEARER_FALLBACK_ENABLED=False), rag=_FakeRag()
+    )
+    try:
+        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
+            stub = search_pb2_grpc.SearchServiceStub(channel)
+            with pytest.raises(grpc.aio.AioRpcError) as exc:
+                await stub.SearchListings(
+                    search_pb2.SearchListingsRequest(query="x"), metadata=_AUTH
+                )
+        assert exc.value.code() == grpc.StatusCode.UNAUTHENTICATED
+    finally:
+        await server.stop(None)
+
+
+async def test_gateway_principal_unaffected_by_fallback_flag():
+    server, port = await _start(
+        _settings(GRPC_BEARER_FALLBACK_ENABLED=False), rag=_FakeRag()
+    )
+    forwarded = (
+        ("x-principal-id", "buyer-1"),
+        ("x-principal-type", "user"),
+        ("x-principal-scopes", "search:read"),
+    )
+    try:
+        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
+            stub = search_pb2_grpc.SearchServiceStub(channel)
+            resp = await stub.SearchListings(
+                search_pb2.SearchListingsRequest(query="x"), metadata=forwarded
+            )
+        assert [h.listing_id for h in resp.hits] == ["listing-1"]
     finally:
         await server.stop(None)

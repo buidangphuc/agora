@@ -1,95 +1,68 @@
-"""Generate a tiny `tracking_events` Parquet warehouse for local/CI runs.
+"""Generate a tiny governed `als_interactions` dataset (parquet + manifest) for local runs.
 
-Writes the canonical team-analytics schema (warehouse.Schema column order) so
-`spark.read.parquet(...)` in the job reads it exactly like the DuckDB-exported
-Parquet. Uses pandas + pyarrow only (no Spark, no DuckDB) so it runs on a laptop.
+Mirrors what platform-featurestore writes: ``as_of=<stamp>.parquet`` with the columns
+user_key, listing_id, weight, interactions, last_occurred_at, and the
+``as_of=<stamp>.manifest.json`` beside it. Uses pandas + pyarrow only (no Spark).
 
-    python sample_data/generate_sample.py /data/tracking_events.parquet
+    python sample_data/generate_sample.py ./data/datasets/als_interactions/v1
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
-import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-# Canonical column order (team-analytics internal/warehouse/warehouse.go Schema).
-COLUMNS = [
-    "event_id",
-    "event_type",
-    "listing_id",
-    "session_id",
-    "anonymous_id",
-    "page_path",
-    "referrer",
-    "position",
-    "search_query",
-    "occurred_at",
-    "principal_id",
-    "principal_type",
-    "properties",
-]
+COLUMNS = ["user_key", "listing_id", "weight", "interactions", "last_occurred_at"]
 
-# A small, deterministic interaction set: several users (mix of authenticated
-# principals and anonymous cookies) over a handful of listings, with a spread of
-# event types so ALS has weighted signal. Includes an empty-listing row that MUST
-# be dropped by the interaction mapper.
-_INTERACTIONS = [
-    # (principal_id, anonymous_id, listing_id, event_type)
-    ("user-1", "", "listing-a", "view"),
-    ("user-1", "", "listing-a", "click"),
-    ("user-1", "", "listing-b", "view"),
-    ("user-1", "", "listing-c", "add_to_cart"),
-    ("user-2", "", "listing-a", "view"),
-    ("user-2", "", "listing-b", "click"),
-    ("user-2", "", "listing-d", "view"),
-    ("", "anon-1", "listing-b", "view"),
-    ("", "anon-1", "listing-c", "click"),
-    ("", "anon-1", "listing-c", "add_to_cart"),
-    ("", "anon-2", "listing-a", "impression"),
-    ("", "anon-2", "listing-d", "view"),
-    ("", "anon-2", "listing-d", "click"),
-    ("user-3", "", "listing-c", "view"),
-    ("user-3", "", "listing-d", "add_to_cart"),
-    ("user-3", "", "listing-a", "view"),
-    ("", "", "", "view"),  # dropped: empty listing_id AND empty user
-    ("user-2", "", "", "click"),  # dropped: empty listing_id
+# (user_key, listing_id, weight, interactions): a few users over a handful of listings
+# with a spread of weights so ALS has signal.
+_PAIRS = [
+    ("user-1", "listing-a", 3.0, 2),
+    ("user-1", "listing-b", 1.0, 1),
+    ("user-1", "listing-c", 5.0, 1),
+    ("user-2", "listing-a", 1.0, 1),
+    ("user-2", "listing-b", 2.0, 1),
+    ("user-2", "listing-d", 1.0, 1),
+    ("anon-1", "listing-b", 1.0, 1),
+    ("anon-1", "listing-c", 7.0, 2),
+    ("anon-2", "listing-a", 0.5, 1),
+    ("anon-2", "listing-d", 3.0, 2),
+    ("user-3", "listing-c", 1.0, 1),
+    ("user-3", "listing-d", 5.0, 1),
+    ("user-3", "listing-a", 1.0, 1),
 ]
 
 
-def build_rows() -> list[dict]:
-    now = datetime.now(timezone.utc)
-    rows = []
-    for i, (principal_id, anon, listing_id, etype) in enumerate(_INTERACTIONS):
-        rows.append(
-            {
-                "event_id": str(uuid.uuid4()),
-                "event_type": etype,
-                "listing_id": listing_id,
-                "session_id": f"sess-{i % 5}",
-                "anonymous_id": anon,
-                "page_path": "/p" if listing_id else "/",
-                "referrer": "",
-                "position": (i % 10) + 1,
-                "search_query": "",
-                "occurred_at": now - timedelta(days=i % 7, minutes=i),
-                "principal_id": principal_id,
-                "principal_type": "user" if principal_id else "",
-                "properties": json.dumps({}),
-            }
-        )
-    return rows
-
-
-def main(dst: str) -> None:
+def main(dst_dir: str) -> None:
     import pandas as pd  # noqa: PLC0415
 
-    df = pd.DataFrame(build_rows(), columns=COLUMNS)
-    df.to_parquet(dst, index=False)
-    print(f"wrote {len(df)} rows -> {dst}")
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    as_of = now.strftime("%Y%m%dT%H%M%SZ")
+    rows = [(u, lid, w, n, now - timedelta(hours=i)) for i, (u, lid, w, n) in enumerate(reversed(_PAIRS))]
+    df = pd.DataFrame(rows, columns=COLUMNS).astype({"weight": "float64", "interactions": "int32"})
+    out = Path(dst_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    parquet = out / f"as_of={as_of}.parquet"
+    df.to_parquet(parquet, index=False, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    manifest = {
+        "name": "als_interactions",
+        "version": 1,
+        "as_of": as_of,
+        "window_days": 30,
+        "rows": len(df),
+        "users": int(df["user_key"].nunique()),
+        "items": int(df["listing_id"].nunique()),
+        "definition_sha256": "",
+        "input_watermark": now.isoformat().replace("+00:00", "Z"),
+        "file_sha256": hashlib.sha256(parquet.read_bytes()).hexdigest(),
+        "file": parquet.name,
+    }
+    (out / f"as_of={as_of}.manifest.json").write_text(json.dumps(manifest, indent=2))
+    print(f"wrote {len(df)} rows -> {parquet}")
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else "/data/tracking_events.parquet"
-    main(out)
+    main(sys.argv[1] if len(sys.argv) > 1 else "./data/datasets/als_interactions/v1")

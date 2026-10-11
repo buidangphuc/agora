@@ -4,6 +4,8 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -15,7 +17,24 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
+
+// OrderPartiesReader resolves an order's buyer and seller from team-order as this
+// service's own principal. upstream.OrderClient implements it; upstream.ErrOrderNotFound
+// means the order does not exist.
+type OrderPartiesReader interface {
+	GetOrderParties(ctx context.Context, orderID string) (buyerID, sellerID string, err error)
+}
+
+// Option customises an EngagementHandler.
+type Option func(*EngagementHandler)
+
+// WithOrderParties wires the order lookup CreateDispute uses to verify the order,
+// its buyer and its seller. Without it CreateDispute fails closed (UNAVAILABLE).
+func WithOrderParties(r OrderPartiesReader) Option {
+	return func(h *EngagementHandler) { h.orders = r }
+}
 
 // EngagementHandler implements engagementv1.EngagementServiceServer.
 type EngagementHandler struct {
@@ -25,6 +44,7 @@ type EngagementHandler struct {
 	qaSvc         *service.QAService
 	disputeSvc    *service.DisputeService
 	collectionSvc *service.CollectionService
+	orders        OrderPartiesReader
 }
 
 func NewEngagementHandler(
@@ -33,14 +53,26 @@ func NewEngagementHandler(
 	qaSvc *service.QAService,
 	disputeSvc *service.DisputeService,
 	collectionSvc *service.CollectionService,
+	opts ...Option,
 ) *EngagementHandler {
-	return &EngagementHandler{
+	h := &EngagementHandler{
 		repo:          repo,
 		reviewSvc:     reviewSvc,
 		qaSvc:         qaSvc,
 		disputeSvc:    disputeSvc,
 		collectionSvc: collectionSvc,
 	}
+	for _, o := range opts {
+		o(h)
+	}
+	return h
+}
+
+// internalError logs the real cause server-side and returns a generic INTERNAL so
+// storage or upstream details never reach the client.
+func internalError(ctx context.Context, op string, err error) error {
+	slog.ErrorContext(ctx, "handler error", slog.String("op", op), slog.Any("err", err))
+	return status.Error(codes.Internal, "internal error")
 }
 
 func userID(ctx context.Context) string {
@@ -204,6 +236,9 @@ func (h *EngagementHandler) ListFollowedListings(
 	}
 	ids, next, total, err := h.repo.ListFollowedListings(ctx, userID(ctx), cursor, pageSize)
 	if err != nil {
+		if errors.Is(err, repository.ErrInvalidCursor) {
+			return nil, status.Error(codes.InvalidArgument, "invalid cursor")
+		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 	return &engagementv1.ListFollowedListingsResponse{
@@ -312,12 +347,23 @@ func (h *EngagementHandler) ListReviews(
 		return &engagementv1.ListReviewsResponse{}, nil
 	}
 
+	offset := 0
+	if c := req.GetPage().GetCursor(); c != "" {
+		n, err := strconv.Atoi(c)
+		if err != nil || n < 0 {
+			return nil, status.Error(codes.InvalidArgument, "invalid page cursor")
+		}
+		offset = n
+	}
 	pageSize := int(req.GetPage().GetPageSize())
 	if pageSize <= 0 {
-		pageSize = 20
+		pageSize = service.DefaultReviewPageSize
+	}
+	if pageSize > service.MaxReviewPageSize {
+		pageSize = service.MaxReviewPageSize
 	}
 
-	revs, total, err := h.reviewSvc.ListReviews(ctx, req.GetListingId(), req.GetRatingFilter(), 1, pageSize)
+	revs, total, err := h.reviewSvc.ListReviews(ctx, req.GetListingId(), req.GetRatingFilter(), offset, pageSize)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list reviews: %v", err)
 	}
@@ -327,10 +373,17 @@ func (h *EngagementHandler) ListReviews(
 		wireRevs = append(wireRevs, toWireReview(r))
 	}
 
+	// Cursor is the offset of the next page; empty once the last page is served.
+	nextCursor := ""
+	if next := offset + len(revs); int64(next) < total && len(revs) > 0 {
+		nextCursor = strconv.Itoa(next)
+	}
+
 	return &engagementv1.ListReviewsResponse{
 		Reviews: wireRevs,
 		Page: &commonv1.PageResponse{
-			Total: total,
+			NextCursor: nextCursor,
+			Total:      total,
 		},
 	}, nil
 }
@@ -408,17 +461,32 @@ func (h *EngagementHandler) AnswerQuestion(
 		return nil, status.Error(codes.Unimplemented, "qa service unavailable")
 	}
 
-	// is_shop_reply is client-supplied and cannot be trusted. The listing's
-	// owner is not known to this service (seller_listings is not populated), so
-	// honour the flag only for seller principals (those granted listing.write).
-	isShopReply := req.GetIsShopReply() && interceptor.RequireScopes(ctx, "listing.write") == nil
+	// is_shop_reply is client-supplied and cannot be trusted. It is honoured only
+	// when the caller is the owner of the question's listing, resolved from this
+	// service's own seller_listings projection (listing.events). Fails closed: a
+	// listing the projection does not know yields a plain (non-shop) answer.
+	isShopReply := false
+	if req.GetIsShopReply() {
+		q, err := h.qaSvc.GetQuestion(ctx, req.GetQuestionId())
+		if err != nil {
+			if errors.Is(err, repository.ErrQuestionNotFound) {
+				return nil, status.Error(codes.NotFound, "question not found")
+			}
+			return nil, internalError(ctx, "answer question", err)
+		}
+		owner, found, err := h.repo.ListingSeller(ctx, q.ListingID)
+		if err != nil {
+			return nil, internalError(ctx, "answer question", err)
+		}
+		isShopReply = found && owner == userID(ctx)
+	}
 
 	ans, err := h.qaSvc.AnswerQuestion(ctx, req.GetQuestionId(), userID(ctx), req.GetAnswerText(), isShopReply)
 	if err != nil {
 		if errors.Is(err, repository.ErrQuestionNotFound) {
 			return nil, status.Error(codes.NotFound, "question not found")
 		}
-		return nil, status.Errorf(codes.Internal, "answer question: %v", err)
+		return nil, internalError(ctx, "answer question", err)
 	}
 
 	return &engagementv1.AnswerQuestionResponse{
@@ -481,12 +549,33 @@ func (h *EngagementHandler) CreateDispute(
 	}
 
 	claimantID := userID(ctx)
+
+	// Authorization decision, so it fails CLOSED: the order must exist, belong to
+	// the caller and name the defendant as its seller. An unknown order and someone
+	// else's order are both NOT_FOUND so order ids cannot be probed.
+	if h.orders == nil {
+		return nil, status.Error(codes.Unavailable, "order verification unavailable")
+	}
+	buyerID, sellerID, err := h.orders.GetOrderParties(ctx, req.GetOrderId())
+	if err != nil {
+		if errors.Is(err, upstream.ErrOrderNotFound) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		return nil, status.Error(codes.Unavailable, "order verification unavailable")
+	}
+	if buyerID == "" || buyerID != claimantID {
+		return nil, status.Error(codes.NotFound, "order not found")
+	}
+	if sellerID == "" || sellerID != req.GetDefendantId() {
+		return nil, status.Error(codes.PermissionDenied, "defendant must be the order's seller")
+	}
+
 	disp, err := h.disputeSvc.CreateDispute(ctx, req.GetOrderId(), claimantID, req.GetDefendantId(), req.GetReason(), req.GetEvidenceUrls())
 	if err != nil {
 		if errors.Is(err, service.ErrSameClaimantAndDef) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		return nil, status.Errorf(codes.Internal, "create dispute: %v", err)
+		return nil, internalError(ctx, "create dispute", err)
 	}
 
 	return &engagementv1.CreateDisputeResponse{
@@ -497,6 +586,10 @@ func (h *EngagementHandler) CreateDispute(
 func (h *EngagementHandler) GetDispute(
 	ctx context.Context, req *engagementv1.GetDisputeRequest,
 ) (*engagementv1.GetDisputeResponse, error) {
+	caller, err := interceptor.RequireAuthenticated(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := interceptor.RequireScopes(ctx, "engagement:read"); err != nil {
 		return nil, err
 	}
@@ -512,7 +605,12 @@ func (h *EngagementHandler) GetDispute(
 		if errors.Is(err, repository.ErrDisputeNotFound) {
 			return nil, status.Error(codes.NotFound, "dispute not found")
 		}
-		return nil, status.Errorf(codes.Internal, "get dispute: %v", err)
+		return nil, internalError(ctx, "get dispute", err)
+	}
+	// Only the parties and admins may read a dispute. Anyone else gets the same
+	// NOT_FOUND as a missing id, so dispute ids cannot be probed (no IDOR oracle).
+	if caller.GetId() != disp.ClaimantID && caller.GetId() != disp.DefendantID && !interceptor.IsAdmin(ctx) {
+		return nil, status.Error(codes.NotFound, "dispute not found")
 	}
 
 	return &engagementv1.GetDisputeResponse{
@@ -523,7 +621,9 @@ func (h *EngagementHandler) GetDispute(
 func (h *EngagementHandler) ResolveDispute(
 	ctx context.Context, req *engagementv1.ResolveDisputeRequest,
 ) (*engagementv1.ResolveDisputeResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write", "admin"); err != nil {
+	// Admin only: a buyer or seller holding engagement:write must not be able to
+	// rule on their own dispute. RequireAdmin = authenticated + `admin` scope.
+	if err := interceptor.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	if req.GetDisputeId() == "" {
@@ -549,7 +649,7 @@ func (h *EngagementHandler) ResolveDispute(
 		if errors.Is(err, service.ErrInvalidDisputeStatus) {
 			return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
 		}
-		return nil, status.Errorf(codes.Internal, "resolve dispute: %v", err)
+		return nil, internalError(ctx, "resolve dispute", err)
 	}
 
 	return &engagementv1.ResolveDisputeResponse{

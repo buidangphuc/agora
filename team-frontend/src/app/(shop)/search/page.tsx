@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { CategoryBar } from "@/features/listing/CategoryBar";
 import { SavedSearches } from "@/features/search/SavedSearches";
 import {
   FilterPanel,
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Search List anatomy: header (breadcrumb, title, count), filter column and
- * results column. All state is in the URL (`q, category, seller, rating,
+ * results column. All state is in the URL (`q, category, seller,
  * minPrice, maxPrice, sort, page`). The search runs once (cached per request)
  * and the filter column, count and results each stream from their own boundary.
  */
@@ -63,6 +64,14 @@ export default async function SearchPage({
           <ResultCount state={state} />
         </Suspense>
       </header>
+
+      {/* Category pills: plain links, rendered with the page so the strip
+          never shifts layout after paint. */}
+      <CategoryBar
+        categories={categories}
+        selectedId={state.category || undefined}
+        variant="pills"
+      />
 
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Filter column: saved searches + facet filters */}

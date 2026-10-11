@@ -50,6 +50,10 @@ aws = ["aioboto3>=13.0.0,<14.0.0"]
 recs = ["qdrant-client>=1.19,<2.0"]
 mongo = ["motor>=3.6.0,<4.0.0", "pymongo>=4.9.0,<5.0.0"]
 rabbitmq = ["aio-pika>=9.4.0,<10.0.0"]
+# listing.events consumer (LISTING_INDEXER_ENABLED): the RAG indexer. cramjam is
+# aiokafka's codec backend: the Go producers (franz-go) compress with snappy, and
+# without it every fetch dies with UnsupportedCodecError (also covers lz4/zstd).
+kafka = ["aiokafka>=0.12.0,<1.0.0", "cramjam>=2.8.0,<3.0.0"]
 
 [dependency-groups]
 dev = [

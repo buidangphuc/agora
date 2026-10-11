@@ -15,17 +15,17 @@ from app.modules.business.tag_classifier.schemas import (
 from app.modules.business.tag_classifier.service import TagClassifierService
 
 __all__ = [
-    "TagClassifierService",
-    "TagItem",
-    "TagStatus",
-    "FacetGroup",
     "ClassifyTagsRequest",
     "ClassifyTagsResponse",
     "ExploreTagsRequest",
     "ExploreTagsResponse",
-    "PromoteTagRequest",
-    "PromoteTagResponse",
+    "FacetGroup",
     "ListTagsRequest",
     "ListTagsResponse",
+    "PromoteTagRequest",
+    "PromoteTagResponse",
     "RawListingItem",
+    "TagClassifierService",
+    "TagItem",
+    "TagStatus",
 ]

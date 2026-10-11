@@ -5,6 +5,7 @@ syntax = "proto3";
 // it emits when a listing changes.
 package platform.listing.v1;
 
+import "google/protobuf/timestamp.proto";
 import "platform/common/v1/common.proto";
 
 // Owned by team-domain. DB-per-service: only this service touches listing_db.
@@ -27,10 +28,123 @@ service ListingService {
   rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
   // GetCategory returns details of a single category by id.
   rpc GetCategory(GetCategoryRequest) returns (GetCategoryResponse);
+  // Stock reservations (service-only: a SERVICE principal with listing.write; not
+  // routed at the edge). A reservation is keyed by reservation_id and moves
+  // active -> committed | released; only an active reservation expires and is
+  // restored by the TTL sweeper.
+  //
   // ReserveStock atomically reserves inventory for checkout (called by team-order).
+  // reservation_id is required; reserving an id that was already released fails.
   rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
-  // ReleaseStock releases previously reserved inventory when an order is cancelled.
+  // ReleaseStock releases a reservation by reservation_id, restoring the quantity
+  // stored with it exactly once; an unknown, swept or already released id is a
+  // no-op. listing_id, variant_id and quantity are informational.
   rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+  // CommitReservation makes an active reservation permanent once its order is
+  // placed, so the TTL sweeper never restores it. Idempotent for an already
+  // committed reservation; a released reservation cannot be committed.
+  rpc CommitReservation(CommitReservationRequest) returns (CommitReservationResponse);
+
+  // ── Seller Storefront ──
+  // UpsertStorefront creates or replaces the calling seller's storefront page.
+  rpc UpsertStorefront(UpsertStorefrontRequest) returns (UpsertStorefrontResponse);
+  // GetStorefront fetches a storefront by seller_id or slug.
+  rpc GetStorefront(GetStorefrontRequest) returns (GetStorefrontResponse);
+  // BatchGetStorefronts resolves shop display names for up to 100 seller ids in one call.
+  // Unknown sellers are omitted from the response; duplicates are ignored.
+  rpc BatchGetStorefronts(BatchGetStorefrontsRequest) returns (BatchGetStorefrontsResponse);
+
+  // ── Listing Bundles ──
+  // A bundle groups several of a seller's listings for a single bundle price.
+  rpc CreateBundle(CreateBundleRequest) returns (CreateBundleResponse);
+  rpc GetBundle(GetBundleRequest) returns (GetBundleResponse);
+  rpc ListBundlesBySeller(ListBundlesBySellerRequest) returns (ListBundlesBySellerResponse);
+}
+
+// A seller-defined bundle of listings sold together at bundle_price.
+message Bundle {
+  string id = 1;
+  string seller_id = 2;
+  string title = 3;
+  repeated string listing_ids = 4;
+  int64 bundle_price = 5; // minor units (e.g. VND)
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message CreateBundleRequest {
+  string title = 1;
+  repeated string listing_ids = 2;
+  int64 bundle_price = 3;
+}
+
+message CreateBundleResponse {
+  Bundle bundle = 1;
+}
+
+message GetBundleRequest {
+  string id = 1;
+}
+
+message GetBundleResponse {
+  Bundle bundle = 1;
+}
+
+message ListBundlesBySellerRequest {
+  string seller_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message ListBundlesBySellerResponse {
+  repeated Bundle bundles = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// A seller's public storefront/shop page.
+message Storefront {
+  string seller_id = 1;
+  string slug = 2;
+  string banner_url = 3;
+  string tagline = 4;
+  // Listing ids the seller pins/features on the storefront.
+  repeated string featured_listing_ids = 5;
+  // Visual theme key (e.g. "default", "dark", "festive").
+  string theme = 6;
+  // Seller-chosen public shop name. Trimmed; 1-80 characters when set; empty = unset.
+  string display_name = 7;
+}
+
+message UpsertStorefrontRequest {
+  Storefront storefront = 1;
+}
+
+message UpsertStorefrontResponse {
+  Storefront storefront = 1;
+}
+
+message GetStorefrontRequest {
+  // Look up by seller_id; if empty, slug is used.
+  string seller_id = 1;
+  string slug = 2;
+}
+
+message GetStorefrontResponse {
+  Storefront storefront = 1;
+}
+
+// Compact public view of a shop, used for name lookups.
+message ShopSummary {
+  string seller_id = 1;
+  string display_name = 2;
+  string slug = 3;
+}
+
+message BatchGetStorefrontsRequest {
+  // Max 100 ids; more fails with INVALID_ARGUMENT.
+  repeated string seller_ids = 1;
+}
+
+message BatchGetStorefrontsResponse {
+  repeated ShopSummary shops = 1;
 }
 
 message Variant {
@@ -65,6 +179,12 @@ message ReleaseStockRequest {
 message ReleaseStockResponse {
   bool success = 1;
 }
+
+message CommitReservationRequest {
+  string reservation_id = 1;
+}
+
+message CommitReservationResponse {}
 
 message Category {
   string id = 1;

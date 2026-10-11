@@ -27,7 +27,7 @@ proto: ## Regenerate gRPC stubs from the vendored proto (proto/ -> app/transport
 test: ## Run pytest
 	$(UV_RUN) pytest -v
 
-eval: ## Run the eval gate (deterministic cases; judge cases need JUDGE_CHAT_MODEL)
+eval: ## Run the eval gate (EVAL_EXTRA_CASES=<jsonl> adds cases; unscored judge cases fail it)
 	$(UV_RUN) python -m scripts.run_eval --min-score 0.8
 
 test-fast: ## Run pytest in parallel via pytest-xdist

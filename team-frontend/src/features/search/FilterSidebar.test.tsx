@@ -21,6 +21,8 @@ const facets = {
   ],
   ratings: [{ key: "4", count: 4 }],
   sellers: [{ key: "s1", count: 1 }],
+  tags: [],
+  skus: [],
 };
 const categories = [
   {
@@ -50,6 +52,16 @@ function setup(
 beforeEach(() => push.mockClear());
 
 describe("FilterSidebar", () => {
+  it("renders no rating group even when facets.ratings is non-empty", () => {
+    const { container } = setup();
+    expect(screen.queryByTestId("facet-ratings")).toBeNull();
+    expect(container.textContent).not.toContain("Đánh giá");
+    fireEvent.click(screen.getByRole("button", { name: /Bộ lọc/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByTestId("facet-ratings")).toBeNull();
+    expect(within(dialog).queryByText("Đánh giá")).toBeNull();
+  });
+
   it("renders buckets as links with counts and keeps q and sort", () => {
     const { container } = setup({ currentSort: "newest" });
     const inline = container.querySelector(".hidden.lg\\:block") as HTMLElement;
@@ -104,7 +116,7 @@ describe("FilterSidebar", () => {
   });
 
   it("shows a count badge on the mobile trigger", () => {
-    setup({ currentCategory: "c1", currentRating: "4" });
+    setup({ currentCategory: "c1", currentSeller: "s1" });
     const trigger = screen.getByRole("button", { name: /Bộ lọc/ });
     expect(within(trigger).getByText("2")).toBeInTheDocument();
   });
@@ -117,7 +129,7 @@ describe("FilterSidebar", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Danh mục")).toBeInTheDocument();
     expect(within(dialog).getByText("Khoảng giá")).toBeInTheDocument();
-    expect(within(dialog).getByText("Đánh giá")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Đánh giá")).toBeNull();
     expect(within(dialog).getByText("Nơi bán")).toBeInTheDocument();
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(
@@ -185,5 +197,98 @@ describe("priceRangeError", () => {
     expect(priceRangeError("100", "200")).toBeUndefined();
     expect(priceRangeError("200", "100")).toMatch(/lớn hơn/);
     expect(priceRangeError("-1", "")).toBe("Giá không hợp lệ.");
+  });
+});
+
+describe("FilterSidebar dynamic facets", () => {
+  const dyn = {
+    ...facets,
+    tags: [
+      {
+        group: "connectivity",
+        buckets: [
+          { key: "bluetooth-5-3", count: 4 },
+          { key: "wifi-6", count: 1 },
+        ],
+      },
+      { group: "color", buckets: [{ key: "den", count: 9 }] },
+    ],
+    skus: [
+      {
+        group: "color",
+        buckets: [
+          { key: "xanh-navy", count: 2 },
+          { key: "den", count: 3 },
+        ],
+      },
+      { group: "capacity", buckets: [{ key: "512gb", count: 2 }] },
+    ],
+  };
+  const inlineOf = (c: HTMLElement) =>
+    c.querySelector(".hidden.lg\\:block") as HTMLElement;
+
+  it("renders one group per dynamic facet with counts, variant groups win over a same-named tag group", () => {
+    const { container } = setup({ facets: dyn });
+    const inline = inlineOf(container);
+    expect(
+      within(inline).getByTestId("facet-tag-connectivity"),
+    ).toBeInTheDocument();
+    expect(within(inline).getByTestId("facet-sku-color")).toBeInTheDocument();
+    expect(
+      within(inline).getByTestId("facet-sku-capacity"),
+    ).toBeInTheDocument();
+    expect(within(inline).queryByTestId("facet-tag-color")).toBeNull();
+    expect(within(inline).getByText("Kết nối")).toBeInTheDocument();
+    expect(within(inline).getByText("Dung lượng")).toBeInTheDocument();
+    const navy = inline.querySelector(
+      '[data-testid="facet-sku-color"] [data-key="xanh-navy"]',
+    ) as HTMLAnchorElement;
+    expect(navy.textContent).toContain("(2)");
+    expect(navy).toHaveAttribute("href", "/search?q=ao&sku.color=xanh-navy");
+  });
+
+  it("toggles a value in the URL: a second value is added, a selected one removed", () => {
+    const { container } = setup({
+      facets: dyn,
+      currentAttrs: {
+        "sku.color": ["xanh-navy"],
+        "tag.connectivity": ["wifi-6"],
+      },
+    });
+    const inline = inlineOf(container);
+    const den = inline.querySelector(
+      '[data-testid="facet-sku-color"] [data-key="den"]',
+    ) as HTMLAnchorElement;
+    expect(den).toHaveAttribute(
+      "href",
+      "/search?q=ao&sku.color=xanh-navy%2Cden&tag.connectivity=wifi-6",
+    );
+    const navy = inline.querySelector(
+      '[data-testid="facet-sku-color"] [data-key="xanh-navy"]',
+    ) as HTMLAnchorElement;
+    expect(navy).toHaveAttribute("data-active", "true");
+    expect(navy).toHaveAttribute(
+      "href",
+      "/search?q=ao&tag.connectivity=wifi-6",
+    );
+  });
+
+  it("counts a selected dynamic group on the mobile trigger and renders in the drawer", () => {
+    setup({ facets: dyn, currentAttrs: { "sku.color": ["den"] } });
+    const trigger = screen.getByRole("button", { name: /Bộ lọc/ });
+    expect(within(trigger).getByText("1")).toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(
+      within(screen.getByRole("dialog")).getByTestId("facet-sku-capacity"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no dynamic group when the response carries none", () => {
+    const { container } = setup();
+    expect(
+      inlineOf(container).querySelector(
+        '[data-testid^="facet-tag-"],[data-testid^="facet-sku-"]',
+      ),
+    ).toBeNull();
   });
 });

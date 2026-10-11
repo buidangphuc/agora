@@ -36,7 +36,7 @@ func NewSubscriptionHandler(svc *service.SubscriptionService, logger *slog.Logge
 func (h *SubscriptionHandler) ListPlans(ctx context.Context, _ *promotionv1.ListPlansRequest) (*promotionv1.ListPlansResponse, error) {
 	plans, err := h.svc.ListPlans(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list plans: %v", err)
+		return nil, internalError(ctx, h.logger, "list plans", err)
 	}
 	out := make([]*promotionv1.Plan, 0, len(plans))
 	for _, p := range plans {
@@ -45,11 +45,12 @@ func (h *SubscriptionHandler) ListPlans(ctx context.Context, _ *promotionv1.List
 	return &promotionv1.ListPlansResponse{Plans: out}, nil
 }
 
-// Subscribe records the authenticated seller onto a plan (MOCK — no charge). The
-// seller id is bound from the principal, never the wire, so a caller can only
-// subscribe themselves.
+// Subscribe records the authenticated seller onto a plan (MOCK — no charge). Plans
+// are seller plans: requires listing.write (seller, admin); a buyer-only principal
+// is PERMISSION_DENIED and nothing is stored. The seller id is bound from the
+// principal, never the wire, so a caller can only subscribe themselves.
 func (h *SubscriptionHandler) Subscribe(ctx context.Context, req *promotionv1.SubscribeRequest) (*promotionv1.SubscribeResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := interceptor.RequireScopes(ctx, interceptor.ScopeListingWrite)
 	if err != nil {
 		return nil, err
 	}
@@ -64,15 +65,16 @@ func (h *SubscriptionHandler) Subscribe(ctx context.Context, req *promotionv1.Su
 		case errors.Is(err, service.ErrInvalidSubscription):
 			return nil, status.Error(codes.InvalidArgument, "invalid subscription")
 		default:
-			return nil, status.Errorf(codes.Internal, "subscribe: %v", err)
+			return nil, internalError(ctx, h.logger, "subscribe", err)
 		}
 	}
 	return &promotionv1.SubscribeResponse{Subscription: service.SubscriptionToProto(sub)}, nil
 }
 
 // GetEntitlements returns the current plan tier + limits for a seller, defaulting
-// to FREE when unsubscribed. Auth-scoped: a USER principal may only read their own
-// entitlements; a SERVICE principal (e.g. the order saga) may read any seller.
+// to FREE when unsubscribed. Auth-scoped: only a SERVICE principal (e.g. the order
+// saga) may read another seller; every other principal type (user, unspecified)
+// may read only its own. The anonymous principal is UNAUTHENTICATED.
 func (h *SubscriptionHandler) GetEntitlements(ctx context.Context, req *promotionv1.GetEntitlementsRequest) (*promotionv1.GetEntitlementsResponse, error) {
 	principal, err := interceptor.RequirePrincipal(ctx)
 	if err != nil {
@@ -82,13 +84,14 @@ func (h *SubscriptionHandler) GetEntitlements(ctx context.Context, req *promotio
 	if sellerID == "" {
 		sellerID = principal.GetId()
 	}
-	// Cross-user isolation: a user cannot read another seller's entitlements.
-	if principal.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_USER && sellerID != principal.GetId() {
+	// Cross-seller isolation, fail closed: anything that is not a service principal
+	// may read only its own entitlements.
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE && sellerID != principal.GetId() {
 		return nil, status.Error(codes.PermissionDenied, "cannot read another seller's entitlements")
 	}
 	tier, limits, err := h.svc.GetEntitlements(ctx, sellerID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get entitlements: %v", err)
+		return nil, internalError(ctx, h.logger, "get entitlements", err)
 	}
 	return &promotionv1.GetEntitlementsResponse{
 		Plan:   promotionv1.PlanTier(tier),

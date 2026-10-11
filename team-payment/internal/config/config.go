@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Settings struct {
@@ -14,6 +15,8 @@ type Settings struct {
 	Server        Server
 	Database      Database
 	Upstream      Upstream
+	Mock          Mock
+	Payout        Payout
 	Observability Observability
 }
 
@@ -40,6 +43,47 @@ type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:"localhost:50055"`
 }
 
+// Mock holds development conveniences that must never be on in a shared environment.
+type Mock struct {
+	// MockPayments enables the ProcessMockPayment RPC (simulated settlement). Default
+	// false: fail closed even when ENV is unset.
+	MockPayments bool `env:"MOCK_PAYMENTS" default:"false"`
+}
+
+// Payout holds the refund hold-back on seller payouts (seller-payout-holdback, design D9).
+// Money config fails closed: an invalid value refuses startup naming the key.
+type Payout struct {
+	// HoldDays is the hold window in whole days, 0-3650; 0 disables the hold.
+	HoldDays int `env:"PAYOUT_HOLD_DAYS" default:"7"`
+	// HoldWindow, when non-empty, is a Go duration (0 to 3650 days) that overrides
+	// HoldDays (the e2e overlay sets seconds).
+	HoldWindow string `env:"PAYOUT_HOLD_WINDOW" default:""`
+	// Window is the effective hold window, resolved by Validate (not an env key).
+	Window time.Duration
+}
+
+// maxHoldDays bounds both hold keys.
+const maxHoldDays = 3650
+
+// resolve validates both keys and returns the effective window.
+func (p Payout) resolve() (time.Duration, error) {
+	if p.HoldDays < 0 || p.HoldDays > maxHoldDays {
+		return 0, fmt.Errorf("PAYOUT_HOLD_DAYS must be between 0 and %d, got %d", maxHoldDays, p.HoldDays)
+	}
+	raw := strings.TrimSpace(p.HoldWindow)
+	if raw == "" {
+		return time.Duration(p.HoldDays) * 24 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("PAYOUT_HOLD_WINDOW is not a Go duration (e.g. 168h, 20s): %q", p.HoldWindow)
+	}
+	if d < 0 || d > maxHoldDays*24*time.Hour {
+		return 0, fmt.Errorf("PAYOUT_HOLD_WINDOW must be between 0 and %d days, got %s", maxHoldDays, d)
+	}
+	return d, nil
+}
+
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
@@ -64,12 +108,43 @@ func (s *Settings) Validate() error {
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
 	}
+	window, err := s.Payout.resolve()
+	if err != nil {
+		return err
+	}
+	s.Payout.Window = window
 	return nil
 }
 
 func (s *Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
 	return e == "prod" || e == "production"
+}
+
+// strictEnvs are the environments in which development conveniences are refused.
+var strictEnvs = []string{"staging", "stage", "prod", "production"}
+
+// IsStrictEnv reports whether ENV names a shared environment (staging / production).
+func (s *Settings) IsStrictEnv() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	for _, strict := range strictEnvs {
+		if e == strict {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireNoMockPayments is the boot guard against mock settlement in a shared
+// environment: MOCK_PAYMENTS=true with a strict ENV (staging/stage/prod/production)
+// refuses to start. Other environments always pass.
+func (s *Settings) RequireNoMockPayments() error {
+	if !s.Mock.MockPayments || !s.IsStrictEnv() {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to start: MOCK_PAYMENTS=true is not allowed when ENV=%q (strict for ENV in %s); unset MOCK_PAYMENTS",
+		s.Runtime.Env, strings.Join(strictEnvs, ", "))
 }
 
 func DeclaredEnvKeys() []string {

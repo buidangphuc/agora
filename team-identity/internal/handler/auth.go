@@ -4,6 +4,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,6 +23,15 @@ type AuthHandler struct {
 	svc *service.AuthService
 
 	exposeResetToken bool // dev/e2e only: return the raw reset token in the response
+	logger           *slog.Logger
+}
+
+// WithLogger sets the logger used for the password_reset.issued audit line.
+func (h *AuthHandler) WithLogger(l *slog.Logger) *AuthHandler {
+	if l != nil {
+		h.logger = l
+	}
+	return h
 }
 
 // WithExposeResetToken makes RequestPasswordReset return the raw reset token.
@@ -32,7 +42,7 @@ func (h *AuthHandler) WithExposeResetToken(on bool) *AuthHandler {
 }
 
 func NewAuthHandler(svc *service.AuthService) *AuthHandler {
-	return &AuthHandler{svc: svc}
+	return &AuthHandler{svc: svc, logger: slog.Default()}
 }
 
 func (h *AuthHandler) Register(
@@ -82,13 +92,18 @@ func (h *AuthHandler) RequestPasswordReset(
 	ctx context.Context,
 	req *identityv1.RequestPasswordResetRequest,
 ) (*identityv1.RequestPasswordResetResponse, error) {
-	token, expiresAt, err := h.svc.RequestPasswordReset(ctx, req.GetUsername())
+	iss, err := h.svc.IssuePasswordReset(ctx, req.GetUsername())
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	resp := &identityv1.RequestPasswordResetResponse{ExpiresAt: expiresAt.Unix()}
+	// Audit line: never the raw token, a token in logs is the same leak by another route.
+	h.logger.InfoContext(ctx, "password_reset.issued",
+		slog.String("user_id", iss.UserID),
+		slog.Int64("expires_at", iss.ExpiresAt.Unix()),
+		slog.String("token_fingerprint", service.TokenFingerprint(iss.Token)))
+	resp := &identityv1.RequestPasswordResetResponse{ExpiresAt: iss.ExpiresAt.Unix()}
 	if h.exposeResetToken {
-		resp.ResetToken = token
+		resp.ResetToken = iss.Token
 	}
 	return resp, nil
 }

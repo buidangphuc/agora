@@ -45,3 +45,46 @@ at-least-once, but the saga silently downgraded the purchase to lossy.
   observable and retried. Adds a `saga_state`/`reservations` table + a sweeper.
 - A small latency cost (persist before effect) on the write path, acceptable for a
   money-adjacent flow. Recovery/resume logic must itself be idempotent.
+
+## Addendum — 2026-10 (change `port-order-inventory-correctness`)
+
+Refines the saga for checkout correctness, order lifecycle guards and retries.
+
+- **Three-phase, all-or-nothing placement.** `CreateOrdersFromCart` (sellers in
+  sorted order) runs A) reserve every item, B) `CommitReservation` every item,
+  C) place all orders, bind reservations `RESERVED → COMMITTED` with their
+  `order_id`, and mark the saga `COMPLETED` in **one Postgres transaction**.
+  Any failure before or in C compensates every reservation of the saga
+  (*One seller out of stock fails the whole two-seller checkout*; *A two-seller
+  checkout places one order per seller*).
+- **Attempt-scoped reservation ids**: derived from the saga id, never the
+  client key, so a retry after failure never reuses a released reservation
+  (*An unkeyed retry after a failed checkout succeeds*).
+- **`Idempotency-Key`** (1–255 printable ASCII; gateway forwards as
+  `idempotency-key` metadata) is stored on the saga, unique per buyer. A
+  completed saga replays its orders; a pending one returns `ABORTED`; a
+  compensated/failed saga clears the key, so the key is free again; a stale
+  `PENDING` saga is compensated by the sweep (*The same idempotency key returns
+  the same orders*; *Concurrent checkouts with one key create one set of
+  orders*; *A failed checkout frees its idempotency key*; *Idempotency keys are
+  scoped to the buyer*; *A replayed checkout submission creates no second
+  order*; *A new checkout after a completed one creates a new order*).
+- **One transition table with actor classes, written compare-and-set**
+  (`UPDATE … WHERE status = ANY(allowed_from)`), so no status write bypasses the
+  table or loses a race silently (*A completed order cannot be reopened*; *A
+  seller cannot mark an order paid*; *Skipping from paid straight to completed
+  is refused*; *The seller ships a paid order*; *A stranger cannot change an
+  order's status*; *Concurrent cancels restore stock once*; *A cancel racing a
+  shipment applies exactly one of them*).
+- **Cancel claims first**: win the CAS to `Cancelled` (from `Pending|Paid`),
+  then release reservations by their original ids, then the voucher hold; a
+  failed release is parked and retried by the sweep (*Cancelling a paid order
+  restores its stock once*; *Cancelling a shipped order is refused and keeps its
+  stock*; *A cancel whose stock release fails is retried until the stock
+  returns*). Shipment likewise claims `Shipped` before inserting (*Shipping a
+  cancelled order is refused*).
+- **Settlement marks only a pending order paid**, and the **voucher hold is
+  committed only after `Paid`** is recorded (this or an earlier delivery), so a
+  cancelled order's hold is never committed (*A late payment after cancel is
+  ignored*; *Payment racing cancel ends cancelled with stock restored once*; *A
+  late payment of a cancelled voucher order leaves the voucher unused*).

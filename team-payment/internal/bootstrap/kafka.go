@@ -9,25 +9,44 @@ import (
 
 	"github.com/twmb/franz-go/pkg/kgo"
 
+	"github.com/buidangphuc/team-payment/internal/consumer"
 	"github.com/buidangphuc/team-payment/internal/events"
 )
 
-// kafkaConfig is the outbox-relayer's Kafka wiring, read from the environment.
-// team-payment's Settings does not model Kafka, and its config package is outside
-// this wave's write-set; these keys are registered in the compose/gitops env in
-// the integration wave (Part B). Enabled gates the relayer.
+// kafkaConfig is the Kafka wiring of the outbox relayer and the settlement consumer,
+// read from the environment (team-payment's Settings does not model Kafka). Enabled
+// gates both; ConsumerEnabled additionally gates the consumer (design D6).
 type kafkaConfig struct {
 	Enabled bool
 	Brokers []string
-	Topic   string
+	Topic   string // payment.events, produced by the relayer
+
+	OrderEventsTopic string // order.events, consumed for the seller ledger
+	ConsumerEnabled  bool
+	ConsumerGroup    string
+	DLQTopic         string
 }
 
-// kafkaConfigFromEnv reads the settle-event producer settings.
+// KafkaEnvKeys are every environment key this package reads (documented in .env.example).
+func KafkaEnvKeys() []string {
+	return []string{
+		"KAFKA_ENABLED", "KAFKA_BROKERS", "PAYMENT_EVENTS_TOPIC",
+		"ORDER_EVENTS_TOPIC", "PAYMENT_SETTLEMENT_CONSUMER_ENABLED",
+		"PAYMENT_SETTLEMENT_CONSUMER_GROUP", "PAYMENT_SETTLEMENT_DLQ_TOPIC",
+	}
+}
+
+// kafkaConfigFromEnv reads the producer and consumer settings.
 func kafkaConfigFromEnv() kafkaConfig {
 	return kafkaConfig{
 		Enabled: envBool("KAFKA_ENABLED", false),
 		Brokers: envList("KAFKA_BROKERS", "localhost:9092"),
 		Topic:   envStr("PAYMENT_EVENTS_TOPIC", events.PaymentEventsTopic),
+
+		OrderEventsTopic: envStr("ORDER_EVENTS_TOPIC", consumer.DefaultTopic),
+		ConsumerEnabled:  envBool("PAYMENT_SETTLEMENT_CONSUMER_ENABLED", true),
+		ConsumerGroup:    envStr("PAYMENT_SETTLEMENT_CONSUMER_GROUP", consumer.DefaultGroup),
+		DLQTopic:         envStr("PAYMENT_SETTLEMENT_DLQ_TOPIC", consumer.DefaultDLQTopic),
 	}
 }
 

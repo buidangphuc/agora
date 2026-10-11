@@ -40,3 +40,11 @@ class MessagingSettingsMixin(BaseModel):
     WEBHOOK_SIGNING_SECRET: str = ""
     WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS: int = Field(default=300, gt=0)
     WEBHOOK_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
+
+    # listing.events -> RAG indexer (Kafka consumer; needs the `kafka` extra and RAG_ENABLED)
+    LISTING_INDEXER_ENABLED: bool = False
+    KAFKA_BROKERS: str = "localhost:9092"  # comma-separated bootstrap servers
+    LISTING_INDEXER_TOPIC: str = "listing.events"
+    LISTING_INDEXER_GROUP: str = "team-ai-indexer"
+    LISTING_INDEXER_MAX_ATTEMPTS: int = Field(default=5, gt=0)
+    LISTING_INDEXER_BASE_BACKOFF_SECONDS: float = Field(default=0.1, ge=0)

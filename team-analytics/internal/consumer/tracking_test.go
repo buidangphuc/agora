@@ -44,13 +44,13 @@ func wrap(t *testing.T, typ string, payload proto.Message, principal *commonv1.P
 func TestTrackingEnvelopeMapsToRecord(t *testing.T) {
 	at := time.Date(2026, 9, 2, 10, 30, 0, 0, time.UTC)
 	te := &analyticsv1.TrackingEvent{
-		EventType:   analyticsv1.EventType_EVENT_TYPE_VIEW,
-		ListingId:   "prod-1",
-		SessionId:   "sess-9",
-		AnonymousId: "anon-7",
-		PagePath:    "/listing/prod-1",
-		Referrer:    "/",
-		Position:    3,
+		EventType:    analyticsv1.EventType_EVENT_TYPE_VIEW,
+		ListingId:    "prod-1",
+		SessionId:    "sess-9",
+		AnonymousId:  "anon-7",
+		PagePath:     "/listing/prod-1",
+		Referrer:     "/",
+		Position:     3,
 		SearchQuery:  "laptop",
 		PlacementId:  "home_feed",
 		ImpressionId: "imp-uuid-123",

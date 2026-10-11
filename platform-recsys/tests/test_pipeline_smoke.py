@@ -17,7 +17,7 @@ from datetime import datetime, timezone  # noqa: E402
 
 from recsys import recommend  # noqa: E402
 from recsys.config import load_settings  # noqa: E402
-from recsys.interactions import build_triples, index_interactions  # noqa: E402
+from recsys.interactions import dataset_triples, index_interactions  # noqa: E402
 from recsys.load import qdrant as qdrant_load  # noqa: E402
 from recsys.load import redis_cache  # noqa: E402
 from recsys.train import train_als  # noqa: E402
@@ -39,29 +39,25 @@ def spark():
 
 def test_train_and_load_populates_artifacts(spark):
     now = datetime.now(timezone.utc)
-    rows = []
-    # Build sample rows inline (avoid importing the packaged sample module path).
-    interactions = [
-        ("user-1", "", "listing-a", "view"),
-        ("user-1", "", "listing-a", "click"),
-        ("user-1", "", "listing-b", "view"),
-        ("user-2", "", "listing-a", "view"),
-        ("user-2", "", "listing-b", "click"),
-        ("", "anon-1", "listing-b", "view"),
-        ("", "anon-1", "listing-c", "click"),
-        ("user-3", "", "listing-c", "add_to_cart"),
-        ("user-3", "", "listing-a", "view"),
+    pairs = [
+        ("user-1", "listing-a", 3.0),
+        ("user-1", "listing-b", 1.0),
+        ("user-2", "listing-a", 1.0),
+        ("user-2", "listing-b", 2.0),
+        ("anon-1", "listing-b", 1.0),
+        ("anon-1", "listing-c", 2.0),
+        ("user-3", "listing-c", 5.0),
+        ("user-3", "listing-a", 1.0),
     ]
-    for pid, anon, listing, etype in interactions:
-        rows.append((etype, listing, anon, pid, now))
     df = spark.createDataFrame(
-        rows, ["event_type", "listing_id", "anonymous_id", "principal_id", "occurred_at"]
+        [(u, lid, w, 1, now) for u, lid, w in pairs],
+        ["user_key", "listing_id", "weight", "interactions", "last_occurred_at"],
     )
 
     settings = load_settings(environ={"ALS_RANK": "8", "ALS_MAX_ITER": "3", "TOP_N": "5"})
     model_version = "als-test-1"
 
-    triples = build_triples(df, settings)
+    triples = dataset_triples(df)
     indexed = index_interactions(triples, settings)
     artifacts = train_als(indexed, settings)
 
@@ -83,7 +79,8 @@ def test_train_and_load_populates_artifacts(spark):
     assert counts["items"] == len(item_ids)
     assert counts["users"] == len(user_ids)
     # Collections exist and points are stamped with the model_version.
-    item_pts = fake_q.collections[settings.qdrant_item_collection]
+    item_coll = qdrant_load.generation_collection(settings.qdrant_item_collection, model_version)
+    item_pts = fake_q.collections[item_coll]
     assert item_pts and all(p["payload"]["model_version"] == model_version for p in item_pts.values())
 
     user_recs = recommend.top_n_for_users(user_ids, user_vecs, item_ids, item_vecs, settings.top_n)
@@ -93,6 +90,12 @@ def test_train_and_load_populates_artifacts(spark):
     fake_r = FakeRedis()
     redis_cache.load_cache(settings, model_version, user_recs, item_recs, popular, client=fake_r)
 
+    # The generation is written but invisible until it is activated.
+    assert settings.serving_key not in fake_r.store
+    redis_cache.activate_generation(settings, model_version, client=fake_r)
     assert fake_r.store[settings.model_version_cache_key] == model_version
-    assert any(k.startswith("recs:v1:user:") for k in fake_r.store)
+    assert fake_r.store[settings.serving_key] == model_version
+    assert any(k.startswith(f"recs:v1:gen:{model_version}:user:") for k in fake_r.store)
+    assert any(k.startswith("recs:v1:user:") for k in fake_r.store)  # legacy shim (default on)
+    assert fake_r.store[settings.gen_popular_key(model_version)]
     assert fake_r.store[settings.popular_cache_key]

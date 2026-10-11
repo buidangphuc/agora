@@ -11,9 +11,7 @@ spec:
   source:
     repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
     targetRevision: main
-    path: platform/infra
-    directory:
-      recurse: true
+    path: platform/modelserve
   destination:
     server: https://kubernetes.default.svc
     namespace: marketplace

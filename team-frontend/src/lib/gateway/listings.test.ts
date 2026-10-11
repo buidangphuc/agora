@@ -10,7 +10,6 @@ import {
   getListing,
   getStorefront,
   listListings,
-  reserveStock,
   suggest,
   upsertStorefront,
 } from "./listings.js";
@@ -114,14 +113,6 @@ describe("listings gateway wrapper", () => {
     stub({ search: { suggest: suggestRpc } });
     await expect(suggest("   ")).resolves.toEqual([]);
     expect(suggestRpc).not.toHaveBeenCalled();
-  });
-
-  it("reserveStock normalizes a thrown error to { success: false }", async () => {
-    const reserveStockRpc = vi.fn().mockRejectedValue(new Error("out"));
-    stub({ listing: { reserveStock: reserveStockRpc } });
-    const res = await reserveStock("l1", 1);
-    expect(res.success).toBe(false);
-    expect(res.message).toContain("out");
   });
 });
 

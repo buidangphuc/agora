@@ -1,10 +1,6 @@
 """Unit tests for eGMVRankerAdapter in team-ai."""
 
-import pytest
-
 from app.modules.business.recommend.ranking import (
-    InMemoryFeatureStore,
-    InMemoryNearlineStore,
     eGMVRankerAdapter,
 )
 from app.modules.business.recommend.schemas import Candidate, RecommendQuery

@@ -20,21 +20,10 @@ func NewAuditForwarder(client auditv1.AuditServiceClient, edge *Edge) *AuditForw
 	return &AuditForwarder{client: client, edge: edge}
 }
 
-func (f *AuditForwarder) WriteAuditEvent(
-	ctx context.Context,
-	req *connect.Request[auditv1.WriteAuditEventRequest],
-) (*connect.Response[auditv1.WriteAuditEventResponse], error) {
-	var out *auditv1.WriteAuditEventResponse
-	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
-		var e error
-		out, e = f.client.WriteAuditEvent(c, req.Msg)
-		return e
-	})
-	if err != nil {
-		return nil, toConnectErr(err)
-	}
-	return connect.NewResponse(out), nil
-}
+// WriteAuditEvent is intentionally NOT forwarded: audit events are written by
+// services over gRPC with a service principal, never by a browser. The embedded
+// UnimplementedAuditServiceHandler answers `unimplemented` (HTTP 501) for every
+// caller.
 
 func (f *AuditForwarder) QueryAuditLog(
 	ctx context.Context,
