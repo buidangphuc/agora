@@ -698,7 +698,7 @@ features:
     covered_by: "featurestore/item_attributes.feature::An edited listing's attributes replace the old ones"
     notes: "needs rebuild"
 
-  # ---- add-ga4-gtm-datalayer (planned until the frontend lands and the lane is green) ----
+  # ---- add-ga4-gtm-datalayer (automated) ----
   - id: tracking.ga4-datalayer-items
     title: "dataLayer receives ecommerce items"
     persona: buyer
@@ -712,8 +712,8 @@ features:
       - "When a buyer opens a page that renders a product list"
       - "Then window.dataLayer contains a view_item_list entry whose ecommerce.items is non-empty and is immediately preceded by { ecommerce: null }"
     tags: [tracking, ga4]
-    status: planned
-    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::dataLayer receives ecommerce items"
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::dataLayer receives ecommerce items"
 
   - id: tracking.ga4-one-request-per-list
     title: "One request per rendered list"
@@ -728,8 +728,8 @@ features:
       - "When a buyer opens a page that renders a list and the 2 s idle window elapses"
       - "Then the browser sent exactly 1 POST /api/track carrying that list's impression beacons as an array"
     tags: [tracking, ga4]
-    status: planned
-    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::One request per rendered list"
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::One request per rendered list"
 
   - id: tracking.ga4-fanout-group-id
     title: "Fan-out rows share a group id"
@@ -744,8 +744,8 @@ features:
       - "When a buyer opens a page that renders a multi-item list"
       - "Then each impression beacon has a distinct event id, the same non-empty event group id, its own position and the same item list id"
     tags: [tracking, ga4]
-    status: planned
-    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::Fan-out rows share a group id"
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::Fan-out rows share a group id"
 
   - id: tracking.ga4-gtm-loads-when-id-set
     title: "GTM loads when ID is set"
@@ -760,8 +760,8 @@ features:
       - "When a guest loads a page with NEXT_PUBLIC_GTM_ID=GTM-E2E0001"
       - "Then exactly 1 script element with id=GTM-E2E0001 in its src is present and window.dataLayer exists"
     tags: [tracking, ga4]
-    status: planned
-    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::GTM loads when ID is set"
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::GTM loads when ID is set"
 
   - id: tracking.ga4-payload-no-pii
     title: "Payload keys limited to schema"
@@ -776,5 +776,5 @@ features:
       - "When a logged-in buyer browses a list page and telemetry is captured from dataLayer and beacon bodies"
       - "Then neither contains a key or value matching the buyer's email, phone or name"
     tags: [tracking, ga4]
-    status: planned
-    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::Payload keys limited to schema"
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::Payload keys limited to schema"
