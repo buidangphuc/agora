@@ -62,11 +62,8 @@ func TestBoundaryAnonymousCallerAllowed(t *testing.T) {
 	if pub.n != 1 {
 		t.Fatalf("expected 1 published, got %d", pub.n)
 	}
-	// "empty principal" == no authenticated identity: nil, unspecified or anonymous type.
-	switch ty := pub.principals[0].GetType(); ty {
-	case commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED, commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS:
-	default:
-		t.Errorf("expected unauthenticated principal, got type %v", ty)
+	if ty := pub.principals[0].GetType(); ty != commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS {
+		t.Errorf("expected PRINCIPAL_TYPE_ANONYMOUS, got %v", ty)
 	}
 }
 
@@ -116,7 +113,7 @@ func TestBoundaryHandlerP99UnderBudget(t *testing.T) {
 }
 
 func BenchmarkBoundaryTrack100Events(b *testing.B) {
-	h := HandleTrack(&Edge{}, &mockAnalyticsPublisher2{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(&Edge{}, &mockAnalyticsPublisher{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	body := []byte(batchBody(100))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -124,10 +121,3 @@ func BenchmarkBoundaryTrack100Events(b *testing.B) {
 		h.ServeHTTP(httptest.NewRecorder(), req)
 	}
 }
-
-type mockAnalyticsPublisher2 struct{}
-
-func (mockAnalyticsPublisher2) PublishTrackingEvent(context.Context, *analyticsv1.TrackingEvent, *commonv1.Principal, string, string) error {
-	return nil
-}
-func (mockAnalyticsPublisher2) Close() {}
