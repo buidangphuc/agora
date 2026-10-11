@@ -747,21 +747,21 @@ features:
     status: planned
     notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::Fan-out rows share a group id"
 
-  - id: tracking.ga4-no-gtm-when-id-empty
-    title: "No GTM when ID is empty"
+  - id: tracking.ga4-gtm-loads-when-id-set
+    title: "GTM loads when ID is set"
     persona: guest
     priority: P1
-    summary: "With NEXT_PUBLIC_GTM_ID empty no GTM script is in the DOM and no request goes to googletagmanager.com."
+    summary: "With NEXT_PUBLIC_GTM_ID set exactly one GTM script carrying that id is in the DOM and window.dataLayer exists."
     entry_route: "/"
     services: [team-frontend, team-gateway, team-analytics]
     preconditions:
       login: guest
     acceptance:
-      - "When a guest loads a page with NEXT_PUBLIC_GTM_ID empty"
-      - "Then the DOM has no googletagmanager.com script and the browser issues 0 requests to googletagmanager.com"
+      - "When a guest loads a page with NEXT_PUBLIC_GTM_ID=GTM-E2E0001"
+      - "Then exactly 1 script element with id=GTM-E2E0001 in its src is present and window.dataLayer exists"
     tags: [tracking, ga4]
     status: planned
-    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::No GTM when ID is empty"
+    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::GTM loads when ID is set"
 
   - id: tracking.ga4-payload-no-pii
     title: "Payload keys limited to schema"

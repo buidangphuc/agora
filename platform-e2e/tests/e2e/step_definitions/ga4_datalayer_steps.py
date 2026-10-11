@@ -186,15 +186,15 @@ def own_position_same_list(world: World) -> None:
 
 
 # ── GTM gating ───────────────────────────────────────────────────────────
-@then("the DOM has no googletagmanager.com script")
-def no_gtm_script(world: World) -> None:
-    expect(world.page.locator("script[src*='googletagmanager.com']")).to_have_count(0)
+@then(parsers.parse('exactly {n:d} script element with id "{gtm_id}" in its src is in the DOM'))
+def gtm_script_present(world: World, n: int, gtm_id: str) -> None:
+    sel = f"script[src*='googletagmanager.com'][src*='id={gtm_id}']"
+    expect(world.page.locator(sel)).to_have_count(n, timeout=timeouts.NAVIGATION)
 
 
-@then(parsers.parse("the browser issued {n:d} requests to googletagmanager.com"))
-def no_gtm_requests(world: World, n: int) -> None:
-    got = world.state.extra["gtm_requests"]
-    assert len(got) == n, f"expected {n} requests to googletagmanager.com, got {got}"
+@then("window.dataLayer exists")
+def datalayer_exists(world: World) -> None:
+    assert world.page.evaluate("() => Array.isArray(window.dataLayer)"), "window.dataLayer missing"
 
 
 # ── PII ──────────────────────────────────────────────────────────────────

@@ -2,8 +2,8 @@
 Feature: GA4 / GTM data layer pattern
   As the platform, a rendered product list pushes GA4 ecommerce items to
   window.dataLayer and sends its tracking beacons to the edge as one batched
-  request, fanned out per item under a shared event group id, without loading
-  GTM when no container id is configured and without personal data.
+  request, fanned out per item under a shared event group id, loading
+  GTM when a container id is configured and without personal data.
 
   @needsBuyer @needsListing
   Scenario: dataLayer receives ecommerce items
@@ -31,11 +31,11 @@ Feature: GA4 / GTM data layer pattern
     Then the impression beacons of one item list have distinct event ids and one non-empty event group id
     And each of those beacons carries its own position and the same item list id
 
-  Scenario: No GTM when ID is empty
+  Scenario: GTM loads when ID is set
     When a guest opens the home page while recording tracking beacons
     And the tracking queue idle window elapses
-    Then the DOM has no googletagmanager.com script
-    And the browser issued 0 requests to googletagmanager.com
+    Then exactly 1 script element with id "GTM-E2E0001" in its src is in the DOM
+    And window.dataLayer exists
 
   @needsBuyer @needsListing
   Scenario: Payload keys limited to schema
