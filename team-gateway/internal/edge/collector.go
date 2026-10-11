@@ -2,6 +2,7 @@ package edge
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -182,8 +183,13 @@ type trackResponse struct {
 // so a dropped beacon never surfaces to the user.
 func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(io.LimitReader(r.Body, maxBeaconBytes))
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBeaconBytes))
 		if err != nil {
+			var tooBig *http.MaxBytesError
+			if errors.As(err, &tooBig) {
+				http.Error(w, "beacon too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			http.Error(w, "read body", http.StatusBadRequest)
 			return
 		}
