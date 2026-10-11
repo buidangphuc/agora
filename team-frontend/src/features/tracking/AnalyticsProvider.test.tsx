@@ -25,6 +25,8 @@ describe("AnalyticsProvider GTM gating", () => {
   it("[GTM loads when ID is set] mounting adds exactly 1 script with GTM-TEST in src", () => {
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
     render(<AnalyticsProvider>x</AnalyticsProvider>);
-    expect(gtmScripts().filter((s) => s.src.includes("GTM-TEST"))).toHaveLength(1);
+    expect(gtmScripts().filter((s) => s.src.includes("GTM-TEST"))).toHaveLength(
+      1,
+    );
   });
 });

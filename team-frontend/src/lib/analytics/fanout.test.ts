@@ -149,7 +149,9 @@ describe("trackEcommerce fan-out and batching", () => {
     await vi.advanceTimersByTimeAsync(2500);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1][1].body).toBe(fetchMock.mock.calls[0][1].body);
+    expect(fetchMock.mock.calls[1][1].body).toBe(
+      fetchMock.mock.calls[0][1].body,
+    );
   });
 
   it("[Dispatch during SSR is a no-op] no window: returns without throwing and queues nothing", async () => {

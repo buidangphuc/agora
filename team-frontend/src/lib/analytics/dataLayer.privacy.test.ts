@@ -6,7 +6,8 @@ async function setup() {
   const win: { dataLayer?: Entry[] } = {};
   vi.stubGlobal("window", win);
   const { pushDataLayer } = await import("./dataLayer");
-  const last = () => win.dataLayer!.filter((e) => typeof e.event === "string").at(-1)!;
+  const last = () =>
+    win.dataLayer!.filter((e) => typeof e.event === "string").at(-1)!;
   return { pushDataLayer, last };
 }
 

@@ -42,7 +42,8 @@ describe("pushDataLayer", () => {
       .map((e, idx) => ({ e, idx }))
       .filter(({ e }) => typeof e.event === "string");
     expect(events).toHaveLength(2);
-    for (const { idx } of events) expect(dl[idx - 1]).toEqual({ ecommerce: null });
+    for (const { idx } of events)
+      expect(dl[idx - 1]).toEqual({ ecommerce: null });
   });
 
   it("[Dispatch during SSR is a no-op] pushDataLayer without window returns without throwing", async () => {

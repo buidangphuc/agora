@@ -137,7 +137,9 @@ describe("SearchImpressions", () => {
     const fetchMock = vi.fn(() => Promise.resolve(new Response(null)));
     vi.stubGlobal("navigator", { sendBeacon: undefined });
     vi.stubGlobal("fetch", fetchMock);
-    render(<SearchImpressions listingIds={["a", "b", "c", "d", "e"]} query="q" />);
+    render(
+      <SearchImpressions listingIds={["a", "b", "c", "d", "e"]} query="q" />,
+    );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2500);
     });

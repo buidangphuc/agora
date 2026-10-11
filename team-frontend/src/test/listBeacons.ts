@@ -53,9 +53,9 @@ export async function drain() {
 }
 
 export function listEntries(): Entry[] {
-  return ((window as unknown as { dataLayer?: Entry[] }).dataLayer ?? []).filter(
-    (e) => e.event === "view_item_list",
-  );
+  return (
+    (window as unknown as { dataLayer?: Entry[] }).dataLayer ?? []
+  ).filter((e) => e.event === "view_item_list");
 }
 
 export function beaconsOf(fetchMock: ReturnType<typeof vi.fn>): Beacon[] {
