@@ -33,3 +33,7 @@ Feature: Images and gitops content reach the local cluster
   Scenario: No two Applications sync the same path
     When the Applications of platform-gitops are read
     Then their source paths are pairwise distinct, and no path is a parent of another app's path when the parent app recurses into directories
+
+  Scenario: No third-party image floats on latest
+    When every manifest under platform-gitops/platform is read
+    Then each container and init container image outside localhost:5001 has a tag, the tag is not `latest`, and no image is `minio/mc`

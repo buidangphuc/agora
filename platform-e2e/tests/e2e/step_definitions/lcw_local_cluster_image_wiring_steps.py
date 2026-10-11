@@ -331,3 +331,42 @@ def one_owner_per_path(lcw):
             continue
         nested = [o for o, op, _ in apps if o != name and op.startswith(path + "/")]
         assert not nested, f"{name} recurses into {path}, which holds {nested}"
+
+
+def _pod_specs(node):
+    """Every pod spec in a manifest: Deployment/StatefulSet/Job templates and CronJob job templates."""
+    if isinstance(node, dict):
+        if "containers" in node and isinstance(node["containers"], list):
+            yield node
+        for value in node.values():
+            yield from _pod_specs(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _pod_specs(value)
+
+
+@when("every manifest under platform-gitops/platform is read")
+def read_all_images(lcw):
+    images = []
+    for path in sorted((GITOPS / "platform").rglob("*.yaml")):
+        for doc in yaml.safe_load_all(path.read_text()):
+            for pod in _pod_specs(doc):
+                for c in (pod.get("initContainers") or []) + pod["containers"]:
+                    images.append((str(path.relative_to(GITOPS)), c["image"]))
+    assert images, "no container images found under platform-gitops/platform"
+    lcw["images"] = images
+
+
+@then(
+    "each container and init container image outside localhost:5001 has a tag, the tag is not "
+    "`latest`, and no image is `minio/mc`"
+)
+def third_party_pinned(lcw):
+    wrong = []
+    for path, image in lcw["images"]:
+        if image.startswith("localhost:5001/"):
+            continue
+        name, _, tag = image.rpartition(":") if ":" in image.split("/")[-1] else (image, "", "")
+        if not tag or tag == "latest" or name.removeprefix("docker.io/") == "minio/mc":
+            wrong.append(f"{path}: {image}")
+    assert not wrong, wrong
