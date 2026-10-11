@@ -120,7 +120,7 @@ The export job SHALL write `item_list_id`, `position`, `event_group_id`, `transa
 - **THEN** the previous Parquet file remains unchanged and readable
 
 ### Requirement: Tolerant consumers and purchase dedupe
-Featurestore and recsys SHALL read the ecommerce columns only when present, SHALL read legacy Parquet without them, and SHALL count at most one `purchase` per `transaction_id`.
+Featurestore and recsys SHALL read the ecommerce columns only when present, SHALL read legacy Parquet without them, and SHALL count at most one purchase interaction per (buyer, listing, `transaction_id`); a multi-item order counts each listing once.
 
 #### Scenario: Legacy Parquet without new columns
 - **WHEN** featurestore or recsys loads a Parquet file lacking the ecommerce columns
@@ -131,8 +131,8 @@ Featurestore and recsys SHALL read the ecommerce columns only when present, SHAL
 - **THEN** the loaded frame exposes both columns to feature code
 
 #### Scenario: Duplicate purchase counted once
-- **WHEN** 3 `purchase` rows share `transaction_id=o-1` for one buyer
-- **THEN** the buyer's purchase count is 1
+- **WHEN** 3 `purchase` rows share `transaction_id=o-1` for one buyer and one listing
+- **THEN** the buyer has 1 purchase interaction for that listing
 
 #### Scenario: Purchase without transaction id is not merged
 - **WHEN** 2 `purchase` rows have an empty `transaction_id`
