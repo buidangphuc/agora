@@ -24,7 +24,7 @@ status:                ## ArgoCD apps + marketplace pods
 
 smoke:                 ## run platform-e2e smoke against the cluster ingress
 	cd ../platform-e2e && . .venv/bin/activate && \
-	  BASE_URL=http://marketplace.localtest.me GATEWAY_URL=http://marketplace.localtest.me/api \
+	  BASE_URL=http://marketplace.localtest.me GATEWAY_URL=http://api.localtest.me \
 	  HEADLESS=true python -m pytest -m smoke -q
 
 status-staging:        ## staging overlay on kind (ns marketplace-staging)
@@ -35,7 +35,7 @@ smoke-staging:         ## wait for the staging overlay to be Healthy, then run p
 	kubectl -n marketplace-staging rollout status deploy/team-frontend --timeout=180s
 	kubectl -n marketplace-staging wait --for=jsonpath='{.status.phase}'=Healthy rollout/team-gateway --timeout=180s
 	cd ../platform-e2e && . .venv/bin/activate && \
-	  BASE_URL=http://marketplace-staging.localtest.me GATEWAY_URL=http://marketplace-staging.localtest.me/api \
+	  BASE_URL=http://marketplace-staging.localtest.me GATEWAY_URL=http://api.staging.localtest.me \
 	  HEADLESS=true python -m pytest -m smoke -q
 
 cluster-down:          ## delete cluster + registry

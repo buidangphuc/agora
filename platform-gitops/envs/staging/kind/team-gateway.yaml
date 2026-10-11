@@ -41,3 +41,6 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 2
   targetCPUUtilizationPercentage: 70
+rollout:
+  analysis:
+    latencyP95Ms: "0.001"   # DRILL: forces latency-p95 to fail (remove after drill)
