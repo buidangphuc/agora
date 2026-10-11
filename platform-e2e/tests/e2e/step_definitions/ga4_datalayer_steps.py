@@ -161,8 +161,10 @@ def body_is_array(world: World, n: int) -> None:
 def _first_list(world: World) -> list[dict]:
     imps = [b for batch in world.state.extra["track_batches"] for b in _impressions(batch)]
     assert imps, "no impression beacons captured"
-    key = _list_key(imps[0])
-    return [b for b in imps if (_list_key(b)) == key]
+    by_list: dict[str, list[dict]] = {}
+    for b in imps:
+        by_list.setdefault(_list_key(b), []).append(b)
+    return max(by_list.values(), key=len)  # the largest rendered list
 
 
 @then("the impression beacons of one item list have distinct event ids and one non-empty event group id")
