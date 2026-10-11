@@ -67,6 +67,21 @@ def _retry(fn):
         return fn()  # a rename may race the read; retry once
 
 
+def _dedupe_purchases(con: duckdb.DuckDBPyConnection) -> None:
+    """Collapse purchase rows sharing a non-empty transaction_id (per user and listing) to the earliest.
+
+    Empty/NULL transaction_id rows are never merged; a legacy export without the column is untouched.
+    """
+    if "transaction_id" not in [r[0] for r in con.execute("DESCRIBE events").fetchall()]:
+        return
+    con.execute(
+        "DELETE FROM events WHERE rowid IN (SELECT rid FROM ("
+        "SELECT rowid AS rid, row_number() OVER (PARTITION BY user_key, listing_id, transaction_id "
+        "ORDER BY occurred_at, event_id) AS rn FROM events "
+        "WHERE event_type = 'purchase' AND coalesce(transaction_id, '') <> '') WHERE rn > 1)"
+    )
+
+
 def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
     """A connection exposing only the filtered tables `events`, `facts`, `orders`, `listings`.
 
@@ -89,6 +104,7 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
             f"ingested_at::TIMESTAMP AS ingested_at) FROM read_parquet('{paths['events']}') "
             f"WHERE ingested_at::TIMESTAMP <= {a}"
         )
+        _dedupe_purchases(con)
         con.execute(
             f"CREATE TEMP TABLE facts AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at, "
             f"ingested_at::TIMESTAMP AS ingested_at) FROM read_parquet('{paths['facts']}') "
