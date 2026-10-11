@@ -697,3 +697,84 @@ features:
     status: automated
     covered_by: "featurestore/item_attributes.feature::An edited listing's attributes replace the old ones"
     notes: "needs rebuild"
+
+  # ---- add-ga4-gtm-datalayer (planned until the frontend lands and the lane is green) ----
+  - id: tracking.ga4-datalayer-items
+    title: "dataLayer receives ecommerce items"
+    persona: buyer
+    priority: P1
+    summary: "A rendered product list pushes a view_item_list entry with ecommerce.items to window.dataLayer, preceded by an ecommerce null reset."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a page that renders a product list"
+      - "Then window.dataLayer contains a view_item_list entry whose ecommerce.items is non-empty and is immediately preceded by { ecommerce: null }"
+    tags: [tracking, ga4]
+    status: planned
+    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::dataLayer receives ecommerce items"
+
+  - id: tracking.ga4-one-request-per-list
+    title: "One request per rendered list"
+    persona: buyer
+    priority: P1
+    summary: "All beacons of one rendered list travel in a single POST to /api/track."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a page that renders a list and the 2 s idle window elapses"
+      - "Then the browser sent exactly 1 POST /api/track carrying that list's impression beacons as an array"
+    tags: [tracking, ga4]
+    status: planned
+    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::One request per rendered list"
+
+  - id: tracking.ga4-fanout-group-id
+    title: "Fan-out rows share a group id"
+    persona: buyer
+    priority: P1
+    summary: "A multi-item list fans out to one beacon per item sharing one event_group_id."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a page that renders a multi-item list"
+      - "Then each impression beacon has a distinct event id, the same non-empty event group id, its own position and the same item list id"
+    tags: [tracking, ga4]
+    status: planned
+    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::Fan-out rows share a group id"
+
+  - id: tracking.ga4-no-gtm-when-id-empty
+    title: "No GTM when ID is empty"
+    persona: guest
+    priority: P1
+    summary: "With NEXT_PUBLIC_GTM_ID empty no GTM script is in the DOM and no request goes to googletagmanager.com."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest loads a page with NEXT_PUBLIC_GTM_ID empty"
+      - "Then the DOM has no googletagmanager.com script and the browser issues 0 requests to googletagmanager.com"
+    tags: [tracking, ga4]
+    status: planned
+    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::No GTM when ID is empty"
+
+  - id: tracking.ga4-payload-no-pii
+    title: "Payload keys limited to schema"
+    persona: buyer
+    priority: P1
+    summary: "Neither dataLayer nor beacon bodies carry email, phone, name or address of the buyer."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a logged-in buyer browses a list page and telemetry is captured from dataLayer and beacon bodies"
+      - "Then neither contains a key or value matching the buyer's email, phone or name"
+    tags: [tracking, ga4]
+    status: planned
+    notes: "add-ga4-gtm-datalayer: tracking/ga4_datalayer.feature::Payload keys limited to schema"

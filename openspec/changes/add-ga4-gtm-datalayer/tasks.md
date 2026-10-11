@@ -19,4 +19,4 @@ Owner for FEATURES.yaml: team-analytics (capability `tracking`; gateway entries 
 
 ## E2E track
 
-- [ ] [e2e] BDD features in `platform-e2e/tests/e2e/features/tracking/` (ga4_datalayer.feature + steps): dataLayer items, one request per list, N rows sharing event_group_id, no GTM when ID empty, no PII in payload <!-- id: e2e-tests --> (covers: dataLayer receives ecommerce items; One request per rendered list; Fan-out rows share a group id; No GTM when ID is empty; Payload keys limited to schema; write-set: platform-e2e/tests/e2e/features/tracking/**, platform-e2e/tests/e2e/steps/**)
+- [ ] [e2e] BDD features in `platform-e2e/tests/e2e/features/tracking/` (ga4_datalayer.feature + steps): dataLayer items, one request per list, N rows sharing event_group_id, no GTM when ID empty, no PII in payload <!-- id: e2e-tests --> (capability: tracking; covers: dataLayer receives ecommerce items; One request per rendered list; Fan-out rows share a group id; No GTM when ID is empty; Payload keys limited to schema; write-set: platform-e2e/tests/e2e/features/tracking/**, platform-e2e/tests/e2e/steps/**)
