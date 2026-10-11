@@ -36,7 +36,7 @@ export async function FeedBlock() {
         <>
           <ListingGrid
             listings={items}
-            placementId="home_feed"
+            placementId="home_latest"
             empty="Hiện chưa có sản phẩm nào được đăng bán."
           />
           {items.length > 0 && (
