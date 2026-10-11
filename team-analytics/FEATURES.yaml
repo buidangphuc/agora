@@ -763,6 +763,22 @@ features:
     status: automated
     covered_by: "tracking/ga4_datalayer.feature::GTM loads when ID is set"
 
+  - id: tracking.ga4-no-external-google-request
+    title: "No external request to Google in e2e"
+    persona: guest
+    priority: P1
+    summary: "GTM/GA4 is mock-only in e2e: the GTM script is served by an intercepted stub and no request reaches real Google hosts."
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a page loads in the e2e stack with NEXT_PUBLIC_GTM_ID=GTM-TEST"
+      - "Then the GTM script is served by the mock (stub response to the intercepted googletagmanager.com / google-analytics.com route) and 0 requests leave the stack to Google hosts"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::No external request to Google in e2e"
+
   - id: tracking.ga4-payload-no-pii
     title: "Payload keys limited to schema"
     persona: buyer

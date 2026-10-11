@@ -37,6 +37,12 @@ Feature: GA4 / GTM data layer pattern
     Then exactly 1 script element with id "GTM-E2E0001" in its src is in the DOM
     And window.dataLayer exists
 
+  Scenario: No external request to Google in e2e
+    When a guest opens the home page while recording tracking beacons
+    And the tracking queue idle window elapses
+    Then the GTM script was served by the intercepted mock
+    And no request reached a real Google host
+
   @needsBuyer @needsListing
   Scenario: Payload keys limited to schema
     Given a buyer is logged in

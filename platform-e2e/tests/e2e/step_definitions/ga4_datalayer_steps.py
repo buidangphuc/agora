@@ -34,7 +34,32 @@ _TAP = """
 """
 
 
+_GOOGLE_HOST = re.compile(
+    r"^https?://([^/]*\.)?(googletagmanager\.com|google-analytics\.com|analytics\.google\.com"
+    r"|doubleclick\.net)(:\d+)?(/|$)"
+)
+_STUB_GTM = "/* e2e stub gtm.js: no-op */\nwindow.dataLayer = window.dataLayer || [];"
+
+
+def _mock_google(world: World) -> None:
+    """GTM/GA4 is mock-only in e2e: fulfil every Google tag/analytics request locally."""
+    mocked: list[str] = []
+    world.state.extra["google_mocked"] = mocked
+
+    def handle(route) -> None:  # noqa: ANN001
+        mocked.append(route.request.url)
+        if "/collect" in route.request.url or "/g/" in route.request.url:
+            route.fulfill(status=204, body="")
+        else:
+            route.fulfill(
+                status=200, content_type="application/javascript", body=_STUB_GTM
+            )
+
+    world.page.route(_GOOGLE_HOST, handle)
+
+
 def _start_recording(world: World) -> None:
+    _mock_google(world)
     batches: list[list[dict]] = []  # one entry per POST to /api/track
     gtm_requests: list[str] = []
     world.state.extra["track_batches"] = batches
@@ -52,7 +77,7 @@ def _start_recording(world: World) -> None:
         batches.append(payload if isinstance(payload, list) else [payload])
 
     def on_request(request) -> None:  # noqa: ANN001
-        if "googletagmanager.com" in request.url:
+        if _GOOGLE_HOST.match(request.url):
             gtm_requests.append(request.url)
         if "/api/track" in request.url:
             collect(request.post_data)
@@ -190,6 +215,24 @@ def own_position_same_list(world: World) -> None:
 def gtm_script_present(world: World, n: int, gtm_id: str) -> None:
     sel = f"script[src*='googletagmanager.com'][src*='id={gtm_id}']"
     expect(world.page.locator(sel)).to_have_count(n, timeout=timeouts.NAVIGATION)
+
+
+@then("the GTM script was served by the intercepted mock")
+def gtm_served_by_mock(world: World) -> None:
+    mocked = world.state.extra["google_mocked"]
+    assert any("googletagmanager.com/gtm.js" in u for u in mocked), f"gtm.js not mocked: {mocked}"
+    expect(world.page.locator("script[src*='googletagmanager.com'][src*='id=GTM-']")).to_have_count(
+        1, timeout=timeouts.NAVIGATION
+    )
+
+
+@then("no request reached a real Google host")
+def no_real_google_request(world: World) -> None:
+    seen = world.state.extra["gtm_requests"]
+    mocked = world.state.extra["google_mocked"]
+    assert seen, "no Google-host request observed; the mock was never exercised"
+    leaked = [u for u in seen if u not in mocked]
+    assert not leaked, f"requests not intercepted by the mock: {leaked}"
 
 
 @then("window.dataLayer exists")
