@@ -1,0 +1,6 @@
+repo: team-frontend
+features:
+  - id: fe.payout
+    title: Seller payout page
+    capability: seller-payout-ui
+    status: automated

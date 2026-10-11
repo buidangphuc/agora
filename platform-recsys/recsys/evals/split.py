@@ -11,7 +11,7 @@ def temporal_train_test_split(
     holdout_ratio: float = 0.2,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Splits interactions into train and test sets strictly based on global timestamp cutoff.
-    
+
     Guarantees all training events strictly precede test events (zero temporal data leakage).
     """
     if not interactions:
@@ -19,7 +19,7 @@ def temporal_train_test_split(
 
     sorted_events = sorted(interactions, key=lambda x: float(x.get(timestamp_col, 0.0)))
     cutoff_idx = int(len(sorted_events) * (1.0 - max(0.01, min(0.99, holdout_ratio))))
-    
+
     train_set = sorted_events[:cutoff_idx]
     test_set = sorted_events[cutoff_idx:]
     return train_set, test_set
@@ -50,9 +50,7 @@ def user_leave_k_out_temporal_split(
         else:
             train_set.extend(sorted_evs[:-k])
             test_ground_truth[uid] = [
-                str(ev.get(item_col, ""))
-                for ev in sorted_evs[-k:]
-                if str(ev.get(item_col, ""))
+                str(ev.get(item_col, "")) for ev in sorted_evs[-k:] if str(ev.get(item_col, ""))
             ]
 
     return train_set, test_ground_truth

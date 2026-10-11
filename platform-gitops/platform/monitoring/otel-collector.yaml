@@ -1,0 +1,74 @@
+# W4-2/W4-4: minimal in-cluster OTel collector so the gateway's RED series
+# (marketplace_rpc_client_duration_milliseconds_*) actually reach Prometheus. Without it the
+# canary AnalysisTemplate (rps-sanity) and the HighErrorRate/HighLatencyP95 alerts see no data.
+# Same receiver/exporter as platform-core/infra/otel-collector.yaml, minus Jaeger (not deployed).
+# prometheus.yaml already scrapes otel-collector.marketplace.svc:8889. Only services that set
+# OTEL_ENABLED=true (staging-on-kind gateway overlay) send to it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: marketplace
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: { endpoint: 0.0.0.0:4317 }
+          http: { endpoint: 0.0.0.0:4318 }
+    processors:
+      batch: { timeout: 1s, send_batch_size: 256 }
+    exporters:
+      debug: { verbosity: basic }
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        namespace: marketplace
+    service:
+      pipelines:
+        traces:  { receivers: [otlp], processors: [batch], exporters: [debug] }
+        metrics: { receivers: [otlp], processors: [batch], exporters: [debug, prometheus] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: marketplace
+  labels: { app: otel-collector }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: otel-collector }
+  template:
+    metadata:
+      labels: { app: otel-collector }
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.104.0
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - { containerPort: 4317, name: otlp-grpc }
+            - { containerPort: 4318, name: otlp-http }
+            - { containerPort: 8889, name: prom }
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 256Mi }
+      volumes:
+        - name: config
+          configMap: { name: otel-collector-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: marketplace
+  labels: { app: otel-collector }
+spec:
+  selector: { app: otel-collector }
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: 4317 }
+    - { name: otlp-http, port: 4318, targetPort: 4318 }
+    - { name: prom, port: 8889, targetPort: 8889 }

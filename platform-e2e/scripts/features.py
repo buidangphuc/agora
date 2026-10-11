@@ -7,6 +7,14 @@ scenarios platform-e2e actually contains, and prints a coverage report.
 Usage:
     python scripts/features.py            # report + validation
     python scripts/features.py --strict   # exit non-zero on any error (CI gate)
+    python scripts/features.py --test-levels
+        # also enforce minimum test evidence per scenario kind (ASDLC-v2 plan section 8):
+        # each `status: automated` entry needs the evidence its `kind:` requires, and every
+        # referenced `tests:` path (relative to the polyrepo root) must exist. Opt-in; not
+        # part of --strict.
+
+Tagging scheme for any new requirement tag: `<capability>/<requirement>` (the OpenSpec
+capability + requirement name), never the change id (it breaks when the change is archived).
 
 This is the loader step the auto-generator will build on: today it validates and
 reports; next it will emit .feature/steps/pages for `status: planned` entries.
@@ -26,6 +34,17 @@ ROOT = Path(__file__).resolve().parent.parent
 POLYREPO = ROOT.parent
 SCHEMA_PATH = ROOT / "schemas" / "features.schema.json"
 FEATURES_DIR = ROOT / "tests" / "e2e" / "features"
+
+# kind -> evidence keys required. "e2e" = covered_by resolves; others are `tests:` keys.
+KIND_REQUIRES: dict[str, tuple[str, ...]] = {
+    "user_behaviour": ("e2e", "unit"),
+    "contract": ("contract",),  # `buf breaking` runs separately in platform-core
+    "authz": ("e2e",),  # attack probe: user A touches user B's resource
+    "invariant": ("unit", "property"),
+    "async_event": ("integration",),  # real broker: publish + consume
+    "ml_pipeline": ("integration", "leakage"),  # black-box job + leakage check
+}
+DEFAULT_KIND = "user_behaviour"
 
 STATUS_ORDER = ["automated", "planned", "manual", "not-testable"]
 
@@ -54,9 +73,40 @@ def scenario_exists(covered_by: str) -> bool:
     return scenario.strip() in {n.strip() for n in names}
 
 
+def _paths(value: object) -> list[str]:
+    items = [value] if isinstance(value, str) else list(value or [])
+    return [str(i).split("::", 1)[0] for i in items if i]
+
+
+def test_level_errors(repo: str, feat: dict, polyrepo: Path = POLYREPO) -> list[str]:
+    """Missing/dangling test evidence for one automated feature, per its `kind`."""
+    if feat.get("status") != "automated":
+        return []
+    kind = feat.get("kind", DEFAULT_KIND)
+    tests = feat.get("tests") or {}
+    fid = feat.get("id")
+    errs: list[str] = []
+    for need in KIND_REQUIRES.get(kind, ()):
+        if need == "e2e":
+            if not feat.get("covered_by"):
+                errs.append(f"{repo}: '{fid}' ({kind}) needs e2e evidence: covered_by")
+        elif not _paths(tests.get(need)):
+            errs.append(f"{repo}: '{fid}' ({kind}) needs tests.{need} evidence")
+    for key, val in tests.items():
+        for rel in _paths(val):
+            if not (polyrepo / rel).exists():
+                errs.append(f"{repo}: '{fid}' tests.{key} path not found: {rel}")
+    return errs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true", help="exit non-zero on any error")
+    parser.add_argument(
+        "--test-levels",
+        action="store_true",
+        help="also require per-kind test evidence on automated entries (exit non-zero if missing)",
+    )
     args = parser.parse_args()
 
     validator = load_schema_validator()
@@ -66,6 +116,7 @@ def main() -> int:
         return 0
 
     errors: list[str] = []
+    level_errors: list[str] = []
     totals: dict[str, int] = dict.fromkeys(STATUS_ORDER, 0)
     grand_total = 0
 
@@ -100,6 +151,8 @@ def main() -> int:
                     errors.append(f"{repo}: '{f['id']}' covered_by not found: {covered}")
             elif covered:
                 errors.append(f"{repo}: '{f['id']}' is {status} but sets covered_by")
+            if args.test_levels:
+                level_errors.extend(test_level_errors(repo, f))
 
         summary = "  ".join(f"{s}={by_status[s]}" for s in STATUS_ORDER if by_status[s])
         print(f"  {repo:<16} {len(feats):>2} features   {summary}")
@@ -120,6 +173,12 @@ def main() -> int:
             return 1
     else:
         print("\nAll manifests valid; every covered_by resolves. ✓")
+    if args.test_levels:
+        print(f"\n--test-levels: {len(level_errors)} missing/invalid evidence item(s)")
+        for e in level_errors:
+            print(f"  ✗ {e}")
+        if level_errors:
+            return 1
     return 0
 
 

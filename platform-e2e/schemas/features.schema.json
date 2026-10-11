@@ -15,6 +15,12 @@
     }
   },
   "$defs": {
+    "testPaths": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      ]
+    },
     "feature": {
       "type": "object",
       "required": ["id", "title", "persona", "entry_route", "acceptance", "status"],
@@ -106,6 +112,23 @@
         "status": {
           "enum": ["planned", "automated", "manual", "not-testable"],
           "description": "planned = ready for auto-gen; automated = has a live scenario; manual = human-only; not-testable = excluded."
+        },
+        "kind": {
+          "enum": ["user_behaviour", "contract", "authz", "invariant", "async_event", "ml_pipeline"],
+          "default": "user_behaviour",
+          "description": "Scenario kind; sets the minimum test evidence under `features.py --test-levels` (user_behaviour: e2e+unit; contract: contract; authz: e2e probe; invariant: unit+property; async_event: integration; ml_pipeline: integration+leakage)."
+        },
+        "tests": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Evidence beyond e2e: repo-root-relative test paths (optional `::name` suffix). Checked only with --test-levels.",
+          "properties": {
+            "unit": { "$ref": "#/$defs/testPaths" },
+            "contract": { "$ref": "#/$defs/testPaths" },
+            "property": { "$ref": "#/$defs/testPaths" },
+            "integration": { "$ref": "#/$defs/testPaths" },
+            "leakage": { "$ref": "#/$defs/testPaths" }
+          }
         },
         "covered_by": {
           "type": ["string", "null"],

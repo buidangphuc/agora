@@ -42,12 +42,15 @@ rules:
   proposal:
     - State which repos/services and which capability the change touches.
     - Include a "Non-goals" section.
+    - "Include 'Non-functional requirements', 'Data classification' (public|internal|personal|sensitive-personal; PDPA VN Decree 13/2023, OWASP ASVS 4.0.3 V8) and 'Threat model' (STRIDE table: asset, threat, mitigation) sections. Use 'none' where N/A."
+    - "If the change is a slice of an initiative, add a line `initiative: <id>`."
     - Respect the 5 architecture rules above; flag any cross-service contract change to platform-core/proto.
   tasks:
     - "Split into two parallel tracks - code (per repo) and e2e (platform-e2e)."
     - "The e2e track updates the owning repo FEATURES.yaml and adds a .feature + steps + page objects."
   spec:
     - "Write requirements as testable '#### Scenario:' WHEN/THEN blocks (Gherkin-adjacent)."
+    - "EARS wording: WHEN <trigger> [WHILE <state>] THE SYSTEM SHALL <response> -> WHEN line = trigger/state, THEN line = 'the system SHALL ...'. Include error + permission scenarios and measurable outcomes. Keep Scenario 1:1 with FEATURES.yaml acceptance and .feature. No NFR/data-classification/threat-model in delta specs (they live in proposal.md)."
 
 operations:
   apply:

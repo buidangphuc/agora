@@ -19,33 +19,10 @@ TAG="${TAG:-}"
 # Space-separated; "-" stands for no prefix (an empty word would be dropped by word splitting).
 SRC_PREFIXES="${SRC_PREFIXES:-agora- -}"
 
-# "<values-key> <registry-repo> <compose-image>" — compose-image is the `image:` the compose files
+# services.map rows: "<values-key> <registry-repo> <compose-image>" — compose-image is the `image:` the compose files
 # declare (docker-compose.services.yaml); the registry repo is what the gitops manifests pull.
 # search-indexer is the same image as team-search (entrypoint /indexer, set in the manifest).
-MAP="
-team-gateway team-gateway team-gateway:local
-team-identity team-identity team-identity:local
-team-domain team-domain team-domain:local
-team-search team-search team-search:local
-search-indexer team-search-indexer team-search:local
-team-engagement team-engagement team-engagement:local
-team-order team-order team-order:local
-team-payment team-payment team-payment:local
-team-chat team-chat team-chat:local
-team-notification team-notification team-notification:local
-team-referral team-referral team-referral:local
-team-verification team-verification team-verification:local
-team-sharing team-sharing team-sharing:local
-team-audit team-audit team-audit:local
-team-promotion team-promotion team-promotion:local
-team-frontend team-frontend team-frontend:local
-team-analytics team-analytics team-analytics:local
-team-ai team-ai team-ai:local
-platform-featurestore platform-featurestore platform-featurestore:local
-platform-recsys platform-recsys platform-recsys:local
-platform-modelserve platform-modelserve modelserve-router:local
-tei-fake tei-fake tei-fake:local
-"
+MAP="$(grep -v '^[[:space:]]*#' "$(dirname "$0")/services.map")"
 
 # Newest existing local image among the candidate spellings of a compose image name.
 resolve_src() {

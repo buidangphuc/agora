@@ -62,3 +62,6 @@ docker-test:        ## Run all E2E tests inside isolated Docker container
 
 clean:
 	rm -rf test-results .pytest_cache .ruff_cache
+
+test-levels:        ## Opt-in: per-kind minimum test evidence on automated features (not a gate yet)
+	$(VENV)python scripts/features.py --test-levels

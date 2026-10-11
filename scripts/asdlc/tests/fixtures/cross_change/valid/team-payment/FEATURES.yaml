@@ -1,0 +1,6 @@
+repo: team-payment
+features:
+  - id: payment.wallet
+    title: Seller wallet balance
+    summary: "Change old-change, capability payout-holdback."
+    status: automated

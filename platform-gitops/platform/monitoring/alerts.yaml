@@ -1,0 +1,43 @@
+# W4-4: the three minimum alerts, as a Prometheus rule file mounted by prometheus.yaml
+# (plain Prometheus here, no prometheus-operator, so no PrometheusRule CRD).
+# Metrics are the ones that exist in this repo:
+#   marketplace_rpc_client_duration_milliseconds_{count,bucket}  team-gateway gRPC client RED, via otel-collector:8889
+#   up{job=...}                                                   scrape jobs in prometheus.yaml (team-ai, otel-collector)
+# Each alert carries a runbook annotation (docs/runbooks/<service>.md, or alerts.md for ServiceDown).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: marketplace
+data:
+  alerts.yml: |
+    groups:
+      - name: marketplace-red
+        rules:
+          - alert: HighErrorRate
+            expr: |
+              sum(rate(marketplace_rpc_client_duration_milliseconds_count{rpc_grpc_status_code!="0"}[5m]))
+                / clamp_min(sum(rate(marketplace_rpc_client_duration_milliseconds_count[5m])), 1e-9) > 0.05
+              and sum(rate(marketplace_rpc_client_duration_milliseconds_count[5m])) > 0.05
+            for: 2m
+            labels: { severity: critical, service: team-gateway }
+            annotations:
+              summary: "Edge gRPC error rate above 5% for 2m"
+              runbook: docs/runbooks/team-gateway.md
+          - alert: HighLatencyP95
+            expr: |
+              histogram_quantile(0.95, sum by (le) (rate(marketplace_rpc_client_duration_milliseconds_bucket[5m]))) > 500
+            for: 5m
+            labels: { severity: warning, service: team-gateway }
+            annotations:
+              summary: "Edge gRPC p95 latency above 500ms for 5m"
+              runbook: docs/runbooks/team-gateway.md
+      - name: marketplace-availability
+        rules:
+          - alert: ServiceDown
+            expr: up{job=~"team-ai|otel-collector"} == 0
+            for: 1m
+            labels: { severity: critical }
+            annotations:
+              summary: "{{ $labels.job }} scrape target is down"
+              runbook: docs/runbooks/alerts.md

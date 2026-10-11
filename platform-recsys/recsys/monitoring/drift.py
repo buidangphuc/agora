@@ -128,9 +128,11 @@ def calculate_numerical_psi(
     for x in baseline:
         placed = False
         for i in range(num_intervals):
-            if (i == 0 and x <= unique_edges[1]) or (
-                unique_edges[i] < x <= unique_edges[i + 1]
-            ) or (i == num_intervals - 1 and x >= unique_edges[i]):
+            if (
+                (i == 0 and x <= unique_edges[1])
+                or (unique_edges[i] < x <= unique_edges[i + 1])
+                or (i == num_intervals - 1 and x >= unique_edges[i])
+            ):
                 b_bin_counts[i] += 1
                 placed = True
                 break
@@ -140,9 +142,11 @@ def calculate_numerical_psi(
     for x in target:
         placed = False
         for i in range(num_intervals):
-            if (i == 0 and x <= unique_edges[1]) or (
-                unique_edges[i] < x <= unique_edges[i + 1]
-            ) or (i == num_intervals - 1 and x >= unique_edges[i]):
+            if (
+                (i == 0 and x <= unique_edges[1])
+                or (unique_edges[i] < x <= unique_edges[i + 1])
+                or (i == num_intervals - 1 and x >= unique_edges[i])
+            ):
                 t_bin_counts[i] += 1
                 placed = True
                 break
@@ -231,9 +235,11 @@ class DriftDetector:
             metric_label = f'recsys_feature_psi{{feature="{name}",level="{res.drift_level.value}"}}'
             lines.append(f"{metric_label} {res.psi:.4f}")
 
-        lines.extend([
-            "# HELP recsys_model_drift_alert Indicates if any feature has significant drift",
-            "# TYPE recsys_model_drift_alert gauge",
-            f"recsys_model_drift_alert {1 if report.is_drifted else 0}",
-        ])
+        lines.extend(
+            [
+                "# HELP recsys_model_drift_alert Indicates if any feature has significant drift",
+                "# TYPE recsys_model_drift_alert gauge",
+                f"recsys_model_drift_alert {1 if report.is_drifted else 0}",
+            ]
+        )
         return "\n".join(lines) + "\n"

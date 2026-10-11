@@ -1,0 +1,100 @@
+# Task gate: do the unit/integration tests written for ONE task test it properly?
+# State unit = one task: the task line(s) from tasks.md with its acceptance, the test
+# diff written for it, and the implementation diff of the same task.
+# Thresholds (0.85 / 0.6) are initial values; W3-6 recalibrates them from the
+# precision/recall curve on the eval set (plan section 14). Changing one = new version.
+gate: task
+version: 1
+pins:
+  iso29119_4: "2021"
+  google_eng_practices: "What to look for in a code review"
+state_unit: task
+max_state_tokens: 8000
+questions:
+  - id: assertion_kind
+    source: "Meszaros, xUnit Test Patterns (2007) - State Verification vs Behavior Verification; tsDetect test smell catalog"
+    type: choice
+    severity: veto
+    instructions: "What do the assertions in the new or changed tests mainly check?"
+    criteria:
+      real: "Return values, persisted state or emitted events that the task's acceptance describes"
+      proxy: "Only that no error was raised, a status code, or a value that is true regardless of the change"
+      mock: "Only that a mock, stub or spy was called (or called with arguments); no real outcome is checked"
+      none: "No assertion at all, or assertions that can never fail"
+    pass_values: [real]
+    min_confidence: 0.6
+
+  - id: fails_when_broken
+    source: "Google Engineering Practices, What to look for in a code review - Tests (will the tests fail when the code is broken?)"
+    type: noul
+    severity: veto
+    instructions: "If the implementation diff were reverted or its main condition inverted, would at least one of the shown tests fail?"
+    pass_when: true
+    threshold: 0.85
+
+  - id: equivalence_partitions
+    source: "ISO/IEC/IEEE 29119-4:2021 Equivalence partitioning"
+    type: score
+    severity: normal
+    instructions: "How well do the tests cover the input partitions of the code the task changes?"
+    levels:
+      single: "One input class is tested (typically one happy-path value)"
+      valid_only: "Several valid partitions are tested, no invalid partition"
+      valid_and_invalid: "Valid partitions and at least one invalid partition are tested"
+      all_partitions: "Every valid and invalid partition visible in the implementation's branches is tested"
+    pass_min: valid_and_invalid
+    min_confidence: 0.6
+
+  - id: boundary_values
+    source: "ISO/IEC/IEEE 29119-4:2021 Boundary value analysis"
+    type: choice
+    severity: normal
+    instructions: "If the changed code compares against a limit (<, <=, length, count, range), which boundary values do the tests use?"
+    criteria:
+      not_applicable: "The changed code has no ordered limit or range"
+      both_sides: "Values on and just beyond each boundary are tested"
+      one_side: "Only the boundary itself or only one side of it is tested"
+      missing: "A limit exists but only mid-range values are tested"
+    pass_values: [not_applicable, both_sides]
+    min_confidence: 0.6
+
+  - id: error_guessing
+    source: "ISO/IEC/IEEE 29119-4:2021 Error guessing"
+    type: choice
+    severity: normal
+    instructions: "For the likely faults of the changed code (empty or nil input, duplicate, not found, downstream error, retry), what do the tests cover?"
+    criteria:
+      not_applicable: "The changed code has no such failure modes (pure wiring or constants)"
+      covered: "The likely faults evident from the code are tested and the expected error handling is asserted"
+      partial: "Some likely faults are tested, an obvious one is not"
+      missing: "Only the success path is tested"
+    pass_values: [not_applicable, covered]
+    min_confidence: 0.6
+
+  - id: eager_test
+    source: "tsDetect test smell catalog - Eager Test; Meszaros, xUnit Test Patterns (2007) - Obscure Test"
+    type: noul
+    severity: normal
+    instructions: "Does a single test function exercise several unrelated behaviours of the code under test, so a failure would not point at one behaviour?"
+    pass_when: false
+    threshold: 0.85
+
+  - id: assertion_roulette
+    source: "tsDetect test smell catalog - Assertion Roulette; Meszaros, xUnit Test Patterns (2007) - Assertion Roulette"
+    type: noul
+    severity: normal
+    instructions: "Does a test contain many assertions without messages or distinct names, so a failing run would not tell which expectation broke?"
+    pass_when: false
+    threshold: 0.85
+
+  - id: code_beyond_tests
+    source: "Google Engineering Practices, What to look for in a code review - Complexity (functionality not presently needed) and Tests"
+    type: choice
+    severity: normal
+    instructions: "Compared with what the tests exercise and what the task asks, does the implementation diff add behaviour?"
+    criteria:
+      none: "Every branch and side effect in the diff is required by the task and exercised by a test"
+      incidental: "Only logging, wiring or defensive code that no test can observe is unexercised"
+      untested_behaviour: "The diff adds behaviour, branches or options the task did not ask for or no test exercises"
+    pass_values: [none, incidental]
+    min_confidence: 0.6

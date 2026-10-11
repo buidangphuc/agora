@@ -6,15 +6,15 @@ global:
   registry: staging-registry.example.com
   imagePullPolicy: IfNotPresent
 images:
-  team-identity: staging
-  team-domain: staging
-  team-search: staging
-  team-engagement: staging
-  team-order: staging
-  team-payment: staging
-  team-chat: staging
-  team-notification: staging
-  team-gateway: staging
-  team-frontend: staging
-  team-ai: staging
-  search-indexer: staging
+  team-identity: 01a53993082a
+  team-domain: 01a53993082a
+  team-search: 01a53993082a
+  team-engagement: 01a53993082a
+  team-order: 01a53993082a
+  team-payment: 01a53993082a
+  team-chat: 01a53993082a
+  team-notification: 01a53993082a
+  team-gateway: 01a53993082a
+  team-frontend: 01a53993082a
+  team-ai: 01a53993082a
+  search-indexer: 01a53993082a

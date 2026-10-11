@@ -1,0 +1,61 @@
+# W4-2: the `staging` overlay running on the LOCAL kind cluster (namespace marketplace-staging).
+# marketplace-services (appset-services.yaml) only targets real clusters labelled envScoped=true,
+# so it generates nothing locally. This sibling ApplicationSet reuses the same value-file stack for
+# the staging overlay and adds one kind-only layer (envs/staging/kind/<svc>.yaml: localtest.me hosts,
+# upstreams pointing at the shared backends in ns `marketplace`, laptop-sized requests).
+# Scope: edge only (gateway canary + frontend). Everything behind the gateway is the existing local
+# `marketplace` stack, shared. To widen, add services to the list AND give each a kind overlay.
+#
+# Precedence (later wins): chart defaults, envs/staging/values.yaml (image tags, bumped by
+# `make -C deploy release-tag`), envs/services/<svc>.yaml, envs/staging/services.yaml,
+# envs/staging/services/<svc>.yaml, envs/staging/kind/<svc>.yaml, inline image.repo.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: marketplace-staging-kind
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - { name: team-gateway }
+          - { name: team-frontend }
+  template:
+    metadata:
+      name: '{{.name}}-staging'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+    spec:
+      project: default
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: marketplace-staging
+      sources:
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+          targetRevision: main
+          ref: values
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+          targetRevision: main
+          path: charts/service
+          helm:
+            releaseName: "{{.name}}"
+            ignoreMissingValueFiles: true
+            valueFiles:
+              - $values/envs/staging/values.yaml
+              - $values/envs/services/{{.name}}.yaml
+              - $values/envs/staging/services.yaml
+              - $values/envs/staging/services/{{.name}}.yaml
+              - $values/envs/staging/kind/{{.name}}.yaml
+            values: |
+              image:
+                repo: localhost:5001/{{.name}}
+                pullPolicy: IfNotPresent
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

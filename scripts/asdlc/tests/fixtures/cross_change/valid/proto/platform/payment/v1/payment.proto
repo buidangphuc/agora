@@ -1,0 +1,5 @@
+syntax = "proto3";
+service PaymentService {
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+}
+message OrderPaid {}

@@ -33,10 +33,10 @@ class UserTower:
 
         # Deterministic projection matrix
         import random
+
         rng = random.Random(seed)
         self.weights = [
-            [rng.uniform(-0.1, 0.1) for _ in range(self.embedding_dim)]
-            for _ in range(self.input_dim)
+            [rng.uniform(-0.1, 0.1) for _ in range(self.embedding_dim)] for _ in range(self.input_dim)
         ]
         self.bias = [0.0] * self.embedding_dim
 

@@ -383,7 +383,6 @@ def test_command_rejects_unknown_subcommands(monkeypatch):
     assert _main_with(monkeypatch, FakeRedis(), FakeQdrantClient(), ["frobnicate"]) == 2
 
 
-
 def test_legacy_migration_keeps_the_old_vector_size(redis_client, qdrant):
     """A legacy collection trained at another ALS rank is copied at ITS size, not the new one.
 

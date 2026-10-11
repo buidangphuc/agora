@@ -1,0 +1,13 @@
+title = "agora gitleaks"
+[extend]
+useDefault = true
+
+# Test fixtures intentionally contain fake credentials.
+[allowlist]
+description = "fixtures and generated lockfiles"
+paths = [
+  '''(^|/)tests?/fixtures/''',
+  '''(^|/)fixtures/''',
+  '''package-lock\.json$''',
+  '''\.uv-cache/''',
+]

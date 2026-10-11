@@ -1,0 +1,5 @@
+{"s_pass":  {"checks_store": {"yes": 0.95}, "has_mock_only": {"yes": 0.05}, "assertion_kind": {"choice": "real", "confidence": 0.9}, "depth": {"score": 2, "level": "full", "confidence": 0.8}},
+ "s_block": {"checks_store": {"yes": 0.05}, "has_mock_only": {"yes": 0.05}, "assertion_kind": {"choice": "real", "confidence": 0.9}, "depth": {"score": 2, "level": "full", "confidence": 0.8}},
+ "s_unc":   {"checks_store": {"yes": 0.5}, "has_mock_only": {"yes": 0.05}, "assertion_kind": {"choice": "real", "confidence": 0.9}, "depth": {"score": 2, "level": "full", "confidence": 0.8}},
+ "s_fail":  {"checks_store": {"yes": 0.95}, "has_mock_only": {"yes": 0.05}, "assertion_kind": {"choice": "mock", "confidence": 0.9}, "depth": {"score": 2, "level": "full", "confidence": 0.8}},
+ "s_human": {"checks_store": {"yes": 0.95}, "has_mock_only": {"yes": 0.05}, "assertion_kind": {"choice": "real", "confidence": 0.9}, "depth": {"score": 2, "level": "full", "confidence": 0.8}}}

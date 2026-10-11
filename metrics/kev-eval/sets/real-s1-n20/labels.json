@@ -1,0 +1,1060 @@
+{
+  "counts": {
+    "clean": 20,
+    "code_beyond_tests": 5,
+    "hardcoded_test_data_leak": 5,
+    "mock_only": 5,
+    "off_by_one_impl": 5,
+    "proxy_status_only": 5,
+    "removed_boundary_case": 5,
+    "removed_error_case": 5,
+    "scenario_no_test": 5,
+    "skipped": 29,
+    "units_total": 65,
+    "wrong_field_assertion": 5
+  },
+  "gate": "gates/feature.v1.yaml",
+  "gate_questions": [
+    "assertion_kind",
+    "boundary_values",
+    "code_beyond_tests",
+    "invalid_partition_assert",
+    "mystery_guest",
+    "permission_probe",
+    "promise_match",
+    "sensitive_equality",
+    "sut_not_bypassed"
+  ],
+  "per_defect": 5,
+  "seed": 1,
+  "set_id": "real-s1-n20",
+  "skipped": [
+    {
+      "base": "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected",
+      "defect": "proxy_status_only",
+      "reason": "clean unit already asserts only status codes"
+    },
+    {
+      "base": "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected",
+      "defect": "removed_error_case",
+      "reason": "no denial/error literal inside the assertions"
+    },
+    {
+      "base": "2026-10-10-add-platform-modelserve__router-proxies-rerank-requests",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-10-assistant-rag-grounding__a-published-listing-is-returned-as-a-product-card",
+      "defect": "removed_error_case",
+      "reason": "scenario is not an error/permission case"
+    },
+    {
+      "base": "2026-10-10-add-platform-modelserve__router-proxies-rerank-requests",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-10-assistant-rag-grounding__a-published-listing-is-returned-as-a-product-card",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-08-port-edge-authz-residuals__a-force-fail-with-a-parked-release-reports-failure",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team",
+      "defect": "removed_boundary_case",
+      "reason": "spec states no countable limit/range (HTTP status codes and values < 3 do not count)"
+    },
+    {
+      "base": "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team",
+      "defect": "wrong_field_assertion",
+      "reason": "no dict-key/`.get` access inside @then assertions"
+    },
+    {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "defect": "wrong_field_assertion",
+      "reason": "no dict-key/`.get` access inside @then assertions"
+    },
+    {
+      "base": "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked",
+      "defect": "off_by_one_impl",
+      "reason": "spec states no number, an off-by-one has no anchor"
+    },
+    {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "defect": "off_by_one_impl",
+      "reason": "spec states no number, an off-by-one has no anchor"
+    },
+    {
+      "base": "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end",
+      "defect": "off_by_one_impl",
+      "reason": "spec states no number, an off-by-one has no anchor"
+    }
+  ],
+  "units": {
+    "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team": {
+      "base": "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team",
+      "change": "2026-09-04-surface-recommendations",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team~mock_only": {
+      "base": "2026-09-04-surface-recommendations__logged-in-buyer-sees-a-recommendations-row-sourced-from-team",
+      "change": "2026-09-04-surface-recommendations",
+      "defect": "mock_only",
+      "detail": "5 assertion statement(s) replaced by a mock-called check",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/mock-only",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (behaviour verification only); tsDetect",
+      "tolerated": [
+        "promise_match",
+        "sut_not_bypassed"
+      ]
+    },
+    "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end": {
+      "base": "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end",
+      "change": "2026-09-04-wire-openfeature",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end~mock_only": {
+      "base": "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end",
+      "change": "2026-09-04-wire-openfeature",
+      "defect": "mock_only",
+      "detail": "4 assertion statement(s) replaced by a mock-called check",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/mock-only",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (behaviour verification only); tsDetect",
+      "tolerated": [
+        "promise_match",
+        "sut_not_bypassed"
+      ]
+    },
+    "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end~removed_error_case": {
+      "base": "2026-09-04-wire-openfeature__kill-switch-off-blocks-checkout-end-to-end",
+      "change": "2026-09-04-wire-openfeature",
+      "defect": "removed_error_case",
+      "detail": "denial/error expectation in 2 assertion(s) rewritten to the success path (scenario text unchanged)",
+      "expect_fail": [
+        "invalid_partition_assert"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/error-guessing+ASVS-4.0.3/V4",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 error guessing; OWASP ASVS 4.0.3 V4 access control",
+      "tolerated": [
+        "assertion_kind",
+        "permission_probe",
+        "promise_match"
+      ]
+    },
+    "2026-10-08-port-edge-authz-residuals__a-force-fail-with-a-parked-release-reports-failure": {
+      "base": "2026-10-08-port-edge-authz-residuals__a-force-fail-with-a-parked-release-reports-failure",
+      "change": "2026-10-08-port-edge-authz-residuals",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-08-port-edge-authz-residuals__a-force-fail-with-a-parked-release-reports-failure~removed_error_case": {
+      "base": "2026-10-08-port-edge-authz-residuals__a-force-fail-with-a-parked-release-reports-failure",
+      "change": "2026-10-08-port-edge-authz-residuals",
+      "defect": "removed_error_case",
+      "detail": "denial/error expectation in 1 assertion(s) rewritten to the success path (scenario text unchanged)",
+      "expect_fail": [
+        "invalid_partition_assert"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/error-guessing+ASVS-4.0.3/V4",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 error guessing; OWASP ASVS 4.0.3 V4 access control",
+      "tolerated": [
+        "assertion_kind",
+        "permission_probe",
+        "promise_match"
+      ]
+    },
+    "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected": {
+      "base": "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected",
+      "change": "2026-10-08-port-security-hardening",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected~code_beyond_tests": {
+      "base": "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected",
+      "change": "2026-10-08-port-security-hardening",
+      "defect": "code_beyond_tests",
+      "detail": "added an unexercised branch/side effect to IMPL",
+      "expect_fail": [
+        "code_beyond_tests"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "GOOGLE-ENG/complexity",
+      "standard_ref": "Google Engineering Practices - code review: complexity / tests",
+      "tolerated": []
+    },
+    "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected~removed_boundary_case": {
+      "base": "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected",
+      "change": "2026-10-08-port-security-hardening",
+      "defect": "removed_boundary_case",
+      "detail": "boundary 255 replaced by mid-range 127 (2 occurrence(s))",
+      "expect_fail": [
+        "boundary_values"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/BVA",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 boundary value analysis",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected~scenario_no_test": {
+      "base": "2026-10-08-port-security-hardening__a-malformed-idempotency-key-is-rejected",
+      "change": "2026-10-08-port-security-hardening",
+      "defect": "scenario_no_test",
+      "detail": "1 @then step body(ies) replaced by `pass`",
+      "expect_fail": [
+        "assertion_kind",
+        "promise_match"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/scenario-testing",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 scenario testing (every scenario needs a test that checks it)",
+      "tolerated": []
+    },
+    "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked": {
+      "base": "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked",
+      "change": "2026-10-09-ai-path-resilience",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked~wrong_field_assertion": {
+      "base": "2026-10-09-ai-path-resilience__prices-and-order-numbers-are-not-masked",
+      "change": "2026-10-09-ai-path-resilience",
+      "defect": "wrong_field_assertion",
+      "detail": "1 assertion(s) now read a field name the spec never mentions",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: assertion reads a field the spec does not name",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report": {
+      "base": "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report",
+      "change": "2026-10-09-analytics-data-quality",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report~off_by_one_impl": {
+      "base": "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report",
+      "change": "2026-10-09-analytics-data-quality",
+      "defect": "off_by_one_impl",
+      "detail": "limit comparison `>` became `>=` in IMPL",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: off-by-one in the implementation limit",
+      "tolerated": []
+    },
+    "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report~removed_boundary_case": {
+      "base": "2026-10-09-analytics-data-quality__fresh-views-appear-in-the-report",
+      "change": "2026-10-09-analytics-data-quality",
+      "defect": "removed_boundary_case",
+      "detail": "boundary 3 replaced by mid-range 1 (6 occurrence(s))",
+      "expect_fail": [
+        "boundary_values"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/BVA",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 boundary value analysis",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure": {
+      "base": "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure",
+      "change": "2026-10-09-authz-residuals-2",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure~code_beyond_tests": {
+      "base": "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure",
+      "change": "2026-10-09-authz-residuals-2",
+      "defect": "code_beyond_tests",
+      "detail": "added an unexercised branch/side effect to IMPL",
+      "expect_fail": [
+        "code_beyond_tests"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "GOOGLE-ENG/complexity",
+      "standard_ref": "Google Engineering Practices - code review: complexity / tests",
+      "tolerated": []
+    },
+    "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure~removed_error_case": {
+      "base": "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure",
+      "change": "2026-10-09-authz-residuals-2",
+      "defect": "removed_error_case",
+      "detail": "denial/error expectation in 1 assertion(s) rewritten to the success path (scenario text unchanged)",
+      "expect_fail": [
+        "invalid_partition_assert"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/error-guessing+ASVS-4.0.3/V4",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 error guessing; OWASP ASVS 4.0.3 V4 access control",
+      "tolerated": [
+        "assertion_kind",
+        "permission_probe",
+        "promise_match"
+      ]
+    },
+    "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure~scenario_no_test": {
+      "base": "2026-10-09-authz-residuals-2__a-force-fail-with-a-parked-release-reports-failure",
+      "change": "2026-10-09-authz-residuals-2",
+      "defect": "scenario_no_test",
+      "detail": "2 @then step body(ies) replaced by `pass`",
+      "expect_fail": [
+        "assertion_kind",
+        "promise_match"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/scenario-testing",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 scenario testing (every scenario needs a test that checks it)",
+      "tolerated": []
+    },
+    "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export": {
+      "base": "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export",
+      "change": "2026-10-09-featurestore-materialization",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export~code_beyond_tests": {
+      "base": "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export",
+      "change": "2026-10-09-featurestore-materialization",
+      "defect": "code_beyond_tests",
+      "detail": "added an unexercised branch/side effect to IMPL",
+      "expect_fail": [
+        "code_beyond_tests"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "GOOGLE-ENG/complexity",
+      "standard_ref": "Google Engineering Practices - code review: complexity / tests",
+      "tolerated": []
+    },
+    "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export~proxy_status_only": {
+      "base": "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export",
+      "change": "2026-10-09-featurestore-materialization",
+      "defect": "proxy_status_only",
+      "detail": "1 assertion statement(s) replaced by `assert resp.status_code == 200`",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/proxy-assertion",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (state vs behaviour verification); tsDetect assertion smells",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export~wrong_field_assertion": {
+      "base": "2026-10-09-featurestore-materialization__a-tracked-view-reaches-the-resolved-export",
+      "change": "2026-10-09-featurestore-materialization",
+      "defect": "wrong_field_assertion",
+      "detail": "1 assertion(s) now read a field name the spec never mentions",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: assertion reads a field the spec does not name",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment": {
+      "base": "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment",
+      "change": "2026-10-09-notify-chat-and-shipment",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment~removed_error_case": {
+      "base": "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment",
+      "change": "2026-10-09-notify-chat-and-shipment",
+      "defect": "removed_error_case",
+      "detail": "denial/error expectation in 2 assertion(s) rewritten to the success path (scenario text unchanged)",
+      "expect_fail": [
+        "invalid_partition_assert"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/error-guessing+ASVS-4.0.3/V4",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 error guessing; OWASP ASVS 4.0.3 V4 access control",
+      "tolerated": [
+        "assertion_kind",
+        "permission_probe",
+        "promise_match"
+      ]
+    },
+    "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment~scenario_no_test": {
+      "base": "2026-10-09-notify-chat-and-shipment__the-shipment-event-is-written-with-the-shipment",
+      "change": "2026-10-09-notify-chat-and-shipment",
+      "defect": "scenario_no_test",
+      "detail": "2 @then step body(ies) replaced by `pass`",
+      "expect_fail": [
+        "assertion_kind",
+        "promise_match"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/scenario-testing",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 scenario testing (every scenario needs a test that checks it)",
+      "tolerated": []
+    },
+    "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count": {
+      "base": "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count",
+      "change": "2026-10-09-order-facts-buyer",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count~mock_only": {
+      "base": "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count",
+      "change": "2026-10-09-order-facts-buyer",
+      "defect": "mock_only",
+      "detail": "2 assertion statement(s) replaced by a mock-called check",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/mock-only",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (behaviour verification only); tsDetect",
+      "tolerated": [
+        "promise_match",
+        "sut_not_bypassed"
+      ]
+    },
+    "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count~off_by_one_impl": {
+      "base": "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count",
+      "change": "2026-10-09-order-facts-buyer",
+      "defect": "off_by_one_impl",
+      "detail": "limit comparison `>` became `>=` in IMPL",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: off-by-one in the implementation limit",
+      "tolerated": []
+    },
+    "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count~removed_boundary_case": {
+      "base": "2026-10-09-order-facts-buyer__only-orders-in-the-30-days-before-as-of-count",
+      "change": "2026-10-09-order-facts-buyer",
+      "defect": "removed_boundary_case",
+      "detail": "boundary 30 replaced by mid-range 15 (1 occurrence(s))",
+      "expect_fail": [
+        "boundary_values"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/BVA",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 boundary value analysis",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched": {
+      "base": "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched",
+      "change": "2026-10-09-serving-switch-atomicity",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched~code_beyond_tests": {
+      "base": "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched",
+      "change": "2026-10-09-serving-switch-atomicity",
+      "defect": "code_beyond_tests",
+      "detail": "added an unexercised branch/side effect to IMPL",
+      "expect_fail": [
+        "code_beyond_tests"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "GOOGLE-ENG/complexity",
+      "standard_ref": "Google Engineering Practices - code review: complexity / tests",
+      "tolerated": []
+    },
+    "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched~proxy_status_only": {
+      "base": "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched",
+      "change": "2026-10-09-serving-switch-atomicity",
+      "defect": "proxy_status_only",
+      "detail": "1 assertion statement(s) replaced by `assert resp.status_code == 200`",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/proxy-assertion",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (state vs behaviour verification); tsDetect assertion smells",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched~wrong_field_assertion": {
+      "base": "2026-10-09-serving-switch-atomicity__a-rejected-candidate-leaves-serving-untouched",
+      "change": "2026-10-09-serving-switch-atomicity",
+      "defect": "wrong_field_assertion",
+      "detail": "1 assertion(s) now read a field name the spec never mentions",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: assertion reads a field the spec does not name",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-shop-display-name__lookup-failure-does-not-break-the-page": {
+      "base": "2026-10-09-shop-display-name__lookup-failure-does-not-break-the-page",
+      "change": "2026-10-09-shop-display-name",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-shop-display-name__lookup-failure-does-not-break-the-page~hardcoded_test_data_leak": {
+      "base": "2026-10-09-shop-display-name__lookup-failure-does-not-break-the-page",
+      "change": "2026-10-09-shop-display-name",
+      "defect": "hardcoded_test_data_leak",
+      "detail": "hardcoded secret/PII literal added to the step module",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: secret/PII literal in test code (a secrets scanner's job)",
+      "tolerated": [
+        "mystery_guest"
+      ]
+    },
+    "2026-10-09-shop-display-name__lookup-failure-does-not-break-the-page~removed_boundary_case": {
+      "base": "2026-10-09-shop-display-name__lookup-failure-does-not-break-the-page",
+      "change": "2026-10-09-shop-display-name",
+      "defect": "removed_boundary_case",
+      "detail": "boundary 6 replaced by mid-range 3 (1 occurrence(s))",
+      "expect_fail": [
+        "boundary_values"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/BVA",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 boundary value analysis",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id": {
+      "base": "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id",
+      "change": "2026-10-09-ui-phase-cart-checkout",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id~hardcoded_test_data_leak": {
+      "base": "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id",
+      "change": "2026-10-09-ui-phase-cart-checkout",
+      "defect": "hardcoded_test_data_leak",
+      "detail": "hardcoded secret/PII literal added to the step module",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: secret/PII literal in test code (a secrets scanner's job)",
+      "tolerated": [
+        "mystery_guest"
+      ]
+    },
+    "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id~off_by_one_impl": {
+      "base": "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id",
+      "change": "2026-10-09-ui-phase-cart-checkout",
+      "defect": "off_by_one_impl",
+      "detail": "limit comparison `>` became `>=` in IMPL",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: off-by-one in the implementation limit",
+      "tolerated": []
+    },
+    "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id~proxy_status_only": {
+      "base": "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id",
+      "change": "2026-10-09-ui-phase-cart-checkout",
+      "defect": "proxy_status_only",
+      "detail": "1 assertion statement(s) replaced by `expect(world.page.locator(\"body\")).to_be_visible()`",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/proxy-assertion",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (state vs behaviour verification); tsDetect assertion smells",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id~removed_boundary_case": {
+      "base": "2026-10-09-ui-phase-cart-checkout__empty-shop-name-falls-back-to-the-short-id",
+      "change": "2026-10-09-ui-phase-cart-checkout",
+      "defect": "removed_boundary_case",
+      "detail": "boundary 6 replaced by mid-range 3 (3 occurrence(s))",
+      "expect_fail": [
+        "boundary_values"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/BVA",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 boundary value analysis",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated": {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "change": "2026-10-09-ui-phase-discovery",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated~hardcoded_test_data_leak": {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "change": "2026-10-09-ui-phase-discovery",
+      "defect": "hardcoded_test_data_leak",
+      "detail": "hardcoded secret/PII literal added to the step module",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: secret/PII literal in test code (a secrets scanner's job)",
+      "tolerated": [
+        "mystery_guest"
+      ]
+    },
+    "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated~proxy_status_only": {
+      "base": "2026-10-09-ui-phase-discovery__seller-tools-are-scope-gated",
+      "change": "2026-10-09-ui-phase-discovery",
+      "defect": "proxy_status_only",
+      "detail": "3 assertion statement(s) replaced by `expect(world.page.locator(\"body\")).to_be_visible()`",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/proxy-assertion",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (state vs behaviour verification); tsDetect assertion smells",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-10-add-platform-modelserve__router-proxies-rerank-requests": {
+      "base": "2026-10-10-add-platform-modelserve__router-proxies-rerank-requests",
+      "change": "2026-10-10-add-platform-modelserve",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-10-add-platform-modelserve__router-proxies-rerank-requests~hardcoded_test_data_leak": {
+      "base": "2026-10-10-add-platform-modelserve__router-proxies-rerank-requests",
+      "change": "2026-10-10-add-platform-modelserve",
+      "defect": "hardcoded_test_data_leak",
+      "detail": "hardcoded secret/PII literal added to the step module",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: secret/PII literal in test code (a secrets scanner's job)",
+      "tolerated": [
+        "mystery_guest"
+      ]
+    },
+    "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification": {
+      "base": "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification",
+      "change": "2026-10-10-add-tag-classifier-filter-enrichment",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification~mock_only": {
+      "base": "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification",
+      "change": "2026-10-10-add-tag-classifier-filter-enrichment",
+      "defect": "mock_only",
+      "detail": "2 assertion statement(s) replaced by a mock-called check",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/mock-only",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (behaviour verification only); tsDetect",
+      "tolerated": [
+        "promise_match",
+        "sut_not_bypassed"
+      ]
+    },
+    "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification~scenario_no_test": {
+      "base": "2026-10-10-add-tag-classifier-filter-enrichment__spu-level-tag-classification",
+      "change": "2026-10-10-add-tag-classifier-filter-enrichment",
+      "defect": "scenario_no_test",
+      "detail": "2 @then step body(ies) replaced by `pass`",
+      "expect_fail": [
+        "assertion_kind",
+        "promise_match"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/scenario-testing",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 scenario testing (every scenario needs a test that checks it)",
+      "tolerated": []
+    },
+    "2026-10-10-assistant-rag-grounding__a-published-listing-is-returned-as-a-product-card": {
+      "base": "2026-10-10-assistant-rag-grounding__a-published-listing-is-returned-as-a-product-card",
+      "change": "2026-10-10-assistant-rag-grounding",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on": {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "change": "2026-10-10-featurestore-item-attributes",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on~hardcoded_test_data_leak": {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "change": "2026-10-10-featurestore-item-attributes",
+      "defect": "hardcoded_test_data_leak",
+      "detail": "hardcoded secret/PII literal added to the step module",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: secret/PII literal in test code (a secrets scanner's job)",
+      "tolerated": [
+        "mystery_guest"
+      ]
+    },
+    "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on~off_by_one_impl": {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "change": "2026-10-10-featurestore-item-attributes",
+      "defect": "off_by_one_impl",
+      "detail": "limit comparison `>` became `>=` in IMPL",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: off-by-one in the implementation limit",
+      "tolerated": []
+    },
+    "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on~proxy_status_only": {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "change": "2026-10-10-featurestore-item-attributes",
+      "defect": "proxy_status_only",
+      "detail": "3 assertion statement(s) replaced by `assert resp.status_code == 200`",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/proxy-assertion",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (state vs behaviour verification); tsDetect assertion smells",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on~scenario_no_test": {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "change": "2026-10-10-featurestore-item-attributes",
+      "defect": "scenario_no_test",
+      "detail": "1 @then step body(ies) replaced by `pass`",
+      "expect_fail": [
+        "assertion_kind",
+        "promise_match"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/scenario-testing",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 scenario testing (every scenario needs a test that checks it)",
+      "tolerated": []
+    },
+    "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on~wrong_field_assertion": {
+      "base": "2026-10-10-featurestore-item-attributes__the-model-records-the-attribute-snapshots-it-trained-on",
+      "change": "2026-10-10-featurestore-item-attributes",
+      "defect": "wrong_field_assertion",
+      "detail": "3 assertion(s) now read a field name the spec never mentions",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: assertion reads a field the spec does not name",
+      "tolerated": [
+        "promise_match"
+      ]
+    },
+    "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused": {
+      "base": "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused",
+      "change": "2026-10-10-tag-routes-authz",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused~code_beyond_tests": {
+      "base": "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused",
+      "change": "2026-10-10-tag-routes-authz",
+      "defect": "code_beyond_tests",
+      "detail": "added an unexercised branch/side effect to IMPL",
+      "expect_fail": [
+        "code_beyond_tests"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "GOOGLE-ENG/complexity",
+      "standard_ref": "Google Engineering Practices - code review: complexity / tests",
+      "tolerated": []
+    },
+    "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused~off_by_one_impl": {
+      "base": "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused",
+      "change": "2026-10-10-tag-routes-authz",
+      "defect": "off_by_one_impl",
+      "detail": "limit comparison `>` became `>=` in IMPL",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: off-by-one in the implementation limit",
+      "tolerated": []
+    },
+    "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused~removed_error_case": {
+      "base": "2026-10-10-tag-routes-authz__anonymous-tag-requests-are-refused",
+      "change": "2026-10-10-tag-routes-authz",
+      "defect": "removed_error_case",
+      "detail": "denial/error expectation in 1 assertion(s) rewritten to the success path (scenario text unchanged)",
+      "expect_fail": [
+        "permission_probe"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "ISO29119-4/error-guessing+ASVS-4.0.3/V4",
+      "standard_ref": "ISO/IEC/IEEE 29119-4 error guessing; OWASP ASVS 4.0.3 V4 access control",
+      "tolerated": [
+        "assertion_kind",
+        "invalid_partition_assert",
+        "promise_match"
+      ]
+    },
+    "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim": {
+      "base": "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim",
+      "change": "2026-10-11-redpanda-durable-topics",
+      "defect": null,
+      "expect_fail": [],
+      "expected": "pass",
+      "group": "clean",
+      "standard": null,
+      "tolerated": []
+    },
+    "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim~mock_only": {
+      "base": "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim",
+      "change": "2026-10-11-redpanda-durable-topics",
+      "defect": "mock_only",
+      "detail": "3 assertion statement(s) replaced by a mock-called check",
+      "expect_fail": [
+        "assertion_kind"
+      ],
+      "expected": "fail",
+      "group": "seeded",
+      "standard": "MESZAROS-2007/mock-only",
+      "standard_ref": "Meszaros xUnit Test Patterns 2007 (behaviour verification only); tsDetect",
+      "tolerated": [
+        "promise_match",
+        "sut_not_bypassed"
+      ]
+    },
+    "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim~wrong_field_assertion": {
+      "base": "2026-10-11-redpanda-durable-topics__the-broker-data-dir-is-on-a-claim",
+      "change": "2026-10-11-redpanda-durable-topics",
+      "defect": "wrong_field_assertion",
+      "detail": "2 assertion(s) now read a field name the spec never mentions",
+      "expect_fail": [],
+      "expected": "none",
+      "group": "out_of_checklist",
+      "standard": "none",
+      "standard_ref": "out of checklist: assertion reads a field the spec does not name",
+      "tolerated": [
+        "promise_match"
+      ]
+    }
+  }
+}

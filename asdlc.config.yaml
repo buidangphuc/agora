@@ -1,0 +1,63 @@
+# ASDLC v2 configuration. One process, two profiles: they differ only in strictness.
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc_config.py --check
+profile: solo            # active profile: solo | team (override with --profile)
+
+# --- shared settings (identical for every profile) ---
+thresholds:              # default noul/choice thresholds used by gates/*.yaml when a question omits one
+  noul: 0.85             # P(pass answer) >= this -> pass; <= 1 - this -> fail; else uncertain. Range (0.5, 1)
+  choice: 0.6            # min top-choice confidence before the answer counts. Range (0.5, 1)
+escalation:
+  max_rounds: 3          # LLM-reviewer rounds on uncertain questions before the unit goes to a human
+routing:                 # path globs (fnmatch) that tag a change NEEDS_HUMAN; matched on changed file paths
+  auth:                  # authentication / authorization surface
+    - "team-identity/**"
+    - "**/auth*"
+    - "**/interceptor/**"
+    - "*jwt*"
+    - "*jwks*"
+    - "*login*"
+    - "*scope*"
+  payment:               # payment handling
+    - "team-payment/**"
+  pii:                   # personal data (PDPA / GDPR)
+    - "**/address*"
+    - "**/profile*"
+    - "**/email*"
+    - "**/phone*"
+    - "team-identity/**"
+  proto:                 # cross-service contracts
+    - "platform-core/packages/proto/**"
+  release:               # deploy surface: prod overlays and image publishing
+    - "platform-gitops/envs/prod/**"
+    - "deploy/images/**"
+paths:
+  gates_dir: gates                      # versioned question sets: gates/<gate>.v<N>.yaml
+  kev_client: "~/tools/kev/kev.py"      # decision-engine client (local DGX model)
+  kev_log: ~/tools/kev/log.jsonl       # full-state run log (kev.py $KEV_LOG default), outside the repo, replayable
+
+# --- per-profile strictness (both profiles must define exactly the same keys) ---
+profiles:
+  solo:
+    wip_limit: 3                 # max open OpenSpec changes in flight
+    approvals:                   # human approvals required per change risk tier
+      low: 0
+      medium: 1
+      high: 1
+    reviewers:                   # who must review at each gate
+      spec: [spec-quality-reviewer]
+      task: [task-reviewer]
+      feature: [feature-reviewer]
+      release: [feature-reviewer, human]
+    kev_mode: advisory           # advisory (WOULD_BLOCK, never blocks) | enforce (BLOCK blocks)
+  team:
+    wip_limit: 5
+    approvals:
+      low: 1
+      medium: 1
+      high: 2
+    reviewers:
+      spec: [spec-quality-reviewer, human]
+      task: [task-reviewer]
+      feature: [feature-reviewer, human]
+      release: [feature-reviewer, human]
+    kev_mode: advisory           # stays advisory until the section-14 experiment gives good numbers
