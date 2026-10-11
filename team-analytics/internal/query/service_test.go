@@ -1,6 +1,9 @@
 package query_test
 
 import (
+	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -10,6 +13,8 @@ import (
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
 func ts(t time.Time) *timestamppb.Timestamp { return timestamppb.New(t) }
@@ -196,5 +201,101 @@ func TestGetDemandForecast_HappyPath(t *testing.T) {
 	}
 	if resp.GetSafetyStock() <= 0 {
 		t.Errorf("safety_stock = %v, want > 0", resp.GetSafetyStock())
+	}
+}
+
+// ---- funnel-distinct: begin_checkout / purchase projection ----
+
+type funnelEv struct {
+	typ, txn string
+}
+
+// memEvents builds MemoryRepository events. Event has no TransactionID field
+// yet (implementer adds it in memory.go); set it via reflection so the failure
+// is a behavioural red, not a compile error.
+func memFunnelRepo(t *testing.T, evs []funnelEv) query.Repository {
+	t.Helper()
+	d := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	var out []query.Event
+	for _, e := range evs {
+		ev := query.Event{SellerID: "seller-1", EventType: e.typ, OccurredAt: d}
+		if e.txn != "" {
+			f := reflect.ValueOf(&ev).Elem().FieldByName("TransactionID")
+			if !f.IsValid() {
+				t.Fatalf("query.Event has no TransactionID field")
+			}
+			f.SetString(e.txn)
+		}
+		out = append(out, ev)
+	}
+	return query.NewMemoryRepository(out...)
+}
+
+func duckFunnelRepo(t *testing.T, evs []funnelEv) query.Repository {
+	t.Helper()
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "")
+	if err != nil {
+		t.Fatalf("duckdb.Open: %v", err)
+	}
+	t.Cleanup(func() { w.Close() })
+	d := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	var recs []*warehouse.TrackingRecord
+	for i, e := range evs {
+		recs = append(recs, &warehouse.TrackingRecord{
+			EventID: fmt.Sprintf("e%d", i), EventType: e.typ, OccurredAt: d,
+			ListingID: "lst-a", TransactionID: e.txn,
+		})
+	}
+	if err := w.Write(ctx, recs); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "lst-a", SellerID: "seller-1", UpdatedAt: d},
+	}); err != nil {
+		t.Fatalf("UpsertListingSellers: %v", err)
+	}
+	return query.NewDuckDBRepository(w.DB())
+}
+
+func TestGetSellerFunnel_CheckoutPurchase(t *testing.T) {
+	repos := map[string]func(*testing.T, []funnelEv) query.Repository{
+		"memory": memFunnelRepo, "duckdb": duckFunnelRepo,
+	}
+	cases := []struct {
+		name          string
+		evs           []funnelEv
+		wantBC, wantP int64
+	}{
+		{"Funnel projects checkout and purchase", []funnelEv{
+			{"begin_checkout", ""}, {"begin_checkout", ""}, {"purchase", "o-1"},
+		}, 2, 1},
+		{"Funnel purchases count distinct transaction ids", []funnelEv{
+			{"purchase", "o-1"}, {"purchase", "o-1"}, {"purchase", "o-1"}, {"purchase", "o-2"},
+		}, 0, 2},
+		{"Funnel purchases count distinct transaction ids: empty ids each count", []funnelEv{
+			{"purchase", ""}, {"purchase", ""}, {"purchase", "o-1"}, {"purchase", "o-1"},
+		}, 0, 3},
+	}
+	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+	for rn, mk := range repos {
+		for _, c := range cases {
+			t.Run(rn+"/"+c.name, func(t *testing.T) {
+				svc := query.NewService(mk(t, c.evs))
+				resp, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
+					SellerId: "seller-1", From: ts(from), To: ts(to),
+				})
+				if err != nil {
+					t.Fatalf("GetSellerFunnel: %v", err)
+				}
+				if got := resp.GetBeginCheckouts(); got != c.wantBC {
+					t.Errorf("begin_checkouts = %d, want %d", got, c.wantBC)
+				}
+				if got := resp.GetPurchases(); got != c.wantP {
+					t.Errorf("purchases = %d, want %d", got, c.wantP)
+				}
+			})
+		}
 	}
 }
