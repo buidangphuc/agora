@@ -65,7 +65,7 @@ beforeEach(() => {
 });
 
 async function renderPage(searchParams = {}) {
-  render(await CartPage({ searchParams }));
+  render(await CartPage({ searchParams: Promise.resolve(searchParams) }));
 }
 
 describe("/cart page", () => {

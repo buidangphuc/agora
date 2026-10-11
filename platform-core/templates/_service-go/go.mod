@@ -10,18 +10,18 @@
 // buildable — that's expected for a seed template.
 module github.com/your-org/team-service
 
-go 1.22
+go 1.26.0
 
 require (
 	// gRPC transport + server (health, reflection live in subpackages).
-	google.golang.org/grpc v1.66.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/grpc v1.83.2
+	google.golang.org/protobuf v1.36.11
 
 	// OpenTelemetry: API + SDK + gRPC instrumentation + OTLP/gRPC exporter.
 	// Exporter is swappable (stdout, OTLP/http, ...) — see ADR-0004.
-	go.opentelemetry.io/otel v1.28.0
-	go.opentelemetry.io/otel/sdk v1.28.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.28.0
+	go.opentelemetry.io/otel v1.44.0
+	go.opentelemetry.io/otel/sdk v1.44.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0
 )
 

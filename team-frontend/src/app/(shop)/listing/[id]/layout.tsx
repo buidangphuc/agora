@@ -9,10 +9,14 @@ import { loadListing } from "./data";
  * streams; the skeleton still covers client navigations. The 404 UI is
  * listing/not-found.tsx (a segment's not-found.tsx never catches its own layout).
  */
-export default async function ListingLayout({
-  children,
-  params,
-}: { children: ReactNode; params: { id: string } }) {
+export default async function ListingLayout(props: {
+  children: ReactNode;
+  params: Promise<{ id: string }>;
+}) {
+  const params = await props.params;
+
+  const { children } = props;
+
   if (!(await loadListing(params.id))) notFound();
   return children;
 }

@@ -128,11 +128,10 @@ function ReadError({ what }: { what: string }) {
   );
 }
 
-export default async function SecurityPage({
-  searchParams,
-}: {
-  searchParams?: { page?: string };
+export default async function SecurityPage(props: {
+  searchParams?: Promise<{ page?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   if (!getPrincipal()) redirect("/login");
 
   const [sessions, history] = await Promise.all([

@@ -48,9 +48,15 @@ beforeEach(() => {
 
 describe("VouchersPage", () => {
   it("renders the real vouchers filtered by ?type=", async () => {
-    render(await VouchersPage({ searchParams: { type: "percent" } }));
+    render(
+      await VouchersPage({
+        searchParams: Promise.resolve({ type: "percent" }),
+      }),
+    );
     expect(screen.queryByTestId("voucher-card")).toBeNull();
-    render(await VouchersPage({ searchParams: { type: "fixed" } }));
+    render(
+      await VouchersPage({ searchParams: Promise.resolve({ type: "fixed" }) }),
+    );
     expect(screen.getByTestId("voucher-card")).toHaveAttribute(
       "data-code",
       "MINUS50K",
@@ -58,32 +64,34 @@ describe("VouchersPage", () => {
   });
 
   it("falls back to all for an unknown type", async () => {
-    render(await VouchersPage({ searchParams: { type: "zzz" } }));
+    render(
+      await VouchersPage({ searchParams: Promise.resolve({ type: "zzz" }) }),
+    );
     expect(screen.getByTestId("voucher-card")).toBeInTheDocument();
   });
 
   it("hides the seller manager without the listing.write scope", async () => {
     getPrincipal.mockReturnValue({ sub: "u" });
     hasScope.mockReturnValue(false);
-    render(await VouchersPage({ searchParams: {} }));
+    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
     expect(screen.queryByText("MANAGER")).toBeNull();
   });
 
   it("hides the seller manager for anonymous visitors", async () => {
-    render(await VouchersPage({ searchParams: {} }));
+    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
     expect(screen.queryByText("MANAGER")).toBeNull();
   });
 
   it("shows the seller manager with listing.write", async () => {
     getPrincipal.mockReturnValue({ sub: "u" });
     hasScope.mockImplementation((s: string) => s === "listing.write");
-    render(await VouchersPage({ searchParams: {} }));
+    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("MANAGER")).toBeInTheDocument();
   });
 
   it("renders Empty when the gateway returned nothing", async () => {
     listVouchers.mockResolvedValue([]);
-    render(await VouchersPage({ searchParams: {} }));
+    render(await VouchersPage({ searchParams: Promise.resolve({}) }));
     expect(
       screen.getByRole("link", { name: "Xem sản phẩm" }),
     ).toBeInTheDocument();

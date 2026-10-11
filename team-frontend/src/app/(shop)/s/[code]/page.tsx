@@ -6,11 +6,10 @@ export const dynamic = "force-dynamic";
 
 // Resolver for short share links (/s/<code>): looks up the target and redirects,
 // incrementing the link's click_count as a side-effect of ResolveShareLink.
-export default async function ShareRedirectPage({
-  params,
-}: {
-  params: { code: string };
+export default async function ShareRedirectPage(props: {
+  params: Promise<{ code: string }>;
 }) {
+  const params = await props.params;
   const link = await resolveShareLink(params.code);
   if (!link) redirect("/");
 

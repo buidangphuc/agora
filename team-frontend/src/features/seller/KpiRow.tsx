@@ -19,7 +19,12 @@ export function KpiRow({
   loading = false,
 }: { cells: KpiCell[]; loading?: boolean }) {
   return (
-    <div className={KPI_GRID} data-testid="kpi-row">
+    <div
+      className={KPI_GRID}
+      // The skeleton gets its own id: React 19 reveals a streamed boundary a
+      // beat after its content lands (hidden), so both rows can co-exist.
+      data-testid={loading ? "kpi-row-skeleton" : "kpi-row"}
+    >
       {cells.map((c) => (
         <Statistic
           key={c.key}

@@ -36,7 +36,9 @@ const revenue = {
 };
 
 async function renderPage(searchParams: { range?: string } = {}) {
-  render(await SellerAnalyticsPage({ searchParams }));
+  render(
+    await SellerAnalyticsPage({ searchParams: Promise.resolve(searchParams) }),
+  );
 }
 
 beforeEach(() => {

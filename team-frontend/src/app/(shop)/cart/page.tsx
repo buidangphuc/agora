@@ -21,11 +21,10 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-export default async function CartPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
+export default async function CartPage(props: {
+  searchParams: Promise<SearchParams>;
 }) {
+  const searchParams = await props.searchParams;
   // Evaluate the checkout kill-switch server-side; the browser only receives the
   // resolved boolean, never the flag SDK or the Flipt endpoint.
   const [cart, checkoutEnabled] = await Promise.all([

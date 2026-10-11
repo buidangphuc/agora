@@ -80,9 +80,9 @@ job_security() {
   elif [ "$DOCKER_TOOLS" -eq 1 ] && have docker; then
     docker run --rm -v "$ROOT:/repo" zricethezav/gitleaks:latest detect --source /repo --config /repo/.gitleaks.toml --no-banner || rc=1
   fi
-  if have trivy; then trivy fs --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 . || rc=1
+  if have trivy; then trivy fs --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore.yaml --exit-code 1 . || rc=1
   elif [ "$DOCKER_TOOLS" -eq 1 ] && have docker; then
-    docker run --rm -v "$ROOT:/repo" aquasec/trivy:latest fs --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 /repo || rc=1
+    docker run --rm -v "$ROOT:/repo" aquasec/trivy:latest fs --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /repo/.trivyignore.yaml --exit-code 1 /repo || rc=1
   fi
   # semgrep is advisory in CI (continue-on-error): never fails the local job either
   if have semgrep; then semgrep scan --config p/default --metrics=off || echo "semgrep: findings (advisory)"

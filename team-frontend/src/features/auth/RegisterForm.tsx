@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -21,7 +21,7 @@ const ROLE_OPTIONS = [
 ];
 
 export function RegisterForm() {
-  const [state, action] = useFormState(registerAction, initial);
+  const [state, action] = useActionState(registerAction, initial);
   const form = useCredentialForm(state, validateRegister);
 
   return (

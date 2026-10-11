@@ -8,13 +8,12 @@ import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function ShopPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: Record<string, string | string[] | undefined>;
+export default async function ShopPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const me = getPrincipal();
   const [shop, following, storefront, bundles, summary] = await Promise.all([
     // Only this seller's published listings: the search service filters by seller_id

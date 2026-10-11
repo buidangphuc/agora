@@ -44,7 +44,11 @@ beforeEach(() => {
 
 describe("SearchPage", () => {
   it("ignores an old rating param", async () => {
-    render(await SearchPage({ searchParams: { q: "ao", rating: "4" } }));
+    render(
+      await SearchPage({
+        searchParams: Promise.resolve({ q: "ao", rating: "4" }),
+      }),
+    );
     const state = JSON.parse(
       screen.getByTestId("results-state").textContent ?? "",
     );
@@ -54,7 +58,11 @@ describe("SearchPage", () => {
   it("parses URL params into state for the results block and starts one search", async () => {
     render(
       await SearchPage({
-        searchParams: { q: "ao", sort: "price_asc", page: "3" },
+        searchParams: Promise.resolve({
+          q: "ao",
+          sort: "price_asc",
+          page: "3",
+        }),
       }),
     );
     expect(
@@ -72,7 +80,11 @@ describe("SearchPage", () => {
   });
 
   it("falls back to defaults for malformed params", async () => {
-    render(await SearchPage({ searchParams: { page: "-2", sort: "sales" } }));
+    render(
+      await SearchPage({
+        searchParams: Promise.resolve({ page: "-2", sort: "sales" }),
+      }),
+    );
     const state = JSON.parse(
       screen.getByTestId("results-state").textContent ?? "",
     );
@@ -82,12 +94,12 @@ describe("SearchPage", () => {
 
   it("uses marketplace copy, not the old room-rental text", async () => {
     const { container, rerender } = render(
-      await SearchPage({ searchParams: {} }),
+      await SearchPage({ searchParams: Promise.resolve({}) }),
     );
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Tất cả sản phẩm",
     );
-    rerender(await SearchPage({ searchParams: { q: "ao" } }));
+    rerender(await SearchPage({ searchParams: Promise.resolve({ q: "ao" }) }));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Kết quả cho “ao”",
     );
@@ -95,7 +107,9 @@ describe("SearchPage", () => {
   });
 
   it("shows the category in the breadcrumb and title", async () => {
-    render(await SearchPage({ searchParams: { category: "c1" } }));
+    render(
+      await SearchPage({ searchParams: Promise.resolve({ category: "c1" }) }),
+    );
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Điện thoại",
     );
@@ -109,7 +123,9 @@ describe("SearchPage", () => {
   });
 
   it("mounts category pills with the current category marked", async () => {
-    render(await SearchPage({ searchParams: { category: "c1" } }));
+    render(
+      await SearchPage({ searchParams: Promise.resolve({ category: "c1" }) }),
+    );
     const nav = screen.getByRole("navigation", { name: "Danh mục sản phẩm" });
     expect(
       within(nav).getByRole("link", { name: /Điện thoại/ }),

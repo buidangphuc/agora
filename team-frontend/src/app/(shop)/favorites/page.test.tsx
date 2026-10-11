@@ -93,7 +93,11 @@ describe("/favorites", () => {
   });
 
   it("an active collection filters by id and shows its name", async () => {
-    render(await FavoritesPage({ searchParams: { collection: "c1" } }));
+    render(
+      await FavoritesPage({
+        searchParams: Promise.resolve({ collection: "c1" }),
+      }),
+    );
     expect(listCollectionItems).toHaveBeenCalledWith("c1", "");
     expect(listFavoriteIds).not.toHaveBeenCalled();
     expect(
@@ -106,7 +110,9 @@ describe("/favorites", () => {
 
   it("an unknown collection renders a 404 Result with a way back", async () => {
     render(
-      await FavoritesPage({ searchParams: { collection: "does-not-exist" } }),
+      await FavoritesPage({
+        searchParams: Promise.resolve({ collection: "does-not-exist" }),
+      }),
     );
     expect(screen.getByText("Không tìm thấy bộ sưu tập")).toBeInTheDocument();
     expect(
@@ -122,7 +128,11 @@ describe("/favorites", () => {
       nextCursor: "",
       total: 0,
     });
-    render(await FavoritesPage({ searchParams: { collection: "c1" } }));
+    render(
+      await FavoritesPage({
+        searchParams: Promise.resolve({ collection: "c1" }),
+      }),
+    );
     expect(
       screen.getByText("Bộ sưu tập này chưa có sản phẩm."),
     ).toBeInTheDocument();
@@ -136,7 +146,9 @@ describe("/favorites", () => {
       .mockResolvedValueOnce({ ids: ["a"], nextCursor: "c2", total: 60 })
       .mockResolvedValueOnce({ ids: ["b"], nextCursor: "c3", total: 60 })
       .mockResolvedValueOnce({ ids: ["c"], nextCursor: "", total: 60 });
-    render(await FavoritesPage({ searchParams: { page: "2" } }));
+    render(
+      await FavoritesPage({ searchParams: Promise.resolve({ page: "2" }) }),
+    );
     expect(listFavoriteIds).toHaveBeenNthCalledWith(1, "");
     expect(listFavoriteIds).toHaveBeenNthCalledWith(2, "c2");
     expect(listFavoriteIds).toHaveBeenCalledTimes(2);

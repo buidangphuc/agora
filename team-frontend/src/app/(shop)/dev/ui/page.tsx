@@ -8,11 +8,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "UI catalogue" };
 
 /** Development-only component catalogue; a 404 in production builds. */
-export default function UiCataloguePage({
-  searchParams = {},
-}: {
-  searchParams?: { status?: string; page?: string };
+export default async function UiCataloguePage(props: {
+  searchParams?: Promise<{ status?: string; page?: string }>;
 }) {
+  const searchParams = (await props.searchParams) ?? {};
   if (process.env.NODE_ENV === "production") notFound();
   const page = Number(searchParams.page);
   return (

@@ -42,9 +42,10 @@ const columns: TableColumn<ViewWalletEntry>[] = [
 ];
 
 /** Wallet: balance Statistic, payout confirm Modal, ledger Table + ?page= Pagination. */
-export default async function SellerWalletPage({
-  searchParams = {},
-}: { searchParams?: SearchParams }) {
+export default async function SellerWalletPage(props: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const searchParams = await props.searchParams;
   const me = getPrincipal();
   if (!me || !hasScope("listing.write")) redirect("/login");
 

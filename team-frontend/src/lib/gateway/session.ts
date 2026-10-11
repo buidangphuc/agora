@@ -6,7 +6,7 @@
  */
 import "server-only";
 
-import { cookies } from "next/headers";
+import { type UnsafeUnwrappedCookies, cookies } from "next/headers";
 
 import { isUsableToken } from "./token-expiry.js";
 
@@ -21,7 +21,11 @@ export { SESSION_COOKIE };
  * cannot write cookies; src/middleware.ts clears the stale cookie.)
  */
 export function getToken(): string | undefined {
-  const raw = cookies().get(SESSION_COOKIE)?.value;
+  const raw =
+    // TODO(next16): cookies() is async in Next 15; the sync read is a supported
+    // compat shim until Next 16. Making getToken async ripples through every
+    // gateway client factory.
+    (cookies() as unknown as UnsafeUnwrappedCookies).get(SESSION_COOKIE)?.value;
   return raw && isUsableToken(raw) ? raw : undefined;
 }
 

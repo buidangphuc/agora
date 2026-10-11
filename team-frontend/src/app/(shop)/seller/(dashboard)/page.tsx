@@ -29,9 +29,10 @@ function settled<T>(r: PromiseSettledResult<T>): T | null {
 }
 
 /** Dashboard > Workplace: KPIs, quick actions, recent orders, product Table List. */
-export default async function SellerPage({
-  searchParams = {},
-}: { searchParams?: SearchParams }) {
+export default async function SellerPage(props: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const searchParams = await props.searchParams;
   if (!hasScope("listing.write")) redirect("/login");
 
   const params = parseListParams(searchParams, LISTING_STATUSES);

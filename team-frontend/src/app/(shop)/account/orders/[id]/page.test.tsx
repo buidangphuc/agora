@@ -48,7 +48,12 @@ vi.mock("@/features/order/OrderTimelineSection", () => ({
 }));
 
 async function renderPage(id = "o1", tab?: string) {
-  render(await BuyerOrderDetailPage({ params: { id }, searchParams: { tab } }));
+  render(
+    await BuyerOrderDetailPage({
+      params: Promise.resolve({ id }),
+      searchParams: Promise.resolve({ tab }),
+    }),
+  );
 }
 
 beforeEach(() => {

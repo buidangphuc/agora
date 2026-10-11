@@ -128,7 +128,12 @@ async function renderPdp(
   searchParams: Record<string, string> = {},
 ) {
   setupPage(listing);
-  return render(await ProductDetailPage({ params: { id: "L" }, searchParams }));
+  return render(
+    await ProductDetailPage({
+      params: Promise.resolve({ id: "L" }),
+      searchParams: Promise.resolve(searchParams),
+    }),
+  );
 }
 
 describe("PDP tracking: view_item", () => {

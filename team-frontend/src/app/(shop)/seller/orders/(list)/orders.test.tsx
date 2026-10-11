@@ -87,7 +87,9 @@ beforeEach(() => {
 });
 
 async function renderList(searchParams: Record<string, string> = {}) {
-  render(await SellerOrdersPage({ searchParams }));
+  render(
+    await SellerOrdersPage({ searchParams: Promise.resolve(searchParams) }),
+  );
 }
 
 describe("/seller/orders", () => {
@@ -188,7 +190,10 @@ describe("/seller/orders", () => {
 
 describe("/seller/orders/[id]", () => {
   async function renderDetail(id = "o1", searchParams: { tab?: string } = {}) {
-    const ui = await SellerOrderDetailPage({ params: { id }, searchParams });
+    const ui = await SellerOrderDetailPage({
+      params: Promise.resolve({ id }),
+      searchParams: Promise.resolve(searchParams),
+    });
     if (ui) render(ui);
   }
 

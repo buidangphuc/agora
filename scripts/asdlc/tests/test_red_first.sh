@@ -98,5 +98,16 @@ OUT=$("$RF" --only python 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 0 ] && echo "$OUT" | grep -q "SKIP go tests" && ok "(g) --only skips go" || bad "(g) expected exit 0 got $RC"
 
+# (h) Red-First-Exempt trailer: green-at-base test passes as EXEMPT; a trailer without reason is ignored
+new_repo "$T/h"
+cp "$FX/calc_green_test.go" calc_test.go; git add -A && git commit -q -m "adapt test to lib bump" -m "Red-First-Exempt: calc_*.go -- dependency bump, no new behaviour"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "EXEMPT (dependency bump" && ok "(h) exempt trailer honoured" || bad "(h) expected exit 0 got $RC"
+new_repo "$T/h2"
+cp "$FX/calc_green_test.go" calc_test.go; git add -A && git commit -q -m "late test" -m "Red-First-Exempt: calc_test.go"
+OUT=$("$RF" 2>&1); RC=$?
+[ $RC -eq 1 ] && echo "$OUT" | grep -q "green at base" && ok "(h) exempt without reason ignored" || bad "(h2) expected exit 1 got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS

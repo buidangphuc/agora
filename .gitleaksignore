@@ -1,0 +1,5 @@
+# Confirmed false positives (per-finding fingerprints, not path allowlists).
+# Seeded fake JWT ({"sub":"admin"}, signature "signature") used as a planted
+# "hardcoded leak" defect in the Kev eval set; not a real credential.
+ec773a79b2de7d5cef98515e3f259a622e676b52:scripts/asdlc/kev_eval/seed.py:jwt:324
+ec773a79b2de7d5cef98515e3f259a622e676b52:metrics/kev-eval/sets/real-s1-n20/units.json:jwt:713

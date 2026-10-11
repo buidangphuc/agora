@@ -56,11 +56,10 @@ function hrefFor(collectionId: string, page: number): string {
   return query ? `/favorites?${query}` : "/favorites";
 }
 
-export default async function FavoritesPage({
-  searchParams,
-}: {
-  searchParams?: { collection?: string; page?: string };
+export default async function FavoritesPage(props: {
+  searchParams?: Promise<{ collection?: string; page?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   if (!getPrincipal()) redirect("/login");
 
   const collections = await listCollections();

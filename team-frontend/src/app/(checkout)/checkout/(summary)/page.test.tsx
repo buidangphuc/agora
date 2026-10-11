@@ -84,14 +84,14 @@ function setCart(items: ViewCartItem[]) {
 async function go(
   searchParams: Record<string, string | string[] | undefined> = {},
 ) {
-  render(await CheckoutPage({ searchParams }));
+  render(await CheckoutPage({ searchParams: Promise.resolve(searchParams) }));
 }
 
 async function redirectOf(
   searchParams: Record<string, string | string[] | undefined> = {},
 ) {
   try {
-    await CheckoutPage({ searchParams });
+    await CheckoutPage({ searchParams: Promise.resolve(searchParams) });
   } catch (e) {
     if (e instanceof RedirectSignal) return e.message;
     throw e;

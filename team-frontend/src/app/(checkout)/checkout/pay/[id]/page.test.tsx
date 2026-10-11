@@ -50,7 +50,7 @@ function tx(status: PaymentStatus): ViewPaymentTransaction {
 
 async function outcome(id = "order-12345678") {
   try {
-    render(await MockPaymentPage({ params: { id } }));
+    render(await MockPaymentPage({ params: Promise.resolve({ id }) }));
     return null;
   } catch (e) {
     if (e instanceof Signal) return e.message;

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Stage 1: build a static binary ──────────────────────────────────────────
-FROM golang:1.22 AS build
+FROM golang:1.26 AS build
 WORKDIR /src
 
 # Cache modules first. NOTE: `make proto` must have produced ./generated before

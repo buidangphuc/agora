@@ -10,10 +10,14 @@ import { loadOrderResult } from "./data";
  * account/orders/not-found.tsx) before loading.tsx streams its skeleton. The
  * page still renders the 403 and error states itself.
  */
-export default async function BuyerOrderLayout({
-  children,
-  params,
-}: { children: ReactNode; params: { id: string } }) {
+export default async function BuyerOrderLayout(props: {
+  children: ReactNode;
+  params: Promise<{ id: string }>;
+}) {
+  const params = await props.params;
+
+  const { children } = props;
+
   if (!getPrincipal()) redirect("/login");
   const res = await loadOrderResult(params.id);
   if (res.kind === "not_found") notFound();

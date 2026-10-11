@@ -18,9 +18,10 @@ export const metadata = { title: "Báo cáo doanh thu | Kênh người bán" };
 const href = (range: string) => `/seller/analytics?range=${range}`;
 
 /** Dashboard > Analysis: KPI row, funnel Progress rows, revenue Table, ?range Tabs. */
-export default async function SellerAnalyticsPage({
-  searchParams = {},
-}: { searchParams?: { range?: string } }) {
+export default async function SellerAnalyticsPage(props: {
+  searchParams?: Promise<{ range?: string }>;
+}) {
+  const searchParams = (await props.searchParams) ?? {};
   const me = getPrincipal();
   if (!me || !hasScope("listing.write")) redirect("/login");
 

@@ -10,10 +10,14 @@ import { loadListing } from "./data";
  * seller/not-found.tsx) before loading.tsx streams its skeleton. The page keeps
  * the sign-in redirect and the ownership check.
  */
-export default async function SellerEditLayout({
-  children,
-  params,
-}: { children: ReactNode; params: { id: string } }) {
+export default async function SellerEditLayout(props: {
+  children: ReactNode;
+  params: Promise<{ id: string }>;
+}) {
+  const params = await props.params;
+
+  const { children } = props;
+
   if (!hasScope("listing.write")) return children;
   if (!(await loadListing(params.id))) notFound();
   return children;

@@ -86,8 +86,15 @@ vi.mock("@/features/listing/qa/QuestionList", () => ({
 
 type Params = Parameters<typeof ProductDetailPage>[0];
 
-async function renderPage(searchParams: Params["searchParams"] = {}) {
-  return render(await ProductDetailPage({ params: { id: "L" }, searchParams }));
+async function renderPage(
+  searchParams: Awaited<NonNullable<Params["searchParams"]>> = {},
+) {
+  return render(
+    await ProductDetailPage({
+      params: Promise.resolve({ id: "L" }),
+      searchParams: Promise.resolve(searchParams),
+    }),
+  );
 }
 
 function setup(
@@ -344,7 +351,10 @@ describe("ProductDetailPage: anatomy", () => {
   it("calls notFound only when the listing does not exist", async () => {
     setup({ listing: null });
     await expect(
-      ProductDetailPage({ params: { id: "nope" }, searchParams: {} }),
+      ProductDetailPage({
+        params: Promise.resolve({ id: "nope" }),
+        searchParams: Promise.resolve({}),
+      }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });

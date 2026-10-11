@@ -11,11 +11,10 @@ export const metadata = {
   description: "Xem các mã giảm giá và voucher đang có trên Marketplace.",
 };
 
-export default async function VouchersPage({
-  searchParams,
-}: {
-  searchParams: { type?: string | string[] };
+export default async function VouchersPage(props: {
+  searchParams: Promise<{ type?: string | string[] }>;
 }) {
+  const searchParams = await props.searchParams;
   // Real vouchers from team-promotion via the gateway (server-only). Empty on
   // any outage so the page still renders.
   const vouchers = await listVouchers();

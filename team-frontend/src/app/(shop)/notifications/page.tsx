@@ -25,11 +25,10 @@ export const metadata = {
 // enough to paginate in memory (20 per page).
 const WINDOW = 100;
 
-export default async function NotificationsPage({
-  searchParams,
-}: {
-  searchParams?: { tab?: string; page?: string };
+export default async function NotificationsPage(props: {
+  searchParams?: Promise<{ tab?: string; page?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   if (!getPrincipal()) redirect("/login");
 
   const [{ notifications }, subs, prefs] = await Promise.all([

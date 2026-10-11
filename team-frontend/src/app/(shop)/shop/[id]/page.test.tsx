@@ -28,7 +28,12 @@ beforeEach(() => vi.clearAllMocks());
 describe("ShopPage", () => {
   it("lists only the shop's own listings through a seller-filtered search", async () => {
     searchListings.mockResolvedValue({ items: [{ id: "l1", sellerId: "s1" }] });
-    render(await ShopPage({ params: { id: "s1" }, searchParams: {} }));
+    render(
+      await ShopPage({
+        params: Promise.resolve({ id: "s1" }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
     expect(searchListings).toHaveBeenCalledWith("", { sellerId: "s1" });
     expect(view.mock.calls[0][0]).toMatchObject({
       sellerId: "s1",
@@ -38,7 +43,12 @@ describe("ShopPage", () => {
 
   it("never falls back to other shops' listings when the search fails", async () => {
     searchListings.mockRejectedValue(new Error("down"));
-    render(await ShopPage({ params: { id: "s1" }, searchParams: {} }));
+    render(
+      await ShopPage({
+        params: Promise.resolve({ id: "s1" }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
     expect(view.mock.calls[0][0]).toMatchObject({ listings: [] });
   });
 });
