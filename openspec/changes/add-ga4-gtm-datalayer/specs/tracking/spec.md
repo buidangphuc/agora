@@ -31,6 +31,28 @@ The frontend SHALL load the GTM script only when `NEXT_PUBLIC_GTM_ID` is non-emp
 - **WHEN** a page loads with `NEXT_PUBLIC_GTM_ID=GTM-TEST`
 - **THEN** exactly 1 script element with `id=GTM-TEST` in its `src` is present
 
+#### Scenario: No external request to Google in e2e
+- **WHEN** a page loads in the e2e stack with `NEXT_PUBLIC_GTM_ID=GTM-TEST`
+- **THEN** the GTM script is served by the mock (stub response to the intercepted `googletagmanager.com` / `google-analytics.com` route) and 0 requests leave the stack to Google hosts
+
+### Requirement: Data layer privacy
+The frontend SHALL push to `window.dataLayer` only allowlisted keys, SHALL nest caller-supplied `properties` under a single `properties` key (never spread at top level, never overriding the reserved keys `event` and `ecommerce`), and SHALL scrub `search_term`, `page_path` and `page_referrer` the same way the gateway does (emails, phone numbers, digit runs of 13+; referrer reduced to `scheme://host/path`).
+
+#### Scenario: Caller properties cannot override reserved keys or leak to top level
+- **WHEN** a dispatch passes `properties` of `{ event: "purchase", ecommerce: { value: 1 }, email: "a@b.vn", note: "x" }`
+- **THEN** the pushed entry's top-level `event` and `ecommerce` are the dispatcher's own values, the top level has no `email` or `note` key, and only allowlisted keys appear under the single `properties` key
+- **VERIFIED BY**: `team-frontend/src/lib/analytics/dataLayer.privacy.test.ts` "[Caller properties cannot override reserved keys or leak to top level]"
+
+#### Scenario: Search term and path are scrubbed in the dataLayer
+- **WHEN** a search is dispatched with `search_term` "iphone lan.nguyen@gmail.com 0912345678 1234567890123" and `page_path` "/search?q=0912345678"
+- **THEN** the dataLayer entry holds `search_term` "iphone [email] [phone] [number]" and `page_path` "/search?q=[phone]", and no raw email or digit run is present
+- **VERIFIED BY**: `team-frontend/src/lib/analytics/dataLayer.privacy.test.ts` "[Search term and path are scrubbed in the dataLayer]"
+
+#### Scenario: Referrer is reduced to scheme host path
+- **WHEN** a page view is dispatched with `page_referrer` "https://shop.example.vn/p/12?email=a@b.vn#x"
+- **THEN** the dataLayer entry holds `page_referrer` "https://shop.example.vn/p/12"; a referrer of "not a url" becomes ""
+- **VERIFIED BY**: `team-frontend/src/lib/analytics/dataLayer.privacy.test.ts` "[Referrer is reduced to scheme host path]"
+
 ### Requirement: Batched beacon queue and item fan-out
 The frontend SHALL fan a multi-item event out into one beacon per item sharing one `event_group_id`, and SHALL send queued beacons as one array in a single POST to `/api/track`, flushing at 20 events, 2 s idle, or `visibilitychange: hidden`.
 
