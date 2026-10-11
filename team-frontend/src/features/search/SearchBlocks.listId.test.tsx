@@ -76,4 +76,20 @@ describe("SearchResultsBlock item list id", () => {
     expect(listEntries()).toHaveLength(1);
     expect(beaconsOf(fetchMock)).toHaveLength(3);
   });
+
+  it("[Fan-out rows share a group id] search impressions keep the query: beacons carry query and the view_item_list has search_term", async () => {
+    render(await SearchResultsBlock({ state: parseSearchParams({ q: "ao" }) }));
+    await drain();
+    const beacons = beaconsOf(fetchMock);
+    expect(beacons).toHaveLength(3);
+    for (const b of beacons) expect(b.query).toBe("ao");
+    const layer = (
+      window as unknown as {
+        dataLayer: { event?: string; search_term?: string }[];
+      }
+    ).dataLayer;
+    const entry = layer.filter((e) => e.event === "view_item_list");
+    expect(entry).toHaveLength(1);
+    expect(entry[0].search_term).toBe("ao");
+  });
 });
