@@ -16,6 +16,53 @@ interface TrackImpressionProps {
   readonly children?: React.ReactNode;
 }
 
+type ImpressionItem = NonNullable<
+  NonNullable<Parameters<typeof trackEcommerce>[1]>["items"]
+>[number];
+
+interface PendingBatch {
+  query?: string;
+  properties?: Record<string, string>;
+  items: ImpressionItem[];
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const COALESCE_MS = 300;
+const pending = new Map<string, PendingBatch>();
+
+/** Collects impressions of one list (same placement/query) into one view_item_list call. */
+function enqueueImpression(
+  key: string,
+  query: string | undefined,
+  properties: Record<string, string> | undefined,
+  item: ImpressionItem,
+) {
+  const mapKey = `${key}\u0000${query ?? ""}`;
+  let batch = pending.get(mapKey);
+  if (!batch) {
+    const created: PendingBatch = {
+      query,
+      properties,
+      items: [],
+      timer: setTimeout(() => {
+        pending.delete(mapKey);
+        try {
+          trackEcommerce("view_item_list", {
+            query: created.query,
+            properties: created.properties,
+            items: created.items,
+          });
+        } catch {
+          /* tracking must never throw */
+        }
+      }, COALESCE_MS),
+    };
+    batch = created;
+    pending.set(mapKey, batch);
+  }
+  batch.items.push(item);
+}
+
 /**
  * Fires a `view_item_list` ecommerce tracking event when the element enters the viewport
  * (using IntersectionObserver), ensuring true viewability instead of DOM-only mount.
@@ -40,21 +87,15 @@ export function TrackImpression({
 
     const fireTracking = () => {
       trackedRef.current = true;
-      trackEcommerce("view_item_list", {
-        query,
-        properties,
-        items: [
-          {
-            itemId: listingId,
-            placementId,
-            impressionId,
-            modelVersion,
-            index: position,
-            price,
-            itemCategory: category,
-            itemListId: placementId,
-          },
-        ],
+      enqueueImpression(placementId ?? "", query, properties, {
+        itemId: listingId,
+        placementId,
+        impressionId,
+        modelVersion,
+        index: position,
+        price,
+        itemCategory: category,
+        itemListId: placementId,
       });
     };
 
