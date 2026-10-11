@@ -33,8 +33,10 @@ SELECT
   COUNT(*) FILTER (WHERE t.event_type = 'impression') AS impressions,
   COUNT(*) FILTER (WHERE t.event_type = 'view')       AS views,
   COUNT(*) FILTER (WHERE t.event_type = 'add_to_cart') AS adds,
-  COUNT(*) FILTER (WHERE t.event_type = 'begin_checkout') AS begin_checkouts,
-  COUNT(*) FILTER (WHERE t.event_type = 'purchase') AS purchases
+  (COUNT(DISTINCT t.transaction_id) FILTER (WHERE t.event_type = 'begin_checkout' AND t.transaction_id <> '')
+   + COUNT(*) FILTER (WHERE t.event_type = 'begin_checkout' AND COALESCE(t.transaction_id, '') = '')) AS begin_checkouts,
+  (COUNT(DISTINCT t.transaction_id) FILTER (WHERE t.event_type = 'purchase' AND t.transaction_id <> '')
+   + COUNT(*) FILTER (WHERE t.event_type = 'purchase' AND COALESCE(t.transaction_id, '') = '')) AS purchases
 FROM %s t
 JOIN %s ls ON ls.listing_id = t.listing_id
 WHERE ls.seller_id = ?
