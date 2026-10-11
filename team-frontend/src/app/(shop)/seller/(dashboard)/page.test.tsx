@@ -253,7 +253,7 @@ describe("/seller loading skeleton", () => {
 
     document.body.innerHTML = "";
     render(<SellerLoading />);
-    const skeletonRow = screen.getByTestId("kpi-row");
+    const skeletonRow = screen.getByTestId("kpi-row-skeleton");
     expect(skeletonRow.className).toBe(pageRow.className);
     expect(skeletonRow.children).toHaveLength(4);
     // Cells share the fixed-height Statistic structure (h-4 title, h-8 value).
