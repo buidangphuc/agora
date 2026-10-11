@@ -56,7 +56,14 @@ function enqueueImpression(
             query: created.query,
             properties: created.properties,
             eventGroupId: created.groupId,
-            items: created.items,
+            items: created.items
+              .map((it, i) => ({ it, i }))
+              .sort(
+                (a, b) =>
+                  (a.it.index ?? Number.MAX_SAFE_INTEGER) -
+                    (b.it.index ?? Number.MAX_SAFE_INTEGER) || a.i - b.i,
+              )
+              .map(({ it }) => it),
           });
         } catch {
           /* tracking must never throw */
