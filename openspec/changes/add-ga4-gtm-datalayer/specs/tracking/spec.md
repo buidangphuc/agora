@@ -68,7 +68,7 @@ The gateway SHALL accept a single beacon or an array of at most 100 beacons, SHA
 
 #### Scenario: Anonymous caller allowed
 - **WHEN** a request without a bearer token posts a valid beacon
-- **THEN** the gateway publishes the event with an empty principal and responds 2xx
+- **THEN** the gateway publishes the event with a principal of type PRINCIPAL_TYPE_ANONYMOUS (no authenticated identity) and responds 2xx
 
 ### Requirement: Edge handler latency
 The `/api/track` handler SHALL process a 100-event batch with p99 latency below 50 ms, excluding the broker path.
