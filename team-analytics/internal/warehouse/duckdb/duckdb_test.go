@@ -503,3 +503,66 @@ func TestOrderFactsParquetExportHasBuyerColumn(t *testing.T) {
 		t.Fatalf("exported buyer_id = %q, %v", b, err)
 	}
 }
+
+// Scenario "DuckDB migrates a legacy database": a table lacking the ecommerce
+// columns is opened twice; every new column exists once, prior rows keep NULLs.
+func TestOpenMigratesLegacyTrackingColumns_DuckDBMigratesALegacyDatabase(t *testing.T) {
+	ctx := context.Background()
+	newCols := []string{"item_list_id", "position", "event_group_id", "transaction_id", "currency", "value"}
+	path := filepath.Join(t.TempDir(), "legacy.duckdb")
+	first := openAt(t, path, time.Now())
+	for _, q := range []string{"DROP VIEW tracking_events_resolved", "DROP VIEW tracking_identity", "DROP VIEW ga4_events"} {
+		if _, err := first.DB().Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	for _, c := range newCols {
+		if _, err := first.DB().Exec("ALTER TABLE tracking_events DROP COLUMN " + c); err != nil {
+			t.Fatalf("drop %s: %v", c, err)
+		}
+	}
+	at := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	if _, err := first.DB().Exec("INSERT INTO tracking_events (event_id, event_type, occurred_at) VALUES ('old','view',?)", at); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// two opens in a row
+	second := openAt(t, path, time.Now())
+	if err := second.Close(); err != nil {
+		t.Fatal(err)
+	}
+	w := openAt(t, path, time.Now())
+	defer w.Close()
+
+	for _, c := range newCols {
+		var n int
+		if err := w.DB().QueryRow("SELECT count(*) FROM information_schema.columns WHERE table_name='tracking_events' AND column_name=?", c).Scan(&n); err != nil || n != 1 {
+			t.Errorf("column %s count = %d, %v; want 1", c, n, err)
+		}
+	}
+	var nulls int
+	if err := w.DB().QueryRow("SELECT count(*) FROM tracking_events WHERE event_id='old' AND item_list_id IS NULL AND position IS NULL AND event_group_id IS NULL AND transaction_id IS NULL AND currency IS NULL AND value IS NULL").Scan(&nulls); err != nil || nulls != 1 {
+		t.Fatalf("legacy row preserved with NULL new columns: n=%d err=%v", nulls, err)
+	}
+
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+		EventID: "new", EventType: "purchase", OccurredAt: at, ItemListID: "home", Position: 3,
+		EventGroupID: "g1", TransactionID: "o-1", Currency: "VND", Value: 500,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	var list, tx, cur string
+	var pos, val int64
+	if err := w.DB().QueryRow("SELECT item_list_id, transaction_id, currency, value FROM ga4_events WHERE event_id='new'").Scan(&list, &tx, &cur, &val); err != nil {
+		t.Fatalf("ga4_events read: %v", err)
+	}
+	if list != "home" || tx != "o-1" || cur != "VND" || val != 500 {
+		t.Fatalf("ga4_events = %q %q %q %d", list, tx, cur, val)
+	}
+	if err := w.DB().QueryRow("SELECT position FROM tracking_events WHERE event_id='new'").Scan(&pos); err != nil || pos != 3 {
+		t.Fatalf("position = %d, %v; want 3", pos, err)
+	}
+}
