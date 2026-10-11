@@ -236,7 +236,9 @@ def test_otlp_exporter_is_built_like_the_sdk_default_unless_full():
 
     assert exporter is not None
     assert exporter._endpoint == "http://127.0.0.1:1/api/public/otel/v1/traces"
-    headers = {k.lower(): v for k, v in exporter._headers.items()}
+    # otel >=1.45 moved headers onto the internal HTTP client
+    raw = getattr(exporter, "_headers", None) or exporter._client._headers
+    headers = {k.lower(): v for k, v in raw.items()}
     assert headers["authorization"].startswith("Basic ")
     assert headers["x-langfuse-public-key"] == settings.LANGFUSE_PUBLIC_KEY
     assert langfuse_module._otlp_span_exporter(_settings("full")) is None
