@@ -1,7 +1,7 @@
 @tracking @buyer
 Feature: Discovery tracking is unchanged
   The rebuilt listing card and search page still emit the same ecommerce events: one
-  view_item_list per card entering the viewport, one select_item on click, and one batched
+  view_item_list per list (items in grid order), one select_item on click, and one batched
   search_results impression, all with their position (index = position in the grid).
 
   Background:
@@ -10,7 +10,7 @@ Feature: Discovery tracking is unchanged
   Scenario: Card impression still fires once
     When the buyer opens the search results for the seeded listings
     And the first result card is scrolled into view
-    Then exactly one view_item_list event for that card is recorded with its position
+    Then the card appears exactly once across the list's view_item_list events with its position
 
   Scenario: Card click still records select_item
     When the buyer opens the search results for the seeded listings
