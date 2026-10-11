@@ -1,18 +1,8 @@
 # platform-modelserve — Internal ML model serving router + TEI / vLLM runtimes (ADR-0011).
-# Reconciled by the infra-shared ArgoCD Application (sync-wave 0).
+# Reconciled by the platform-modelserve ArgoCD Application (path platform/modelserve, kustomize, sync-wave 0).
+# Runtimes are the deterministic tei-fake image from the local registry (no model download, no volume).
 # Ingress to the router (:8100) is restricted via NetworkPolicy so only team-ai and team-search (+ its indexer) can reach it.
 
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: modelserve-models-cache
-  namespace: marketplace
-spec:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 20Gi
----
 # ── 1. ModelServe Router (Port :8100) ─────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
@@ -33,7 +23,7 @@ spec:
     spec:
       containers:
         - name: router
-          image: agora/platform-modelserve:latest
+          image: localhost:5001/platform-modelserve
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -45,15 +35,16 @@ spec:
               value: "http://tei-embed.marketplace.svc:8101"
             - name: TEI_RERANK_URL
               value: "http://tei-rerank.marketplace.svc:8102"
+            # No vLLM on the local cluster: tei-fake also serves /v1/chat/completions, as in compose.
             - name: VLLM_URL
-              value: "http://vllm.marketplace.svc:8103"
+              value: "http://tei-embed.marketplace.svc:8101"
             # Embedding cache on DB 4, as in compose: DB 0 is the recsys nearline CTR store team-ai reads.
             - name: REDIS_URL
               value: "redis://valkey.marketplace.svc:6379/4"
             - name: EMBED_CACHE_ENABLED
               value: "true"
             - name: MODEL_VERSION
-              value: "bge-small-en-v1.5"
+              value: "tei-fake-v1"  # as in compose; the embedding cache keys on it
             - name: MAX_QUEUE_DEPTH
               value: "100"
           resources:
@@ -101,8 +92,6 @@ metadata:
     app: tei-embed
 spec:
   replicas: 1
-  # Shares the ReadWriteOnce modelserve-models-cache claim: replace, never run two pods on it.
-  strategy: { type: Recreate, rollingUpdate: null }
   selector:
     matchLabels:
       app: tei-embed
@@ -113,13 +102,9 @@ spec:
     spec:
       containers:
         - name: tei-embed
-          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+          image: localhost:5001/tei-fake
           imagePullPolicy: IfNotPresent
-          env:
-            - name: MODEL_ID
-              value: "BAAI/bge-small-en-v1.5"
-            - name: PORT
-              value: "8101"
+          args: ["--host", "0.0.0.0", "--port", "8101"]
           ports:
             - name: http
               containerPort: 8101
@@ -130,13 +115,18 @@ spec:
             limits:
               cpu: 2000m
               memory: 2Gi
-          volumeMounts:
-            - name: models-cache
-              mountPath: /data
-      volumes:
-        - name: models-cache
-          persistentVolumeClaim:
-            claimName: modelserve-models-cache
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8101
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8101
+            initialDelaySeconds: 10
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
@@ -163,8 +153,6 @@ metadata:
     app: tei-rerank
 spec:
   replicas: 1
-  # Shares the ReadWriteOnce modelserve-models-cache claim: replace, never run two pods on it.
-  strategy: { type: Recreate, rollingUpdate: null }
   selector:
     matchLabels:
       app: tei-rerank
@@ -175,13 +163,9 @@ spec:
     spec:
       containers:
         - name: tei-rerank
-          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+          image: localhost:5001/tei-fake
           imagePullPolicy: IfNotPresent
-          env:
-            - name: MODEL_ID
-              value: "BAAI/bge-reranker-base"
-            - name: PORT
-              value: "8102"
+          args: ["--host", "0.0.0.0", "--port", "8102"]
           ports:
             - name: http
               containerPort: 8102
@@ -192,13 +176,18 @@ spec:
             limits:
               cpu: 2000m
               memory: 2Gi
-          volumeMounts:
-            - name: models-cache
-              mountPath: /data
-      volumes:
-        - name: models-cache
-          persistentVolumeClaim:
-            claimName: modelserve-models-cache
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8102
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8102
+            initialDelaySeconds: 10
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service

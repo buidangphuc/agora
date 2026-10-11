@@ -12,7 +12,7 @@ MANIFEST = (
     Path(__file__).resolve().parents[4]
     / "platform-gitops"
     / "platform"
-    / "infra"
+    / "modelserve"
     / "modelserve.yaml"
 )
 

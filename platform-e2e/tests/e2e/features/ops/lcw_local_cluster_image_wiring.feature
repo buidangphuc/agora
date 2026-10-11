@@ -25,3 +25,11 @@ Feature: Images and gitops content reach the local cluster
   Scenario: The broker data dir is on a claim
     When the Redpanda manifest of platform-gitops is read
     Then the redpanda container mounts a volume at `/var/lib/redpanda/data` that is backed by a `PersistentVolumeClaim` declared in the same manifest, and the pod's `fsGroup` lets the `redpanda` user (gid 101) write it
+
+  Scenario: The modelserve images come from the local registry
+    When the modelserve app of platform-gitops is rendered with kustomize and the push script is read
+    Then every container image of modelserve-router, tei-embed and tei-rerank is a localhost:5001 repo that the push list ships, tei-embed and tei-rerank run tei-fake, and no image is pulled from ghcr.io or carries the `agora/` prefix
+
+  Scenario: No two Applications sync the same path
+    When the Applications of platform-gitops are read
+    Then their source paths are pairwise distinct, and no path is a parent of another app's path when the parent app recurses into directories

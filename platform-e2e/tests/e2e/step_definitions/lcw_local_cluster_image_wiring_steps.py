@@ -15,7 +15,7 @@ from pytest_bdd import then, when
 ROOT = Path(__file__).resolve().parents[3].parent
 GITOPS = ROOT / "platform-gitops"
 REG = "localhost:5001"
-RAW_APPS = ("recsys", "featurestore", "team-analytics", "search-indexer")
+RAW_APPS = ("recsys", "featurestore", "team-analytics", "search-indexer", "modelserve")
 
 
 @pytest.fixture
@@ -248,3 +248,86 @@ def redpanda_on_claim(lcw):
         claim in claims
     ), f"volume {volume['name']} claim {claim!r} not declared in {sorted(claims)}"
     assert (pod.get("securityContext") or {}).get("fsGroup") == 101
+
+
+# ── modelserve images ─────────────────────────────────────────────────────────────────────────
+
+
+@when(
+    "the modelserve app of platform-gitops is rendered with kustomize and the push script is read"
+)
+def render_modelserve(lcw):
+    if shutil.which("kubectl") is None:
+        pytest.fail("kubectl is not installed")
+    run = subprocess.run(
+        ["kubectl", "kustomize", "platform/modelserve"],
+        cwd=GITOPS, capture_output=True, text=True, timeout=120,
+    )  # fmt: skip
+    assert run.returncode == 0, f"kustomize modelserve failed: {run.stderr[:400]}"
+    lcw["ms_docs"] = [d for d in yaml.safe_load_all(run.stdout) if isinstance(d, dict)]
+    lcw["push"] = _push_map()
+
+
+@then(
+    "every container image of modelserve-router, tei-embed and tei-rerank is a localhost:5001 repo that "
+    "the push list ships, tei-embed and tei-rerank run tei-fake, and no image is pulled from ghcr.io or "
+    "carries the `agora/` prefix"
+)
+def modelserve_images_local(lcw):
+    repos = {repo for _, repo, _ in lcw["push"]}
+    deployments = {
+        d["metadata"]["name"]: d for d in lcw["ms_docs"] if d.get("kind") == "Deployment"
+    }
+    for name in ("modelserve-router", "tei-embed", "tei-rerank"):
+        assert name in deployments, f"{name} is not rendered, got {sorted(deployments)}"
+        spec = deployments[name]["spec"]["template"]["spec"]
+        containers = (spec.get("containers") or []) + (spec.get("initContainers") or [])
+        assert containers, name
+        for c in containers:
+            image = c["image"]
+            assert image.startswith(f"{REG}/"), f"{name}: {image} is not from {REG}"
+            repo = image.removeprefix(f"{REG}/").rpartition(":")[0]
+            assert repo in repos, f"{name}: {repo} is not on the push list {sorted(repos)}"
+            if name.startswith("tei-"):
+                assert repo == "tei-fake", f"{name}: runs {repo}, not tei-fake"
+            assert "ghcr.io" not in image and "agora/" not in image, (name, image)
+
+
+# ── one owner per path ────────────────────────────────────────────────────────────────────────
+
+
+@when("the Applications of platform-gitops are read")
+def read_applications(lcw):
+    lcw["apps"] = []
+    for p in sorted((GITOPS / "argocd/apps").glob("*.yaml")):
+        for doc in yaml.safe_load_all(p.read_text()):
+            if not isinstance(doc, dict) or doc.get("kind") != "Application":
+                continue
+            source = (doc.get("spec") or {}).get("source") or {}
+            if source.get("path") is None:
+                continue
+            lcw["apps"].append(
+                (
+                    doc["metadata"]["name"],
+                    str(source["path"]).strip("/"),
+                    bool((source.get("directory") or {}).get("recurse")),
+                )
+            )
+    assert lcw["apps"], "no Application with a source path"
+
+
+@then(
+    "their source paths are pairwise distinct, and no path is a parent of another app's path when "
+    "the parent app recurses into directories"
+)
+def one_owner_per_path(lcw):
+    apps = lcw["apps"]
+    seen: dict[str, str] = {}
+    for name, path, _ in apps:
+        assert path not in seen, f"{name} and {seen[path]} both sync {path}"
+        seen[path] = name
+    for name, path, recurse in apps:
+        if not recurse:
+            continue
+        nested = [o for o, op, _ in apps if o != name and op.startswith(path + "/")]
+        assert not nested, f"{name} recurses into {path}, which holds {nested}"

@@ -1,6 +1,6 @@
 @modelserve
 Feature: Model serving GitOps manifests
-  Static, no stack needed: the manifest platform-gitops/platform/infra/modelserve.yaml is parsed.
+  Static, no stack needed: the manifest platform-gitops/platform/modelserve/modelserve.yaml is parsed.
   Change: add-platform-modelserve, capability model-serving.
 
   Scenario: NetworkPolicy admits only team-ai, team-search and prometheus

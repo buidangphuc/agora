@@ -43,6 +43,8 @@ team-analytics team-analytics team-analytics:local
 team-ai team-ai team-ai:local
 platform-featurestore platform-featurestore platform-featurestore:local
 platform-recsys platform-recsys platform-recsys:local
+platform-modelserve platform-modelserve modelserve-router:local
+tei-fake tei-fake tei-fake:local
 "
 
 # Newest existing local image among the candidate spellings of a compose image name.

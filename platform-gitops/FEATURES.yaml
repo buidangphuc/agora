@@ -464,3 +464,37 @@ features:
     status: automated
     covered_by: "ops/lcw_local_cluster_image_wiring.feature::The broker data dir is on a claim"
     notes: "redpanda-durable-topics: ops/lcw_local_cluster_image_wiring.feature::The broker data dir is on a claim"
+  - id: gitops.moc-modelserve-local-images
+    title: "The modelserve images come from the local registry"
+    persona: admin
+    priority: P1
+    summary: "The modelserve images come from the local registry"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops manifests."
+    acceptance:
+      - "When the platform-gitops manifests are read"
+      - "Then the modelserve router and the tei-embed and tei-rerank runtimes use localhost:5001 images, with no docker.io, ghcr.io or agora/ reference"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::The modelserve images come from the local registry"
+    notes: "modelserve-on-cluster: ops/lcw_local_cluster_image_wiring.feature::The modelserve images come from the local registry"
+  - id: gitops.moc-one-owner-per-path
+    title: "No two Applications sync the same path"
+    persona: admin
+    priority: P1
+    summary: "No two Applications sync the same path"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static parse of platform-gitops manifests."
+    acceptance:
+      - "When the platform-gitops manifests are read"
+      - "Then every Application under argocd/apps has a distinct source path, and platform-modelserve syncs platform/modelserve"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/lcw_local_cluster_image_wiring.feature::No two Applications sync the same path"
+    notes: "modelserve-on-cluster: ops/lcw_local_cluster_image_wiring.feature::No two Applications sync the same path"
