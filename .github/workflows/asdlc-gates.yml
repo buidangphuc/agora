@@ -109,6 +109,7 @@ jobs:
         with: { python-version: "3.12" }
       - uses: actions/setup-go@v5
         with: { go-version: stable }
+      - uses: astral-sh/setup-uv@v5
       - run: pip install pytest pyyaml jsonschema
       - run: git fetch origin "$BASE_REF" --depth=1000 || true
       - name: install deps of changed test dirs
@@ -128,6 +129,12 @@ jobs:
           printf '%s\n' "$changed" | grep -E '(^|/)(test_[^/]*|[^/]*_test)\.py$' | grep -v '^platform-e2e/' | cut -d/ -f1 | sort -u |
           while IFS= read -r d; do
             [[ "$d" =~ ^[A-Za-z0-9._-]+$ ]] && [ -d "$d" ] || continue
+            # uv-managed (uv.lock): the locked set with all extras + dev, as the service's own CI uses
+            if [ -f "$d/uv.lock" ]; then
+              (cd "$d" && uv export --frozen --all-extras --dev --no-emit-project --no-hashes -q) > "/tmp/req-$d.txt" &&
+                pip install -r "/tmp/req-$d.txt"
+              continue
+            fi
             [ -f "$d/requirements.txt" ] && pip install -r "$d/requirements.txt"
             if [ -f "$d/pyproject.toml" ]; then pip install -e "./$d[dev]" || pip install -e "./$d"; fi
           done
@@ -152,6 +159,8 @@ jobs:
           GITLEAKS_CONFIG: .gitleaks.toml
       - name: trivy fs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_IGNOREFILE: .trivyignore.yaml   # reviewed false positives, each with a statement
         with:
           scan-type: fs
           severity: HIGH,CRITICAL

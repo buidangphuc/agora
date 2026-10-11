@@ -11,6 +11,9 @@
 #   CI runs --only go,python: ts deps (node_modules) are not installed there.
 # exit 1 also when: the working tree has uncommitted test/code changes (they are NOT in base..head;
 #   --allow-dirty to ignore), or impl files changed but no tests did (--allow-empty to exit 0).
+# exempt: a commit in base..head may carry trailer lines `Red-First-Exempt: <glob> -- <reason>` for tests
+#   changed only to follow a dependency/tooling bump (no new behaviour). Matching files skip the base run
+#   but must still be green at head; they are reported EXEMPT with the reason. A reason is required.
 # env: REDFIRST_PYTHON (default platform-e2e/.venv/bin/python, else python3), REDFIRST_TMP (scratch dir)
 set -uo pipefail
 
@@ -128,6 +131,18 @@ trap cleanup EXIT
 
 FAIL=0
 RESULTS=()
+# Red-First-Exempt trailers: "<glob>|<reason>" per line
+EXEMPT=$(git log --format=%B "$BASE..$HEADSHA" | sed -nE 's/^Red-First-Exempt:[[:space:]]*([^[:space:]]+)[[:space:]]+--[[:space:]]+(.+)$/\1|\2/p')
+exempt_reason() { # exempt_reason <relfile> -> prints reason, exit 0 if exempt
+  local line pat
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pat="${line%%|*}"
+    # shellcheck disable=SC2053  # glob match is intended
+    if [[ "$1" == $pat ]]; then echo "${line#*|}"; return 0; fi
+  done <<< "$EXEMPT"
+  return 1
+}
 if [ $(( ${#GO_T[@]} + ${#PY_T[@]} + ${#TS_T[@]} )) -gt 0 ]; then
   git worktree add --detach -q "$WT_BASE" "$BASE" || exit 2
   git worktree add --detach -q "$WT_HEAD" "$HEADSHA" || exit 2
@@ -160,7 +175,12 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
 }
 
 check_file() { # check_file <kind> <relfile>
-  local kind="$1" f="$2" rb rh red green verdict
+  local kind="$1" f="$2" rb rh red green verdict why
+  if why=$(exempt_reason "$f"); then
+    run_test "$WT_HEAD" "$kind" "$f"; rh=$?
+    if [ $rh -eq 0 ]; then verdict="EXEMPT ($why)"; green=yes; else verdict="FAIL: red at head"; green=no; FAIL=1; fi
+    RESULTS+=("$f|red@base=skip|green@head=$green|$verdict"); return
+  fi
   run_test "$WT_BASE" "$kind" "$f"; rb=$?
   if [ $rb -eq 98 ]; then RESULTS+=("$f|n/a|n/a|SKIP (no Test funcs)"); return; fi
   run_test "$WT_HEAD" "$kind" "$f"; rh=$?

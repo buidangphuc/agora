@@ -1,0 +1,10 @@
+# Trivy ignore list (passed explicitly: CI env TRIVY_IGNOREFILE, ci_local --ignorefile).
+# Every entry needs a statement saying why it is not a real finding.
+secrets:
+  - id: private-key
+    paths:
+      - docker-compose.services.yaml
+      - platform-gitops/platform/vault-config/vault-config.yaml
+    statement: >-
+      Dev-only RS256 signing key for the local stack. team-identity refuses it in strict
+      environments by fingerprint (internal/config/signingkey.go); e2e mints tokens with it.
