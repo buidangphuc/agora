@@ -6,6 +6,6 @@ resources:
   - modelserve.yaml
 images:
   - name: localhost:5001/platform-modelserve
-    newTag: local
+    newTag: sha-26f0039817dc
   - name: localhost:5001/tei-fake
-    newTag: local
+    newTag: sha-ead800669078

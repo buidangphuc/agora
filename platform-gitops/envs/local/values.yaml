@@ -24,5 +24,5 @@ images:
   team-analytics: sha-bcbb4d0a089c
   platform-recsys: sha-bb214f3fd631
   platform-featurestore: sha-222b8d04da59
-  platform-modelserve: local
-  tei-fake: local
+  platform-modelserve: sha-26f0039817dc
+  tei-fake: sha-ead800669078
