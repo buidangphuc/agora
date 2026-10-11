@@ -40,8 +40,8 @@ function failure(
     : { ok: false, error, username };
 }
 
-function setSession(token: string) {
-  cookies().set(SESSION_COOKIE, token, {
+async function setSession(token: string) {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
@@ -68,7 +68,7 @@ export async function loginAction(
   let token = "";
   try {
     const res = await makeClients(undefined, {
-      client: clientContextFrom(headers()),
+      client: clientContextFrom(await headers()),
     }).auth.login({ username, password });
     token = res.result?.token ?? "";
   } catch (err) {
@@ -90,7 +90,7 @@ export async function loginAction(
     return failure(username, "Không thể kết nối đến máy chủ xác thực.");
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
-  setSession(token);
+  await setSession(token);
   redirect("/");
 }
 
@@ -114,7 +114,7 @@ export async function registerAction(
   let token = "";
   try {
     const res = await makeClients(undefined, {
-      client: clientContextFrom(headers()),
+      client: clientContextFrom(await headers()),
     }).auth.register({ username, password, role });
     token = res.result?.token ?? "";
   } catch (err) {
@@ -126,11 +126,11 @@ export async function registerAction(
     return failure(username, `Đăng ký lỗi: ${String(err)}`);
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
-  setSession(token);
+  await setSession(token);
   redirect("/");
 }
 
 export async function logoutAction() {
-  cookies().delete(SESSION_COOKIE);
+  (await cookies()).delete(SESSION_COOKIE);
   redirect("/");
 }

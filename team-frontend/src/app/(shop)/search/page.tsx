@@ -24,11 +24,10 @@ export const dynamic = "force-dynamic";
  * minPrice, maxPrice, sort, page`). The search runs once (cached per request)
  * and the filter column, count and results each stream from their own boundary.
  */
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: RawSearchParams;
+export default async function SearchPage(props: {
+  searchParams: Promise<RawSearchParams>;
 }) {
+  const searchParams = await props.searchParams;
   const state = parseSearchParams(searchParams);
   // Start the search now; the boundaries below read the same cached promise.
   void loadSearch(searchKey(state));

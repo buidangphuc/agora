@@ -61,7 +61,7 @@ describe("/seller/wallet", () => {
   it("shows the balance and enables payout when positive", async () => {
     vi.mocked(getWalletBalance).mockResolvedValue(750000);
     vi.mocked(listLedgerEntries).mockResolvedValue(entries(2) as never);
-    render(await SellerWalletPage({ searchParams: {} }));
+    render(await SellerWalletPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Số dư khả dụng")).toBeInTheDocument();
     expect(screen.getByText("₫750.000")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rút tiền" })).toBeEnabled();
@@ -70,7 +70,7 @@ describe("/seller/wallet", () => {
   it("disables payout at zero balance", async () => {
     vi.mocked(getWalletBalance).mockResolvedValue(0);
     vi.mocked(listLedgerEntries).mockResolvedValue([]);
-    render(await SellerWalletPage({ searchParams: {} }));
+    render(await SellerWalletPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByRole("button", { name: "Rút tiền" })).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -81,7 +81,9 @@ describe("/seller/wallet", () => {
   it("slices the ledger by ?page= and links neighbours", async () => {
     vi.mocked(getWalletBalance).mockResolvedValue(1);
     vi.mocked(listLedgerEntries).mockResolvedValue(entries(30) as never);
-    render(await SellerWalletPage({ searchParams: { page: "2" } }));
+    render(
+      await SellerWalletPage({ searchParams: Promise.resolve({ page: "2" }) }),
+    );
     const table = screen.getByRole("table", { name: "Lịch sử giao dịch ví" });
     expect(within(table).getAllByRole("row")).toHaveLength(11); // header + 10
     expect(within(table).getByText("payout-21")).toBeInTheDocument();
@@ -94,7 +96,7 @@ describe("/seller/wallet", () => {
   it("an unreadable balance is an Alert with retry, not a fake zero", async () => {
     vi.mocked(getWalletBalance).mockRejectedValue(new Error("down"));
     vi.mocked(listLedgerEntries).mockResolvedValue([]);
-    render(await SellerWalletPage({ searchParams: {} }));
+    render(await SellerWalletPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Không tải được số dư ví.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Rút tiền" })).toBeNull();
   });

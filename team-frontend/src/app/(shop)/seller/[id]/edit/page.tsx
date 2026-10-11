@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Chỉnh sửa sản phẩm | Kênh người bán" };
 
-export default async function SellerEditPage({
-  params,
-}: { params: { id: string } }) {
+export default async function SellerEditPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const params = await props.params;
   if (!hasScope("listing.write")) redirect("/login");
 
   const [listing, categories] = await Promise.all([

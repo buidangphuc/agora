@@ -11,11 +11,10 @@ import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function ChatPage({
-  searchParams,
-}: {
-  searchParams?: { thread?: string };
+export default async function ChatPage(props: {
+  searchParams?: Promise<{ thread?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const me = getPrincipal();
   if (!me) redirect("/login?returnUrl=/chat");
 

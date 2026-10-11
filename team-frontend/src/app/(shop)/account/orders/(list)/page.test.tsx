@@ -46,7 +46,9 @@ const orders = [
 async function renderPage(
   searchParams: { status?: string; page?: string } = {},
 ) {
-  render(await AccountOrdersPage({ searchParams }));
+  render(
+    await AccountOrdersPage({ searchParams: Promise.resolve(searchParams) }),
+  );
 }
 
 beforeEach(() => {
@@ -134,9 +136,9 @@ describe("/account/orders page", () => {
 
   it("redirects a guest to /login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null as never);
-    await expect(AccountOrdersPage({ searchParams: {} })).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
+    await expect(
+      AccountOrdersPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("NEXT_REDIRECT");
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 });

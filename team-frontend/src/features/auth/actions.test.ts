@@ -40,7 +40,7 @@ describe("loginAction", () => {
     });
     await loginAction(initial, form({ username: "alice", password: "pw" }));
 
-    const jar = cookies();
+    const jar = await cookies();
     expect(jar.set).toHaveBeenCalledWith(
       "session",
       "jwt-123",
@@ -158,7 +158,7 @@ describe("registerAction", () => {
       initial,
       form({ username: "alice", password: "pass", role: "seller" }),
     );
-    expect(cookies().set).toHaveBeenCalledWith(
+    expect((await cookies()).set).toHaveBeenCalledWith(
       "session",
       "jwt-9",
       expect.objectContaining({ httpOnly: true }),
@@ -188,7 +188,7 @@ describe("registerAction", () => {
 describe("logoutAction", () => {
   it("clears the session cookie and redirects home", async () => {
     await logoutAction();
-    expect(cookies().delete).toHaveBeenCalledWith("session");
+    expect((await cookies()).delete).toHaveBeenCalledWith("session");
     expect(redirect).toHaveBeenCalledWith("/");
   });
 });

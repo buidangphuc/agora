@@ -4,8 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setupUser } from "@/test/user";
 import type { AuthState } from "./actions";
 
-// React 18's react-dom has no form-action hooks (Next bundles a canary React
-// at runtime), so the tests drive the forms through controllable stand-ins.
+// Drive the forms through controllable stand-ins for the form-action hooks.
 const mocked = vi.hoisted(() => ({
   state: { ok: false } as {
     ok: boolean;
@@ -16,12 +15,15 @@ const mocked = vi.hoisted(() => ({
   pending: false,
 }));
 
-vi.mock("react-dom", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react-dom")>()),
-  useFormState: (_action: unknown, _initial: AuthState) => [
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
+  useActionState: (_action: unknown, _initial: AuthState) => [
     mocked.state,
     vi.fn(),
   ],
+}));
+vi.mock("react-dom", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-dom")>()),
   useFormStatus: () => ({ pending: mocked.pending }),
 }));
 vi.mock("./actions", () => ({ loginAction: vi.fn(), registerAction: vi.fn() }));
@@ -56,8 +58,12 @@ describe("LoginForm", () => {
     render(<LoginForm />);
     await user.type(screen.getByLabelText(/Tên đăng nhập/), "alice");
     await user.type(screen.getByLabelText(/Mật khẩu/), "secret");
-    expect(submit()).toBe(true);
+    // React 19 always preventDefaults a form whose action is a function (it
+    // runs the action instead), so assert on validation feedback, not the
+    // event's default-prevented flag.
+    submit();
     expect(screen.queryByText("Vui lòng nhập mật khẩu.")).toBeNull();
+    expect(screen.queryByText("Vui lòng nhập tên đăng nhập.")).toBeNull();
   });
 
   it("is pending, busy and inert while the action runs", () => {

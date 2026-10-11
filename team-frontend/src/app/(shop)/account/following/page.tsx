@@ -30,11 +30,10 @@ function parseTab(value: string | undefined): FollowingTab {
   return value === "items" ? "items" : "shops";
 }
 
-export default async function FollowingPage({
-  searchParams,
-}: {
-  searchParams?: { tab?: string };
+export default async function FollowingPage(props: {
+  searchParams?: Promise<{ tab?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   if (!getPrincipal()) redirect("/login");
 
   const tab = parseTab(searchParams?.tab);

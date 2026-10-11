@@ -33,9 +33,10 @@ export const metadata = { title: "Quản lý đơn hàng | Kênh người bán" 
 const BASE = "/seller/orders";
 
 /** List > Table List: status Tabs, search and page all live in the URL. */
-export default async function SellerOrdersPage({
-  searchParams = {},
-}: { searchParams?: SearchParams }) {
+export default async function SellerOrdersPage(props: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const searchParams = await props.searchParams;
   const me = getPrincipal();
   if (!me) redirect("/login");
   if (!hasScope("listing.write")) redirect("/");

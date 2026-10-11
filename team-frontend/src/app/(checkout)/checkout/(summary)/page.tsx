@@ -28,11 +28,10 @@ import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function CheckoutPage({
-  searchParams,
-}: {
-  searchParams: RawSearchParams;
+export default async function CheckoutPage(props: {
+  searchParams: Promise<RawSearchParams>;
 }) {
+  const searchParams = await props.searchParams;
   const me = getPrincipal();
   if (!me) redirect("/login");
 

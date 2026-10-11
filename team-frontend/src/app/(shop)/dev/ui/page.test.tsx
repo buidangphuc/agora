@@ -10,9 +10,9 @@ afterEach(() => {
 });
 
 describe("/dev/ui catalogue", () => {
-  it("smoke: renders every section with its states outside production", () => {
+  it("smoke: renders every section with its states outside production", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    render(<UiCataloguePage />);
+    render(await UiCataloguePage({}));
     expect(notFound).not.toHaveBeenCalled();
 
     for (const id of [
@@ -55,17 +55,21 @@ describe("/dev/ui catalogue", () => {
     expect(screen.getByTestId("ui-modal-open")).toBeInTheDocument();
   });
 
-  it("is a 404 in production", () => {
+  it("is a 404 in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    render(<UiCataloguePage />);
+    render(await UiCataloguePage({}));
     expect(notFound).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("/dev/ui search params", () => {
-  it("drive the link tabs and the pagination so back/forward restore them", () => {
+  it("drive the link tabs and the pagination so back/forward restore them", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    render(<UiCataloguePage searchParams={{ status: "done", page: "4" }} />);
+    render(
+      await UiCataloguePage({
+        searchParams: Promise.resolve({ status: "done", page: "4" }),
+      }),
+    );
     const linkTabs = screen.getByRole("navigation", { name: "Tabs" });
     expect(
       within(linkTabs).getByRole("link", { name: "Hoàn tất" }),

@@ -17,11 +17,10 @@ import { batchGetShopNames } from "@/lib/gateway/shops";
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountOrdersPage({
-  searchParams,
-}: {
-  searchParams: { status?: string; page?: string };
+export default async function AccountOrdersPage(props: {
+  searchParams: Promise<{ status?: string; page?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const me = getPrincipal();
   if (!me) redirect("/login");
 

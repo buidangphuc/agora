@@ -118,7 +118,9 @@ describe("/account/security", () => {
 
   it("paginates the history by ?page= at 20 rows", async () => {
     vi.mocked(listLoginHistory).mockResolvedValue(events(45));
-    render(await SecurityPage({ searchParams: { page: "3" } }));
+    render(
+      await SecurityPage({ searchParams: Promise.resolve({ page: "3" }) }),
+    );
     expect(screen.getByText("Agent 40")).toBeInTheDocument();
     expect(screen.queryByText("Agent 39")).toBeNull();
     const nav = screen.getByRole("navigation", { name: "Phân trang" });

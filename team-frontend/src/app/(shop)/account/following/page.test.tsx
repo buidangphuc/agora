@@ -36,7 +36,9 @@ describe("/account/following", () => {
   });
 
   it("?tab=items selects the items tab and renders the feed", async () => {
-    render(await FollowingPage({ searchParams: { tab: "items" } }));
+    render(
+      await FollowingPage({ searchParams: Promise.resolve({ tab: "items" }) }),
+    );
     const tabs = screen.getByRole("navigation", { name: "Tabs" });
     expect(
       within(tabs).getByRole("link", { name: "Sản phẩm" }),
@@ -48,7 +50,9 @@ describe("/account/following", () => {
   });
 
   it("an unknown tab falls back to shops", async () => {
-    render(await FollowingPage({ searchParams: { tab: "nope" } }));
+    render(
+      await FollowingPage({ searchParams: Promise.resolve({ tab: "nope" }) }),
+    );
     expect(
       screen.getByRole("link", { name: /Gian hàng/, current: "page" }),
     ).toBeInTheDocument();

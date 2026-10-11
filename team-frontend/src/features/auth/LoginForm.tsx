@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -15,7 +15,7 @@ import { validateLogin } from "./validation";
 const initial: AuthState = { ok: false };
 
 export function LoginForm() {
-  const [state, action] = useFormState(loginAction, initial);
+  const [state, action] = useActionState(loginAction, initial);
   const form = useCredentialForm(state, validateLogin);
 
   return (

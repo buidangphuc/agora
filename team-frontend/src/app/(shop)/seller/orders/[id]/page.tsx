@@ -17,13 +17,12 @@ import { isOwnedBy, loadSellerOrder } from "./data";
 export const dynamic = "force-dynamic";
 
 /** Profile > Advanced Profile on real order data. */
-export default async function SellerOrderDetailPage({
-  params,
-  searchParams = {},
-}: {
-  params: { id: string };
-  searchParams?: { tab?: string };
+export default async function SellerOrderDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string }>;
 }) {
+  const searchParams = (await props.searchParams) ?? {};
+  const params = await props.params;
   const me = getPrincipal();
   const order = await loadSellerOrder(params.id);
   if (!order || !isOwnedBy(order, me)) {

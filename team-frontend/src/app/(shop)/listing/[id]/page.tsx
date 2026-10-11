@@ -46,13 +46,12 @@ import { loadListing } from "./data";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: Record<string, string | string[] | undefined>;
+export default async function ProductDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   // getListing returns null only for gRPC NotFound; any other error throws and
   // reaches error.tsx.
   const listing = await loadListing(params.id);

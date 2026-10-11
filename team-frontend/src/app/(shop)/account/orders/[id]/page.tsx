@@ -26,13 +26,12 @@ const backLink = (
   </Link>
 );
 
-export default async function BuyerOrderDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { tab?: string };
+export default async function BuyerOrderDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const me = getPrincipal();
   if (!me) redirect("/login");
 

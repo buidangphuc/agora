@@ -69,7 +69,9 @@ describe("/seller/[id]/edit", () => {
       ...listing,
       sellerId: "other",
     } as never);
-    render(await SellerEditPage({ params: { id: listing.id } }));
+    render(
+      await SellerEditPage({ params: Promise.resolve({ id: listing.id }) }),
+    );
     expect(screen.getByText("Không có quyền chỉnh sửa")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Quay lại Kênh người bán" }),
@@ -87,7 +89,9 @@ describe("/seller/[id]/edit", () => {
       name: "A",
       scopes: ["listing.write", "admin"],
     });
-    render(await SellerEditPage({ params: { id: listing.id } }));
+    render(
+      await SellerEditPage({ params: Promise.resolve({ id: listing.id }) }),
+    );
     expect(
       screen.getByRole("button", { name: "Lưu thay đổi" }),
     ).toBeInTheDocument();
@@ -95,13 +99,15 @@ describe("/seller/[id]/edit", () => {
 
   it("hands an unknown id to not-found", async () => {
     vi.mocked(getListing).mockResolvedValue(null);
-    await SellerEditPage({ params: { id: "nope" } });
+    await SellerEditPage({ params: Promise.resolve({ id: "nope" }) });
     expect(notFound).toHaveBeenCalled();
   });
 
   it("prefills the form for the owner", async () => {
     vi.mocked(getListing).mockResolvedValue(listing as never);
-    render(await SellerEditPage({ params: { id: listing.id } }));
+    render(
+      await SellerEditPage({ params: Promise.resolve({ id: listing.id }) }),
+    );
     expect(screen.getByLabelText(/Tên sản phẩm/)).toHaveValue("Phone");
     expect(screen.getByLabelText(/Kho hàng/)).toHaveValue(4);
   });

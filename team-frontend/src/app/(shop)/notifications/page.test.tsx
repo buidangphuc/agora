@@ -100,7 +100,11 @@ describe("/notifications", () => {
   });
 
   it("selects the tab from ?tab= and lists only that group", async () => {
-    render(await NotificationsPage({ searchParams: { tab: "order" } }));
+    render(
+      await NotificationsPage({
+        searchParams: Promise.resolve({ tab: "order" }),
+      }),
+    );
     const tabs = screen.getByRole("navigation", { name: "Tabs" });
     expect(
       within(tabs).getByRole("link", { name: /Đơn hàng/ }),
@@ -113,7 +117,11 @@ describe("/notifications", () => {
   });
 
   it("an unknown tab falls back to all", async () => {
-    render(await NotificationsPage({ searchParams: { tab: "bogus" } }));
+    render(
+      await NotificationsPage({
+        searchParams: Promise.resolve({ tab: "bogus" }),
+      }),
+    );
     expect(screen.getAllByTestId("notification-item")).toHaveLength(4);
     expect(
       within(screen.getByRole("navigation", { name: "Tabs" })).getByRole(
@@ -141,7 +149,11 @@ describe("/notifications", () => {
   });
 
   it("an empty tab shows Empty inside the list area", async () => {
-    render(await NotificationsPage({ searchParams: { tab: "system" } }));
+    render(
+      await NotificationsPage({
+        searchParams: Promise.resolve({ tab: "system" }),
+      }),
+    );
     expect(
       screen.getByText("Chưa có thông báo nào trong mục này."),
     ).toBeInTheDocument();
@@ -155,7 +167,9 @@ describe("/notifications", () => {
       ),
       totalUnread: 0,
     });
-    render(await NotificationsPage({ searchParams: { page: "3" } }));
+    render(
+      await NotificationsPage({ searchParams: Promise.resolve({ page: "3" }) }),
+    );
     expect(screen.getAllByTestId("notification-item")).toHaveLength(5);
     const nav = screen.getByRole("navigation", { name: "Phân trang" });
     expect(within(nav).getByRole("link", { name: "Trang 2" })).toHaveAttribute(

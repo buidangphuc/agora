@@ -10,10 +10,14 @@ import { isOwnedBy, loadSellerOrder } from "./data";
  * (UI in seller/not-found.tsx) before loading.tsx streams its skeleton. The
  * seller layout owns the sign-in and scope gates, so skip the lookup without them.
  */
-export default async function SellerOrderLayout({
-  children,
-  params,
-}: { children: ReactNode; params: { id: string } }) {
+export default async function SellerOrderLayout(props: {
+  children: ReactNode;
+  params: Promise<{ id: string }>;
+}) {
+  const params = await props.params;
+
+  const { children } = props;
+
   if (!hasScope("listing.write")) return children;
   const order = await loadSellerOrder(params.id);
   if (!order || !isOwnedBy(order, getPrincipal())) notFound();

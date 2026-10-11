@@ -20,11 +20,10 @@ import { loadOrder } from "./data";
 
 export const dynamic = "force-dynamic";
 
-export default async function MockPaymentPage({
-  params,
-}: {
-  params: { id: string };
+export default async function MockPaymentPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   const me = getPrincipal();
   if (!me) redirect("/login");
 

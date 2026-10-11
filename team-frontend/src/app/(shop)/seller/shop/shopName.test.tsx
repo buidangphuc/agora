@@ -37,7 +37,10 @@ describe("/shop/<id> shows the display name a seller saved", () => {
       displayName: "Nhà Sách An Nhiên",
     } as never);
     render(
-      await ShopPage({ params: { id: "seller-abcdef" }, searchParams: {} }),
+      await ShopPage({
+        params: Promise.resolve({ id: "seller-abcdef" }),
+        searchParams: Promise.resolve({}),
+      }),
     );
     expect(
       screen.getByRole("heading", { name: "Nhà Sách An Nhiên" }),
@@ -47,7 +50,10 @@ describe("/shop/<id> shows the display name a seller saved", () => {
   it("falls back to Shop # + 6 characters when unset", async () => {
     vi.mocked(getStorefront).mockResolvedValue(null);
     render(
-      await ShopPage({ params: { id: "seller-abcdef" }, searchParams: {} }),
+      await ShopPage({
+        params: Promise.resolve({ id: "seller-abcdef" }),
+        searchParams: Promise.resolve({}),
+      }),
     );
     expect(
       screen.getByRole("heading", { name: "Shop #seller" }),

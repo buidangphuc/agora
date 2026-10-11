@@ -56,7 +56,7 @@ function givenListings(
 }
 
 async function renderPage(searchParams: Record<string, string> = {}) {
-  render(await SellerPage({ searchParams }));
+  render(await SellerPage({ searchParams: Promise.resolve(searchParams) }));
 }
 
 beforeEach(() => {
