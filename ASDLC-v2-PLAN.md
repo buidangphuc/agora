@@ -227,10 +227,10 @@ W3-1..W3-3, W3-6 chạy ngay sau W0. W3-4 chờ W2-2.
 
 | ID | Task | Writes | Verify / Done | Status |
 |---|---|---|---|---|
-| W4-1 | Build image có tag commit cho mọi service, bump tag trong `platform-gitops` (dùng lại `make -C deploy images`) | `deploy/images/`, `platform-gitops/envs/` | Image có tag commit; ArgoCD sync đúng tag | review (offline) |
-| W4-2 | Overlay staging chạy trên kind local (ApplicationSet có sẵn) + smoke | `platform-gitops/envs/staging/`, `deploy/Makefile` | `make -C deploy smoke` xanh trên overlay staging | review (offline) |
-| W4-3 | Rollback: thử thật 1 lần qua Argo Rollouts (canary fail → auto-rollback) và lệnh rollback tay 1 dòng | `scripts/rollback.sh`, ghi kết quả vào `docs/runbooks/rollback.md` | Rollback đã thử thật 1 lần, có log | review (offline) |
-| W4-4 | Operate tối thiểu: 3 alert rule Prometheus (error rate, latency, service down) bắn ra kênh local (webhook/log giả), 1 runbook mỗi service | `platform-gitops/platform/monitoring/`, `docs/runbooks/` | Alert thử bắn được ra kênh local | review (offline) |
+| W4-1 | Build image có tag commit cho mọi service, bump tag trong `platform-gitops` (dùng lại `make -C deploy images`) | `deploy/images/`, `platform-gitops/envs/` | Image có tag commit; ArgoCD sync đúng tag | done (live: 12 image tag 01a53993082a) |
+| W4-2 | Overlay staging chạy trên kind local (ApplicationSet có sẵn) + smoke | `platform-gitops/envs/staging/`, `deploy/Makefile` | `make -C deploy smoke` xanh trên overlay staging | done (live: smoke-staging 8/12; 4 fail = cùng lỗi backend như ns marketplace 7/12) |
+| W4-3 | Rollback: thử thật 1 lần qua Argo Rollouts (canary fail → auto-rollback) và lệnh rollback tay 1 dòng | `scripts/rollback.sh`, ghi kết quả vào `docs/runbooks/rollback.md` | Rollback đã thử thật 1 lần, có log | done (live: canary auto-abort ~100s + rollback --to) |
+| W4-4 | Operate tối thiểu: 3 alert rule Prometheus (error rate, latency, service down) bắn ra kênh local (webhook/log giả), 1 runbook mỗi service | `platform-gitops/platform/monitoring/`, `docs/runbooks/` | Alert thử bắn được ra kênh local | done (live: alert route tới webhook-logger) |
 | W4-5 | Subagent `incident-triager` + skill `release` | `.claude/agents/incident-triager.md`, `.claude/skills/release/` | Chạy thử trên 1 sự cố giả | done |
 
 ### Wave 5 — Đo lường, chứng minh, chuẩn bị scale

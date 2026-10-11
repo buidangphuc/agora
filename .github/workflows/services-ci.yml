@@ -29,8 +29,6 @@ jobs:
         run: uv sync --dev --all-extras
       - name: Generate gRPC stubs (gitignored per ADR-0001)
         run: uv run --all-extras python -m scripts.gen_proto
-      - name: Environment drift gate
-        run: uv run --all-extras pytest tests/test_env_drift.py -v
       - name: Run tests
         run: uv run --all-extras pytest -q
       - name: Eval gate (deterministic + chat resilience cases; an unscored judge case fails it)

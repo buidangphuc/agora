@@ -40,4 +40,5 @@ Known limitation: with `ENV=staging` + OTEL, metrics only exist if the gateway r
 
 | Date | Operator | Drill | Stable tag | Canary tag | Failing metric | Time to rollback | Result | Notes |
 |---|---|---|---|---|---|---|---|---|
-| | | | | | | | | |
+| 2026-10-11 | Claude (user-approved) | Auto canary rollback | 01a53993082a | d0d0d0d0d0d0 | error-rate 0.136/0.133 (real upstream errors) + latency-p95 21.3/19.0 ms vs planted 0.001 ms; rps-sanity ok | ~100 s from canary pod start to RolloutAborted | Aborted at step 0/7, stable kept serving, /healthz 200 | First attempt never started: gitops-push skipped the values file (same size, rsync quick-check) — fixed with `rsync --checksum` |
+| 2026-10-11 | Claude (user-approved) | Durable manual rollback | d0d0d0d0d0d0 (aborted) | 01a53993082a | — | ~2 min (gitops-push + ArgoCD sync) | `rollback.sh team-gateway --env staging --to 01a53993082a` + gitops-push → Rollout Healthy on 01a53993082a | `--abort` path not exercised separately (the auto-abort already held the canary) |

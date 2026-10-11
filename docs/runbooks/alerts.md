@@ -31,3 +31,9 @@ Check rules/state: `kubectl -n marketplace port-forward svc/prometheus 9090:9090
 | Date | Operator | Method | Alert | Time to webhook-logger | Result |
 |---|---|---|---|---|---|
 | | | | | | |
+
+## Drill log
+| Date | Check | Result |
+|---|---|---|
+| 2026-10-11 | Prometheus rules loaded (`/api/v1/rules`) | ServiceDown, HighErrorRate, HighLatencyP95: health ok, inactive |
+| 2026-10-11 | Synthetic ServiceDown → Alertmanager → webhook-logger | firing line logged with runbook link (route verified) |

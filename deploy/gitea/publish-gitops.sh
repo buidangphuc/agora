@@ -29,7 +29,7 @@ if git clone -q "${REMOTE}" "${WORK}/repo" 2>/dev/null; then :; else
 fi
 cd "${WORK}/repo"
 git checkout -q -B main 2>/dev/null || true
-rsync -a --delete --exclude '.git' --exclude '.DS_Store' "${SRC}/" "${WORK}/repo/"
+rsync -a --checksum --delete --exclude '.git' --exclude '.DS_Store' "${SRC}/" "${WORK}/repo/"
 git add -A
 if git diff --cached --quiet; then
   echo "gitea ${REPO}: nothing to publish"
