@@ -44,7 +44,7 @@ describe("dataLayer privacy", () => {
 
   it("[Search term and path are scrubbed in the dataLayer]", async () => {
     const { pushDataLayer, last } = await setup();
-    pushDataLayer("search", {
+    pushDataLayer("search_filter", {
       query: "iphone lan.nguyen@gmail.com 0912345678 1234567890123",
       path: "/search?q=0912345678",
     });
@@ -59,7 +59,7 @@ describe("dataLayer privacy", () => {
 
   it("[Referrer is reduced to scheme host path]", async () => {
     const { pushDataLayer, last } = await setup();
-    pushDataLayer("page_view", {
+    pushDataLayer("view_item_list", {
       referrer: "https://shop.example.vn/p/12?email=a@b.vn#x",
     });
     expect(last().page_referrer).toBe("https://shop.example.vn/p/12");
@@ -67,7 +67,7 @@ describe("dataLayer privacy", () => {
 
   it("[Referrer is reduced to scheme host path] an unparseable referrer becomes empty", async () => {
     const { pushDataLayer, last } = await setup();
-    pushDataLayer("page_view", { referrer: "not a url" });
+    pushDataLayer("view_item_list", { referrer: "not a url" });
     const e = last();
     expect(e.page_referrer ?? "").toBe("");
   });
