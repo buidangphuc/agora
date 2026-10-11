@@ -13,4 +13,4 @@
 
 - Static tests: lcw (incl. modelserve in RAW_APPS), roc, fcj, modelserve, pear_authz gitops — 40 passed; black/ruff on changed steps; openspec change validates --strict; features.py --strict; spec_sync; repo_doctor 2 pre-existing warnings; `bash -n` push-images.sh; `kubectl kustomize platform/modelserve` renders.
 - Review follow-ups applied: router `VLLM_URL` → tei-fake (no vLLM on the local cluster, as in compose); `MODEL_VERSION` `tei-fake-v1` as in compose.
-- Not verified yet: image push and ArgoCD sync on the cluster (run after commit).
+- Live (2026-10-11, gitea 862f0e0): images pushed to localhost:5001; infra-shared and platform-modelserve Synced/Healthy; modelserve-router, tei-embed, tei-rerank Running; models-cache claim pruned; redpanda-init hook ran on its own; from team-ai: /embed 384-dim vector, /rerank scores, /v1/chat/completions via tei-fake.

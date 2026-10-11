@@ -11,4 +11,4 @@
 
 - Static tests: lcw (new scenario fails on the old bucket-init manifest, passes after), roc, fcj, modelserve, pear_authz gitops — 41 passed; black/ruff on the steps file; openspec validate --strict; features.py --strict; spec_sync; repo_doctor.
 - mc binary of the pinned image is a static aarch64 Go build (`file`), so fetch-mc can copy it into postgres:16-alpine.
-- Live: minio-init on the cluster after gitops-push (below, in the archive commit if run).
+- Live (2026-10-11, gitea 862f0e0): minio-init Completed with the pinned image; infra-shared PostSync phase finished (Synced/Healthy).
