@@ -1,9 +1,6 @@
 """Unit tests for CVRModel and eGMVRanker."""
 
-import pytest
-
 from recsys.ranker.cvr import CVRModel, eGMVRanker
-from recsys.ranker.features import CandidateFeatures, extract_candidate_features
 
 
 def test_cvr_model_prediction_range():
@@ -41,7 +38,7 @@ def test_egmv_ranker_favors_high_commercial_value():
     # item-expensive-high-cvr has higher eGMV than item-cheap-high-cvr and item-zero-cvr
     top_item = ranked[0]["listing_id"]
     assert top_item == "item-expensive-high-cvr", f"Expected expensive high-cvr item on top, got {top_item}"
-    
+
     # zero CVR item should rank last
     last_item = ranked[-1]["listing_id"]
     assert last_item == "item-zero-cvr", f"Expected zero CVR item last, got {last_item}"

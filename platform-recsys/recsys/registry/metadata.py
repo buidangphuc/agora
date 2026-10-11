@@ -17,9 +17,7 @@ class ModelMetadata:
     metrics: dict[str, float] = field(default_factory=dict)
     parameters: dict[str, Any] = field(default_factory=dict)
     git_commit: str = ""
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     artifact_paths: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

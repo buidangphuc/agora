@@ -14,29 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  team-ai:
-    name: team-ai Lint & Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: team-ai
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: team-ai/requirements.txt
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e ".[dev]"
-      - name: Environment drift gate
-        run: pytest tests/test_env_drift.py -v
-      - name: Run unit & RAG contract tests
-        run: pytest tests/ -k "not integration and not slow" -v
-
   team-ai-uv:
     name: team-ai pytest + eval gate
     runs-on: ubuntu-latest
@@ -50,6 +27,10 @@ jobs:
           enable-cache: true
       - name: Install (all extras)
         run: uv sync --dev --all-extras
+      - name: Generate gRPC stubs (gitignored per ADR-0001)
+        run: uv run --all-extras python -m scripts.gen_proto
+      - name: Environment drift gate
+        run: uv run --all-extras pytest tests/test_env_drift.py -v
       - name: Run tests
         run: uv run --all-extras pytest -q
       - name: Eval gate (deterministic + chat resilience cases; an unscored judge case fails it)

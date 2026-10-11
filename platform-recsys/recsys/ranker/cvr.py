@@ -61,11 +61,11 @@ class eGMVRanker:
         """Returns (final_score, p_ctr, p_cvr)."""
         p_ctr = self.predict_p_ctr(features.to_vector())
         p_cvr = self.cvr_model.predict_p_cvr(features.to_cvr_vector())
-        
+
         # Guard against 0 or negative prices
         effective_price = max(1.0, raw_price)
         price_factor = math.pow(effective_price / 100000.0, self.gamma)  # Normalized around 100k VND
-        
+
         # eGMV = pCTR * (pCVR)^beta * Price^gamma
         final_score = p_ctr * math.pow(p_cvr, self.beta) * price_factor
         return final_score, p_ctr, p_cvr
@@ -94,12 +94,14 @@ class eGMVRanker:
                 item_store_features=item_store_feat,
             )
             score, p_ctr, p_cvr = self.score_candidate(feat, raw_price)
-            scored.append({
-                "listing_id": feat.listing_id,
-                "score": score,
-                "p_ctr": p_ctr,
-                "p_cvr": p_cvr,
-            })
+            scored.append(
+                {
+                    "listing_id": feat.listing_id,
+                    "score": score,
+                    "p_ctr": p_ctr,
+                    "p_cvr": p_cvr,
+                }
+            )
 
         scored.sort(key=lambda x: -x["score"])
         return scored[:top_k]

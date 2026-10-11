@@ -54,7 +54,6 @@ class CandidateFeatures:
         ]
 
 
-
 def extract_candidate_features(
     candidate: dict[str, Any] | tuple[str, float],
     user_context: dict[str, Any] | None = None,
@@ -86,8 +85,13 @@ def extract_candidate_features(
         freshness = float(candidate.get("freshness_days") or item_store_features.get("freshness_days", 1.0))
         ctr = float(candidate.get("historical_ctr") or item_store_features.get("historical_ctr", 0.0))
         cvr = float(candidate.get("conversion_rate") or item_store_features.get("conversion_rate", 0.0))
-        cart_to_order = float(candidate.get("cart_to_order_ratio") or item_store_features.get("cart_to_order_ratio", 0.0))
-        cat_avg_price = float(candidate.get("category_avg_price") or item_store_features.get("category_avg_price", price if price > 0 else 1.0))
+        cart_to_order = float(
+            candidate.get("cart_to_order_ratio") or item_store_features.get("cart_to_order_ratio", 0.0)
+        )
+        cat_avg_price = float(
+            candidate.get("category_avg_price")
+            or item_store_features.get("category_avg_price", price if price > 0 else 1.0)
+        )
 
     user_cvr = float(user_context.get("user_cvr", 0.0))
     price_ratio = (price / cat_avg_price) if cat_avg_price > 0 else 1.0
@@ -122,4 +126,3 @@ def extract_candidate_features(
         price_ratio=min(5.0, max(0.0, price_ratio)),
         position_weight=ips,
     )
-
