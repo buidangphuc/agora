@@ -8,7 +8,7 @@
 # `docker build`, since buf is not on the host and generated/ is gitignored.
 # `go mod tidy` in-image resolves the (BigQuery-heavy) dependency graph + go.sum
 # on first build.
-FROM golang:1.26 AS build
+FROM golang:1.26-bookworm AS build
 WORKDIR /src
 COPY . .
 ENV CGO_ENABLED=1 GOOS=linux
