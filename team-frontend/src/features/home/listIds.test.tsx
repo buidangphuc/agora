@@ -31,7 +31,7 @@ beforeEach(() => {
 afterEach(endBeaconCapture);
 
 describe("home list item list ids", () => {
-  it("[Fan-out rows share a group id] FeedBlock beacons and view_item_list carry item list id home_feed", async () => {
+  it("[Fan-out rows share a group id] FeedBlock beacons and view_item_list carry item list id home_latest, distinct from the recommendations row's home_feed", async () => {
     loadFeed.mockResolvedValue({
       items: [viewListing("a"), viewListing("b"), viewListing("c")],
       failed: false,
@@ -39,10 +39,10 @@ describe("home list item list ids", () => {
     render(await FeedBlock());
     await drain();
     expect(beaconsOf(fetchMock)).toHaveLength(3);
-    expect(listIds(fetchMock)).toEqual({
-      beacon: ["home_feed"],
-      layer: ["home_feed"],
-    });
+    const ids = listIds(fetchMock);
+    expect(ids).toEqual({ beacon: ["home_latest"], layer: ["home_latest"] });
+    // RecommendationsRow defaults its placement to "home_feed"; ids must not collide.
+    expect(ids.beacon).not.toContain("home_feed");
   });
 
   it("[Fan-out rows share a group id] RecentlyViewedRow beacons and view_item_list carry item list id recently_viewed", async () => {
