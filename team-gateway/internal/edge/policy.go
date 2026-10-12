@@ -24,6 +24,7 @@ var adminProcedures = map[string]string{
 	orderv1connect.OrderServiceForceFailSagaProcedure:                             adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure:     adminScope,
 	analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure: adminScope,
+	analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure:             adminScope,
 }
 
 // requireProcedureScope enforces adminProcedures for a resolved principal:
