@@ -484,3 +484,57 @@ features:
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
       (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.
+
+  - id: listing.boot-requires-database
+    title: Database disabled is rejected
+    persona: admin
+    priority: P2
+    summary: >-
+      team-domain refuses to start with DATABASE_ENABLED=false, before any port opens.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the service starts with DATABASE_ENABLED=false
+      - THEN app.Run returns an error naming DATABASE_ENABLED before any port opens
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational boot check with no UI. Unit-verified by TestBootRequiresDatabase in
+      team-domain/internal/app (change migrate-team-domain-to-go-sdk, capability domain-runtime).
+
+  - id: listing.boot-fails-when-database-unreachable
+    title: Unreachable database fails boot even locally
+    persona: admin
+    priority: P2
+    summary: >-
+      team-domain refuses to start when DATABASE_URL points at an unreachable database, in any ENV.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the service starts with ENV=local and DATABASE_URL pointing at a closed port
+      - THEN app.Run returns an error
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational boot check with no UI. Unit-verified by TestBootFailsWhenDatabaseUnreachable in
+      team-domain/internal/app.
+
+  - id: listing.shutdown-stops-relayer-before-pool-close
+    title: Relayer stops after the server and before the pool closes
+    persona: admin
+    priority: P2
+    summary: >-
+      On shutdown health drains first, the server stops, the relayer stops, then the publisher and the pool close.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the running service's context is cancelled with the relayer enabled
+      - THEN health becomes NOT_SERVING, the relayer's Run returns, and only then is the pool closed
+    tags: [system, runtime, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Needs a Postgres container and a fake publisher. Unit-verified by
+      TestShutdownStopsRelayerBeforePoolClose in team-domain/internal/app.

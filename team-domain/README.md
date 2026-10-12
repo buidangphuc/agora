@@ -6,7 +6,7 @@ Status: deployed service (root `docker-compose.services.yaml`, `team-domain-svc:
 
 ## Contract
 
-Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing.proto`), port `50051` (`GRPC_PORT`). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (ADR-0003); this service does no JWT verification. Handlers enforce scopes with `interceptor.RequireScopes` / `RequireServiceScope` (`internal/interceptor/auth.go`). No principal gives `Unauthenticated`; a missing scope gives `PermissionDenied`.
+Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing.proto`), port `50051` (`GRPC_PORT`). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (ADR-0003); this service does no JWT verification. The go-sdk `auth` interceptor reads the principal; handlers enforce scopes with `requireScopes` / `requireServiceScope` (`internal/rpc/auth.go`). No principal gives `Unauthenticated` (`authentication required`); a missing scope gives `PermissionDenied` (`missing scope`). The anonymous principal is not rejected up front, because the gateway gives it the public scopes.
 
 | RPC | Authorization | Notes |
 |---|---|---|
@@ -60,11 +60,11 @@ Postgres `listing_db` (role `listing_svc`). Migrations in `migrations/` (golang-
 | 0009 `bundles` | `bundles` |
 | 0010 `reservation_lifecycle_constraints` | `NOT VALID` checks: `reservations.status IN ('active','committed','released')`, `listings.stock >= 0`, `listing_variants.stock >= 0`. Validate later with `psql "$DATABASE_URL" -f scripts/validate_0010_constraints.sql` (refuses unless every violation count is 0) |
 
-Applied by `make migrate` locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service when Postgres is enabled and restores stock for expired `active` reservations only (committed ones are never swept).
+Applied by `make migrate` locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/listing/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service and restores stock for expired `active` reservations only (committed ones are never swept).
 
 ## Configuration
 
-Read in `internal/config/config.go` (struct tags are the source of truth). `make check-env` runs `TestEnvExampleInSync`, which fails if `.env.example` drifts from the declared fields in either direction.
+Read in `internal/config/config.go`: `Settings` embeds the go-sdk `Runtime` and `GRPC` groups, names `Postgres` and `OTel`, and adds the service groups. Struct tags are the source of truth. `make check-env` runs `TestEnvExampleInSync`, which fails if `.env.example` drifts from the declared fields in either direction.
 
 | Var | Default |
 |---|---|
@@ -75,6 +75,7 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `GRPC_PORT` | `50051` |
 | `GRPC_REFLECTION_ENABLED` | `true` |
 | `SHUTDOWN_GRACE_SECONDS` | `10` |
+| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0`: how long to keep serving after health reports NOT_SERVING |
 | `DATABASE_ENABLED` | `true` |
 | `DATABASE_URL` | empty; required when `DATABASE_ENABLED=true` |
 | `DB_MAX_CONNS` | `10` |
@@ -96,11 +97,30 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `RESERVATION_SWEEP_INTERVAL` | `1m` (Go duration): sweeper period |
 | `OTEL_ENABLED` | `false` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty |
-| `OTEL_SERVICE_NAME` | `team-domain` |
+| `OTEL_SERVICE_NAME` | empty; the service name `team-domain` is used |
 
 `RESERVATION_TTL` and `RESERVATION_SWEEP_INTERVAL` never fail boot: a missing, unparsable or non-positive value falls
 back to the default with a WARN naming the variable. The sweeper logs `reservation sweeper started` with the effective
 `reservation_ttl` and `sweep_interval` (e.g. `15m0s`, `1m0s`).
+
+## Layout
+
+```
+cmd/server/main.go     signals, config.Load, app.Run, exit code
+internal/app/          composition root (explicit wiring, no registry)
+internal/config/       Settings, Validate, Load; the test checks ../../.env.example
+internal/rpc/          ListingService handlers, scope checks, error mapping
+internal/listing/      listings, bundles, storefronts, reservation sweeper
+internal/store/        Postgres and in-memory repositories, outbox store
+internal/events/       EventEnvelope builders, Kafka publisher, outbox relayer
+internal/objects/      S3 presigned upload URLs
+migrations/            applied by `make migrate` / `team-domain-migrate`, not at boot
+third_party/go-sdk/    vendored go-sdk (ADR-0016); never edit, re-sync with sync-go-sdk.sh
+```
+
+`app.Run` opens telemetry, Postgres and the Kafka publisher (each registered on a `lifecycle.Stack`), then runs the gRPC server, the health poller, the reservation sweeper and, when Kafka and the outbox are enabled, the outbox relayer as lifecycle components. It refuses to start when `DATABASE_ENABLED=false` or the database is unreachable, in any `ENV`.
+
+Shutdown order: health reports NOT_SERVING, `SHUTDOWN_DRAIN_DELAY_SECONDS` passes, the gRPC server stops, the relayer and sweeper stop, then the publisher and the pool close.
 
 ## Run locally
 
@@ -110,7 +130,7 @@ Full stack (from the repo root; `docker-compose.yaml` includes `platform-core/in
 docker compose up -d --build team-domain
 ```
 
-This builds the image, runs `team-domain-migrate`, and starts `team-domain-svc` with `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`. The Dockerfile needs `./generated` to exist, so run `make proto` first. There is no `--profile jobs` component.
+This builds the image, runs `team-domain-migrate`, and starts `team-domain-svc` with `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`. The Dockerfile needs `./generated` and `./third_party` to exist, so run `make proto` first. There is no `--profile jobs` component.
 
 Standalone:
 
@@ -128,23 +148,27 @@ If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (pla
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`; AGENTS.md says to run it in Docker) |
-| `make test` | `go test ./...` |
+| `make test` | `go test -race ./...` (Postgres tests start a container) |
 | `make check-env` | `.env.example` drift gate |
-| `make check` | merge gate: `check-env`, `gofmt -l`, `go vet ./...`, `golangci-lint run` (skipped if not installed), `go test ./...` |
+| `make check` | merge gate: `go vet`, `golangci-lint`, `go test -race` with Docker required, `check-env` |
+| `make docker` | builds the image `team-domain:dev` |
+
+The targets come from `make/go-service.mk` (synced from platform-core); `dev`, `stop` and `migrate` are local to the Makefile.
 
 `make check` is the declared gate; run it before a PR. The repo has no `.github` workflows.
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
+- `FEATURES.yaml` (repo root): `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation`, `listing.event-durability` and the three go-sdk runtime scenarios (`listing.boot-requires-database`, `listing.boot-fails-when-database-unreachable`, `listing.shutdown-stops-relayer-before-pool-close`) are `not-testable` (no e2e; unit-verified).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 
 ## Gotchas
 
+- `third_party/go-sdk` is a vendored copy of go-sdk; bump it with `platform-core/tools/sync-go-sdk.sh <tag> team-domain`, never by hand.
 - `generated/` is gitignored and produced by `make proto`; never hand-edit or commit it. Build and tests fail until it exists.
 - `proto/` is a vendored, pinned copy of platform-core's proto module (ADR-0001). Never edit it here; re-vendor at a new tag (see `proto/README.md`).
-- With `DATABASE_ENABLED=false` there is no outbox and no sweeper (event-less service). With `KAFKA_ENABLED=false` writes succeed but events are never relayed.
+- `DATABASE_ENABLED=false` is refused at boot. With `KAFKA_ENABLED=false` writes succeed but events are never relayed.
 - `ListingChanged` carries the full listing; there are no fine-grained change events.
 
 ## Known gaps
