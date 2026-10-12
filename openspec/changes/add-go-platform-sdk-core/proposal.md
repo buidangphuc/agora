@@ -16,7 +16,7 @@ initiative: go-platform-sdk
 ## What Changes
 
 - **ADR-0016, Go service convention and SDK distribution.** It fixes four things:
-  - The repo layout: `cmd/`, `internal/app`, `internal/config`, `internal/grpc`, `internal/<domain>`, `internal/store`, `internal/events`.
+  - The repo layout: `cmd/`, `internal/app`, `internal/config`, `internal/rpc`, `internal/<domain>`, `internal/store`, `internal/events`.
   - Explicit wiring with no DI container. Everything long-running is a `Run(ctx) error`.
   - The library choices: caarlos0/env, go-grpc-middleware v2, x/sync/errgroup, pgx v5, golang-migrate v4, failsafe-go, testcontainers-go, golangci-lint v2.
   - Distribution by vendoring a tagged SDK copy, mirroring ADR-0001.

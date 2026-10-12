@@ -154,11 +154,11 @@
 
 `grpcx.NewServer(opts)` SHALL return a `*grpc.Server` with:
 - the otelgrpc stats handler;
-- the unary and stream chain recovery → request-id → logging → auth;
+- the unary and stream chain request-id → recovery → logging → auth (request-id outermost so panic logs carry it);
 - the health service from `opts.Health`;
 - reflection when `GRPC_REFLECTION_ENABLED`.
 
-The request-id interceptor SHALL reuse an incoming `x-request-id` or generate one, store it in `reqctx` and send it back as a response header. `grpcx.Serve(srv, cfg config.GRPC)` SHALL return a lifecycle component that listens on `cfg.Addr()` and stops gracefully when its context ends. `grpcx.Status(err, table)` SHALL map errors matched by `errors.Is` to their code. Any other error SHALL be logged and mapped to `codes.Internal` with the message `internal error`.
+The request-id interceptor SHALL reuse an incoming `x-request-id` or generate one, store it in `reqctx` and send it back as a response header. `grpcx.Serve(srv, cfg config.GRPC)` SHALL return a lifecycle component that listens on `cfg.Addr()` and stops gracefully when its context ends. `grpcx.Status(err, table)` SHALL map errors matched by `errors.Is` to their code. An error that already carries a gRPC status other than `Unknown` (for example from `auth.RequirePrincipal`) SHALL be returned unchanged. Any other error SHALL be logged and mapped to `codes.Internal` with the message `internal error`.
 
 #### Scenario: A panicking handler returns Internal and the server keeps serving
 - **WHEN** a handler panics
@@ -174,6 +174,11 @@ The request-id interceptor SHALL reuse an incoming `x-request-id` or generate on
 - **WHEN** a handler returns `grpcx.Status(errors.New("pq: password=secret"), table)`
 - **THEN** the caller sees `Internal` with message `internal error`
 - **VERIFIED BY**: `TestStatusHidesUnknownErrors`
+
+#### Scenario: Existing gRPC status errors pass through
+- **WHEN** a handler returns `grpcx.Status(status.Error(codes.PermissionDenied, "missing scope"), table)`
+- **THEN** the caller sees `PermissionDenied` with message `missing scope`, not `Internal`
+- **VERIFIED BY**: `TestStatusPassesThroughGRPCStatus`
 
 ### Requirement: The example service is the reference wiring
 

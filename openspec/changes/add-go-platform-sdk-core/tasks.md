@@ -195,14 +195,15 @@ Owns: `packages/go-sdk/pkg/grpcx/**`, `packages/go-sdk/examples/hello/**`; delet
 Contract:
 ```go
 type ServerOptions struct { Config config.GRPC; Logger *slog.Logger; Health *healthx.Health; Extra []grpc.ServerOption }
-func NewServer(o ServerOptions) *grpc.Server       // stats otelgrpc; chain recovery -> requestID -> logging(go-grpc-middleware v2 slog adapter) -> auth; health registered; reflection per config
+func NewServer(o ServerOptions) *grpc.Server       // stats otelgrpc; chain requestID -> recovery -> logging(go-grpc-middleware v2 slog adapter) -> auth; health registered; reflection per config
 func Serve(srv *grpc.Server, c config.GRPC) lifecycle.Component  // listen c.Addr(); GracefulStop on ctx done; Stop after c.ShutdownGrace()
 type ErrorTable map[error]codes.Code
 func Status(ctx context.Context, logger *slog.Logger, err error, t ErrorTable) error  // errors.Is match -> status with err.Error(); unmatched -> log + Internal "internal error"; nil -> nil
 ```
-The example is a `HelloService` using `grpc_health_v1`-style hand-written service registration (no proto codegen), or `grpc.ServiceDesc` built by hand. It has one RPC `Greet` (requires a principal) and one RPC `Boom` (panics). Layout follows ADR-0016: `cmd/hello/main.go` < 20 lines, `internal/app/app.go` composition root, `internal/config`, `internal/grpc`.
+The example is a `HelloService` using `grpc_health_v1`-style hand-written service registration (no proto codegen), or `grpc.ServiceDesc` built by hand. It has one RPC `Greet` (requires a principal) and one RPC `Boom` (panics). Layout follows ADR-0016: `cmd/hello/main.go` < 20 lines, `internal/app/app.go` composition root, `internal/config`, `internal/rpc` (package rpc).
 - [x] 9.1 Tests first: `TestRecoveryKeepsServing`, `TestRequestIDPropagates`, `TestStatusHidesUnknownErrors`, `TestStatusMapsKnownErrors` (bufconn); then implement grpcx.
 - [x] 9.2 Tests first: `TestShutdownDrainsHealthFirst`, `TestGreetRejectsMissingPrincipal` (run app on a free port, watch health, cancel ctx, assert NOT_SERVING is observed before the connection closes); then build the example. Delete `internal/deps`, run `go mod tidy`, and run `make check` green for the whole SDK.
+- [ ] 9.3 Review fixes: chain order request-id → recovery → logging → auth (panic logs carry request_id; verify `TestRecoveryLogCarriesRequestID`); `Status` passes through non-Unknown gRPC status errors (verify `TestStatusPassesThroughGRPCStatus`); convention dir `internal/rpc` (package `rpc`) instead of `internal/grpc` in ADR-0016, README and examples/hello.
 
 ## 10. Close (orchestrator)
 
