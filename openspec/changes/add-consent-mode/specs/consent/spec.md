@@ -86,7 +86,7 @@ The frontend SHALL show the consent banner on a visit with no valid `agora_conse
 - **VERIFIED BY**: `team-frontend/src/features/consent/ConsentBanner.test.tsx` "Escape does not record a choice nor write a cookie"
 
 ### Requirement: Consent Mode v2 basic gating of GTM
-The frontend SHALL NOT inject the GTM script until `agora_consent` has `a=1`; WHEN analytics is granted it SHALL push `consent default` (all denied) before GTM loads and `consent update` with `analytics_storage=granted` after the grant, with `ad_storage`, `ad_user_data` and `ad_personalization` equal to the marketing choice and `personalization_storage` equal to the personalization choice.
+The frontend SHALL NOT inject the GTM script until `agora_consent` has `a=1`; WHEN analytics is granted it SHALL push `consent default` (all denied) before GTM loads and `consent update` with `analytics_storage=granted` after the grant, with `ad_storage`, `ad_user_data` and `ad_personalization` equal to the marketing choice and `personalization_storage` equal to the personalization choice. The frontend SHALL NOT push any ecommerce or analytics event to `window.dataLayer` while analytics consent is not granted (first visit without a cookie, `a=0`, or immediately after a revoke in the same page); consent commands (`default`, `update`) are still pushed, and first-party `/api/track` beacons are unaffected.
 
 #### Scenario: Accept analytics loads GTM and updates consent
 - **WHEN** a buyer grants analytics on a page with `NEXT_PUBLIC_GTM_ID=GTM-TEST`
@@ -115,9 +115,15 @@ The frontend SHALL NOT inject the GTM script until `agora_consent` has `a=1`; WH
 
 #### Scenario: Revoking analytics stops pushes
 - **WHEN** a buyer who granted analytics later saves `a=0`
-- **THEN** the cookie is saved (not removed) with value `v=1&a=0&...&ts=<unix>`, a `consent update` with `analytics_storage=denied` is pushed, and no GTM script is injected on the next page load
+- **THEN** the cookie is saved (not removed) with value `v=1&a=0&...&ts=<unix>`, a `consent update` with `analytics_storage=denied` is pushed, later ecommerce events are not pushed to `window.dataLayer`, and no GTM script is injected on the next page load
 - **VERIFIED BY**: `team-frontend/src/lib/analytics/destinations/gtm.test.ts` "[Revoking analytics stops pushes] after a grant, analytics=false pushes update analytics_storage=denied last"
 - **VERIFIED BY**: `team-frontend/src/features/tracking/AnalyticsProvider.test.tsx` "[Revoking analytics stops pushes] consented buyer saves a=0 via banner: update analytics_storage=denied pushed"
+- **VERIFIED BY**: `team-frontend/src/lib/analytics/dataLayer.test.ts` "[Revoking analytics stops pushes] after a revoke, trackEcommerce pushes no ecommerce event to window.dataLayer"
+
+#### Scenario: No ecommerce push without analytics consent
+- **WHEN** there is no `agora_consent` cookie or the cookie has `a=0`, and the buyer views a list or product page
+- **THEN** `window.dataLayer` contains 0 ecommerce event entries and still contains the `consent default` entry
+- **VERIFIED BY**: `team-frontend/src/lib/analytics/dataLayer.test.ts` "[No ecommerce push without analytics consent] no cookie and a=0: list/product views push no ecommerce event, consent default present"
 
 ### Requirement: First-party beacons are independent of consent
 The frontend SHALL keep sending first-party `/api/track` beacons for visitors who reject all groups, and SHALL NOT include any consent value in the beacon body.
