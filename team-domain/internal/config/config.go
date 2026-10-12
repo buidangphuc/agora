@@ -1,11 +1,8 @@
-// Package config assembles one flat Settings value from per-capability struct
-// groups, populated from the environment with defaults — the Go analogue of
-// team-ai's pydantic Settings (mixins + .env + prod-safety validators).
-//
-// Grouping is only a file-organization device: fields are read from flat env
-// keys (GRPC_PORT, DATABASE_URL, ...). The `env`/`default` struct tags are the
-// single source of truth for both loading (LoadSettings) and the .env.example
-// drift gate (envcheck.go), so the two can never disagree.
+// Package config holds team-domain's settings: the go-sdk groups it uses
+// (Runtime, GRPC, Postgres, OTel) plus the service-specific groups below, bound
+// from flat env keys (GRPC_PORT, DATABASE_URL, ...) with sdkconfig.Load. The
+// `env`/`default` struct tags are the single source of truth for both loading
+// and the .env.example drift test (config_test.go).
 package config
 
 import (
@@ -13,22 +10,27 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"reflect"
-	"strconv"
 	"strings"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
-// Settings is the whole configuration surface, grouped by capability.
+// defaultGRPCPort is the GRPC_PORT this service has always defaulted to. The SDK
+// group marks GRPC_PORT required, so Load supplies the default when it is unset.
+const defaultGRPCPort = "50051"
+
+// Settings is the whole configuration surface. Runtime and GRPC are embedded
+// SDK groups; Postgres and OTel are named because both have an Enabled field.
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Database      Database
-	Storage       Storage
-	Events        Events
-	Outbox        Outbox
-	Reservation   Reservation
-	Observability Observability
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres    sdkconfig.Postgres
+	OTel        sdkconfig.OTel
+	Storage     Storage
+	Events      Events
+	Outbox      Outbox
+	Reservation Reservation
 }
 
 // Storage configures the S3/MinIO object store for product media.
@@ -40,28 +42,6 @@ type Storage struct {
 	Region        string `env:"STORAGE_REGION" default:"us-east-1"`
 	UseSSL        bool   `env:"STORAGE_USE_SSL" default:"false"`
 	PublicBaseURL string `env:"STORAGE_PUBLIC_BASE_URL" default:"http://localhost:9000/listing-images"`
-}
-
-// Runtime holds process-wide runtime knobs.
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
-}
-
-// Server configures the gRPC listener and graceful shutdown.
-type Server struct {
-	Host              string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port              int     `env:"GRPC_PORT" default:"50051"`
-	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
-	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-}
-
-// Database configures this service's OWN Postgres (Rule 3 / DB-per-service).
-type Database struct {
-	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
-	URL      string `env:"DATABASE_URL" default:""`
-	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
 }
 
 // Events configures the Kafka producer that emits ListingChanged on every write
@@ -101,44 +81,51 @@ const (
 	DefaultReservationSweepInterval = time.Minute
 )
 
-// Observability configures OpenTelemetry (ADR-0004). Exporter is swappable.
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-domain"`
-}
-
-// LoadSettings reads the environment into a Settings value, applies defaults,
-// and runs Validate. It is the single entry point used by the server entrypoint.
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
+// Load reads Settings from the environment, applies defaults and runs Validate.
+// It is the single entry point used by cmd/server.
+func Load() (Settings, error) {
+	if _, ok := os.LookupEnv("GRPC_PORT"); !ok {
+		if err := os.Setenv("GRPC_PORT", defaultGRPCPort); err != nil {
+			return Settings{}, fmt.Errorf("default GRPC_PORT: %w", err)
+		}
 	}
-	if err := s.Validate(); err != nil {
-		return nil, err
+	s, err := sdkconfig.Load[Settings]()
+	if err != nil {
+		return s, err
+	}
+	// The binder treats an empty value like an unset one and applies the default.
+	// For the reservation durations an explicitly empty value must instead reach
+	// positiveDuration, which falls back with a WARN naming the variable.
+	for key, field := range map[string]*string{
+		"RESERVATION_TTL":            &s.Reservation.TTL,
+		"RESERVATION_SWEEP_INTERVAL": &s.Reservation.SweepInterval,
+	} {
+		if v, ok := os.LookupEnv(key); ok && v == "" {
+			*field = ""
+		}
 	}
 	return s, nil
 }
 
 // Validate enforces cross-field invariants and prod-safety, mirroring team-ai's
-// @model_validator + validate_core_resource_requirements.
-func (s *Settings) Validate() error {
-	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
+// @model_validator + validate_core_resource_requirements. sdkconfig.Load calls
+// it after parsing.
+func (s Settings) Validate() error {
+	if s.Postgres.Enabled && strings.TrimSpace(s.Postgres.URL) == "" {
 		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
 	}
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
+	if s.Port <= 0 || s.Port > 65535 {
+		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
 	}
-	if s.Server.ShutdownGrace < 0 {
-		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
+	if s.ShutdownGraceSeconds < 0 {
+		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.ShutdownGraceSeconds)
 	}
 	return s.RequireSafeStrictConfig()
 }
 
 // IsProd reports whether this is a production environment (case-insensitive).
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+func (s Settings) IsProd() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	return e == "prod" || e == "production"
 }
 
@@ -148,8 +135,8 @@ func (s *Settings) IsProd() bool {
 var strictEnvs = []string{"staging", "stage", "prod", "production"}
 
 // IsStrictEnv reports whether ENV names staging or production.
-func (s *Settings) IsStrictEnv() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+func (s Settings) IsStrictEnv() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	for _, strict := range strictEnvs {
 		if e == strict {
 			return true
@@ -167,7 +154,7 @@ func (s *Settings) IsStrictEnv() bool {
 //
 // The database is required in every ENV, but that is enforced by Validate's
 // DATABASE_ENABLED/URL check and bootstrap, not here. Other environments always pass.
-func (s *Settings) RequireSafeStrictConfig() error {
+func (s Settings) RequireSafeStrictConfig() error {
 	if !s.IsStrictEnv() {
 		return nil
 	}
@@ -185,11 +172,11 @@ func (s *Settings) RequireSafeStrictConfig() error {
 		return nil
 	}
 	return fmt.Errorf("refusing to start with unsafe config: ENV=%q is strict (ENV in %s) but %s",
-		s.Runtime.Env, strings.Join(strictEnvs, ", "), strings.Join(bad, "; "))
+		s.Env, strings.Join(strictEnvs, ", "), strings.Join(bad, "; "))
 }
 
 // KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
-func (s *Settings) KafkaBrokers() []string {
+func (s Settings) KafkaBrokers() []string {
 	parts := strings.Split(s.Events.Brokers, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -202,7 +189,7 @@ func (s *Settings) KafkaBrokers() []string {
 
 // OutboxPollInterval parses OUTBOX_POLL_INTERVAL into a duration, defaulting to
 // 1s when unset or unparseable.
-func (s *Settings) OutboxPollInterval() time.Duration {
+func (s Settings) OutboxPollInterval() time.Duration {
 	d, err := time.ParseDuration(strings.TrimSpace(s.Outbox.PollInterval))
 	if err != nil || d <= 0 {
 		return time.Second
@@ -210,86 +197,17 @@ func (s *Settings) OutboxPollInterval() time.Duration {
 	return d
 }
 
-// DeclaredEnvKeys returns every env key declared by Settings, in struct order.
-// The .env.example drift gate (envcheck.go) compares against this set.
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
-}
-
-// bindGroups walks each capability group and binds its fields from env/default.
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
-	}
-	return nil
-}
-
-// setField parses raw into fv according to its kind.
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
-}
-
 // ReservationTTL parses RESERVATION_TTL. A missing, unparsable or non-positive
 // value falls back to DefaultReservationTTL (15m) and logs a warning on logger
 // (slog.Default() when nil).
-func (s *Settings) ReservationTTL(logger *slog.Logger) time.Duration {
+func (s Settings) ReservationTTL(logger *slog.Logger) time.Duration {
 	return positiveDuration(logger, "RESERVATION_TTL", s.Reservation.TTL, DefaultReservationTTL)
 }
 
 // ReservationSweepInterval parses RESERVATION_SWEEP_INTERVAL. A missing,
 // unparsable or non-positive value falls back to DefaultReservationSweepInterval
 // (1m) and logs a warning on logger (slog.Default() when nil).
-func (s *Settings) ReservationSweepInterval(logger *slog.Logger) time.Duration {
+func (s Settings) ReservationSweepInterval(logger *slog.Logger) time.Duration {
 	return positiveDuration(logger, "RESERVATION_SWEEP_INTERVAL", s.Reservation.SweepInterval, DefaultReservationSweepInterval)
 }
 
@@ -305,6 +223,6 @@ func positiveDuration(logger *slog.Logger, key, raw string, def time.Duration) t
 		logger = slog.Default()
 	}
 	logger.Warn("invalid "+key+"; using the default",
-		slog.String("key", key), slog.String("value", raw), slog.String("default", def.String()))
+		"key", key, "value", raw, "default", def.String())
 	return def
 }

@@ -14,7 +14,7 @@ import (
 // TestNoopPublisherClose asserts the no-op producer (KAFKA_ENABLED=false) tears
 // down cleanly. It no longer has inline Publish* methods — publishing goes only
 // through the outbox + relayer (AD6).
-func TestNoopPublisherClose(t *testing.T) {
+func TestNoopPublisherClose(_ *testing.T) {
 	events.NoopPublisher{}.Close()
 }
 

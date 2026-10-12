@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
 // TestEnvExampleInSync is the env-drift gate (`make check-env`): the repo-root
@@ -17,7 +19,7 @@ func TestEnvExampleInSync(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf(".env.example not found at %s: %v", path, err)
 	}
-	if err := CheckEnvExample(path); err != nil {
+	if err := sdkconfig.CheckEnvExample(path, Settings{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -26,14 +28,14 @@ func TestLoadDefaults(t *testing.T) {
 	// DATABASE_URL is required because DATABASE_ENABLED defaults to true; set it
 	// so Validate passes, then assert the other struct defaults apply.
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	s, err := LoadSettings()
+	s, err := Load()
 	if err != nil {
-		t.Fatalf("LoadSettings with defaults: %v", err)
+		t.Fatalf("Load with defaults: %v", err)
 	}
-	if s.Server.Port != 50051 {
-		t.Errorf("default GRPC_PORT = %d, want 50051", s.Server.Port)
+	if s.Port != 50051 {
+		t.Errorf("default GRPC_PORT = %d, want 50051", s.Port)
 	}
-	if !s.Database.Enabled {
+	if !s.Postgres.Enabled {
 		t.Error("default DATABASE_ENABLED should be true")
 	}
 	if got := s.KafkaBrokers(); len(got) != 1 || got[0] != "localhost:9092" {
@@ -43,9 +45,9 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestValidateDatabaseURLRequired(t *testing.T) {
 	s := &Settings{}
-	s.Server.Port = 50051
-	s.Database.Enabled = true
-	s.Database.URL = ""
+	s.Port = 50051
+	s.Postgres.Enabled = true
+	s.Postgres.URL = ""
 	if err := s.Validate(); err == nil {
 		t.Fatal("expected error: DATABASE_ENABLED=true requires DATABASE_URL")
 	}
@@ -53,10 +55,10 @@ func TestValidateDatabaseURLRequired(t *testing.T) {
 
 func strictSettings(env string) *Settings {
 	s := &Settings{}
-	s.Runtime.Env = env
-	s.Server.Port = 50051
-	s.Database.Enabled = true
-	s.Database.URL = "postgresql://x/y"
+	s.Env = env
+	s.Port = 50051
+	s.Postgres.Enabled = true
+	s.Postgres.URL = "postgresql://x/y"
 	s.Events.KafkaEnabled = true
 	s.Outbox.Enabled = true
 	s.Storage.AccessKey = "ak"
@@ -105,11 +107,11 @@ func TestRequireSafeStrictConfig(t *testing.T) {
 func TestRequireSafeStrictConfig_FromEnvironment(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("ENV", "production")
-	if _, err := LoadSettings(); err == nil {
-		t.Fatal("production with default Kafka/storage settings must be refused by LoadSettings")
+	if _, err := Load(); err == nil {
+		t.Fatal("production with default Kafka/storage settings must be refused by Load")
 	}
 	t.Setenv("ENV", "local")
-	if _, err := LoadSettings(); err != nil {
+	if _, err := Load(); err != nil {
 		t.Fatalf("local defaults must load: %v", err)
 	}
 }
@@ -120,11 +122,11 @@ func reservationSettings(t *testing.T, env map[string]string) *Settings {
 	for k, v := range env {
 		t.Setenv(k, v)
 	}
-	s, err := LoadSettings()
+	s, err := Load()
 	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
-	return s
+	return &s
 }
 
 func captureLogger() (*slog.Logger, *bytes.Buffer) {
@@ -160,7 +162,7 @@ func TestReservationOverride(t *testing.T) {
 	}
 }
 
-// An invalid value never fails LoadSettings: it falls back to the default and
+// An invalid value never fails Load: it falls back to the default and
 // logs a warning naming the variable.
 func TestReservationInvalidFallsBackWithWarning(t *testing.T) {
 	for _, bad := range []string{"banana", "0", "0s", "-5m", ""} {

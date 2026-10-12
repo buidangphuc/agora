@@ -101,10 +101,18 @@ type ListingPublisher interface {
 	Close()
 }
 
+// Publisher is what the relayer's producer needs plus the close handle: the real
+// KafkaPublisher, or a fake in tests.
+type Publisher interface {
+	RawProducer
+	ListingPublisher
+}
+
 // NoopPublisher is used when KAFKA_ENABLED=false: writes still succeed and their
 // outbox rows are recorded, but nothing is ever produced.
 type NoopPublisher struct{}
 
+// Close does nothing: there is no producer to flush.
 func (NoopPublisher) Close() {}
 
 // KafkaPublisher publishes to a Kafka/Redpanda topic via franz-go.
@@ -145,4 +153,5 @@ func (p *KafkaPublisher) Close() { p.client.Close() }
 var (
 	_ ListingPublisher = (*KafkaPublisher)(nil)
 	_ ListingPublisher = NoopPublisher{}
+	_ Publisher        = (*KafkaPublisher)(nil)
 )
