@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredpanda "github.com/testcontainers/testcontainers-go/modules/redpanda"
@@ -32,7 +33,12 @@ func Postgres(t testing.TB) string {
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),
 		tcpostgres.BasicWaitStrategies(),
-		testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(90*time.Second)),
+		// The image restarts the server once after init, so the port is open before the
+		// final server is ready: wait for the second ready log line as well.
+		testcontainers.WithWaitStrategy(wait.ForAll(
+			wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+			wait.ForListeningPort("5432/tcp"),
+		).WithDeadline(90*time.Second)),
 	)
 	if ctr != nil {
 		t.Cleanup(func() {
@@ -49,6 +55,7 @@ func Postgres(t testing.TB) string {
 	if err != nil {
 		t.Fatalf("postgres connection string: %v", err)
 	}
+	waitPingable(t, url)
 	return url
 }
 
@@ -80,6 +87,33 @@ func Redpanda(t testing.TB) (brokers string) {
 	}
 	waitProducible(t, brokers)
 	return brokers
+}
+
+// waitPingable retries a connect and ping briefly, as a backstop for the window in
+// which the server still answers "starting up".
+func waitPingable(t testing.TB, url string) {
+	t.Helper()
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		err := ping(url)
+		if err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("postgres not reachable: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func ping(url string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		return err
+	}
+	return conn.Close(ctx)
 }
 
 // waitProducible blocks until the broker leads a freshly auto-created topic.
