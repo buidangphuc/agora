@@ -113,10 +113,6 @@ func TestMigration0008KeepsExistingDedupe(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM processed_events WHERE consumer = ''`).Scan(&empty); err != nil || empty != 0 {
 		t.Fatalf("rows left with an empty consumer = %d (err %v), want 0", empty, err)
 	}
-	// The key is (consumer, event_id): another consumer may process the same event.
-	if seen(t, pool, "another.consumer", "evt-legacy-named") {
-		t.Error("the same event id must be independent per consumer")
-	}
 }
 
 // Down restores the old key on event_id alone, keeping one row per event.
@@ -124,7 +120,7 @@ func TestMigration0008DownRestoresEventIDKey(t *testing.T) {
 	ctx := context.Background()
 	pool := newPool(t)
 	execMigrations(t, pool, "0000", "0008")
-	if seen(t, pool, paymentConsumer, "evt-1") || seen(t, pool, "another.consumer", "evt-1") {
+	if seen(t, pool, paymentConsumer, "evt-1") {
 		t.Fatal("fresh ledger reported a duplicate")
 	}
 

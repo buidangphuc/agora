@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/jackc/pgx/v5"
@@ -11,22 +12,28 @@ import (
 	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
 )
 
-// Unit is what one delivery of a consumed event may do inside a single
-// transaction: read and move orders, and record the event in the dedupe ledger.
-// Everything it did commits or rolls back together.
+// Unit is what the transactional part of one delivery of a consumed event may
+// do inside a single transaction: read and move orders. Everything it did commits
+// or rolls back together.
 type Unit interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	// UpdateOrderStatusFrom is the compare-and-set of OrderRepository.
 	UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error)
-	// Seen records (consumer, eventID) in the ledger and reports whether it was
-	// already there, in which case the event must be skipped.
-	Seen(ctx context.Context, consumer, eventID string) (bool, error)
 }
 
-// Transactor runs fn as one transaction: commit when fn returns nil, roll back
-// otherwise, so a failed delivery leaves neither a transition nor a dedupe row.
+// Transactor runs the steps of one delivery. The dedupe ledger is deliberately
+// outside InTx: the event is marked processed only after the work that follows
+// the transaction (the voucher commit) has succeeded.
 type Transactor interface {
+	// InTx runs fn as one transaction: commit when fn returns nil, roll back
+	// otherwise.
 	InTx(ctx context.Context, fn func(Unit) error) error
+	// Processed reports, by a plain read, whether (consumer, eventID) is already
+	// in the ledger. It never records anything.
+	Processed(ctx context.Context, consumer, eventID string) (bool, error)
+	// MarkProcessed records (consumer, eventID) in its own small transaction. A
+	// pair that is already recorded is not an error.
+	MarkProcessed(ctx context.Context, consumer, eventID string) error
 }
 
 // PostgresTransactor is the Transactor over the order tables and the
@@ -46,14 +53,34 @@ func NewPostgresTransactor(pool *pgxpool.Pool, orders *PostgresOrderRepository) 
 // InTx implements Transactor.
 func (t *PostgresTransactor) InTx(ctx context.Context, fn func(Unit) error) error {
 	return sdkpgx.WithTx(ctx, t.pool, func(tx pgx.Tx) error {
-		return fn(pgUnit{tx: tx, orders: t.orders, dedupe: t.dedupe})
+		return fn(pgUnit{tx: tx, orders: t.orders})
+	})
+}
+
+// Processed implements Transactor with a SELECT on the ledger table.
+func (t *PostgresTransactor) Processed(ctx context.Context, consumer, eventID string) (bool, error) {
+	var seen bool
+	err := t.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM processed_events WHERE consumer = $1 AND event_id = $2)`,
+		consumer, eventID).Scan(&seen)
+	if err != nil {
+		return false, fmt.Errorf("read processed_events %s/%s: %w", consumer, eventID, err)
+	}
+	return seen, nil
+}
+
+// MarkProcessed implements Transactor through consume.Dedupe.Seen in its own
+// transaction.
+func (t *PostgresTransactor) MarkProcessed(ctx context.Context, consumer, eventID string) error {
+	return sdkpgx.WithTx(ctx, t.pool, func(tx pgx.Tx) error {
+		_, err := t.dedupe.Seen(ctx, tx, consumer, eventID)
+		return err
 	})
 }
 
 type pgUnit struct {
 	tx     pgx.Tx
 	orders *PostgresOrderRepository
-	dedupe consume.Dedupe
 }
 
 func (u pgUnit) GetOrder(ctx context.Context, id string) (Order, error) {
@@ -64,10 +91,6 @@ func (u pgUnit) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderSt
 	return u.orders.UpdateOrderStatusFromTx(ctx, u.tx, id, to, allowedFrom, trackingNumber)
 }
 
-func (u pgUnit) Seen(ctx context.Context, consumer, eventID string) (bool, error) {
-	return u.dedupe.Seen(ctx, u.tx, consumer, eventID)
-}
-
 // OrderStatusStore is the slice of an order repository a Unit needs. The
 // in-memory repository and test doubles satisfy it.
 type OrderStatusStore interface {
@@ -76,9 +99,8 @@ type OrderStatusStore interface {
 }
 
 // InMemoryTransactor is the Transactor over in-memory repositories, for unit
-// tests. It models the ledger's transaction only: the (consumer, event) marks
-// made by a failed fn are dropped, as a rollback would, while writes to the
-// order store stay, because the store has no transaction to roll back.
+// tests. InTx has no rollback: writes to the order store stay even when fn fails,
+// because the store has no transaction to undo.
 type InMemoryTransactor struct {
 	orders OrderStatusStore
 	mu     sync.Mutex
@@ -92,22 +114,26 @@ func NewInMemoryTransactor(orders OrderStatusStore) *InMemoryTransactor {
 
 // InTx implements Transactor.
 func (t *InMemoryTransactor) InTx(_ context.Context, fn func(Unit) error) error {
-	u := &memUnit{t: t}
-	if err := fn(u); err != nil {
-		t.mu.Lock()
-		for _, k := range u.marked {
-			delete(t.seen, k)
-		}
-		t.mu.Unlock()
-		return err
-	}
+	return fn(&memUnit{t: t})
+}
+
+// Processed implements Transactor.
+func (t *InMemoryTransactor) Processed(_ context.Context, consumer, eventID string) (bool, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	_, ok := t.seen[[2]string{consumer, eventID}]
+	return ok, nil
+}
+
+// MarkProcessed implements Transactor.
+func (t *InMemoryTransactor) MarkProcessed(_ context.Context, consumer, eventID string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.seen[[2]string{consumer, eventID}] = struct{}{}
 	return nil
 }
 
-type memUnit struct {
-	t      *InMemoryTransactor
-	marked [][2]string
-}
+type memUnit struct{ t *InMemoryTransactor }
 
 func (u *memUnit) GetOrder(ctx context.Context, id string) (Order, error) {
 	return u.t.orders.GetOrder(ctx, id)
@@ -115,16 +141,4 @@ func (u *memUnit) GetOrder(ctx context.Context, id string) (Order, error) {
 
 func (u *memUnit) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error) {
 	return u.t.orders.UpdateOrderStatusFrom(ctx, id, to, allowedFrom, trackingNumber)
-}
-
-func (u *memUnit) Seen(_ context.Context, consumer, eventID string) (bool, error) {
-	u.t.mu.Lock()
-	defer u.t.mu.Unlock()
-	k := [2]string{consumer, eventID}
-	if _, ok := u.t.seen[k]; ok {
-		return true, nil
-	}
-	u.t.seen[k] = struct{}{}
-	u.marked = append(u.marked, k)
-	return false, nil
 }

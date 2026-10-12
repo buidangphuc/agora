@@ -9,9 +9,13 @@
 -- redelivered event is still recognised as processed after the key changes.
 --
 -- Idempotent: re-running it on a database that already has the new key is a no-op.
--- Rollout: pods running the previous release insert with ON CONFLICT (event_id),
--- which this key no longer supports, so apply it with the release that replaces
--- them.
+-- Coexistence: pods running the previous release insert with ON CONFLICT
+-- (event_id), which needs a unique index on event_id alone, so one is kept next to
+-- the new key (processed_events_event_id_key). The migration can therefore run
+-- while old pods are live. While the index exists an event id is recorded once
+-- across consumers; today team-order.payment is the only one.
+
+CREATE UNIQUE INDEX IF NOT EXISTS processed_events_event_id_key ON processed_events (event_id);
 
 UPDATE processed_events SET consumer = 'team-order.payment' WHERE consumer = '';
 

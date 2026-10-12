@@ -48,22 +48,22 @@ func startRecorder(t *testing.T) (addr string, rec *recorder) {
 	return lis.Addr().String(), rec
 }
 
-// outgoingMD calls method through a real go-sdk connection behind scopedConn with
-// ctx as the caller's context and returns the metadata that reached the upstream.
-func outgoingMD(ctx context.Context, t *testing.T, method string) metadata.MD {
+// dialRecorder returns a real go-sdk connection to a recording upstream.
+func dialRecorder(t *testing.T) (*grpc.ClientConn, *recorder) {
 	t.Helper()
 	addr, rec := startRecorder(t) //nolint:contextcheck // the recorder serves its own connections
-	conn, scoped, err := dial(addr)
+	conn, err := dial(addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	if err := scoped.Invoke(ctx, method, &emptypb.Empty{}, &emptypb.Empty{}); err != nil {
-		t.Fatalf("invoke %s: %v", method, err)
-	}
-	rec.mu.Lock()
-	defer rec.mu.Unlock()
-	return rec.seen[method]
+	return conn, rec
+}
+
+func (r *recorder) md(method string) metadata.MD {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.seen[method]
 }
 
 // userCtx is the context of a handler serving the buyer buyer-1: the principal the
@@ -83,13 +83,27 @@ func userMD() metadata.MD {
 }
 
 func TestStockCallsAlwaysUseServicePrincipal(t *testing.T) {
-	for _, method := range []string{
-		listingv1.ListingService_ReserveStock_FullMethodName,
-		listingv1.ListingService_ReleaseStock_FullMethodName,
-		listingv1.ListingService_CommitReservation_FullMethodName,
+	conn, rec := dialRecorder(t)
+	client := NewServiceStockClient(listingv1.NewListingServiceClient(conn))
+	for name, call := range map[string]func(context.Context) error{
+		listingv1.ListingService_ReserveStock_FullMethodName: func(ctx context.Context) error {
+			_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{})
+			return err
+		},
+		listingv1.ListingService_ReleaseStock_FullMethodName: func(ctx context.Context) error {
+			_, err := client.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{})
+			return err
+		},
+		listingv1.ListingService_CommitReservation_FullMethodName: func(ctx context.Context) error {
+			_, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{})
+			return err
+		},
 	} {
-		t.Run(method, func(t *testing.T) {
-			md := outgoingMD(userCtx(), t, method)
+		t.Run(name, func(t *testing.T) {
+			if err := call(userCtx()); err != nil {
+				t.Fatal(err)
+			}
+			md := rec.md(name)
 			if v := md.Get("x-principal-id"); len(v) != 1 || v[0] != "service-team-order" {
 				t.Fatalf("principal id = %v, want service-team-order", v)
 			}
@@ -107,52 +121,32 @@ func TestStockCallsAlwaysUseServicePrincipal(t *testing.T) {
 }
 
 func TestStockCallsWithoutIncomingUseServicePrincipal(t *testing.T) {
-	md := outgoingMD(context.Background(), t, listingv1.ListingService_ReleaseStock_FullMethodName)
+	conn, rec := dialRecorder(t)
+	client := NewServiceStockClient(listingv1.NewListingServiceClient(conn))
+	if _, err := client.ReleaseStock(context.Background(), &listingv1.ReleaseStockRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	md := rec.md(listingv1.ListingService_ReleaseStock_FullMethodName)
 	if v := md.Get("x-principal-type"); len(v) != 1 || v[0] != "service" {
 		t.Fatalf("principal type = %v, want service", v)
 	}
 }
 
 func TestOtherDomainCallsKeepForwardedUser(t *testing.T) {
-	md := outgoingMD(userCtx(), t, listingv1.ListingService_GetListing_FullMethodName)
+	conn, rec := dialRecorder(t)
+	client := NewServiceStockClient(listingv1.NewListingServiceClient(conn))
+	if _, err := client.GetListing(userCtx(), &listingv1.GetListingRequest{Id: "l1"}); err != nil {
+		t.Fatal(err)
+	}
+	md := rec.md(listingv1.ListingService_GetListing_FullMethodName)
 	if v := md.Get("x-principal-id"); len(v) != 1 || v[0] != "buyer-1" {
 		t.Fatalf("GetListing principal id = %v, want forwarded buyer-1", v)
 	}
 	if v := md.Get("x-principal-type"); len(v) != 1 || v[0] != "user" {
 		t.Fatalf("GetListing principal type = %v, want user", v)
 	}
-}
-
-func TestForwardedUserScopesAreNotWidened(t *testing.T) {
-	md := outgoingMD(userCtx(), t, listingv1.ListingService_GetListing_FullMethodName)
 	if v := md.Get("x-principal-scopes"); len(v) != 1 || v[0] != "listing.read" {
 		t.Fatalf("forwarded scopes = %v, want unchanged listing.read", v)
-	}
-}
-
-func TestUnmarkedBackgroundCallIsReadOnlyService(t *testing.T) {
-	md := outgoingMD(context.Background(), t, listingv1.ListingService_GetListing_FullMethodName)
-	if v := md.Get("x-principal-id"); len(v) != 1 || v[0] != "service-team-order" {
-		t.Fatalf("principal id = %v", v)
-	}
-	if v := md.Get("x-principal-scopes"); len(v) != 1 || v[0] != "listing.read" {
-		t.Fatalf("scopes = %v, want only listing.read", v)
-	}
-}
-
-func TestPromotionMethodsCarryOnlyPromotionReserve(t *testing.T) {
-	for _, m := range []string{
-		promotionv1.VoucherService_ValidateAndReserve_FullMethodName,
-		promotionv1.VoucherService_CommitReservation_FullMethodName,
-		promotionv1.VoucherService_ReleaseReservation_FullMethodName,
-	} {
-		md := outgoingMD(userCtx(), t, m)
-		if v := md.Get("x-principal-scopes"); len(v) != 1 || v[0] != "promotion.reserve" {
-			t.Fatalf("%s scopes = %v, want only promotion.reserve", m, v)
-		}
-		if v := md.Get("x-principal-type"); len(v) != 1 || v[0] != "service" {
-			t.Fatalf("%s type = %v", m, v)
-		}
 	}
 }
 
@@ -225,56 +219,5 @@ func TestDialPromotionSagaCallsPresentPromotionReserveOverTheWire(t *testing.T) 
 		if get("x-principal-id") != "service-team-order" || get("x-principal-type") != "service" || get("x-principal-scopes") != "promotion.reserve" {
 			t.Errorf("%s: promotion received %v", rpc, md)
 		}
-	}
-}
-
-// recordingDomain captures the context each stock RPC is invoked with, so the
-// wrapper's marking can be run through the real interceptor.
-type recordingDomain struct {
-	DomainClient
-	ctxs map[string]context.Context
-}
-
-func (r *recordingDomain) GetListing(ctx context.Context, _ *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
-	r.ctxs[listingv1.ListingService_GetListing_FullMethodName] = ctx
-	return &listingv1.GetListingResponse{}, nil
-}
-
-func (r *recordingDomain) CommitReservation(ctx context.Context, _ *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
-	r.ctxs[listingv1.ListingService_CommitReservation_FullMethodName] = ctx
-	return &listingv1.CommitReservationResponse{}, nil
-}
-
-// A buyer-context CommitReservation through the service-stock wrapper carries the
-// service principal with exactly listing.write; GetListing through the same wrapper
-// still forwards the buyer.
-func TestServiceStockClientCommitIsServiceAndGetListingForwardsBuyer(t *testing.T) {
-	inner := &recordingDomain{ctxs: map[string]context.Context{}}
-	client := NewServiceStockClient(inner)
-	buyer := userCtx()
-	if _, err := client.CommitReservation(buyer, &listingv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := client.GetListing(buyer, &listingv1.GetListingRequest{Id: "l1"}); err != nil {
-		t.Fatal(err)
-	}
-	run := func(method string) metadata.MD {
-		// Use an unrelated method name so only the context marking (not the
-		// methodScopes safety net) decides the principal.
-		return outgoingMD(inner.ctxs[method], t, "/x.Y/Z")
-	}
-	commit := run(listingv1.ListingService_CommitReservation_FullMethodName)
-	if v := commit.Get("x-principal-id"); len(v) != 1 || v[0] != "service-team-order" {
-		t.Fatalf("commit principal = %v", v)
-	}
-	if v := commit.Get("x-principal-scopes"); len(v) != 1 || v[0] != "listing.write" {
-		t.Fatalf("commit scopes = %v, want exactly listing.write", v)
-	}
-	get := run(listingv1.ListingService_GetListing_FullMethodName)
-	if v := get.Get("x-principal-id"); len(v) != 1 || v[0] != "buyer-1" {
-		t.Fatalf("GetListing principal = %v, want forwarded buyer-1", v)
-	}
-	if v := get.Get("x-principal-scopes"); len(v) != 1 || v[0] != "listing.read" {
-		t.Fatalf("GetListing scopes = %v, want unchanged listing.read", v)
 	}
 }

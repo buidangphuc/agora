@@ -58,7 +58,7 @@ func WithVoucherCommitter(vc VoucherCommitter) PaymentConsumerOption {
 }
 
 // NewPaymentConsumer builds the consumer over a transactor that runs a delivery
-// (dedupe row, PAID transition, outbox row) as one database transaction.
+// (PAID transition and outbox row in one transaction, then the dedupe ledger).
 func NewPaymentConsumer(tx store.Transactor, logger *slog.Logger, opts ...PaymentConsumerOption) *PaymentConsumer {
 	if logger == nil {
 		logger = slog.Default()
@@ -88,14 +88,21 @@ func (c *PaymentConsumer) HandleRaw(ctx context.Context, value []byte) error {
 }
 
 // HandleEnvelope applies one decoded envelope. Non-PaymentSettled envelopes are
-// ignored. Delivery is at-least-once, so the effect is guarded two ways: the
-// dedupe ledger short-circuits a redelivered event_id, and the order transition
-// itself is applied only when the order is still PENDING; together they make
-// consuming the same settlement twice transition the order exactly once (H3).
+// ignored. Delivery is at-least-once, so the effect is guarded two ways: a read of
+// the dedupe ledger skips an event already processed, and the order transition is
+// a compare-and-set from PENDING only, so consuming the same settlement twice
+// transitions the order exactly once (H3).
 //
-// The ledger row, the transition, its outbox row and the voucher commit are one
-// database transaction: any failure rolls all of them back, so the event is not
-// recorded as processed and its redelivery starts from scratch.
+// A delivery runs in this order:
+//  1. read the ledger; a processed event is acknowledged at once;
+//  2. one transaction: the PAID compare-and-set and its outbox row, committed;
+//  3. the voucher commit to team-promotion;
+//  4. only then the event is marked processed, in its own small transaction.
+//
+// A failed voucher commit therefore leaves the order PAID (the buyer paid) with
+// its outbox row, and the event unprocessed: the redelivery finds the order
+// already PAID (the transition is a no-op) and retries the voucher commit, which
+// is idempotent on the order id. A failed transition rolls back and marks nothing.
 func (c *PaymentConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEnvelope) error {
 	if env.GetType() != paymentSettledType {
 		return nil // not ours; ignore
@@ -111,33 +118,44 @@ func (c *PaymentConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.Even
 		return consume.Permanent(errors.New("PaymentSettled missing order_id"))
 	}
 
-	return c.tx.InTx(ctx, func(u store.Unit) error {
-		already, err := u.Seen(ctx, PaymentConsumerName, env.GetEventId())
-		if err != nil {
-			return err // transient: retry, do not commit the offset
+	done, err := c.tx.Processed(ctx, PaymentConsumerName, env.GetEventId())
+	if err != nil {
+		return err // transient: retry, do not commit the offset
+	}
+	if done {
+		return nil // fully processed earlier: idempotent no-op
+	}
+
+	var settledOrder *store.Order
+	if err := c.tx.InTx(ctx, func(u store.Unit) error {
+		o, err := c.transition(ctx, u, &settled)
+		settledOrder = o
+		return err
+	}); err != nil {
+		return err
+	}
+
+	if settledOrder != nil {
+		if err := c.commitVoucher(ctx, *settledOrder); err != nil {
+			return err
 		}
-		if already {
-			return nil // duplicate delivery: idempotent no-op
-		}
-		return c.apply(ctx, u, &settled)
-	})
+	}
+	return c.tx.MarkProcessed(ctx, PaymentConsumerName, env.GetEventId())
 }
 
-// apply moves the order to PAID on a settled payment (design D11). The move is a
-// compare-and-set from Pending only, which also records paid_at: a settlement for
-// an order in any other status (a late payment after a cancel, a redelivery) is
-// acknowledged without changing the order and logged with its current status.
-// The voucher hold is committed only for an order that reached Paid (paid_at set,
-// by this write or an earlier delivery), so a cancelled order's voucher is never
-// redeemed by a late payment. A commit error is returned so the delivery rolls
-// back and the event redelivers.
-func (c *PaymentConsumer) apply(ctx context.Context, u store.Unit, settled *paymentv1.PaymentSettled) error {
+// transition moves the order to PAID on a settled payment (design D11). The move
+// is a compare-and-set from Pending only, which also records paid_at: a
+// settlement for an order in any other status (a late payment after a cancel, a
+// redelivery) is acknowledged without changing the order and logged with its
+// current status. It returns the order as it stands, or nil when the payment is
+// not a settled one and no order is involved.
+func (c *PaymentConsumer) transition(ctx context.Context, u store.Unit, settled *paymentv1.PaymentSettled) (*store.Order, error) {
 	if settled.GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_PAID {
 		// FAILED (or unspecified): do not drive the order to PAID. Leave the order in
 		// its current state for the buyer to retry; the event is still deduped.
 		c.logger.InfoContext(ctx, "payment not settled; no PAID transition",
 			"order_id", settled.GetOrderId(), "status", int(settled.GetStatus()))
-		return nil
+		return nil, nil
 	}
 
 	// the transition table is the single source of truth for which statuses
@@ -151,25 +169,33 @@ func (c *PaymentConsumer) apply(ctx context.Context, u store.Unit, settled *paym
 	case errors.Is(err, store.ErrOrderNotFound):
 		// The order should exist; treat absence as permanent so it is DLQ'd for
 		// inspection rather than retried forever.
-		return consume.Permanent(fmt.Errorf("order %q not found for settled payment", settled.GetOrderId()))
+		return nil, consume.Permanent(fmt.Errorf("order %q not found for settled payment", settled.GetOrderId()))
 	case errors.Is(err, store.ErrStatusConflict):
 		current, gerr := u.GetOrder(ctx, settled.GetOrderId())
 		if gerr != nil {
-			return fmt.Errorf("get order %q: %w", settled.GetOrderId(), gerr)
+			return nil, fmt.Errorf("get order %q: %w", settled.GetOrderId(), gerr)
 		}
 		o = current
 		c.logger.WarnContext(ctx, "settled payment for an order that is no longer pending; acknowledged without change",
 			"order_id", o.ID, "status", int(o.Status), "payment_id", settled.GetPaymentId())
 	default:
-		return fmt.Errorf("transition order %q to PAID: %w", settled.GetOrderId(), err)
+		return nil, fmt.Errorf("transition order %q to PAID: %w", settled.GetOrderId(), err)
 	}
+	return &o, nil
+}
 
-	if c.promo != nil && o.VoucherCode != "" && o.PaidAt != nil {
-		if _, err := c.promo.CommitReservation(ctx, &promotionv1.CommitReservationRequest{ReservationId: o.ID}); err != nil {
-			return fmt.Errorf("commit voucher for order %q: %w", o.ID, err)
-		}
-		c.logger.InfoContext(ctx, "committed voucher reservation on settle",
-			"order_id", o.ID, "voucher_code", o.VoucherCode)
+// commitVoucher commits the order's voucher hold, only for an order that reached
+// Paid (paid_at set, by this write or an earlier delivery), so a cancelled
+// order's voucher is never redeemed by a late payment. An error is returned so
+// the event stays unprocessed and redelivers; the commit is idempotent.
+func (c *PaymentConsumer) commitVoucher(ctx context.Context, o store.Order) error {
+	if c.promo == nil || o.VoucherCode == "" || o.PaidAt == nil {
+		return nil
 	}
+	if _, err := c.promo.CommitReservation(ctx, &promotionv1.CommitReservationRequest{ReservationId: o.ID}); err != nil {
+		return fmt.Errorf("commit voucher for order %q: %w", o.ID, err)
+	}
+	c.logger.InfoContext(ctx, "committed voucher reservation on settle",
+		"order_id", o.ID, "voucher_code", o.VoucherCode)
 	return nil
 }

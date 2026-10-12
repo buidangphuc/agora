@@ -13,7 +13,7 @@ Owns: `team-order/**`, the team-order service block in `docker-compose.services.
 
 Owns: same as `## 1`.
 
-- [ ] 2.1 Re-sync to `go-sdk/v0.2.1`. Replace `scopedConn` with `upstream.WithServicePrincipal` where it now suffices, and use the idempotent `EnqueueTx`.
-- [ ] 2.2 Restore the voucher flow per the proposal (transition and outbox in one transaction, then the voucher commit, then mark processed). Red first: `TestVoucherCommitFailureKeepsOrderPaidAndRetriesCommit`. Remove `TestVoucherCommitFailureRollsBackAndRedeliveryCommitsOnce`, which encoded the rejected behaviour.
-- [ ] 2.3 `0008` keeps a unique index on `event_id`. Red first: `TestMigration0008KeepsPreviousReleaseInsertWorking`. Remove the rollout warning from the README.
-- [ ] 2.4 Add FEATURES entries for the two new scenarios. Verify `make check`, `features-check`, `spec_sync --strict` and `red_first`.
+- [x] 2.1 Re-sync to `go-sdk/v0.2.1`. Replace `scopedConn` with `upstream.WithServicePrincipal` where it now suffices, and use the idempotent `EnqueueTx`.
+- [x] 2.2 Restore the voucher flow per the proposal (transition and outbox in one transaction, then the voucher commit, then mark processed). Red first: `TestVoucherCommitFailureKeepsOrderPaidAndRetriesCommit`. Remove `TestVoucherCommitFailureRollsBackAndRedeliveryCommitsOnce`, which encoded the rejected behaviour.
+- [x] 2.3 `0008` keeps a unique index on `event_id`. Red first: `TestMigration0008KeepsPreviousReleaseInsertWorking`. Remove the rollout warning from the README.
+- [x] 2.4 Add FEATURES entries for the two new scenarios. Verify `make check`, `features-check`, `spec_sync --strict` and `red_first`.
