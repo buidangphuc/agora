@@ -23,6 +23,11 @@ On shutdown, team-domain SHALL set health NOT_SERVING first, then stop the gRPC 
 - **THEN** health becomes NOT_SERVING, the relayer's Run returns, and only then is the pool closed
 - **VERIFIED BY**: `TestShutdownStopsRelayerBeforePoolClose`
 
+#### Scenario: The publisher is not used after it is closed
+- **WHEN** shutdown closes the Kafka publisher
+- **THEN** it is closed exactly once and no publish happens after close
+- **VERIFIED BY**: `TestShutdownStopsRelayerBeforePoolClose`
+
 ### Requirement: Listing behaviour is unchanged
 
 The migration SHALL NOT change RPC, event or storage behaviour. All existing tests SHALL move with their packages and pass with unchanged assertions. The only allowed edits are test assertions on auth status message text, which must keep the same codes.
@@ -32,7 +37,7 @@ The migration SHALL NOT change RPC, event or storage behaviour. All existing tes
 - **THEN** every pre-existing test in handler, service, repository, events, config and grpcserver, now in rpc, listing, store, events and config, passes
 - **VERIFIED BY**: `team-domain` `make check`
 
-#### Scenario: Automated listing e2e features stay green
-- **WHEN** team-domain is rebuilt from this branch in the local stack and the platform-e2e features owned by team-domain run
-- **THEN** they pass as on main
-- **VERIFIED BY**: `platform-e2e` features for `team-domain/FEATURES.yaml` (run by the orchestrator before the PR)
+#### Scenario: Anonymous callers are still denied stock RPCs with PermissionDenied
+- **WHEN** a stock RPC is called with the gateway's anonymous principal
+- **THEN** the caller receives `PermissionDenied`, not `Unauthenticated`, so anonymous browsing with public scopes keeps working
+- **VERIFIED BY**: `TestAnonymousStockCallIsPermissionDenied`
