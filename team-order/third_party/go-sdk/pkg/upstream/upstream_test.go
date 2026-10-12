@@ -1,0 +1,135 @@
+package upstream
+
+import (
+	"context"
+	"net"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+)
+
+// withBufconn routes the client to an in-memory listener; test-only.
+func withBufconn(lis *bufconn.Listener) Option {
+	return func(o *options) {
+		o.dialOptions = append(o.dialOptions, grpc.WithContextDialer(
+			func(context.Context, string) (net.Conn, error) { return lis.Dial() }))
+	}
+}
+
+// echoServer returns the metadata it received as response headers.
+func echoServer(t *testing.T) *bufconn.Listener {
+	t.Helper()
+	srv := grpc.NewServer(grpc.UnknownServiceHandler(func(_ any, ss grpc.ServerStream) error {
+		md, _ := metadata.FromIncomingContext(ss.Context())
+		if err := ss.SetHeader(md); err != nil {
+			return err
+		}
+		if err := ss.RecvMsg(new(wrapperspb.StringValue)); err != nil {
+			return err
+		}
+		return ss.SendMsg(wrapperspb.String("ok"))
+	}))
+	lis := bufconn.Listen(1 << 20)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	return lis
+}
+
+func invoke(ctx context.Context, t *testing.T, opts ...Option) metadata.MD {
+	t.Helper()
+	conn, err := Dial("passthrough:///bufnet", opts...)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	var hdr metadata.MD
+	err = conn.Invoke(ctx, "/test.v1.Test/Echo", wrapperspb.String("x"), new(wrapperspb.StringValue), grpc.Header(&hdr))
+	if err != nil {
+		t.Fatalf("Invoke: %v", err)
+	}
+	return hdr
+}
+
+func buyerCtx() context.Context {
+	ctx := reqctx.WithRequestID(context.Background(), "req-1")
+	return auth.WithPrincipal(ctx, auth.Principal{ID: "buyer-9", Type: "user", Scopes: []string{"order.write"}})
+}
+
+func TestForwardsRequestIDAndPrincipal(t *testing.T) {
+	hdr := invoke(buyerCtx(), t, withBufconn(echoServer(t)))
+
+	for key, want := range map[string]string{
+		reqctx.MetadataRequestID: "req-1",
+		auth.MDPrincipalID:       "buyer-9",
+		auth.MDPrincipalType:     "user",
+		auth.MDPrincipalScopes:   "order.write",
+	} {
+		if got := hdr.Get(key); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", key, got, want)
+		}
+	}
+}
+
+func TestAsServiceReplacesPrincipal(t *testing.T) {
+	hdr := invoke(buyerCtx(), t, withBufconn(echoServer(t)), AsService("team-order", "listing.read"))
+
+	for key, want := range map[string]string{
+		reqctx.MetadataRequestID: "req-1",
+		auth.MDPrincipalID:       "team-order",
+		auth.MDPrincipalType:     "service",
+		auth.MDPrincipalScopes:   "listing.read",
+	} {
+		if got := hdr.Get(key); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", key, got, want)
+		}
+	}
+	for _, vals := range hdr {
+		for _, v := range vals {
+			if v == "buyer-9" || v == "order.write" {
+				t.Errorf("buyer identity leaked upstream: %v", hdr)
+			}
+		}
+	}
+}
+
+func TestBoundedRespectsParentDeadline(t *testing.T) {
+	deadline := func(ctx context.Context) time.Duration {
+		dl, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("no deadline")
+		}
+		return time.Until(dl)
+	}
+
+	// No parent deadline: d applies.
+	c, cancel := Bounded(context.Background(), 2*time.Second)
+	if got := deadline(c); got > 2*time.Second || got < time.Second {
+		t.Errorf("no parent: deadline in %v, want about 2s", got)
+	}
+	cancel()
+
+	// Parent 1s out, d 5s: parent minus the 500ms margin wins.
+	parent, pc := context.WithTimeout(context.Background(), time.Second)
+	defer pc()
+	c, cancel = Bounded(parent, 5*time.Second)
+	if got := deadline(c); got > 500*time.Millisecond {
+		t.Errorf("parent 1s: deadline in %v, want at most 500ms", got)
+	}
+	cancel()
+
+	// Parent inside the margin: already expired.
+	tight, tc := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer tc()
+	c, cancel = Bounded(tight, 5*time.Second)
+	defer cancel()
+	if c.Err() == nil && deadline(c) > 0 {
+		t.Errorf("parent inside margin: want expired context, deadline in %v", deadline(c))
+	}
+}
