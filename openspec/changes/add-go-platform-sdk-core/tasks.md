@@ -95,7 +95,7 @@ func (g GRPC) ShutdownGrace() time.Duration
 type Postgres struct { Enabled bool `env:"DATABASE_ENABLED" default:"true"`; URL string `env:"DATABASE_URL"`; MaxConns int32 `env:"DB_MAX_CONNS" default:"10"` }
 type OTel struct { Enabled bool `env:"OTEL_ENABLED" default:"false"`; Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`; ServiceName string `env:"OTEL_SERVICE_NAME"` }
 ```
-- [ ] 3.1 Tests first: `TestLoadDefaultsAndOverrides`, `TestLoadReportsBadVariable`, `TestCheckEnvExampleReportsBothDirections`, `TestDeclaredEnvKeysIncludesNested` (use `t.Setenv`; port the `.env.example` parsing rules from `team-order/internal/config/envcheck.go`). Then implement. Verify green.
+- [x] 3.1 Tests first: `TestLoadDefaultsAndOverrides`, `TestLoadReportsBadVariable`, `TestCheckEnvExampleReportsBothDirections`, `TestDeclaredEnvKeysIncludesNested` (use `t.Setenv`; port the `.env.example` parsing rules from `team-order/internal/config/envcheck.go`). Then implement. Verify green.
 
 ## 4. logx + otelx (wave 2)
 
