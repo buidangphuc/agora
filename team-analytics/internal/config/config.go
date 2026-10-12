@@ -47,6 +47,8 @@ type Server struct {
 	Port              int     `env:"GRPC_PORT" default:"50059"`
 	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
 	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
+	// MetricsAddr is the HTTP listen address of GET /metrics (empty disables it).
+	MetricsAddr string `env:"METRICS_ADDR" default:":9109"`
 }
 
 // Kafka configures the analytics-events consumer (ADR-0002).

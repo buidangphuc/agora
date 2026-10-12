@@ -3,6 +3,7 @@ package observability
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"sync"
 )
@@ -49,4 +50,14 @@ func (g *ReconcileGauge) WritePrometheus(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// MetricsHandler serves the gauge as Prometheus text on GET /metrics.
+func MetricsHandler(g *ReconcileGauge) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		_ = g.WritePrometheus(w)
+	})
+	return mux
 }

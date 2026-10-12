@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -61,12 +62,23 @@ func run() error {
 	// second, lock-conflicting connection. (The BigQuery query path is a
 	// follow-up; prod dashboards read BQ directly.)
 	var queryServer analyticsv1.AnalyticsQueryServiceServer
+	reconcileGauge := observability.NewReconcileGauge()
+	if addr := settings.Server.MetricsAddr; addr != "" {
+		metricsSrv := &http.Server{Addr: addr, Handler: observability.MetricsHandler(reconcileGauge), ReadHeaderTimeout: 5 * time.Second}
+		go func() {
+			if mErr := metricsSrv.ListenAndServe(); mErr != nil && !errors.Is(mErr, http.ErrServerClosed) {
+				logger.Error("metrics server stopped", slog.Any("err", mErr))
+			}
+		}()
+		defer func() { _ = metricsSrv.Close() }()
+	}
 	if w, ok := res.Writer.(*duckdb.Writer); ok {
 		queryServer = query.NewService(query.NewDuckDBRepository(w.DB()), query.WithTrackingThresholds(query.TrackingThresholds{
 			StaleAfter:             time.Duration(settings.Tracking.StaleAfterSeconds) * time.Second,
 			LagP95Max:              time.Duration(settings.Tracking.LagP95MaxSeconds) * time.Second,
 			MissingListingMaxRatio: settings.Tracking.MissingListingMaxRatio,
-		}), query.WithAttributionWindowHours(settings.Recs.AttributionWindowHours))
+		}), query.WithAttributionWindowHours(settings.Recs.AttributionWindowHours),
+			query.WithGA4Reconcile(settings.GA4.ReconcileMaxDiffRatio, reconcileGauge))
 		logger.Info("analytics query service enabled", slog.String("driver", settings.Warehouse.Driver))
 	}
 	srv := grpcserver.Build(settings, res.Health, queryServer)
