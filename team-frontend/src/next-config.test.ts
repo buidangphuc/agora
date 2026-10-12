@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const GOOGLE_HOSTS = [
@@ -9,9 +10,13 @@ const GOOGLE_HOSTS = [
 ];
 const GOOGLE_DIRECTIVES = ["script-src", "connect-src", "img-src"];
 
-async function cspFor(gtmId: string | undefined): Promise<string> {
+async function cspFor(
+  gtmId: string | undefined,
+  env: Record<string, string> = {},
+): Promise<string> {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_GTM_ID", gtmId ?? "");
+  for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
   const mod = await import("../next.config.mjs");
   const cfg = mod.default as {
     headers?: () => Promise<
@@ -76,5 +81,43 @@ describe("CSP (add-ga4-destination)", () => {
     expect(directive(csp, "connect-src")).toContain("'self'");
     expect(directive(csp, "img-src")).toContain("'self'");
     expect(directive(csp, "img-src")).toContain("data:");
+  });
+
+  it("Dev server works: non-production allows unsafe-eval and ws: for HMR", async () => {
+    const csp = await cspFor(undefined, { NODE_ENV: "development" });
+    expect(directive(csp, "script-src")).toContain("'unsafe-eval'");
+    expect(directive(csp, "connect-src").some((s) => s.startsWith("ws:"))).toBe(
+      true,
+    );
+  });
+
+  it("Production stays strict: no unsafe-eval and no ws: sources", async () => {
+    const csp = await cspFor("GTM-XXXX", { NODE_ENV: "production" });
+    expect(csp).not.toContain("'unsafe-eval'");
+    expect(csp).not.toMatch(/\bwss?:/);
+  });
+
+  it("Gateway and media origins are allowlisted when set", async () => {
+    const csp = await cspFor(undefined, {
+      NODE_ENV: "production",
+      NEXT_PUBLIC_GATEWAY_URL: "https://api.example.test/v1",
+      NEXT_PUBLIC_MEDIA_BASE_URL: "https://media.example.test/listing-images",
+    });
+    expect(directive(csp, "connect-src")).toContain("https://api.example.test");
+    expect(directive(csp, "img-src")).toContain("https://media.example.test");
+    expect(csp).not.toContain("listing-images");
+  });
+
+  it("Upload previews work: img-src allows blob:", async () => {
+    const csp = await cspFor(undefined, { NODE_ENV: "production" });
+    expect(directive(csp, "img-src")).toContain("blob:");
+  });
+
+  it("Build-time CSP inputs: Dockerfile declares ARG and ENV for gateway and media URLs", () => {
+    const df = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+    for (const v of ["NEXT_PUBLIC_GATEWAY_URL", "NEXT_PUBLIC_MEDIA_BASE_URL"]) {
+      expect(df).toMatch(new RegExp(`^ARG ${v}(=|\\s*$)`, "m"));
+      expect(df).toMatch(new RegExp(`^ENV ${v}=`, "m"));
+    }
   });
 });
