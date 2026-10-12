@@ -2,7 +2,7 @@
 
 ### Requirement: Settings load from environment with the services' existing tags
 
-`config.Load[T]()` SHALL populate a settings struct from environment variables. It reads `env:"NAME"` and `default:"value"` tags, the tag names the services use today, and recurses into nested structs without prefixing. It SHALL return an error naming every variable that fails to parse or is marked `required` and unset. The SDK SHALL provide the embeddable groups `Runtime`, `GRPC`, `Postgres` and `OTel`. Their variable names and defaults SHALL be those already used by the services: `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_PORT`, `GRPC_REFLECTION_ENABLED`, `SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DATABASE_URL`, `DB_MAX_CONNS`, `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`.
+`config.Load[T]()` SHALL populate a settings struct from environment variables. It reads `env:"NAME"` and `default:"value"` tags, the tag names the services use today, and recurses into nested structs without prefixing. It SHALL return an error naming every variable that fails to parse or is marked `required` and unset. After parsing, when `T` implements `Validate() error`, `Load` SHALL call it and return its error. `config.Postgres.Validate()` SHALL reject `Enabled` with an empty `URL`. The SDK SHALL provide the embeddable groups `Runtime`, `GRPC`, `Postgres` and `OTel`. Their variable names and defaults SHALL be those already used by the services: `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_PORT`, `GRPC_REFLECTION_ENABLED`, `SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DATABASE_URL`, `DB_MAX_CONNS`, `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`.
 
 #### Scenario: Defaults apply and env overrides them
 - **WHEN** a struct embedding `config.Runtime` and `config.GRPC` is loaded with only `GRPC_PORT=50065` and `LOG_LEVEL=debug` set
@@ -13,6 +13,11 @@
 - **WHEN** `GRPC_PORT=abc` is set
 - **THEN** `Load` returns an error whose message contains `GRPC_PORT`
 - **VERIFIED BY**: `TestLoadReportsBadVariable`
+
+#### Scenario: Enabled database without a URL fails validation
+- **WHEN** a settings struct whose `Validate() error` delegates to `config.Postgres.Validate()` is loaded with `DATABASE_ENABLED=true` and no `DATABASE_URL`
+- **THEN** `Load` returns an error naming `DATABASE_URL`
+- **VERIFIED BY**: `TestLoadRunsValidate`
 
 ### Requirement: .env.example drift is detectable
 
@@ -91,7 +96,7 @@
 
 ### Requirement: Components run and stop as one unit
 
-`lifecycle.Run(ctx, opts, components...)` SHALL start every component's `Run(ctx) error` in an errgroup. It SHALL return when ctx is cancelled or any component returns. On return it SHALL first call the `OnShutdown` hooks (for example health drain), then cancel the components, wait for them up to `ShutdownGrace`, then call the closers in reverse registration order. It SHALL return the first non-context error.
+`lifecycle.Run(ctx, opts, components...)` SHALL start every component's `Run(ctx) error` in an errgroup. It SHALL return when ctx is cancelled or any component returns. On return it SHALL first call the `OnShutdown` hooks (for example health drain), then cancel the components, wait for them up to `ShutdownGrace`, then call the closers in reverse registration order. It SHALL return the first non-context error. `Options.DrainDelay` (default 0, from `SHUTDOWN_DRAIN_DELAY_SECONDS` via `config.GRPC.DrainDelay()`) SHALL be waited after the hooks and before cancelling components, so probes observe NOT_SERVING. `lifecycle.Stack` SHALL collect closers during wiring: `Push(f)` registers, `Close(ctx)` runs them once in reverse order and joins errors, so a composition root can release what it opened when a later step fails.
 
 #### Scenario: A failing component stops the others
 - **WHEN** one of two components returns an error
@@ -107,6 +112,16 @@
 - **WHEN** a component ignores cancellation longer than `ShutdownGrace`
 - **THEN** `Run` returns after the grace period with a deadline error
 - **VERIFIED BY**: `TestShutdownDeadline`
+
+#### Scenario: Stack closes in reverse order exactly once
+- **WHEN** closers `a`, `b` are pushed, `b` fails, and `Close` is called twice
+- **THEN** `b` then `a` run once each and the first `Close` returns `b`'s error
+- **VERIFIED BY**: `TestStackClosesReverseOnce`
+
+#### Scenario: Drain delay holds components after the hooks
+- **WHEN** `DrainDelay` is 100ms and ctx is cancelled
+- **THEN** components see cancellation no earlier than 100ms after the hooks ran
+- **VERIFIED BY**: `TestDrainDelayHoldsComponents`
 
 ### Requirement: Postgres pool fails fast and is probed
 
@@ -158,7 +173,7 @@
 - the health service from `opts.Health`;
 - reflection when `GRPC_REFLECTION_ENABLED`.
 
-The request-id interceptor SHALL reuse an incoming `x-request-id` or generate one, store it in `reqctx` and send it back as a response header. `grpcx.Serve(srv, cfg config.GRPC)` SHALL return a lifecycle component that listens on `cfg.Addr()` and stops gracefully when its context ends. `grpcx.Status(err, table)` SHALL map errors matched by `errors.Is` to their code. An error that already carries a gRPC status other than `Unknown` (for example from `auth.RequirePrincipal`) SHALL be returned unchanged. Any other error SHALL be logged and mapped to `codes.Internal` with the message `internal error`.
+The request-id interceptor SHALL reuse an incoming `x-request-id` or generate one, store it in `reqctx` and send it back as a response header. `grpcx.Serve(srv, cfg config.GRPC)` SHALL return a lifecycle component that listens on `cfg.Addr()` and stops gracefully when its context ends. `grpcx.ServeListener(srv, lis, grace)` SHALL do the same on a caller-provided listener, for tests. `grpcx.Status(err, table)` SHALL map errors matched by `errors.Is` to their code. An error that already carries a gRPC status other than `Unknown` (for example from `auth.RequirePrincipal`) SHALL be returned unchanged. Any other error SHALL be logged and mapped to `codes.Internal` with the message `internal error`.
 
 #### Scenario: A panicking handler returns Internal and the server keeps serving
 - **WHEN** a handler panics
@@ -182,7 +197,7 @@ The request-id interceptor SHALL reuse an incoming `x-request-id` or generate on
 
 ### Requirement: The example service is the reference wiring
 
-`packages/go-sdk/examples/hello` SHALL wire `config`, `logx`, `otelx`, `pgx` (optional), `healthx`, `auth`, `grpcx` and `lifecycle` in an `internal/app.Run(ctx) error` composition root, with `cmd/hello/main.go` under 20 lines. SIGTERM SHALL drain health before the server stops.
+`packages/go-sdk/examples/hello` SHALL wire `config`, `logx`, `otelx`, `pgx` (optional), `healthx`, `auth`, `grpcx` and `lifecycle` in an `internal/app.Run(ctx context.Context, s config.Settings) error` composition root (`main` loads settings), with `cmd/hello/main.go` under 20 lines. SIGTERM SHALL drain health before the server stops.
 
 #### Scenario: Health drains before stop
 - **WHEN** the example runs and its context is cancelled
