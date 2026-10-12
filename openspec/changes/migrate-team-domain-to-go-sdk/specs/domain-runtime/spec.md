@@ -2,11 +2,11 @@
 
 ### Requirement: team-domain boots on go-sdk with explicit wiring
 
-team-domain SHALL wire go-sdk v0.1.0 in `internal/app.Run(ctx, settings)` per ADR-0016, with no addon registry. It SHALL refuse to start when `DATABASE_ENABLED` is false or the database is unreachable, in any `ENV`. The outbox relayer, when Kafka and the outbox are enabled, and the reservation sweeper SHALL run as lifecycle components.
+team-domain SHALL wire go-sdk v0.1.1 in `internal/app.Run(ctx, settings)` per ADR-0016, with no addon registry and no enable flags for always-on capabilities: the database, the Kafka publisher and the outbox relayer are always wired (`DATABASE_ENABLED`, `KAFKA_ENABLED` and `OUTBOX_ENABLED` no longer exist). It SHALL refuse to start when `DATABASE_URL` is unset or the database is unreachable, in any `ENV`. The outbox relayer and the reservation sweeper SHALL run as lifecycle components.
 
-#### Scenario: Database disabled is rejected
-- **WHEN** the service starts with `DATABASE_ENABLED=false`
-- **THEN** `app.Run` returns an error naming `DATABASE_ENABLED` before any port opens
+#### Scenario: Missing database URL is rejected
+- **WHEN** the service starts without `DATABASE_URL`
+- **THEN** settings loading fails with an error naming `DATABASE_URL` before any port opens
 - **VERIFIED BY**: `team-domain/internal/app` `TestBootRequiresDatabase`
 
 #### Scenario: Unreachable database fails boot even locally
@@ -19,7 +19,7 @@ team-domain SHALL wire go-sdk v0.1.0 in `internal/app.Run(ctx, settings)` per AD
 On shutdown, team-domain SHALL set health NOT_SERVING first, then stop the gRPC server, then stop the relayer and sweeper, then close the publisher and the pool.
 
 #### Scenario: Relayer stops after the server and before the pool closes
-- **WHEN** the running service's context is cancelled with the relayer enabled
+- **WHEN** the running service's context is cancelled
 - **THEN** health becomes NOT_SERVING, the relayer's Run returns, and only then is the pool closed
 - **VERIFIED BY**: `TestShutdownStopsRelayerBeforePoolClose`
 

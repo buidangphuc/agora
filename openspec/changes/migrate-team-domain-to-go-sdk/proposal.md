@@ -1,6 +1,6 @@
 ## Why
 
-team-domain is the source of the best platform patterns (DB health probe, outbox relayer, fail-fast DB) and the full-tier pilot for go-sdk v0.1.0 (ADR-0016). It still carries its own copies of the SDK's parts:
+team-domain is the source of the best platform patterns (DB health probe, outbox relayer, fail-fast DB) and the full-tier pilot for go-sdk v0.1.1 (ADR-0016). It still carries its own copies of the SDK's parts:
 
 - `internal/config` binder + envcheck
 - `internal/observability/tracer.go`
@@ -14,7 +14,8 @@ initiative: go-platform-sdk
 
 ## What Changes
 
-- Vendor go-sdk at `go-sdk/v0.1.0` with `platform-core/tools/sync-go-sdk.sh`.
+- **Trim enable flags for always-on capabilities.** Every deploy runs team-domain with the database, Kafka (`KAFKA_ENABLED: "true"` in gitops and compose) and the outbox (default on), so `DATABASE_ENABLED`, `KAFKA_ENABLED` and `OUTBOX_ENABLED` are removed. The strict-config check for `KAFKA_ENABLED=false` goes with them. `GRPC_REFLECTION_ENABLED` is removed by go-sdk v0.1.1, and `OTEL_ENABLED` stays (telemetry is off in team-domain deploys today).
+- Vendor go-sdk at `go-sdk/v0.1.1` with `platform-core/tools/sync-go-sdk.sh`.
 - Restructure to the ADR-0016 layout:
 
   | From | To |
@@ -31,7 +32,6 @@ initiative: go-platform-sdk
 - The `bootstrap.Addon` registry is removed. It has no implementations beyond the extension point, and ADR-0016 requires explicit wiring.
 - These stay as they are:
   - Every env var name and default, enforced by the `.env.example` drift test.
-  - `DATABASE_ENABLED=true` being required.
   - `migrations/` at the repo root, applied by the compose job `team-domain-migrate` (not at boot).
 - The `Makefile` includes `make/go-service.mk`, keeping the repo-specific `dev`/`stop`/`migrate` targets. The `Dockerfile` follows the template.
 
