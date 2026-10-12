@@ -2,7 +2,10 @@ package config_test
 
 import (
 	"os"
+	"slices"
 	"testing"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
 	"github.com/buidangphuc/team-promotion/internal/config"
 )
@@ -10,9 +13,9 @@ import (
 func TestConfigLoadSettings(t *testing.T) {
 	os.Setenv("ENV", "test")
 	os.Setenv("GRPC_PORT", "50060")
-	os.Setenv("DATABASE_ENABLED", "false")
+	os.Setenv("DATABASE_URL", "postgres://x/y")
 
-	cfg, err := config.LoadSettings()
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("unexpected error loading config: %v", err)
 	}
@@ -26,8 +29,9 @@ func TestConfigLoadSettings(t *testing.T) {
 }
 
 func TestAdCapsAndTimeoutDefaultsAndValidation(t *testing.T) {
-	t.Setenv("DATABASE_ENABLED", "false")
-	cfg, err := config.LoadSettings()
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("GRPC_PORT", "50061")
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +41,7 @@ func TestAdCapsAndTimeoutDefaultsAndValidation(t *testing.T) {
 	for _, k := range []string{"MAX_AD_BID", "MAX_AD_BUDGET", "UPSTREAM_CALL_TIMEOUT_SECONDS"} {
 		for _, v := range []string{"0", "-5", "abc"} {
 			t.Setenv(k, v)
-			if _, err := config.LoadSettings(); err == nil {
+			if _, err := config.Load(); err == nil {
 				t.Errorf("%s=%s accepted, want error", k, v)
 			}
 		}
@@ -99,4 +103,38 @@ func indexByte(s string, b byte) int {
 		}
 	}
 	return -1
+}
+
+// TestEnvExampleInSync is the both-directions env-drift gate (`make check-env`).
+func TestEnvExampleInSync(t *testing.T) {
+	if err := sdkconfig.CheckEnvExample("../../.env.example", config.Settings{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestNoEnableFlagsDeclared: capabilities every deploy runs have no enable flag.
+func TestNoEnableFlagsDeclared(t *testing.T) {
+	declared := config.DeclaredEnvKeys()
+	for _, key := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "GRPC_REFLECTION_ENABLED"} {
+		if slices.Contains(declared, key) {
+			t.Errorf("%s is declared; the database, the Kafka publisher, the outbox relayer and reflection are always on", key)
+		}
+	}
+}
+
+// TestFeatureFlagsToggleKept: FEATURE_FLAGS_ENABLED is a real toggle (gitops runs
+// promotion with it false), so it stays declared and defaults to on.
+func TestFeatureFlagsToggleKept(t *testing.T) {
+	if !slices.Contains(config.DeclaredEnvKeys(), "FEATURE_FLAGS_ENABLED") {
+		t.Fatal("FEATURE_FLAGS_ENABLED must stay declared")
+	}
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("GRPC_PORT", "50061")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Flags.Enabled {
+		t.Error("FEATURE_FLAGS_ENABLED must default to true")
+	}
 }

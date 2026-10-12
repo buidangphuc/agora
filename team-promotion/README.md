@@ -11,10 +11,10 @@ arithmetic and quota bookkeeping only. It never moves money (AGENTS.md section 7
 
 Protos live in `proto/` (vendored from `platform-core/proto`, package `platform.promotion.v1`).
 Callers pass identity as gRPC metadata `x-principal-id`, `x-principal-type` (`user`, `service`,
-`anonymous`) and `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` only parses
-these into a principal; each handler enforces its own rule. `RequirePrincipal` rejects a missing,
-`anonymous` or ANONYMOUS-type principal. `RequireAdmin` needs scope `admin`; `RequireSeller` needs
-`listing.write` or `admin`.
+`anonymous`) and `x-principal-scopes` (comma-separated). The SDK `auth` interceptor only parses
+these into a principal; each handler enforces its own rule. `auth.RequirePrincipal` rejects a missing,
+`anonymous` or anonymous-type principal. `requireAdmin` (`internal/rpc/auth.go`) needs scope `admin`;
+`requireSeller` needs `listing.write` or `admin`. The SDK treats `admin` like any other scope.
 
 | Service / RPC | Authorization (as implemented) |
 |---|---|
@@ -30,11 +30,11 @@ these into a principal; each handler enforces its own rule. `RequirePrincipal` r
 | `SponsoredService/CreateAdCampaign` | Requires `listing.write`; non-admins must own the listing (same team-domain check as `CreateCampaign`, fails closed). `bid`/`budget` above `MAX_AD_BID`/`MAX_AD_BUDGET` are `InvalidArgument`. Seller id is the caller's id. |
 | `SponsoredService/ListSponsoredSlots` | None (active campaigns, best bid first). |
 
-Also served: `grpc.health.v1.Health` and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default on).
+Also served: `grpc.health.v1.Health` (reports the database) and gRPC reflection, both always on.
 
 **Consumes:** team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
 caller's forwarded principal, to verify listing ownership in `CreateCampaign` (`UPSTREAM_DOMAIN_ADDR`).
-It also reads the principal metadata and depends on Postgres, Kafka and Flipt (below). In the root compose, `team-order` and `team-gateway` set
+It also reads the principal metadata and depends on Postgres, Kafka and Flipt (below). The lookup goes through the SDK `upstream` dialer, which forwards the caller's principal (plus `listing.read`) and the request id, bounds each call and honours the inbound deadline. In the root compose, `team-order` and `team-gateway` set
 `UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061`.
 
 Redemption flow: `ValidateAndReserve` is idempotent on `reservation_id` (a retry returns the
@@ -55,9 +55,9 @@ Producer only; nothing is consumed.
 | `promotion.events` | `platform.promotion.v1.FlashSaleChanged` | campaign id | `CreateCampaign` succeeds |
 
 Value is a proto-marshalled `platform.events.v1.EventEnvelope` (event id, type, principal,
-`traceparent`, `request_id`, payload). Emission is best-effort: failures are logged and never fail
-the RPC. With `KAFKA_ENABLED=false` (the code default) or an unreachable broker at boot, no events
-are published. See ADR-0002.
+`traceparent`, `request_id`, payload). Publishing goes through the SDK `kafkax` producer, which also stamps `traceparent` and
+`x-request-id` record headers. The emitter returns publish errors to its caller; the services log
+them and never fail the RPC. Kafka is always on (no enable flag). See ADR-0002.
 
 ## Data
 
@@ -76,29 +76,27 @@ default). The service itself does not run migrations.
 
 ## Configuration
 
-Read in `internal/config/config.go` from the environment (struct tags are the source of truth).
-`make check-env` runs `TestDeclaredEnvKeysNoDrift`, which fails if `.env.example` drifts from the
-declared keys. The Makefile auto-loads `.env` if present.
+Read in `internal/config/config.go` from the environment with the SDK `config` groups (struct tags
+are the source of truth). `make check-env` runs `TestEnvExampleInSync`, which fails if `.env.example`
+drifts from the declared keys in either direction. The Makefile auto-loads `.env` if present.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `prod`/`production` sets `IsProd` |
-| `LOG_LEVEL` | `info` | only `debug` changes behaviour; anything else is info |
+| `ENV` | `local` | `local` and `test` count as local: an unreachable database falls back to in-memory repositories |
+| `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | JSON vs text slog |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50061` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
+| `GRPC_PORT` | required | `.env.example` and the Dockerfile use `50061` |
 | `SHUTDOWN_GRACE_SECONDS` | `10` | graceful stop deadline |
-| `DATABASE_ENABLED` | `true` | `false` selects in-memory repositories |
-| `DATABASE_URL` | `""` | required when `DATABASE_ENABLED=true` (startup fails otherwise) |
+| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0` | keep serving this long after health reports NOT_SERVING |
+| `DATABASE_URL` | required | startup fails when empty; an unreachable database fails boot outside `ENV=local` |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` uses `localhost:4317` |
 | `OTEL_SERVICE_NAME` | `team-promotion` | |
-| `FEATURE_FLAGS_ENABLED` | `true` | `false` skips Flipt; flags return the caller default |
+| `FEATURE_FLAGS_ENABLED` | `true` | a real toggle (gitops runs it `false`): `false` skips Flipt and flags return the caller default |
 | `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC endpoint |
 | `FEATURE_FLAGS_EVAL_TIMEOUT_MS` | `500` | |
-| `KAFKA_ENABLED` | `false` | |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
 | `UPSTREAM_DOMAIN_ADDR` | `""` | team-domain gRPC address (`team-domain-svc:50051` in compose). Unset: non-admin `CreateCampaign` fails closed; `.env.example` uses `localhost:50051` |
@@ -116,7 +114,7 @@ docker compose -f docker-compose.services.yaml up --build team-promotion
 ```
 
 This runs `team-promotion-migrate` first, then the server on `:50061` with `DATABASE_URL` pointing
-at the shared `postgres:5432` and Kafka and Flipt enabled. There is no `--profile jobs` component.
+at the shared `postgres:5432`, Kafka at `redpanda:9092` and Flipt enabled. There is no `--profile jobs` component.
 
 Standalone (from `team-promotion/`):
 
@@ -127,7 +125,7 @@ make migrate             # needs a reachable Postgres
 make run                 # go run ./cmd/server
 ```
 
-With `DATABASE_ENABLED=false` the server boots on in-memory repositories (data lost on restart).
+With `ENV=local` and no reachable database the server boots on in-memory repositories (data lost on restart).
 
 Smoke test (grpcurl; reflection is on by default):
 
@@ -144,13 +142,21 @@ grpcurl -plaintext localhost:50061 grpc.health.v1.Health/Check
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` |
-| `make check` | merge gate: `check-env`, `gofmt -l .` (fails on unformatted files), `go vet ./...`, `go test ./...` |
+| `make check` | merge gate (needs Docker): `go vet`, `golangci-lint`, `go test -race` with Docker tests required, `check-env` |
 | `make check-env` | `.env.example` drift test |
-| `make test` | `go test ./...` |
+| `make test` | `go test -race ./...` |
+| `make docker` | `buf generate`, then build the `team-promotion:dev` image |
 
-Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
-`PROMOTION_TEST_DATABASE_URL` or `DATABASE_URL` is set. This repo has no `.github/workflows`;
-`make check` is the gate to run before merging.
+The Postgres store test (`internal/store/postgres_test.go`) starts a real Postgres with testcontainers,
+so `make check` needs Docker. The shared SDK targets come from `make/go-service.mk` and the vendored
+SDK from `third_party/go-sdk` (go-sdk v0.2.1; re-sync with `platform-core/tools/sync-go-sdk.sh`).
+
+## Layout
+
+`cmd/server` (process), `internal/app` (composition root), `internal/config`, `internal/rpc`
+(transport: handlers, local auth helpers), `internal/promotion` (business logic), `internal/store`
+(Postgres and in-memory repositories), `internal/events` (envelope emitter, Kafka publisher),
+`internal/upstream` (team-domain client), `migrations/` (with `embed.go`). See ADR-0016.
 
 ## Spec and verification
 
@@ -167,12 +173,10 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
   `make proto` has run. The Dockerfile does not run `buf`, so image builds need `generated/` present.
 - `proto/` is vendored from `platform-core`. Never edit it here; change `platform-core/proto` and
   re-vendor.
-- In-memory fallback: `DATABASE_ENABLED=false` swaps in in-memory repositories; a missing Kafka or
-  Flipt at boot only logs a warning and degrades (no events, flags fail open).
+- In-memory fallback: with `ENV=local` and an unreachable database the service uses in-memory
+  repositories; a Flipt that cannot be set up only logs a warning and flags fail open to defaults.
 - Port drift: standalone `.env.example` and the Makefile use Postgres `localhost:5438`; AGENTS.md
   lists `postgres-promotion` at `5440`. In compose the service uses the shared `postgres:5432`.
-- The Dockerfile sets `GRPC_PORT=50060` and `EXPOSE 50060`, while the code default and compose use
-  `50061`. Compose overrides it, so a bare `docker run` listens on 50060.
 
 ## Known gaps
 
