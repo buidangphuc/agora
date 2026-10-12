@@ -37,7 +37,6 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
-            KAFKA_ENABLED: "true"
             LISTING_EVENTS_TOPIC: "listing.events"
             NOTIFICATION_LISTING_CONSUMER_GROUP: "team-notification.listing"
             LISTING_EVENTS_DLQ_TOPIC: "listing.events.dlq"

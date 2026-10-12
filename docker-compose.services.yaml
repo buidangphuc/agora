@@ -458,7 +458,6 @@ services:
     environment:
       - DATABASE_URL=postgres://notification_svc:notification_pass@postgres:5432/notification_db?sslmode=disable
       # listing.events consumer (F3): price-drop / back-in-stock alerts
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - LISTING_EVENTS_TOPIC=listing.events
       - NOTIFICATION_LISTING_CONSUMER_GROUP=team-notification.listing
