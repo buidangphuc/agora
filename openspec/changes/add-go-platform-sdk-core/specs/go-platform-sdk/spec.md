@@ -197,7 +197,7 @@ The request-id interceptor SHALL reuse an incoming `x-request-id` or generate on
 
 ### Requirement: The example service is the reference wiring
 
-`packages/go-sdk/examples/hello` SHALL wire `config`, `logx`, `otelx`, `pgx` (optional), `healthx`, `auth`, `grpcx` and `lifecycle` in an `internal/app.Run(ctx context.Context, s config.Settings) error` composition root (`main` loads settings), with `cmd/hello/main.go` under 20 lines. SIGTERM SHALL drain health before the server stops.
+`packages/go-sdk/examples/hello` SHALL wire `config`, `logx`, `otelx`, `pgx` (optional), `healthx`, `auth`, `grpcx` and `lifecycle` in an `internal/app.Run(ctx context.Context, s config.Settings) error` composition root (`main` loads settings), with a short `cmd/hello/main.go` that only creates the signal context, loads settings and calls `app.Run`. A migration failure SHALL fail boot in every environment; only an unreachable database in `ENV=local` MAY be tolerated. SIGTERM SHALL drain health before the server stops.
 
 #### Scenario: Health drains before stop
 - **WHEN** the example runs and its context is cancelled
