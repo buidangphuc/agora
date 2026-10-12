@@ -1,0 +1,36 @@
+# Daily GA4 BigQuery-export import (cmd/ga4import) + reconcile. A no-op until ops fill
+# GA4_EXPORT_DATASET (left empty here; never set in local/staging). Same image as the consumer.
+# NOTE: opens the same DuckDB file (analytics-data PVC) the consumer holds locked; see the
+# single-writer caveat in the task report.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: team-analytics-ga4import, namespace: marketplace }
+spec:
+  schedule: "30 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: ga4import
+              image: localhost:5001/team-analytics
+              command: ["/ga4import"]
+              env:
+                - { name: WAREHOUSE_DRIVER, value: "duckdb" }
+                - { name: DUCKDB_PATH, value: "/data/analytics.duckdb" }
+                - { name: GA4_EXPORT_SOURCE, value: "bigquery" }
+                - { name: GA4_EXPORT_DATASET, value: "" }
+                - { name: GA4_RECONCILE_MAX_DIFF_RATIO, value: "0.35" }
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { cpu: 250m, memory: 256Mi }
+              volumeMounts:
+                - { name: analytics-data, mountPath: /data }
+          volumes:
+            - name: analytics-data
+              persistentVolumeClaim: { claimName: analytics-data }

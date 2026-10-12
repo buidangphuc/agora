@@ -48,6 +48,8 @@ spec:
             # beside this path on the analytics-data PVC; the featurestore CronJob reads them.
             - { name: PARQUET_EXPORT_PATH, value: "/data/tracking_events.parquet" }
             - { name: PARQUET_EXPORT_INTERVAL_SECONDS, value: "300" }
+          ports:
+            - { name: metrics, containerPort: 9109 }
           resources:
             requests:
               cpu: 50m
@@ -76,3 +78,4 @@ spec:
   selector: { app: team-analytics }
   ports:
     - { name: grpc, port: 50059, targetPort: 50059 }
+    - { name: metrics, port: 9109, targetPort: 9109 }

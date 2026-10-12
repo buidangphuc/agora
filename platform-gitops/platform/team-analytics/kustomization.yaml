@@ -4,6 +4,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - consumer.yaml
+  - ga4import-cronjob.yaml
 images:
   - name: localhost:5001/team-analytics
     newTag: sha-bcbb4d0a089c
