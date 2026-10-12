@@ -143,5 +143,12 @@ OUT=$(PATH="$T/bin:$PATH" "$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 0 ] && echo "$OUT" | grep -q "green@head=yes" && ok "(i) generated code built in worktrees" || bad "(i) expected exit 0 got $RC"
 
+# (j) run metrics (metrics/**) are not implementation: no "impl without tests" failure
+new_repo "$T/j"
+mkdir -p metrics/runs; echo '{"event":"run_done"}' > metrics/runs/x.jsonl; commit "run metrics"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "impl=0" && ok "(j) metrics are non-impl" || bad "(j) expected exit 0 got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS

@@ -52,7 +52,7 @@ is_py_test()  { [[ "$1" != platform-e2e/* ]] && [[ "$(basename "$1")" == test_*.
 is_ts_test()  { [[ "$1" != platform-e2e/* && "$1" != */e2e/* && "$1" != e2e/* ]] && [[ "$1" == *.test.ts || "$1" == *.spec.ts || "$1" == *.test.tsx || "$1" == *.spec.tsx ]]; }
 is_any_test() { is_go_test "$1" || is_py_test "$1" || is_ts_test "$1" || [[ "$1" == tests/* || "$1" == test/* || "$1" == testdata/* || "$1" == fixtures/* || "$1" == */tests/* || "$1" == */test/* || "$1" == */__tests__/* || "$1" == */testdata/* || "$1" == */fixtures/* || "$(basename "$1")" == conftest.py || "$1" == *.spec.ts || "$1" == *.test.ts ]]; }
 is_fixture()  { [[ "$1" == fixtures/* || "$1" == */fixtures/* || "$1" == testdata/* || "$1" == */testdata/* ]]; }  # data, never run
-is_nonimpl()  { [[ "$1" == *.md || "$1" == openspec/* || "$1" == docs/* || "$1" == plans/* || "$1" == scripts/asdlc/* || "$1" == gates/* || "$1" == .github/* || "$1" == platform-e2e/* || "$1" == */FEATURES.yaml || "$1" == FEATURES.yaml ]]; }
+is_nonimpl()  { [[ "$1" == *.md || "$1" == openspec/* || "$1" == docs/* || "$1" == plans/* || "$1" == metrics/* || "$1" == scripts/asdlc/* || "$1" == gates/* || "$1" == .github/* || "$1" == platform-e2e/* || "$1" == */FEATURES.yaml || "$1" == FEATURES.yaml ]]; }
 
 # does a kind run? (--only unset = all)
 kind_on() { [ -z "$ONLY" ] || [[ ",$ONLY," == *",$1,"* ]]; }
