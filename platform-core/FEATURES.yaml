@@ -49,7 +49,7 @@ features:
     priority: P2
     kind: authz
     summary: >-
-      GetChannelFunnel is admin-only; a seller or buyer gets PERMISSION_DENIED and no rows. Red until add-ga4-export-import serves the RPC.
+      GetChannelFunnel is admin-only; a seller or buyer gets PERMISSION_DENIED and no rows.
     entry_route: /
     services: [team-analytics, team-gateway]
     api:
@@ -71,7 +71,7 @@ features:
     priority: P2
     kind: contract
     summary: >-
-      An admin call with empty seller_id aggregates every seller; with seller_id set only that seller. Red until add-ga4-export-import serves the RPC.
+      An admin call with empty seller_id aggregates every seller; with seller_id set only that seller.
     entry_route: /
     services: [team-analytics, team-gateway]
     api:
@@ -94,7 +94,7 @@ features:
     priority: P2
     kind: contract
     summary: >-
-      from after to returns INVALID_ARGUMENT. Red until add-ga4-export-import serves the RPC.
+      from after to returns INVALID_ARGUMENT.
     entry_route: /
     services: [team-analytics, team-gateway]
     api:
@@ -114,7 +114,7 @@ features:
     priority: P2
     kind: contract
     summary: >-
-      A range without events yields zero rows and no error. Red until add-ga4-export-import serves the RPC.
+      A range without events yields zero rows and no error.
     entry_route: /
     services: [team-analytics, team-gateway]
     api:

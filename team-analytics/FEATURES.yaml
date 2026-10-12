@@ -1214,8 +1214,8 @@ features:
     acceptance:
       - "Counts are split by channel"
     tags: [tracking, analytics, ga4]
-    status: planned
-    notes: "green after add-consent-mode merge (gateway must persist gaClientId under agora_consent a=1)"
+    status: automated
+    covered_by: "tracking/ga4_export_import.feature::Counts are split by channel"
 
   - id: ga4-export-import.funnel-query-meets-p95-latency
     title: "Funnel query meets p95 latency"
