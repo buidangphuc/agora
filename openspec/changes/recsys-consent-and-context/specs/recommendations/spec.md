@@ -145,12 +145,14 @@ The ranker MAY use `session_source`, `session_medium` and `session_campaign` as 
 request-time campaign boost and `RecommendRequest` SHALL NOT change. The training run SHALL evaluate the model with and without
 them on the same time-based split and SHALL enable them only when the with-context `ndcg@k` and `recall@k` are both not lower than
 the baseline. The decision and both metric sets SHALL be recorded in the run report. Columns absent from the input SHALL disable
-the feature without failing the run.
+the feature without failing the run. Until the serving ranker (team-ai) accepts a feature list other than
+`RANKING_FEATURES`, the published artifact SHALL keep exactly `RANKING_FEATURES`; `context_features=enabled` records that
+the context variant qualified, not that it was published (Clarifications R3 Q6).
 
 #### Scenario: Context kept when it does not regress
 
 - **WHEN** the with-context metrics are equal to or above the baseline on both `ndcg@k` and `recall@k`
-- **THEN** the run report states `context_features=enabled` with both metric sets
+- **THEN** the run report states `context_features=enabled` with both metric sets and the published artifact's features equal `RANKING_FEATURES`
 - **VERIFIED BY**: `platform-recsys/tests/test_ranker_context.py` "test_context_kept_without_regression" (Clarifications R1 Q1)
 
 #### Scenario: Context dropped on regression

@@ -9,3 +9,6 @@
 
 ### Round 2 — 2026-10-12
 - Q5 [outcome] Ranker debias: how is the (item_list_id, position) propensity estimated? (the existing position-only IPS already satisfied the three scenarios) → **Empirical per list: smoothed CTR (clicks+1)/(impressions+2) at the position divided by the same at position 1 in that list, ratio clamped to [0.05, 1], weight = 1/propensity; a cell or its position-1 cell under 100 impressions falls back to the position-only weight. Two scenarios added (VERIFIED BY)** (human chose the approach; thresholds are the default)
+
+### Round 3 — 2026-10-12
+- Q6 [outcome] Context features: team-ai accepts a ranker artifact only when its features equal RANKING_FEATURES, and serving has no session context, so publishing a context model would be rejected or skewed → **Evaluate and report only: train/evaluate with and without context, record both metric sets and the decision (`context_features=enabled|disabled`, enabled = the variant qualified); the published artifact always keeps exactly RANKING_FEATURES until serving supports more** (human)
