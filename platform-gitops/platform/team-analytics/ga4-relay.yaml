@@ -72,10 +72,18 @@ spec:
       labels: { app: ga4-relay }
     spec:
       serviceAccountName: ga4-relay
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
       containers:
         - name: ga4-relay
           image: localhost:5001/team-analytics
           command: ["/ga4-relay"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           env:
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }
