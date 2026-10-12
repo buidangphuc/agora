@@ -1546,7 +1546,8 @@ features:
     acceptance:
       - "Latest consented client id wins"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Latest consented client id wins"
 
   - id: ga4-purchase-relay.denied-consent-deletes-the-mapping
     title: "Denied consent deletes the mapping"
@@ -1560,7 +1561,8 @@ features:
     acceptance:
       - "Denied consent deletes the mapping"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Denied consent deletes the mapping"
 
   - id: ga4-purchase-relay.anonymous-event-is-ignored
     title: "Anonymous event is ignored"
@@ -1574,7 +1576,8 @@ features:
     acceptance:
       - "Anonymous event is ignored"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Anonymous event is ignored"
 
   - id: ga4-purchase-relay.paid-order-is-relayed
     title: "Paid order is relayed"
@@ -1588,7 +1591,8 @@ features:
     acceptance:
       - "Paid order is relayed"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Paid order is relayed"
 
   - id: ga4-purchase-relay.payload-carries-no-personal-data
     title: "Payload carries no personal data"
@@ -1602,7 +1606,8 @@ features:
     acceptance:
       - "Payload carries no personal data"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Payload carries no personal data"
 
   - id: ga4-purchase-relay.item-ids-and-value-mapping
     title: "Item ids and value mapping"
@@ -1616,7 +1621,8 @@ features:
     acceptance:
       - "Item ids and value mapping"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Item ids and value mapping"
 
   - id: ga4-purchase-relay.paid-at-is-nil
     title: "Paid_at is nil"
@@ -1630,7 +1636,8 @@ features:
     acceptance:
       - "Paid_at is nil"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Paid_at is nil"
 
   - id: ga4-purchase-relay.latency-budget
     title: "Latency budget"
@@ -1644,7 +1651,8 @@ features:
     acceptance:
       - "Latency budget"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Latency budget"
 
   - id: ga4-purchase-relay.other-envelope-types-are-skipped
     title: "Other envelope types are skipped"
@@ -1658,7 +1666,8 @@ features:
     acceptance:
       - "Other envelope types are skipped"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Other envelope types are skipped"
 
   - id: ga4-purchase-relay.large-order-is-capped
     title: "Large order is capped"
@@ -1672,7 +1681,8 @@ features:
     acceptance:
       - "Large order is capped"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Large order is capped"
 
   - id: ga4-purchase-relay.malformed-order-event-is-rejected
     title: "Malformed order event is rejected"
@@ -1686,7 +1696,8 @@ features:
     acceptance:
       - "Malformed order event is rejected"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Malformed order event is rejected"
 
   - id: ga4-purchase-relay.another-buyer-s-client-id-is-never-used
     title: "Another buyer's client id is never used"
@@ -1700,7 +1711,8 @@ features:
     acceptance:
       - "Another buyer's client id is never used"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Another buyer's client id is never used"
 
   - id: ga4-purchase-relay.kafka-redelivery
     title: "Kafka redelivery"
@@ -1714,7 +1726,8 @@ features:
     acceptance:
       - "Kafka redelivery"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Kafka redelivery"
 
   - id: ga4-purchase-relay.restart-after-send
     title: "Restart after send"
@@ -1728,7 +1741,8 @@ features:
     acceptance:
       - "Restart after send"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Restart after send"
 
   - id: ga4-purchase-relay.concurrent-duplicates
     title: "Concurrent duplicates"
@@ -1742,7 +1756,8 @@ features:
     acceptance:
       - "Concurrent duplicates"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Concurrent duplicates"
 
   - id: ga4-purchase-relay.failed-send-is-not-recorded-as-sent
     title: "Failed send is not recorded as sent"
@@ -1756,7 +1771,8 @@ features:
     acceptance:
       - "Failed send is not recorded as sent"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Failed send is not recorded as sent"
 
   - id: ga4-purchase-relay.transient-failure-then-success
     title: "Transient failure then success"
@@ -1770,7 +1786,8 @@ features:
     acceptance:
       - "Transient failure then success"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Transient failure then success"
 
   - id: ga4-purchase-relay.permanent-client-error-is-not-retried
     title: "Permanent client error is not retried"
@@ -1784,7 +1801,8 @@ features:
     acceptance:
       - "Permanent client error is not retried"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Permanent client error is not retried"
 
   - id: ga4-purchase-relay.rate-limited-is-retried
     title: "Rate limited is retried"
@@ -1798,7 +1816,8 @@ features:
     acceptance:
       - "Rate limited is retried"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Rate limited is retried"
 
   - id: ga4-purchase-relay.server-error-backoff-schedule
     title: "Server error backoff schedule"
@@ -1812,7 +1831,8 @@ features:
     acceptance:
       - "Server error backoff schedule"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Server error backoff schedule"
 
   - id: ga4-purchase-relay.retries-exhausted
     title: "Retries exhausted"
@@ -1826,7 +1846,8 @@ features:
     acceptance:
       - "Retries exhausted"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Retries exhausted"
 
   - id: ga4-purchase-relay.request-timeout-boundary
     title: "Request timeout boundary"
@@ -1840,7 +1861,8 @@ features:
     acceptance:
       - "Request timeout boundary"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Request timeout boundary"
 
   - id: ga4-purchase-relay.buyer-without-mapping
     title: "Buyer without mapping"
@@ -1854,7 +1876,8 @@ features:
     acceptance:
       - "Buyer without mapping"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Buyer without mapping"
 
   - id: ga4-purchase-relay.consent-revoked-before-payment
     title: "Consent revoked before payment"
@@ -1868,7 +1891,8 @@ features:
     acceptance:
       - "Consent revoked before payment"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Consent revoked before payment"
 
   - id: ga4-purchase-relay.unconsented-buyer-is-not-sent-under-another-identity
     title: "Unconsented buyer is not sent under another identity"
@@ -1882,7 +1906,8 @@ features:
     acceptance:
       - "Unconsented buyer is not sent under another identity"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Unconsented buyer is not sent under another identity"
 
   - id: ga4-purchase-relay.no-inbound-endpoint-beyond-probes
     title: "No inbound endpoint beyond probes"
@@ -1896,7 +1921,8 @@ features:
     acceptance:
       - "No inbound endpoint beyond probes"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::No inbound endpoint beyond probes"
 
 
   - id: ga4-purchase-relay.secret-unset
@@ -1911,7 +1937,8 @@ features:
     acceptance:
       - "Secret unset"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Secret unset"
 
   - id: ga4-purchase-relay.secret-never-logged
     title: "Secret never logged"
@@ -1925,7 +1952,8 @@ features:
     acceptance:
       - "Secret never logged"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::Secret never logged"
 
   - id: ga4-purchase-relay.no-google-traffic-in-e2e
     title: "No Google traffic in e2e"
@@ -1939,7 +1967,8 @@ features:
     acceptance:
       - "No Google traffic in e2e"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::No Google traffic in e2e"
 
   - id: ga4-purchase-relay.datalayer-has-no-purchase
     title: "dataLayer has no purchase"
@@ -1953,7 +1982,8 @@ features:
     acceptance:
       - "dataLayer has no purchase"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_browser.feature::dataLayer has no purchase"
 
   - id: ga4-purchase-relay.other-events-unchanged
     title: "Other events unchanged"
@@ -1967,7 +1997,8 @@ features:
     acceptance:
       - "Other events unchanged"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_browser.feature::Other events unchanged"
 
   - id: ga4-purchase-relay.warehouse-purchase-still-recorded
     title: "Warehouse purchase still recorded"
@@ -1981,7 +2012,8 @@ features:
     acceptance:
       - "Warehouse purchase still recorded"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_purchase_browser.feature::Warehouse purchase still recorded"
 
   - id: ga4-purchase-relay.mapping-expires
     title: "Mapping expires"

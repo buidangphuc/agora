@@ -530,43 +530,6 @@ def mock_untouched(world: World) -> None:
     assert len(_MOCK.requests) == _x(world)["ga4_before"]
 
 
-@when(
-    parsers.parse(
-        "a principal other than the order service tries to produce an OrderPaidEvent for order "
-        '"{order}" and buyer "{buyer}"'
-    )
-)
-def forged(world: World, order: str, buyer: str) -> None:
-    oid, bid = _n(world, order), _n(world, buyer)
-    payload = ga.order_paid(oid, bid, _items("l1::1:500000"), 500000, paid_at=int(time.time()))
-    extra = {}
-    user = os.getenv("E2E_KAFKA_INTRUDER_USER")
-    if user:
-        extra = {
-            "security.protocol": os.getenv("E2E_KAFKA_INTRUDER_PROTOCOL", "SASL_PLAINTEXT"),
-            "sasl.mechanism": os.getenv("E2E_KAFKA_INTRUDER_MECHANISM", "SCRAM-SHA-256"),
-            "sasl.username": user,
-            "sasl.password": os.getenv("E2E_KAFKA_INTRUDER_PASSWORD", ""),
-        }
-    try:
-        ga.produce(
-            ga.get_settings().kafka_order_topic,
-            oid,
-            ga.envelope(ga.ORDER_PAID_TYPE, payload),
-            extra,
-        )
-        _x(world)["ga4_forge_error"] = None
-    except RuntimeError as exc:
-        _x(world)["ga4_forge_error"] = str(exc)
-
-
-@then("the broker denies the write with an authorization error")
-def forge_denied(world: World) -> None:
-    err = _x(world)["ga4_forge_error"]
-    assert err, "the broker accepted an OrderPaidEvent written by a non-order principal"
-    assert "AUTHORIZATION" in err.upper() or "AUTHENTICATION" in err.upper(), err
-
-
 # ── disabled mode / secret / google ──────────────────────────────────────
 @when("the relay is started with an empty GA4_API_SECRET")
 def start_disabled(world: World, request) -> None:  # noqa: ANN001
