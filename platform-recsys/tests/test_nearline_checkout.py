@@ -32,7 +32,7 @@ def test_checkout_events_raise_category_affinity():
             Msg(event("u-buy", "L1", BEGIN_CHECKOUT, consent_bytes=GRANT, event_id="e2")),
         ]
     )
-    assert client.hget("recs:nearline:user:u-buy:cats", "books") == pytest.approx(9.0)
+    assert float(client.hget("recs:nearline:user:u-buy:cats", "books")) == pytest.approx(9.0)
     assert store.get_recent_items("u-buy") == ["L1"]
 
 
@@ -65,7 +65,7 @@ def test_cart_event_without_listing_is_skipped():
     )
     # the empty-listing event changed nothing; the consumer kept running and handled the next one
     assert client.zrevrange("recs:nearline:user:u-buy:items", 0, -1) == ["L2"]
-    assert client.hget("recs:nearline:user:u-buy:cats", "books") == pytest.approx(3.0)
+    assert float(client.hget("recs:nearline:user:u-buy:cats", "books")) == pytest.approx(3.0)
     assert source.commits >= 1
 
 
@@ -77,4 +77,4 @@ def test_checkout_redelivery_applied_once():
             Msg(event("u-buy", "L1", BEGIN_CHECKOUT, consent_bytes=GRANT, event_id="dup")),
         ]
     )
-    assert client.hget("recs:nearline:user:u-buy:cats", "books") == pytest.approx(6.0)
+    assert float(client.hget("recs:nearline:user:u-buy:cats", "books")) == pytest.approx(6.0)

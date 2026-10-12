@@ -164,7 +164,9 @@ def test_corrupt_message_skipped_and_committed(caplog):
         )
     assert "decode_errors 1" in caplog.text
     assert store.get_recent_items("u-ok") == ["L1"]  # the next message was processed
-    assert [k for k in client.keys("*") if "u-ok" not in k and "L1" not in k and "sess-1" not in k] == []
+    # the corrupt message wrote nothing: state equals a run of the granted event alone
+    alone, _, _ = _run([Msg(event("u-ok", "L1", consent_bytes=consent(True)))])
+    assert _dump(client) == _dump(alone)
     assert source.commits >= 1
 
 
