@@ -34,7 +34,8 @@ Browser `purchase` events are lost to adblock and consent denial, so GA4 under-r
 | `buyer_id` (mapping key) | internal pseudonymous id | join PAID order to client id | contract necessity; never leaves the platform | same as mapping |
 | `order_id` (MP `transaction_id`, ledger key) | business identifier | dedupe and GA4 transaction key | legitimate interest, shared only when the client id was consented | ledger 90 days (dedupe window >= Kafka retention of `order.events`) |
 | `value`, `currency`, item ids/names/qty/price | commercial data | GA4 ecommerce reporting | analytics consent | held by Google per GA4 settings |
-No `buyer_id`, email, phone, name, address or `user_id` is sent to Google. Logs carry `order_id` only, never client id or secret.
+| DLQ record on `analytics.ga4-relay.dlq` (verbatim `OrderPaidEvent`: `order_id`, `buyer_id`, amounts, items, `paid_at`; headers `error`, `source_topic`) | business data incl. internal pseudonymous id | let operators inspect and replay orders that failed to reach GA4 (4xx other than 429, retries exhausted, undecodable event) | contract necessity, same as the source `order.events` record | 7 days (`retention.ms` set at create and enforced with `alter-config`); no automatic consumer; not purged early on consent denial or erasure request (Clarifications R2 Q4) |
+No `buyer_id`, email, phone, name, address or `user_id` is sent to Google. The DLQ copy adds no new field compared with `order.events`; it extends the life of a failed order's record by at most 7 days, and broker ACLs on the DLQ (ga4-relay / team-analytics only) take effect when broker auth is enabled. Logs carry `order_id` only, never client id or secret.
 
 ## Threat model
 - Assets: `GA4_API_SECRET`, buyer to client-id mapping, GA4 revenue integrity.
