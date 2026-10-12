@@ -1,5 +1,6 @@
-import { scrubReferrer, scrubText } from "./scrub";
+import { readConsent } from "@/lib/consent/consent";
 import { EcommerceParams, GA4EventName } from "./schema";
+import { scrubReferrer, scrubText } from "./scrub";
 
 /** Non-personal caller property keys allowed into the data layer. */
 const ALLOWED_PROPERTIES = ["valid"] as const;
@@ -22,6 +23,9 @@ export function pushDataLayer(
   if (typeof window === "undefined") return;
 
   try {
+    // No analytics event reaches the dataLayer without analytics consent.
+    if (!readConsent().analytics) return;
+
     window.dataLayer = window.dataLayer || [];
 
     // 1. Reset ecommerce object to avoid merging residual properties

@@ -8,6 +8,7 @@ package export
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
@@ -34,7 +35,7 @@ type Target struct {
 func Targets(path string) []Target {
 	dir := filepath.Dir(path)
 	ts := []Target{{warehouse.TableName, path}}
-	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName, warehouse.ListingSellersTableName} {
+	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName, warehouse.ListingSellersTableName, warehouse.GA4SessionsTableName, warehouse.AttributedViewName} {
 		ts = append(ts, Target{rel, filepath.Join(dir, rel+".parquet")})
 	}
 	return ts
@@ -45,14 +46,41 @@ func Enabled(path string, intervalSeconds int) bool {
 	return path != "" && intervalSeconds > 0
 }
 
+// trackingWithSessionContext is a COPY source (a parenthesised query, accepted
+// wherever COPY takes a relation name) that adds session_source, session_medium
+// and session_campaign to every tracking event. Rule: the latest ga4_sessions row
+// of the same user (ga_client_id = user_pseudo_id) that started at or before the
+// event (ties broken by session_id), so an event never duplicates; empty strings
+// when ga_client_id is empty or no session matches. GA4 is only ever read as
+// context, never as an event source: the rows come from tracking_events alone.
+const trackingWithSessionContext = `(SELECT t.*,
+  COALESCE(s.source, '') AS session_source,
+  COALESCE(s.medium, '') AS session_medium,
+  COALESCE(s.campaign, '') AS session_campaign
+FROM ` + warehouse.TableName + ` t
+LEFT JOIN LATERAL (
+  SELECT source, medium, campaign FROM ` + warehouse.GA4SessionsTableName + ` g
+  WHERE t.ga_client_id <> '' AND g.user_pseudo_id = t.ga_client_id AND g.ts <= t.occurred_at
+  ORDER BY g.ts DESC, g.session_id DESC LIMIT 1
+) s ON true)`
+
 // Once exports one relation to path atomically: write path+".tmp", then rename
 // over path.
+//
+// The tracking table is exported through trackingWithSessionContext so each event
+// also carries session_source/medium/campaign from ga4_sessions.
 func Once(ctx context.Context, e Exporter, relation, path string) error {
 	tmp := path + ".tmp"
 	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove stale %q: %w", tmp, err)
 	}
-	if err := e.ExportRelation(ctx, relation, tmp); err != nil {
+	var err error
+	if db, ok := e.(interface{ DB() *sql.DB }); ok && relation == warehouse.TableName {
+		_, err = db.DB().ExecContext(ctx, fmt.Sprintf("COPY %s TO '%s' (FORMAT PARQUET)", trackingWithSessionContext, tmp))
+	} else {
+		err = e.ExportRelation(ctx, relation, tmp)
+	}
+	if err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}

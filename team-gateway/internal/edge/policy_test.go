@@ -14,11 +14,18 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
 )
 
+func TestOnlyAdminsCanReadTheChannelFunnel_PolicyEntry(t *testing.T) {
+	if got := adminProcedures[analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure]; got != adminScope {
+		t.Fatalf("GetChannelFunnel scope = %q, want %q", got, adminScope)
+	}
+}
+
 // The admin policy set is pinned: changing it is a spec change.
 func TestAdminProcedureSetIsPinned(t *testing.T) {
 	want := []string{
 		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure,
+		analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure, // Only admins can read the channel funnel
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
 		orderv1connect.OrderServiceForceFailSagaProcedure,

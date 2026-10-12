@@ -1,0 +1,4 @@
+platform-gitops/platform/infra/redpanda.yaml
+platform-gitops/platform/team-analytics/ga4-relay.yaml
+platform-gitops/platform/team-analytics/kustomization.yaml
+platform-gitops/tests/test_ga4_relay_manifests.py

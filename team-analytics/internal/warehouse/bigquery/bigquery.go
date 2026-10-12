@@ -88,6 +88,8 @@ func fieldType(t string) (bigquery.FieldType, error) {
 	switch t {
 	case "STRING":
 		return bigquery.StringFieldType, nil
+	case "BOOL":
+		return bigquery.BooleanFieldType, nil
 	case "INT64":
 		return bigquery.IntegerFieldType, nil
 	case "TIMESTAMP":
@@ -123,6 +125,9 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	if err := Migrate(ctx, clientExec{w.client}, w.client.Project(), w.dataset, w.table); err != nil {
 		return err
 	}
+	if err := MigrateGA4(ctx, clientExec{w.client}, w.client.Project(), w.dataset); err != nil {
+		return err
+	}
 
 	factsSchema, err := bqOrderFactsSchema()
 	if err != nil {
@@ -148,6 +153,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	// sink, so the error is ignored and ViewDDL is the documented migration.
 	_ = w.ensureViews(ctx)
 	_ = clientExec{w.client}.Exec(ctx, GA4ViewDDL(w.client.Project(), w.dataset, w.table))
+	_ = clientExec{w.client}.Exec(ctx, AttributedViewDDL(w.client.Project(), w.dataset))
 
 	return nil
 }
@@ -269,35 +275,40 @@ func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
 		props = string(b)
 	}
 	row := map[string]bigquery.Value{
-		"event_id":       s.rec.EventID,
-		"event_type":     s.rec.EventType,
-		"listing_id":     s.rec.ListingID,
-		"session_id":     s.rec.SessionID,
-		"anonymous_id":   s.rec.AnonymousID,
-		"page_path":      s.rec.PagePath,
-		"referrer":       s.rec.Referrer,
-		"position":       int64(s.rec.Position),
-		"search_query":   s.rec.SearchQuery,
-		"occurred_at":    s.rec.OccurredAt,
-		"principal_id":   s.rec.PrincipalID,
-		"principal_type": s.rec.PrincipalType,
-		"properties":     props,
-		"placement_id":   s.rec.PlacementID,
-		"impression_id":  s.rec.ImpressionID,
-		"model_version":  s.rec.ModelVersion,
-		"currency":       s.rec.Currency,
-		"value":          s.rec.Value,
-		"price":          s.rec.Price,
-		"quantity":       int64(s.rec.Quantity),
-		"transaction_id": s.rec.TransactionID,
-		"coupon":         s.rec.Coupon,
-		"item_category":  s.rec.ItemCategory,
-		"item_list_id":   s.rec.ItemListID,
-		"item_list_name": s.rec.ItemListName,
-		"event_group_id": s.rec.EventGroupID,
-		"shipping_tier":  s.rec.ShippingTier,
-		"payment_type":   s.rec.PaymentType,
-		"ingested_at":    time.Now().UTC(),
+		"event_id":                s.rec.EventID,
+		"event_type":              s.rec.EventType,
+		"listing_id":              s.rec.ListingID,
+		"session_id":              s.rec.SessionID,
+		"anonymous_id":            s.rec.AnonymousID,
+		"page_path":               s.rec.PagePath,
+		"referrer":                s.rec.Referrer,
+		"position":                int64(s.rec.Position),
+		"search_query":            s.rec.SearchQuery,
+		"occurred_at":             s.rec.OccurredAt,
+		"principal_id":            s.rec.PrincipalID,
+		"principal_type":          s.rec.PrincipalType,
+		"properties":              props,
+		"placement_id":            s.rec.PlacementID,
+		"impression_id":           s.rec.ImpressionID,
+		"model_version":           s.rec.ModelVersion,
+		"currency":                s.rec.Currency,
+		"value":                   s.rec.Value,
+		"price":                   s.rec.Price,
+		"quantity":                int64(s.rec.Quantity),
+		"transaction_id":          s.rec.TransactionID,
+		"coupon":                  s.rec.Coupon,
+		"item_category":           s.rec.ItemCategory,
+		"item_list_id":            s.rec.ItemListID,
+		"item_list_name":          s.rec.ItemListName,
+		"event_group_id":          s.rec.EventGroupID,
+		"shipping_tier":           s.rec.ShippingTier,
+		"payment_type":            s.rec.PaymentType,
+		"ga_client_id":            s.rec.GaClientID,
+		"consent_version":         int64(s.rec.ConsentVersion),
+		"consent_analytics":       s.rec.ConsentAnalytics,
+		"consent_marketing":       s.rec.ConsentMarketing,
+		"consent_personalization": s.rec.ConsentPersonalization,
+		"ingested_at":             time.Now().UTC(),
 	}
 	return row, s.rec.EventID, nil
 }

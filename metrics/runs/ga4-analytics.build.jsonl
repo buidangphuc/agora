@@ -1,0 +1,6 @@
+{"ts":"2026-10-12T00:00:00Z","initiative":"ga4-analytics","event":"build_start","waves":4,"slices":6}
+{"ts":"2026-10-12T07:54:42Z","initiative":"ga4-analytics","event":"wave_start","wave":1,"result":"add-consent-mode,add-ga4-export-import"}
+{"ts":"2026-10-12T09:38:19Z","initiative":"ga4-analytics","event":"slice_merged","wave":1,"result":"add-consent-mode 715bbc0b"}
+{"ts":"2026-10-12T09:38:51Z","initiative":"ga4-analytics","event":"slice_merged","wave":1,"result":"add-ga4-export-import c92f6c5d"}
+{"ts":"2026-10-12T09:52:24Z","initiative":"ga4-analytics","event":"wave_done","wave":1,"result":"integration e2e 37 pass 2 skip; spec_sync strict pass x3"}
+{"ts":"2026-10-12T14:14:32Z","initiative":"ga4-analytics","event":"wave_merged","slice":"add-ga4-purchase-relay","result":"5d688977"}

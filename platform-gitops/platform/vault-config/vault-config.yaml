@@ -27,7 +27,7 @@ metadata:
   name: vault-config-script
   namespace: vault
 data:
-  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification"
+  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification ga4-relay"
   config.sh: |
     #!/bin/sh
     set -e

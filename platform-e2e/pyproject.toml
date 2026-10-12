@@ -49,6 +49,7 @@ markers = [
     "needsModelserveOverlay: needs platform-e2e/compose/modelserve.override.yaml layered on the stack",
     "chat: buyer seller messaging and threads",
     "destructive: stops a real stack service, turns off a stack-wide switch (checkout-enabled) or needs an idle stack for the scenario (restored in teardown); never run in parallel",
+    "freshVisitor: starts with no agora_consent cookie so the consent banner shows (default pre-seeds a grant)",
     "slow: waits on a real timer (a prune cycle, an expiry) and takes over a minute",
     "killswitch: checkout-enabled emergency kill-switch scenarios",
     "wap: mobile/WAP emulation scenarios",

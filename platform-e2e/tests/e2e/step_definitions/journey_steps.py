@@ -302,22 +302,22 @@ def order_placed_with_discount_and_listed(world: World) -> None:
     expect(detail.first).to_be_visible(timeout=timeouts.DEFAULT)
 
 
-@then("a purchase event for that order is pushed to the GA4 dataLayer")
-def purchase_event_pushed_for_order(world: World) -> None:
-    listing = world.state.listing
+@then(
+    "no purchase event is pushed to the GA4 dataLayer and tracking_events keeps one purchase row "
+    "for that order"
+)
+def no_browser_purchase_row_kept(world: World) -> None:
+    from tests.e2e.support import tii_support as tii
+
     purchases = _data_layer_events(world, "purchase")
-    assert len(purchases) == 1, f"expected exactly one purchase event, got {purchases}"
-    ecommerce = purchases[0].get("ecommerce") or {}
-    assert (
-        ecommerce.get("transaction_id") == world.state.order_id
-    ), f"transaction_id {ecommerce.get('transaction_id')!r} is not the order id {world.state.order_id}"
-    assert ecommerce.get("currency") == "VND", f"currency: {ecommerce}"
-    assert ecommerce.get("value") == world.state.extra["order_total"], f"value: {ecommerce}"
-    assert ecommerce.get("coupon") == _PURCHASE_VOUCHER, f"coupon: {ecommerce}"
-    items = ecommerce.get("items") or []
-    assert [(i.get("item_id"), i.get("quantity")) for i in items] == [
-        (listing.listing_id, 2)
-    ], f"purchase items: {items}"
+    assert purchases == [], f"the browser must not push purchase to GA4: {purchases}"
+    rows = tii.warehouse_rows(
+        "SELECT event_type FROM tracking_events WHERE transaction_id = ?",
+        [world.state.order_id],
+        until=lambda r: any("purchase" in str(x[0]).lower() for x in r),
+        settle_s=3.0,
+    )
+    assert len([r for r in rows if "purchase" in str(r[0]).lower()]) == 1, rows
 
 
 @then('the "Gợi ý cho bạn" row on the home page shows product cards')

@@ -98,6 +98,26 @@ func GA4ViewDDL(project, dataset, table string) string {
 		project, dataset, strings.Join(cols, ",\n"), project, dataset, table)
 }
 
+// AttributedViewDDL is the BigQuery equivalent of the DuckDB
+// tracking_events_attributed view.
+func AttributedViewDDL(project, dataset string) string {
+	return fmt.Sprintf("CREATE OR REPLACE VIEW `%[1]s.%[2]s.%[3]s` AS\n"+
+		"WITH win AS (\n"+
+		"  SELECT user_pseudo_id, source, medium, campaign, landing_page, ts,\n"+
+		"    LEAST(COALESCE(LEAD(ts) OVER (PARTITION BY user_pseudo_id ORDER BY ts), TIMESTAMP_ADD(ended_at, INTERVAL 30 MINUTE)),\n"+
+		"          TIMESTAMP_ADD(ended_at, INTERVAL 30 MINUTE)) AS win_end\n"+
+		"  FROM `%[1]s.%[2]s.%[5]s` WHERE user_pseudo_id IS NOT NULL AND user_pseudo_id != ''\n"+
+		")\n"+
+		"SELECT r.*,\n"+
+		"  COALESCE(w.source, '(none)') AS source,\n"+
+		"  COALESCE(w.medium, '(none)') AS medium,\n"+
+		"  COALESCE(w.campaign, '(none)') AS campaign,\n"+
+		"  COALESCE(w.landing_page, '(none)') AS landing_page\n"+
+		"FROM `%[1]s.%[2]s.%[4]s` r LEFT JOIN win w\n"+
+		"  ON r.ga_client_id = w.user_pseudo_id AND r.occurred_at >= w.ts AND r.occurred_at < w.win_end",
+		project, dataset, warehouse.AttributedViewName, warehouse.ResolvedViewName, warehouse.GA4SessionsTableName)
+}
+
 // clientExec adapts a *bigquery.Client to DDLExecutor.
 type clientExec struct{ client *bigquery.Client }
 
@@ -111,4 +131,41 @@ func (e clientExec) Exec(ctx context.Context, stmt string) error {
 		return err
 	}
 	return st.Err()
+}
+
+var ga4Tables = []struct {
+	name   string
+	schema []warehouse.Column
+}{
+	{warehouse.GA4SessionsTableName, warehouse.GA4SessionsSchema},
+	{warehouse.GA4EventsDailyTableName, warehouse.GA4EventsDailySchema},
+	{warehouse.GA4ImportRunsTableName, warehouse.GA4ImportRunsSchema},
+}
+
+// GA4MigrationDDL returns idempotent CREATE TABLE IF NOT EXISTS plus
+// ADD COLUMN IF NOT EXISTS statements for the GA4 export-import tables.
+func GA4MigrationDDL(project, dataset string) []string {
+	var out []string
+	for _, t := range ga4Tables {
+		fq := fmt.Sprintf("`%s.%s.%s`", project, dataset, t.name)
+		cols := make([]string, len(t.schema))
+		for i, c := range t.schema {
+			cols[i] = c.Name + " " + c.BigQueryType
+		}
+		out = append(out, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", fq, strings.Join(cols, ", ")))
+		for _, c := range t.schema {
+			out = append(out, fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", fq, c.Name, c.BigQueryType))
+		}
+	}
+	return out
+}
+
+// MigrateGA4 applies GA4MigrationDDL, stopping at the first failure.
+func MigrateGA4(ctx context.Context, exec DDLExecutor, project, dataset string) error {
+	for _, stmt := range GA4MigrationDDL(project, dataset) {
+		if err := exec.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("migrate ga4 tables in %s.%s: %w (stmt: %s)", project, dataset, err, stmt)
+		}
+	}
+	return nil
 }

@@ -3,6 +3,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { ConsentBanner } from "@/features/consent/ConsentBanner";
 import { AnalyticsProvider } from "@/features/tracking/AnalyticsProvider";
 
 export const metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AnalyticsProvider>
           <ToastProvider>{children}</ToastProvider>
         </AnalyticsProvider>
+        <ConsentBanner />
       </body>
     </html>
   );

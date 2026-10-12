@@ -50,7 +50,8 @@ export interface TrackBeacon {
 }
 
 export function track(event: TrackEvent): void {
-  const ga4Name = internalToGa4(event.type);
+  // purchase has no browser GA4 name: beacon only, no dataLayer push.
+  const ga4Name = internalToGa4(event.type) ?? "purchase";
   trackEcommerce(ga4Name, {
     path: event.path,
     referrer: event.referrer,

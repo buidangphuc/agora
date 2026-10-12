@@ -7,7 +7,8 @@ by publish, rollback or retention, and every key carries the nearline TTL):
 
 - ``recs:nearline:user:{actor}:items``   ZSET  member listing_id, score event epoch seconds; the 50
   most recent. Read newest first with ZREVRANGE.
-- ``recs:nearline:user:{actor}:cats``    HASH  category -> float affinity (view 1, click 2, add_to_cart 5).
+- ``recs:nearline:user:{actor}:cats``    HASH  category -> float affinity (view 1, click 2, add_to_cart 5,
+  view_cart 3, begin_checkout 6).
 - ``recs:nearline:coview:{listing_id}``  ZSET  member other listing_id, score co-view count; the top 50.
 - ``recs:nearline:ctr:{listing_id}``     HASH  ``clicks_ips`` (clicks weighted by position**0.5) and
   ``imprs_ips`` (impression + view count, unweighted); CTR = clicks_ips / imprs_ips, capped at 1.
@@ -44,8 +45,14 @@ COVIEW_LOOKBACK = 3
 SEEN_TTL_SECONDS = 900
 
 # Events that say what the actor looks at (the others only feed CTR, or nothing).
-ENGAGEMENT_EVENTS = ("view", "click", "add_to_cart")
-CATEGORY_WEIGHTS = {"view": 1.0, "click": 2.0, "add_to_cart": 5.0}
+ENGAGEMENT_EVENTS = ("view", "click", "add_to_cart", "view_cart", "begin_checkout")
+CATEGORY_WEIGHTS = {
+    "view": 1.0,
+    "click": 2.0,
+    "add_to_cart": 5.0,
+    "view_cart": 3.0,
+    "begin_checkout": 6.0,
+}
 
 
 def compute_ips_weight(position: int, gamma: float = 0.5) -> float:
@@ -64,6 +71,8 @@ class RawInteraction:
     position: int = 1
     timestamp: float = field(default_factory=time.time)
     event_id: str = ""
+    # False when the event carries no personalisation consent; the consumer drops those before Redis.
+    consent_granted: bool = True
 
 
 def _text(value: Any) -> str:

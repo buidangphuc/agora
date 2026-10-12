@@ -917,3 +917,246 @@ features:
     tags: [tracking, unit]
     status: not-testable
     notes: "add-ga4-gtm-datalayer: unit-verified: team-gateway/internal/edge/collector_integrity_test.go. Not producible end to end."
+
+  - id: consent.rejected-personalization-denied
+    title: "Rejected buyer is flagged personalization-denied"
+    persona: guest
+    priority: P1
+    summary: "A rejected visitor's published event carries consent.personalization=false and version 1."
+    entry_route: "/"
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a beacon arrives with cookie v=1&a=0&m=0&p=0"
+      - "Then the event is published with consent.personalization=false and consent.version=1"
+    tags: [tracking, consent]
+    status: automated
+    covered_by: "tracking/consent.feature::Rejected buyer is flagged personalization-denied"
+
+  - id: consent.body-consent-ignored
+    title: "Body consent is ignored"
+    persona: guest
+    priority: P1
+    summary: "Consent in the beacon body never overrides the cookie."
+    entry_route: "/"
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a beacon body contains consent.personalization=true and the cookie has p=0"
+      - "Then the published event has consent.personalization=false"
+    tags: [tracking, consent]
+    status: automated
+    covered_by: "tracking/consent.feature::Body consent is ignored"
+
+  - id: consent.no-cookie-version-0
+    title: "No cookie stamps version 0"
+    persona: guest
+    priority: P1
+    summary: "With no cookie the response is 202 and the event carries consent version 0 with all flags false."
+    entry_route: "/"
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a beacon arrives with no agora_consent cookie"
+      - "Then the response is 202 and the event carries consent.version=0 with all flags false"
+    tags: [tracking, consent]
+    status: automated
+    covered_by: "tracking/consent.feature::No cookie stamps version 0"
+
+  - id: tracking.unit-valid-cookie-is-stamped-on-each-event
+    title: "Valid cookie is stamped on each event"
+    persona: guest
+    priority: P2
+    summary: "Valid cookie is stamped on each event"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Valid cookie is stamped on each event (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_ValidCookieIsStampedOnEachEvent\". Not producible end to end."
+
+  - id: tracking.unit-non-0-1-flag-degrades-to-denied
+    title: "Non-0/1 flag degrades to denied"
+    persona: guest
+    priority: P2
+    summary: "Non-0/1 flag degrades to denied"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-0/1 flag degrades to denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_Non01FlagDegradesToDenied\". Not producible end to end."
+
+  - id: tracking.unit-unknown-version-degrades-to-denied
+    title: "Unknown version degrades to denied"
+    persona: guest
+    priority: P2
+    summary: "Unknown version degrades to denied"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown version degrades to denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_UnknownVersionDegradesToDenied\". Not producible end to end."
+
+  - id: tracking.unit-duplicate-key-degrades-to-denied
+    title: "Duplicate key degrades to denied"
+    persona: guest
+    priority: P2
+    summary: "Duplicate key degrades to denied"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Duplicate key degrades to denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_DuplicateKeyDegradesToDenied\". Not producible end to end."
+
+  - id: tracking.unit-non-numeric-ts-degrades-to-denied
+    title: "Non-numeric ts degrades to denied"
+    persona: guest
+    priority: P2
+    summary: "Non-numeric ts degrades to denied"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-numeric ts degrades to denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_NonNumericTsDegradesToDenied\". Not producible end to end."
+
+  - id: tracking.unit-missing-ts-degrades-to-denied
+    title: "Missing ts degrades to denied"
+    persona: guest
+    priority: P2
+    summary: "Missing ts degrades to denied"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing ts degrades to denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_MissingTsDegradesToDenied\". Not producible end to end."
+
+  - id: tracking.unit-oversized-cookie-degrades-to-denied
+    title: "Oversized cookie degrades to denied"
+    persona: guest
+    priority: P2
+    summary: "Oversized cookie degrades to denied"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Oversized cookie degrades to denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_OversizedCookieDegradesToDenied\". Not producible end to end."
+
+  - id: tracking.unit-cookie-of-exactly-256-bytes-is-accepted
+    title: "Cookie of exactly 256 bytes is accepted"
+    persona: guest
+    priority: P2
+    summary: "Cookie of exactly 256 bytes is accepted"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cookie of exactly 256 bytes is accepted (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_CookieOfExactly256BytesIsAccepted\". Not producible end to end."
+
+  - id: tracking.unit-consent-header-does-not-stand-in-for-the-cookie
+    title: "Consent header does not stand in for the cookie"
+    persona: guest
+    priority: P2
+    summary: "Consent header does not stand in for the cookie"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consent header does not stand in for the cookie (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go \"TestConsentStamp_ConsentHeaderDoesNotStandInForCookie\". Not producible end to end."
+
+  - id: tracking.unit-stamping-adds-no-latency-beyond-budget
+    title: "Stamping adds no latency beyond budget"
+    persona: guest
+    priority: P2
+    summary: "Stamping adds no latency beyond budget"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Stamping adds no latency beyond budget (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/collector_boundary_test.go \"TestConsentStamp_StampingAddsNoLatencyBeyondBudget\". Not producible end to end."
+
+  - id: tracking.unit-client-id-is-copied-under-analytics-consent
+    title: "Client id is copied under analytics consent"
+    persona: guest
+    priority: P2
+    summary: "Client id is copied under analytics consent"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id is copied under analytics consent (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go. Not producible end to end."
+
+  - id: tracking.unit-client-id-is-blank-without-analytics-consent
+    title: "Client id is blank without analytics consent"
+    persona: guest
+    priority: P2
+    summary: "Client id is blank without analytics consent"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id is blank without analytics consent (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go. Not producible end to end."
+
+  - id: tracking.unit-over-long-client-id-is-blanked
+    title: "Over-long client id is blanked"
+    persona: guest
+    priority: P2
+    summary: "Over-long client id is blanked"
+    entry_route: "/"
+    services: [team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Over-long client id is blanked (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go. Not producible end to end."

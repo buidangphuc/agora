@@ -56,6 +56,13 @@ type TrackingRecord struct {
 	EventGroupID  string
 	ShippingTier  string
 	PaymentType   string
+	// GaClientID is the GA4 client id (empty without analytics consent).
+	GaClientID string
+	// ConsentVersion is the consent policy version (0 = no consent cookie).
+	ConsentVersion         int
+	ConsentAnalytics       bool
+	ConsentMarketing       bool
+	ConsentPersonalization bool
 }
 
 // Column is one entry of the canonical warehouse schema. The DuckDB and BigQuery
@@ -105,7 +112,16 @@ var Schema = []Column{
 	// D4); occurred_at stays the edge receive time. Null on rows written before
 	// the column existed.
 	{"ingested_at", "TIMESTAMP", "TIMESTAMP"},
+	// ga_client_id joins events to ga4_sessions.user_pseudo_id (attributed view).
+	{"ga_client_id", "VARCHAR", "STRING"},
+	{"consent_version", "INTEGER", "INT64"},
+	{"consent_analytics", "BOOLEAN", "BOOL"},
+	{"consent_marketing", "BOOLEAN", "BOOL"},
+	{"consent_personalization", "BOOLEAN", "BOOL"},
 }
+
+// AttributedViewName is the resolved events joined to GA4 session attribution.
+const AttributedViewName = "tracking_events_attributed"
 
 // Stitching view names (tracking-ingest-integrity D5). The principal_type
 // literal for an authenticated visitor is "user" (consumer.principalTypeName).
@@ -261,4 +277,39 @@ type EngagementFactWriter interface {
 	// WriteEngagementFacts appends the batch in one transaction, idempotently on
 	// event_id, stamping ingested_at with the sink clock.
 	WriteEngagementFacts(ctx context.Context, batch []*EngagementFactRecord) error
+}
+
+// GA4 export-import table names.
+const (
+	GA4SessionsTableName    = "ga4_sessions"
+	GA4EventsDailyTableName = "ga4_events_daily"
+	GA4ImportRunsTableName  = "ga4_import_runs"
+)
+
+// GA4SessionsSchema is the single source for ga4_sessions in both adapters.
+// export_date and ended_at come last so a legacy table gains them by ALTER.
+var GA4SessionsSchema = []Column{
+	{"user_pseudo_id", "VARCHAR", "STRING"},
+	{"session_id", "VARCHAR", "STRING"},
+	{"source", "VARCHAR", "STRING"},
+	{"medium", "VARCHAR", "STRING"},
+	{"campaign", "VARCHAR", "STRING"},
+	{"landing_page", "VARCHAR", "STRING"},
+	{"ts", "TIMESTAMP", "TIMESTAMP"},
+	{"export_date", "DATE", "DATE"},
+	{"ended_at", "TIMESTAMP", "TIMESTAMP"},
+}
+
+// GA4EventsDailySchema is the schema of the ga4_events_daily aggregate.
+var GA4EventsDailySchema = []Column{
+	{"day", "DATE", "DATE"},
+	{"event_name", "VARCHAR", "STRING"},
+	{"events", "BIGINT", "INT64"},
+}
+
+// GA4ImportRunsSchema is the schema of the ga4_import_runs ledger.
+var GA4ImportRunsSchema = []Column{
+	{"export_date", "DATE", "DATE"},
+	{"rows", "BIGINT", "INT64"},
+	{"finished_at", "TIMESTAMP", "TIMESTAMP"},
 }

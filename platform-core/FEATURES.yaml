@@ -1,519 +1,825 @@
-# Feature manifest for platform-core (Go platform SDK, change add-go-platform-sdk-core).
-# Library behaviour has no UI journey: every entry is not-testable and names its unit test.
+# Feature manifest for platform-core (capability tracking-consent: shared analytics proto contract; Go platform SDK).
 # Schema: platform-e2e/schemas/features.schema.json
-
 repo: platform-core
-owner: platform-core-team
+owner: platform-team
+
 features:
-- id: go-sdk.defaults-apply-and-env-overrides-them
-  title: Defaults apply and env overrides them
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a struct embedding config.Runtime and config.GRPC is loaded with only GRPC_PORT=50065 and LOG_LEVEL=debug
-    set
-  - Then GRPC.Port is 50065, Runtime.LogLevel is debug, GRPC.Host is 0.0.0.0 and GRPC.ShutdownGrace()
-    is 10s
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config
-    TestLoadDefaultsAndOverrides.
-- id: go-sdk.unparseable-values-fail-with-the-variable-name
-  title: Unparseable values fail with the variable name
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When GRPC_PORT=abc is set
-  - Then Load returns an error whose message contains GRPC_PORT
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestLoadReportsBadVariable.
-- id: go-sdk.enabled-database-without-a-url-fails-validation
-  title: Enabled database without a URL fails validation
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a settings struct whose Validate() error delegates to config.Postgres.Validate() is loaded with
-    DATABASE_ENABLED=true and no DATABASE_URL
-  - Then Load returns an error naming DATABASE_URL
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestLoadRunsValidate.
-- id: go-sdk.missing-and-stale-keys-are-both-reported
-  title: Missing and stale keys are both reported
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When the struct declares A and B and the file assigns B and C
-  - Then the error lists A as missing and C as stale
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestCheckEnvExampleReportsBothDirections.
-- id: go-sdk.context-identifiers-appear-in-log-records
-  title: Context identifiers appear in log records
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a record is logged with a context holding request id r1, principal id u1 and an active span
-  - Then the JSON record has request_id=r1, principal_id=u1 and the span's trace_id
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/logx
-    TestHandlerAddsContextIDs.
-- id: go-sdk.missing-identifiers-are-omitted-not-logged-empty
-  title: Missing identifiers are omitted, not logged empty
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a record is logged with a context holding no request id, principal or span
-  - Then the record has no request_id, principal_id or trace_id keys
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestHandlerOmitsMissingIDs.
-- id: go-sdk.disabled-telemetry-exports-nothing
-  title: Disabled telemetry exports nothing
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When Init runs with Enabled=false
-  - Then the global tracer provider is not an SDK provider and shutdown returns nil
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/otelx
-    TestInitDisabledIsNoop.
-- id: go-sdk.enabled-telemetry-names-the-service
-  title: Enabled telemetry names the service
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When Init runs with Enabled=true, an empty ServiceName and service="team-x"
-  - Then spans carry resource attribute service.name=team-x
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestInitEnabledUsesServiceFallback.
-- id: go-sdk.anonymous-principal-is-unauthenticated
-  title: Anonymous principal is unauthenticated
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When metadata carries x-principal-id=anonymous
-  - Then RequirePrincipal returns Unauthenticated
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auth
-    TestRequirePrincipalRejectsAnonymous.
-- id: go-sdk.admin-is-not-a-wildcard
-  title: Admin is not a wildcard
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When the principal holds only scope admin and RequireScopes(ctx, "order.admin") is called
-  - Then it returns PermissionDenied
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestRequireScopesExactMatchNoAdminBypass.
-- id: go-sdk.stream-handlers-see-the-principal
-  title: Stream handlers see the principal
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a streaming RPC is called with principal metadata
-  - Then the handler's stream context returns that principal
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestStreamInterceptorInjectsPrincipal.
-- id: go-sdk.a-failing-checker-flips-status
-  title: A failing checker flips status
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a registered checker starts failing
-  - Then within one interval the overall status is NOT_SERVING, and it returns to SERVING after the checker
-    passes again
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/healthx
-    TestCheckerFailureFlipsStatus.
-- id: go-sdk.drain-wins-over-passing-checks
-  title: Drain wins over passing checks
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When Drain() is called while all checkers pass
-  - Then status stays NOT_SERVING
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestDrainIsSticky.
-- id: go-sdk.a-hanging-checker-counts-as-failed
-  title: A hanging checker counts as failed
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a checker blocks longer than the interval
-  - Then it is cancelled, the status becomes NOT_SERVING, and other checkers still run every interval
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestHangingCheckerFailsWithoutBlocking.
-- id: go-sdk.a-failing-component-stops-the-others
-  title: A failing component stops the others
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When one of two components returns an error
-  - Then the other component's context is cancelled and Run returns that error
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/lifecycle
-    TestFailingComponentCancelsOthers.
-- id: go-sdk.closers-run-in-reverse-order-after-drain
-  title: Closers run in reverse order after drain
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When ctx is cancelled with closers a then b registered and an OnShutdown hook
-  - Then the hook runs first, then b, then a
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestShutdownOrder.
-- id: go-sdk.shutdown-is-bounded
-  title: Shutdown is bounded
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a component ignores cancellation longer than ShutdownGrace
-  - Then Run returns after the grace period with a deadline error
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestShutdownDeadline.
-- id: go-sdk.stack-closes-in-reverse-order-exactly-once
-  title: Stack closes in reverse order exactly once
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When closers a, b are pushed, b fails, and Close is called twice
-  - Then b then a run once each and the first Close returns b's error
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestStackClosesReverseOnce.
-- id: go-sdk.drain-delay-holds-components-after-the-hooks
-  title: Drain delay holds components after the hooks
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When DrainDelay is 100ms and ctx is cancelled
-  - Then components see cancellation no earlier than 100ms after the hooks ran
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestDrainDelayHoldsComponents.
-- id: go-sdk.unreachable-database-fails-at-open
-  title: Unreachable database fails at open
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When Open targets a closed port
-  - Then it returns an error before any query runs
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/pgx
-    TestOpenFailsOnUnreachableDB.
-- id: go-sdk.withtx-rolls-back-on-error
-  title: WithTx rolls back on error
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When fn inserts a row and returns an error
-  - Then the row is not visible afterwards
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestWithTxRollsBackOnError
-    (testkit Postgres).
-- id: go-sdk.up-is-idempotent
-  title: Up is idempotent
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When Up runs twice on the same database
-  - Then both calls succeed and the schema version is the latest
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/migrate
-    TestUpIsIdempotent.
-- id: go-sdk.invalid-sql-fails-the-migration
-  title: Invalid SQL fails the migration
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When an up file contains invalid SQL
-  - Then Up returns an error that names the failing version
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestUpFailsOnInvalidSQL.
-- id: go-sdk.non-retryable-codes-are-not-retried
-  title: Non-retryable codes are not retried
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When fn returns status.Error(codes.InvalidArgument, …) under a 3-attempt retry
-  - Then fn runs once
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/resilience
-    TestRetrySkipsNonRetryableCodes.
-- id: go-sdk.open-breaker-rejects-calls
-  title: Open breaker rejects calls
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When failures exceed the breaker threshold
-  - Then the next call returns the breaker-open error without running fn
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestBreakerOpensAfterFailures.
-- id: go-sdk.a-panicking-handler-returns-internal-and-the-server-keeps-serving
-  title: A panicking handler returns Internal and the server keeps serving
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a handler panics
-  - Then the caller receives codes.Internal and a following call succeeds
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx
-    TestRecoveryKeepsServing.
-- id: go-sdk.request-id-round-trips
-  title: Request id round-trips
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a call sends x-request-id=abc
-  - Then the handler sees reqctx.RequestID(ctx)=="abc" and the response header carries abc
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestRequestIDPropagates.
-- id: go-sdk.unknown-errors-do-not-leak
-  title: Unknown errors do not leak
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - 'When a handler returns grpcx.Status(errors.New("pq: password=secret"), table)'
-  - Then the caller sees Internal with message internal error
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestStatusHidesUnknownErrors.
-- id: go-sdk.existing-grpc-status-errors-pass-through
-  title: Existing gRPC status errors pass through
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When a handler returns grpcx.Status(status.Error(codes.PermissionDenied, "missing scope"), table)
-  - Then the caller sees PermissionDenied with message missing scope, not Internal
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestStatusPassesThroughGRPCStatus.
-- id: go-sdk.health-drains-before-stop
-  title: Health drains before stop
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When the example runs and its context is cancelled
-  - Then a health watcher observes NOT_SERVING before the listener closes
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/examples/hello/internal/app
-    TestShutdownDrainsHealthFirst.
-- id: go-sdk.calls-without-a-principal-are-rejected
-  title: Calls without a principal are rejected
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When Greet is called without x-principal-* metadata
-  - Then the caller receives Unauthenticated
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test TestGreetRejectsMissingPrincipal.
-- id: go-sdk.sync-vendors-the-tagged-tree
-  title: Sync vendors the tagged tree
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When the script runs with an existing tag against a scratch copy of a service
-  - Then third_party/go-sdk/VERSION names the tag, go.mod has the replace, and go build ./... succeeds
-    in the service
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
-- id: go-sdk.unknown-tag-changes-nothing
-  title: Unknown tag changes nothing
-  persona: guest
-  priority: P2
-  entry_route: /
-  services:
-  - platform-core
-  acceptance:
-  - When the script runs with a tag that does not exist
-  - Then it exits non-zero and the service tree is unchanged
-  tags:
-  - go-sdk
-  - unit
-  status: not-testable
-  notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+  - id: tracking-consent.old-payload-readable
+    title: Old payload stays readable
+    persona: buyer
+    priority: P2
+    kind: contract
+    summary: >-
+      A producer that leaves TrackingEvent fields 25 and 26 unset keeps flowing to the warehouse unchanged.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view beacon with no consent cookie and no GA client id
+      - Then the warehouse holds one row for that listing carrying the beacon's session id and page path
+      - And the envelope on analytics.events has no GA client id
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Old payload stays readable"
+  - id: tracking-consent.missing-consent-denied
+    title: Missing consent reads as denied
+    persona: buyer
+    priority: P2
+    kind: contract
+    summary: >-
+      An event without consent set carries no granted consent flag and version 0.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view beacon with no consent cookie and no GA client id
+      - Then the envelope on analytics.events grants no consent, with analytics, marketing and personalization false and version 0
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Missing consent reads as denied"
+  - id: tracking-consent.channel-funnel-non-admin-rejected
+    title: Non-admin is rejected
+    persona: buyer
+    priority: P2
+    kind: authz
+    summary: >-
+      GetChannelFunnel is admin-only; a seller or buyer gets PERMISSION_DENIED and no rows.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a signed-in seller
+      - When the seller requests GetChannelFunnel for their own seller id
+      - Then the channel funnel call returns 403 and no rows
+      - When a signed-in buyer requests GetChannelFunnel with no seller id
+      - Then the channel funnel call returns 403 and no rows
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Non-admin is rejected"
+  - id: tracking-consent.channel-funnel-all-sellers
+    title: Empty seller means all sellers
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      An admin call with empty seller_id aggregates every seller; with seller_id set only that seller.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel for the last 30 days with no seller id
+      - And the admin requests GetChannelFunnel for the last 30 days for a seller with no events
+      - Then both channel funnel calls return 200
+      - And the seller-scoped funnel has no rows
+      - And no channel funnel count of the seller-scoped call exceeds the all-sellers total
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Empty seller means all sellers"
+  - id: tracking-consent.channel-funnel-invalid-range
+    title: Invalid date range
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      from after to returns INVALID_ARGUMENT.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel with from after to
+      - Then the channel funnel call returns 400
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Invalid date range"
+  - id: tracking-consent.channel-funnel-empty-range
+    title: Empty range returns no rows
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      A range without events yields zero rows and no error.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel over a range that holds no events
+      - Then the channel funnel call returns 200 with zero rows
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Empty range returns no rows"
+
+  - id: tracking-consent.unit-consentstate-fields-present-with-stable-numbers
+    title: "ConsentState fields present with stable numbers"
+    persona: guest
+    priority: P2
+    summary: "ConsentState fields present with stable numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ConsentState fields present with stable numbers (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_ConsentStateFieldsPresentWithStableNumbers in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-version-zero-with-granted-flags-is-not-trusted
+    title: "Version zero with granted flags is not trusted"
+    persona: guest
+    priority: P2
+    summary: "Version zero with granted flags is not trusted"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Version zero with granted flags is not trusted (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_VersionZeroWithGrantedFlagsIsNotTrusted in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-unknown-or-negative-version-is-denied
+    title: "Unknown or negative version is denied"
+    persona: guest
+    priority: P2
+    summary: "Unknown or negative version is denied"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown or negative version is denied (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_UnknownOrNegativeVersionIsDenied in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-new-fields-round-trip
+    title: "New fields round trip"
+    persona: guest
+    priority: P2
+    summary: "New fields round trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New fields round trip (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_NewFieldsRoundTrip in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-new-payload-readable-by-old-schema
+    title: "New payload readable by old schema"
+    persona: guest
+    priority: P2
+    summary: "New payload readable by old schema"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New payload readable by old schema (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_NewPayloadReadableByOldSchema in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-client-id-comment-states-format-and-blanking
+    title: "Client id comment states format and blanking"
+    persona: guest
+    priority: P2
+    summary: "Client id comment states format and blanking"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id comment states format and blanking (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ClientIdStatesFormatAndBlanking in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-client-id-without-analytics-consent-is-blanked-event-kept
+    title: "Client id without analytics consent is blanked, event kept"
+    persona: guest
+    priority: P2
+    summary: "Client id without analytics consent is blanked, event kept"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id without analytics consent is blanked, event kept (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ClientIdBlankedEventKept in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-channel-funnel-messages-present
+    title: "Channel funnel messages present"
+    persona: guest
+    priority: P2
+    summary: "Channel funnel messages present"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Channel funnel messages present (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_ChannelFunnelMessagesPresent in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-scope-documented
+    title: "Scope documented"
+    persona: guest
+    priority: P2
+    summary: "Scope documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Scope documented (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ScopeDocumented in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-field-numbers-do-not-collide
+    title: "Field numbers do not collide"
+    persona: guest
+    priority: P2
+    summary: "Field numbers do not collide"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field numbers do not collide (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  - id: tracking-consent.unit-field-25-and-26-are-frozen
+    title: "Field 25 and 26 are frozen"
+    persona: guest
+    priority: P2
+    summary: "Field 25 and 26 are frozen"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field 25 and 26 are frozen (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  - id: tracking-consent.unit-buf-checks-pass-with-new-rpc
+    title: "Buf checks pass with new RPC"
+    persona: guest
+    priority: P2
+    summary: "Buf checks pass with new RPC"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Buf checks pass with new RPC (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  # Go platform SDK (change add-go-platform-sdk-core): library behaviour with no UI journey;
+  # every entry is not-testable and names its unit test.
+  - id: go-sdk.defaults-apply-and-env-overrides-them
+    title: Defaults apply and env overrides them
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a struct embedding config.Runtime and config.GRPC is loaded with only GRPC_PORT=50065 and LOG_LEVEL=debug
+      set
+    - Then GRPC.Port is 50065, Runtime.LogLevel is debug, GRPC.Host is 0.0.0.0 and GRPC.ShutdownGrace()
+      is 10s
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config
+      TestLoadDefaultsAndOverrides.
+  - id: go-sdk.unparseable-values-fail-with-the-variable-name
+    title: Unparseable values fail with the variable name
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When GRPC_PORT=abc is set
+    - Then Load returns an error whose message contains GRPC_PORT
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestLoadReportsBadVariable.
+  - id: go-sdk.enabled-database-without-a-url-fails-validation
+    title: Enabled database without a URL fails validation
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a settings struct whose Validate() error delegates to config.Postgres.Validate() is loaded with
+      DATABASE_ENABLED=true and no DATABASE_URL
+    - Then Load returns an error naming DATABASE_URL
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestLoadRunsValidate.
+  - id: go-sdk.missing-and-stale-keys-are-both-reported
+    title: Missing and stale keys are both reported
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the struct declares A and B and the file assigns B and C
+    - Then the error lists A as missing and C as stale
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestCheckEnvExampleReportsBothDirections.
+  - id: go-sdk.context-identifiers-appear-in-log-records
+    title: Context identifiers appear in log records
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a record is logged with a context holding request id r1, principal id u1 and an active span
+    - Then the JSON record has request_id=r1, principal_id=u1 and the span's trace_id
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/logx
+      TestHandlerAddsContextIDs.
+  - id: go-sdk.missing-identifiers-are-omitted-not-logged-empty
+    title: Missing identifiers are omitted, not logged empty
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a record is logged with a context holding no request id, principal or span
+    - Then the record has no request_id, principal_id or trace_id keys
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestHandlerOmitsMissingIDs.
+  - id: go-sdk.disabled-telemetry-exports-nothing
+    title: Disabled telemetry exports nothing
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Init runs with Enabled=false
+    - Then the global tracer provider is not an SDK provider and shutdown returns nil
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/otelx
+      TestInitDisabledIsNoop.
+  - id: go-sdk.enabled-telemetry-names-the-service
+    title: Enabled telemetry names the service
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Init runs with Enabled=true, an empty ServiceName and service="team-x"
+    - Then spans carry resource attribute service.name=team-x
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestInitEnabledUsesServiceFallback.
+  - id: go-sdk.anonymous-principal-is-unauthenticated
+    title: Anonymous principal is unauthenticated
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When metadata carries x-principal-id=anonymous
+    - Then RequirePrincipal returns Unauthenticated
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auth
+      TestRequirePrincipalRejectsAnonymous.
+  - id: go-sdk.admin-is-not-a-wildcard
+    title: Admin is not a wildcard
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the principal holds only scope admin and RequireScopes(ctx, "order.admin") is called
+    - Then it returns PermissionDenied
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestRequireScopesExactMatchNoAdminBypass.
+  - id: go-sdk.stream-handlers-see-the-principal
+    title: Stream handlers see the principal
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a streaming RPC is called with principal metadata
+    - Then the handler's stream context returns that principal
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestStreamInterceptorInjectsPrincipal.
+  - id: go-sdk.a-failing-checker-flips-status
+    title: A failing checker flips status
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a registered checker starts failing
+    - Then within one interval the overall status is NOT_SERVING, and it returns to SERVING after the checker
+      passes again
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/healthx
+      TestCheckerFailureFlipsStatus.
+  - id: go-sdk.drain-wins-over-passing-checks
+    title: Drain wins over passing checks
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Drain() is called while all checkers pass
+    - Then status stays NOT_SERVING
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestDrainIsSticky.
+  - id: go-sdk.a-hanging-checker-counts-as-failed
+    title: A hanging checker counts as failed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a checker blocks longer than the interval
+    - Then it is cancelled, the status becomes NOT_SERVING, and other checkers still run every interval
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestHangingCheckerFailsWithoutBlocking.
+  - id: go-sdk.a-failing-component-stops-the-others
+    title: A failing component stops the others
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When one of two components returns an error
+    - Then the other component's context is cancelled and Run returns that error
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/lifecycle
+      TestFailingComponentCancelsOthers.
+  - id: go-sdk.closers-run-in-reverse-order-after-drain
+    title: Closers run in reverse order after drain
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When ctx is cancelled with closers a then b registered and an OnShutdown hook
+    - Then the hook runs first, then b, then a
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestShutdownOrder.
+  - id: go-sdk.shutdown-is-bounded
+    title: Shutdown is bounded
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a component ignores cancellation longer than ShutdownGrace
+    - Then Run returns after the grace period with a deadline error
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestShutdownDeadline.
+  - id: go-sdk.stack-closes-in-reverse-order-exactly-once
+    title: Stack closes in reverse order exactly once
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When closers a, b are pushed, b fails, and Close is called twice
+    - Then b then a run once each and the first Close returns b's error
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestStackClosesReverseOnce.
+  - id: go-sdk.drain-delay-holds-components-after-the-hooks
+    title: Drain delay holds components after the hooks
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When DrainDelay is 100ms and ctx is cancelled
+    - Then components see cancellation no earlier than 100ms after the hooks ran
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestDrainDelayHoldsComponents.
+  - id: go-sdk.unreachable-database-fails-at-open
+    title: Unreachable database fails at open
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Open targets a closed port
+    - Then it returns an error before any query runs
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/pgx
+      TestOpenFailsOnUnreachableDB.
+  - id: go-sdk.withtx-rolls-back-on-error
+    title: WithTx rolls back on error
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When fn inserts a row and returns an error
+    - Then the row is not visible afterwards
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestWithTxRollsBackOnError
+      (testkit Postgres).
+  - id: go-sdk.up-is-idempotent
+    title: Up is idempotent
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Up runs twice on the same database
+    - Then both calls succeed and the schema version is the latest
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/migrate
+      TestUpIsIdempotent.
+  - id: go-sdk.invalid-sql-fails-the-migration
+    title: Invalid SQL fails the migration
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When an up file contains invalid SQL
+    - Then Up returns an error that names the failing version
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestUpFailsOnInvalidSQL.
+  - id: go-sdk.non-retryable-codes-are-not-retried
+    title: Non-retryable codes are not retried
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When fn returns status.Error(codes.InvalidArgument, …) under a 3-attempt retry
+    - Then fn runs once
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/resilience
+      TestRetrySkipsNonRetryableCodes.
+  - id: go-sdk.open-breaker-rejects-calls
+    title: Open breaker rejects calls
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When failures exceed the breaker threshold
+    - Then the next call returns the breaker-open error without running fn
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestBreakerOpensAfterFailures.
+  - id: go-sdk.a-panicking-handler-returns-internal-and-the-server-keeps-serving
+    title: A panicking handler returns Internal and the server keeps serving
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a handler panics
+    - Then the caller receives codes.Internal and a following call succeeds
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx
+      TestRecoveryKeepsServing.
+  - id: go-sdk.request-id-round-trips
+    title: Request id round-trips
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a call sends x-request-id=abc
+    - Then the handler sees reqctx.RequestID(ctx)=="abc" and the response header carries abc
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestRequestIDPropagates.
+  - id: go-sdk.unknown-errors-do-not-leak
+    title: Unknown errors do not leak
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When a handler returns grpcx.Status(errors.New("pq: password=secret"), table)'
+    - Then the caller sees Internal with message internal error
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestStatusHidesUnknownErrors.
+  - id: go-sdk.existing-grpc-status-errors-pass-through
+    title: Existing gRPC status errors pass through
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a handler returns grpcx.Status(status.Error(codes.PermissionDenied, "missing scope"), table)
+    - Then the caller sees PermissionDenied with message missing scope, not Internal
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestStatusPassesThroughGRPCStatus.
+  - id: go-sdk.health-drains-before-stop
+    title: Health drains before stop
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the example runs and its context is cancelled
+    - Then a health watcher observes NOT_SERVING before the listener closes
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/examples/hello/internal/app
+      TestShutdownDrainsHealthFirst.
+  - id: go-sdk.calls-without-a-principal-are-rejected
+    title: Calls without a principal are rejected
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Greet is called without x-principal-* metadata
+    - Then the caller receives Unauthenticated
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestGreetRejectsMissingPrincipal.
+  - id: go-sdk.sync-vendors-the-tagged-tree
+    title: Sync vendors the tagged tree
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the script runs with an existing tag against a scratch copy of a service
+    - Then third_party/go-sdk/VERSION names the tag, go.mod has the replace, and go build ./... succeeds
+      in the service
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+  - id: go-sdk.unknown-tag-changes-nothing
+    title: Unknown tag changes nothing
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the script runs with a tag that does not exist
+    - Then it exits non-zero and the service tree is unchanged
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.

@@ -239,3 +239,189 @@ func TestExport_FailedExportKeepsPreviousFile(t *testing.T) {
 		t.Errorf("temp file left behind: %v", err)
 	}
 }
+
+// Scenario: Import of a fixture day produces sessions (export half: the cycle ships the GA4 relations)
+func TestCycle_ImportOfAFixtureDayProducesSessions_WritesGA4Files(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tracking_events.parquet")
+	e := &fileExporter{body: "x-"}
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+		t.Fatalf("Cycle: %v", err)
+	}
+	for _, name := range []string{"ga4_sessions", "tracking_events_attributed"} {
+		got, err := os.ReadFile(filepath.Join(dir, name+".parquet"))
+		if err != nil || string(got) != "x-"+name {
+			t.Errorf("%s.parquet = %q, %v (relation must be exported under its own name)", name, got, err)
+		}
+	}
+}
+
+// Scenario: Import of a fixture day produces sessions (a GA4 export failure keeps the previous file and blocks nothing)
+func TestCycle_ImportOfAFixtureDayProducesSessions_GA4FailureIsIsolated(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tracking_events.parquet")
+	old := filepath.Join(dir, "ga4_sessions.parquet")
+	if err := os.WriteFile(old, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e := &fileExporter{body: "x-", failRel: "ga4_sessions"}
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err == nil {
+		t.Fatal("want the failure reported")
+	}
+	if got, _ := os.ReadFile(old); string(got) != "old" {
+		t.Errorf("ga4_sessions.parquet = %q, want the previous export kept", got)
+	}
+	for _, name := range []string{"tracking_events", "tracking_events_attributed"} {
+		if _, err := os.Stat(filepath.Join(dir, name+".parquet")); err != nil {
+			t.Errorf("%s.parquet missing after ga4_sessions failed: %v", name, err)
+		}
+	}
+}
+
+// Scenario: Import of a fixture day produces sessions (real DuckDB: exported sessions and attributed view carry the data)
+func TestExport_ImportOfAFixtureDayProducesSessions_RealRelations(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	if _, err := w.DB().ExecContext(ctx, `INSERT INTO ga4_sessions (export_date, user_pseudo_id, session_id, source, medium, campaign, landing_page, ts, ended_at) VALUES
+	 (DATE '2026-10-01', '111.222', 's1', 'google', 'cpc', 'spring', 'https://agora.test/p/1', TIMESTAMP '2026-10-01 10:00:00', TIMESTAMP '2026-10-01 10:15:00'),
+	 (DATE '2026-10-01', '111.222', 's2', 'direct', '(none)', '', 'https://agora.test/', TIMESTAMP '2026-10-01 12:00:00', TIMESTAMP '2026-10-01 12:05:00'),
+	 (DATE '2026-10-01', '333.444', 's3', 'bing', 'organic', '', 'https://agora.test/p/2', TIMESTAMP '2026-10-01 09:00:00', TIMESTAMP '2026-10-01 09:10:00')`); err != nil {
+		t.Fatalf("seed ga4_sessions: %v", err)
+	}
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+		EventID: "e-1", EventType: "view", ListingID: "l-1", SessionID: "x",
+		OccurredAt: time.Date(2026, 10, 1, 10, 5, 0, 0, time.UTC), GaClientID: "111.222",
+	}}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	dir := t.TempDir()
+	sessions := filepath.Join(dir, "ga4_sessions.parquet")
+	attributed := filepath.Join(dir, "tracking_events_attributed.parquet")
+	if err := export.Once(ctx, w, "ga4_sessions", sessions); err != nil {
+		t.Fatalf("export ga4_sessions: %v", err)
+	}
+	if err := export.Once(ctx, w, "tracking_events_attributed", attributed); err != nil {
+		t.Fatalf("export tracking_events_attributed: %v", err)
+	}
+
+	var n, nonEmpty int
+	if err := w.DB().QueryRowContext(ctx, "SELECT count(*), count(*) FILTER (WHERE source <> '' AND medium <> '' AND session_id <> '') FROM read_parquet('"+sessions+"') WHERE export_date = DATE '2026-10-01'").Scan(&n, &nonEmpty); err != nil {
+		t.Fatalf("read sessions parquet: %v", err)
+	}
+	if n != 3 || nonEmpty != 3 {
+		t.Errorf("sessions parquet rows=%d with source/medium/session_id=%d, want 3 and 3", n, nonEmpty)
+	}
+	for _, c := range []string{"export_date", "ended_at", "user_pseudo_id", "landing_page"} {
+		var k int
+		if err := w.DB().QueryRowContext(ctx, "SELECT count(*) FROM parquet_schema('"+sessions+"') WHERE name = ?", c).Scan(&k); err != nil || k != 1 {
+			t.Errorf("ga4_sessions parquet column %q present=%d err=%v", c, k, err)
+		}
+	}
+
+	var src, med string
+	var rows int
+	if err := w.DB().QueryRowContext(ctx, "SELECT count(*) OVER (), source, medium FROM read_parquet('"+attributed+"') WHERE event_id = 'e-1'").Scan(&rows, &src, &med); err != nil {
+		t.Fatalf("read attributed parquet: %v", err)
+	}
+	if rows != 1 || src != "google" || med != "cpc" {
+		t.Errorf("attributed rows=%d source=%q medium=%q, want 1 google cpc", rows, src, med)
+	}
+}
+
+const sessionSeed = `INSERT INTO ga4_sessions (export_date, user_pseudo_id, session_id, source, medium, campaign, landing_page, ts, ended_at) VALUES
+ (DATE '2026-10-01', '111.222', 's1', 'google', 'cpc', 'spring', 'https://agora.test/p/1', TIMESTAMP '2026-10-01 10:00:00', TIMESTAMP '2026-10-01 10:15:00')`
+
+var contextCols = []string{"consent_personalization", "consent_version", "item_list_id", "position", "session_source", "session_medium", "session_campaign"}
+
+func parquetHasCols(t *testing.T, w *duckdb.Writer, path string, cols []string) {
+	t.Helper()
+	for _, c := range cols {
+		var n int
+		err := w.DB().QueryRowContext(context.Background(),
+			"SELECT count(*) FROM parquet_schema('"+path+"') WHERE name = ?", c).Scan(&n)
+		if err != nil || n != 1 {
+			t.Errorf("parquet column %q present=%d err=%v", c, n, err)
+		}
+	}
+}
+
+// Scenario: Exported file has consent and context columns
+func TestExport_ExportedFileHasConsentAndContextColumns(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	if _, err := w.DB().ExecContext(ctx, sessionSeed); err != nil {
+		t.Fatalf("seed ga4_sessions: %v", err)
+	}
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+		EventID: "e-1", EventType: "view", ListingID: "l-1", SessionID: "x",
+		OccurredAt: time.Date(2026, 10, 1, 10, 5, 0, 0, time.UTC), GaClientID: "111.222",
+		ConsentPersonalization: true, ConsentVersion: 2, ItemListID: "home_feed", Position: 4,
+	}}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
+	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+		t.Fatalf("Once: %v", err)
+	}
+	parquetHasCols(t, w, path, contextCols)
+
+	var cp bool
+	var cv, pos int64
+	var list, src, med, camp string
+	if err := w.DB().QueryRowContext(ctx, "SELECT consent_personalization, consent_version, item_list_id, position, session_source, session_medium, session_campaign FROM read_parquet('"+path+"') WHERE event_id = 'e-1'").
+		Scan(&cp, &cv, &list, &pos, &src, &med, &camp); err != nil {
+		t.Fatalf("read back parquet: %v", err)
+	}
+	if !cp || cv != 2 || list != "home_feed" || pos != 4 || src != "google" || med != "cpc" || camp != "spring" {
+		t.Errorf("row = %v %d %q %d %q %q %q", cp, cv, list, pos, src, med, camp)
+	}
+}
+
+// Scenario: Unmatched event has empty session context
+func TestExport_UnmatchedEventHasEmptySessionContext(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	if _, err := w.DB().ExecContext(ctx, sessionSeed); err != nil {
+		t.Fatalf("seed ga4_sessions: %v", err)
+	}
+	at := time.Date(2026, 10, 1, 10, 5, 0, 0, time.UTC)
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{
+		{EventID: "e-empty", EventType: "view", ListingID: "l-1", SessionID: "x", OccurredAt: at, GaClientID: ""},
+		{EventID: "e-nomatch", EventType: "view", ListingID: "l-2", SessionID: "y", OccurredAt: at, GaClientID: "999.000"},
+	}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
+	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+		t.Fatalf("Once: %v", err)
+	}
+	parquetHasCols(t, w, path, []string{"session_source", "session_medium", "session_campaign"})
+
+	var rows, empty int
+	if err := w.DB().QueryRowContext(ctx, "SELECT count(*), count(*) FILTER (WHERE session_source = '' AND session_medium = '' AND session_campaign = '') FROM read_parquet('"+path+"')").
+		Scan(&rows, &empty); err != nil {
+		t.Fatalf("read back parquet: %v", err)
+	}
+	if rows != 2 || empty != 2 {
+		t.Errorf("rows=%d with empty session context=%d, want 2 and 2", rows, empty)
+	}
+}
+
+// Scenario: Export never reads GA4 as an interaction source
+func TestExport_NeverReadsGA4AsInteractionSource(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	if _, err := w.DB().ExecContext(ctx, sessionSeed); err != nil {
+		t.Fatalf("seed ga4_sessions: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
+	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+		t.Fatalf("Once: %v", err)
+	}
+	parquetHasCols(t, w, path, contextCols)
+	var n int
+	if err := w.DB().QueryRowContext(ctx, "SELECT count(*) FROM read_parquet('"+path+"')").Scan(&n); err != nil || n != 0 {
+		t.Errorf("exported rows = %d (err=%v), want 0 when only ga4_sessions rows exist", n, err)
+	}
+}

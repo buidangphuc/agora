@@ -1,3 +1,4 @@
+import { readConsent } from "@/lib/consent/consent";
 import { GA4EventName, InternalEventType } from "./schema";
 
 const GA4_TO_INTERNAL: Record<GA4EventName, InternalEventType> = {
@@ -17,7 +18,7 @@ const GA4_TO_INTERNAL: Record<GA4EventName, InternalEventType> = {
   share: "share",
 };
 
-const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName> = {
+const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName | undefined> = {
   view: "view_item",
   click: "select_item",
   impression: "view_item_list",
@@ -27,7 +28,8 @@ const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName> = {
   begin_checkout: "begin_checkout",
   add_shipping_info: "add_shipping_info",
   add_payment_info: "add_payment_info",
-  purchase: "purchase",
+  // purchase is relayed server-side (Measurement Protocol); never pushed to dataLayer.
+  purchase: undefined,
   apply_promotion: "apply_promotion",
   search_filter: "search_filter",
   favorite: "favorite",
@@ -38,6 +40,26 @@ export function ga4ToInternal(name: GA4EventName): InternalEventType {
   return GA4_TO_INTERNAL[name] ?? "view";
 }
 
-export function internalToGa4(type: InternalEventType): GA4EventName {
+export function internalToGa4(
+  type: InternalEventType,
+): GA4EventName | undefined {
+  if (type === "purchase") return undefined;
   return INTERNAL_TO_GA4[type] ?? "view_item";
+}
+
+const GA_COOKIE_RE = /^GA1\.\d+\.(\d+\.\d+)$/;
+const GA_CLIENT_ID_MAX = 64;
+
+/** Client id from the `_ga` cookie; reads the cookie only with analytics consent. */
+export function readGaClientId(): string | undefined {
+  try {
+    if (!readConsent().analytics) return undefined;
+    if (typeof document === "undefined") return undefined;
+    const m = /(?:^|;\s*)_ga=([^;]*)/.exec(document.cookie);
+    if (!m) return undefined;
+    const id = GA_COOKIE_RE.exec(decodeURIComponent(m[1]))?.[1];
+    return id && id.length <= GA_CLIENT_ID_MAX ? id : undefined;
+  } catch {
+    return undefined;
+  }
 }

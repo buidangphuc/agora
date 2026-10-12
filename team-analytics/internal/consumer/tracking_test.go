@@ -11,6 +11,7 @@ import (
 	commonv1 "github.com/buidangphuc/team-analytics/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 	"github.com/buidangphuc/team-analytics/internal/consumer"
+	"github.com/buidangphuc/team-analytics/internal/warehouse"
 )
 
 // wrap marshals a payload into an EventEnvelope of the given type.
@@ -114,5 +115,61 @@ func TestNonTrackingEnvelopeIsSkipped(t *testing.T) {
 func TestMalformedEnvelopeErrors(t *testing.T) {
 	if _, _, err := consumer.RecordFromEnvelope([]byte{0xff, 0xff, 0xff, 0xff}); err == nil {
 		t.Fatal("expected error for malformed envelope bytes")
+	}
+}
+
+func consentRecord(t *testing.T, te *analyticsv1.TrackingEvent) *warehouse.TrackingRecord {
+	t.Helper()
+	value := wrap(t, consumer.TrackingEventType, te, nil, time.Date(2026, 9, 2, 10, 30, 0, 0, time.UTC))
+	rec, ok, err := consumer.RecordFromEnvelope(value)
+	if err != nil || !ok || rec == nil {
+		t.Fatalf("RecordFromEnvelope: rec=%v ok=%v err=%v", rec, ok, err)
+	}
+	return rec
+}
+
+// Scenario: Consent and client id are persisted
+func TestConsentAndClientIdArePersisted(t *testing.T) {
+	rec := consentRecord(t, &analyticsv1.TrackingEvent{
+		EventType:  analyticsv1.EventType_EVENT_TYPE_VIEW,
+		GaClientId: "111.222",
+		Consent:    &analyticsv1.ConsentState{Version: 1, Analytics: true, Marketing: false, Personalization: true},
+	})
+	if rec.GaClientID != "111.222" {
+		t.Errorf("GaClientID = %q, want 111.222", rec.GaClientID)
+	}
+	if rec.ConsentVersion != 1 || !rec.ConsentAnalytics || rec.ConsentMarketing || !rec.ConsentPersonalization {
+		t.Errorf("consent = v%d a=%v m=%v p=%v, want v1 a=true m=false p=true",
+			rec.ConsentVersion, rec.ConsentAnalytics, rec.ConsentMarketing, rec.ConsentPersonalization)
+	}
+}
+
+// Scenario: Client id is blanked without analytics consent
+func TestClientIdIsBlankedWithoutAnalyticsConsent(t *testing.T) {
+	rec := consentRecord(t, &analyticsv1.TrackingEvent{
+		EventType:  analyticsv1.EventType_EVENT_TYPE_VIEW,
+		GaClientId: "111.222",
+		Consent:    &analyticsv1.ConsentState{Version: 1, Analytics: false, Marketing: true},
+	})
+	if rec.GaClientID != "" {
+		t.Errorf("GaClientID = %q, want empty", rec.GaClientID)
+	}
+	if rec.ConsentAnalytics {
+		t.Error("ConsentAnalytics = true, want false")
+	}
+}
+
+// Scenario: A legacy payload without consent is stored as no consent
+func TestLegacyPayloadWithoutConsentIsStoredAsNoConsent(t *testing.T) {
+	rec := consentRecord(t, &analyticsv1.TrackingEvent{
+		EventType:  analyticsv1.EventType_EVENT_TYPE_VIEW,
+		GaClientId: "111.222",
+	})
+	if rec.ConsentVersion != 0 || rec.ConsentAnalytics || rec.ConsentMarketing || rec.ConsentPersonalization {
+		t.Errorf("consent = v%d a=%v m=%v p=%v, want all zero",
+			rec.ConsentVersion, rec.ConsentAnalytics, rec.ConsentMarketing, rec.ConsentPersonalization)
+	}
+	if rec.GaClientID != "" {
+		t.Errorf("GaClientID = %q, want empty", rec.GaClientID)
 	}
 }

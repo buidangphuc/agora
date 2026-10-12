@@ -93,4 +93,4 @@ Feature: Cart and checkout UI
     And placing the order creates the order
     And the page analytics dataLayer holds exactly 1 "begin_checkout" event
     And the page analytics dataLayer holds at least 1 "apply_promotion" event
-    And the page analytics dataLayer holds exactly 1 "purchase" event
+    And the page analytics dataLayer holds exactly 0 "purchase" event

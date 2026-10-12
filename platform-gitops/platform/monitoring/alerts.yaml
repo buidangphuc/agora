@@ -41,3 +41,12 @@ data:
             annotations:
               summary: "{{ $labels.job }} scrape target is down"
               runbook: docs/runbooks/alerts.md
+      - name: marketplace-data-quality
+        rules:
+          - alert: Ga4ReconcileDivergence
+            expr: ga4_reconcile_diff_ratio > 0.35
+            for: 5m
+            labels: { severity: warning, service: team-analytics }
+            annotations:
+              summary: "GA4 vs first-party {{ $labels.event_type }} count diverges beyond 35%"
+              runbook: docs/runbooks/alerts.md
