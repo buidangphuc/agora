@@ -38,7 +38,7 @@ Feature: Checkout - placing an order is guarded against double submit
     When the buyer opens the checkout page
     And the buyer goes to the "confirm" checkout step
     And the buyer places the order with a double click
-    Then exactly one purchase event carries the id of the created order
+    Then no purchase event is in the dataLayer and tracking_events keeps one purchase row for the created order
 
   @destructive
   Scenario: Kill-switch shows an info Result

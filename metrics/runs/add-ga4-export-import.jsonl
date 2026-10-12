@@ -1,0 +1,11 @@
+{"ts":"2026-10-12T08:00:25Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"e2e_red","round":2,"result":"red as expected"}
+{"ts":"2026-10-12T08:03:42Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"wh-ga4","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:11:54Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"ga4import","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:16:46Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"attributed-view","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:21:02Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"consumer-consent-cols","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:28:38Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"channel-funnel","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:33:40Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"reconcile","round":2,"result":"approved"}
+{"ts":"2026-10-12T08:35:56Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"export-ga4","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:43:44Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"gateway-funnel-gate","round":1,"result":"approved"}
+{"ts":"2026-10-12T08:46:31Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_round","task":"ga4import-in-consumer","round":1,"gate":"task-reviewer","result":"changes"}
+{"ts":"2026-10-12T08:47:45Z","change":"add-ga4-export-import","initiative":"ga4-analytics","event":"task_done","task":"ga4import-in-consumer","round":2,"result":"approved"}

@@ -30,6 +30,7 @@ type Settings struct {
 	Tracking      Tracking
 	Recs          Recs
 	Engagement    Engagement
+	GA4           GA4
 	Observability Observability
 }
 
@@ -46,6 +47,8 @@ type Server struct {
 	Port              int     `env:"GRPC_PORT" default:"50059"`
 	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
 	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
+	// MetricsAddr is the HTTP listen address of GET /metrics (empty disables it).
+	MetricsAddr string `env:"METRICS_ADDR" default:":9109"`
 }
 
 // Kafka configures the analytics-events consumer (ADR-0002).
@@ -120,6 +123,30 @@ type Recs struct {
 	AttributionWindowHours int `env:"RECS_ATTRIBUTION_WINDOW_HOURS" default:"24"`
 }
 
+// GA4 configures the daily GA4 export import (run inside cmd/consumer). It is a no-op
+// while ExportDataset is empty.
+type GA4 struct {
+	// ExportSource: bigquery (default when empty) | fixture (Parquet files for local/e2e).
+	ExportSource string `env:"GA4_EXPORT_SOURCE" default:"bigquery"`
+	// ExportDataset: BigQuery dataset holding events_YYYYMMDD ("dataset" or "project.dataset").
+	ExportDataset string `env:"GA4_EXPORT_DATASET" default:""`
+	// FixtureDir holds events_YYYYMMDD.parquet when ExportSource=fixture.
+	FixtureDir string `env:"GA4_EXPORT_FIXTURE_DIR" default:""`
+	// ImportAt: daily UTC "HH:MM" the consumer imports yesterday's export.
+	ImportAt string `env:"GA4_IMPORT_AT" default:"03:30"`
+	// ReconcileMaxDiffRatio: GA4 vs first-party event divergence threshold (>= 0).
+	ReconcileMaxDiffRatio float64 `env:"GA4_RECONCILE_MAX_DIFF_RATIO" default:"0.35"`
+
+	// Purchase relay (Measurement Protocol). Disabled unless APISecret and MeasurementID are both set.
+	// APISecret is a secret: never log it or include it in errors.
+	APISecret          string `env:"GA4_API_SECRET" default:""`
+	MeasurementID      string `env:"GA4_MEASUREMENT_ID" default:""`
+	Endpoint           string `env:"GA4_ENDPOINT" default:"https://www.google-analytics.com/mp/collect"`
+	RelayConsumerGroup string `env:"GA4_RELAY_CONSUMER_GROUP" default:"team-analytics.ga4-relay"`
+	RelayDLQTopic      string `env:"GA4_RELAY_DLQ_TOPIC" default:"analytics.ga4-relay.dlq"`
+	RelayProbePort     int    `env:"GA4_RELAY_PROBE_PORT" default:"8085"`
+}
+
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
@@ -172,6 +199,23 @@ func (s *Settings) Validate() error {
 		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {
 		return errors.New("ENGAGEMENT_EVENTS_TOPIC, ENGAGEMENT_DLQ_TOPIC and ENGAGEMENT_CONSUMER_GROUP must not be empty")
 	}
+	if s.GA4.ReconcileMaxDiffRatio < 0 {
+		return fmt.Errorf("GA4_RECONCILE_MAX_DIFF_RATIO must be >= 0: %v", s.GA4.ReconcileMaxDiffRatio)
+	}
+	if s.GA4RelayEnabled() {
+		if strings.TrimSpace(s.GA4.Endpoint) == "" || strings.TrimSpace(s.GA4.RelayDLQTopic) == "" ||
+			strings.TrimSpace(s.GA4.RelayConsumerGroup) == "" {
+			return errors.New("GA4_ENDPOINT, GA4_RELAY_DLQ_TOPIC and GA4_RELAY_CONSUMER_GROUP must not be empty when the GA4 relay is enabled")
+		}
+		if s.GA4.RelayProbePort <= 0 || s.GA4.RelayProbePort > 65535 {
+			return fmt.Errorf("GA4_RELAY_PROBE_PORT out of range: %d", s.GA4.RelayProbePort)
+		}
+	}
+	switch s.GA4.ExportSource {
+	case "", "bigquery", "fixture":
+	default:
+		return fmt.Errorf("GA4_EXPORT_SOURCE must be %q or %q, got %q", "bigquery", "fixture", s.GA4.ExportSource)
+	}
 	switch s.Warehouse.Driver {
 	case DriverDuckDB:
 		if strings.TrimSpace(s.Warehouse.DuckDBPath) == "" {
@@ -187,6 +231,11 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("WAREHOUSE_DRIVER must be %q or %q, got %q", DriverDuckDB, DriverBigQuery, s.Warehouse.Driver)
 	}
 	return nil
+}
+
+// GA4RelayEnabled reports whether the purchase relay has its credentials.
+func (s *Settings) GA4RelayEnabled() bool {
+	return strings.TrimSpace(s.GA4.APISecret) != "" && strings.TrimSpace(s.GA4.MeasurementID) != ""
 }
 
 func (s *Settings) IsProd() bool {
@@ -235,7 +284,8 @@ func bindGroups(v reflect.Value) error {
 				continue
 			}
 			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
+			// An empty value of a non-string setting means "unset" (keeps the default).
+			if val, ok := os.LookupEnv(key); ok && (val != "" || group.Field(j).Kind() == reflect.String) {
 				raw = val
 			}
 			if err := setField(group.Field(j), raw); err != nil {

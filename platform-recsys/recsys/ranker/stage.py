@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from recsys.config import ConfigError, Settings
 from recsys.dataset import Dataset, resolve_rank_dataset
@@ -83,6 +84,70 @@ def _ndcg(matrix: training.Matrix, rows: np.ndarray, scores: np.ndarray) -> tupl
     return gbdt.mean_ndcg(groups, labels, scores, tie, k=NDCG_K)
 
 
+def _recall(matrix: training.Matrix, rows: np.ndarray, scores: np.ndarray, k: int = NDCG_K) -> float:
+    """Mean recall@k over the lists with a positive (same tie-break as ``_ndcg``)."""
+    local = {int(g): i for i, g in enumerate(rows)}
+    groups = [[local[i] for i in grp] for grp in training.group_rows(matrix.frame, rows)]
+    labels = matrix.frame["label"].to_numpy(dtype=float)[rows]
+    tie = training.tiebreak(matrix.frame["listing_id"].to_numpy()[rows])
+    values = []
+    for g in groups:
+        idx = np.array(g)
+        positives = float((labels[idx] > 0).sum())
+        if positives == 0:
+            continue
+        order = np.lexsort((tie[idx], -scores[idx]))
+        values.append(float((labels[idx][order][:k] > 0).sum()) / positives)
+    return float(np.mean(values)) if values else 0.0
+
+
+def _context_matrix(matrix: training.Matrix, x: np.ndarray) -> np.ndarray:
+    """``x`` plus one integer-coded column per session context column (evaluation only, never published)."""
+    cols = [
+        pd.factorize(matrix.frame[c].fillna("(none)").astype(str))[0].astype(float)
+        for c in training.CONTEXT_COLUMNS
+    ]
+    return np.column_stack([x, *cols])
+
+
+def evaluate_variant(
+    settings: Settings, matrix: training.Matrix, split: training.Split, *, with_context: bool
+) -> dict[str, float]:
+    """Train on the time-based train rows, score the holdout; optionally with the session context columns."""
+    x, _ = training.apply_debiased_ctr(matrix, split.train, settings.gbdt_ctr_min_impressions)
+    if with_context:
+        x = _context_matrix(matrix, x)
+    model = _fit(settings, x, matrix, split.train)
+    scores = model.predict(x[split.test])
+    ndcg, _ = _ndcg(matrix, split.test, scores)
+    return {"ndcg@10": round(ndcg, 6), "recall@10": round(_recall(matrix, split.test, scores), 6)}
+
+
+def _evaluate_context(settings: Settings, matrix: training.Matrix, split: training.Split) -> dict[str, Any]:
+    without = evaluate_variant(settings, matrix, split, with_context=False)
+    if not all(c in matrix.frame.columns for c in training.CONTEXT_COLUMNS):
+        return {
+            "context_features": "disabled",
+            "context_reason": "columns_absent",
+            "context_metrics": {"with_context": None, "without_context": without},
+        }
+    try:
+        with_ctx = evaluate_variant(settings, matrix, split, with_context=True)
+    except Exception as exc:  # noqa: BLE001 - context never fails the run
+        log.warning("context evaluation failed: %s", exc)
+        return {
+            "context_features": "disabled",
+            "context_reason": "evaluation_failed",
+            "context_metrics": {"with_context": None, "without_context": without},
+        }
+    ok = with_ctx["ndcg@10"] >= without["ndcg@10"] and with_ctx["recall@10"] >= without["recall@10"]
+    return {
+        "context_features": "enabled" if ok else "disabled",
+        "context_reason": "qualified" if ok else "regression",
+        "context_metrics": {"with_context": with_ctx, "without_context": without},
+    }
+
+
 def _iso(ts: datetime | None) -> str | None:
     return None if ts is None else ts.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -139,6 +204,7 @@ def run_stage(
         },
     }
     metrics: dict[str, Any] = {"eval_protocol": contract.EVAL_PROTOCOL}
+    context: dict[str, Any] = {}
 
     def reject(reason: str) -> RankerResult:
         candidate = ModelMetadata(
@@ -180,6 +246,7 @@ def run_stage(
     )
     if scored_lists == 0:
         return reject("no usable holdout: no held-out impression has a click or an add-to-cart")
+    context.update(_evaluate_context(settings, matrix, split))
 
     threshold = settings.promotion_min_relative_improvement
     if not settings.promotion_force and not ndcg > baseline * (1.0 + threshold):
@@ -220,7 +287,7 @@ def run_stage(
         return RankerResult(
             False,
             decision.reason,
-            _summary(gbdt_version, "rejected", decision.reason, metrics, params),
+            _summary(gbdt_version, "rejected", decision.reason, metrics, params, context),
             None,
             decision,
             reg,
@@ -231,15 +298,18 @@ def run_stage(
     return RankerResult(
         True,
         decision.reason,
-        _summary(gbdt_version, "promoted", decision.reason, metrics, params),
+        _summary(gbdt_version, "promoted", decision.reason, metrics, params, context),
         artifact,
         decision,
         reg,
     )
 
 
-def _summary(version: str, decision: str, reason: str, metrics: dict, params: dict) -> dict[str, Any]:
+def _summary(
+    version: str, decision: str, reason: str, metrics: dict, params: dict, context: dict | None = None
+) -> dict[str, Any]:
     return {
+        **(context or {}),
         "model_version": version,
         "decision": decision,
         "reason": reason,

@@ -93,4 +93,6 @@ export interface WireTrackBeacon {
   eventGroupId?: string;
   shippingTier?: string;
   paymentType?: string;
+  /** GA4 client id (`<a>.<b>` from the _ga cookie); only sent with analytics consent. */
+  gaClientId?: string;
 }

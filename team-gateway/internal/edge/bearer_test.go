@@ -97,6 +97,7 @@ type bearerFixture struct {
 	search, ord *upstreamSpy
 	key         *rsa.PrivateKey
 	denylist    *revocation.Denylist
+	verifier    *token.Verifier
 }
 
 func newBearerFixture(t *testing.T) *bearerFixture {
@@ -115,7 +116,8 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	t.Cleanup(jwks.Close)
 
 	f := &bearerFixture{search: &upstreamSpy{}, ord: &upstreamSpy{}, key: key, denylist: revocation.NewDenylist()}
-	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000).
+	f.verifier = token.NewVerifier(jwks.URL, time.Minute)
+	e := edge.NewEdge(f.verifier, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000).
 		WithRevocations(f.denylist)
 	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
 	mux := http.NewServeMux()

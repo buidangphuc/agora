@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FloatingChatBubble } from "@/components/ui/FloatingChatBubble";
+import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { logoutAction } from "@/features/auth/actions";
 import { SearchBar } from "@/features/search/SearchBar";
 import { getCart } from "@/lib/gateway/cart";
@@ -426,6 +427,9 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           <p>
             © 2026 Marketplace Showcase Polyrepo. Xây dựng phục vụ mục đích học
             tập & nghiên cứu kiến trúc hệ thống.
+          </p>
+          <p>
+            <CookieSettingsLink />
           </p>
         </div>
       </footer>

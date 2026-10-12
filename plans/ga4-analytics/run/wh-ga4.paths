@@ -1,0 +1,7 @@
+team-analytics/internal/warehouse/bigquery/bigquery.go
+team-analytics/internal/warehouse/bigquery/ga4_migrate_test.go
+team-analytics/internal/warehouse/bigquery/migrate.go
+team-analytics/internal/warehouse/duckdb/duckdb.go
+team-analytics/internal/warehouse/duckdb/ga4_test.go
+team-analytics/internal/warehouse/ga4_schema_test.go
+team-analytics/internal/warehouse/warehouse.go

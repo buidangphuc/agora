@@ -1,0 +1,2 @@
+{"ts":"2026-10-12T09:58:01Z","change":"add-ga4-destination","initiative":"ga4-analytics","event":"preflight","result":"pass"}
+{"ts":"2026-10-12T12:00:36Z","change":"add-ga4-destination","initiative":"ga4-analytics","event":"run_done","result":"merged-integration"}

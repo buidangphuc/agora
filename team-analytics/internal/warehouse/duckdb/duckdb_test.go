@@ -566,3 +566,35 @@ func TestOpenMigratesLegacyTrackingColumns_DuckDBMigratesALegacyDatabase(t *test
 		t.Fatalf("position = %d, %v; want 3", pos, err)
 	}
 }
+
+// Scenario: Consent and client id are persisted (DuckDB round-trip of all 5 columns)
+func TestConsentAndClientIdArePersisted_DuckDBRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	w, err := Open(ctx, filepath.Join(t.TempDir(), "w.duckdb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	rec := &warehouse.TrackingRecord{
+		EventID: "e-consent", EventType: "view", ListingID: "l1",
+		OccurredAt: time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC),
+		GaClientID: "111.222", ConsentVersion: 1,
+		ConsentAnalytics: true, ConsentMarketing: false, ConsentPersonalization: true,
+	}
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{rec}); err != nil {
+		t.Fatal(err)
+	}
+	var (
+		client  string
+		version int
+		a, m, p bool
+	)
+	err = w.DB().QueryRow("SELECT ga_client_id, consent_version, consent_analytics, consent_marketing, consent_personalization FROM tracking_events WHERE event_id = 'e-consent'").
+		Scan(&client, &version, &a, &m, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client != "111.222" || version != 1 || !a || m || !p {
+		t.Errorf("row = %q v%d a=%v m=%v p=%v, want 111.222 v1 a=true m=false p=true", client, version, a, m, p)
+	}
+}

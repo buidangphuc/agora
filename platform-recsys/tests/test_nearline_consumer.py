@@ -87,7 +87,7 @@ def test_a_redis_failure_stops_the_consumer_without_committing():
             raise ConnectionError("redis down")
 
     source = FakeSource([Msg(GOLDEN_ANON_CLICK)])
-    consumer = NearlineConsumer(source, Boom(NearlineSignalStore()), clock=Clock())
+    consumer = NearlineConsumer(source, Boom(NearlineSignalStore()), idle_exit_seconds=3, clock=Clock())
     with pytest.raises(ConnectionError):
         consumer.run()
     assert source.commits == 0 and source.closed

@@ -28,6 +28,7 @@ class Stats:
     applied: int = 0
     ignored: int = 0  # not a nearline event, stale, or a redelivery
     undecodable: int = 0
+    consent_denied: int = 0  # personalisation consent missing, denied or version 0
 
 
 class NearlineConsumer:
@@ -58,10 +59,21 @@ class NearlineConsumer:
             self.stats.undecodable += 1
             log.warning("undecodable message skipped: %s", exc)
             return
-        if event is not None and self.aggregator.process_interaction(event):
+        if event is not None and not event.consent_granted:
+            self.stats.consent_denied += 1
+        elif event is not None and self.aggregator.process_interaction(event):
             self.stats.applied += 1
         else:
             self.stats.ignored += 1
+
+    def _log_counters(self) -> None:
+        log.info(
+            "nearline counters: applied %d ignored %d consent_denied %d decode_errors %d",
+            self.stats.applied,
+            self.stats.ignored,
+            self.stats.consent_denied,
+            self.stats.undecodable,
+        )
 
     def _commit(self) -> None:
         if self._uncommitted:
@@ -94,6 +106,7 @@ class NearlineConsumer:
                     log.info("nearline progress: %s", self.stats)
                     last_log = now
             self._commit()
+            self._log_counters()
         finally:
             self.source.close()
         return self.stats

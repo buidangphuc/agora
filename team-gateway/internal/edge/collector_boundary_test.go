@@ -121,3 +121,37 @@ func BenchmarkBoundaryTrack100Events(b *testing.B) {
 		h.ServeHTTP(httptest.NewRecorder(), req)
 	}
 }
+
+// Scenario: Stamping adds no latency beyond budget (N=1000 batches of 100 events, valid consent cookie).
+// Timed p99 over a fake publisher; wall-clock bound is a loose 50 ms budget, so it is stable in CI.
+func TestConsentStamp_StampingAddsNoLatencyBeyondBudget(t *testing.T) {
+	const reqs = 1000
+	pub := &mockAnalyticsPublisher{}
+	h := HandleTrack(&Edge{}, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	body := []byte(batchBody(100))
+	lat := make([]time.Duration, reqs)
+	for i := range lat {
+		req := httptest.NewRequest(http.MethodPost, "/api/track", bytes.NewReader(body))
+		req.Header.Set("Cookie", "agora_consent=v=1&a=1&m=0&p=1&ts=1760000000")
+		rec := httptest.NewRecorder()
+		start := time.Now()
+		h.ServeHTTP(rec, req)
+		lat[i] = time.Since(start)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("req %d: code %d", i, rec.Code)
+		}
+	}
+	if len(pub.events) != reqs*100 {
+		t.Fatalf("expected %d published, got %d", reqs*100, len(pub.events))
+	}
+	// Behavioural guard so the test is red until stamping exists.
+	for _, ev := range pub.events[:100] {
+		if ev.GetConsent().GetVersion() != 1 || !ev.GetConsent().GetAnalytics() {
+			t.Fatalf("event not stamped from cookie")
+		}
+	}
+	sort.Slice(lat, func(i, j int) bool { return lat[i] < lat[j] })
+	if p99 := lat[reqs*99/100-1]; p99 >= 50*time.Millisecond {
+		t.Fatalf("p99 %v >= 50ms", p99)
+	}
+}

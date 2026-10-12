@@ -347,21 +347,28 @@ def place_with_double_click(world: World) -> None:
     )
 
 
-@then("exactly one purchase event carries the id of the created order")
-def one_purchase(world: World) -> None:
+@then(
+    "no purchase event is in the dataLayer and tracking_events keeps one purchase row for the "
+    "created order"
+)
+def no_browser_purchase_row_kept(world: World) -> None:
+    from tests.e2e.support import tii_support as tii
+
     deadline = time.monotonic() + 10
     orders: list = []
     while time.monotonic() < deadline and not orders:
         orders = d2.buyer_orders(world).list_buyer_orders().get("orders", [])
         time.sleep(0.5)
     assert len(orders) == 1, orders
-    page = world.page
-    page.wait_for_load_state("domcontentloaded")
-    # the order list page is a new document: the event lives in the checkout page's
-    # dataLayer, which survives soft navigation (router.push) within the same document.
-    events = datalayer(world, "purchase")
-    assert len(events) == 1, events
-    assert orders[0]["id"] in str(events[0]), (events[0], orders[0]["id"])
+    world.page.wait_for_load_state("domcontentloaded")
+    assert datalayer(world, "purchase") == [], datalayer(world, "purchase")
+    rows = tii.warehouse_rows(
+        "SELECT event_type FROM tracking_events WHERE transaction_id = ?",
+        [orders[0]["id"]],
+        until=lambda r: any("purchase" in str(x[0]).lower() for x in r),
+        settle_s=3.0,
+    )
+    assert len([r for r in rows if "purchase" in str(r[0]).lower()]) == 1, rows
 
 
 @when(

@@ -12,8 +12,8 @@ import (
 // allowedDuckDB / allowedBigQuery are the intersection types the two engines
 // agree on (design.md). A column typed outside these sets is drift.
 var (
-	allowedDuckDB   = map[string]bool{"VARCHAR": true, "INTEGER": true, "BIGINT": true, "TIMESTAMP": true, "JSON": true}
-	allowedBigQuery = map[string]bool{"STRING": true, "INT64": true, "TIMESTAMP": true, "JSON": true}
+	allowedDuckDB   = map[string]bool{"VARCHAR": true, "INTEGER": true, "BIGINT": true, "TIMESTAMP": true, "JSON": true, "BOOLEAN": true}
+	allowedBigQuery = map[string]bool{"STRING": true, "INT64": true, "TIMESTAMP": true, "JSON": true, "BOOL": true}
 )
 
 // TestSchemaParity is the DuckDB↔BigQuery parity guard for tracking_events.

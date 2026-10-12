@@ -67,6 +67,25 @@ def _retry(fn):
         return fn()  # a rename may race the read; retry once
 
 
+# Columns added by the newer exporter; a legacy export lacks them and reads as NULL (consent null = denied).
+_OPTIONAL_EVENT_COLUMNS = {
+    "consent_personalization": "BOOLEAN",
+    "consent_version": "INTEGER",
+    "item_list_id": "VARCHAR",
+    "position": "INTEGER",
+    "session_source": "VARCHAR",
+    "session_medium": "VARCHAR",
+    "session_campaign": "VARCHAR",
+}
+
+
+def _add_missing_event_columns(con: duckdb.DuckDBPyConnection) -> None:
+    have = {r[0] for r in con.execute("DESCRIBE events").fetchall()}
+    for col, typ in _OPTIONAL_EVENT_COLUMNS.items():
+        if col not in have:
+            con.execute(f"ALTER TABLE events ADD COLUMN {col} {typ}")
+
+
 def _dedupe_purchases(con: duckdb.DuckDBPyConnection) -> None:
     """Collapse purchase rows sharing a non-empty transaction_id (per user and listing) to the earliest.
 
@@ -104,6 +123,7 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
             f"ingested_at::TIMESTAMP AS ingested_at) FROM read_parquet('{paths['events']}') "
             f"WHERE ingested_at::TIMESTAMP <= {a}"
         )
+        _add_missing_event_columns(con)
         _dedupe_purchases(con)
         con.execute(
             f"CREATE TEMP TABLE facts AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at, "

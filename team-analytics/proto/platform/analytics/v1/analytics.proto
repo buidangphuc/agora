@@ -39,6 +39,44 @@ service AnalyticsQueryService {
   // impressions served by the fallback ranking per placement. Admin-only
   // (scope "admin"); carries no per-user data.
   rpc GetRecommendationPerformance(GetRecommendationPerformanceRequest) returns (GetRecommendationPerformanceResponse);
+  // Funnel counts (impressions, views, adds, begin_checkouts, purchases) per
+  // (source, medium, campaign) over [from, to]. Empty seller_id aggregates every
+  // seller. Admin-only (scope "admin"): enforced by the serving service, even
+  // when seller_id is set.
+  rpc GetChannelFunnel(GetChannelFunnelRequest) returns (GetChannelFunnelResponse);
+}
+
+message GetChannelFunnelRequest {
+  // Optional; empty means all sellers.
+  string seller_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message ChannelFunnelRow {
+  string source = 1;
+  string medium = 2;
+  string campaign = 3;
+  int64 impressions = 4;
+  int64 views = 5;
+  int64 adds = 6;
+  int64 begin_checkouts = 7;
+  int64 purchases = 8;
+}
+
+message GetChannelFunnelResponse {
+  repeated ChannelFunnelRow rows = 1;
+}
+
+// ConsentState is the visitor's consent as recorded in the agora_consent cookie.
+message ConsentState {
+  bool analytics = 1;
+  bool marketing = 2;
+  bool personalization = 3;
+  // Consent policy version. version = 0 means no consent cookie was present.
+  // version = 0 is treated as all denied regardless of flags.
+  // negative or unknown version (known: 1) is treated as all denied.
+  int32 version = 4;
 }
 
 message GetSellerFunnelRequest {
@@ -273,4 +311,11 @@ message TrackingEvent {
   string shipping_tier = 23;
   // Selected payment method type (e.g. "MOCK_WALLET", "COD").
   string payment_type = 24;
+  // GA4 client id (the _ga cookie value) without the GA1.1. prefix, e.g. "123.456".
+  // Empty without analytics consent: blanked by consumers when consent.analytics is false.
+  // The event is kept; only the id is blanked.
+  string ga_client_id = 25;
+  // Visitor consent. Stamped by the edge from the agora_consent cookie and never
+  // from the request body.
+  ConsentState consent = 26;
 }

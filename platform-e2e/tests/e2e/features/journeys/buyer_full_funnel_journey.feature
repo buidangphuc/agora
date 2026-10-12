@@ -2,7 +2,7 @@
 Feature: Buyer Full Funnel Journey
   As a buyer on Agora marketplace, I want to browse the home page, search and filter, open a
   product page, favorite and share it, build a cart, redeem a voucher and place an order, with
-  the GA4 dataLayer reporting the purchase.
+  the purchase reaching GA4 only server-side (no browser purchase in the dataLayer).
 
   # Every step drives the running stack (the Next.js UI through Playwright, the gateway API for
   # the seeding and the read-backs) and every Then reads the result back:
@@ -11,8 +11,8 @@ Feature: Buyer Full Funnel Journey
   #   * favorite: ListFavorites; share link: ResolveShareLink + opening /s/<code>;
   #   * cart: GetCart quantities and subtotal, the quantity field on /cart;
   #   * voucher: the checkout page's discount and total rows (SAVE10 = 10%, platform voucher);
-  #   * order: ListBuyerOrders + GetOrder; GA4: the `purchase` event in window.dataLayer, whose
-  #     transaction_id is that order id.
+  #   * order: ListBuyerOrders + GetOrder; GA4: no `purchase` in window.dataLayer; the warehouse
+  #     tracking_events row carries that order id (add-ga4-purchase-relay).
   # The backend today: SearchListings reports no retrieval mode, so "hybrid" is not observable and
   # the step claims only keyword search + facet; the checkout does not render an order
   # confirmation page, it lands on the buyer's order list (/account/orders?success=1).
@@ -36,7 +36,7 @@ Feature: Buyer Full Funnel Journey
     Then the voucher discount is shown and the order total is reduced
     When the buyer confirms the order placement
     Then the order is placed with the voucher discount and listed for the buyer
-    And a purchase event for that order is pushed to the GA4 dataLayer
+    And no purchase event is pushed to the GA4 dataLayer and tracking_events keeps one purchase row for that order
 
   # serve-trained-recs-locally: team-ai serves the trained generation (RECS_ENABLED=true, Qdrant backend),
   # so the home row renders cards and its row impressions reach the data layer.

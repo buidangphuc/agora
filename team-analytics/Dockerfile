@@ -14,6 +14,8 @@ COPY . .
 ENV CGO_ENABLED=1 GOOS=linux
 RUN go mod tidy
 RUN go build -trimpath -o /out/consumer ./cmd/consumer
+RUN go build -trimpath -o /out/ga4import ./cmd/ga4import
+RUN go build -trimpath -o /out/ga4-relay ./cmd/ga4-relay
 # An empty /data owned by nonroot: a fresh named volume mounted there inherits
 # the ownership, so DuckDB (and the Parquet export) can write to it.
 RUN mkdir -p /out/data
@@ -21,6 +23,8 @@ RUN mkdir -p /out/data
 FROM gcr.io/distroless/cc-debian12:nonroot
 WORKDIR /
 COPY --from=build /out/consumer /consumer
+COPY --from=build /out/ga4import /ga4import
+COPY --from=build /out/ga4-relay /ga4-relay
 COPY --from=build --chown=nonroot:nonroot /out/data /data
 ENV GRPC_PORT=50059
 EXPOSE 50059

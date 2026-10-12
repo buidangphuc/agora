@@ -33,7 +33,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.analytics.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -814,6 +814,26 @@ services:
     volumes:
       - analytics_data:/data
 
+  # GA4 purchase relay worker (cmd/ga4-relay). No GA4_API_SECRET / GA4_MEASUREMENT_ID: runs disabled.
+  ga4-relay:
+    build:
+      context: ./team-analytics
+      dockerfile: Dockerfile
+    image: team-analytics:local
+    container_name: ga4-relay-svc
+    entrypoint: ["/ga4-relay"]
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - WAREHOUSE_DRIVER=duckdb
+      - DUCKDB_PATH=/data/ga4-relay.duckdb
+      - GA4_RELAY_CONSUMER_GROUP=team-analytics.ga4-relay
+      - GA4_RELAY_DLQ_TOPIC=analytics.ga4-relay.dlq
+      - GA4_RELAY_PROBE_PORT=8085
+    volumes:
+      - ga4_relay_data:/data
+    depends_on:
+      - redpanda-init
+
   team-frontend:
     build:
       context: ./team-frontend
@@ -846,4 +866,5 @@ services:
 
 volumes:
   analytics_data:
+  ga4_relay_data:
   featurestore_data:
