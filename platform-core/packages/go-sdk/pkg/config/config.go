@@ -1,94 +1,71 @@
-// Package config provides reflection-based environment loading and drift checking.
 package config
 
 import (
+	"errors"
 	"fmt"
-	"os"
 	"reflect"
-	"strconv"
-	"strings"
-	"time"
+
+	"github.com/caarlos0/env/v11"
 )
 
-// Load populates targetStruct from OS environment variables based on `env:` and `default:` tags.
-func Load(targetStruct interface{}) error {
-	v := reflect.ValueOf(targetStruct)
-	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("targetStruct must be a pointer to a struct")
+// Load fills a T from the process environment. The returned error names every
+// variable that failed to parse or is required and unset. When T has a
+// Validate() error method, Load calls it after parsing and returns its error.
+//
+// A field with a default tag is never reported as unset: caarlos0/env applies
+// the default before it checks "required".
+func Load[T any]() (T, error) {
+	v, err := env.ParseAsWithOptions[T](env.Options{
+		DefaultValueTagName: "default",
+		RequiredIfNoDef:     false,
+	})
+	if err != nil {
+		return v, nameVariables(err, reflect.TypeFor[T]())
 	}
-	return populateStruct(v.Elem())
+	if val, ok := any(v).(interface{ Validate() error }); ok {
+		if err := val.Validate(); err != nil {
+			return v, err
+		}
+	}
+	return v, nil
 }
 
-func populateStruct(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		fieldVal := v.Field(i)
-		fieldType := t.Field(i)
-
-		// Recurse into nested structs
-		if fieldVal.Kind() == reflect.Struct {
-			if err := populateStruct(fieldVal); err != nil {
-				return err
-			}
+// nameVariables rewrites parse errors, which env reports by Go field name, to
+// name the environment variable instead. Several nested fields can share a Go
+// name (Enabled), so each candidate is re-parsed alone to find the culprit.
+func nameVariables(err error, t reflect.Type) error {
+	var agg env.AggregateError
+	if !errors.As(err, &agg) {
+		return err
+	}
+	fields := envFields(t)
+	out := make([]error, 0, len(agg.Errors))
+	for _, e := range agg.Errors {
+		var pe env.ParseError
+		if !errors.As(e, &pe) {
+			out = append(out, e)
 			continue
 		}
-
-		envKey := fieldType.Tag.Get("env")
-		defaultVal := fieldType.Tag.Get("default")
-
-		rawVal := ""
-		if envKey != "" {
-			rawVal = os.Getenv(envKey)
-		}
-		if rawVal == "" {
-			rawVal = defaultVal
-		}
-
-		if rawVal != "" {
-			if err := setFieldValue(fieldVal, rawVal); err != nil {
-				return fmt.Errorf("field %s (%s): %w", fieldType.Name, envKey, err)
+		named := false
+		for _, f := range fields {
+			if f.name != pe.Name || f.typ != pe.Type {
+				continue
+			}
+			if probe := probeField(f); probe != nil {
+				out = append(out, fmt.Errorf("%s: %w", f.key, pe.Err))
+				named = true
 			}
 		}
+		if !named {
+			out = append(out, e)
+		}
 	}
-	return nil
+	return errors.Join(out...)
 }
 
-func setFieldValue(field reflect.Value, raw string) error {
-	switch field.Kind() {
-	case reflect.String:
-		field.SetString(raw)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if field.Type() == reflect.TypeOf(time.Duration(0)) {
-			d, err := time.ParseDuration(raw)
-			if err != nil {
-				return err
-			}
-			field.SetInt(int64(d))
-			return nil
-		}
-		n, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			return err
-		}
-		field.SetInt(n)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(raw)
-		if err != nil {
-			return err
-		}
-		field.SetBool(b)
-	case reflect.Slice:
-		if field.Type().Elem().Kind() == reflect.String {
-			parts := strings.Split(raw, ",")
-			var items []string
-			for _, p := range parts {
-				p = strings.TrimSpace(p)
-				if p != "" {
-					items = append(items, p)
-				}
-			}
-			field.Set(reflect.ValueOf(items))
-		}
-	}
-	return nil
+// probeField parses a single field on its own and returns its error.
+func probeField(f envField) error {
+	st := reflect.StructOf([]reflect.StructField{{Name: "F", Type: f.typ, Tag: f.tag}})
+	ptr := reflect.New(st)
+	return env.ParseWithOptions(ptr.Interface(), env.Options{DefaultValueTagName: "default"})
 }
