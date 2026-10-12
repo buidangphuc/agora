@@ -1,0 +1,306 @@
+# Feature manifest for platform-core (capability tracking-consent: shared analytics proto contract).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: platform-core
+owner: platform-team
+
+features:
+  - id: tracking-consent.old-payload-readable
+    title: Old payload stays readable
+    persona: buyer
+    priority: P2
+    kind: contract
+    summary: >-
+      A producer that leaves TrackingEvent fields 25 and 26 unset keeps flowing to the warehouse unchanged.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view beacon with no consent cookie and no GA client id
+      - Then the warehouse holds one row for that listing carrying the beacon's session id and page path
+      - And the envelope on analytics.events has no GA client id
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Old payload stays readable"
+  - id: tracking-consent.missing-consent-denied
+    title: Missing consent reads as denied
+    persona: buyer
+    priority: P2
+    kind: contract
+    summary: >-
+      An event without consent set carries no granted consent flag and version 0.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view beacon with no consent cookie and no GA client id
+      - Then the envelope on analytics.events grants no consent, with analytics, marketing and personalization false and version 0
+    tags: [tracking, analytics]
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Missing consent reads as denied"
+  - id: tracking-consent.channel-funnel-non-admin-rejected
+    title: Non-admin is rejected
+    persona: buyer
+    priority: P2
+    kind: authz
+    summary: >-
+      GetChannelFunnel is admin-only; a seller or buyer gets PERMISSION_DENIED and no rows. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a signed-in seller
+      - When the seller requests GetChannelFunnel for their own seller id
+      - Then the channel funnel call returns 403 and no rows
+      - When a signed-in buyer requests GetChannelFunnel with no seller id
+      - Then the channel funnel call returns 403 and no rows
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-all-sellers
+    title: Empty seller means all sellers
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      An admin call with empty seller_id aggregates every seller; with seller_id set only that seller. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel for the last 30 days with no seller id
+      - And the admin requests GetChannelFunnel for the last 30 days for a seller with no events
+      - Then both channel funnel calls return 200
+      - And the seller-scoped funnel has no rows
+      - And no channel funnel count of the seller-scoped call exceeds the all-sellers total
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-invalid-range
+    title: Invalid date range
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      from after to returns INVALID_ARGUMENT. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel with from after to
+      - Then the channel funnel call returns 400
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-empty-range
+    title: Empty range returns no rows
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      A range without events yields zero rows and no error. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel over a range that holds no events
+      - Then the channel funnel call returns 200 with zero rows
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: tracking-consent.unit-consentstate-fields-present-with-stable-numbers
+    title: "ConsentState fields present with stable numbers"
+    persona: guest
+    priority: P2
+    summary: "ConsentState fields present with stable numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ConsentState fields present with stable numbers (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_ConsentStateFieldsPresentWithStableNumbers in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-version-zero-with-granted-flags-is-not-trusted
+    title: "Version zero with granted flags is not trusted"
+    persona: guest
+    priority: P2
+    summary: "Version zero with granted flags is not trusted"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Version zero with granted flags is not trusted (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_VersionZeroWithGrantedFlagsIsNotTrusted in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-unknown-or-negative-version-is-denied
+    title: "Unknown or negative version is denied"
+    persona: guest
+    priority: P2
+    summary: "Unknown or negative version is denied"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown or negative version is denied (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_UnknownOrNegativeVersionIsDenied in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-new-fields-round-trip
+    title: "New fields round trip"
+    persona: guest
+    priority: P2
+    summary: "New fields round trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New fields round trip (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_NewFieldsRoundTrip in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-new-payload-readable-by-old-schema
+    title: "New payload readable by old schema"
+    persona: guest
+    priority: P2
+    summary: "New payload readable by old schema"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New payload readable by old schema (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_NewPayloadReadableByOldSchema in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-client-id-comment-states-format-and-blanking
+    title: "Client id comment states format and blanking"
+    persona: guest
+    priority: P2
+    summary: "Client id comment states format and blanking"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id comment states format and blanking (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ClientIdStatesFormatAndBlanking in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-client-id-without-analytics-consent-is-blanked-event-kept
+    title: "Client id without analytics consent is blanked, event kept"
+    persona: guest
+    priority: P2
+    summary: "Client id without analytics consent is blanked, event kept"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id without analytics consent is blanked, event kept (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ClientIdBlankedEventKept in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-channel-funnel-messages-present
+    title: "Channel funnel messages present"
+    persona: guest
+    priority: P2
+    summary: "Channel funnel messages present"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Channel funnel messages present (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_ChannelFunnelMessagesPresent in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-scope-documented
+    title: "Scope documented"
+    persona: guest
+    priority: P2
+    summary: "Scope documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Scope documented (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ScopeDocumented in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-field-numbers-do-not-collide
+    title: "Field numbers do not collide"
+    persona: guest
+    priority: P2
+    summary: "Field numbers do not collide"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field numbers do not collide (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  - id: tracking-consent.unit-field-25-and-26-are-frozen
+    title: "Field 25 and 26 are frozen"
+    persona: guest
+    priority: P2
+    summary: "Field 25 and 26 are frozen"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field 25 and 26 are frozen (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  - id: tracking-consent.unit-buf-checks-pass-with-new-rpc
+    title: "Buf checks pass with new RPC"
+    persona: guest
+    priority: P2
+    summary: "Buf checks pass with new RPC"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Buf checks pass with new RPC (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."

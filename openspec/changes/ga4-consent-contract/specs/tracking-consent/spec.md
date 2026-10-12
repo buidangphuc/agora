@@ -6,6 +6,7 @@ The analytics proto SHALL define `message ConsentState` with `bool analytics = 1
 #### Scenario: ConsentState fields present with stable numbers
 - **WHEN** the descriptor of `platform.analytics.v1.ConsentState` is inspected
 - **THEN** it has exactly 4 fields with names, types and numbers `analytics=1 bool`, `marketing=2 bool`, `personalization=3 bool`, `version=4 int32`
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go` "TestConsent_ConsentStateFieldsPresentWithStableNumbers"
 
 #### Scenario: Missing consent reads as denied
 - **WHEN** a `TrackingEvent` is decoded with no `consent` set
@@ -14,10 +15,12 @@ The analytics proto SHALL define `message ConsentState` with `bool analytics = 1
 #### Scenario: Version zero with granted flags is not trusted
 - **WHEN** the comment on `ConsentState.version` in analytics.proto is read
 - **THEN** it contains the text `version = 0 is treated as all denied regardless of flags`
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go` "TestConsentComments_VersionZeroWithGrantedFlagsIsNotTrusted"
 
 #### Scenario: Unknown or negative version is denied
 - **WHEN** the comment on `ConsentState.version` in analytics.proto is read
 - **THEN** it contains the text `negative or unknown version (known: 1) is treated as all denied`, so a consumer reading `version = -1` or `version = 2` treats analytics, marketing and personalization as denied
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go` "TestConsentComments_UnknownOrNegativeVersionIsDenied"
 
 ### Requirement: TrackingEvent carries GA client id and consent
 `TrackingEvent` SHALL add `string ga_client_id = 25` and `ConsentState consent = 26` without altering any existing field, and the proto comments SHALL state that `consent` is stamped by the edge from the `agora_consent` cookie and never from the request body, and that `ga_client_id` is empty without analytics consent.
@@ -25,6 +28,7 @@ The analytics proto SHALL define `message ConsentState` with `bool analytics = 1
 #### Scenario: New fields round trip
 - **WHEN** a `TrackingEvent` with `ga_client_id="123.456"` and `consent={analytics:true, marketing:false, personalization:true, version:1}` is serialised and parsed
 - **THEN** the parsed event equals the original in all fields
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go` "TestConsent_NewFieldsRoundTrip"
 
 #### Scenario: Old payload stays readable
 - **WHEN** bytes serialised by the previous `TrackingEvent` (fields 1-24 only) are parsed with the new schema
@@ -33,22 +37,27 @@ The analytics proto SHALL define `message ConsentState` with `bool analytics = 1
 #### Scenario: New payload readable by old schema
 - **WHEN** an event with fields 25 and 26 set is parsed with the previous schema
 - **THEN** parsing succeeds and fields 1-24 are unchanged
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go` "TestConsent_NewPayloadReadableByOldSchema"
 
 #### Scenario: Field numbers do not collide
 - **WHEN** `buf breaking --against main` runs on the proto package
 - **THEN** it exits 0 and `buf lint` exits 0
+- **VERIFIED BY**: CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`)
 
 #### Scenario: Field 25 and 26 are frozen
 - **WHEN** a scratch copy of analytics.proto changes the name or type of field 25 or field 26 and `buf breaking --against main` runs on it
 - **THEN** `buf breaking` exits non-zero
+- **VERIFIED BY**: CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`)
 
 #### Scenario: Client id comment states format and blanking
 - **WHEN** the comment on `TrackingEvent.ga_client_id` is read
 - **THEN** it contains `without the GA1.1. prefix` and `blanked by consumers when consent.analytics is false`
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go` "TestConsentComments_ClientIdStatesFormatAndBlanking"
 
 #### Scenario: Client id without analytics consent is blanked, event kept
 - **WHEN** the comment on `TrackingEvent.ga_client_id` is read
 - **THEN** it contains `event is kept`, documenting that consumers blank the id and do not drop the event
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go` "TestConsentComments_ClientIdBlankedEventKept"
 
 ### Requirement: Channel funnel query
 `AnalyticsQueryService` SHALL define admin-only `rpc GetChannelFunnel(GetChannelFunnelRequest) returns (GetChannelFunnelResponse)`. The request SHALL carry `from`, `to` (Timestamp) and optional `string seller_id`; the response SHALL carry `repeated ChannelFunnelRow rows` where each row has `source`, `medium`, `campaign` and funnel counts `impressions`, `views`, `adds`, `begin_checkouts`, `purchases` (int64). The RPC comment SHALL state scope `admin`; enforcement is by the serving service.
@@ -56,10 +65,12 @@ The analytics proto SHALL define `message ConsentState` with `bool analytics = 1
 #### Scenario: Channel funnel messages present
 - **WHEN** the descriptor of `platform.analytics.v1` is inspected
 - **THEN** `GetChannelFunnelRequest` has `seller_id`, `from`, `to`, `ChannelFunnelRow` has `source`, `medium`, `campaign`, `impressions`, `views`, `adds`, `begin_checkouts`, `purchases` with int64 counts, and the service method exists
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go` "TestConsent_ChannelFunnelMessagesPresent"
 
 #### Scenario: Scope documented
 - **WHEN** the comment on `GetChannelFunnel` is read
 - **THEN** it contains `Admin-only (scope "admin")`
+- **VERIFIED BY**: `platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go` "TestConsentComments_ScopeDocumented"
 
 #### Scenario: Non-admin is rejected
 - **WHEN** a caller without scope `admin` (a seller or buyer, even with its own `seller_id`) calls `GetChannelFunnel` on a service implementing it
@@ -80,3 +91,4 @@ The analytics proto SHALL define `message ConsentState` with `bool analytics = 1
 #### Scenario: Buf checks pass with new RPC
 - **WHEN** `buf lint` and `buf breaking --against main` run
 - **THEN** both exit 0 (the RPC and messages are additive)
+- **VERIFIED BY**: CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`)
