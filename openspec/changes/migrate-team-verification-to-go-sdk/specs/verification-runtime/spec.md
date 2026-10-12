@@ -23,7 +23,7 @@ team-verification SHALL wire go-sdk v0.1.1 in `internal/app.Run(ctx, settings)` 
 
 team-verification SHALL report NOT_SERVING while its Postgres check fails.
 
-#### Scenario: team-verification database loss flips health
+#### Scenario: team-verification health fails to NOT_SERVING when the database is lost
 - **WHEN** the database used by a running team-verification stops accepting connections
 - **THEN** within one probe interval health is NOT_SERVING
 - **VERIFIED BY**: `TestHealthReportsDatabaseDown`
@@ -32,7 +32,7 @@ team-verification SHALL report NOT_SERVING while its Postgres check fails.
 
 All existing team-verification tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged).
 
-#### Scenario: team-verification existing suites stay green and nothing is weakened
+#### Scenario: team-verification existing suites do not regress and no assertion is weakened
 - **WHEN** `make check` runs after the restructure
 - **THEN** every pre-existing test passes, and no assertion is removed or loosened
 - **VERIFIED BY**: `team-verification` `make check`

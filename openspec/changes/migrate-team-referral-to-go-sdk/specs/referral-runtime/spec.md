@@ -23,7 +23,7 @@ team-referral SHALL wire go-sdk v0.1.1 in `internal/app.Run(ctx, settings)` per 
 
 team-referral SHALL report NOT_SERVING while its Postgres check fails.
 
-#### Scenario: team-referral database loss flips health
+#### Scenario: team-referral health fails to NOT_SERVING when the database is lost
 - **WHEN** the database used by a running team-referral stops accepting connections
 - **THEN** within one probe interval health is NOT_SERVING
 - **VERIFIED BY**: `TestHealthReportsDatabaseDown`
@@ -32,7 +32,7 @@ team-referral SHALL report NOT_SERVING while its Postgres check fails.
 
 All existing team-referral tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged).
 
-#### Scenario: team-referral existing suites stay green and nothing is weakened
+#### Scenario: team-referral existing suites do not regress and no assertion is weakened
 - **WHEN** `make check` runs after the restructure
 - **THEN** every pre-existing test passes, and no assertion is removed or loosened
 - **VERIFIED BY**: `team-referral` `make check`

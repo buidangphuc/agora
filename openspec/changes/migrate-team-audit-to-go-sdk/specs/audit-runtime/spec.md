@@ -23,7 +23,7 @@ team-audit SHALL wire go-sdk v0.1.1 in `internal/app.Run(ctx, settings)` per ADR
 
 team-audit SHALL report NOT_SERVING while its Postgres check fails.
 
-#### Scenario: team-audit database loss flips health
+#### Scenario: team-audit health fails to NOT_SERVING when the database is lost
 - **WHEN** the database used by a running team-audit stops accepting connections
 - **THEN** within one probe interval health is NOT_SERVING
 - **VERIFIED BY**: `TestHealthReportsDatabaseDown`
@@ -32,7 +32,7 @@ team-audit SHALL report NOT_SERVING while its Postgres check fails.
 
 All existing team-audit tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged).
 
-#### Scenario: team-audit existing suites stay green and nothing is weakened
+#### Scenario: team-audit existing suites do not regress and no assertion is weakened
 - **WHEN** `make check` runs after the restructure
 - **THEN** every pre-existing test passes, and no assertion is removed or loosened
 - **VERIFIED BY**: `team-audit` `make check`
