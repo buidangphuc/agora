@@ -1,0 +1,124 @@
+# Feature manifest for platform-core (capability tracking-consent: shared analytics proto contract).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: platform-core
+owner: platform-team
+
+features:
+  - id: tracking-consent.old-payload-readable
+    title: Old payload stays readable
+    persona: buyer
+    priority: P2
+    kind: contract
+    summary: >-
+      A producer that leaves TrackingEvent fields 25 and 26 unset keeps flowing to the warehouse unchanged.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view beacon with no consent cookie and no GA client id
+      - Then the warehouse holds one row for that listing carrying the beacon's session id and page path
+      - And the envelope on analytics.events has no GA client id
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.missing-consent-denied
+    title: Missing consent reads as denied
+    persona: buyer
+    priority: P2
+    kind: contract
+    summary: >-
+      An event without consent set carries no granted consent flag and version 0.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.Track]
+    preconditions:
+      login: guest
+    acceptance:
+      - When a visitor posts a view beacon with no consent cookie and no GA client id
+      - Then the envelope on analytics.events grants no consent, with analytics, marketing and personalization false and version 0
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-non-admin-rejected
+    title: Non-admin is rejected
+    persona: buyer
+    priority: P2
+    kind: authz
+    summary: >-
+      GetChannelFunnel is admin-only; a seller or buyer gets PERMISSION_DENIED and no rows. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a signed-in seller
+      - When the seller requests GetChannelFunnel for their own seller id
+      - Then the channel funnel call returns 403 and no rows
+      - When a signed-in buyer requests GetChannelFunnel with no seller id
+      - Then the channel funnel call returns 403 and no rows
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-all-sellers
+    title: Empty seller means all sellers
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      An admin call with empty seller_id aggregates every seller; with seller_id set only that seller. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel for the last 30 days with no seller id
+      - And the admin requests GetChannelFunnel for the last 30 days for a seller with no events
+      - Then both channel funnel calls return 200
+      - And the seller-scoped funnel has no rows
+      - And no channel funnel count of the seller-scoped call exceeds the all-sellers total
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-invalid-range
+    title: Invalid date range
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      from after to returns INVALID_ARGUMENT. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel with from after to
+      - Then the channel funnel call returns 400
+    tags: [tracking, analytics]
+    status: planned
+  - id: tracking-consent.channel-funnel-empty-range
+    title: Empty range returns no rows
+    persona: admin
+    priority: P2
+    kind: contract
+    summary: >-
+      A range without events yields zero rows and no error. Red until add-ga4-export-import serves the RPC.
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    api:
+      exercised: [analytics.v1.GetChannelFunnel]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given an admin is logged in
+      - When the admin requests GetChannelFunnel over a range that holds no events
+      - Then the channel funnel call returns 200 with zero rows
+    tags: [tracking, analytics]
+    status: planned
