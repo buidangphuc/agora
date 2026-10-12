@@ -6,17 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/rpc"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/store"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
 )
@@ -27,16 +24,9 @@ const service = "hello"
 // SIGINT/SIGTERM) or a component fails. Build order: logger, telemetry, health,
 // database, server. Everything opened goes on the stack; closers run in reverse
 // order on shutdown and on an early failure.
+//
+// Migrations are not applied here: the deploy migrate job owns them.
 func Run(ctx context.Context, s config.Settings) error {
-	migrations, err := store.Migrations()
-	if err != nil {
-		return err
-	}
-	return run(ctx, s, migrations)
-}
-
-// run is Run with the migrations injected, so a test can supply a broken set.
-func run(ctx context.Context, s config.Settings, migrations fs.FS) error {
 	logger := logx.New(s.Runtime, service)
 	slog.SetDefault(logger)
 
@@ -50,22 +40,15 @@ func run(ctx context.Context, s config.Settings, migrations fs.FS) error {
 
 	health := healthx.New(healthx.DefaultInterval, logger)
 
-	if s.Postgres.Enabled {
-		pool, err := pgx.Open(ctx, s.Postgres)
-		switch {
-		case err == nil:
-			// A migration failure is fatal in every environment.
-			if err := migrate.Up(ctx, s.Postgres.URL, migrations); err != nil {
-				pool.Close()
-				return errors.Join(fmt.Errorf("migrate: %w", err), stack.Close(ctx))
-			}
-			health.Register("postgres", pgx.Checker(pool))
-			stack.Push(func(context.Context) error { pool.Close(); return nil })
-		case s.IsLocal():
-			logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
-		default:
-			return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
-		}
+	pool, err := pgx.Open(ctx, s.Postgres)
+	switch {
+	case err == nil:
+		health.Register("postgres", pgx.Checker(pool))
+		stack.Push(func(context.Context) error { pool.Close(); return nil })
+	case s.IsLocal():
+		logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
+	default:
+		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})

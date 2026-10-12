@@ -76,7 +76,7 @@ func startApp(t *testing.T, s config.Settings) *running {
 
 func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
 	port := freePort(t)
-	s := settings(port, "staging", sdkconfig.Postgres{Enabled: true, URL: closedDatabaseURL})
+	s := settings(port, "staging", sdkconfig.Postgres{URL: closedDatabaseURL})
 
 	done := make(chan error, 1)
 	go func() { done <- app.Run(context.Background(), s) }()
@@ -99,7 +99,7 @@ func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
 }
 
 func TestLocalFallsBackToMemoryStore(t *testing.T) {
-	s := settings(freePort(t), "local", sdkconfig.Postgres{Enabled: true, URL: closedDatabaseURL})
+	s := settings(freePort(t), "local", sdkconfig.Postgres{URL: closedDatabaseURL})
 	r := startApp(t, s)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -121,7 +121,7 @@ func TestLocalFallsBackToMemoryStore(t *testing.T) {
 
 func TestHealthReportsDatabaseDown(t *testing.T) {
 	url := testkit.Postgres(t)
-	s := settings(freePort(t), "local", sdkconfig.Postgres{Enabled: true, URL: url})
+	s := settings(freePort(t), "local", sdkconfig.Postgres{URL: url})
 	r := startApp(t, s)
 
 	watchCtx, stopWatch := context.WithTimeout(context.Background(), 60*time.Second)
@@ -174,7 +174,7 @@ func TestHealthReportsDatabaseDown(t *testing.T) {
 }
 
 func TestLocalMemoryStoreHealthIsServing(t *testing.T) {
-	s := settings(freePort(t), "local", sdkconfig.Postgres{Enabled: true, URL: closedDatabaseURL})
+	s := settings(freePort(t), "local", sdkconfig.Postgres{URL: closedDatabaseURL})
 	r := startApp(t, s)
 
 	// Outlast one probe interval (5s): a registered postgres check would have
@@ -194,7 +194,7 @@ func TestLocalMemoryStoreHealthIsServing(t *testing.T) {
 
 func TestBootDoesNotApplyMigrations(t *testing.T) {
 	url := testkit.Postgres(t)
-	r := startApp(t, settings(freePort(t), "local", sdkconfig.Postgres{Enabled: true, URL: url}))
+	r := startApp(t, settings(freePort(t), "local", sdkconfig.Postgres{URL: url}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

@@ -23,7 +23,7 @@ func TestMigrationsApplyAndPostgresRoundtrip(t *testing.T) {
 	if err := migrate.Up(ctx, url, fs.FS(migrations.Files)); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	pool, err := pgx.Open(ctx, config.Postgres{Enabled: true, URL: url})
+	pool, err := pgx.Open(ctx, config.Postgres{URL: url})
 	if err != nil {
 		t.Fatal(err)
 	}

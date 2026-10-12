@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"strings"
 	"testing"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
@@ -27,5 +28,14 @@ func TestConfigLoad(t *testing.T) {
 	}
 	if s.Postgres.URL != "postgres://test:pass@localhost:5432/db" {
 		t.Errorf("unexpected database URL %q", s.Postgres.URL)
+	}
+}
+
+func TestConfigLoadRequiresDatabaseURL(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50099")
+	t.Setenv("DATABASE_URL", "")
+
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("err = %v, want an error naming DATABASE_URL", err)
 	}
 }

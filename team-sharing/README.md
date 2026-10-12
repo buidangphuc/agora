@@ -16,7 +16,7 @@ Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com
 
 ## Contract
 
-Served: `platform.sharing.v1.SharingService` (`proto/platform/sharing/v1/sharing.proto`) on `:50065`, plus the standard gRPC health service and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default true). Health is SERVING while the database answers a ping, NOT_SERVING when it does not (checked every 5s) and during shutdown drain. A panic in a handler is recovered and returned as `Internal`; every call gets a request id and a log line. The only caller is `team-gateway` (`UPSTREAM_SHARING_ADDR`, default `team-sharing-svc:50065`), which exposes it over Connect and forwards the principal as `x-principal-{id,type,scopes}` metadata.
+Served: `platform.sharing.v1.SharingService` (`proto/platform/sharing/v1/sharing.proto`) on `:50065`, plus the standard gRPC health service and gRPC reflection (always on). Health is SERVING while the database answers a ping, NOT_SERVING when it does not (checked every 5s) and during shutdown drain. A panic in a handler is recovered and returned as `Internal`; every call gets a request id and a log line. The only caller is `team-gateway` (`UPSTREAM_SHARING_ADDR`, default `team-sharing-svc:50065`), which exposes it over Connect and forwards the principal as `x-principal-{id,type,scopes}` metadata.
 
 | RPC | Authorization | Behaviour |
 |---|---|---|
@@ -54,12 +54,11 @@ Migrations are in `migrations/` (`001_create_share_links`, `002_share_links_crea
 | `ENV` | `local` | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
 | `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
-| `GRPC_REFLECTION_ENABLED` | `true` | gRPC reflection. |
 | `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
-| `DATABASE_ENABLED`, `DATABASE_URL`, `DB_MAX_CONNS` | `true`, required when enabled, `10` | Postgres. |
+| `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | Postgres. A missing `DATABASE_URL` fails at load. |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 
-Database behaviour: the pool is opened with a ping. Outside `ENV=local` an unreachable database fails boot (non-nil error, port never opened). With `ENV=local` the service logs a warning and serves from the in-memory store. `DATABASE_ENABLED=false` also uses the in-memory store.
+Database behaviour: the pool is opened with a ping. Outside `ENV=local` an unreachable database fails boot (non-nil error, port never opened). With `ENV=local` the service logs a warning and serves from the in-memory store.
 
 ## Run locally
 
@@ -71,7 +70,7 @@ docker compose -f docker-compose.services.yaml up --build team-sharing
 
 This brings up `postgres`, `team-sharing-migrate` and `team-sharing`. No port is published; reach it through `team-gateway` (`:8080`) or `docker exec`. There is no `jobs` profile for this service.
 
-Standalone: start a Postgres with `sharing_db`/`sharing_svc`, apply `migrations/*.up.sql`, copy `.env.example` to `.env`, export the vars (the code does not load `.env` itself), then `make run`. Note `.env.example` points at port `5447`, while compose uses the in-network `postgres:5432`. Without a database, run with `ENV=local DATABASE_ENABLED=false GRPC_PORT=50065 make run`.
+Standalone: start a Postgres with `sharing_db`/`sharing_svc`, apply `migrations/*.up.sql`, copy `.env.example` to `.env`, export the vars (the code does not load `.env` itself), then `make run`. Note `.env.example` points at port `5447`, while compose uses the in-network `postgres:5432`. Without a database, run with `ENV=local GRPC_PORT=50065 DATABASE_URL=postgres://x@127.0.0.1:1/x make run`; the unreachable URL triggers the in-memory fallback.
 
 ## Build, test and lint
 
@@ -98,7 +97,7 @@ Run `make proto` first on a fresh checkout and again after a proto re-sync, beca
 
 - `proto/` is vendored from `platform-core/packages/proto` (ADR-0001) and is currently byte-identical to it. Never edit it here: change platform-core first, then re-sync.
 - `generated/` is gitignored (root `.gitignore` `**/generated/`) and must be regenerated with `make proto` after a fresh checkout or proto re-sync, or the build fails.
-- In-memory fallback: only with `ENV=local` (or `DATABASE_ENABLED=false`). Links are then lost on restart, and health stays SERVING because there is no database to check.
+- In-memory fallback: only with `ENV=local` and an unreachable database. Links are then lost on restart, and health stays SERVING because there is no database to check.
 - Open Graph data is not supplied by callers. The service synthesizes a Vietnamese placeholder title/description and a `https://cdn.batdongsan.com.vn/og/<type>/<id>.png` image URL (`internal/sharelink/sharelink.go`, `defaultOgMeta`).
 - The `utm` map is stored verbatim and returned on resolve; the service does not append it to any URL.
 

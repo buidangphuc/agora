@@ -132,9 +132,8 @@ func (s validatedSettings) Validate() error { return s.Postgres.Validate() }
 
 func TestLoadRunsValidate(t *testing.T) {
 	t.Setenv("GRPC_PORT", "1")
-	t.Setenv("DATABASE_ENABLED", "true")
 
-	_, err := config.Load[validatedSettings]()
+	_, err := config.Load[validatedSettings]() // DATABASE_URL unset
 	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
 		t.Fatalf("err = %v, want an error naming DATABASE_URL", err)
 	}
@@ -142,12 +141,6 @@ func TestLoadRunsValidate(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
 	if _, err := config.Load[validatedSettings](); err != nil {
 		t.Fatalf("with URL: %v", err)
-	}
-
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("DATABASE_ENABLED", "false")
-	if _, err := config.Load[validatedSettings](); err != nil {
-		t.Fatalf("disabled: %v", err)
 	}
 }
 
