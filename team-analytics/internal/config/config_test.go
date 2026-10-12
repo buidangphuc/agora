@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/buidangphuc/team-analytics/internal/config"
@@ -94,5 +95,32 @@ func TestRecsAttributionDefaultAndValidation(t *testing.T) {
 	bad.Recs.AttributionWindowHours = 0
 	if err := bad.Validate(); err == nil {
 		t.Error("Validate accepted RECS_ATTRIBUTION_WINDOW_HOURS=0")
+	}
+}
+
+// Scenario: Invalid threshold is rejected at startup
+func TestInvalidGA4ReconcileThresholdIsRejectedAtStartup(t *testing.T) {
+	for _, v := range []string{"-1", "abc"} {
+		t.Setenv("GA4_RECONCILE_MAX_DIFF_RATIO", v)
+		_, err := config.LoadSettings()
+		if err == nil || !strings.Contains(err.Error(), "GA4_RECONCILE_MAX_DIFF_RATIO") {
+			t.Errorf("value %q: want error naming GA4_RECONCILE_MAX_DIFF_RATIO, got %v", v, err)
+		}
+	}
+}
+
+// Scenario: The job is a no-op when unconfigured (GA4 settings default to unset dataset, valid threshold)
+func TestGA4SettingsDefaults(t *testing.T) {
+	t.Setenv("GA4_EXPORT_DATASET", "")
+	t.Setenv("GA4_RECONCILE_MAX_DIFF_RATIO", "")
+	s, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.GA4.ExportDataset != "" {
+		t.Errorf("GA4_EXPORT_DATASET default = %q, want empty", s.GA4.ExportDataset)
+	}
+	if s.GA4.ReconcileMaxDiffRatio != 0.35 {
+		t.Errorf("GA4_RECONCILE_MAX_DIFF_RATIO default = %v, want 0.35", s.GA4.ReconcileMaxDiffRatio)
 	}
 }
