@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+
 	identityv1 "github.com/buidangphuc/team-notification/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-notification/generated/platform/listing/v1"
 )
@@ -133,6 +135,21 @@ func TestResolve_BuyerGetsUserDisplayName(t *testing.T) {
 	}
 	if pf.md.Get("x-principal-type")[0] != "service" || pf.md.Get("x-principal-scopes")[0] != "listing.read,identity.read" {
 		t.Fatalf("principal metadata = %v", pf.md)
+	}
+}
+
+// The SDK connection carries the request id of the calling context to the
+// upstream, so a lookup can be traced back to the event that caused it.
+func TestResolve_ForwardsRequestID(t *testing.T) {
+	sf := &fakeStorefronts{shops: []*listingv1.ShopSummary{{SellerId: "seller-1", DisplayName: "Shop"}}}
+	r := serve(t, sf, &fakeProfiles{}).Resolver
+
+	ctx := reqctx.WithRequestID(context.Background(), "req-42")
+	if got := r.ResolveSenderName(ctx, "seller-1", "seller-1"); got != "Shop" {
+		t.Fatalf("name = %q", got)
+	}
+	if ids := sf.md.Get("x-request-id"); len(ids) != 1 || ids[0] != "req-42" {
+		t.Fatalf("request id metadata = %v", sf.md)
 	}
 }
 
