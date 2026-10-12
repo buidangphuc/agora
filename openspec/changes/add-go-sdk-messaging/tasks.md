@@ -64,7 +64,7 @@ func SchemaSQL(table string) string
 
 Promote family A SQL (team-domain `internal/store/outbox_pg.go`, `internal/events/relayer.go`). Mark-published clears `error` and returns not-found on 0 rows.
 
-- [ ] 3.1 Tests first (testkit Postgres): `TestConcurrentRelayersPublishOnce`, `TestFailingRowBacksOffThenParks`, `TestEnqueueRollsBackWithTx`. Then implement.
+- [x] 3.1 Tests first (testkit Postgres): `TestConcurrentRelayersPublishOnce`, `TestFailingRowBacksOffThenParks`, `TestEnqueueRollsBackWithTx`. Then implement.
 
 ## 4. consume + dedupe (wave 2)
 
