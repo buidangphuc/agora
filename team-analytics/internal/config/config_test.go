@@ -131,7 +131,21 @@ func clearRelayEnv(t *testing.T) {
 	t.Helper()
 	for _, k := range []string{"GA4_API_SECRET", "GA4_MEASUREMENT_ID", "GA4_ENDPOINT",
 		"GA4_RELAY_CONSUMER_GROUP", "GA4_RELAY_DLQ_TOPIC", "GA4_RELAY_PROBE_PORT"} {
-		t.Setenv(k, "")
+		t.Setenv(k, "") // registers restore of the original value
+		os.Unsetenv(k)  // truly unset, so empty-string semantics are not conflated with unset
+	}
+}
+
+// Scenario: Disabled without secret (an explicitly empty string is honoured, not replaced by the default).
+func TestGA4RelayExplicitEmptyEndpointIsHonoured_DisabledWithoutSecret(t *testing.T) {
+	clearRelayEnv(t)
+	t.Setenv("GA4_ENDPOINT", "")
+	s, err := config.LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings (relay disabled): %v", err)
+	}
+	if s.GA4.Endpoint != "" {
+		t.Errorf("explicit empty GA4_ENDPOINT = %q, want empty (no default substitution)", s.GA4.Endpoint)
 	}
 }
 
