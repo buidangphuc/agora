@@ -30,6 +30,7 @@ type Settings struct {
 	Tracking      Tracking
 	Recs          Recs
 	Engagement    Engagement
+	GA4           GA4
 	Observability Observability
 }
 
@@ -46,6 +47,8 @@ type Server struct {
 	Port              int     `env:"GRPC_PORT" default:"50059"`
 	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
 	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
+	// MetricsAddr is the HTTP listen address of GET /metrics (empty disables it).
+	MetricsAddr string `env:"METRICS_ADDR" default:":9109"`
 }
 
 // Kafka configures the analytics-events consumer (ADR-0002).
@@ -120,6 +123,21 @@ type Recs struct {
 	AttributionWindowHours int `env:"RECS_ATTRIBUTION_WINDOW_HOURS" default:"24"`
 }
 
+// GA4 configures the daily GA4 export import (run inside cmd/consumer). It is a no-op
+// while ExportDataset is empty.
+type GA4 struct {
+	// ExportSource: bigquery (default when empty) | fixture (Parquet files for local/e2e).
+	ExportSource string `env:"GA4_EXPORT_SOURCE" default:"bigquery"`
+	// ExportDataset: BigQuery dataset holding events_YYYYMMDD ("dataset" or "project.dataset").
+	ExportDataset string `env:"GA4_EXPORT_DATASET" default:""`
+	// FixtureDir holds events_YYYYMMDD.parquet when ExportSource=fixture.
+	FixtureDir string `env:"GA4_EXPORT_FIXTURE_DIR" default:""`
+	// ImportAt: daily UTC "HH:MM" the consumer imports yesterday's export.
+	ImportAt string `env:"GA4_IMPORT_AT" default:"03:30"`
+	// ReconcileMaxDiffRatio: GA4 vs first-party event divergence threshold (>= 0).
+	ReconcileMaxDiffRatio float64 `env:"GA4_RECONCILE_MAX_DIFF_RATIO" default:"0.35"`
+}
+
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
@@ -171,6 +189,14 @@ func (s *Settings) Validate() error {
 	if strings.TrimSpace(s.Engagement.EventsTopic) == "" || strings.TrimSpace(s.Engagement.DLQTopic) == "" ||
 		strings.TrimSpace(s.Engagement.ConsumerGroup) == "" {
 		return errors.New("ENGAGEMENT_EVENTS_TOPIC, ENGAGEMENT_DLQ_TOPIC and ENGAGEMENT_CONSUMER_GROUP must not be empty")
+	}
+	if s.GA4.ReconcileMaxDiffRatio < 0 {
+		return fmt.Errorf("GA4_RECONCILE_MAX_DIFF_RATIO must be >= 0: %v", s.GA4.ReconcileMaxDiffRatio)
+	}
+	switch s.GA4.ExportSource {
+	case "", "bigquery", "fixture":
+	default:
+		return fmt.Errorf("GA4_EXPORT_SOURCE must be %q or %q, got %q", "bigquery", "fixture", s.GA4.ExportSource)
 	}
 	switch s.Warehouse.Driver {
 	case DriverDuckDB:
@@ -235,7 +261,8 @@ func bindGroups(v reflect.Value) error {
 				continue
 			}
 			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
+			// An empty value of a non-string setting means "unset" (keeps the default).
+			if val, ok := os.LookupEnv(key); ok && (val != "" || group.Field(j).Kind() == reflect.String) {
 				raw = val
 			}
 			if err := setField(group.Field(j), raw); err != nil {

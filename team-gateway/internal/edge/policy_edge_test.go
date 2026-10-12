@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	analyticsv1 "github.com/buidangphuc/team-gateway/generated/platform/analytics/v1"
 	auditv1 "github.com/buidangphuc/team-gateway/generated/platform/audit/v1"
 	"github.com/buidangphuc/team-gateway/internal/edge"
 	"github.com/buidangphuc/team-gateway/internal/upstream"
@@ -46,5 +47,52 @@ func TestQueryAuditLogAnonymousRejectedAtEdge(t *testing.T) {
 	}
 	if up.calls != 0 {
 		t.Fatalf("upstream called %d times, want 0", up.calls)
+	}
+}
+
+type countingAnalytics struct {
+	analyticsv1.AnalyticsQueryServiceClient
+	calls int
+}
+
+func (c *countingAnalytics) GetChannelFunnel(context.Context, *analyticsv1.GetChannelFunnelRequest, ...grpc.CallOption) (*analyticsv1.GetChannelFunnelResponse, error) {
+	c.calls++
+	return &analyticsv1.GetChannelFunnelResponse{}, nil
+}
+
+// Scenario "Only admins can read the channel funnel": anonymous -> 401,
+// authenticated non-admin -> 403, and neither reaches the upstream.
+func TestOnlyAdminsCanReadTheChannelFunnel_EdgeRejects(t *testing.T) {
+	f := newCockpitFixture(t)
+	for _, c := range []struct {
+		name string
+		auth string
+		want int
+	}{
+		{"anonymous", "", http.StatusUnauthorized},
+		{"non-admin", "Bearer " + f.token(t, "order.read"), http.StatusForbidden},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			up := &countingAnalytics{}
+			srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AnalyticsQuery: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+			t.Cleanup(srv.Close)
+			req, _ := http.NewRequest(http.MethodPost, srv.URL+"/platform.analytics.v1.AnalyticsQueryService/GetChannelFunnel", strings.NewReader(`{}`))
+			req.Header.Set("Content-Type", "application/json")
+			if c.auth != "" {
+				req.Header.Set("Authorization", c.auth)
+			}
+			res, err := srv.Client().Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer res.Body.Close()
+			if res.StatusCode != c.want {
+				b, _ := io.ReadAll(res.Body)
+				t.Fatalf("%s GetChannelFunnel = %d %s, want %d", c.name, res.StatusCode, b, c.want)
+			}
+			if up.calls != 0 {
+				t.Fatalf("upstream called %d times, want 0", up.calls)
+			}
+		})
 	}
 }

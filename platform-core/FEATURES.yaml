@@ -63,7 +63,8 @@ features:
       - When a signed-in buyer requests GetChannelFunnel with no seller id
       - Then the channel funnel call returns 403 and no rows
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Non-admin is rejected"
   - id: tracking-consent.channel-funnel-all-sellers
     title: Empty seller means all sellers
     persona: admin
@@ -85,7 +86,8 @@ features:
       - And the seller-scoped funnel has no rows
       - And no channel funnel count of the seller-scoped call exceeds the all-sellers total
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Empty seller means all sellers"
   - id: tracking-consent.channel-funnel-invalid-range
     title: Invalid date range
     persona: admin
@@ -104,7 +106,8 @@ features:
       - When the admin requests GetChannelFunnel with from after to
       - Then the channel funnel call returns 400
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Invalid date range"
   - id: tracking-consent.channel-funnel-empty-range
     title: Empty range returns no rows
     persona: admin
@@ -123,7 +126,8 @@ features:
       - When the admin requests GetChannelFunnel over a range that holds no events
       - Then the channel funnel call returns 200 with zero rows
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Empty range returns no rows"
 
   - id: tracking-consent.unit-consentstate-fields-present-with-stable-numbers
     title: "ConsentState fields present with stable numbers"

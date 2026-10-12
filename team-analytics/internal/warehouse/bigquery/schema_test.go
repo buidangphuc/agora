@@ -39,3 +39,20 @@ func TestOrderFactRowSaverOmitsEmptyBuyer(t *testing.T) {
 		t.Fatalf("buyer_id = %v", row["buyer_id"])
 	}
 }
+
+// Scenario: Consent and client id are persisted (BigQuery row carries the consent columns)
+func TestConsentAndClientIdArePersisted_BigQueryRowSaver(t *testing.T) {
+	row, _, err := (&rowSaver{rec: &warehouse.TrackingRecord{
+		EventID: "e", GaClientID: "111.222", ConsentVersion: 1,
+		ConsentAnalytics: true, ConsentMarketing: false, ConsentPersonalization: true,
+	}}).Save()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row["ga_client_id"] != "111.222" || row["consent_analytics"] != true || row["consent_marketing"] != false || row["consent_personalization"] != true {
+		t.Errorf("row = %v", row)
+	}
+	if v, ok := row["consent_version"]; !ok || v != int64(1) {
+		t.Errorf("consent_version = %v (%T), want int64(1)", v, v)
+	}
+}

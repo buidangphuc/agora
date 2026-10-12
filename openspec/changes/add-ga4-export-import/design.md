@@ -2,6 +2,7 @@
 
 - Session identity and window: `ga4_sessions` has `export_date` (the export day D the row came from) so replace is `DELETE ... WHERE export_date = D` then insert. A session has `ts` (first GA4 event) and `ended_at` (last GA4 event ts of that session), both written by the import. Session window = [`ts`, min(next session `ts` of the same `user_pseudo_id`, `ended_at` + 30 min)). An event is attributed to the session whose window contains its time (windows of one client do not overlap, so no row multiplication); otherwise `source`='(none)'.
 - Join key: `tracking_events.ga_client_id` holds the client-id part only (`111.222`, no `GA1.1.` prefix), equal to GA4 `user_pseudo_id`.
+- Hosting: the import runs inside the consumer process (it owns the DuckDB single-writer lock on its RWO PVC and the BigQuery writer), not as a separate CronJob pod. A daily timer (`GA4_IMPORT_AT`, default 03:30 UTC) imports the previous UTC date; `POST /internal/ga4import?date=YYYY-MM-DD` on the internal `METRICS_ADDR` listener (:9109, cluster-only, not routed by the gateway) runs it synchronously (200 + rows, 4xx bad date, 5xx with date on failure). `cmd/ga4import` is a thin HTTP client of that trigger. Unconfigured means no-op with rows=0.
 - Import: per export date D, read `events_D` (`session_start` and `first_visit` + `page_view` events), derive one row per
   (`user_pseudo_id`, `ga_session_id`) with `source/medium/campaign` from `traffic_source` (or event params
   `source`,`medium`,`campaign`), `landing_page` = first `page_location` (query stripped), `ts` = session start.

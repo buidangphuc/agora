@@ -34,7 +34,7 @@ type Target struct {
 func Targets(path string) []Target {
 	dir := filepath.Dir(path)
 	ts := []Target{{warehouse.TableName, path}}
-	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName, warehouse.ListingSellersTableName} {
+	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName, warehouse.ListingSellersTableName, warehouse.GA4SessionsTableName, warehouse.AttributedViewName} {
 		ts = append(ts, Target{rel, filepath.Join(dir, rel+".parquet")})
 	}
 	return ts

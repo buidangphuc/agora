@@ -90,6 +90,28 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		}
 	}
 
+	for _, t := range []struct {
+		name   string
+		schema []warehouse.Column
+	}{
+		{warehouse.GA4SessionsTableName, warehouse.GA4SessionsSchema},
+		{warehouse.GA4EventsDailyTableName, warehouse.GA4EventsDailySchema},
+		{warehouse.GA4ImportRunsTableName, warehouse.GA4ImportRunsSchema},
+	} {
+		cols := make([]string, len(t.schema))
+		for i, c := range t.schema {
+			cols[i] = c.Name + " " + c.DuckDBType
+		}
+		if _, err := w.db.ExecContext(ctx, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", t.name, strings.Join(cols, ", "))); err != nil {
+			return fmt.Errorf("ensure %s table: %w", t.name, err)
+		}
+		for _, c := range t.schema {
+			if _, err := w.db.ExecContext(ctx, fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", t.name, c.Name, c.DuckDBType)); err != nil {
+				return fmt.Errorf("migrate %s column %s: %w", t.name, c.Name, err)
+			}
+		}
+	}
+
 	listingSellersDDL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
   listing_id VARCHAR PRIMARY KEY,
   seller_id  VARCHAR NOT NULL,
@@ -167,8 +189,31 @@ FROM %s`, warehouse.TableName)
 		}
 	}
 
+	if _, err := w.db.ExecContext(ctx, attributedViewDDL); err != nil {
+		return fmt.Errorf("ensure attributed view: %w", err)
+	}
+
 	return nil
 }
+
+// attributedViewDDL adds source, medium, campaign, landing_page: the GA4 session
+// of the event's client whose window [ts, min(next session ts, ended_at+30min))
+// holds the event; '(none)' when there is no client id or no such session.
+var attributedViewDDL = fmt.Sprintf(`CREATE OR REPLACE VIEW %[1]s AS
+WITH win AS (
+  SELECT user_pseudo_id, source, medium, campaign, landing_page, ts,
+    LEAST(COALESCE(LEAD(ts) OVER (PARTITION BY user_pseudo_id ORDER BY ts), ended_at + INTERVAL 30 MINUTE),
+          ended_at + INTERVAL 30 MINUTE) AS win_end
+  FROM %[2]s WHERE user_pseudo_id IS NOT NULL AND user_pseudo_id <> ''
+)
+SELECT r.*,
+  COALESCE(w.source, '(none)') AS source,
+  COALESCE(w.medium, '(none)') AS medium,
+  COALESCE(w.campaign, '(none)') AS campaign,
+  COALESCE(w.landing_page, '(none)') AS landing_page
+FROM %[3]s r LEFT JOIN win w
+  ON r.ga_client_id = w.user_pseudo_id AND r.occurred_at >= w.ts AND r.occurred_at < w.win_end`,
+	warehouse.AttributedViewName, warehouse.GA4SessionsTableName, warehouse.ResolvedViewName)
 
 var engagementFactsDDL = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
   event_id    VARCHAR,
@@ -387,6 +432,11 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.ShippingTier,
 			r.PaymentType,
 			ingestedAt,
+			r.GaClientID,
+			int64(r.ConsentVersion),
+			r.ConsentAnalytics,
+			r.ConsentMarketing,
+			r.ConsentPersonalization,
 			r.EventID, // NOT EXISTS dedupe key
 		)
 		if err != nil {

@@ -34,6 +34,11 @@ func RecordFromEnvelope(value []byte) (rec *warehouse.TrackingRecord, ok bool, e
 	}
 
 	principal := env.GetPrincipal()
+	consent := te.GetConsent()
+	gaClientID := te.GetGaClientId()
+	if consent == nil || !consent.GetAnalytics() {
+		gaClientID = "" // no analytics consent: never persist the client id
+	}
 	return &warehouse.TrackingRecord{
 		EventID:       env.GetEventId(),
 		EventType:     eventTypeName(te.GetEventType()),
@@ -63,6 +68,12 @@ func RecordFromEnvelope(value []byte) (rec *warehouse.TrackingRecord, ok bool, e
 		EventGroupID:  te.GetEventGroupId(),
 		ShippingTier:  te.GetShippingTier(),
 		PaymentType:   te.GetPaymentType(),
+		GaClientID:    gaClientID,
+
+		ConsentVersion:         int(consent.GetVersion()),
+		ConsentAnalytics:       consent.GetAnalytics(),
+		ConsentMarketing:       consent.GetMarketing(),
+		ConsentPersonalization: consent.GetPersonalization(),
 	}, true, nil
 }
 

@@ -43,6 +43,10 @@ type Service struct {
 	// attributionHours is RECS_ATTRIBUTION_WINDOW_HOURS.
 	attributionHours int
 	now              func() time.Time
+
+	reconcileOn    bool
+	reconcileMax   float64
+	reconcileGauge RatioGauge
 }
 
 // TrackingThresholds are the limits GetTrackingQualityReport derives its status
@@ -381,11 +385,14 @@ func (s *Service) GetTrackingQualityReport(ctx context.Context, req *analyticsv1
 	if incomplete {
 		reasons = append(reasons, "incomplete")
 	}
+	reasons = append(reasons, s.reconcileReasons(ctx, now)...)
 	sort.Strings(reasons)
 	resp.Reasons = reasons
 	resp.Status = statusOK
-	if len(reasons) > 0 {
-		resp.Status = statusDegraded
+	for _, r := range reasons {
+		if r != "ga4_missing" {
+			resp.Status = statusDegraded
+		}
 	}
 	return resp, nil
 }
@@ -478,6 +485,35 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 			share = float64(fallback[p]) / float64(total[p])
 		}
 		resp.Fallback = append(resp.Fallback, &analyticsv1.PlacementFallbackShare{PlacementId: p, FallbackShare: share})
+	}
+	return resp, nil
+}
+
+// GetChannelFunnel splits the funnel by acquisition channel (source, medium,
+// campaign) over [from, to]. Admin only; seller_id optionally narrows it.
+func (s *Service) GetChannelFunnel(ctx context.Context, req *analyticsv1.GetChannelFunnelRequest) (*analyticsv1.GetChannelFunnelResponse, error) {
+	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+		return nil, err
+	}
+	if req.GetFrom() != nil && req.GetTo() != nil && req.GetFrom().AsTime().After(req.GetTo().AsTime()) {
+		return nil, status.Error(codes.InvalidArgument, "from must not be after to")
+	}
+	cr, ok := s.repo.(ChannelFunnelRepository)
+	if !ok {
+		return nil, status.Error(codes.Unavailable, "channel funnel is not available on this warehouse")
+	}
+	from, to := window(req.GetFrom(), req.GetTo())
+	data, err := cr.ChannelFunnel(ctx, strings.TrimSpace(req.GetSellerId()), from, to)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "channel funnel: %v", err)
+	}
+	resp := &analyticsv1.GetChannelFunnelResponse{Rows: make([]*analyticsv1.ChannelFunnelRow, 0, len(data))}
+	for _, d := range data {
+		resp.Rows = append(resp.Rows, &analyticsv1.ChannelFunnelRow{
+			Source: d.Source, Medium: d.Medium, Campaign: d.Campaign,
+			Impressions: d.Impressions, Views: d.Views, Adds: d.Adds,
+			BeginCheckouts: d.BeginCheckouts, Purchases: d.Purchases,
+		})
 	}
 	return resp, nil
 }
