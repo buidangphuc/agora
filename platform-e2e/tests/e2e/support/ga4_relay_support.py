@@ -316,3 +316,46 @@ def decode_dlq_order(raw: bytes) -> str:
                 if n == 1 and w == 2:
                     return bytes(v).decode()  # type: ignore[arg-type]
     return ""
+
+
+def group_lag(group: str, topic: str) -> int:
+    """Total lag of the relay's consumer group on `topic` (committed offsets vs high watermarks)."""
+    from confluent_kafka import Consumer, TopicPartition
+    from confluent_kafka.admin import AdminClient
+
+    brokers = get_settings().kafka_brokers
+    admin = AdminClient({"bootstrap.servers": brokers})
+    from confluent_kafka import ConsumerGroupTopicPartitions
+
+    res = admin.list_consumer_group_offsets([ConsumerGroupTopicPartitions(group)])[group].result(15)
+    c = Consumer({"bootstrap.servers": brokers, "group.id": f"e2e-lag-{time.time()}"})
+    try:
+        lag = 0
+        parts = c.list_topics(topic, timeout=10).topics[topic].partitions
+        committed = {tp.partition: tp.offset for tp in res.topic_partitions if tp.topic == topic}
+        for p in parts:
+            _lo, hi = c.get_watermark_offsets(TopicPartition(topic, p), timeout=10)
+            lag += max(0, hi - max(committed.get(p, 0), 0))
+        return lag
+    finally:
+        c.close()
+
+
+def wait_mapping_caught_up(timeout_s: float = 60.0) -> None:
+    """Wait until the relay has consumed everything produced so far on analytics.events.
+
+    Falls back to the fixed settle delay if the group cannot be inspected.
+    """
+    group = os.getenv("GA4_RELAY_GROUP", "team-analytics.ga4-relay")
+    topic = get_settings().kafka_analytics_topic
+    deadline = time.monotonic() + timeout_s
+    time.sleep(1.0)  # let the fetch/commit cycle see the new records
+    while time.monotonic() < deadline:
+        try:
+            if group_lag(group, topic) == 0:
+                return
+        except Exception:  # noqa: BLE001 - group unknown / admin API unavailable
+            time.sleep(settle_s())
+            return
+        time.sleep(1.0)
+    raise AssertionError(f"relay group {group} still lags on {topic} after {timeout_s:.0f}s")

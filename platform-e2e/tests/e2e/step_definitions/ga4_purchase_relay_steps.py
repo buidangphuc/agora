@@ -83,6 +83,7 @@ def mock_and_relay(world: World) -> None:
     assert f":{ga.MOCK_PORT}{ga.MOCK_PATH}" in endpoint, f"relay GA4_ENDPOINT is {endpoint!r}"
     _wait_ready(ga.relay_url())
     _x(world)["ga4_secret"] = env["GA4_API_SECRET"]
+    _x(world)["ga4_mock_start"] = len(_MOCK.requests)
 
 
 # ── mapping events ───────────────────────────────────────────────────────
@@ -90,19 +91,19 @@ def mock_and_relay(world: World) -> None:
 def consented_events(world: World, buyer: str, ids: str) -> None:
     for cid in (i.strip() for i in ids.split(",")):
         ga.produce_tracking(_n(world, buyer), cid, True)
-    time.sleep(ga.settle_s())
+    ga.wait_mapping_caught_up()
 
 
 @given(parsers.parse('buyer "{buyer}" then emits an event with analytics consent denied'))
 def denied_event(world: World, buyer: str) -> None:
     ga.produce_tracking(_n(world, buyer), "999.9", False)
-    time.sleep(ga.settle_s())
+    ga.wait_mapping_caught_up()
 
 
 @given(parsers.parse('buyer "{buyer}" emits only events with analytics consent denied'))
 def only_denied(world: World, buyer: str) -> None:
     ga.produce_tracking(_n(world, buyer), "999.9", False)
-    time.sleep(ga.settle_s())
+    ga.wait_mapping_caught_up()
 
 
 @given(parsers.parse('an anonymous event with GA client id "{cid}" and consent granted is emitted'))
@@ -113,7 +114,7 @@ def anonymous_event(world: World, cid: str) -> None:
         ga.uid("anon"),
         ga.envelope(ga.TRACKING_TYPE, payload, principal_id=""),
     )
-    time.sleep(ga.settle_s())
+    ga.wait_mapping_caught_up()
 
 
 # ── order events ─────────────────────────────────────────────────────────
@@ -292,7 +293,7 @@ def _sentinel(world: World) -> None:
         return
     buyer = ga.uid("sent-b")
     ga.produce_tracking(buyer, "777.7", True)
-    time.sleep(ga.settle_s())
+    ga.wait_mapping_caught_up()
     oid = ga.uid("sent-o")
     payload = ga.order_paid(oid, buyer, _items("ls::1:1000"), 1000, paid_at=int(time.time()))
     ga.produce(ga.get_settings().kafka_order_topic, oid, ga.envelope(ga.ORDER_PAID_TYPE, payload))
@@ -335,7 +336,8 @@ def _last(world: World, order: str) -> dict:
 # ── payload assertions ───────────────────────────────────────────────────
 @then(parsers.parse('the request for order "{order}" has client id "{cid}"'))
 def has_client_id(world: World, order: str, cid: str) -> None:
-    assert _last(world, order)["body"].get("client_id") == cid
+    body = _last(world, order)["body"]
+    assert body.get("client_id") == cid, body
 
 
 @then(
@@ -422,7 +424,11 @@ def capped(world: World, order: str, n: int, value: int) -> None:
 @then(parsers.parse('no request to the GA4 mock carries client id "{cid}"'))
 def no_client_id(world: World, cid: str) -> None:
     _sentinel(world)
-    hits = [r for r in list(_MOCK.requests) if r["body"].get("client_id") == cid]
+    hits = [
+        r
+        for r in list(_MOCK.requests)[_x(world)["ga4_mock_start"] :]
+        if r["body"].get("client_id") == cid
+    ]
     assert not hits, f"{len(hits)} requests carried client id {cid}"
 
 
@@ -580,12 +586,16 @@ def start_disabled(world: World, request) -> None:  # noqa: ANN001
         f.write("\n".join(f"{k}={v}" for k, v in env.items()))
     groups_before = ga.consumer_groups()
     request.addfinalizer(lambda: ga.docker("rm", "-f", name, check=False))
-    cmd = meta["Config"].get("Cmd") or []
-    ga.docker(
+    entry = meta["Config"].get("Entrypoint") or []
+    cmd = list(entry[1:]) + (meta["Config"].get("Cmd") or [])
+    run = [
         "run", "-d", "--name", name, "--network", network, "--env-file", f.name,
         "--add-host", "host.docker.internal:host-gateway",
-        "-p", f"127.0.0.1::{port}", meta["Config"]["Image"], *cmd,
-    )  # fmt: skip
+        "-p", f"127.0.0.1::{port}",
+    ]  # fmt: skip
+    if entry:
+        run += ["--entrypoint", entry[0]]
+    ga.docker(*run, meta["Config"]["Image"], *cmd)
     mapped = ga.docker("port", name, port).stdout.strip().splitlines()[0].rsplit(":", 1)[-1]
     before = len(_MOCK.requests)
     _wait_ready(f"http://127.0.0.1:{mapped}", 60)

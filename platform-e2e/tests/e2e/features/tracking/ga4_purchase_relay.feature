@@ -14,7 +14,7 @@ Feature: GA4 server-side purchase relay
   # ── Client id mapping ────────────────────────────────────────────────
 
   Scenario: Latest consented client id wins
-    Given buyer "b1" emits consented events with GA client ids "111.1" then "222.2"
+    Given buyer "b1" emits consented events with GA client ids "111.1,222.2"
     When order "o1" for buyer "b1" is paid with total 500000 and items "l1::2:200000,l2::1:90000"
     Then the GA4 mock receives exactly 1 request for order "o1"
     And the request for order "o1" has client id "222.2"
