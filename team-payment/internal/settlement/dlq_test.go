@@ -3,7 +3,6 @@ package settlement_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"sync"
 	"testing"
@@ -12,7 +11,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
+	sdkconsume "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
@@ -83,15 +82,15 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	}
 
 	apply := &creditApplier{}
-	h := settlement.New(apply, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	run := func(dlq consume.DLQProducer) error {
+	h := settlement.New(apply, slog.New(slog.DiscardHandler))
+	run := func(dlq sdkconsume.DLQProducer) error {
 		client, err := kafkax.NewConsumerClient(kc, group, []string{topic},
 			kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()), kgo.AllowAutoTopicCreation())
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer client.Close()
-		c := consume.NewConsumer(client, h.Handle, dlq, consume.Options{
+		c := sdkconsume.NewConsumer(client, h.Handle, dlq, sdkconsume.Options{
 			DLQTopic: "order.events.payment-settlement.dlq", MaxAttempts: 2, BaseBackoff: time.Millisecond,
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -116,7 +115,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	c := consume.NewConsumer(client, h.Handle, up, consume.Options{DLQTopic: "dlq", MaxAttempts: 2, BaseBackoff: time.Millisecond})
+	c := sdkconsume.NewConsumer(client, h.Handle, up, sdkconsume.Options{DLQTopic: "dlq", MaxAttempts: 2, BaseBackoff: time.Millisecond})
 	done := make(chan error, 1)
 	go func() { done <- c.Run(ctx) }()
 	deadline := time.Now().Add(30 * time.Second)

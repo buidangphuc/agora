@@ -1,44 +1,46 @@
+// Package config holds team-payment's settings: the go-sdk groups it uses (Runtime,
+// GRPC, Postgres, OTel, Kafka, Outbox) plus the service-specific groups below, bound
+// from flat env keys with sdkconfig.Load. The `env`/`default` tags are the single source
+// of truth for loading and for the .env.example drift test.
 package config
 
 import (
-	"errors"
 	"fmt"
-	"os"
-	"reflect"
-	"strconv"
 	"strings"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
+// Settings is the whole configuration surface. Runtime and GRPC are embedded SDK
+// groups; the others are named because their field names collide.
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Database      Database
-	Upstream      Upstream
-	Mock          Mock
-	Payout        Payout
-	Observability Observability
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
+	Kafka    sdkconfig.Kafka
+	Outbox   sdkconfig.Outbox
+	Events   Events
+	Upstream Upstream
+	Mock     Mock
+	Payout   Payout
 }
 
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
+// Events names the topics and the consumer group of the payment event flows. Brokers
+// are in Kafka; the relayer and the settlement consumer are always on.
+type Events struct {
+	// PaymentTopic is where the outbox relayer produces PaymentSettled.
+	PaymentTopic string `env:"PAYMENT_EVENTS_TOPIC" default:"payment.events"`
+	// OrderTopic is the order.events topic the settlement consumer reads.
+	OrderTopic string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
+	// SettlementGroup is the settlement consumer group (a new group starts at the latest offset).
+	SettlementGroup string `env:"PAYMENT_SETTLEMENT_CONSUMER_GROUP" default:"team-payment.settlement"`
+	// SettlementDLQTopic parks poison records (not order.events.dlq, which is team-notification's).
+	SettlementDLQTopic string `env:"PAYMENT_SETTLEMENT_DLQ_TOPIC" default:"order.events.payment-settlement.dlq"`
 }
 
-type Server struct {
-	Host              string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port              int     `env:"GRPC_PORT" default:"50056"`
-	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
-	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-}
-
-type Database struct {
-	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
-	URL      string `env:"DATABASE_URL" default:""`
-	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
-}
-
+// Upstream holds the addresses of the services team-payment calls.
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:"localhost:50055"`
 }
@@ -58,7 +60,7 @@ type Payout struct {
 	// HoldWindow, when non-empty, is a Go duration (0 to 3650 days) that overrides
 	// HoldDays (the e2e overlay sets seconds).
 	HoldWindow string `env:"PAYOUT_HOLD_WINDOW" default:""`
-	// Window is the effective hold window, resolved by Validate (not an env key).
+	// Window is the effective hold window, resolved by Load (not an env key).
 	Window time.Duration
 }
 
@@ -84,40 +86,34 @@ func (p Payout) resolve() (time.Duration, error) {
 	return d, nil
 }
 
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-payment"`
-}
-
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
+// Load reads Settings from the environment, validates it and resolves the payout window.
+func Load() (Settings, error) {
+	s, err := sdkconfig.Load[Settings]()
+	if err != nil {
+		return s, err
 	}
-	if err := s.Validate(); err != nil {
-		return nil, err
-	}
+	s.Payout.Window, _ = s.Payout.resolve() // validated by Validate
 	return s, nil
 }
 
-func (s *Settings) Validate() error {
-	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
-		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
-	}
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
-	}
-	window, err := s.Payout.resolve()
-	if err != nil {
+// Validate enforces the cross-field invariants; sdkconfig.Load calls it after parsing.
+func (s Settings) Validate() error {
+	if err := s.GRPC.Validate(); err != nil {
 		return err
 	}
-	s.Payout.Window = window
-	return nil
+	if s.Port > 65535 {
+		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
+	}
+	if err := s.Postgres.Validate(); err != nil {
+		return err
+	}
+	_, err := s.Payout.resolve()
+	return err
 }
 
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+// IsProd reports whether this is a production environment (case-insensitive).
+func (s Settings) IsProd() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	return e == "prod" || e == "production"
 }
 
@@ -125,8 +121,8 @@ func (s *Settings) IsProd() bool {
 var strictEnvs = []string{"staging", "stage", "prod", "production"}
 
 // IsStrictEnv reports whether ENV names a shared environment (staging / production).
-func (s *Settings) IsStrictEnv() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+func (s Settings) IsStrictEnv() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	for _, strict := range strictEnvs {
 		if e == strict {
 			return true
@@ -138,76 +134,11 @@ func (s *Settings) IsStrictEnv() bool {
 // RequireNoMockPayments is the boot guard against mock settlement in a shared
 // environment: MOCK_PAYMENTS=true with a strict ENV (staging/stage/prod/production)
 // refuses to start. Other environments always pass.
-func (s *Settings) RequireNoMockPayments() error {
+func (s Settings) RequireNoMockPayments() error {
 	if !s.Mock.MockPayments || !s.IsStrictEnv() {
 		return nil
 	}
 	return fmt.Errorf(
 		"refusing to start: MOCK_PAYMENTS=true is not allowed when ENV=%q (strict for ENV in %s); unset MOCK_PAYMENTS",
-		s.Runtime.Env, strings.Join(strictEnvs, ", "))
-}
-
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
-}
-
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
-	}
-	return nil
-}
-
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
+		s.Env, strings.Join(strictEnvs, ", "))
 }

@@ -1,8 +1,9 @@
 // Package pgtest gives Postgres-backed tests a fresh, throw-away schema with the repo's
-// migrations applied, so they exercise the real SQL and constraints. Tests skip, naming
-// the reason, when TEST_DATABASE_URL is not set, e.g.:
+// migrations applied, so they exercise the real SQL and constraints. Without
+// TEST_DATABASE_URL the package starts one Postgres container (SDK testkit) for the whole
+// test binary; a package using it calls Run from TestMain. With the variable set it uses
+// that server instead, e.g.:
 //
-//	docker run -d --rm --name pg-payment -e POSTGRES_PASSWORD=pg -p 127.0.0.1:55491:5432 postgres:16-alpine
 //	TEST_DATABASE_URL=postgres://postgres:pg@127.0.0.1:55491/postgres?sslmode=disable go test ./...
 //
 // Each pool gets its own schema (dropped on cleanup), so packages running in parallel
@@ -42,7 +43,7 @@ func UpFiles(t *testing.T) []string {
 // Apply executes one migration file on the pool.
 func Apply(t *testing.T, pool *pgxpool.Pool, file string) {
 	t.Helper()
-	sqlText, err := os.ReadFile(file)
+	sqlText, err := os.ReadFile(file) //nolint:gosec // file comes from the repo migrations glob
 	if err != nil {
 		t.Fatalf("read %s: %v", file, err)
 	}
@@ -54,10 +55,7 @@ func Apply(t *testing.T, pool *pgxpool.Pool, file string) {
 // EmptyPool returns a pool over a fresh schema with no migrations applied.
 func EmptyPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set: Postgres-backed test skipped (set it to run)")
-	}
+	url := URL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, url)
 	if err != nil {

@@ -5,23 +5,29 @@ import (
 	"testing"
 	"time"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+
 	"github.com/buidangphuc/team-payment/internal/config"
 )
 
+// baseEnv sets the keys Load requires: the database URL and the gRPC port.
+func baseEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+	t.Setenv("GRPC_PORT", "50056")
+}
+
 func TestLoadSettings_Defaults(t *testing.T) {
-	t.Setenv("DATABASE_ENABLED", "false")
+	baseEnv(t)
 	t.Setenv("GRPC_PORT", "50056")
 
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
 		t.Fatalf("LoadSettings failed: %v", err)
 	}
 
-	if s.Server.Port != 50056 {
-		t.Errorf("expected GRPC_PORT 50056, got %d", s.Server.Port)
-	}
-	if s.Database.Enabled {
-		t.Errorf("expected Database.Enabled to be false")
+	if s.Port != 50056 {
+		t.Errorf("expected GRPC_PORT 50056, got %d", s.Port)
 	}
 	if s.IsProd() {
 		t.Errorf("expected IsProd to be false for local env")
@@ -32,28 +38,28 @@ func TestLoadSettings_ValidationErrors(t *testing.T) {
 	t.Setenv("DATABASE_ENABLED", "true")
 	t.Setenv("DATABASE_URL", "")
 
-	_, err := config.LoadSettings()
+	_, err := config.Load()
 	if err == nil {
 		t.Fatal("expected error when DATABASE_ENABLED=true and DATABASE_URL is empty")
 	}
 
-	t.Setenv("DATABASE_ENABLED", "false")
+	baseEnv(t)
 	t.Setenv("GRPC_PORT", "999999")
-	_, err = config.LoadSettings()
+	_, err = config.Load()
 	if err == nil {
 		t.Fatal("expected error when GRPC_PORT is out of range")
 	}
 }
 
 func TestDeclaredEnvKeys(t *testing.T) {
-	keys := config.DeclaredEnvKeys()
+	keys := sdkconfig.DeclaredEnvKeys(config.Settings{})
 	if len(keys) == 0 {
 		t.Fatal("expected non-empty declared env keys")
 	}
 }
 
 func TestRequireNoMockPayments(t *testing.T) {
-	t.Setenv("DATABASE_ENABLED", "false")
+	baseEnv(t)
 	cases := []struct {
 		name, env, mock string
 		wantErr         bool
@@ -75,7 +81,7 @@ func TestRequireNoMockPayments(t *testing.T) {
 			if tc.mock != "" {
 				t.Setenv("MOCK_PAYMENTS", tc.mock)
 			}
-			s, err := config.LoadSettings()
+			s, err := config.Load()
 			if err != nil {
 				t.Fatalf("LoadSettings: %v", err)
 			}
@@ -115,14 +121,14 @@ func TestPayoutHoldWindow(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("DATABASE_ENABLED", "false")
+			baseEnv(t)
 			if tc.days != "" {
 				t.Setenv("PAYOUT_HOLD_DAYS", tc.days)
 			}
 			if tc.window != "" {
 				t.Setenv("PAYOUT_HOLD_WINDOW", tc.window)
 			}
-			s, err := config.LoadSettings()
+			s, err := config.Load()
 			if tc.errKey != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.errKey) {
 					t.Fatalf("want an error naming %s, got %v", tc.errKey, err)
