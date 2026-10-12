@@ -3,7 +3,6 @@ package events_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -39,7 +38,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 		dlq   = "listing.events.dlq"
 		group = "team-engagement-feed-test"
 	)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 

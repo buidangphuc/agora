@@ -16,6 +16,7 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
@@ -104,17 +105,27 @@ func TestLegacyOutboxRowsRelayedAfterMigration(t *testing.T) {
 	tie := time.Date(2026, 10, 9, 1, 2, 3, 456789000, time.UTC) // microsecond precision
 	long := bytes.Repeat([]byte{0x08, 0x01}, 100)               // 200 bytes: a two-byte length varint
 	legacy := []legacyRow{
-		{eventID: "00000000-0000-0000-0000-000000000001", typ: "platform.engagement.v1.FavoriteAdded", key: "L1",
-			payload: []byte("a"), pid: "buyer-1", ptype: "PRINCIPAL_TYPE_USER", reqID: "req-1", occurredAt: tie},
-		{eventID: "00000000-0000-0000-0000-000000000002", typ: "platform.engagement.v1.FavoriteRemoved", key: "L0",
-			payload: []byte("done"), occurredAt: tie.Add(-time.Hour), published: true},
+		{
+			eventID: "00000000-0000-0000-0000-000000000001", typ: "platform.engagement.v1.FavoriteAdded", key: "L1",
+			payload: []byte("a"), pid: "buyer-1", ptype: "PRINCIPAL_TYPE_USER", reqID: "req-1", occurredAt: tie,
+		},
+		{
+			eventID: "00000000-0000-0000-0000-000000000002", typ: "platform.engagement.v1.FavoriteRemoved", key: "L0",
+			payload: []byte("done"), occurredAt: tie.Add(-time.Hour), published: true,
+		},
 		// seq order wins over occurred_at: this row is older but was written later.
-		{eventID: "00000000-0000-0000-0000-000000000003", typ: "platform.engagement.v1.SellerFollowed", key: "S1",
-			payload: long, occurredAt: tie.Add(-time.Hour)},
-		{eventID: "00000000-0000-0000-0000-000000000004", typ: "platform.engagement.v1.ReviewCreated", key: "L2",
-			payload: []byte("r"), pid: "svc", ptype: "PRINCIPAL_TYPE_SERVICE", reqID: "req-4", occurredAt: tie},
-		{eventID: "00000000-0000-0000-0000-000000000005", typ: "platform.engagement.v1.SellerUnfollowed", key: "S2",
-			payload: []byte("u"), pid: "anon", ptype: "PRINCIPAL_TYPE_ANONYMOUS", occurredAt: tie.Add(time.Second)},
+		{
+			eventID: "00000000-0000-0000-0000-000000000003", typ: "platform.engagement.v1.SellerFollowed", key: "S1",
+			payload: long, occurredAt: tie.Add(-time.Hour),
+		},
+		{
+			eventID: "00000000-0000-0000-0000-000000000004", typ: "platform.engagement.v1.ReviewCreated", key: "L2",
+			payload: []byte("r"), pid: "svc", ptype: "PRINCIPAL_TYPE_SERVICE", reqID: "req-4", occurredAt: tie,
+		},
+		{
+			eventID: "00000000-0000-0000-0000-000000000005", typ: "platform.engagement.v1.SellerUnfollowed", key: "S2",
+			payload: []byte("u"), pid: "anon", ptype: "PRINCIPAL_TYPE_ANONYMOUS", occurredAt: tie.Add(time.Second),
+		},
 	}
 	for _, r := range legacy {
 		var pub *time.Time
@@ -217,3 +228,32 @@ func TestLegacyOutboxRowsRelayedAfterMigration(t *testing.T) {
 
 // legacyUpTo is the first migration of the SDK-shaped outbox.
 const legacyUpTo = "0011"
+
+// The deploy job applies the migrations with golang-migrate, not by running the
+// files by hand: the same files must apply that way, and the copy must work on a
+// database that already holds unpublished rows.
+func TestMigrationsApplyWithGoMigrateOverLegacyRows(t *testing.T) {
+	ctx := context.Background()
+	url := pgURL(t)
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err := pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrations(t, pool, "", legacyUpTo)
+	if _, err := pool.Exec(ctx, `INSERT INTO outbox (event_id, type, key, payload) VALUES
+		('00000000-0000-0000-0000-0000000000a1', 'platform.engagement.v1.FavoriteAdded', 'L1', '\x0a01')`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+OutboxTable+` WHERE status = 'pending'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("pending copied rows = %d, %v, want 1", n, err)
+	}
+}

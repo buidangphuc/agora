@@ -2,7 +2,6 @@ package events_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -66,7 +65,7 @@ func remaining(t *testing.T, pool *pgxpool.Pool) map[string]bool {
 // pending and parked rows stay (a parked row is evidence, a pending one is work).
 func TestRetentionDeletesOnlyOldPublishedRows(t *testing.T) {
 	pool := retentionPool(t)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	r := events.NewRetention(pool, table, 7*24*time.Hour, time.Hour, logger)
 
 	n, err := r.Sweep(context.Background())
@@ -82,7 +81,7 @@ func TestRetentionDeletesOnlyOldPublishedRows(t *testing.T) {
 // As a lifecycle component it sweeps at start and stops cleanly when cancelled.
 func TestRetentionRunSweepsAtStartAndStops(t *testing.T) {
 	pool := retentionPool(t)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)

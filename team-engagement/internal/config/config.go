@@ -1,196 +1,82 @@
-// Package config assembles team-engagement's flat Settings from per-capability
-// struct groups (same reflection loader + .env.example drift gate as the other
-// Go services).
+// Package config holds team-engagement's settings: the go-sdk groups it uses
+// (Runtime, GRPC, Postgres, OTel, Kafka, Outbox) plus the groups below, bound from
+// flat env keys (GRPC_PORT, DATABASE_URL, ...) with sdkconfig.Load. The
+// `env`/`default` struct tags are the single source of truth for both loading and
+// the .env.example drift test (config_test.go).
+//
+// There are no enable flags for always-on capabilities (database, Kafka, the
+// outbox relayer, reflection). OTEL_ENABLED stays: it is a real toggle.
 package config
 
 import (
 	"errors"
-	"fmt"
-	"os"
-	"reflect"
-	"strconv"
-	"strings"
-	"time"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
+// Settings is the whole configuration surface. Runtime and GRPC are embedded SDK
+// groups; the others are named because their field names collide (Enabled).
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Database      Database
-	Observability Observability
-	Upstream      Upstream
-	Kafka         Kafka
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
+	Kafka    sdkconfig.Kafka
+	Outbox   sdkconfig.Outbox
+	Events   Events
+	Upstream Upstream
 }
 
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
-}
-
-type Server struct {
-	Host              string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port              int     `env:"GRPC_PORT" default:"50054"`
-	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
-	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-}
-
-// Database is this service's OWN Postgres (engagement_db). Rule 3.
-type Database struct {
-	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
-	URL      string `env:"DATABASE_URL" default:""`
-	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
-}
-
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-engagement"`
+// Events names the Kafka topics and the consumer group. The listing.events
+// consumer fills the follow-feed source (seller_listings); its group starts from
+// the earliest offset, so a fresh deployment backfills the feed, and records that
+// keep failing park on <ListingTopic>.dlq. The outbox relayer publishes engagement
+// facts to EventsTopic. Both are always on.
+type Events struct {
+	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-engagement-feed"`
+	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
 }
 
 // Upstream holds addresses of sibling services consulted over gRPC (never their
 // DBs, Rule 3). Empty OrderAddr disables verified-purchase enrichment.
 type Upstream struct {
-	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:""`
+	OrderAddr string `env:"UPSTREAM_ORDER_ADDR"`
 	// CallTimeoutSeconds bounds each upstream lookup (also capped to the inbound
 	// request deadline minus a margin), so a dead sibling cannot hang a handler.
 	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
 }
 
-// Kafka configures the listing.events consumer that fills the follow-feed source
-// (seller_listings). Off by default; the consumer group starts from the earliest
-// offset so a fresh deployment backfills the feed.
-type Kafka struct {
-	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
-	ConsumerGroup string `env:"KAFKA_CONSUMER_GROUP" default:"team-engagement-feed"`
-	ListingTopic  string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
-
-	// Producer side: the outbox relayer publishes engagement facts (reuses
-	// KAFKA_ENABLED / KAFKA_BROKERS). With Kafka off, rows still accumulate in the
-	// outbox and publish once Kafka is enabled.
-	EventsTopic         string        `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
-	OutboxRelayInterval time.Duration `env:"ENGAGEMENT_OUTBOX_RELAY_INTERVAL" default:"500ms"`
+// Load reads Settings from the environment, applies defaults and runs Validate.
+// It is the entry point of cmd/server.
+func Load() (Settings, error) {
+	return sdkconfig.Load[Settings]()
 }
 
-// KafkaBrokers splits KAFKA_BROKERS into seed addresses.
-func (s *Settings) KafkaBrokers() []string {
-	var out []string
-	for _, p := range strings.Split(s.Kafka.Brokers, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
+// Validate checks the SDK groups that carry their own rules (a positive
+// GRPC_PORT, a non-empty DATABASE_URL) and the cross-field rules of this service.
+// sdkconfig.Load calls it after parsing.
+func (s Settings) Validate() error {
+	if err := s.GRPC.Validate(); err != nil {
+		return err
 	}
-	return out
-}
-
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
+	if err := s.Postgres.Validate(); err != nil {
+		return err
 	}
-	if err := s.Validate(); err != nil {
-		return nil, err
+	if len(s.Kafka.BrokerList()) == 0 {
+		return errors.New("KAFKA_BROKERS must list at least one broker")
 	}
-	return s, nil
-}
-
-func (s *Settings) Validate() error {
-	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
-		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
+	if s.Events.ListingTopic == "" || s.Events.ConsumerGroup == "" {
+		return errors.New("KAFKA_LISTING_TOPIC and KAFKA_CONSUMER_GROUP are required")
 	}
-	if s.Kafka.Enabled && (len(s.KafkaBrokers()) == 0 || strings.TrimSpace(s.Kafka.ListingTopic) == "" || strings.TrimSpace(s.Kafka.ConsumerGroup) == "") {
-		return errors.New("KAFKA_BROKERS, KAFKA_LISTING_TOPIC and KAFKA_CONSUMER_GROUP are required when KAFKA_ENABLED=true")
+	if s.Events.EventsTopic == "" {
+		return errors.New("ENGAGEMENT_EVENTS_TOPIC is required")
 	}
-	if s.Kafka.Enabled && strings.TrimSpace(s.Kafka.EventsTopic) == "" {
-		return errors.New("ENGAGEMENT_EVENTS_TOPIC is required when KAFKA_ENABLED=true")
-	}
-	if s.Kafka.OutboxRelayInterval <= 0 {
-		return errors.New("ENGAGEMENT_OUTBOX_RELAY_INTERVAL must be > 0")
+	if s.Outbox.PollInterval <= 0 {
+		return errors.New("OUTBOX_POLL_INTERVAL must be > 0")
 	}
 	if s.Upstream.CallTimeoutSeconds <= 0 {
 		return errors.New("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0")
-	}
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
-	}
-	return nil
-}
-
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
-	return e == "prod" || e == "production"
-}
-
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
-}
-
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
-	}
-	return nil
-}
-
-func setField(fv reflect.Value, raw string) error {
-	if fv.Type() == reflect.TypeOf(time.Duration(0)) {
-		d, err := time.ParseDuration(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetInt(int64(d))
-		return nil
-	}
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
 	}
 	return nil
 }
