@@ -110,6 +110,9 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: stable }
       - uses: astral-sh/setup-uv@v5
+      # red_first regenerates gitignored proto code (buf.gen.yaml modules) in its base/head worktrees
+      - uses: bufbuild/buf-setup-action@v1
+        with: { github_token: "${{ github.token }}" }
       - run: pip install pytest pyyaml jsonschema
       - run: git fetch origin "$BASE_REF" --depth=1000 || true
       - name: install deps of changed test dirs

@@ -14,6 +14,8 @@
 # exempt: a commit in base..head may carry trailer lines `Red-First-Exempt: <glob> -- <reason>` for tests
 #   changed only to follow a dependency/tooling bump (no new behaviour). Matching files skip the base run
 #   but must still be green at head; they are reported EXEMPT with the reason. A reason is required.
+# generated code: gitignored proto output is rebuilt with `buf generate` in both worktrees for each
+#   module (nearest buf.gen.yaml) owning a changed go/ts test; needs buf on PATH.
 # env: REDFIRST_PYTHON (default platform-e2e/.venv/bin/python, else python3), REDFIRST_TMP (scratch dir)
 set -uo pipefail
 
@@ -26,7 +28,7 @@ while [ $# -gt 0 ]; do
     --only) ONLY="$2"; shift 2 ;;
     --allow-empty) ALLOW_EMPTY=1; shift ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
-    -h|--help) sed -n 2,18p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,20p "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -143,6 +145,20 @@ exempt_reason() { # exempt_reason <relfile> -> prints reason, exit 0 if exempt
   done <<< "$EXEMPT"
   return 1
 }
+gen_proto() { # gen_proto <worktree> <moddir>: `buf generate`; buf.gen.local.yaml when its local plugins exist
+  local wt="$1" mod="$2" tmpl=buf.gen.yaml p ok=1
+  [ -f "$wt/$mod/buf.gen.yaml" ] || return 0
+  command -v buf >/dev/null || { echo "red_first: WARN buf not installed; $mod has no generated code"; return 0; }
+  if [ -f "$wt/$mod/buf.gen.local.yaml" ]; then
+    for p in $(sed -nE 's/^[[:space:]]*-?[[:space:]]*local:[[:space:]]*([^[:space:]]+).*/\1/p' "$wt/$mod/buf.gen.local.yaml"); do
+      command -v "$p" >/dev/null || ok=0
+    done
+    [ $ok = 1 ] && tmpl=buf.gen.local.yaml
+  fi
+  (cd "$wt/$mod" && buf generate --template "$tmpl" >"$SCRATCH/buf.log" 2>&1) ||
+    echo "red_first: WARN buf generate failed in $mod ($(basename "$wt")): $(tail -1 "$SCRATCH/buf.log")"
+}
+GEN_MODS=()
 if [ $(( ${#GO_T[@]} + ${#PY_T[@]} + ${#TS_T[@]} )) -gt 0 ]; then
   git worktree add --detach -q "$WT_BASE" "$BASE" || exit 2
   git worktree add --detach -q "$WT_HEAD" "$HEADSHA" || exit 2
@@ -151,6 +167,14 @@ if [ $(( ${#GO_T[@]} + ${#PY_T[@]} + ${#TS_T[@]} )) -gt 0 ]; then
     [ -z "$f" ] && continue
     mkdir -p "$WT_BASE/$(dirname "$f")"
     git show "$HEADSHA:$f" > "$WT_BASE/$f"
+  done
+  # generated proto code is gitignored: regenerate it in every module owning a changed go/ts test
+  for f in "${GO_T[@]-}" "${TS_T[@]-}"; do
+    [ -z "$f" ] && continue
+    mod=$(nearest_up "$WT_HEAD" "$f" buf.gen.yaml) || continue
+    [[ " ${GEN_MODS[*]-} " == *" $mod "* ]] && continue
+    GEN_MODS+=("$mod")
+    gen_proto "$WT_BASE" "$mod"; gen_proto "$WT_HEAD" "$mod"
   done
 fi
 
