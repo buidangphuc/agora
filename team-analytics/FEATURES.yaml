@@ -1898,19 +1898,6 @@ features:
     tags: [tracking, analytics, ga4-purchase-relay]
     status: planned
 
-  - id: ga4-purchase-relay.forged-orderpaidevent-from-another-principal-is-rejected
-    title: "Forged OrderPaidEvent from another principal is rejected"
-    persona: guest
-    priority: P2
-    summary: "Forged OrderPaidEvent from another principal is rejected"
-    entry_route: /
-    services: [team-analytics]
-    preconditions:
-      login: guest
-    acceptance:
-      - "Forged OrderPaidEvent from another principal is rejected"
-    tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
 
   - id: ga4-purchase-relay.secret-unset
     title: "Secret unset"
@@ -1995,3 +1982,48 @@ features:
       - "Warehouse purchase still recorded"
     tags: [tracking, analytics, ga4-purchase-relay]
     status: planned
+
+  - id: ga4-purchase-relay.mapping-expires
+    title: "Mapping expires"
+    persona: guest
+    priority: P2
+    summary: "Mapping expires"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Mapping expires (verified outside e2e)"
+    tags: [tracking, analytics, ga4-purchase-relay, unit]
+    status: not-testable
+    notes: "add-ga4-purchase-relay: unit-verified: team-analytics/internal/ga4relay/mapping_test.go TestMappingExpiresAfter30Days. Not producible end to end (30-day TTL)."
+
+  - id: ga4-purchase-relay.forged-orderpaidevent-from-another-principal-is-rejected
+    title: "Forged OrderPaidEvent from another principal is rejected"
+    persona: guest
+    priority: P2
+    summary: "Forged OrderPaidEvent from another principal is rejected"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Forged OrderPaidEvent from another principal is rejected (verified outside e2e)"
+    tags: [tracking, analytics, ga4-purchase-relay, unit]
+    status: not-testable
+    notes: "add-ga4-purchase-relay: verified by review of platform-gitops/platform/infra/redpanda.yaml ACL (order.events write only for the order service principal). Not testable on the local plaintext Redpanda."
+
+  - id: ga4-purchase-relay.purchase-with-missing-transaction-id-is-not-mapped-to-ga4
+    title: "Purchase with missing transaction id is not mapped to GA4"
+    persona: guest
+    priority: P2
+    summary: "Purchase with missing transaction id is not mapped to GA4"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Purchase with missing transaction id is not mapped to GA4 (verified outside e2e)"
+    tags: [tracking, analytics, ga4-purchase-relay, unit]
+    status: not-testable
+    notes: "add-ga4-purchase-relay: unit-verified: team-frontend/src/lib/analytics/map.test.ts 'does not map purchase with empty transaction_id to GA4'. Not producible end to end (the UI always creates an order id)."

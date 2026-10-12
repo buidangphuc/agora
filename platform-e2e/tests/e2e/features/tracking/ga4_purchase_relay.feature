@@ -6,7 +6,7 @@ Feature: GA4 server-side purchase relay
   Stack: the relay container (GA4_RELAY_CONTAINER, default agora-ga4-relay-svc) runs with
   GA4_ENDPOINT=http://host.docker.internal:<GA4_MOCK_PORT>/mp/collect and the secret set;
   scenarios that pre-seed mappings wait GA4_MAPPING_SETTLE_S for the pipeline to catch up.
-  The 30 day "Mapping expires" scenario cannot be driven end to end (no clock control).
+  "Mapping expires" and "Forged OrderPaidEvent ..." are verified outside e2e (not-testable, VERIFIED BY in the spec).
 
   Background:
     Given the GA4 MP mock is listening and the relay targets it
@@ -195,12 +195,6 @@ Feature: GA4 server-side purchase relay
     When an unauthenticated client requests the paths "/, /send, /metrics-admin" on the relay's listening port
     Then every response is 404 or the connection is refused
     And the GA4 mock received 0 requests from those calls
-
-  Scenario: Forged OrderPaidEvent from another principal is rejected
-    Given buyer "b1" emits consented events with GA client ids "222.2"
-    When a principal other than the order service tries to produce an OrderPaidEvent for order "o1" and buyer "b1"
-    Then the broker denies the write with an authorization error
-    And the GA4 mock receives 0 requests for order "o1"
 
   # ── Disabled without secret ──────────────────────────────────────────
 
