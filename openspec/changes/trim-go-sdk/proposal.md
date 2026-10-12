@@ -35,3 +35,10 @@ None.
 ## Data classification
 
 internal; unchanged.
+
+## Threat model
+
+| Asset | Threat (STRIDE) | Mitigation |
+|---|---|---|
+| Public RPCs | Elevation of privilege: a service drops its anonymous scope check when `RequireScopesAllowAnonymous` goes away | No service vendors it; team-domain, team-search and team-analytics keep their local `requireScopes` and its tests |
+| Feature-flag evaluation | Denial of service: Flipt outage blocks requests | team-order and team-promotion keep the fail-open client with the same timeout, now as service code |
