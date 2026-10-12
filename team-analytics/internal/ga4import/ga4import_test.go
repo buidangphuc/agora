@@ -17,7 +17,9 @@ var (
 	d2 = time.Date(2024, 3, 6, 0, 0, 0, 0, time.UTC)
 )
 
-func at(day time.Time, h, m int) time.Time { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute) }
+func at(day time.Time, h, m int) time.Time {
+	return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute)
+}
 
 func open(t *testing.T) *duckdb.Writer {
 	t.Helper()

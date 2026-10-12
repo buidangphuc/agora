@@ -74,7 +74,7 @@ func TestCLIImportsAFixtureDay(t *testing.T) {
 	}
 	defer db.Close()
 	_, err = db.Exec(fmt.Sprintf(`COPY (SELECT '20240305' AS event_date, CAST(1709632800000000 + i * 1000000 AS BIGINT) AS event_timestamp,
-	 'view_item' AS event_name, 'u' || CAST(i % 2 AS VARCHAR) AS user_pseudo_id,
+	 'view_item' AS event_name, 'u' || CAST(i %% 2 AS VARCHAR) AS user_pseudo_id,
 	 [ {'key':'ga_session_id','value':{'string_value':CAST(NULL AS VARCHAR),'int_value':CAST(i %% 2 + 1 AS BIGINT)}},
 	   {'key':'source','value':{'string_value':'google','int_value':CAST(NULL AS BIGINT)}},
 	   {'key':'medium','value':{'string_value':'cpc','int_value':CAST(NULL AS BIGINT)}},
