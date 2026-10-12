@@ -48,11 +48,11 @@ func baseSettings(port int) config.Settings {
 func TestBootRequiresDatabase(t *testing.T) {
 	port := freePort(t)
 	s := baseSettings(port)
-	s.Postgres = sdkconfig.Postgres{Enabled: false}
+	s.Postgres = sdkconfig.Postgres{}
 
 	err := app.Run(context.Background(), s)
-	if err == nil || !strings.Contains(err.Error(), "DATABASE_ENABLED") {
-		t.Fatalf("Run = %v, want an error naming DATABASE_ENABLED", err)
+	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("Run = %v, want an error naming DATABASE_URL", err)
 	}
 	// No port was opened: the service port is still free to bind.
 	l, lerr := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
@@ -64,7 +64,7 @@ func TestBootRequiresDatabase(t *testing.T) {
 
 func TestBootFailsWhenDatabaseUnreachable(t *testing.T) {
 	s := baseSettings(freePort(t))
-	s.Postgres = sdkconfig.Postgres{Enabled: true, URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"}
+	s.Postgres = sdkconfig.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"}
 
 	if err := app.Run(context.Background(), s); err == nil {
 		t.Fatal("Run succeeded with an unreachable database in ENV=local")
@@ -161,7 +161,7 @@ func TestShutdownStopsRelayerBeforePoolClose(t *testing.T) {
 	const appName = "team-domain-shutdown-test"
 	port := freePort(t)
 	s := baseSettings(port)
-	s.Postgres = sdkconfig.Postgres{Enabled: true, URL: url + "&application_name=" + appName, MaxConns: 4}
+	s.Postgres = sdkconfig.Postgres{URL: url + "&application_name=" + appName, MaxConns: 4}
 	s.Events = config.Events{Brokers: "unused:9092", ListingTopic: "listing.events"}
 	s.Outbox = config.Outbox{PollInterval: "10ms", BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10}
 

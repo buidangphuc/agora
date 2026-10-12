@@ -50,8 +50,8 @@ func Run(ctx context.Context, s config.Settings) error {
 }
 
 func run(ctx context.Context, s config.Settings, o Options) error {
-	if !s.Postgres.Enabled {
-		return errors.New("team-domain requires DATABASE_ENABLED=true (it owns the listings DB)")
+	if err := s.Postgres.Validate(); err != nil {
+		return fmt.Errorf("team-domain owns the listings DB: %w", err)
 	}
 	out := o.LogOut
 	if out == nil {

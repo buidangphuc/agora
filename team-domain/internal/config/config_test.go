@@ -26,8 +26,7 @@ func TestEnvExampleInSync(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
-	// DATABASE_URL is required because DATABASE_ENABLED defaults to true; set it
-	// so Validate passes, then assert the other struct defaults apply.
+	// DATABASE_URL is required; set it so Validate passes, then assert the other struct defaults apply.
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50051")
 	s, err := Load()
@@ -37,9 +36,6 @@ func TestLoadDefaults(t *testing.T) {
 	if s.Port != 50051 {
 		t.Errorf("default GRPC_PORT = %d, want 50051", s.Port)
 	}
-	if !s.Postgres.Enabled {
-		t.Error("default DATABASE_ENABLED should be true")
-	}
 	if got := s.KafkaBrokers(); len(got) != 1 || got[0] != "localhost:9092" {
 		t.Errorf("default KafkaBrokers = %v, want [localhost:9092]", got)
 	}
@@ -48,10 +44,9 @@ func TestLoadDefaults(t *testing.T) {
 func TestValidateDatabaseURLRequired(t *testing.T) {
 	s := &Settings{}
 	s.Port = 50051
-	s.Postgres.Enabled = true
 	s.Postgres.URL = ""
 	if err := s.Validate(); err == nil {
-		t.Fatal("expected error: DATABASE_ENABLED=true requires DATABASE_URL")
+		t.Fatal("expected error: a missing DATABASE_URL")
 	}
 }
 
@@ -59,7 +54,6 @@ func strictSettings(env string) *Settings {
 	s := &Settings{}
 	s.Env = env
 	s.Port = 50051
-	s.Postgres.Enabled = true
 	s.Postgres.URL = "postgresql://x/y"
 	s.Storage.AccessKey = "ak"
 	s.Storage.SecretKey = "sk"
@@ -186,16 +180,9 @@ func TestNoEnableFlagsDeclared(t *testing.T) {
 	declared := sdkconfig.DeclaredEnvKeys(Settings{})
 	has := func(key string) bool { return slices.Contains(declared, key) }
 
-	for _, key := range []string{"KAFKA_ENABLED", "OUTBOX_ENABLED"} {
+	for _, key := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "GRPC_REFLECTION_ENABLED"} {
 		if has(key) {
-			t.Errorf("%s is declared; the Kafka publisher and the outbox relayer are always on", key)
-		}
-	}
-	// These two come from go-sdk v0.1.0 (config.Postgres, config.GRPC) and go away
-	// when the SDK drops them.
-	for _, key := range []string{"DATABASE_ENABLED", "GRPC_REFLECTION_ENABLED"} {
-		if has(key) {
-			t.Skip("go-sdk v0.1.1 pending: " + key + " still declared by the SDK groups")
+			t.Errorf("%s is declared; the database, the Kafka publisher, the outbox relayer and reflection are always on", key)
 		}
 	}
 }

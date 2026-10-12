@@ -98,8 +98,8 @@ func Load() (Settings, error) {
 // @model_validator + validate_core_resource_requirements. sdkconfig.Load calls
 // it after parsing.
 func (s Settings) Validate() error {
-	if s.Postgres.Enabled && strings.TrimSpace(s.Postgres.URL) == "" {
-		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
+	if strings.TrimSpace(s.Postgres.URL) == "" {
+		return errors.New("DATABASE_URL is required")
 	}
 	if s.Port <= 0 || s.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
@@ -137,7 +137,7 @@ func (s Settings) IsStrictEnv() bool {
 //   - STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY are still the minioadmin defaults.
 //
 // The database is required in every ENV, but that is enforced by Validate's
-// DATABASE_ENABLED/URL check and bootstrap, not here. Other environments always pass.
+// DATABASE_URL check, not here. Other environments always pass.
 func (s Settings) RequireSafeStrictConfig() error {
 	if !s.IsStrictEnv() {
 		return nil

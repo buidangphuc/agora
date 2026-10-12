@@ -485,17 +485,17 @@ features:
       Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
       (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.
 
-  - id: listing.boot-requires-database
-    title: Database disabled is rejected
+  - id: listing.boot-requires-database-url
+    title: Missing database URL is rejected
     persona: admin
     priority: P2
     summary: >-
-      team-domain refuses to start with DATABASE_ENABLED=false, before any port opens.
+      team-domain refuses to start without DATABASE_URL, before any port opens.
     entry_route: /
     services: [team-domain]
     acceptance:
-      - WHEN the service starts with DATABASE_ENABLED=false
-      - THEN app.Run returns an error naming DATABASE_ENABLED before any port opens
+      - WHEN the service starts without DATABASE_URL
+      - THEN settings loading fails with an error naming DATABASE_URL before any port opens
     tags: [system, runtime]
     status: not-testable
     covered_by: null

@@ -51,7 +51,6 @@ func decodeChange(t *testing.T, row store.OutboxRow) *listingv1.ListingChanged {
 func testSettings() *config.Settings {
 	s := &config.Settings{}
 	s.Port = 0
-	s.ReflectionEnabled = false
 	s.Storage.Endpoint = "localhost:9000"
 	s.Storage.Bucket = "listing-images"
 	s.Storage.AccessKey = "testkey"

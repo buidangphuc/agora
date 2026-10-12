@@ -27,7 +27,7 @@ Reservation lifecycle (spec `inventory-reservations`, ADR-0008): `active → com
 - `CommitReservation` makes an `active` reservation `committed` (never swept). Repeat: OK. Released: `FailedPrecondition`. Unknown: `NotFound`. Empty id: `InvalidArgument`.
 - `ReleaseStock` is keyed by `reservation_id` only (`InvalidArgument` when empty); `listing_id`, `variant_id` and `quantity` are ignored. It restores the stored quantity of an `active` or `committed` reservation exactly once; a repeated, already swept or unknown id is a successful no-op (WARN log).
 
-Also serves gRPC health, and reflection when `GRPC_REFLECTION_ENABLED=true`.
+Also serves gRPC health and reflection.
 
 Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order` and `team-notification` (`UPSTREAM_DOMAIN_ADDR`). Consumes nothing upstream.
 
@@ -73,11 +73,9 @@ Read in `internal/config/config.go`: `Settings` embeds the go-sdk `Runtime` and 
 | `LOG_JSON` | `true` |
 | `GRPC_HOST` | `0.0.0.0` |
 | `GRPC_PORT` | none, required; the image and `.env.example` set `50051` |
-| `GRPC_REFLECTION_ENABLED` | `true` |
 | `SHUTDOWN_GRACE_SECONDS` | `10` |
 | `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0`: how long to keep serving after health reports NOT_SERVING |
-| `DATABASE_ENABLED` | `true` |
-| `DATABASE_URL` | empty; required when `DATABASE_ENABLED=true` |
+| `DATABASE_URL` | none, required |
 | `DB_MAX_CONNS` | `10` |
 | `STORAGE_ENDPOINT` | `localhost:9000` |
 | `STORAGE_BUCKET` | `listing-images` |
@@ -116,7 +114,7 @@ migrations/            applied by `make migrate` / `team-domain-migrate`, not at
 third_party/go-sdk/    vendored go-sdk (ADR-0016); never edit, re-sync with sync-go-sdk.sh
 ```
 
-`app.Run` opens telemetry, Postgres and the Kafka publisher (each registered on a `lifecycle.Stack`), then runs the gRPC server, the health poller, the reservation sweeper and the outbox relayer as lifecycle components. It refuses to start when `DATABASE_ENABLED=false` or the database is unreachable, in any `ENV`.
+`app.Run` opens telemetry, Postgres and the Kafka publisher (each registered on a `lifecycle.Stack`), then runs the gRPC server, the health poller, the reservation sweeper and the outbox relayer as lifecycle components. It refuses to start when `DATABASE_URL` is unset or the database is unreachable, in any `ENV`.
 
 Shutdown order: health reports NOT_SERVING, `SHUTDOWN_DRAIN_DELAY_SECONDS` passes, the gRPC server stops, the relayer and sweeper stop, then the publisher and the pool close.
 
@@ -157,7 +155,7 @@ The targets come from `make/go-service.mk` (synced from platform-core); `dev`, `
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation`, `listing.event-durability` and the three go-sdk runtime scenarios (`listing.boot-requires-database`, `listing.boot-fails-when-database-unreachable`, `listing.shutdown-stops-relayer-before-pool-close`) are `not-testable` (no e2e; unit-verified).
+- `FEATURES.yaml` (repo root): `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation`, `listing.event-durability` and the three go-sdk runtime scenarios (`listing.boot-requires-database-url`, `listing.boot-fails-when-database-unreachable`, `listing.shutdown-stops-relayer-before-pool-close`) are `not-testable` (no e2e; unit-verified).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 
@@ -166,7 +164,7 @@ The targets come from `make/go-service.mk` (synced from platform-core); `dev`, `
 - `third_party/go-sdk` is a vendored copy of go-sdk; bump it with `platform-core/tools/sync-go-sdk.sh <tag> team-domain`, never by hand.
 - `generated/` is gitignored and produced by `make proto`; never hand-edit or commit it. Build and tests fail until it exists.
 - `proto/` is a vendored, pinned copy of platform-core's proto module (ADR-0001). Never edit it here; re-vendor at a new tag (see `proto/README.md`).
-- `DATABASE_ENABLED=false` is refused at boot. Writes succeed while Kafka is down; the relayer retries the pending outbox rows.
+- A missing `DATABASE_URL` is refused at boot. Writes succeed while Kafka is down; the relayer retries the pending outbox rows.
 - `ListingChanged` carries the full listing; there are no fine-grained change events.
 
 ## Known gaps
