@@ -284,8 +284,8 @@ func bindGroups(v reflect.Value) error {
 				continue
 			}
 			raw := f.Tag.Get("default")
-			// An empty value means "unset" (keeps the default) unless the default is itself empty.
-			if val, ok := os.LookupEnv(key); ok && (val != "" || (group.Field(j).Kind() == reflect.String && raw == "")) {
+			// An empty value of a non-string setting means "unset" (keeps the default).
+			if val, ok := os.LookupEnv(key); ok && (val != "" || group.Field(j).Kind() == reflect.String) {
 				raw = val
 			}
 			if err := setField(group.Field(j), raw); err != nil {
