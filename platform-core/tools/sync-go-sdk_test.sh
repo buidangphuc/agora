@@ -102,4 +102,33 @@ if bash "$SYNC" "$MISSING_TAG" "$FRESH" >/dev/null 2>&1; then fail "missing tag 
 [ ! -e "$FRESH/third_party" ] || fail "third_party created by a failed sync"
 pass "unknown tag leaves a fresh service untouched"
 
+# 7. Service-local lint block survives a re-sync (byte for byte), the result
+# still verifies, and an absent block or file is handled.
+if [ -f "$SVC/.golangci.yml" ]; then
+  grep -q '# BEGIN service-local' "$SVC/.golangci.yml" || fail "synced .golangci.yml has no service-local block"
+  python3 - "$SVC/.golangci.yml" <<'PY' || fail "could not edit the service-local block"
+import sys
+p = sys.argv[1]
+s = open(p).read()
+add = "      - path: internal/legacy/\n        linters:\n          - revive\n      # a comment  with  odd   spacing\t\n"
+s = s.replace("# BEGIN service-local\n", "# BEGIN service-local\n" + add, 1)
+open(p, "w").write(s)
+PY
+  block_of() { awk '/# BEGIN service-local/{f=1;next} /# END service-local/{f=0} f' "$1"; }
+  block_of "$SVC/.golangci.yml" > "$TMP/block.before"
+  [ -s "$TMP/block.before" ] || fail "test block is empty"
+  bash "$SYNC" "$TAG" "$SVC" >"$TMP/out4.log" 2>&1 || { cat "$TMP/out4.log"; fail "re-sync with a service-local block failed"; }
+  block_of "$SVC/.golangci.yml" > "$TMP/block.after"
+  cmp -s "$TMP/block.before" "$TMP/block.after" || fail "service-local block changed after re-sync"
+  [ "$(grep -c '# BEGIN service-local' "$SVC/.golangci.yml")" = 1 ] || fail "service-local markers duplicated"
+  (cd "$SVC" && go tool golangci-lint config verify) || fail "golangci-lint config verify fails on the re-synced config"
+  grep -A1 'local-prefixes:' "$SVC/.golangci.yml" | grep -q -- "- $SVC_MOD\$" || fail "local-prefixes lost after re-sync"
+  # Absent file: a first sync still produces the empty block.
+  rm "$SVC/.golangci.yml"
+  bash "$SYNC" "$TAG" "$SVC" >"$TMP/out5.log" 2>&1 || { cat "$TMP/out5.log"; fail "sync without a .golangci.yml failed"; }
+  [ -z "$(block_of "$SVC/.golangci.yml")" ] || fail "fresh sync block is not empty"
+  (cd "$SVC" && go tool golangci-lint config verify) || fail "config verify fails on the first-sync config"
+  pass "service-local lint block is preserved"
+fi
+
 echo "all sync-go-sdk tests passed"

@@ -10,7 +10,9 @@
 #   2. copies make/go-service.mk to <service>/make/go-service.mk
 #   3. copies .golangci.yml from the SDK at the tag to <service>/.golangci.yml
 #      (skipped with a warning when the tag has no such file)
-#      and points its goimports local-prefixes at the service's module path
+#      and points its goimports local-prefixes at the service's module path;
+#      the lines between `# BEGIN service-local` and `# END service-local` in
+#      the service's existing file are kept byte for byte
 #   4. ensures go.mod has the replace to ./third_party/go-sdk
 #   5. adds a `tool` directive for golangci-lint at the version the SDK pins
 #      (go get -tool), so `go tool golangci-lint` works; skipped with a
@@ -34,6 +36,8 @@ SDK_PREFIX="github.com/buidangphuc/platform-core"
 LINT_MOD="github.com/golangci/golangci-lint/v2"
 LINT_PKG="$LINT_MOD/cmd/golangci-lint"
 MK_SRC="$CORE_DIR/make/go-service.mk"
+LOCAL_BEGIN="# BEGIN service-local"
+LOCAL_END="# END service-local"
 
 usage() { echo "usage: $(basename "$0") <tag> <service-dir>..." >&2; exit 2; }
 die() { echo "error: $*" >&2; exit 1; }
@@ -109,8 +113,27 @@ sync_lint_config() {
     mod="$(awk '$1=="module"{print $2; exit}' "$1/go.mod")"
     [ -n "$mod" ] || { echo "error: no module line in $1/go.mod" >&2; return 1; }
     # The SDK's own prefix is the module that import groups should separate out.
+    local out="$WORK/golangci.$RANDOM"
     sed "s#^\([[:space:]]*- \)$SDK_PREFIX\$#\1$mod#" \
-      "$1/third_party/go-sdk/.golangci.yml" > "$1/.golangci.yml"
+      "$1/third_party/go-sdk/.golangci.yml" > "$out"
+    # Keep the service-local block of the previous file (none on a first sync).
+    if [ -f "$1/.golangci.yml" ] && grep -q "$LOCAL_BEGIN" "$1/.golangci.yml"; then
+      if grep -q "$LOCAL_BEGIN" "$out"; then
+        awk -v old="$1/.golangci.yml" -v b="$LOCAL_BEGIN" -v e="$LOCAL_END" '
+          BEGIN { f = 0; while ((getline l < old) > 0) {
+                    if (index(l, e)) f = 0
+                    if (f) keep[n++] = l
+                    if (index(l, b)) f = 1 }
+                  f = 0 }
+          index($0, b) { print; for (i = 0; i < n; i++) print keep[i]; f = 1; next }
+          index($0, e) { f = 0 }
+          !f { print }
+        ' "$out" > "$out.merged" && mv "$out.merged" "$out"
+      else
+        echo "warning: $TAG has no service-local block; the old one is dropped" >&2
+      fi
+    fi
+    mv "$out" "$1/.golangci.yml"
   else
     echo "warning: $TAG has no .golangci.yml in the SDK; skipping it" >&2
   fi

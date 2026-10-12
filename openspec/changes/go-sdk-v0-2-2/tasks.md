@@ -4,8 +4,8 @@ Code track only: every scenario gets a `not-testable` entry in `platform-core/FE
 
 Owns: `packages/go-sdk/pkg/auth/**`, `packages/go-sdk/.golangci.yml`, `tools/sync-go-sdk.sh`, `tools/sync-go-sdk_test.sh`, `templates/go-service/Dockerfile`, `packages/go-sdk/README.md` (auth and lint lines). All paths are under `platform-core/`.
 
-- [ ] 1.1 Red tests first: the two auth tests, then implement `RequireScopesAllowAnonymous`.
-- [ ] 1.2 Red test first: extend `sync-go-sdk_test.sh` for the service-local block, then implement. Add the empty block to the SDK `.golangci.yml`. Remove the template Dockerfile's `GRPC_PORT` default.
+- [x] 1.1 Red tests first: the two auth tests, then implement `RequireScopesAllowAnonymous`.
+- [x] 1.2 Red test first: extend `sync-go-sdk_test.sh` for the service-local block, then implement. Add the empty block to the SDK `.golangci.yml`. Remove the template Dockerfile's `GRPC_PORT` default.
 
 ## 2. Template and drift gate (wave 1)
 

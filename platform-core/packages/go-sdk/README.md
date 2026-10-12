@@ -16,7 +16,7 @@ All under `pkg/`.
 | `config` | `Load[T]()` from env tags (calls `Validate()` if defined), groups `Runtime`, `GRPC`, `Postgres`, `OTel`, and the `CheckEnvExample` drift check. |
 | `logx` | slog setup that adds request id, principal id and trace id from the context. |
 | `otelx` | OTLP/gRPC tracer and meter providers; a no-op when disabled; always sets the W3C propagator. |
-| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match). |
+| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match), `RequireScopesAllowAnonymous` (public methods: a scoped anonymous caller passes). |
 | `healthx` | Checker registry polled in the background; flips the gRPC health status; `Drain()` on shutdown. |
 | `lifecycle` | Runs `Run(ctx) error` components together with an ordered, deadline-bound shutdown (optional drain delay), and `Stack` for closers. |
 | `pgx` | Pool open with ping, health checker, `WithTx`. |
@@ -36,7 +36,7 @@ All under `pkg/`.
    platform-core/tools/sync-go-sdk.sh go-sdk/v0.1.0 team-<svc>
    ```
 
-   This writes `third_party/go-sdk` (with `VERSION`), adds the `replace` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml`, pins the golangci-lint `tool` directive to the SDK's version, and runs `go mod tidy`. It fails without changes if the tag does not exist. If the tag has no `.golangci.yml`, it prints a warning and skips that file.
+   This writes `third_party/go-sdk` (with `VERSION`), adds the `replace` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml` (lines between `# BEGIN service-local` and `# END service-local` in the service's file are kept), pins the golangci-lint `tool` directive to the SDK's version, and runs `go mod tidy`. It fails without changes if the tag does not exist. If the tag has no `.golangci.yml`, it prints a warning and skips that file.
 3. Copy `examples/hello` as the starting layout: `cmd/<binary>/main.go`, `internal/app`, `internal/config`, `internal/rpc`.
 4. In the service `Makefile` set `SERVICE`, `GRPC_PORT` (and `BINARIES` if not `server`), then `include make/go-service.mk`. Run `make help` for the targets.
 5. Copy `platform-core/templates/go-service/Dockerfile` to the service root. Build with `--build-arg BIN=<binary>`.

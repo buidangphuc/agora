@@ -101,6 +101,22 @@ func RequireScopes(ctx context.Context, scopes ...string) (Principal, error) {
 	return p, nil
 }
 
+// RequireScopesAllowAnonymous is RequireScopes for public methods: an anonymous
+// principal passes when it holds every scope. It returns Unauthenticated only
+// when there is no principal, and PermissionDenied when any scope is missing.
+func RequireScopesAllowAnonymous(ctx context.Context, scopes ...string) (Principal, error) {
+	p, ok := FromContext(ctx)
+	if !ok {
+		return Principal{}, status.Error(codes.Unauthenticated, "authentication required")
+	}
+	for _, s := range scopes {
+		if !p.HasScope(s) {
+			return Principal{}, status.Error(codes.PermissionDenied, "missing scope")
+		}
+	}
+	return p, nil
+}
+
 func withMetadataPrincipal(ctx context.Context) context.Context {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
