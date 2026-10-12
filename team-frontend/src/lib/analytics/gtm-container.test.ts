@@ -53,10 +53,31 @@ function load() {
 const param = (t: Tag, key: string) =>
   t.parameter?.find((p) => p.key === key)?.value;
 
+const triggerOf = (id: string, triggers: Trigger[]) =>
+  triggers.find((tr) => String(tr.triggerId) === String(id));
+const firesOnIdentity = (t: Tag, triggers: Trigger[]) =>
+  (t.firingTriggerId ?? []).some((id) => {
+    const tr = triggerOf(id, triggers);
+    return (
+      tr?.type === "CUSTOM_EVENT" &&
+      JSON.stringify(tr.customEventFilter ?? []).includes("ga4_identity")
+    );
+  });
+const ALL_PAGES_BUILTIN = "2147479553";
+const firesOnAllPages = (t: Tag, triggers: Trigger[]) =>
+  (t.firingTriggerId ?? []).some(
+    (id) =>
+      String(id) === ALL_PAGES_BUILTIN ||
+      triggerOf(id, triggers)?.type === "PAGEVIEW",
+  );
+
 describe("gtm-container.json", () => {
-  it("[Container defines event tags for the ecommerce funnel] has exactly 1 GA4 configuration tag", () => {
-    const { tags } = load();
-    expect(tags.filter((t) => t.type === "gaawc")).toHaveLength(1);
+  it("[Container defines event tags for the ecommerce funnel] has exactly 2 GA4 configuration tags: initial (All Pages) and identity", () => {
+    const { tags, triggers } = load();
+    const cfgs = tags.filter((t) => t.type === "gaawc");
+    expect(cfgs).toHaveLength(2);
+    expect(cfgs.filter((t) => firesOnIdentity(t, triggers))).toHaveLength(1);
+    expect(cfgs.filter((t) => firesOnAllPages(t, triggers))).toHaveLength(1);
   });
 
   it.each(FUNNEL)(
@@ -146,27 +167,56 @@ describe("gtm-container.json", () => {
           v.parameter?.some((p) => p.key === "name" && p.value === field),
       );
       expect(dlv?.name).toBeTruthy();
-      const cfg = tags.find((t) => t.type === "gaawc");
-      const json = JSON.stringify(
-        (cfg?.parameter ?? []).filter((p) => p.key !== "measurementId"),
-      );
-      expect(json).toContain(`"${field}"`);
-      expect(json).toContain(`{{${dlv?.name}}}`);
+      const cfgs = tags.filter((t) => t.type === "gaawc");
+      expect(cfgs).toHaveLength(2);
+      for (const cfg of cfgs) {
+        const json = JSON.stringify(
+          (cfg.parameter ?? []).filter((p) => p.key !== "measurementId"),
+        );
+        expect(json, cfg.name).toContain(`"${field}"`);
+        expect(json, cfg.name).toContain(`{{${dlv?.name}}}`);
+      }
     });
   });
 
-  it("[Identity reaches GA4 after the async fetch] the config tag re-fires on a ga4_identity CUSTOM_EVENT trigger", () => {
+  it("[Identity reaches GA4 after the async fetch] a config tag fires on the ga4_identity CUSTOM_EVENT trigger", () => {
     const { tags, triggers } = load();
-    const cfg = tags.find((t) => t.type === "gaawc");
-    const firing = (cfg?.firingTriggerId ?? []).map((id) =>
-      triggers.find((tr) => String(tr.triggerId) === String(id)),
+    const cfgs = tags.filter(
+      (t) => t.type === "gaawc" && firesOnIdentity(t, triggers),
     );
-    expect(
-      firing.some(
-        (tr) =>
-          tr?.type === "CUSTOM_EVENT" &&
-          JSON.stringify(tr.customEventFilter ?? []).includes("ga4_identity"),
-      ),
-    ).toBe(true);
+    expect(cfgs.length).toBeGreaterThan(0);
+  });
+
+  it("[Identity arrival does not duplicate page_view] every config tag firing on ga4_identity has sendPageView false and not the All Pages trigger", () => {
+    const { tags, triggers } = load();
+    const cfgs = tags.filter(
+      (t) => t.type === "gaawc" && firesOnIdentity(t, triggers),
+    );
+    expect(cfgs.length).toBeGreaterThan(0);
+    for (const t of cfgs) {
+      expect(param(t, "sendPageView"), t.name).toBe("false");
+      expect(firesOnAllPages(t, triggers), t.name).toBe(false);
+    }
+  });
+
+  it("[Identity arrival does not duplicate page_view] the All Pages config tag does not fire on ga4_identity and keeps page_view on", () => {
+    const { tags, triggers } = load();
+    const initial = tags.filter(
+      (t) => t.type === "gaawc" && firesOnAllPages(t, triggers),
+    );
+    expect(initial).toHaveLength(1);
+    expect(firesOnIdentity(initial[0], triggers)).toBe(false);
+    expect(param(initial[0], "sendPageView")).not.toBe("false");
+  });
+
+  it("[Identity arrival does not duplicate page_view] both config tags share the same measurement id variable", () => {
+    const { tags } = load();
+    const ids = tags
+      .filter((t) => t.type === "gaawc")
+      .map(
+        (t) => param(t, "measurementId") ?? param(t, "measurementIdOverride"),
+      );
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe(ids[1]);
   });
 });
