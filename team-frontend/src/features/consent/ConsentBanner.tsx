@@ -9,6 +9,7 @@ import {
 } from "@/lib/consent/consent";
 
 const OPEN_EVENT = "agora:consent:open";
+const CHANGE_EVENT = "agora:consent:change";
 
 const GROUPS: { key: keyof ConsentGroups; label: string; hint: string }[] = [
   {
@@ -62,6 +63,7 @@ export function ConsentBanner() {
 
   const commit = (groups: ConsentGroups) => {
     writeConsent(groups);
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: groups }));
     setOpen(false);
   };
 
