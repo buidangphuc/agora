@@ -223,10 +223,49 @@ def group_rows(frame: pd.DataFrame, rows: np.ndarray) -> list[list[int]]:
 
 
 # ── debiased CTR ─────────────────────────────────────────────────────────────
+LIST_MIN_IMPRESSIONS = 100
+PROPENSITY_FLOOR = 0.05
+
+
+def row_weights(frame: pd.DataFrame, train: np.ndarray) -> np.ndarray:
+    """Per-row IPS weight for every row of ``frame``: position-only ``max(pos,1)**IPS_GAMMA``.
+
+    With ``item_list_id``, a (list, position) cell with enough TRAIN impressions (and a position-1 cell in the
+    same list) uses 1/propensity: smoothed CTR at the position / at position 1, clamped to [0.05, 1]."""
+    pos = np.maximum(frame["position"].to_numpy(), 1)
+    weight = pos.astype(float) ** contract.IPS_GAMMA
+    if "item_list_id" not in frame.columns:
+        return weight
+    sub = frame.iloc[train]
+    cells: dict[tuple, list[float]] = {}
+    for lst, p, lab in zip(
+        sub["item_list_id"], np.maximum(sub["position"].to_numpy(), 1), sub["label"].to_numpy(), strict=True
+    ):
+        if lst is None or lst != lst:
+            continue
+        c = cells.setdefault((lst, int(p)), [0.0, 0.0])
+        c[0] += 1.0 if lab >= 1 else 0.0
+        c[1] += 1.0
+
+    def smoothed(cell: list[float]) -> float:
+        return (cell[0] + 1.0) / (cell[1] + 2.0)
+
+    for i, (lst, p) in enumerate(zip(frame["item_list_id"], pos, strict=True)):
+        if lst is None or lst != lst:
+            continue
+        cell, base = cells.get((lst, int(p))), cells.get((lst, 1))
+        if cell is None or base is None:
+            continue
+        if cell[1] < LIST_MIN_IMPRESSIONS or base[1] < LIST_MIN_IMPRESSIONS:
+            continue
+        weight[i] = 1.0 / min(1.0, max(PROPENSITY_FLOOR, smoothed(cell) / smoothed(base)))
+    return weight
+
+
 def ctr_stats(frame: pd.DataFrame, train: np.ndarray) -> dict[str, tuple[float, float]]:
     """Per listing, over the TRAIN rows: (position-weighted clicks, impressions)."""
     sub = frame.iloc[train]
-    weight = np.maximum(sub["position"].to_numpy(), 1) ** contract.IPS_GAMMA
+    weight = row_weights(frame, train)[np.asarray(train)]
     clicked = (sub["label"].to_numpy() >= 1).astype(float)
     stats: dict[str, list[float]] = {}
     for lid, w, c in zip(sub["listing_id"], weight, clicked, strict=True):
@@ -248,7 +287,7 @@ def apply_debiased_ctr(
     is_train[train] = True
     x = matrix.x.copy()
     source = np.full(len(frame), FALLBACK, dtype=object)
-    weight = np.maximum(frame["position"].to_numpy(), 1) ** contract.IPS_GAMMA
+    weight = row_weights(frame, train)
     clicked = (frame["label"].to_numpy() >= 1).astype(float)
     for i, lid in enumerate(frame["listing_id"]):
         clicks, imprs = stats.get(lid, (0.0, 0.0))
