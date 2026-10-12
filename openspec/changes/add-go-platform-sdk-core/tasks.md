@@ -171,7 +171,7 @@ package testkit
 func Postgres(t testing.TB) (url string)   // testcontainers postgres:17-alpine; t.Cleanup terminates; t.Skip if Docker is unavailable and GO_SDK_REQUIRE_DOCKER is unset
 ```
 `Checker` returns `func(context.Context) error` (assignable to `healthx.Check`) so `pgx` does not import `healthx`. Use `config.Postgres` per the `## 3` contract. If `## 3` has not merged, declare a test-local struct and leave a note.
-- [ ] 7.1 Tests first: `TestOpenFailsOnUnreachableDB`, `TestWithTxRollsBackOnError`, `TestWithTxCommits`, `TestUpIsIdempotent`, `TestUpFailsOnInvalidSQL`, `TestPostgresFixtureIsReachable`; then implement. Verify green with Docker running.
+- [x] 7.1 Tests first: `TestOpenFailsOnUnreachableDB`, `TestWithTxRollsBackOnError`, `TestWithTxCommits`, `TestUpIsIdempotent`, `TestUpFailsOnInvalidSQL`, `TestPostgresFixtureIsReachable`; then implement. Verify green with Docker running.
 
 ## 8. resilience (wave 2)
 
