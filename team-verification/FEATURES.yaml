@@ -41,3 +41,70 @@ features:
     tags: [admin, security]
     status: automated
     covered_by: "services/verification_access.feature::An admin approves a seller's KYC"
+
+  # Change migrate-team-verification-to-go-sdk: runtime behaviour with no UI journey; every entry
+  # below is not-testable and names its unit/integration test.
+  - id: verification-runtime.boots-fail-on-unreachable-database-outside-local
+    title: team-verification fails boot on an unreachable database outside local
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-verification]
+    acceptance:
+      - When team-verification starts with ENV=staging and DATABASE_URL pointing at a closed port
+      - Then app.Run returns an error and no gRPC listener is opened
+    tags: [verification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-verification-to-go-sdk: not producible end to end; verified by team-verification/internal/app TestBootFailsWhenDatabaseUnreachableOutsideLocal."
+
+  - id: verification-runtime.local-falls-back-to-memory
+    title: team-verification falls back to memory locally
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-verification]
+    acceptance:
+      - When team-verification starts with ENV=local and an unreachable database
+      - Then SubmitKyc, ReviewKyc and GetVerificationStatus are served from the in-memory store and health is SERVING
+    tags: [verification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-verification-to-go-sdk: not producible end to end; verified by team-verification/internal/app TestLocalFallsBackToMemoryStore."
+
+  - id: verification-runtime.no-enable-flags
+    title: team-verification declares no enable flags
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-verification]
+    acceptance:
+      - When the declared env keys of team-verification's Settings are listed
+      - Then neither DATABASE_ENABLED nor GRPC_REFLECTION_ENABLED is declared
+    tags: [verification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-verification-to-go-sdk: not producible end to end; verified by team-verification/internal/config TestNoEnableFlagsDeclared."
+
+  - id: verification-runtime.database-loss-flips-health
+    title: team-verification health fails to NOT_SERVING when the database is lost
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-verification]
+    acceptance:
+      - When the database used by a running team-verification stops accepting connections
+      - Then within one probe interval the gRPC health status is NOT_SERVING
+    tags: [verification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-verification-to-go-sdk: not producible end to end; verified by team-verification/internal/app TestHealthReportsDatabaseDown (testkit Postgres)."
+
+  - id: verification-runtime.existing-suites-do-not-regress
+    title: team-verification existing suites do not regress and no assertion is weakened
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-verification]
+    acceptance:
+      - When make check runs after the restructure
+      - Then every pre-existing team-verification test passes with its assertions unchanged apart from auth status message text
+    tags: [verification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-verification-to-go-sdk: not producible end to end; verified by team-verification `make check`."
