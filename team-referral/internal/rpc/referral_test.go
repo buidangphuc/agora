@@ -1,25 +1,27 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
-	"github.com/buidangphuc/team-referral/internal/handler"
-	"github.com/buidangphuc/team-referral/internal/interceptor"
-	"github.com/buidangphuc/team-referral/internal/repository"
-	"github.com/buidangphuc/team-referral/internal/service"
+	"github.com/buidangphuc/team-referral/internal/referral"
+	"github.com/buidangphuc/team-referral/internal/rpc"
+	"github.com/buidangphuc/team-referral/internal/store"
 )
 
-func newHandler() *handler.ReferralHandler {
-	return handler.NewReferralHandler(service.NewReferralService(repository.NewInMemoryReferralRepo()))
+func newHandler() *rpc.Handler {
+	return rpc.NewHandler(referral.NewService(store.NewInMemoryReferralRepo()), slog.New(slog.DiscardHandler))
 }
 
 func userCtx(id string) context.Context {
-	return interceptor.WithPrincipal(context.Background(), interceptor.Principal{UserID: id})
+	return auth.WithPrincipal(context.Background(), auth.Principal{ID: id})
 }
 
 // Anonymous callers (no principal) are rejected on every user-owned RPC.
@@ -60,9 +62,9 @@ func TestHandlerScopesToPrincipal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if mine.GetInvitedCount() != 1 || mine.GetRewardsTotal() != service.RewardOnReferral {
+	if mine.GetInvitedCount() != 1 || mine.GetRewardsTotal() != referral.RewardOnReferral {
 		t.Fatalf("expected invited=1 total=%d, got invited=%d total=%d",
-			service.RewardOnReferral, mine.GetInvitedCount(), mine.GetRewardsTotal())
+			referral.RewardOnReferral, mine.GetInvitedCount(), mine.GetRewardsTotal())
 	}
 
 	// Redeeming a missing code surfaces NotFound to the caller.

@@ -1,17 +1,18 @@
-package service_test
+package referral_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	commonv1 "github.com/buidangphuc/team-referral/generated/platform/common/v1"
 	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
-	"github.com/buidangphuc/team-referral/internal/repository"
-	"github.com/buidangphuc/team-referral/internal/service"
+	"github.com/buidangphuc/team-referral/internal/referral"
+	"github.com/buidangphuc/team-referral/internal/store"
 )
 
-func newReferralService() *service.ReferralService {
-	return service.NewReferralService(repository.NewInMemoryReferralRepo())
+func newReferralService() *referral.Service {
+	return referral.NewService(store.NewInMemoryReferralRepo())
 }
 
 // CreateCode mints a code and GetMyReferral returns that same code (roundtrip),
@@ -72,20 +73,20 @@ func TestRedeemAttributesReferee(t *testing.T) {
 	if alice.InvitedCount != 1 {
 		t.Fatalf("expected alice invited=1, got %d", alice.InvitedCount)
 	}
-	if alice.RewardsTotal != service.RewardOnReferral {
-		t.Fatalf("expected alice rewards=%d, got %d", service.RewardOnReferral, alice.RewardsTotal)
+	if alice.RewardsTotal != referral.RewardOnReferral {
+		t.Fatalf("expected alice rewards=%d, got %d", referral.RewardOnReferral, alice.RewardsTotal)
 	}
 
 	rewards, _, err := svc.ListRewards(ctx, "alice", &referralv1.ListReferralRewardsRequest{})
 	if err != nil {
 		t.Fatalf("list rewards: %v", err)
 	}
-	if len(rewards) != 1 || rewards[0].GetReason() != service.ReasonInviteeJoined {
-		t.Fatalf("expected one %q reward, got %+v", service.ReasonInviteeJoined, rewards)
+	if len(rewards) != 1 || rewards[0].GetReason() != referral.ReasonInviteeJoined {
+		t.Fatalf("expected one %q reward, got %+v", referral.ReasonInviteeJoined, rewards)
 	}
 
 	// A double redemption by the same referee is rejected.
-	if err := svc.Redeem(ctx, "bob", code); err != service.ErrAlreadyRedeemed {
+	if err := svc.Redeem(ctx, "bob", code); !errors.Is(err, referral.ErrAlreadyRedeemed) {
 		t.Fatalf("expected ErrAlreadyRedeemed on second redeem, got %v", err)
 	}
 }
@@ -99,13 +100,13 @@ func TestRedeemRejectsSelfAndUnknown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create code: %v", err)
 	}
-	if err := svc.Redeem(ctx, "alice", code); err != service.ErrSelfReferral {
+	if err := svc.Redeem(ctx, "alice", code); !errors.Is(err, referral.ErrSelfReferral) {
 		t.Fatalf("expected ErrSelfReferral, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", "REFnope123"); err != service.ErrCodeNotFound {
+	if err := svc.Redeem(ctx, "bob", "REFnope123"); !errors.Is(err, referral.ErrCodeNotFound) {
 		t.Fatalf("expected ErrCodeNotFound for unknown code, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", ""); err != service.ErrEmptyCode {
+	if err := svc.Redeem(ctx, "bob", ""); !errors.Is(err, referral.ErrEmptyCode) {
 		t.Fatalf("expected ErrEmptyCode for empty code, got %v", err)
 	}
 }
@@ -153,16 +154,16 @@ func TestEmptyUserRejected(t *testing.T) {
 	svc := newReferralService()
 	ctx := context.Background()
 
-	if _, err := svc.CreateCode(ctx, ""); err != service.ErrEmptyUser {
+	if _, err := svc.CreateCode(ctx, ""); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("CreateCode empty user: got %v", err)
 	}
-	if _, err := svc.GetMyReferral(ctx, ""); err != service.ErrEmptyUser {
+	if _, err := svc.GetMyReferral(ctx, ""); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("GetMyReferral empty user: got %v", err)
 	}
-	if err := svc.Redeem(ctx, "", "REFx"); err != service.ErrEmptyUser {
+	if err := svc.Redeem(ctx, "", "REFx"); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("Redeem empty referee: got %v", err)
 	}
-	if _, _, err := svc.ListRewards(ctx, "", nil); err != service.ErrEmptyUser {
+	if _, _, err := svc.ListRewards(ctx, "", nil); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("ListRewards empty user: got %v", err)
 	}
 }
