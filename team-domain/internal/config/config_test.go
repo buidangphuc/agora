@@ -28,6 +28,7 @@ func TestLoadDefaults(t *testing.T) {
 	// DATABASE_URL is required because DATABASE_ENABLED defaults to true; set it
 	// so Validate passes, then assert the other struct defaults apply.
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("GRPC_PORT", "50051")
 	s, err := Load()
 	if err != nil {
 		t.Fatalf("Load with defaults: %v", err)
@@ -106,6 +107,7 @@ func TestRequireSafeStrictConfig(t *testing.T) {
 
 func TestRequireSafeStrictConfig_FromEnvironment(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("GRPC_PORT", "50051")
 	t.Setenv("ENV", "production")
 	if _, err := Load(); err == nil {
 		t.Fatal("production with default Kafka/storage settings must be refused by Load")
@@ -119,6 +121,7 @@ func TestRequireSafeStrictConfig_FromEnvironment(t *testing.T) {
 func reservationSettings(t *testing.T, env map[string]string) *Settings {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("GRPC_PORT", "50051")
 	for k, v := range env {
 		t.Setenv(k, v)
 	}

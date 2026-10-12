@@ -593,6 +593,21 @@ func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
 	}
 }
 
+// TestAnonymousStockCallIsPermissionDenied: the anonymous principal (which the
+// gateway gives the public scopes) is denied the internal stock RPCs with
+// PermissionDenied, not Unauthenticated.
+func TestAnonymousStockCallIsPermissionDenied(t *testing.T) {
+	repo := store.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	client := startServer(t, repo)
+	ctx, cancel := principalCtxAs(t, "anon", "anonymous", "listing.read")
+	defer cancel()
+
+	_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r1"})
+	if got := status.Code(err); got != codes.PermissionDenied {
+		t.Fatalf("ReserveStock: want PermissionDenied, got %v (%v)", got, err)
+	}
+}
+
 func serviceCtx(t *testing.T) (context.Context, context.CancelFunc) {
 	t.Helper()
 	return principalCtxAs(t, "service-team-order", "service", "listing.read,listing.write")

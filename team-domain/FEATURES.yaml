@@ -538,3 +538,54 @@ features:
     notes: >-
       Needs a Postgres container and a fake publisher. Unit-verified by
       TestShutdownStopsRelayerBeforePoolClose in team-domain/internal/app.
+
+  - id: listing.publisher-not-used-after-close
+    title: The publisher is not used after it is closed
+    persona: admin
+    priority: P2
+    summary: >-
+      The Kafka publisher is closed once, after the relayer has stopped.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the service shuts down with the relayer enabled
+      - THEN the publisher is closed exactly once and never used afterwards
+    tags: [system, runtime, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Unit-verified by TestShutdownStopsRelayerBeforePoolClose in team-domain/internal/app.
+
+  - id: listing.existing-suites-stay-green
+    title: Existing suites stay green after the move
+    persona: admin
+    priority: P2
+    summary: >-
+      The pre-existing unit and integration suites pass unchanged after the go-sdk restructure.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN make check runs after the restructure, with Docker for the Postgres tests
+      - THEN every pre-existing test in rpc, listing, store, events and config passes
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Verified by team-domain make check; no UI.
+
+  - id: listing.anonymous-stock-denied
+    title: Anonymous callers are still denied stock RPCs with PermissionDenied
+    persona: admin
+    priority: P2
+    summary: >-
+      The anonymous principal gets PermissionDenied, not Unauthenticated, on the internal stock RPCs.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN an anonymous principal calls ReserveStock
+      - THEN the call fails with PermissionDenied
+    tags: [system, auth]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Unit-verified by TestAnonymousStockCallIsPermissionDenied in team-domain/internal/rpc.

@@ -16,10 +16,6 @@ import (
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
-// defaultGRPCPort is the GRPC_PORT this service has always defaulted to. The SDK
-// group marks GRPC_PORT required, so Load supplies the default when it is unset.
-const defaultGRPCPort = "50051"
-
 // Settings is the whole configuration surface. Runtime and GRPC are embedded
 // SDK groups; Postgres and OTel are named because both have an Enabled field.
 type Settings struct {
@@ -84,11 +80,6 @@ const (
 // Load reads Settings from the environment, applies defaults and runs Validate.
 // It is the single entry point used by cmd/server.
 func Load() (Settings, error) {
-	if _, ok := os.LookupEnv("GRPC_PORT"); !ok {
-		if err := os.Setenv("GRPC_PORT", defaultGRPCPort); err != nil {
-			return Settings{}, fmt.Errorf("default GRPC_PORT: %w", err)
-		}
-	}
 	s, err := sdkconfig.Load[Settings]()
 	if err != nil {
 		return s, err

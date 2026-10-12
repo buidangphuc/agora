@@ -72,7 +72,7 @@ Read in `internal/config/config.go`: `Settings` embeds the go-sdk `Runtime` and 
 | `LOG_LEVEL` | `info` |
 | `LOG_JSON` | `true` |
 | `GRPC_HOST` | `0.0.0.0` |
-| `GRPC_PORT` | `50051` |
+| `GRPC_PORT` | none, required; the image and `.env.example` set `50051` |
 | `GRPC_REFLECTION_ENABLED` | `true` |
 | `SHUTDOWN_GRACE_SECONDS` | `10` |
 | `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0`: how long to keep serving after health reports NOT_SERVING |
