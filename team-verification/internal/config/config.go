@@ -1,26 +1,21 @@
+// Package config holds team-verification's settings: the SDK groups it uses, bound
+// from environment variables.
 package config
 
-import (
-	"os"
-	"strconv"
-)
+import sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
-type Config struct {
-	GRPCPort    int
-	DatabaseURL string
+// Settings is everything the service reads from the environment. Runtime and
+// GRPC are embedded because nothing else collides with their fields; Postgres
+// and OTel are named because both have an Enabled field.
+type Settings struct {
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
 }
 
-func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50064"))
-	return Config{
-		GRPCPort:    port,
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://verification_svc:verification_pass@localhost:5444/verification_db?sslmode=disable"),
-	}
-}
+// Validate runs after parsing; sdkconfig.Load calls it.
+func (s Settings) Validate() error { return s.Postgres.Validate() }
 
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return def
-}
+// Load reads Settings from the environment and validates it.
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

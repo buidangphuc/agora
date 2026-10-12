@@ -1,10 +1,10 @@
-// Package service holds team-verification's application logic. VerificationService
+// Package verification holds team-verification's application logic. Service
 // owns the mock KYC lifecycle: a user submits a document reference (PENDING), a
 // reviewer approves/rejects it (VERIFIED / REJECTED), and status lookups report
 // the current state plus badge eligibility. It validates input and delegates
-// persistence to the repository; identity always comes from the handler, never
+// persistence to the store; identity always comes from the rpc layer, never
 // guessed. MOCK — only document references (strings) are stored, no documents.
-package service
+package verification
 
 import (
 	"context"
@@ -14,10 +14,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/buidangphuc/team-verification/internal/repository"
+	"github.com/buidangphuc/team-verification/internal/store"
 )
 
-// Validation errors surfaced to the handler, which maps them to gRPC codes.
+// Validation errors, mapped to InvalidArgument by the rpc layer.
 var (
 	ErrEmptyUser     = errors.New("user id is required")
 	ErrEmptyDocType  = errors.New("doc_type is required")
@@ -26,18 +26,26 @@ var (
 	ErrInvalidReview = errors.New("decision must be 'approve' or 'reject'")
 )
 
-// VerificationService is the KYC use-case boundary.
-type VerificationService struct {
-	repo repository.KycRepository
+// Store errors re-exported so the rpc layer maps them without importing the
+// store package directly.
+var (
+	ErrNotFound        = store.ErrNotFound
+	ErrAlreadyReviewed = store.ErrAlreadyReviewed
+)
+
+// Service is the KYC use-case boundary.
+type Service struct {
+	repo store.KycRepository
 }
 
-func NewVerificationService(repo repository.KycRepository) *VerificationService {
-	return &VerificationService{repo: repo}
+// NewService returns a Service that keeps submissions in repo.
+func NewService(repo store.KycRepository) *Service {
+	return &Service{repo: repo}
 }
 
 // Submit records a new KYC submission for the user in PENDING state. Mock: the
 // doc_ref is stored verbatim (an opaque reference), no document is fetched.
-func (s *VerificationService) Submit(ctx context.Context, userID, docType, docRef string) (*repository.Submission, error) {
+func (s *Service) Submit(ctx context.Context, userID, docType, docRef string) (*store.Submission, error) {
 	if userID == "" {
 		return nil, ErrEmptyUser
 	}
@@ -47,12 +55,12 @@ func (s *VerificationService) Submit(ctx context.Context, userID, docType, docRe
 	if strings.TrimSpace(docRef) == "" {
 		return nil, ErrEmptyDocRef
 	}
-	sub := &repository.Submission{
+	sub := &store.Submission{
 		ID:      "kyc_" + uuid.NewString(),
 		UserID:  userID,
 		DocType: docType,
 		DocRef:  docRef,
-		Status:  repository.StatusPending,
+		Status:  store.StatusPending,
 	}
 	return s.repo.Create(ctx, sub)
 }
@@ -60,13 +68,13 @@ func (s *VerificationService) Submit(ctx context.Context, userID, docType, docRe
 // GetStatus returns the user's current verification status and whether the
 // verified badge should be shown. A user with no submission is reported as
 // PENDING with no badge (never verified until they submit and are approved).
-func (s *VerificationService) GetStatus(ctx context.Context, userID string) (repository.Status, bool, error) {
+func (s *Service) GetStatus(ctx context.Context, userID string) (store.Status, bool, error) {
 	if userID == "" {
 		return "", false, ErrEmptyUser
 	}
 	sub, err := s.repo.GetLatestByUser(ctx, userID)
-	if errors.Is(err, repository.ErrNotFound) {
-		return repository.StatusPending, false, nil
+	if errors.Is(err, store.ErrNotFound) {
+		return store.StatusPending, false, nil
 	}
 	if err != nil {
 		return "", false, err
@@ -74,8 +82,8 @@ func (s *VerificationService) GetStatus(ctx context.Context, userID string) (rep
 	return sub.Status, badgeFor(sub.Status), nil
 }
 
-// Get returns a submission by id (NotFound propagates from the repository).
-func (s *VerificationService) Get(ctx context.Context, id string) (*repository.Submission, error) {
+// Get returns a submission by id (NotFound propagates from the store).
+func (s *Service) Get(ctx context.Context, id string) (*store.Submission, error) {
 	if id == "" {
 		return nil, ErrEmptyID
 	}
@@ -84,17 +92,17 @@ func (s *VerificationService) Get(ctx context.Context, id string) (*repository.S
 
 // Review applies a reviewer's decision to a submission. Mock admin action:
 // "approve" -> VERIFIED, "reject" -> REJECTED, stamping reviewed_at. Returns the
-// resulting status. NotFound propagates from the repository.
-func (s *VerificationService) Review(ctx context.Context, id, decision string) (repository.Status, error) {
+// resulting status. NotFound propagates from the store.
+func (s *Service) Review(ctx context.Context, id, decision string) (store.Status, error) {
 	if id == "" {
 		return "", ErrEmptyID
 	}
-	var next repository.Status
+	var next store.Status
 	switch strings.ToLower(strings.TrimSpace(decision)) {
 	case "approve", "approved", "verify", "verified":
-		next = repository.StatusVerified
+		next = store.StatusVerified
 	case "reject", "rejected", "deny", "denied":
-		next = repository.StatusRejected
+		next = store.StatusRejected
 	default:
 		return "", ErrInvalidReview
 	}
@@ -106,6 +114,6 @@ func (s *VerificationService) Review(ctx context.Context, id, decision string) (
 }
 
 // badgeFor reports whether the verified badge is earned. badge == VERIFIED.
-func badgeFor(status repository.Status) bool {
-	return status == repository.StatusVerified
+func badgeFor(status store.Status) bool {
+	return status == store.StatusVerified
 }

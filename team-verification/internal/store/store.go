@@ -1,11 +1,9 @@
-// Package repository holds team-verification's persistence layer for KYC
-// submissions. It defines the KycRepository boundary plus a Postgres and an
-// in-memory implementation, mirroring team-notification's repo split so the
-// service and handler are unit-testable without a live database.
+// Package store persists KYC submissions: a Postgres implementation for deployed
+// runs and an in-memory one for ENV=local without a database and for tests.
 //
 // MOCK scope: only document *references* (opaque storage keys / strings) are
 // stored — no real documents ever live here.
-package repository
+package store
 
 import (
 	"context"
@@ -21,6 +19,7 @@ import (
 // VERIFIED, REJECTED} (matches the kyc_submissions.status column).
 type Status string
 
+// The KYC lifecycle states.
 const (
 	StatusPending  Status = "PENDING"
 	StatusVerified Status = "VERIFIED"
@@ -64,14 +63,17 @@ type KycRepository interface {
 
 // ── Postgres implementation ──
 
+// PostgresKycRepo stores submissions in the kyc_submissions table.
 type PostgresKycRepo struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresKycRepo returns a repo backed by pool.
 func NewPostgresKycRepo(pool *pgxpool.Pool) *PostgresKycRepo {
 	return &PostgresKycRepo{pool: pool}
 }
 
+// Create implements KycRepository.
 func (r *PostgresKycRepo) Create(ctx context.Context, s *Submission) (*Submission, error) {
 	const q = `
 		INSERT INTO kyc_submissions (id, user_id, doc_type, doc_ref, status, created_at)
@@ -84,6 +86,7 @@ func (r *PostgresKycRepo) Create(ctx context.Context, s *Submission) (*Submissio
 	return cloneSubmission(s), nil
 }
 
+// GetByID implements KycRepository.
 func (r *PostgresKycRepo) GetByID(ctx context.Context, id string) (*Submission, error) {
 	return r.queryOne(ctx, `
 		SELECT id, user_id, doc_type, doc_ref, status, reviewed_at, created_at
@@ -91,6 +94,7 @@ func (r *PostgresKycRepo) GetByID(ctx context.Context, id string) (*Submission, 
 		WHERE id = $1`, id)
 }
 
+// GetLatestByUser implements KycRepository.
 func (r *PostgresKycRepo) GetLatestByUser(ctx context.Context, userID string) (*Submission, error) {
 	return r.queryOne(ctx, `
 		SELECT id, user_id, doc_type, doc_ref, status, reviewed_at, created_at
@@ -100,6 +104,7 @@ func (r *PostgresKycRepo) GetLatestByUser(ctx context.Context, userID string) (*
 		LIMIT 1`, userID)
 }
 
+// UpdateStatus implements KycRepository.
 func (r *PostgresKycRepo) UpdateStatus(ctx context.Context, id string, status Status, reviewedAt time.Time) (*Submission, error) {
 	// The PENDING guard makes the decision final and concurrent reviews safe: only
 	// one UPDATE can match, the other sees no row.
@@ -137,16 +142,19 @@ func (r *PostgresKycRepo) scanRow(row pgx.Row) (*Submission, error) {
 
 // ── In-memory implementation ──
 
+// InMemoryKycRepo keeps submissions in process memory; they are lost on exit.
 type InMemoryKycRepo struct {
 	mu    sync.Mutex
 	byID  map[string]*Submission
 	order []string // insertion order, for deterministic "latest by user"
 }
 
+// NewInMemoryKycRepo returns an empty in-memory repo.
 func NewInMemoryKycRepo() *InMemoryKycRepo {
 	return &InMemoryKycRepo{byID: make(map[string]*Submission)}
 }
 
+// Create implements KycRepository.
 func (r *InMemoryKycRepo) Create(_ context.Context, s *Submission) (*Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -159,6 +167,7 @@ func (r *InMemoryKycRepo) Create(_ context.Context, s *Submission) (*Submission,
 	return cloneSubmission(stored), nil
 }
 
+// GetByID implements KycRepository.
 func (r *InMemoryKycRepo) GetByID(_ context.Context, id string) (*Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -169,6 +178,7 @@ func (r *InMemoryKycRepo) GetByID(_ context.Context, id string) (*Submission, er
 	return cloneSubmission(s), nil
 }
 
+// GetLatestByUser implements KycRepository.
 func (r *InMemoryKycRepo) GetLatestByUser(_ context.Context, userID string) (*Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -185,6 +195,7 @@ func (r *InMemoryKycRepo) GetLatestByUser(_ context.Context, userID string) (*Su
 	return cloneSubmission(latest), nil
 }
 
+// UpdateStatus implements KycRepository.
 func (r *InMemoryKycRepo) UpdateStatus(_ context.Context, id string, status Status, reviewedAt time.Time) (*Submission, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
