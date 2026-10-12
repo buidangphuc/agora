@@ -122,13 +122,36 @@ The view `tracking_events_attributed` SHALL expose every row of `tracking_events
 - **WHEN** `ga4_sessions` and `ga4_events_daily` hold purchase values and `order_facts` holds a different total
 - **THEN** every revenue query returns the `order_facts` total
 
+### Requirement: The import runs inside the consumer process
+The analytics consumer process SHALL run the GA4 import once per day for the previous UTC date (time configurable, `GA4_IMPORT_AT`, default `03:30` UTC) using its already-open warehouse writer (DuckDB or BigQuery), so no second process writes to the warehouse. It SHALL expose an internal, cluster-only trigger `POST /internal/ga4import?date=YYYY-MM-DD` on the consumer's internal HTTP listener (`METRICS_ADDR`, `:9109`; not routed through the gateway) that runs the import synchronously and returns 200 with the row count, 4xx for an invalid date, and 5xx with the date in the body on failure (for example a missing export table). The CLI `/ga4import --date` SHALL be a thin client of that trigger: exit 0 on 200, non-zero with the error text on stderr otherwise. When `GA4_EXPORT_DATASET` is empty and no fixture directory is set, the scheduled run and the trigger SHALL be no-ops returning 200 with rows = 0.
+
+#### Scenario: The import runs inside the consumer without a second writer
+- **WHEN** the consumer holds the warehouse writer and `POST /internal/ga4import?date=D` is called for a fixture date
+- **THEN** the response is 200 with the row count, `ga4_sessions` holds the rows for D, and no second warehouse connection is opened
+- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+
+#### Scenario: The internal trigger is not exposed through the gateway
+- **WHEN** the gateway route table and the team-analytics gitops manifests are inspected
+- **THEN** no gateway route maps to `/internal/ga4import` and the metrics/trigger port has no Ingress or public Service exposure
+- **VERIFIED BY**: platform-e2e/scripts/tests/test_gitops_ga4.py
+
+#### Scenario: An invalid date is rejected by the trigger
+- **WHEN** `POST /internal/ga4import?date=not-a-date` is called
+- **THEN** the response is a 4xx and `ga4_sessions` is unchanged
+- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+
+#### Scenario: A failed import returns 5xx with the date
+- **WHEN** the trigger is called for a date whose export table does not exist
+- **THEN** the response is 5xx with the date in the body and the CLI exits non-zero with that text on stderr
+- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+
 ### Requirement: The import is deployed with disabled-by-default configuration
-`platform-gitops` SHALL define a daily CronJob for the import and the settings `GA4_EXPORT_SOURCE`, `GA4_EXPORT_DATASET` and `GA4_RECONCILE_MAX_DIFF_RATIO`; when `GA4_EXPORT_DATASET` is unset in `local` and `staging`, the job SHALL exit 0 without reading anything.
+`platform-gitops` SHALL set `GA4_EXPORT_SOURCE`, `GA4_EXPORT_DATASET`, `GA4_IMPORT_AT` and `GA4_RECONCILE_MAX_DIFF_RATIO` on the team-analytics consumer Deployment (no CronJob) and SHALL keep the metrics/trigger port cluster-internal; when `GA4_EXPORT_DATASET` is unset in `local` and `staging`, the import SHALL return success without reading anything.
 
 #### Scenario: The job is a no-op when unconfigured
-- **WHEN** the job starts with `GA4_EXPORT_DATASET` unset
-- **THEN** it exits with status 0 and writes zero rows
+- **WHEN** the scheduled run or the trigger executes with `GA4_EXPORT_DATASET` unset and no fixture directory
+- **THEN** it returns 200 (CLI exit 0) with rows = 0 and writes zero rows
 
 #### Scenario: Invalid threshold is rejected at startup
-- **WHEN** the job starts with `GA4_RECONCILE_MAX_DIFF_RATIO=-1`
+- **WHEN** the consumer or the CLI starts with `GA4_RECONCILE_MAX_DIFF_RATIO=-1`
 - **THEN** it exits with a non-zero status and an error naming the setting
