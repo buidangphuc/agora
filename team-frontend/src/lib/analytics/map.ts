@@ -1,3 +1,4 @@
+import { readConsent } from "@/lib/consent/consent";
 import { GA4EventName, InternalEventType } from "./schema";
 
 const GA4_TO_INTERNAL: Record<GA4EventName, InternalEventType> = {
@@ -40,4 +41,21 @@ export function ga4ToInternal(name: GA4EventName): InternalEventType {
 
 export function internalToGa4(type: InternalEventType): GA4EventName {
   return INTERNAL_TO_GA4[type] ?? "view_item";
+}
+
+const GA_COOKIE_RE = /^GA1\.\d+\.(\d+\.\d+)$/;
+const GA_CLIENT_ID_MAX = 64;
+
+/** Client id from the `_ga` cookie; reads the cookie only with analytics consent. */
+export function readGaClientId(): string | undefined {
+  try {
+    if (!readConsent().analytics) return undefined;
+    if (typeof document === "undefined") return undefined;
+    const m = /(?:^|;\s*)_ga=([^;]*)/.exec(document.cookie);
+    if (!m) return undefined;
+    const id = GA_COOKIE_RE.exec(decodeURIComponent(m[1]))?.[1];
+    return id && id.length <= GA_CLIENT_ID_MAX ? id : undefined;
+  } catch {
+    return undefined;
+  }
 }

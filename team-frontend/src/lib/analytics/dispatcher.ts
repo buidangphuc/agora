@@ -1,5 +1,5 @@
 import { pushDataLayer } from "./dataLayer";
-import { ga4ToInternal } from "./map";
+import { ga4ToInternal, readGaClientId } from "./map";
 import { beaconQueue } from "./queue";
 import { EcommerceParams, GA4EventName, WireTrackBeacon } from "./schema";
 
@@ -76,6 +76,7 @@ export function trackEcommerce(
       // Fan-out: 1 row per item with shared eventGroupId (Decision D3)
       const eventGroupId = params.eventGroupId || randomId();
       const beacons: WireTrackBeacon[] = items.map((it) => {
+        const gaClientId = readGaClientId();
         return {
           eventId: randomId(),
           type: internalEventType,
@@ -108,12 +109,14 @@ export function trackEcommerce(
           eventGroupId,
           ...(params.shippingTier ? { shippingTier: params.shippingTier } : {}),
           ...(params.paymentType ? { paymentType: params.paymentType } : {}),
+          ...(gaClientId ? { gaClientId } : {}),
         };
       });
 
       beaconQueue.enqueueBatch(beacons);
     } else {
       // Single event (e.g. general page view or empty cart view)
+      const gaClientId = readGaClientId();
       const beacon: WireTrackBeacon = {
         eventId: randomId(),
         type: internalEventType,
@@ -135,6 +138,7 @@ export function trackEcommerce(
         ...(params.coupon ? { coupon: params.coupon } : {}),
         ...(params.shippingTier ? { shippingTier: params.shippingTier } : {}),
         ...(params.paymentType ? { paymentType: params.paymentType } : {}),
+        ...(gaClientId ? { gaClientId } : {}),
       };
       beaconQueue.enqueue(beacon);
     }

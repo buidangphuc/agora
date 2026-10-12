@@ -65,6 +65,18 @@ export function applyConsent(groups: ConsentGroups): void {
       Object.keys(signals).every((k) => lastUpdate[k] === signals[k]);
     if (!same) gtag("consent", "update", signals);
 
+    if (
+      process.env.NEXT_PUBLIC_APP_ENV === "staging" &&
+      !layer.some(
+        (e) =>
+          !!e &&
+          typeof e === "object" &&
+          (e as { debug_mode?: unknown }).debug_mode === true,
+      )
+    ) {
+      layer.push({ debug_mode: true });
+    }
+
     const gtmId = process.env.NEXT_PUBLIC_GTM_ID?.trim();
     if (gtmId && !document.querySelector(SCRIPT_SELECTOR)) {
       layer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });

@@ -33,7 +33,11 @@ tag SHALL require `analytics_storage=granted` (consent settings) and no tag SHAL
 The frontend server SHALL compute the GA4 `user_id` as lowercase hex HMAC-SHA256 of the session
 principal id keyed by `GA4_USER_ID_HMAC_KEY`, and `GET /api/analytics/identity` SHALL return it only
 to an authenticated caller whose `agora_consent` cookie has `a=1`. The client SHALL push it to the
-dataLayer as `{ user_id }` only after the analytics `consent update`.
+dataLayer as `{ user_id }` only after the analytics `consent update`. The frontend server SHALL take the
+principal id only from the gateway edge endpoint `GET /api/session/principal`, which verifies the bearer
+(JWKS signature, expiry, revocation) and returns 200 `{"principalId": "<sub>"}` with `Cache-Control: no-store`,
+or 401 with an empty body for a missing, invalid, expired or revoked token; a 401 or any gateway error makes
+the identity endpoint answer 204 (Clarifications R1 Q1).
 
 #### Scenario: Logged-in buyer with analytics consent gets a stable HMAC
 
@@ -49,6 +53,17 @@ dataLayer as `{ user_id }` only after the analytics `consent update`.
 
 - **WHEN** a caller with `a=1` but no valid session calls the endpoint
 - **THEN** the response is 204 and no HMAC is computed
+
+#### Scenario: Forged session cookie yields no user_id
+
+- **WHEN** a caller with `a=1` presents a `session` cookie holding a well-formed JWT with a future `exp`, a `sub` naming another user and an invalid signature, and calls `GET /api/analytics/identity`
+- **THEN** the response is 204 with an empty body
+
+#### Scenario: Gateway principal endpoint accepts only verified tokens
+
+- **WHEN** `GET /api/session/principal` is called with no bearer, a bad signature, an expired token or a revoked token, and then with a valid token
+- **THEN** the first four answer 401 with an empty body, and the valid token answers 200 `{"principalId"}` equal to its `sub` with `Cache-Control: no-store`
+- **VERIFIED BY**: `team-gateway/internal/edge/session_principal_test.go` "TestSessionPrincipal_OnlyVerifiedTokens" (Clarifications R1 Q1)
 
 #### Scenario: Missing key disables the feature
 

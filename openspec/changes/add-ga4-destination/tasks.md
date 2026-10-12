@@ -4,6 +4,7 @@
 
 - [ ] 1.1 Create `analytics/gtm-container.json` with GA4 config + event tags, consent-gated, no purchase tag, measurement id as variable (Container scenarios)
 - [ ] 1.2 Add `src/lib/analytics/ga4/userId.ts` (HMAC-SHA256 hex, server-only) and route `src/app/api/analytics/identity/route.ts` (consent + session checks, 204 paths, no-store) (user_id scenarios)
+- [ ] 1.2b Add gateway edge handler `GET /api/session/principal` in team-gateway (`internal/edge/session_principal.go`, registered in `internal/edge/server.go` via `edgeHTTP`) verifying the bearer with the existing verifier + revocation; switch `identity/route.ts` to call it with `getToken()` instead of decoding the cookie (Forged session, Gateway principal endpoint scenarios; Clarifications R1 Q1)
 - [ ] 1.3 Extend `destinations/gtm.ts` and `AnalyticsProvider.tsx`: after consent update fetch identity and push `{ user_id }`; push `debug_mode` in staging; stop on withdrawal via `consent update` analytics_storage=denied or `a=0` (user_id, debug scenarios; edits hot files after add-consent-mode)
 - [ ] 1.4 Build CSP in `next.config.mjs` headers with Google hosts (incl. `*.analytics.google.com`, `region1.google-analytics.com`) only when `NEXT_PUBLIC_GTM_ID` set (CSP scenarios)
 - [ ] 1.5 Add `gaClientId` to `WireTrackBeacon`/`map.ts`/queue, parse `_ga` only with consent, bound to 64 chars (ga_client_id scenarios)
@@ -13,6 +14,7 @@
 
 - [ ] 2.1 Container JSON structure, consent gating, no purchase tag, no secrets (Container scenarios, no key/secret values)
 - [ ] 2.2 Identity endpoint: consent/anonymous/missing-key/param-ignored/no-store, p95 < 50 ms over 100 calls, withdrawal, HMAC equals reference (user_id scenarios)
+- [ ] 2.2b Forged `session` cookie (bad signature, other user's sub) yields 204 from the identity endpoint (Forged session scenario)
 - [ ] 2.3 CSP header with and without GTM id; assert 0 network requests to Google in CI (CSP scenarios, "No IDs in dev, CI and e2e")
 - [ ] 2.4 Staging vs production `debug_mode` (debug scenarios)
 - [ ] 2.5 Beacon `gaClientId` with/without consent, malformed cookie, per-event consent, length bound (ga_client_id scenarios)
