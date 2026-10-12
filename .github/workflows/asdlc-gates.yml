@@ -49,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: git fetch --tags --force
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install pyyaml jsonschema
@@ -62,6 +64,7 @@ jobs:
       - run: python3 scripts/asdlc_config.py --check
       - run: python3 scripts/asdlc/check_gates.py
       - run: python3 -m unittest discover -s platform-gitops/tests
+      - run: bash platform-core/tools/check-go-sdk-vendor.sh
 
   proto:
     runs-on: ubuntu-latest
