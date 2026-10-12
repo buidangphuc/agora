@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import re
+import time
 
 from playwright.sync_api import expect
-from pytest_bdd import parsers, then, when
+from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
 from tests.e2e.support.world import World
@@ -96,6 +97,15 @@ def _open_home(world: World) -> None:
         world.page.mouse.wheel(0, 700)
         world.page.wait_for_timeout(120)
     world.page.evaluate("() => window.scrollTo(0, 0)")
+
+
+@given("the visitor has granted analytics consent")
+def analytics_consent_granted(world: World) -> None:
+    """Pre-seed agora_consent (analytics only) so GTM is allowed to load (consent-gated)."""
+    value = f"v=1&a=1&m=0&p=0&ts={int(time.time())}"
+    world.context.add_cookies(
+        [{"name": "agora_consent", "value": value, "url": world.settings.base_url}]
+    )
 
 
 @when("the buyer opens the home page while recording tracking beacons")
