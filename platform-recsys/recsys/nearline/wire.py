@@ -21,7 +21,14 @@ from recsys.nearline.signals import RawInteraction
 TRACKING_EVENT_TYPE = "platform.analytics.v1.TrackingEvent"
 PRINCIPAL_TYPE_USER = 2
 # EventType enum values of analytics.proto that feed nearline signals.
-_EVENT_NAMES = {1: "view", 2: "click", 3: "add_to_cart", 4: "impression"}
+_EVENT_NAMES = {
+    1: "view",
+    2: "click",
+    3: "add_to_cart",
+    4: "impression",
+    6: "begin_checkout",
+    11: "view_cart",
+}
 
 
 class DecodeError(ValueError):
@@ -97,6 +104,13 @@ class Tracking:
     anonymous_id: str = ""
     position: int = 0
     item_category: str = ""
+    consent_personalization: bool = False
+    consent_version: int = 0
+
+    @property
+    def consent_granted(self) -> bool:
+        """Personalisation consent given under a recorded policy version (version 0 = none)."""
+        return self.consent_personalization and self.consent_version > 0
 
 
 def decode_envelope(data: bytes) -> Envelope:
@@ -140,6 +154,12 @@ def decode_tracking(payload: bytes) -> Tracking:
             t.position = value
         elif number == 19:
             t.item_category = _str(value)
+        elif number == 26 and isinstance(value, bytes):
+            for n, v in _fields(value):
+                if n == 3 and isinstance(v, int):
+                    t.consent_personalization = bool(v)
+                elif n == 4 and isinstance(v, int):
+                    t.consent_version = v
     return t
 
 
@@ -172,4 +192,5 @@ def to_interaction(data: bytes, now: float | None = None) -> RawInteraction | No
         position=tracking.position,
         timestamp=env.occurred_at if env.occurred_at is not None else (now or time.time()),
         event_id=env.event_id,
+        consent_granted=tracking.consent_granted,
     )
