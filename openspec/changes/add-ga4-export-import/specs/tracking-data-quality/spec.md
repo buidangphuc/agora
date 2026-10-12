@@ -12,10 +12,12 @@ After each import, the system SHALL compare, per UTC day and per event type rece
 #### Scenario: Divergence at the threshold does not alert
 - **WHEN** GA4 reports 65 views and first-party reports 100 and the threshold is 0.35
 - **THEN** the report contains no `ga4_divergence` reason
+- **VERIFIED BY**: team-analytics/internal/query/ga4_reconcile_test.go
 
 #### Scenario: Zero first-party events are handled
 - **WHEN** first-party reports 0 clicks and GA4 reports 3
 - **THEN** the ratio equals 3 and the report contains `ga4_divergence` without a division error
+- **VERIFIED BY**: team-analytics/internal/query/ga4_reconcile_test.go
 
 #### Scenario: A missing import is reported, not treated as divergence
 - **WHEN** no import run exists for yesterday
@@ -28,7 +30,9 @@ After each import, the system SHALL compare, per UTC day and per event type rece
 #### Scenario: Reconciliation failure does not break the report
 - **WHEN** reading `ga4_events_daily` fails
 - **THEN** the report still returns the existing statuses and counts without GA4 reasons
+- **VERIFIED BY**: team-analytics/internal/query/ga4_reconcile_test.go
 
 #### Scenario: Only admins see reconciliation reasons
 - **WHEN** an anonymous client and then a logged-in buyer call `GetTrackingQualityReport` through the gateway
 - **THEN** the gateway answers HTTP 401 and then HTTP 403
+- **VERIFIED BY**: team-analytics/internal/query/ga4_reconcile_test.go
