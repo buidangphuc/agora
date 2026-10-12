@@ -82,8 +82,17 @@ def validate(plan_dir: Path) -> int:
                             "it goes into every agent's context")
 
     packets = [p for p in (parse_packet(f) for f in sorted(plan_dir.glob("wave*-task*.md"))) if p]
+    lock = plan_dir / "LOCK.md"
+    lock_status = None
+    if lock.exists():
+        m = re.search(r"^status:\s*(\w+)", lock.read_text(encoding="utf-8"), re.MULTILINE)
+        lock_status = m.group(1) if m else None
     if not packets:
-        errors.append("no task packets found (wave{N}-task{M}-{slug}.md)")
+        # initiative-build writes the packets only after the human approves LOCK.md
+        if lock_status is not None and lock_status != "approved":
+            warnings.append(f"no task packets yet: LOCK.md status is '{lock_status}' (packets come after approval)")
+        else:
+            errors.append("no task packets found (wave{N}-task{M}-{slug}.md)")
 
     for p in packets:
         if not p["writes"]:

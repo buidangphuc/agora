@@ -6,3 +6,5 @@ repo, the rules you must not break, and the recipe for adding features.
 
 Architecture source of truth: `platform-core/docs/` + `platform-core/docs/ADR/`.
 Don't duplicate rules here — edit the doc/ADR, then AGENTS.md.
+
+Project facts for agents (feedback loops, checks, tracker, docs): `docs/agents/project.md`.

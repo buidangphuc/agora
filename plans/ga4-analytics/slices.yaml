@@ -1,0 +1,31 @@
+# plans/ga4-analytics/slices.yaml — one slice = one OpenSpec change (00-spec "Capabilities → slices").
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/ga4-analytics/slices.yaml
+# Hot files (initiative-build serialises): gtm.ts + AnalyticsProvider.tsx (add-consent-mode, add-ga4-destination);
+#   export.go (add-ga4-export-import, recsys-consent-and-context); map.ts (add-ga4-destination, add-ga4-purchase-relay).
+initiative: ga4-analytics
+slices:
+  - id: ga4-consent-contract
+    owner: platform-core
+    depends_on: []
+    # additive fields on TrackingEvent (ga_client_id = 25, consent = 26) + message ConsentState
+    provides: [analytics.events/TrackingEvent, AnalyticsQueryService.GetChannelFunnel]
+  - id: add-consent-mode
+    owner: team-frontend
+    depends_on: [ga4-consent-contract]
+    uses: [analytics.events/TrackingEvent]
+  - id: add-ga4-destination
+    owner: team-frontend
+    depends_on: [add-consent-mode]
+    uses: [analytics.events/TrackingEvent]
+  - id: add-ga4-purchase-relay
+    owner: team-analytics
+    depends_on: [ga4-consent-contract, add-ga4-destination]   # map.ts hot file: stops browser purchase after the destination lands
+    uses: [order.events/OrderPaidEvent, analytics.events/TrackingEvent]
+  - id: add-ga4-export-import
+    owner: team-analytics
+    depends_on: [ga4-consent-contract]
+    uses: [analytics.events/TrackingEvent, AnalyticsQueryService.GetChannelFunnel]
+  - id: recsys-consent-and-context
+    owner: platform-recsys
+    depends_on: [add-ga4-export-import]
+    uses: [analytics.events/TrackingEvent]
