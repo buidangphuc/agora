@@ -7831,6 +7831,36 @@ features:
     tags: [tracking, analytics]
     status: planned
 
+  - id: ga4-destination.forged-session-cookie-yields-no-user-id
+    title: "Forged session cookie yields no user_id"
+    persona: guest
+    priority: P1
+    summary: "Forged session cookie yields no user_id"
+    entry_route: "/"
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a caller with a=1 presents a session cookie with a future exp, the other buyer as sub and an invalid signature"
+      - "Then every identity response is 204 with an empty body"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.gateway-principal-endpoint-accepts-only-verified-tokens
+    title: "Gateway principal endpoint accepts only verified tokens"
+    persona: guest
+    priority: P1
+    summary: "Gateway principal endpoint accepts only verified tokens"
+    entry_route: "/api/session/principal"
+    services: [team-frontend, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Only verified tokens get a principal (unit-verified)"
+    tags: [tracking, analytics, unit]
+    status: not-testable
+    notes: "add-ga4-destination: unit-verified: team-gateway/internal/edge/session_principal_test.go TestSessionPrincipal_OnlyVerifiedTokens. Not producible end to end."
+
   - id: ga4-destination.missing-key-disables-the-feature
     title: "Missing key disables the feature"
     persona: buyer

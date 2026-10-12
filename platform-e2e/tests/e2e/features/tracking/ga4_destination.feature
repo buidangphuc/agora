@@ -51,6 +51,12 @@ Feature: GA4 destination - GTM container, pseudonymous user_id, CSP, debug mode 
     When a caller with a=1 and no valid session calls the identity endpoint
     Then every identity response is 204 with an empty body
 
+  Scenario: Forged session cookie yields no user_id
+    Given the GA4 identity endpoint is deployed
+    And another buyer exists
+    When a caller with a=1 presents a session cookie with a future exp, the other buyer as sub and an invalid signature
+    Then every identity response is 204 with an empty body
+
   Scenario: Missing key disables the feature
     Given the GA4 identity endpoint is deployed
     And a buyer is logged in

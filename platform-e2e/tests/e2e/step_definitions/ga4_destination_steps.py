@@ -285,6 +285,24 @@ def anonymous_caller(world: World) -> None:
     _responses(world).append(_identity_get(world, token="not.a.valid-session", consent=_CONSENT_ON))
 
 
+def _b64(obj: dict) -> str:
+    raw = json.dumps(obj, separators=(",", ":")).encode()
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+@when(
+    "a caller with a=1 presents a session cookie with a future exp, the other buyer as sub "
+    "and an invalid signature"
+)
+def forged_session(world: World) -> None:
+    other = _x(world)["ga4d_other_sub"]
+    header = _b64({"alg": "HS256", "typ": "JWT"})
+    payload = _b64({"sub": other, "exp": int(time.time()) + 3600, "iat": int(time.time())})
+    sig = base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
+    token = f"{header}.{payload}.{sig}"
+    _responses(world).append(_identity_get(world, token=token, consent=_CONSENT_ON))
+
+
 @when("the buyer calls the identity endpoint with analytics consent on a deployment without the HMAC key")
 def buyer_without_key(world: World) -> None:
     if _key():
