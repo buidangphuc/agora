@@ -1607,3 +1607,105 @@ features:
     status: automated
     covered_by: "security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
     notes: "green after rebuild: security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
+
+  - id: order.payment-settled-applied-once
+    title: PaymentSettled is applied once even when redelivered
+    persona: admin
+    priority: P2
+    summary: >-
+      The same PaymentSettled delivered twice moves the order to PAID once.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN the same PaymentSettled event is delivered twice to the consumer
+      - THEN the order moves to PAID once, and the second delivery is acknowledged without a second transition
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestPaymentSettledAppliedOnceOnRedelivery in team-order/internal/events (Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.payment-event-not-lost-on-dlq-failure
+    title: A failed DLQ produce does not lose the payment event
+    persona: admin
+    priority: P2
+    summary: >-
+      A payment event whose dead-letter produce fails is redelivered after restart.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN handling a PaymentSettled fails permanently and the DLQ produce also fails
+      - THEN the consumer stops with an error and the event is redelivered after restart
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestPaymentEventNotLostWhenDLQFails in team-order/internal/events (Redpanda + Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.rolled-back-transition-not-deduped
+    title: Rolled-back transition is not marked processed
+    persona: admin
+    priority: P2
+    summary: >-
+      The dedupe row rolls back with the PAID transition.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN the PAID transition fails inside the handler transaction
+      - THEN the event is not recorded in processed_events and a later delivery is processed
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestRolledBackTransitionIsNotDeduped in team-order/internal/events (Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.no-enable-flags-declared
+    title: team-order declares no enable flags
+    persona: admin
+    priority: P2
+    summary: >-
+      Settings declares no enable flag for always-on capabilities.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN the declared env keys of team-order Settings are listed
+      - THEN none of DATABASE_ENABLED, KAFKA_ENABLED, OUTBOX_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestNoEnableFlagsDeclared in team-order/internal/config (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.migration-0008-keeps-existing-dedupe
+    title: Existing processed rows are not applied again after the migration
+    persona: admin
+    priority: P2
+    summary: >-
+      Rows processed before migration 0008 still count as processed.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN a row processed before 0008 exists and the same event arrives after it
+      - THEN it is recognised as already processed, not applied again
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestMigration0008KeepsExistingDedupe in team-order/internal/store (Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.existing-suites-stay-green
+    title: team-order existing suites do not regress and no assertion is weakened
+    persona: admin
+    priority: P2
+    summary: >-
+      The pre-existing suites pass after the go-sdk restructure.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN make check runs after the restructure
+      - THEN every pre-existing test passes, and no assertion is removed or loosened
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by team-order make check (Docker) (change migrate-team-order-to-go-sdk, capability order-runtime).

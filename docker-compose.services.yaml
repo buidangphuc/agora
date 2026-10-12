@@ -326,7 +326,6 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
@@ -334,18 +333,15 @@ services:
       - FLIPT_ADDR=flipt:9000
       - FEATURE_FLAGS_EVAL_TIMEOUT_MS=500
       # PaymentSettled consumer (AD4/AD1): consume payment.events, drive order→PAID
-      # idempotently, park poison records on the DLQ. Keys read by
-      # internal/bootstrap/kafka.go::KafkaConfigFromEnv.
-      - KAFKA_ENABLED=true
+      # idempotently, park poison records on the DLQ. Keys read by internal/config.
       - KAFKA_BROKERS=redpanda:9092
       - PAYMENT_EVENTS_TOPIC=payment.events
       - ORDER_PAYMENT_CONSUMER_GROUP=team-order.payment
       - PAYMENT_EVENTS_DLQ_TOPIC=payment.events.dlq
       # order.events outbox relayer (ADR-0013): publishes OrderPaidEvent (line
       # items) written in the same tx as the PAID transition. Same OUTBOX_* names
-      # as team-domain; needs KAFKA_ENABLED=true above.
+      # as team-domain.
       - ORDER_EVENTS_TOPIC=order.events
-      - OUTBOX_ENABLED=true
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
       - OUTBOX_CLAIM_LOCK_SECONDS=60
