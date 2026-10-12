@@ -11,7 +11,7 @@ initiative: go-platform-sdk
 
 ## What Changes
 
-- Vendor go-sdk at `go-sdk/v0.2.0` and move to the ADR-0016 layout:
+- Vendor go-sdk at `go-sdk/v0.2.1` and move to the ADR-0016 layout:
 
   | From | To |
   |---|---|
@@ -26,8 +26,8 @@ initiative: go-platform-sdk
 
   `cmd/resync-commits` keeps working.
 - **Outbox:** SDK `outbox.Store` on the existing `order_outbox_events` table, plus the SDK `outbox.Relayer` as a lifecycle component. Row building stays in `internal/events`.
-- **Consumer:** SDK `consume.Consumer` for `payment.events`, with DLQ `PAYMENT_EVENTS_DLQ_TOPIC`. SDK `consume.Dedupe` runs inside the same transaction as the PAID transition.
-  - New migration `0008`: `processed_events` primary key becomes `(consumer, event_id)`, and existing rows get consumer `team-order.payment`.
+- **Consumer:** SDK `consume.Consumer` for `payment.events`, with DLQ `PAYMENT_EVENTS_DLQ_TOPIC`. The PAID transition and its outbox row commit in one transaction. The voucher commit to team-promotion runs after it, and the event is marked processed (SDK `consume.Dedupe`) only after the voucher commit. A redelivery re-runs the idempotent compare-and-set transition as a no-op and retries the voucher, which keeps today's behaviour: the order is PAID even while promotion is down.
+  - New migration `0008`: `processed_events` primary key becomes `(consumer, event_id)`, and existing rows get consumer `team-order.payment`; a unique index on `event_id` is kept for the previous release.
 - **Flags:** SDK `flags`. `FEATURE_FLAGS_ENABLED` stays, because it is a real toggle that promotion runs with false.
 - **Upstream:** SDK `upstream.Dial`. The per-method service-principal scope map stays in `internal/upstream`.
 - **Workers:** the relayer, consumer and reservation sweeper stop after the gRPC server (`lifecycle.StopAfter`).
