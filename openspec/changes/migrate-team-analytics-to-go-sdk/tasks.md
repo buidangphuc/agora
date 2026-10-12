@@ -2,7 +2,7 @@ Code track only: there is no user-facing behaviour change. Every scenario gets a
 
 ## 1. Migrate team-analytics (single packet)
 
-Owns: `team-analytics/**`, the team-analytics blocks in `docker-compose.services.yaml`, `platform-gitops/argocd/apps/team-analytics.yaml`, `platform-gitops/envs/services/team-analytics.yaml`, and the box ticks.
+Owns: `team-analytics/**`, the team-analytics blocks in `docker-compose.services.yaml`, `platform-gitops/argocd/apps/team-analytics.yaml`, `platform-gitops/platform/team-analytics/*.yaml`, and the box ticks.
 
 - [x] 1.1 Run `platform-core/tools/sync-go-sdk.sh go-sdk/v0.2.1 team-analytics`. Verify `go build ./...`.
 - [x] 1.2 Write the spec tests first and see them red.
