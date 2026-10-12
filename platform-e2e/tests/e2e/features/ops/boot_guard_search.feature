@@ -1,9 +1,10 @@
-Feature: team-search refuses to boot on in-memory storage in production
+Feature: team-search refuses to boot without a reachable database outside local
   Black box: the real team-search image built by the stack is started with docker run.
 
-  Scenario: team-search refuses in-memory storage in production
+  Scenario: team-search refuses to boot without a reachable database in production
     Given the team-search image
-    When it is started with ENV production and DATABASE_ENABLED false
+    When it is started with ENV production and no DATABASE_URL
     Then the process exits non-zero
-    And its log names the storage setting
-    And the same image with ENV local does not trip the storage guard
+    And its log names the database setting
+    And the same image with ENV production and an unreachable database exits non-zero
+    And the same image with ENV local and an unreachable database falls back to in-memory storage
