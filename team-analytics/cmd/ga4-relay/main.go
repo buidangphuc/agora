@@ -138,6 +138,7 @@ type relayConsumer struct {
 	relay        *ga4relay.Relay
 	analyticsTop string
 	orderTop     string
+	logger       *slog.Logger
 }
 
 func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger) (*relayConsumer, []func(), error) {
@@ -177,7 +178,7 @@ func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger)
 	relay := ga4relay.NewRelay(ga4relay.RelayConfig{
 		Mappings: mappings, Ledger: ledger, Sender: sender,
 		DLQ:       dlqProducer{client: client, topic: s.GA4.RelayDLQTopic},
-		Committer: committer{client: client},
+		Committer: committer{client: client, logger: logger},
 		Now:       time.Now,
 	})
 	logger.Info("ga4 relay starting",
@@ -185,7 +186,7 @@ func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger)
 		slog.String("dlq_topic", s.GA4.RelayDLQTopic))
 	return &relayConsumer{
 		client: client, mapping: ga4relay.NewMappingHandler(mappings), relay: relay,
-		analyticsTop: s.Kafka.AnalyticsTopic, orderTop: s.Kafka.OrderTopic,
+		analyticsTop: s.Kafka.AnalyticsTopic, orderTop: s.Kafka.OrderTopic, logger: logger,
 	}, closers, nil
 }
 
@@ -196,8 +197,8 @@ func (c *relayConsumer) loop(ctx context.Context, logger *slog.Logger) {
 			return
 		}
 		if errs := fetches.Errors(); len(errs) > 0 {
+			// Good records of the same fetch are already advanced by the client: still process them.
 			logger.Warn("kafka fetch error", slog.Any("errs", errs))
-			continue
 		}
 		iter := fetches.RecordIter()
 		for !iter.Done() {
@@ -214,6 +215,9 @@ func (c *relayConsumer) loop(ctx context.Context, logger *slog.Logger) {
 				case <-time.After(time.Second):
 				}
 			}
+			if ctx.Err() != nil {
+				return
+			}
 		}
 	}
 }
@@ -229,21 +233,32 @@ func (c *relayConsumer) handle(ctx context.Context, rec *kgo.Record) error {
 			}
 		}
 		// Non-tracking or undecodable records carry no mapping: skip.
-		return committer{client: c.client}.Commit(ctx, msg)
+		return committer{client: c.client, logger: c.logger}.Commit(ctx, msg)
 	case c.orderTop:
 		return c.relay.Handle(ctx, msg)
 	}
-	return committer{client: c.client}.Commit(ctx, msg)
+	return committer{client: c.client, logger: c.logger}.Commit(ctx, msg)
 }
 
 func toMessage(r *kgo.Record) ga4relay.Message {
 	return ga4relay.Message{Topic: r.Topic, Partition: r.Partition, Offset: r.Offset, Key: r.Key, Value: r.Value}
 }
 
-type committer struct{ client *kgo.Client }
+// committer commits one record's offset. A commit failure (e.g. after a
+// rebalance) is logged, not returned: the ledger makes redelivery idempotent,
+// so the handler must not be re-run for it.
+type committer struct {
+	client *kgo.Client
+	logger *slog.Logger
+}
 
 func (c committer) Commit(ctx context.Context, m ga4relay.Message) error {
-	return c.client.CommitRecords(ctx, &kgo.Record{Topic: m.Topic, Partition: m.Partition, Offset: m.Offset})
+	err := c.client.CommitRecords(ctx, &kgo.Record{Topic: m.Topic, Partition: m.Partition, Offset: m.Offset})
+	if err != nil && ctx.Err() == nil {
+		c.logger.Warn("offset commit failed; record may be redelivered",
+			slog.String("topic", m.Topic), slog.Int("partition", int(m.Partition)), slog.Any("err", err))
+	}
+	return nil
 }
 
 type dlqProducer struct {
