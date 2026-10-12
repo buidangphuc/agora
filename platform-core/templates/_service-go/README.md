@@ -14,7 +14,10 @@ It ships no `third_party/` (the sync script creates it) and no `generated/`
 
 1. Copy: `cp -R platform-core/templates/_service-go <repo>/<service>` and copy
    `platform-core/templates/go-service/Dockerfile` next to the Makefile.
-2. Rename: replace `__SERVICE__` and `__PORT__` in every file (go.mod, imports,
+2. Strip the `.tmpl` suffix (Go sources are stored as `.go.tmpl` so the template
+   is not a live Go package in this repo):
+   `find . -name '*.tmpl' | while read -r f; do mv "$f" "${f%.tmpl}"; done`.
+   Then replace `__SERVICE__` and `__PORT__` in every file (go.mod, imports,
    Makefile, `.env.example`, `internal/app/app.go`), e.g.
    `grep -rIl -e __SERVICE__ -e __PORT__ . | xargs sed -i '' -e 's/__SERVICE__/team-listing/g' -e 's/__PORT__/50070/g'`
    (drop the `''` after `-i` on Linux).

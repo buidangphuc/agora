@@ -26,6 +26,8 @@ export SDK_REPO="$TMP/clone"
 # 1. Instantiate: copy, then replace the two placeholders everywhere.
 SVC="$TMP/team-demo"
 cp -R "$TEMPLATE" "$SVC"
+find "$SVC" -name '*.tmpl' | while IFS= read -r f; do mv "$f" "${f%.tmpl}"; done
+[ -z "$(find "$SVC" -name '*.tmpl')" ] || fail ".tmpl files left after rename"
 { grep -rIl -e "__SERVICE__" -e "__PORT__" "$SVC" || true; } | while IFS= read -r f; do
   sed -e 's/__SERVICE__/team-demo/g' -e 's/__PORT__/50099/g' "$f" > "$f.new" && mv "$f.new" "$f"
 done
