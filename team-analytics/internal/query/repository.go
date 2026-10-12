@@ -162,3 +162,23 @@ type PerformanceRow struct {
 type PerformanceRepository interface {
 	RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error)
 }
+
+// ChannelFunnelRow is one (source, medium, campaign) line of the channel funnel.
+// It carries counts only; revenue is never read from GA4 data.
+type ChannelFunnelRow struct {
+	Source         string
+	Medium         string
+	Campaign       string
+	Impressions    int64
+	Views          int64
+	Adds           int64
+	BeginCheckouts int64
+	Purchases      int64
+}
+
+// ChannelFunnelRepository is implemented by repositories that can split the
+// funnel by acquisition channel (the DuckDB one, over tracking_events_attributed).
+// An empty sellerID means platform-wide.
+type ChannelFunnelRepository interface {
+	ChannelFunnel(ctx context.Context, sellerID string, from, to time.Time) ([]ChannelFunnelRow, error)
+}

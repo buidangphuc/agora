@@ -431,3 +431,37 @@ ORDER BY i.placement_id, i.model_version`, warehouse.ResolvedViewName, warehouse
 }
 
 var _ PerformanceRepository = (*DuckDBRepository)(nil)
+
+// ChannelFunnel counts the funnel event types per (source, medium, campaign)
+// over [from, to] from tracking_events_attributed; purchases are distinct
+// transaction ids. A non-empty sellerID restricts to that seller's listings.
+func (r *DuckDBRepository) ChannelFunnel(ctx context.Context, sellerID string, from, to time.Time) ([]ChannelFunnelRow, error) {
+	q := fmt.Sprintf(`
+SELECT t.source, t.medium, t.campaign,
+  COUNT(*) FILTER (WHERE t.event_type = 'impression')  AS impressions,
+  COUNT(*) FILTER (WHERE t.event_type = 'view')        AS views,
+  COUNT(*) FILTER (WHERE t.event_type = 'add_to_cart') AS adds,
+  COUNT(*) FILTER (WHERE t.event_type = 'begin_checkout') AS begin_checkouts,
+  COUNT(DISTINCT t.transaction_id) FILTER (WHERE t.event_type = 'purchase') AS purchases
+FROM %s t
+WHERE t.event_type IN ('view','impression','add_to_cart','begin_checkout','purchase')
+  AND t.occurred_at >= ? AND t.occurred_at <= ?
+  AND (? = '' OR t.listing_id IN (SELECT listing_id FROM %s WHERE seller_id = ?))
+GROUP BY t.source, t.medium, t.campaign
+ORDER BY t.source, t.medium, t.campaign`,
+		warehouse.AttributedViewName, warehouse.ListingSellersTableName)
+	rows, err := r.db.QueryContext(ctx, q, from.UTC(), to.UTC(), sellerID, sellerID)
+	if err != nil {
+		return nil, fmt.Errorf("channel funnel query: %w", err)
+	}
+	defer rows.Close()
+	var out []ChannelFunnelRow
+	for rows.Next() {
+		var c ChannelFunnelRow
+		if err := rows.Scan(&c.Source, &c.Medium, &c.Campaign, &c.Impressions, &c.Views, &c.Adds, &c.BeginCheckouts, &c.Purchases); err != nil {
+			return nil, fmt.Errorf("channel funnel scan: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
