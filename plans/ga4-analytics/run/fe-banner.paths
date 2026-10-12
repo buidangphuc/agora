@@ -1,0 +1,4 @@
+team-frontend/src/app/layout.tsx
+team-frontend/src/components/shell/ConsumerShell.tsx
+team-frontend/src/features/consent/ConsentBanner.test.tsx
+team-frontend/src/features/consent/ConsentBanner.tsx

@@ -1,0 +1,3 @@
+team-analytics/.env.example
+team-analytics/internal/config/config.go
+team-analytics/internal/config/config_test.go

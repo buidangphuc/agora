@@ -1,0 +1,5 @@
+team-frontend/src/features/consent/ConsentBanner.tsx
+team-frontend/src/features/tracking/AnalyticsProvider.test.tsx
+team-frontend/src/features/tracking/AnalyticsProvider.tsx
+team-frontend/src/lib/analytics/destinations/gtm.test.ts
+team-frontend/src/lib/analytics/destinations/gtm.ts

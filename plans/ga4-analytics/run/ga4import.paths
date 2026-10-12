@@ -1,0 +1,11 @@
+team-analytics/.env.example
+team-analytics/Dockerfile
+team-analytics/cmd/ga4import/main.go
+team-analytics/cmd/ga4import/main_test.go
+team-analytics/internal/config/config.go
+team-analytics/internal/config/config_test.go
+team-analytics/internal/ga4import/bigquery.go
+team-analytics/internal/ga4import/fixture.go
+team-analytics/internal/ga4import/ga4import.go
+team-analytics/internal/ga4import/ga4import_test.go
+team-analytics/internal/ga4import/helpers_test.go

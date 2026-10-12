@@ -1,0 +1,6 @@
+openspec/changes/add-consent-mode/specs/tracking/spec.md
+openspec/changes/add-consent-mode/tasks.md
+team-gateway/internal/edge/collector.go
+team-gateway/internal/edge/collector_boundary_test.go
+team-gateway/internal/edge/consent_cookie.go
+team-gateway/internal/edge/consent_cookie_test.go

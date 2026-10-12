@@ -1,0 +1,6 @@
+platform-featurestore/featurestore/inputs.py
+platform-featurestore/registry/features.lock
+platform-featurestore/registry/features.yaml
+platform-featurestore/registry/sql/als_interactions_v2.sql
+platform-featurestore/registry/sql/rank_training_v2.sql
+platform-featurestore/tests/test_consent_filter.py
