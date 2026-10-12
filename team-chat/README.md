@@ -8,13 +8,33 @@ outbox. It owns the `chat_db` database and serves `platform.chat.v1.ChatService`
 
 Status: deployed service, wired in the root `docker-compose.services.yaml`.
 
+Go 1.26, module `github.com/buidangphuc/team-chat`. The platform layer (config, logging,
+tracing, auth, health, lifecycle, Postgres, the gRPC server chain, the outbox relayer and the Kafka
+producer) is [go-sdk](../platform-core/packages/go-sdk/README.md) v0.2.1, vendored in
+`third_party/go-sdk` (see `third_party/go-sdk/VERSION`) by `platform-core/tools/sync-go-sdk.sh`;
+never edit it by hand. Layout follows
+[ADR-0016](../platform-core/docs/ADR/0016-go-service-convention-and-sdk.md):
+
+| Path | Role |
+|---|---|
+| `cmd/server/main.go` | Signal context, `config.Load`, `app.Run`, exit code. |
+| `internal/app` | Composition root: logger, telemetry, health, database, publisher, server, outbox relayer. |
+| `internal/config` | `Settings` (SDK groups) and the `.env.example` drift test. |
+| `internal/rpc` | gRPC handlers; maps domain errors to statuses. |
+| `internal/chat` | Domain: thread participation, message validation, paging bounds. |
+| `internal/store` | Postgres and in-memory chat stores; writes the outbox row in the message transaction. |
+| `internal/events` | Builds the `chat.events` envelope. |
+| `migrations/` | SQL migrations plus `embed.go` (package `migrations`, for tests). |
+
 ## 1. Contract
 
 Proto: `proto/platform/chat/v1/chat.proto` (vendored from `platform-core/packages/proto`).
-Every RPC calls `interceptor.RequirePrincipal`, which rejects a missing, empty or
-`anonymous`/ANONYMOUS principal with `Unauthenticated`. The principal comes from the gateway's
-`x-principal-id`, `x-principal-type` and `x-principal-scopes` metadata. The only server
-interceptor is `AuthUnaryInterceptor`, which parses that metadata; no scopes are checked.
+Every RPC calls `auth.RequirePrincipal` (go-sdk), which rejects a missing, empty or
+`anonymous` principal with `Unauthenticated`. The principal comes from the gateway's
+`x-principal-id`, `x-principal-type` and `x-principal-scopes` metadata, parsed by the SDK auth
+interceptor; no scopes are checked. A panic in a handler is recovered and returned as `Internal`,
+and every call gets a request id and a log line. Health is SERVING while the database answers a
+ping and NOT_SERVING when it does not (checked every 5s) and during shutdown drain. gRPC reflection is always on.
 
 | RPC | Authorization rule |
 |---|---|
@@ -44,9 +64,10 @@ How it is published (ADR-0002, outbox pattern as in ADR-0009):
 
 1. `SaveMessage` inserts the message, updates the thread and inserts a `chat_outbox_events`
    row in **one transaction** (`events.BuildMessageOutboxRow`). The RPC never touches Kafka.
-2. `events.Relayer` polls every `OUTBOX_POLL_INTERVAL`, claims pending rows with
-   `FOR UPDATE SKIP LOCKED` under an `OUTBOX_CLAIM_LOCK_SECONDS` lease, produces the stored
-   envelope bytes to Kafka (producer linger 0, synchronous ack) and marks them `published`.
+2. The SDK `outbox.Relayer` (a lifecycle component that stops after the gRPC server) polls every
+   `OUTBOX_POLL_INTERVAL`, claims pending rows with `FOR UPDATE SKIP LOCKED` under an
+   `OUTBOX_CLAIM_LOCK_SECONDS` lease, produces the stored envelope bytes to Kafka through
+   `kafkax` (synchronous ack) and marks them `published`.
 3. On failure the row is retried with exponential backoff (1s doubling, capped at 5m). After
    `OUTBOX_MAX_ATTEMPTS` it is parked with `status='failed'` and never claimed again until an
    operator resets it, for example
@@ -56,9 +77,9 @@ Delivery is **at-least-once**. `event_id` is deterministic (`events.ChatMessageE
 UUIDv5 of the message id), so consumers dedupe on it. Per-thread order holds because the key
 is `thread_id` and claimed rows come back oldest-first.
 
-The relayer starts only when Postgres is on, a Kafka producer exists (`KAFKA_ENABLED=true`
-and the brokers dialed) and `OUTBOX_ENABLED=true`. Otherwise `main.go` logs a warning, rows
-keep being written and they pile up unpublished.
+The relayer and the Kafka producer are always on. Creating the producer does not dial the
+brokers, so an unreachable broker delays publishing (rows stay `pending` and are retried) but
+does not stop boot.
 
 Known consumer: `team-notification` (group `team-notification.chat`, dead-letter topic
 `chat.events.dlq`), which creates a CHAT notification for the recipient.
@@ -81,37 +102,30 @@ service does not run them.
 
 ## 4. Configuration
 
-Read by `internal/config/config.go`; `.env.example` mirrors it. An unset or empty variable
-falls back to the default. There is no automated drift gate between `.env.example` and the code.
+`internal/config` binds the SDK groups from env; `.env.example` lists every key and
+`TestEnvExampleInSync` fails when the two drift. `GRPC_PORT` is required (no default; the
+Dockerfile and compose set 50057). An empty variable falls back to its default. A malformed value
+(for example a bad `OUTBOX_POLL_INTERVAL`) fails the load.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SERVER_HOST` | `0.0.0.0` | gRPC bind host |
-| `SERVER_PORT` | `50057` | gRPC port |
-| `SERVER_SHUTDOWN_GRACE_SECONDS` | `5.0` | Graceful-stop timeout |
-| `SERVER_REFLECTION_ENABLED` | `true` | gRPC reflection |
-| `RUNTIME_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
-| `RUNTIME_LOG_JSON` | `false` | JSON log output |
-| `POSTGRES_HOST` | `postgres-chat` | Compose overrides it to `postgres` |
-| `POSTGRES_PORT` | `5432` | |
-| `POSTGRES_DB` | `chat_db` | |
-| `POSTGRES_USER` | `chat_svc` | |
-| `POSTGRES_PASSWORD` | `chat_pass` | |
-| `POSTGRES_SSLMODE` | `disable` | |
-| `KAFKA_ENABLED` | `false` | Enables the producer and with it the relayer |
+| `ENV` | `local` | Environment name; logged and used by the SDK. |
+| `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
+| `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
+| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
+| `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | Postgres. A missing `DATABASE_URL` fails at load. |
+| `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 | `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seeds. `.env.example` uses `localhost:19092` (redpanda host port); compose uses `redpanda:9092`. |
-| `KAFKA_CHAT_TOPIC` | `chat.events` | |
-| `OUTBOX_ENABLED` | `true` | Run the relayer |
-| `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid or non-positive falls back to 1s |
+| `KAFKA_CHAT_TOPIC` | `chat.events` | Topic the relayer publishes to. |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Go duration. |
 | `OUTBOX_BATCH_SIZE` | `100` | Rows claimed per sweep |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | Lease on claimed rows |
 | `OUTBOX_MAX_ATTEMPTS` | `10` | Attempts before a row is parked `failed` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | Tracing is on only when set |
-| `OTEL_SERVICE_NAME` | `team-chat` | |
 | `UPSTREAM_LISTING_ADDR` | `localhost:50051` | Parsed but unused (see Known gaps) |
 
-The database is always enabled (pool max 20); startup fails if Postgres is unreachable. If
-Kafka is enabled but the dial fails, the service only logs a warning and runs without a relayer.
+Postgres, Kafka and the outbox relayer are always on: there are no enable flags. The database
+must be reachable at boot in every `ENV` (there is no in-memory fallback); an unreachable one
+fails boot before any port opens.
 
 ## 5. Run locally
 
@@ -123,28 +137,27 @@ and `redpanda` services must be available from the compose files:
 docker compose -f docker-compose.services.yaml up -d --build team-chat
 ```
 
-Compose sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, the `OUTBOX_*` values and
-`POSTGRES_HOST=postgres`. It also sets `DATABASE_ENABLED`, `DATABASE_URL`, `GRPC_PORT` and `ENV`,
-which the code does not read.
+Compose sets `DATABASE_URL`, `KAFKA_BROKERS=redpanda:9092`, `KAFKA_CHAT_TOPIC`, the `OUTBOX_*`
+values, `GRPC_PORT` and `ENV`.
 
 Standalone: apply the migrations to a reachable `chat_db`, copy `.env.example` to `.env` and
-export it (the binary does not load `.env` itself), then `go run ./cmd/server`. Go and buf are
-not installed on the host per the root `AGENTS.md`, so use a Go 1.22 container.
+export it (the binary does not load `.env` itself), then `make run`.
 
 ## 6. Build, test and lint
 
-There is no Makefile and no repo-local CI config here.
+The `Makefile` includes `make/go-service.mk` (synced from platform-core; do not edit).
 
 | Task | Command |
 |---|---|
-| Build | `go build ./cmd/server` (or `docker build .`, Go 1.22 alpine) |
-| Test | `go test -race ./...` |
-| Postgres tests | `internal/repository/*_pg_test.go` skip unless `TEST_DATABASE_URL` points at a disposable Postgres |
-| Regenerate stubs | `buf generate` (`buf.gen.yaml`, input `proto/`, Go package prefix `github.com/buidangphuc/team-chat/generated`) |
+| Build | `make build` (or `make docker`, which builds the image `team-chat:dev`) |
+| Test | `make test` (race detector; sets `DOCKER_HOST` from the docker context) |
+| Everything CI runs | `make check` (vet, golangci-lint, tests with Docker required, `.env.example` drift) |
+| Regenerate stubs | `make proto` (`buf generate`; `buf.gen.yaml`, input `proto/`, Go package prefix `github.com/buidangphuc/team-chat/generated`) |
 
-Other tests use in-memory repositories (`InMemoryChatRepository`, `InMemoryOutboxRepository`)
-and an ephemeral gRPC server. `coverage.out` feeds the root `sonar-project.properties`. No
-lint command is defined here.
+The Postgres tests (`internal/store`, `internal/events`, `internal/app`) start a testkit Postgres
+container, so they need Docker; `make check` fails instead of skipping without it. Other tests use
+the in-memory repository (`InMemoryChatRepository`, `InMemoryOutbox`) and an ephemeral gRPC server.
+`coverage.out` feeds the root `sonar-project.properties`.
 
 ## 7. Spec and verification
 
@@ -165,8 +178,8 @@ lint command is defined here.
 - `proto/` is vendored from `platform-core/packages/proto`. Never edit it here; change it in
   platform-core (non-breaking) and re-vendor.
 - `recipient_id` and `seller_id` exist only on the event payload; RPC responses leave them empty.
-- No relayer means no events. With `KAFKA_ENABLED=false` (the default) or `OUTBOX_ENABLED=false`,
-  `chat_outbox_events` accumulates `pending` rows; enabling Kafka later publishes the backlog.
+- Events are published only while Kafka is reachable. During an outage `chat_outbox_events`
+  accumulates `pending` rows (retried with backoff); they are published once it recovers.
 - Search is `ILIKE '%query%'` with no supporting index.
 - Authorization is only the handler and service participant checks; there are no scope checks
   and no stream interceptor.
