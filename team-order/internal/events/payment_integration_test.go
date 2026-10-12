@@ -277,7 +277,7 @@ func TestPaymentEventNotLostWhenDLQFails(t *testing.T) {
 	opts := consume.Options{DLQTopic: paymentDLQTopic, MaxAttempts: 1}
 
 	// First run: the handler fails permanently and the DLQ produce fails too.
-	first, err := kafkax.NewConsumerClient(cfg, group, paymentTopic)
+	first, err := kafkax.NewConsumerClient(cfg, group, []string{paymentTopic})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestPaymentEventNotLostWhenDLQFails(t *testing.T) {
 
 	// Restart in the same group with a working DLQ: the event is delivered again
 	// and dead-lettered, so it was not lost.
-	second, err := kafkax.NewConsumerClient(cfg, group, paymentTopic)
+	second, err := kafkax.NewConsumerClient(cfg, group, []string{paymentTopic})
 	if err != nil {
 		t.Fatal(err)
 	}

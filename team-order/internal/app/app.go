@@ -227,7 +227,7 @@ func newWorkers(
 		Topic: s.Events.OrderTopic, Config: s.Outbox, Logger: logger,
 	})
 
-	consumerClient, err := kafkax.NewConsumerClient(s.Kafka, s.Events.ConsumerGroup, s.Events.PaymentTopic)
+	consumerClient, err := kafkax.NewConsumerClient(s.Kafka, s.Events.ConsumerGroup, []string{s.Events.PaymentTopic})
 	if err != nil {
 		return nil, fmt.Errorf("kafka consumer: %w", err)
 	}

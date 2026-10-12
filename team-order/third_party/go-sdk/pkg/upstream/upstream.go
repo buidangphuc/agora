@@ -43,6 +43,17 @@ func AsService(id string, scopes ...string) Option {
 	}
 }
 
+// servicePrincipalKey is unexported so only WithServicePrincipal can set it and
+// nothing read from incoming metadata can.
+type servicePrincipalKey struct{}
+
+// WithServicePrincipal returns a context whose upstream calls present the service
+// principal id with scopes. It wins over a connection-level AsService, which in
+// turn wins over forwarding the incoming principal.
+func WithServicePrincipal(ctx context.Context, id string, scopes ...string) context.Context {
+	return context.WithValue(ctx, servicePrincipalKey{}, auth.Principal{ID: id, Type: servicePrincipalType, Scopes: scopes})
+}
+
 // WithTimeout sets the per-call bound for unary calls (default DefaultTimeout).
 func WithTimeout(d time.Duration) Option {
 	return func(o *options) { o.timeout = d }
@@ -121,6 +132,9 @@ func (o options) outgoing(ctx context.Context) context.Context {
 }
 
 func (o options) principal(ctx context.Context) (auth.Principal, bool) {
+	if p, ok := ctx.Value(servicePrincipalKey{}).(auth.Principal); ok {
+		return p, true
+	}
 	if o.service != nil {
 		return *o.service, true
 	}

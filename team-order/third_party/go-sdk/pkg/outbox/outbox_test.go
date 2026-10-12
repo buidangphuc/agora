@@ -211,3 +211,27 @@ func TestInvalidTableNamePanics(t *testing.T) {
 		}()
 	}
 }
+
+func TestEnqueueDuplicateIsNoop(t *testing.T) {
+	ctx := context.Background()
+	pool, s := newStore(t)
+	row := outbox.Row{EventID: "dup", AggregateType: "Agg", AggregateID: "agg-dup", EventType: "T", Payload: []byte("p")}
+	err := sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
+		for range 2 {
+			if err := s.EnqueueTx(ctx, tx, row); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("duplicate enqueue in one tx: %v", err)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE event_id = 'dup'`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("rows = %d, want 1", n)
+	}
+}

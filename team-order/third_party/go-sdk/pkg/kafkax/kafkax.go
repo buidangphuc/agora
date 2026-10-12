@@ -69,15 +69,17 @@ func (p *Producer) PublishRecord(ctx context.Context, rec *kgo.Record) error {
 func (p *Producer) Close() { p.client.Close() }
 
 // NewConsumerClient joins group on topics with auto-commit disabled, so the
-// caller commits offsets only after a record is handled or dead-lettered.
-func NewConsumerClient(c config.Kafka, group string, topics ...string) (*kgo.Client, error) {
-	client, err := kgo.NewClient(
+// caller commits offsets only after a record is handled or dead-lettered. opts
+// are applied after the defaults, for example kgo.AllowAutoTopicCreation.
+func NewConsumerClient(c config.Kafka, group string, topics []string, opts ...kgo.Opt) (*kgo.Client, error) {
+	base := []kgo.Opt{
 		kgo.SeedBrokers(c.BrokerList()...),
 		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topics...),
 		kgo.DisableAutoCommit(),
 		kgo.WithHooks(hooks(group)...),
-	)
+	}
+	client, err := kgo.NewClient(append(base, opts...)...)
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: consumer client: %w", err)
 	}

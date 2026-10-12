@@ -79,11 +79,13 @@ CREATE INDEX IF NOT EXISTS %[1]s_status_idx ON %[1]s (status);
 }
 
 // EnqueueTx inserts a pending row inside tx, so it commits or rolls back with the
-// caller's business write.
+// caller's business write. Enqueuing an event id that already exists is a no-op,
+// so a retried business write neither fails nor duplicates the event.
 func (s *Store) EnqueueTx(ctx context.Context, tx pgx.Tx, r Row) error {
 	q := `INSERT INTO ` + s.table + `
 		(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, now(), now())`
+		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, now(), now())
+		ON CONFLICT (event_id) DO NOTHING`
 	if _, err := tx.Exec(ctx, q, r.EventID, r.AggregateType, r.AggregateID, r.EventType, r.Payload, r.RequestID); err != nil {
 		return fmt.Errorf("enqueue outbox event %q: %w", r.EventID, err)
 	}

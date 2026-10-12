@@ -3,8 +3,10 @@ package flags
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	flipt "github.com/open-feature/go-sdk-contrib/providers/flipt/pkg/provider"
@@ -15,6 +17,8 @@ import (
 
 // domain names the OpenFeature provider binding for this SDK.
 const domain = "go-sdk"
+
+var domainSeq atomic.Uint64
 
 // Evaluator is the surface handlers depend on, so tests can substitute a fake.
 type Evaluator interface {
@@ -55,6 +59,16 @@ func New(ctx context.Context, c config.Flags, logger *slog.Logger) (*Client, err
 		logger:  logger,
 		timeout: time.Duration(c.EvalTimeoutMS) * time.Millisecond,
 	}, nil
+}
+
+// NewWithProvider builds a Client that evaluates through p, bound under a domain
+// unique to this client. An evaluation error falls back to the caller's default.
+func NewWithProvider(p openfeature.FeatureProvider, timeout time.Duration) (*Client, error) {
+	d := fmt.Sprintf("%s-%d", domain, domainSeq.Add(1))
+	if err := openfeature.SetNamedProviderAndWait(d, p); err != nil {
+		return nil, err
+	}
+	return &Client{of: openfeature.NewClient(d), logger: slog.Default(), timeout: timeout}, nil
 }
 
 // dialTarget makes a bare host:port parseable by the provider, which runs

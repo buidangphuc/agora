@@ -46,7 +46,7 @@ func TestPaymentConsumer_Run_PoisonRecordGoesToDLQ_ThenCommits(t *testing.T) {
 
 	const group = "team-order.payment.poison-test"
 	opts := consume.Options{DLQTopic: paymentDLQTopic, MaxAttempts: 2, BaseBackoff: time.Millisecond}
-	client, err := kafkax.NewConsumerClient(cfg, group, paymentTopic)
+	client, err := kafkax.NewConsumerClient(cfg, group, []string{paymentTopic})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestPaymentConsumer_Run_PoisonRecordGoesToDLQ_ThenCommits(t *testing.T) {
 	}
 
 	// Both records were committed: a restarted consumer in the group sees none.
-	again, err := kafkax.NewConsumerClient(cfg, group, paymentTopic)
+	again, err := kafkax.NewConsumerClient(cfg, group, []string{paymentTopic})
 	if err != nil {
 		t.Fatal(err)
 	}
