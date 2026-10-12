@@ -8,7 +8,7 @@ Stack knobs (none are read from implementation code):
   E2E_GA4_USER_ID_HMAC_KEY  the HMAC key the frontend under test runs with (reference HMAC and
                             "no key" scenarios); unset = the frontend has no key
   E2E_APP_ENV               the NEXT_PUBLIC_APP_ENV the frontend was built with (staging|production)
-  FRONTEND_CONTAINER        container whose log is scanned (default team-frontend-svc)
+  FRONTEND_CONTAINER        container whose log is scanned (default agora-team-frontend-svc)
   GTM_CONTAINER_PATH        override of team-frontend/analytics/gtm-container.json
 Scenarios whose deployment precondition is not met are skipped with the reason, never green.
 """
@@ -171,8 +171,13 @@ def _is_event(tag: dict) -> bool:
 
 @then(parsers.parse("it has exactly {n:d} GA4 configuration tag"))
 def one_config_tag(world: World, n: int) -> None:
+    """One page-view configuration tag; a second gaawc tag is allowed only as the identity tag
+    (sendPageView=false, so it never double-counts page views)."""
     configs = [t for t in _tags(world) if _is_config(t)]
-    assert len(configs) == n, f"{len(configs)} GA4 configuration tags (type gaawc), expected {n}"
+    page_view = [t for t in configs if _param(t, "sendPageView") != "false"]
+    assert len(page_view) == n, f"{len(page_view)} page-view GA4 configuration tags (gaawc), expected {n}"
+    extra = [t for t in configs if t not in page_view]
+    assert len(extra) <= 1, f"unexpected extra GA4 configuration tags: {[t.get('name') for t in extra]}"
 
 
 @then("it has one GA4 event tag for each funnel event with a custom-event trigger of the same name")
@@ -389,7 +394,7 @@ def no_user_id_entries(world: World) -> None:
 def log_clean(world: World) -> None:
     if not shutil.which("docker"):
         return
-    name = os.getenv("FRONTEND_CONTAINER", "team-frontend-svc")
+    name = os.getenv("FRONTEND_CONTAINER", "agora-team-frontend-svc")
     out = subprocess.run(["docker", "logs", name], capture_output=True, text=True, check=False)
     logs = out.stdout + out.stderr
     if out.returncode != 0:
@@ -659,6 +664,15 @@ def visitor_cookie_ga(world: World, consent: str, ga: str) -> None:
         )
     _set_ga(world, ga)
     _open_home(world)
+
+
+@when("the visitor opens a listing from the page to queue a new view event")
+def open_listing_event(world: World) -> None:
+    link = world.page.locator("a[href*='/listing/']").first
+    expect(link).to_be_visible(timeout=timeouts.NAVIGATION)
+    link.click()
+    world.page.wait_for_load_state("load", timeout=timeouts.NAVIGATION)
+    world.page.wait_for_timeout(1_500)
 
 
 @when("the visitor scrolls the page to queue view events")

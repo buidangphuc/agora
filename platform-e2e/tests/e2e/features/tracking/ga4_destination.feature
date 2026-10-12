@@ -167,6 +167,7 @@ Feature: GA4 destination - GTM container, pseudonymous user_id, CSP, debug mode 
     When a visitor with the consent cookie "absent" and the cookie _ga "GA1.1.1234567890.1700000000" opens the home page
     And the visitor scrolls the page to queue view events
     And the visitor clicks "Accept all" on the consent banner
+    And the visitor opens a listing from the page to queue a new view event
     And the visitor scrolls the page to queue view events
     And the tracking queue idle window elapses
     Then every beacon enqueued before consent has an empty gaClientId and the later ones carry "1234567890.1700000000"
