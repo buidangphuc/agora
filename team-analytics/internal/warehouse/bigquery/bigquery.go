@@ -151,6 +151,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	// sink, so the error is ignored and ViewDDL is the documented migration.
 	_ = w.ensureViews(ctx)
 	_ = clientExec{w.client}.Exec(ctx, GA4ViewDDL(w.client.Project(), w.dataset, w.table))
+	_ = clientExec{w.client}.Exec(ctx, AttributedViewDDL(w.client.Project(), w.dataset))
 
 	return nil
 }
@@ -300,6 +301,7 @@ func (s *rowSaver) Save() (map[string]bigquery.Value, string, error) {
 		"event_group_id": s.rec.EventGroupID,
 		"shipping_tier":  s.rec.ShippingTier,
 		"payment_type":   s.rec.PaymentType,
+		"ga_client_id":   s.rec.GaClientID,
 		"ingested_at":    time.Now().UTC(),
 	}
 	return row, s.rec.EventID, nil

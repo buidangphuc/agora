@@ -98,6 +98,26 @@ func GA4ViewDDL(project, dataset, table string) string {
 		project, dataset, strings.Join(cols, ",\n"), project, dataset, table)
 }
 
+// AttributedViewDDL is the BigQuery equivalent of the DuckDB
+// tracking_events_attributed view.
+func AttributedViewDDL(project, dataset string) string {
+	return fmt.Sprintf("CREATE OR REPLACE VIEW `%[1]s.%[2]s.%[3]s` AS\n"+
+		"WITH win AS (\n"+
+		"  SELECT user_pseudo_id, source, medium, campaign, landing_page, ts,\n"+
+		"    LEAST(COALESCE(LEAD(ts) OVER (PARTITION BY user_pseudo_id ORDER BY ts), TIMESTAMP_ADD(ended_at, INTERVAL 30 MINUTE)),\n"+
+		"          TIMESTAMP_ADD(ended_at, INTERVAL 30 MINUTE)) AS win_end\n"+
+		"  FROM `%[1]s.%[2]s.%[5]s` WHERE user_pseudo_id IS NOT NULL AND user_pseudo_id != ''\n"+
+		")\n"+
+		"SELECT r.*,\n"+
+		"  COALESCE(w.source, '(none)') AS source,\n"+
+		"  COALESCE(w.medium, '(none)') AS medium,\n"+
+		"  COALESCE(w.campaign, '(none)') AS campaign,\n"+
+		"  COALESCE(w.landing_page, '(none)') AS landing_page\n"+
+		"FROM `%[1]s.%[2]s.%[4]s` r LEFT JOIN win w\n"+
+		"  ON r.ga_client_id = w.user_pseudo_id AND r.occurred_at >= w.ts AND r.occurred_at < w.win_end",
+		project, dataset, warehouse.AttributedViewName, warehouse.ResolvedViewName, warehouse.GA4SessionsTableName)
+}
+
 // clientExec adapts a *bigquery.Client to DDLExecutor.
 type clientExec struct{ client *bigquery.Client }
 

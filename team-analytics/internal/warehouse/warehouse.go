@@ -56,6 +56,8 @@ type TrackingRecord struct {
 	EventGroupID  string
 	ShippingTier  string
 	PaymentType   string
+	// GaClientID is the GA4 client id (empty without analytics consent).
+	GaClientID string
 }
 
 // Column is one entry of the canonical warehouse schema. The DuckDB and BigQuery
@@ -105,7 +107,12 @@ var Schema = []Column{
 	// D4); occurred_at stays the edge receive time. Null on rows written before
 	// the column existed.
 	{"ingested_at", "TIMESTAMP", "TIMESTAMP"},
+	// ga_client_id joins events to ga4_sessions.user_pseudo_id (attributed view).
+	{"ga_client_id", "VARCHAR", "STRING"},
 }
+
+// AttributedViewName is the resolved events joined to GA4 session attribution.
+const AttributedViewName = "tracking_events_attributed"
 
 // Stitching view names (tracking-ingest-integrity D5). The principal_type
 // literal for an authenticated visitor is "user" (consumer.principalTypeName).
