@@ -7733,7 +7733,8 @@ features:
       - "Then it has exactly 1 GA4 configuration tag"
       - "And it has one GA4 event tag for each funnel event with a custom-event trigger of the same name"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Container defines event tags for the ecommerce funnel"
 
   - id: ga4-destination.every-tag-is-consent-gated
     title: "Every tag is consent-gated"
@@ -7748,7 +7749,8 @@ features:
       - "When the GTM container JSON is parsed"
       - "Then every tag requires analytics_storage consent and 0 tags are unconditional"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Every tag is consent-gated"
 
   - id: ga4-destination.purchase-is-not-sent-from-the-browser
     title: "Purchase is not sent from the browser"
@@ -7763,7 +7765,8 @@ features:
       - "When the GTM container JSON is parsed"
       - "Then it contains 0 tags whose event name is purchase"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Purchase is not sent from the browser"
 
   - id: ga4-destination.container-contains-no-key-or-secret-values
     title: "Container contains no key or secret values"
@@ -7779,7 +7782,8 @@ features:
       - "Then it contains 0 occurrences of any value of the HMAC key or the API secret"
       - "And the measurement id is a variable, not a literal"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Container contains no key or secret values"
 
   - id: ga4-destination.logged-in-buyer-with-analytics-consent-gets-a-stable-hmac
     title: "Logged-in buyer with analytics consent gets a stable HMAC"
@@ -7796,7 +7800,8 @@ features:
       - "Then both identity responses are 200 with the same 64-char hex userId equal to the reference HMAC"
       - "And the identity body contains no raw user id, email or name"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Logged-in buyer with analytics consent gets a stable HMAC"
 
   - id: ga4-destination.no-analytics-consent-yields-no-user-id
     title: "No analytics consent yields no user_id"
@@ -7814,7 +7819,8 @@ features:
       - "Then every identity response is 204 with an empty body"
       - "And window.dataLayer holds 0 user_id entries"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::No analytics consent yields no user_id"
 
   - id: ga4-destination.anonymous-caller-yields-no-user-id
     title: "Anonymous caller yields no user_id"
@@ -7829,7 +7835,8 @@ features:
       - "When a caller with a=1 and no valid session calls the identity endpoint"
       - "Then every identity response is 204 with an empty body"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Anonymous caller yields no user_id"
 
   - id: ga4-destination.forged-session-cookie-yields-no-user-id
     title: "Forged session cookie yields no user_id"
@@ -7844,7 +7851,8 @@ features:
       - "When a caller with a=1 presents a session cookie with a future exp, the other buyer as sub and an invalid signature"
       - "Then every identity response is 204 with an empty body"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Forged session cookie yields no user_id"
 
   - id: ga4-destination.gateway-principal-endpoint-accepts-only-verified-tokens
     title: "Gateway principal endpoint accepts only verified tokens"
@@ -7876,7 +7884,8 @@ features:
       - "Then every identity response is 204 with an empty body"
       - "And the frontend log contains neither the buyer id nor the HMAC key"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Missing key disables the feature"
 
   - id: ga4-destination.caller-cannot-request-another-user-s-id
     title: "Caller cannot request another user's id"
@@ -7893,7 +7902,8 @@ features:
       - "When the buyer calls the identity endpoint with analytics consent naming the other buyer in a userId parameter"
       - "Then the identity response is 200 with the HMAC of the session buyer only"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Caller cannot request another user's id"
 
   - id: ga4-destination.response-is-not-cacheable
     title: "Response is not cacheable"
@@ -7910,7 +7920,8 @@ features:
       - "And a caller with a=1 and no valid session calls the identity endpoint"
       - "Then every identity response has Cache-Control no-store"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Response is not cacheable"
 
   - id: ga4-destination.identity-calls-are-fast
     title: "Identity calls are fast"
@@ -7926,7 +7937,8 @@ features:
       - "When the buyer calls the identity endpoint 100 times with analytics consent"
       - "Then the p95 latency of the identity calls is below 50 ms"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Identity calls are fast"
 
   - id: ga4-destination.consent-withdrawal-stops-user-id
     title: "Consent withdrawal stops user_id"
@@ -7944,7 +7956,8 @@ features:
       - "Then the dataLayer holds a consent update with analytics_storage denied after which no user_id is pushed"
       - "And the next identity call with the browser cookies is 204"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Consent withdrawal stops user_id"
 
   - id: ga4-destination.configured-environment-allowlists-the-google-hosts
     title: "Configured environment allowlists the Google hosts"
@@ -7961,7 +7974,8 @@ features:
       - "And the CSP header names no other third-party analytics host"
       - "And 0 CSP violation reports were produced"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Configured environment allowlists the Google hosts"
 
   - id: ga4-destination.unconfigured-environment-has-no-google-host
     title: "Unconfigured environment has no Google host"
@@ -7977,7 +7991,8 @@ features:
       - "Then the CSP header is present and contains 0 Google analytics hosts"
       - "And the browser made 0 requests to Google hosts"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Unconfigured environment has no Google host"
 
   - id: ga4-destination.unlisted-host-is-blocked
     title: "Unlisted host is blocked"
@@ -7993,7 +8008,8 @@ features:
       - "And a script from an unlisted host is injected"
       - "Then the browser blocks it and reports a CSP violation"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Unlisted host is blocked"
 
   - id: ga4-destination.staging-events-carry-debug-mode
     title: "Staging events carry debug_mode"
@@ -8008,7 +8024,8 @@ features:
       - "When a buyer opens the home page with analytics consent on a staging deployment"
       - "Then window.dataLayer has an entry with debug_mode true"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Staging events carry debug_mode"
 
   - id: ga4-destination.production-events-do-not-carry-debug-mode
     title: "Production events do not carry debug_mode"
@@ -8023,7 +8040,8 @@ features:
       - "When a buyer opens the home page with analytics consent on a production deployment"
       - "Then window.dataLayer holds ecommerce entries and none has debug_mode true"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Production events do not carry debug_mode"
 
   - id: ga4-destination.no-ids-in-dev-ci-and-e2e
     title: "No IDs in dev, CI and e2e"
@@ -8041,7 +8059,8 @@ features:
       - "And the identity endpoint returns 204 for an authenticated consenting caller"
       - "And the browser made 0 requests to Google hosts"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::No IDs in dev, CI and e2e"
 
   - id: ga4-destination.beacon-carries-the-client-id-with-analytics-consent
     title: "Beacon carries the client id with analytics consent"
@@ -8057,7 +8076,8 @@ features:
       - "And the tracking queue idle window elapses"
       - "Then at least one beacon was sent and a beacon has a gaClientId that is \"1234567890.1700000000\""
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Beacon carries the client id with analytics consent"
 
   - id: ga4-destination.no-consent-means-no-client-id
     title: "No consent means no client id"
@@ -8073,7 +8093,8 @@ features:
       - "And the tracking queue idle window elapses"
       - "Then at least one beacon was sent and every beacon has a gaClientId that is empty"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::No consent means no client id"
 
   - id: ga4-destination.malformed-or-missing-ga-cookie
     title: "Malformed or missing _ga cookie"
@@ -8090,7 +8111,8 @@ features:
       - "Then at least one beacon was sent and every beacon has a gaClientId that is empty"
       - "And the page raised no uncaught exception"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Malformed or missing _ga cookie"
 
   - id: ga4-destination.batched-events-share-the-consent-decision
     title: "Batched events share the consent decision"
@@ -8109,7 +8131,8 @@ features:
       - "And the tracking queue idle window elapses"
       - "Then every beacon enqueued before consent has an empty gaClientId and the later ones carry \"1234567890.1700000000\""
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::Batched events share the consent decision"
 
   - id: ga4-destination.gaclientid-is-bounded-to-64-characters
     title: "gaClientId is bounded to 64 characters"
@@ -8125,4 +8148,5 @@ features:
       - "And the tracking queue idle window elapses"
       - "Then at least one beacon was sent and every beacon has a gaClientId that is <outcome>"
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/ga4_destination.feature::gaClientId is bounded to 64 characters"
