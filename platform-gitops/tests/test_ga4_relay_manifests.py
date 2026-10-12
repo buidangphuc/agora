@@ -165,5 +165,95 @@ class RedpandaPolicy(unittest.TestCase):
                 self.assertTrue(alter, "create swallowed by `|| true` without alter-config after it")
 
 
+REPO = ROOT.parent
+COMPOSE = REPO / "docker-compose.services.yaml"
+GATES = REPO / ".github/workflows/asdlc-gates.yml"
+
+
+class Ga4RelayHardening(unittest.TestCase):
+    def pod_dep(self):
+        deps = [d for d in kind(load_docs(RELAY), "Deployment") if d["metadata"]["name"] == "ga4-relay"]
+        self.assertEqual(len(deps), 1)
+        return deps[0]
+
+    def test_scenario_ops_pod_runs_nonroot_with_fsgroup(self):
+        sc = self.pod_dep()["spec"]["template"]["spec"].get("securityContext") or {}
+        self.assertIs(sc.get("runAsNonRoot"), True)
+        self.assertIsInstance(sc.get("fsGroup"), int, "fsGroup needed so nonroot can write the PVC")
+        self.assertGreater(sc["fsGroup"], 0)
+
+    def test_scenario_ops_container_disallows_privilege_escalation(self):
+        for c in containers(self.pod_dep()):
+            self.assertIs((c.get("securityContext") or {}).get("allowPrivilegeEscalation"), False)
+
+
+class AsdlcGatesRunsGitopsTests(unittest.TestCase):
+    def test_scenario_ops_gates_workflow_runs_gitops_unittest_discover(self):
+        self.assertTrue(GATES.exists())
+        live = [l for l in GATES.read_text().splitlines() if not l.lstrip().startswith("#")]
+        self.assertTrue(any(re.search(r"python3 -m unittest discover -s platform-gitops/tests", l) for l in live))
+
+
+def _env_map(svc):
+    env = svc.get("environment") or {}
+    if isinstance(env, list):
+        out = {}
+        for e in env:
+            k, _, v = str(e).partition("=")
+            out[k] = v
+        return out
+    return {k: ("" if v is None else str(v)) for k, v in env.items()}
+
+
+class LocalCompose(unittest.TestCase):
+    def setUp(self):
+        self.doc = load_docs(COMPOSE)[0]
+
+    def svc(self):
+        self.assertIn("ga4-relay", self.doc["services"], "compose service ga4-relay missing")
+        return self.doc["services"]["ga4-relay"]
+
+    def test_scenario_ops_compose_relay_uses_analytics_image_with_relay_entrypoint(self):
+        s = self.svc()
+        self.assertIn("analytics", s.get("image", "") + str(s.get("build", "")))
+        ep = s.get("entrypoint")
+        ep = ep if isinstance(ep, list) else str(ep).split()
+        self.assertEqual(ep[:1], ["/ga4-relay"])
+
+    def test_scenario_ops_compose_relay_env_and_own_volume(self):
+        s = self.svc()
+        env = _env_map(s)
+        for k in ("GA4_RELAY_CONSUMER_GROUP", "GA4_RELAY_DLQ_TOPIC", "GA4_RELAY_PROBE_PORT", "DUCKDB_PATH"):
+            self.assertTrue(env.get(k), f"{k} must be set")
+        self.assertEqual(env["GA4_RELAY_DLQ_TOPIC"], "analytics.ga4-relay.dlq")
+        mount_dir = env["DUCKDB_PATH"].rsplit("/", 1)[0]
+        mine = [v.split(":")[0] for v in s.get("volumes", []) if isinstance(v, str) and v.split(":")[1:2] == [mount_dir]]
+        self.assertEqual(len(mine), 1, f"a volume must be mounted at {mount_dir}")
+        for name, other in self.doc["services"].items():
+            if name != "ga4-relay":
+                used = [v.split(":")[0] for v in other.get("volumes", []) if isinstance(v, str)]
+                self.assertNotIn(mine[0], used, f"volume shared with {name}")
+        self.assertIn(mine[0], self.doc.get("volumes") or {})
+
+    def test_scenario_ops_compose_relay_runs_disabled_without_ga4_secrets(self):
+        env = _env_map(self.svc())
+        for k in SECRET_KEYS:
+            self.assertFalse(env.get(k), f"{k} must have no value in compose")
+
+    def test_scenario_ops_compose_redpanda_init_creates_relay_dlq_topic(self):
+        init = self.doc["services"]["redpanda-init"]
+        cmd = init["command"]
+        cmd = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+        self.assertRegex(cmd, r"rpk topic create[^\n]*analytics\.ga4-relay\.dlq")
+
+
+class VaultConfigSeedsRelay(unittest.TestCase):
+    def test_scenario_ops_vault_config_services_includes_ga4_relay(self):
+        cms = [d for d in kind(load_docs(ROOT / "platform/vault-config/vault-config.yaml"), "ConfigMap")
+               if d["metadata"]["name"] == "vault-config-script"]
+        self.assertEqual(len(cms), 1)
+        self.assertIn("ga4-relay", cms[0]["data"]["SERVICES"].split())
+
+
 if __name__ == "__main__":
     unittest.main()
