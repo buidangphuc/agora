@@ -21,10 +21,11 @@ GOLDEN_SIGNED_IN_VIEW = bytes.fromhex(
     "696e672d411a06736573732d312206616e6f6e2d392a022f7838034a060a016b1201769a010b656c656374726f6e69"
     "6373"
 )
-# anonymous principal, CLICK on listing-B by visitor anon-9 (no session, no timestamp, no position)
+# anonymous principal, CLICK on listing-B by visitor anon-9 (no session, no timestamp, no position),
+# consent field 26 = ConsentState(personalization=true, version=1)
 GOLDEN_ANON_CLICK = bytes.fromhex(
     "0a056576742d321223706c6174666f726d2e616e616c79746963732e76312e547261636b696e674576656e74220d0a"
-    "09616e6f6e796d6f757310013a15080212096c697374696e672d422206616e6f6e2d39"
+    "09616e6f6e796d6f757310013a1c080212096c697374696e672d422206616e6f6e2d39d2010418012001"
 )
 # an envelope of another type (platform.listing.v1.ListingChanged)
 GOLDEN_OTHER_TYPE = bytes.fromhex(
@@ -59,8 +60,8 @@ def test_other_envelope_types_are_not_interactions():
 
 
 def test_event_types_nearline_does_not_use_are_skipped():
-    # TrackingEvent(event_type=BEGIN_CHECKOUT(6), listing_id="l") inside a tracking envelope
-    payload = bytes([0x08, 6, 0x12, 1]) + b"l"
+    # TrackingEvent(event_type=APPLY_PROMOTION(7), listing_id="l") inside a tracking envelope
+    payload = bytes([0x08, 7, 0x12, 1]) + b"l"
     tracking_type = b"platform.analytics.v1.TrackingEvent"
     env = b"\x12" + bytes([len(tracking_type)]) + tracking_type + b"\x3a" + bytes([len(payload)]) + payload
     assert to_interaction(env) is None

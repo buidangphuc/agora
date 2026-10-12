@@ -1009,3 +1009,353 @@ features:
     status: automated
     covered_by: "recommendations/gbdt_ranker.feature::The ranker artifact lives and dies with its generation"
     notes: "needs rebuild"
+
+  - id: recsys.denied-buyer-popular
+    title: "Denied buyer is served popular recommendations"
+    persona: buyer
+    priority: P1
+    summary: "Denied buyer is served popular recommendations"
+    entry_route: "/"
+    services: [platform-recsys, team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer with no granted events calls Recommend for the home feed through the gateway"
+      - "Then the response lists at least 1 listing id, served by the existing popular path"
+    tags: [recsys, recommendations, consent]
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Denied buyer is served popular recommendations"
+
+  - id: recsys.nearline-denied-no-key
+    title: "Denied event changes no per-user key"
+    persona: guest
+    priority: P0
+    summary: "Denied event changes no per-user key"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a view event with consent.personalization=false is consumed for actor u-deny"
+      - "Then recs:nearline:user:u-deny:items, recs:nearline:user:u-deny:cats and the session and co-view keys are unchanged"
+      - "And consent_denied increases by 1"
+    tags: [recsys, nearline, batch, consent]
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Denied event changes no per-user key"
+
+  - id: recsys.nearline-checkout-affinity
+    title: "Checkout events raise category affinity"
+    persona: guest
+    priority: P1
+    summary: "Checkout events raise category affinity"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a consented actor sends view_cart then begin_checkout for a listing of category books"
+      - "Then recs:nearline:user:<actor>:cats field books increases by 9.0 (3.0 + 6.0)"
+    tags: [recsys, nearline, batch]
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Checkout events raise category affinity"
+
+  - id: recsys.export-consent-context-columns
+    title: "Exported file has consent and context columns"
+    persona: guest
+    priority: P1
+    summary: "Exported file has consent and context columns"
+    entry_route: "/"
+    services: [platform-recsys, team-analytics, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an export runs over events with consent stamped and a matching ga4_sessions row"
+      - "Then the Parquet contains consent_personalization, consent_version, item_list_id, position, session_source, session_medium and session_campaign and the matched row has the session's source, medium and campaign"
+    tags: [recsys, analytics, batch, consent]
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Exported file has consent and context columns"
+
+  - id: recsys.rcc-granted-event-is-applied
+    title: "Granted event is applied"
+    persona: guest
+    priority: P2
+    summary: "Granted event is applied"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Granted event is applied (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_consent.py test_granted_event_is_applied. Not producible end to end."
+
+  - id: recsys.rcc-event-without-a-consent-field-is-denied
+    title: "Event without a consent field is denied"
+    persona: guest
+    priority: P2
+    summary: "Event without a consent field is denied"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Event without a consent field is denied (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_consent.py test_event_without_consent_field_is_denied. Not producible end to end."
+
+  - id: recsys.rcc-denied-event-updates-no-item-ctr-counter
+    title: "Denied event updates no item CTR counter"
+    persona: guest
+    priority: P2
+    summary: "Denied event updates no item CTR counter"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Denied event updates no item CTR counter (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_consent.py test_denied_event_updates_no_ctr_counter. Not producible end to end."
+
+  - id: recsys.rcc-denied-event-arriving-after-a-grant-is-dropped
+    title: "Denied event arriving after a grant is dropped"
+    persona: guest
+    priority: P2
+    summary: "Denied event arriving after a grant is dropped"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Denied event arriving after a grant is dropped (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_consent.py test_denied_after_grant_is_dropped. Not producible end to end."
+
+  - id: recsys.rcc-corrupt-message-is-skipped-and-committed
+    title: "Corrupt message is skipped and committed"
+    persona: guest
+    priority: P2
+    summary: "Corrupt message is skipped and committed"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Corrupt message is skipped and committed (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_consent.py test_corrupt_message_skipped_and_committed. Not producible end to end."
+
+  - id: recsys.rcc-grant-after-deny-uses-only-later-events
+    title: "Grant after deny uses only later events"
+    persona: guest
+    priority: P2
+    summary: "Grant after deny uses only later events"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Grant after deny uses only later events (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_consent.py test_grant_after_deny_uses_only_later_events. Not producible end to end."
+
+  - id: recsys.rcc-cart-event-without-a-listing-is-skipped
+    title: "Cart event without a listing is skipped"
+    persona: guest
+    priority: P2
+    summary: "Cart event without a listing is skipped"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Cart event without a listing is skipped (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_checkout.py test_cart_event_without_listing_is_skipped. Not producible end to end."
+
+  - id: recsys.rcc-redelivery-of-a-checkout-event-is-applied-once
+    title: "Redelivery of a checkout event is applied once"
+    persona: guest
+    priority: P2
+    summary: "Redelivery of a checkout event is applied once"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Redelivery of a checkout event is applied once (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_nearline_checkout.py test_checkout_redelivery_applied_once. Not producible end to end."
+
+  - id: recsys.rcc-same-ctr-at-worse-position-gets-higher-weight
+    title: "Same CTR at worse position gets higher weight"
+    persona: guest
+    priority: P2
+    summary: "Same CTR at worse position gets higher weight"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Same CTR at worse position gets higher weight (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_same_ctr_worse_position_higher_weight. Not producible end to end."
+
+  - id: recsys.rcc-missing-item-list-id-keeps-position-only-behaviour
+    title: "Missing item_list_id keeps position-only behaviour"
+    persona: guest
+    priority: P2
+    summary: "Missing item_list_id keeps position-only behaviour"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing item_list_id keeps position-only behaviour (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_missing_item_list_id_keeps_position_only. Not producible end to end."
+
+  - id: recsys.rcc-non-positive-position-is-clamped
+    title: "Non-positive position is clamped"
+    persona: guest
+    priority: P2
+    summary: "Non-positive position is clamped"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-positive position is clamped (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_non_positive_position_is_clamped. Not producible end to end."
+
+  - id: recsys.rcc-context-kept-when-it-does-not-regress
+    title: "Context kept when it does not regress"
+    persona: guest
+    priority: P2
+    summary: "Context kept when it does not regress"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Context kept when it does not regress: the run report states context_features=enabled with both metric sets and the published artifact's features equal RANKING_FEATURES (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_context.py test_context_kept_without_regression. Not producible end to end."
+
+  - id: recsys.rcc-context-dropped-on-regression
+    title: "Context dropped on regression"
+    persona: guest
+    priority: P2
+    summary: "Context dropped on regression"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Context dropped on regression (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_context.py test_context_dropped_on_regression. Not producible end to end."
+
+  - id: recsys.rcc-legacy-input-without-context-columns
+    title: "Legacy input without context columns"
+    persona: guest
+    priority: P2
+    summary: "Legacy input without context columns"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Legacy input without context columns (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_context.py test_legacy_input_without_context_columns. Not producible end to end."
+
+  - id: recsys.rcc-unmatched-event-has-empty-session-context
+    title: "Unmatched event has empty session context"
+    persona: guest
+    priority: P2
+    summary: "Unmatched event has empty session context"
+    entry_route: "/"
+    services: [platform-recsys, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unmatched event has empty session context (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: team-analytics/internal/export/export_test.go TestExport_UnmatchedEventHasEmptySessionContext. Not producible end to end."
+
+  - id: recsys.rcc-failed-export-keeps-the-previous-file
+    title: "Failed export keeps the previous file"
+    persona: guest
+    priority: P2
+    summary: "Failed export keeps the previous file"
+    entry_route: "/"
+    services: [platform-recsys, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Failed export keeps the previous file (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: team-analytics/internal/export/export_test.go TestExport_FailedExportKeepsPreviousFile. Not producible end to end."
+
+  - id: recsys.rcc-export-never-reads-ga4-as-an-interaction-source
+    title: "Export never reads GA4 as an interaction source"
+    persona: guest
+    priority: P2
+    summary: "Export never reads GA4 as an interaction source"
+    entry_route: "/"
+    services: [platform-recsys, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Export never reads GA4 as an interaction source (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: team-analytics/internal/export/export_test.go TestExport_NeverReadsGA4AsInteractionSource. Not producible end to end."
+
+  - id: recsys.rcc-list-specific-propensity-replaces-the-position-only-weight
+    title: "List-specific propensity replaces the position-only weight"
+    persona: guest
+    priority: P2
+    summary: "List-specific propensity replaces the position-only weight"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "List-specific propensity replaces the position-only weight (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_list_propensity_replaces_position_only_weight. Not producible end to end."
+
+  - id: recsys.rcc-sparse-list-cell-falls-back-to-position-only
+    title: "Sparse list cell falls back to position-only"
+    persona: guest
+    priority: P2
+    summary: "Sparse list cell falls back to position-only"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Sparse list cell falls back to position-only (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_sparse_list_cell_falls_back_to_position_only. Not producible end to end."

@@ -61,3 +61,16 @@ datasets:
       position: int
       label: int
       occurred_at: timestamp
+  - name: als_interactions
+    version: 2
+    sql: sql/als_interactions_v2.sql
+  - name: rank_training
+    version: 2
+    sql: sql/rank_training_v2.sql
+    columns:
+      user_key: string
+      impression_id: string
+      listing_id: string
+      position: int
+      label: int
+      occurred_at: timestamp
