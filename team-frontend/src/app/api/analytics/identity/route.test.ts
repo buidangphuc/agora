@@ -1,7 +1,9 @@
-// add-ga4-destination 1.2 — GET /api/analytics/identity scenarios.
-// The session JWT (sub = principal id) and the agora_consent cookie are fed
-// through a faked next/headers cookie jar AND the request Cookie header, so the
-// real session/consent readers run. Only the HMAC key comes from env.
+// add-ga4-destination 1.2 / 1.2b — GET /api/analytics/identity scenarios.
+// The session cookie and the agora_consent cookie are fed through a faked
+// next/headers cookie jar AND the request Cookie header, so the real
+// session-cookie/consent readers run. The principal id is NEVER decoded from the
+// cookie: it comes from the gateway's GET /api/session/principal (faked fetch,
+// the true external boundary). Only the HMAC key comes from env.
 import { createHmac } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,8 +58,18 @@ function call(
   );
 }
 
+// Fake gateway: a presented bearer is verified -> 200 {principalId: SUB}.
+const okGateway = () =>
+  Response.json(
+    { principalId: SUB },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+let fetchMock: ReturnType<typeof vi.fn>;
+
 let logs: ReturnType<typeof vi.spyOn>[];
 beforeEach(() => {
+  fetchMock = vi.fn(async () => okGateway());
+  vi.stubGlobal("fetch", fetchMock);
   process.env.GA4_USER_ID_HMAC_KEY = KEY;
   logs = (["log", "info", "warn", "error", "debug"] as const).map((m) =>
     vi.spyOn(console, m).mockImplementation(() => {}),
@@ -66,6 +78,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.GA4_USER_ID_HMAC_KEY;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const logged = () => JSON.stringify(logs.flatMap((s) => s.mock.calls));
@@ -118,6 +131,7 @@ describe("identity route", () => {
     const r = await call({ a: 1 });
     expect(r.status).toBe(204);
     expect(await r.text()).toBe("");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("[Anonymous caller yields no user_id] garbage session token -> 204", async () => {
@@ -191,5 +205,61 @@ describe("identity route", () => {
     const session = jwt(SUB);
     expect((await call({ a: 1, session })).status).toBe(200);
     expect((await call({ a: 0, session })).status).toBe(204);
+  });
+
+  it("[Gateway principal is the source] calls GET /api/session/principal with the session token as bearer", async () => {
+    const session = jwt(SUB);
+    await call({ a: 1, session });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string | URL, RequestInit];
+    expect(String(url)).toMatch(/\/api\/session\/principal$/);
+    expect(new Headers(init?.headers).get("authorization")).toBe(
+      `Bearer ${session}`,
+    );
+  });
+
+  it("[Gateway principal is the source] userId is the HMAC of the gateway principalId, not the cookie sub", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({ principalId: "gw-principal-9" }),
+    );
+    const r = await call({ a: 1, session: jwt("cookie-sub-1") });
+    expect(r.status).toBe(200);
+    expect((await r.json()).userId).toBe(ref("gw-principal-9"));
+  });
+
+  it("[Forged session cookie yields no user_id] gateway 401 -> 204 empty body, no-store", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
+    const r = await call({ a: 1, session: jwt("victim-1") });
+    expect(r.status).toBe(204);
+    expect(await r.text()).toBe("");
+    expect(r.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("[Forged session cookie yields no user_id] forged sub is never HMACed when gateway rejects", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
+    const r = await call({ a: 1, session: jwt("victim-1") });
+    expect(await r.text()).not.toContain(ref("victim-1"));
+  });
+
+  it("[Forged session cookie yields no user_id] gateway network error -> 204", async () => {
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+    const r = await call({ a: 1, session: jwt(SUB) });
+    expect(r.status).toBe(204);
+    expect(await r.text()).toBe("");
+  });
+
+  it("[Forged session cookie yields no user_id] gateway 5xx -> 204", async () => {
+    fetchMock.mockResolvedValue(new Response("boom", { status: 503 }));
+    expect((await call({ a: 1, session: jwt(SUB) })).status).toBe(204);
+  });
+
+  it("[Forged session cookie yields no user_id] gateway 200 without principalId -> 204", async () => {
+    fetchMock.mockResolvedValue(Response.json({}));
+    expect((await call({ a: 1, session: jwt(SUB) })).status).toBe(204);
+  });
+
+  it("[No analytics consent yields no user_id] a=0 never calls the gateway", async () => {
+    await call({ a: 0, session: jwt(SUB) });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
