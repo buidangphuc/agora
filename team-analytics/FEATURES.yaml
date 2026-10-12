@@ -944,3 +944,485 @@ features:
     tags: [tracking, unit]
     status: not-testable
     notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/revenue_guard_test.go. Not producible end to end."
+
+  # --- add-ga4-export-import (ga4-analytics wave 1) ---
+
+  - id: ga4-export-import.import-of-a-fixture-day-produces-sessions
+    title: "Import of a fixture day produces sessions"
+    persona: guest
+    priority: P2
+    summary: "Import of a fixture day produces sessions"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Import of a fixture day produces sessions"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Import of a fixture day produces sessions
+
+  - id: ga4-export-import.import-of-5m-rows-meets-the-time-budget
+    title: "Import of 5M rows meets the time budget"
+    persona: guest
+    priority: P2
+    summary: "Import of 5M rows meets the time budget"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Import of 5M rows meets the time budget"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Import of 5M rows meets the time budget
+
+  - id: ga4-export-import.re-running-the-same-date-is-idempotent
+    title: "Re-running the same date is idempotent"
+    persona: guest
+    priority: P2
+    summary: "Re-running the same date is idempotent"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Re-running the same date is idempotent"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Re-running the same date is idempotent
+
+  - id: ga4-export-import.a-missing-export-table-fails-without-changing-data
+    title: "A missing export table fails without changing data"
+    persona: guest
+    priority: P2
+    summary: "A missing export table fails without changing data"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A missing export table fails without changing data"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::A missing export table fails without changing data
+
+  - id: ga4-export-import.landing-page-query-strings-are-removed
+    title: "Landing page query strings are removed"
+    persona: guest
+    priority: P2
+    summary: "Landing page query strings are removed"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Landing page query strings are removed"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Landing page query strings are removed
+
+  - id: ga4-export-import.empty-day-is-a-valid-import
+    title: "Empty day is a valid import"
+    persona: guest
+    priority: P2
+    summary: "Empty day is a valid import"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Empty day is a valid import"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Empty day is a valid import
+
+  - id: ga4-export-import.schema-parity-holds
+    title: "Schema parity holds"
+    persona: guest
+    priority: P2
+    summary: "Schema parity holds"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Schema parity holds"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.ga4-sessions-carries-export-date
+    title: "ga4_sessions carries export_date"
+    persona: guest
+    priority: P2
+    summary: "ga4_sessions carries export_date"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ga4_sessions carries export_date"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::ga4_sessions carries export_date
+
+  - id: ga4-export-import.migration-is-idempotent
+    title: "Migration is idempotent"
+    persona: guest
+    priority: P2
+    summary: "Migration is idempotent"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Migration is idempotent"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.a-bigquery-migration-failure-is-surfaced
+    title: "A BigQuery migration failure is surfaced"
+    persona: guest
+    priority: P2
+    summary: "A BigQuery migration failure is surfaced"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A BigQuery migration failure is surfaced"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.an-event-with-a-matching-client-id-is-attributed
+    title: "An event with a matching client id is attributed"
+    persona: guest
+    priority: P2
+    summary: "An event with a matching client id is attributed"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An event with a matching client id is attributed"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.an-event-outside-any-session-is-unattributed
+    title: "An event outside any session is unattributed"
+    persona: guest
+    priority: P2
+    summary: "An event outside any session is unattributed"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An event outside any session is unattributed"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.session-end-is-bounded-by-the-next-session-or-30-minutes-after-ended-at
+    title: "Session end is bounded by the next session or 30 minutes after ended_at"
+    persona: guest
+    priority: P2
+    summary: "Session end is bounded by the next session or 30 minutes after ended_at"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Session end is bounded by the next session or 30 minutes after ended_at"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.ga4-sessions-stores-ended-at
+    title: "ga4_sessions stores ended_at"
+    persona: guest
+    priority: P2
+    summary: "ga4_sessions stores ended_at"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ga4_sessions stores ended_at"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::ga4_sessions stores ended_at
+
+  - id: ga4-export-import.an-event-without-a-client-id-is-kept-as-unattributed
+    title: "An event without a client id is kept as unattributed"
+    persona: guest
+    priority: P2
+    summary: "An event without a client id is kept as unattributed"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An event without a client id is kept as unattributed"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.a-client-with-two-sessions-does-not-duplicate-events
+    title: "A client with two sessions does not duplicate events"
+    persona: guest
+    priority: P2
+    summary: "A client with two sessions does not duplicate events"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A client with two sessions does not duplicate events"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.a-seller-filter-narrows-the-funnel
+    title: "A seller filter narrows the funnel"
+    persona: admin
+    priority: P2
+    summary: "A seller filter narrows the funnel"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A seller filter narrows the funnel"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.counts-are-split-by-channel
+    title: "Counts are split by channel"
+    persona: guest
+    priority: P2
+    summary: "Counts are split by channel"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Counts are split by channel"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Counts are split by channel
+
+  - id: ga4-export-import.funnel-query-meets-p95-latency
+    title: "Funnel query meets p95 latency"
+    persona: admin
+    priority: P2
+    summary: "Funnel query meets p95 latency"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Funnel query meets p95 latency"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Funnel query meets p95 latency
+
+  - id: ga4-export-import.a-window-with-no-events-returns-no-rows
+    title: "A window with no events returns no rows"
+    persona: guest
+    priority: P2
+    summary: "A window with no events returns no rows"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A window with no events returns no rows"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::A window with no events returns no rows
+
+  - id: ga4-export-import.an-invalid-window-is-rejected
+    title: "An invalid window is rejected"
+    persona: guest
+    priority: P2
+    summary: "An invalid window is rejected"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "An invalid window is rejected"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::An invalid window is rejected
+
+  - id: ga4-export-import.only-admins-can-read-the-channel-funnel
+    title: "Only admins can read the channel funnel"
+    persona: admin
+    priority: P2
+    summary: "Only admins can read the channel funnel"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Only admins can read the channel funnel"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Only admins can read the channel funnel
+
+  - id: ga4-export-import.revenue-is-never-read-from-ga4-data
+    title: "Revenue is never read from GA4 data"
+    persona: guest
+    priority: P2
+    summary: "Revenue is never read from GA4 data"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Revenue is never read from GA4 data"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: ga4-export-import.the-job-is-a-no-op-when-unconfigured
+    title: "The job is a no-op when unconfigured"
+    persona: guest
+    priority: P2
+    summary: "The job is a no-op when unconfigured"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The job is a no-op when unconfigured"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::The job is a no-op when unconfigured
+
+  - id: ga4-export-import.invalid-threshold-is-rejected-at-startup
+    title: "Invalid threshold is rejected at startup"
+    persona: guest
+    priority: P2
+    summary: "Invalid threshold is rejected at startup"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Invalid threshold is rejected at startup"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Invalid threshold is rejected at startup
+
+  - id: tracking-data-quality.divergence-beyond-the-threshold-raises-the-alert
+    title: "Divergence beyond the threshold raises the alert"
+    persona: admin
+    priority: P2
+    summary: "Divergence beyond the threshold raises the alert"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Divergence beyond the threshold raises the alert"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::Divergence beyond the threshold raises the alert
+
+  - id: tracking-data-quality.divergence-at-the-threshold-does-not-alert
+    title: "Divergence at the threshold does not alert"
+    persona: admin
+    priority: P2
+    summary: "Divergence at the threshold does not alert"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Divergence at the threshold does not alert"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: tracking-data-quality.zero-first-party-events-are-handled
+    title: "Zero first-party events are handled"
+    persona: guest
+    priority: P2
+    summary: "Zero first-party events are handled"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Zero first-party events are handled"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: tracking-data-quality.a-missing-import-is-reported-not-treated-as-divergence
+    title: "A missing import is reported, not treated as divergence"
+    persona: admin
+    priority: P2
+    summary: "A missing import is reported, not treated as divergence"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A missing import is reported, not treated as divergence"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::A missing import is reported, not treated as divergence
+
+  - id: tracking-data-quality.a-missing-import-adds-a-reason-only
+    title: "A missing import adds a reason only"
+    persona: admin
+    priority: P2
+    summary: "A missing import adds a reason only"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A missing import adds a reason only"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    # e2e: tracking/ga4_export_import.feature::A missing import adds a reason only
+
+  - id: tracking-data-quality.reconciliation-failure-does-not-break-the-report
+    title: "Reconciliation failure does not break the report"
+    persona: admin
+    priority: P2
+    summary: "Reconciliation failure does not break the report"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Reconciliation failure does not break the report"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
+
+  - id: tracking-data-quality.only-admins-see-reconciliation-reasons
+    title: "Only admins see reconciliation reasons"
+    persona: admin
+    priority: P2
+    summary: "Only admins see reconciliation reasons"
+    entry_route: /
+    services: [team-analytics, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Only admins see reconciliation reasons"
+    tags: [tracking, analytics, ga4]
+    status: planned
+    notes: "add-ga4-export-import: no e2e scenario written (not producible black-box); spec has no VERIFIED BY line, so not marked not-testable. See report OPEN_ISSUES."
