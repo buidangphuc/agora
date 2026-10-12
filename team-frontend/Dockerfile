@@ -9,6 +9,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # e2e stack sets a placeholder id so AnalyticsProvider initialises window.dataLayer.
 ARG NEXT_PUBLIC_GTM_ID=""
 ENV NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}
+ARG NEXT_PUBLIC_APP_ENV=""
+ENV NEXT_PUBLIC_APP_ENV=${NEXT_PUBLIC_APP_ENV}
 RUN npm run build
 
 FROM node:22-slim AS run

@@ -14,7 +14,10 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
 
     const pushUserId = (userId: string) => {
       window.dataLayer = window.dataLayer || [];
-      (window.dataLayer as unknown[]).push({ user_id: userId });
+      (window.dataLayer as unknown[]).push({
+        event: "ga4_identity",
+        user_id: userId,
+      });
     };
 
     const fetchIdentity = () => {

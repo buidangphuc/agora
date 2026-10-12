@@ -13,6 +13,50 @@
             "value": ""
           }
         ]
+      },
+      {
+        "variableId": "2",
+        "name": "DLV - user_id",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "user_id"
+          }
+        ]
+      },
+      {
+        "variableId": "3",
+        "name": "DLV - debug_mode",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "debug_mode"
+          }
+        ]
       }
     ],
     "tag": [
@@ -25,9 +69,45 @@
             "type": "TEMPLATE",
             "key": "measurementId",
             "value": "{{GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "fieldsToSet",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "fieldName",
+                    "value": "user_id"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - user_id}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "fieldName",
+                    "value": "debug_mode"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - debug_mode}}"
+                  }
+                ]
+              }
+            ]
           }
         ],
-        "firingTriggerId": ["2147479553"],
+        "firingTriggerId": ["2147479553", "109"],
         "consentSettings": {
           "consentStatus": "NEEDED",
           "consentType": {
@@ -506,6 +586,28 @@
                 "type": "TEMPLATE",
                 "key": "arg1",
                 "value": "add_payment_info"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "triggerId": "109",
+        "name": "ga4_identity",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "ga4_identity"
               }
             ]
           }
