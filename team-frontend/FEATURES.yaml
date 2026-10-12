@@ -7275,6 +7275,51 @@ features:
     status: not-testable
     notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/fanout.test.ts. Not producible end to end."
 
+  - id: tracking.unit-caller-properties-cannot-override-reserved-keys
+    title: "Caller properties cannot override reserved keys or leak to top level"
+    persona: guest
+    priority: P2
+    summary: "Caller properties cannot override reserved keys or leak to top level"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Caller properties cannot override reserved keys or leak to top level (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/dataLayer.privacy.test.ts. Not producible end to end."
+
+  - id: tracking.unit-search-term-and-path-are-scrubbed-in-the-datalayer
+    title: "Search term and path are scrubbed in the dataLayer"
+    persona: guest
+    priority: P2
+    summary: "Search term and path are scrubbed in the dataLayer"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Search term and path are scrubbed in the dataLayer (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/dataLayer.privacy.test.ts. Not producible end to end."
+
+  - id: tracking.unit-referrer-is-reduced-to-scheme-host-path
+    title: "Referrer is reduced to scheme host path"
+    persona: guest
+    priority: P2
+    summary: "Referrer is reduced to scheme host path"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Referrer is reduced to scheme host path (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/dataLayer.privacy.test.ts. Not producible end to end."
+
   - id: tracking.unit-no-gtm-when-id-is-empty
     title: "No GTM when ID is empty"
     persona: guest
