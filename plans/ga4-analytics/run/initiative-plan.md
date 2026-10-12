@@ -1,5 +1,5 @@
 # initiative-plan — ga4-analytics
-step: 5 — LOCK.md written (2026-10-12), waiting for human sign-off
+step: 5 done — LOCK approved 2026-10-12 by Bùi Đăng Phúc; next: initiative-build
 cross_change_check: only `schema: no change directory` (expected before step 3); DAG ok
 build order: ga4-consent-contract -> add-consent-mode -> add-ga4-destination -> add-ga4-export-import -> add-ga4-purchase-relay -> recsys-consent-and-context
 deviation from 00-spec table: add-ga4-purchase-relay also depends_on add-ga4-destination (shared hot file map.ts)

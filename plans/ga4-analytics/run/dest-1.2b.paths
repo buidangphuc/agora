@@ -1,0 +1,6 @@
+team-frontend/src/app/api/analytics/identity/route.test.ts
+team-frontend/src/app/api/analytics/identity/route.ts
+team-gateway/internal/edge/bearer_test.go
+team-gateway/internal/edge/server.go
+team-gateway/internal/edge/session_principal.go
+team-gateway/internal/edge/session_principal_test.go

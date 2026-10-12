@@ -1,0 +1,5 @@
+team-analytics/internal/grpcserver/channel_funnel_test.go
+team-analytics/internal/query/channel_funnel_test.go
+team-analytics/internal/query/duckdb.go
+team-analytics/internal/query/repository.go
+team-analytics/internal/query/service.go

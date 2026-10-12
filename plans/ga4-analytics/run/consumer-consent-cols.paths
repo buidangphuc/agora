@@ -1,0 +1,9 @@
+team-analytics/internal/consumer/tracking.go
+team-analytics/internal/consumer/tracking_test.go
+team-analytics/internal/warehouse/bigquery/bigquery.go
+team-analytics/internal/warehouse/bigquery/schema_test.go
+team-analytics/internal/warehouse/duckdb/duckdb.go
+team-analytics/internal/warehouse/duckdb/duckdb_test.go
+team-analytics/internal/warehouse/ga4_schema_test.go
+team-analytics/internal/warehouse/warehouse.go
+team-analytics/internal/warehouse/warehouse_test.go

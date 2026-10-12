@@ -1,0 +1,6 @@
+team-analytics/internal/warehouse/bigquery/attributed_test.go
+team-analytics/internal/warehouse/bigquery/bigquery.go
+team-analytics/internal/warehouse/bigquery/migrate.go
+team-analytics/internal/warehouse/duckdb/attributed_test.go
+team-analytics/internal/warehouse/duckdb/duckdb.go
+team-analytics/internal/warehouse/warehouse.go
