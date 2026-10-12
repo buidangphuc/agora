@@ -3,7 +3,8 @@
 // service's own Postgres table (repository), separate from the OpenSearch
 // read-model. RunSavedSearch loads a saved query/filters and REUSES the existing
 // SearchListings index path — it never re-implements search.
-package handler
+
+package rpc
 
 import (
 	"context"
@@ -18,8 +19,7 @@ import (
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 
-	"github.com/buidangphuc/team-search/internal/interceptor"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 // Scopes gating the saved-search surface: reads/runs need search:read (mirrors
@@ -41,7 +41,7 @@ const (
 //
 // No saved-search RPC therefore ever runs against a shared or default owner.
 func (h *SearchHandler) callerID(ctx context.Context, scope string) (string, error) {
-	p, ok := interceptor.PrincipalFromContext(ctx)
+	p, ok := principalFromContext(ctx)
 	if !ok || p == nil {
 		return "", status.Error(codes.Unauthenticated, "authentication required")
 	}
@@ -55,7 +55,7 @@ func (h *SearchHandler) callerID(ctx context.Context, scope string) (string, err
 	if p.GetId() == "" || p.GetId() == anonymousPrincipalID {
 		return "", status.Error(codes.Unauthenticated, "authentication required")
 	}
-	if err := interceptor.RequireScopes(ctx, scope); err != nil {
+	if err := requireScopes(ctx, scope); err != nil {
 		return "", err
 	}
 	return p.GetId(), nil
@@ -85,11 +85,11 @@ func (h *SearchHandler) SaveSearch(
 	}
 	// Same visibility rules as SearchListings for this caller, so a filter set that
 	// search would reject (for example status=draft for a non-owner) is never stored.
-	p, _ := interceptor.PrincipalFromContext(ctx)
+	p, _ := principalFromContext(ctx)
 	if _, err := effectiveFilters(p, parsed); err != nil {
 		return nil, err
 	}
-	saved, err := h.saved.Create(ctx, repository.SavedSearch{
+	saved, err := h.saved.Create(ctx, store.SavedSearch{
 		UserID:      userID,
 		Query:       req.GetQuery(),
 		FiltersJSON: filtersJSON,
@@ -147,7 +147,7 @@ func (h *SearchHandler) DeleteSavedSearch(
 		return nil, status.Error(codes.InvalidArgument, "id required")
 	}
 	if err := h.saved.Delete(ctx, req.GetId(), userID); err != nil {
-		if errors.Is(err, repository.ErrSavedSearchNotFound) {
+		if errors.Is(err, store.ErrSavedSearchNotFound) {
 			return nil, status.Error(codes.NotFound, "saved search not found")
 		}
 		return nil, status.Error(codes.Internal, "delete saved search failed")
@@ -173,7 +173,7 @@ func (h *SearchHandler) RunSavedSearch(
 	}
 	saved, err := h.saved.Get(ctx, req.GetId(), userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrSavedSearchNotFound) {
+		if errors.Is(err, store.ErrSavedSearchNotFound) {
 			return nil, status.Error(codes.NotFound, "saved search not found")
 		}
 		return nil, status.Error(codes.Internal, "load saved search failed")
@@ -187,7 +187,7 @@ func (h *SearchHandler) RunSavedSearch(
 	// Re-apply the visibility policy at RUN time with the runner's identity (a saved
 	// draft filter never outlives its owner's right to it), then reuse the
 	// existing search path exactly (default first page).
-	p, _ := interceptor.PrincipalFromContext(ctx)
+	p, _ := principalFromContext(ctx)
 	filters, err = effectiveFilters(p, filters)
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func parseFilters(filtersJSON string) (map[string]string, error) {
 	return m, nil
 }
 
-func toWireSavedSearch(s repository.SavedSearch) *searchv1.SavedSearch {
+func toWireSavedSearch(s store.SavedSearch) *searchv1.SavedSearch {
 	out := &searchv1.SavedSearch{
 		Id:          s.ID,
 		Query:       s.Query,

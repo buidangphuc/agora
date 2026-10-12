@@ -1,6 +1,6 @@
-// Package handler is the gRPC transport adapter for SearchService: it maps
+// Package rpc is the gRPC transport adapter for SearchService: it maps
 // between wire types and the OpenSearch read-model.
-package handler
+package rpc
 
 import (
 	"context"
@@ -13,9 +13,8 @@ import (
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 
 	"github.com/buidangphuc/team-search/internal/index"
-	"github.com/buidangphuc/team-search/internal/interceptor"
-	"github.com/buidangphuc/team-search/internal/repository"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 const (
@@ -26,21 +25,21 @@ const (
 )
 
 // SearchHandler implements searchv1.SearchServiceServer over an index.Index / retrieval.Engine for
-// queries and a repository.SavedSearchRepository for user-owned saved searches.
+// queries and a store.SavedSearchRepository for user-owned saved searches.
 type SearchHandler struct {
 	searchv1.UnimplementedSearchServiceServer
 	idx    index.Index
 	engine *retrieval.Engine
-	saved  repository.SavedSearchRepository
+	saved  store.SavedSearchRepository
 }
 
 // NewSearchHandler builds the handler around the read-model index and the saved-search store.
-func NewSearchHandler(idx index.Index, saved repository.SavedSearchRepository) *SearchHandler {
+func NewSearchHandler(idx index.Index, saved store.SavedSearchRepository) *SearchHandler {
 	return NewSearchHandlerWithEngine(idx, nil, saved)
 }
 
 // NewSearchHandlerWithEngine builds the handler with a retrieval engine for multi-strategy search.
-func NewSearchHandlerWithEngine(idx index.Index, engine *retrieval.Engine, saved repository.SavedSearchRepository) *SearchHandler {
+func NewSearchHandlerWithEngine(idx index.Index, engine *retrieval.Engine, saved store.SavedSearchRepository) *SearchHandler {
 	return &SearchHandler{idx: idx, engine: engine, saved: saved}
 }
 
@@ -49,7 +48,7 @@ func (h *SearchHandler) SearchListings(
 	ctx context.Context,
 	req *searchv1.SearchListingsRequest,
 ) (*searchv1.SearchListingsResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "search:read"); err != nil {
+	if err := requireScopes(ctx, "search:read"); err != nil {
 		return nil, err
 	}
 	// D9: no listing event carries a rating, so a minimum rating cannot be
@@ -57,7 +56,7 @@ func (h *SearchHandler) SearchListings(
 	if req.GetMinRating() != 0 {
 		return nil, status.Error(codes.InvalidArgument, "min_rating is not supported: no rating is indexed")
 	}
-	p, _ := interceptor.PrincipalFromContext(ctx)
+	p, _ := principalFromContext(ctx)
 	filters, err := effectiveFilters(p, req.GetFilters())
 	if err != nil {
 		return nil, err
@@ -147,7 +146,7 @@ func (h *SearchHandler) Suggest(
 	ctx context.Context,
 	req *searchv1.SuggestRequest,
 ) (*searchv1.SuggestResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "search:read"); err != nil {
+	if err := requireScopes(ctx, "search:read"); err != nil {
 		return nil, err
 	}
 	limit := int(req.GetLimit())

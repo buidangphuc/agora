@@ -1,9 +1,9 @@
-package consumer
+package events
 
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -14,6 +14,11 @@ import (
 	"github.com/buidangphuc/team-search/internal/retrieval"
 	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
+
+// Handler processes one event record. An error is retried by the consumer with
+// bounded backoff and, if the record still fails, it is parked on the DLQ before
+// the offset advances: it is never silently dropped.
+type Handler func(ctx context.Context, key, value []byte) error
 
 // Discriminator types carried in EventEnvelope.Type
 const (
@@ -114,7 +119,7 @@ func NewListingEventHandler(idx index.Index, embedder retrieval.EmbedClient, cla
 					Title: base.GetTitle(), Description: base.GetDescription(), CategoryID: base.GetCategoryId(),
 				})
 				if err != nil {
-					log.Printf("[taxonomy] classify %s: %v (tags_pending)", base.GetListingId(), err)
+					slog.WarnContext(ctx, "taxonomy classify failed, marking tags_pending", "listing_id", base.GetListingId(), "err", err)
 					fields["tags_pending"] = true
 				} else {
 					fields["facet_tags"] = nonNil(res.FacetTags)
@@ -217,7 +222,7 @@ func classifyDoc(ctx context.Context, c taxonomy.Classifier, l *listingv1.Listin
 	}
 	res, err := c.Classify(ctx, in)
 	if err != nil {
-		log.Printf("[taxonomy] classify %s: %v (tags_pending)", l.GetId(), err)
+		slog.WarnContext(ctx, "taxonomy classify failed, marking tags_pending", "listing_id", l.GetId(), "err", err)
 		doc.TagsPending = true
 		return
 	}

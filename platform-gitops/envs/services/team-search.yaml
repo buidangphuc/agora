@@ -18,7 +18,6 @@ resources:
     cpu: 250m
     memory: 256Mi
 env:
-  KAFKA_ENABLED: "true"
   MODEL_SERVER_URL: "http://modelserve-router.marketplace.svc:8100"
   ENABLE_RERANKER: "true"
 secrets:

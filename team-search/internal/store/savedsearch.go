@@ -1,11 +1,11 @@
-// Package repository is team-search's OWN persistence for user-scoped saved
+// Package store is team-search's OWN persistence for user-scoped saved
 // searches: a small relational store that sits ALONGSIDE the OpenSearch
 // read-model (which stays the query engine). Saved searches are personal state
 // (query + filters a user parks to re-run later), so they live in Postgres, not
 // the rebuildable index. Two implementations back the SavedSearchRepository
 // port: a Postgres one for production and an in-memory one so handlers/tests run
 // without a live DB.
-package repository
+package store
 
 import (
 	"context"
@@ -63,6 +63,7 @@ func NewPostgresSavedSearchRepository(db *sql.DB) *PostgresSavedSearchRepository
 
 const savedSearchColumns = `id, user_id, query, filters, created_at`
 
+// Create implements SavedSearchRepository.
 func (r *PostgresSavedSearchRepository) Create(ctx context.Context, s SavedSearch) (SavedSearch, error) {
 	if s.ID == "" {
 		s.ID = uuid.NewString()
@@ -80,6 +81,7 @@ func (r *PostgresSavedSearchRepository) Create(ctx context.Context, s SavedSearc
 	return out, nil
 }
 
+// List implements SavedSearchRepository.
 func (r *PostgresSavedSearchRepository) List(ctx context.Context, userID string, limit, offset int) ([]SavedSearch, int64, error) {
 	var total int64
 	if err := r.db.QueryRowContext(ctx, `SELECT count(*) FROM saved_searches WHERE user_id = $1`, userID).Scan(&total); err != nil {
@@ -103,6 +105,7 @@ func (r *PostgresSavedSearchRepository) List(ctx context.Context, userID string,
 	return items, total, rows.Err()
 }
 
+// Get implements SavedSearchRepository.
 func (r *PostgresSavedSearchRepository) Get(ctx context.Context, id, userID string) (SavedSearch, error) {
 	const q = `SELECT ` + savedSearchColumns + ` FROM saved_searches WHERE id = $1 AND user_id = $2`
 	var s SavedSearch
@@ -115,6 +118,7 @@ func (r *PostgresSavedSearchRepository) Get(ctx context.Context, id, userID stri
 	return s, nil
 }
 
+// Delete implements SavedSearchRepository.
 func (r *PostgresSavedSearchRepository) Delete(ctx context.Context, id, userID string) error {
 	res, err := r.db.ExecContext(ctx, `DELETE FROM saved_searches WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
@@ -161,6 +165,7 @@ func NewInMemorySavedSearchRepository() *InMemorySavedSearchRepository {
 	}
 }
 
+// Create implements SavedSearchRepository.
 func (r *InMemorySavedSearchRepository) Create(_ context.Context, s SavedSearch) (SavedSearch, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -179,6 +184,7 @@ func (r *InMemorySavedSearchRepository) Create(_ context.Context, s SavedSearch)
 	return s, nil
 }
 
+// List implements SavedSearchRepository.
 func (r *InMemorySavedSearchRepository) List(_ context.Context, userID string, limit, offset int) ([]SavedSearch, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -206,6 +212,7 @@ func (r *InMemorySavedSearchRepository) List(_ context.Context, userID string, l
 	return append([]SavedSearch(nil), owned[offset:end]...), total, nil
 }
 
+// Get implements SavedSearchRepository.
 func (r *InMemorySavedSearchRepository) Get(_ context.Context, id, userID string) (SavedSearch, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -216,6 +223,7 @@ func (r *InMemorySavedSearchRepository) Get(_ context.Context, id, userID string
 	return s, nil
 }
 
+// Delete implements SavedSearchRepository.
 func (r *InMemorySavedSearchRepository) Delete(_ context.Context, id, userID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

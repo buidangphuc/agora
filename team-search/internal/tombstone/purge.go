@@ -48,9 +48,9 @@ func (l Loop) Run(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			l.Logger.Warn("tombstone purge failed", slog.Any("err", err))
+			l.Logger.WarnContext(ctx, "tombstone purge failed", "err", err)
 			continue
 		}
-		l.Logger.Info("tombstone purge", slog.Int64("purged", n), slog.Time("older_than", cutoff))
+		l.Logger.InfoContext(ctx, "tombstone purge", "purged", n, "older_than", cutoff)
 	}
 }

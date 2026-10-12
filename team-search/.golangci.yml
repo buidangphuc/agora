@@ -27,8 +27,21 @@ linters:
         linters:
           - gosec
           - errcheck
+      # Test doubles that implement a wide interface (index.Index) carry unused
+      # parameters; the pre-migration tests also shadow the builtin cap.
+      - path: _test\.go
+        linters:
+          - revive
+        text: "unused-parameter|redefines-builtin-id"
 
 formatters:
+  exclusions:
+    # Unchanged pre-migration tests kept byte for byte so red-first sees no
+    # edit to them.
+    paths:
+      - internal/retrieval/engine_test\.go
+      - internal/retrieval/hybrid_filters_test\.go
+      - internal/tombstone/purge_test\.go
   enable:
     - gofumpt
     - goimports

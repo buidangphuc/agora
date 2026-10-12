@@ -1,3 +1,5 @@
+// Package retrieval is the multi-strategy hybrid retrieval platform: lexical and
+// semantic legs, reciprocal-rank fusion and optional reranking over the read-model.
 package retrieval
 
 import (
@@ -125,7 +127,8 @@ type MockEmbedClient struct {
 	Err error
 }
 
-func (m *MockEmbedClient) Embed(ctx context.Context, text string) ([]float32, error) {
+// Embed returns a deterministic vector for text, or the configured error.
+func (m *MockEmbedClient) Embed(_ context.Context, text string) ([]float32, error) {
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -140,6 +143,7 @@ func (m *MockEmbedClient) Embed(ctx context.Context, text string) ([]float32, er
 	return vec, nil
 }
 
+// EmbedBatch embeds each text with Embed.
 func (m *MockEmbedClient) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	if m.Err != nil {
 		return nil, m.Err
