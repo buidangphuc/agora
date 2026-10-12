@@ -13,4 +13,4 @@ Owner for FEATURES.yaml: team-frontend (capability `consent`); gateway stamping 
 ## E2E track
 
 - [ ] [e2e] `platform-e2e/tests/e2e/features/tracking/consent.feature` + steps: first visit banner with zero Google requests, accept analytics (dataLayer consent update, GTM stub loaded once), reject all (beacon still flows, Kafka/warehouse event has personalization=false), body-forged consent ignored, personalization grant applies to later events only <!-- id: e2e-consent --> (capability: consent; covers: First visit shows banner and contacts no Google host; Accept analytics loads GTM and updates consent; Rejected analytics never loads GTM; Rejected visitor still sends a beacon; Consent change applies to later beacons only; Rejected buyer is flagged personalization-denied; Body consent is ignored; No cookie stamps version 0)
-- [ ] [e2e] CLS check for the banner on cold load (Playwright layout-shift observer) <!-- id: e2e-cls --> (covers: Banner does not shift layout)
+- [ ] [e2e] CLS check for the banner on cold load (Playwright layout-shift observer) <!-- id: e2e-cls --> (capability: consent; covers: Banner does not shift layout)
