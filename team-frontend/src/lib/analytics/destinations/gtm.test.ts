@@ -158,3 +158,60 @@ describe("applyConsent (Consent Mode v2 basic gating)", () => {
     expect(raw.every(isArguments)).toBe(true);
   });
 });
+
+describe("applyConsent debug_mode (staging only)", () => {
+  const debugIdx = () =>
+    ((window.dataLayer ?? []) as unknown[]).findIndex(
+      (e) =>
+        !!e &&
+        typeof e === "object" &&
+        (e as { debug_mode?: unknown }).debug_mode === true,
+    );
+  const updateIdx = () =>
+    ((window.dataLayer ?? []) as unknown[]).findIndex((e) => {
+      const a =
+        e && typeof e === "object" && "length" in e
+          ? Array.from(e as ArrayLike<unknown>)
+          : [];
+      return a[0] === "consent" && a[1] === "update";
+    });
+
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    (window as { dataLayer?: unknown }).dataLayer = undefined;
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("[Staging events carry debug_mode] staging + analytics consent pushes an entry with debug_mode: true after the consent update", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+    applyConsent(ALL);
+    expect(debugIdx()).toBeGreaterThan(-1);
+    expect(debugIdx()).toBeGreaterThan(updateIdx());
+  });
+
+  it("[Staging events carry debug_mode] repeated applyConsent keeps exactly 1 debug_mode entry", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+    applyConsent(ALL);
+    applyConsent(ALL);
+    const n = ((window.dataLayer ?? []) as unknown[]).filter(
+      (e) => (e as { debug_mode?: unknown })?.debug_mode === true,
+    ).length;
+    expect(n).toBe(1);
+  });
+
+  it("[Staging events carry debug_mode] staging without analytics consent pushes no debug_mode", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+    applyConsent(NONE);
+    expect(debugIdx()).toBe(-1);
+  });
+
+  it.each(["production", "", "development"])(
+    "[Production events do not carry debug_mode] NEXT_PUBLIC_APP_ENV=%j pushes no debug_mode",
+    (env) => {
+      vi.stubEnv("NEXT_PUBLIC_APP_ENV", env);
+      applyConsent(ALL);
+      expect(debugIdx()).toBe(-1);
+    },
+  );
+});
