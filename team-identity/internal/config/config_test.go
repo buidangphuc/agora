@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
 func TestEnvExampleInSync(t *testing.T) {
@@ -11,21 +13,22 @@ func TestEnvExampleInSync(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf(".env.example not found at %s: %v", path, err)
 	}
-	if err := CheckEnvExample(path); err != nil {
+	if err := sdkconfig.CheckEnvExample(path, Settings{}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestLoadDefaults(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "dev-rsa-private-key-pem")
 	t.Setenv("JWT_KID", "dev-2026")
-	s, err := LoadSettings()
+	s, err := Load()
 	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
-	if s.Server.Port != 50053 {
-		t.Errorf("default GRPC_PORT = %d, want 50053", s.Server.Port)
+	if s.Port != 50053 {
+		t.Errorf("GRPC_PORT = %d, want 50053", s.Port)
 	}
 	if s.JWT.JWKSHTTPPort != 50063 {
 		t.Errorf("default JWKS_HTTP_PORT = %d, want 50063", s.JWT.JWKSHTTPPort)
@@ -37,10 +40,10 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestValidateRequiresPrivateKeyAndKID(t *testing.T) {
 	s := &Settings{}
-	s.Server.Port = 50053
+	s.Port = 50053
+	s.Postgres.URL = "postgresql://x/y"
 	s.JWT.JWKSHTTPPort = 50063
 	s.JWT.TTLSeconds = 3600
-	s.Database.Enabled = false
 	if err := s.Validate(); err == nil {
 		t.Fatal("expected error: JWT_PRIVATE_KEY required")
 	}
@@ -56,7 +59,8 @@ func TestValidateRequiresPrivateKeyAndKID(t *testing.T) {
 
 func seedSettings(enabled bool, user, pw string) *Settings {
 	s := &Settings{}
-	s.Server.Port = 50053
+	s.Port = 50053
+	s.Postgres.URL = "postgresql://x/y"
 	s.JWT.JWKSHTTPPort = 50063
 	s.JWT.TTLSeconds = 3600
 	s.JWT.PrivateKey = "pem"
@@ -89,10 +93,11 @@ func TestSeedAdminValidation(t *testing.T) {
 }
 
 func TestSeedAdminDefaultsOff(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "pem")
 	t.Setenv("JWT_KID", "k")
-	s, err := LoadSettings()
+	s, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,20 +107,22 @@ func TestSeedAdminDefaultsOff(t *testing.T) {
 }
 
 func TestSeedAdminLoadFailsFast(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "pem")
 	t.Setenv("JWT_KID", "k")
 	t.Setenv("SEED_ADMIN_ENABLED", "true")
-	if _, err := LoadSettings(); err == nil || !strings.Contains(err.Error(), "SEED_ADMIN_PASSWORD") {
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "SEED_ADMIN_PASSWORD") {
 		t.Fatalf("LoadSettings err = %v, want SEED_ADMIN_PASSWORD error", err)
 	}
 }
 
 func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "pem")
 	t.Setenv("JWT_KID", "k")
-	s, err := LoadSettings()
+	s, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,18 +130,18 @@ func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
 		t.Fatal("PASSWORD_RESET_EXPOSE_TOKEN must default to false")
 	}
 	t.Setenv("PASSWORD_RESET_EXPOSE_TOKEN", "true")
-	if _, err := LoadSettings(); err != nil {
+	if _, err := Load(); err != nil {
 		t.Fatalf("local env should allow it: %v", err)
 	}
 	for _, env := range []string{"staging", "stage", "prod", "production", "Production"} {
 		t.Setenv("ENV", env)
-		if _, err := LoadSettings(); err == nil || !strings.Contains(err.Error(), "PASSWORD_RESET_EXPOSE_TOKEN") {
+		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "PASSWORD_RESET_EXPOSE_TOKEN") {
 			t.Fatalf("ENV=%s must refuse it, got %v", env, err)
 		}
 	}
 	for _, env := range []string{"local", "test", "dev"} {
 		t.Setenv("ENV", env)
-		if _, err := LoadSettings(); err != nil {
+		if _, err := Load(); err != nil {
 			t.Fatalf("ENV=%s should allow it: %v", env, err)
 		}
 	}

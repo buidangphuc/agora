@@ -2,6 +2,7 @@
 // standard JWKS document at GET /.well-known/jwks.json so the edge can verify
 // RS256 tokens by `kid` without ever holding signing material. The document can
 // carry more than one key so a rotated-in key is published before it signs.
+
 package token
 
 import (

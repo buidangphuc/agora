@@ -33,19 +33,19 @@ func PublicKeyFingerprint(pub *rsa.PublicKey) (string, error) {
 // it refuses JWT_KID=dev-2026 and the committed development key (by public-key
 // fingerprint). Other environments always pass. The key material is never
 // logged or included in the error.
-func (s *Settings) RequireNonDevSigningKey(kid string, pub *rsa.PublicKey) error {
+func (s Settings) RequireNonDevSigningKey(kid string, pub *rsa.PublicKey) error {
 	if !s.RequiresHardenedSecrets() {
 		return nil
 	}
 	if strings.EqualFold(strings.TrimSpace(kid), DevJWTKID) {
-		return fmt.Errorf("refusing to start: JWT_KID=%q is the committed development key id in a strict ENV (ENV=%q); provision a real signing key and kid (Vault svc/shared/jwt)", kid, s.Runtime.Env)
+		return fmt.Errorf("refusing to start: JWT_KID=%q is the committed development key id in a strict ENV (ENV=%q); provision a real signing key and kid (Vault svc/shared/jwt)", kid, s.Env)
 	}
 	fp, err := PublicKeyFingerprint(pub)
 	if err != nil {
 		return err
 	}
 	if fp == devKeyFingerprint {
-		return fmt.Errorf("refusing to start: JWT_PRIVATE_KEY is the development signing key committed to the repository, which is not allowed in a strict ENV (ENV=%q); provision a real signing key (Vault svc/shared/jwt)", s.Runtime.Env)
+		return fmt.Errorf("refusing to start: JWT_PRIVATE_KEY is the development signing key committed to the repository, which is not allowed in a strict ENV (ENV=%q); provision a real signing key (Vault svc/shared/jwt)", s.Env)
 	}
 	return nil
 }

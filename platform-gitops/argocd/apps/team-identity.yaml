@@ -33,10 +33,8 @@ spec:
           env:
             JWKS_HTTP_PORT: "50063"   # serves GET /.well-known/jwks.json (public keys; ADR-0006)
             # SessionRevoked outbox relayer (ADR-0003 addendum): publishes to identity.events.
-            KAFKA_ENABLED: "true"
             KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
             IDENTITY_EVENTS_TOPIC: "identity.events"
-            OUTBOX_ENABLED: "true"
             OUTBOX_POLL_INTERVAL: "1s"
             OUTBOX_BATCH_SIZE: "100"
             OUTBOX_CLAIM_LOCK_SECONDS: "60"
