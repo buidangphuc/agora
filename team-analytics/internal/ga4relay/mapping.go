@@ -103,3 +103,17 @@ func (h *MappingHandler) Handle(ctx context.Context, rec warehouse.TrackingRecor
 	}
 	return h.store.Put(ctx, rec.PrincipalID, rec.GaClientID)
 }
+
+func (s *memoryMappingStore) Purge(_ context.Context) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var n int64
+	now := s.now()
+	for k, e := range s.m {
+		if !now.Before(e.expires) {
+			delete(s.m, k)
+			n++
+		}
+	}
+	return n, nil
+}
