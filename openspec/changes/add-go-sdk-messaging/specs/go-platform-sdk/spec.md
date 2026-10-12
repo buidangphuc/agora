@@ -79,7 +79,7 @@
 
 `upstream.Dial(addr, opts...)` SHALL create a gRPC client with otelgrpc. It SHALL forward the incoming `x-request-id`, and either forward the incoming principal metadata or, with `upstream.AsService(id, scopes...)`, replace it with that service principal. `upstream.Bounded(ctx, d)` SHALL return a context whose deadline is the earlier of the parent deadline minus a margin and now plus `d`.
 
-#### Scenario: Service principal replaces the caller
+#### Scenario: Service principal replaces the caller and the buyer is not forwarded
 - **WHEN** a call is made with `AsService("team-order", "listing.read")` while the incoming principal is a buyer
 - **THEN** the upstream sees `x-principal-id=team-order`, type `service`, scope `listing.read`, and not the buyer id
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/upstream` `TestAsServiceReplacesPrincipal`
