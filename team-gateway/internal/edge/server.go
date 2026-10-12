@@ -148,6 +148,7 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	// `analytics.events` topic. Pure edge concern (validate → stamp principal →
 	// produce), the same class as auth resolution and rate limiting (Rule 2).
 	mux.Handle("POST /api/track", e.edgeHTTP(HandleTrack(e, analytics, logger), "POST /api/track", e.trackLimiter, logger))
+	mux.Handle("GET /api/session/principal", e.edgeHTTP(HandleSessionPrincipal(e), "GET /api/session/principal", e.limiter, logger))
 
 	// Real-time SSE Multiplexing & Cockpit Metrics (Golden Demo Spine).
 	// The cockpit handler is admin-gated; it queries Prometheus (fixed PromQL),
