@@ -489,3 +489,33 @@ features:
     tags: [tracking, unit]
     status: not-testable
     notes: "add-ga4-gtm-datalayer: unit-verified: platform-featurestore/tests/test_dataset.py. Not producible end to end."
+
+  - id: featurestore.consent-denied-no-rows
+    title: "Denied buyer has no interaction rows"
+    persona: guest
+    priority: P0
+    summary: "Denied buyer has no interaction rows"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When buyer u-deny has 10 view events all with consent_personalization=false and buyer u-ok has 3 with true, and the datasets are built"
+      - "Then als_interactions has 0 rows for u-deny and at least 1 row for u-ok"
+    tags: [recsys, featurestore, batch, consent]
+    status: planned
+
+  - id: featurestore.consent-post-grant-only
+    title: "Only post-grant events are used after a later grant"
+    persona: guest
+    priority: P0
+    summary: "Only post-grant events are used after a later grant"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When buyer u-late has 4 denied events at T1 and 2 granted events at T2 later than T1"
+      - "Then the dataset row for u-late counts interactions = 2 and its last_occurred_at is at T2"
+    tags: [recsys, featurestore, batch, consent]
+    status: planned

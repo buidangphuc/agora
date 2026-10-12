@@ -1009,3 +1009,64 @@ features:
     status: automated
     covered_by: "recommendations/gbdt_ranker.feature::The ranker artifact lives and dies with its generation"
     notes: "needs rebuild"
+
+  - id: recsys.denied-buyer-popular
+    title: "Denied buyer is served popular recommendations"
+    persona: buyer
+    priority: P1
+    summary: "Denied buyer is served popular recommendations"
+    entry_route: "/"
+    services: [platform-recsys, team-ai, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer with no granted events calls Recommend for the home feed through the gateway"
+      - "Then the response lists at least 1 listing id, served by the existing popular path"
+    tags: [recsys, recommendations, consent]
+    status: planned
+
+  - id: recsys.nearline-denied-no-key
+    title: "Denied event changes no per-user key"
+    persona: guest
+    priority: P0
+    summary: "Denied event changes no per-user key"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a view event with consent.personalization=false is consumed for actor u-deny"
+      - "Then recs:nearline:user:u-deny:items, recs:nearline:user:u-deny:cats and the session and co-view keys are unchanged"
+      - "And consent_denied increases by 1"
+    tags: [recsys, nearline, batch, consent]
+    status: planned
+
+  - id: recsys.nearline-checkout-affinity
+    title: "Checkout events raise category affinity"
+    persona: guest
+    priority: P1
+    summary: "Checkout events raise category affinity"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a consented actor sends view_cart then begin_checkout for a listing of category books"
+      - "Then recs:nearline:user:<actor>:cats field books increases by 9.0 (3.0 + 6.0)"
+    tags: [recsys, nearline, batch]
+    status: planned
+
+  - id: recsys.export-consent-context-columns
+    title: "Exported file has consent and context columns"
+    persona: guest
+    priority: P1
+    summary: "Exported file has consent and context columns"
+    entry_route: "/"
+    services: [platform-recsys, team-analytics, team-gateway]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an export runs over events with consent stamped and a matching ga4_sessions row"
+      - "Then the Parquet contains consent_personalization, consent_version, item_list_id, position, session_source, session_medium and session_campaign and the matched row has the session's source, medium and campaign"
+    tags: [recsys, analytics, batch, consent]
+    status: planned
