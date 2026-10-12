@@ -10,6 +10,10 @@
 #                             CONSUME: allow group team-order.payment (team-order).
 #   • payment.events.dlq    — PRODUCE/CONSUME: allow ONLY team-order (parks and
 #                             replays poison PaymentSettled records, AD1).
+#   • analytics.ga4-relay.dlq — PRODUCE/CONSUME: allow ONLY ga4-relay or team-analytics
+#                             (parks retries-exhausted purchase relays).
+#   • order.events — PRODUCE: allow ONLY principal team-order; deny all other producers
+#                             (the GA4 purchase relay trusts it; ga4-relay is consume-only).
 # Mirrors the network-layer default-deny in charts/service NetworkPolicy: only the
 # rightful writer reaches the topic, closing the "any workload forges a settle
 # event" path. mTLS/SASL rollout is the tracked follow-up (ADR-0010).
@@ -73,6 +77,7 @@ spec:
 # <domain>.events with a .dlq park for consumers that dead-letter poison records.
 #   payment.events   produced by team-payment (outbox)      consumed by team-order (+ .dlq)
 #   order.events     produced by team-order (outbox)        consumed by team-notification, team-analytics (+ .dlq)
+#   analytics.ga4-relay.dlq  owner: team-analytics (ga4-relay parks retries-exhausted records)
 #   chat.events      produced by team-chat                  consumed by team-notification (+ .dlq)
 #   listing.events   produced by team-domain (outbox)       consumed by team-search indexer, team-notification (+ .dlq)
 #   identity.events  produced by team-identity (outbox)     consumed by team-gateway (revocation denylist)
@@ -106,4 +111,6 @@ spec:
                        engagement.events engagement.events.analytics.dlq; do
                 rpk topic create "$t" -X brokers="$BROKERS" -p 1 -r 1 || true
               done
+              # DLQ records carry buyer_id (PII): short explicit retention, 7 days.
+              rpk topic create analytics.ga4-relay.dlq -X brokers="$BROKERS" -p 1 -r 1 -c retention.ms=604800000 || true
               rpk topic list -X brokers="$BROKERS"

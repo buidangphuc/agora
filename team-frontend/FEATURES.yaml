@@ -3637,7 +3637,7 @@ features:
     title: Purchase path keeps its analytics events
     persona: buyer
     priority: P1
-    summary: begin_checkout fires once per checkout entry, apply_promotion on a voucher preview and purchase once after the order, with unchanged payloads.
+    summary: begin_checkout fires once per checkout entry and apply_promotion on a voucher preview, with unchanged payloads; the browser pushes no purchase (server-side relay).
     entry_route: /checkout
     services: [team-frontend, team-gateway, team-order, team-promotion]
     preconditions:
@@ -3645,7 +3645,7 @@ features:
       data: Qualifying cart and a saved address (promo seeding).
     acceptance:
       - Given a buyer applies the voucher code "SAVE10" and places the order
-      - Then the page dataLayer holds exactly one begin_checkout, at least one apply_promotion and exactly one purchase
+      - Then the page dataLayer holds exactly one begin_checkout, at least one apply_promotion and no purchase (purchase goes to GA4 server-side)
     tags: [buyer, checkout, tracking]
     status: automated
     covered_by: "buyer/cart_checkout.feature::The purchase path still emits begin_checkout, apply_promotion and purchase"
@@ -4345,7 +4345,7 @@ features:
       login: buyer
     acceptance:
       - "When the buyer places an order successfully, including after a double click"
-      - "Then exactly one `purchase` event is sent with the created order id as `transactionId`"
+      - "Then no `purchase` is pushed to the browser dataLayer (GA4 gets it server-side) and the first-party beacon keeps one purchase row for the created order id"
     tags: [buyer]
     status: automated
     covered_by: "frontend/ui_checkout_order.feature::purchase fires once"

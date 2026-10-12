@@ -136,6 +136,15 @@ type GA4 struct {
 	ImportAt string `env:"GA4_IMPORT_AT" default:"03:30"`
 	// ReconcileMaxDiffRatio: GA4 vs first-party event divergence threshold (>= 0).
 	ReconcileMaxDiffRatio float64 `env:"GA4_RECONCILE_MAX_DIFF_RATIO" default:"0.35"`
+
+	// Purchase relay (Measurement Protocol). Disabled unless APISecret and MeasurementID are both set.
+	// APISecret is a secret: never log it or include it in errors.
+	APISecret          string `env:"GA4_API_SECRET" default:""`
+	MeasurementID      string `env:"GA4_MEASUREMENT_ID" default:""`
+	Endpoint           string `env:"GA4_ENDPOINT" default:"https://www.google-analytics.com/mp/collect"`
+	RelayConsumerGroup string `env:"GA4_RELAY_CONSUMER_GROUP" default:"team-analytics.ga4-relay"`
+	RelayDLQTopic      string `env:"GA4_RELAY_DLQ_TOPIC" default:"analytics.ga4-relay.dlq"`
+	RelayProbePort     int    `env:"GA4_RELAY_PROBE_PORT" default:"8085"`
 }
 
 // Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
@@ -193,6 +202,15 @@ func (s *Settings) Validate() error {
 	if s.GA4.ReconcileMaxDiffRatio < 0 {
 		return fmt.Errorf("GA4_RECONCILE_MAX_DIFF_RATIO must be >= 0: %v", s.GA4.ReconcileMaxDiffRatio)
 	}
+	if s.GA4RelayEnabled() {
+		if strings.TrimSpace(s.GA4.Endpoint) == "" || strings.TrimSpace(s.GA4.RelayDLQTopic) == "" ||
+			strings.TrimSpace(s.GA4.RelayConsumerGroup) == "" {
+			return errors.New("GA4_ENDPOINT, GA4_RELAY_DLQ_TOPIC and GA4_RELAY_CONSUMER_GROUP must not be empty when the GA4 relay is enabled")
+		}
+		if s.GA4.RelayProbePort <= 0 || s.GA4.RelayProbePort > 65535 {
+			return fmt.Errorf("GA4_RELAY_PROBE_PORT out of range: %d", s.GA4.RelayProbePort)
+		}
+	}
 	switch s.GA4.ExportSource {
 	case "", "bigquery", "fixture":
 	default:
@@ -213,6 +231,11 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("WAREHOUSE_DRIVER must be %q or %q, got %q", DriverDuckDB, DriverBigQuery, s.Warehouse.Driver)
 	}
 	return nil
+}
+
+// GA4RelayEnabled reports whether the purchase relay has its credentials.
+func (s *Settings) GA4RelayEnabled() bool {
+	return strings.TrimSpace(s.GA4.APISecret) != "" && strings.TrimSpace(s.GA4.MeasurementID) != ""
 }
 
 func (s *Settings) IsProd() bool {

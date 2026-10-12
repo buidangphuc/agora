@@ -54,7 +54,8 @@ export function trackEcommerce(
 
   try {
     // 1. Push to window.dataLayer for GTM / GA4
-    pushDataLayer(name, params);
+    // purchase is relayed server-side; the browser never pushes it.
+    if (name !== "purchase") pushDataLayer(name, params);
 
     // 2. Build WireTrackBeacon(s) for in-house Edge Gateway (/api/track -> Kafka)
     const anonymousId = persistentId(safeStorage("local"), ANONYMOUS_ID_KEY);

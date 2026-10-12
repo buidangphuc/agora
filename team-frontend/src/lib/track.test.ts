@@ -119,7 +119,7 @@ describe("track (shim over the analytics dispatcher)", () => {
     }).not.toThrow();
   });
 
-  it("[Payload keys limited to schema] purchase dataLayer entry and beacon carry exactly the schema keys, no buyer PII", () => {
+  it("[Payload keys limited to schema] purchase is not in dataLayer; beacon carries exactly the schema keys, no buyer PII", () => {
     const wire = captureWire();
     (window as { dataLayer?: unknown[] }).dataLayer = [];
     document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
@@ -137,18 +137,7 @@ describe("track (shim over the analytics dispatcher)", () => {
 
     const dl = (window as unknown as { dataLayer: Record<string, unknown>[] })
       .dataLayer;
-    const entry = dl.find((e) => e.event === "purchase")!;
-    expect(Object.keys(entry).sort()).toEqual(
-      ["ecommerce", "event", "page_path"].sort(),
-    );
-    const ecommerce = entry.ecommerce as Record<string, unknown>;
-    expect(Object.keys(ecommerce).sort()).toEqual(
-      ["currency", "items", "transaction_id", "value"].sort(),
-    );
-    const [item] = ecommerce.items as Record<string, unknown>[];
-    expect(Object.keys(item).sort()).toEqual(
-      ["index", "item_id", "price", "quantity"].sort(),
-    );
+    expect(dl.some((e) => e.event === "purchase")).toBe(false);
 
     const beacons = wire();
     expect(beacons).toHaveLength(1);
@@ -171,5 +160,23 @@ describe("track (shim over the analytics dispatcher)", () => {
         "value",
       ].sort(),
     );
+  });
+  it("[Purchase with missing transaction id is not mapped to GA4] empty transaction_id: no dataLayer purchase, beacon still sent", () => {
+    const wire = captureWire();
+    (window as { dataLayer?: unknown[] }).dataLayer = [];
+    document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
+    track({
+      type: "purchase",
+      listingId: "l-1",
+      transactionId: "",
+      path: "/checkout/success",
+    });
+
+    const dl = (window as unknown as { dataLayer: Record<string, unknown>[] })
+      .dataLayer;
+    expect(dl.some((e) => e.event === "purchase")).toBe(false);
+    const beacons = wire();
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].type).toBe("purchase");
   });
 });

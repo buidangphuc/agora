@@ -20,6 +20,7 @@ The relay SHALL keep, per `buyer_id`, the `ga_client_id` of the most recent `ana
 #### Scenario: Mapping expires
 - **WHEN** 30 days pass with no new consented event for `b1`
 - **THEN** a later `OrderPaidEvent` for `b1` finds no mapping and sends nothing
+- **VERIFIED BY**: `team-analytics/internal/ga4relay/mapping_test.go` "TestMappingExpiresAfter30Days" (Clarifications R1 Q1)
 
 ### Requirement: One purchase per paid order
 WHEN the relay receives an `OrderPaidEvent` for a buyer with a mapping, THE SYSTEM SHALL send exactly one MP `purchase` with `client_id` = mapped id, `transaction_id` = `order_id`, `currency`, `value` = `total_amount` and one item per `OrderLineItemFact` with `item_id` = `listing_id` (`listing_id:variant_id` when `variant_id` is non-empty), `quantity`, `price` = `unit_price` and `currency`. `value` SHALL be the order `total_amount` and MAY differ from the sum of items. The relay SHALL NOT send `buyer_id`, GA4 `user_id` or any contact data (`user_id` is out of scope). WHEN `paid_at` is nil, THE SYSTEM SHALL still send the purchase without `timestamp_micros` and count `ga4_relay_paid_at_missing_total`.
@@ -131,6 +132,7 @@ The relay SHALL expose no inbound endpoint other than health and readiness probe
 #### Scenario: Forged OrderPaidEvent from another principal is rejected
 - **WHEN** a principal other than the order service's producer credentials tries to produce an `OrderPaidEvent` to `order.events`
 - **THEN** the broker denies the write with an authorization error and the GA4 mock receives 0 requests
+- **VERIFIED BY**: `platform-gitops/platform/infra/redpanda.yaml` ACL granting `order.events` write only to the order service principal, checked at review; not testable on the local plaintext Redpanda (Clarifications R1 Q1)
 
 ### Requirement: Disabled without secret
 WHILE `GA4_API_SECRET` or `GA4_MEASUREMENT_ID` is unset, THE SYSTEM SHALL make no outbound HTTP call to Google, SHALL NOT subscribe to Kafka topics and SHALL log one `ga4 relay disabled` line.
@@ -165,3 +167,4 @@ The frontend `map.ts` SHALL NOT map the internal `purchase` event to a browser G
 #### Scenario: Purchase with missing transaction id is not mapped to GA4
 - **WHEN** the order confirmation tracks a purchase with an empty `transaction_id`
 - **THEN** `window.dataLayer` contains no `purchase` entry and the beacon is still sent
+- **VERIFIED BY**: `team-frontend/src/lib/analytics/map.test.ts` "does not map purchase with empty transaction_id to GA4" (Clarifications R1 Q1)

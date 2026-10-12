@@ -5,7 +5,7 @@ include .env
 export
 endif
 
-.PHONY: help proto tidy consumer check check-env test
+.PHONY: help proto tidy consumer ga4-relay check check-env test
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -18,6 +18,9 @@ tidy: ## Resolve deps + go.sum
 
 consumer: ## Run the Kafka analytics consumer (needs KAFKA_ENABLED=true)
 	go run ./cmd/consumer
+
+ga4-relay: ## Run the GA4 purchase relay (disabled unless GA4_API_SECRET + GA4_MEASUREMENT_ID are set)
+	go run ./cmd/ga4-relay
 
 check: check-env ## Merge gate: env-drift, gofmt, vet, tests
 	@echo ">> gofmt (report unformatted files)"
