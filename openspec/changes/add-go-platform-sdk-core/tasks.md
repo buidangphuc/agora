@@ -110,7 +110,7 @@ package otelx
 func Init(ctx context.Context, c config.OTel, service string) (shutdown func(context.Context) error, err error)
 ```
 Write `pkg/config` usage against the `## 3` contract. If `## 3` has not merged, define the needed struct locally in the test only. Do not create `pkg/config`.
-- [ ] 4.1 Tests first: `TestHandlerAddsContextIDs`, `TestNewHonoursLevelAndFormat`; then implement logx.
+- [ ] 4.1 Tests first: `TestHandlerAddsContextIDs`, `TestHandlerOmitsMissingIDs`, `TestNewHonoursLevelAndFormat`; then implement logx.
 - [ ] 4.2 Tests first: `TestInitDisabledIsNoop`, `TestInitEnabledUsesServiceFallback` (use an in-memory span exporter via an internal option or check the resource through the returned provider). Then implement otelx as the promotion of `team-domain/internal/observability/tracer.go` plus a meter provider. Verify green.
 
 ## 5. auth (wave 2)
@@ -152,7 +152,7 @@ type Func func(ctx context.Context) error                       // implements Co
 type Options struct { ShutdownGrace time.Duration; OnShutdown []func(); Closers []func(context.Context) error; Logger *slog.Logger }
 func Run(ctx context.Context, o Options, cs ...Component) error
 ```
-- [ ] 6.1 Tests first: `TestCheckerFailureFlipsStatus`, `TestDrainIsSticky`; then implement healthx, promoting `team-domain/internal/bootstrap/lifecycle.go:198`.
+- [ ] 6.1 Tests first: `TestCheckerFailureFlipsStatus`, `TestDrainIsSticky`, `TestHangingCheckerFailsWithoutBlocking`; then implement healthx, promoting `team-domain/internal/bootstrap/lifecycle.go:198`.
 - [ ] 6.2 Tests first: `TestFailingComponentCancelsOthers`, `TestShutdownOrder`, `TestShutdownDeadline`; then implement lifecycle (errgroup + context). Verify green with `-race`.
 
 ## 7. pgx + migrate + testkit (wave 2)
@@ -171,7 +171,7 @@ package testkit
 func Postgres(t testing.TB) (url string)   // testcontainers postgres:17-alpine; t.Cleanup terminates; t.Skip if Docker is unavailable and GO_SDK_REQUIRE_DOCKER is unset
 ```
 `Checker` returns `func(context.Context) error` (assignable to `healthx.Check`) so `pgx` does not import `healthx`. Use `config.Postgres` per the `## 3` contract. If `## 3` has not merged, declare a test-local struct and leave a note.
-- [ ] 7.1 Tests first: `TestOpenFailsOnUnreachableDB`, `TestWithTxRollsBackOnError`, `TestWithTxCommits`, `TestUpIsIdempotent`, `TestPostgresFixtureIsReachable`; then implement. Verify green with Docker running.
+- [ ] 7.1 Tests first: `TestOpenFailsOnUnreachableDB`, `TestWithTxRollsBackOnError`, `TestWithTxCommits`, `TestUpIsIdempotent`, `TestUpFailsOnInvalidSQL`, `TestPostgresFixtureIsReachable`; then implement. Verify green with Docker running.
 
 ## 8. resilience (wave 2)
 
@@ -202,7 +202,7 @@ func Status(ctx context.Context, logger *slog.Logger, err error, t ErrorTable) e
 ```
 The example is a `HelloService` using `grpc_health_v1`-style hand-written service registration (no proto codegen), or `grpc.ServiceDesc` built by hand. It has one RPC `Greet` (requires a principal) and one RPC `Boom` (panics). Layout follows ADR-0016: `cmd/hello/main.go` < 20 lines, `internal/app/app.go` composition root, `internal/config`, `internal/grpc`.
 - [ ] 9.1 Tests first: `TestRecoveryKeepsServing`, `TestRequestIDPropagates`, `TestStatusHidesUnknownErrors`, `TestStatusMapsKnownErrors` (bufconn); then implement grpcx.
-- [ ] 9.2 Tests first: `TestShutdownDrainsHealthFirst` (run app on a free port, watch health, cancel ctx, assert NOT_SERVING is observed before the connection closes); then build the example. Delete `internal/deps`, run `go mod tidy`, and run `make check` green for the whole SDK.
+- [ ] 9.2 Tests first: `TestShutdownDrainsHealthFirst`, `TestGreetRejectsMissingPrincipal` (run app on a free port, watch health, cancel ctx, assert NOT_SERVING is observed before the connection closes); then build the example. Delete `internal/deps`, run `go mod tidy`, and run `make check` green for the whole SDK.
 
 ## 10. Close (orchestrator)
 

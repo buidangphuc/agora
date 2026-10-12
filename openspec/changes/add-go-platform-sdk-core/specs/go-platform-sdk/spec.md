@@ -32,6 +32,11 @@
 - **THEN** the JSON record has `request_id=r1`, `principal_id=u1` and the span's `trace_id`
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/logx` `TestHandlerAddsContextIDs`
 
+#### Scenario: Missing identifiers are omitted, not logged empty
+- **WHEN** a record is logged with a context holding no request id, principal or span
+- **THEN** the record has no `request_id`, `principal_id` or `trace_id` keys
+- **VERIFIED BY**: `TestHandlerOmitsMissingIDs`
+
 ### Requirement: Telemetry is a no-op unless enabled
 
 `otelx.Init(ctx, cfg config.OTel, service string)` SHALL always install the W3C trace-context propagator. With `OTEL_ENABLED=false` it SHALL install no exporter and return a no-op shutdown. With `OTEL_ENABLED=true` it SHALL install OTLP/gRPC tracer and meter providers with the service name, falling back to `service` when `OTEL_SERVICE_NAME` is empty. It SHALL return a shutdown that flushes both providers.
@@ -79,6 +84,11 @@
 - **THEN** status stays NOT_SERVING
 - **VERIFIED BY**: `TestDrainIsSticky`
 
+#### Scenario: A hanging checker counts as failed
+- **WHEN** a checker blocks longer than the interval
+- **THEN** it is cancelled, the status becomes NOT_SERVING, and other checkers still run every interval
+- **VERIFIED BY**: `TestHangingCheckerFailsWithoutBlocking`
+
 ### Requirement: Components run and stop as one unit
 
 `lifecycle.Run(ctx, opts, components...)` SHALL start every component's `Run(ctx) error` in an errgroup. It SHALL return when ctx is cancelled or any component returns. On return it SHALL first call the `OnShutdown` hooks (for example health drain), then cancel the components, wait for them up to `ShutdownGrace`, then call the closers in reverse registration order. It SHALL return the first non-context error.
@@ -121,6 +131,11 @@
 - **THEN** both calls succeed and the schema version is the latest
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/migrate` `TestUpIsIdempotent`
 
+#### Scenario: Invalid SQL fails the migration
+- **WHEN** an up file contains invalid SQL
+- **THEN** `Up` returns an error that names the failing version
+- **VERIFIED BY**: `TestUpFailsOnInvalidSQL`
+
 ### Requirement: Retries and circuit breaking use shared policies
 
 `resilience` SHALL expose `Retry(opts)` and `Breaker(opts)` built on failsafe-go, plus `Do(ctx, fn, policies...)`. Retries SHALL use exponential backoff with jitter and SHALL NOT retry errors whose gRPC code is `InvalidArgument`, `NotFound`, `AlreadyExists`, `PermissionDenied`, `Unauthenticated` or `FailedPrecondition`.
@@ -132,7 +147,7 @@
 
 #### Scenario: Open breaker rejects calls
 - **WHEN** failures exceed the breaker threshold
-- **THEN** the next call fails fast without running `fn`
+- **THEN** the next call returns the breaker-open error without running `fn`
 - **VERIFIED BY**: `TestBreakerOpensAfterFailures`
 
 ### Requirement: gRPC servers share one interceptor chain and safe errors
@@ -168,6 +183,11 @@ The request-id interceptor SHALL reuse an incoming `x-request-id` or generate on
 - **WHEN** the example runs and its context is cancelled
 - **THEN** a health watcher observes NOT_SERVING before the listener closes
 - **VERIFIED BY**: `platform-core/packages/go-sdk/examples/hello/internal/app` `TestShutdownDrainsHealthFirst`
+
+#### Scenario: Calls without a principal are rejected
+- **WHEN** `Greet` is called without `x-principal-*` metadata
+- **THEN** the caller receives `Unauthenticated`
+- **VERIFIED BY**: `TestGreetRejectsMissingPrincipal`
 
 ### Requirement: Services vendor a pinned SDK copy
 
