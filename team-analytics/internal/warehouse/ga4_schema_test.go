@@ -66,3 +66,18 @@ func TestSchemaParityHolds_GA4ImportRunsSchemaColumns(t *testing.T) {
 		t.Errorf("table name constants wrong: %q %q %q", warehouse.GA4SessionsTableName, warehouse.GA4EventsDailyTableName, warehouse.GA4ImportRunsTableName)
 	}
 }
+
+// Scenario: Consent and client id are persisted (schema parity: tracking_events consent columns come from Schema)
+func TestConsentAndClientIdArePersisted_SchemaColumns(t *testing.T) {
+	m := colMap(warehouse.Schema)
+	for _, n := range []string{"ga_client_id", "consent_version", "consent_analytics", "consent_marketing", "consent_personalization"} {
+		if _, ok := m[n]; !ok {
+			t.Errorf("Schema missing %q", n)
+		}
+	}
+	for _, n := range []string{"consent_analytics", "consent_marketing", "consent_personalization"} {
+		if c := m[n]; c.DuckDBType != "BOOLEAN" || c.BigQueryType != "BOOL" {
+			t.Errorf("%s types = %q/%q, want BOOLEAN/BOOL", n, c.DuckDBType, c.BigQueryType)
+		}
+	}
+}
