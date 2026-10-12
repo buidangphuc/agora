@@ -86,7 +86,7 @@ func (d Dedupe) Seen(ctx context.Context, tx pgx.Tx, consumer, eventID string) (
 func DedupeSchemaSQL(table string) string // (consumer TEXT, event_id TEXT, processed_at TIMESTAMPTZ DEFAULT now(), PRIMARY KEY (consumer, event_id))
 ```
 
-- [ ] 4.1 Tests first (Redpanda + Postgres): `TestPermanentErrorGoesToDLQ`, `TestDLQFailureDoesNotCommit`, `TestDedupeIsPerConsumer`, `TestDedupeRollsBackWithTx`. Then implement.
+- [x] 4.1 Tests first (Redpanda + Postgres): `TestPermanentErrorGoesToDLQ`, `TestDLQFailureDoesNotCommit`, `TestDedupeIsPerConsumer`, `TestDedupeRollsBackWithTx`. Then implement.
 
 ## 5. flags + upstream, cleanup (wave 2)
 
