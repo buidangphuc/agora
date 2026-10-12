@@ -85,6 +85,28 @@ class Ga4RelayManifest(unittest.TestCase):
                     found = {k: k for k in SECRET_KEYS}
         self.assertEqual(set(found), SECRET_KEYS)
 
+    def test_scenario_secret_unset_secretstore_vault_provider_and_serviceaccount_defined(self):
+        docs = []
+        for f in (ROOT / "platform").rglob("*.yaml"):
+            if f.name != "kustomization.yaml":
+                try:
+                    docs += load_docs(f)
+                except Exception:
+                    pass
+        ref = kind(self.docs, "ExternalSecret")[0]["spec"]["secretStoreRef"]
+        stores = [d for d in kind(docs, "SecretStore") if d["metadata"]["name"] == ref["name"]]
+        self.assertEqual(len(stores), 1, "SecretStore referenced by the ExternalSecret must be defined")
+        vault = stores[0]["spec"]["provider"]["vault"]
+        for k in ("server", "path"):
+            self.assertTrue(vault.get(k), f"vault.{k} required")
+        self.assertEqual(vault.get("version"), "v2")
+        auth = vault["auth"]["kubernetes"]
+        sa_name = auth["serviceAccountRef"]["name"]
+        self.assertTrue(auth.get("role"))
+        self.assertIn(sa_name, [d["metadata"]["name"] for d in kind(docs, "ServiceAccount")])
+        pod = self.dep()["spec"]["template"]["spec"]
+        self.assertEqual(pod.get("serviceAccountName"), sa_name)
+
     def test_scenario_secret_unset_no_plain_secret_kind_in_manifest(self):
         self.assertEqual(kind(self.docs, "Secret"), [], "secret values must not live in git")
 
@@ -98,16 +120,26 @@ class RedpandaPolicy(unittest.TestCase):
         self.text = REDPANDA.read_text()
 
     def test_scenario_retries_exhausted_dlq_topic_created_by_init_job(self):
-        m = re.search(r"for t in (.*?); do", self.text, re.S)
-        self.assertIsNotNone(m)
-        topics = m.group(1).replace("\\", " ").split()
-        self.assertIn("analytics.ga4-relay.dlq", topics)
+        self.assertRegex(self.text, r"(?m)^[^#\n]*analytics\.ga4-relay\.dlq")
 
     def test_scenario_retries_exhausted_dlq_owner_documented_team_analytics(self):
-        lines = [l for l in self.text.splitlines() if "analytics.ga4-relay.dlq" in l]
-        self.assertTrue(any(l.lstrip().startswith("#") and "team-analytics" in l for l in lines)
-                        or any("team-analytics" in l for l in lines),
-                        "a line naming analytics.ga4-relay.dlq must cite owner team-analytics")
+        lines = [l for l in self.text.splitlines()
+                 if l.lstrip().startswith("#") and "analytics.ga4-relay.dlq" in l
+                 and not re.search(r"(?i)PRODUCE|CONSUME", l)]
+        self.assertTrue(any(re.search(r"owner:\s*team-analytics", l) for l in lines),
+                        "topic declaration line must read `owner: team-analytics`")
+
+    def test_scenario_retries_exhausted_dlq_topic_has_explicit_retention_ms(self):
+        self.assertRegex(
+            self.text,
+            r"(?m)^[^#\n]*(?:analytics\.ga4-relay\.dlq[^\n]*retention\.ms=\d+|retention\.ms=\d+[^\n]*analytics\.ga4-relay\.dlq)")
+
+    def test_scenario_retries_exhausted_dlq_acl_produce_consume_only_ga4_relay(self):
+        comments = "\n".join(l.lstrip("# ").rstrip() for l in self.text.splitlines() if l.startswith("#"))
+        m = re.search(r"analytics\.ga4-relay\.dlq\s+[—-]\s+PRODUCE/CONSUME:(.*?)(?=\n\s*•|\n[^\s]|\Z)",
+                      comments, re.S)
+        self.assertIsNotNone(m, "ACL entry `analytics.ga4-relay.dlq — PRODUCE/CONSUME: ...` missing")
+        self.assertRegex(m.group(1), r"ONLY\s+(?:principal\s+)?(?:ga4-relay|team-analytics)")
 
     def test_scenario_forged_orderpaidevent_acl_order_events_produce_only_team_order(self):
         # ACLs are documented as comment blocks until broker auth is on (see file header).
