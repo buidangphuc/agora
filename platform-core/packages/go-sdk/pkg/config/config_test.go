@@ -144,6 +144,19 @@ func TestLoadRunsValidate(t *testing.T) {
 	}
 }
 
+// The database has no enable flag any more: a leftover DATABASE_ENABLED=false
+// in an old environment must not let a missing URL through.
+func TestDatabaseURLRequiredEvenWithLegacyDisableFlag(t *testing.T) {
+	t.Setenv("GRPC_PORT", "1")
+	t.Setenv("DATABASE_ENABLED", "false")
+	t.Setenv("DATABASE_URL", "")
+
+	_, err := config.Load[validatedSettings]()
+	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("err = %v, want an error naming DATABASE_URL", err)
+	}
+}
+
 func TestDrainDelay(t *testing.T) {
 	t.Setenv("GRPC_PORT", "1")
 	t.Setenv("SHUTDOWN_DRAIN_DELAY_SECONDS", "1.5")
