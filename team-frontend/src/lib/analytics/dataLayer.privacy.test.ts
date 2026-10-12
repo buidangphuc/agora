@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Entry = Record<string, unknown>;
 
 async function setup() {
+  document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
   const win: { dataLayer?: Entry[] } = {};
   vi.stubGlobal("window", win);
   const { pushDataLayer } = await import("./dataLayer");
@@ -16,6 +17,7 @@ describe("dataLayer privacy", () => {
     vi.resetModules();
   });
   afterEach(() => {
+    document.cookie = "agora_consent=; Max-Age=0; Path=/";
     vi.unstubAllGlobals();
   });
 
