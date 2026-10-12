@@ -186,7 +186,7 @@ func Breaker(o BreakerOptions) failsafe.Policy[any]
 func Do(ctx context.Context, fn func(ctx context.Context) error, policies ...failsafe.Policy[any]) error
 func Retryable(err error) bool    // false for the non-retryable gRPC codes in the spec and for context.Canceled
 ```
-- [ ] 8.1 Tests first: `TestRetrySkipsNonRetryableCodes`, `TestRetryRetriesUnavailable`, `TestBreakerOpensAfterFailures`; then implement. Verify green.
+- [x] 8.1 Tests first: `TestRetrySkipsNonRetryableCodes`, `TestRetryRetriesUnavailable`, `TestBreakerOpensAfterFailures`; then implement. Verify green.
 
 ## 9. grpcx + example service (wave 3, after 1–8 merge)
 
