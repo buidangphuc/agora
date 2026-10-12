@@ -299,3 +299,35 @@ def published_version0(world: World) -> None:
 def cls_below(world: World) -> None:
     cls = world.page.evaluate("() => window.__e2eCls")
     assert cls is not None and float(cls) < 0.1, f"CLS {cls}"
+
+
+_ECOMMERCE_EVENTS = (
+    "view_item_list",
+    "view_item",
+    "select_item",
+    "add_to_cart",
+    "remove_from_cart",
+    "view_cart",
+    "begin_checkout",
+    "add_shipping_info",
+    "add_payment_info",
+    "purchase",
+    "apply_promotion",
+    "search",
+    "view_promotion",
+    "select_promotion",
+)
+
+
+@then("window.dataLayer holds 0 ecommerce events and still holds the consent default")
+def no_ecommerce_events(world: World) -> None:
+    layer = world.page.evaluate(_NORMALISE)
+    ecommerce = [
+        e
+        for e in layer
+        if isinstance(e, dict) and (e.get("event") in _ECOMMERCE_EVENTS or e.get("ecommerce"))
+    ]
+    assert not ecommerce, f"ecommerce entries pushed without analytics consent: {ecommerce[:3]}"
+    assert any(isinstance(e, list) and e[:2] == ["consent", "default"] for e in layer), (
+        f"consent default missing from dataLayer: {layer}"
+    )

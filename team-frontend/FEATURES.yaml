@@ -7700,3 +7700,19 @@ features:
     tags: [tracking, consent, unit]
     status: not-testable
     notes: "add-consent-mode: unit-verified: team-frontend/src/lib/analytics/destinations/gtm.test.ts \"[Revoking analytics stops pushes] after a grant, analytics=false pushes update analytics_storage=denied last\". Not producible end to end."
+
+  - id: consent.no-ecommerce-push-without-consent
+    title: "No ecommerce push without analytics consent"
+    persona: guest
+    priority: P1
+    summary: "Without analytics consent window.dataLayer holds no ecommerce entries but still has the consent default."
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When there is no agora_consent cookie or a=0 and the buyer views a list or product page"
+      - "Then window.dataLayer contains 0 ecommerce event entries and still contains the consent default entry"
+    tags: [tracking, consent]
+    status: automated
+    covered_by: "tracking/consent.feature::No ecommerce push without analytics consent"

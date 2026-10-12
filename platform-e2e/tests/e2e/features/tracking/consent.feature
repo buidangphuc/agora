@@ -62,3 +62,11 @@ Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stampin
     When a beacon arrives with no agora_consent cookie
     Then the response is 202
     And the published event carries a consent message with all flags false and version 0
+
+  @needsListing
+  Scenario: No ecommerce push without analytics consent
+    Given a listing has been seeded via the API
+    When a visitor with no consent cookie opens the home page
+    And the visitor clicks "Reject all" on the consent banner
+    And the visitor views the seeded listing and waits for the tracking queue idle window
+    Then window.dataLayer holds 0 ecommerce events and still holds the consent default

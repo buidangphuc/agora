@@ -140,9 +140,7 @@ def seed_by_tags(request, world):  # noqa: ANN001
 
 # ── Failure screenshot (bds AfterStep) ───────────────────────────────────
 @pytest.hookimpl(optionalhook=True)
-def pytest_bdd_step_error(
-    request, feature, scenario, step, step_func, step_func_args, exception
-):  # noqa: ANN001, PLR0913
+def pytest_bdd_step_error(request, feature, scenario, step, step_func, step_func_args, exception):  # noqa: ANN001, PLR0913
     if world is None:
         return
     try:
