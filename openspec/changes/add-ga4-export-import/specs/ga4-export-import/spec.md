@@ -46,6 +46,24 @@ The GA4 import job SHALL, for one export date, read the GA4 export `events_<date
 - **WHEN** the BigQuery adapter's DDL call returns an error
 - **THEN** adapter open fails with that error and no job run is recorded
 
+### Requirement: The tracking consumer persists ga_client_id and consent
+The analytics tracking consumer SHALL persist `TrackingEvent.ga_client_id` (field 25) and `TrackingEvent.consent` (field 26, `ConsentState`) into `tracking_events` as the columns `ga_client_id`, `consent_version`, `consent_analytics`, `consent_marketing` and `consent_personalization`. Both the DuckDB and BigQuery adapters SHALL add these columns additively (`ADD COLUMN IF NOT EXISTS`) from the same schema source. The consumer SHALL store `ga_client_id` as an empty string when `consent.analytics` is false. A payload without field 26 SHALL be stored with `consent_version` 0 and all three consent flags false.
+
+#### Scenario: Consent and client id are persisted
+- **WHEN** the consumer handles a tracking event with `ga_client_id` `111.222` and consent version 1, analytics true, marketing false, personalization true
+- **THEN** the stored row has `ga_client_id` `111.222`, `consent_version` 1, `consent_analytics` true, `consent_marketing` false and `consent_personalization` true
+- **VERIFIED BY**: team-analytics/internal/consumer/tracking_test.go
+
+#### Scenario: Client id is blanked without analytics consent
+- **WHEN** the consumer handles a tracking event with `ga_client_id` `111.222` and `consent.analytics` false
+- **THEN** the stored row has an empty `ga_client_id` and `consent_analytics` false
+- **VERIFIED BY**: team-analytics/internal/consumer/tracking_test.go
+
+#### Scenario: A legacy payload without consent is stored as no consent
+- **WHEN** the consumer handles a tracking event that has no field 26
+- **THEN** the stored row has `consent_version` 0, all three consent flags false and an empty `ga_client_id`
+- **VERIFIED BY**: team-analytics/internal/consumer/tracking_test.go
+
 ### Requirement: tracking_events_attributed joins first-party events to GA4 sessions
 The view `tracking_events_attributed` SHALL expose every row of `tracking_events_resolved` plus `source`, `medium`, `campaign` and `landing_page`, joined where `tracking_events.ga_client_id = ga4_sessions.user_pseudo_id` (`ga_client_id` stored without the `GA1.1.` prefix) and the event time falls in the session. A session window is [`ts`, min(next session `ts` of the same `user_pseudo_id`, `ended_at` + 30 min)). Events without a match, or with empty `ga_client_id`, SHALL be kept with `source`='(none)'. The view SHALL NOT multiply rows when a client has several sessions.
 
