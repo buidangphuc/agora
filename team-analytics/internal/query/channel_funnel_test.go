@@ -276,3 +276,35 @@ FROM range(1000000) t(i)`); err != nil {
 		t.Errorf("seeded 30-day window returned no rows")
 	}
 }
+
+// Scenario: A seller filter narrows the funnel
+func TestChannelFunnel_ASellerFilterNarrowsTheFunnel(t *testing.T) {
+	w := cfWarehouse(t)
+	ctx := context.Background()
+	cfSession(t, w.DB(), "c-spring", "s1", "spring")
+	mk := func(id, listing string) *warehouse.TrackingRecord {
+		return &warehouse.TrackingRecord{EventID: id, EventType: "view", ListingID: listing, AnonymousID: "a", GaClientID: "c-spring", OccurredAt: cfDay.Add(10 * time.Hour)}
+	}
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{mk("s1", "l-S"), mk("s2", "l-S"), mk("s3", "l-S"), mk("t1", "l-T"), mk("t2", "l-T")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
+		{ListingID: "l-S", SellerID: "S", UpdatedAt: cfDay}, {ListingID: "l-T", SellerID: "T", UpdatedAt: cfDay}}); err != nil {
+		t.Fatal(err)
+	}
+	svc := query.NewService(query.NewDuckDBRepository(w.DB()))
+	admin := asPrincipal("admin-1", "user", "admin")
+	req := cfReq(cfDay, cfDay.Add(24*time.Hour))
+	req.SellerId = "S"
+	resp, err := svc.GetChannelFunnel(admin, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfByCampaign(resp.GetRows())["spring"].GetViews(); got != 3 {
+		t.Errorf("views for seller S = %d, want 3", got)
+	}
+	all, _ := svc.GetChannelFunnel(admin, cfReq(cfDay, cfDay.Add(24*time.Hour)))
+	if got := cfByCampaign(all.GetRows())["spring"].GetViews(); got != 5 {
+		t.Errorf("unfiltered views = %d, want 5", got)
+	}
+}
