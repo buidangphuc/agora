@@ -32,12 +32,14 @@ Feature: GA4 / GTM data layer pattern
     And each of those beacons carries its own position and the same item list id
 
   Scenario: GTM loads when ID is set
+    Given the visitor has granted analytics consent
     When a guest opens the home page while recording tracking beacons
     And the tracking queue idle window elapses
     Then exactly 1 script element with id "GTM-E2E0001" in its src is in the DOM
     And window.dataLayer exists
 
   Scenario: No external request to Google in e2e
+    Given the visitor has granted analytics consent
     When a guest opens the home page while recording tracking beacons
     And the tracking queue idle window elapses
     Then the GTM script was served by the intercepted mock

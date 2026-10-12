@@ -54,6 +54,7 @@ type trackBeacon struct {
 	ShippingTier  string            `json:"shippingTier"`
 	PaymentType   string            `json:"paymentType"`
 	EventID       string            `json:"eventId"`
+	GaClientID    string            `json:"gaClientId"`
 }
 
 // beaconEventTypes maps the beacon's lowercase action name to its EventType.
@@ -201,6 +202,7 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 		}
 
 		principal := e.beaconPrincipal(r)
+		ca, cm, cp, cv := parseConsentCookie(r)
 
 		type item struct {
 			ev      *analyticsv1.TrackingEvent
@@ -219,6 +221,10 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 				for k, v := range b.Properties {
 					props[k] = scrubText(v)
 				}
+			}
+			gaID := ""
+			if ca && len(b.GaClientID) <= maxGaClientIDLen {
+				gaID = b.GaClientID
 			}
 			items = append(items, item{
 				eventID: envelopeEventID(b, principal),
@@ -247,6 +253,8 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 					EventGroupId:  b.EventGroupID,
 					ShippingTier:  b.ShippingTier,
 					PaymentType:   b.PaymentType,
+					GaClientId:    gaID,
+					Consent:       newConsentState(ca, cm, cp, cv),
 				},
 			})
 		}

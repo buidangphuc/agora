@@ -36,3 +36,48 @@ describe("trackEcommerce eventId", () => {
     for (const id of ids) expect(id).toMatch(UUID);
   });
 });
+
+// Scenario: "Rejected visitor still sends a beacon" (consent/spec.md)
+describe("trackEcommerce is independent of consent", () => {
+  beforeEach(() => {
+    enqueue.mockClear();
+    enqueueBatch.mockClear();
+    document.cookie = "agora_consent=; Path=/; Max-Age=0";
+  });
+
+  it("Rejected visitor still sends a beacon: enqueued with no consent key (no cookie)", () => {
+    trackEcommerce("view_cart");
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueue.mock.calls[0][0]).not.toHaveProperty("consent");
+  });
+
+  it("Rejected visitor still sends a beacon: enqueued with no consent key (all rejected cookie)", async () => {
+    const { writeConsent } = await import("../consent/consent");
+    writeConsent({
+      analytics: false,
+      marketing: false,
+      personalization: false,
+    });
+    trackEcommerce("view_item_list", {
+      items: [{ itemId: "a" }, { itemId: "b" }],
+    });
+    const beacons = enqueueBatch.mock.calls[0][0];
+    expect(beacons).toHaveLength(2);
+    for (const b of beacons) expect(b).not.toHaveProperty("consent");
+  });
+
+  it("Consent change applies to later beacons only: later beacons still carry no body consent", async () => {
+    const { writeConsent } = await import("../consent/consent");
+    writeConsent({
+      analytics: false,
+      marketing: false,
+      personalization: false,
+    });
+    trackEcommerce("view_cart");
+    writeConsent({ analytics: true, marketing: true, personalization: true });
+    trackEcommerce("view_cart");
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    for (const c of enqueue.mock.calls)
+      expect(c[0]).not.toHaveProperty("consent");
+  });
+});

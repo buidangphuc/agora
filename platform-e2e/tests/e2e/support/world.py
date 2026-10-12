@@ -8,6 +8,8 @@ by a pytest fixture.
 
 from __future__ import annotations
 
+import re
+import time
 from collections.abc import Callable
 
 from playwright.sync_api import BrowserContext, Page
@@ -19,6 +21,22 @@ from src.core.base_page import BasePage
 from src.utils import ScenarioLogger
 
 from .state import ScenarioState
+
+_GOOGLE_HOST = re.compile(
+    r"^https?://([^/]*\.)?(googletagmanager\.com|google-analytics\.com|analytics\.google\.com"
+    r"|doubleclick\.net)(:\d+)?(/|$)"
+)
+
+
+def _fulfil_google(route) -> None:  # noqa: ANN001
+    if "/collect" in route.request.url or "/g/" in route.request.url:
+        route.fulfill(status=204, body="")
+    else:
+        route.fulfill(
+            status=200,
+            content_type="application/javascript",
+            body="window.dataLayer = window.dataLayer || [];",
+        )
 
 
 class World:
@@ -55,22 +73,29 @@ class World:
         self._current_page = page
 
     # ── Web context pre-setup (suppress consent popups, etc.) ─────────────
-    def setup_web_context(self) -> None:
+    def setup_web_context(self, *, consent: bool = True) -> None:
         """Pre-seed storage to keep first-load banners/popups out of the way.
 
         No-op friendly: extend with cookies/localStorage the app checks. Kept as a
         hook so scenarios have a stable, banner-free starting point.
         """
-        try:
-            self.context.add_cookies(
-                [
-                    {
-                        "name": "e2e",
-                        "value": "1",
-                        "url": self.settings.base_url,
-                    }
-                ]
+        cookies = [{"name": "e2e", "value": "1", "url": self.settings.base_url}]
+        if (
+            consent
+        ):  # returning visitor who granted analytics: no banner, ecommerce dataLayer pushes on
+            cookies.append(
+                {
+                    "name": "agora_consent",
+                    "value": f"v=1&a=1&m=0&p=0&ts={int(time.time())}",
+                    "url": self.settings.base_url,
+                }
             )
+        if consent:
+            self.context.route(
+                _GOOGLE_HOST, _fulfil_google
+            )  # GTM is loaded now; never hit real Google
+        try:
+            self.context.add_cookies(cookies)
         except Exception:  # noqa: BLE001 - best-effort; never fail setup on this
             pass
 
