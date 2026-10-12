@@ -1,6 +1,6 @@
-// Command ga4import imports one day of the GA4 export into ga4_sessions
-// (add-ga4-export-import). It exits 0 without reading anything while
-// GA4_EXPORT_DATASET is unset.
+// Command ga4import asks the running consumer to import one day of the GA4
+// export (POST /internal/ga4import). The import itself runs inside the consumer
+// process so DuckDB keeps a single writer (add-ga4-export-import).
 package main
 
 import (
@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,9 +17,9 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/config"
-	"github.com/buidangphuc/team-analytics/internal/ga4import"
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
+
+const defaultTriggerURL = "http://localhost:9109/internal/ga4import"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -33,56 +35,43 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	s, err := config.LoadSettings()
-	if err != nil {
+	if _, err := config.LoadSettings(); err != nil {
 		fmt.Fprintf(stderr, "load settings: %v\n", err)
 		return 1
 	}
-	if strings.TrimSpace(s.GA4.ExportDataset) == "" {
-		fmt.Fprintln(stdout, "GA4_EXPORT_DATASET unset: nothing to import")
-		return 0
+	day := *date
+	if day == "" {
+		day = time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
 	}
-	day := time.Now().UTC().AddDate(0, 0, -1)
-	if *date != "" {
-		if day, err = time.Parse("2006-01-02", *date); err != nil {
-			fmt.Fprintf(stderr, "invalid --date %q: %v\n", *date, err)
-			return 2
-		}
+	base := strings.TrimSpace(os.Getenv("GA4_IMPORT_TRIGGER_URL"))
+	if base == "" {
+		base = defaultTriggerURL
 	}
-	if s.Warehouse.Driver != config.DriverDuckDB {
-		fmt.Fprintf(stderr, "ga4import supports WAREHOUSE_DRIVER=duckdb only, got %q\n", s.Warehouse.Driver)
-		return 1
-	}
-
-	var src ga4import.Source
-	switch s.GA4.ExportSource {
-	case "fixture":
-		if s.GA4.FixtureDir == "" {
-			fmt.Fprintln(stderr, "GA4_EXPORT_FIXTURE_DIR is required when GA4_EXPORT_SOURCE=fixture")
-			return 1
-		}
-		src = ga4import.NewFixtureSource(s.GA4.FixtureDir)
-	default:
-		bq, err := ga4import.NewBigQuerySource(ctx, s.Warehouse.BigQueryProject, s.GA4.ExportDataset)
-		if err != nil {
-			fmt.Fprintf(stderr, "bigquery source: %v\n", err)
-			return 1
-		}
-		defer bq.Close()
-		src = bq
-	}
-
-	w, err := duckdb.Open(ctx, s.Warehouse.DuckDBPath)
+	u, err := url.Parse(base)
 	if err != nil {
-		fmt.Fprintf(stderr, "open warehouse: %v\n", err)
+		fmt.Fprintf(stderr, "invalid GA4_IMPORT_TRIGGER_URL %q: %v\n", base, err)
 		return 1
 	}
-	defer w.Close()
-	res, err := ga4import.Run(ctx, w, src, day)
+	q := u.Query()
+	q.Set("date", day)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "ga4import failed: %v\n", err)
+		fmt.Fprintf(stderr, "ga4import %s: %v\n", day, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "ga4import %s: %d events read\n", day.Format("2006-01-02"), res.Rows)
+	resp, err := (&http.Client{Timeout: 30 * time.Minute}).Do(req)
+	if err != nil {
+		fmt.Fprintf(stderr, "ga4import %s: trigger unreachable: %v\n", day, err)
+		return 1
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(stderr, "ga4import %s failed: %s: %s\n", day, resp.Status, strings.TrimSpace(string(body)))
+		return 1
+	}
+	fmt.Fprintf(stdout, "ga4import %s: %s\n", day, strings.TrimSpace(string(body)))
 	return 0
 }

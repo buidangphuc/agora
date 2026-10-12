@@ -123,7 +123,7 @@ type Recs struct {
 	AttributionWindowHours int `env:"RECS_ATTRIBUTION_WINDOW_HOURS" default:"24"`
 }
 
-// GA4 configures the daily GA4 export import job (cmd/ga4import). It is a no-op
+// GA4 configures the daily GA4 export import (run inside cmd/consumer). It is a no-op
 // while ExportDataset is empty.
 type GA4 struct {
 	// ExportSource: bigquery (default when empty) | fixture (Parquet files for local/e2e).
@@ -132,6 +132,8 @@ type GA4 struct {
 	ExportDataset string `env:"GA4_EXPORT_DATASET" default:""`
 	// FixtureDir holds events_YYYYMMDD.parquet when ExportSource=fixture.
 	FixtureDir string `env:"GA4_EXPORT_FIXTURE_DIR" default:""`
+	// ImportAt: daily UTC "HH:MM" the consumer imports yesterday's export.
+	ImportAt string `env:"GA4_IMPORT_AT" default:"03:30"`
 	// ReconcileMaxDiffRatio: GA4 vs first-party event divergence threshold (>= 0).
 	ReconcileMaxDiffRatio float64 `env:"GA4_RECONCILE_MAX_DIFF_RATIO" default:"0.35"`
 }

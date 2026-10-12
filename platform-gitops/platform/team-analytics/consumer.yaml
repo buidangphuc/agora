@@ -48,6 +48,12 @@ spec:
             # beside this path on the analytics-data PVC; the featurestore CronJob reads them.
             - { name: PARQUET_EXPORT_PATH, value: "/data/tracking_events.parquet" }
             - { name: PARQUET_EXPORT_INTERVAL_SECONDS, value: "300" }
+            # Daily GA4 export import runs inside this process (single DuckDB writer); no-op while
+            # GA4_EXPORT_DATASET is empty (never set in local/staging).
+            - { name: GA4_EXPORT_SOURCE, value: "bigquery" }
+            - { name: GA4_EXPORT_DATASET, value: "" }
+            - { name: GA4_IMPORT_AT, value: "03:30" }
+            - { name: GA4_RECONCILE_MAX_DIFF_RATIO, value: "0.35" }
           ports:
             - { name: metrics, containerPort: 9109 }
           resources:

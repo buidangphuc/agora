@@ -63,14 +63,26 @@ func run() error {
 	// follow-up; prod dashboards read BQ directly.)
 	var queryServer analyticsv1.AnalyticsQueryServiceServer
 	reconcileGauge := observability.NewReconcileGauge()
+	var ga4imp *ga4Importer
+	if w, ok := res.Writer.(*duckdb.Writer); ok {
+		ga4imp = newGA4Importer(settings.GA4, w)
+	}
 	if addr := settings.Server.MetricsAddr; addr != "" {
-		metricsSrv := &http.Server{Addr: addr, Handler: observability.MetricsHandler(reconcileGauge), ReadHeaderTimeout: 5 * time.Second}
+		mux := http.NewServeMux()
+		mux.Handle("/", observability.MetricsHandler(reconcileGauge))
+		if ga4imp != nil {
+			mux.Handle("/internal/ga4import", ga4TriggerHandler(ga4imp))
+		}
+		metricsSrv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 		go func() {
 			if mErr := metricsSrv.ListenAndServe(); mErr != nil && !errors.Is(mErr, http.ErrServerClosed) {
 				logger.Error("metrics server stopped", slog.Any("err", mErr))
 			}
 		}()
 		defer func() { _ = metricsSrv.Close() }()
+	}
+	if ga4imp != nil {
+		go runGA4Scheduler(ctx, ga4imp, settings.GA4.ImportAt, logger)
 	}
 	if w, ok := res.Writer.(*duckdb.Writer); ok {
 		queryServer = query.NewService(query.NewDuckDBRepository(w.DB()), query.WithTrackingThresholds(query.TrackingThresholds{
