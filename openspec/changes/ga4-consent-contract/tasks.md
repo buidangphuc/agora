@@ -1,0 +1,14 @@
+# Tasks: ga4-consent-contract
+
+Owner for FEATURES.yaml: platform-core (capability `tracking-consent`).
+
+## Code track
+- [ ] Add `ConsentState`, `TrackingEvent` fields 25, 26, `GetChannelFunnel` RPC with `GetChannelFunnelRequest`/`GetChannelFunnelResponse`/`ChannelFunnelRow`, all with comments in `platform-core/packages/proto/platform/analytics/v1/analytics.proto` <!-- id: proto-consent --> (covers: ConsentState fields present with stable numbers; Version zero with granted flags is not trusted; Unknown or negative version is denied; Client id comment states format and blanking; Client id without analytics consent is blanked, event kept; Channel funnel messages present; Scope documented; New fields round trip; Field numbers do not collide; write-set: platform-core/packages/proto/platform/analytics/v1/analytics.proto)
+- [ ] Run `buf lint`, `buf breaking --against main`, `buf generate` in platform-core/packages/proto and record output as evidence <!-- id: proto-checks --> (covers: Field numbers do not collide; Field 25 and 26 are frozen (scratch copy of the proto with changed field 25/26, expect `buf breaking` non-zero); Buf checks pass with new RPC; write-set: none)
+- [ ] Compatibility test: parse old-schema bytes with new schema and the reverse, plus default-read of absent consent <!-- id: proto-compat-test --> (covers: Missing consent reads as denied; Old payload stays readable; New payload readable by old schema; write-set: platform-core/packages/proto/**/consent_compat_test.*; location decision: the test lives in platform-core/packages/proto only, no team-gateway test; wire compatibility is proven by buf breaking plus this parse test)
+
+- [ ] Comment-assertion test (grep/descriptor) for the required proto comment strings <!-- id: proto-comment-test --> (covers: Version zero with granted flags is not trusted; Unknown or negative version is denied; Client id comment states format and blanking; Client id without analytics consent is blanked, event kept; Scope documented; write-set: platform-core/packages/proto/**/consent_comments_test.*)
+
+## E2E track
+- [ ] [e2e] Contract scenario in `platform-e2e/tests/e2e/features/tracking/`: a beacon event published to `analytics.events` is consumed by the warehouse unchanged when fields 25/26 are unset (old producer path) <!-- id: e2e-compat --> (capability: tracking-consent; covers: Old payload stays readable; Missing consent reads as denied; write-set: platform-e2e/tests/e2e/features/tracking/**)
+- [ ] [e2e] Admin-scope check for `GetChannelFunnel`: non-admin token gets PERMISSION_DENIED, admin token gets rows (runs once add-ga4-export-import serves it) <!-- id: e2e-channel-funnel-authz --> (capability: tracking-consent; covers: Non-admin is rejected; Empty seller means all sellers; Invalid date range; Empty range returns no rows; write-set: platform-e2e/tests/e2e/features/tracking/**)

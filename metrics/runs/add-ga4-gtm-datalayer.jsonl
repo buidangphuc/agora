@@ -1,0 +1,8 @@
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"preflight","result":"pass"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"e2e_red","result":"red(3/5)+wrong_reason(1,stale image)+green(1,invariant)"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"task_round","task":"fe-datalayer","round":1,"gate":"red_first","result":"pass-exempt"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"task_done","task":"fe-datalayer","round":1,"result":"approved"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"gate","gate":"e2e","result":"red: call-site per-item dispatch; harness GTM id"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"escalation","task":"fe-callsites","round":3,"result":"itemListId missing at call sites outside write-set"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"gate","gate":"e2e","result":"green 5/5"}
+{"ts":"2026-10-11T00:00:00Z","change":"add-ga4-gtm-datalayer","initiative":"adhoc","event":"run_done","result":"awaiting human approval"}
