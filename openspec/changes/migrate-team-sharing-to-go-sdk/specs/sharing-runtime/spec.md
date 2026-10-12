@@ -2,7 +2,7 @@
 
 ### Requirement: team-sharing boots on go-sdk with fail-fast storage
 
-team-sharing SHALL wire go-sdk v0.1.0 in `internal/app.Run(ctx, settings)` per ADR-0016. With `DATABASE_ENABLED=true`, it SHALL open the database with `pgx.Open`, which pings. Migrations SHALL stay in `migrations/` at the repo root, applied by the deploy migrate job, not at boot. Outside `ENV=local`, a database that cannot be reached SHALL fail boot with a non-nil error before the port opens. In `ENV=local` it SHALL log a warning and serve from the in-memory store.
+team-sharing SHALL wire go-sdk v0.1.1 in `internal/app.Run(ctx, settings)` per ADR-0016. It SHALL always open the database with `pgx.Open`, which pings. Migrations SHALL stay in `migrations/` at the repo root, applied by the deploy migrate job, not at boot. Outside `ENV=local`, a database that cannot be reached SHALL fail boot with a non-nil error before the port opens. In `ENV=local` it SHALL log a warning and serve from the in-memory store.
 
 #### Scenario: Unreachable database fails boot outside local
 - **WHEN** the service starts with `ENV=staging` and `DATABASE_URL` pointing at a closed port

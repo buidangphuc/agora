@@ -11,7 +11,8 @@ initiative: go-platform-sdk
 
 ## What Changes
 
-- Vendor go-sdk at tag `go-sdk/v0.1.0` with `platform-core/tools/sync-go-sdk.sh`, which writes `third_party/go-sdk`, adds the `replace` line and pins the lint tool.
+- **Trim enable flags for always-on capabilities (go-sdk v0.1.1).** No deploy sets `DATABASE_ENABLED` or `GRPC_REFLECTION_ENABLED`, so both are always on. The SDK drops both: `DATABASE_URL` becomes required and reflection is always registered. `OTEL_ENABLED` stays, because every Go service except the gateway runs with telemetry off.
+- Vendor go-sdk at tag `go-sdk/v0.1.1` with `platform-core/tools/sync-go-sdk.sh`, which writes `third_party/go-sdk`, adds the `replace` line and pins the lint tool.
 - Restructure to the ADR-0016 layout:
   - `cmd/server/main.go` handles signals, `config.Load` and `app.Run`.
   - `internal/app` is the composition root.
