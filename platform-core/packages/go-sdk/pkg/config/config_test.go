@@ -165,3 +165,13 @@ func TestDrainDelay(t *testing.T) {
 		t.Fatalf("DrainDelay = %v, %v", s.DrainDelay(), err)
 	}
 }
+
+// An empty GRPC_PORT= parses as 0 and would otherwise pass "required".
+func TestEmptyGRPCPortFailsValidation(t *testing.T) {
+	t.Setenv("GRPC_PORT", "")
+
+	_, err := config.Load[svcSettings]()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_PORT") {
+		t.Fatalf("err = %v, want one naming GRPC_PORT", err)
+	}
+}

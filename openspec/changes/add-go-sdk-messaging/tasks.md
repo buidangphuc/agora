@@ -108,8 +108,8 @@ func Dial(addr string, opts ...Option) (*grpc.ClientConn, error)
 func Bounded(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) // 500ms margin before parent deadline
 ```
 
-- [ ] 5.1 Tests first: `TestUnreachableFliptReturnsDefault`, `TestAsServiceReplacesPrincipal`, `TestForwardsRequestIDAndPrincipal`, `TestBoundedRespectsParentDeadline`. Then implement, promoting team-order `internal/featureflags` and the order/engagement upstream interceptors.
-- [ ] 5.2 Delete `internal/deps`, `go mod tidy`, `make check` green.
+- [x] 5.1 Tests first: `TestUnreachableFliptReturnsDefault`, `TestAsServiceReplacesPrincipal`, `TestForwardsRequestIDAndPrincipal`, `TestBoundedRespectsParentDeadline`. Then implement, promoting team-order `internal/featureflags` and the order/engagement upstream interceptors.
+- [x] 5.2 Delete `internal/deps`, `go mod tidy`, `make check` green.
 
 ## 6. Close (orchestrator)
 

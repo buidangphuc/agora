@@ -28,6 +28,16 @@ type GRPC struct {
 	DrainDelaySeconds float64 `env:"SHUTDOWN_DRAIN_DELAY_SECONDS" default:"0"`
 }
 
+// Validate rejects a missing or non-positive port. An empty GRPC_PORT= parses
+// as 0, so the "required" tag alone lets it through. A Settings type embedding
+// GRPC gets this hook promoted; one embedding several groups delegates to it.
+func (g GRPC) Validate() error {
+	if g.Port <= 0 {
+		return errors.New("GRPC_PORT must be a positive port number")
+	}
+	return nil
+}
+
 // Addr returns the host:port the server listens on.
 func (g GRPC) Addr() string { return net.JoinHostPort(g.Host, strconv.Itoa(g.Port)) }
 
