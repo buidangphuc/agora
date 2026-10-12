@@ -1,9 +1,9 @@
-// Package repository holds team-referral's persistence layer. It owns three
+// Package store holds team-referral's persistence layer. It owns three
 // small tables — referral_codes (one code per user), referrals (who redeemed
 // whose code), and referral_rewards (mock coin-credit ledger) — behind a single
 // ReferralRepository interface. Both a Postgres and an in-memory implementation
 // satisfy it, so the service layer and its tests never depend on a live DB.
-package repository
+package store
 
 import (
 	"context"
@@ -65,14 +65,17 @@ func newRewardID() string { return "rwd_" + uuid.NewString()[:8] }
 
 // ── Postgres implementation ──
 
+// PostgresReferralRepo stores referral data in Postgres.
 type PostgresReferralRepo struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresReferralRepo returns a repo backed by pool.
 func NewPostgresReferralRepo(pool *pgxpool.Pool) *PostgresReferralRepo {
 	return &PostgresReferralRepo{pool: pool}
 }
 
+// GetCodeByUser returns the user's referral code, or ErrCodeNotFound when none exists.
 func (r *PostgresReferralRepo) GetCodeByUser(ctx context.Context, userID string) (string, error) {
 	var code string
 	err := r.pool.QueryRow(ctx, `SELECT code FROM referral_codes WHERE user_id = $1`, userID).Scan(&code)
@@ -85,6 +88,7 @@ func (r *PostgresReferralRepo) GetCodeByUser(ctx context.Context, userID string)
 	return code, nil
 }
 
+// CreateCode mints code for userID; an existing code is returned unchanged.
 func (r *PostgresReferralRepo) CreateCode(ctx context.Context, userID, code string) (string, error) {
 	// One code per user: on a repeat call the existing row wins and RETURNING
 	// yields the stored code, so minting is idempotent.
@@ -100,6 +104,7 @@ func (r *PostgresReferralRepo) CreateCode(ctx context.Context, userID, code stri
 	return stored, nil
 }
 
+// OwnerOfCode returns the user id that owns code, or ErrCodeNotFound.
 func (r *PostgresReferralRepo) OwnerOfCode(ctx context.Context, code string) (string, error) {
 	var userID string
 	err := r.pool.QueryRow(ctx, `SELECT user_id FROM referral_codes WHERE code = $1`, code).Scan(&userID)
@@ -112,12 +117,14 @@ func (r *PostgresReferralRepo) OwnerOfCode(ctx context.Context, code string) (st
 	return userID, nil
 }
 
+// HasRedeemed reports whether refereeID has already redeemed a code.
 func (r *PostgresReferralRepo) HasRedeemed(ctx context.Context, refereeID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM referrals WHERE referee_id = $1)`, refereeID).Scan(&exists)
 	return exists, err
 }
 
+// CreateReferral records that refereeID redeemed code owned by referrerID, or returns ErrAlreadyRedeemed.
 func (r *PostgresReferralRepo) CreateReferral(ctx context.Context, referrerID, refereeID, code string) error {
 	// referee_id is unique, so a second redeem by the same user violates the
 	// constraint; translate that into the domain error.
@@ -135,12 +142,14 @@ func (r *PostgresReferralRepo) CreateReferral(ctx context.Context, referrerID, r
 	return nil
 }
 
+// CountReferralsByReferrer returns how many users referrerID has invited.
 func (r *PostgresReferralRepo) CountReferralsByReferrer(ctx context.Context, referrerID string) (int64, error) {
 	var n int64
 	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM referrals WHERE referrer_id = $1`, referrerID).Scan(&n)
 	return n, err
 }
 
+// AddReward appends a mock coin-credit row for userID and returns it.
 func (r *PostgresReferralRepo) AddReward(ctx context.Context, userID string, amount int64, reason string) (*referralv1.ReferralReward, error) {
 	id := newRewardID()
 	var createdAt time.Time
@@ -159,6 +168,7 @@ func (r *PostgresReferralRepo) AddReward(ctx context.Context, userID string, amo
 	}, nil
 }
 
+// ListRewards returns the user's rewards newest-first, sliced by limit and offset.
 func (r *PostgresReferralRepo) ListRewards(ctx context.Context, userID string, limit, offset int) ([]*referralv1.ReferralReward, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, amount, reason, created_at
@@ -183,6 +193,7 @@ func (r *PostgresReferralRepo) ListRewards(ctx context.Context, userID string, l
 	return out, rows.Err()
 }
 
+// SumRewards returns the total minor units credited to userID.
 func (r *PostgresReferralRepo) SumRewards(ctx context.Context, userID string) (int64, error) {
 	var total int64
 	err := r.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM referral_rewards WHERE user_id = $1`, userID).Scan(&total)
@@ -198,6 +209,7 @@ type referral struct {
 	createdAt  time.Time
 }
 
+// InMemoryReferralRepo keeps referral data in process memory; it is lost on restart.
 type InMemoryReferralRepo struct {
 	mu         sync.Mutex
 	codeByUser map[string]string                       // user_id -> code
@@ -206,6 +218,7 @@ type InMemoryReferralRepo struct {
 	rewards    map[string][]*referralv1.ReferralReward // user_id -> ledger (append order)
 }
 
+// NewInMemoryReferralRepo returns an empty in-memory repo.
 func NewInMemoryReferralRepo() *InMemoryReferralRepo {
 	return &InMemoryReferralRepo{
 		codeByUser: make(map[string]string),
@@ -214,6 +227,7 @@ func NewInMemoryReferralRepo() *InMemoryReferralRepo {
 	}
 }
 
+// GetCodeByUser returns the user's referral code, or ErrCodeNotFound when none exists.
 func (r *InMemoryReferralRepo) GetCodeByUser(_ context.Context, userID string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -224,6 +238,7 @@ func (r *InMemoryReferralRepo) GetCodeByUser(_ context.Context, userID string) (
 	return code, nil
 }
 
+// CreateCode mints code for userID; an existing code is returned unchanged.
 func (r *InMemoryReferralRepo) CreateCode(_ context.Context, userID, code string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -235,6 +250,7 @@ func (r *InMemoryReferralRepo) CreateCode(_ context.Context, userID, code string
 	return code, nil
 }
 
+// OwnerOfCode returns the user id that owns code, or ErrCodeNotFound.
 func (r *InMemoryReferralRepo) OwnerOfCode(_ context.Context, code string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -245,6 +261,7 @@ func (r *InMemoryReferralRepo) OwnerOfCode(_ context.Context, code string) (stri
 	return userID, nil
 }
 
+// HasRedeemed reports whether refereeID has already redeemed a code.
 func (r *InMemoryReferralRepo) HasRedeemed(_ context.Context, refereeID string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -256,6 +273,7 @@ func (r *InMemoryReferralRepo) HasRedeemed(_ context.Context, refereeID string) 
 	return false, nil
 }
 
+// CreateReferral records that refereeID redeemed code owned by referrerID, or returns ErrAlreadyRedeemed.
 func (r *InMemoryReferralRepo) CreateReferral(_ context.Context, referrerID, refereeID, code string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -273,6 +291,7 @@ func (r *InMemoryReferralRepo) CreateReferral(_ context.Context, referrerID, ref
 	return nil
 }
 
+// CountReferralsByReferrer returns how many users referrerID has invited.
 func (r *InMemoryReferralRepo) CountReferralsByReferrer(_ context.Context, referrerID string) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -285,6 +304,7 @@ func (r *InMemoryReferralRepo) CountReferralsByReferrer(_ context.Context, refer
 	return n, nil
 }
 
+// AddReward appends a mock coin-credit row for userID and returns it.
 func (r *InMemoryReferralRepo) AddReward(_ context.Context, userID string, amount int64, reason string) (*referralv1.ReferralReward, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -298,6 +318,7 @@ func (r *InMemoryReferralRepo) AddReward(_ context.Context, userID string, amoun
 	return cloneReward(rw), nil
 }
 
+// ListRewards returns the user's rewards newest-first, sliced by limit and offset.
 func (r *InMemoryReferralRepo) ListRewards(_ context.Context, userID string, limit, offset int) ([]*referralv1.ReferralReward, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -323,6 +344,7 @@ func (r *InMemoryReferralRepo) ListRewards(_ context.Context, userID string, lim
 	return out, nil
 }
 
+// SumRewards returns the total minor units credited to userID.
 func (r *InMemoryReferralRepo) SumRewards(_ context.Context, userID string) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -1,79 +1,81 @@
-package handler
+// Package rpc is the transport layer: it decodes requests, reads the caller,
+// calls the referral domain and maps its errors to gRPC status. It holds no
+// business logic.
+package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 
 	commonv1 "github.com/buidangphuc/team-referral/generated/platform/common/v1"
 	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
-	"github.com/buidangphuc/team-referral/internal/interceptor"
-	"github.com/buidangphuc/team-referral/internal/service"
+	"github.com/buidangphuc/team-referral/internal/referral"
 )
 
-// ReferralHandler adapts the gRPC ReferralService contract onto the application
-// service. Every RPC is user-owned, so the handler resolves the caller from the
-// principal (never from the request body) and rejects anonymous callers.
-type ReferralHandler struct {
+// Handler implements platform.referral.v1.ReferralService. Every RPC is
+// user-owned, so it resolves the caller from the principal (never from the
+// request body) and rejects anonymous callers.
+type Handler struct {
 	referralv1.UnimplementedReferralServiceServer
-	svc *service.ReferralService
+	svc    *referral.Service
+	logger *slog.Logger
+	errs   grpcx.ErrorTable
 }
 
-func NewReferralHandler(svc *service.ReferralService) *ReferralHandler {
-	return &ReferralHandler{svc: svc}
-}
-
-// callerID returns the resolved user id, or an Unauthenticated error when the
-// request carried no verified principal.
-func (h *ReferralHandler) callerID(ctx context.Context) (string, error) {
-	p := interceptor.FromContext(ctx)
-	if p.Anonymous || p.UserID == "" {
-		return "", status.Error(codes.Unauthenticated, "authentication required")
-	}
-	return p.UserID, nil
-}
-
-// mapErr turns a service error into the right gRPC status.
-func mapErr(ctx context.Context, err error) error {
-	switch {
-	case errors.Is(err, service.ErrEmptyUser):
-		return status.Error(codes.Unauthenticated, err.Error())
-	case errors.Is(err, service.ErrEmptyCode):
-		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, service.ErrCodeNotFound):
-		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, service.ErrSelfReferral),
-		errors.Is(err, service.ErrAlreadyRedeemed):
-		return status.Error(codes.FailedPrecondition, err.Error())
-	default:
-		slog.ErrorContext(ctx, "internal error", "error", err)
-		return status.Error(codes.Internal, "internal error")
+// NewHandler returns a Handler that maps domain errors with its error table.
+func NewHandler(svc *referral.Service, logger *slog.Logger) *Handler {
+	return &Handler{
+		svc:    svc,
+		logger: logger,
+		errs: grpcx.ErrorTable{
+			referral.ErrEmptyUser:       codes.Unauthenticated,
+			referral.ErrEmptyCode:       codes.InvalidArgument,
+			referral.ErrCodeNotFound:    codes.NotFound,
+			referral.ErrSelfReferral:    codes.FailedPrecondition,
+			referral.ErrAlreadyRedeemed: codes.FailedPrecondition,
+		},
 	}
 }
 
-func (h *ReferralHandler) CreateReferralCode(ctx context.Context, _ *referralv1.CreateReferralCodeRequest) (*referralv1.CreateReferralCodeResponse, error) {
-	userID, err := h.callerID(ctx)
+// Register adds the referral service to s.
+func Register(s grpc.ServiceRegistrar, h *Handler) {
+	referralv1.RegisterReferralServiceServer(s, h)
+}
+
+// mapErr turns a domain or store error into the right gRPC status; unknown
+// errors are logged and become Internal with a fixed message.
+func (h *Handler) mapErr(ctx context.Context, err error) error {
+	return grpcx.Status(ctx, h.logger, err, h.errs)
+}
+
+// CreateReferralCode returns the caller's code, minting one if needed.
+func (h *Handler) CreateReferralCode(ctx context.Context, _ *referralv1.CreateReferralCodeRequest) (*referralv1.CreateReferralCodeResponse, error) {
+	p, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
-	code, err := h.svc.CreateCode(ctx, userID)
+	code, err := h.svc.CreateCode(ctx, p.ID)
 	if err != nil {
-		return nil, mapErr(ctx, err)
+		return nil, h.mapErr(ctx, err)
 	}
 	return &referralv1.CreateReferralCodeResponse{Code: code}, nil
 }
 
-func (h *ReferralHandler) GetMyReferral(ctx context.Context, _ *referralv1.GetMyReferralRequest) (*referralv1.GetMyReferralResponse, error) {
-	userID, err := h.callerID(ctx)
+// GetMyReferral returns the caller's code, invited count and reward total.
+func (h *Handler) GetMyReferral(ctx context.Context, _ *referralv1.GetMyReferralRequest) (*referralv1.GetMyReferralResponse, error) {
+	p, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
-	mr, err := h.svc.GetMyReferral(ctx, userID)
+	mr, err := h.svc.GetMyReferral(ctx, p.ID)
 	if err != nil {
-		return nil, mapErr(ctx, err)
+		return nil, h.mapErr(ctx, err)
 	}
 	return &referralv1.GetMyReferralResponse{
 		Code:         mr.Code,
@@ -82,25 +84,27 @@ func (h *ReferralHandler) GetMyReferral(ctx context.Context, _ *referralv1.GetMy
 	}, nil
 }
 
-func (h *ReferralHandler) RedeemReferral(ctx context.Context, req *referralv1.RedeemReferralRequest) (*referralv1.RedeemReferralResponse, error) {
-	userID, err := h.callerID(ctx)
+// RedeemReferral attributes the caller to the owner of req.Code.
+func (h *Handler) RedeemReferral(ctx context.Context, req *referralv1.RedeemReferralRequest) (*referralv1.RedeemReferralResponse, error) {
+	p, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := h.svc.Redeem(ctx, userID, req.GetCode()); err != nil {
-		return nil, mapErr(ctx, err)
+	if err := h.svc.Redeem(ctx, p.ID, req.GetCode()); err != nil {
+		return nil, h.mapErr(ctx, err)
 	}
 	return &referralv1.RedeemReferralResponse{}, nil
 }
 
-func (h *ReferralHandler) ListReferralRewards(ctx context.Context, req *referralv1.ListReferralRewardsRequest) (*referralv1.ListReferralRewardsResponse, error) {
-	userID, err := h.callerID(ctx)
+// ListReferralRewards returns a page of the caller's reward ledger.
+func (h *Handler) ListReferralRewards(ctx context.Context, req *referralv1.ListReferralRewardsRequest) (*referralv1.ListReferralRewardsResponse, error) {
+	p, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
-	rewards, nextCursor, err := h.svc.ListRewards(ctx, userID, req)
+	rewards, nextCursor, err := h.svc.ListRewards(ctx, p.ID, req)
 	if err != nil {
-		return nil, mapErr(ctx, err)
+		return nil, h.mapErr(ctx, err)
 	}
 	return &referralv1.ListReferralRewardsResponse{
 		Rewards: rewards,

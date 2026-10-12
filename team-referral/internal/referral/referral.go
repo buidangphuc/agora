@@ -1,17 +1,17 @@
-// Package service holds team-referral's application logic. ReferralService owns
+// Package referral holds team-referral's application logic. Service owns
 // the referral program: minting per-user codes, redeeming someone else's code
 // (attributing the referee to the referrer and emitting a mock coin-credit
 // reward intent), and reading a user's reward ledger. It validates input and
 // delegates persistence to the repository; identity always comes from the
 // handler (resolved from the principal), never guessed here.
-package service
+package referral
 
 import (
 	"context"
 	"errors"
 
 	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
-	"github.com/buidangphuc/team-referral/internal/repository"
+	"github.com/buidangphuc/team-referral/internal/store"
 )
 
 // RewardOnReferral is the mock coin credit (minor units) granted to a referrer
@@ -32,27 +32,28 @@ var (
 	ErrAlreadyRedeemed = errors.New("user has already redeemed a referral code")
 )
 
-// ReferralService is the referral-program use-case boundary.
-type ReferralService struct {
-	repo repository.ReferralRepository
+// Service is the referral-program use-case boundary.
+type Service struct {
+	repo store.ReferralRepository
 }
 
-func NewReferralService(repo repository.ReferralRepository) *ReferralService {
-	return &ReferralService{repo: repo}
+// NewService returns a Service backed by repo.
+func NewService(repo store.ReferralRepository) *Service {
+	return &Service{repo: repo}
 }
 
 // CreateCode mints (or returns the existing) referral code for the caller.
 // Idempotent: a user always owns exactly one code.
-func (s *ReferralService) CreateCode(ctx context.Context, userID string) (string, error) {
+func (s *Service) CreateCode(ctx context.Context, userID string) (string, error) {
 	if userID == "" {
 		return "", ErrEmptyUser
 	}
 	if existing, err := s.repo.GetCodeByUser(ctx, userID); err == nil {
 		return existing, nil
-	} else if !errors.Is(err, repository.ErrCodeNotFound) {
+	} else if !errors.Is(err, store.ErrCodeNotFound) {
 		return "", err
 	}
-	return s.repo.CreateCode(ctx, userID, repository.NewCode())
+	return s.repo.CreateCode(ctx, userID, store.NewCode())
 }
 
 // MyReferral is the caller's referral summary: their code plus lifetime stats.
@@ -64,7 +65,7 @@ type MyReferral struct {
 
 // GetMyReferral returns the caller's code (minting one on first read so the
 // summary is always populated) with their invited count and total rewards.
-func (s *ReferralService) GetMyReferral(ctx context.Context, userID string) (*MyReferral, error) {
+func (s *Service) GetMyReferral(ctx context.Context, userID string) (*MyReferral, error) {
 	if userID == "" {
 		return nil, ErrEmptyUser
 	}
@@ -86,7 +87,7 @@ func (s *ReferralService) GetMyReferral(ctx context.Context, userID string) (*My
 // Redeem attributes refereeID to the owner of code and emits a mock reward
 // intent to that referrer. It rejects unknown codes, self-referral, and a
 // referee who has already redeemed any code (a user is referred at most once).
-func (s *ReferralService) Redeem(ctx context.Context, refereeID, code string) error {
+func (s *Service) Redeem(ctx context.Context, refereeID, code string) error {
 	if refereeID == "" {
 		return ErrEmptyUser
 	}
@@ -94,7 +95,7 @@ func (s *ReferralService) Redeem(ctx context.Context, refereeID, code string) er
 		return ErrEmptyCode
 	}
 	referrerID, err := s.repo.OwnerOfCode(ctx, code)
-	if errors.Is(err, repository.ErrCodeNotFound) {
+	if errors.Is(err, store.ErrCodeNotFound) {
 		return ErrCodeNotFound
 	}
 	if err != nil {
@@ -104,7 +105,7 @@ func (s *ReferralService) Redeem(ctx context.Context, refereeID, code string) er
 		return ErrSelfReferral
 	}
 	if err := s.repo.CreateReferral(ctx, referrerID, refereeID, code); err != nil {
-		if errors.Is(err, repository.ErrAlreadyRedeemed) {
+		if errors.Is(err, store.ErrAlreadyRedeemed) {
 			return ErrAlreadyRedeemed
 		}
 		return err
@@ -119,7 +120,7 @@ func (s *ReferralService) Redeem(ctx context.Context, refereeID, code string) er
 
 // ListRewards returns a page of the caller's reward ledger, newest-first, plus
 // the next-page cursor (empty when the page is the last). `page` may be nil.
-func (s *ReferralService) ListRewards(ctx context.Context, userID string, page *referralv1.ListReferralRewardsRequest) ([]*referralv1.ReferralReward, string, error) {
+func (s *Service) ListRewards(ctx context.Context, userID string, page *referralv1.ListReferralRewardsRequest) ([]*referralv1.ReferralReward, string, error) {
 	if userID == "" {
 		return nil, "", ErrEmptyUser
 	}
