@@ -8,6 +8,7 @@
 #### Scenario: Valid cookie is stamped on each event
 - **WHEN** a batch of 3 beacons arrives with `Cookie: agora_consent=v=1&a=1&m=0&p=1&ts=1760000000`
 - **THEN** the 3 published events each carry `consent` with analytics true, marketing false, personalization true, version 1
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_ValidCookieIsStampedOnEachEvent"
 
 #### Scenario: Rejected buyer is flagged personalization-denied
 - **WHEN** a beacon arrives with `Cookie: agora_consent=v=1&a=0&m=0&p=0&ts=1760000000`
@@ -24,38 +25,47 @@
 #### Scenario: Non-0/1 flag degrades to denied
 - **WHEN** a beacon arrives with `Cookie: agora_consent=v=1&a=1&m=1&p=7&ts=1760000000`
 - **THEN** the event is published with `consent.version=0` and all flags false and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_Non01FlagDegradesToDenied"
 
 #### Scenario: Unknown version degrades to denied
 - **WHEN** a beacon arrives with `Cookie: agora_consent=v=9&a=1&m=1&p=1&ts=1760000000`
 - **THEN** the event is published with `consent.version=0` and all flags false and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_UnknownVersionDegradesToDenied"
 
 #### Scenario: Duplicate key degrades to denied
 - **WHEN** a beacon arrives with `Cookie: agora_consent=a=1&a=0&v=1&m=0&p=0&ts=1760000000`
 - **THEN** the event is published with `consent.version=0` and all flags false and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_DuplicateKeyDegradesToDenied"
 
 #### Scenario: Non-numeric ts degrades to denied
 - **WHEN** a beacon arrives with `Cookie: agora_consent=v=1&a=1&m=1&p=1&ts=x`
 - **THEN** the event is published with `consent.version=0` and all flags false and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_NonNumericTsDegradesToDenied"
 
 #### Scenario: Missing ts degrades to denied
 - **WHEN** a beacon arrives with `Cookie: agora_consent=v=1&a=1&m=1&p=1`
 - **THEN** the event is published with `consent.version=0` and all flags false and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_MissingTsDegradesToDenied"
 
 #### Scenario: Oversized cookie degrades to denied
 - **WHEN** the `agora_consent` value is 257 bytes (otherwise valid)
 - **THEN** the event is published with `consent.version=0` and all flags false and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_OversizedCookieDegradesToDenied"
 
 #### Scenario: Cookie of exactly 256 bytes is accepted
 - **WHEN** the `agora_consent` value is a valid `v=1` cookie padded with an extra unknown key to exactly 256 bytes
 - **THEN** the event carries the flags from the cookie with `consent.version=1`
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_CookieOfExactly256BytesIsAccepted"
 
 #### Scenario: Consent header does not stand in for the cookie
 - **WHEN** the request has header `X-Consent: v=1&a=1&m=1&p=1&ts=1` and no cookie
 - **THEN** the event carries `consent.version=0` with all flags false
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go` "TestConsentStamp_ConsentHeaderDoesNotStandInForCookie"
 
 #### Scenario: Stamping adds no latency beyond budget
 - **WHEN** the existing handler benchmark (N=1000 batches of 100 events) runs with a valid consent cookie
 - **THEN** p99 stays under 50 ms
+- **VERIFIED BY**: `team-gateway/internal/edge/collector_boundary_test.go` "TestConsentStamp_StampingAddsNoLatencyBeyondBudget"
 
 ### Requirement: The edge copies the GA client id only under analytics consent
 The edge SHALL copy the beacon's `gaClientId` into `TrackingEvent.ga_client_id` (client-id part only, no `GA1.1.` prefix) only WHEN the stamped consent has `analytics=true` and the value is at most 64 characters, and SHALL otherwise leave `ga_client_id` empty and still publish the event and return 202.
