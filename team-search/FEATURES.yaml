@@ -194,11 +194,11 @@ features:
     covered_by: "security/listing_visibility.feature::Saved searches require a signed-in user"
 
   - id: ops.search-boot-guard-prod-storage
-    title: team-search refuses in-memory storage in production
+    title: team-search refuses to boot without a reachable database in production
     persona: admin
     priority: P0
     summary: >-
-      Boot guard: staging/production must not run on the in-memory saved-search store.
+      Boot guard: staging/production fail boot without DATABASE_URL or with an unreachable database; ENV=local falls back to in-memory.
     entry_route: /
     services: [team-search]
     preconditions:
@@ -206,11 +206,12 @@ features:
     api:
       exercised: [search.v1.SaveSearch]
     acceptance:
-      - WHEN the team-search image is started with ENV=production and DATABASE_ENABLED=false
-      - THEN the process exits non-zero and its log names the storage setting
+      - WHEN the team-search image is started with ENV=production and no DATABASE_URL, or an unreachable one
+      - THEN the process exits non-zero and its log names the database
+      - AND with ENV=local and an unreachable database it falls back to in-memory storage
     tags: [ops, security]
     status: automated
-    covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"
+    covered_by: "ops/boot_guard_search.feature::team-search refuses to boot without a reachable database in production"
 
   - id: search.srm-a-checkout-lowers-the-stock-shown-in-search
     title: "A checkout lowers the stock shown in search"
