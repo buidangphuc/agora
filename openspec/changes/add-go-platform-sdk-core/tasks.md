@@ -41,14 +41,14 @@ Owns: `packages/go-sdk/go.mod`, `packages/go-sdk/go.sum`, `packages/go-sdk/inter
 
 Owns: `tools/sync-go-sdk.sh`, `tools/sync-go-sdk_test.sh`, `make/go-service.mk`, `templates/go-service/Dockerfile`, `docs/ADR/0016-go-service-convention-and-sdk.md`, `packages/go-sdk/README.md`.
 
-- [ ] 2.1 Write `tools/sync-go-sdk_test.sh` first; see it fail because the script is missing. The test:
+- [x] 2.1 Write `tools/sync-go-sdk_test.sh` first; see it fail because the script is missing. The test:
   - makes a throwaway git clone in a temp dir and creates a local tag `go-sdk/v0.0.0-test` there;
   - makes a scratch copy of `team-sharing`;
   - runs the script and asserts the "Sync vendors the tagged tree" scenario (`VERSION` names the tag, the `replace` line exists, `go build ./...` passes);
   - runs again with tag `go-sdk/v9.9.9-missing` and asserts a non-zero exit and an unchanged tree (compare `find | sort | md5`).
   
   Then implement `tools/sync-go-sdk.sh <tag> <service-dir>...` per the spec. It uses `git archive <tag>:platform-core/packages/go-sdk` into a temp dir and swaps it in only after success, so a failed run changes nothing. It also copies `make/go-service.mk` and `packages/go-sdk/.golangci.yml`, then runs `go mod edit -replace` and `go mod tidy`. Verify `bash tools/sync-go-sdk_test.sh`.
-- [ ] 2.2 `make/go-service.mk`. The including Makefile sets `SERVICE`, `GRPC_PORT` and optionally `BINARIES` (default `server`). Targets:
+- [x] 2.2 `make/go-service.mk`. The including Makefile sets `SERVICE`, `GRPC_PORT` and optionally `BINARIES` (default `server`). Targets:
   - `help`
   - `proto` (`buf generate`)
   - `build`
@@ -61,8 +61,8 @@ Owns: `tools/sync-go-sdk.sh`, `tools/sync-go-sdk_test.sh`, `make/go-service.mk`,
   - `docker` (`docker build -t $(SERVICE):dev .`)
   
   Verify with `make -f make/go-service.mk help` from a scratch dir.
-- [ ] 2.3 `templates/go-service/Dockerfile`: `golang:1.26` build stage with `CGO_ENABLED=0`, `-trimpath -ldflags="-s -w"`, and an `ARG BIN=server`, then `gcr.io/distroless/static:nonroot` running `USER nonroot:nonroot` with `EXPOSE ${GRPC_PORT}`. Copy `go.mod go.sum third_party/` before `go mod download` so the vendored SDK resolves. Verify by building the scratch team-sharing from 2.1.
-- [ ] 2.4 ADR-0016, following ADR-0001's format. It covers:
+- [x] 2.3 `templates/go-service/Dockerfile`: `golang:1.26` build stage with `CGO_ENABLED=0`, `-trimpath -ldflags="-s -w"`, and an `ARG BIN=server`, then `gcr.io/distroless/static:nonroot` running `USER nonroot:nonroot` with `EXPOSE ${GRPC_PORT}`. Copy `go.mod go.sum third_party/` before `go mod download` so the vendored SDK resolves. Verify by building the scratch team-sharing from 2.1.
+- [x] 2.4 ADR-0016, following ADR-0001's format. It covers:
   - Context: the findings in `proposal.md`.
   - Decision:
     - the layout tree;
