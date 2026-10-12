@@ -20,8 +20,8 @@ func PrincipalID(ctx context.Context) string    // "" when absent
 
 Owns: `packages/go-sdk/go.mod`, `packages/go-sdk/go.sum`, `packages/go-sdk/internal/deps/deps.go`, `packages/go-sdk/pkg/reqctx/**`, `packages/go-sdk/.golangci.yml`, `packages/go-sdk/Makefile`; deletes `packages/go-sdk/pkg/auth/**`, `packages/go-sdk/pkg/config/**`, `packages/go-sdk/pkg/resilience/**` (rewritten in wave 2).
 
-- [ ] 1.1 Write `pkg/reqctx/reqctx_test.go` (round-trip and empty-default cases), see it fail, then implement the contract above; verify `TestRequestIDRoundTrip`, `TestPrincipalIDRoundTrip`, `TestEmptyWhenAbsent`.
-- [ ] 1.2 Bump `go 1.26.0`. Require current releases of:
+- [x] 1.1 Write `pkg/reqctx/reqctx_test.go` (round-trip and empty-default cases), see it fail, then implement the contract above; verify `TestRequestIDRoundTrip`, `TestPrincipalIDRoundTrip`, `TestEmptyWhenAbsent`.
+- [x] 1.2 Bump `go 1.26.0`. Require current releases of:
   - `github.com/caarlos0/env/v11`
   - `github.com/grpc-ecosystem/go-grpc-middleware/v2`
   - `golang.org/x/sync`
@@ -35,7 +35,7 @@ Owns: `packages/go-sdk/go.mod`, `packages/go-sdk/go.sum`, `packages/go-sdk/inter
   - `github.com/google/uuid`
 
   `internal/deps/deps.go` blank-imports each so `go mod tidy` keeps them (removed in `## 9`). Add `tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint`. Verify with `go mod tidy && go build ./...`.
-- [ ] 1.3 `.golangci.yml` (golangci-lint v2 format) enables govet, staticcheck, errcheck, revive, gosec, contextcheck, sloglint, errorlint, and gofumpt + goimports formatters. `Makefile` targets: `test` (race), `lint`, `check` (vet + lint + test). Verify `make check` is green.
+- [x] 1.3 `.golangci.yml` (golangci-lint v2 format) enables govet, staticcheck, errcheck, revive, gosec, contextcheck, sloglint, errorlint, and gofumpt + goimports formatters. `Makefile` targets: `test` (race), `lint`, `check` (vet + lint + test). Verify `make check` is green.
 
 ## 2. Tooling, ADR, docs (wave 1)
 
