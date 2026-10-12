@@ -56,3 +56,21 @@
 #### Scenario: Stamping adds no latency beyond budget
 - **WHEN** the existing handler benchmark (N=1000 batches of 100 events) runs with a valid consent cookie
 - **THEN** p99 stays under 50 ms
+
+### Requirement: The edge copies the GA client id only under analytics consent
+The edge SHALL copy the beacon's `gaClientId` into `TrackingEvent.ga_client_id` (client-id part only, no `GA1.1.` prefix) only WHEN the stamped consent has `analytics=true` and the value is at most 64 characters, and SHALL otherwise leave `ga_client_id` empty and still publish the event and return 202.
+
+#### Scenario: Client id is copied under analytics consent
+- **WHEN** a beacon with body `"gaClientId":"123.456"` arrives with `Cookie: agora_consent=v=1&a=1&m=0&p=0&ts=1760000000`
+- **THEN** the published event has `ga_client_id="123.456"` and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go`
+
+#### Scenario: Client id is blank without analytics consent
+- **WHEN** a beacon with body `"gaClientId":"123.456"` arrives with `a=0` in the cookie, or with no `agora_consent` cookie
+- **THEN** the published event has `ga_client_id=""`, is still published and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go`
+
+#### Scenario: Over-long client id is blanked
+- **WHEN** a beacon with a 65-character `gaClientId` arrives with `a=1` in the cookie (a 64-character value is copied unchanged)
+- **THEN** the published event has `ga_client_id=""`, is still published and the response is 202
+- **VERIFIED BY**: `team-gateway/internal/edge/consent_cookie_test.go`
