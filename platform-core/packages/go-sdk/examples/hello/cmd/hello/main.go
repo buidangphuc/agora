@@ -1,19 +1,19 @@
-// Command hello is the reference Go service.
 package main
 
 import (
 	"context"
 	"log"
-	"os/signal"
-	"syscall"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/app"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-	if err := app.Run(ctx); err != nil {
+	s, err := config.Load()
+	if err == nil {
+		err = app.Run(context.Background(), s)
+	}
+	if err != nil {
 		log.Fatal(err)
 	}
 }

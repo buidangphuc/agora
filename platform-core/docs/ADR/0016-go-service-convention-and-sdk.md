@@ -17,29 +17,99 @@ The 15 Go services re-implement the platform layer (config, logging, tracing, au
 
 ### Layout
 
-Every Go service has this shape:
+```
+cmd/<binary>/main.go     # under 20 lines: config.Load, then app.Run(ctx, settings)
+internal/app/            # composition root; has `const service = "<name>"`
+internal/config/         # Settings struct, Validate, Load; its test checks ../../.env.example
+internal/rpc/            # transport (package rpc): handlers, error table; no business logic
+internal/<domain>/       # business logic, one package per concept; never imports grpc or codes
+internal/store/          # only if the service has Postgres: queries and migrations/
+internal/events/         # only if the service publishes or consumes events
+.env.example             # at the service root, next to go.mod
+```
 
+`store` and `events` are optional; create them when needed. The directory is `rpc`, not `grpc`, so handler code imports `google.golang.org/grpc` without an alias. Run goimports with `local-prefixes` set to the service's module path (the SDK's `.golangci.yml` shows the setting).
+
+### Settings and .env.example
+
+`main` loads settings and hands them to `app.Run`, so tests build `Settings` by hand:
+
+```go
+type Settings struct {
+	config.Runtime            // embed groups whose field names do not collide
+	config.GRPC
+	Postgres config.Postgres  // name the groups that both have Enabled
+	OTel     config.OTel
+}
+func (s Settings) Validate() error { return s.Postgres.Validate() } // Load calls it
 ```
-cmd/<binary>/main.go     # under 20 lines: load config, call app.Run
-internal/app/            # composition root: builds and wires everything
-internal/config/         # settings struct embedding the SDK groups
-internal/rpc/            # gRPC handlers (package rpc) and the error table; no business logic
-internal/<domain>/       # business logic, one package per domain concept
-internal/store/          # Postgres access and migrations
-internal/events/         # event publishing and consuming
-```
+
+- `DATABASE_ENABLED` defaults to true, so an enabled database without `DATABASE_URL` fails at load (`Postgres.Validate`). `GRPC_PORT` has no default and is required.
+- `.env.example` lists every key once as `KEY=value`. Optional keys are written `KEY=` with no value. Commented lines are ignored by the drift check. The test lives in `internal/config` and reads `../../.env.example` with `config.CheckEnvExample`.
+- `GRPC_REFLECTION_ENABLED` needs real generated descriptors. Keep it false for hand-built service descriptions.
 
 ### Explicit wiring, no DI container
 
-`internal/app.Run(ctx) error` builds each dependency in order and passes it to the next constructor. There is no DI container, no reflection and no service locator. Reading `app.go` top to bottom shows what runs.
+`internal/app.Run(ctx, settings) error` builds each dependency in order and passes it to the next constructor. No DI container, no reflection, no service locator. Build order: logger (then `slog.SetDefault`), telemetry, health, migrations, pool, server, `lifecycle.Run`. Register each closer on a `lifecycle.Stack` right after opening the resource. Closers run in reverse order, on shutdown (`Closers: {stack.Close}`) and on an early failure.
+
+```go
+func Run(ctx context.Context, s config.Settings) error {
+	logger := logx.New(s.Runtime, service)
+	slog.SetDefault(logger)
+	var stack lifecycle.Stack
+	shutdown, err := otelx.Init(ctx, s.OTel, service)
+	if err != nil { return err }
+	stack.Push(shutdown)
+	health := healthx.New(healthx.DefaultInterval, logger)
+	if s.Postgres.Enabled {
+		// migrate.Up(ctx, url, fsys) then pgx.Open; on failure outside ENV=local:
+		//   return errors.Join(err, stack.Close(ctx))
+		// else health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
+	rpc.Register(srv, rpc.NewHandler(logger))
+	return lifecycle.Run(ctx, lifecycle.Options{
+		ShutdownGrace: s.ShutdownGrace(), DrainDelay: s.DrainDelay(),
+		OnShutdown: []func(){health.Drain}, Closers: []func(context.Context) error{stack.Close}, Logger: logger,
+	}, grpcx.Serve(srv, s.GRPC), lifecycle.Func(health.Run))
+}
+```
+
+`examples/hello/internal/app/app.go` is the full version.
+
+- Migrations: files `NNNN_name.up.sql` / `.down.sql` (four digits) in `internal/store/migrations`, embedded and passed through `fs.Sub(files, "migrations")` to `migrate.Up`, which runs before `pgx.Open` and only when the database is enabled.
+- Health: one `healthx.Health`, interval `healthx.DefaultInterval`, a component (`lifecycle.Func(health.Run)`), `OnShutdown: health.Drain`. A checker is named after its dependency (`"postgres"`).
 
 ### Run(ctx) error and lifecycle
 
-Everything long-running (gRPC server, health poller, consumers, relays) is a component with `Run(ctx) error`. `lifecycle.Run` starts them in an errgroup, returns when the context ends or one fails, then shuts down in a fixed order: drain health, cancel components within `SHUTDOWN_GRACE_SECONDS`, close dependencies in reverse order.
+Everything long-running (gRPC server, health poller, consumers, relays) is a component with `Run(ctx) error`. `lifecycle.Run` starts them in an errgroup, returns when the context ends or one fails, then shuts down in a fixed order: run `OnShutdown` hooks (drain health), wait `SHUTDOWN_DRAIN_DELAY_SECONDS` so probes and load balancers see NOT_SERVING, cancel components within `SHUTDOWN_GRACE_SECONDS`, then run the closers.
+
+`GracefulStop` waits for open streams, so a client holding a health `Watch` delays the stop until the grace period ends and the server is force-stopped. That is also how drain is tested: watch health, cancel, see NOT_SERVING while the stream is still open, then close the stream (`TestShutdownDrainsHealthFirst`).
 
 ### Errors are mapped in transport
 
-Domain and store code return plain Go errors. Only `internal/rpc` converts them to gRPC status, through a per-service error table and `grpcx.Status`. The directory is `rpc`, not `grpc`, so handler code can import `google.golang.org/grpc` without an alias. Matched errors keep their code, and errors that already are gRPC status errors (for example from `auth.RequirePrincipal`) pass through unchanged. Unknown errors are logged and returned as `codes.Internal` with the message `internal error`, so driver or upstream text never reaches callers.
+Domain and store code return plain Go errors. Only `internal/rpc` converts them to gRPC status, through a per-service error table and `grpcx.Status`. A handler does three things: authorize, call the domain, map the error. Authorization (`auth.RequirePrincipal` or `RequireScopes`) is called in each handler; no interceptor enforces it.
+
+```go
+func (h *Handler) Greet(ctx context.Context, in *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
+	p, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs)
+	}
+	msg, err := greeter.Greet(in.GetValue())
+	if err != nil {
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs) // h.errs = ErrorTable{greeter.ErrEmptyName: codes.InvalidArgument}
+	}
+	return wrapperspb.String(msg + " (caller " + p.ID + ")"), nil
+}
+```
+
+Matched errors keep their code, and errors that already are gRPC status errors (for example from `auth.RequirePrincipal`) pass through unchanged. Unknown errors are logged and returned as `codes.Internal` with the message `internal error`, so driver or upstream text never reaches callers.
+
+### Tests
+
+- App tests use an external package (`app_test`) and build `Settings` directly. `app.Run` needs a concrete port: take one from `net.Listen("127.0.0.1:0")` and release it, or build the server yourself and use `grpcx.ServeListener` on that listener.
+- Use `logx.NewTo(io.Discard, runtime, "test")` where a logger is injected, and `testkit.Postgres(t)` for database tests. The service's `make check` (from `go-service.mk`) sets `GO_SDK_REQUIRE_DOCKER=1`, so those tests fail instead of skipping when Docker is missing.
 
 ### Libraries
 

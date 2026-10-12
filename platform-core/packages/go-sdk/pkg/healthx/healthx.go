@@ -11,6 +11,9 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
+// DefaultInterval is the probe interval services use unless they have a reason not to.
+const DefaultInterval = 5 * time.Second
+
 // Check reports whether one dependency is reachable. A nil error means healthy.
 type Check func(ctx context.Context) error
 

@@ -333,3 +333,27 @@ func TestStatusPassesThroughGRPCStatus(t *testing.T) {
 		t.Fatalf("Unknown status leaked: %v", unk)
 	}
 }
+
+func TestServeListenerServesAndStops(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)}), testSvc(nil))
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- grpcx.ServeListener(srv, lis, 5*time.Second).Run(ctx) }()
+
+	conn := dialWhenUp(t, lis.Addr().String())
+	cctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stop()
+	if _, err := call(cctx, conn, "Ping", ""); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("Run = %v", err)
+	}
+}

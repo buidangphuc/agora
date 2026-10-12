@@ -9,7 +9,8 @@ import (
 )
 
 // Load fills a T from the process environment. The returned error names every
-// variable that failed to parse or is required and unset.
+// variable that failed to parse or is required and unset. When T has a
+// Validate() error method, Load calls it after parsing and returns its error.
 //
 // A field with a default tag is never reported as unset: caarlos0/env applies
 // the default before it checks "required".
@@ -20,6 +21,11 @@ func Load[T any]() (T, error) {
 	})
 	if err != nil {
 		return v, nameVariables(err, reflect.TypeFor[T]())
+	}
+	if val, ok := any(v).(interface{ Validate() error }); ok {
+		if err := val.Validate(); err != nil {
+			return v, err
+		}
 	}
 	return v, nil
 }

@@ -122,3 +122,40 @@ func TestDeclaredEnvKeysIncludesNested(t *testing.T) {
 		t.Errorf("keys = %v, want %v", got, want)
 	}
 }
+
+type validatedSettings struct {
+	config.GRPC
+	Postgres config.Postgres
+}
+
+func (s validatedSettings) Validate() error { return s.Postgres.Validate() }
+
+func TestLoadRunsValidate(t *testing.T) {
+	t.Setenv("GRPC_PORT", "1")
+	t.Setenv("DATABASE_ENABLED", "true")
+
+	_, err := config.Load[validatedSettings]()
+	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("err = %v, want an error naming DATABASE_URL", err)
+	}
+
+	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
+	if _, err := config.Load[validatedSettings](); err != nil {
+		t.Fatalf("with URL: %v", err)
+	}
+
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("DATABASE_ENABLED", "false")
+	if _, err := config.Load[validatedSettings](); err != nil {
+		t.Fatalf("disabled: %v", err)
+	}
+}
+
+func TestDrainDelay(t *testing.T) {
+	t.Setenv("GRPC_PORT", "1")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY_SECONDS", "1.5")
+	s, err := config.Load[svcSettings]()
+	if err != nil || s.DrainDelay() != 1500*time.Millisecond {
+		t.Fatalf("DrainDelay = %v, %v", s.DrainDelay(), err)
+	}
+}

@@ -33,6 +33,9 @@ type Options struct {
 	// OnShutdown hooks run first on shutdown, before components are cancelled
 	// (for example healthx Drain).
 	OnShutdown []func()
+	// DrainDelay is waited after the OnShutdown hooks and before the
+	// components are cancelled, so probes observe NOT_SERVING. Zero means none.
+	DrainDelay time.Duration
 	// Closers run last, in reverse registration order, even after the grace
 	// period was exceeded.
 	Closers []func(context.Context) error
@@ -89,6 +92,9 @@ func Run(ctx context.Context, o Options, cs ...Component) error {
 	for _, hook := range o.OnShutdown {
 		hook()
 	}
+	if o.DrainDelay > 0 {
+		time.Sleep(o.DrainDelay)
+	}
 	cancelComps()
 
 	var deadline error
@@ -122,4 +128,39 @@ func Run(ctx context.Context, o Options, cs ...Component) error {
 		return deadline
 	}
 	return closeErr
+}
+
+// Stack collects closers while a composition root wires its dependencies, so
+// a failure halfway can release what was already opened.
+type Stack struct {
+	mu      sync.Mutex
+	closers []func(context.Context) error
+	closed  bool
+}
+
+// Push registers a closer. Closers run in reverse order of registration.
+func (s *Stack) Push(f func(context.Context) error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closers = append(s.closers, f)
+}
+
+// Close runs the closers in reverse order and joins their errors. Only the
+// first call does anything, so it is safe both on an early failure and as a
+// lifecycle closer.
+func (s *Stack) Close(ctx context.Context) error {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil
+	}
+	s.closed = true
+	closers := s.closers
+	s.mu.Unlock()
+
+	var err error
+	for i := len(closers) - 1; i >= 0; i-- {
+		err = errors.Join(err, closers[i](ctx))
+	}
+	return err
 }

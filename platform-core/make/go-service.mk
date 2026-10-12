@@ -33,7 +33,9 @@ run: ## Run the first binary in BINARIES
 	go run ./cmd/$(BIN)
 
 .PHONY: test
-test: ## Run tests with the race detector
+test: ## Run tests with the race detector (DOCKER_HOST from the docker context if unset)
+	@h="$${DOCKER_HOST:-$$(docker context inspect -f '{{.Endpoints.docker.Host}}' 2>/dev/null)}"; \
+	if [ -n "$$h" ]; then export DOCKER_HOST="$$h"; fi; \
 	go test -race ./...
 
 .PHONY: lint
@@ -45,9 +47,11 @@ check-env: ## Check .env.example matches the config struct
 	go test ./internal/config -run TestEnvExampleInSync
 
 .PHONY: check
-check: ## vet + lint + test + check-env
+check: ## vet + lint + test + check-env (Docker tests must run, not skip)
 	go vet ./...
-	$(MAKE) lint test check-env
+	$(MAKE) lint
+	GO_SDK_REQUIRE_DOCKER=1 $(MAKE) test
+	$(MAKE) check-env
 
 .PHONY: migrate
 migrate: ## Apply migrations (the binary must implement `migrate up`)

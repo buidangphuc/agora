@@ -15,10 +15,11 @@ import (
 
 // New returns a logger writing to stdout with a service attribute.
 func New(r config.Runtime, service string) *slog.Logger {
-	return newWithWriter(os.Stdout, r, service)
+	return NewTo(os.Stdout, r, service)
 }
 
-func newWithWriter(w io.Writer, r config.Runtime, service string) *slog.Logger {
+// NewTo is New writing to w, for tests (io.Discard keeps them quiet).
+func NewTo(w io.Writer, r config.Runtime, service string) *slog.Logger {
 	ho := &slog.HandlerOptions{Level: parseLevel(r.LogLevel)}
 	var h slog.Handler
 	if r.LogJSON {

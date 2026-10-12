@@ -134,6 +134,14 @@ func Serve(srv *grpc.Server, c config.GRPC) lifecycle.Component {
 		if err != nil {
 			return fmt.Errorf("grpcx: listen %s: %w", c.Addr(), err)
 		}
+		return ServeListener(srv, lis, c.ShutdownGrace()).Run(ctx)
+	})
+}
+
+// ServeListener is Serve on a caller-provided listener, for tests that need an
+// ephemeral port (listen on 127.0.0.1:0 and read lis.Addr()).
+func ServeListener(srv *grpc.Server, lis net.Listener, grace time.Duration) lifecycle.Component {
+	return lifecycle.Func(func(ctx context.Context) error {
 		served := make(chan error, 1)
 		go func() { served <- srv.Serve(lis) }()
 
@@ -145,7 +153,7 @@ func Serve(srv *grpc.Server, c config.GRPC) lifecycle.Component {
 
 		stopped := make(chan struct{})
 		go func() { srv.GracefulStop(); close(stopped) }()
-		timer := time.NewTimer(c.ShutdownGrace())
+		timer := time.NewTimer(grace)
 		defer timer.Stop()
 		select {
 		case <-stopped:

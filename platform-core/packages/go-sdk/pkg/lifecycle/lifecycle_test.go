@@ -145,3 +145,45 @@ func TestComponentReturningNilStopsOthers(t *testing.T) {
 	}
 	<-stopped
 }
+
+func TestStackClosesReverseOnce(t *testing.T) {
+	var order []string
+	boom := errors.New("b failed")
+	var s lifecycle.Stack
+	s.Push(func(context.Context) error { order = append(order, "a"); return nil })
+	s.Push(func(context.Context) error { order = append(order, "b"); return boom })
+
+	if err := s.Close(context.Background()); !errors.Is(err, boom) {
+		t.Fatalf("first Close = %v, want b's error", err)
+	}
+	if err := s.Close(context.Background()); err != nil {
+		t.Fatalf("second Close = %v, want nil", err)
+	}
+	if len(order) != 2 || order[0] != "b" || order[1] != "a" {
+		t.Fatalf("order = %v, want [b a]", order)
+	}
+}
+
+func TestDrainDelayHoldsComponents(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var hookAt time.Time
+	cancelledAt := make(chan time.Time, 1)
+	comp := lifecycle.Func(func(ctx context.Context) error {
+		<-ctx.Done()
+		cancelledAt <- time.Now()
+		return nil
+	})
+	done := runAsync(ctx, lifecycle.Options{
+		DrainDelay: 100 * time.Millisecond,
+		OnShutdown: []func(){func() { hookAt = time.Now() }},
+	}, comp)
+
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	if err := result(t, done); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if gap := (<-cancelledAt).Sub(hookAt); gap < 100*time.Millisecond {
+		t.Fatalf("components cancelled %v after the hook, want >= 100ms", gap)
+	}
+}

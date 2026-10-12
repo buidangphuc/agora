@@ -17,6 +17,8 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/app"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
 type running struct {
@@ -26,26 +28,38 @@ type running struct {
 	err    error
 }
 
-// startApp runs app.Run on a free loopback port with the database disabled.
-func startApp(t *testing.T) *running {
+// freePort asks the kernel for an unused port, then releases it for the
+// service to bind. There is a small window where another process can take it;
+// for a race-free alternative build the server yourself and use
+// grpcx.ServeListener on a 127.0.0.1:0 listener. GRPC_PORT has no default and
+// 0 is not a usable value, so app.Run needs a concrete port.
+func freePort(t *testing.T) int {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	port := l.Addr().(*net.TCPAddr).Port
-	_ = l.Close()
+	defer func() { _ = l.Close() }()
+	return l.Addr().(*net.TCPAddr).Port
+}
 
-	t.Setenv("GRPC_HOST", "127.0.0.1")
-	t.Setenv("GRPC_PORT", strconv.Itoa(port))
-	t.Setenv("DATABASE_ENABLED", "false")
-	t.Setenv("SHUTDOWN_GRACE_SECONDS", "5")
-	t.Setenv("LOG_LEVEL", "error")
+func settings(port int) config.Settings {
+	return config.Settings{
+		Runtime: sdkconfig.Runtime{Env: "test", LogLevel: "error", LogJSON: true},
+		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 5},
+	}
+}
+
+// startApp runs app.Run on a free loopback port with the database disabled.
+func startApp(t *testing.T) *running {
+	t.Helper()
+	port := freePort(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &running{cancel: cancel, done: make(chan struct{})}
-	go func() { r.err = app.Run(ctx); close(r.done) }()
+	go func() { r.err = app.Run(ctx, settings(port)); close(r.done) }()
 
+	var err error
 	r.conn, err = grpc.NewClient("127.0.0.1:"+strconv.Itoa(port), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
@@ -146,12 +160,11 @@ func TestBoomIsRecovered(t *testing.T) {
 }
 
 func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
-	t.Setenv("GRPC_PORT", "1")
-	t.Setenv("ENV", "prod")
-	t.Setenv("DATABASE_ENABLED", "true")
-	t.Setenv("DATABASE_URL", "postgres://u:p@127.0.0.1:1/db?sslmode=disable")
+	s := settings(freePort(t))
+	s.Env = "prod"
+	s.Postgres = sdkconfig.Postgres{Enabled: true, URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"}
 
-	if err := app.Run(context.Background()); err == nil {
+	if err := app.Run(context.Background(), s); err == nil {
 		t.Fatal("Run succeeded with an unreachable database in ENV=prod")
 	}
 }

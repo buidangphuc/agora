@@ -13,12 +13,12 @@ All under `pkg/`.
 | Package | What it does |
 |---|---|
 | `reqctx` | Request-id and principal-id accessors on `context.Context`. |
-| `config` | `Load[T]()` from env tags, groups `Runtime`, `GRPC`, `Postgres`, `OTel`, and the `CheckEnvExample` drift check. |
+| `config` | `Load[T]()` from env tags (calls `Validate()` if defined), groups `Runtime`, `GRPC`, `Postgres`, `OTel`, and the `CheckEnvExample` drift check. |
 | `logx` | slog setup that adds request id, principal id and trace id from the context. |
 | `otelx` | OTLP/gRPC tracer and meter providers; a no-op when disabled; always sets the W3C propagator. |
 | `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match). |
 | `healthx` | Checker registry polled in the background; flips the gRPC health status; `Drain()` on shutdown. |
-| `lifecycle` | Runs `Run(ctx) error` components together with an ordered, deadline-bound shutdown. |
+| `lifecycle` | Runs `Run(ctx) error` components together with an ordered, deadline-bound shutdown (optional drain delay), and `Stack` for closers. |
 | `pgx` | Pool open with ping, health checker, `WithTx`. |
 | `migrate` | golang-migrate runner over a service's `migrations/` directory. |
 | `testkit` | Postgres container fixture for tests. |
@@ -45,8 +45,12 @@ To upgrade, run the script again with the new tag and review the diff in a PR. D
 
 ## Copying from examples/hello
 
-- Rename the module path in the imports, `hello` in `cmd/hello`, and the `service` constant in `internal/app/app.go`.
-- Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain package.
-- Route every handler error through `grpcx.Status` with your own `ErrorTable`. Errors that already are gRPC status errors pass through unchanged.
-- Keep `internal/config/config_test.go` and your `.env.example`: the test fails when they drift apart.
-- Keep `main.go` as is: signal context, `app.Run`, exit.
+The layout, wiring order and test conventions are in ADR-0016; `examples/hello` is the working version of them.
+
+1. Copy `examples/hello` into the service and rename the module path in the imports, the binary under `cmd/`, and `const service` in `internal/app/app.go`.
+2. Keep `cmd/<binary>/main.go` as is: `config.Load`, then `app.Run`.
+3. In `internal/config`, keep `Settings`, `Validate`, `Load` and `TestEnvExampleInSync`; add service fields and their keys to `.env.example` at the service root.
+4. Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain packages. Handlers stay thin: `auth.Require*`, domain call, `grpcx.Status` with your `ErrorTable`. Set `GRPC_REFLECTION_ENABLED=true` only once the service has generated descriptors.
+5. Drop `internal/store` if the service has no database, otherwise put `NNNN_name.up.sql`/`.down.sql` files in `internal/store/migrations`. Add `internal/events` only when needed.
+6. Set goimports `local-prefixes` to your module path (the synced `.golangci.yml` has the SDK's value).
+7. Tests: see ADR-0016 ("Tests") for ports, `grpcx.ServeListener`, `logx.NewTo` and `GO_SDK_REQUIRE_DOCKER`.

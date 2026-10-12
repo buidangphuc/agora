@@ -59,7 +59,7 @@ func TestHandlerOmitsMissingIDs(t *testing.T) {
 
 func TestNewHonoursLevelAndFormat(t *testing.T) {
 	var buf bytes.Buffer
-	log := newWithWriter(&buf, config.Runtime{LogLevel: "warn", LogJSON: true}, "svc")
+	log := NewTo(&buf, config.Runtime{LogLevel: "warn", LogJSON: true}, "svc")
 	log.Info("dropped")
 	log.Warn("kept")
 	rec := decode(t, &buf)
@@ -68,7 +68,7 @@ func TestNewHonoursLevelAndFormat(t *testing.T) {
 	}
 
 	buf.Reset()
-	log = newWithWriter(&buf, config.Runtime{LogLevel: "debug", LogJSON: false}, "svc")
+	log = NewTo(&buf, config.Runtime{LogLevel: "debug", LogJSON: false}, "svc")
 	log.Debug("shown")
 	out := buf.String()
 	if !strings.Contains(out, "level=DEBUG") || !strings.Contains(out, "service=svc") {
