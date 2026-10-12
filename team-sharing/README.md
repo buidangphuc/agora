@@ -2,13 +2,21 @@
 
 Go gRPC service that owns the **short shareable links** bounded context: it mints a short code for a `(target_type, target_id)` pair, stores UTM parameters and Open Graph preview metadata with it, and counts every resolve. It is a deployed service (compose: `team-sharing-svc`, gRPC `:50065`, no host port published) with its own Postgres database `sharing_db` (Rule 3, database per service). It calls no other service and produces/consumes no events.
 
-Go 1.22 (`go.mod`; the Dockerfile builds with `golang:1.22`), module `github.com/buidangphuc/team-sharing`.
+Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-sharing`. The platform layer (config, logging, tracing, auth, health, lifecycle, Postgres, gRPC server chain) is [go-sdk](../platform-core/packages/go-sdk/README.md) v0.1.0, vendored in `third_party/go-sdk` (see `third_party/go-sdk/VERSION`) by `platform-core/tools/sync-go-sdk.sh`; never edit it by hand. Layout follows [ADR-0016](../platform-core/docs/ADR/0016-go-service-convention-and-sdk.md):
 
-Layout: `cmd/server` (wiring) -> `internal/grpcserver` -> `internal/interceptor` (principal) -> `internal/handler` -> `internal/service` (validation, short-code minting, OG defaults) -> `internal/repository` (Postgres + in-memory). `internal/config` reads env.
+| Path | Role |
+|---|---|
+| `cmd/server/main.go` | Signal context, `config.Load`, `app.Run`, exit code. |
+| `internal/app` | Composition root: logger, telemetry, health, store, gRPC server, lifecycle. |
+| `internal/config` | `Settings` (SDK groups) and the `.env.example` drift test. |
+| `internal/rpc` | gRPC handlers and the error table; resolves the caller (`""` for anonymous). |
+| `internal/sharelink` | Domain: validation, short-code minting, OG defaults. |
+| `internal/store` | Postgres and in-memory share-link stores. |
+| `migrations/` | SQL migrations plus `embed.go` (package `migrations`, for tests). |
 
 ## Contract
 
-Served: `platform.sharing.v1.SharingService` (`proto/platform/sharing/v1/sharing.proto`) on `:50065`, plus the standard gRPC health service (serving) and gRPC reflection (always on). The only caller is `team-gateway` (`UPSTREAM_SHARING_ADDR`, default `team-sharing-svc:50065`), which exposes it over Connect and forwards the principal as `x-principal-{id,type,scopes}` metadata.
+Served: `platform.sharing.v1.SharingService` (`proto/platform/sharing/v1/sharing.proto`) on `:50065`, plus the standard gRPC health service and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default true). Health is SERVING while the database answers a ping, NOT_SERVING when it does not (checked every 5s) and during shutdown drain. A panic in a handler is recovered and returned as `Internal`; every call gets a request id and a log line. The only caller is `team-gateway` (`UPSTREAM_SHARING_ADDR`, default `team-sharing-svc:50065`), which exposes it over Connect and forwards the principal as `x-principal-{id,type,scopes}` metadata.
 
 | RPC | Authorization | Behaviour |
 |---|---|---|
@@ -35,18 +43,23 @@ Postgres database `sharing_db`, user `sharing_svc`, one table `share_links`:
 | `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT NOW()` |
 | `created_by` | `TEXT NOT NULL DEFAULT ''`, added by migration 002; creator principal id, `''` = anonymous |
 
-Migrations are in `migrations/` (`001_create_share_links`, `002_share_links_created_by`, each with `.up.sql`/`.down.sql`). The service does not run them; in compose the one-shot `team-sharing-migrate` service (golang-migrate) applies them against the shared `postgres` container before `team-sharing` starts. For standalone runs apply them yourself.
+Migrations are in `migrations/` (`001_create_share_links`, `002_share_links_created_by`, each with `.up.sql`/`.down.sql`). The service does not run them at boot; in compose the one-shot `team-sharing-migrate` service (golang-migrate) applies them against the shared `postgres` container before `team-sharing` starts. For standalone runs apply them yourself. The root `migrations` package embeds the files for the store test.
 
 ## Configuration
 
-The code reads only two env vars (`internal/config/config.go`; empty counts as unset):
+`internal/config` binds the SDK groups from env; `.env.example` lists every key and `TestEnvExampleInSync` fails when the two drift. `GRPC_PORT` is required (no default; the Dockerfile and compose set 50065).
 
 | Var | Default | Meaning |
 |---|---|---|
-| `GRPC_PORT` | `50065` | gRPC listen port (the Dockerfile also sets it) |
-| `DATABASE_URL` | `postgres://sharing_svc:sharing_pass@localhost:5447/sharing_db?sslmode=disable` | Postgres DSN |
+| `ENV` | `local` | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
+| `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
+| `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
+| `GRPC_REFLECTION_ENABLED` | `true` | gRPC reflection. |
+| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
+| `DATABASE_ENABLED`, `DATABASE_URL`, `DB_MAX_CONNS` | `true`, required when enabled, `10` | Postgres. |
+| `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 
-`.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_REFLECTION_ENABLED`, `SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DB_MAX_CONNS`, `OTEL_*`. None of these is read by the code (see Known gaps); the compose service sets `DATABASE_ENABLED`, `ENV`, `GRPC_PORT`, `DATABASE_URL`, of which only the last two matter. There is no `.env.example` drift gate in this repo.
+Database behaviour: the pool is opened with a ping. Outside `ENV=local` an unreachable database fails boot (non-nil error, port never opened). With `ENV=local` the service logs a warning and serves from the in-memory store. `DATABASE_ENABLED=false` also uses the in-memory store.
 
 ## Run locally
 
@@ -58,42 +71,44 @@ docker compose -f docker-compose.services.yaml up --build team-sharing
 
 This brings up `postgres`, `team-sharing-migrate` and `team-sharing`. No port is published; reach it through `team-gateway` (`:8080`) or `docker exec`. There is no `jobs` profile for this service.
 
-Standalone: start a Postgres with `sharing_db`/`sharing_svc`, apply `migrations/*.up.sql`, copy `.env.example` to `.env`, export the vars (the code does not load `.env` itself), then `make run`. Note `.env.example` points at port `5447`, while compose uses the in-network `postgres:5432`.
+Standalone: start a Postgres with `sharing_db`/`sharing_svc`, apply `migrations/*.up.sql`, copy `.env.example` to `.env`, export the vars (the code does not load `.env` itself), then `make run`. Note `.env.example` points at port `5447`, while compose uses the in-network `postgres:5432`. Without a database, run with `ENV=local DATABASE_ENABLED=false GRPC_PORT=50065 make run`.
 
 ## Build, test and lint
+
+Targets come from `make/go-service.mk` (synced; `make help` lists them).
 
 | Command | Does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (remote buf.build plugins, needs network) |
 | `make build` | `go build ./...` |
-| `make test` | `go test ./...` (unit tests for config, handler, interceptor, service; repository has none) |
-| `make run` | `go run ./cmd/server` |
-| `make tidy` | `go mod tidy` |
+| `make test` | `go test -race ./...`; `DOCKER_HOST` is taken from the docker context |
+| `make lint` | golangci-lint with the synced `.golangci.yml` |
+| `make check` | vet, lint, tests (Docker tests must run, not skip), `.env.example` drift check |
+| `make docker` | build the image `team-sharing:dev` |
 
-There is no lint target and no CI config in this repo. A reasonable local gate: `make proto && go vet ./... && make test`.
+Run `make proto` first on a fresh checkout and again after a proto re-sync, because `generated/` is gitignored. Tests that start Postgres use testcontainers, so Docker must be running; `make check` fails instead of skipping when it is not.
 
 ## Spec and verification
 
-- There is no `FEATURES.yaml` in this repo (peers such as `team-order` have one). End-to-end coverage lives in `platform-e2e`: share-link scenarios are in `tests/e2e/features/services/new_services.feature` and `tests/e2e/features/journeys/buyer_full_funnel_journey.feature`, with steps in `tests/e2e/step_definitions/test_new_services.py`.
+- `FEATURES.yaml` lists the runtime scenarios of change `migrate-team-sharing-to-go-sdk` as `not-testable` entries that name their unit tests. End-to-end coverage lives in `platform-e2e`: share-link scenarios are in `tests/e2e/features/services/new_services.feature` and `tests/e2e/features/journeys/buyer_full_funnel_journey.feature`, with steps in `tests/e2e/step_definitions/test_new_services.py`.
 - Verify with `make -C platform-e2e features-check` and, for an OpenSpec change, `make -C platform-e2e spec-check CHANGE=<id>`.
-- Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC. No open change currently targets sharing.
+- Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC.
 
 ## Gotchas
 
 - `proto/` is vendored from `platform-core/packages/proto` (ADR-0001) and is currently byte-identical to it. Never edit it here: change platform-core first, then re-sync.
 - `generated/` is gitignored (root `.gitignore` `**/generated/`) and must be regenerated with `make proto` after a fresh checkout or proto re-sync, or the build fails.
-- In-memory fallback: `cmd/server/main.go` falls back to an in-memory repo if `pgxpool.New` returns an error. That call is lazy and rarely fails, so an unreachable or misconfigured DB usually shows up as `Internal` errors on first query, not a fallback. When the fallback does trigger, links are lost on restart.
-- Open Graph data is not supplied by callers. The service synthesizes a Vietnamese placeholder title/description and a `https://cdn.batdongsan.com.vn/og/<type>/<id>.png` image URL (`internal/service/sharing.go`, `defaultOgMeta`).
+- In-memory fallback: only with `ENV=local` (or `DATABASE_ENABLED=false`). Links are then lost on restart, and health stays SERVING because there is no database to check.
+- Open Graph data is not supplied by callers. The service synthesizes a Vietnamese placeholder title/description and a `https://cdn.batdongsan.com.vn/og/<type>/<id>.png` image URL (`internal/sharelink/sharelink.go`, `defaultOgMeta`).
 - The `utm` map is stored verbatim and returned on resolve; the service does not append it to any URL.
 
 ## Known gaps
 
-- Inert env vars: everything in `.env.example` except `GRPC_PORT` and `DATABASE_URL` is ignored. Reflection is always on, the log handler is always JSON at default level, shutdown uses `GracefulStop` with no grace timeout, and no OTEL is wired.
 - No authorization on either RPC (no scope checks, no `RequireScopes`). `CreateShareLink` is open to anonymous callers, so anyone can mint unlimited links; there is no rate limit in this service.
 - `target_type`/`target_id` are not validated or checked for existence, and `target_type` is not restricted to known values.
 - No expiry, deletion, or per-creator listing; `created_by` is stored but never read back through the API. There is no lookup-by-target despite the `idx_share_links_target` index.
 - The proto comment mentions "UTM tracking and OG metadata" but the create request has no OG fields (OG is synthesized, see Gotchas). `team-gateway/README.md` lists a `TrackShare` RPC that does not exist in the proto.
-- `repository` has no tests; no `FEATURES.yaml`; no CI config in the repo.
+- No CI config in the repo.
 
 ## Links
 

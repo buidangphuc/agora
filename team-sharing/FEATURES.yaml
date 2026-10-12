@@ -1,0 +1,85 @@
+# Feature manifest for team-sharing (short shareable links).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-sharing
+owner: sharing-team
+
+features:
+  # Change migrate-team-sharing-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: sharing-runtime.unreachable-database-fails-boot-outside-local
+    title: Unreachable database fails boot outside local
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When the service starts with ENV=staging and DATABASE_URL pointing at a closed port
+      - Then app.Run returns an error and no gRPC listener is opened
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing/internal/app TestBootFailsWhenDatabaseUnreachableOutsideLocal."
+
+  - id: sharing-runtime.local-falls-back-to-the-in-memory-store
+    title: Local falls back to the in-memory store
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When the service starts with ENV=local and an unreachable database
+      - Then it serves CreateShareLink and ResolveShareLink from memory
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing/internal/app TestLocalFallsBackToMemoryStore."
+
+  - id: sharing-runtime.database-loss-flips-health
+    title: Database loss flips health
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When the database used by a running service is stopped
+      - Then within one probe interval the gRPC health status is NOT_SERVING
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing/internal/app TestHealthReportsDatabaseDown (testkit Postgres)."
+
+  - id: sharing-runtime.existing-behaviour-tests-stay-green-after-the-move
+    title: Existing behaviour tests stay green after the move
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When the suite runs after the restructure
+      - Then TestHandlerCreateThenResolve, TestHandlerResolveUnknownIsNotFound, TestHandlerCreateInvalidArgument, TestHandlerCreateAttributesPrincipal, TestMapErrHidesInternalCause, TestCreateResolveRoundtrip, TestResolveUnknownReturnsNotFound, TestResolveIncrementsClickCount, TestCreateAndResolveValidation, TestCreateWithNilUTM and TestCreateShareLinkRecordsCreator pass unchanged in assertions
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing `make check`."
+
+  - id: sharing-runtime.anonymous-creator-is-not-rejected
+    title: Anonymous creator is not rejected
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When CreateShareLink is called with x-principal-id=anonymous
+      - Then it succeeds and the stored created_by is empty
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing/internal/rpc TestCreateAnonymousStoresEmptyCreator."
+
+  - id: sharing-runtime.example-migrations-are-embedded-from-the-root
+    title: Example migrations are embedded from the root
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [platform-core]
+    acceptance:
+      - When the hello example tests run on testkit Postgres
+      - Then migrate.Up applies examples/hello/migrations/*.up.sql through the root migrations package
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by platform-core/packages/go-sdk/examples/hello/internal/store TestMigrationsApply."
