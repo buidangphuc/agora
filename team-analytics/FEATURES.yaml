@@ -1531,3 +1531,467 @@ features:
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
     notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+
+  # ---- add-ga4-purchase-relay (planned until the e2e is green against the relay) ----
+
+  - id: ga4-purchase-relay.latest-consented-client-id-wins
+    title: "Latest consented client id wins"
+    persona: guest
+    priority: P2
+    summary: "Latest consented client id wins"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Latest consented client id wins"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.denied-consent-deletes-the-mapping
+    title: "Denied consent deletes the mapping"
+    persona: guest
+    priority: P2
+    summary: "Denied consent deletes the mapping"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Denied consent deletes the mapping"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.anonymous-event-is-ignored
+    title: "Anonymous event is ignored"
+    persona: guest
+    priority: P2
+    summary: "Anonymous event is ignored"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Anonymous event is ignored"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.paid-order-is-relayed
+    title: "Paid order is relayed"
+    persona: guest
+    priority: P2
+    summary: "Paid order is relayed"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Paid order is relayed"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.payload-carries-no-personal-data
+    title: "Payload carries no personal data"
+    persona: guest
+    priority: P2
+    summary: "Payload carries no personal data"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Payload carries no personal data"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.item-ids-and-value-mapping
+    title: "Item ids and value mapping"
+    persona: guest
+    priority: P2
+    summary: "Item ids and value mapping"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Item ids and value mapping"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.paid-at-is-nil
+    title: "Paid_at is nil"
+    persona: guest
+    priority: P2
+    summary: "Paid_at is nil"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Paid_at is nil"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.latency-budget
+    title: "Latency budget"
+    persona: guest
+    priority: P2
+    summary: "Latency budget"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Latency budget"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.other-envelope-types-are-skipped
+    title: "Other envelope types are skipped"
+    persona: guest
+    priority: P2
+    summary: "Other envelope types are skipped"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Other envelope types are skipped"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.large-order-is-capped
+    title: "Large order is capped"
+    persona: guest
+    priority: P2
+    summary: "Large order is capped"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Large order is capped"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.malformed-order-event-is-rejected
+    title: "Malformed order event is rejected"
+    persona: guest
+    priority: P2
+    summary: "Malformed order event is rejected"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Malformed order event is rejected"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.another-buyer-s-client-id-is-never-used
+    title: "Another buyer's client id is never used"
+    persona: guest
+    priority: P2
+    summary: "Another buyer's client id is never used"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Another buyer's client id is never used"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.kafka-redelivery
+    title: "Kafka redelivery"
+    persona: guest
+    priority: P2
+    summary: "Kafka redelivery"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Kafka redelivery"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.restart-after-send
+    title: "Restart after send"
+    persona: guest
+    priority: P2
+    summary: "Restart after send"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Restart after send"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.concurrent-duplicates
+    title: "Concurrent duplicates"
+    persona: guest
+    priority: P2
+    summary: "Concurrent duplicates"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Concurrent duplicates"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.failed-send-is-not-recorded-as-sent
+    title: "Failed send is not recorded as sent"
+    persona: guest
+    priority: P2
+    summary: "Failed send is not recorded as sent"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Failed send is not recorded as sent"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.transient-failure-then-success
+    title: "Transient failure then success"
+    persona: guest
+    priority: P2
+    summary: "Transient failure then success"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Transient failure then success"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.permanent-client-error-is-not-retried
+    title: "Permanent client error is not retried"
+    persona: guest
+    priority: P2
+    summary: "Permanent client error is not retried"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Permanent client error is not retried"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.rate-limited-is-retried
+    title: "Rate limited is retried"
+    persona: guest
+    priority: P2
+    summary: "Rate limited is retried"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Rate limited is retried"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.server-error-backoff-schedule
+    title: "Server error backoff schedule"
+    persona: guest
+    priority: P2
+    summary: "Server error backoff schedule"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Server error backoff schedule"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.retries-exhausted
+    title: "Retries exhausted"
+    persona: guest
+    priority: P2
+    summary: "Retries exhausted"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Retries exhausted"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.request-timeout-boundary
+    title: "Request timeout boundary"
+    persona: guest
+    priority: P2
+    summary: "Request timeout boundary"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Request timeout boundary"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.buyer-without-mapping
+    title: "Buyer without mapping"
+    persona: guest
+    priority: P2
+    summary: "Buyer without mapping"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Buyer without mapping"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.consent-revoked-before-payment
+    title: "Consent revoked before payment"
+    persona: guest
+    priority: P2
+    summary: "Consent revoked before payment"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Consent revoked before payment"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.unconsented-buyer-is-not-sent-under-another-identity
+    title: "Unconsented buyer is not sent under another identity"
+    persona: guest
+    priority: P2
+    summary: "Unconsented buyer is not sent under another identity"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unconsented buyer is not sent under another identity"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.no-inbound-endpoint-beyond-probes
+    title: "No inbound endpoint beyond probes"
+    persona: guest
+    priority: P2
+    summary: "No inbound endpoint beyond probes"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "No inbound endpoint beyond probes"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.forged-orderpaidevent-from-another-principal-is-rejected
+    title: "Forged OrderPaidEvent from another principal is rejected"
+    persona: guest
+    priority: P2
+    summary: "Forged OrderPaidEvent from another principal is rejected"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Forged OrderPaidEvent from another principal is rejected"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.secret-unset
+    title: "Secret unset"
+    persona: guest
+    priority: P2
+    summary: "Secret unset"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Secret unset"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.secret-never-logged
+    title: "Secret never logged"
+    persona: guest
+    priority: P2
+    summary: "Secret never logged"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Secret never logged"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.no-google-traffic-in-e2e
+    title: "No Google traffic in e2e"
+    persona: guest
+    priority: P2
+    summary: "No Google traffic in e2e"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "No Google traffic in e2e"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.datalayer-has-no-purchase
+    title: "dataLayer has no purchase"
+    persona: buyer
+    priority: P2
+    summary: "dataLayer has no purchase"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "dataLayer has no purchase"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.other-events-unchanged
+    title: "Other events unchanged"
+    persona: buyer
+    priority: P2
+    summary: "Other events unchanged"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Other events unchanged"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+
+  - id: ga4-purchase-relay.warehouse-purchase-still-recorded
+    title: "Warehouse purchase still recorded"
+    persona: buyer
+    priority: P2
+    summary: "Warehouse purchase still recorded"
+    entry_route: /
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Warehouse purchase still recorded"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
