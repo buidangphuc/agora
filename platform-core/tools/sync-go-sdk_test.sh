@@ -61,9 +61,23 @@ fi
 (cd "$SVC" && go build ./...) || fail "go build ./... fails after sync"
 pass "sync vendors the tagged tree"
 
+# 3b. The lint tool is available in the service at the SDK's pinned version.
+LINT_PKG="github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+if grep -q "^tool $LINT_PKG" "$SVC/third_party/go-sdk/go.mod"; then
+  grep -q "^tool $LINT_PKG" "$SVC/go.mod" || fail "service go.mod has no tool directive for golangci-lint"
+  want="$(awk '$1=="github.com/golangci/golangci-lint/v2"{print $2}' "$SVC/third_party/go-sdk/go.mod")"
+  got="$(awk '$1=="github.com/golangci/golangci-lint/v2"{print $2}' "$SVC/go.mod")"
+  [ -n "$want" ] && [ "$want" = "$got" ] || fail "golangci-lint version: SDK pins '$want', service has '$got'"
+  (cd "$SVC" && go tool golangci-lint version >/dev/null) || fail "go tool golangci-lint version fails in the service"
+  pass "golangci-lint tool pinned at $want"
+else
+  echo "skip: tag has no golangci-lint tool directive"
+fi
+
 # 4. A second sync of the same tag replaces the copy cleanly.
 bash "$SYNC" "$TAG" "$SVC" >"$TMP/out2.log" 2>&1 || { cat "$TMP/out2.log"; fail "second sync failed"; }
 [ "$(grep -c "=> ./third_party/go-sdk" "$SVC/go.mod")" = 1 ] || fail "replace line duplicated after second sync"
+[ "$(grep -c "^tool $LINT_PKG" "$SVC/go.mod")" -le 1 ] || fail "tool directive duplicated after second sync"
 ls "$SVC/third_party" | grep -qv '^go-sdk$' && fail "stray files left in third_party"
 pass "second sync is idempotent"
 

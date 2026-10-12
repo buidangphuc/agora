@@ -68,7 +68,7 @@ We do not adopt a framework. A framework would bring its own config, logging and
 The SDK is distributed the way ADR-0001 distributes proto.
 
 - `platform-core` owns `packages/go-sdk` and versions it with git tags `go-sdk/vX.Y.Z`.
-- A service vendors the tagged tree into `third_party/go-sdk` with `platform-core/tools/sync-go-sdk.sh <tag> <service-dir>`. The script writes `third_party/go-sdk/VERSION` (tag and commit), adds `replace github.com/buidangphuc/platform-core/packages/go-sdk => ./third_party/go-sdk` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml`, and runs `go mod tidy`.
+- A service vendors the tagged tree into `third_party/go-sdk` with `platform-core/tools/sync-go-sdk.sh <tag> <service-dir>`. The script writes `third_party/go-sdk/VERSION` (tag and commit), adds `replace github.com/buidangphuc/platform-core/packages/go-sdk => ./third_party/go-sdk` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml`, adds a `tool` directive for golangci-lint at the version the SDK pins (`go get -tool`, so `go tool golangci-lint` works), and runs `go mod tidy`.
 - The script checks the tag first and swaps the vendored directory in only after it is fully exported. A failed run changes nothing.
 - An SDK change is a new tag. Services bump deliberately in a PR. The vendored copy is never edited in place.
 - `templates/go-service/Dockerfile` copies `third_party/` before `go mod download` so the replace resolves in the image build.

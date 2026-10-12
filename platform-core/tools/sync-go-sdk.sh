@@ -11,7 +11,10 @@
 #   3. copies .golangci.yml from the SDK at the tag to <service>/.golangci.yml
 #      (skipped with a warning when the tag has no such file)
 #   4. ensures go.mod has the replace to ./third_party/go-sdk
-#   5. runs go mod tidy
+#   5. adds a `tool` directive for golangci-lint at the version the SDK pins
+#      (go get -tool), so `go tool golangci-lint` works; skipped with a
+#      warning when the SDK at the tag has no such directive
+#   6. runs go mod tidy
 #
 # The tag and every service directory are checked before anything changes. If a
 # step fails after that, the service is restored to its previous state.
@@ -24,6 +27,8 @@ CORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO="${SDK_REPO:-$(git -C "$CORE_DIR" rev-parse --show-toplevel)}"
 SDK_PATH="platform-core/packages/go-sdk"
 SDK_MOD="github.com/buidangphuc/platform-core/packages/go-sdk"
+LINT_MOD="github.com/golangci/golangci-lint/v2"
+LINT_PKG="$LINT_MOD/cmd/golangci-lint"
 MK_SRC="$CORE_DIR/make/go-service.mk"
 
 usage() { echo "usage: $(basename "$0") <tag> <service-dir>..." >&2; exit 2; }
@@ -83,7 +88,9 @@ sync_one() {
   if ! { mv "$stage" "$tp/go-sdk" \
       && mkdir -p "$svc/make" && cp "$MK_SRC" "$svc/make/go-service.mk" \
       && sync_lint_config "$svc" \
-      && (cd "$svc" && go mod edit -replace="$SDK_MOD=./third_party/go-sdk" && go mod tidy); }; then
+      && (cd "$svc" && go mod edit -replace="$SDK_MOD=./third_party/go-sdk") \
+      && sync_lint_tool "$svc" \
+      && (cd "$svc" && go mod tidy); }; then
     echo "error: sync failed for $svc; restoring previous state" >&2
     rm -rf "$stage"
     restore
@@ -97,6 +104,18 @@ sync_lint_config() {
   else
     echo "warning: $TAG has no .golangci.yml in the SDK; skipping it" >&2
   fi
+}
+
+# Pin golangci-lint in the service at the version the vendored SDK uses.
+sync_lint_tool() {
+  local gomod="$1/third_party/go-sdk/go.mod" ver
+  if ! grep -q "^tool $LINT_PKG\$" "$gomod"; then
+    echo "warning: $TAG has no golangci-lint tool directive; skipping it" >&2
+    return 0
+  fi
+  ver="$(awk -v m="$LINT_MOD" '$1==m {print $2; exit}' "$gomod")"
+  [ -n "$ver" ] || { echo "error: $LINT_MOD not required in SDK go.mod" >&2; return 1; }
+  (cd "$1" && go get -tool "$LINT_PKG@$ver")
 }
 
 for svc in "${SERVICES[@]}"; do
