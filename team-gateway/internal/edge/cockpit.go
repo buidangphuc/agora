@@ -185,7 +185,7 @@ func NewCockpitHandler(e *Edge, cfg CockpitConfig, analytics analyticsv1.Analyti
 // ServeHTTP gates on the admin scope, then produces the cockpit response. No
 // token → 401, a token without `admin` → 403, both before any upstream call.
 func (h *CockpitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p, err := h.edge.resolve(r.Header)
+	p, err := h.edge.resolve(r.Header) //nolint:contextcheck // JWKS refresh is deliberately detached from the request: one bounded fetch is shared by all callers
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
 		writeCockpitError(w, http.StatusUnauthorized, "invalid or expired bearer token")

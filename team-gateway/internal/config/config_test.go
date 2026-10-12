@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+
 	"github.com/buidangphuc/team-gateway/internal/config"
 )
 
@@ -16,7 +18,7 @@ func TestGatewayConfig(t *testing.T) {
 		os.Unsetenv("HTTP_PORT")
 	}()
 
-	cfg, err := config.LoadSettings()
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("unexpected error loading config: %v", err)
 	}
@@ -58,7 +60,7 @@ func validSettings() *config.Settings {
 func TestValidateRefusesReflectionInStrictEnv(t *testing.T) {
 	for _, env := range []string{"staging", "production", "prod", "Production"} {
 		s := validSettings()
-		s.Runtime.Env = env
+		s.Env = env
 		s.Edge.ReflectionEnabled = true
 		err := s.Validate()
 		if err == nil || !strings.Contains(err.Error(), "EDGE_REFLECTION_ENABLED") {
@@ -71,7 +73,7 @@ func TestValidateRefusesReflectionInStrictEnv(t *testing.T) {
 	}
 	for _, env := range []string{"local", "test", ""} {
 		s := validSettings()
-		s.Runtime.Env = env
+		s.Env = env
 		s.Edge.ReflectionEnabled = true
 		if err := s.Validate(); err != nil {
 			t.Errorf("ENV=%q must allow reflection: %v", env, err)
@@ -81,7 +83,7 @@ func TestValidateRefusesReflectionInStrictEnv(t *testing.T) {
 
 func TestEdgeDefaults(t *testing.T) {
 	t.Setenv("JWKS_URL", "http://identity/jwks")
-	cfg, err := config.LoadSettings()
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +99,7 @@ func TestEdgeDefaults(t *testing.T) {
 // TestEnvExampleInSync is the merge gate behind `make check-env`: every Settings
 // env key is documented in .env.example and nothing stale is left there.
 func TestEnvExampleInSync(t *testing.T) {
-	if err := config.CheckEnvExample("../../.env.example"); err != nil {
+	if err := sdkconfig.CheckEnvExample("../../.env.example", config.Settings{}); err != nil {
 		t.Fatal(err)
 	}
 }

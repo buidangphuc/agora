@@ -16,10 +16,12 @@ type EngagementForwarder struct {
 	edge   *Edge
 }
 
+// NewEngagementForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewEngagementForwarder(client engagementv1.EngagementServiceClient, edge *Edge) *EngagementForwarder {
 	return &EngagementForwarder{client: client, edge: edge}
 }
 
+// AddFavorite forwards the AddFavorite RPC to the upstream service.
 func (f *EngagementForwarder) AddFavorite(
 	ctx context.Context, req *connect.Request[engagementv1.AddFavoriteRequest],
 ) (*connect.Response[engagementv1.AddFavoriteResponse], error) {
@@ -35,6 +37,7 @@ func (f *EngagementForwarder) AddFavorite(
 	return connect.NewResponse(out), nil
 }
 
+// RemoveFavorite forwards the RemoveFavorite RPC to the upstream service.
 func (f *EngagementForwarder) RemoveFavorite(
 	ctx context.Context, req *connect.Request[engagementv1.RemoveFavoriteRequest],
 ) (*connect.Response[engagementv1.RemoveFavoriteResponse], error) {
@@ -50,6 +53,7 @@ func (f *EngagementForwarder) RemoveFavorite(
 	return connect.NewResponse(out), nil
 }
 
+// IsFavorite forwards the IsFavorite RPC to the upstream service.
 func (f *EngagementForwarder) IsFavorite(
 	ctx context.Context, req *connect.Request[engagementv1.IsFavoriteRequest],
 ) (*connect.Response[engagementv1.IsFavoriteResponse], error) {
@@ -65,6 +69,7 @@ func (f *EngagementForwarder) IsFavorite(
 	return connect.NewResponse(out), nil
 }
 
+// ListFavorites forwards the ListFavorites RPC to the upstream service.
 func (f *EngagementForwarder) ListFavorites(
 	ctx context.Context, req *connect.Request[engagementv1.ListFavoritesRequest],
 ) (*connect.Response[engagementv1.ListFavoritesResponse], error) {
@@ -96,6 +101,7 @@ func (f *EngagementForwarder) RecordView(
 	return connect.NewResponse(out), nil
 }
 
+// GetRecentlyViewed forwards the GetRecentlyViewed RPC to the upstream service.
 func (f *EngagementForwarder) GetRecentlyViewed(
 	ctx context.Context, req *connect.Request[engagementv1.GetRecentlyViewedRequest],
 ) (*connect.Response[engagementv1.GetRecentlyViewedResponse], error) {
@@ -111,6 +117,7 @@ func (f *EngagementForwarder) GetRecentlyViewed(
 	return connect.NewResponse(out), nil
 }
 
+// GetListingStats forwards the GetListingStats RPC to the upstream service.
 func (f *EngagementForwarder) GetListingStats(
 	ctx context.Context, req *connect.Request[engagementv1.GetListingStatsRequest],
 ) (*connect.Response[engagementv1.GetListingStatsResponse], error) {
@@ -128,6 +135,7 @@ func (f *EngagementForwarder) GetListingStats(
 
 // ── Reviews & Ratings ──
 
+// CreateReview forwards the CreateReview RPC to the upstream service.
 func (f *EngagementForwarder) CreateReview(
 	ctx context.Context, req *connect.Request[engagementv1.CreateReviewRequest],
 ) (*connect.Response[engagementv1.CreateReviewResponse], error) {
@@ -143,6 +151,7 @@ func (f *EngagementForwarder) CreateReview(
 	return connect.NewResponse(out), nil
 }
 
+// ListReviews forwards the ListReviews RPC to the upstream service.
 func (f *EngagementForwarder) ListReviews(
 	ctx context.Context, req *connect.Request[engagementv1.ListReviewsRequest],
 ) (*connect.Response[engagementv1.ListReviewsResponse], error) {
@@ -158,6 +167,7 @@ func (f *EngagementForwarder) ListReviews(
 	return connect.NewResponse(out), nil
 }
 
+// GetListingRatingSummary forwards the GetListingRatingSummary RPC to the upstream service.
 func (f *EngagementForwarder) GetListingRatingSummary(
 	ctx context.Context, req *connect.Request[engagementv1.GetListingRatingSummaryRequest],
 ) (*connect.Response[engagementv1.GetListingRatingSummaryResponse], error) {
@@ -173,6 +183,7 @@ func (f *EngagementForwarder) GetListingRatingSummary(
 	return connect.NewResponse(out), nil
 }
 
+// MarkReviewHelpful forwards the MarkReviewHelpful RPC to the upstream service.
 func (f *EngagementForwarder) MarkReviewHelpful(
 	ctx context.Context, req *connect.Request[engagementv1.MarkReviewHelpfulRequest],
 ) (*connect.Response[engagementv1.MarkReviewHelpfulResponse], error) {
@@ -188,6 +199,7 @@ func (f *EngagementForwarder) MarkReviewHelpful(
 	return connect.NewResponse(out), nil
 }
 
+// GetShopRatingSummary forwards the GetShopRatingSummary RPC to the upstream service.
 func (f *EngagementForwarder) GetShopRatingSummary(
 	ctx context.Context, req *connect.Request[engagementv1.GetShopRatingSummaryRequest],
 ) (*connect.Response[engagementv1.GetShopRatingSummaryResponse], error) {
@@ -205,6 +217,7 @@ func (f *EngagementForwarder) GetShopRatingSummary(
 
 // ── Wishlist Collections ──
 
+// CreateCollection forwards the CreateCollection RPC to the upstream service.
 func (f *EngagementForwarder) CreateCollection(
 	ctx context.Context, req *connect.Request[engagementv1.CreateCollectionRequest],
 ) (*connect.Response[engagementv1.CreateCollectionResponse], error) {
@@ -220,6 +233,7 @@ func (f *EngagementForwarder) CreateCollection(
 	return connect.NewResponse(out), nil
 }
 
+// ListCollections forwards the ListCollections RPC to the upstream service.
 func (f *EngagementForwarder) ListCollections(
 	ctx context.Context, req *connect.Request[engagementv1.ListCollectionsRequest],
 ) (*connect.Response[engagementv1.ListCollectionsResponse], error) {
@@ -235,6 +249,7 @@ func (f *EngagementForwarder) ListCollections(
 	return connect.NewResponse(out), nil
 }
 
+// AddToCollection forwards the AddToCollection RPC to the upstream service.
 func (f *EngagementForwarder) AddToCollection(
 	ctx context.Context, req *connect.Request[engagementv1.AddToCollectionRequest],
 ) (*connect.Response[engagementv1.AddToCollectionResponse], error) {
@@ -250,6 +265,7 @@ func (f *EngagementForwarder) AddToCollection(
 	return connect.NewResponse(out), nil
 }
 
+// RemoveFromCollection forwards the RemoveFromCollection RPC to the upstream service.
 func (f *EngagementForwarder) RemoveFromCollection(
 	ctx context.Context, req *connect.Request[engagementv1.RemoveFromCollectionRequest],
 ) (*connect.Response[engagementv1.RemoveFromCollectionResponse], error) {
@@ -265,6 +281,7 @@ func (f *EngagementForwarder) RemoveFromCollection(
 	return connect.NewResponse(out), nil
 }
 
+// ListCollectionItems forwards the ListCollectionItems RPC to the upstream service.
 func (f *EngagementForwarder) ListCollectionItems(
 	ctx context.Context, req *connect.Request[engagementv1.ListCollectionItemsRequest],
 ) (*connect.Response[engagementv1.ListCollectionItemsResponse], error) {
@@ -282,6 +299,7 @@ func (f *EngagementForwarder) ListCollectionItems(
 
 // ── Product Q&A ──
 
+// AskQuestion forwards the AskQuestion RPC to the upstream service.
 func (f *EngagementForwarder) AskQuestion(
 	ctx context.Context, req *connect.Request[engagementv1.AskQuestionRequest],
 ) (*connect.Response[engagementv1.AskQuestionResponse], error) {
@@ -297,6 +315,7 @@ func (f *EngagementForwarder) AskQuestion(
 	return connect.NewResponse(out), nil
 }
 
+// AnswerQuestion forwards the AnswerQuestion RPC to the upstream service.
 func (f *EngagementForwarder) AnswerQuestion(
 	ctx context.Context, req *connect.Request[engagementv1.AnswerQuestionRequest],
 ) (*connect.Response[engagementv1.AnswerQuestionResponse], error) {
@@ -312,6 +331,7 @@ func (f *EngagementForwarder) AnswerQuestion(
 	return connect.NewResponse(out), nil
 }
 
+// ListQuestionsByListing forwards the ListQuestionsByListing RPC to the upstream service.
 func (f *EngagementForwarder) ListQuestionsByListing(
 	ctx context.Context, req *connect.Request[engagementv1.ListQuestionsByListingRequest],
 ) (*connect.Response[engagementv1.ListQuestionsByListingResponse], error) {
@@ -329,6 +349,7 @@ func (f *EngagementForwarder) ListQuestionsByListing(
 
 // ── Disputes ──
 
+// CreateDispute forwards the CreateDispute RPC to the upstream service.
 func (f *EngagementForwarder) CreateDispute(
 	ctx context.Context, req *connect.Request[engagementv1.CreateDisputeRequest],
 ) (*connect.Response[engagementv1.CreateDisputeResponse], error) {
@@ -344,6 +365,7 @@ func (f *EngagementForwarder) CreateDispute(
 	return connect.NewResponse(out), nil
 }
 
+// GetDispute forwards the GetDispute RPC to the upstream service.
 func (f *EngagementForwarder) GetDispute(
 	ctx context.Context, req *connect.Request[engagementv1.GetDisputeRequest],
 ) (*connect.Response[engagementv1.GetDisputeResponse], error) {
@@ -359,6 +381,7 @@ func (f *EngagementForwarder) GetDispute(
 	return connect.NewResponse(out), nil
 }
 
+// ResolveDispute forwards the ResolveDispute RPC to the upstream service.
 func (f *EngagementForwarder) ResolveDispute(
 	ctx context.Context, req *connect.Request[engagementv1.ResolveDisputeRequest],
 ) (*connect.Response[engagementv1.ResolveDisputeResponse], error) {
@@ -376,6 +399,7 @@ func (f *EngagementForwarder) ResolveDispute(
 
 // ── Seller Follows ──
 
+// FollowSeller forwards the FollowSeller RPC to the upstream service.
 func (f *EngagementForwarder) FollowSeller(
 	ctx context.Context, req *connect.Request[engagementv1.FollowSellerRequest],
 ) (*connect.Response[engagementv1.FollowSellerResponse], error) {
@@ -391,6 +415,7 @@ func (f *EngagementForwarder) FollowSeller(
 	return connect.NewResponse(out), nil
 }
 
+// UnfollowSeller forwards the UnfollowSeller RPC to the upstream service.
 func (f *EngagementForwarder) UnfollowSeller(
 	ctx context.Context, req *connect.Request[engagementv1.UnfollowSellerRequest],
 ) (*connect.Response[engagementv1.UnfollowSellerResponse], error) {
@@ -406,6 +431,7 @@ func (f *EngagementForwarder) UnfollowSeller(
 	return connect.NewResponse(out), nil
 }
 
+// ListFollowedSellers forwards the ListFollowedSellers RPC to the upstream service.
 func (f *EngagementForwarder) ListFollowedSellers(
 	ctx context.Context, req *connect.Request[engagementv1.ListFollowedSellersRequest],
 ) (*connect.Response[engagementv1.ListFollowedSellersResponse], error) {
@@ -421,6 +447,7 @@ func (f *EngagementForwarder) ListFollowedSellers(
 	return connect.NewResponse(out), nil
 }
 
+// IsFollowing forwards the IsFollowing RPC to the upstream service.
 func (f *EngagementForwarder) IsFollowing(
 	ctx context.Context, req *connect.Request[engagementv1.IsFollowingRequest],
 ) (*connect.Response[engagementv1.IsFollowingResponse], error) {
@@ -436,6 +463,7 @@ func (f *EngagementForwarder) IsFollowing(
 	return connect.NewResponse(out), nil
 }
 
+// ListFollowedListings forwards the ListFollowedListings RPC to the upstream service.
 func (f *EngagementForwarder) ListFollowedListings(
 	ctx context.Context, req *connect.Request[engagementv1.ListFollowedListingsRequest],
 ) (*connect.Response[engagementv1.ListFollowedListingsResponse], error) {
@@ -453,6 +481,7 @@ func (f *EngagementForwarder) ListFollowedListings(
 
 // ── Loyalty / Check-in ──
 
+// CheckIn forwards the CheckIn RPC to the upstream service.
 func (f *EngagementForwarder) CheckIn(
 	ctx context.Context, req *connect.Request[engagementv1.CheckInRequest],
 ) (*connect.Response[engagementv1.CheckInResponse], error) {
@@ -468,6 +497,7 @@ func (f *EngagementForwarder) CheckIn(
 	return connect.NewResponse(out), nil
 }
 
+// GetLoyalty forwards the GetLoyalty RPC to the upstream service.
 func (f *EngagementForwarder) GetLoyalty(
 	ctx context.Context, req *connect.Request[engagementv1.GetLoyaltyRequest],
 ) (*connect.Response[engagementv1.GetLoyaltyResponse], error) {

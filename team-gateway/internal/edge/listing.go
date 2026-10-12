@@ -22,6 +22,7 @@ func NewListingForwarder(client listingv1.ListingServiceClient, edge *Edge) *Lis
 	return &ListingForwarder{client: client, edge: edge}
 }
 
+// GetListing forwards the GetListing RPC to the upstream service.
 func (f *ListingForwarder) GetListing(
 	ctx context.Context,
 	req *connect.Request[listingv1.GetListingRequest],
@@ -38,6 +39,7 @@ func (f *ListingForwarder) GetListing(
 	return connect.NewResponse(out), nil
 }
 
+// ListListings forwards the ListListings RPC to the upstream service.
 func (f *ListingForwarder) ListListings(
 	ctx context.Context,
 	req *connect.Request[listingv1.ListListingsRequest],
@@ -54,6 +56,7 @@ func (f *ListingForwarder) ListListings(
 	return connect.NewResponse(out), nil
 }
 
+// ListMyListings forwards the ListMyListings RPC to the upstream service.
 func (f *ListingForwarder) ListMyListings(
 	ctx context.Context,
 	req *connect.Request[listingv1.ListMyListingsRequest],
@@ -70,6 +73,7 @@ func (f *ListingForwarder) ListMyListings(
 	return connect.NewResponse(out), nil
 }
 
+// CreateListing forwards the CreateListing RPC to the upstream service.
 func (f *ListingForwarder) CreateListing(
 	ctx context.Context,
 	req *connect.Request[listingv1.CreateListingRequest],
@@ -86,6 +90,7 @@ func (f *ListingForwarder) CreateListing(
 	return connect.NewResponse(out), nil
 }
 
+// UpdateListing forwards the UpdateListing RPC to the upstream service.
 func (f *ListingForwarder) UpdateListing(
 	ctx context.Context,
 	req *connect.Request[listingv1.UpdateListingRequest],
@@ -102,6 +107,7 @@ func (f *ListingForwarder) UpdateListing(
 	return connect.NewResponse(out), nil
 }
 
+// DeleteListing forwards the DeleteListing RPC to the upstream service.
 func (f *ListingForwarder) DeleteListing(
 	ctx context.Context,
 	req *connect.Request[listingv1.DeleteListingRequest],
@@ -118,7 +124,7 @@ func (f *ListingForwarder) DeleteListing(
 	return connect.NewResponse(out), nil
 }
 
-func (f *ListingForwarder) GetImageUploadUrl(
+func (f *ListingForwarder) GetImageUploadUrl( //nolint:revive // the name is fixed by the generated ListingServiceHandler interface
 	ctx context.Context,
 	req *connect.Request[listingv1.GetImageUploadUrlRequest],
 ) (*connect.Response[listingv1.GetImageUploadUrlResponse], error) {
@@ -134,6 +140,7 @@ func (f *ListingForwarder) GetImageUploadUrl(
 	return connect.NewResponse(out), nil
 }
 
+// ListCategories forwards the ListCategories RPC to the upstream service.
 func (f *ListingForwarder) ListCategories(
 	ctx context.Context,
 	req *connect.Request[listingv1.ListCategoriesRequest],
@@ -150,6 +157,7 @@ func (f *ListingForwarder) ListCategories(
 	return connect.NewResponse(out), nil
 }
 
+// GetCategory forwards the GetCategory RPC to the upstream service.
 func (f *ListingForwarder) GetCategory(
 	ctx context.Context,
 	req *connect.Request[listingv1.GetCategoryRequest],
@@ -173,6 +181,7 @@ func (f *ListingForwarder) GetCategory(
 
 // ── Storefront ──
 
+// UpsertStorefront forwards the UpsertStorefront RPC to the upstream service.
 func (f *ListingForwarder) UpsertStorefront(
 	ctx context.Context,
 	req *connect.Request[listingv1.UpsertStorefrontRequest],
@@ -189,6 +198,7 @@ func (f *ListingForwarder) UpsertStorefront(
 	return connect.NewResponse(out), nil
 }
 
+// GetStorefront forwards the GetStorefront RPC to the upstream service.
 func (f *ListingForwarder) GetStorefront(
 	ctx context.Context,
 	req *connect.Request[listingv1.GetStorefrontRequest],
@@ -225,6 +235,7 @@ func (f *ListingForwarder) BatchGetStorefronts(
 
 // ── Bundles ──
 
+// CreateBundle forwards the CreateBundle RPC to the upstream service.
 func (f *ListingForwarder) CreateBundle(
 	ctx context.Context,
 	req *connect.Request[listingv1.CreateBundleRequest],
@@ -241,6 +252,7 @@ func (f *ListingForwarder) CreateBundle(
 	return connect.NewResponse(out), nil
 }
 
+// GetBundle forwards the GetBundle RPC to the upstream service.
 func (f *ListingForwarder) GetBundle(
 	ctx context.Context,
 	req *connect.Request[listingv1.GetBundleRequest],
@@ -257,6 +269,7 @@ func (f *ListingForwarder) GetBundle(
 	return connect.NewResponse(out), nil
 }
 
+// ListBundlesBySeller forwards the ListBundlesBySeller RPC to the upstream service.
 func (f *ListingForwarder) ListBundlesBySeller(
 	ctx context.Context,
 	req *connect.Request[listingv1.ListBundlesBySellerRequest],

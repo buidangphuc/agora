@@ -28,6 +28,7 @@ func NewAIForwarder(client aiv1.AIServiceClient, edge *Edge) *AIForwarder {
 // browser. The embedded UnimplementedAIServiceHandler answers `unimplemented` (HTTP 501)
 // for every caller at the edge.
 
+// ShoppingAssistant forwards the ShoppingAssistant RPC to the upstream service.
 func (f *AIForwarder) ShoppingAssistant(
 	ctx context.Context,
 	req *connect.Request[aiv1.ShoppingAssistantRequest],
@@ -44,6 +45,7 @@ func (f *AIForwarder) ShoppingAssistant(
 	return connect.NewResponse(out), nil
 }
 
+// MagicListing forwards the MagicListing RPC to the upstream service.
 func (f *AIForwarder) MagicListing(
 	ctx context.Context,
 	req *connect.Request[aiv1.MagicListingRequest],
@@ -60,6 +62,7 @@ func (f *AIForwarder) MagicListing(
 	return connect.NewResponse(out), nil
 }
 
+// ChatCopilot forwards the ChatCopilot RPC to the upstream service.
 func (f *AIForwarder) ChatCopilot(
 	ctx context.Context,
 	req *connect.Request[aiv1.ChatCopilotRequest],

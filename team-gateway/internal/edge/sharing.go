@@ -16,10 +16,12 @@ type SharingForwarder struct {
 	edge   *Edge
 }
 
+// NewSharingForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewSharingForwarder(client sharingv1.SharingServiceClient, edge *Edge) *SharingForwarder {
 	return &SharingForwarder{client: client, edge: edge}
 }
 
+// CreateShareLink forwards the CreateShareLink RPC to the upstream service.
 func (f *SharingForwarder) CreateShareLink(
 	ctx context.Context,
 	req *connect.Request[sharingv1.CreateShareLinkRequest],
@@ -36,6 +38,7 @@ func (f *SharingForwarder) CreateShareLink(
 	return connect.NewResponse(out), nil
 }
 
+// ResolveShareLink forwards the ResolveShareLink RPC to the upstream service.
 func (f *SharingForwarder) ResolveShareLink(
 	ctx context.Context,
 	req *connect.Request[sharingv1.ResolveShareLinkRequest],

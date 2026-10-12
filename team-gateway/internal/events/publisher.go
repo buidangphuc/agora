@@ -11,9 +11,11 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 
 	analyticsv1 "github.com/buidangphuc/team-gateway/generated/platform/analytics/v1"
 	commonv1 "github.com/buidangphuc/team-gateway/generated/platform/common/v1"
@@ -25,7 +27,7 @@ import (
 const trackingEventType = "platform.analytics.v1.TrackingEvent"
 
 // AnalyticsPublisher emits behavioral tracking events. The collector depends on
-// this interface so the Kafka client can be swapped for a no-op when disabled.
+// this interface so tests can swap the Kafka client for a fake.
 type AnalyticsPublisher interface {
 	// PublishTrackingEvent wraps ev in an EventEnvelope (stamping principal +
 	// requestID) and produces it to the analytics topic. The Kafka record key is
@@ -37,31 +39,20 @@ type AnalyticsPublisher interface {
 	Close()
 }
 
-// NoopPublisher is used when KAFKA_ENABLED=false: the beacon still succeeds,
-// nothing is emitted. Telemetry is best-effort, so this never errors.
-type NoopPublisher struct{}
-
-func (NoopPublisher) PublishTrackingEvent(context.Context, *analyticsv1.TrackingEvent, *commonv1.Principal, string, string) error {
-	return nil
-}
-func (NoopPublisher) Close() {}
-
-// KafkaPublisher produces to a Kafka/Redpanda topic via franz-go.
+// KafkaPublisher produces to a Kafka/Redpanda topic through a go-sdk kafkax
+// producer (synchronous, with trace-context and request-id record headers).
 type KafkaPublisher struct {
-	client *kgo.Client
-	topic  string
+	producer *kafkax.Producer
+	topic    string
 }
 
 // NewKafkaPublisher dials the brokers and returns a publisher for topic.
-func NewKafkaPublisher(brokers []string, topic string) (*KafkaPublisher, error) {
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
-		kgo.ProducerLinger(0),
-	)
+func NewKafkaPublisher(c sdkconfig.Kafka, topic string) (*KafkaPublisher, error) {
+	producer, err := kafkax.NewProducer(c)
 	if err != nil {
-		return nil, fmt.Errorf("kafka client: %w", err)
+		return nil, err
 	}
-	return &KafkaPublisher{client: client, topic: topic}, nil
+	return &KafkaPublisher{producer: producer, topic: topic}, nil
 }
 
 // PublishTrackingEvent serializes the tracking event, wraps it in an
@@ -92,15 +83,14 @@ func (p *KafkaPublisher) PublishTrackingEvent(
 	if err != nil {
 		return fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
-	rec := &kgo.Record{Topic: p.topic, Key: []byte(eventKey(ev)), Value: value}
-	if err := p.client.ProduceSync(ctx, rec).FirstErr(); err != nil {
-		return fmt.Errorf("produce %s to %s: %w", trackingEventType, p.topic, err)
+	if err := p.producer.Publish(ctx, p.topic, []byte(eventKey(ev)), value); err != nil {
+		return fmt.Errorf("produce %s: %w", trackingEventType, err)
 	}
 	return nil
 }
 
 // Close flushes and shuts down the client.
-func (p *KafkaPublisher) Close() { p.client.Close() }
+func (p *KafkaPublisher) Close() { p.producer.Close() }
 
 // eventKey picks the partition key: session id first (groups a visitor's burst),
 // then anonymous id, then the listing id as a last resort.
@@ -115,7 +105,4 @@ func eventKey(ev *analyticsv1.TrackingEvent) string {
 }
 
 // compile-time assertions.
-var (
-	_ AnalyticsPublisher = (*KafkaPublisher)(nil)
-	_ AnalyticsPublisher = NoopPublisher{}
-)
+var _ AnalyticsPublisher = (*KafkaPublisher)(nil)

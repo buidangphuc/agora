@@ -94,8 +94,8 @@ func (c *Consumer) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		if err := c.runOnce(ctx); err != nil && ctx.Err() == nil {
 			c.up.Store(false)
-			c.logger.Warn("revocation consumer stopped; revocations are NOT enforced until it recovers (fail open)",
-				slog.String("topic", c.topic), slog.Any("err", err))
+			c.logger.WarnContext(ctx, "revocation consumer stopped; revocations are NOT enforced until it recovers (fail open)",
+				"topic", c.topic, "err", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -120,8 +120,8 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 	go c.probeLoop(probeCtx, cl)
 	go c.pruneLoop(probeCtx)
 
-	c.logger.Info("revocation consumer started (no consumer group, from earliest offset)",
-		slog.Any("brokers", c.brokers), slog.String("topic", c.topic))
+	c.logger.InfoContext(ctx, "revocation consumer started (no consumer group, from earliest offset)",
+		"brokers", c.brokers, "topic", c.topic)
 
 	for {
 		fetches := cl.PollFetches(ctx)
@@ -129,13 +129,13 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 			return ctx.Err()
 		}
 		fetches.EachError(func(topic string, part int32, err error) {
-			c.logger.Warn("revocation consumer fetch error",
-				slog.String("topic", topic), slog.Int("partition", int(part)), slog.Any("err", err))
+			c.logger.WarnContext(ctx, "revocation consumer fetch error",
+				"topic", topic, "partition", int(part), "err", err)
 		})
 		fetches.EachRecord(func(r *kgo.Record) {
 			if err := Apply(c.list, r.Value); err != nil {
-				c.logger.Warn("revocation consumer skipped an undecodable record",
-					slog.Int("partition", int(r.Partition)), slog.Int64("offset", r.Offset), slog.Any("err", err))
+				c.logger.WarnContext(ctx, "revocation consumer skipped an undecodable record",
+					"partition", int(r.Partition), "offset", r.Offset, "err", err)
 			}
 		})
 		c.mu.Lock()
@@ -157,9 +157,9 @@ func (c *Consumer) probeLoop(ctx context.Context, cl *kgo.Client) {
 		ok := cl.Ping(pctx) == nil
 		if was := c.up.Swap(ok); was != ok && ctx.Err() == nil {
 			if ok {
-				c.logger.Info("revocation consumer connected to Kafka")
+				c.logger.InfoContext(ctx, "revocation consumer connected to Kafka")
 			} else {
-				c.logger.Warn("revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
+				c.logger.WarnContext(ctx, "revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
 			}
 		}
 	}

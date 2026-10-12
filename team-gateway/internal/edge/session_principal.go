@@ -21,7 +21,7 @@ func HandleSessionPrincipal(e *Edge) http.HandlerFunc {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		claims, err := e.verifyToken(tok)
+		claims, err := e.verifyToken(tok) //nolint:contextcheck // JWKS refresh is deliberately detached from the request: one bounded fetch is shared by all callers
 		if err != nil || claims.Subject == "" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return

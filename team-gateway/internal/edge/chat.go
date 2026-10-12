@@ -11,6 +11,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/chat/v1/chatv1connect"
 )
 
+// ChatForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type ChatForwarder struct {
 	chatv1connect.UnimplementedChatServiceHandler
 	client chatv1.ChatServiceClient
@@ -19,6 +20,7 @@ type ChatForwarder struct {
 	edge   *Edge
 }
 
+// NewChatForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewChatForwarder(client, aiChat chatv1.ChatServiceClient, edge *Edge) *ChatForwarder {
 	return &ChatForwarder{client: client, aiChat: aiChat, edge: edge}
 }
@@ -55,6 +57,7 @@ func (f *ChatForwarder) streamErr(_ context.Context, err error) error {
 	return toConnectErr(err)
 }
 
+// GetOrCreateThread forwards the GetOrCreateThread RPC to the upstream service.
 func (f *ChatForwarder) GetOrCreateThread(
 	ctx context.Context,
 	req *connect.Request[chatv1.GetOrCreateThreadRequest],
@@ -71,6 +74,7 @@ func (f *ChatForwarder) GetOrCreateThread(
 	return connect.NewResponse(out), nil
 }
 
+// ListThreads forwards the ListThreads RPC to the upstream service.
 func (f *ChatForwarder) ListThreads(
 	ctx context.Context,
 	req *connect.Request[chatv1.ListThreadsRequest],
@@ -87,6 +91,7 @@ func (f *ChatForwarder) ListThreads(
 	return connect.NewResponse(out), nil
 }
 
+// GetThreadMessages forwards the GetThreadMessages RPC to the upstream service.
 func (f *ChatForwarder) GetThreadMessages(
 	ctx context.Context,
 	req *connect.Request[chatv1.GetThreadMessagesRequest],
@@ -103,6 +108,7 @@ func (f *ChatForwarder) GetThreadMessages(
 	return connect.NewResponse(out), nil
 }
 
+// SearchMessages forwards the SearchMessages RPC to the upstream service.
 func (f *ChatForwarder) SearchMessages(
 	ctx context.Context,
 	req *connect.Request[chatv1.SearchMessagesRequest],
@@ -119,6 +125,7 @@ func (f *ChatForwarder) SearchMessages(
 	return connect.NewResponse(out), nil
 }
 
+// SendMessage forwards the SendMessage RPC to the upstream service.
 func (f *ChatForwarder) SendMessage(
 	ctx context.Context,
 	req *connect.Request[chatv1.SendMessageRequest],
@@ -135,6 +142,7 @@ func (f *ChatForwarder) SendMessage(
 	return connect.NewResponse(out), nil
 }
 
+// MarkThreadRead forwards the MarkThreadRead RPC to the upstream service.
 func (f *ChatForwarder) MarkThreadRead(
 	ctx context.Context,
 	req *connect.Request[chatv1.MarkThreadReadRequest],

@@ -16,10 +16,12 @@ type ReferralForwarder struct {
 	edge   *Edge
 }
 
+// NewReferralForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewReferralForwarder(client referralv1.ReferralServiceClient, edge *Edge) *ReferralForwarder {
 	return &ReferralForwarder{client: client, edge: edge}
 }
 
+// CreateReferralCode forwards the CreateReferralCode RPC to the upstream service.
 func (f *ReferralForwarder) CreateReferralCode(
 	ctx context.Context,
 	req *connect.Request[referralv1.CreateReferralCodeRequest],
@@ -36,6 +38,7 @@ func (f *ReferralForwarder) CreateReferralCode(
 	return connect.NewResponse(out), nil
 }
 
+// GetMyReferral forwards the GetMyReferral RPC to the upstream service.
 func (f *ReferralForwarder) GetMyReferral(
 	ctx context.Context,
 	req *connect.Request[referralv1.GetMyReferralRequest],
@@ -52,6 +55,7 @@ func (f *ReferralForwarder) GetMyReferral(
 	return connect.NewResponse(out), nil
 }
 
+// RedeemReferral forwards the RedeemReferral RPC to the upstream service.
 func (f *ReferralForwarder) RedeemReferral(
 	ctx context.Context,
 	req *connect.Request[referralv1.RedeemReferralRequest],
@@ -68,6 +72,7 @@ func (f *ReferralForwarder) RedeemReferral(
 	return connect.NewResponse(out), nil
 }
 
+// ListReferralRewards forwards the ListReferralRewards RPC to the upstream service.
 func (f *ReferralForwarder) ListReferralRewards(
 	ctx context.Context,
 	req *connect.Request[referralv1.ListReferralRewardsRequest],

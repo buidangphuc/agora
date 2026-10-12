@@ -17,10 +17,12 @@ type VerificationForwarder struct {
 	edge   *Edge
 }
 
+// NewVerificationForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewVerificationForwarder(client verificationv1.VerificationServiceClient, edge *Edge) *VerificationForwarder {
 	return &VerificationForwarder{client: client, edge: edge}
 }
 
+// SubmitKyc forwards the SubmitKyc RPC to the upstream service.
 func (f *VerificationForwarder) SubmitKyc(
 	ctx context.Context,
 	req *connect.Request[verificationv1.SubmitKycRequest],
@@ -37,6 +39,7 @@ func (f *VerificationForwarder) SubmitKyc(
 	return connect.NewResponse(out), nil
 }
 
+// GetVerificationStatus forwards the GetVerificationStatus RPC to the upstream service.
 func (f *VerificationForwarder) GetVerificationStatus(
 	ctx context.Context,
 	req *connect.Request[verificationv1.GetVerificationStatusRequest],
@@ -53,6 +56,7 @@ func (f *VerificationForwarder) GetVerificationStatus(
 	return connect.NewResponse(out), nil
 }
 
+// ReviewKyc forwards the ReviewKyc RPC to the upstream service.
 func (f *VerificationForwarder) ReviewKyc(
 	ctx context.Context,
 	req *connect.Request[verificationv1.ReviewKycRequest],

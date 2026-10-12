@@ -2,6 +2,7 @@
 // team-identity's RSA *public* keys from JWKS_URL, caches them by `kid`, and
 // refreshes on a TTL or when it meets an unknown `kid` (one bounded forced
 // refresh) so a rotated-in key becomes usable without a redeploy.
+
 package token
 
 import (

@@ -9,16 +9,19 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/payment/v1/paymentv1connect"
 )
 
+// PaymentForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type PaymentForwarder struct {
 	paymentv1connect.UnimplementedPaymentServiceHandler
 	client paymentv1.PaymentServiceClient
 	edge   *Edge
 }
 
+// NewPaymentForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewPaymentForwarder(client paymentv1.PaymentServiceClient, edge *Edge) *PaymentForwarder {
 	return &PaymentForwarder{client: client, edge: edge}
 }
 
+// CreatePayment forwards the CreatePayment RPC to the upstream service.
 func (f *PaymentForwarder) CreatePayment(
 	ctx context.Context,
 	req *connect.Request[paymentv1.CreatePaymentRequest],
@@ -35,6 +38,7 @@ func (f *PaymentForwarder) CreatePayment(
 	return connect.NewResponse(out), nil
 }
 
+// GetPayment forwards the GetPayment RPC to the upstream service.
 func (f *PaymentForwarder) GetPayment(
 	ctx context.Context,
 	req *connect.Request[paymentv1.GetPaymentRequest],
@@ -51,6 +55,7 @@ func (f *PaymentForwarder) GetPayment(
 	return connect.NewResponse(out), nil
 }
 
+// ProcessMockPayment forwards the ProcessMockPayment RPC to the upstream service.
 func (f *PaymentForwarder) ProcessMockPayment(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ProcessMockPaymentRequest],
@@ -67,6 +72,7 @@ func (f *PaymentForwarder) ProcessMockPayment(
 	return connect.NewResponse(out), nil
 }
 
+// RefundPayment forwards the RefundPayment RPC to the upstream service.
 func (f *PaymentForwarder) RefundPayment(
 	ctx context.Context,
 	req *connect.Request[paymentv1.RefundPaymentRequest],
@@ -85,6 +91,7 @@ func (f *PaymentForwarder) RefundPayment(
 
 // ── Seller Wallet & Bank Payouts ──
 
+// GetSellerWallet forwards the GetSellerWallet RPC to the upstream service.
 func (f *PaymentForwarder) GetSellerWallet(
 	ctx context.Context,
 	req *connect.Request[paymentv1.GetSellerWalletRequest],
@@ -101,6 +108,7 @@ func (f *PaymentForwarder) GetSellerWallet(
 	return connect.NewResponse(out), nil
 }
 
+// RequestPayout forwards the RequestPayout RPC to the upstream service.
 func (f *PaymentForwarder) RequestPayout(
 	ctx context.Context,
 	req *connect.Request[paymentv1.RequestPayoutRequest],
@@ -117,6 +125,7 @@ func (f *PaymentForwarder) RequestPayout(
 	return connect.NewResponse(out), nil
 }
 
+// ListPayoutHistory forwards the ListPayoutHistory RPC to the upstream service.
 func (f *PaymentForwarder) ListPayoutHistory(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ListPayoutHistoryRequest],
@@ -135,6 +144,7 @@ func (f *PaymentForwarder) ListPayoutHistory(
 
 // ── Wallet & Ledger ──
 
+// GetWalletBalance forwards the GetWalletBalance RPC to the upstream service.
 func (f *PaymentForwarder) GetWalletBalance(
 	ctx context.Context,
 	req *connect.Request[paymentv1.GetWalletBalanceRequest],
@@ -151,6 +161,7 @@ func (f *PaymentForwarder) GetWalletBalance(
 	return connect.NewResponse(out), nil
 }
 
+// ListLedgerEntries forwards the ListLedgerEntries RPC to the upstream service.
 func (f *PaymentForwarder) ListLedgerEntries(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ListLedgerEntriesRequest],
@@ -167,6 +178,7 @@ func (f *PaymentForwarder) ListLedgerEntries(
 	return connect.NewResponse(out), nil
 }
 
+// RequestWalletPayout forwards the RequestWalletPayout RPC to the upstream service.
 func (f *PaymentForwarder) RequestWalletPayout(
 	ctx context.Context,
 	req *connect.Request[paymentv1.RequestWalletPayoutRequest],
