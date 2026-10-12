@@ -98,7 +98,7 @@ func Run(ctx context.Context, s config.Settings) error {
 
 ### Run(ctx) error and lifecycle
 
-Everything long-running (gRPC server, health poller, consumers, relays) is a component with `Run(ctx) error`. `lifecycle.Run` starts them in an errgroup, returns when the context ends or one fails, then shuts down in a fixed order: run `OnShutdown` hooks (drain health), wait `SHUTDOWN_DRAIN_DELAY_SECONDS` so probes and load balancers see NOT_SERVING, cancel components within `SHUTDOWN_GRACE_SECONDS`, then run the closers.
+Everything long-running (gRPC server, health poller, consumers, relays) is a component with `Run(ctx) error`. `lifecycle.Run` starts them in an errgroup, returns when the context ends or one fails, then shuts down in a fixed order: run `OnShutdown` hooks (drain health), wait `SHUTDOWN_DRAIN_DELAY_SECONDS` so probes and load balancers see NOT_SERVING, cancel components within `SHUTDOWN_GRACE_SECONDS`, then run the closers. `lifecycle.StopAfter(primary, dependents...)` keeps dependents (outbox relayer, sweeper) running until `primary` (the gRPC server) has returned, so in-flight RPCs that enqueue work are drained first.
 
 `GracefulStop` waits for open streams, so a client holding a health `Watch` delays the stop until the grace period ends and the server is force-stopped. That is also how drain is tested: watch health, cancel, see NOT_SERVING while the stream is still open, then close the stream (`TestShutdownDrainsHealthFirst`).
 
@@ -154,7 +154,7 @@ We do not adopt a framework. A framework would bring its own config, logging and
 The SDK is distributed the way ADR-0001 distributes proto.
 
 - `platform-core` owns `packages/go-sdk` and versions it with git tags `go-sdk/vX.Y.Z`.
-- A service vendors the tagged tree into `third_party/go-sdk` with `platform-core/tools/sync-go-sdk.sh <tag> <service-dir>`. The script writes `third_party/go-sdk/VERSION` (tag and commit), adds `replace github.com/buidangphuc/platform-core/packages/go-sdk => ./third_party/go-sdk` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml`, adds a `tool` directive for golangci-lint at the version the SDK pins (`go get -tool`, so `go tool golangci-lint` works), and runs `go mod tidy`.
+- A service vendors the tagged tree into `third_party/go-sdk` with `platform-core/tools/sync-go-sdk.sh <tag> <service-dir>`. The script writes `third_party/go-sdk/VERSION` (tag and commit), adds `replace github.com/buidangphuc/platform-core/packages/go-sdk => ./third_party/go-sdk` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml` (with `local-prefixes` set to the service's module path), runs `buf generate` when the service has a `buf.gen.yaml`, adds a `tool` directive for golangci-lint at the version the SDK pins (`go get -tool`, so `go tool golangci-lint` works), and runs `go mod tidy`.
 - The script checks the tag first and swaps the vendored directory in only after it is fully exported. A failed run changes nothing.
 - An SDK change is a new tag. Services bump deliberately in a PR. The vendored copy is never edited in place.
 - `templates/go-service/Dockerfile` copies `third_party/` before `go mod download` so the replace resolves in the image build.

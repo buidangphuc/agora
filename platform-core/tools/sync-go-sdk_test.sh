@@ -29,18 +29,12 @@ git clone -q --no-hardlinks "$REPO_ROOT" "$TMP/clone"
 git -C "$TMP/clone" tag "$TAG"
 export SDK_REPO="$TMP/clone"
 
-# 2. Scratch copy of team-sharing (+ gitignored generated stubs when present).
+# 2. Scratch copy of team-sharing without generated stubs: the script must
+# produce them itself (buf generate), as a fresh checkout has none.
 SVC="$TMP/team-sharing"
 cp -R "$REPO_ROOT/team-sharing" "$SVC"
-if [ ! -d "$SVC/generated" ]; then
-  COMMON="$(cd "$REPO_ROOT" && cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-  if [ -d "$COMMON/team-sharing/generated" ]; then
-    cp -R "$COMMON/team-sharing/generated" "$SVC/generated"
-  else
-    (cd "$SVC" && buf generate) || fail "cannot obtain generated stubs for team-sharing"
-  fi
-fi
-(cd "$SVC" && go build ./...) || fail "scratch team-sharing does not build before sync"
+rm -rf "$SVC/generated"
+SVC_MOD="$(awk '$1=="module"{print $2; exit}' "$SVC/go.mod")"
 
 # 3. Sync vendors the tagged tree.
 bash "$SYNC" "$TAG" "$SVC" >"$TMP/out.log" 2>&1 || { cat "$TMP/out.log"; fail "sync with an existing tag failed"; }
@@ -58,8 +52,17 @@ else
   grep -qi "warn.*golangci" "$TMP/out.log" || fail "absent .golangci.yml should produce a warning"
   [ ! -f "$SVC/.golangci.yml" ] || fail ".golangci.yml appeared although absent at tag"
 fi
+[ -d "$SVC/generated" ] || fail "sync did not generate the proto stubs"
 (cd "$SVC" && go build ./...) || fail "go build ./... fails after sync"
-pass "sync vendors the tagged tree"
+pass "sync vendors the tagged tree and generates stubs"
+
+# 3a. local-prefixes in the synced lint config is the service module.
+if [ -f "$SVC/.golangci.yml" ]; then
+  grep -A1 'local-prefixes:' "$SVC/.golangci.yml" | grep -q -- "- $SVC_MOD\$" \
+    || fail "local-prefixes is not the service module $SVC_MOD"
+  grep -q 'platform-core$' "$SVC/.golangci.yml" && fail "platform-core prefix left in .golangci.yml"
+  pass "local-prefixes set to $SVC_MOD"
+fi
 
 # 3b. The lint tool is available in the service at the SDK's pinned version.
 LINT_PKG="github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
@@ -92,6 +95,7 @@ pass "unknown tag changes nothing"
 # 6. Fresh service without a prior copy: unknown tag leaves it untouched too.
 FRESH="$TMP/fresh"
 cp -R "$REPO_ROOT/team-sharing" "$FRESH"
+rm -rf "$FRESH/third_party"
 before="$(tree_sum "$FRESH")"
 if bash "$SYNC" "$MISSING_TAG" "$FRESH" >/dev/null 2>&1; then fail "missing tag exited zero on fresh service"; fi
 [ "$(tree_sum "$FRESH")" = "$before" ] || fail "fresh service tree changed after a failed sync"

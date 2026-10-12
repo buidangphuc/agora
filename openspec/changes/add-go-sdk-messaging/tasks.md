@@ -11,8 +11,8 @@ Shared rules:
 
 Owns: `tools/sync-go-sdk.sh`, `tools/sync-go-sdk_test.sh`, `make/go-service.mk`, `templates/go-service/Dockerfile`, `packages/go-sdk/pkg/lifecycle/**`, `docs/ADR/0016-go-service-convention-and-sdk.md` (tooling and lifecycle lines only).
 
-- [ ] 1.1 `TestStopAfterOrdersShutdown`, then implement `lifecycle.StopAfter(primary Component, dependents ...Component) Component`.
-- [ ] 1.2 Extend `sync-go-sdk_test.sh` red first (no `generated/` in the scratch copy, and assert local-prefixes), then fix the script, `make docker` and the template.
+- [x] 1.1 `TestStopAfterOrdersShutdown`, then implement `lifecycle.StopAfter(primary Component, dependents ...Component) Component`.
+- [x] 1.2 Extend `sync-go-sdk_test.sh` red first (no `generated/` in the scratch copy, and assert local-prefixes), then fix the script, `make docker` and the template.
 
 ## 2. Config groups, kafkax, dependencies (wave 1)
 

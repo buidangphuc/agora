@@ -187,3 +187,39 @@ func TestDrainDelayHoldsComponents(t *testing.T) {
 		t.Fatalf("components cancelled %v after the hook, want >= 100ms", gap)
 	}
 }
+
+func TestStopAfterOrdersShutdown(t *testing.T) {
+	var mu sync.Mutex
+	var order []string
+	mark := func(s string) { mu.Lock(); order = append(order, s); mu.Unlock() }
+
+	primary := lifecycle.Func(func(ctx context.Context) error {
+		<-ctx.Done()
+		time.Sleep(50 * time.Millisecond) // draining in-flight work
+		mark("primary stopped")
+		return nil
+	})
+	dependent := lifecycle.Func(func(ctx context.Context) error {
+		if ctx.Err() != nil {
+			t.Error("dependent context cancelled together with the parent")
+		}
+		<-ctx.Done()
+		mark("dependent stopped")
+		return ctx.Err()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- lifecycle.StopAfter(primary, dependent).Run(ctx) }()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	if err := result(t, done); err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("StopAfter = %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(order) != 2 || order[0] != "primary stopped" || order[1] != "dependent stopped" {
+		t.Fatalf("shutdown order = %v, want primary then dependent", order)
+	}
+}

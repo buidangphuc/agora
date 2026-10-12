@@ -164,3 +164,42 @@ func (s *Stack) Close(ctx context.Context) error {
 	}
 	return err
 }
+
+// StopAfter returns a Component that runs primary and the dependents together
+// and stops the dependents only after primary has returned. Cancelling the
+// parent context reaches primary alone, so work that primary drains on the way
+// out (in-flight RPCs that enqueue outbox rows, say) is still seen by the
+// dependents. A dependent that fails cancels primary. Run returns after all
+// of them have returned, with their errors joined.
+func StopAfter(primary Component, dependents ...Component) Component {
+	return Func(func(ctx context.Context) error {
+		primaryCtx, cancelPrimary := context.WithCancel(ctx)
+		defer cancelPrimary()
+		depCtx, cancelDeps := context.WithCancel(context.WithoutCancel(ctx))
+		defer cancelDeps()
+
+		var (
+			wg   sync.WaitGroup
+			mu   sync.Mutex
+			errs []error
+		)
+		for _, d := range dependents {
+			wg.Go(func() {
+				if err := d.Run(depCtx); err != nil {
+					mu.Lock()
+					errs = append(errs, err)
+					mu.Unlock()
+					cancelPrimary()
+				}
+			})
+		}
+
+		primaryErr := primary.Run(primaryCtx)
+		cancelDeps()
+		wg.Wait()
+
+		mu.Lock()
+		defer mu.Unlock()
+		return errors.Join(append([]error{primaryErr}, errs...)...)
+	})
+}

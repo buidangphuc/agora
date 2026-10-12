@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 # Template for Go services (ADR-0016). Copy to the service root.
 # Build:  docker build --build-arg BIN=server --build-arg GRPC_PORT=50065 -t <svc>:dev .
-# The build context is the service dir; third_party/go-sdk must be synced first.
+# The build context is the service dir; third_party/go-sdk must be synced and
+# generated/ must exist (not committed): `make docker` runs both `buf generate`
+# and passes BIN and GRPC_PORT.
 
 FROM golang:1.26 AS build
 WORKDIR /src
