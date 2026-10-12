@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -266,3 +267,47 @@ func TestImportOf5MRowsMeetsTheTimeBudget(t *testing.T) {
 		t.Errorf("import run rows = %d, err %v", n, err)
 	}
 }
+
+// Scenario: Import of a fixture day produces sessions
+// Real GA4 export schema: event_params value is STRUCT(string_value, int_value, float_value, double_value);
+// ga_session_id arrives as int_value, the rest as string_value.
+func TestRun_ImportOfAFixtureDayProducesSessions_IntSessionID(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	vt := "STRUCT(string_value VARCHAR, int_value BIGINT, float_value FLOAT, double_value DOUBLE)"
+	ddl := "CREATE TABLE ev(event_date VARCHAR, event_timestamp BIGINT, event_name VARCHAR, user_pseudo_id VARCHAR, " +
+		"event_params STRUCT(key VARCHAR, value " + vt + ")[], traffic_source STRUCT(name VARCHAR, medium VARCHAR, source VARCHAR))"
+	if _, err := db.Exec(ddl); err != nil {
+		t.Fatal(err)
+	}
+	sp := func(k, v string) string {
+		return "{'key':'" + k + "','value':{'string_value':" + q(v) + ",'int_value':NULL,'float_value':NULL,'double_value':NULL}}"
+	}
+	params := "[{'key':'ga_session_id','value':{'string_value':NULL,'int_value':1700000123,'float_value':NULL,'double_value':NULL}}," +
+		sp("source", "google") + "," + sp("medium", "cpc") + "," + sp("campaign", "spring") + "," +
+		sp("page_location", "https://agora.test/p/1") + "]"
+	for _, m := range []int{0, 9} {
+		ins := "INSERT INTO ev VALUES ('20240305', " + strconvI(at(d1, 10, m).UnixMicro()) + ", 'view_item', 'u1', " + params +
+			"::STRUCT(key VARCHAR, value " + vt + ")[], {'name':'spring','medium':'cpc','source':'google'})"
+		if _, err := db.Exec(ins); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec("COPY ev TO " + q(filepath.Join(dir, "events_20240305.parquet")) + " (FORMAT PARQUET)"); err != nil {
+		t.Fatal(err)
+	}
+	w := open(t)
+	if _, err := run(t, w, dir, d1); err != nil {
+		t.Fatalf("import with int_value ga_session_id failed: %v", err)
+	}
+	got := sessions(t, w, "2024-03-05")
+	if len(got) != 1 || got[0].sid != "1700000123" {
+		t.Fatalf("want 1 session with session_id \"1700000123\", got %+v", got)
+	}
+}
+
+func strconvI(i int64) string { return strconv.FormatInt(i, 10) }

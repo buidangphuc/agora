@@ -84,12 +84,15 @@ def _write_fixture(day: date, sessions: list[dict], extra_rows: list[tuple] | No
     con.execute(
         "CREATE TABLE ev(event_date VARCHAR, event_timestamp BIGINT, event_name VARCHAR, "
         "user_pseudo_id VARCHAR, event_params STRUCT(key VARCHAR, value STRUCT(string_value "
-        "VARCHAR, int_value BIGINT))[], traffic_source STRUCT(name VARCHAR, medium VARCHAR, "
+        "VARCHAR, int_value BIGINT, float_value DOUBLE, double_value DOUBLE))[], traffic_source STRUCT(name VARCHAR, medium VARCHAR, "
         "source VARCHAR))"
     )
 
     def sp(key: str, s: str | None = None, i: int | None = None) -> dict:
-        return {"key": key, "value": {"string_value": s, "int_value": i}}
+        return {
+            "key": key,
+            "value": {"string_value": s, "int_value": i, "float_value": None, "double_value": None},
+        }
 
     rows = []
     for s in sessions:
@@ -254,7 +257,7 @@ def fixture_big(world: World, n: int) -> None:
         f"""COPY (SELECT '{_compact(day)}' AS event_date,
             {base} + i * 17 AS event_timestamp, 'view_item' AS event_name,
             CAST(i % 500000 AS VARCHAR) || '.1' AS user_pseudo_id,
-            [{{'key': 'ga_session_id', 'value': {{'string_value': NULL, 'int_value': i % 500000}}}}]
+            [{{'key': 'ga_session_id', 'value': {{'string_value': NULL::VARCHAR, 'int_value': (i % 500000)::BIGINT, 'float_value': NULL::DOUBLE, 'double_value': NULL::DOUBLE}}}}]
               AS event_params,
             {{'name': 'bulk', 'medium': 'cpc', 'source': 'google'}} AS traffic_source
           FROM range({n}) t(i))
@@ -613,7 +616,7 @@ def export_yesterday_far_above(world: World) -> None:
         f"""COPY (SELECT '{_compact(day)}' AS event_date,
             {base} + i * 17 AS event_timestamp, 'view_item' AS event_name,
             CAST(i % 1000 AS VARCHAR) || '.1' AS user_pseudo_id,
-            [{{'key': 'ga_session_id', 'value': {{'string_value': NULL, 'int_value': i % 1000}}}}]
+            [{{'key': 'ga_session_id', 'value': {{'string_value': NULL::VARCHAR, 'int_value': (i % 1000)::BIGINT, 'float_value': NULL::DOUBLE, 'double_value': NULL::DOUBLE}}}}]
               AS event_params,
             {{'name': '(direct)', 'medium': '(none)', 'source': '(direct)'}} AS traffic_source
           FROM range(100000) t(i))
