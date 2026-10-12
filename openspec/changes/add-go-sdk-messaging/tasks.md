@@ -113,4 +113,4 @@ func Bounded(ctx context.Context, d time.Duration) (context.Context, context.Can
 
 ## 6. Close (orchestrator)
 
-- [ ] 6.1 Add FEATURES entries; run `ci_local.sh`; tag `go-sdk/v0.2.0` locally (do not push).
+- [x] 6.1 Add FEATURES entries; run `ci_local.sh`; tag `go-sdk/v0.2.0` locally (do not push).

@@ -823,3 +823,209 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+  - id: go-sdk.headers-carry-trace-and-request-ids
+    title: Headers carry trace and request ids
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Publish runs with a context holding a span and request id r1
+    - Then the produced record has a traceparent header for that span and an x-request-id header r1
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax
+      TestPublishAddsTraceAndRequestHeaders (testkit Redpanda).
+  - id: go-sdk.produce-failure-is-returned-not-swallowed
+    title: Produce failure is returned, not swallowed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the broker is unreachable and the record delivery timeout elapses
+    - Then Publish returns a non-nil error
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestPublishReturnsErrorWhenBrokerDown.
+  - id: go-sdk.a-published-row-is-not-relayed-twice
+    title: A published row is not relayed twice
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a row is enqueued and two relayers poll concurrently
+    - Then it is published exactly once and marked published
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/outbox
+      TestConcurrentRelayersPublishOnce.
+  - id: go-sdk.a-failing-row-backs-off-and-is-parked
+    title: A failing row backs off and is parked
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When publishing a row fails MaxAttempts times
+    - Then its available_at grows between attempts and its status ends as failed, while other rows still
+      publish
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestFailingRowBacksOffThenParks.
+  - id: go-sdk.enqueue-rolls-back-with-the-business-transaction
+    title: Enqueue rolls back with the business transaction
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When EnqueueTx runs in a transaction that is rolled back
+    - Then no outbox row exists
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestEnqueueRollsBackWithTx.
+  - id: go-sdk.poison-record-goes-to-the-dlq-and-the-offset-moves-on
+    title: Poison record goes to the DLQ and the offset moves on
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the handler returns consume.Permanent(err) for one record
+    - Then the record is on the DLQ topic with an error header, it is not retried, and the next record is
+      handled
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume
+      TestPermanentErrorGoesToDLQ (testkit Redpanda).
+  - id: go-sdk.dlq-failure-stops-without-committing
+    title: DLQ failure stops without committing
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When handling fails and the DLQ produce also fails
+    - Then Run returns an error and, after restart, the same record is delivered again
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestDLQFailureDoesNotCommit.
+  - id: go-sdk.same-event-for-two-consumers-is-processed-by-both
+    title: Same event for two consumers is processed by both
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When consumers a and b each see event e1 once
+    - Then both get seen=false, and a second call for a gets seen=true
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestDedupeIsPerConsumer.
+  - id: go-sdk.rolled-back-handling-is-not-marked-processed
+    title: Rolled-back handling is not marked processed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Seen runs in a transaction that is rolled back
+    - Then a later Seen for the same pair returns seen=false
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestDedupeRollsBackWithTx.
+  - id: go-sdk.worker-outlives-the-server-during-shutdown
+    title: Worker outlives the server during shutdown
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a StopAfter(server, worker) component's context is cancelled
+    - Then worker observes cancellation only after server has returned, never before
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/lifecycle
+      TestStopAfterOrdersShutdown.
+  - id: go-sdk.service-principal-replaces-the-caller-and-the-buyer-is-not-forwarded
+    title: Service principal replaces the caller and the buyer is not forwarded
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a call is made with AsService("team-order", "listing.read") while the incoming principal is a
+      buyer
+    - Then the upstream sees x-principal-id=team-order, type service, scope listing.read, and not the buyer
+      id
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
+      TestAsServiceReplacesPrincipal.
+  - id: go-sdk.unreachable-flipt-returns-the-default
+    title: Unreachable Flipt returns the default
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Flipt is unreachable and BooleanEnabled(ctx, "checkout-enabled", true) is called
+    - Then it returns true within the eval timeout
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
+      TestUnreachableFliptReturnsDefault.
+  - id: go-sdk.sync-works-on-a-fresh-checkout-without-generated-code
+    title: Sync works on a fresh checkout without generated code
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the script runs on a scratch service with no generated/
+    - Then it generates the stubs, the service builds, and .golangci.yml names the service module as local
+      prefix
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/tools/sync-go-sdk_test.sh.
