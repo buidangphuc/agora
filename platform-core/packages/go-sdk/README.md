@@ -48,7 +48,22 @@ To upgrade, run the script again with the new tag and review the diff in a PR. D
 The layout, wiring order and test conventions are in ADR-0016; `examples/hello` is the working version of them.
 
 1. Copy `examples/hello` into the service and rename the module path in the imports, the binary under `cmd/`, and `const service` in `internal/app/app.go`.
-2. Keep `cmd/<binary>/main.go` as is: `config.Load`, then `app.Run`.
+2. Keep `cmd/<binary>/main.go` as is; it owns signals, settings and the exit code:
+
+   ```go
+   func main() {
+   	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+   	defer stop()
+
+   	s, err := config.Load()
+   	if err != nil {
+   		log.Fatal(err)
+   	}
+   	if err := app.Run(ctx, s); err != nil {
+   		log.Fatal(err)
+   	}
+   }
+   ```
 3. In `internal/config`, keep `Settings`, `Validate`, `Load` and `TestEnvExampleInSync`; add service fields and their keys to `.env.example` at the service root.
 4. Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain packages. Handlers stay thin: `auth.Require*`, domain call, `grpcx.Status` with your `ErrorTable`. Set `GRPC_REFLECTION_ENABLED=true` only once the service has generated descriptors.
 5. Drop `internal/store` if the service has no database, otherwise put `NNNN_name.up.sql`/`.down.sql` files in `internal/store/migrations`. Add `internal/events` only when needed.

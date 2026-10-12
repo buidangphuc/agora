@@ -18,7 +18,7 @@ The 15 Go services re-implement the platform layer (config, logging, tracing, au
 ### Layout
 
 ```
-cmd/<binary>/main.go     # under 20 lines: config.Load, then app.Run(ctx, settings)
+cmd/<binary>/main.go     # signals, config.Load, app.Run(ctx, settings), exit code
 internal/app/            # composition root; has `const service = "<name>"`
 internal/config/         # Settings struct, Validate, Load; its test checks ../../.env.example
 internal/rpc/            # transport (package rpc): handlers, error table; no business logic
@@ -32,7 +32,24 @@ internal/events/         # only if the service publishes or consumes events
 
 ### Settings and .env.example
 
-`main` loads settings and hands them to `app.Run`, so tests build `Settings` by hand:
+`main` owns the process: it creates the signal context, loads settings, calls `app.Run` and exits non-zero on error. `app.Run` never touches signals, and tests build `Settings` by hand. This is `cmd/hello/main.go`:
+
+```go
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	s, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := app.Run(ctx, s); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+`Settings`:
 
 ```go
 type Settings struct {
@@ -62,9 +79,10 @@ func Run(ctx context.Context, s config.Settings) error {
 	stack.Push(shutdown)
 	health := healthx.New(healthx.DefaultInterval, logger)
 	if s.Postgres.Enabled {
-		// migrate.Up(ctx, url, fsys) then pgx.Open; on failure outside ENV=local:
-		//   return errors.Join(err, stack.Close(ctx))
-		// else health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
+		// pool, err := pgx.Open(...): unreachable => warn and go on only when ENV=local,
+		//   otherwise return errors.Join(err, stack.Close(ctx))
+		// migrate.Up(ctx, url, fsys): failure ALWAYS returns errors.Join(err, stack.Close(ctx))
+		// health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
 	}
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, rpc.NewHandler(logger))
@@ -77,7 +95,7 @@ func Run(ctx context.Context, s config.Settings) error {
 
 `examples/hello/internal/app/app.go` is the full version.
 
-- Migrations: files `NNNN_name.up.sql` / `.down.sql` (four digits) in `internal/store/migrations`, embedded and passed through `fs.Sub(files, "migrations")` to `migrate.Up`, which runs before `pgx.Open` and only when the database is enabled.
+- Migrations: files `NNNN_name.up.sql` / `.down.sql` (four digits) in `internal/store/migrations`, embedded and passed through `fs.Sub(files, "migrations")` to `migrate.Up`. They run only when the database is enabled, once `pgx.Open` has shown the database is reachable and before health and the server start. An unreachable database is tolerated only with `ENV=local` (warning, no checker). A migration failure fails boot in every environment, `ENV=local` included.
 - Health: one `healthx.Health`, interval `healthx.DefaultInterval`, a component (`lifecycle.Func(health.Run)`), `OnShutdown: health.Drain`. A checker is named after its dependency (`"postgres"`).
 
 ### Run(ctx) error and lifecycle
