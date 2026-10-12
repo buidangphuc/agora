@@ -26,13 +26,25 @@ function buildCsp() {
     process.env.NEXT_PUBLIC_MEDIA_BASE_URL ||
       "http://localhost:9000/listing-images",
   );
+  const dev = process.env.NODE_ENV !== "production";
   const uniq = (xs) => [...new Set(xs.filter(Boolean))];
   const directives = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "'unsafe-inline'", ...google],
+    "script-src": [
+      "'self'",
+      "'unsafe-inline'",
+      ...(dev ? ["'unsafe-eval'"] : []),
+      ...google,
+    ],
     "style-src": ["'self'", "'unsafe-inline'"],
-    "connect-src": uniq(["'self'", gateway, media, ...google]),
-    "img-src": uniq(["'self'", "data:", media, ...google]),
+    "connect-src": uniq([
+      "'self'",
+      gateway,
+      media,
+      ...(dev ? ["ws://localhost:*", "ws://127.0.0.1:*"] : []),
+      ...google,
+    ]),
+    "img-src": uniq(["'self'", "data:", "blob:", media, ...google]),
   };
   return Object.entries(directives)
     .map(([k, v]) => `${k} ${v.join(" ")}`)
