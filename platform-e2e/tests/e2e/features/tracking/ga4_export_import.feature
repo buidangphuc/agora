@@ -104,8 +104,7 @@ Feature: GA4 export import, attributed channel funnel and reconciliation
 
   Scenario: Divergence beyond the threshold raises the alert
     Given the seeded admin
-    And a visitor has posted 20 views today
-    And a GA4 export for today whose view count is half of the first-party view count
+    And a GA4 export for yesterday with 100000 view events, far above the first-party count
     When the ga4import job runs for the fixture date
     And the admin reads the tracking quality report for the last hour
     Then the report status is DEGRADED with reason ga4_divergence

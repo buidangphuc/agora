@@ -598,38 +598,29 @@ def status_ok_for_ga4(world: World) -> None:
         assert set(rep.get("reasons", [])) - {"ga4_missing"}, rep  # degraded only by other reasons
 
 
-@given(parsers.parse("a visitor has posted {n:d} views today"))
-def posted_views_today(world: World, n: int) -> None:
-    adq.post_views(n)
-    time.sleep(5)
+@given("a GA4 export for yesterday with 100000 view events, far above the first-party count")
+def export_yesterday_far_above(world: World) -> None:
+    """The service reconciles YESTERDAY (UTC): GA4 views >> first-party views, ratio >> threshold."""
+    import duckdb
 
-
-_TODAY_VIEWS = (
-    "SELECT count(*) FROM tracking_events WHERE lower(CAST(event_type AS VARCHAR)) IN "
-    "('view','event_type_view') AND CAST(occurred_at AS DATE) = ?"
-)
-
-
-@given("a GA4 export for today whose view count is half of the first-party view count")
-def export_half(world: World) -> None:
-    day = datetime.now(UTC).date()
-    fp = int(tii.warehouse_rows(_TODAY_VIEWS, [day], until=lambda r: r[0][0] >= 20)[0][0])
-    ga4 = fp // 2
-    now = datetime.now(UTC)
-    ts = {"name": "(direct)", "medium": "(none)", "source": "(direct)"}
-    rows = [
-        (
-            _compact(day),
-            int((now - timedelta(minutes=5, seconds=i)).timestamp() * 1_000_000),
-            "view_item",
-            f"9{i}.1",
-            [{"key": "ga_session_id", "value": {"string_value": None, "int_value": 1}}],
-            ts,
-        )
-        for i in range(ga4)
-    ]
-    d = _write_fixture(day, [], extra_rows=rows)
-    _stage(d, tii.analytics_container())
+    day = datetime.now(UTC).date() - timedelta(days=1)
+    root = Path(tempfile.mkdtemp(prefix="ga4-fx-"))
+    out = root / "ga4_fixture"
+    out.mkdir()
+    base = int(_t(day, 0, 0).timestamp() * 1_000_000)
+    con = duckdb.connect()
+    con.execute(
+        f"""COPY (SELECT '{_compact(day)}' AS event_date,
+            {base} + i * 17 AS event_timestamp, 'view_item' AS event_name,
+            CAST(i % 1000 AS VARCHAR) || '.1' AS user_pseudo_id,
+            [{{'key': 'ga_session_id', 'value': {{'string_value': NULL, 'int_value': i % 1000}}}}]
+              AS event_params,
+            {{'name': '(direct)', 'medium': '(none)', 'source': '(direct)'}} AS traffic_source
+          FROM range(100000) t(i))
+          TO '{out / ("events_" + _compact(day) + ".parquet")}' (FORMAT PARQUET)"""
+    )
+    con.close()
+    _stage(out, tii.analytics_container())
     _x(world)["g4_dates"] = [day]
     _x(world)["g4_date"] = day
 
