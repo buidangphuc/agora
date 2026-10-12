@@ -1,4 +1,4 @@
-package consumer
+package events
 
 import (
 	"context"
@@ -81,7 +81,7 @@ func newUserEventHandler(name string, notif NotificationCreator, prefs PrefsRead
 func decodeEnvelope(value []byte) (*eventsv1.EventEnvelope, error) {
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(value, &env); err != nil {
-		return nil, fmt.Errorf("%w: unmarshal envelope: %v", ErrPermanent, err)
+		return nil, fmt.Errorf("%w: unmarshal envelope: %w", ErrPermanent, err)
 	}
 	return &env, nil
 }
@@ -118,14 +118,14 @@ func (h *userEventHandler) notify(ctx context.Context, n *notificationv1.Notific
 	}
 	if enabled, ok := prefs.GetTypeEnabled()[n.GetType().String()]; ok && !enabled {
 		h.logger.InfoContext(ctx, "notification skipped: type disabled by user",
-			slog.String("user_id", n.GetUserId()), slog.String("type", n.GetType().String()))
+			"user_id", n.GetUserId(), "type", n.GetType().String())
 		return nil
 	}
 	if _, err := h.notif.CreateNotification(ctx, n); err != nil {
 		return fmt.Errorf("create notification for user %q: %w", n.GetUserId(), err)
 	}
 	h.logger.InfoContext(ctx, "notification created",
-		slog.String("user_id", n.GetUserId()), slog.String("type", n.GetType().String()))
+		"user_id", n.GetUserId(), "type", n.GetType().String())
 	return nil
 }
 
@@ -179,7 +179,7 @@ func (c *ChatConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEn
 	return c.h.apply(ctx, env.GetEventId(), func() error {
 		var m chatv1.ChatMessage
 		if err := proto.Unmarshal(env.GetPayload(), &m); err != nil {
-			return fmt.Errorf("%w: unmarshal ChatMessage: %v", ErrPermanent, err)
+			return fmt.Errorf("%w: unmarshal ChatMessage: %w", ErrPermanent, err)
 		}
 		if m.GetThreadId() == "" {
 			return fmt.Errorf("%w: ChatMessage missing thread_id", ErrPermanent)
@@ -188,7 +188,7 @@ func (c *ChatConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEn
 		if recipient == "" {
 			// Published before recipient_id existed: nobody to notify.
 			c.h.logger.WarnContext(ctx, "chat event without recipient_id; skipping",
-				slog.String("thread_id", m.GetThreadId()))
+				"thread_id", m.GetThreadId())
 			return nil
 		}
 		if recipient == m.GetSenderId() {
@@ -210,11 +210,6 @@ func (c *ChatConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEn
 			LinkUrl: "/chat/" + m.GetThreadId(),
 		})
 	})
-}
-
-// Run consumes chat.events until ctx is cancelled.
-func (c *ChatConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
-	return runLoop(ctx, c.h.logger, c.HandleRaw, reader, dlq, cfg)
 }
 
 // ── order.events ──
@@ -245,7 +240,7 @@ func (c *OrderConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventE
 	return c.h.apply(ctx, env.GetEventId(), func() error {
 		var e orderv1.OrderShipped
 		if err := proto.Unmarshal(env.GetPayload(), &e); err != nil {
-			return fmt.Errorf("%w: unmarshal OrderShipped: %v", ErrPermanent, err)
+			return fmt.Errorf("%w: unmarshal OrderShipped: %w", ErrPermanent, err)
 		}
 		if e.GetOrderId() == "" || e.GetBuyerId() == "" {
 			return fmt.Errorf("%w: OrderShipped missing order_id or buyer_id", ErrPermanent)
@@ -264,16 +259,11 @@ func (c *OrderConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventE
 	})
 }
 
-// Run consumes order.events until ctx is cancelled.
-func (c *OrderConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
-	return runLoop(ctx, c.h.logger, c.HandleRaw, reader, dlq, cfg)
-}
-
-// truncateRunes returns the first max runes of s (not bytes: Vietnamese text).
-func truncateRunes(s string, max int) string {
+// truncateRunes returns the first limit runes of s (not bytes: Vietnamese text).
+func truncateRunes(s string, limit int) string {
 	r := []rune(s)
-	if len(r) <= max {
+	if len(r) <= limit {
 		return s
 	}
-	return string(r[:max])
+	return string(r[:limit])
 }

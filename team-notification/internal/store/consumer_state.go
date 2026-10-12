@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"context"
@@ -7,23 +7,34 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
+	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
 )
 
+// processedEventsTable is the existing dedupe ledger (migration 004). Its columns
+// are exactly the SDK ledger's: (consumer, event_id, processed_at).
+const processedEventsTable = "processed_events"
+
 // PostgresProcessedEventRepo is the durable dedupe ledger (processed_events). It
-// satisfies consumer.Deduper.
+// satisfies events.Deduper. The mark is the SDK's consume.Dedupe on the existing
+// table; the lookup is a plain SELECT because the SDK ledger has no read-only
+// check and this service records an event after its effect, not before.
 type PostgresProcessedEventRepo struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	dedupe consume.Dedupe
 }
 
+// NewPostgresProcessedEventRepo returns the ledger over pool.
 func NewPostgresProcessedEventRepo(pool *pgxpool.Pool) *PostgresProcessedEventRepo {
-	return &PostgresProcessedEventRepo{pool: pool}
+	return &PostgresProcessedEventRepo{pool: pool, dedupe: consume.NewDedupe(processedEventsTable)}
 }
 
 // IsProcessed reports whether eventID was already applied for consumer.
 func (r *PostgresProcessedEventRepo) IsProcessed(ctx context.Context, consumer, eventID string) (bool, error) {
 	var one int
 	err := r.pool.QueryRow(ctx,
-		`SELECT 1 FROM processed_events WHERE consumer = $1 AND event_id = $2`, consumer, eventID).Scan(&one)
+		`SELECT 1 FROM `+processedEventsTable+` WHERE consumer = $1 AND event_id = $2`, consumer, eventID).Scan(&one)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -35,12 +46,16 @@ func (r *PostgresProcessedEventRepo) IsProcessed(ctx context.Context, consumer, 
 
 // MarkProcessed records eventID; it reports whether the row was newly inserted.
 func (r *PostgresProcessedEventRepo) MarkProcessed(ctx context.Context, consumer, eventID string) (bool, error) {
-	tag, err := r.pool.Exec(ctx,
-		`INSERT INTO processed_events (consumer, event_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, consumer, eventID)
+	var seen bool
+	err := sdkpgx.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		var err error
+		seen, err = r.dedupe.Seen(ctx, tx, consumer, eventID)
+		return err
+	})
 	if err != nil {
 		return false, fmt.Errorf("mark processed event: %w", err)
 	}
-	return tag.RowsAffected() == 1, nil
+	return !seen, nil
 }
 
 // PostgresListingPriceStore keeps the last-seen price per listing in
@@ -49,6 +64,7 @@ type PostgresListingPriceStore struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresListingPriceStore returns the price store over pool.
 func NewPostgresListingPriceStore(pool *pgxpool.Pool) *PostgresListingPriceStore {
 	return &PostgresListingPriceStore{pool: pool}
 }
@@ -86,6 +102,7 @@ type PostgresListingStockStore struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresListingStockStore returns the stock store over pool.
 func NewPostgresListingStockStore(pool *pgxpool.Pool) *PostgresListingStockStore {
 	return &PostgresListingStockStore{pool: pool}
 }

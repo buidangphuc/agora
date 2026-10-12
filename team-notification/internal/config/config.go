@@ -1,36 +1,61 @@
+// Package config holds team-notification's settings: the SDK groups it uses plus
+// its own upstream and consumer settings, bound from environment variables.
 package config
 
-import (
-	"os"
-	"strconv"
-)
+import sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
-type Config struct {
-	GRPCPort    int
-	DatabaseURL string
-	KafkaBroker string
-
-	// Upstream gRPC addresses for chat sender names: team-domain (shop display
-	// name via BatchGetStorefronts) and team-identity (GetPublicProfiles).
-	DomainAddr   string
-	IdentityAddr string
+// Upstream holds the addresses of the services that name a chat sender:
+// team-domain (shop display name) and team-identity (user display name).
+type Upstream struct {
+	DomainAddr   string `env:"UPSTREAM_DOMAIN_ADDR" default:"localhost:50051"`
+	IdentityAddr string `env:"UPSTREAM_IDENTITY_ADDR" default:"localhost:50053"`
 }
 
-func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50058"))
-	return Config{
-		GRPCPort:    port,
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://notification_svc:notification_pass@localhost:5440/notification_db?sslmode=disable"),
-		KafkaBroker: getEnv("KAFKA_BROKER", "localhost:19092"),
+// ListingEvents is the listing.events consumer: topic, dead-letter topic and
+// consumer group.
+type ListingEvents struct {
+	Topic    string `env:"LISTING_EVENTS_TOPIC" default:"listing.events"`
+	DLQTopic string `env:"LISTING_EVENTS_DLQ_TOPIC" default:"listing.events.dlq"`
+	Group    string `env:"NOTIFICATION_LISTING_CONSUMER_GROUP" default:"team-notification.listing"`
+}
 
-		DomainAddr:   getEnv("UPSTREAM_DOMAIN_ADDR", "localhost:50051"),
-		IdentityAddr: getEnv("UPSTREAM_IDENTITY_ADDR", "localhost:50053"),
+// ChatEvents is the chat.events consumer.
+type ChatEvents struct {
+	Topic    string `env:"CHAT_EVENTS_TOPIC" default:"chat.events"`
+	DLQTopic string `env:"CHAT_EVENTS_DLQ_TOPIC" default:"chat.events.dlq"`
+	Group    string `env:"NOTIFICATION_CHAT_CONSUMER_GROUP" default:"team-notification.chat"`
+}
+
+// OrderEvents is the order.events consumer.
+type OrderEvents struct {
+	Topic    string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
+	DLQTopic string `env:"ORDER_EVENTS_DLQ_TOPIC" default:"order.events.dlq"`
+	Group    string `env:"NOTIFICATION_ORDER_CONSUMER_GROUP" default:"team-notification.order"`
+}
+
+// Settings is everything the service reads from the environment. Runtime and
+// GRPC are embedded because nothing else collides with their fields; the other
+// groups are named because several have an Enabled or Topic field.
+type Settings struct {
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
+	Kafka    sdkconfig.Kafka
+	Upstream Upstream
+	Listing  ListingEvents
+	Chat     ChatEvents
+	Order    OrderEvents
+}
+
+// Validate runs after parsing; sdkconfig.Load calls it. It replaces the hook
+// Settings would promote from the embedded GRPC, so it calls that one too.
+func (s Settings) Validate() error {
+	if err := s.GRPC.Validate(); err != nil {
+		return err
 	}
+	return s.Postgres.Validate()
 }
 
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return def
-}
+// Load reads Settings from the environment and validates it.
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

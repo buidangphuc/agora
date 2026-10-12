@@ -1,4 +1,4 @@
-package consumer
+package events
 
 import (
 	"context"
@@ -12,16 +12,16 @@ import (
 	chatv1 "github.com/buidangphuc/team-notification/generated/platform/chat/v1"
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
 	orderv1 "github.com/buidangphuc/team-notification/generated/platform/order/v1"
-	"github.com/buidangphuc/team-notification/internal/repository"
-	"github.com/buidangphuc/team-notification/internal/service"
+	"github.com/buidangphuc/team-notification/internal/notification"
+	"github.com/buidangphuc/team-notification/internal/store"
 )
 
-func newPrefs() (*service.PrefsService, *repository.InMemoryNotificationPrefsRepo) {
-	repo := repository.NewInMemoryNotificationPrefsRepo()
-	return service.NewPrefsService(repo), repo
+func newPrefs() (*notification.PrefsService, *store.InMemoryNotificationPrefsRepo) {
+	repo := store.NewInMemoryNotificationPrefsRepo()
+	return notification.NewPrefsService(repo), repo
 }
 
-func disable(t *testing.T, repo *repository.InMemoryNotificationPrefsRepo, user string, typ notificationv1.NotificationType) {
+func disable(t *testing.T, repo *store.InMemoryNotificationPrefsRepo, user string, typ notificationv1.NotificationType) {
 	t.Helper()
 	_, err := repo.Upsert(context.Background(), user, &notificationv1.NotificationPrefs{
 		TypeEnabled: map[string]bool{typ.String(): false},

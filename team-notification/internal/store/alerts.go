@@ -1,4 +1,6 @@
-package repository
+// Package store is team-notification's persistence: the Postgres repositories
+// (with in-memory twins for tests) behind the use cases and the consumers.
+package store
 
 import (
 	"context"
@@ -40,14 +42,17 @@ func newSubscriptionID() string { return "alert_" + uuid.NewString()[:8] }
 
 // ── Postgres implementation ──
 
+// PostgresAlertSubscriptionRepo is the AlertSubscriptionRepository over alert_subscriptions.
 type PostgresAlertSubscriptionRepo struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresAlertSubscriptionRepo returns the repository over pool.
 func NewPostgresAlertSubscriptionRepo(pool *pgxpool.Pool) *PostgresAlertSubscriptionRepo {
 	return &PostgresAlertSubscriptionRepo{pool: pool}
 }
 
+// Create persists the subscription, or returns the existing row for the same (user, listing, type).
 func (r *PostgresAlertSubscriptionRepo) Create(ctx context.Context, sub *notificationv1.AlertSubscription) (*notificationv1.AlertSubscription, error) {
 	if sub.Id == "" {
 		sub.Id = newSubscriptionID()
@@ -69,11 +74,13 @@ func (r *PostgresAlertSubscriptionRepo) Create(ctx context.Context, sub *notific
 	return sub, nil
 }
 
+// Delete removes the user's subscription; a missing or foreign id is a no-op.
 func (r *PostgresAlertSubscriptionRepo) Delete(ctx context.Context, id, userID string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM alert_subscriptions WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
 }
 
+// ListByUser returns the user's subscriptions.
 func (r *PostgresAlertSubscriptionRepo) ListByUser(ctx context.Context, userID string) ([]*notificationv1.AlertSubscription, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, user_id, listing_id, type
@@ -87,6 +94,7 @@ func (r *PostgresAlertSubscriptionRepo) ListByUser(ctx context.Context, userID s
 	return scanSubscriptions(rows)
 }
 
+// ListByListingAndType returns every subscription for the listing and alert type.
 func (r *PostgresAlertSubscriptionRepo) ListByListingAndType(ctx context.Context, listingID string, alertType notificationv1.AlertType) ([]*notificationv1.AlertSubscription, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, user_id, listing_id, type
@@ -103,7 +111,7 @@ func scanSubscriptions(rows pgx.Rows) ([]*notificationv1.AlertSubscription, erro
 	var subs []*notificationv1.AlertSubscription
 	for rows.Next() {
 		var s notificationv1.AlertSubscription
-		var t int
+		var t int32
 		if err := rows.Scan(&s.Id, &s.UserId, &s.ListingId, &t); err != nil {
 			return nil, err
 		}
@@ -115,15 +123,18 @@ func scanSubscriptions(rows pgx.Rows) ([]*notificationv1.AlertSubscription, erro
 
 // ── In-memory implementation ──
 
+// InMemoryAlertSubscriptionRepo is a process-local AlertSubscriptionRepository, for tests.
 type InMemoryAlertSubscriptionRepo struct {
 	mu   sync.Mutex
 	byID map[string]*notificationv1.AlertSubscription
 }
 
+// NewInMemoryAlertSubscriptionRepo returns an empty in-memory repository.
 func NewInMemoryAlertSubscriptionRepo() *InMemoryAlertSubscriptionRepo {
 	return &InMemoryAlertSubscriptionRepo{byID: make(map[string]*notificationv1.AlertSubscription)}
 }
 
+// Create stores the subscription, or returns the existing one for the same (user, listing, type).
 func (r *InMemoryAlertSubscriptionRepo) Create(_ context.Context, sub *notificationv1.AlertSubscription) (*notificationv1.AlertSubscription, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -141,6 +152,7 @@ func (r *InMemoryAlertSubscriptionRepo) Create(_ context.Context, sub *notificat
 	return cloneSub(stored), nil
 }
 
+// Delete removes the user's subscription; a missing or foreign id is a no-op.
 func (r *InMemoryAlertSubscriptionRepo) Delete(_ context.Context, id, userID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -151,6 +163,7 @@ func (r *InMemoryAlertSubscriptionRepo) Delete(_ context.Context, id, userID str
 	return nil
 }
 
+// ListByUser returns the user's subscriptions.
 func (r *InMemoryAlertSubscriptionRepo) ListByUser(_ context.Context, userID string) ([]*notificationv1.AlertSubscription, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -164,6 +177,7 @@ func (r *InMemoryAlertSubscriptionRepo) ListByUser(_ context.Context, userID str
 	return out, nil
 }
 
+// ListByListingAndType returns every subscription for the listing and alert type.
 func (r *InMemoryAlertSubscriptionRepo) ListByListingAndType(_ context.Context, listingID string, alertType notificationv1.AlertType) ([]*notificationv1.AlertSubscription, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

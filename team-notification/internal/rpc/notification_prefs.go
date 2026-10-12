@@ -1,27 +1,29 @@
-package handler
+package rpc
 
 import (
 	"context"
-	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
-	"github.com/buidangphuc/team-notification/internal/service"
+	"github.com/buidangphuc/team-notification/internal/notification"
 )
+
+var prefsErrs = grpcx.ErrorTable{
+	notification.ErrEmptyUser: codes.InvalidArgument,
+	notification.ErrNilPrefs:  codes.InvalidArgument,
+}
 
 // mapPrefsErr turns a service validation error into the right gRPC status.
 func mapPrefsErr(ctx context.Context, err error) error {
-	switch {
-	case errors.Is(err, service.ErrEmptyUser),
-		errors.Is(err, service.ErrNilPrefs):
-		return status.Error(codes.InvalidArgument, err.Error())
-	default:
-		return internalErr(ctx, "service call", err)
-	}
+	return grpcx.Status(ctx, slog.With("op", "service call"), err, prefsErrs)
 }
 
+// GetNotificationPrefs returns the caller's preferences, or the defaults.
 func (h *NotificationHandler) GetNotificationPrefs(ctx context.Context, _ *notificationv1.GetNotificationPrefsRequest) (*notificationv1.GetNotificationPrefsResponse, error) {
 	if h.prefs == nil {
 		return nil, status.Error(codes.Unimplemented, "notification prefs not enabled")
@@ -37,6 +39,7 @@ func (h *NotificationHandler) GetNotificationPrefs(ctx context.Context, _ *notif
 	return &notificationv1.GetNotificationPrefsResponse{Prefs: prefs}, nil
 }
 
+// UpdateNotificationPrefs stores the caller's preferences.
 func (h *NotificationHandler) UpdateNotificationPrefs(ctx context.Context, req *notificationv1.UpdateNotificationPrefsRequest) (*notificationv1.UpdateNotificationPrefsResponse, error) {
 	if h.prefs == nil {
 		return nil, status.Error(codes.Unimplemented, "notification prefs not enabled")

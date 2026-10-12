@@ -3,8 +3,8 @@ package upstream
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
+	"net"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -48,12 +48,59 @@ func (f *fakeProfiles) GetPublicProfiles(ctx context.Context, _ *identityv1.GetP
 	return &identityv1.GetPublicProfilesResponse{Profiles: f.profiles}, nil
 }
 
-func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func quiet() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
+// The fakes served over a real gRPC listener, so the principal the SDK upstream
+// connection puts on the wire is observable. The recorded md is what the server
+// received (incoming metadata).
+type listingServer struct {
+	listingv1.UnimplementedListingServiceServer
+	f *fakeStorefronts
+}
+
+func (s listingServer) BatchGetStorefronts(ctx context.Context, in *listingv1.BatchGetStorefrontsRequest) (*listingv1.BatchGetStorefrontsResponse, error) {
+	resp, err := s.f.BatchGetStorefronts(ctx, in)
+	s.f.md, _ = metadata.FromIncomingContext(ctx)
+	return resp, err
+}
+
+type profileServer struct {
+	identityv1.UnimplementedPublicProfileServiceServer
+	f *fakeProfiles
+}
+
+func (s profileServer) GetPublicProfiles(ctx context.Context, in *identityv1.GetPublicProfilesRequest) (*identityv1.GetPublicProfilesResponse, error) {
+	resp, err := s.f.GetPublicProfiles(ctx, in)
+	s.f.md, _ = metadata.FromIncomingContext(ctx)
+	return resp, err
+}
+
+// serve starts sf and pf behind one gRPC server and returns Clients dialled to it
+// with Dial, the production path.
+func serve(t *testing.T, sf *fakeStorefronts, pf *fakeProfiles) *Clients {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := grpc.NewServer()
+	listingv1.RegisterListingServiceServer(srv, listingServer{f: sf})
+	identityv1.RegisterPublicProfileServiceServer(srv, profileServer{f: pf})
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+
+	c, err := Dial(lis.Addr().String(), lis.Addr().String(), quiet())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(c.Close)
+	return c
+}
 
 func TestResolve_SellerGetsShopName(t *testing.T) {
 	sf := &fakeStorefronts{shops: []*listingv1.ShopSummary{{SellerId: "seller-1", DisplayName: "Nhà Sách An Nhiên"}}}
 	pf := &fakeProfiles{}
-	r := NewNameResolver(sf, pf, quiet())
+	r := serve(t, sf, pf).Resolver
 
 	if got := r.ResolveSenderName(context.Background(), "seller-1", "seller-1"); got != "Nhà Sách An Nhiên" {
 		t.Fatalf("name = %q", got)
@@ -75,7 +122,7 @@ func TestResolve_SellerGetsShopName(t *testing.T) {
 func TestResolve_BuyerGetsUserDisplayName(t *testing.T) {
 	sf := &fakeStorefronts{shops: []*listingv1.ShopSummary{{SellerId: "buyer-1", DisplayName: "A shop the buyer happens to own"}}}
 	pf := &fakeProfiles{profiles: []*identityv1.PublicProfile{{UserId: "buyer-1", DisplayName: "an.nguyen"}}}
-	r := NewNameResolver(sf, pf, quiet())
+	r := serve(t, sf, pf).Resolver
 
 	// buyer-1 is not the thread's seller: the shop lookup is skipped entirely.
 	if got := r.ResolveSenderName(context.Background(), "buyer-1", "seller-1"); got != "an.nguyen" {

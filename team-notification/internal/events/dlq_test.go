@@ -56,17 +56,20 @@ func produce(t *testing.T, brokers, topic, value string) {
 
 // runner starts events.NewRunner in group over topic with a chat consumer's
 // handler and returns the channel that receives Run's result.
-func runner(t *testing.T, ctx context.Context, brokers, group string, dlq *recordingDLQ) <-chan error {
+func runner(ctx context.Context, t *testing.T, brokers, group string, dlq *recordingDLQ) <-chan error {
 	t.Helper()
 	client, err := kafkax.NewConsumerClient(config.Kafka{Brokers: brokers}, group, []string{"chat.events"})
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}
-	t.Cleanup(client.Close)
 	h := events.NewChatConsumer(nil, nil, nil)
 	c := events.NewRunner(client, h.HandleRaw, dlq, "chat.events.dlq", nil)
 	done := make(chan error, 1)
-	go func() { done <- c.Run(ctx) }()
+	go func() {
+		err := c.Run(ctx)
+		client.Close() // leave the group so a restart in it is assigned the partition at once
+		done <- err
+	}()
 	return done
 }
 
@@ -80,7 +83,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	ctx1, cancel1 := context.WithTimeout(context.Background(), waitFor)
 	defer cancel1()
 	select {
-	case err := <-runner(t, ctx1, brokers, "g-dlq", failing):
+	case err := <-runner(ctx1, t, brokers, "g-dlq", failing):
 		if err == nil {
 			t.Fatal("Run returned nil although the DLQ produce failed")
 		}
@@ -93,7 +96,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	healthy := &recordingDLQ{}
 	ctx2, cancel2 := context.WithTimeout(context.Background(), waitFor)
 	defer cancel2()
-	done := runner(t, ctx2, brokers, "g-dlq", healthy)
+	done := runner(ctx2, t, brokers, "g-dlq", healthy)
 	for deadline := time.Now().Add(waitFor); len(healthy.records()) == 0 && time.Now().Before(deadline); {
 		time.Sleep(20 * time.Millisecond)
 	}

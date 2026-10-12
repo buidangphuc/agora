@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"context"
@@ -33,17 +33,20 @@ type NotificationPrefsRepository interface {
 
 // ── Postgres implementation ──
 
+// PostgresNotificationPrefsRepo is the NotificationPrefsRepository over notification_prefs.
 type PostgresNotificationPrefsRepo struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresNotificationPrefsRepo returns the repository over pool.
 func NewPostgresNotificationPrefsRepo(pool *pgxpool.Pool) *PostgresNotificationPrefsRepo {
 	return &PostgresNotificationPrefsRepo{pool: pool}
 }
 
+// Get returns the user's stored preferences, or ErrPrefsNotFound when none were saved.
 func (r *PostgresNotificationPrefsRepo) Get(ctx context.Context, userID string) (*notificationv1.NotificationPrefs, error) {
 	var raw []byte
-	var freq int
+	var freq int32
 	err := r.pool.QueryRow(ctx, `
 		SELECT prefs, digest_freq
 		FROM notification_prefs
@@ -66,6 +69,7 @@ func (r *PostgresNotificationPrefsRepo) Get(ctx context.Context, userID string) 
 	}, nil
 }
 
+// Upsert stores the user's preferences and returns them.
 func (r *PostgresNotificationPrefsRepo) Upsert(ctx context.Context, userID string, prefs *notificationv1.NotificationPrefs) (*notificationv1.NotificationPrefs, error) {
 	raw, err := json.Marshal(prefs.GetTypeEnabled())
 	if err != nil {
@@ -83,6 +87,7 @@ func (r *PostgresNotificationPrefsRepo) Upsert(ctx context.Context, userID strin
 	return clonePrefs(prefs), nil
 }
 
+// ListUsersByDigestFreq returns the ids of the users on digest cadence freq.
 func (r *PostgresNotificationPrefsRepo) ListUsersByDigestFreq(ctx context.Context, freq notificationv1.DigestFrequency) ([]string, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT user_id
@@ -106,15 +111,18 @@ func (r *PostgresNotificationPrefsRepo) ListUsersByDigestFreq(ctx context.Contex
 
 // ── In-memory implementation ──
 
+// InMemoryNotificationPrefsRepo is a process-local NotificationPrefsRepository, for tests.
 type InMemoryNotificationPrefsRepo struct {
 	mu       sync.Mutex
 	byUserID map[string]*notificationv1.NotificationPrefs
 }
 
+// NewInMemoryNotificationPrefsRepo returns an empty in-memory repository.
 func NewInMemoryNotificationPrefsRepo() *InMemoryNotificationPrefsRepo {
 	return &InMemoryNotificationPrefsRepo{byUserID: make(map[string]*notificationv1.NotificationPrefs)}
 }
 
+// Get returns the user's stored preferences, or ErrPrefsNotFound when none were saved.
 func (r *InMemoryNotificationPrefsRepo) Get(_ context.Context, userID string) (*notificationv1.NotificationPrefs, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -125,6 +133,7 @@ func (r *InMemoryNotificationPrefsRepo) Get(_ context.Context, userID string) (*
 	return clonePrefs(p), nil
 }
 
+// Upsert stores the user's preferences and returns a copy.
 func (r *InMemoryNotificationPrefsRepo) Upsert(_ context.Context, userID string, prefs *notificationv1.NotificationPrefs) (*notificationv1.NotificationPrefs, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -133,6 +142,7 @@ func (r *InMemoryNotificationPrefsRepo) Upsert(_ context.Context, userID string,
 	return clonePrefs(stored), nil
 }
 
+// ListUsersByDigestFreq returns the ids of the users on digest cadence freq.
 func (r *InMemoryNotificationPrefsRepo) ListUsersByDigestFreq(_ context.Context, freq notificationv1.DigestFrequency) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

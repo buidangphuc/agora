@@ -1,16 +1,17 @@
 // This file holds the notification-preferences use case: reading a user's
 // per-type opt-in map + digest cadence (with sensible defaults when unset),
 // updating them, and the digest-bundling helper a scheduler would call. It
-// mirrors AlertService's layering — validate here, persist in the repository;
-// identity always comes from the handler, never guessed.
-package service
+// mirrors AlertService's layering — validate here, persist in the store;
+// identity always comes from the rpc layer, never guessed.
+
+package notification
 
 import (
 	"context"
 	"errors"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
-	"github.com/buidangphuc/team-notification/internal/repository"
+	"github.com/buidangphuc/team-notification/internal/store"
 )
 
 // ErrNilPrefs is returned when an update carries no preferences payload.
@@ -42,10 +43,11 @@ func DefaultPrefs() *notificationv1.NotificationPrefs {
 
 // PrefsService is the notification-preferences use-case boundary.
 type PrefsService struct {
-	repo repository.NotificationPrefsRepository
+	repo store.NotificationPrefsRepository
 }
 
-func NewPrefsService(repo repository.NotificationPrefsRepository) *PrefsService {
+// NewPrefsService returns the preferences use case over repo.
+func NewPrefsService(repo store.NotificationPrefsRepository) *PrefsService {
 	return &PrefsService{repo: repo}
 }
 
@@ -55,7 +57,7 @@ func (s *PrefsService) Get(ctx context.Context, userID string) (*notificationv1.
 		return nil, ErrEmptyUser
 	}
 	prefs, err := s.repo.Get(ctx, userID)
-	if errors.Is(err, repository.ErrPrefsNotFound) {
+	if errors.Is(err, store.ErrPrefsNotFound) {
 		return DefaultPrefs(), nil
 	}
 	if err != nil {
@@ -101,7 +103,7 @@ func (s *PrefsService) BundleDigest(ctx context.Context, freq notificationv1.Dig
 	prefsByUser := make(map[string]*notificationv1.NotificationPrefs, len(recipients))
 	for _, uid := range recipients {
 		p, err := s.repo.Get(ctx, uid)
-		if errors.Is(err, repository.ErrPrefsNotFound) {
+		if errors.Is(err, store.ErrPrefsNotFound) {
 			p = DefaultPrefs()
 		} else if err != nil {
 			return nil, err

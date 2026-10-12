@@ -1,29 +1,31 @@
-package handler
+package rpc
 
 import (
 	"context"
-	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
-	"github.com/buidangphuc/team-notification/internal/service"
+	"github.com/buidangphuc/team-notification/internal/notification"
 )
+
+var alertErrs = grpcx.ErrorTable{
+	notification.ErrEmptyListing: codes.InvalidArgument,
+	notification.ErrInvalidType:  codes.InvalidArgument,
+	notification.ErrEmptySubID:   codes.InvalidArgument,
+	notification.ErrEmptyUser:    codes.InvalidArgument,
+}
 
 // mapAlertErr turns a service validation error into the right gRPC status.
 func mapAlertErr(ctx context.Context, err error) error {
-	switch {
-	case errors.Is(err, service.ErrEmptyListing),
-		errors.Is(err, service.ErrInvalidType),
-		errors.Is(err, service.ErrEmptySubID),
-		errors.Is(err, service.ErrEmptyUser):
-		return status.Error(codes.InvalidArgument, err.Error())
-	default:
-		return internalErr(ctx, "service call", err)
-	}
+	return grpcx.Status(ctx, slog.With("op", "service call"), err, alertErrs)
 }
 
+// SubscribeAlert subscribes the caller to a price-drop or back-in-stock alert.
 func (h *NotificationHandler) SubscribeAlert(ctx context.Context, req *notificationv1.SubscribeAlertRequest) (*notificationv1.SubscribeAlertResponse, error) {
 	if h.alerts == nil {
 		return nil, status.Error(codes.Unimplemented, "alert subscriptions not enabled")
@@ -39,6 +41,7 @@ func (h *NotificationHandler) SubscribeAlert(ctx context.Context, req *notificat
 	return &notificationv1.SubscribeAlertResponse{Subscription: sub}, nil
 }
 
+// UnsubscribeAlert removes one of the caller's alert subscriptions.
 func (h *NotificationHandler) UnsubscribeAlert(ctx context.Context, req *notificationv1.UnsubscribeAlertRequest) (*notificationv1.UnsubscribeAlertResponse, error) {
 	if h.alerts == nil {
 		return nil, status.Error(codes.Unimplemented, "alert subscriptions not enabled")
@@ -53,6 +56,7 @@ func (h *NotificationHandler) UnsubscribeAlert(ctx context.Context, req *notific
 	return &notificationv1.UnsubscribeAlertResponse{}, nil
 }
 
+// ListAlertSubscriptions returns the caller's alert subscriptions.
 func (h *NotificationHandler) ListAlertSubscriptions(ctx context.Context, _ *notificationv1.ListAlertSubscriptionsRequest) (*notificationv1.ListAlertSubscriptionsResponse, error) {
 	if h.alerts == nil {
 		return nil, status.Error(codes.Unimplemented, "alert subscriptions not enabled")

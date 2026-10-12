@@ -1,16 +1,17 @@
-package service_test
+package notification_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
-	"github.com/buidangphuc/team-notification/internal/repository"
-	"github.com/buidangphuc/team-notification/internal/service"
+	"github.com/buidangphuc/team-notification/internal/notification"
+	"github.com/buidangphuc/team-notification/internal/store"
 )
 
-func newPrefsService() *service.PrefsService {
-	return service.NewPrefsService(repository.NewInMemoryNotificationPrefsRepo())
+func newPrefsService() *notification.PrefsService {
+	return notification.NewPrefsService(store.NewInMemoryNotificationPrefsRepo())
 }
 
 // Get on a user who has never saved preferences returns defaults: every real
@@ -81,13 +82,13 @@ func TestPrefsInputValidation(t *testing.T) {
 	svc := newPrefsService()
 	ctx := context.Background()
 
-	if _, err := svc.Get(ctx, ""); err != service.ErrEmptyUser {
+	if _, err := svc.Get(ctx, ""); !errors.Is(err, notification.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser on empty Get, got %v", err)
 	}
-	if _, err := svc.Update(ctx, "", &notificationv1.NotificationPrefs{}); err != service.ErrEmptyUser {
+	if _, err := svc.Update(ctx, "", &notificationv1.NotificationPrefs{}); !errors.Is(err, notification.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser on empty Update, got %v", err)
 	}
-	if _, err := svc.Update(ctx, "user_a", nil); err != service.ErrNilPrefs {
+	if _, err := svc.Update(ctx, "user_a", nil); !errors.Is(err, notification.ErrNilPrefs) {
 		t.Fatalf("expected ErrNilPrefs on nil payload, got %v", err)
 	}
 }
@@ -115,7 +116,7 @@ func TestBucketDigestHelper(t *testing.T) {
 		nil, // dropped: nil-safe
 	}
 
-	buckets := service.BucketDigest(recipients, prefsByUser, pending)
+	buckets := notification.BucketDigest(recipients, prefsByUser, pending)
 	if len(buckets) != 2 {
 		t.Fatalf("expected 2 buckets, got %d", len(buckets))
 	}

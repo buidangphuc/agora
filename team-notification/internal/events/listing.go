@@ -1,4 +1,4 @@
-// Package consumer holds team-notification's Kafka event consumers. The
+// Package events holds team-notification's Kafka event consumers. The
 // ListingConsumer consumes `listing.events` and turns ONE domain event —
 // platform.listing.v1.ListingChanged — into in-app notifications for users who
 // asked to be alerted. That event is the only listing event team-domain's outbox
@@ -22,10 +22,10 @@
 // guarded by its last-seen value (advanced only after notifications succeed) so
 // re-applying the same event never double-notifies.
 //
-// The transport (a real Kafka reader + DLQ producer) is injected as interfaces so
-// the consumption logic is unit-testable without a broker; the concrete franz-go
-// wiring lives in internal/bootstrap + cmd/server.
-package consumer
+// The transport loop (fetch, retry, DLQ, commit) is the SDK's consume.Consumer;
+// NewRunner adapts a consumer's HandleRaw to it. The handlers here are pure
+// consumption logic, unit-testable without a broker.
+package events
 
 import (
 	"context"
@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -166,7 +165,7 @@ func (c *ListingConsumer) HandleRaw(ctx context.Context, value []byte) error {
 	if err := proto.Unmarshal(value, &env); err != nil {
 		// A malformed envelope is a poison record: it can never succeed, so report a
 		// permanent error the loop routes to the DLQ rather than retrying forever.
-		return fmt.Errorf("%w: unmarshal envelope: %v", ErrPermanent, err)
+		return fmt.Errorf("%w: unmarshal envelope: %w", ErrPermanent, err)
 	}
 	return c.HandleEnvelope(ctx, &env)
 }
@@ -217,7 +216,7 @@ func (c *ListingConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.Even
 func (c *ListingConsumer) handleListingChanged(ctx context.Context, payload []byte) error {
 	var e listingv1.ListingChanged
 	if err := proto.Unmarshal(payload, &e); err != nil {
-		return fmt.Errorf("%w: unmarshal ListingChanged: %v", ErrPermanent, err)
+		return fmt.Errorf("%w: unmarshal ListingChanged: %w", ErrPermanent, err)
 	}
 	l := e.GetListing()
 	if l == nil || l.GetId() == "" {
@@ -297,9 +296,9 @@ func (c *ListingConsumer) notifySubscribers(ctx context.Context, listingID strin
 			return fmt.Errorf("create notification for user %q: %w", sub.GetUserId(), err)
 		}
 		c.logger.InfoContext(ctx, "alert notification created",
-			slog.String("user_id", sub.GetUserId()),
-			slog.String("listing_id", listingID),
-			slog.String("type", notiType.String()),
+			"user_id", sub.GetUserId(),
+			"listing_id", listingID,
+			"type", notiType.String(),
 		)
 	}
 	return nil
@@ -314,12 +313,14 @@ type InMemoryDeduper struct {
 	seen map[string]struct{}
 }
 
+// NewInMemoryDeduper returns an empty process-local ledger.
 func NewInMemoryDeduper() *InMemoryDeduper {
 	return &InMemoryDeduper{seen: make(map[string]struct{})}
 }
 
 func dedupeKey(consumer, eventID string) string { return consumer + "\x00" + eventID }
 
+// IsProcessed reports whether eventID was already marked for consumer.
 func (d *InMemoryDeduper) IsProcessed(_ context.Context, consumer, eventID string) (bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -327,6 +328,7 @@ func (d *InMemoryDeduper) IsProcessed(_ context.Context, consumer, eventID strin
 	return ok, nil
 }
 
+// MarkProcessed records eventID; it reports whether it was newly recorded.
 func (d *InMemoryDeduper) MarkProcessed(_ context.Context, consumer, eventID string) (bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -349,10 +351,12 @@ type InMemoryStockStateStore struct {
 	last map[string]int32
 }
 
+// NewInMemoryStockStateStore returns an empty process-local store.
 func NewInMemoryStockStateStore() *InMemoryStockStateStore {
 	return &InMemoryStockStateStore{last: make(map[string]int32)}
 }
 
+// Get returns the last-seen stock; known is false when none was recorded.
 func (s *InMemoryStockStateStore) Get(_ context.Context, listingID string) (int32, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -360,6 +364,7 @@ func (s *InMemoryStockStateStore) Get(_ context.Context, listingID string) (int3
 	return v, ok, nil
 }
 
+// Set records the last-seen stock.
 func (s *InMemoryStockStateStore) Set(_ context.Context, listingID string, stock int32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -378,10 +383,12 @@ type InMemoryPriceStateStore struct {
 	last map[string]int64
 }
 
+// NewInMemoryPriceStateStore returns an empty process-local store.
 func NewInMemoryPriceStateStore() *InMemoryPriceStateStore {
 	return &InMemoryPriceStateStore{last: make(map[string]int64)}
 }
 
+// Get returns the last-seen price; known is false when none was recorded.
 func (s *InMemoryPriceStateStore) Get(_ context.Context, listingID string) (int64, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -389,128 +396,10 @@ func (s *InMemoryPriceStateStore) Get(_ context.Context, listingID string) (int6
 	return v, ok, nil
 }
 
+// Set records the last-seen price.
 func (s *InMemoryPriceStateStore) Set(_ context.Context, listingID string, price int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.last[listingID] = price
-	return nil
-}
-
-// ── Transport loop (AD1 offset discipline) ──
-
-// Record is one Kafka record the transport hands to the loop.
-type Record struct {
-	Key   string
-	Value []byte
-}
-
-// RecordReader is the transport the loop reads from. A real franz-go reader
-// satisfies it; tests use a fake. Fetch blocks until the next record (or ctx is
-// done); Commit advances the committed offset past rec.
-type RecordReader interface {
-	Fetch(ctx context.Context) (Record, error)
-	Commit(ctx context.Context, rec Record) error
-}
-
-// DeadLetterProducer publishes poison / max-retried records to a DLQ topic (AD1).
-type DeadLetterProducer interface {
-	Produce(ctx context.Context, topic string, rec Record) error
-}
-
-// RunConfig tunes the consume loop.
-type RunConfig struct {
-	DLQTopic    string        // e.g. "listing.events.dlq"
-	MaxAttempts int           // in-process attempts before DLQ (default 5)
-	BaseBackoff time.Duration // first retry delay; scales per attempt (default 200ms)
-}
-
-func (c RunConfig) withDefaults() RunConfig {
-	if c.DLQTopic == "" {
-		c.DLQTopic = "listing.events.dlq"
-	}
-	if c.MaxAttempts <= 0 {
-		c.MaxAttempts = 5
-	}
-	if c.BaseBackoff <= 0 {
-		c.BaseBackoff = 200 * time.Millisecond
-	}
-	return c
-}
-
-// Run consumes until ctx is cancelled; see runLoop for the delivery discipline.
-func (c *ListingConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
-	return runLoop(ctx, c.logger, c.HandleRaw, reader, dlq, cfg)
-}
-
-// fetchRetryBackoff spaces out retries after a failed fetch so a broker outage
-// does not spin the loop.
-var fetchRetryBackoff = time.Second
-
-// runLoop is the shared consume loop for every team-notification consumer. Per
-// record it applies handle with bounded in-process retries; on a permanent error
-// or once retries are exhausted it produces the record to the DLQ. Crucially it
-// commits the offset ONLY after the record is either applied or DLQ'd — it never
-// advances past an unprocessed record (AD1).
-func runLoop(ctx context.Context, logger *slog.Logger, handle func(context.Context, []byte) error, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
-	cfg = cfg.withDefaults()
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		rec, err := reader.Fetch(ctx)
-		if err != nil {
-			// Stop only when our own context is done. A fetch error that merely
-			// wraps a deadline (a Kafka request timing out under load) is transient:
-			// returning on it silently killed the consumer while the process kept
-			// running.
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			logger.WarnContext(ctx, "fetch record failed; retrying", slog.Any("err", err))
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(fetchRetryBackoff):
-			}
-			continue
-		}
-
-		if perr := processWithRetry(ctx, logger, handle, rec, dlq, cfg); perr != nil {
-			// Could not process AND could not DLQ: do NOT commit — leave the offset so
-			// the record is redelivered (never lose it).
-			logger.ErrorContext(ctx, "record neither applied nor DLQ'd; not committing",
-				slog.Any("err", perr))
-			continue
-		}
-		if err := reader.Commit(ctx, rec); err != nil {
-			logger.WarnContext(ctx, "commit offset failed; record may redeliver", slog.Any("err", err))
-		}
-	}
-}
-
-func processWithRetry(ctx context.Context, logger *slog.Logger, handle func(context.Context, []byte) error, rec Record, dlq DeadLetterProducer, cfg RunConfig) error {
-	var lastErr error
-	for attempt := 1; attempt <= cfg.MaxAttempts; attempt++ {
-		err := handle(ctx, rec.Value)
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		if errors.Is(err, ErrPermanent) {
-			break // no point retrying a poison record
-		}
-		if attempt < cfg.MaxAttempts {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(cfg.BaseBackoff * time.Duration(attempt)):
-			}
-		}
-	}
-	logger.WarnContext(ctx, "routing record to DLQ",
-		slog.String("dlq_topic", cfg.DLQTopic), slog.Any("err", lastErr))
-	if err := dlq.Produce(ctx, cfg.DLQTopic, rec); err != nil {
-		return fmt.Errorf("produce to DLQ: %w (original: %v)", err, lastErr)
-	}
 	return nil
 }

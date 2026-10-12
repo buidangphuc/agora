@@ -1,12 +1,10 @@
-package consumer
+package events
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -310,142 +308,5 @@ func TestMissingEventID_IsPermanent(t *testing.T) {
 	err := c.HandleRaw(context.Background(), raw)
 	if err == nil || !errors.Is(err, ErrPermanent) {
 		t.Fatalf("want ErrPermanent for missing event_id, got %v", err)
-	}
-}
-
-// ── transport loop: malformed record is DLQ'd, committed, no crash ──
-
-type fakeReader struct {
-	recs   []Record
-	idx    int
-	commit []Record
-}
-
-func (r *fakeReader) Fetch(ctx context.Context) (Record, error) {
-	if r.idx >= len(r.recs) {
-		<-ctx.Done() // block until cancelled once drained
-		return Record{}, ctx.Err()
-	}
-	rec := r.recs[r.idx]
-	r.idx++
-	return rec, nil
-}
-
-func (r *fakeReader) Commit(_ context.Context, rec Record) error {
-	r.commit = append(r.commit, rec)
-	return nil
-}
-
-type fakeDLQ struct {
-	produced []Record
-	topic    string
-}
-
-func (d *fakeDLQ) Produce(_ context.Context, topic string, rec Record) error {
-	d.topic = topic
-	d.produced = append(d.produced, rec)
-	return nil
-}
-
-func TestRun_MalformedRecord_RoutedToDLQAndCommitted(t *testing.T) {
-	notif := &fakeNotif{}
-	subs := &fakeSubs{byKey: map[string][]*notificationv1.AlertSubscription{
-		subKey("listing_1", notificationv1.AlertType_ALERT_TYPE_PRICE_DROP): {
-			sub("user_a", "listing_1", notificationv1.AlertType_ALERT_TYPE_PRICE_DROP),
-		},
-	}}
-	c := newConsumer(notif, subs)
-
-	// Seed the last-seen price so the "good" record (price 80) reads as a drop.
-	if err := c.HandleRaw(context.Background(), priceEnvelope(t, "evt_seed", "listing_1", 100)); err != nil {
-		t.Fatalf("HandleRaw seed: %v", err)
-	}
-
-	good := Record{Key: "k1", Value: priceEnvelope(t, "evt_ok", "listing_1", 80)}
-	poison := Record{Key: "k2", Value: []byte("\xff\xff not a protobuf")}
-	reader := &fakeReader{recs: []Record{poison, good}}
-	dlq := &fakeDLQ{}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- c.Run(ctx, reader, dlq, RunConfig{DLQTopic: "listing.events.dlq", MaxAttempts: 1}) }()
-
-	// Both records should be handled, then Fetch blocks; cancel to end the loop.
-	waitFor(t, func() bool { return len(reader.commit) == 2 })
-	cancel()
-	<-done
-
-	if len(dlq.produced) != 1 {
-		t.Fatalf("want 1 DLQ record, got %d", len(dlq.produced))
-	}
-	if dlq.topic != "listing.events.dlq" {
-		t.Fatalf("want DLQ topic listing.events.dlq, got %q", dlq.topic)
-	}
-	if len(reader.commit) != 2 {
-		t.Fatalf("want both offsets committed (poison DLQ'd + good applied), got %d", len(reader.commit))
-	}
-	if notif.count() != 1 {
-		t.Fatalf("want the good record to produce 1 notification, got %d", notif.count())
-	}
-}
-
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
-		}
-		time.Sleep(time.Millisecond)
-	}
-	if !cond() {
-		t.Fatalf("condition not met in time")
-	}
-}
-
-// failingReader returns transient errors (including one that wraps a deadline,
-// as a Kafka request timeout does) before handing out its records.
-type failingReader struct {
-	fakeReader
-	failures []error
-}
-
-func (r *failingReader) Fetch(ctx context.Context) (Record, error) {
-	if len(r.failures) > 0 {
-		err := r.failures[0]
-		r.failures = r.failures[1:]
-		return Record{}, err
-	}
-	return r.fakeReader.Fetch(ctx)
-}
-
-// A fetch error that wraps context.DeadlineExceeded while the consumer's own
-// context is alive must not stop the loop (it used to, silently).
-func TestRun_TransientFetchErrorsDoNotStopTheLoop(t *testing.T) {
-	old := fetchRetryBackoff
-	fetchRetryBackoff = time.Millisecond
-	defer func() { fetchRetryBackoff = old }()
-
-	notif := &fakeNotif{}
-	subs := &fakeSubs{byKey: map[string][]*notificationv1.AlertSubscription{}}
-	c := newConsumer(notif, subs)
-	reader := &failingReader{
-		fakeReader: fakeReader{recs: []Record{{Key: "k", Value: priceEnvelope(t, "evt_1", "listing_1", 100)}}},
-		failures:   []error{fmt.Errorf("fetch: %w", context.DeadlineExceeded), errors.New("broker unavailable")},
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- c.Run(ctx, reader, &fakeDLQ{}, RunConfig{DLQTopic: "dlq", MaxAttempts: 1}) }()
-
-	waitFor(t, func() bool { return len(reader.commit) == 1 })
-	select {
-	case err := <-done:
-		t.Fatalf("loop stopped on a transient error: %v", err)
-	default:
-	}
-	cancel()
-	if err := <-done; !errors.Is(err, context.Canceled) {
-		t.Fatalf("want context.Canceled on shutdown, got %v", err)
 	}
 }

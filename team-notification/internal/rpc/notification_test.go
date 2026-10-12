@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,11 +10,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
-	"github.com/buidangphuc/team-notification/internal/handler"
-	"github.com/buidangphuc/team-notification/internal/interceptor"
-	"github.com/buidangphuc/team-notification/internal/repository"
-	"github.com/buidangphuc/team-notification/internal/service"
+	"github.com/buidangphuc/team-notification/internal/notification"
+	"github.com/buidangphuc/team-notification/internal/rpc"
+	"github.com/buidangphuc/team-notification/internal/store"
 )
 
 // memRepo is an in-memory NotificationRepository with the same ownership
@@ -64,7 +65,7 @@ func (m *memRepo) MarkAsRead(_ context.Context, id, userID string) error {
 			return nil
 		}
 	}
-	return repository.ErrNotFound
+	return store.ErrNotFound
 }
 
 func (m *memRepo) GetUnreadCount(ctx context.Context, userID string) (int32, error) {
@@ -79,7 +80,7 @@ func asPrincipal(t *testing.T, id, ptype string) context.Context {
 	md := metadata.Pairs("x-principal-id", id, "x-principal-type", ptype)
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 	var out context.Context
-	_, err := interceptor.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{}, func(c context.Context, _ any) (any, error) {
+	_, err := auth.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{}, func(c context.Context, _ any) (any, error) {
 		out = c
 		return nil, nil
 	})
@@ -89,10 +90,10 @@ func asPrincipal(t *testing.T, id, ptype string) context.Context {
 	return out
 }
 
-func newHandler(repo *memRepo) *handler.NotificationHandler {
-	return handler.NewNotificationHandler(repo,
-		handler.WithAlertService(service.NewAlertService(repository.NewInMemoryAlertSubscriptionRepo())),
-		handler.WithPrefsService(service.NewPrefsService(repository.NewInMemoryNotificationPrefsRepo())),
+func newHandler(repo *memRepo) *rpc.NotificationHandler {
+	return rpc.NewNotificationHandler(repo,
+		rpc.WithAlertService(notification.NewAlertService(store.NewInMemoryAlertSubscriptionRepo())),
+		rpc.WithPrefsService(notification.NewPrefsService(store.NewInMemoryNotificationPrefsRepo())),
 	)
 }
 

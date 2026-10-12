@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"context"
@@ -16,6 +16,8 @@ import (
 // belongs to the caller (it may not exist, or it may be another user's).
 var ErrNotFound = errors.New("notification not found")
 
+// NotificationRepository stores the in-app inbox. Every read and write is scoped
+// to a user id.
 type NotificationRepository interface {
 	CreateNotification(ctx context.Context, n *notificationv1.Notification) (*notificationv1.Notification, error)
 	ListNotifications(ctx context.Context, userID string, limit, offset int) ([]*notificationv1.Notification, int32, error)
@@ -23,14 +25,17 @@ type NotificationRepository interface {
 	GetUnreadCount(ctx context.Context, userID string) (int32, error)
 }
 
+// PostgresNotificationRepo is the NotificationRepository over notifications.
 type PostgresNotificationRepo struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresNotificationRepo returns the repository over pool.
 func NewPostgresNotificationRepo(pool *pgxpool.Pool) *PostgresNotificationRepo {
 	return &PostgresNotificationRepo{pool: pool}
 }
 
+// CreateNotification inserts n, assigning an id when it has none.
 func (r *PostgresNotificationRepo) CreateNotification(ctx context.Context, n *notificationv1.Notification) (*notificationv1.Notification, error) {
 	if n.Id == "" {
 		n.Id = "noti_" + uuid.NewString()[:8]
@@ -47,6 +52,7 @@ func (r *PostgresNotificationRepo) CreateNotification(ctx context.Context, n *no
 	return n, nil
 }
 
+// ListNotifications returns the user's notifications, newest first, and their unread count.
 func (r *PostgresNotificationRepo) ListNotifications(ctx context.Context, userID string, limit, offset int) ([]*notificationv1.Notification, int32, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, user_id, title, body, type, link_url, is_read, created_at
@@ -63,7 +69,7 @@ func (r *PostgresNotificationRepo) ListNotifications(ctx context.Context, userID
 	var notis []*notificationv1.Notification
 	for rows.Next() {
 		var n notificationv1.Notification
-		var t int
+		var t int32
 		var createdAt time.Time
 		if err := rows.Scan(&n.Id, &n.UserId, &n.Title, &n.Body, &t, &n.LinkUrl, &n.IsRead, &createdAt); err != nil {
 			return nil, 0, err
@@ -79,6 +85,8 @@ func (r *PostgresNotificationRepo) ListNotifications(ctx context.Context, userID
 	return notis, unread, nil
 }
 
+// MarkAsRead marks the user's notification id read, or all of theirs when id is
+// empty. A missing or foreign id returns ErrNotFound.
 func (r *PostgresNotificationRepo) MarkAsRead(ctx context.Context, id, userID string) error {
 	if id == "" {
 		_, err := r.pool.Exec(ctx, "UPDATE notifications SET is_read = true WHERE user_id = $1", userID)
@@ -94,6 +102,7 @@ func (r *PostgresNotificationRepo) MarkAsRead(ctx context.Context, id, userID st
 	return nil
 }
 
+// GetUnreadCount returns how many of the user's notifications are unread.
 func (r *PostgresNotificationRepo) GetUnreadCount(ctx context.Context, userID string) (int32, error) {
 	var count int32
 	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false", userID).Scan(&count)

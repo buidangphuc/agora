@@ -1,15 +1,16 @@
-// Package service holds team-notification's application logic. AlertService owns
-// the price-drop / back-in-stock alert subscriptions: it validates input and
-// delegates persistence to the repository. Handlers resolve the caller's user id
-// from the principal and pass it in; the service never guesses identity.
-package service
+// Package notification holds team-notification's application logic.
+// AlertService owns the price-drop / back-in-stock alert subscriptions: it
+// validates input and delegates persistence to the store. The rpc layer resolves
+// the caller's user id from the principal and passes it in; this package never
+// guesses identity.
+package notification
 
 import (
 	"context"
 	"errors"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
-	"github.com/buidangphuc/team-notification/internal/repository"
+	"github.com/buidangphuc/team-notification/internal/store"
 )
 
 // Validation errors surfaced to the handler, which maps them to gRPC codes.
@@ -22,10 +23,11 @@ var (
 
 // AlertService is the subscription use-case boundary.
 type AlertService struct {
-	repo repository.AlertSubscriptionRepository
+	repo store.AlertSubscriptionRepository
 }
 
-func NewAlertService(repo repository.AlertSubscriptionRepository) *AlertService {
+// NewAlertService returns the subscription use case over repo.
+func NewAlertService(repo store.AlertSubscriptionRepository) *AlertService {
 	return &AlertService{repo: repo}
 }
 

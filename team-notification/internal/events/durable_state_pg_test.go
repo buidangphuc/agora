@@ -1,4 +1,4 @@
-package consumer
+package events
 
 import (
 	"context"
@@ -9,34 +9,31 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/buidangphuc/team-notification/internal/repository"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+
+	"github.com/buidangphuc/team-notification/internal/store"
 )
 
 // pgBundle builds fresh Postgres-backed stores over the pool each call, like a
 // restarted process re-opening its database.
 func pgBundle(pool *pgxpool.Pool) stateBundle {
 	return stateBundle{
-		dedupe: repository.NewPostgresProcessedEventRepo(pool),
-		price:  repository.NewPostgresListingPriceStore(pool),
-		stock:  repository.NewPostgresListingStockStore(pool),
+		dedupe: store.NewPostgresProcessedEventRepo(pool),
+		price:  store.NewPostgresListingPriceStore(pool),
+		stock:  store.NewPostgresListingStockStore(pool),
 	}
 }
 
+// consumerStatePool starts a throwaway Postgres (testkit) and applies the
+// service's migrations to it.
 func consumerStatePool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL set; skipping Postgres consumer-state test")
-	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.New(ctx, testkit.Postgres(t))
 	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
+		t.Fatalf("connect to Postgres: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
 	files, _ := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
 	sort.Strings(files)
 	for _, f := range files {
@@ -59,7 +56,7 @@ func consumerStatePool(t *testing.T) *pgxpool.Pool {
 func TestPostgresDeduper(t *testing.T) {
 	pool := consumerStatePool(t)
 	ctx := context.Background()
-	d := repository.NewPostgresProcessedEventRepo(pool)
+	d := store.NewPostgresProcessedEventRepo(pool)
 
 	if ok, err := d.IsProcessed(ctx, "c1", "e1"); err != nil || ok {
 		t.Fatalf("fresh id: processed=%v err=%v", ok, err)
@@ -82,8 +79,8 @@ func TestPostgresDeduper(t *testing.T) {
 func TestPostgresLastSeenStores(t *testing.T) {
 	pool := consumerStatePool(t)
 	ctx := context.Background()
-	price := repository.NewPostgresListingPriceStore(pool)
-	stock := repository.NewPostgresListingStockStore(pool)
+	price := store.NewPostgresListingPriceStore(pool)
+	stock := store.NewPostgresListingStockStore(pool)
 
 	if _, known, err := price.Get(ctx, "L1"); err != nil || known {
 		t.Fatalf("unknown price: known=%v err=%v", known, err)
