@@ -149,7 +149,7 @@ describe("AnalyticsProvider user_id", () => {
         typeof e === "object" &&
         !("length" in e) &&
         "user_id" in (e as object),
-    ) as { user_id: string }[];
+    ) as { user_id: string; event?: string }[];
   const HASH = "a".repeat(64);
   let fetchMock: ReturnType<typeof vi.fn>;
   const ok = () =>
@@ -178,11 +178,12 @@ describe("AnalyticsProvider user_id", () => {
     vi.unstubAllGlobals();
   });
 
-  it("[Logged-in buyer with analytics consent gets a stable HMAC] a=1 cookie: pushes { user_id } after the analytics consent update", async () => {
+  it("[Logged-in buyer with analytics consent gets a stable HMAC] a=1 cookie: pushes { event: ga4_identity, user_id } after the analytics consent update", async () => {
     setCookie("v=1&a=1&m=0&p=0&ts=1760000000");
     render(<AnalyticsProvider>x</AnalyticsProvider>);
     await waitFor(() => expect(userIds()).toHaveLength(1));
     expect(userIds()[0].user_id).toBe(HASH);
+    expect(userIds()[0].event).toBe("ga4_identity");
     const layer = (window.dataLayer ?? []) as unknown[];
     const updateAt = layer.findIndex((e) => {
       const a =

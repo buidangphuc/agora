@@ -25,6 +25,11 @@ interface Tag {
   firingTriggerId?: string[];
   consentSettings?: { consentStatus?: string };
 }
+interface Variable {
+  name?: string;
+  type?: string;
+  parameter?: Param[];
+}
 interface Trigger {
   triggerId?: string;
   type?: string;
@@ -41,6 +46,7 @@ function load() {
     text,
     tags: (version.tag ?? []) as Tag[],
     triggers: (version.trigger ?? []) as Trigger[],
+    variables: (version.variable ?? []) as Variable[],
   };
 }
 
@@ -116,5 +122,51 @@ describe("gtm-container.json", () => {
       );
     expect(refs.length).toBeGreaterThan(0);
     for (const r of refs) expect(r?.startsWith("{{")).toBe(true);
+  });
+
+  describe.each(["user_id", "debug_mode"])("config field %s", (field) => {
+    it(`[Identity and debug flags reach GA4] defines a v2 Data Layer Variable for ${field}`, () => {
+      const { variables } = load();
+      const dlv = variables.filter(
+        (v) =>
+          v.type === "v" &&
+          v.parameter?.some((p) => p.key === "name" && p.value === field) &&
+          v.parameter?.some(
+            (p) => p.key === "dataLayerVersion" && String(p.value) === "2",
+          ),
+      );
+      expect(dlv).toHaveLength(1);
+    });
+
+    it(`[Identity and debug flags reach GA4] the GA4 config tag maps ${field} from its Data Layer Variable`, () => {
+      const { tags, variables } = load();
+      const dlv = variables.find(
+        (v) =>
+          v.type === "v" &&
+          v.parameter?.some((p) => p.key === "name" && p.value === field),
+      );
+      expect(dlv?.name).toBeTruthy();
+      const cfg = tags.find((t) => t.type === "gaawc");
+      const json = JSON.stringify(
+        (cfg?.parameter ?? []).filter((p) => p.key !== "measurementId"),
+      );
+      expect(json).toContain(`"${field}"`);
+      expect(json).toContain(`{{${dlv?.name}}}`);
+    });
+  });
+
+  it("[Identity reaches GA4 after the async fetch] the config tag re-fires on a ga4_identity CUSTOM_EVENT trigger", () => {
+    const { tags, triggers } = load();
+    const cfg = tags.find((t) => t.type === "gaawc");
+    const firing = (cfg?.firingTriggerId ?? []).map((id) =>
+      triggers.find((tr) => String(tr.triggerId) === String(id)),
+    );
+    expect(
+      firing.some(
+        (tr) =>
+          tr?.type === "CUSTOM_EVENT" &&
+          JSON.stringify(tr.customEventFilter ?? []).includes("ga4_identity"),
+      ),
+    ).toBe(true);
   });
 });
