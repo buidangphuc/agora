@@ -1,0 +1,458 @@
+# Feature manifest for platform-core (Go platform SDK, change add-go-platform-sdk-core).
+# Library behaviour has no UI journey: every entry is not-testable and names its unit test.
+# Schema: platform-e2e/schemas/features.schema.json
+
+repo: platform-core
+owner: platform-core-team
+features:
+- id: go-sdk.defaults-apply-and-env-overrides-them
+  title: Defaults apply and env overrides them
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a struct embedding config.Runtime and config.GRPC is loaded with only GRPC_PORT=50065 and LOG_LEVEL=debug
+    set
+  - Then GRPC.Port is 50065, Runtime.LogLevel is debug, GRPC.Host is 0.0.0.0 and GRPC.ShutdownGrace()
+    is 10s
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config
+    TestLoadDefaultsAndOverrides.
+- id: go-sdk.unparseable-values-fail-with-the-variable-name
+  title: Unparseable values fail with the variable name
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When GRPC_PORT=abc is set
+  - Then Load returns an error whose message contains GRPC_PORT
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestLoadReportsBadVariable.
+- id: go-sdk.missing-and-stale-keys-are-both-reported
+  title: Missing and stale keys are both reported
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When the struct declares A and B and the file assigns B and C
+  - Then the error lists A as missing and C as stale
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestCheckEnvExampleReportsBothDirections.
+- id: go-sdk.context-identifiers-appear-in-log-records
+  title: Context identifiers appear in log records
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a record is logged with a context holding request id r1, principal id u1 and an active span
+  - Then the JSON record has request_id=r1, principal_id=u1 and the span's trace_id
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/logx
+    TestHandlerAddsContextIDs.
+- id: go-sdk.missing-identifiers-are-omitted-not-logged-empty
+  title: Missing identifiers are omitted, not logged empty
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a record is logged with a context holding no request id, principal or span
+  - Then the record has no request_id, principal_id or trace_id keys
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestHandlerOmitsMissingIDs.
+- id: go-sdk.disabled-telemetry-exports-nothing
+  title: Disabled telemetry exports nothing
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When Init runs with Enabled=false
+  - Then the global tracer provider is not an SDK provider and shutdown returns nil
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/otelx
+    TestInitDisabledIsNoop.
+- id: go-sdk.enabled-telemetry-names-the-service
+  title: Enabled telemetry names the service
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When Init runs with Enabled=true, an empty ServiceName and service="team-x"
+  - Then spans carry resource attribute service.name=team-x
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestInitEnabledUsesServiceFallback.
+- id: go-sdk.anonymous-principal-is-unauthenticated
+  title: Anonymous principal is unauthenticated
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When metadata carries x-principal-id=anonymous
+  - Then RequirePrincipal returns Unauthenticated
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auth
+    TestRequirePrincipalRejectsAnonymous.
+- id: go-sdk.admin-is-not-a-wildcard
+  title: Admin is not a wildcard
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When the principal holds only scope admin and RequireScopes(ctx, "order.admin") is called
+  - Then it returns PermissionDenied
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestRequireScopesExactMatchNoAdminBypass.
+- id: go-sdk.stream-handlers-see-the-principal
+  title: Stream handlers see the principal
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a streaming RPC is called with principal metadata
+  - Then the handler's stream context returns that principal
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestStreamInterceptorInjectsPrincipal.
+- id: go-sdk.a-failing-checker-flips-status
+  title: A failing checker flips status
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a registered checker starts failing
+  - Then within one interval the overall status is NOT_SERVING, and it returns to SERVING after the checker
+    passes again
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/healthx
+    TestCheckerFailureFlipsStatus.
+- id: go-sdk.drain-wins-over-passing-checks
+  title: Drain wins over passing checks
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When Drain() is called while all checkers pass
+  - Then status stays NOT_SERVING
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestDrainIsSticky.
+- id: go-sdk.a-hanging-checker-counts-as-failed
+  title: A hanging checker counts as failed
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a checker blocks longer than the interval
+  - Then it is cancelled, the status becomes NOT_SERVING, and other checkers still run every interval
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestHangingCheckerFailsWithoutBlocking.
+- id: go-sdk.a-failing-component-stops-the-others
+  title: A failing component stops the others
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When one of two components returns an error
+  - Then the other component's context is cancelled and Run returns that error
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/lifecycle
+    TestFailingComponentCancelsOthers.
+- id: go-sdk.closers-run-in-reverse-order-after-drain
+  title: Closers run in reverse order after drain
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When ctx is cancelled with closers a then b registered and an OnShutdown hook
+  - Then the hook runs first, then b, then a
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestShutdownOrder.
+- id: go-sdk.shutdown-is-bounded
+  title: Shutdown is bounded
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a component ignores cancellation longer than ShutdownGrace
+  - Then Run returns after the grace period with a deadline error
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestShutdownDeadline.
+- id: go-sdk.unreachable-database-fails-at-open
+  title: Unreachable database fails at open
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When Open targets a closed port
+  - Then it returns an error before any query runs
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/pgx
+    TestOpenFailsOnUnreachableDB.
+- id: go-sdk.withtx-rolls-back-on-error
+  title: WithTx rolls back on error
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When fn inserts a row and returns an error
+  - Then the row is not visible afterwards
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestWithTxRollsBackOnError
+    (testkit Postgres).
+- id: go-sdk.up-is-idempotent
+  title: Up is idempotent
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When Up runs twice on the same database
+  - Then both calls succeed and the schema version is the latest
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/migrate
+    TestUpIsIdempotent.
+- id: go-sdk.invalid-sql-fails-the-migration
+  title: Invalid SQL fails the migration
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When an up file contains invalid SQL
+  - Then Up returns an error that names the failing version
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestUpFailsOnInvalidSQL.
+- id: go-sdk.non-retryable-codes-are-not-retried
+  title: Non-retryable codes are not retried
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When fn returns status.Error(codes.InvalidArgument, …) under a 3-attempt retry
+  - Then fn runs once
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/resilience
+    TestRetrySkipsNonRetryableCodes.
+- id: go-sdk.open-breaker-rejects-calls
+  title: Open breaker rejects calls
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When failures exceed the breaker threshold
+  - Then the next call returns the breaker-open error without running fn
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestBreakerOpensAfterFailures.
+- id: go-sdk.a-panicking-handler-returns-internal-and-the-server-keeps-serving
+  title: A panicking handler returns Internal and the server keeps serving
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a handler panics
+  - Then the caller receives codes.Internal and a following call succeeds
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx
+    TestRecoveryKeepsServing.
+- id: go-sdk.request-id-round-trips
+  title: Request id round-trips
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a call sends x-request-id=abc
+  - Then the handler sees reqctx.RequestID(ctx)=="abc" and the response header carries abc
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestRequestIDPropagates.
+- id: go-sdk.unknown-errors-do-not-leak
+  title: Unknown errors do not leak
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - 'When a handler returns grpcx.Status(errors.New("pq: password=secret"), table)'
+  - Then the caller sees Internal with message internal error
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestStatusHidesUnknownErrors.
+- id: go-sdk.health-drains-before-stop
+  title: Health drains before stop
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When the example runs and its context is cancelled
+  - Then a health watcher observes NOT_SERVING before the listener closes
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/examples/hello/internal/app
+    TestShutdownDrainsHealthFirst.
+- id: go-sdk.calls-without-a-principal-are-rejected
+  title: Calls without a principal are rejected
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When Greet is called without x-principal-* metadata
+  - Then the caller receives Unauthenticated
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestGreetRejectsMissingPrincipal.
+- id: go-sdk.sync-vendors-the-tagged-tree
+  title: Sync vendors the tagged tree
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When the script runs with an existing tag against a scratch copy of a service
+  - Then third_party/go-sdk/VERSION names the tag, go.mod has the replace, and go build ./... succeeds
+    in the service
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+- id: go-sdk.unknown-tag-changes-nothing
+  title: Unknown tag changes nothing
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When the script runs with a tag that does not exist
+  - Then it exits non-zero and the service tree is unchanged
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
