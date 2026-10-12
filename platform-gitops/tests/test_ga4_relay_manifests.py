@@ -152,6 +152,18 @@ class RedpandaPolicy(unittest.TestCase):
         self.assertRegex(entry, r"(?i)deny\s+all\s+other")
         self.assertNotRegex(entry, r"allow[^.]*ga4-relay")
 
+    def test_scenario_dlq_retention_enforced_when_topic_preexists_alter_config(self):
+        code = [l for l in self.text.splitlines() if not l.strip().startswith("#")]
+        alter = [i for i, l in enumerate(code)
+                 if re.search(r"rpk topic alter-config analytics\.ga4-relay\.dlq\b.*--set retention\.ms=604800000", l)]
+        self.assertTrue(alter, "init script must `rpk topic alter-config analytics.ga4-relay.dlq --set retention.ms=604800000`")
+        create = [i for i, l in enumerate(code) if re.search(r"rpk topic create analytics\.ga4-relay\.dlq\b", l)]
+        self.assertTrue(create, "create line for the DLQ topic missing")
+        self.assertGreater(min(alter), min(create), "alter-config must follow the create line")
+        for i in create:
+            if "|| true" in code[i]:
+                self.assertTrue(alter, "create swallowed by `|| true` without alter-config after it")
+
 
 if __name__ == "__main__":
     unittest.main()
