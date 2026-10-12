@@ -58,6 +58,11 @@ type TrackingRecord struct {
 	PaymentType   string
 	// GaClientID is the GA4 client id (empty without analytics consent).
 	GaClientID string
+	// ConsentVersion is the consent policy version (0 = no consent cookie).
+	ConsentVersion         int
+	ConsentAnalytics       bool
+	ConsentMarketing       bool
+	ConsentPersonalization bool
 }
 
 // Column is one entry of the canonical warehouse schema. The DuckDB and BigQuery
@@ -109,6 +114,10 @@ var Schema = []Column{
 	{"ingested_at", "TIMESTAMP", "TIMESTAMP"},
 	// ga_client_id joins events to ga4_sessions.user_pseudo_id (attributed view).
 	{"ga_client_id", "VARCHAR", "STRING"},
+	{"consent_version", "INTEGER", "INT64"},
+	{"consent_analytics", "BOOLEAN", "BOOL"},
+	{"consent_marketing", "BOOLEAN", "BOOL"},
+	{"consent_personalization", "BOOLEAN", "BOOL"},
 }
 
 // AttributedViewName is the resolved events joined to GA4 session attribution.

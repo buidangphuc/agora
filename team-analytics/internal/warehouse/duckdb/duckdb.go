@@ -433,6 +433,10 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 			r.PaymentType,
 			ingestedAt,
 			r.GaClientID,
+			int64(r.ConsentVersion),
+			r.ConsentAnalytics,
+			r.ConsentMarketing,
+			r.ConsentPersonalization,
 			r.EventID, // NOT EXISTS dedupe key
 		)
 		if err != nil {
