@@ -1023,7 +1023,8 @@ features:
       - "When a signed-in buyer with no granted events calls Recommend for the home feed through the gateway"
       - "Then the response lists at least 1 listing id, served by the existing popular path"
     tags: [recsys, recommendations, consent]
-    status: planned
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Denied buyer is served popular recommendations"
 
   - id: recsys.nearline-denied-no-key
     title: "Denied event changes no per-user key"
@@ -1039,7 +1040,8 @@ features:
       - "Then recs:nearline:user:u-deny:items, recs:nearline:user:u-deny:cats and the session and co-view keys are unchanged"
       - "And consent_denied increases by 1"
     tags: [recsys, nearline, batch, consent]
-    status: planned
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Denied event changes no per-user key"
 
   - id: recsys.nearline-checkout-affinity
     title: "Checkout events raise category affinity"
@@ -1054,7 +1056,8 @@ features:
       - "When a consented actor sends view_cart then begin_checkout for a listing of category books"
       - "Then recs:nearline:user:<actor>:cats field books increases by 9.0 (3.0 + 6.0)"
     tags: [recsys, nearline, batch]
-    status: planned
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Checkout events raise category affinity"
 
   - id: recsys.export-consent-context-columns
     title: "Exported file has consent and context columns"
@@ -1069,7 +1072,8 @@ features:
       - "When an export runs over events with consent stamped and a matching ga4_sessions row"
       - "Then the Parquet contains consent_personalization, consent_version, item_list_id, position, session_source, session_medium and session_campaign and the matched row has the session's source, medium and campaign"
     tags: [recsys, analytics, batch, consent]
-    status: planned
+    status: automated
+    covered_by: "recommendations/recsys_consent_context.feature::Exported file has consent and context columns"
 
   - id: recsys.rcc-granted-event-is-applied
     title: "Granted event is applied"
@@ -1246,7 +1250,7 @@ features:
     preconditions:
       login: guest
     acceptance:
-      - "Context kept when it does not regress (unit-verified)"
+      - "Context kept when it does not regress: the run report states context_features=enabled with both metric sets and the published artifact's features equal RANKING_FEATURES (unit-verified)"
     tags: [recsys, unit, consent]
     status: not-testable
     notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_context.py test_context_kept_without_regression. Not producible end to end."
@@ -1325,3 +1329,33 @@ features:
     tags: [recsys, unit, consent]
     status: not-testable
     notes: "recsys-consent-and-context: unit-verified: team-analytics/internal/export/export_test.go TestExport_NeverReadsGA4AsInteractionSource. Not producible end to end."
+
+  - id: recsys.rcc-list-specific-propensity-replaces-the-position-only-weight
+    title: "List-specific propensity replaces the position-only weight"
+    persona: guest
+    priority: P2
+    summary: "List-specific propensity replaces the position-only weight"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "List-specific propensity replaces the position-only weight (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_list_propensity_replaces_position_only_weight. Not producible end to end."
+
+  - id: recsys.rcc-sparse-list-cell-falls-back-to-position-only
+    title: "Sparse list cell falls back to position-only"
+    persona: guest
+    priority: P2
+    summary: "Sparse list cell falls back to position-only"
+    entry_route: "/"
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Sparse list cell falls back to position-only (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_sparse_list_cell_falls_back_to_position_only. Not producible end to end."
