@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -59,4 +60,37 @@ type OTel struct {
 	Enabled     bool   `env:"OTEL_ENABLED" default:"false"`
 	Endpoint    string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 	ServiceName string `env:"OTEL_SERVICE_NAME"`
+}
+
+// Kafka holds the broker settings. Kafka has no enable flag: a service that
+// imports kafkax needs it.
+type Kafka struct {
+	Brokers string `env:"KAFKA_BROKERS" default:"localhost:9092"`
+}
+
+// BrokerList splits Brokers on commas, trimming blanks and dropping empty entries.
+func (k Kafka) BrokerList() []string {
+	var out []string
+	for b := range strings.SplitSeq(k.Brokers, ",") {
+		if b = strings.TrimSpace(b); b != "" {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// Outbox holds the outbox relayer settings.
+type Outbox struct {
+	PollInterval     time.Duration `env:"OUTBOX_POLL_INTERVAL" default:"1s"`
+	BatchSize        int           `env:"OUTBOX_BATCH_SIZE" default:"100"`
+	ClaimLockSeconds int           `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
+	MaxAttempts      int           `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+}
+
+// Flags holds the feature-flag settings. Enabled stays a flag because some
+// environments run without Flipt.
+type Flags struct {
+	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
+	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
+	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
 }

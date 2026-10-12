@@ -38,8 +38,8 @@ func NewConsumerClient(c config.Kafka, group string, topics ...string) (*kgo.Cli
 func Redpanda(t testing.TB) (brokers string)
 ```
 
-- [ ] 2.1 Add the modules: franz-go `kgo` + `plugin/kotel`, `open-feature/go-sdk`, the Flipt OpenFeature provider used by team-order (match its import), and testcontainers `modules/redpanda`. Update `deps.go`.
-- [ ] 2.2 Tests first: `TestPublishAddsTraceAndRequestHeaders`, `TestPublishReturnsErrorWhenBrokerDown`, and group default tests. Then implement.
+- [x] 2.1 Add the modules: franz-go `kgo` + `plugin/kotel`, `open-feature/go-sdk`, the Flipt OpenFeature provider used by team-order (match its import), and testcontainers `modules/redpanda`. Update `deps.go`.
+- [x] 2.2 Tests first: `TestPublishAddsTraceAndRequestHeaders`, `TestPublishReturnsErrorWhenBrokerDown`, and group default tests. Then implement.
 
 ## 3. outbox (wave 2)
 
