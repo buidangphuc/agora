@@ -23,9 +23,6 @@ linters:
     presets:
       - std-error-handling
     rules:
-      - path: internal/deps/
-        linters:
-          - revive
       - path: _test\.go
         linters:
           - gosec

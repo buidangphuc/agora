@@ -9,13 +9,14 @@ import (
 	jpgx "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func openPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool, err := sdkpgx.Open(context.Background(), sdkpgx.Options{URL: testkit.Postgres(t), MaxConns: 4})
+	pool, err := sdkpgx.Open(context.Background(), config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -37,7 +38,7 @@ func countItems(t *testing.T, pool *pgxpool.Pool) int {
 
 func TestOpenFailsOnUnreachableDB(t *testing.T) {
 	start := time.Now()
-	pool, err := sdkpgx.Open(context.Background(), sdkpgx.Options{
+	pool, err := sdkpgx.Open(context.Background(), config.Postgres{
 		URL:      "postgres://u:p@127.0.0.1:1/db?sslmode=disable",
 		MaxConns: 2,
 	})

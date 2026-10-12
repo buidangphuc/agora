@@ -10,6 +10,7 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
@@ -58,7 +59,7 @@ func TestHandlerOmitsMissingIDs(t *testing.T) {
 
 func TestNewHonoursLevelAndFormat(t *testing.T) {
 	var buf bytes.Buffer
-	log := newWithWriter(&buf, Options{Level: "warn", JSON: true}, "svc")
+	log := newWithWriter(&buf, config.Runtime{LogLevel: "warn", LogJSON: true}, "svc")
 	log.Info("dropped")
 	log.Warn("kept")
 	rec := decode(t, &buf)
@@ -67,10 +68,25 @@ func TestNewHonoursLevelAndFormat(t *testing.T) {
 	}
 
 	buf.Reset()
-	log = newWithWriter(&buf, Options{Level: "debug", JSON: false}, "svc")
+	log = newWithWriter(&buf, config.Runtime{LogLevel: "debug", LogJSON: false}, "svc")
 	log.Debug("shown")
 	out := buf.String()
 	if !strings.Contains(out, "level=DEBUG") || !strings.Contains(out, "service=svc") {
 		t.Fatalf("text output = %q", out)
+	}
+}
+
+func TestHandlerKeepsExplicitIDs(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(NewHandler(slog.NewJSONHandler(&buf, nil)))
+
+	ctx := reqctx.WithRequestID(context.Background(), "from-ctx")
+	log.InfoContext(ctx, "hello", "request_id", "explicit")
+
+	if got := strings.Count(buf.String(), `"request_id"`); got != 1 {
+		t.Fatalf("request_id appears %d times in %s", got, buf.String())
+	}
+	if rec := decode(t, &buf); rec["request_id"] != "explicit" {
+		t.Fatalf("record = %v", rec)
 	}
 }

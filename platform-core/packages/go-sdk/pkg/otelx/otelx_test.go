@@ -9,6 +9,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
 func restoreGlobals(t *testing.T) {
@@ -25,7 +27,7 @@ func TestInitDisabledIsNoop(t *testing.T) {
 	restoreGlobals(t)
 	otel.SetTracerProvider(noop.NewTracerProvider())
 
-	shutdown, err := Init(context.Background(), Options{Enabled: false}, "svc")
+	shutdown, err := Init(context.Background(), config.OTel{Enabled: false}, "svc")
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -44,7 +46,7 @@ func TestInitEnabledUsesServiceFallback(t *testing.T) {
 	restoreGlobals(t)
 
 	shutdown, err := Init(context.Background(),
-		Options{Enabled: true, Endpoint: "http://127.0.0.1:1"}, "team-x")
+		config.OTel{Enabled: true, Endpoint: "http://127.0.0.1:1"}, "team-x")
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}

@@ -8,25 +8,21 @@ import (
 
 	jpgx "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
 const pingTimeout = 5 * time.Second
 
-// Options is the subset of the Postgres config that Open needs.
-type Options struct {
-	URL      string
-	MaxConns int32
-}
-
 // Open creates the pool and pings it, because pgxpool.New alone connects lazily.
 // It returns an error, with no pool, when the database is not reachable within 5s.
-func Open(ctx context.Context, o Options) (*pgxpool.Pool, error) {
-	cfg, err := pgxpool.ParseConfig(o.URL)
+func Open(ctx context.Context, c config.Postgres) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(c.URL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database url: %w", err)
 	}
-	if o.MaxConns > 0 {
-		cfg.MaxConns = o.MaxConns
+	if c.MaxConns > 0 {
+		cfg.MaxConns = c.MaxConns
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)

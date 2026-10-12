@@ -9,24 +9,19 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
-// Options mirrors the fields of config.Runtime that logx reads.
-type Options struct {
-	Level string
-	JSON  bool
-}
-
 // New returns a logger writing to stdout with a service attribute.
-func New(o Options, service string) *slog.Logger {
-	return newWithWriter(os.Stdout, o, service)
+func New(r config.Runtime, service string) *slog.Logger {
+	return newWithWriter(os.Stdout, r, service)
 }
 
-func newWithWriter(w io.Writer, o Options, service string) *slog.Logger {
-	ho := &slog.HandlerOptions{Level: parseLevel(o.Level)}
+func newWithWriter(w io.Writer, r config.Runtime, service string) *slog.Logger {
+	ho := &slog.HandlerOptions{Level: parseLevel(r.LogLevel)}
 	var h slog.Handler
-	if o.JSON {
+	if r.LogJSON {
 		h = slog.NewJSONHandler(w, ho)
 	} else {
 		h = slog.NewTextHandler(w, ho)
@@ -60,14 +55,19 @@ func (h ctxHandler) Enabled(ctx context.Context, l slog.Level) bool {
 }
 
 func (h ctxHandler) Handle(ctx context.Context, r slog.Record) error {
-	if id := reqctx.RequestID(ctx); id != "" {
-		r.AddAttrs(slog.String("request_id", id))
+	// A record that already names a key (for example the gRPC logging
+	// interceptor's request_id) keeps its value instead of getting a duplicate.
+	have := map[string]bool{}
+	r.Attrs(func(a slog.Attr) bool { have[a.Key] = true; return true })
+	add := func(key, val string) {
+		if val != "" && !have[key] {
+			r.AddAttrs(slog.String(key, val))
+		}
 	}
-	if id := reqctx.PrincipalID(ctx); id != "" {
-		r.AddAttrs(slog.String("principal_id", id))
-	}
+	add("request_id", reqctx.RequestID(ctx))
+	add("principal_id", reqctx.PrincipalID(ctx))
 	if sc := trace.SpanContextFromContext(ctx); sc.HasTraceID() {
-		r.AddAttrs(slog.String("trace_id", sc.TraceID().String()))
+		add("trace_id", sc.TraceID().String())
 	}
 	return h.inner.Handle(ctx, r)
 }

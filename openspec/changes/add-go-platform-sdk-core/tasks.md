@@ -201,8 +201,8 @@ type ErrorTable map[error]codes.Code
 func Status(ctx context.Context, logger *slog.Logger, err error, t ErrorTable) error  // errors.Is match -> status with err.Error(); unmatched -> log + Internal "internal error"; nil -> nil
 ```
 The example is a `HelloService` using `grpc_health_v1`-style hand-written service registration (no proto codegen), or `grpc.ServiceDesc` built by hand. It has one RPC `Greet` (requires a principal) and one RPC `Boom` (panics). Layout follows ADR-0016: `cmd/hello/main.go` < 20 lines, `internal/app/app.go` composition root, `internal/config`, `internal/grpc`.
-- [ ] 9.1 Tests first: `TestRecoveryKeepsServing`, `TestRequestIDPropagates`, `TestStatusHidesUnknownErrors`, `TestStatusMapsKnownErrors` (bufconn); then implement grpcx.
-- [ ] 9.2 Tests first: `TestShutdownDrainsHealthFirst`, `TestGreetRejectsMissingPrincipal` (run app on a free port, watch health, cancel ctx, assert NOT_SERVING is observed before the connection closes); then build the example. Delete `internal/deps`, run `go mod tidy`, and run `make check` green for the whole SDK.
+- [x] 9.1 Tests first: `TestRecoveryKeepsServing`, `TestRequestIDPropagates`, `TestStatusHidesUnknownErrors`, `TestStatusMapsKnownErrors` (bufconn); then implement grpcx.
+- [x] 9.2 Tests first: `TestShutdownDrainsHealthFirst`, `TestGreetRejectsMissingPrincipal` (run app on a free port, watch health, cancel ctx, assert NOT_SERVING is observed before the connection closes); then build the example. Delete `internal/deps`, run `go mod tidy`, and run `make check` green for the whole SDK.
 
 ## 10. Close (orchestrator)
 
