@@ -137,6 +137,10 @@ describe("trackEcommerce gaClientId (ga_client_id scenarios)", () => {
     ["too few parts", "GA1.1.123"],
     ["non-numeric version", "GA1.x.1.2"],
     ["empty", ""],
+    ["non-numeric both parts", "GA1.1.abc.def"],
+    ["non-numeric second part", "GA1.1.123.abc"],
+    ["non-numeric first part", "GA1.1.abc.123"],
+    ["three id segments", "GA1.1.1.2.3"],
   ])(
     "Malformed or missing _ga cookie: %s -> empty, no throw",
     async (_n, v) => {
