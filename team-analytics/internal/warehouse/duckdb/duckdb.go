@@ -90,6 +90,28 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		}
 	}
 
+	for _, t := range []struct {
+		name   string
+		schema []warehouse.Column
+	}{
+		{warehouse.GA4SessionsTableName, warehouse.GA4SessionsSchema},
+		{warehouse.GA4EventsDailyTableName, warehouse.GA4EventsDailySchema},
+		{warehouse.GA4ImportRunsTableName, warehouse.GA4ImportRunsSchema},
+	} {
+		cols := make([]string, len(t.schema))
+		for i, c := range t.schema {
+			cols[i] = c.Name + " " + c.DuckDBType
+		}
+		if _, err := w.db.ExecContext(ctx, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", t.name, strings.Join(cols, ", "))); err != nil {
+			return fmt.Errorf("ensure %s table: %w", t.name, err)
+		}
+		for _, c := range t.schema {
+			if _, err := w.db.ExecContext(ctx, fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", t.name, c.Name, c.DuckDBType)); err != nil {
+				return fmt.Errorf("migrate %s column %s: %w", t.name, c.Name, err)
+			}
+		}
+	}
+
 	listingSellersDDL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
   listing_id VARCHAR PRIMARY KEY,
   seller_id  VARCHAR NOT NULL,

@@ -123,6 +123,9 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	if err := Migrate(ctx, clientExec{w.client}, w.client.Project(), w.dataset, w.table); err != nil {
 		return err
 	}
+	if err := MigrateGA4(ctx, clientExec{w.client}, w.client.Project(), w.dataset); err != nil {
+		return err
+	}
 
 	factsSchema, err := bqOrderFactsSchema()
 	if err != nil {

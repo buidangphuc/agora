@@ -262,3 +262,38 @@ type EngagementFactWriter interface {
 	// event_id, stamping ingested_at with the sink clock.
 	WriteEngagementFacts(ctx context.Context, batch []*EngagementFactRecord) error
 }
+
+// GA4 export-import table names.
+const (
+	GA4SessionsTableName    = "ga4_sessions"
+	GA4EventsDailyTableName = "ga4_events_daily"
+	GA4ImportRunsTableName  = "ga4_import_runs"
+)
+
+// GA4SessionsSchema is the single source for ga4_sessions in both adapters.
+// export_date and ended_at come last so a legacy table gains them by ALTER.
+var GA4SessionsSchema = []Column{
+	{"user_pseudo_id", "VARCHAR", "STRING"},
+	{"session_id", "VARCHAR", "STRING"},
+	{"source", "VARCHAR", "STRING"},
+	{"medium", "VARCHAR", "STRING"},
+	{"campaign", "VARCHAR", "STRING"},
+	{"landing_page", "VARCHAR", "STRING"},
+	{"ts", "TIMESTAMP", "TIMESTAMP"},
+	{"export_date", "DATE", "DATE"},
+	{"ended_at", "TIMESTAMP", "TIMESTAMP"},
+}
+
+// GA4EventsDailySchema is the schema of the ga4_events_daily aggregate.
+var GA4EventsDailySchema = []Column{
+	{"day", "DATE", "DATE"},
+	{"event_name", "VARCHAR", "STRING"},
+	{"events", "BIGINT", "INT64"},
+}
+
+// GA4ImportRunsSchema is the schema of the ga4_import_runs ledger.
+var GA4ImportRunsSchema = []Column{
+	{"export_date", "DATE", "DATE"},
+	{"rows", "BIGINT", "INT64"},
+	{"finished_at", "TIMESTAMP", "TIMESTAMP"},
+}

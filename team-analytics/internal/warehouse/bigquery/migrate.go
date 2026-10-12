@@ -112,3 +112,40 @@ func (e clientExec) Exec(ctx context.Context, stmt string) error {
 	}
 	return st.Err()
 }
+
+var ga4Tables = []struct {
+	name   string
+	schema []warehouse.Column
+}{
+	{warehouse.GA4SessionsTableName, warehouse.GA4SessionsSchema},
+	{warehouse.GA4EventsDailyTableName, warehouse.GA4EventsDailySchema},
+	{warehouse.GA4ImportRunsTableName, warehouse.GA4ImportRunsSchema},
+}
+
+// GA4MigrationDDL returns idempotent CREATE TABLE IF NOT EXISTS plus
+// ADD COLUMN IF NOT EXISTS statements for the GA4 export-import tables.
+func GA4MigrationDDL(project, dataset string) []string {
+	var out []string
+	for _, t := range ga4Tables {
+		fq := fmt.Sprintf("`%s.%s.%s`", project, dataset, t.name)
+		cols := make([]string, len(t.schema))
+		for i, c := range t.schema {
+			cols[i] = c.Name + " " + c.BigQueryType
+		}
+		out = append(out, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", fq, strings.Join(cols, ", ")))
+		for _, c := range t.schema {
+			out = append(out, fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", fq, c.Name, c.BigQueryType))
+		}
+	}
+	return out
+}
+
+// MigrateGA4 applies GA4MigrationDDL, stopping at the first failure.
+func MigrateGA4(ctx context.Context, exec DDLExecutor, project, dataset string) error {
+	for _, stmt := range GA4MigrationDDL(project, dataset) {
+		if err := exec.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("migrate ga4 tables in %s.%s: %w (stmt: %s)", project, dataset, err, stmt)
+		}
+	}
+	return nil
+}
