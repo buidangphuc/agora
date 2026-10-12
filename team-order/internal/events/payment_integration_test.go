@@ -207,10 +207,11 @@ func (f *failingVoucher) CommitReservation(context.Context, *promotionv1.CommitR
 	return &promotionv1.CommitReservationResponse{Committed: true}, nil
 }
 
-// The voucher commit is part of the delivery's transaction: when it fails, the
-// whole delivery rolls back and the redelivery applies PAID and commits the
-// voucher once.
-func TestVoucherCommitFailureRollsBackAndRedeliveryCommitsOnce(t *testing.T) {
+// The PAID transition and its outbox row commit before the voucher commit, so a
+// failed voucher commit leaves the order PAID (the buyer paid) and the event
+// unprocessed: the redelivery sees PAID, makes no second transition, retries the
+// voucher commit and only then marks the event processed.
+func TestVoucherCommitFailureKeepsOrderPaidAndRetriesCommit(t *testing.T) {
 	ctx := context.Background()
 	pool := orderDB(t)
 	orders := store.NewPostgresOrderRepository(pool, store.WithPaidOutbox(events.BuildPaidOutboxRow))
@@ -222,24 +223,45 @@ func TestVoucherCommitFailureRollsBackAndRedeliveryCommitsOnce(t *testing.T) {
 	if err := c.Handle(ctx, rec); err == nil {
 		t.Fatal("a voucher commit error must be returned so the event is redelivered")
 	}
-	if st := orderStatus(t, orders, o.ID); st != store.OrderStatusPending {
-		t.Fatalf("status after the failed delivery = %v, want PENDING (rolled back)", st)
+	paid, err := orders.GetOrder(ctx, o.ID)
+	if err != nil || paid.Status != store.OrderStatusPaid || paid.PaidAt == nil {
+		t.Fatalf("after the failed voucher commit: %+v, %v; want PAID", paid, err)
+	}
+	if n := outboxRows(t, pool, o.ID); n != 1 {
+		t.Fatalf("outbox rows after the failed voucher commit = %d, want the 1 PAID fact", n)
 	}
 	if n := processedRows(t, pool, "evt-v"); n != 0 {
-		t.Fatalf("processed_events rows after the failed delivery = %d, want 0", n)
+		t.Fatalf("processed_events rows after the failed voucher commit = %d, want 0", n)
 	}
 
 	if err := c.Handle(ctx, rec); err != nil {
 		t.Fatalf("redelivery: %v", err)
 	}
-	if err := c.Handle(ctx, rec); err != nil {
-		t.Fatalf("third delivery: %v", err)
+	if got := promo.attempts.Load(); got != 2 {
+		t.Fatalf("voucher commit attempts = %d, want 2 (failed, then retried)", got)
 	}
 	if got := promo.committed.Load(); got != 1 {
 		t.Fatalf("voucher committed %d times, want exactly once", got)
 	}
-	if st := orderStatus(t, orders, o.ID); st != store.OrderStatusPaid {
-		t.Fatalf("final status = %v, want PAID", st)
+	again, err := orders.GetOrder(ctx, o.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Status != store.OrderStatusPaid || !again.UpdatedAt.Equal(paid.UpdatedAt) || !again.PaidAt.Equal(*paid.PaidAt) {
+		t.Fatalf("the redelivery transitioned the order again: %+v -> %+v", paid, again)
+	}
+	if n := outboxRows(t, pool, o.ID); n != 1 {
+		t.Fatalf("outbox rows after the redelivery = %d, want still 1", n)
+	}
+	if n := processedRows(t, pool, "evt-v"); n != 1 {
+		t.Fatalf("processed_events rows after the redelivery = %d, want 1", n)
+	}
+
+	if err := c.Handle(ctx, rec); err != nil {
+		t.Fatalf("third delivery: %v", err)
+	}
+	if got := promo.attempts.Load(); got != 2 {
+		t.Fatalf("a processed event reached the voucher again: %d attempts", got)
 	}
 }
 

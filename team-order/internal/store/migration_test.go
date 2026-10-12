@@ -140,3 +140,22 @@ func TestMigration0008DownRestoresEventIDKey(t *testing.T) {
 		t.Fatalf("insert of a second consumer for the same event = %v, want a unique violation (old key restored)", err)
 	}
 }
+
+// The previous release inserts into the ledger with ON CONFLICT (event_id), which
+// needs a unique index on event_id alone. 0008 keeps one next to the new key, so
+// pods of the old release keep working during a rolling deploy.
+func TestMigration0008KeepsPreviousReleaseInsertWorking(t *testing.T) {
+	ctx := context.Background()
+	pool := newPool(t)
+	execMigrations(t, pool, "0000", "0008")
+
+	for i := 0; i < 2; i++ {
+		if _, err := pool.Exec(ctx, `INSERT INTO processed_events (event_id) VALUES ('evt-prev') ON CONFLICT (event_id) DO NOTHING`); err != nil {
+			t.Fatalf("previous-release insert #%d after 0008: %v", i+1, err)
+		}
+	}
+	var rows int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM processed_events WHERE event_id = 'evt-prev'`).Scan(&rows); err != nil || rows != 1 {
+		t.Fatalf("rows for evt-prev = %d (err %v), want 1", rows, err)
+	}
+}
