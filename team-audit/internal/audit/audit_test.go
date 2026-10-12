@@ -2,6 +2,7 @@ package audit_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
@@ -113,7 +114,7 @@ func TestWriteValidation(t *testing.T) {
 	svc := newAuditService()
 	ctx := context.Background()
 
-	if _, err := svc.Write(ctx, "seller_1", "", "listing", "lst_1", nil); err != audit.ErrEmptyAction {
+	if _, err := svc.Write(ctx, "seller_1", "", "listing", "lst_1", nil); !errors.Is(err, audit.ErrEmptyAction) {
 		t.Fatalf("expected ErrEmptyAction, got %v", err)
 	}
 	// Empty actor is allowed (anonymous / system-originated events).

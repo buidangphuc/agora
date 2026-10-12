@@ -533,7 +533,6 @@ services:
       team-audit-migrate:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://audit_svc:audit_pass@postgres:5432/audit_db?sslmode=disable
       - GRPC_PORT=50066
       - ENV=local

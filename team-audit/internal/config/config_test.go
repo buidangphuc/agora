@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -53,7 +54,10 @@ func TestConfigLoadRequiresDatabaseURL(t *testing.T) {
 }
 
 func TestConfigLoadRequiresGRPCPort(t *testing.T) {
-	t.Setenv("GRPC_PORT", "")
+	t.Setenv("GRPC_PORT", "") // registers the restore; the variable must then be unset, not empty
+	if err := os.Unsetenv("GRPC_PORT"); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 
 	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "GRPC_PORT") {
