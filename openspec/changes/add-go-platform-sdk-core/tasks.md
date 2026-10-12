@@ -110,8 +110,8 @@ package otelx
 func Init(ctx context.Context, c config.OTel, service string) (shutdown func(context.Context) error, err error)
 ```
 Write `pkg/config` usage against the `## 3` contract. If `## 3` has not merged, define the needed struct locally in the test only. Do not create `pkg/config`.
-- [ ] 4.1 Tests first: `TestHandlerAddsContextIDs`, `TestHandlerOmitsMissingIDs`, `TestNewHonoursLevelAndFormat`; then implement logx.
-- [ ] 4.2 Tests first: `TestInitDisabledIsNoop`, `TestInitEnabledUsesServiceFallback` (use an in-memory span exporter via an internal option or check the resource through the returned provider). Then implement otelx as the promotion of `team-domain/internal/observability/tracer.go` plus a meter provider. Verify green.
+- [x] 4.1 Tests first: `TestHandlerAddsContextIDs`, `TestHandlerOmitsMissingIDs`, `TestNewHonoursLevelAndFormat`; then implement logx.
+- [x] 4.2 Tests first: `TestInitDisabledIsNoop`, `TestInitEnabledUsesServiceFallback` (use an in-memory span exporter via an internal option or check the resource through the returned provider). Then implement otelx as the promotion of `team-domain/internal/observability/tracer.go` plus a meter provider. Verify green.
 
 ## 5. auth (wave 2)
 
