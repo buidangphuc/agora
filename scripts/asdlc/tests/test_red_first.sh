@@ -109,5 +109,39 @@ cp "$FX/calc_green_test.go" calc_test.go; git add -A && git commit -q -m "late t
 OUT=$("$RF" 2>&1); RC=$?
 [ $RC -eq 1 ] && echo "$OUT" | grep -q "green at base" && ok "(h) exempt without reason ignored" || bad "(h2) expected exit 1 got $RC"
 
+# (i) gitignored generated proto code: a module with buf.gen.yaml is regenerated in both worktrees
+new_repo "$T/i"
+mkdir -p "$T/bin"
+cat > "$T/bin/buf" <<'SH'
+#!/usr/bin/env bash
+# fake buf: `buf generate --template <t>` writes the generated package
+[ "$1" = generate ] || exit 2
+mkdir -p generated && printf 'package generated\n\nconst Factor = 1\n' > generated/gen.go
+SH
+chmod +x "$T/bin/buf"
+printf 'generated/\n' > .gitignore
+printf 'version: v2\n' > buf.gen.yaml
+commit "buf config"
+cat > calc_test.go <<'GO'
+package calc
+
+import (
+	"testing"
+
+	"example.com/calc/generated"
+)
+
+func TestMulGenerated(t *testing.T) {
+	if Mul(2, 3)*generated.Factor != 6 {
+		t.Fatal("mul")
+	}
+}
+GO
+commit "test first"
+cp "$FX/calc_impl.go" calc.go; commit "impl"
+OUT=$(PATH="$T/bin:$PATH" "$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "green@head=yes" && ok "(i) generated code built in worktrees" || bad "(i) expected exit 0 got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS
