@@ -109,12 +109,16 @@ class Matrix:
     counts: dict[str, int] = field(default_factory=dict)
 
 
+CONTEXT_COLUMNS = ("session_source", "session_medium", "session_campaign")
+
+
 def read_dataset(path: str) -> pd.DataFrame:
     frame = pd.read_parquet(path)
     missing = [c for c in DATASET_COLUMNS if c not in frame.columns]
     if missing:
         raise ConfigError(f"ranking dataset {path} lacks columns {missing}")
-    frame = frame.loc[:, list(DATASET_COLUMNS)].copy()
+    extras = [c for c in CONTEXT_COLUMNS if c in frame.columns]
+    frame = frame.loc[:, [*DATASET_COLUMNS, *extras]].copy()
     frame["occurred_at"] = pd.to_datetime(frame["occurred_at"]).dt.tz_localize(None)
     frame["position"] = frame["position"].fillna(0).astype(int)
     frame["label"] = frame["label"].fillna(0).astype(int)
