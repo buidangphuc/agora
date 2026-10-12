@@ -37,9 +37,11 @@ export function applyConsent(groups: ConsentGroups): void {
 
   window.dataLayer = window.dataLayer || [];
   const layer = window.dataLayer as unknown[];
-  const gtag = (...args: unknown[]) => {
-    layer.push(args);
-  };
+  // gtag.js/GTM only process Arguments objects as commands, not arrays.
+  function gtag(..._args: unknown[]) {
+    // biome-ignore lint/style/noArguments: GTM requires Arguments objects
+    layer.push(arguments);
+  }
 
   let entries = consentEntries(layer);
   if (!entries.some(([k]) => k === "default")) {
