@@ -155,3 +155,41 @@ func TestConsentStamp_ConsentHeaderDoesNotStandInForCookie(t *testing.T) {
 	rec, pub := trackWith(t, consentBeacon, map[string]string{"X-Consent": "v=1&a=1&m=1&p=1&ts=1"})
 	assertDeniedV0(t, rec, pub)
 }
+
+func gaBeacon(id string) string {
+	return `{"type":"view","listingId":"l1","sessionId":"s","anonymousId":"a","gaClientId":"` + id + `"}`
+}
+
+func assertGaClientID(t *testing.T, rec *httptest.ResponseRecorder, pub *mockAnalyticsPublisher, want string) {
+	t.Helper()
+	if rec.Code != http.StatusAccepted || len(pub.events) != 1 {
+		t.Fatalf("code=%d events=%d", rec.Code, len(pub.events))
+	}
+	if got := pub.events[0].GetGaClientId(); got != want {
+		t.Fatalf("ga_client_id = %q, want %q", got, want)
+	}
+}
+
+// Scenario: Client id is copied under analytics consent
+func TestConsentStamp_ClientIdIsCopiedUnderAnalyticsConsent(t *testing.T) {
+	rec, pub := trackWith(t, gaBeacon("123.456"), cookieHdr("v=1&a=1&m=0&p=0&ts=1760000000"))
+	assertGaClientID(t, rec, pub, "123.456")
+}
+
+// Scenario: Client id is blank without analytics consent
+func TestConsentStamp_ClientIdIsBlankWithoutAnalyticsConsent(t *testing.T) {
+	rec, pub := trackWith(t, gaBeacon("123.456"), cookieHdr("v=1&a=0&m=1&p=1&ts=1760000000"))
+	assertGaClientID(t, rec, pub, "")
+	rec, pub = trackWith(t, gaBeacon("123.456"), nil)
+	assertGaClientID(t, rec, pub, "")
+}
+
+// Scenario: Over-long client id is blanked
+func TestConsentStamp_OverLongClientIdIsBlanked(t *testing.T) {
+	ck := cookieHdr("v=1&a=1&m=0&p=0&ts=1760000000")
+	ok64 := strings.Repeat("1", 64)
+	rec, pub := trackWith(t, gaBeacon(ok64), ck)
+	assertGaClientID(t, rec, pub, ok64)
+	rec, pub = trackWith(t, gaBeacon(ok64+"1"), ck)
+	assertGaClientID(t, rec, pub, "")
+}
