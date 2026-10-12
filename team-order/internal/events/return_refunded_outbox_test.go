@@ -11,7 +11,7 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 func decodeReturnRefunded(t *testing.T, payload []byte) (*eventsv1.EventEnvelope, *orderv1.ReturnRefunded) {
@@ -28,8 +28,10 @@ func decodeReturnRefunded(t *testing.T, payload []byte) (*eventsv1.EventEnvelope
 // stored return and the order currency, and an event id stable per return.
 func TestBuildReturnRefundedOutboxRow(t *testing.T) {
 	at := time.Date(2026, 10, 8, 9, 30, 0, 0, time.FixedZone("ICT", 7*3600))
-	ret := repository.OrderReturn{ID: "ret-1", OrderID: "ord-1", BuyerID: "buyer-1", SellerID: "seller-1",
-		Reason: "broken", RefundAmount: 200000, Status: repository.ReturnStatusRefunded, UpdatedAt: at}
+	ret := store.OrderReturn{
+		ID: "ret-1", OrderID: "ord-1", BuyerID: "buyer-1", SellerID: "seller-1",
+		Reason: "broken", RefundAmount: 200000, Status: store.ReturnStatusRefunded, UpdatedAt: at,
+	}
 
 	row, err := BuildReturnRefundedOutboxRow(ret, "VND")
 	require.NoError(t, err)
@@ -54,7 +56,7 @@ func TestBuildReturnRefundedOutboxRow(t *testing.T) {
 	again, err := BuildReturnRefundedOutboxRow(ret, "VND")
 	require.NoError(t, err)
 	assert.Equal(t, row.EventID, again.EventID)
-	other, err := BuildReturnRefundedOutboxRow(repository.OrderReturn{ID: "ret-2", OrderID: "ord-1"}, "VND")
+	other, err := BuildReturnRefundedOutboxRow(store.OrderReturn{ID: "ret-2", OrderID: "ord-1"}, "VND")
 	require.NoError(t, err)
 	assert.NotEqual(t, row.EventID, other.EventID)
 	assert.NotEqual(t, OrderCancelledEventID("ret-1"), row.EventID)
@@ -65,18 +67,20 @@ func TestBuildReturnRefundedOutboxRow(t *testing.T) {
 // one ReturnRefunded row with the stored amount and the order currency.
 func TestReturnRefundedOutbox_ViaRepository(t *testing.T) {
 	ctx := context.Background()
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository()
-	returns := repository.NewInMemoryReturnRepository(repository.WithReturnOutbox(BuildReturnRefundedOutboxRow),
-		repository.WithInMemoryReturnOutbox(outbox, orders))
-	o, err := orders.CreateOrder(ctx, repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 500000, Currency: "VND"})
+	outbox := store.NewInMemoryOutboxRepository()
+	orders := store.NewInMemoryOrderRepository()
+	returns := store.NewInMemoryReturnRepository(store.WithReturnOutbox(BuildReturnRefundedOutboxRow),
+		store.WithInMemoryReturnOutbox(outbox, orders))
+	o, err := orders.CreateOrder(ctx, store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 500000, Currency: "VND"})
 	require.NoError(t, err)
-	r, err := returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: "b", SellerID: "s",
-		Reason: "x", RefundAmount: 200000}, o.TotalAmount)
+	r, err := returns.CreateReturnCapped(ctx, store.OrderReturn{
+		OrderID: o.ID, BuyerID: "b", SellerID: "s",
+		Reason: "x", RefundAmount: 200000,
+	}, o.TotalAmount)
 	require.NoError(t, err)
-	_, err = returns.TransitionReturn(ctx, r.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved)
+	_, err = returns.TransitionReturn(ctx, r.ID, store.ReturnStatusPending, store.ReturnStatusApproved)
 	require.NoError(t, err)
-	_, err = returns.TransitionReturn(ctx, r.ID, repository.ReturnStatusApproved, repository.ReturnStatusRefunded)
+	_, err = returns.TransitionReturn(ctx, r.ID, store.ReturnStatusApproved, store.ReturnStatusRefunded)
 	require.NoError(t, err)
 
 	rows := outbox.EnqueuedRows()

@@ -1,0 +1,538 @@
+package rpc_test
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+)
+
+// fakeFlags is a hand-rolled Evaluator for the checkout kill-switch tests.
+type fakeFlags struct{ enabled bool }
+
+func (f fakeFlags) BooleanEnabled(_ context.Context, _ string, _ bool) bool { return f.enabled }
+
+type mockOrderServiceRepo struct {
+	orders map[string]store.Order
+}
+
+func (m *mockOrderServiceRepo) CreateOrder(_ context.Context, o store.Order) (store.Order, error) {
+	if m.orders == nil {
+		m.orders = make(map[string]store.Order)
+	}
+	m.orders[o.ID] = o
+	return o, nil
+}
+
+func (m *mockOrderServiceRepo) GetOrder(_ context.Context, id string) (store.Order, error) {
+	if o, ok := m.orders[id]; ok {
+		return o, nil
+	}
+	return store.Order{}, store.ErrOrderNotFound
+}
+
+func (m *mockOrderServiceRepo) ListBuyerOrders(_ context.Context, buyerID string, _ int32) ([]store.Order, error) {
+	var list []store.Order
+	for _, o := range m.orders {
+		if o.BuyerID == buyerID {
+			list = append(list, o)
+		}
+	}
+	return list, nil
+}
+
+func (m *mockOrderServiceRepo) ListSellerOrders(_ context.Context, sellerID string, _ int32) ([]store.Order, error) {
+	var list []store.Order
+	for _, o := range m.orders {
+		if o.SellerID == sellerID {
+			list = append(list, o)
+		}
+	}
+	return list, nil
+}
+
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string) (store.Order, error) {
+	o, ok := m.orders[id]
+	if !ok {
+		return store.Order{}, store.ErrOrderNotFound
+	}
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return store.Order{}, store.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == store.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
+	m.orders[id] = o
+	return o, nil
+}
+
+func incomingPrincipalCtx(userID, _ string) context.Context {
+	p := auth.Principal{
+		ID:     userID,
+		Type:   "user",
+		Scopes: []string{"order.read", "order.write"},
+	}
+	return auth.WithPrincipal(context.Background(), p)
+}
+
+func serviceCtx(scopes ...string) context.Context {
+	return auth.WithPrincipal(context.Background(), auth.Principal{
+		ID: "svc_1", Type: "service", Scopes: scopes,
+	})
+}
+
+func TestOrderHandler_CalculateShippingFee(t *testing.T) {
+	svc := order.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
+	h := rpc.NewOrderHandler(svc, nil, nil)
+	ctx := context.Background()
+
+	t.Run("Free Shipping Over 500k", func(t *testing.T) {
+		res, err := h.CalculateShippingFee(ctx, &orderv1.CalculateShippingFeeRequest{
+			City:          "Hà Nội",
+			ItemsSubtotal: 600000,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !res.IsFreeShipping {
+			t.Errorf("expected free shipping")
+		}
+		if res.ShippingFee != 0 {
+			t.Errorf("expected 0 fee, got %d", res.ShippingFee)
+		}
+	})
+
+	t.Run("Standard City Shipping", func(t *testing.T) {
+		res, err := h.CalculateShippingFee(ctx, &orderv1.CalculateShippingFeeRequest{
+			City:          "Hà Nội",
+			ItemsSubtotal: 200000,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.IsFreeShipping {
+			t.Errorf("expected not free shipping")
+		}
+		if res.ShippingFee != 20000 {
+			t.Errorf("expected 20000, got %d", res.ShippingFee)
+		}
+	})
+}
+
+func TestOrderHandler_CreateOrder_KillSwitchOff(t *testing.T) {
+	// Flag OFF → checkout rejected before the saga runs.
+	svc := order.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
+	h := rpc.NewOrderHandler(svc, nil, nil, rpc.WithFeatureFlags(fakeFlags{enabled: false}))
+	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+
+	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition, got %v", err)
+	}
+	if msg := status.Convert(err).Message(); !strings.Contains(msg, "unavailable") {
+		t.Fatalf("expected checkout-unavailable message, got %q", msg)
+	}
+}
+
+func TestOrderHandler_CreateOrder_KillSwitchOn(t *testing.T) {
+	// Flag ON → gate passes, request reaches the service. With an empty cart the
+	// service returns ErrEmptyCart, proving the kill-switch let it through (a
+	// distinct precondition message from the kill-switch one).
+	cartRepo := store.NewInMemoryCartRepository()
+	svc := order.NewOrderService(
+		store.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
+	)
+	h := rpc.NewOrderHandler(svc, nil, nil, rpc.WithFeatureFlags(fakeFlags{enabled: true}))
+	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+
+	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition (empty cart), got %v", err)
+	}
+	if msg := status.Convert(err).Message(); !strings.Contains(msg, "cart is empty") {
+		t.Fatalf("expected empty-cart message (gate passed), got %q", msg)
+	}
+}
+
+func TestOrderHandler_CreateOrder_NoFlagsFailsOpen(t *testing.T) {
+	// No evaluator wired → treated as enabled (fail-open); request reaches the
+	// service and hits the empty-cart precondition, not the kill-switch.
+	cartRepo := store.NewInMemoryCartRepository()
+	svc := order.NewOrderService(
+		store.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
+	)
+	h := rpc.NewOrderHandler(svc, nil, nil)
+	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+
+	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+	if msg := status.Convert(err).Message(); !strings.Contains(msg, "cart is empty") {
+		t.Fatalf("expected empty-cart message (fail-open), got %q", msg)
+	}
+}
+
+func TestOrderHandler_GetSagaState(t *testing.T) {
+	repo := &mockOrderServiceRepo{
+		orders: map[string]store.Order{
+			"ord_123": {
+				ID:          "ord_123",
+				BuyerID:     "buyer_1",
+				TotalAmount: 100000,
+				Status:      store.OrderStatusPending,
+			},
+		},
+	}
+	svc := order.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
+	h := rpc.NewOrderHandler(svc, nil, nil)
+	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+
+	res, err := h.GetSagaState(ctx, &orderv1.GetSagaStateRequest{OrderId: "ord_123"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Steps) != 4 {
+		t.Errorf("expected 4 saga steps, got %d", len(res.Steps))
+	}
+}
+
+func TestOrderHandler_ForceFailSaga(t *testing.T) {
+	repo := &mockOrderServiceRepo{
+		orders: map[string]store.Order{
+			"ord_123": {
+				ID:          "ord_123",
+				BuyerID:     "buyer_1",
+				TotalAmount: 100000,
+				Status:      store.OrderStatusPending,
+			},
+		},
+	}
+	svc := order.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
+	h := rpc.NewOrderHandler(svc, nil, nil)
+	ctx := adminCtx()
+
+	res, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("expected success true")
+	}
+}
+
+func TestOrderHandler_RMA(t *testing.T) {
+	orderRepo := &mockOrderServiceRepo{
+		orders: map[string]store.Order{
+			"ord_comp": {
+				ID:          "ord_comp",
+				BuyerID:     "buyer_1",
+				SellerID:    "seller_1",
+				TotalAmount: 300000,
+				Status:      store.OrderStatusCompleted,
+			},
+		},
+	}
+	returnRepo := store.NewInMemoryReturnRepository()
+	svc := order.NewOrderService(orderRepo, nil, returnRepo, nil, nil, nil, nil)
+	h := rpc.NewOrderHandler(svc, nil, nil)
+
+	buyerCtx := incomingPrincipalCtx("buyer_1", "buyer")
+	sellerCtx := incomingPrincipalCtx("seller_1", "seller")
+
+	// 1. Create Return Request
+	createResp, err := h.CreateReturnRequest(buyerCtx, &orderv1.CreateReturnRequestRequest{
+		OrderId:      "ord_comp",
+		Reason:       "Hàng nhận được không đúng mẫu",
+		RefundAmount: 300000,
+	})
+	if err != nil {
+		t.Fatalf("CreateReturnRequest failed: %v", err)
+	}
+	if createResp.GetReturnRequest().GetId() == "" {
+		t.Errorf("expected return request ID")
+	}
+	if createResp.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_PENDING {
+		t.Errorf("expected PENDING status")
+	}
+
+	returnID := createResp.GetReturnRequest().GetId()
+
+	// 2. Get Return Request (as Buyer)
+	getResp, err := h.GetReturnRequest(buyerCtx, &orderv1.GetReturnRequestRequest{Id: returnID})
+	if err != nil {
+		t.Fatalf("GetReturnRequest failed: %v", err)
+	}
+	if getResp.GetReturnRequest().GetReason() != "Hàng nhận được không đúng mẫu" {
+		t.Errorf("unexpected reason: %s", getResp.GetReturnRequest().GetReason())
+	}
+
+	// 3. Update Return Status (as Seller -> APPROVED)
+	updateResp, err := h.UpdateReturnStatus(sellerCtx, &orderv1.UpdateReturnStatusRequest{
+		Id:     returnID,
+		Status: orderv1.ReturnStatus_RETURN_STATUS_APPROVED,
+	})
+	if err != nil {
+		t.Fatalf("UpdateReturnStatus failed: %v", err)
+	}
+	if updateResp.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_APPROVED {
+		t.Errorf("expected APPROVED, got %v", updateResp.GetReturnRequest().GetStatus())
+	}
+}
+
+func TestOrderHandler_Shipment(t *testing.T) {
+	orderRepo := &mockOrderServiceRepo{
+		orders: map[string]store.Order{
+			"ord_ship": {
+				ID:          "ord_ship",
+				BuyerID:     "buyer_1",
+				SellerID:    "seller_1",
+				TotalAmount: 250000,
+				Status:      store.OrderStatusPaid,
+			},
+		},
+	}
+	shipmentRepo := store.NewInMemoryShipmentRepository()
+	svc := order.NewOrderService(orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
+	h := rpc.NewOrderHandler(svc, nil, nil)
+
+	sellerCtx := incomingPrincipalCtx("seller_1", "seller")
+
+	// 1. Create Shipment
+	shipResp, err := h.CreateShipment(sellerCtx, &orderv1.CreateShipmentRequest{
+		OrderId:      "ord_ship",
+		Carrier:      "SPX",
+		TrackingCode: "SPX-VN-999888",
+	})
+	if err != nil {
+		t.Fatalf("CreateShipment failed: %v", err)
+	}
+	if shipResp.GetShipment().GetTrackingCode() != "SPX-VN-999888" {
+		t.Errorf("expected tracking code SPX-VN-999888, got %s", shipResp.GetShipment().GetTrackingCode())
+	}
+	if len(shipResp.GetShipment().GetCheckpoints()) != 1 {
+		t.Errorf("expected 1 initial checkpoint")
+	}
+
+	// 2. Get Shipment Tracking
+	trackResp, err := h.GetShipmentTracking(context.Background(), &orderv1.GetShipmentTrackingRequest{
+		TrackingCode: "SPX-VN-999888",
+	})
+	if err != nil {
+		t.Fatalf("GetShipmentTracking failed: %v", err)
+	}
+	if trackResp.GetShipment().GetOrderId() != "ord_ship" {
+		t.Errorf("expected orderId ord_ship, got %s", trackResp.GetShipment().GetOrderId())
+	}
+}
+
+func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
+	newHandler := func(st store.OrderStatus) *rpc.OrderHandler {
+		repo := &mockOrderServiceRepo{orders: map[string]store.Order{
+			"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: st},
+		}}
+		return rpc.NewOrderHandler(order.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+	}
+	req := func(to orderv1.OrderStatus) *orderv1.UpdateOrderStatusRequest {
+		return &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: to}
+	}
+	adminCtx := auth.WithPrincipal(context.Background(), auth.Principal{
+		ID: "admin_1", Type: "user", Scopes: []string{"admin", "order.admin"},
+	})
+	anonCtx := auth.WithPrincipal(context.Background(), auth.Principal{
+		ID: "anonymous", Type: "anonymous",
+	})
+
+	t.Run("no principal denied", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(context.Background(), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("want Unauthenticated, got %v", err)
+		}
+	})
+	t.Run("anonymous principal denied", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(anonCtx, req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("want Unauthenticated, got %v", err)
+		}
+	})
+	t.Run("buyer denied", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("buyer_1", "buyer"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("other user denied", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_2", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("seller ships paid order", func(t *testing.T) {
+		res, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.GetOrder().GetStatus() != orderv1.OrderStatus_ORDER_STATUS_SHIPPED {
+			t.Fatalf("want SHIPPED, got %v", res.GetOrder().GetStatus())
+		}
+	})
+	t.Run("admin completes shipped order", func(t *testing.T) {
+		if _, err := newHandler(store.OrderStatusShipped).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	t.Run("seller cannot set PAID", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
+		}
+	})
+	t.Run("admin cannot set PAID", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
+		}
+	})
+	t.Run("completed order cannot be reopened", func(t *testing.T) {
+		h := newHandler(store.OrderStatusCompleted)
+		if _, err := h.UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PENDING)); err == nil {
+			t.Fatal("reopening a completed order must fail")
+		}
+	})
+	t.Run("paid straight to completed is refused", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+	t.Run("seller cannot cancel through UpdateOrderStatus", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_CANCELLED))
+		if status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("want PermissionDenied, got %v", err)
+		}
+	})
+	t.Run("seller ships a pending (COD) order", func(t *testing.T) {
+		if _, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED)); err != nil {
+			t.Fatalf("COD hand-over must be allowed: %v", err)
+		}
+	})
+	t.Run("invalid transition rejected", func(t *testing.T) {
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("want FailedPrecondition, got %v", err)
+		}
+	})
+}
+
+func TestOrderHandler_GetOrder_Authz(t *testing.T) {
+	repo := &mockOrderServiceRepo{orders: map[string]store.Order{
+		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1"},
+	}}
+	h := rpc.NewOrderHandler(order.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+	principal := func(id string, typ string, scopes ...string) context.Context {
+		return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: typ, Scopes: scopes})
+	}
+	user := "user"
+	svc := "service"
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"no principal", context.Background(), codes.Unauthenticated},
+		{"anonymous", principal("anonymous", "anonymous"), codes.Unauthenticated},
+		{"buyer", principal("buyer_1", user), codes.OK},
+		{"seller", principal("seller_1", user), codes.OK},
+		{"other user", principal("user_9", user, "order.read"), codes.PermissionDenied},
+		{"admin", principal("admin_1", user, "admin", "order.admin"), codes.OK},
+		{"service with order.read", principal("service-team-payment", svc, "order.read"), codes.OK},
+		{"service without order.read", principal("service-x", svc, "listing.read"), codes.PermissionDenied},
+		{"user claiming order.read is not a service", principal("user_9", user, "order.read"), codes.PermissionDenied},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := h.GetOrder(tc.ctx, &orderv1.GetOrderRequest{Id: "ord_1"})
+			if status.Code(err) != tc.want {
+				t.Fatalf("want %v, got %v", tc.want, err)
+			}
+			if tc.want == codes.OK && res.GetOrder().GetId() != "ord_1" {
+				t.Fatalf("wrong order: %v", res)
+			}
+		})
+	}
+}
+
+func TestOrderHandler_ForceFailSaga_AdminOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"buyer owner": incomingPrincipalCtx("buyer_1", "buyer"),
+		"service":     serviceCtx("order.read", "order.write"),
+		"anonymous":   context.Background(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &mockOrderServiceRepo{orders: map[string]store.Order{
+				"ord_123": {ID: "ord_123", BuyerID: "buyer_1", Status: store.OrderStatusPending},
+			}}
+			h := rpc.NewOrderHandler(order.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+			_, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
+			want := codes.PermissionDenied
+			if name == "anonymous" {
+				want = status.Code(err)
+				if want == codes.OK {
+					t.Fatal("anonymous must be refused")
+				}
+			}
+			if status.Code(err) != want {
+				t.Fatalf("want %v, got %v", want, err)
+			}
+			if repo.orders["ord_123"].Status != store.OrderStatusPending {
+				t.Fatalf("order must be unchanged, got %v", repo.orders["ord_123"].Status)
+			}
+		})
+	}
+}
+
+func TestOrderHandler_CreateOrder_UserOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"service":       serviceCtx("order.write", "admin"),
+		"admin service": serviceCtx("admin"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			// Kill-switch is OFF: a refusal on PermissionDenied proves the type check runs first.
+			h := rpc.NewOrderHandler(order.NewOrderService(nil, nil, nil, nil, nil, nil, nil), nil, nil,
+				rpc.WithFeatureFlags(fakeFlags{enabled: false}))
+			_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+			if status.Code(err) != codes.PermissionDenied {
+				t.Fatalf("want PermissionDenied, got %v", err)
+			}
+		})
+	}
+	h, domain, orders := checkoutHandler(t)
+	if _, err := h.CreateOrder(serviceCtx("order.write"), &orderv1.CreateOrderRequest{}); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("want PermissionDenied, got %v", err)
+	}
+	if domain.Calls.Reserve != 0 || domain.Stock("lst_1") != 10 {
+		t.Fatalf("nothing may be reserved: calls %d stock %d", domain.Calls.Reserve, domain.Stock("lst_1"))
+	}
+	if l, _ := orders.ListBuyerOrders(context.Background(), "buyer_1", 0); len(l) != 0 {
+		t.Fatalf("no order may exist: %v", l)
+	}
+}

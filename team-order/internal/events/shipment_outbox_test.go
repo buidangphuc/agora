@@ -10,13 +10,13 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
-func newShipmentRepo(outbox repository.OutboxRepository) *repository.InMemoryShipmentRepository {
-	return repository.NewInMemoryShipmentRepository(
-		repository.WithShipmentOutbox(BuildShippedOutboxRow),
-		repository.WithInMemoryShipmentOutbox(outbox),
+func newShipmentRepo(outbox store.OutboxWriter) *store.InMemoryShipmentRepository {
+	return store.NewInMemoryShipmentRepository(
+		store.WithShipmentOutbox(BuildShippedOutboxRow),
+		store.WithInMemoryShipmentOutbox(outbox),
 	)
 }
 
@@ -24,10 +24,10 @@ func newShipmentRepo(outbox repository.OutboxRepository) *repository.InMemoryShi
 // the buyer, seller, carrier and tracking code.
 func TestCreateShipmentWritesOrderShippedRow(t *testing.T) {
 	ctx := context.Background()
-	outbox := repository.NewInMemoryOutboxRepository()
+	outbox := store.NewInMemoryOutboxRepository()
 	repo := newShipmentRepo(outbox)
 
-	created, err := repo.CreateShipment(ctx, repository.Shipment{
+	created, err := repo.CreateShipment(ctx, store.Shipment{
 		OrderID: "ord-1", Carrier: "GHN", TrackingCode: "GHN-123",
 		BuyerID: "buyer-1", SellerID: "seller-1",
 	})
@@ -56,10 +56,10 @@ func TestCreateShipmentWritesOrderShippedRow(t *testing.T) {
 // If the outbox row cannot be written, the shipment is not stored either.
 func TestCreateShipmentRollsBackWhenOutboxFails(t *testing.T) {
 	ctx := context.Background()
-	repo := newShipmentRepo(failingOutbox{repository.NewInMemoryOutboxRepository()})
+	repo := newShipmentRepo(failingOutbox{store.NewInMemoryOutboxRepository()})
 
-	_, err := repo.CreateShipment(ctx, repository.Shipment{OrderID: "ord-2", TrackingCode: "T-2", BuyerID: "b"})
+	_, err := repo.CreateShipment(ctx, store.Shipment{OrderID: "ord-2", TrackingCode: "T-2", BuyerID: "b"})
 	require.Error(t, err)
 	_, err = repo.GetShipmentByOrderID(ctx, "ord-2")
-	assert.ErrorIs(t, err, repository.ErrShipmentNotFound)
+	assert.ErrorIs(t, err, store.ErrShipmentNotFound)
 }

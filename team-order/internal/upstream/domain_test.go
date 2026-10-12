@@ -8,25 +8,69 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 )
 
-// outgoingMD runs the interceptor for method with an incoming user principal and
-// returns the metadata that would be sent to team-domain.
-func outgoingMD(t *testing.T, method string, incoming metadata.MD) metadata.MD {
+// recorder is a gRPC server that accepts any unary RPC and records the metadata
+// each method was called with.
+type recorder struct {
+	mu   sync.Mutex
+	seen map[string]metadata.MD
+}
+
+func startRecorder(t *testing.T) (addr string, rec *recorder) {
 	t.Helper()
-	ctx := metadata.NewIncomingContext(context.Background(), incoming)
-	var got metadata.MD
-	invoker := func(ctx context.Context, _ string, _, _ any, _ *grpc.ClientConn, _ ...grpc.CallOption) error {
-		got, _ = metadata.FromOutgoingContext(ctx)
-		return nil
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := forwardMetadataInterceptor()(ctx, method, nil, nil, nil, invoker); err != nil {
-		t.Fatalf("interceptor: %v", err)
+	rec = &recorder{seen: map[string]metadata.MD{}}
+	srv := grpc.NewServer(grpc.UnknownServiceHandler(func(_ any, stream grpc.ServerStream) error {
+		md, _ := metadata.FromIncomingContext(stream.Context())
+		method, _ := grpc.MethodFromServerStream(stream)
+		rec.mu.Lock()
+		rec.seen[method] = md
+		rec.mu.Unlock()
+		var in emptypb.Empty
+		if err := stream.RecvMsg(&in); err != nil {
+			return err
+		}
+		return stream.SendMsg(&emptypb.Empty{})
+	}))
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	return lis.Addr().String(), rec
+}
+
+// outgoingMD calls method through a real go-sdk connection behind scopedConn with
+// ctx as the caller's context and returns the metadata that reached the upstream.
+func outgoingMD(ctx context.Context, t *testing.T, method string) metadata.MD {
+	t.Helper()
+	addr, rec := startRecorder(t) //nolint:contextcheck // the recorder serves its own connections
+	conn, scoped, err := dial(addr)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return got
+	t.Cleanup(func() { _ = conn.Close() })
+	if err := scoped.Invoke(ctx, method, &emptypb.Empty{}, &emptypb.Empty{}); err != nil {
+		t.Fatalf("invoke %s: %v", method, err)
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	return rec.seen[method]
+}
+
+// userCtx is the context of a handler serving the buyer buyer-1: the principal the
+// auth interceptor resolved and the request id.
+func userCtx() context.Context {
+	ctx := auth.WithPrincipal(context.Background(), auth.Principal{ID: "buyer-1", Type: "user", Scopes: []string{"listing.read"}})
+	return reqctx.WithRequestID(ctx, "req-1")
 }
 
 func userMD() metadata.MD {
@@ -45,7 +89,7 @@ func TestStockCallsAlwaysUseServicePrincipal(t *testing.T) {
 		listingv1.ListingService_CommitReservation_FullMethodName,
 	} {
 		t.Run(method, func(t *testing.T) {
-			md := outgoingMD(t, method, userMD())
+			md := outgoingMD(userCtx(), t, method)
 			if v := md.Get("x-principal-id"); len(v) != 1 || v[0] != "service-team-order" {
 				t.Fatalf("principal id = %v, want service-team-order", v)
 			}
@@ -63,14 +107,14 @@ func TestStockCallsAlwaysUseServicePrincipal(t *testing.T) {
 }
 
 func TestStockCallsWithoutIncomingUseServicePrincipal(t *testing.T) {
-	md := outgoingMD(t, listingv1.ListingService_ReleaseStock_FullMethodName, nil)
+	md := outgoingMD(context.Background(), t, listingv1.ListingService_ReleaseStock_FullMethodName)
 	if v := md.Get("x-principal-type"); len(v) != 1 || v[0] != "service" {
 		t.Fatalf("principal type = %v, want service", v)
 	}
 }
 
 func TestOtherDomainCallsKeepForwardedUser(t *testing.T) {
-	md := outgoingMD(t, listingv1.ListingService_GetListing_FullMethodName, userMD())
+	md := outgoingMD(userCtx(), t, listingv1.ListingService_GetListing_FullMethodName)
 	if v := md.Get("x-principal-id"); len(v) != 1 || v[0] != "buyer-1" {
 		t.Fatalf("GetListing principal id = %v, want forwarded buyer-1", v)
 	}
@@ -80,14 +124,14 @@ func TestOtherDomainCallsKeepForwardedUser(t *testing.T) {
 }
 
 func TestForwardedUserScopesAreNotWidened(t *testing.T) {
-	md := outgoingMD(t, listingv1.ListingService_GetListing_FullMethodName, userMD())
+	md := outgoingMD(userCtx(), t, listingv1.ListingService_GetListing_FullMethodName)
 	if v := md.Get("x-principal-scopes"); len(v) != 1 || v[0] != "listing.read" {
 		t.Fatalf("forwarded scopes = %v, want unchanged listing.read", v)
 	}
 }
 
 func TestUnmarkedBackgroundCallIsReadOnlyService(t *testing.T) {
-	md := outgoingMD(t, listingv1.ListingService_GetListing_FullMethodName, nil)
+	md := outgoingMD(context.Background(), t, listingv1.ListingService_GetListing_FullMethodName)
 	if v := md.Get("x-principal-id"); len(v) != 1 || v[0] != "service-team-order" {
 		t.Fatalf("principal id = %v", v)
 	}
@@ -102,7 +146,7 @@ func TestPromotionMethodsCarryOnlyPromotionReserve(t *testing.T) {
 		promotionv1.VoucherService_CommitReservation_FullMethodName,
 		promotionv1.VoucherService_ReleaseReservation_FullMethodName,
 	} {
-		md := outgoingMD(t, m, userMD())
+		md := outgoingMD(userCtx(), t, m)
 		if v := md.Get("x-principal-scopes"); len(v) != 1 || v[0] != "promotion.reserve" {
 			t.Fatalf("%s scopes = %v, want only promotion.reserve", m, v)
 		}
@@ -207,7 +251,7 @@ func (r *recordingDomain) CommitReservation(ctx context.Context, _ *listingv1.Co
 func TestServiceStockClientCommitIsServiceAndGetListingForwardsBuyer(t *testing.T) {
 	inner := &recordingDomain{ctxs: map[string]context.Context{}}
 	client := NewServiceStockClient(inner)
-	buyer := metadata.NewIncomingContext(context.Background(), userMD())
+	buyer := userCtx()
 	if _, err := client.CommitReservation(buyer, &listingv1.CommitReservationRequest{ReservationId: "r1"}); err != nil {
 		t.Fatal(err)
 	}
@@ -215,17 +259,9 @@ func TestServiceStockClientCommitIsServiceAndGetListingForwardsBuyer(t *testing.
 		t.Fatal(err)
 	}
 	run := func(method string) metadata.MD {
-		var got metadata.MD
-		invoker := func(ctx context.Context, _ string, _, _ any, _ *grpc.ClientConn, _ ...grpc.CallOption) error {
-			got, _ = metadata.FromOutgoingContext(ctx)
-			return nil
-		}
 		// Use an unrelated method name so only the context marking (not the
 		// methodScopes safety net) decides the principal.
-		if err := forwardMetadataInterceptor()(inner.ctxs[method], "/x.Y/Z", nil, nil, nil, invoker); err != nil {
-			t.Fatal(err)
-		}
-		return got
+		return outgoingMD(inner.ctxs[method], t, "/x.Y/Z")
 	}
 	commit := run(listingv1.ListingService_CommitReservation_FullMethodName)
 	if v := commit.Get("x-principal-id"); len(v) != 1 || v[0] != "service-team-order" {

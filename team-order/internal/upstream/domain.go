@@ -1,18 +1,24 @@
+// Package upstream dials the services team-order calls (team-domain,
+// team-identity, team-promotion) with go-sdk's upstream.Dial and applies
+// team-order's per-method service-principal scopes.
 package upstream
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	sdkupstream "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 )
 
+// Clients holds the connections to team-domain and team-identity.
 type Clients struct {
 	conns []*grpc.ClientConn
 	// Listing wraps the listing client so ReserveStock/CommitReservation/ReleaseStock are always
@@ -26,17 +32,23 @@ type Clients struct {
 // exactly ONE scope chosen per call (least privilege): stock mutations carry
 // only listing.write (team-domain), voucher saga RPCs only promotion.reserve
 // (team-promotion). Unmarked background calls get read-only defaults.
+//
+// go-sdk's upstream.Dial forwards the caller's principal and the request id and
+// bounds each call. Its AsService option replaces the principal of EVERY call on
+// a connection, which cannot express the per-method scopes below, so a small
+// connection wrapper (scopedConn) puts the service principal on the call context
+// and lets the SDK forward it.
 const (
 	servicePrincipalID   = "service-team-order"
 	servicePrincipalType = "service"
 	stockServiceScope    = "listing.write"
 	promotionScope       = "promotion.reserve"
-	defaultServiceScopes = "listing.read"
-	mdPrincipalIDKey     = "x-principal-id"
-	mdPrincipalTypeKey   = "x-principal-type"
-	mdPrincipalScopesKey = "x-principal-scopes"
-	mdAuthorizationKey   = "authorization"
+	defaultServiceScope  = "listing.read"
 )
+
+// callTimeout bounds one unary upstream call. It matches the gateway's request
+// budget, so the SDK bound never cuts a call shorter than the caller would wait.
+const callTimeout = 5 * time.Second
 
 // methodScopes is the safety net for RPCs that must never carry the forwarded
 // end-user principal even if a caller forgot to mark the context.
@@ -51,10 +63,9 @@ var methodScopes = map[string]string{
 
 type asServiceKey struct{}
 
-// AsService marks ctx so the client interceptor presents team-order's own service
-// principal with only the stock scope (listing.write) instead of the end user's
-// forwarded principal. Other incoming metadata (x-request-id, trace headers) is
-// still forwarded.
+// AsService marks ctx so the client presents team-order's own service principal
+// with only the stock scope (listing.write) instead of the end user's forwarded
+// principal. The request id and trace headers are still forwarded.
 func AsService(ctx context.Context) context.Context {
 	return asServiceWithScope(ctx, stockServiceScope)
 }
@@ -81,62 +92,70 @@ func serviceScope(ctx context.Context) string {
 	return v
 }
 
-func forwardMetadataInterceptor() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		var outMD metadata.MD
-		if inMD, ok := metadata.FromIncomingContext(ctx); ok {
-			outMD = inMD.Copy()
-		} else {
-			outMD = metadata.MD{}
-		}
-
-		scope := serviceScope(ctx)
-		if scope == "" {
-			scope = methodScopes[method]
-		}
-		if scope != "" {
-			// Marked RPC: never forward the buyer. Replace the principal wholesale.
-			outMD.Delete(mdAuthorizationKey)
-			outMD.Set(mdPrincipalIDKey, servicePrincipalID)
-			outMD.Set(mdPrincipalTypeKey, servicePrincipalType)
-			outMD.Set(mdPrincipalScopesKey, scope)
-		} else if len(outMD.Get(mdPrincipalIDKey)) == 0 {
-			// Unmarked background call with no caller: read-only service identity.
-			outMD.Set(mdPrincipalIDKey, servicePrincipalID)
-			outMD.Set(mdPrincipalTypeKey, servicePrincipalType)
-			outMD.Set(mdPrincipalScopesKey, defaultServiceScopes)
-		}
-		// Otherwise: forward exactly the caller's principal, scopes untouched
-		// (never widen a buyer's scopes).
-
-		ctx = metadata.NewOutgoingContext(ctx, outMD)
-		return invoker(ctx, method, req, reply, cc, opts...)
+// withCallPrincipal returns the context the SDK dialer forwards the principal of:
+//   - a marked call, or a method in methodScopes, carries the service principal
+//     with exactly that scope (never the buyer's);
+//   - a call with no caller carries the read-only service identity;
+//   - any other call keeps the caller's principal, scopes untouched (never widen a
+//     buyer's scopes).
+func withCallPrincipal(ctx context.Context, method string) context.Context {
+	scope := serviceScope(ctx)
+	if scope == "" {
+		scope = methodScopes[method]
 	}
+	if scope == "" {
+		if p, ok := auth.FromContext(ctx); ok && !p.Anonymous() {
+			return ctx
+		}
+		scope = defaultServiceScope
+	}
+	return auth.WithPrincipal(ctx, auth.Principal{ID: servicePrincipalID, Type: servicePrincipalType, Scopes: []string{scope}})
 }
 
+// scopedConn is a grpc.ClientConnInterface that applies withCallPrincipal to every
+// call before handing it to the SDK-dialed connection.
+type scopedConn struct{ inner *grpc.ClientConn }
+
+func (c scopedConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	return c.inner.Invoke(withCallPrincipal(ctx, method), method, args, reply, opts...)
+}
+
+func (c scopedConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	return c.inner.NewStream(withCallPrincipal(ctx, method), desc, method, opts...)
+}
+
+// dial opens a lazily connecting go-sdk client to addr behind scopedConn.
+func dial(addr string) (*grpc.ClientConn, scopedConn, error) {
+	conn, err := sdkupstream.Dial(addr, sdkupstream.WithTimeout(callTimeout))
+	if err != nil {
+		return nil, scopedConn{}, err
+	}
+	return conn, scopedConn{inner: conn}, nil
+}
+
+// Dial opens the lazy clients to team-domain and team-identity.
 func Dial(domainAddr, identityAddr string) (*Clients, error) {
-	insec := grpc.WithTransportCredentials(insecure.NewCredentials())
-	interceptor := grpc.WithUnaryInterceptor(forwardMetadataInterceptor())
 	c := &Clients{}
 
-	domainConn, err := grpc.NewClient(domainAddr, insec, interceptor)
+	domainConn, domain, err := dial(domainAddr)
 	if err != nil {
 		return nil, fmt.Errorf("dial domain %s: %w", domainAddr, err)
 	}
 	c.conns = append(c.conns, domainConn)
-	c.Listing = NewServiceStockClient(listingv1.NewListingServiceClient(domainConn))
+	c.Listing = NewServiceStockClient(listingv1.NewListingServiceClient(domain))
 
-	identityConn, err := grpc.NewClient(identityAddr, insec, interceptor)
+	identityConn, identity, err := dial(identityAddr)
 	if err != nil {
 		c.Close()
 		return nil, fmt.Errorf("dial identity %s: %w", identityAddr, err)
 	}
 	c.conns = append(c.conns, identityConn)
-	c.Address = identityv1.NewAddressServiceClient(identityConn)
+	c.Address = identityv1.NewAddressServiceClient(identity)
 
 	return c, nil
 }
 
+// Close closes every connection.
 func (c *Clients) Close() {
 	for _, conn := range c.conns {
 		if conn != nil {

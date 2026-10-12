@@ -3,8 +3,6 @@ package events
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"sync"
 	"testing"
 	"time"
 
@@ -14,51 +12,29 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
-type published struct {
-	topic   string
-	key     string
-	payload []byte
-}
-
-type mockPublisher struct {
-	mu        sync.Mutex
-	published []published
-	err       error
-}
-
-func (m *mockPublisher) Publish(_ context.Context, topic, key string, payload []byte) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.err != nil {
-		return m.err
-	}
-	m.published = append(m.published, published{topic, key, payload})
-	return nil
-}
-
-func sampleOrder() repository.Order {
-	return repository.Order{
+func sampleOrder() store.Order {
+	return store.Order{
 		ID:          "order-123",
 		BuyerID:     "buyer-1",
 		SellerID:    "seller-1",
-		Status:      repository.OrderStatusPending,
+		Status:      store.OrderStatusPending,
 		TotalAmount: 250000,
 		Currency:    "VND",
-		Items: []repository.OrderItem{
+		Items: []store.OrderItem{
 			{ID: "item-1", ListingID: "listing-1", VariantID: "var-1", Quantity: 2, UnitPrice: 100000},
 			{ID: "item-2", ListingID: "listing-2", Quantity: 1, UnitPrice: 50000},
 		},
 	}
 }
 
-func newRepos() (*repository.InMemoryOrderRepository, *repository.InMemoryOutboxRepository) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(
-		repository.WithPaidOutbox(BuildPaidOutboxRow),
-		repository.WithInMemoryOutbox(outbox),
+func newRepos() (*store.InMemoryOrderRepository, *store.InMemoryOutboxRepository) {
+	outbox := store.NewInMemoryOutboxRepository()
+	orders := store.NewInMemoryOrderRepository(
+		store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithInMemoryOutbox(outbox),
 	)
 	return orders, outbox
 }
@@ -72,7 +48,7 @@ func TestPaidTransitionWritesOutboxRow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, outbox.EnqueuedRows(), "PENDING must not emit")
 
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusPaid, pendingOnly, "")
 	require.NoError(t, err)
 	rows := outbox.EnqueuedRows()
 	require.Len(t, rows, 1)
@@ -82,18 +58,18 @@ func TestPaidTransitionWritesOutboxRow(t *testing.T) {
 
 	// Re-applying PAID conflicts (no longer Pending) and later states do not emit
 	// another PAID fact.
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
-	require.ErrorIs(t, err, repository.ErrStatusConflict)
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPaid}, "TRK1")
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusPaid, pendingOnly, "")
+	require.ErrorIs(t, err, store.ErrStatusConflict)
+	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusShipped, []store.OrderStatus{store.OrderStatusPaid}, "TRK1")
 	require.NoError(t, err)
 	assert.Len(t, outbox.EnqueuedRows(), 1)
 }
 
-var pendingOnly = []repository.OrderStatus{repository.OrderStatusPending}
+var pendingOnly = []store.OrderStatus{store.OrderStatusPending}
 
-type failingOutbox struct{ repository.OutboxRepository }
+type failingOutbox struct{ store.OutboxWriter }
 
-func (failingOutbox) Enqueue(context.Context, repository.OutboxRow) error {
+func (failingOutbox) Enqueue(context.Context, store.OutboxRow) error {
 	return errors.New("outbox write failed")
 }
 
@@ -103,86 +79,35 @@ func TestPaidTransitionRollsBackWhenOutboxFails(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("enqueue error", func(t *testing.T) {
-		orders := repository.NewInMemoryOrderRepository(
-			repository.WithPaidOutbox(BuildPaidOutboxRow),
-			repository.WithInMemoryOutbox(failingOutbox{repository.NewInMemoryOutboxRepository()}),
+		orders := store.NewInMemoryOrderRepository(
+			store.WithPaidOutbox(BuildPaidOutboxRow),
+			store.WithInMemoryOutbox(failingOutbox{store.NewInMemoryOutboxRepository()}),
 		)
 		created, err := orders.CreateOrder(ctx, sampleOrder())
 		require.NoError(t, err)
-		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
+		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusPaid, pendingOnly, "")
 		require.Error(t, err)
 		got, err := orders.GetOrder(ctx, created.ID)
 		require.NoError(t, err)
-		assert.Equal(t, repository.OrderStatusPending, got.Status)
+		assert.Equal(t, store.OrderStatusPending, got.Status)
 	})
 
 	t.Run("build error", func(t *testing.T) {
-		outbox := repository.NewInMemoryOutboxRepository()
-		orders := repository.NewInMemoryOrderRepository(
-			repository.WithPaidOutbox(func(repository.Order) (repository.OutboxRow, error) {
-				return repository.OutboxRow{}, errors.New("boom")
+		outbox := store.NewInMemoryOutboxRepository()
+		orders := store.NewInMemoryOrderRepository(
+			store.WithPaidOutbox(func(store.Order) (store.OutboxRow, error) {
+				return store.OutboxRow{}, errors.New("boom")
 			}),
-			repository.WithInMemoryOutbox(outbox),
+			store.WithInMemoryOutbox(outbox),
 		)
 		created, err := orders.CreateOrder(ctx, sampleOrder())
 		require.NoError(t, err)
-		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
+		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusPaid, pendingOnly, "")
 		require.Error(t, err)
 		got, _ := orders.GetOrder(ctx, created.ID)
-		assert.Equal(t, repository.OrderStatusPending, got.Status)
+		assert.Equal(t, store.OrderStatusPending, got.Status)
 		assert.Empty(t, outbox.EnqueuedRows())
 	})
-}
-
-// The relayer publishes the stored envelope verbatim to the topic keyed by
-// order_id, then marks the row published so it is not sent twice.
-func TestRelayerPublishesAndMarksPublished(t *testing.T) {
-	ctx := context.Background()
-	orders, outbox := newRepos()
-	pub := &mockPublisher{}
-	relayer := NewRelayer(outbox, pub, RelayerConfig{BatchSize: 10}, slog.Default())
-
-	created, err := orders.CreateOrder(ctx, sampleOrder())
-	require.NoError(t, err)
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
-	require.NoError(t, err)
-
-	n, err := relayer.SweepClaims(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 1, n)
-	require.Len(t, pub.published, 1)
-	assert.Equal(t, OrderEventsTopic, pub.published[0].topic)
-	assert.Equal(t, "order-123", pub.published[0].key)
-	assert.Equal(t, outbox.EnqueuedRows()[0].Payload, pub.published[0].payload)
-
-	n, err = relayer.SweepClaims(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 0, n, "published rows are not re-sent")
-	assert.Len(t, pub.published, 1)
-}
-
-func TestRelayerRetriesThenParks(t *testing.T) {
-	ctx := context.Background()
-	outbox := repository.NewInMemoryOutboxRepository()
-	require.NoError(t, outbox.Enqueue(ctx, repository.OutboxRow{EventID: "e1", AggregateID: "o1", Payload: []byte("x")}))
-	pub := &mockPublisher{err: errors.New("broker down")}
-	relayer := NewRelayer(outbox, pub, RelayerConfig{MaxAttempts: 3}, slog.Default())
-
-	for i := 0; i < 3; i++ {
-		n, err := relayer.SweepClaims(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, 0, n)
-	}
-	// Parked after MaxAttempts: no longer claimed.
-	pending, err := outbox.ClaimPending(ctx, 10, time.Second)
-	require.NoError(t, err)
-	assert.Empty(t, pending)
-
-	// Backoff doubles and is capped.
-	cfg := RelayerConfig{}.withDefaults()
-	assert.Equal(t, time.Second, cfg.backoff(1))
-	assert.Equal(t, 4*time.Second, cfg.backoff(3))
-	assert.Equal(t, cfg.MaxBackoff, cfg.backoff(30))
 }
 
 // The payload matches the ADR-0013 / order.proto contract: an EventEnvelope of
@@ -190,7 +115,7 @@ func TestRelayerRetriesThenParks(t *testing.T) {
 // per order line.
 func TestPaidEnvelopeMatchesContract(t *testing.T) {
 	order := sampleOrder()
-	order.Status = repository.OrderStatusPaid
+	order.Status = store.OrderStatusPaid
 	order.UpdatedAt = time.Date(2026, 10, 5, 9, 30, 0, 0, time.UTC)
 
 	row, err := BuildPaidOutboxRow(order)

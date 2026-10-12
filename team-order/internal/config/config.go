@@ -1,88 +1,53 @@
+// Package config holds team-order's settings: the go-sdk groups it uses
+// (Runtime, GRPC, Postgres, OTel, Flags, Kafka, Outbox) plus the groups below,
+// bound from flat env keys (GRPC_PORT, DATABASE_URL, ...) with sdkconfig.Load.
+// The `env`/`default` struct tags are the single source of truth for both
+// loading and the .env.example drift test (config_test.go).
+//
+// There are no enable flags for always-on capabilities (database, Kafka, the
+// outbox relayer, reflection). FEATURE_FLAGS_ENABLED and OTEL_ENABLED stay: they
+// are real toggles.
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"reflect"
-	"strconv"
 	"strings"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
+// Settings is the whole configuration surface. Runtime and GRPC are embedded SDK
+// groups; the others are named because their field names collide (Enabled).
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Database      Database
-	Upstream      Upstream
-	Observability Observability
-	FeatureFlags  FeatureFlags
-	Kafka         Kafka
-	Outbox        Outbox
-	Reservation   Reservation
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres    sdkconfig.Postgres
+	OTel        sdkconfig.OTel
+	Flags       sdkconfig.Flags
+	Kafka       sdkconfig.Kafka
+	Outbox      sdkconfig.Outbox
+	Events      Events
+	Upstream    Upstream
+	Reservation Reservation
 }
 
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
-}
-
-type Server struct {
-	Host              string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port              int     `env:"GRPC_PORT" default:"50055"`
-	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
-	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-}
-
-type Database struct {
-	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
-	URL      string `env:"DATABASE_URL" default:""`
-	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
-}
-
+// Upstream holds the addresses of the services team-order calls.
 type Upstream struct {
 	DomainAddr    string `env:"UPSTREAM_DOMAIN_ADDR" default:"localhost:50051"`
 	IdentityAddr  string `env:"UPSTREAM_IDENTITY_ADDR" default:"localhost:50053"`
 	PromotionAddr string `env:"UPSTREAM_PROMOTION_ADDR" default:""`
 }
 
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-order"`
-}
-
-// FeatureFlags configures the OpenFeature + Flipt provider used to evaluate
-// flags (e.g. the checkout kill-switch). FliptAddr is the Flipt gRPC endpoint;
-// evaluation is in-process against a streamed in-memory snapshot.
-type FeatureFlags struct {
-	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
-	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
-}
-
-// Kafka wires the payment.events consumer and the order.events producer. With
-// KAFKA_ENABLED=false neither runs: outbox rows are still recorded with each PAID
-// transition but never relayed.
-type Kafka struct {
-	Enabled       bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers       string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
+// Events names the Kafka topics and the consumer group. The PaymentSettled
+// consumer reads PaymentTopic, parks poison records on PaymentDLQ, and the outbox
+// relayer produces to OrderTopic. Both are always on.
+type Events struct {
 	ConsumerGroup string `env:"ORDER_PAYMENT_CONSUMER_GROUP" default:"team-order.payment"`
 	PaymentTopic  string `env:"PAYMENT_EVENTS_TOPIC" default:"payment.events"`
 	PaymentDLQ    string `env:"PAYMENT_EVENTS_DLQ_TOPIC" default:"payment.events.dlq"`
 	OrderTopic    string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
-}
-
-// Outbox tunes the transactional-outbox relayer that publishes order.events
-// (ADR-0002, ADR-0013). Names match team-domain's Outbox group. The relayer runs
-// only when OUTBOX_ENABLED and KAFKA_ENABLED are both true and Postgres is on.
-type Outbox struct {
-	Enabled          bool   `env:"OUTBOX_ENABLED" default:"true"`
-	PollInterval     string `env:"OUTBOX_POLL_INTERVAL" default:"1s"` // Go duration
-	BatchSize        int    `env:"OUTBOX_BATCH_SIZE" default:"100"`
-	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
-	MaxAttempts      int    `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
 }
 
 // Reservation tunes the stock-reservation lifetime and the reservation sweeper.
@@ -101,6 +66,36 @@ const DefaultReservationTTL = 15 * time.Minute
 // DefaultReservationSweepInterval is used when RESERVATION_SWEEP_INTERVAL is empty
 // or unusable.
 const DefaultReservationSweepInterval = time.Minute
+
+// Load reads Settings from the environment, applies defaults and runs Validate.
+// It is the entry point of cmd/server and cmd/resync-commits.
+func Load() (Settings, error) {
+	s, err := sdkconfig.Load[Settings]()
+	if err != nil {
+		return s, err
+	}
+	// The binder treats an empty value like an unset one and applies the default.
+	// For the reservation durations an explicitly empty value must instead reach
+	// positiveDuration, which falls back with a warning naming the variable.
+	for key, field := range map[string]*string{
+		"RESERVATION_TTL":            &s.Reservation.TTL,
+		"RESERVATION_SWEEP_INTERVAL": &s.Reservation.SweepInterval,
+	} {
+		if v, ok := os.LookupEnv(key); ok && v == "" {
+			*field = ""
+		}
+	}
+	return s, nil
+}
+
+// Validate checks the SDK groups that carry their own rules: a positive
+// GRPC_PORT and a non-empty DATABASE_URL. sdkconfig.Load calls it after parsing.
+func (s Settings) Validate() error {
+	if err := s.GRPC.Validate(); err != nil {
+		return err
+	}
+	return s.Postgres.Validate()
+}
 
 // ReservationTTL parses RESERVATION_TTL, the lifetime of a checkout's stock hold
 // before the sweep may reclaim it (and of an unfinished checkout attempt). An
@@ -125,51 +120,9 @@ func positiveDuration(key, raw string, def time.Duration) (time.Duration, string
 	return d, ""
 }
 
-// KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
-func (s *Settings) KafkaBrokers() []string {
-	parts := strings.Split(s.Kafka.Brokers, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-// OutboxPollInterval parses OUTBOX_POLL_INTERVAL, defaulting to 1s when unset or
-// unparseable.
-func (s *Settings) OutboxPollInterval() time.Duration {
-	d, err := time.ParseDuration(strings.TrimSpace(s.Outbox.PollInterval))
-	if err != nil || d <= 0 {
-		return time.Second
-	}
-	return d
-}
-
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
-	}
-	if err := s.Validate(); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-func (s *Settings) Validate() error {
-	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
-		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
-	}
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
-	}
-	return nil
-}
-
+// IsProd reports whether this is a production environment (case-insensitive).
 func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	return e == "prod" || e == "production"
 }
 
@@ -180,7 +133,7 @@ var durableStorageEnvs = []string{"staging", "stage", "prod", "production"}
 
 // RequiresDurableStorage reports whether ENV names a staging/production environment.
 func (s *Settings) RequiresDurableStorage() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	for _, strict := range durableStorageEnvs {
 		if e == strict {
 			return true
@@ -190,82 +143,17 @@ func (s *Settings) RequiresDurableStorage() bool {
 }
 
 // RequireDurableStorage is the boot guard against the silent in-memory fallback:
-// in a strict ENV it fails when the database is disabled or no pool was obtained,
-// so a mis-set flag refuses to boot instead of serving orders that vanish on
-// restart. Other environments always pass.
+// in a strict ENV it fails when no database pool was obtained, so an unreachable
+// database refuses to boot instead of serving orders that vanish on restart.
+// Other environments always pass.
 func (s *Settings) RequireDurableStorage(dbAvailable bool) error {
 	if !s.RequiresDurableStorage() {
 		return nil
 	}
-	if s.Database.Enabled && dbAvailable {
+	if dbAvailable {
 		return nil
 	}
 	return fmt.Errorf(
-		"refusing to start with in-memory storage: ENV=%q requires a database (strict for ENV in %s) but DATABASE_ENABLED=%t and the database pool available=%t; set DATABASE_ENABLED=true with a reachable DATABASE_URL",
-		s.Runtime.Env, strings.Join(durableStorageEnvs, ", "), s.Database.Enabled, dbAvailable)
-}
-
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
-}
-
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
-	}
-	return nil
-}
-
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
+		"refusing to start with in-memory storage: ENV=%q requires a database (strict for ENV in %s) but the database pool is not available; set DATABASE_URL to a reachable database",
+		s.Env, strings.Join(durableStorageEnvs, ", "))
 }
