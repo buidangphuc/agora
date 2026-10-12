@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 
 	"github.com/buidangphuc/team-analytics/internal/config"
 	"github.com/buidangphuc/team-analytics/internal/consumer"
@@ -253,7 +254,11 @@ type committer struct {
 }
 
 func (c committer) Commit(ctx context.Context, m ga4relay.Message) error {
-	err := c.client.CommitRecords(ctx, &kgo.Record{Topic: m.Topic, Partition: m.Partition, Offset: m.Offset})
+	// Epoch -1 = unknown: a hand-built epoch of 0 would look like data loss to kgo on restart.
+	var err error
+	c.client.CommitOffsetsSync(ctx,
+		map[string]map[int32]kgo.EpochOffset{m.Topic: {m.Partition: {Epoch: -1, Offset: m.Offset + 1}}},
+		func(_ *kgo.Client, _ *kmsg.OffsetCommitRequest, _ *kmsg.OffsetCommitResponse, e error) { err = e })
 	if err != nil && ctx.Err() == nil {
 		c.logger.Warn("offset commit failed; record may be redelivered",
 			slog.String("topic", m.Topic), slog.Int("partition", int(m.Partition)), slog.Any("err", err))
