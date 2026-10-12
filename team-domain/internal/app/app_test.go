@@ -162,8 +162,8 @@ func TestShutdownStopsRelayerBeforePoolClose(t *testing.T) {
 	port := freePort(t)
 	s := baseSettings(port)
 	s.Postgres = sdkconfig.Postgres{Enabled: true, URL: url + "&application_name=" + appName, MaxConns: 4}
-	s.Events = config.Events{KafkaEnabled: true, Brokers: "unused:9092", ListingTopic: "listing.events"}
-	s.Outbox = config.Outbox{Enabled: true, PollInterval: "10ms", BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10}
+	s.Events = config.Events{Brokers: "unused:9092", ListingTopic: "listing.events"}
+	s.Outbox = config.Outbox{PollInterval: "10ms", BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10}
 
 	pub := &fakePublisher{produced: make(chan struct{}, 1)}
 	logs := &syncBuffer{}

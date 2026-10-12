@@ -41,20 +41,16 @@ type Storage struct {
 }
 
 // Events configures the Kafka producer that emits ListingChanged on every write
-// (ADR-0002). When KafkaEnabled is false the producer is a no-op.
+// (ADR-0002). The producer is always on.
 type Events struct {
-	KafkaEnabled bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers      string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	ListingTopic string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
 }
 
 // Outbox configures the transactional-outbox relayer (ADR-0002). Listing writes
 // always record an outbox row in the same DB transaction; this group tunes the
-// background relayer that publishes those rows to Kafka. The relayer only runs
-// when OUTBOX_ENABLED and KAFKA_ENABLED are both true — with Kafka disabled,
-// rows are recorded but never relayed (matching the prior no-emit behaviour).
+// background relayer that publishes those rows to Kafka. The relayer is always on.
 type Outbox struct {
-	Enabled          bool   `env:"OUTBOX_ENABLED" default:"true"`
 	PollInterval     string `env:"OUTBOX_POLL_INTERVAL" default:"1s"` // Go duration, e.g. 1s, 500ms
 	BatchSize        int    `env:"OUTBOX_BATCH_SIZE" default:"100"`
 	ClaimLockSeconds int    `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
@@ -138,9 +134,6 @@ func (s Settings) IsStrictEnv() bool {
 
 // RequireSafeStrictConfig is the boot guard against silent unsafe fallbacks. In a
 // strict ENV (staging/stage/prod/production) it refuses config where:
-//   - KAFKA_ENABLED=false: the no-op publisher is used, so outbox rows are recorded
-//     but never relayed and read-models (team-search) silently go stale;
-//   - OUTBOX_ENABLED=false: the relayer never runs, same effect;
 //   - STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY are still the minioadmin defaults.
 //
 // The database is required in every ENV, but that is enforced by Validate's
@@ -150,12 +143,6 @@ func (s Settings) RequireSafeStrictConfig() error {
 		return nil
 	}
 	var bad []string
-	if !s.Events.KafkaEnabled {
-		bad = append(bad, "KAFKA_ENABLED=false (the no-op publisher is used: outbox rows would never be relayed)")
-	}
-	if !s.Outbox.Enabled {
-		bad = append(bad, "OUTBOX_ENABLED=false (the outbox relayer would not run)")
-	}
 	if s.Storage.AccessKey == "minioadmin" || s.Storage.SecretKey == "minioadmin" {
 		bad = append(bad, "STORAGE_ACCESS_KEY/STORAGE_SECRET_KEY are the insecure minioadmin defaults")
 	}

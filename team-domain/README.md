@@ -41,7 +41,7 @@ Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order` a
 
 `ListingChanged` is emitted on Create/Update/Delete. `ListingStockChanged` is written to the outbox inside every reserve, release and TTL-sweep transaction that changes stock: one per affected listing, with the listing's stock after the change and only the variants that changed. Idempotent no-ops (repeat reserve, repeated or unknown release, commit) emit nothing. `ListingBaseInfoChanged`, `ListingPricingChanged` and `ListingStatusChanged` exist in the proto but are reserved.
 
-Outbox: the listing write and its outbox row commit in one DB transaction. The relayer (`internal/events/relayer.go`) claims pending rows with `FOR UPDATE SKIP LOCKED`, produces the stored envelope, and marks rows `published`. Delivery is at-least-once; consumers dedupe on `EventEnvelope.event_id` (the outbox row id). Failures retry with exponential backoff (1s doubling, capped at 5m); after `OUTBOX_MAX_ATTEMPTS` the row is parked as `failed`. The relayer only runs when `OUTBOX_ENABLED` and `KAFKA_ENABLED` are both true; with Kafka off, rows stay `pending`.
+Outbox: the listing write and its outbox row commit in one DB transaction. The relayer (`internal/events/relayer.go`) claims pending rows with `FOR UPDATE SKIP LOCKED`, produces the stored envelope, and marks rows `published`. Delivery is at-least-once; consumers dedupe on `EventEnvelope.event_id` (the outbox row id). Failures retry with exponential backoff (1s doubling, capped at 5m); after `OUTBOX_MAX_ATTEMPTS` the row is parked as `failed`. The publisher and the relayer are always on; while Kafka is down, rows stay `pending`.
 
 ## Data
 
@@ -85,10 +85,8 @@ Read in `internal/config/config.go`: `Settings` embeds the go-sdk `Runtime` and 
 | `STORAGE_REGION` | `us-east-1` |
 | `STORAGE_USE_SSL` | `false` |
 | `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/listing-images` |
-| `KAFKA_ENABLED` | `false` (no-op producer) |
 | `KAFKA_BROKERS` | `localhost:9092`, comma-separated |
 | `KAFKA_LISTING_TOPIC` | `listing.events` |
-| `OUTBOX_ENABLED` | `true` |
 | `OUTBOX_POLL_INTERVAL` | `1s` (Go duration) |
 | `OUTBOX_BATCH_SIZE` | `100` |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` |
@@ -118,7 +116,7 @@ migrations/            applied by `make migrate` / `team-domain-migrate`, not at
 third_party/go-sdk/    vendored go-sdk (ADR-0016); never edit, re-sync with sync-go-sdk.sh
 ```
 
-`app.Run` opens telemetry, Postgres and the Kafka publisher (each registered on a `lifecycle.Stack`), then runs the gRPC server, the health poller, the reservation sweeper and, when Kafka and the outbox are enabled, the outbox relayer as lifecycle components. It refuses to start when `DATABASE_ENABLED=false` or the database is unreachable, in any `ENV`.
+`app.Run` opens telemetry, Postgres and the Kafka publisher (each registered on a `lifecycle.Stack`), then runs the gRPC server, the health poller, the reservation sweeper and the outbox relayer as lifecycle components. It refuses to start when `DATABASE_ENABLED=false` or the database is unreachable, in any `ENV`.
 
 Shutdown order: health reports NOT_SERVING, `SHUTDOWN_DRAIN_DELAY_SECONDS` passes, the gRPC server stops, the relayer and sweeper stop, then the publisher and the pool close.
 
@@ -130,7 +128,7 @@ Full stack (from the repo root; `docker-compose.yaml` includes `platform-core/in
 docker compose up -d --build team-domain
 ```
 
-This builds the image, runs `team-domain-migrate`, and starts `team-domain-svc` with `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`. The Dockerfile needs `./generated` and `./third_party` to exist, so run `make proto` first. There is no `--profile jobs` component.
+This builds the image, runs `team-domain-migrate`, and starts `team-domain-svc` with `KAFKA_BROKERS=redpanda:9092`. The Dockerfile needs `./generated` and `./third_party` to exist, so run `make proto` first. There is no `--profile jobs` component.
 
 Standalone:
 
@@ -138,7 +136,7 @@ Standalone:
 cp .env.example .env
 make dev        # Postgres on localhost:5433 via docker-compose.local.yaml
 make migrate    # golang-migrate in docker, against DATABASE_URL
-make run        # go run ./cmd/server (Kafka off unless you set KAFKA_ENABLED=true)
+make run        # go run ./cmd/server (needs a reachable KAFKA_BROKERS to relay events)
 ```
 
 If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpanda exposes host port 19092). `make stop` tears down the local Postgres.
@@ -168,7 +166,7 @@ The targets come from `make/go-service.mk` (synced from platform-core); `dev`, `
 - `third_party/go-sdk` is a vendored copy of go-sdk; bump it with `platform-core/tools/sync-go-sdk.sh <tag> team-domain`, never by hand.
 - `generated/` is gitignored and produced by `make proto`; never hand-edit or commit it. Build and tests fail until it exists.
 - `proto/` is a vendored, pinned copy of platform-core's proto module (ADR-0001). Never edit it here; re-vendor at a new tag (see `proto/README.md`).
-- `DATABASE_ENABLED=false` is refused at boot. With `KAFKA_ENABLED=false` writes succeed but events are never relayed.
+- `DATABASE_ENABLED=false` is refused at boot. Writes succeed while Kafka is down; the relayer retries the pending outbox rows.
 - `ListingChanged` carries the full listing; there are no fine-grained change events.
 
 ## Known gaps

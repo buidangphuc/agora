@@ -29,8 +29,7 @@ const service = "team-domain"
 
 // Options are the seams tests use; Run passes the zero value.
 type Options struct {
-	// NewPublisher builds the Kafka publisher when KAFKA_ENABLED=true.
-	// Default: events.NewKafkaPublisher.
+	// NewPublisher builds the Kafka publisher. Default: events.NewKafkaPublisher.
 	NewPublisher func(brokers []string, topic string) (events.Publisher, error)
 	// LogOut receives the service log. Default: os.Stdout.
 	LogOut io.Writer
@@ -82,18 +81,15 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	// event in its own transaction (ADR-0002) and the relayer publishes the rows.
 	outbox := store.NewOutboxStore(pool)
 
-	var publisher events.Publisher
-	if s.Events.KafkaEnabled {
-		newPublisher := o.NewPublisher
-		if newPublisher == nil {
-			newPublisher = newKafkaPublisher
-		}
-		publisher, err = newPublisher(s.KafkaBrokers(), s.Events.ListingTopic)
-		if err != nil {
-			return errors.Join(fmt.Errorf("kafka publisher: %w", err), stack.Close(ctx))
-		}
-		stack.Push(func(context.Context) error { publisher.Close(); return nil })
+	newPublisher := o.NewPublisher
+	if newPublisher == nil {
+		newPublisher = newKafkaPublisher
 	}
+	publisher, err := newPublisher(s.KafkaBrokers(), s.Events.ListingTopic)
+	if err != nil {
+		return errors.Join(fmt.Errorf("kafka publisher: %w", err), stack.Close(ctx))
+	}
+	stack.Push(func(context.Context) error { publisher.Close(); return nil })
 
 	repo := store.NewPostgresListingRepository(pool)
 	// Reserve / release / sweep announce ListingStockChanged on the same outbox,
@@ -121,17 +117,14 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 		// checkout never leaks inventory.
 		afterServer(serverStopped, listing.NewReservationSweeper(svc, s.ReservationSweepInterval(logger), logger)),
 	}
-	// Outbox relayer: runs only when the outbox is enabled and a real producer
-	// exists; with Kafka off, rows are recorded but never relayed.
-	if publisher != nil && s.Outbox.Enabled {
-		relayer := events.NewRelayer(outbox, publisher, logger, events.RelayerConfig{
-			PollInterval: s.OutboxPollInterval(),
-			BatchSize:    s.Outbox.BatchSize,
-			LockSeconds:  s.Outbox.ClaimLockSeconds,
-			MaxAttempts:  s.Outbox.MaxAttempts,
-		})
-		components = append(components, afterServer(serverStopped, relayer))
-	}
+	// Outbox relayer: publishes the rows each write recorded (ADR-0002).
+	relayer := events.NewRelayer(outbox, publisher, logger, events.RelayerConfig{
+		PollInterval: s.OutboxPollInterval(),
+		BatchSize:    s.Outbox.BatchSize,
+		LockSeconds:  s.Outbox.ClaimLockSeconds,
+		MaxAttempts:  s.Outbox.MaxAttempts,
+	})
+	components = append(components, afterServer(serverStopped, relayer))
 
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace(),

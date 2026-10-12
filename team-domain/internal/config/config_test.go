@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -60,8 +61,6 @@ func strictSettings(env string) *Settings {
 	s.Port = 50051
 	s.Postgres.Enabled = true
 	s.Postgres.URL = "postgresql://x/y"
-	s.Events.KafkaEnabled = true
-	s.Outbox.Enabled = true
 	s.Storage.AccessKey = "ak"
 	s.Storage.SecretKey = "sk"
 	return s
@@ -74,8 +73,6 @@ func TestRequireSafeStrictConfig(t *testing.T) {
 			t.Errorf("ENV=%q safe config must pass: %v", env, err)
 		}
 		cases := map[string]func(*Settings){
-			"KAFKA_ENABLED":      func(s *Settings) { s.Events.KafkaEnabled = false },
-			"OUTBOX_ENABLED":     func(s *Settings) { s.Outbox.Enabled = false },
 			"STORAGE_ACCESS_KEY": func(s *Settings) { s.Storage.AccessKey = "minioadmin" },
 			"STORAGE_SECRET_KEY": func(s *Settings) { s.Storage.SecretKey = "minioadmin" },
 		}
@@ -96,8 +93,6 @@ func TestRequireSafeStrictConfig(t *testing.T) {
 	}
 	for _, env := range []string{"local", "test", "", "dev", "development"} {
 		s := strictSettings(env)
-		s.Events.KafkaEnabled = false
-		s.Outbox.Enabled = false
 		s.Storage.AccessKey, s.Storage.SecretKey = "minioadmin", "minioadmin"
 		if err := s.Validate(); err != nil {
 			t.Errorf("ENV=%q must be unaffected: %v", env, err)
@@ -182,6 +177,25 @@ func TestReservationInvalidFallsBackWithWarning(t *testing.T) {
 			if !strings.Contains(out, want) {
 				t.Errorf("value %q: warning log %q lacks %q", bad, out, want)
 			}
+		}
+	}
+}
+
+// TestNoEnableFlagsDeclared: capabilities every deploy runs have no enable flag.
+func TestNoEnableFlagsDeclared(t *testing.T) {
+	declared := sdkconfig.DeclaredEnvKeys(Settings{})
+	has := func(key string) bool { return slices.Contains(declared, key) }
+
+	for _, key := range []string{"KAFKA_ENABLED", "OUTBOX_ENABLED"} {
+		if has(key) {
+			t.Errorf("%s is declared; the Kafka publisher and the outbox relayer are always on", key)
+		}
+	}
+	// These two come from go-sdk v0.1.0 (config.Postgres, config.GRPC) and go away
+	// when the SDK drops them.
+	for _, key := range []string{"DATABASE_ENABLED", "GRPC_REFLECTION_ENABLED"} {
+		if has(key) {
+			t.Skip("go-sdk v0.1.1 pending: " + key + " still declared by the SDK groups")
 		}
 	}
 }
