@@ -8,4 +8,4 @@ Owns: `platform-core/packages/go-sdk/pkg/{outbox,upstream,flags,consume,kafkax}/
 
 ## 2. Close (orchestrator)
 
-- [ ] 2.1 Add FEATURES entries, run `ci_local`, and tag `go-sdk/v0.2.1` locally.
+- [x] 2.1 Add FEATURES entries, run `ci_local`, and tag `go-sdk/v0.2.1` locally.
