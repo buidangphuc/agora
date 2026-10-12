@@ -203,7 +203,7 @@ func Status(ctx context.Context, logger *slog.Logger, err error, t ErrorTable) e
 The example is a `HelloService` using `grpc_health_v1`-style hand-written service registration (no proto codegen), or `grpc.ServiceDesc` built by hand. It has one RPC `Greet` (requires a principal) and one RPC `Boom` (panics). Layout follows ADR-0016: `cmd/hello/main.go` < 20 lines, `internal/app/app.go` composition root, `internal/config`, `internal/rpc` (package rpc).
 - [x] 9.1 Tests first: `TestRecoveryKeepsServing`, `TestRequestIDPropagates`, `TestStatusHidesUnknownErrors`, `TestStatusMapsKnownErrors` (bufconn); then implement grpcx.
 - [x] 9.2 Tests first: `TestShutdownDrainsHealthFirst`, `TestGreetRejectsMissingPrincipal` (run app on a free port, watch health, cancel ctx, assert NOT_SERVING is observed before the connection closes); then build the example. Delete `internal/deps`, run `go mod tidy`, and run `make check` green for the whole SDK.
-- [ ] 9.3 Review fixes: chain order request-id → recovery → logging → auth (panic logs carry request_id; verify `TestRecoveryLogCarriesRequestID`); `Status` passes through non-Unknown gRPC status errors (verify `TestStatusPassesThroughGRPCStatus`); convention dir `internal/rpc` (package `rpc`) instead of `internal/grpc` in ADR-0016, README and examples/hello.
+- [x] 9.3 Review fixes: chain order request-id → recovery → logging → auth (panic logs carry request_id; verify `TestRecoveryLogCarriesRequestID`); `Status` passes through non-Unknown gRPC status errors (verify `TestStatusPassesThroughGRPCStatus`); convention dir `internal/rpc` (package `rpc`) instead of `internal/grpc` in ADR-0016, README and examples/hello.
 
 ## 10. Close (orchestrator)
 

@@ -38,7 +38,7 @@ type ServerOptions struct {
 }
 
 // NewServer returns a gRPC server with the otelgrpc stats handler, the chain
-// recovery, request id, logging and auth (outermost first), the health service
+// request id, recovery, logging and auth (outermost first), the health service
 // and, when Config.ReflectionEnabled, reflection.
 func NewServer(o ServerOptions) *grpc.Server {
 	logger := o.Logger
@@ -58,15 +58,15 @@ func NewServer(o ServerOptions) *grpc.Server {
 	opts := []grpc.ServerOption{
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
-			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandlerContext(recoverPanic(logger))),
 			requestIDUnary(),
+			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandlerContext(recoverPanic(logger))),
 			logging.UnaryServerInterceptor(slogLogger(logger), logOpts...),
 			auth.UnaryServerInterceptor(),
 			principalLogUnary(),
 		),
 		grpc.ChainStreamInterceptor(
-			recovery.StreamServerInterceptor(recovery.WithRecoveryHandlerContext(recoverPanic(logger))),
 			requestIDStream(),
+			recovery.StreamServerInterceptor(recovery.WithRecoveryHandlerContext(recoverPanic(logger))),
 			logging.StreamServerInterceptor(slogLogger(logger), logOpts...),
 			auth.StreamServerInterceptor(),
 			principalLogStream(),
@@ -92,7 +92,7 @@ func slogLogger(l *slog.Logger) logging.Logger {
 func recoverPanic(l *slog.Logger) recovery.RecoveryHandlerFuncContext {
 	return func(ctx context.Context, p any) error {
 		l.ErrorContext(ctx, "panic recovered",
-			"method", grpcMethod(ctx), "panic", fmt.Sprint(p), "stack", string(debug.Stack()))
+			"method", grpcMethod(ctx), "request_id", reqctx.RequestID(ctx), "panic", fmt.Sprint(p), "stack", string(debug.Stack()))
 		return status.Error(codes.Internal, internalMessage)
 	}
 }

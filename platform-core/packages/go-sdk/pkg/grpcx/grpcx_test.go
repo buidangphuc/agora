@@ -302,3 +302,34 @@ func TestServeForcesStopAfterGrace(t *testing.T) {
 		t.Fatal("Serve stopped before the grace period elapsed")
 	}
 }
+
+func TestRecoveryLogCarriesRequestID(t *testing.T) {
+	e := start(t, map[string]grpc.MethodHandler{
+		"Boom": unary("Boom", func(context.Context, *wrapperspb.StringValue) (proto.Message, error) {
+			panic("kaboom")
+		}),
+	})
+	ctx := metadata.AppendToOutgoingContext(context.Background(), reqctx.MetadataRequestID, "rid-7")
+	_, _ = call(ctx, e.conn, "Boom", "")
+
+	logs := e.logs.String()
+	if !strings.Contains(logs, "panic recovered") || !strings.Contains(logs, `"request_id":"rid-7"`) {
+		t.Fatalf("recovery log lacks request_id:\n%s", logs)
+	}
+}
+
+func TestStatusPassesThroughGRPCStatus(t *testing.T) {
+	logs := &syncBuffer{}
+	logger := slog.New(slog.NewJSONHandler(logs, nil))
+	in := status.Error(codes.Unauthenticated, "authentication required")
+
+	out := grpcx.Status(context.Background(), logger, in, grpcx.ErrorTable{})
+	if out != in { //nolint:errorlint // identity is the point: the error must be returned unchanged
+		t.Fatalf("got %v, want the same error", out)
+	}
+	// An Unknown status is not trusted: it is hidden like any other error.
+	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), grpcx.ErrorTable{})
+	if st, _ := status.FromError(unk); st.Code() != codes.Internal || st.Message() != "internal error" {
+		t.Fatalf("Unknown status leaked: %v", unk)
+	}
+}

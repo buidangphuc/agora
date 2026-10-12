@@ -23,7 +23,7 @@ All under `pkg/`.
 | `migrate` | golang-migrate runner over a service's `migrations/` directory. |
 | `testkit` | Postgres container fixture for tests. |
 | `resilience` | Retry and circuit-breaker policies on failsafe-go. |
-| `grpcx` | Server builder (recovery, request-id, logging, auth, otelgrpc, health, reflection), serving that drains, and the error-to-status table. |
+| `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection), serving that drains, and the error-to-status table. |
 
 `examples/hello` wires all of the above and is the reference service.
 
@@ -37,8 +37,16 @@ All under `pkg/`.
    ```
 
    This writes `third_party/go-sdk` (with `VERSION`), adds the `replace` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml`, pins the golangci-lint `tool` directive to the SDK's version, and runs `go mod tidy`. It fails without changes if the tag does not exist. If the tag has no `.golangci.yml`, it prints a warning and skips that file.
-3. Copy `examples/hello` as the starting layout: `cmd/<binary>/main.go`, `internal/app`, `internal/config`, `internal/grpc`.
+3. Copy `examples/hello` as the starting layout: `cmd/<binary>/main.go`, `internal/app`, `internal/config`, `internal/rpc`.
 4. In the service `Makefile` set `SERVICE`, `GRPC_PORT` (and `BINARIES` if not `server`), then `include make/go-service.mk`. Run `make help` for the targets.
 5. Copy `platform-core/templates/go-service/Dockerfile` to the service root. Build with `--build-arg BIN=<binary>`.
 
 To upgrade, run the script again with the new tag and review the diff in a PR. Do not edit `third_party/go-sdk` by hand.
+
+## Copying from examples/hello
+
+- Rename the module path in the imports, `hello` in `cmd/hello`, and the `service` constant in `internal/app/app.go`.
+- Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain package.
+- Route every handler error through `grpcx.Status` with your own `ErrorTable`. Errors that already are gRPC status errors pass through unchanged.
+- Keep `internal/config/config_test.go` and your `.env.example`: the test fails when they drift apart.
+- Keep `main.go` as is: signal context, `app.Run`, exit.

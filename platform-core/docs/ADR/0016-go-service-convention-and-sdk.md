@@ -23,7 +23,7 @@ Every Go service has this shape:
 cmd/<binary>/main.go     # under 20 lines: load config, call app.Run
 internal/app/            # composition root: builds and wires everything
 internal/config/         # settings struct embedding the SDK groups
-internal/grpc/           # gRPC handlers and the error table; no business logic
+internal/rpc/            # gRPC handlers (package rpc) and the error table; no business logic
 internal/<domain>/       # business logic, one package per domain concept
 internal/store/          # Postgres access and migrations
 internal/events/         # event publishing and consuming
@@ -39,7 +39,7 @@ Everything long-running (gRPC server, health poller, consumers, relays) is a com
 
 ### Errors are mapped in transport
 
-Domain and store code return plain Go errors. Only `internal/grpc` converts them to gRPC status, through a per-service error table and `grpcx.Status`. Matched errors keep their code. Unknown errors are logged and returned as `codes.Internal` with the message `internal error`, so driver or upstream text never reaches callers.
+Domain and store code return plain Go errors. Only `internal/rpc` converts them to gRPC status, through a per-service error table and `grpcx.Status`. The directory is `rpc`, not `grpc`, so handler code can import `google.golang.org/grpc` without an alias. Matched errors keep their code, and errors that already are gRPC status errors (for example from `auth.RequirePrincipal`) pass through unchanged. Unknown errors are logged and returned as `codes.Internal` with the message `internal error`, so driver or upstream text never reaches callers.
 
 ### Libraries
 

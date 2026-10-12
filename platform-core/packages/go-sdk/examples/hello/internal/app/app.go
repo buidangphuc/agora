@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
-	hellogrpc "github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/grpc"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/rpc"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
@@ -57,7 +57,7 @@ func Run(ctx context.Context) error {
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
-	hellogrpc.Register(srv, hellogrpc.NewHandler(logger))
+	rpc.Register(srv, rpc.NewHandler(logger))
 
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace(),

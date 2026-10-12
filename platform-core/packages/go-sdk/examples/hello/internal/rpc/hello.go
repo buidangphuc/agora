@@ -1,18 +1,18 @@
-// Package grpc is the transport layer: it decodes requests, enforces
+// Package rpc is the transport layer: it decodes requests, enforces
 // authentication, calls the domain and maps domain errors to gRPC status. It
 // holds no business logic.
 //
 // The service is described by a hand-built grpc.ServiceDesc over well-known
 // protobuf messages so the example needs no code generation. A real service
 // uses the generated registration function instead.
-package grpc
+package rpc
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 
-	ggrpc "google.golang.org/grpc"
+	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -40,7 +40,7 @@ func NewHandler(logger *slog.Logger) *Handler {
 func (h *Handler) Greet(ctx context.Context, in *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
 	p, err := auth.RequirePrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs)
 	}
 	msg, err := greeter.Greet(in.GetValue())
 	if err != nil {
@@ -55,7 +55,7 @@ func (h *Handler) Boom(context.Context, *emptypb.Empty) (*emptypb.Empty, error) 
 }
 
 // Register adds the Hello service to s.
-func Register(s ggrpc.ServiceRegistrar, h *Handler) {
+func Register(s grpc.ServiceRegistrar, h *Handler) {
 	s.RegisterService(&serviceDesc, h)
 }
 
@@ -64,10 +64,10 @@ type helloServer interface {
 	Boom(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 }
 
-var serviceDesc = ggrpc.ServiceDesc{
+var serviceDesc = grpc.ServiceDesc{
 	ServiceName: "hello.v1.Hello",
 	HandlerType: (*helloServer)(nil),
-	Methods: []ggrpc.MethodDesc{
+	Methods: []grpc.MethodDesc{
 		{MethodName: "Greet", Handler: greetHandler},
 		{MethodName: "Boom", Handler: boomHandler},
 	},
@@ -76,7 +76,7 @@ var serviceDesc = ggrpc.ServiceDesc{
 // greetHandler has the grpc.MethodHandler signature, which puts ctx second.
 //
 //nolint:revive // signature fixed by grpc.MethodHandler
-func greetHandler(srv any, ctx context.Context, dec func(any) error, ic ggrpc.UnaryServerInterceptor) (any, error) {
+func greetHandler(srv any, ctx context.Context, dec func(any) error, ic grpc.UnaryServerInterceptor) (any, error) {
 	in := new(wrapperspb.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func greetHandler(srv any, ctx context.Context, dec func(any) error, ic ggrpc.Un
 	if ic == nil {
 		return srv.(helloServer).Greet(ctx, in)
 	}
-	info := &ggrpc.UnaryServerInfo{Server: srv, FullMethod: "/hello.v1.Hello/Greet"}
+	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: "/hello.v1.Hello/Greet"}
 	return ic(ctx, in, info, func(ctx context.Context, req any) (any, error) {
 		return srv.(helloServer).Greet(ctx, req.(*wrapperspb.StringValue))
 	})
@@ -93,7 +93,7 @@ func greetHandler(srv any, ctx context.Context, dec func(any) error, ic ggrpc.Un
 // boomHandler has the grpc.MethodHandler signature, which puts ctx second.
 //
 //nolint:revive // signature fixed by grpc.MethodHandler
-func boomHandler(srv any, ctx context.Context, dec func(any) error, ic ggrpc.UnaryServerInterceptor) (any, error) {
+func boomHandler(srv any, ctx context.Context, dec func(any) error, ic grpc.UnaryServerInterceptor) (any, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func boomHandler(srv any, ctx context.Context, dec func(any) error, ic ggrpc.Una
 	if ic == nil {
 		return srv.(helloServer).Boom(ctx, in)
 	}
-	info := &ggrpc.UnaryServerInfo{Server: srv, FullMethod: "/hello.v1.Hello/Boom"}
+	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: "/hello.v1.Hello/Boom"}
 	return ic(ctx, in, info, func(ctx context.Context, req any) (any, error) {
 		return srv.(helloServer).Boom(ctx, req.(*emptypb.Empty))
 	})
