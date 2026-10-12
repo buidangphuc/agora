@@ -89,7 +89,7 @@ func TestInternalRPCsAreNotRoutedAtTheEdge(t *testing.T) {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -98,7 +98,7 @@ func TestInternalRPCsAreNotRoutedAtTheEdge(t *testing.T) {
 
 	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"listing.read"}, time.Second, 0, 1000, 1000)
 	clients := &upstream.Clients{Listing: hitListing{}, Voucher: hitVoucher{}, Audit: hitAudit{}, AI: hitAI{}}
-	srv := httptest.NewServer(edge.NewMux(clients, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(clients, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 
 	authHeader := ""

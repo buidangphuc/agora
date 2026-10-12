@@ -42,7 +42,7 @@ func newCockpitFixture(t *testing.T) *cockpitFixture {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))

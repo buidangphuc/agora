@@ -33,7 +33,7 @@ func (q *queryAudit) QueryAuditLog(context.Context, *auditv1.QueryAuditLogReques
 func TestQueryAuditLogAnonymousRejectedAtEdge(t *testing.T) {
 	up := &queryAudit{}
 	e := edge.NewEdge(nil, []string{"listing.read"}, time.Second, 0, 1000, 1000)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Audit: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Audit: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 
 	res, err := srv.Client().Post(srv.URL+"/platform.audit.v1.AuditService/QueryAuditLog", "application/json", strings.NewReader(`{}`))
@@ -74,7 +74,7 @@ func TestOnlyAdminsCanReadTheChannelFunnel_EdgeRejects(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			up := &countingAnalytics{}
-			srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AnalyticsQuery: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+			srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AnalyticsQuery: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 			t.Cleanup(srv.Close)
 			req, _ := http.NewRequest(http.MethodPost, srv.URL+"/platform.analytics.v1.AnalyticsQueryService/GetChannelFunnel", strings.NewReader(`{}`))
 			req.Header.Set("Content-Type", "application/json")
