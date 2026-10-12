@@ -172,3 +172,49 @@ func TestHealthReportsDatabaseDown(t *testing.T) {
 	}
 	stopWatch()
 }
+
+func TestLocalMemoryStoreHealthIsServing(t *testing.T) {
+	s := settings(freePort(t), "local", sdkconfig.Postgres{Enabled: true, URL: closedDatabaseURL})
+	r := startApp(t, s)
+
+	// Outlast one probe interval (5s): a registered postgres check would have
+	// flipped the status by now.
+	time.Sleep(7 * time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resp, err := grpc_health_v1.NewHealthClient(r.conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{}, grpc.WaitForReady(true))
+	if err != nil {
+		t.Fatalf("health check: %v", err)
+	}
+	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+		t.Fatalf("status = %v, want SERVING", resp.GetStatus())
+	}
+}
+
+func TestBootDoesNotApplyMigrations(t *testing.T) {
+	url := testkit.Postgres(t)
+	r := startApp(t, settings(freePort(t), "local", sdkconfig.Postgres{Enabled: true, URL: url}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	// A served health check proves boot completed.
+	if _, err := grpc_health_v1.NewHealthClient(r.conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{}, grpc.WaitForReady(true)); err != nil {
+		t.Fatalf("health check: %v", err)
+	}
+
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(context.Background()) }()
+	for _, table := range []string{"share_links", "schema_migrations"} {
+		var reg *string
+		if err := conn.QueryRow(ctx, "SELECT to_regclass($1)::text", table).Scan(&reg); err != nil {
+			t.Fatal(err)
+		}
+		if reg != nil {
+			t.Errorf("table %s exists after boot; migrations must not run at boot", table)
+		}
+	}
+}

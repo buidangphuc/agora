@@ -83,3 +83,28 @@ features:
     tags: [sharing-runtime, unit]
     status: not-testable
     notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by platform-core/packages/go-sdk/examples/hello/internal/store TestMigrationsApply."
+  - id: sharing-runtime.without-a-database-no-postgres-check-is-registered
+    title: Without a database no postgres check is registered
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When the service runs from the in-memory store (ENV=local, database unreachable)
+      - Then health is SERVING and does not report NOT_SERVING for a database it does not use
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing/internal/app TestLocalMemoryStoreHealthIsServing."
+
+  - id: sharing-runtime.boot-does-not-apply-migrations
+    title: Boot does not apply migrations
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-sharing]
+    acceptance:
+      - When team-sharing boots against an empty database
+      - Then no share_links table is created and schema_migrations does not exist
+    tags: [sharing-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-sharing-to-go-sdk: not producible end to end; verified by team-sharing/internal/app TestBootDoesNotApplyMigrations (testkit Postgres)."
