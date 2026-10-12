@@ -1317,3 +1317,70 @@ features:
     status: automated
     covered_by: "payment/payout_scope.feature::A seller can still request a payout"
     notes: "Scenario: payment/payout_scope.feature::A seller can still request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Serial lane (@destructive): waits the payout hold window out, needs platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s); stops nothing."
+
+  # Change migrate-team-payment-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: payment-runtime.team-payment-declares-no-always-on-enable-flags
+    title: "Team-payment declares no always-on enable flags"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When the declared env keys of team-payment's Settings are listed"
+      - "Then none of `DATABASE_ENABLED`, `KAFKA_ENABLED`, `OUTBOX_ENABLED` and `GRPC_REFLECTION_ENABLED` is declared"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/config TestNoEnableFlagsDeclared."
+
+  - id: payment-runtime.team-payment-fails-boot-on-an-unreachable-database-when-deployed
+    title: "Team-payment fails boot on an unreachable database when deployed"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When team-payment starts with `ENV=staging` and an unreachable `DATABASE_URL`"
+      - "Then boot returns an error before any port opens"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/app TestBootFailsWhenDatabaseUnreachableDeployed."
+
+  - id: payment-runtime.team-payment-outbox-rows-are-relayed-and-a-failing-row-does-not-block-others
+    title: "Team-payment outbox rows are relayed and a failing row does not block others"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When two rows are enqueued and publishing the first fails"
+      - "Then the second is published, and the first is retried with backoff and parked after `OUTBOX_MAX_ATTEMPTS`"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/app TestOutboxRelayedViaSDK (testkit Postgres)."
+
+  - id: payment-runtime.team-payment-consumer-does-not-commit-when-the-dlq-produce-fails
+    title: "Team-payment consumer does not commit when the DLQ produce fails"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When handling a record fails permanently and the DLQ produce also fails"
+      - "Then the consumer stops with an error and the record is redelivered after restart"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/settlement TestConsumerDoesNotCommitOnDLQFailure (testkit Redpanda)."
+
+  - id: payment-runtime.team-payment-existing-suites-do-not-regress-and-no-assertion-is-weakened
+    title: "Team-payment existing suites do not regress and no assertion is weakened"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When `make check` runs after the restructure"
+      - "Then every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment `make check`."
