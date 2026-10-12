@@ -30,3 +30,70 @@ features:
     - audit
     status: automated
     covered_by: security/audit_access.feature::A refused edge write leaves no audit event
+
+  # Change migrate-team-audit-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: audit-runtime.unreachable-database-fails-boot-outside-local
+    title: team-audit fails boot on an unreachable database outside local
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-audit]
+    acceptance:
+      - When team-audit starts with ENV=staging and DATABASE_URL pointing at a closed port
+      - Then app.Run returns an error and no listener is opened
+    tags: [audit-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-audit-to-go-sdk: not producible end to end; verified by team-audit/internal/app TestBootFailsWhenDatabaseUnreachableOutsideLocal."
+
+  - id: audit-runtime.local-falls-back-to-memory
+    title: team-audit falls back to memory locally
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-audit]
+    acceptance:
+      - When team-audit starts with ENV=local and an unreachable database
+      - Then its RPCs are served from the in-memory store and health is SERVING
+    tags: [audit-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-audit-to-go-sdk: not producible end to end; verified by team-audit/internal/app TestLocalFallsBackToMemoryStore."
+
+  - id: audit-runtime.no-enable-flags-declared
+    title: team-audit declares no enable flags
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-audit]
+    acceptance:
+      - When the declared env keys of the team-audit Settings are listed
+      - Then none of DATABASE_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [audit-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-audit-to-go-sdk: not producible end to end; verified by team-audit/internal/config TestNoEnableFlagsDeclared."
+
+  - id: audit-runtime.database-loss-flips-health
+    title: team-audit health fails to NOT_SERVING when the database is lost
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-audit]
+    acceptance:
+      - When the database used by a running team-audit stops accepting connections
+      - Then within one probe interval the gRPC health status is NOT_SERVING
+    tags: [audit-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-audit-to-go-sdk: not producible end to end; verified by team-audit/internal/app TestHealthReportsDatabaseDown (testkit Postgres)."
+
+  - id: audit-runtime.existing-behaviour-tests-stay-green
+    title: team-audit existing suites do not regress and no assertion is weakened
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-audit]
+    acceptance:
+      - When make check runs after the restructure
+      - Then TestQueryAuditLogCursorPaging, TestWriteAuditEventValidation, TestWriteAuditEventRequiresAuthentication, TestWriteAuditEventRejectsNonServiceCallers, TestInternalErrorIsGenericAndNotLeaked, TestWriteAuditEventServicePrincipalMayActOnBehalf, TestQueryAuditLogAdminOnly, TestWireAuthorization, TestPrincipalResolution, TestRequireService, TestWriteQueryRoundtrip, TestQueryFilterByActorAndTarget, TestQueryPaginationNewestFirst and TestWriteValidation pass with unchanged assertions (auth message text excepted)
+    tags: [audit-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-audit-to-go-sdk: not producible end to end; verified by team-audit `make check`."
