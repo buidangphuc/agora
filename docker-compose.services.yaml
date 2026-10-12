@@ -566,7 +566,6 @@ services:
       # locally too (shipped default 5 rps / burst 20; the flood scenario uses its own gateway).
       - TRACK_RATE_LIMIT_RPS=1000
       - TRACK_RATE_LIMIT_BURST=2000
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events
       # Session revocation (ADR-0003 addendum): consume identity.events into the

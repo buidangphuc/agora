@@ -91,7 +91,7 @@ Jaeger for the cockpit, and `identity.events` (below).
 
 | Direction | Topic | Type | Key | Notes |
 |---|---|---|---|---|
-| Produces | `KAFKA_ANALYTICS_TOPIC` (`analytics.events`) | `platform.analytics.v1.TrackingEvent` in an `EventEnvelope` (principal stamped from the edge-resolved identity) | session id, falling back to anonymous id | Best-effort. With `KAFKA_ENABLED=false` the producer is a no-op. |
+| Produces | `KAFKA_ANALYTICS_TOPIC` (`analytics.events`) | `platform.analytics.v1.TrackingEvent` in an `EventEnvelope` (principal stamped from the edge-resolved identity) | session id, falling back to anonymous id | Best-effort: a failed produce is logged and the beacon still gets `204`. Records carry `traceparent` and `x-request-id` headers (go-sdk `kafkax`). |
 | Consumes | `IDENTITY_EVENTS_TOPIC` (`identity.events`) | `platform.identity.v1.SessionRevoked` in an `EventEnvelope`; other types ignored | n/a | Feeds the session denylist. |
 
 Envelope and topics follow ADR-0002.
@@ -105,12 +105,47 @@ claim is denylisted. There is no call to identity.
 - No consumer group: every replica reads every partition from the earliest offset, so a restart
   rebuilds the list. Topic retention must be at least the token TTL.
 - An entry lives until the event's `expires_at` (24 h if absent), then is pruned.
-- **Fail open.** With `KAFKA_ENABLED=false` the consumer is not started and revoked tokens stay
-  valid until they expire (a warning is logged). With Kafka down the gateway still starts and
-  revocations are not enforced.
+- **Fail open.** The consumer always runs; there is no enable flag. With Kafka down the gateway
+  still starts, revoked tokens stay valid until they expire and revocations are not enforced
+  (logged, and `gateway_revocation_consumer_up` is `0`).
 - OTel gauges (exported only when `OTEL_ENABLED=true`): `gateway_revocation_consumer_up`
   (alert on `0`), `gateway_revocation_consumer_lag`, `gateway_revocation_denylist_size`.
 - Tokens without a `sid` (service tokens) are never checked against the denylist.
+
+## Layout and go-sdk (ADR-0016)
+
+```
+cmd/gateway/main.go   signal context, config.Load, app.Run, exit code
+internal/app/         composition root (const service = "team-gateway"); tests build Settings by hand
+internal/config/      Settings (SDK groups + gateway groups), Validate, Load; its test checks .env.example
+internal/edge/        Connect handlers, policy, auth resolution, rate limits, collector, cockpit, SSE
+internal/events/      analytics producer (kafkax producer behind AnalyticsPublisher)
+internal/revocation/  identity.events consumer and session denylist
+internal/token/       RS256 JWT verification, JWKS cache
+internal/upstream/    gRPC clients to the upstream services
+third_party/go-sdk    vendored go-sdk/v0.2.1
+```
+
+`app.Run` builds, in order: logger (`logx`), telemetry (`otelx`: tracer, meter, W3C propagator),
+upstream clients, JWKS verifier, edge, analytics producer (`kafkax`), revocation consumer, HTTP
+server, then `lifecycle.Run`. The HTTP server is the primary component of `lifecycle.StopAfter`;
+the revocation consumer and the trusted-proxy refresher are its dependents. On SIGINT/SIGTERM the
+server stops accepting and drains in-flight requests for up to `SHUTDOWN_GRACE_SECONDS`, then the
+dependents stop, then the closers run in reverse order (analytics producer, upstream connections,
+telemetry flush).
+
+Not adopted, and why:
+
+- `grpcx` and `auth` interceptors: the edge serves Connect over HTTP, and verifies the JWT itself
+  to forward `x-principal-*` (AGENTS.md rule 5).
+- `healthx`: it flips a gRPC health status on dependency checks. `/healthz` is a plain HTTP `200`
+  that deliberately ignores dependencies (the edge fails open without Kafka or JWKS).
+- `upstream`: it forwards the principal and request id from the gRPC server context and bounds
+  every unary call at 2 s by default. The edge builds that metadata itself, sets per-RPC
+  deadlines (`CALL_TIMEOUT_SECONDS`, `AI_CALL_TIMEOUT_SECONDS`), retries reads, and caps the
+  reconnect backoff (`DIAL_TIMEOUT_SECONDS`), so `internal/upstream` stays.
+- `kafkax.NewConsumerClient`: it requires a consumer group; the revocation consumer must read
+  every partition from the earliest offset without one, so it keeps its own franz-go client.
 
 ## Data
 
@@ -119,9 +154,11 @@ None. The gateway has no database, no migrations and no local state beyond in-me
 
 ## Configuration
 
-Read by `internal/config/config.go` with the listed defaults. `.env.example` mirrors them;
-`make check-env` (`TestEnvExampleInSync`) fails if the two drift in either direction. This table
-is not covered by that gate.
+Loaded by `config.Load` (`internal/config/config.go`, go-sdk `config.Load[Settings]`) with the
+listed defaults: the SDK groups `Runtime` (`ENV`, `LOG_*`), `Kafka` (`KAFKA_BROKERS`) and `OTel`
+(`OTEL_*`) next to the gateway's own groups. `.env.example` mirrors them; `make check-env`
+(`TestEnvExampleInSync`) fails if the two drift in either direction. This table is not covered by
+that gate.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -165,16 +202,15 @@ is not covered by that gate.
 | `JAEGER_QUERY_URL` | `http://jaeger:16686` | Cockpit traces. Empty disables the source. |
 | `JAEGER_UI_URL` | `http://localhost:16686` | Browser-facing base for trace links |
 | `TRUSTED_PROXIES` | empty | CIDRs, bare IPs or hostnames whose `X-Forwarded-For` is believed. Hostnames are re-resolved every 30 s; an unresolvable name trusts nobody. Empty trusts nobody: `x-client-ip` is the socket peer. The client is the rightmost XFF entry that is not itself trusted. Audit data only, never authorization. A malformed entry fails startup. |
-| `KAFKA_ENABLED` | `false` | Enables both the analytics producer and the revocation consumer |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated; used by the analytics producer and the revocation consumer. Kafka has no enable flag: every deploy runs it. |
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
 | `IDENTITY_EVENTS_TOPIC` | `identity.events` | Revocation source |
 | `OTEL_ENABLED` | `false` | Tracer and meter providers; also needed for the gRPC RED metrics and revocation gauges |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | |
-| `OTEL_SERVICE_NAME` | `team-gateway` | |
+| `OTEL_SERVICE_NAME` | empty, falls back to `team-gateway` | |
 
-The root compose file sets `TRUSTED_PROXIES=team-frontend-svc`, `KAFKA_ENABLED=true`,
-`KAFKA_BROKERS=redpanda:9092` and `RATE_LIMIT_RPS=1000` (burst 2000).
+The root compose file sets `TRUSTED_PROXIES=team-frontend-svc`, `KAFKA_BROKERS=redpanda:9092` and
+`RATE_LIMIT_RPS=1000` (burst 2000). A leftover `KAFKA_ENABLED` in an old environment is ignored.
 
 ## Run locally
 
@@ -200,12 +236,15 @@ make run                 # go run ./cmd/gateway
 
 | Command | What it does |
 |---|---|
-| `make proto` | `buf generate` into `generated/` (needs the `buf` binary and network access to buf.build for the remote plugins in `buf.gen.yaml`; no Docker) |
-| `make test` | `go test ./...` |
-| `make check` | **Merge gate**: `check-env`, `gofmt -l .` must be empty, `go vet ./...`, `go test ./...` |
-| `make check-env` | `.env.example` vs `internal/config` drift test |
+| `make proto` | `buf generate` into `generated/` (needs the `buf` binary and network access to buf.build for the remote plugins in `buf.gen.yaml`, which include the Connect plugin; no Docker) |
+| `make proto-local` | The same with the locally installed plugins of `buf.gen.local.yaml` (absolute paths under `~/go/bin`), for when buf.build rate-limits |
+| `make test` | `go test -race ./...` |
+| `make lint` | `go tool golangci-lint run ./...` with the synced `.golangci.yml` |
+| `make check` | **Merge gate**: `go vet`, `lint`, race tests with `GO_SDK_REQUIRE_DOCKER=1`, `check-env` |
+| `make check-env` | `.env.example` vs `Settings` drift test |
+| `make docker` | `make proto`, then `docker build -t team-gateway:dev --build-arg BIN=gateway .` |
 
-Go 1.22 (`go.mod`, Dockerfile builder `golang:1.22`); `go.mod` is the source for dependency
+Go 1.26 (`go.mod`, Dockerfile builder `golang:1.26`); `go.mod` is the source for dependency
 versions. This repo has no CI workflow of its own; run `make check` before opening a PR.
 
 ## Spec and verification
@@ -213,6 +252,9 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - Feature manifest: `FEATURES.yaml` (4 features, all `automated`: three `tracking.*` for
   `/api/track` and `gateway.client-ip-not-spoofable`). Session revocation and client-IP behaviour
   are covered by `platform-e2e` (`auth/session_revocation.feature`).
+- The runtime features `gateway.reflection-rejected-in-prod`, `gateway.shutdown-drains-in-flight`
+  and `gateway.existing-suites-stay-green` are `not-testable` (no UI) and unit-verified in
+  `internal/config`, `internal/app` and by `make check`.
 - E2E coverage is verified in `platform-e2e`: `make -C platform-e2e features-check` and
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC
@@ -221,13 +263,19 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 ## Gotchas
 
 - `generated/` is gitignored. Regenerate with `make proto` after a clone or a proto change, and
-  never hand-edit it (AGENTS.md rule 4). `buf.gen.local.yaml` uses absolute local plugin paths and
-  is not the default.
+  never hand-edit it (AGENTS.md rule 4). `make proto-local` uses `buf.gen.local.yaml`, whose
+  absolute local plugin paths are machine-specific.
+- `third_party/go-sdk` is the vendored go-sdk (`VERSION` names the tag, now `go-sdk/v0.2.1`), with
+  `make/go-service.mk` and `.golangci.yml` copied from it. Never edit them here; upgrade with
+  `platform-core/tools/sync-go-sdk.sh <tag> team-gateway` and review the diff. The script's
+  `go mod tidy` drops the SDK `require` while nothing imports it; the gateway imports it, so the
+  line `github.com/buidangphuc/platform-core/packages/go-sdk v0.0.0-00010101000000-000000000000`
+  stays in `go.mod`.
 - `proto/` is vendored from platform-core (ADR-0001). Never edit it here; change the contract in
   platform-core, then re-vendor and regenerate.
 - `coverage.out` and `coverage.summary` in the repo root are test artifacts, not source.
-- With `KAFKA_ENABLED=false`, `/api/track` returns `204` but emits nothing, and revoked sessions
-  stay valid until the token expires.
+- With the broker unreachable, `/api/track` still returns `204` (the failed produce is logged) and
+  revoked sessions stay valid until the token expires.
 - `JWKS_URL` is required: startup fails without it. An unreachable JWKS at boot is only a
   warning; the cache fills lazily, but requests carrying a bearer token get `401` until it does.
 - The gateway only verifies tokens. Never assume it enforces an RPC's scope; check the service.

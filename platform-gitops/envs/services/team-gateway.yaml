@@ -42,7 +42,6 @@ env:
   UPSTREAM_VERIFICATION_ADDR: "team-verification:50064"
   UPSTREAM_SHARING_ADDR: "team-sharing:50065"
   UPSTREAM_AUDIT_ADDR: "team-audit:50066"
-  KAFKA_ENABLED: "true"
   KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
   KAFKA_ANALYTICS_TOPIC: "analytics.events"
   # Session revocation (ADR-0003 addendum): identity.events -> in-memory sid denylist.
