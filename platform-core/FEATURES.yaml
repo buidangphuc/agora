@@ -1029,3 +1029,86 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/tools/sync-go-sdk_test.sh.
+  - id: go-sdk.duplicate-enqueue-does-not-abort-the-transaction
+    title: Duplicate enqueue does not abort the transaction
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the same event id is enqueued twice in one transaction, which then commits
+    - Then the commit succeeds and exactly one outbox row exists
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/outbox
+      TestEnqueueDuplicateIsNoop.
+  - id: go-sdk.per-call-service-principal-overrides-forwarding-not-other-calls
+    title: Per-call service principal overrides forwarding, not other calls
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When two calls on one connection are made, one with WithServicePrincipal(ctx, "team-order", "listing.read")
+      and one without, while the incoming principal is a buyer
+    - Then the first sends team-order/service/listing.read, and the second forwards the buyer, not the service
+      principal
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
+      TestPerCallServicePrincipal.
+  - id: go-sdk.in-memory-provider-toggles-a-flag-and-an-unknown-flag-does-not-fail
+    title: In-memory provider toggles a flag and an unknown flag does not fail
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a client over an in-memory provider with checkout-enabled=false evaluates it with default true
+    - Then it returns false, and an unknown flag returns its default rather than failing
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
+      TestNewWithProviderEvaluates.
+  - id: go-sdk.transient-fetch-error-does-not-stop-the-loop
+    title: Transient fetch error does not stop the loop
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a fetch returns an error and later records arrive
+    - Then the later records are handled and Run has not returned
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume
+      TestFetchErrorDoesNotStopLoop.
+  - id: go-sdk.auto-topic-creation-can-be-enabled-for-a-consumer
+    title: Auto topic creation can be enabled for a consumer
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a consumer client is built with kgo.AllowAutoTopicCreation() for a topic that does not exist
+      yet
+    - Then it consumes records produced later, without failing on the unknown topic
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax
+      TestConsumerClientAcceptsOptions.

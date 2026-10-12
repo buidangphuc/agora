@@ -133,3 +133,49 @@ func TestBoundedRespectsParentDeadline(t *testing.T) {
 		t.Errorf("parent inside margin: want expired context, deadline in %v", deadline(c))
 	}
 }
+
+func TestPerCallServicePrincipal(t *testing.T) {
+	conn, err := Dial("passthrough:///bufnet", withBufconn(echoServer(t)))
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	call := func(ctx context.Context) metadata.MD {
+		t.Helper()
+		var hdr metadata.MD
+		if err := conn.Invoke(ctx, "/test.v1.Test/Echo", wrapperspb.String("x"), new(wrapperspb.StringValue), grpc.Header(&hdr)); err != nil {
+			t.Fatalf("Invoke: %v", err)
+		}
+		return hdr
+	}
+	want := func(hdr metadata.MD, id, typ, scopes string) {
+		t.Helper()
+		for key, w := range map[string]string{
+			auth.MDPrincipalID: id, auth.MDPrincipalType: typ, auth.MDPrincipalScopes: scopes,
+		} {
+			if got := hdr.Get(key); len(got) != 1 || got[0] != w {
+				t.Errorf("%s = %v, want [%s]", key, got, w)
+			}
+		}
+	}
+
+	want(call(WithServicePrincipal(buyerCtx(), "team-order", "listing.read")), "team-order", "service", "listing.read")
+	want(call(buyerCtx()), "buyer-9", "user", "order.write")
+}
+
+func TestPerCallServicePrincipalBeatsAsService(t *testing.T) {
+	ctx := WithServicePrincipal(buyerCtx(), "per-call", "a.read")
+	hdr := invoke(ctx, t, withBufconn(echoServer(t)), AsService("conn-level", "b.read"))
+	if got := hdr.Get(auth.MDPrincipalID); len(got) != 1 || got[0] != "per-call" {
+		t.Errorf("principal id = %v, want [per-call]", got)
+	}
+}
+
+func TestPerCallServicePrincipalIgnoresIncomingMetadata(t *testing.T) {
+	// A caller-supplied incoming principal header must never become a per-call principal.
+	ctx := metadata.NewIncomingContext(buyerCtx(), metadata.Pairs(auth.MDPrincipalID, "spoof", auth.MDPrincipalType, "service"))
+	hdr := invoke(ctx, t, withBufconn(echoServer(t)))
+	if got := hdr.Get(auth.MDPrincipalID); len(got) != 1 || got[0] != "buyer-9" {
+		t.Errorf("principal id = %v, want [buyer-9]", got)
+	}
+}
