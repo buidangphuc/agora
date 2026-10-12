@@ -1,7 +1,8 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -9,25 +10,26 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
-	"github.com/buidangphuc/team-verification/internal/handler"
-	"github.com/buidangphuc/team-verification/internal/interceptor"
-	"github.com/buidangphuc/team-verification/internal/repository"
-	"github.com/buidangphuc/team-verification/internal/service"
+	"github.com/buidangphuc/team-verification/internal/rpc"
+	"github.com/buidangphuc/team-verification/internal/store"
+	"github.com/buidangphuc/team-verification/internal/verification"
 )
 
-func newHandler() *handler.VerificationHandler {
-	svc := service.NewVerificationService(repository.NewInMemoryKycRepo())
-	return handler.NewVerificationHandler(svc)
+func newHandler() *rpc.Handler {
+	svc := verification.NewService(store.NewInMemoryKycRepo())
+	return rpc.NewHandler(svc, slog.New(slog.DiscardHandler))
 }
 
 // ctxAs resolves a principal exactly as the gRPC server does: forwarded
-// x-principal-* metadata run through the real unary interceptor.
+// x-principal-* metadata run through the real SDK unary interceptor.
 func ctxAs(id, ptype, scopes string) context.Context {
 	md := metadata.Pairs("x-principal-id", id, "x-principal-type", ptype, "x-principal-scopes", scopes)
 	in := metadata.NewIncomingContext(context.Background(), md)
 	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(in, nil, &grpc.UnaryServerInfo{},
+	_, _ = auth.UnaryServerInterceptor()(in, nil, &grpc.UnaryServerInfo{},
 		func(c context.Context, _ any) (any, error) { out = c; return nil, nil })
 	return out
 }
@@ -46,7 +48,7 @@ func wantCode(t *testing.T, err error, want codes.Code) {
 	}
 }
 
-func submit(t *testing.T, h *handler.VerificationHandler, ctx context.Context) string {
+func submit(ctx context.Context, t *testing.T, h *rpc.Handler) string {
 	t.Helper()
 	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "mock-ref"})
 	if err != nil {
@@ -58,7 +60,7 @@ func submit(t *testing.T, h *handler.VerificationHandler, ctx context.Context) s
 // Submit -> PENDING, an admin approves -> VERIFIED + badge for the owner.
 func TestHandlerSubmitReviewFlow(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("seller_1"))
+	id := submit(buyer("seller_1"), t, h)
 
 	st, err := h.GetVerificationStatus(buyer("seller_1"), &verificationv1.GetVerificationStatusRequest{})
 	if err != nil {
@@ -88,7 +90,7 @@ func TestHandlerSubmitReviewFlow(t *testing.T) {
 
 func TestTwoUsersDoNotSeeEachOthersStatus(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -124,6 +126,29 @@ func TestAnonymousAndNoPrincipalAreUnauthenticated(t *testing.T) {
 	}
 }
 
+// A forwarded principal whose type is missing or unknown is not an end user or a
+// service: every RPC denies it as Unauthenticated, even with the admin scope.
+func TestUnknownPrincipalTypeIsUnauthenticated(t *testing.T) {
+	h := newHandler()
+	for name, ctx := range map[string]context.Context{
+		"missing type": ctxAs("u1", "", "admin"),
+		"unknown type": ctxAs("u1", "robot", "admin"),
+	} {
+		_, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s submit: expected Unauthenticated, got %v", name, err)
+		}
+		_, err = h.GetVerificationStatus(ctx, &verificationv1.GetVerificationStatusRequest{UserId: "someone"})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s status: expected Unauthenticated, got %v", name, err)
+		}
+		_, err = h.ReviewKyc(ctx, &verificationv1.ReviewKycRequest{Id: "x", Decision: "approve"})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s review: expected Unauthenticated, got %v", name, err)
+		}
+	}
+}
+
 func TestServicePrincipalCannotSubmit(t *testing.T) {
 	_, err := newHandler().SubmitKyc(service1(), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
 	wantCode(t, err, codes.PermissionDenied)
@@ -131,7 +156,7 @@ func TestServicePrincipalCannotSubmit(t *testing.T) {
 
 func TestBuyerCannotReview(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	// Not even their own submission.
 	_, err := h.ReviewKyc(buyer("alice"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
 	wantCode(t, err, codes.PermissionDenied)
@@ -145,7 +170,7 @@ func TestBuyerCannotReview(t *testing.T) {
 
 func TestAdminCanReviewSomeoneElse(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
@@ -157,7 +182,7 @@ func TestAdminCanReviewSomeoneElse(t *testing.T) {
 
 func TestAdminCannotReviewOwnSubmission(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, admin("admin_1"))
+	id := submit(admin("admin_1"), t, h)
 	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
 	wantCode(t, err, codes.PermissionDenied)
 	st, _ := h.GetVerificationStatus(admin("admin_1"), &verificationv1.GetVerificationStatusRequest{})
@@ -168,7 +193,7 @@ func TestAdminCannotReviewOwnSubmission(t *testing.T) {
 
 func TestStatusForAnotherUser(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -191,7 +216,7 @@ func TestHandlerReviewMissingIsNotFound(t *testing.T) {
 // An invalid review decision surfaces gRPC InvalidArgument.
 func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("u"))
+	id := submit(buyer("u"), t, h)
 	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "meh"})
 	wantCode(t, err, codes.InvalidArgument)
 }
@@ -200,7 +225,7 @@ func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 // FailedPrecondition and leaves the first decision in place.
 func TestReviewIsFinal(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("first review: %v", err)
 	}
