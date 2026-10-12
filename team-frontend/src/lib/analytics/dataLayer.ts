@@ -1,4 +1,8 @@
+import { scrubReferrer, scrubText } from "./scrub";
 import { EcommerceParams, GA4EventName } from "./schema";
+
+/** Non-personal caller property keys allowed into the data layer. */
+const ALLOWED_PROPERTIES = ["valid"] as const;
 
 declare global {
   interface Window {
@@ -49,13 +53,20 @@ export function pushDataLayer(
     }
 
     // 3. Push complete event
+    const props: Record<string, string> = {};
+    for (const k of ALLOWED_PROPERTIES) {
+      const v = params.properties?.[k];
+      if (typeof v === "string") props[k] = scrubText(v);
+    }
+    const referrer = params.referrer ? scrubReferrer(params.referrer) : "";
+
     window.dataLayer.push({
       event: name,
       ecommerce: ecommercePayload,
-      ...(params.path ? { page_path: params.path } : {}),
-      ...(params.referrer ? { page_referrer: params.referrer } : {}),
-      ...(params.query ? { search_term: params.query } : {}),
-      ...(params.properties ? params.properties : {}),
+      ...(params.path ? { page_path: scrubText(params.path) } : {}),
+      ...(referrer ? { page_referrer: referrer } : {}),
+      ...(params.query ? { search_term: scrubText(params.query) } : {}),
+      ...(Object.keys(props).length > 0 ? { properties: props } : {}),
     });
   } catch {
     // Telemetry must never crash the UI

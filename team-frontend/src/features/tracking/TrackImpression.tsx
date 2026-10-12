@@ -10,10 +10,70 @@ interface TrackImpressionProps {
   readonly modelVersion?: string;
   readonly position?: number;
   readonly query?: string;
+  /** Group id of the owning list instance; all its beacons share it. */
+  readonly groupId?: string;
   readonly price?: number;
   readonly category?: string;
   readonly properties?: Record<string, string>;
   readonly children?: React.ReactNode;
+}
+
+type ImpressionItem = NonNullable<
+  NonNullable<Parameters<typeof trackEcommerce>[1]>["items"]
+>[number];
+
+interface PendingBatch {
+  query?: string;
+  properties?: Record<string, string>;
+  groupId?: string;
+  items: ImpressionItem[];
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const COALESCE_MS = 300;
+const pending = new Map<string, PendingBatch>();
+
+/** Collects impressions of one list (same placement/query) into one view_item_list call. */
+function enqueueImpression(
+  key: string,
+  query: string | undefined,
+  groupId: string | undefined,
+  properties: Record<string, string> | undefined,
+  item: ImpressionItem,
+) {
+  const mapKey = `${groupId ?? ""}\u0000${key}\u0000${query ?? ""}`;
+  let batch = pending.get(mapKey);
+  if (!batch) {
+    const created: PendingBatch = {
+      query,
+      properties,
+      groupId,
+      items: [],
+      timer: setTimeout(() => {
+        pending.delete(mapKey);
+        try {
+          trackEcommerce("view_item_list", {
+            query: created.query,
+            properties: created.properties,
+            eventGroupId: created.groupId,
+            items: created.items
+              .map((it, i) => ({ it, i }))
+              .sort(
+                (a, b) =>
+                  (a.it.index ?? Number.MAX_SAFE_INTEGER) -
+                    (b.it.index ?? Number.MAX_SAFE_INTEGER) || a.i - b.i,
+              )
+              .map(({ it }) => it),
+          });
+        } catch {
+          /* tracking must never throw */
+        }
+      }, COALESCE_MS),
+    };
+    batch = created;
+    pending.set(mapKey, batch);
+  }
+  batch.items.push(item);
 }
 
 /**
@@ -27,6 +87,7 @@ export function TrackImpression({
   modelVersion,
   position,
   query,
+  groupId,
   price,
   category,
   properties,
@@ -40,21 +101,15 @@ export function TrackImpression({
 
     const fireTracking = () => {
       trackedRef.current = true;
-      trackEcommerce("view_item_list", {
-        query,
-        properties,
-        items: [
-          {
-            itemId: listingId,
-            placementId,
-            impressionId,
-            modelVersion,
-            index: position,
-            price,
-            itemCategory: category,
-            itemListId: placementId,
-          },
-        ],
+      enqueueImpression(placementId ?? "", query, groupId, properties, {
+        itemId: listingId,
+        placementId,
+        impressionId,
+        modelVersion,
+        index: position,
+        price,
+        itemCategory: category,
+        itemListId: placementId,
       });
     };
 
@@ -89,6 +144,7 @@ export function TrackImpression({
     modelVersion,
     position,
     query,
+    groupId,
     price,
     category,
     properties,

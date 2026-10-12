@@ -1,5 +1,7 @@
 # Proposal: Add GA4 / GTM Data Layer Pattern
 
+initiative: adhoc (prerequisite of initiative `ga4-analytics`)
+
 ## Why
 
 Currently, behavioral telemetry in Agora is coupled directly from UI components to `/api/track` without a decoupled event bus (`window.dataLayer`), lacking standard ecommerce metadata (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_category`, `item_list_id`). Furthermore, multi-item grids issue unbatched requests, seller funnels lack checkout/purchase stages, and warehouse tables lack auto-migration for evolved tracking attributes.
@@ -33,7 +35,49 @@ This change introduces the industry-standard **GA4 / GTM Data Layer Pattern**:
 - **E2E** (`platform-e2e`):
   - Add BDD scenarios asserting `dataLayer` structure, single-request grid batching, and fan-out correlation.
 
+## Locked assumptions
+
+- p99 < 50 ms is measured on the handler only (fake publisher, N=1000, 100-event batch); broker latency is out of scope.
+- GA4 aliases in scope are exactly those in `beaconEventTypes` in `team-gateway/internal/edge/collector.go`: `view_item` -> view, `select_item` -> click, `view_item_list` -> impression. Other GA4 names (for example `add_to_wishlist`, `select_promotion`) are not accepted and are dropped as unknown event types.
+- An "invalid" beacon means an unknown or empty event type (or a field breaking a length/count bound); it is dropped while its siblings are kept.
+- The funnel `purchases` count is DISTINCT `transaction_id` so replayed beacons do not inflate it; purchase rows with an empty `transaction_id` are each counted.
+- Retention: raw `tracking_events` rows are kept 13 months, after which only aggregates are kept (human decision). The new columns follow the same policy. Enforcement (TTL job / BigQuery partition expiration) is a follow-up outside this change; team-analytics has no existing prune mechanism. (Database backup `RETENTION_DAYS=7` in `platform-gitops` is not row retention.)
+- GTM/GA4 is mock-only for now (human decision after privacy review): e2e intercepts `googletagmanager.com` and `google-analytics.com` and returns a stub; CI and e2e make zero external requests to Google hosts. `NEXT_PUBLIC_GTM_ID` stays unset for real users (prod and staging) until slice `add-consent-mode` lands; only then may real GTM/GA4 be enabled, behind consent.
+- dataLayer privacy: `search_term`, `page_path`, `page_referrer` pushed to `window.dataLayer` are scrubbed client-side exactly like the gateway (`scrubText`: emails to `[email]`, phone numbers to `[phone]`, digit runs of 13+ to `[number]`; `scrubReferrer`: referrer reduced to `scheme://host/path`, unparseable becomes empty). Caller-supplied `properties` are never spread into the top-level entry.
+- Follow-ups outside this change: retention enforcement (TTL job / BigQuery partition expiration) and data-subject deletion coverage for `transaction_id` rows in `tracking_events`, aggregates and Parquet.
+- Vendored protos (`team-gateway/proto`, `team-analytics/proto`, `team-frontend/proto`) already carry fields 13-24, enums 11-14 and `begin_checkouts`/`purchases`; `buf lint` and `buf breaking` (against main) pass in `platform-core/packages/proto`.
+
 ## Non-goals
 
 - Server-side GA4 Measurement Protocol / third-party ad network pixels (kept decoupled).
 - Financial accounting from `tracking_events` (`order_facts` remains the single source of truth).
+
+## Non-functional requirements
+
+- Telemetry dispatch is non-blocking and never throws into UI code; client queue flushes at 20 events, 2 s idle, or `visibilitychange: hidden`.
+- Edge `/api/track` accepts at most 100 events per request and at most 64 KiB body; p99 handler latency stays under 50 ms for a 100-event batch (verified by a Go benchmark of the handler with a fake publisher, N=1000 requests of 100 events each; the broker path is excluded).
+- Warehouse migrations are idempotent: running startup N times yields the same schema, with no downtime and no data rewrite.
+- Parquet export is backward compatible: readers handle files with and without the new columns.
+- With `NEXT_PUBLIC_GTM_ID` empty (dev, CI, prod, staging) no third-party script or request is made. When it is set in the e2e stack, the GTM script is served by a mock and 0 requests leave to Google hosts.
+
+## Data classification
+
+| Field | Class | Purpose | Consent basis | Retention |
+|---|---|---|---|---|
+| `item_list_id`, `item_list_name`, `position`, `item_category` | operational, non-personal | list attribution, ranker features | legitimate interest (necessary operational stats) | 13 months raw, then aggregates only (see Locked assumptions) |
+| `currency`, `value`, `price`, `quantity`, `coupon` | operational, non-personal | funnel analytics; never accounting | legitimate interest | 13 months raw, then aggregates only |
+| `transaction_id` | business identifier (order id, pseudonymous) | dedupe `purchase` events | legitimate interest | 13 months raw, then aggregates only |
+| `event_group_id` | random UUID, non-personal | correlate fan-out rows | legitimate interest | 13 months raw, then aggregates only |
+| `shipping_tier`, `payment_type` | operational enums | checkout funnel | legitimate interest | 13 months raw, then aggregates only |
+| `search_term`, `page_path`, `page_referrer` (dataLayer and beacon) | potentially personal free text, scrubbed before push | search and navigation analytics | legitimate interest for first-party beacon; Google destination only after consent (slice `add-consent-mode`) | 13 months raw, then aggregates only |
+| Any dataLayer entry once GTM is enabled | scrubbed, pseudonymous | GA4 reporting | explicit consent required; not enabled until `add-consent-mode` | governed by Google property setting (set to 14 months max, to be confirmed in that slice) |
+
+Recipient: Google (GTM/GA4), only once enabled after consent. This is a cross-border transfer (data processed outside Vietnam/EEA, US); it requires a transfer basis and DPA, deferred to `add-consent-mode`. Until then no data is sent to Google: e2e uses a mock and real environments leave `NEXT_PUBLIC_GTM_ID` unset.
+
+No email, phone, name, address or card data appears in any dataLayer push, beacon, proto field, warehouse column or Parquet file.
+
+## Threat model
+
+- Assets: warehouse integrity, funnel and recsys training data quality, revenue figures.
+- Abuse cases: (1) oversized or huge batches to exhaust the edge (mitigated by 100-event and 64 KiB caps, atomic reject); (2) forged `purchase` or inflated `value` to skew revenue (mitigated: `order_facts` is the sole revenue source, tracking values are never summed into revenue); (3) replayed `purchase` beacons double-counting conversions (mitigated by dedupe on `transaction_id`); (4) PII smuggled in `properties`, `search_term`, `page_path` or `page_referrer` (mitigated by gateway length caps and scrubbing, plus client-side scrubbing and allowlisting before any dataLayer push so a later-enabled GTM never sees raw values); (6) accidental real Google traffic from CI/e2e or unconsented prod (mitigated by mock interception, unset `NEXT_PUBLIC_GTM_ID`, and an e2e assertion of zero Google requests); (5) schema migration run by a non-owner (mitigated: runs only in the worker with warehouse credentials).
+- Authz rule: `/api/track` is public (anonymous allowed, principal stamped by edge when present); warehouse and Parquet access stays restricted to service identities; no new user-facing read endpoint is added.

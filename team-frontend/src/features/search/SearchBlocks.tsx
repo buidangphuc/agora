@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
 import { Pagination } from "@/components/ui/Pagination";
 import { ListingGrid } from "@/features/listing/ListingGrid";
-import { SearchImpressions } from "@/features/tracking/SearchImpressions";
 import { EMPTY_FACETS } from "@/lib/gateway/search";
 import { batchGetShopNames, shopLabel } from "@/lib/gateway/shops";
 import { ActiveFilters } from "./ActiveFilters";
@@ -128,12 +127,6 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
       />
       {filters}
 
-      {/* One batched impression for the rendered results (position = index + 1). */}
-      <SearchImpressions
-        listingIds={result.items.map((l) => l.id)}
-        query={state.q}
-      />
-
       <div data-testid="search-results">
         {result.items.length === 0 ? (
           <Card>
@@ -156,7 +149,11 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
             />
           </Card>
         ) : (
-          <ListingGrid listings={result.items} />
+          <ListingGrid
+            listings={result.items}
+            placementId="search_results"
+            query={state.q}
+          />
         )}
       </div>
 

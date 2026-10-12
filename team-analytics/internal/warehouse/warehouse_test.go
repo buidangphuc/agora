@@ -130,3 +130,16 @@ func TestFakeRoundTrip(t *testing.T) {
 func TestWriterInterface(t *testing.T) {
 	var _ warehouse.WarehouseWriter = fake.New()
 }
+
+// Scenario: Schema parity (new ecommerce columns exist in warehouse.Schema; order is free)
+func TestSchemaParity_EcommerceColumnsPresent(t *testing.T) {
+	have := map[string]bool{}
+	for _, c := range warehouse.Schema {
+		have[c.Name] = true
+	}
+	for _, n := range []string{"item_list_id", "position", "event_group_id", "transaction_id", "currency", "value"} {
+		if !have[n] {
+			t.Errorf("warehouse.Schema missing %q", n)
+		}
+	}
+}

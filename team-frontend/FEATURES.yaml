@@ -1505,7 +1505,7 @@ features:
       login: buyer
     acceptance:
       - "When `/search?q=ao` renders 24 results"
-      - "Then one `view_item_list` event with `itemListId=\"search_results\"`, `query=\"ao\"` and 24 indexed items is sent"
+      - "Then one `view_item_list` event with `item_list_id=\"search_results\"`, `search_term=\"ao\"` and 24 items indexed 1..24 in grid order is sent, and no `SearchImpressions` component is rendered"
     tags: [buyer]
     status: automated
     covered_by: "tracking/discovery_tracking_unchanged.feature::Search results still emit a batched impression"
@@ -3427,11 +3427,11 @@ features:
       data: Seeded listings are indexed.
     acceptance:
       - Given a ListingCard with placementId, impressionId, modelVersion and position 3 scrolls into view
-      - Then exactly one view_item_list event is sent with itemId, placementId, impressionId, modelVersion and index 3
+      - Then the card appears exactly once across the list's single view_item_list event (one per ListingGrid, shared item_list_id) with itemId, placementId, impressionId, modelVersion and its index
       - When a visitor clicks the image or the title of a card
       - Then a select_item event with the same attribution is sent before navigation to /listing/<id>
       - Given /search?q=ao renders 24 results
-      - Then one view_item_list event with itemListId "search_results", the query and 24 indexed items is sent
+      - Then one view_item_list event with item_list_id "search_results", search_term "ao" and 24 items indexed 1..24 in grid order is sent
       - When the recommendations row streams in after the hero
       - Then its cards still carry placementId "home_feed" on impression and click events
     tags: [tracking, buyer]
@@ -7244,3 +7244,78 @@ features:
     status: automated
     covered_by: "frontend/rvp_reviews_pagination_ui.feature::The last page shows the oldest reviews"
     notes: "needs rebuild"
+
+  - id: tracking.unit-dispatch-during-ssr-is-a-no-op
+    title: "Dispatch during SSR is a no-op"
+    persona: guest
+    priority: P2
+    summary: "Dispatch during SSR is a no-op"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Dispatch during SSR is a no-op (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/fanout.test.ts; team-frontend/src/lib/analytics/dataLayer.test.ts. Not producible end to end."
+
+  - id: tracking.unit-failing-transport-does-not-surface-an-error
+    title: "Failing transport does not surface an error"
+    persona: guest
+    priority: P2
+    summary: "Failing transport does not surface an error"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Failing transport does not surface an error (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/fanout.test.ts. Not producible end to end."
+
+  - id: tracking.unit-no-gtm-when-id-is-empty
+    title: "No GTM when ID is empty"
+    persona: guest
+    priority: P2
+    summary: "No GTM when ID is empty"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "No GTM when ID is empty (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/destinations/gtm.test.ts. Not producible end to end."
+
+  - id: tracking.unit-size-flush-boundary
+    title: "Size flush boundary"
+    persona: guest
+    priority: P2
+    summary: "Size flush boundary"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Size flush boundary (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/fanout.test.ts. Not producible end to end."
+
+  - id: tracking.unit-page-hidden-flushes-pending-beacons
+    title: "Page hidden flushes pending beacons"
+    persona: guest
+    priority: P2
+    summary: "Page hidden flushes pending beacons"
+    entry_route: /
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Page hidden flushes pending beacons (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-frontend/src/lib/analytics/fanout.test.ts. Not producible end to end."

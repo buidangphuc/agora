@@ -6,7 +6,7 @@ import { EcommerceParams, GA4EventName, WireTrackBeacon } from "./schema";
 const ANONYMOUS_ID_KEY = "bds_anonymous_id";
 const SESSION_ID_KEY = "bds_session_id";
 
-function randomId(): string {
+export function randomId(): string {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       return crypto.randomUUID();
@@ -74,7 +74,7 @@ export function trackEcommerce(
 
     if (items.length > 0) {
       // Fan-out: 1 row per item with shared eventGroupId (Decision D3)
-      const eventGroupId = randomId();
+      const eventGroupId = params.eventGroupId || randomId();
       const beacons: WireTrackBeacon[] = items.map((it) => {
         return {
           eventId: randomId(),

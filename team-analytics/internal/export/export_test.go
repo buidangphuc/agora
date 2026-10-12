@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/export"
+	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
 // fileExporter writes body to dst, or fails with err.
@@ -147,5 +149,93 @@ func TestCycle_OneFailureDoesNotBlockTheOthers(t *testing.T) {
 	}
 	if left, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); len(left) != 0 {
 		t.Errorf("temp files left behind: %v", left)
+	}
+}
+
+func openWriter(t *testing.T) *duckdb.Writer {
+	t.Helper()
+	w, err := duckdb.Open(context.Background(), filepath.Join(t.TempDir(), "wh.duckdb"))
+	if err != nil {
+		t.Fatalf("open duckdb: %v", err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	return w
+}
+
+// Scenario: Exported file has ecommerce columns
+func TestExport_ExportedFileHasEcommerceColumns(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	rec := &warehouse.TrackingRecord{
+		EventID: "e-1", EventType: "purchase", ListingID: "l-1", SessionID: "s-1",
+		OccurredAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+		Currency:   "VND", Value: 500000, TransactionID: "o-1",
+		ItemListID: "home_feed", EventGroupID: "g-1", Position: 3,
+	}
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{rec}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
+	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+		t.Fatalf("Once: %v", err)
+	}
+
+	cols := []string{"item_list_id", "position", "event_group_id", "transaction_id", "currency", "value"}
+	for _, c := range cols {
+		var n int
+		err := w.DB().QueryRowContext(ctx,
+			"SELECT count(*) FROM parquet_schema('"+path+"') WHERE name = ?", c).Scan(&n)
+		if err != nil || n != 1 {
+			t.Errorf("parquet column %q present=%d err=%v", c, n, err)
+		}
+	}
+
+	var listID, group, txn, cur string
+	var pos, val int64
+	err := w.DB().QueryRowContext(ctx,
+		"SELECT item_list_id, position, event_group_id, transaction_id, currency, value FROM read_parquet('"+path+"') WHERE event_id = 'e-1'").
+		Scan(&listID, &pos, &group, &txn, &cur, &val)
+	if err != nil {
+		t.Fatalf("read back parquet: %v", err)
+	}
+	if listID != "home_feed" || pos != 3 || group != "g-1" || txn != "o-1" || cur != "VND" || val != 500000 {
+		t.Errorf("row = %q %d %q %q %q %d", listID, pos, group, txn, cur, val)
+	}
+}
+
+// Scenario: Failed export keeps previous file
+func TestExport_FailedExportKeepsPreviousFile(t *testing.T) {
+	ctx := context.Background()
+	w := openWriter(t)
+	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+		EventID: "e-1", EventType: "purchase", OccurredAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		TransactionID: "o-1", Currency: "VND", Value: 500000,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
+	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+		t.Fatalf("first export: %v", err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The export query fails: the relation does not exist.
+	if err := export.Once(ctx, w, "no_such_relation", path); err == nil {
+		t.Fatal("want the export query to fail")
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil || string(after) != string(before) {
+		t.Errorf("previous parquet changed after failed export (err=%v)", err)
+	}
+	var n int
+	if err := w.DB().QueryRowContext(ctx, "SELECT count(*) FROM read_parquet('"+path+"') WHERE transaction_id = 'o-1'").Scan(&n); err != nil || n != 1 {
+		t.Errorf("previous file unreadable or changed: n=%d err=%v", n, err)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Errorf("temp file left behind: %v", err)
 	}
 }

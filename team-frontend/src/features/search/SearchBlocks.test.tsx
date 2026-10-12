@@ -1,12 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  beginBeaconCapture,
+  drain,
+  endBeaconCapture,
+  listEntries,
+} from "@/test/listBeacons";
 import type { ViewListing } from "@/lib/gateway/listings";
 import type { FacetedSearchResult } from "@/lib/gateway/search";
 
 const loadSearch = vi.hoisted(() => vi.fn());
 const loadCategories = vi.hoisted(() => vi.fn());
-const impressions = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
 
 vi.mock("./data", () => ({
@@ -34,13 +39,6 @@ vi.mock("@/lib/gateway/shops", () => ({
   batchGetShopNames: async () => new Map<string, string>(),
   shopLabel: (id: string, name?: string) => name || `Shop #${id.slice(0, 6)}`,
 }));
-vi.mock("@/features/tracking/SearchImpressions", () => ({
-  SearchImpressions: (props: { listingIds: string[]; query?: string }) => {
-    impressions(props);
-    return null;
-  },
-}));
-vi.mock("@/lib/analytics", () => ({ trackEcommerce: vi.fn() }));
 vi.mock("@/features/engagement/FavoriteButton", () => ({
   FavoriteButton: () => null,
 }));
@@ -101,6 +99,8 @@ function state(raw: Record<string, string>): SearchState {
   return parseSearchParams(raw);
 }
 
+afterEach(endBeaconCapture);
+
 beforeEach(() => {
   vi.clearAllMocks();
   loadCategories.mockResolvedValue(cats);
@@ -108,16 +108,19 @@ beforeEach(() => {
 
 describe("SearchResultsBlock", () => {
   it("renders results, one impression, and pagination links that keep the query", async () => {
+    beginBeaconCapture();
     loadSearch.mockResolvedValue(ok());
     const { container } = render(
       await SearchResultsBlock({ state: state({ q: "ao", sort: "newest" }) }),
     );
     expect(screen.getByTestId("search-results")).toBeInTheDocument();
-    expect(impressions).toHaveBeenCalledTimes(1);
-    expect(impressions).toHaveBeenCalledWith({
-      listingIds: ["a", "b"],
-      query: "ao",
-    });
+    await drain();
+    const entries = listEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].ecommerce?.items?.map((i) => i.item_list_id)).toEqual([
+      "search_results",
+      "search_results",
+    ]);
     const nav = container.querySelector("nav.hidden") as HTMLElement;
     const p2 = within(nav).getByRole("link", { name: "Trang 2" });
     expect(p2).toHaveAttribute("href", "/search?q=ao&sort=newest&page=2");
@@ -177,6 +180,7 @@ describe("SearchResultsBlock", () => {
   });
 
   it("shows an error Alert with retry, not 'no results', when the search fails", async () => {
+    beginBeaconCapture();
     loadSearch.mockResolvedValue({ ok: false });
     render(
       await SearchResultsBlock({ state: state({ q: "ao", sort: "newest" }) }),
@@ -188,7 +192,8 @@ describe("SearchResultsBlock", () => {
     );
     expect(screen.queryByText("Không tìm thấy sản phẩm")).toBeNull();
     expect(screen.queryByTestId("search-results")).toBeNull();
-    expect(impressions).not.toHaveBeenCalled();
+    await drain();
+    expect(listEntries()).toHaveLength(0);
   });
 
   it("does not offer the unwired 'Bán chạy' sort", async () => {
@@ -248,6 +253,7 @@ describe("ResultCount / FilterPanel", () => {
   });
 
   it("keeps the filter column when the search fails", async () => {
+    beginBeaconCapture();
     loadSearch.mockResolvedValue({ ok: false });
     render(await FilterPanel({ state: state({ q: "ao" }) }));
     expect(screen.getByTestId("search-facets")).toBeInTheDocument();

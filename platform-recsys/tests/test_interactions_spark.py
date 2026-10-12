@@ -68,3 +68,28 @@ def test_timestamped_interactions_reads_timestamp_ntz(spark):
     )
     assert [(u, lid) for u, lid, _ in got] == [("anon-2", "listing-b"), ("user-1", "listing-a")]
     assert all(ts > 1.7e9 for _, _, ts in got)
+
+
+def test_dataset_triples_legacy_columns_only_is_unchanged(spark):
+    """Scenario: Legacy Parquet without new columns (the 5-column frame yields the same triples)."""
+    t = datetime(2026, 10, 5, 2, 0, 0)
+    df = _dataset(spark, [("user-1", "listing-a", 3.7, 4, t), ("user-2", "listing-b", 1.0, 1, t)])
+    assert set(df.columns) == {"user_key", "listing_id", "weight", "interactions", "last_occurred_at"}
+    got = {(r["user_key"], r["listing_id"]): r["weight"] for r in dataset_triples(df).collect()}
+    assert got == {("user-1", "listing-a"): 3.7, ("user-2", "listing-b"): 1.0}
+
+
+def test_dataset_triples_tolerates_new_columns_present(spark):
+    """Scenario: New columns consumed when present (item_list_id/position/transaction_id are
+    carried by the frame and must not alter or break the triples)."""
+    t = datetime(2026, 10, 5, 2, 0, 0)
+    rows = [
+        ("user-1", "listing-a", 3.7, 4, t, "search", 2, "o-1"),
+        ("user-2", "listing-b", 0.0, 1, t, "home", 1, ""),
+    ]
+    cols = ["user_key", "listing_id", "weight", "interactions", "last_occurred_at",
+            "item_list_id", "position", "transaction_id"]  # fmt: skip
+    df = spark.createDataFrame(rows, cols)
+    assert {"item_list_id", "position"} <= set(df.columns)
+    got = {(r["user_key"], r["listing_id"]): r["weight"] for r in dataset_triples(df).collect()}
+    assert got == {("user-1", "listing-a"): 3.7}

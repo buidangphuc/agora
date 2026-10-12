@@ -429,3 +429,63 @@ features:
     status: automated
     covered_by: "featurestore/ranking_dataset.feature::Impressions after AS_OF are not in the ranking dataset"
     notes: "needs rebuild"
+
+  - id: tracking.unit-legacy-parquet-without-new-columns
+    title: "Legacy Parquet without new columns"
+    persona: guest
+    priority: P2
+    summary: "Legacy Parquet without new columns"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Legacy Parquet without new columns (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: platform-featurestore/tests/test_dataset.py; platform-recsys/tests/test_dataset.py; platform-recsys/tests/test_interactions_spark.py. Not producible end to end."
+
+  - id: tracking.unit-new-columns-consumed-when-present
+    title: "New columns consumed when present"
+    persona: guest
+    priority: P2
+    summary: "New columns consumed when present"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New columns consumed when present (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: platform-featurestore/tests/test_dataset.py; platform-recsys/tests/test_interactions_spark.py. Not producible end to end."
+
+  - id: tracking.unit-duplicate-purchase-counted-once
+    title: "Duplicate purchase counted once"
+    persona: guest
+    priority: P2
+    summary: "Duplicate purchase counted once"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Duplicate purchase counted once (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: platform-featurestore/tests/test_dataset.py. Not producible end to end."
+
+  - id: tracking.unit-purchase-without-transaction-id-is-not-merged
+    title: "Purchase without transaction id is not merged"
+    persona: guest
+    priority: P2
+    summary: "Purchase without transaction id is not merged"
+    entry_route: /
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Purchase without transaction id is not merged (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: platform-featurestore/tests/test_dataset.py. Not producible end to end."

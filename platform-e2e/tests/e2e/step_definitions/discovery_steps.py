@@ -421,17 +421,24 @@ def scroll_first_card(world: World) -> None:
     world.page.wait_for_timeout(500)  # IntersectionObserver threshold 0.3
 
 
-@then("exactly one view_item_list event for that card is recorded with its position")
+def _list_id(event: dict, item: dict):
+    ec = event.get("ecommerce") or {}
+    return item.get("item_list_id") or ec.get("item_list_id") or event.get("item_list_id")
+
+
+@then("the card appears exactly once across the list's view_item_list events with its position")
 def one_card_impression(world: World) -> None:
     card_id = world.state.extra["first_card_id"]
-    mine = [
-        e
+    hits = [
+        (e, it)
         for e in _data_layer_events(world, "view_item_list")
-        if len((e.get("ecommerce") or {}).get("items") or []) == 1
-        and e["ecommerce"]["items"][0].get("item_id") == card_id
+        for it in (e.get("ecommerce") or {}).get("items") or []
+        if it.get("item_id") == card_id
     ]
-    assert len(mine) == 1, f"expected one card impression for {card_id}, got {len(mine)}"
-    assert mine[0]["ecommerce"]["items"][0].get("index") == 1
+    assert len(hits) == 1, f"expected one impression of {card_id}, got {len(hits)}"
+    event, item = hits[0]
+    assert item.get("index") == 1, f"expected index 1, got {item.get('index')}"
+    assert _list_id(event, item) == "search_results"
 
 
 @when("the buyer clicks the image of that card")
@@ -460,12 +467,13 @@ def one_batched_search_impression(world: World) -> None:
         e
         for e in _data_layer_events(world, "view_item_list")
         if any(
-            it.get("item_list_id") == "search_results"
-            for it in (e.get("ecommerce") or {}).get("items") or []
+            _list_id(e, it) == "search_results" for it in (e.get("ecommerce") or {}).get("items") or []
         )
     ]
     assert len(batched) == 1, f"expected one batched impression, got {len(batched)}"
     items = batched[0]["ecommerce"]["items"]
     assert len(items) == _search(world).result_count(), "batched impression != rendered results"
-    assert [it["index"] for it in items] == list(range(1, len(items) + 1))
-    assert batched[0].get("search_term") == keyword
+    assert [it["index"] for it in items] == list(range(1, len(items) + 1)), "items not in grid order 1..N"
+    assert all(_list_id(batched[0], it) == "search_results" for it in items)
+    term = batched[0].get("search_term") or (batched[0].get("ecommerce") or {}).get("search_term")
+    assert term == keyword, f"search_term {term!r} != {keyword!r}"

@@ -10,14 +10,15 @@ import (
 // It mirrors the subset of `tracking_events` (+ its properties bag) the seller
 // queries read, letting unit tests build fixtures without a live warehouse.
 type Event struct {
-	SellerID   string
-	EventType  string // "impression" | "view" | "add_to_cart" | "click"
-	OrderID    string // non-empty marks a purchase/order
-	Revenue    int64  // minor units (0 when not an order line)
-	SKU        string
-	ListingID  string
-	Units      int64
-	OccurredAt time.Time
+	SellerID      string
+	EventType     string // "impression" | "view" | "add_to_cart" | "click"
+	TransactionID string // GA4 transaction_id; distinct non-empty ids are counted once
+	OrderID       string // non-empty marks a purchase/order
+	Revenue       int64  // minor units (0 when not an order line)
+	SKU           string
+	ListingID     string
+	Units         int64
+	OccurredAt    time.Time
 }
 
 // MemoryRepository is an in-memory Repository over a fixed set of Events, used
@@ -48,6 +49,7 @@ func (e Event) inWindow(sellerID string, from, to time.Time) bool {
 func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from, to time.Time) (Funnel, error) {
 	var f Funnel
 	orders := map[string]struct{}{}
+	checkoutTx, purchaseTx := map[string]struct{}{}, map[string]struct{}{}
 	for _, e := range m.events {
 		if !e.inWindow(sellerID, from, to) {
 			continue
@@ -60,9 +62,9 @@ func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from
 		case "add_to_cart":
 			f.Adds++
 		case "begin_checkout":
-			f.BeginCheckouts++
+			countDistinct(&f.BeginCheckouts, checkoutTx, e.TransactionID)
 		case "purchase":
-			f.Purchases++
+			countDistinct(&f.Purchases, purchaseTx, e.TransactionID)
 		}
 		if e.OrderID != "" {
 			orders[e.OrderID] = struct{}{}
@@ -240,3 +242,15 @@ func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]RecentO
 
 // compile-time assertion that the fake satisfies the seam.
 var _ Repository = (*MemoryRepository)(nil)
+
+// countDistinct counts a row once per non-empty transaction id, and every row
+// with an empty id.
+func countDistinct(n *int64, seen map[string]struct{}, id string) {
+	if id != "" {
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+	}
+	*n++
+}

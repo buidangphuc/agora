@@ -697,3 +697,250 @@ features:
     status: automated
     covered_by: "featurestore/item_attributes.feature::An edited listing's attributes replace the old ones"
     notes: "needs rebuild"
+
+  # ---- add-ga4-gtm-datalayer (automated) ----
+  - id: tracking.ga4-datalayer-items
+    title: "dataLayer receives ecommerce items"
+    persona: buyer
+    priority: P1
+    summary: "A rendered product list pushes a view_item_list entry with ecommerce.items to window.dataLayer, preceded by an ecommerce null reset."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a page that renders a product list"
+      - "Then window.dataLayer contains a view_item_list entry whose ecommerce.items is non-empty and is immediately preceded by { ecommerce: null }"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::dataLayer receives ecommerce items"
+
+  - id: tracking.ga4-one-request-per-list
+    title: "One request per rendered list"
+    persona: buyer
+    priority: P1
+    summary: "All beacons of one rendered list travel in a single POST to /api/track."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a page that renders a list and the 2 s idle window elapses"
+      - "Then the browser sent exactly 1 POST /api/track carrying that list's impression beacons as an array"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::One request per rendered list"
+
+  - id: tracking.ga4-fanout-group-id
+    title: "Fan-out rows share a group id"
+    persona: buyer
+    priority: P1
+    summary: "A multi-item list fans out to one beacon per item sharing one event_group_id."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a buyer opens a page that renders a multi-item list"
+      - "Then each impression beacon has a distinct event id, the same non-empty event group id, its own position and the same item list id"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::Fan-out rows share a group id"
+
+  - id: tracking.ga4-gtm-loads-when-id-set
+    title: "GTM loads when ID is set"
+    persona: guest
+    priority: P1
+    summary: "With NEXT_PUBLIC_GTM_ID set exactly one GTM script carrying that id is in the DOM and window.dataLayer exists."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest loads a page with NEXT_PUBLIC_GTM_ID=GTM-E2E0001"
+      - "Then exactly 1 script element with id=GTM-E2E0001 in its src is present and window.dataLayer exists"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::GTM loads when ID is set"
+
+  - id: tracking.ga4-no-external-google-request
+    title: "No external request to Google in e2e"
+    persona: guest
+    priority: P1
+    summary: "GTM/GA4 is mock-only in e2e: the GTM script is served by an intercepted stub and no request reaches real Google hosts."
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a page loads in the e2e stack with NEXT_PUBLIC_GTM_ID=GTM-TEST"
+      - "Then the GTM script is served by the mock (stub response to the intercepted googletagmanager.com / google-analytics.com route) and 0 requests leave the stack to Google hosts"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::No external request to Google in e2e"
+
+  - id: tracking.ga4-payload-no-pii
+    title: "Payload keys limited to schema"
+    persona: buyer
+    priority: P1
+    summary: "Neither dataLayer nor beacon bodies carry email, phone, name or address of the buyer."
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a logged-in buyer browses a list page and telemetry is captured from dataLayer and beacon bodies"
+      - "Then neither contains a key or value matching the buyer's email, phone or name"
+    tags: [tracking, ga4]
+    status: automated
+    covered_by: "tracking/ga4_datalayer.feature::Payload keys limited to schema"
+
+  - id: tracking.unit-duckdb-migrates-a-legacy-database
+    title: "DuckDB migrates a legacy database"
+    persona: guest
+    priority: P2
+    summary: "DuckDB migrates a legacy database"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "DuckDB migrates a legacy database (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go. Not producible end to end."
+
+  - id: tracking.unit-bigquery-migration-is-idempotent
+    title: "BigQuery migration is idempotent"
+    persona: guest
+    priority: P2
+    summary: "BigQuery migration is idempotent"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "BigQuery migration is idempotent (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/warehouse/bigquery/migrate_test.go. Not producible end to end."
+
+  - id: tracking.unit-bigquery-migration-failure-is-surfaced
+    title: "BigQuery migration failure is surfaced"
+    persona: guest
+    priority: P2
+    summary: "BigQuery migration failure is surfaced"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "BigQuery migration failure is surfaced (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/warehouse/bigquery/migrate_test.go. Not producible end to end."
+
+  - id: tracking.unit-schema-parity
+    title: "Schema parity"
+    persona: guest
+    priority: P2
+    summary: "Schema parity"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Schema parity (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/warehouse/bigquery/migrate_test.go; team-analytics/internal/warehouse/warehouse_test.go. Not producible end to end."
+
+  - id: tracking.unit-funnel-purchases-count-distinct-transaction-ids
+    title: "Funnel purchases count distinct transaction ids"
+    persona: guest
+    priority: P2
+    summary: "Funnel purchases count distinct transaction ids"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Funnel purchases count distinct transaction ids (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/service_test.go. Not producible end to end."
+
+  - id: tracking.unit-funnel-projects-checkout-and-purchase
+    title: "Funnel projects checkout and purchase"
+    persona: guest
+    priority: P2
+    summary: "Funnel projects checkout and purchase"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Funnel projects checkout and purchase (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/service_test.go. Not producible end to end."
+
+  - id: tracking.unit-exported-file-has-ecommerce-columns
+    title: "Exported file has ecommerce columns"
+    persona: guest
+    priority: P2
+    summary: "Exported file has ecommerce columns"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Exported file has ecommerce columns (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/export/export_test.go. Not producible end to end."
+
+  - id: tracking.unit-failed-export-keeps-previous-file
+    title: "Failed export keeps previous file"
+    persona: guest
+    priority: P2
+    summary: "Failed export keeps previous file"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Failed export keeps previous file (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/export/export_test.go. Not producible end to end."
+
+  - id: tracking.unit-tracking-value-excluded-from-revenue
+    title: "Tracking value excluded from revenue"
+    persona: guest
+    priority: P2
+    summary: "Tracking value excluded from revenue"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Tracking value excluded from revenue (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/revenue_guard_test.go. Not producible end to end."
+
+  - id: tracking.unit-tracking-purchase-without-order-not-counted-as-revenue
+    title: "Tracking purchase without order not counted as revenue"
+    persona: guest
+    priority: P2
+    summary: "Tracking purchase without order not counted as revenue"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Tracking purchase without order not counted as revenue (unit-verified)"
+    tags: [tracking, unit]
+    status: not-testable
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/revenue_guard_test.go. Not producible end to end."

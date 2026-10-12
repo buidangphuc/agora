@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { addToCartAction } from "@/features/cart/actions";
@@ -193,9 +193,13 @@ describe("PDP tracking: similar-items attribution", () => {
 
   it("seeds the row with the listing, keeps ListingGrid placement similar_items and fires impressions at positions 1..n", async () => {
     vi.mocked(getRecommendations).mockResolvedValue(withRecs(recs));
-    const { container } = render(
-      await RecommendationsRow({ seedListingId: "L" }),
-    );
+    const row = await RecommendationsRow({ seedListingId: "L" });
+    vi.useFakeTimers();
+    const { container } = render(row);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    vi.useRealTimers();
 
     expect(
       container
@@ -205,9 +209,9 @@ describe("PDP tracking: similar-items attribution", () => {
     expect(getRecommendations).toHaveBeenCalledWith(
       expect.objectContaining({ seedListingId: "L", context: 2 }),
     );
-    const impressions = eventsOf("view_item_list").map(
-      ([, p]) => p?.items?.[0],
-    );
+    const lists = eventsOf("view_item_list");
+    expect(lists).toHaveLength(1);
+    const impressions = lists[0][1]?.items ?? [];
     expect(impressions.map((i) => i?.itemId)).toEqual(["R1", "R2", "R3"]);
     expect(impressions.map((i) => i?.index)).toEqual([1, 2, 3]);
     for (const i of impressions) {

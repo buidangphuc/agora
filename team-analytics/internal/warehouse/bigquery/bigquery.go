@@ -120,6 +120,9 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	if err := w.evolveSchema(ctx, w.table, schema); err != nil {
 		return err
 	}
+	if err := Migrate(ctx, clientExec{w.client}, w.client.Project(), w.dataset, w.table); err != nil {
+		return err
+	}
 
 	factsSchema, err := bqOrderFactsSchema()
 	if err != nil {
@@ -144,6 +147,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	// Stitching views are best-effort: a read-only dataset must not stop the
 	// sink, so the error is ignored and ViewDDL is the documented migration.
 	_ = w.ensureViews(ctx)
+	_ = clientExec{w.client}.Exec(ctx, GA4ViewDDL(w.client.Project(), w.dataset, w.table))
 
 	return nil
 }

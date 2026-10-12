@@ -1,5 +1,7 @@
 """Governed dataset resolution, refusal and lineage (PySpark-free)."""
 
+import hashlib
+import json
 import logging
 
 import pytest
@@ -83,3 +85,39 @@ def test_main_exits_2_naming_dataset_dir_and_registers_nothing(tmp_path, monkeyp
     with caplog.at_level(logging.ERROR):
         assert entry.main([]) == 2
     assert f"DATASET_DIR={tmp_path}" in caplog.text
+
+
+def _with_extra_columns(parquet, manifest_path):
+    """Rewrite a governed dataset parquet carrying the ecommerce columns (item_list_id, position,
+    transaction_id) and re-pin the manifest sha, as a newer featurestore export would."""
+    import pandas as pd
+
+    df = pd.read_parquet(parquet)
+    df["item_list_id"] = "search"
+    df["position"] = 3
+    df["transaction_id"] = ""
+    df.to_parquet(parquet, index=False, coerce_timestamps="ms", allow_truncated_timestamps=True)
+    m = json.loads(manifest_path.read_text())
+    m["file_sha256"] = hashlib.sha256(parquet.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(m))
+
+
+def test_legacy_dataset_without_new_columns_resolves(tmp_path):
+    """Scenario: Legacy Parquet without new columns."""
+    p = write_dataset(tmp_path, sample_rows())
+    import pandas as pd
+
+    cols = list(pd.read_parquet(p).columns)
+    assert not {"item_list_id", "position", "transaction_id"} & set(cols)
+    ds = resolve_dataset(Settings(dataset_dir=str(tmp_path)))
+    assert ds.path == str(p)
+    assert ds.lineage["sha256"] == ds.manifest["file_sha256"]
+
+
+def test_dataset_with_new_columns_resolves_and_keeps_lineage(tmp_path):
+    """Scenario: New columns consumed when present (extra columns must not break resolution)."""
+    p = write_dataset(tmp_path, sample_rows())
+    _with_extra_columns(p, manifest_path_for(p))
+    ds = resolve_dataset(Settings(dataset_dir=str(tmp_path)))
+    assert ds.path == str(p)
+    assert ds.lineage["sha256"] == hashlib.sha256(p.read_bytes()).hexdigest()

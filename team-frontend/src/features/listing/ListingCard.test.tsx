@@ -1,6 +1,14 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from "vitest";
 
 import type { ViewListing } from "@/lib/gateway/listings";
 
@@ -38,7 +46,18 @@ function many(n: number): ViewListing[] {
   );
 }
 
-beforeEach(() => trackEcommerce.mockClear());
+// Impressions are coalesced in a 300 ms window; fake timers keep that
+// deterministic and the afterEach drain stops a pending batch leaking across tests.
+beforeEach(() => {
+  vi.useFakeTimers();
+  trackEcommerce.mockClear();
+});
+afterEach(() => {
+  act(() => {
+    vi.advanceTimersByTime(300);
+  });
+  vi.useRealTimers();
+});
 
 describe("ListingCard title link attribution", () => {
   it("sends the same select_item attribution as the image link", () => {
@@ -154,6 +173,9 @@ describe("ListingCard", () => {
         position={3}
       />,
     );
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
     expect(trackEcommerce).toHaveBeenCalledTimes(1);
     expect(trackEcommerce).toHaveBeenCalledWith("view_item_list", {
       query: undefined,
@@ -212,7 +234,12 @@ describe("ListingGrid", () => {
       expect(grid).toHaveClass(c);
     }
     expect(grid.className).not.toMatch(/text-\[/);
-    expect(trackEcommerce.mock.calls.map((c) => c[1].items[0])).toEqual([
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(trackEcommerce).toHaveBeenCalledTimes(1);
+    expect(trackEcommerce.mock.calls[0][0]).toBe("view_item_list");
+    expect(trackEcommerce.mock.calls[0][1].items).toEqual([
       expect.objectContaining({ itemId: "l1", index: 1, placementId: "p" }),
       expect.objectContaining({ itemId: "l2", index: 2, impressionId: "i" }),
       expect.objectContaining({ itemId: "l3", index: 3, modelVersion: "m" }),

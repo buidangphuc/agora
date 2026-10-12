@@ -117,4 +117,57 @@ describe("track (shim over the analytics dispatcher)", () => {
       beaconQueue.flush();
     }).not.toThrow();
   });
+
+  it("[Payload keys limited to schema] purchase dataLayer entry and beacon carry exactly the schema keys, no buyer PII", () => {
+    const wire = captureWire();
+    (window as { dataLayer?: unknown[] }).dataLayer = [];
+    track({
+      type: "purchase",
+      listingId: "l-1",
+      transactionId: "o-1",
+      currency: "VND",
+      value: 500000,
+      price: 500000,
+      quantity: 1,
+      position: 2,
+      path: "/checkout/success",
+    });
+
+    const dl = (window as unknown as { dataLayer: Record<string, unknown>[] })
+      .dataLayer;
+    const entry = dl.find((e) => e.event === "purchase")!;
+    expect(Object.keys(entry).sort()).toEqual(
+      ["ecommerce", "event", "page_path"].sort(),
+    );
+    const ecommerce = entry.ecommerce as Record<string, unknown>;
+    expect(Object.keys(ecommerce).sort()).toEqual(
+      ["currency", "items", "transaction_id", "value"].sort(),
+    );
+    const [item] = ecommerce.items as Record<string, unknown>[];
+    expect(Object.keys(item).sort()).toEqual(
+      ["index", "item_id", "price", "quantity"].sort(),
+    );
+
+    const beacons = wire();
+    expect(beacons).toHaveLength(1);
+    expect(Object.keys(beacons[0]).sort()).toEqual(
+      [
+        "anonymousId",
+        "currency",
+        "eventGroupId",
+        "eventId",
+        "listingId",
+        "path",
+        "position",
+        "price",
+        "quantity",
+        "query",
+        "referrer",
+        "sessionId",
+        "transactionId",
+        "type",
+        "value",
+      ].sort(),
+    );
+  });
 });

@@ -75,7 +75,7 @@ describe("/favorites", () => {
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("shows the total in a Badge and hands ListingGrid only the listings", async () => {
+  it("shows the total in a Badge and hands ListingGrid only the listings and the favorites list id", async () => {
     render(await FavoritesPage({}));
     expect(
       screen.getByRole("heading", {
@@ -89,6 +89,7 @@ describe("/favorites", () => {
         { id: "l1", title: "SP l1" },
         { id: "l2", title: "SP l2" },
       ],
+      placementId: "favorites",
     });
   });
 
