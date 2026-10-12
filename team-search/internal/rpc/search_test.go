@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -9,14 +9,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/config"
-	"github.com/buidangphuc/team-search/internal/handler"
 	"github.com/buidangphuc/team-search/internal/index"
-	"github.com/buidangphuc/team-search/internal/interceptor"
-	"github.com/buidangphuc/team-search/internal/repository"
 	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 type mockIndex struct {
@@ -26,12 +27,13 @@ type mockIndex struct {
 	searchCalls   int
 }
 
-func (m *mockIndex) EnsureIndex(ctx context.Context) error { return nil }
-func (m *mockIndex) Upsert(ctx context.Context, doc index.ListingDoc) error {
+func (m *mockIndex) EnsureIndex(_ context.Context) error { return nil }
+func (m *mockIndex) Upsert(_ context.Context, doc index.ListingDoc) error {
 	m.docs = append(m.docs, doc)
 	return nil
 }
-func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error {
+
+func (m *mockIndex) PartialUpdate(_ context.Context, id string, partialDoc map[string]interface{}) error {
 	return nil
 }
 func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
@@ -57,6 +59,7 @@ func (m *mockIndex) Search(ctx context.Context, query string, filters map[string
 		},
 	}, nil
 }
+
 func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	return index.SearchResult{
 		Hits: []index.Hit{
@@ -65,6 +68,7 @@ func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters 
 		Total: 1,
 	}, nil
 }
+
 func (m *mockIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
 	return []string{"iPhone 15", "iPhone 15 Pro", "iPhone 15 Pro Max"}, nil
 }
@@ -80,7 +84,7 @@ func contextWithPrincipal(ctx context.Context, p *commonv1.Principal) context.Co
 	)
 	ctx = metadata.NewIncomingContext(ctx, md)
 	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
+	_, _ = auth.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
 		func(c context.Context, _ any) (any, error) {
 			out = c
 			return nil, nil
@@ -89,7 +93,7 @@ func contextWithPrincipal(ctx context.Context, p *commonv1.Principal) context.Co
 }
 
 func TestSearchHandler(t *testing.T) {
-	h := handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
+	h := rpc.NewSearchHandler(&mockIndex{}, store.NewInMemorySavedSearchRepository())
 	principal := &commonv1.Principal{
 		Id:     "buyer_1",
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
@@ -161,7 +165,7 @@ func TestSearchHandler(t *testing.T) {
 			HybridRRFK:         60,
 			HybridFusionWindow: 200,
 		})
-		hEngine := handler.NewSearchHandlerWithEngine(&mockIndex{}, eng, repository.NewInMemorySavedSearchRepository())
+		hEngine := rpc.NewSearchHandlerWithEngine(&mockIndex{}, eng, store.NewInMemorySavedSearchRepository())
 
 		res, err := hEngine.SearchListings(ctx, &searchv1.SearchListingsRequest{
 			Query:      "iPhone",

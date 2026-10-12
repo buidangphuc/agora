@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 // D4: filters["in_stock"] reaches the index only as "true"; any other value is
@@ -20,7 +20,7 @@ func TestInStockFilter_Validation(t *testing.T) {
 	t.Run("SearchListings", func(t *testing.T) {
 		for v, want := range map[string]codes.Code{"true": codes.OK, "maybe": codes.InvalidArgument, "yes": codes.InvalidArgument} {
 			mi := &mockIndex{}
-			h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+			h := rpc.NewSearchHandler(mi, store.NewInMemorySavedSearchRepository())
 			_, err := h.SearchListings(principalCtx("anonymous", "anonymous", "search:read"),
 				&searchv1.SearchListingsRequest{Query: "x", Filters: map[string]string{"in_stock": v}})
 			if status.Code(err) != want {
@@ -36,8 +36,8 @@ func TestInStockFilter_Validation(t *testing.T) {
 	})
 
 	t.Run("SaveSearch", func(t *testing.T) {
-		spy := &spyRepo{inner: repository.NewInMemorySavedSearchRepository()}
-		h := handler.NewSearchHandler(&mockIndex{}, spy)
+		spy := &spyRepo{inner: store.NewInMemorySavedSearchRepository()}
+		h := rpc.NewSearchHandler(&mockIndex{}, spy)
 		ctx := principalCtx("B", "user", rw...)
 		if _, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{Query: "x", FiltersJson: `{"in_stock":"yes"}`}); status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("code %v (%v)", status.Code(err), err)
@@ -51,11 +51,11 @@ func TestInStockFilter_Validation(t *testing.T) {
 	})
 
 	t.Run("RunSavedSearch", func(t *testing.T) {
-		repo := repository.NewInMemorySavedSearchRepository()
+		repo := store.NewInMemorySavedSearchRepository()
 		mi := &mockIndex{}
-		h := handler.NewSearchHandler(mi, repo)
+		h := rpc.NewSearchHandler(mi, repo)
 		ctx := principalCtx("B", "user", rw...)
-		good, _ := repo.Create(context.Background(), repository.SavedSearch{UserID: "B", Query: "x", FiltersJSON: `{"in_stock":"true"}`})
+		good, _ := repo.Create(context.Background(), store.SavedSearch{UserID: "B", Query: "x", FiltersJSON: `{"in_stock":"true"}`})
 		if _, err := h.RunSavedSearch(ctx, &searchv1.RunSavedSearchRequest{Id: good.ID}); err != nil {
 			t.Fatalf("run valid: %v", err)
 		}
@@ -63,7 +63,7 @@ func TestInStockFilter_Validation(t *testing.T) {
 			t.Errorf("run lost in_stock: %v", mi.lastFilters)
 		}
 		// A row stored before validation existed.
-		bad, _ := repo.Create(context.Background(), repository.SavedSearch{UserID: "B", Query: "x", FiltersJSON: `{"in_stock":"maybe"}`})
+		bad, _ := repo.Create(context.Background(), store.SavedSearch{UserID: "B", Query: "x", FiltersJSON: `{"in_stock":"maybe"}`})
 		calls := mi.searchCalls
 		if _, err := h.RunSavedSearch(ctx, &searchv1.RunSavedSearchRequest{Id: bad.ID}); status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("run invalid: code %v (%v)", status.Code(err), err)

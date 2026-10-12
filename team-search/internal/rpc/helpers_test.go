@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -7,8 +7,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/buidangphuc/team-search/internal/interceptor"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 // principalCtx builds a context the way the gateway does (x-principal-* metadata
@@ -25,7 +26,7 @@ func principalCtx(id, typ string, scopes ...string) context.Context {
 	}
 	ctx = metadata.NewIncomingContext(ctx, metadata.Pairs(pairs...))
 	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
+	_, _ = auth.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
 		func(c context.Context, _ any) (any, error) { out = c; return nil, nil })
 	return out
 }
@@ -33,22 +34,25 @@ func principalCtx(id, typ string, scopes ...string) context.Context {
 // spyRepo wraps a repository and counts every call, so a denied RPC can be shown
 // not to have touched storage.
 type spyRepo struct {
-	inner repository.SavedSearchRepository
+	inner store.SavedSearchRepository
 	calls int
 }
 
-func (s *spyRepo) Create(ctx context.Context, x repository.SavedSearch) (repository.SavedSearch, error) {
+func (s *spyRepo) Create(ctx context.Context, x store.SavedSearch) (store.SavedSearch, error) {
 	s.calls++
 	return s.inner.Create(ctx, x)
 }
-func (s *spyRepo) List(ctx context.Context, u string, l, o int) ([]repository.SavedSearch, int64, error) {
+
+func (s *spyRepo) List(ctx context.Context, u string, l, o int) ([]store.SavedSearch, int64, error) {
 	s.calls++
 	return s.inner.List(ctx, u, l, o)
 }
-func (s *spyRepo) Get(ctx context.Context, id, u string) (repository.SavedSearch, error) {
+
+func (s *spyRepo) Get(ctx context.Context, id, u string) (store.SavedSearch, error) {
 	s.calls++
 	return s.inner.Get(ctx, id, u)
 }
+
 func (s *spyRepo) Delete(ctx context.Context, id, u string) error {
 	s.calls++
 	return s.inner.Delete(ctx, id, u)

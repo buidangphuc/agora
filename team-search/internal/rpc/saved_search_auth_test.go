@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -9,29 +9,29 @@ import (
 	"google.golang.org/grpc/status"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 type rpcCall struct {
 	name string
-	call func(h *handler.SearchHandler, ctx context.Context) error
+	call func(h *rpc.SearchHandler, ctx context.Context) error
 }
 
 var savedSearchRPCs = []rpcCall{
-	{"SaveSearch", func(h *handler.SearchHandler, ctx context.Context) error {
+	{"SaveSearch", func(h *rpc.SearchHandler, ctx context.Context) error {
 		_, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{Query: "x"})
 		return err
 	}},
-	{"ListSavedSearches", func(h *handler.SearchHandler, ctx context.Context) error {
+	{"ListSavedSearches", func(h *rpc.SearchHandler, ctx context.Context) error {
 		_, err := h.ListSavedSearches(ctx, &searchv1.ListSavedSearchesRequest{})
 		return err
 	}},
-	{"DeleteSavedSearch", func(h *handler.SearchHandler, ctx context.Context) error {
+	{"DeleteSavedSearch", func(h *rpc.SearchHandler, ctx context.Context) error {
 		_, err := h.DeleteSavedSearch(ctx, &searchv1.DeleteSavedSearchRequest{Id: "some-id"})
 		return err
 	}},
-	{"RunSavedSearch", func(h *handler.SearchHandler, ctx context.Context) error {
+	{"RunSavedSearch", func(h *rpc.SearchHandler, ctx context.Context) error {
 		_, err := h.RunSavedSearch(ctx, &searchv1.RunSavedSearchRequest{Id: "some-id"})
 		return err
 	}},
@@ -54,13 +54,13 @@ func TestSavedSearchCallerIdentity_Matrix(t *testing.T) {
 		{"user type but reserved anonymous id", principalCtx("anonymous", "user", strings.Split(both, ",")...), codes.Unauthenticated},
 		{"service with both scopes", principalCtx("svc", "service", strings.Split(both, ",")...), codes.PermissionDenied},
 	}
-	for _, rpc := range savedSearchRPCs {
+	for _, rc := range savedSearchRPCs {
 		for _, c := range callers {
-			t.Run(rpc.name+"/"+c.name, func(t *testing.T) {
+			t.Run(rc.name+"/"+c.name, func(t *testing.T) {
 				mi := &mockIndex{}
-				spy := &spyRepo{inner: repository.NewInMemorySavedSearchRepository()}
-				h := handler.NewSearchHandler(mi, spy)
-				err := rpc.call(h, c.ctx)
+				spy := &spyRepo{inner: store.NewInMemorySavedSearchRepository()}
+				h := rpc.NewSearchHandler(mi, spy)
+				err := rc.call(h, c.ctx)
 				if status.Code(err) != c.want {
 					t.Fatalf("code = %v (%v), want %v", status.Code(err), err, c.want)
 				}
@@ -82,22 +82,22 @@ func TestSavedSearchScopes_AfterIdentity(t *testing.T) {
 		"SaveSearch": "search:write", "DeleteSavedSearch": "search:write",
 		"ListSavedSearches": "search:read", "RunSavedSearch": "search:read",
 	}
-	for _, rpc := range savedSearchRPCs {
-		t.Run(rpc.name, func(t *testing.T) {
-			spy := &spyRepo{inner: repository.NewInMemorySavedSearchRepository()}
-			h := handler.NewSearchHandler(&mockIndex{}, spy)
+	for _, rc := range savedSearchRPCs {
+		t.Run(rc.name, func(t *testing.T) {
+			spy := &spyRepo{inner: store.NewInMemorySavedSearchRepository()}
+			h := rpc.NewSearchHandler(&mockIndex{}, spy)
 			other := "search:read"
-			if needs[rpc.name] == "search:read" {
+			if needs[rc.name] == "search:read" {
 				other = "search:write"
 			}
-			err := rpc.call(h, principalCtx("buyer_1", "user", other))
+			err := rc.call(h, principalCtx("buyer_1", "user", other))
 			if status.Code(err) != codes.PermissionDenied {
 				t.Fatalf("missing scope: code = %v (%v), want PermissionDenied", status.Code(err), err)
 			}
 			if spy.calls != 0 {
 				t.Errorf("repository touched by a scope-denied call")
 			}
-			err = rpc.call(h, principalCtx("buyer_1", "user", needs[rpc.name]))
+			err = rc.call(h, principalCtx("buyer_1", "user", needs[rc.name]))
 			if c := status.Code(err); c == codes.Unauthenticated || c == codes.PermissionDenied {
 				t.Fatalf("with the right scope the call must pass the gates, got %v", err)
 			}
@@ -110,7 +110,7 @@ func TestSavedSearchScopes_AfterIdentity(t *testing.T) {
 
 // A signed-in user with both scopes saves and then lists (spec happy path).
 func TestSavedSearch_UserWithScopesSucceeds(t *testing.T) {
-	h := handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
+	h := rpc.NewSearchHandler(&mockIndex{}, store.NewInMemorySavedSearchRepository())
 	ctx := principalCtx("buyer_1", "user", "search:read", "search:write")
 	saved, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{Query: "iPhone"})
 	if err != nil {

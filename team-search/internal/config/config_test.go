@@ -2,10 +2,20 @@ package config
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
+
+// setRequiredEnv sets the keys that have no default: GRPC_PORT and DATABASE_URL.
+func setRequiredEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("GRPC_PORT", "50052")
+	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
+}
 
 // TestEnvExampleInSync is the env-drift gate (`make check-env`).
 func TestEnvExampleInSync(t *testing.T) {
@@ -13,18 +23,19 @@ func TestEnvExampleInSync(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf(".env.example not found at %s: %v", path, err)
 	}
-	if err := CheckEnvExample(path); err != nil {
+	if err := sdkconfig.CheckEnvExample(path, Settings{}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestLoadDefaults(t *testing.T) {
-	s, err := LoadSettings()
+	setRequiredEnv(t)
+	s, err := Load()
 	if err != nil {
-		t.Fatalf("LoadSettings with defaults: %v", err)
+		t.Fatalf("Load with defaults: %v", err)
 	}
-	if s.Server.Port != 50052 {
-		t.Errorf("default GRPC_PORT = %d, want 50052", s.Server.Port)
+	if s.Port != 50052 {
+		t.Errorf("default GRPC_PORT = %d, want 50052", s.Port)
 	}
 	if s.OpenSearch.Index != "listings" {
 		t.Errorf("default OPENSEARCH_INDEX = %q, want listings", s.OpenSearch.Index)
@@ -33,46 +44,40 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestValidateRequiresOpenSearchURL(t *testing.T) {
 	s := &Settings{}
-	s.Server.Port = 50052
+	s.Port = 50052
+	s.Postgres.URL = "postgres://u:p@h/db"
 	s.OpenSearch.URL = ""
 	if err := s.Validate(); err == nil {
 		t.Fatal("expected error: OPENSEARCH_URL required")
 	}
 }
 
+// The database is always on: DATABASE_URL is required and an empty one fails the load.
 func TestDatabaseConfig(t *testing.T) {
-	t.Setenv("DATABASE_ENABLED", "true")
+	t.Setenv("GRPC_PORT", "50052")
 	t.Setenv("DATABASE_URL", "")
-	if _, err := LoadSettings(); err == nil {
-		t.Fatal("enabled without DATABASE_URL must fail validation")
+	if _, err := Load(); err == nil {
+		t.Fatal("an empty DATABASE_URL must fail validation")
 	}
 	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
-	s, err := LoadSettings()
-	if err != nil || !s.Database.Enabled || s.Database.URL != "postgres://u:p@h/db" {
-		t.Fatalf("got %+v, %v", s.Database, err)
-	}
-	t.Setenv("DATABASE_ENABLED", "false")
-	t.Setenv("DATABASE_URL", "")
-	if s, err = LoadSettings(); err != nil || s.Database.Enabled {
-		t.Fatalf("disabled default: %+v, %v", s.Database, err)
+	s, err := Load()
+	if err != nil || s.Postgres.URL != "postgres://u:p@h/db" {
+		t.Fatalf("got %+v, %v", s.Postgres, err)
 	}
 }
 
-func TestRequireDurableStorage(t *testing.T) {
-	for _, env := range []string{"staging", "stage", "prod", "production", " Production ", "STAGING"} {
-		s := &Settings{Runtime: Runtime{Env: env}}
-		if err := s.RequireDurableStorage(); err == nil {
-			t.Errorf("ENV=%q with DATABASE_ENABLED=false must refuse to boot", env)
-		}
-		s.Database.Enabled = true
-		if err := s.RequireDurableStorage(); err != nil {
-			t.Errorf("ENV=%q with the database enabled must pass: %v", env, err)
+// Capabilities every deploy runs have no enable flag (spec: team-search declares
+// no always-on enable flags).
+func TestNoEnableFlagsDeclared(t *testing.T) {
+	keys := sdkconfig.DeclaredEnvKeys(Settings{})
+	for _, flag := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "GRPC_REFLECTION_ENABLED"} {
+		if slices.Contains(keys, flag) {
+			t.Errorf("%s is still declared", flag)
 		}
 	}
-	for _, env := range []string{"", "local", "test", "dev", "unknown"} {
-		s := &Settings{Runtime: Runtime{Env: env}}
-		if err := s.RequireDurableStorage(); err != nil {
-			t.Errorf("ENV=%q is non-strict and may use memory: %v", env, err)
+	for _, kept := range []string{"KAFKA_BROKERS", "KAFKA_CONSUMER_GROUP", "KAFKA_LISTING_TOPIC", "OTEL_ENABLED"} {
+		if !slices.Contains(keys, kept) {
+			t.Errorf("%s must stay declared", kept)
 		}
 	}
 }
@@ -111,9 +116,10 @@ func TestTombstoneDurations(t *testing.T) {
 }
 
 func TestTombstoneDefaultsFromEnv(t *testing.T) {
+	setRequiredEnv(t)
 	t.Setenv("TOMBSTONE_TTL", "banana")
 	os.Unsetenv("TOMBSTONE_PURGE_INTERVAL")
-	cfg, err := LoadSettings()
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("an invalid TOMBSTONE_TTL must not fail config loading: %v", err)
 	}
@@ -128,9 +134,10 @@ func TestTombstoneDefaultsFromEnv(t *testing.T) {
 // semantic-floor-calibration: 0.65 is above all but one unrelated pair and below every related pair for
 // bge-small-en-v1.5 (scripts/semantic_floor_probe.py); 0.6 let about one unrelated pair in ten through.
 func TestSemanticMinScoreDefault(t *testing.T) {
-	s, err := LoadSettings()
+	setRequiredEnv(t)
+	s, err := Load()
 	if err != nil {
-		t.Fatalf("LoadSettings with defaults: %v", err)
+		t.Fatalf("Load with defaults: %v", err)
 	}
 	if s.Retrieval.SemanticMinScore != 0.65 {
 		t.Errorf("default HYBRID_SEMANTIC_MIN_SCORE = %v, want 0.65", s.Retrieval.SemanticMinScore)

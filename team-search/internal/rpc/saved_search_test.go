@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 // userCtx builds a gateway-style principal context with the given id + scopes.
@@ -22,8 +22,8 @@ func userCtx(id string, scopes ...string) context.Context {
 	})
 }
 
-func newSavedHandler() *handler.SearchHandler {
-	return handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
+func newSavedHandler() *rpc.SearchHandler {
+	return rpc.NewSearchHandler(&mockIndex{}, store.NewInMemorySavedSearchRepository())
 }
 
 // TestSaveThenList covers the happy path: a save is persisted and shows up in

@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"database/sql"
@@ -11,17 +11,17 @@ import (
 	"google.golang.org/grpc/status"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 // Owner isolation through the handler, against the in-memory repository always
 // and a real Postgres when SEARCH_TEST_DATABASE_URL is set (the schema is applied
 // by `make test-integration` or by the repository test; the statement below is
 // the same idempotent migration).
-func isolationRepos(t *testing.T) map[string]repository.SavedSearchRepository {
+func isolationRepos(t *testing.T) map[string]store.SavedSearchRepository {
 	t.Helper()
-	out := map[string]repository.SavedSearchRepository{"memory": repository.NewInMemorySavedSearchRepository()}
+	out := map[string]store.SavedSearchRepository{"memory": store.NewInMemorySavedSearchRepository()}
 	if url := os.Getenv("SEARCH_TEST_DATABASE_URL"); url != "" {
 		db, err := sql.Open("pgx", url)
 		if err != nil {
@@ -35,7 +35,7 @@ func isolationRepos(t *testing.T) map[string]repository.SavedSearchRepository {
 		if _, err := db.Exec(string(mig)); err != nil {
 			t.Fatalf("apply migration: %v", err)
 		}
-		out["postgres"] = repository.NewPostgresSavedSearchRepository(db)
+		out["postgres"] = store.NewPostgresSavedSearchRepository(db)
 	}
 	return out
 }
@@ -46,7 +46,7 @@ func TestSavedSearchOwnerIsolation(t *testing.T) {
 		repo := repo
 		t.Run(name, func(t *testing.T) {
 			mi := &mockIndex{}
-			h := handler.NewSearchHandler(mi, repo)
+			h := rpc.NewSearchHandler(mi, repo)
 			// Unique ids so a shared database never mixes rows across runs.
 			aID, bID := "A-"+uuid.NewString(), "B-"+uuid.NewString()
 			a := principalCtx(aID, "user", rw...)

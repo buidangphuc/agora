@@ -1,8 +1,7 @@
-package grpcserver_test
+package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"strings"
@@ -15,13 +14,14 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
+
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 
-	"github.com/buidangphuc/team-search/internal/config"
-	"github.com/buidangphuc/team-search/internal/grpcserver"
-	"github.com/buidangphuc/team-search/internal/handler"
 	"github.com/buidangphuc/team-search/internal/index"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 // fakeIndex is an in-memory index.Index for tests (no OpenSearch needed).
@@ -32,6 +32,7 @@ func (f *fakeIndex) Upsert(_ context.Context, d index.ListingDoc) error {
 	f.docs = append(f.docs, d)
 	return nil
 }
+
 func (f *fakeIndex) PartialUpdate(_ context.Context, id string, partialDoc map[string]interface{}) error {
 	for i, d := range f.docs {
 		if d.ID == id {
@@ -90,17 +91,11 @@ func (f *fakeIndex) Suggest(_ context.Context, prefix string, limit int) ([]stri
 	return out, nil
 }
 
-func testSettings() *config.Settings {
-	s := &config.Settings{}
-	s.Server.Port = 0
-	s.Server.ReflectionEnabled = false
-	return s
-}
-
 func startServer(t *testing.T, idx index.Index) searchv1.SearchServiceClient {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := grpcserver.Build(testSettings(), handler.NewSearchHandler(idx, repository.NewInMemorySavedSearchRepository()), nil, logger)
+	logger := slog.New(slog.DiscardHandler)
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(healthx.DefaultInterval, logger)})
+	rpc.Register(srv, rpc.NewSearchHandler(idx, store.NewInMemorySavedSearchRepository()))
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -116,8 +111,8 @@ func startServer(t *testing.T, idx index.Index) searchv1.SearchServiceClient {
 	return searchv1.NewSearchServiceClient(conn)
 }
 
-// principalCtx mimics the gateway forwarding a resolved Principal.
-func principalCtx(t *testing.T, scopes string) (context.Context, context.CancelFunc) {
+// outgoingPrincipalCtx mimics the gateway forwarding a resolved Principal.
+func outgoingPrincipalCtx(t *testing.T, scopes string) (context.Context, context.CancelFunc) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	md := metadata.Pairs(
@@ -138,7 +133,7 @@ func seeded() *fakeIndex {
 
 func TestSearchListings_FreeTextAndFilter(t *testing.T) {
 	client := startServer(t, seeded())
-	ctx, cancel := principalCtx(t, "search:read")
+	ctx, cancel := outgoingPrincipalCtx(t, "search:read")
 	defer cancel()
 
 	resp, err := client.SearchListings(ctx, &searchv1.SearchListingsRequest{
@@ -160,7 +155,7 @@ func TestSearchListings_FreeTextAndFilter(t *testing.T) {
 
 func TestSuggest(t *testing.T) {
 	client := startServer(t, seeded())
-	ctx, cancel := principalCtx(t, "search:read")
+	ctx, cancel := outgoingPrincipalCtx(t, "search:read")
 	defer cancel()
 
 	resp, err := client.Suggest(ctx, &searchv1.SuggestRequest{Query: "ipho", Limit: 5})
@@ -185,7 +180,7 @@ func TestSearch_Unauthenticated(t *testing.T) {
 
 func TestSearch_InsufficientScope(t *testing.T) {
 	client := startServer(t, seeded())
-	ctx, cancel := principalCtx(t, "other.scope")
+	ctx, cancel := outgoingPrincipalCtx(t, "other.scope")
 	defer cancel()
 
 	_, err := client.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x"})

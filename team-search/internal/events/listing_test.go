@@ -1,4 +1,4 @@
-package consumer_test
+package events_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	eventsv1 "github.com/buidangphuc/team-search/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-search/generated/platform/listing/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/consumer"
+	"github.com/buidangphuc/team-search/internal/events"
 	"github.com/buidangphuc/team-search/internal/index"
 	"github.com/buidangphuc/team-search/internal/retrieval"
 	"github.com/buidangphuc/team-search/internal/taxonomy"
@@ -45,23 +45,28 @@ func (m *mockIndex) Upsert(ctx context.Context, doc index.ListingDoc) error {
 	m.lastUpsertDoc = doc
 	return nil
 }
+
 func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error {
 	m.lastPartialID = id
 	m.lastPartialDoc = partialDoc
 	return nil
 }
+
 func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error {
 	m.lastDeleteID = id
 	m.lastDeleteVer = version
 	m.deletes++
 	return nil
 }
+
 func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	return index.SearchResult{}, nil
 }
+
 func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	return index.SearchResult{}, nil
 }
+
 func (m *mockIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
 	return nil, nil
 }
@@ -87,7 +92,7 @@ func makeEnvelope(t *testing.T, eventType string, msg proto.Message) []byte {
 func TestListingEventHandler_VectorizesPublishedListing(t *testing.T) {
 	idx := &mockIndex{}
 	embed := &retrieval.MockEmbedClient{Dim: 4}
-	handler := consumer.ListingEventHandlerWithEmbedder(idx, embed)
+	handler := events.ListingEventHandlerWithEmbedder(idx, embed)
 
 	changed := &listingv1.ListingChanged{
 		Listing: &listingv1.Listing{
@@ -120,7 +125,7 @@ func TestListingEventHandler_VectorizesPublishedListing(t *testing.T) {
 func TestListingEventHandler_EmbeddingFailureMarksVectorPending(t *testing.T) {
 	idx := &mockIndex{}
 	embed := &retrieval.MockEmbedClient{Err: errors.New("model server down")}
-	handler := consumer.ListingEventHandlerWithEmbedder(idx, embed)
+	handler := events.ListingEventHandlerWithEmbedder(idx, embed)
 
 	changed := &listingv1.ListingChanged{
 		Listing: &listingv1.Listing{
@@ -150,7 +155,7 @@ func TestListingEventHandler_EmbeddingFailureMarksVectorPending(t *testing.T) {
 func TestListingEventHandler_PricingChangePreservesEmbedding(t *testing.T) {
 	idx := &mockIndex{}
 	embed := &retrieval.MockEmbedClient{Dim: 4}
-	handler := consumer.ListingEventHandlerWithEmbedder(idx, embed)
+	handler := events.ListingEventHandlerWithEmbedder(idx, embed)
 
 	pricing := &listingv1.ListingPricingChanged{
 		ListingId:     "l-102",
@@ -202,16 +207,19 @@ func TestListingEventHandler_DeletePathsCarryVersion(t *testing.T) {
 		msg proto.Message
 	}{
 		"ListingChanged DELETED": {"platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
-			Listing: &listingv1.Listing{Id: "l-del"}, ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED}},
+			Listing: &listingv1.Listing{Id: "l-del"}, ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED,
+		}},
 		"ListingBaseInfoChanged DELETED": {"platform.listing.v1.ListingBaseInfoChanged", &listingv1.ListingBaseInfoChanged{
-			ListingId: "l-del", ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED}},
+			ListingId: "l-del", ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED,
+		}},
 		"ListingStatusChanged REJECTED": {"platform.listing.v1.ListingStatusChanged", &listingv1.ListingStatusChanged{
-			ListingId: "l-del", Status: listingv1.ListingStatus_LISTING_STATUS_REJECTED}},
+			ListingId: "l-del", Status: listingv1.ListingStatus_LISTING_STATUS_REJECTED,
+		}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			idx := &mockIndex{}
-			if err := consumer.ListingEventHandler(idx)(context.Background(), nil, envelopeAt(t, tc.typ, tc.msg, at)); err != nil {
+			if err := events.ListingEventHandler(idx)(context.Background(), nil, envelopeAt(t, tc.typ, tc.msg, at)); err != nil {
 				t.Fatalf("handler: %v", err)
 			}
 			if idx.deletes != 1 || idx.lastDeleteID != "l-del" || idx.lastDeleteVer != at.UnixNano() {
@@ -231,7 +239,7 @@ func TestListingEventHandler_StockChanged(t *testing.T) {
 	at := time.Unix(1700000000, 5)
 	const typ = "platform.listing.v1.ListingStockChanged"
 	idx := &mockIndex{}
-	h := consumer.ListingEventHandler(idx)
+	h := events.ListingEventHandler(idx)
 	if err := h(context.Background(), nil, envelopeAt(t, typ, &listingv1.ListingStockChanged{ListingId: "l1", Stock: 0}, at)); err != nil {
 		t.Fatalf("valid stock event: %v", err)
 	}
@@ -261,7 +269,7 @@ func TestListingEventHandler_ListingChangedCarriesStock(t *testing.T) {
 		Listing:    &listingv1.Listing{Id: "l1", Stock: 0, Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED},
 		ChangeType: listingv1.ChangeType_CHANGE_TYPE_UPDATED,
 	}, time.Unix(1700000000, 0))
-	if err := consumer.ListingEventHandler(idx)(context.Background(), nil, env); err != nil {
+	if err := events.ListingEventHandler(idx)(context.Background(), nil, env); err != nil {
 		t.Fatal(err)
 	}
 	if idx.lastUpsertDoc.Stock == nil || *idx.lastUpsertDoc.Stock != 0 {
@@ -278,8 +286,9 @@ func TestListingEventHandler_CreatedAtOnlyFromCreated(t *testing.T) {
 	} {
 		idx := &mockIndex{}
 		env := envelopeAt(t, "platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
-			Listing: &listingv1.Listing{Id: "l1"}, ChangeType: ct}, at)
-		if err := consumer.ListingEventHandler(idx)(context.Background(), nil, env); err != nil {
+			Listing: &listingv1.Listing{Id: "l1"}, ChangeType: ct,
+		}, at)
+		if err := events.ListingEventHandler(idx)(context.Background(), nil, env); err != nil {
 			t.Fatal(err)
 		}
 		got := idx.lastUpsertDoc.CreatedAt
@@ -314,7 +323,7 @@ func tagChanged(variants ...*listingv1.Variant) *listingv1.ListingChanged {
 func TestListingEventHandler_IndexesClassifiedTagsAndSkus(t *testing.T) {
 	idx := &mockIndex{}
 	cls := classified()
-	h := consumer.NewListingEventHandler(idx, nil, cls)
+	h := events.NewListingEventHandler(idx, nil, cls)
 	v := &listingv1.Variant{Id: "v1", Name: "Xanh Navy / 512GB", Sku: "SKU-1", Price: 100, Stock: 3}
 	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingChanged", tagChanged(v))); err != nil {
 		t.Fatal(err)
@@ -334,7 +343,7 @@ func TestListingEventHandler_IndexesClassifiedTagsAndSkus(t *testing.T) {
 func TestListingEventHandler_ClassifierOutageDoesNotFailIngestion(t *testing.T) {
 	idx := &mockIndex{}
 	cls := &taxonomy.MockClassifier{Err: errors.New("team-ai down")}
-	h := consumer.NewListingEventHandler(idx, nil, cls)
+	h := events.NewListingEventHandler(idx, nil, cls)
 	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingChanged", tagChanged())); err != nil {
 		t.Fatalf("handler failed on classifier outage: %v", err)
 	}
@@ -346,7 +355,7 @@ func TestListingEventHandler_ClassifierOutageDoesNotFailIngestion(t *testing.T) 
 
 func TestListingEventHandler_NilClassifierIndexesWithoutTags(t *testing.T) {
 	idx := &mockIndex{}
-	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil,
+	if err := events.NewListingEventHandler(idx, nil, nil)(context.Background(), nil,
 		makeEnvelope(t, "platform.listing.v1.ListingChanged", tagChanged())); err != nil {
 		t.Fatal(err)
 	}
@@ -358,9 +367,11 @@ func TestListingEventHandler_NilClassifierIndexesWithoutTags(t *testing.T) {
 func TestListingBaseInfoChanged_RefreshesSpuTags(t *testing.T) {
 	idx := &mockIndex{}
 	cls := classified()
-	h := consumer.NewListingEventHandler(idx, nil, cls)
-	ev := &listingv1.ListingBaseInfoChanged{ListingId: "l-tag", Title: "Tai nghe Bluetooth 5.3", CategoryId: "cat-electronics", SellerId: "s1",
-		Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED}
+	h := events.NewListingEventHandler(idx, nil, cls)
+	ev := &listingv1.ListingBaseInfoChanged{
+		ListingId: "l-tag", Title: "Tai nghe Bluetooth 5.3", CategoryId: "cat-electronics", SellerId: "s1",
+		Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED,
+	}
 	if err := h(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingBaseInfoChanged", ev)); err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +411,7 @@ func (v *variantIndex) UpdateStockWithVariants(_ context.Context, _ string, stoc
 func TestListingStockChanged_VariantsRefreshNestedStock(t *testing.T) {
 	idx := &variantIndex{}
 	ev := &listingv1.ListingStockChanged{ListingId: "l1", Stock: 4, Variants: []*listingv1.Variant{{Id: "v1", Stock: 0}, {Id: "v2", Stock: 4}}}
-	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
+	if err := events.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
 		t.Fatal(err)
 	}
 	if len(idx.vcalls) != 2 || idx.vcalls[0] != (index.VariantStock{ID: "v1", Stock: 0}) || idx.vstock != 4 {
@@ -414,7 +425,7 @@ func TestListingStockChanged_VariantsRefreshNestedStock(t *testing.T) {
 func TestListingStockChanged_WithoutVariantsUsesPlainUpdate(t *testing.T) {
 	idx := &variantIndex{}
 	ev := &listingv1.ListingStockChanged{ListingId: "l1", Stock: 4}
-	if err := consumer.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
+	if err := events.NewListingEventHandler(idx, nil, nil)(context.Background(), nil, makeEnvelope(t, "platform.listing.v1.ListingStockChanged", ev)); err != nil {
 		t.Fatal(err)
 	}
 	if len(idx.stockCalls) != 1 || len(idx.vcalls) != 0 {

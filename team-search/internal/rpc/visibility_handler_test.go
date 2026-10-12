@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -8,14 +8,14 @@ import (
 	"google.golang.org/grpc/status"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
 )
 
 func TestSearchListings_VisibilityPolicy(t *testing.T) {
 	t.Run("a seller's own draft view reaches the index; the request map is untouched", func(t *testing.T) {
 		mi := &mockIndex{}
-		h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+		h := rpc.NewSearchHandler(mi, store.NewInMemorySavedSearchRepository())
 		ctx := principalCtx("A", "user", "search:read")
 		req := &searchv1.SearchListingsRequest{Filters: map[string]string{"seller_id": "A", "status": "draft"}}
 		if _, err := h.SearchListings(ctx, req); err != nil {
@@ -43,7 +43,7 @@ func TestSearchListings_VisibilityPolicy(t *testing.T) {
 	for _, tc := range rejects {
 		t.Run("rejects "+tc.name+" without touching the index", func(t *testing.T) {
 			mi := &mockIndex{}
-			h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+			h := rpc.NewSearchHandler(mi, store.NewInMemorySavedSearchRepository())
 			id, typ, scopes := tc.ctx()
 			_, err := h.SearchListings(principalCtx(id, typ, scopes...), &searchv1.SearchListingsRequest{Filters: tc.filters})
 			if status.Code(err) != tc.want {
@@ -62,8 +62,8 @@ func TestSavedSearch_VisibilityAtSaveAndRun(t *testing.T) {
 	rw := []string{"search:read", "search:write"}
 
 	t.Run("a non-owner cannot save a draft filter and nothing is stored", func(t *testing.T) {
-		spy := &spyRepo{inner: repository.NewInMemorySavedSearchRepository()}
-		h := handler.NewSearchHandler(&mockIndex{}, spy)
+		spy := &spyRepo{inner: store.NewInMemorySavedSearchRepository()}
+		h := rpc.NewSearchHandler(&mockIndex{}, spy)
 		_, err := h.SaveSearch(principalCtx("B", "user", rw...),
 			&searchv1.SaveSearchRequest{Query: "x", FiltersJson: `{"status":"draft"}`})
 		if status.Code(err) != codes.PermissionDenied {
@@ -75,7 +75,7 @@ func TestSavedSearch_VisibilityAtSaveAndRun(t *testing.T) {
 	})
 
 	t.Run("an unknown status is rejected at save time", func(t *testing.T) {
-		h := handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
+		h := rpc.NewSearchHandler(&mockIndex{}, store.NewInMemorySavedSearchRepository())
 		_, err := h.SaveSearch(principalCtx("B", "user", rw...),
 			&searchv1.SaveSearchRequest{Query: "x", FiltersJson: `{"status":"active"}`})
 		if status.Code(err) != codes.InvalidArgument {
@@ -85,7 +85,7 @@ func TestSavedSearch_VisibilityAtSaveAndRun(t *testing.T) {
 
 	t.Run("an owner may save and run their draft view", func(t *testing.T) {
 		mi := &mockIndex{}
-		h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+		h := rpc.NewSearchHandler(mi, store.NewInMemorySavedSearchRepository())
 		ctx := principalCtx("A", "user", rw...)
 		saved, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{FiltersJson: `{"seller_id":"A","status":"draft"}`})
 		if err != nil {
@@ -100,11 +100,11 @@ func TestSavedSearch_VisibilityAtSaveAndRun(t *testing.T) {
 	})
 
 	t.Run("run re-checks visibility with the runner identity (a stored draft filter of another seller)", func(t *testing.T) {
-		repo := repository.NewInMemorySavedSearchRepository()
+		repo := store.NewInMemorySavedSearchRepository()
 		mi := &mockIndex{}
-		h := handler.NewSearchHandler(mi, repo)
+		h := rpc.NewSearchHandler(mi, repo)
 		// A row written before the policy existed (or by a bug) for user B naming A's drafts.
-		row, _ := repo.Create(context.Background(), repository.SavedSearch{UserID: "B", Query: "x", FiltersJSON: `{"seller_id":"A","status":"draft"}`})
+		row, _ := repo.Create(context.Background(), store.SavedSearch{UserID: "B", Query: "x", FiltersJSON: `{"seller_id":"A","status":"draft"}`})
 		_, err := h.RunSavedSearch(principalCtx("B", "user", rw...), &searchv1.RunSavedSearchRequest{Id: row.ID})
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("code = %v (%v)", status.Code(err), err)
@@ -116,7 +116,7 @@ func TestSavedSearch_VisibilityAtSaveAndRun(t *testing.T) {
 
 	t.Run("running a query with no status filter leaves the published default to the index", func(t *testing.T) {
 		mi := &mockIndex{}
-		h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+		h := rpc.NewSearchHandler(mi, store.NewInMemorySavedSearchRepository())
 		ctx := principalCtx("A", "user", rw...)
 		saved, _ := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{Query: "phone"})
 		if _, err := h.RunSavedSearch(ctx, &searchv1.RunSavedSearchRequest{Id: saved.GetSavedSearch().GetId()}); err != nil {
