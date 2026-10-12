@@ -57,7 +57,9 @@ describe("Scenario: First visit shows banner and contacts no Google host", () =>
   it("starts with every optional group unchecked (opt-in)", async () => {
     mountPage();
     for (const g of [/analytics/i, /marketing/i, /personali[sz]ation/i]) {
-      expect(await screen.findByRole("checkbox", { name: g })).not.toBeChecked();
+      expect(
+        await screen.findByRole("checkbox", { name: g }),
+      ).not.toBeChecked();
     }
   });
 
@@ -88,7 +90,9 @@ describe("Scenario: Accept all writes the cookie / Reject all / Granular choice 
   it("Accept all writes v=1&a=1&m=1&p=1 and removes the banner", async () => {
     const user = userEvent.setup();
     mountPage();
-    await user.click(await screen.findByRole("button", { name: /accept all/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /accept all/i }),
+    );
     expect(rawCookie()).toBe("v=1&a=1&m=1&p=1&ts=1760000000");
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -98,7 +102,9 @@ describe("Scenario: Accept all writes the cookie / Reject all / Granular choice 
   it("Reject all writes v=1&a=0&m=0&p=0 and removes the banner", async () => {
     const user = userEvent.setup();
     mountPage();
-    await user.click(await screen.findByRole("button", { name: /reject all/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /reject all/i }),
+    );
     expect(rawCookie()).toBe("v=1&a=0&m=0&p=0&ts=1760000000");
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -137,7 +143,10 @@ describe("Scenario: Banner does not shift layout", () => {
     await screen.findByRole("dialog");
     // the banner must not add a non-fixed sibling element before the footer
     const staticBlocks = Array.from(container.children).filter(
-      (el) => el.tagName !== "FOOTER" && !el.closest(".fixed") && !el.classList.contains("fixed"),
+      (el) =>
+        el.tagName !== "FOOTER" &&
+        !el.closest(".fixed") &&
+        !el.classList.contains("fixed"),
     );
     expect(staticBlocks).toHaveLength(0);
   });
@@ -235,7 +244,10 @@ describe("Scenario: mounting (layout + footer wiring)", () => {
 
   it("consumer shell footer renders the CookieSettingsLink", () => {
     const shell = src("../../components/shell/ConsumerShell.tsx");
-    const footer = shell.slice(shell.indexOf("<footer"), shell.indexOf("</footer>"));
+    const footer = shell.slice(
+      shell.indexOf("<footer"),
+      shell.indexOf("</footer>"),
+    );
     expect(footer).toMatch(/<CookieSettingsLink\b/);
   });
 });
