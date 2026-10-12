@@ -16,4 +16,4 @@ Owns: `platform-core/templates/_service-go/**`, `platform-core/tools/check-go-sd
 
 ## 3. Close (orchestrator)
 
-- [ ] 3.1 Add the FEATURES entries, run `ci_local`, and tag `go-sdk/v0.2.2` locally.
+- [x] 3.1 Add the FEATURES entries, run `ci_local`, and tag `go-sdk/v0.2.2` locally.
