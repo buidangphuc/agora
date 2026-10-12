@@ -127,7 +127,7 @@ Requires `buf` (`brew install bufbuild/buf/buf`) and `docker`; `make tools` chec
 
 `buf generate` uses **remote BSR plugins** (`buf.build/...` in `buf.gen.yaml`), so it
 needs network. Output goes only to `./gen/{go,python,jvm,ts}`, a verification artifact.
-`packages/go-sdk` (`pkg/auth`, `pkg/config`, `pkg/resilience`) has its own `go.mod`
+`packages/go-sdk` (`pkg/auth`, `pkg/config`, ...) has its own `go.mod`
 (Go 1.22) and unit tests; run `go test ./...` there. `tools/ci/standard-ci.yml` is a
 reusable GitHub workflow template (contract, build-and-test, security jobs) that is not
 wired to any remote.

@@ -11,7 +11,6 @@ import (
 type messagingSettings struct {
 	Kafka  config.Kafka
 	Outbox config.Outbox
-	Flags  config.Flags
 }
 
 func TestMessagingGroupDefaults(t *testing.T) {
@@ -26,17 +25,12 @@ func TestMessagingGroupDefaults(t *testing.T) {
 	if s.Outbox != want {
 		t.Errorf("Outbox = %+v, want %+v", s.Outbox, want)
 	}
-	wantFlags := config.Flags{Enabled: true, FliptAddr: "localhost:9000", EvalTimeoutMS: 500}
-	if s.Flags != wantFlags {
-		t.Errorf("Flags = %+v, want %+v", s.Flags, wantFlags)
-	}
 }
 
 func TestMessagingGroupOverrides(t *testing.T) {
 	t.Setenv("KAFKA_BROKERS", " a:1, ,b:2 ")
 	t.Setenv("OUTBOX_POLL_INTERVAL", "250ms")
 	t.Setenv("OUTBOX_MAX_ATTEMPTS", "3")
-	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
 
 	s, err := config.Load[messagingSettings]()
 	if err != nil {
@@ -47,8 +41,5 @@ func TestMessagingGroupOverrides(t *testing.T) {
 	}
 	if s.Outbox.PollInterval != 250*time.Millisecond || s.Outbox.MaxAttempts != 3 {
 		t.Errorf("Outbox = %+v", s.Outbox)
-	}
-	if s.Flags.Enabled {
-		t.Error("Flags.Enabled = true, want false")
 	}
 }

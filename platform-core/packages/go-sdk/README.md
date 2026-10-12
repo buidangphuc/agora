@@ -1,7 +1,7 @@
 # go-sdk
 
 Shared platform layer for Go services: config, logging, tracing, auth, health,
-lifecycle, Postgres, migrations, retries and the gRPC server chain.
+lifecycle, Postgres, migrations and the gRPC server chain.
 
 Design and rules: [ADR-0016](../../docs/ADR/0016-go-service-convention-and-sdk.md).
 Module: `github.com/buidangphuc/platform-core/packages/go-sdk`.
@@ -16,13 +16,12 @@ All under `pkg/`.
 | `config` | `Load[T]()` from env tags (calls `Validate()` if defined), groups `Runtime`, `GRPC`, `Postgres`, `OTel`, and the `CheckEnvExample` drift check. |
 | `logx` | slog setup that adds request id, principal id and trace id from the context. |
 | `otelx` | OTLP/gRPC tracer and meter providers; a no-op when disabled; always sets the W3C propagator. |
-| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match), `RequireScopesAllowAnonymous` (public methods: a scoped anonymous caller passes). |
+| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match). |
 | `healthx` | Checker registry polled in the background; flips the gRPC health status; `Drain()` on shutdown. |
 | `lifecycle` | Runs `Run(ctx) error` components together with an ordered, deadline-bound shutdown (optional drain delay), and `Stack` for closers. |
 | `pgx` | Pool open with ping, health checker, `WithTx`. |
 | `migrate` | golang-migrate runner over a service's `migrations/` directory. |
 | `testkit` | Postgres container fixture for tests. |
-| `resilience` | Retry and circuit-breaker policies on failsafe-go. |
 | `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection), serving that drains, and the error-to-status table. |
 
 `examples/hello` wires all of the above and is the reference service.

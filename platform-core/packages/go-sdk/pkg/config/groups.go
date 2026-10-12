@@ -96,11 +96,3 @@ type Outbox struct {
 	ClaimLockSeconds int           `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
 	MaxAttempts      int           `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
 }
-
-// Flags holds the feature-flag settings. Enabled stays a flag because some
-// environments run without Flipt.
-type Flags struct {
-	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
-	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
-}
