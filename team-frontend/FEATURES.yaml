@@ -7716,3 +7716,383 @@ features:
     tags: [tracking, consent]
     status: automated
     covered_by: "tracking/consent.feature::No ecommerce push without analytics consent"
+
+  # --- add-ga4-destination (ga4-analytics wave 2) ---
+
+  - id: ga4-destination.container-defines-event-tags-for-the-ecommerce-funnel
+    title: "Container defines event tags for the ecommerce funnel"
+    persona: guest
+    priority: P1
+    summary: "Container defines event tags for the ecommerce funnel"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GTM container JSON is parsed"
+      - "Then it has exactly 1 GA4 configuration tag"
+      - "And it has one GA4 event tag for each funnel event with a custom-event trigger of the same name"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.every-tag-is-consent-gated
+    title: "Every tag is consent-gated"
+    persona: guest
+    priority: P1
+    summary: "Every tag is consent-gated"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GTM container JSON is parsed"
+      - "Then every tag requires analytics_storage consent and 0 tags are unconditional"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.purchase-is-not-sent-from-the-browser
+    title: "Purchase is not sent from the browser"
+    persona: guest
+    priority: P1
+    summary: "Purchase is not sent from the browser"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GTM container JSON is parsed"
+      - "Then it contains 0 tags whose event name is purchase"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.container-contains-no-key-or-secret-values
+    title: "Container contains no key or secret values"
+    persona: guest
+    priority: P1
+    summary: "Container contains no key or secret values"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GTM container JSON is parsed"
+      - "Then it contains 0 occurrences of any value of the HMAC key or the API secret"
+      - "And the measurement id is a variable, not a literal"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.logged-in-buyer-with-analytics-consent-gets-a-stable-hmac
+    title: "Logged-in buyer with analytics consent gets a stable HMAC"
+    persona: buyer
+    priority: P1
+    summary: "Logged-in buyer with analytics consent gets a stable HMAC"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When the buyer calls the identity endpoint twice with analytics consent"
+      - "Then both identity responses are 200 with the same 64-char hex userId equal to the reference HMAC"
+      - "And the identity body contains no raw user id, email or name"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.no-analytics-consent-yields-no-user-id
+    title: "No analytics consent yields no user_id"
+    persona: buyer
+    priority: P1
+    summary: "No analytics consent yields no user_id"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When the buyer calls the identity endpoint with a=0 and again with no consent cookie"
+      - "And the buyer opens the home page with analytics consent denied"
+      - "Then every identity response is 204 with an empty body"
+      - "And window.dataLayer holds 0 user_id entries"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.anonymous-caller-yields-no-user-id
+    title: "Anonymous caller yields no user_id"
+    persona: guest
+    priority: P1
+    summary: "Anonymous caller yields no user_id"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a caller with a=1 and no valid session calls the identity endpoint"
+      - "Then every identity response is 204 with an empty body"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.missing-key-disables-the-feature
+    title: "Missing key disables the feature"
+    persona: buyer
+    priority: P1
+    summary: "Missing key disables the feature"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When the buyer calls the identity endpoint with analytics consent on a deployment without the HMAC key"
+      - "Then every identity response is 204 with an empty body"
+      - "And the frontend log contains neither the buyer id nor the HMAC key"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.caller-cannot-request-another-user-s-id
+    title: "Caller cannot request another user's id"
+    persona: buyer
+    priority: P1
+    summary: "Caller cannot request another user's id"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "And another buyer exists"
+      - "When the buyer calls the identity endpoint with analytics consent naming the other buyer in a userId parameter"
+      - "Then the identity response is 200 with the HMAC of the session buyer only"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.response-is-not-cacheable
+    title: "Response is not cacheable"
+    persona: buyer
+    priority: P1
+    summary: "Response is not cacheable"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When the buyer calls the identity endpoint with analytics consent"
+      - "And a caller with a=1 and no valid session calls the identity endpoint"
+      - "Then every identity response has Cache-Control no-store"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.identity-calls-are-fast
+    title: "Identity calls are fast"
+    persona: buyer
+    priority: P1
+    summary: "Identity calls are fast"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When the buyer calls the identity endpoint 100 times with analytics consent"
+      - "Then the p95 latency of the identity calls is below 50 ms"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.consent-withdrawal-stops-user-id
+    title: "Consent withdrawal stops user_id"
+    persona: buyer
+    priority: P1
+    summary: "Consent withdrawal stops user_id"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When the buyer opens the home page with analytics consent granted"
+      - "And the buyer withdraws analytics consent through the Cookie settings link"
+      - "Then the dataLayer holds a consent update with analytics_storage denied after which no user_id is pushed"
+      - "And the next identity call with the browser cookies is 204"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.configured-environment-allowlists-the-google-hosts
+    title: "Configured environment allowlists the Google hosts"
+    persona: guest
+    priority: P1
+    summary: "Configured environment allowlists the Google hosts"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens the home page of a deployment with a GTM id while recording CSP violations"
+      - "Then the CSP header allows the Google analytics hosts in script-src, connect-src and img-src"
+      - "And the CSP header names no other third-party analytics host"
+      - "And 0 CSP violation reports were produced"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.unconfigured-environment-has-no-google-host
+    title: "Unconfigured environment has no Google host"
+    persona: guest
+    priority: P1
+    summary: "Unconfigured environment has no Google host"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens the home page of a deployment without a GTM id while recording CSP violations"
+      - "Then the CSP header is present and contains 0 Google analytics hosts"
+      - "And the browser made 0 requests to Google hosts"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.unlisted-host-is-blocked
+    title: "Unlisted host is blocked"
+    persona: guest
+    priority: P1
+    summary: "Unlisted host is blocked"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor opens the home page while recording CSP violations"
+      - "And a script from an unlisted host is injected"
+      - "Then the browser blocks it and reports a CSP violation"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.staging-events-carry-debug-mode
+    title: "Staging events carry debug_mode"
+    persona: guest
+    priority: P1
+    summary: "Staging events carry debug_mode"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a buyer opens the home page with analytics consent on a staging deployment"
+      - "Then window.dataLayer has an entry with debug_mode true"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.production-events-do-not-carry-debug-mode
+    title: "Production events do not carry debug_mode"
+    persona: guest
+    priority: P1
+    summary: "Production events do not carry debug_mode"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a buyer opens the home page with analytics consent on a production deployment"
+      - "Then window.dataLayer holds ecommerce entries and none has debug_mode true"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.no-ids-in-dev-ci-and-e2e
+    title: "No IDs in dev, CI and e2e"
+    persona: buyer
+    priority: P1
+    summary: "No IDs in dev, CI and e2e"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "And a buyer is logged in"
+      - "When a visitor opens the home page of a deployment without a GTM id and without the HMAC key"
+      - "Then no GTM script element exists"
+      - "And the identity endpoint returns 204 for an authenticated consenting caller"
+      - "And the browser made 0 requests to Google hosts"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.beacon-carries-the-client-id-with-analytics-consent
+    title: "Beacon carries the client id with analytics consent"
+    persona: guest
+    priority: P1
+    summary: "Beacon carries the client id with analytics consent"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor with analytics consent and the cookie _ga \"GA1.1.1234567890.1700000000\" opens the home page"
+      - "And the tracking queue idle window elapses"
+      - "Then at least one beacon was sent and a beacon has a gaClientId that is \"1234567890.1700000000\""
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.no-consent-means-no-client-id
+    title: "No consent means no client id"
+    persona: guest
+    priority: P1
+    summary: "No consent means no client id"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor with the consent cookie \"<consent>\" and the cookie _ga \"GA1.1.1234567890.1700000000\" opens the home page"
+      - "And the tracking queue idle window elapses"
+      - "Then at least one beacon was sent and every beacon has a gaClientId that is empty"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.malformed-or-missing-ga-cookie
+    title: "Malformed or missing _ga cookie"
+    persona: guest
+    priority: P1
+    summary: "Malformed or missing _ga cookie"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor with analytics consent and the cookie _ga \"<ga>\" opens the home page"
+      - "And the tracking queue idle window elapses"
+      - "Then at least one beacon was sent and every beacon has a gaClientId that is empty"
+      - "And the page raised no uncaught exception"
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.batched-events-share-the-consent-decision
+    title: "Batched events share the consent decision"
+    persona: guest
+    priority: P1
+    summary: "Batched events share the consent decision"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor with the consent cookie \"v=1&a=0&m=0&p=0&ts=1760000000\" and the cookie _ga \"GA1.1.1234567890.1700000000\" opens the home page"
+      - "And the visitor scrolls the page to queue view events"
+      - "And the visitor clicks \"Accept all\" on the consent banner"
+      - "And the visitor scrolls the page to queue view events"
+      - "And the tracking queue idle window elapses"
+      - "Then every beacon enqueued before consent has an empty gaClientId and the later ones carry \"1234567890.1700000000\""
+    tags: [tracking, analytics]
+    status: planned
+
+  - id: ga4-destination.gaclientid-is-bounded-to-64-characters
+    title: "gaClientId is bounded to 64 characters"
+    persona: guest
+    priority: P1
+    summary: "gaClientId is bounded to 64 characters"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor with analytics consent and the cookie _ga \"GA1.1.<a>.<b>\" opens the home page"
+      - "And the tracking queue idle window elapses"
+      - "Then at least one beacon was sent and every beacon has a gaClientId that is <outcome>"
+    tags: [tracking, analytics]
+    status: planned
