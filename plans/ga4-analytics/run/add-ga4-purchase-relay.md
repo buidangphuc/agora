@@ -10,6 +10,7 @@ initiative: ga4-analytics | base: 7c1ccd77 | worktree: .claude/worktrees/add-ga4
 | client | 7 MP client scenarios | approved | 1 | a0967e11 | PASS | none | approve (4 NIT) | - |
 | relay | 15 relay scenarios | approved | 1 | b7bd1132 | PASS | none | approve (4 MINOR, 1 NIT: at-least-once window, DLQ holds buyer_id) | privacy at gate |
 | purge | privacy follow-up: physical purge of expired relay rows + DLQ retention alter-config (user 2026-10-12) | approved | 1 | d8129de2 | PASS | none | approve (2 NIT: unchecked Purger assertion, DuckDB pool not capped) | - |
+| ops | runAsNonRoot/read-only pod, CI runs gitops tests, local compose ga4-relay + DLQ topic, vault SERVICES (user 2026-10-12) | approved | 1 | 7c06afbf | PASS | none | approve (NIT: vault kv put overwrites hand-set GA4 keys on re-run; yq on runner unverified) | - |
 | cmd | Secret unset; probes only | approved | 1 (+MINOR fixes) | 0b23f2ea | PASS | none | approve (2 MINOR fixed: fetch-error record loss, commit retry) | - |
 | fe-map | 3 FE scenarios | approved | 1 | d58f8bb0 | PASS | none | approve (3 NIT) | - |
 | gitops | 4 gitops scenarios | approved | 2 | f71370fd | PASS (REDFIRST_PYTHON) | none | approve R2 (Vault server/path hardcoded MINOR) | NEEDS_HUMAN: Vault role, CI wiring, runAsNonRoot |

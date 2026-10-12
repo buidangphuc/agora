@@ -32,6 +32,10 @@ Implement OpenSpec change `add-ga4-purchase-relay` test-first per its tasks.md (
 - platform-gitops/platform/team-analytics/kustomization.yaml
 - platform-gitops/platform/infra/redpanda.yaml
 - platform-gitops/tests/test_ga4_relay_manifests.py
+- .github/workflows/asdlc-gates.yml
+- platform-gitops/platform/vault-config/vault-config.yaml
+- docker-compose.services.yaml
+- platform-core/infra/docker-compose.yaml
 - platform-e2e/tests/e2e/features/tracking/ga4_purchase_relay.feature
 - platform-e2e/tests/e2e/step_definitions/ga4_purchase_relay_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_ga4_purchase_relay.py
