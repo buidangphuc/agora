@@ -519,3 +519,18 @@ features:
       - "Then the dataset row for u-late counts interactions = 2 and its last_occurred_at is at T2"
     tags: [recsys, featurestore, batch, consent]
     status: planned
+
+  - id: featurestore.consent-missing-consent-is-treated-as-denied
+    title: "Missing consent is treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Missing consent is treated as denied"
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing consent is treated as denied (unit-verified)"
+    tags: [recsys, unit, consent]
+    status: not-testable
+    notes: "recsys-consent-and-context: unit-verified: platform-featurestore/tests/test_consent_filter.py test_missing_consent_is_denied. Not producible end to end."
