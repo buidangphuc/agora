@@ -66,7 +66,7 @@ func TestPermanentErrorGoesToDLQ(t *testing.T) {
 	brokers := testkit.Redpanda(t)
 	produce(t, brokers, "orders", "k1", "v1", kgo.RecordHeader{Key: "x-h", Value: []byte("hv")})
 
-	client, err := kafkax.NewConsumerClient(config.Kafka{Brokers: brokers}, "g-perm", "orders")
+	client, err := kafkax.NewConsumerClient(config.Kafka{Brokers: brokers}, "g-perm", []string{"orders"})
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestTransientErrorRetriesThenParks(t *testing.T) {
 	brokers := testkit.Redpanda(t)
 	produce(t, brokers, "orders", "k1", "v1")
 
-	client, err := kafkax.NewConsumerClient(config.Kafka{Brokers: brokers}, "g-retry", "orders")
+	client, err := kafkax.NewConsumerClient(config.Kafka{Brokers: brokers}, "g-retry", []string{"orders"})
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestDLQFailureDoesNotCommit(t *testing.T) {
 	produce(t, brokers, "orders", "k1", "v1")
 	kc := config.Kafka{Brokers: brokers}
 
-	first, err := kafkax.NewConsumerClient(kc, "g-dlqfail", "orders")
+	first, err := kafkax.NewConsumerClient(kc, "g-dlqfail", []string{"orders"})
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestDLQFailureDoesNotCommit(t *testing.T) {
 	}
 	first.Close()
 
-	second, err := kafkax.NewConsumerClient(kc, "g-dlqfail", "orders")
+	second, err := kafkax.NewConsumerClient(kc, "g-dlqfail", []string{"orders"})
 	if err != nil {
 		t.Fatalf("client: %v", err)
 	}

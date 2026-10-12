@@ -138,3 +138,39 @@ func TestPublishRecordKeepsCallerHeaders(t *testing.T) {
 		t.Errorf("x-request-id = %q, want r2", got)
 	}
 }
+
+func TestConsumerClientAcceptsOptions(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	kc := config.Kafka{Brokers: brokers}
+	const topic = "kafkax.autocreate"
+
+	client, err := kafkax.NewConsumerClient(kc, "g-opts", []string{topic},
+		kgo.AllowAutoTopicCreation(), kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	if err != nil {
+		t.Fatalf("NewConsumerClient: %v", err)
+	}
+	defer client.Close()
+
+	p, err := kafkax.NewProducer(kc, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		t.Fatalf("NewProducer: %v", err)
+	}
+	defer p.Close()
+	if err := p.Publish(context.Background(), topic, []byte("k"), []byte("v")); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var got []*kgo.Record
+	for len(got) == 0 {
+		f := client.PollFetches(ctx)
+		if ctx.Err() != nil {
+			t.Fatalf("no record before timeout: %v", f.Errors())
+		}
+		got = f.Records()
+	}
+	if string(got[0].Value) != "v" {
+		t.Errorf("value = %q, want v", got[0].Value)
+	}
+}

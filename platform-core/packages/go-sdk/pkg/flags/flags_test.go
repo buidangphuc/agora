@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/open-feature/go-sdk/openfeature/memprovider"
+
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/flags"
 )
@@ -51,5 +53,28 @@ func TestDisabledReturnsDefault(t *testing.T) {
 func TestEnabledRequiresAddr(t *testing.T) {
 	if _, err := flags.New(context.Background(), config.Flags{Enabled: true}, quiet); err == nil {
 		t.Fatal("New with empty FLIPT_ADDR: want error")
+	}
+}
+
+func TestNewWithProviderEvaluates(t *testing.T) {
+	p := memprovider.NewInMemoryProvider(map[string]memprovider.InMemoryFlag{
+		"checkout-enabled": {
+			State:          memprovider.Enabled,
+			DefaultVariant: "off",
+			Variants:       map[string]any{"on": true, "off": false},
+		},
+	})
+	c, err := flags.NewWithProvider(p, time.Second)
+	if err != nil {
+		t.Fatalf("NewWithProvider: %v", err)
+	}
+	if got := c.BooleanEnabled(context.Background(), "checkout-enabled", true); got {
+		t.Error("checkout-enabled = true, want false from the provider")
+	}
+	if got := c.BooleanEnabled(context.Background(), "unknown-flag", true); !got {
+		t.Error("unknown flag = false, want its default true")
+	}
+	if got := c.BooleanEnabled(context.Background(), "unknown-flag", false); got {
+		t.Error("unknown flag = true, want its default false")
 	}
 }

@@ -62,6 +62,7 @@ type DLQProducer interface {
 // Consumer dispatches records from a consumer-group client.
 type Consumer struct {
 	client  *kgo.Client
+	poll    func(context.Context) kgo.Fetches // client.PollFetches; a test seam
 	handler Handler
 	dlq     DLQProducer
 	opts    Options
@@ -82,7 +83,7 @@ func NewConsumer(client *kgo.Client, h Handler, dlq DLQProducer, o Options) *Con
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Consumer{client: client, handler: h, dlq: dlq, opts: o}
+	return &Consumer{client: client, poll: client.PollFetches, handler: h, dlq: dlq, opts: o}
 }
 
 // Run polls until ctx is cancelled (it then returns nil) or a record can be
@@ -90,7 +91,7 @@ func NewConsumer(client *kgo.Client, h Handler, dlq DLQProducer, o Options) *Con
 // committing the record, so a restart in the same group delivers it again.
 func (c *Consumer) Run(ctx context.Context) error {
 	for {
-		fetches := c.client.PollFetches(ctx)
+		fetches := c.poll(ctx)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
