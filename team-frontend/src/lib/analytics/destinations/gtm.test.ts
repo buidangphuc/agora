@@ -17,6 +17,17 @@ const consentEntries = (): Entry[] =>
     )
     .filter((e): e is Entry => Array.isArray(e) && e[0] === "consent");
 
+const isArguments = (e: unknown) =>
+  Object.prototype.toString.call(e) === "[object Arguments]";
+const rawConsentEntries = () =>
+  ((window.dataLayer ?? []) as unknown[]).filter((e) => {
+    const a =
+      e && typeof e === "object" && "length" in e
+        ? Array.from(e as ArrayLike<unknown>)
+        : e;
+    return Array.isArray(a) && a[0] === "consent";
+  });
+
 const ALL = { analytics: true, marketing: true, personalization: true };
 const NONE = { analytics: false, marketing: false, personalization: false };
 
@@ -130,5 +141,20 @@ describe("applyConsent (Consent Mode v2 basic gating)", () => {
     expect(last[2].analytics_storage).toBe("denied");
     expect(last[2].ad_storage).toBe("denied");
     expect(gtmScripts()).toHaveLength(1);
+  });
+
+  it("[Accept analytics loads GTM and updates consent] consent commands are Arguments objects (gtag/GTM ignore plain arrays)", () => {
+    applyConsent(ALL);
+    const raw = rawConsentEntries();
+    expect(raw).toHaveLength(2);
+    expect(raw.every(isArguments)).toBe(true);
+  });
+
+  it("[Revoking analytics stops pushes] the denied update is an Arguments object", () => {
+    applyConsent(ALL);
+    applyConsent(NONE);
+    const raw = rawConsentEntries();
+    expect(raw.length).toBeGreaterThanOrEqual(3);
+    expect(raw.every(isArguments)).toBe(true);
   });
 });
