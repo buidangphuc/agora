@@ -1,47 +1,32 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
-	"sort"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+
+	"github.com/buidangphuc/team-chat/migrations"
 )
 
 func chatPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL set; skipping Postgres chat outbox test")
-	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
+	url := testkit.Postgres(t)
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := sdkpgx.Open(ctx, sdkconfig.Postgres{URL: url, MaxConns: 4})
 	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
+		t.Fatalf("open pool: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	files, _ := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
-	sort.Strings(files)
-	for _, f := range files {
-		ddl, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatalf("read %s: %v", f, err)
-		}
-		if _, err := pool.Exec(ctx, string(ddl)); err != nil {
-			t.Fatalf("apply %s: %v", f, err)
-		}
-	}
-	for _, q := range []string{`DELETE FROM chat_outbox_events`, `DELETE FROM chat_messages`, `DELETE FROM chat_threads`} {
-		if _, err := pool.Exec(ctx, q); err != nil {
-			t.Fatalf("reset (%s): %v", q, err)
-		}
-	}
 	return pool
 }
 
@@ -56,7 +41,7 @@ func countRows(t *testing.T, pool *pgxpool.Pool, table string) int {
 
 // The message and its outbox row are one transaction. A failure after the message
 // insert (builder error, or the outbox insert itself failing) stores neither; success
-// stores both. Runs only against a disposable Postgres (TEST_DATABASE_URL).
+// stores both. Runs against a testkit Postgres container.
 func TestSaveMessageIsAtomicWithOutbox_Postgres(t *testing.T) {
 	pool := chatPool(t)
 	ctx := context.Background()

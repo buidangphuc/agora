@@ -1,4 +1,6 @@
-package service
+// Package chat holds the chat business rules: thread participation, message
+// validation and paging bounds. It never imports grpc.
+package chat
 
 import (
 	"context"
@@ -7,9 +9,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/buidangphuc/team-chat/internal/repository"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
+// Errors the chat service returns; handlers map them to gRPC codes.
 var (
 	ErrEmptySender      = errors.New("sender_id is required")
 	ErrEmptyContent     = errors.New("message content cannot be empty")
@@ -18,36 +21,40 @@ var (
 	ErrSelfChat         = errors.New("cannot create chat thread with oneself")
 )
 
-type ChatService struct {
-	repo   repository.ChatRepository
+// Service holds the chat rules: who may see a thread, message validation, paging bounds.
+type Service struct {
+	repo   store.ChatRepository
 	logger *slog.Logger
 }
 
-func NewChatService(repo repository.ChatRepository, logger *slog.Logger) *ChatService {
+// NewService builds a Service over repo; a nil logger means slog.Default().
+func NewService(repo store.ChatRepository, logger *slog.Logger) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &ChatService{repo: repo, logger: logger}
+	return &Service{repo: repo, logger: logger}
 }
 
-func (s *ChatService) GetOrCreateThread(
+// GetOrCreateThread returns the thread between buyer and seller for a listing, creating it on first use.
+func (s *Service) GetOrCreateThread(
 	ctx context.Context,
 	buyerID, sellerID, listingID, listingTitle, listingImage string,
-) (repository.ChatThread, error) {
+) (store.ChatThread, error) {
 	if buyerID == "" || sellerID == "" {
-		return repository.ChatThread{}, errors.New("buyer_id and seller_id are required")
+		return store.ChatThread{}, errors.New("buyer_id and seller_id are required")
 	}
 	if buyerID == sellerID {
-		return repository.ChatThread{}, ErrSelfChat
+		return store.ChatThread{}, ErrSelfChat
 	}
 	return s.repo.GetOrCreateThread(ctx, buyerID, sellerID, listingID, listingTitle, listingImage)
 }
 
-func (s *ChatService) ListThreads(
+// ListThreads returns one page of the threads userID takes part in, and the total.
+func (s *Service) ListThreads(
 	ctx context.Context,
 	userID string,
 	page, pageSize int,
-) ([]repository.ChatThread, int64, error) {
+) ([]store.ChatThread, int64, error) {
 	if userID == "" {
 		return nil, 0, ErrEmptySender
 	}
@@ -61,11 +68,12 @@ func (s *ChatService) ListThreads(
 	return s.repo.ListThreadsForUser(ctx, userID, offset, pageSize)
 }
 
-func (s *ChatService) GetThreadMessages(
+// GetThreadMessages returns one page of a thread's messages; only a participant may read them.
+func (s *Service) GetThreadMessages(
 	ctx context.Context,
 	threadID, userID string,
 	page, pageSize int,
-) ([]repository.ChatMessage, int64, error) {
+) ([]store.ChatMessage, int64, error) {
 	if threadID == "" {
 		return nil, 0, ErrEmptyThreadID
 	}
@@ -90,17 +98,17 @@ func (s *ChatService) GetThreadMessages(
 // SearchMessages returns the caller's messages whose content matches query,
 // scoped to threads where the caller participates. A blank query returns an
 // empty result (no full-table scan).
-func (s *ChatService) SearchMessages(
+func (s *Service) SearchMessages(
 	ctx context.Context,
 	userID, query string,
 	page, pageSize int,
-) ([]repository.ChatMessage, int64, error) {
+) ([]store.ChatMessage, int64, error) {
 	if userID == "" {
 		return nil, 0, ErrEmptySender
 	}
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return []repository.ChatMessage{}, 0, nil
+		return []store.ChatMessage{}, 0, nil
 	}
 
 	if page < 1 {
@@ -115,40 +123,40 @@ func (s *ChatService) SearchMessages(
 
 // SendMessage sends a plain TEXT message. Kept for back-compat; delegates to
 // SendRichMessage with MessageType TEXT and no rich payload.
-func (s *ChatService) SendMessage(
+func (s *Service) SendMessage(
 	ctx context.Context,
 	threadID, senderID, senderName, content string,
-) (repository.ChatMessage, error) {
+) (store.ChatMessage, error) {
 	return s.SendRichMessage(ctx, threadID, senderID, senderName, content, 0, "", "")
 }
 
 // SendRichMessage persists a message that may carry a rich type (LISTING_CARD /
 // QUICK_REPLY) plus an optional listing_id and JSON payload. Auth-scoped: only a
 // thread participant may send.
-func (s *ChatService) SendRichMessage(
+func (s *Service) SendRichMessage(
 	ctx context.Context,
 	threadID, senderID, senderName, content string,
 	messageType int32, listingID, payload string,
-) (repository.ChatMessage, error) {
+) (store.ChatMessage, error) {
 	if threadID == "" {
-		return repository.ChatMessage{}, ErrEmptyThreadID
+		return store.ChatMessage{}, ErrEmptyThreadID
 	}
 	if senderID == "" {
-		return repository.ChatMessage{}, ErrEmptySender
+		return store.ChatMessage{}, ErrEmptySender
 	}
 	if content == "" {
-		return repository.ChatMessage{}, ErrEmptyContent
+		return store.ChatMessage{}, ErrEmptyContent
 	}
 
 	thread, err := s.repo.GetThreadByID(ctx, threadID)
 	if err != nil {
-		return repository.ChatMessage{}, err
+		return store.ChatMessage{}, err
 	}
 	if thread.BuyerID != senderID && thread.SellerID != senderID {
-		return repository.ChatMessage{}, ErrUnauthorizedChat
+		return store.ChatMessage{}, ErrUnauthorizedChat
 	}
 
-	msg := repository.ChatMessage{
+	msg := store.ChatMessage{
 		ThreadID:    threadID,
 		SenderID:    senderID,
 		SenderName:  senderName,
@@ -164,38 +172,40 @@ func (s *ChatService) SendRichMessage(
 
 	saved, err := s.repo.SaveMessage(ctx, msg)
 	if err != nil {
-		return repository.ChatMessage{}, fmt.Errorf("save message: %w", err)
+		return store.ChatMessage{}, fmt.Errorf("save message: %w", err)
 	}
 	return saved, nil
 }
 
 // ListQuickReplies returns a seller's canned quick-reply templates. Falls back
 // to seeded defaults when the seller has configured none.
-func (s *ChatService) ListQuickReplies(ctx context.Context, sellerID string) ([]string, error) {
+func (s *Service) ListQuickReplies(ctx context.Context, sellerID string) ([]string, error) {
 	if sellerID == "" {
 		return nil, ErrEmptySender
 	}
 	return s.repo.ListQuickReplies(ctx, sellerID)
 }
 
-func (s *ChatService) GetThread(ctx context.Context, threadID, userID string) (repository.ChatThread, error) {
+// GetThread returns a thread by id; only a participant may read it.
+func (s *Service) GetThread(ctx context.Context, threadID, userID string) (store.ChatThread, error) {
 	if threadID == "" {
-		return repository.ChatThread{}, ErrEmptyThreadID
+		return store.ChatThread{}, ErrEmptyThreadID
 	}
 	if userID == "" {
-		return repository.ChatThread{}, ErrEmptySender
+		return store.ChatThread{}, ErrEmptySender
 	}
 	thread, err := s.repo.GetThreadByID(ctx, threadID)
 	if err != nil {
-		return repository.ChatThread{}, err
+		return store.ChatThread{}, err
 	}
 	if thread.BuyerID != userID && thread.SellerID != userID {
-		return repository.ChatThread{}, ErrUnauthorizedChat
+		return store.ChatThread{}, ErrUnauthorizedChat
 	}
 	return thread, nil
 }
 
-func (s *ChatService) MarkThreadRead(ctx context.Context, threadID, userID string) error {
+// MarkThreadRead clears userID's unread counter on a thread they take part in.
+func (s *Service) MarkThreadRead(ctx context.Context, threadID, userID string) error {
 	if threadID == "" {
 		return ErrEmptyThreadID
 	}
@@ -213,7 +223,7 @@ func (s *ChatService) MarkThreadRead(ctx context.Context, threadID, userID strin
 }
 
 // recipientOf returns the thread participant who is not senderID.
-func recipientOf(t repository.ChatThread, senderID string) string {
+func recipientOf(t store.ChatThread, senderID string) string {
 	if t.BuyerID == senderID {
 		return t.SellerID
 	}

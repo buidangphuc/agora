@@ -1,15 +1,16 @@
-package repository_test
+package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-chat/internal/repository"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
 func TestInMemoryChatRepository_GetOrCreateThread(t *testing.T) {
-	repo := repository.NewInMemoryChatRepository()
+	repo := store.NewInMemoryChatRepository()
 	ctx := context.Background()
 
 	// 1. Create a new thread
@@ -44,13 +45,13 @@ func TestInMemoryChatRepository_GetOrCreateThread(t *testing.T) {
 
 	// 4. Not found thread
 	_, err = repo.GetThreadByID(ctx, "non-existent")
-	if err != repository.ErrThreadNotFound {
+	if !errors.Is(err, store.ErrThreadNotFound) {
 		t.Fatalf("expected ErrThreadNotFound, got %v", err)
 	}
 }
 
 func TestInMemoryChatRepository_MessagesAndUnreadCounts(t *testing.T) {
-	repo := repository.NewInMemoryChatRepository()
+	repo := store.NewInMemoryChatRepository()
 	ctx := context.Background()
 
 	thread, err := repo.GetOrCreateThread(ctx, "buyer-1", "seller-1", "listing-1", "Product", "")
@@ -59,7 +60,7 @@ func TestInMemoryChatRepository_MessagesAndUnreadCounts(t *testing.T) {
 	}
 
 	// 1. Buyer sends message
-	msg1, err := repo.SaveMessage(ctx, repository.ChatMessage{
+	msg1, err := repo.SaveMessage(ctx, store.ChatMessage{
 		ThreadID:   thread.ID,
 		SenderID:   "buyer-1",
 		SenderName: "Buyer User",
@@ -98,7 +99,7 @@ func TestInMemoryChatRepository_MessagesAndUnreadCounts(t *testing.T) {
 	}
 
 	// 3. Seller sends reply
-	msg2, err := repo.SaveMessage(ctx, repository.ChatMessage{
+	msg2, err := repo.SaveMessage(ctx, store.ChatMessage{
 		ThreadID:   thread.ID,
 		SenderID:   "seller-1",
 		SenderName: "Seller Shop",
@@ -142,7 +143,7 @@ func TestInMemoryChatRepository_MessagesAndUnreadCounts(t *testing.T) {
 }
 
 func TestInMemoryChatRepository_SearchMessages(t *testing.T) {
-	repo := repository.NewInMemoryChatRepository()
+	repo := store.NewInMemoryChatRepository()
 	ctx := context.Background()
 
 	// buyer-1 <-> seller-1 thread
@@ -150,11 +151,11 @@ func TestInMemoryChatRepository_SearchMessages(t *testing.T) {
 	// buyer-2 <-> seller-2 thread (unrelated to buyer-1)
 	tB, _ := repo.GetOrCreateThread(ctx, "buyer-2", "seller-2", "listing-2", "Item", "")
 
-	_, _ = repo.SaveMessage(ctx, repository.ChatMessage{ThreadID: tA.ID, SenderID: "buyer-1", Content: "Còn hàng giao nhanh không shop?"})
+	_, _ = repo.SaveMessage(ctx, store.ChatMessage{ThreadID: tA.ID, SenderID: "buyer-1", Content: "Còn hàng giao nhanh không shop?"})
 	time.Sleep(5 * time.Millisecond)
-	_, _ = repo.SaveMessage(ctx, repository.ChatMessage{ThreadID: tA.ID, SenderID: "seller-1", Content: "Dạ còn hàng nhé bạn"})
+	_, _ = repo.SaveMessage(ctx, store.ChatMessage{ThreadID: tA.ID, SenderID: "seller-1", Content: "Dạ còn hàng nhé bạn"})
 	// A message in an unrelated thread that also contains the term.
-	_, _ = repo.SaveMessage(ctx, repository.ChatMessage{ThreadID: tB.ID, SenderID: "buyer-2", Content: "hàng này bảo hành lâu không?"})
+	_, _ = repo.SaveMessage(ctx, store.ChatMessage{ThreadID: tB.ID, SenderID: "buyer-2", Content: "hàng này bảo hành lâu không?"})
 
 	// 1. Match found, scoped to caller's threads, newest-first (case-insensitive ILIKE).
 	msgs, total, err := repo.SearchMessages(ctx, "buyer-1", "HÀNG", 0, 10)
@@ -194,7 +195,7 @@ func TestInMemoryChatRepository_SearchMessages(t *testing.T) {
 }
 
 func TestInMemoryChatRepository_ListThreadsForUser(t *testing.T) {
-	repo := repository.NewInMemoryChatRepository()
+	repo := store.NewInMemoryChatRepository()
 	ctx := context.Background()
 
 	t1, err := repo.GetOrCreateThread(ctx, "user-a", "user-b", "listing-1", "Item 1", "")

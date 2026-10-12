@@ -1,8 +1,7 @@
-package grpcserver_test
+package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
@@ -12,24 +11,28 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
+
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
-	"github.com/buidangphuc/team-chat/internal/config"
-	"github.com/buidangphuc/team-chat/internal/grpcserver"
-	"github.com/buidangphuc/team-chat/internal/handler"
-	"github.com/buidangphuc/team-chat/internal/repository"
-	"github.com/buidangphuc/team-chat/internal/service"
+	"github.com/buidangphuc/team-chat/internal/chat"
+	"github.com/buidangphuc/team-chat/internal/rpc"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
 func startServer(t *testing.T) chatv1.ChatServiceClient {
 	t.Helper()
-	s := &config.Settings{}
-	s.Server.Port = 0
-	s.Server.ReflectionEnabled = false
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	repo := repository.NewInMemoryChatRepository()
-	svc := service.NewChatService(repo, logger)
-	h := handler.NewChatHandler(svc, logger)
-	srv := grpcserver.Build(s, h, nil, logger)
+	logger := slog.New(slog.DiscardHandler)
+	repo := store.NewInMemoryChatRepository()
+	svc := chat.NewService(repo, logger)
+	h := rpc.NewChatHandler(svc, logger)
+	srv := grpcx.NewServer(grpcx.ServerOptions{
+		Config: sdkconfig.GRPC{},
+		Logger: logger,
+		Health: healthx.New(healthx.DefaultInterval, logger),
+	})
+	rpc.Register(srv, h)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {

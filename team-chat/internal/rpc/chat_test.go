@@ -1,8 +1,7 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -10,20 +9,20 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
-	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-chat/generated/platform/events/v1"
+	"github.com/buidangphuc/team-chat/internal/chat"
 	"github.com/buidangphuc/team-chat/internal/events"
-	"github.com/buidangphuc/team-chat/internal/handler"
-	"github.com/buidangphuc/team-chat/internal/interceptor"
-	"github.com/buidangphuc/team-chat/internal/repository"
-	"github.com/buidangphuc/team-chat/internal/service"
+	"github.com/buidangphuc/team-chat/internal/rpc"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
 // eventProbe reads the chat.events outbox rows the repository wrote while saving
 // messages: the handler no longer publishes directly.
 type eventProbe struct {
-	outbox *repository.InMemoryOutboxRepository
+	outbox *store.InMemoryOutbox
 }
 
 func (p *eventProbe) count() int { return len(p.outbox.EnqueuedRows()) }
@@ -51,25 +50,25 @@ func (p *eventProbe) messages(t *testing.T) []*chatv1.ChatMessage {
 	return out
 }
 
-func setupTestHandler() (*handler.ChatHandler, *service.ChatService, *eventProbe, repository.ChatRepository) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	outbox := repository.NewInMemoryOutboxRepository()
-	repo := repository.NewInMemoryChatRepository(
-		repository.WithMessageOutbox(events.BuildMessageOutboxRow),
-		repository.WithInMemoryOutbox(outbox),
+func setupTestHandler() (*rpc.ChatHandler, *chat.Service, *eventProbe, store.ChatRepository) {
+	logger := slog.New(slog.DiscardHandler)
+	outbox := store.NewInMemoryOutbox()
+	repo := store.NewInMemoryChatRepository(
+		store.WithMessageOutbox(events.BuildMessageOutboxRow),
+		store.WithInMemoryOutbox(outbox),
 	)
-	svc := service.NewChatService(repo, logger)
-	h := handler.NewChatHandler(svc, logger)
+	svc := chat.NewService(repo, logger)
+	h := rpc.NewChatHandler(svc, logger)
 	return h, svc, &eventProbe{outbox: outbox}, repo
 }
 
 func contextWithUser(userID string) context.Context {
-	principal := &commonv1.Principal{
-		Id:     userID,
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
+	principal := auth.Principal{
+		ID:     userID,
+		Type:   "user",
 		Scopes: []string{"chat:read", "chat:write"},
 	}
-	return interceptor.ContextWithPrincipal(context.Background(), principal)
+	return auth.WithPrincipal(context.Background(), principal)
 }
 
 func TestChatHandler_GetOrCreateThread(t *testing.T) {
@@ -425,7 +424,7 @@ func TestChatHandler_ListQuickReplies(t *testing.T) {
 	}
 
 	// 3. Seller-configured replies are returned verbatim.
-	inMem, ok := repo.(*repository.InMemoryChatRepository)
+	inMem, ok := repo.(*store.InMemoryChatRepository)
 	if !ok {
 		t.Fatalf("expected InMemoryChatRepository, got %T", repo)
 	}

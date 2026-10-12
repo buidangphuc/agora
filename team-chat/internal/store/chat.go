@@ -1,4 +1,7 @@
-package repository
+// Package store persists chat threads and messages in Postgres, with an
+// in-memory twin for unit tests, and writes the chat.events outbox row in the
+// message transaction.
+package store
 
 import (
 	"context"
@@ -12,10 +15,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 )
 
+// ErrThreadNotFound is returned when a thread id matches no thread.
 var ErrThreadNotFound = errors.New("chat thread not found")
 
+// ChatThread is one buyer-seller conversation about a listing.
 type ChatThread struct {
 	ID                string
 	BuyerID           string
@@ -31,6 +38,7 @@ type ChatThread struct {
 	UpdatedAt         time.Time
 }
 
+// ChatMessage is one message in a thread.
 type ChatMessage struct {
 	ID          string
 	ThreadID    string
@@ -61,7 +69,7 @@ type ChatRepoOption func(*chatRepoConfig)
 
 type chatRepoConfig struct {
 	messageOutbox MessageOutboxBuilder
-	outbox        OutboxRepository // in-memory repo only
+	inMemory      *InMemoryOutbox // in-memory repo only
 }
 
 // WithMessageOutbox makes every saved message write an outbox row built by b in
@@ -73,8 +81,8 @@ func WithMessageOutbox(b MessageOutboxBuilder) ChatRepoOption {
 // WithInMemoryOutbox sets the outbox store the in-memory repository enqueues to,
 // atomically with the message. Ignored by the Postgres repository, which always
 // writes to chat_outbox_events in its own transaction.
-func WithInMemoryOutbox(o OutboxRepository) ChatRepoOption {
-	return func(c *chatRepoConfig) { c.outbox = o }
+func WithInMemoryOutbox(o *InMemoryOutbox) ChatRepoOption {
+	return func(c *chatRepoConfig) { c.inMemory = o }
 }
 
 func newChatRepoConfig(opts []ChatRepoOption) chatRepoConfig {
@@ -85,6 +93,7 @@ func newChatRepoConfig(opts []ChatRepoOption) chatRepoConfig {
 	return c
 }
 
+// ChatRepository is the storage the chat service needs.
 type ChatRepository interface {
 	GetOrCreateThread(ctx context.Context, buyerID, sellerID, listingID, listingTitle, listingImage string) (ChatThread, error)
 	GetThreadByID(ctx context.Context, threadID string) (ChatThread, error)
@@ -109,14 +118,17 @@ func defaultQuickReplies() []string {
 
 // ── Postgres Implementation ──────────────────────────────────────────
 
+// PostgresChatRepository stores chat in Postgres; every saved message writes its outbox row in the same transaction.
 type PostgresChatRepository struct {
 	pool          *pgxpool.Pool
+	outbox        *outbox.Store
 	messageOutbox MessageOutboxBuilder
 }
 
+// NewPostgresChatRepository builds the Postgres repository over pool.
 func NewPostgresChatRepository(pool *pgxpool.Pool, opts ...ChatRepoOption) *PostgresChatRepository {
 	cfg := newChatRepoConfig(opts)
-	return &PostgresChatRepository{pool: pool, messageOutbox: cfg.messageOutbox}
+	return &PostgresChatRepository{pool: pool, outbox: outbox.NewStore(pool, OutboxTable), messageOutbox: cfg.messageOutbox}
 }
 
 const threadColumns = `id, buyer_id, seller_id, listing_id, listing_title, listing_image_url, last_message_text, last_message_at, unread_count_buyer, unread_count_seller, created_at, updated_at`
@@ -140,6 +152,7 @@ func scanThread(row pgx.Row) (ChatThread, error) {
 	return t, err
 }
 
+// GetOrCreateThread returns the thread for (buyer, seller, listing), creating it when missing.
 func (r *PostgresChatRepository) GetOrCreateThread(
 	ctx context.Context,
 	buyerID, sellerID, listingID, listingTitle, listingImage string,
@@ -180,6 +193,7 @@ func (r *PostgresChatRepository) GetOrCreateThread(
 	return scanThread(row)
 }
 
+// GetThreadByID returns a thread, or ErrThreadNotFound.
 func (r *PostgresChatRepository) GetThreadByID(ctx context.Context, threadID string) (ChatThread, error) {
 	const q = `SELECT ` + threadColumns + ` FROM chat_threads WHERE id = $1`
 	t, err := scanThread(r.pool.QueryRow(ctx, q, threadID))
@@ -189,6 +203,7 @@ func (r *PostgresChatRepository) GetThreadByID(ctx context.Context, threadID str
 	return t, err
 }
 
+// ListThreadsForUser returns one page of userID's threads, newest activity first, and the total.
 func (r *PostgresChatRepository) ListThreadsForUser(ctx context.Context, userID string, offset, limit int) ([]ChatThread, int64, error) {
 	const countQ = `SELECT COUNT(*) FROM chat_threads WHERE buyer_id = $1 OR seller_id = $1`
 	var total int64
@@ -212,6 +227,7 @@ func (r *PostgresChatRepository) ListThreadsForUser(ctx context.Context, userID 
 	return threads, total, nil
 }
 
+// SaveMessage inserts msg, updates its thread and enqueues the event row in one transaction.
 func (r *PostgresChatRepository) SaveMessage(ctx context.Context, msg ChatMessage) (ChatMessage, error) {
 	if msg.ID == "" {
 		msg.ID = uuid.NewString()
@@ -248,7 +264,7 @@ func (r *PostgresChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 		if err != nil {
 			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return ChatMessage{}, err
 		}
 	}
@@ -259,6 +275,7 @@ func (r *PostgresChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 	return msg, nil
 }
 
+// GetThreadMessages returns one page of a thread's messages, oldest first, and the total.
 func (r *PostgresChatRepository) GetThreadMessages(ctx context.Context, threadID string, offset, limit int) ([]ChatMessage, int64, error) {
 	const countQ = `SELECT COUNT(*) FROM chat_messages WHERE thread_id = $1`
 	var total int64
@@ -336,6 +353,7 @@ func (r *PostgresChatRepository) ListQuickReplies(ctx context.Context, sellerID 
 	return replies, nil
 }
 
+// MarkThreadRead zeroes userID's unread counter on the thread.
 func (r *PostgresChatRepository) MarkThreadRead(ctx context.Context, threadID, userID string) error {
 	const q = `UPDATE chat_threads SET
 		unread_count_buyer = CASE WHEN buyer_id = $1 THEN 0 ELSE unread_count_buyer END,
@@ -347,6 +365,7 @@ func (r *PostgresChatRepository) MarkThreadRead(ctx context.Context, threadID, u
 
 // ── InMemory Implementation ───────────────────────────────────────────
 
+// InMemoryChatRepository is a deterministic ChatRepository for unit tests.
 type InMemoryChatRepository struct {
 	cfg          chatRepoConfig
 	mu           sync.RWMutex
@@ -355,6 +374,7 @@ type InMemoryChatRepository struct {
 	quickReplies map[string][]string // sellerID -> canned replies
 }
 
+// NewInMemoryChatRepository builds an empty in-memory repository.
 func NewInMemoryChatRepository(opts ...ChatRepoOption) *InMemoryChatRepository {
 	return &InMemoryChatRepository{
 		cfg:          newChatRepoConfig(opts),
@@ -371,6 +391,7 @@ func (r *InMemoryChatRepository) SetQuickReplies(sellerID string, replies []stri
 	r.quickReplies[sellerID] = replies
 }
 
+// ListQuickReplies returns the seller's canned replies, or the defaults.
 func (r *InMemoryChatRepository) ListQuickReplies(_ context.Context, sellerID string) ([]string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -381,6 +402,7 @@ func (r *InMemoryChatRepository) ListQuickReplies(_ context.Context, sellerID st
 	return defaultQuickReplies(), nil
 }
 
+// GetOrCreateThread returns the thread for (buyer, seller, listing), creating it when missing.
 func (r *InMemoryChatRepository) GetOrCreateThread(
 	_ context.Context,
 	buyerID, sellerID, listingID, listingTitle, listingImage string,
@@ -409,6 +431,7 @@ func (r *InMemoryChatRepository) GetOrCreateThread(
 	return t, nil
 }
 
+// GetThreadByID returns a thread, or ErrThreadNotFound.
 func (r *InMemoryChatRepository) GetThreadByID(_ context.Context, threadID string) (ChatThread, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -420,6 +443,7 @@ func (r *InMemoryChatRepository) GetThreadByID(_ context.Context, threadID strin
 	return t, nil
 }
 
+// ListThreadsForUser returns one page of userID's threads, newest activity first, and the total.
 func (r *InMemoryChatRepository) ListThreadsForUser(_ context.Context, userID string, offset, limit int) ([]ChatThread, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -446,6 +470,7 @@ func (r *InMemoryChatRepository) ListThreadsForUser(_ context.Context, userID st
 	return userThreads[offset:end], total, nil
 }
 
+// SaveMessage stores msg and records its event row.
 func (r *InMemoryChatRepository) SaveMessage(ctx context.Context, msg ChatMessage) (ChatMessage, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -456,14 +481,12 @@ func (r *InMemoryChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 	msg.CreatedAt = time.Now()
 	// Build and enqueue the event before storing anything, so a failure leaves
 	// neither the message nor an event (mirrors the Postgres transaction).
-	if r.cfg.messageOutbox != nil && r.cfg.outbox != nil {
+	if r.cfg.messageOutbox != nil && r.cfg.inMemory != nil {
 		row, err := r.cfg.messageOutbox(ctx, msg)
 		if err != nil {
 			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
 		}
-		if err := r.cfg.outbox.Enqueue(ctx, row); err != nil {
-			return ChatMessage{}, err
-		}
+		r.cfg.inMemory.Enqueue(row)
 	}
 	r.messages[msg.ThreadID] = append(r.messages[msg.ThreadID], msg)
 
@@ -483,6 +506,7 @@ func (r *InMemoryChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 	return msg, nil
 }
 
+// GetThreadMessages returns one page of a thread's messages, oldest first, and the total.
 func (r *InMemoryChatRepository) GetThreadMessages(_ context.Context, threadID string, offset, limit int) ([]ChatMessage, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -499,6 +523,7 @@ func (r *InMemoryChatRepository) GetThreadMessages(_ context.Context, threadID s
 	return msgs[offset:end], total, nil
 }
 
+// SearchMessages returns the messages in userID's threads that match query.
 func (r *InMemoryChatRepository) SearchMessages(_ context.Context, userID, query string, offset, limit int) ([]ChatMessage, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -533,6 +558,7 @@ func (r *InMemoryChatRepository) SearchMessages(_ context.Context, userID, query
 	return matches[offset:end], total, nil
 }
 
+// MarkThreadRead zeroes userID's unread counter on the thread.
 func (r *InMemoryChatRepository) MarkThreadRead(_ context.Context, threadID, userID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

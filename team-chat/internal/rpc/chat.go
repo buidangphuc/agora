@@ -1,4 +1,7 @@
-package handler
+// Package rpc is the gRPC transport adapter: it implements chat.v1.ChatService,
+// authorizes each call, maps between wire (protobuf) and domain types, and turns
+// errors into gRPC statuses. Business rules live in internal/chat.
+package rpc
 
 import (
 	"context"
@@ -10,23 +13,25 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
-	"github.com/buidangphuc/team-chat/internal/interceptor"
-	"github.com/buidangphuc/team-chat/internal/repository"
-	"github.com/buidangphuc/team-chat/internal/service"
+	"github.com/buidangphuc/team-chat/internal/chat"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
+// ChatHandler implements chat.v1.ChatService: it authorizes each call, calls the chat service and maps errors to gRPC statuses.
 type ChatHandler struct {
 	chatv1.UnimplementedChatServiceServer
-	svc    *service.ChatService
+	svc    *chat.Service
 	logger *slog.Logger
 }
 
-// NewChatHandler builds the gRPC handler. chat.events are not emitted here: the
+// NewChatHandler builds the gRPC rpc. chat.events are not emitted here: the
 // repository writes them to the outbox in the message transaction and the relayer
 // publishes them.
-func NewChatHandler(svc *service.ChatService, logger *slog.Logger) *ChatHandler {
+func NewChatHandler(svc *chat.Service, logger *slog.Logger) *ChatHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -36,31 +41,32 @@ func NewChatHandler(svc *service.ChatService, logger *slog.Logger) *ChatHandler 
 	}
 }
 
+// GetOrCreateThread opens (or returns) the thread between the caller and a seller.
 func (h *ChatHandler) GetOrCreateThread(
 	ctx context.Context,
 	req *chatv1.GetOrCreateThreadRequest,
 ) (*chatv1.GetOrCreateThreadResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if req.GetSellerId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
 	}
-	if principal.GetId() == req.GetSellerId() {
+	if principal.ID == req.GetSellerId() {
 		return nil, status.Error(codes.InvalidArgument, "cannot create chat thread with oneself")
 	}
 
 	thread, err := h.svc.GetOrCreateThread(
 		ctx,
-		principal.GetId(),
+		principal.ID,
 		req.GetSellerId(),
 		req.GetListingId(),
 		"Sản phẩm",
 		"",
 	)
 	if err != nil {
-		if errors.Is(err, service.ErrSelfChat) {
+		if errors.Is(err, chat.ErrSelfChat) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		return nil, internalErr(ctx, h.logger, "get or create thread", err)
@@ -71,11 +77,12 @@ func (h *ChatHandler) GetOrCreateThread(
 	}, nil
 }
 
+// ListThreads returns the caller's threads, one page at a time.
 func (h *ChatHandler) ListThreads(
 	ctx context.Context,
 	req *chatv1.ListThreadsRequest,
 ) (*chatv1.ListThreadsResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +99,7 @@ func (h *ChatHandler) ListThreads(
 		}
 	}
 
-	threads, total, err := h.svc.ListThreads(ctx, principal.GetId(), page, pageSize)
+	threads, total, err := h.svc.ListThreads(ctx, principal.ID, page, pageSize)
 	if err != nil {
 		return nil, internalErr(ctx, h.logger, "list threads", err)
 	}
@@ -116,11 +123,12 @@ func (h *ChatHandler) ListThreads(
 	}, nil
 }
 
+// GetThreadMessages returns one page of a thread's messages to a participant.
 func (h *ChatHandler) GetThreadMessages(
 	ctx context.Context,
 	req *chatv1.GetThreadMessagesRequest,
 ) (*chatv1.GetThreadMessagesResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -140,12 +148,12 @@ func (h *ChatHandler) GetThreadMessages(
 		}
 	}
 
-	msgs, total, err := h.svc.GetThreadMessages(ctx, req.GetThreadId(), principal.GetId(), page, pageSize)
+	msgs, total, err := h.svc.GetThreadMessages(ctx, req.GetThreadId(), principal.ID, page, pageSize)
 	if err != nil {
-		if errors.Is(err, service.ErrUnauthorizedChat) {
+		if errors.Is(err, chat.ErrUnauthorizedChat) {
 			return nil, status.Error(codes.PermissionDenied, "unauthorized to view this thread")
 		}
-		if errors.Is(err, repository.ErrThreadNotFound) {
+		if errors.Is(err, store.ErrThreadNotFound) {
 			return nil, status.Error(codes.NotFound, "thread not found")
 		}
 		return nil, internalErr(ctx, h.logger, "get thread messages", err)
@@ -170,11 +178,12 @@ func (h *ChatHandler) GetThreadMessages(
 	}, nil
 }
 
+// SearchMessages searches the caller's messages.
 func (h *ChatHandler) SearchMessages(
 	ctx context.Context,
 	req *chatv1.SearchMessagesRequest,
 ) (*chatv1.SearchMessagesResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +200,7 @@ func (h *ChatHandler) SearchMessages(
 		}
 	}
 
-	msgs, total, err := h.svc.SearchMessages(ctx, principal.GetId(), req.GetQuery(), page, pageSize)
+	msgs, total, err := h.svc.SearchMessages(ctx, principal.ID, req.GetQuery(), page, pageSize)
 	if err != nil {
 		return nil, internalErr(ctx, h.logger, "search messages", err)
 	}
@@ -215,11 +224,12 @@ func (h *ChatHandler) SearchMessages(
 	}, nil
 }
 
+// SendMessage stores a message; its chat.events outbox row is written in the same transaction.
 func (h *ChatHandler) SendMessage(
 	ctx context.Context,
 	req *chatv1.SendMessageRequest,
 ) (*chatv1.SendMessageResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -231,14 +241,14 @@ func (h *ChatHandler) SendMessage(
 	}
 
 	senderName := "Người dùng"
-	if len(principal.GetId()) > 6 {
-		senderName = "User " + principal.GetId()[:6]
+	if len(principal.ID) > 6 {
+		senderName = "User " + principal.ID[:6]
 	}
 
 	msg, err := h.svc.SendRichMessage(
 		ctx,
 		req.GetThreadId(),
-		principal.GetId(),
+		principal.ID,
 		senderName,
 		req.GetContent(),
 		int32(req.GetMessageType()),
@@ -246,10 +256,10 @@ func (h *ChatHandler) SendMessage(
 		req.GetPayload(),
 	)
 	if err != nil {
-		if errors.Is(err, service.ErrUnauthorizedChat) {
+		if errors.Is(err, chat.ErrUnauthorizedChat) {
 			return nil, status.Error(codes.PermissionDenied, "unauthorized to send message to this thread")
 		}
-		if errors.Is(err, repository.ErrThreadNotFound) {
+		if errors.Is(err, store.ErrThreadNotFound) {
 			return nil, status.Error(codes.NotFound, "thread not found")
 		}
 		return nil, internalErr(ctx, h.logger, "send message", err)
@@ -262,11 +272,12 @@ func (h *ChatHandler) SendMessage(
 	}, nil
 }
 
+// MarkThreadRead clears the caller's unread counter on a thread.
 func (h *ChatHandler) MarkThreadRead(
 	ctx context.Context,
 	req *chatv1.MarkThreadReadRequest,
 ) (*chatv1.MarkThreadReadResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -274,11 +285,11 @@ func (h *ChatHandler) MarkThreadRead(
 		return nil, status.Error(codes.InvalidArgument, "thread_id is required")
 	}
 
-	if err := h.svc.MarkThreadRead(ctx, req.GetThreadId(), principal.GetId()); err != nil {
-		if errors.Is(err, service.ErrUnauthorizedChat) {
+	if err := h.svc.MarkThreadRead(ctx, req.GetThreadId(), principal.ID); err != nil {
+		if errors.Is(err, chat.ErrUnauthorizedChat) {
 			return nil, status.Error(codes.PermissionDenied, "unauthorized to access this thread")
 		}
-		if errors.Is(err, repository.ErrThreadNotFound) {
+		if errors.Is(err, store.ErrThreadNotFound) {
 			return nil, status.Error(codes.NotFound, "thread not found")
 		}
 		return nil, internalErr(ctx, h.logger, "mark thread read", err)
@@ -287,11 +298,12 @@ func (h *ChatHandler) MarkThreadRead(
 	return &chatv1.MarkThreadReadResponse{}, nil
 }
 
+// ListQuickReplies returns a seller's canned replies.
 func (h *ChatHandler) ListQuickReplies(
 	ctx context.Context,
 	req *chatv1.ListQuickRepliesRequest,
 ) (*chatv1.ListQuickRepliesResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+	principal, err := auth.RequirePrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +312,7 @@ func (h *ChatHandler) ListQuickReplies(
 	// omit seller_id, in which case we scope to the caller.
 	sellerID := req.GetSellerId()
 	if sellerID == "" {
-		sellerID = principal.GetId()
+		sellerID = principal.ID
 	}
 
 	replies, err := h.svc.ListQuickReplies(ctx, sellerID)
@@ -313,7 +325,7 @@ func (h *ChatHandler) ListQuickReplies(
 	}, nil
 }
 
-func toWireThread(t repository.ChatThread) *chatv1.ChatThread {
+func toWireThread(t store.ChatThread) *chatv1.ChatThread {
 	var lastMsgAt *timestamppb.Timestamp
 	if t.LastMessageAt != nil {
 		lastMsgAt = timestamppb.New(*t.LastMessageAt)
@@ -334,7 +346,7 @@ func toWireThread(t repository.ChatThread) *chatv1.ChatThread {
 	}
 }
 
-func toWireMessage(m repository.ChatMessage) *chatv1.ChatMessage {
+func toWireMessage(m store.ChatMessage) *chatv1.ChatMessage {
 	return &chatv1.ChatMessage{
 		Id:          m.ID,
 		ThreadId:    m.ThreadID,
