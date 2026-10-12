@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-domain/internal/events"
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // fakeProducer is a RawProducer whose produce result is configurable.
@@ -32,8 +32,8 @@ func newRelayer(store events.OutboxClaimer, prod events.RawProducer) *events.Rel
 }
 
 func TestRelayer_MarksPublishedOnSuccess(t *testing.T) {
-	store := repository.NewInMemoryOutbox(
-		repository.PendingEvent{EventID: "e1", AggregateID: "l1", Payload: []byte("env")},
+	store := store.NewInMemoryOutbox(
+		store.PendingEvent{EventID: "e1", AggregateID: "l1", Payload: []byte("env")},
 	)
 	prod := &fakeProducer{}
 	now := time.Now()
@@ -54,8 +54,8 @@ func TestRelayer_MarksPublishedOnSuccess(t *testing.T) {
 }
 
 func TestRelayer_RetriesWithBackoffOnFailure(t *testing.T) {
-	store := repository.NewInMemoryOutbox(
-		repository.PendingEvent{EventID: "e1", AggregateID: "l1", Attempts: 0},
+	store := store.NewInMemoryOutbox(
+		store.PendingEvent{EventID: "e1", AggregateID: "l1", Attempts: 0},
 	)
 	prod := &fakeProducer{err: errors.New("broker unavailable")}
 	now := time.Now()
@@ -86,9 +86,9 @@ func TestRelayer_RetriesWithBackoffOnFailure(t *testing.T) {
 func TestRelayer_ParksPoisonRowPastMaxAttempts(t *testing.T) {
 	// Two rows: a poison row already at the attempt ceiling, and a healthy row.
 	// The poison row is parked without blocking the healthy one.
-	store := repository.NewInMemoryOutbox(
-		repository.PendingEvent{EventID: "poison", AggregateID: "l1", Attempts: 9}, // attempt 10 == MaxAttempts
-		repository.PendingEvent{EventID: "ok", AggregateID: "l2"},
+	store := store.NewInMemoryOutbox(
+		store.PendingEvent{EventID: "poison", AggregateID: "l1", Attempts: 9}, // attempt 10 == MaxAttempts
+		store.PendingEvent{EventID: "ok", AggregateID: "l2"},
 	)
 	// Producer fails only for the poison payload... simplest: fail all, so both
 	// are exercised; the healthy row (attempts 0) retries, the poison one parks.

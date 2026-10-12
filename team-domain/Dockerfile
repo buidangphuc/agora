@@ -1,30 +1,30 @@
 # syntax=docker/dockerfile:1
+# Template for Go services (ADR-0016). Copy to the service root.
+# Build:  docker build --build-arg BIN=server --build-arg GRPC_PORT=50065 -t <svc>:dev .
+# The build context is the service dir; third_party/go-sdk must be synced first.
 
-# ── Stage 1: build a static binary ──────────────────────────────────────────
 FROM golang:1.26 AS build
 WORKDIR /src
 
-# Cache modules first. NOTE: `make proto` must have produced ./generated before
-# building the image (generated code is gitignored, so generate in CI/locally
-# and either commit for the image build or run codegen as a prior build step).
-COPY go.mod go.sum* ./
+# go.mod replaces the SDK with ./third_party/go-sdk, so it must be present
+# before `go mod download`.
+COPY go.mod go.sum ./
+COPY third_party/ third_party/
 RUN go mod download
 
 COPY . .
 
-# CGO off => a fully static binary that runs on a distroless/scratch base.
+ARG BIN=server
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${BIN}
 
-# ── Stage 2: minimal, non-root runtime ──────────────────────────────────────
-# distroless/static:nonroot ships no shell and runs as an unprivileged user.
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=build /out/server /server
+COPY --from=build /out/app /app
 
-# Documented default; the process reads GRPC_PORT at runtime.
-ENV GRPC_PORT=50051
-EXPOSE 50051
+ARG GRPC_PORT=50051
+ENV GRPC_PORT=${GRPC_PORT}
+EXPOSE ${GRPC_PORT}
 
 USER nonroot:nonroot
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["/app"]

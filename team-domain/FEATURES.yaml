@@ -484,3 +484,108 @@ features:
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
       (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.
+
+  - id: listing.boot-requires-database-url
+    title: Missing database URL is rejected
+    persona: admin
+    priority: P2
+    summary: >-
+      team-domain refuses to start without DATABASE_URL, before any port opens.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the service starts without DATABASE_URL
+      - THEN settings loading fails with an error naming DATABASE_URL before any port opens
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational boot check with no UI. Unit-verified by TestBootRequiresDatabase in
+      team-domain/internal/app (change migrate-team-domain-to-go-sdk, capability domain-runtime).
+
+  - id: listing.boot-fails-when-database-unreachable
+    title: Unreachable database fails boot even locally
+    persona: admin
+    priority: P2
+    summary: >-
+      team-domain refuses to start when DATABASE_URL points at an unreachable database, in any ENV.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the service starts with ENV=local and DATABASE_URL pointing at a closed port
+      - THEN app.Run returns an error
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational boot check with no UI. Unit-verified by TestBootFailsWhenDatabaseUnreachable in
+      team-domain/internal/app.
+
+  - id: listing.shutdown-stops-relayer-before-pool-close
+    title: Relayer stops after the server and before the pool closes
+    persona: admin
+    priority: P2
+    summary: >-
+      On shutdown health drains first, the server stops, the relayer stops, then the publisher and the pool close.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the running service's context is cancelled with the relayer enabled
+      - THEN health becomes NOT_SERVING, the relayer's Run returns, and only then is the pool closed
+    tags: [system, runtime, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Needs a Postgres container and a fake publisher. Unit-verified by
+      TestShutdownStopsRelayerBeforePoolClose in team-domain/internal/app.
+
+  - id: listing.publisher-not-used-after-close
+    title: The publisher is not used after it is closed
+    persona: admin
+    priority: P2
+    summary: >-
+      The Kafka publisher is closed once, after the relayer has stopped.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN the service shuts down with the relayer enabled
+      - THEN the publisher is closed exactly once and never used afterwards
+    tags: [system, runtime, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Unit-verified by TestShutdownStopsRelayerBeforePoolClose in team-domain/internal/app.
+
+  - id: listing.existing-suites-stay-green
+    title: Existing suites stay green after the move
+    persona: admin
+    priority: P2
+    summary: >-
+      The pre-existing unit and integration suites pass unchanged after the go-sdk restructure.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN make check runs after the restructure, with Docker for the Postgres tests
+      - THEN every pre-existing test in rpc, listing, store, events and config passes
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Verified by team-domain make check; no UI.
+
+  - id: listing.anonymous-stock-denied
+    title: Anonymous callers are still denied stock RPCs with PermissionDenied
+    persona: admin
+    priority: P2
+    summary: >-
+      The anonymous principal gets PermissionDenied, not Unauthenticated, on the internal stock RPCs.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - WHEN an anonymous principal calls ReserveStock
+      - THEN the call fails with PermissionDenied
+    tags: [system, auth]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Unit-verified by TestAnonymousStockCallIsPermissionDenied in team-domain/internal/rpc.
