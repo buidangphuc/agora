@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/config"
@@ -19,6 +20,9 @@ import (
 type ga4Importer struct {
 	cfg config.GA4
 	w   *duckdb.Writer
+	// bqProject is the BigQuery project of the export (BIGQUERY_PROJECT); empty falls back to the dataset's "project." prefix.
+	bqProject string
+	mu        sync.Mutex // a manual trigger and the scheduled run must not overlap
 }
 
 func newGA4Importer(cfg config.GA4, w *duckdb.Writer) *ga4Importer {
@@ -30,6 +34,8 @@ func (g *ga4Importer) ImportDay(ctx context.Context, day time.Time) (int64, erro
 	if strings.TrimSpace(g.cfg.ExportDataset) == "" && strings.TrimSpace(g.cfg.FixtureDir) == "" {
 		return 0, nil
 	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	var src ga4import.Source
 	if g.cfg.ExportSource == "fixture" {
 		if g.cfg.FixtureDir == "" {
@@ -37,7 +43,7 @@ func (g *ga4Importer) ImportDay(ctx context.Context, day time.Time) (int64, erro
 		}
 		src = ga4import.NewFixtureSource(g.cfg.FixtureDir)
 	} else {
-		bq, err := ga4import.NewBigQuerySource(ctx, "", g.cfg.ExportDataset)
+		bq, err := ga4import.NewBigQuerySource(ctx, g.bqProject, g.cfg.ExportDataset)
 		if err != nil {
 			return 0, fmt.Errorf("ga4 export %s: bigquery source: %w", day.Format("2006-01-02"), err)
 		}

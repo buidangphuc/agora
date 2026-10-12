@@ -66,6 +66,9 @@ func run() error {
 	var ga4imp *ga4Importer
 	if w, ok := res.Writer.(*duckdb.Writer); ok {
 		ga4imp = newGA4Importer(settings.GA4, w)
+		ga4imp.bqProject = settings.Warehouse.BigQueryProject
+	} else {
+		logger.Info(fmt.Sprintf("GA4 import disabled: warehouse driver %s unsupported", settings.Warehouse.Driver))
 	}
 	if addr := settings.Server.MetricsAddr; addr != "" {
 		mux := http.NewServeMux()
