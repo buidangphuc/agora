@@ -22,7 +22,7 @@
 
 `flags.NewWithProvider(p openfeature.FeatureProvider, timeout time.Duration)` SHALL return a client evaluating through `p`. Evaluation errors SHALL fall back to the caller's default.
 
-#### Scenario: In-memory provider toggles a flag
+#### Scenario: In-memory provider toggles a flag and an unknown flag does not fail
 - **WHEN** a client over an in-memory provider with `checkout-enabled=false` evaluates it with default `true`
 - **THEN** it returns `false`, and an unknown flag returns its default rather than failing
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/flags` `TestNewWithProviderEvaluates`
@@ -35,3 +35,12 @@
 - **WHEN** a fetch returns an error and later records arrive
 - **THEN** the later records are handled and `Run` has not returned
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/consume` `TestFetchErrorDoesNotStopLoop`
+
+### Requirement: Consumer clients accept extra options
+
+`kafkax.NewConsumerClient(c, group, topics, opts...)` SHALL accept extra `kgo.Opt` values, applied after the defaults.
+
+#### Scenario: Auto topic creation can be enabled for a consumer
+- **WHEN** a consumer client is built with `kgo.AllowAutoTopicCreation()` for a topic that does not exist yet
+- **THEN** it consumes records produced later, without failing on the unknown topic
+- **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/kafkax` `TestConsumerClientAcceptsOptions`
