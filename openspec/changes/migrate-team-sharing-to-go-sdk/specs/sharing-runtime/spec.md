@@ -23,6 +23,11 @@ When the database is in use, team-sharing SHALL register a `postgres` health che
 - **THEN** within one probe interval the gRPC health status is NOT_SERVING
 - **VERIFIED BY**: `TestHealthReportsDatabaseDown` (testkit Postgres)
 
+#### Scenario: Without a database no postgres check is registered
+- **WHEN** the service runs from the in-memory store (`ENV=local`, database unreachable)
+- **THEN** health is SERVING and does not report NOT_SERVING for a database it does not use
+- **VERIFIED BY**: `TestLocalMemoryStoreHealthIsServing`
+
 ### Requirement: Share-link behaviour is unchanged
 
 The migration SHALL NOT change the RPC behaviour. The current handler and domain tests SHALL be kept, moved to the new packages and pass.
@@ -53,3 +58,8 @@ ADR-0016 and `examples/hello` SHALL place a service's migrations in `<repo>/migr
 - **WHEN** the hello example tests run on testkit Postgres
 - **THEN** `migrate.Up` applies `examples/hello/migrations/*.up.sql` through the root `migrations` package
 - **VERIFIED BY**: `platform-core/packages/go-sdk/examples/hello/internal/store` `TestMigrationsApply`
+
+#### Scenario: Boot does not apply migrations
+- **WHEN** team-sharing boots against an empty database
+- **THEN** no `share_links` table is created and `schema_migrations` does not exist
+- **VERIFIED BY**: `team-sharing/internal/app` `TestBootDoesNotApplyMigrations`
