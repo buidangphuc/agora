@@ -43,6 +43,10 @@ type Service struct {
 	// attributionHours is RECS_ATTRIBUTION_WINDOW_HOURS.
 	attributionHours int
 	now              func() time.Time
+
+	reconcileOn    bool
+	reconcileMax   float64
+	reconcileGauge RatioGauge
 }
 
 // TrackingThresholds are the limits GetTrackingQualityReport derives its status
@@ -381,11 +385,14 @@ func (s *Service) GetTrackingQualityReport(ctx context.Context, req *analyticsv1
 	if incomplete {
 		reasons = append(reasons, "incomplete")
 	}
+	reasons = append(reasons, s.reconcileReasons(ctx, now)...)
 	sort.Strings(reasons)
 	resp.Reasons = reasons
 	resp.Status = statusOK
-	if len(reasons) > 0 {
-		resp.Status = statusDegraded
+	for _, r := range reasons {
+		if r != "ga4_missing" {
+			resp.Status = statusDegraded
+		}
 	}
 	return resp, nil
 }
