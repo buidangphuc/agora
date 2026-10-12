@@ -130,7 +130,7 @@ func RequirePrincipal(ctx context.Context) (Principal, error)          // codes.
 func RequireScopes(ctx context.Context, scopes ...string) (Principal, error) // Unauthenticated if no principal, PermissionDenied if a scope is missing
 const MDPrincipalID, MDPrincipalType, MDPrincipalScopes = "x-principal-id", "x-principal-type", "x-principal-scopes"
 ```
-- [ ] 5.1 Tests first: `TestRequirePrincipalRejectsAnonymous`, `TestRequireScopesExactMatchNoAdminBypass`, `TestStreamInterceptorInjectsPrincipal`, `TestScopesParsingTrimsAndDropsEmpty`. Then implement, merging the helper set from `team-promotion/internal/interceptor/auth.go` with the stream interceptor from `team-engagement`. Service-specific helpers (RequireAdmin/Seller) stay out. Verify green.
+- [x] 5.1 Tests first: `TestRequirePrincipalRejectsAnonymous`, `TestRequireScopesExactMatchNoAdminBypass`, `TestStreamInterceptorInjectsPrincipal`, `TestScopesParsingTrimsAndDropsEmpty`. Then implement, merging the helper set from `team-promotion/internal/interceptor/auth.go` with the stream interceptor from `team-engagement`. Service-specific helpers (RequireAdmin/Seller) stay out. Verify green.
 
 ## 6. healthx + lifecycle (wave 2)
 
