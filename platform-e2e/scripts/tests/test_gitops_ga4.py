@@ -1,4 +1,4 @@
-"""Static tests for the GA4 GitOps wiring (add-ga4-export-import, task gitops-ga4).
+"""Static tests for the GA4 GitOps wiring (add-ga4-export-import, task gitops-ga4 / ga4import-in-consumer).
 
 Scenarios: "The job is a no-op when unconfigured" (ga4-export-import) and
 "Divergence beyond the threshold raises the alert" (tracking-data-quality).
@@ -36,43 +36,29 @@ def _by_kind(kind: str, name: str) -> dict:
     raise AssertionError(f"{kind}/{name} not rendered")
 
 
-def _cron() -> dict:
-    crons = [d for d in _render() if d["kind"] == "CronJob" and "ga4" in d["metadata"]["name"]]
-    assert len(crons) == 1, "expected exactly one ga4 import CronJob in platform/team-analytics"
-    return crons[0]
-
-
-def _container(cron: dict) -> dict:
-    cs = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"]
-    assert len(cs) == 1
-    return cs[0]
+def _consumer() -> dict:
+    return _by_kind("Deployment", "team-analytics")["spec"]["template"]["spec"]["containers"][0]
 
 
 def _env(c: dict) -> dict:
     return {e["name"]: e.get("value") for e in c.get("env", [])}
 
 
-# --- scenario: The job is a no-op when unconfigured -------------------------------------
+# --- scenario: The job is a no-op when unconfigured (import runs in the consumer, no CronJob) ----
 
 
-def test_job_noop_when_unconfigured__cronjob_runs_ga4import_daily_with_team_analytics_image():
-    cron = _cron()
-    c = _container(cron)
-    consumer = _by_kind("Deployment", "team-analytics")["spec"]["template"]["spec"]["containers"][0]
-    assert c["image"] == consumer["image"], "must reuse the team-analytics image (same tag)"
-    assert (c.get("command") or []) + (c.get("args") or []) == ["/ga4import"] or c.get("command") == ["/ga4import"]
-    sched = cron["spec"]["schedule"].split()
-    assert len(sched) == 5 and sched[2:] == ["*", "*", "*"], "daily schedule"
-    assert cron["spec"]["concurrencyPolicy"] == "Forbid"
-    assert cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["restartPolicy"] == "Never"
+def test_job_noop_when_unconfigured__no_cronjob_in_team_analytics_kustomize_output():
+    crons = [d["metadata"]["name"] for d in _render() if d["kind"] in ("CronJob", "Job")]
+    assert crons == [], f"import runs inside the consumer; found {crons}"
 
 
-def test_job_noop_when_unconfigured__dataset_unset_and_settings_declared():
-    env = _env(_container(_cron()))
-    assert env.get("GA4_EXPORT_DATASET") in (None, ""), "dataset must be empty in the base render (no-op)"
-    assert "GA4_EXPORT_DATASET" in env, "setting must be declared so ops can fill it"
-    assert "GA4_EXPORT_SOURCE" in env
-    assert env.get("GA4_RECONCILE_MAX_DIFF_RATIO") == "0.35"
+def test_job_noop_when_unconfigured__ga4_settings_declared_on_consumer_deployment():
+    env = _env(_consumer())
+    for k in ("GA4_EXPORT_SOURCE", "GA4_EXPORT_DATASET", "GA4_IMPORT_AT", "GA4_RECONCILE_MAX_DIFF_RATIO"):
+        assert k in env, f"{k} must be declared on the consumer Deployment"
+    assert env["GA4_EXPORT_DATASET"] in (None, ""), "dataset must be empty in the base render (no-op)"
+    assert env["GA4_RECONCILE_MAX_DIFF_RATIO"] == "0.35"
+    assert env["GA4_IMPORT_AT"] == "03:30"
 
 
 @pytest.mark.parametrize("path", [
@@ -84,6 +70,35 @@ def test_job_noop_when_unconfigured__local_and_staging_never_set_dataset(path):
         if "GA4_EXPORT_DATASET" in line:
             val = line.split("GA4_EXPORT_DATASET", 1)[1].strip(" :=\"'{},value")
             assert val == "", f"{path} sets GA4_EXPORT_DATASET: {line.strip()}"
+
+
+# --- scenario: The internal trigger is not exposed through the gateway ----------------------
+
+
+def test_trigger_not_exposed__no_ingress_or_public_service_for_team_analytics():
+    docs = _render()
+    assert not [d for d in docs if d["kind"] in ("Ingress", "HTTPRoute", "IngressRoute")]
+    svc = _by_kind("Service", "team-analytics")
+    assert svc["spec"].get("type", "ClusterIP") == "ClusterIP"
+    assert not any(p.get("nodePort") for p in svc["spec"]["ports"])
+    for path in sorted((GITOPS / "envs").rglob("*.y*ml")):
+        for d in yaml.safe_load_all(path.read_text()):
+            if not isinstance(d, dict):
+                continue
+            ing = d.get("ingress") or {}
+            if isinstance(ing, dict) and ing.get("enabled") and (
+                d.get("name") == "team-analytics" or path.stem == "team-analytics"
+            ):
+                raise AssertionError(f"{path} enables an ingress for team-analytics")
+
+
+def test_trigger_not_exposed__no_gateway_route_maps_internal_ga4import():
+    hits = []
+    for p in (ROOT / "team-gateway").rglob("*"):
+        if p.suffix in (".go", ".yaml", ".yml", ".json") and p.is_file() and "_test.go" not in p.name:
+            if "/internal/ga4import" in p.read_text(errors="ignore"):
+                hits.append(str(p.relative_to(ROOT)))
+    assert hits == [], f"gateway must not route the internal trigger: {hits}"
 
 
 # --- consumer exposes metrics ------------------------------------------------------------
