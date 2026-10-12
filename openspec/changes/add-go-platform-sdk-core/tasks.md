@@ -209,5 +209,5 @@ The example is a `HelloService` using `grpc_health_v1`-style hand-written servic
 
 ## 10. Close (orchestrator)
 
-- [ ] 10.1 All packets merged; `make -C platform-core/packages/go-sdk check` green; `bash platform-core/tools/sync-go-sdk_test.sh` green; `openspec validate add-go-platform-sdk-core --strict` passes.
-- [ ] 10.2 Convention dry-run: a fresh agent deletes `examples/hello` in a throwaway worktree, rebuilds it from ADR-0016 + README alone and reports every guess. Each guess becomes a docs or code fix.
+- [x] 10.1 All packets merged; `make -C platform-core/packages/go-sdk check` green; `bash platform-core/tools/sync-go-sdk_test.sh` green; `openspec validate add-go-platform-sdk-core --strict` passes.
+- [x] 10.2 Convention dry-run: a fresh agent deletes `examples/hello` in a throwaway worktree, rebuilds it from ADR-0016 + README alone and reports every guess. Each guess becomes a docs or code fix.

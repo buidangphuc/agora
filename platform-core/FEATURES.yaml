@@ -38,6 +38,22 @@ features:
   - unit
   status: not-testable
   notes: Platform library behaviour with no user journey; verified by unit test TestLoadReportsBadVariable.
+- id: go-sdk.enabled-database-without-a-url-fails-validation
+  title: Enabled database without a URL fails validation
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a settings struct whose Validate() error delegates to config.Postgres.Validate() is loaded with
+    DATABASE_ENABLED=true and no DATABASE_URL
+  - Then Load returns an error naming DATABASE_URL
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestLoadRunsValidate.
 - id: go-sdk.missing-and-stale-keys-are-both-reported
   title: Missing and stale keys are both reported
   persona: guest
@@ -254,6 +270,36 @@ features:
   - unit
   status: not-testable
   notes: Platform library behaviour with no user journey; verified by unit test TestShutdownDeadline.
+- id: go-sdk.stack-closes-in-reverse-order-exactly-once
+  title: Stack closes in reverse order exactly once
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When closers a, b are pushed, b fails, and Close is called twice
+  - Then b then a run once each and the first Close returns b's error
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestStackClosesReverseOnce.
+- id: go-sdk.drain-delay-holds-components-after-the-hooks
+  title: Drain delay holds components after the hooks
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When DrainDelay is 100ms and ctx is cancelled
+  - Then components see cancellation no earlier than 100ms after the hooks ran
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestDrainDelayHoldsComponents.
 - id: go-sdk.unreachable-database-fails-at-open
   title: Unreachable database fails at open
   persona: guest
@@ -394,6 +440,21 @@ features:
   - unit
   status: not-testable
   notes: Platform library behaviour with no user journey; verified by unit test TestStatusHidesUnknownErrors.
+- id: go-sdk.existing-grpc-status-errors-pass-through
+  title: Existing gRPC status errors pass through
+  persona: guest
+  priority: P2
+  entry_route: /
+  services:
+  - platform-core
+  acceptance:
+  - When a handler returns grpcx.Status(status.Error(codes.PermissionDenied, "missing scope"), table)
+  - Then the caller sees PermissionDenied with message missing scope, not Internal
+  tags:
+  - go-sdk
+  - unit
+  status: not-testable
+  notes: Platform library behaviour with no user journey; verified by unit test TestStatusPassesThroughGRPCStatus.
 - id: go-sdk.health-drains-before-stop
   title: Health drains before stop
   persona: guest
