@@ -124,3 +124,183 @@ features:
       - Then the channel funnel call returns 200 with zero rows
     tags: [tracking, analytics]
     status: planned
+
+  - id: tracking-consent.unit-consentstate-fields-present-with-stable-numbers
+    title: "ConsentState fields present with stable numbers"
+    persona: guest
+    priority: P2
+    summary: "ConsentState fields present with stable numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "ConsentState fields present with stable numbers (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_ConsentStateFieldsPresentWithStableNumbers in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-version-zero-with-granted-flags-is-not-trusted
+    title: "Version zero with granted flags is not trusted"
+    persona: guest
+    priority: P2
+    summary: "Version zero with granted flags is not trusted"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Version zero with granted flags is not trusted (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_VersionZeroWithGrantedFlagsIsNotTrusted in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-unknown-or-negative-version-is-denied
+    title: "Unknown or negative version is denied"
+    persona: guest
+    priority: P2
+    summary: "Unknown or negative version is denied"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown or negative version is denied (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_UnknownOrNegativeVersionIsDenied in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-new-fields-round-trip
+    title: "New fields round trip"
+    persona: guest
+    priority: P2
+    summary: "New fields round trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New fields round trip (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_NewFieldsRoundTrip in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-new-payload-readable-by-old-schema
+    title: "New payload readable by old schema"
+    persona: guest
+    priority: P2
+    summary: "New payload readable by old schema"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "New payload readable by old schema (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_NewPayloadReadableByOldSchema in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-client-id-comment-states-format-and-blanking
+    title: "Client id comment states format and blanking"
+    persona: guest
+    priority: P2
+    summary: "Client id comment states format and blanking"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id comment states format and blanking (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ClientIdStatesFormatAndBlanking in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-client-id-without-analytics-consent-is-blanked-event-kept
+    title: "Client id without analytics consent is blanked, event kept"
+    persona: guest
+    priority: P2
+    summary: "Client id without analytics consent is blanked, event kept"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Client id without analytics consent is blanked, event kept (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ClientIdBlankedEventKept in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-channel-funnel-messages-present
+    title: "Channel funnel messages present"
+    persona: guest
+    priority: P2
+    summary: "Channel funnel messages present"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Channel funnel messages present (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsent_ChannelFunnelMessagesPresent in platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-scope-documented
+    title: "Scope documented"
+    persona: guest
+    priority: P2
+    summary: "Scope documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Scope documented (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: TestConsentComments_ScopeDocumented in platform-core/packages/proto/platform/analytics/v1/consent_comments_test.go. Not producible end to end."
+
+  - id: tracking-consent.unit-field-numbers-do-not-collide
+    title: "Field numbers do not collide"
+    persona: guest
+    priority: P2
+    summary: "Field numbers do not collide"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field numbers do not collide (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  - id: tracking-consent.unit-field-25-and-26-are-frozen
+    title: "Field 25 and 26 are frozen"
+    persona: guest
+    priority: P2
+    summary: "Field 25 and 26 are frozen"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Field 25 and 26 are frozen (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
+
+  - id: tracking-consent.unit-buf-checks-pass-with-new-rpc
+    title: "Buf checks pass with new RPC"
+    persona: guest
+    priority: P2
+    summary: "Buf checks pass with new RPC"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Buf checks pass with new RPC (unit-verified)"
+    tags: [tracking-consent, unit]
+    status: not-testable
+    notes: "ga4-consent-contract: unit-verified: verified by CI proto job (`buf lint` + `buf breaking --against main`, `.github/workflows/asdlc-gates.yml`). Not producible end to end."
