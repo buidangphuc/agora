@@ -43,7 +43,7 @@ export function internalToGa4(type: InternalEventType): GA4EventName {
   return INTERNAL_TO_GA4[type] ?? "view_item";
 }
 
-const GA_COOKIE_RE = /^GA1\.\d+\.([^.]+\.[^.]+)$/;
+const GA_COOKIE_RE = /^GA\d+\.\d+\.(\d+\.\d+)$/;
 const GA_CLIENT_ID_MAX = 64;
 
 /** Client id from the `_ga` cookie; reads the cookie only with analytics consent. */
