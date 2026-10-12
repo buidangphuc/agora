@@ -7378,7 +7378,8 @@ features:
       - "When a buyer with no cookie loads the home page with NEXT_PUBLIC_GTM_ID=GTM-TEST"
       - "Then the banner is visible with three groups, the DOM has 0 googletagmanager.com scripts and 0 requests go to googletagmanager.com and google-analytics.com"
     tags: [tracking, consent]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent.feature::First visit shows banner and contacts no Google host"
 
   - id: consent.accept-analytics-loads-gtm
     title: "Accept analytics loads GTM and updates consent"
@@ -7393,7 +7394,8 @@ features:
       - "When a buyer grants analytics on a page with NEXT_PUBLIC_GTM_ID=GTM-TEST"
       - "Then window.dataLayer has consent default (all denied) then consent update analytics_storage=granted and exactly 1 GTM script is injected"
     tags: [tracking, consent]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent.feature::Accept analytics loads GTM and updates consent"
 
   - id: consent.rejected-analytics-no-gtm
     title: "Rejected analytics never loads GTM"
@@ -7408,7 +7410,8 @@ features:
       - "When the cookie has a=0"
       - "Then no GTM script is injected on any route and nothing is forwarded to a Google host"
     tags: [tracking, consent]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent.feature::Rejected analytics never loads GTM"
 
   - id: consent.rejected-still-beacons
     title: "Rejected visitor still sends a beacon"
@@ -7423,7 +7426,8 @@ features:
       - "When a visitor who rejected all views a listing"
       - "Then one POST /api/track is sent and its body has no consent key"
     tags: [tracking, consent]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent.feature::Rejected visitor still sends a beacon"
 
   - id: consent.consent-change-later-beacons
     title: "Consent change applies to later beacons only"
@@ -7438,52 +7442,8 @@ features:
       - "When a buyer grants personalization at time T"
       - "Then beacons before T carry no personalization consent and beacons after T are stamped personalization=true by the edge"
     tags: [tracking, consent]
-    status: planned
-
-  - id: consent.rejected-personalization-denied
-    title: "Rejected buyer is flagged personalization-denied"
-    persona: guest
-    priority: P1
-    summary: "A rejected visitor's published event carries consent.personalization=false and version 1."
-    entry_route: "/"
-    services: [team-frontend, team-gateway]
-    preconditions:
-      login: guest
-    acceptance:
-      - "When a beacon arrives with cookie v=1&a=0&m=0&p=0"
-      - "Then the event is published with consent.personalization=false and consent.version=1"
-    tags: [tracking, consent]
-    status: planned
-
-  - id: consent.body-consent-ignored
-    title: "Body consent is ignored"
-    persona: guest
-    priority: P1
-    summary: "Consent in the beacon body never overrides the cookie."
-    entry_route: "/"
-    services: [team-frontend, team-gateway]
-    preconditions:
-      login: guest
-    acceptance:
-      - "When a beacon body contains consent.personalization=true and the cookie has p=0"
-      - "Then the published event has consent.personalization=false"
-    tags: [tracking, consent]
-    status: planned
-
-  - id: consent.no-cookie-version-0
-    title: "No cookie stamps version 0"
-    persona: guest
-    priority: P1
-    summary: "With no cookie the response is 202 and the event carries consent version 0 with all flags false."
-    entry_route: "/"
-    services: [team-frontend, team-gateway]
-    preconditions:
-      login: guest
-    acceptance:
-      - "When a beacon arrives with no agora_consent cookie"
-      - "Then the response is 202 and the event carries consent.version=0 with all flags false"
-    tags: [tracking, consent]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent.feature::Consent change applies to later beacons only"
 
   - id: consent.banner-no-layout-shift
     title: "Banner does not shift layout"
@@ -7498,4 +7458,245 @@ features:
       - "When the banner mounts on a cold load"
       - "Then the cumulative layout shift is below 0.1"
     tags: [tracking, consent]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_cls.feature::Banner does not shift layout"
+
+  - id: consent.unit-accept-all-writes-the-cookie
+    title: "Accept all writes the cookie"
+    persona: guest
+    priority: P2
+    summary: "Accept all writes the cookie"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Accept all writes the cookie (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Accept all writes the cookie: value v=1&a=1&m=1&p=1&ts=T\". Not producible end to end."
+
+  - id: consent.unit-reject-all-writes-the-cookie
+    title: "Reject all writes the cookie"
+    persona: guest
+    priority: P2
+    summary: "Reject all writes the cookie"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Reject all writes the cookie (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Reject all writes the cookie: value v=1&a=0&m=0&p=0&ts=T\". Not producible end to end."
+
+  - id: consent.unit-granular-choice-is-stored-per-group
+    title: "Granular choice is stored per group"
+    persona: guest
+    priority: P2
+    summary: "Granular choice is stored per group"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Granular choice is stored per group (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Granular choice is stored per group: only personalization\". Not producible end to end."
+
+  - id: consent.unit-unknown-version-is-treated-as-denied
+    title: "Unknown version is treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Unknown version is treated as denied"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Unknown version is treated as denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Unknown version is treated as denied\". Not producible end to end."
+
+  - id: consent.unit-missing-fields-are-treated-as-denied
+    title: "Missing fields are treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Missing fields are treated as denied"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Missing fields are treated as denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Missing fields are treated as denied\". Not producible end to end."
+
+  - id: consent.unit-non-0-1-flag-is-treated-as-denied
+    title: "Non-0/1 flag is treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Non-0/1 flag is treated as denied"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-0/1 flag is treated as denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Non-0/1 flag is treated as denied\". Not producible end to end."
+
+  - id: consent.unit-non-numeric-or-missing-ts-is-treated-as-denied
+    title: "Non-numeric or missing ts is treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Non-numeric or missing ts is treated as denied"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Non-numeric or missing ts is treated as denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Non-numeric or missing ts is treated as denied\". Not producible end to end."
+
+  - id: consent.unit-flags-are-independent
+    title: "Flags are independent"
+    persona: guest
+    priority: P2
+    summary: "Flags are independent"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Flags are independent (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Flags are independent: p=1 only -> personalization true, version 1\". Not producible end to end."
+
+  - id: consent.unit-oversized-cookie-is-treated-as-denied
+    title: "Oversized cookie is treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Oversized cookie is treated as denied"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Oversized cookie is treated as denied (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Oversized cookie is treated as denied\". Not producible end to end."
+
+  - id: consent.unit-boundary-at-the-180-day-lifetime
+    title: "Boundary at the 180-day lifetime"
+    persona: guest
+    priority: P2
+    summary: "Boundary at the 180-day lifetime"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Boundary at the 180-day lifetime (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/consent/consent.test.ts \"Boundary at the 180-day lifetime: Path, Max-Age, SameSite=Lax, no HttpOnly, no Secure on http\". Not producible end to end."
+
+  - id: consent.unit-returning-buyer-sees-no-banner
+    title: "Returning buyer sees no banner"
+    persona: guest
+    priority: P2
+    summary: "Returning buyer sees no banner"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Returning buyer sees no banner (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/features/consent/ConsentBanner.test.tsx \"renders no dialog with a valid cookie\". Not producible end to end."
+
+  - id: consent.unit-banner-is-keyboard-operable
+    title: "Banner is keyboard operable"
+    persona: guest
+    priority: P2
+    summary: "Banner is keyboard operable"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Banner is keyboard operable (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/features/consent/ConsentBanner.test.tsx \"has role=dialog with an accessible name\". Not producible end to end."
+
+  - id: consent.unit-marketing-and-personalization-map-to-signals
+    title: "Marketing and personalization map to signals"
+    persona: guest
+    priority: P2
+    summary: "Marketing and personalization map to signals"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Marketing and personalization map to signals (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/analytics/destinations/gtm.test.ts \"[Marketing and personalization map to signals] analytics+marketing, no personalization\". Not producible end to end."
+
+  - id: consent.unit-returning-consented-buyer-loads-gtm-once
+    title: "Returning consented buyer loads GTM once"
+    persona: guest
+    priority: P2
+    summary: "Returning consented buyer loads GTM once"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Returning consented buyer loads GTM once (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/analytics/destinations/gtm.test.ts \"[Returning consented buyer loads GTM once] repeated applyConsent (client navigation) keeps 1 script and 1 default\". Not producible end to end."
+
+  - id: consent.unit-empty-gtm-id-keeps-gtm-off-even-with-consent
+    title: "Empty GTM id keeps GTM off even with consent"
+    persona: guest
+    priority: P2
+    summary: "Empty GTM id keeps GTM off even with consent"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Empty GTM id keeps GTM off even with consent (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/analytics/destinations/gtm.test.ts \"[Empty GTM id keeps GTM off even with consent] unset id adds no script\". Not producible end to end."
+
+  - id: consent.unit-revoking-analytics-stops-pushes
+    title: "Revoking analytics stops pushes"
+    persona: guest
+    priority: P2
+    summary: "Revoking analytics stops pushes"
+    entry_route: "/"
+    services: [team-frontend]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Revoking analytics stops pushes (unit-verified)"
+    tags: [tracking, consent, unit]
+    status: not-testable
+    notes: "add-consent-mode: unit-verified: team-frontend/src/lib/analytics/destinations/gtm.test.ts \"[Revoking analytics stops pushes] after a grant, analytics=false pushes update analytics_storage=denied last\". Not producible end to end."

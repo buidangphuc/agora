@@ -56,7 +56,8 @@ def world(context, page, request):  # noqa: ANN001
     page.set_default_timeout(SETTINGS.action_timeout_ms)
     page.set_default_navigation_timeout(SETTINGS.navigation_timeout_ms)
     w = World(context, page, request.node.name)
-    w.setup_web_context()
+    # @freshVisitor scenarios start with no consent cookie (they exercise the banner itself)
+    w.setup_web_context(consent=request.node.get_closest_marker("freshVisitor") is None)
     yield w
     w.cleanup()
 

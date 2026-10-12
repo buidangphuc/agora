@@ -8,6 +8,7 @@ ConsentState{analytics=1, marketing=2, personalization=3, version=4}). Google ho
 from __future__ import annotations
 
 import re
+import time
 import uuid
 
 import httpx
@@ -93,6 +94,7 @@ def grant_personalization(world: World) -> None:
     expect(_banner(world)).to_be_visible(timeout=timeouts.NAVIGATION)
     box = _banner(world).get_by_role("checkbox", name=re.compile(_GROUPS[2], re.I))
     box.check()
+    _x(world)["grant_ts"] = time.time()
     _banner(world).get_by_role("button", name=re.compile("save choices", re.I)).click()
     world.page.wait_for_timeout(500)
 
@@ -209,23 +211,25 @@ def all_events_denied_v1(world: World) -> None:
         _assert_consent(raw, p=False, version=1)
 
 
-def _view_event_ids(world: World, lo: int, hi: int | None) -> list[str]:
-    batches = _x(world)["track_batches"][lo:hi]
-    return [b["eventId"] for batch in batches for b in batch if b.get("eventId")]
+def _published_at(raw: bytes) -> int:
+    """Envelope timestamp (seconds); the gateway re-keys event ids, so beacon ids are not on the wire."""
+    for n, w, v in _fields(raw):
+        if n == 3 and w == 2:
+            return next(int(s) for m, ww, s in _fields(bytes(v)) if m == 1)
+    raise AssertionError("envelope has no timestamp")
 
 
-def _events_for(world: World, ids: list[str]) -> list[bytes]:
-    assert ids, "no beacon event ids captured for this phase"
+def _phase_events(world: World, *, after: bool) -> list[bytes]:
+    t_grant = int(_x(world)["grant_ts"])
     raws = _envelopes(_x(world)["listing_id"])
-    matched = [r for r in raws if any(i.encode() in r for i in ids)]
-    assert matched, f"no published event matches beacon ids {ids[:3]}"
-    return matched
+    picked = [r for r in raws if (_published_at(r) >= t_grant) is after]
+    assert picked, f"no published event {'after' if after else 'before'} the consent change"
+    return picked
 
 
 @then("the events published for beacons sent before the change carry personalization false")
 def before_change(world: World) -> None:
-    marks = _x(world)["view_marks"]
-    for raw in _events_for(world, _view_event_ids(world, marks[0], marks[1])):
+    for raw in _phase_events(world, after=False):
         _assert_consent(raw, p=False, version=1)
 
 
@@ -234,8 +238,7 @@ def before_change(world: World) -> None:
     "and version 1"
 )
 def after_change(world: World) -> None:
-    marks = _x(world)["view_marks"]
-    for raw in _events_for(world, _view_event_ids(world, marks[1], None)):
+    for raw in _phase_events(world, after=True):
         _assert_consent(raw, p=True, version=1)
 
 

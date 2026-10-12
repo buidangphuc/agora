@@ -1,4 +1,4 @@
-@tracking @analytics
+@tracking @analytics @freshVisitor
 Feature: Consent banner, Consent Mode v2 gating of GTM, and edge consent stamping
   A first-time visitor sees a consent banner and no Google host is contacted until analytics is
   granted. The choice lives in the first-party agora_consent cookie, GTM only loads after an

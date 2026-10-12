@@ -8,6 +8,7 @@ by a pytest fixture.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 from playwright.sync_api import BrowserContext, Page
@@ -55,22 +56,23 @@ class World:
         self._current_page = page
 
     # ── Web context pre-setup (suppress consent popups, etc.) ─────────────
-    def setup_web_context(self) -> None:
+    def setup_web_context(self, *, consent: bool = True) -> None:
         """Pre-seed storage to keep first-load banners/popups out of the way.
 
         No-op friendly: extend with cookies/localStorage the app checks. Kept as a
         hook so scenarios have a stable, banner-free starting point.
         """
-        try:
-            self.context.add_cookies(
-                [
-                    {
-                        "name": "e2e",
-                        "value": "1",
-                        "url": self.settings.base_url,
-                    }
-                ]
+        cookies = [{"name": "e2e", "value": "1", "url": self.settings.base_url}]
+        if consent:  # returning visitor who rejected all: no banner, no GTM/Google traffic
+            cookies.append(
+                {
+                    "name": "agora_consent",
+                    "value": f"v=1&a=0&m=0&p=0&ts={int(time.time())}",
+                    "url": self.settings.base_url,
+                }
             )
+        try:
+            self.context.add_cookies(cookies)
         except Exception:  # noqa: BLE001 - best-effort; never fail setup on this
             pass
 

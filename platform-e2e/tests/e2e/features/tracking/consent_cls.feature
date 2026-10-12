@@ -1,4 +1,4 @@
-@tracking @analytics
+@tracking @analytics @freshVisitor
 Feature: The consent banner does not shift page layout
   The banner renders in a fixed-position layer so a cold load stays visually stable.
 
