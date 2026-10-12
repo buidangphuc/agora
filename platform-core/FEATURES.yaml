@@ -22,7 +22,8 @@ features:
       - Then the warehouse holds one row for that listing carrying the beacon's session id and page path
       - And the envelope on analytics.events has no GA client id
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Old payload stays readable"
   - id: tracking-consent.missing-consent-denied
     title: Missing consent reads as denied
     persona: buyer
@@ -40,7 +41,8 @@ features:
       - When a visitor posts a view beacon with no consent cookie and no GA client id
       - Then the envelope on analytics.events grants no consent, with analytics, marketing and personalization false and version 0
     tags: [tracking, analytics]
-    status: planned
+    status: automated
+    covered_by: "tracking/consent_contract.feature::Missing consent reads as denied"
   - id: tracking-consent.channel-funnel-non-admin-rejected
     title: Non-admin is rejected
     persona: buyer
