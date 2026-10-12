@@ -8,3 +8,4 @@
 
 ### Round 2 — 2026-10-12
 - Q4 [data] The relay DLQ stores the verbatim `OrderPaidEvent` including `buyer_id`, and consent denial or an erasure request does not purge DLQ copies. → **Keep the verbatim record (replay needs it); retention 7 days enforced at topic create and with `alter-config`; documented in the proposal Data classification for DPO review** (human)
+- Q5 [data] Consent withdrawal reaches the relay only through the next non-consented TrackingEvent; with no further event the mapping lives up to 30 days and a purchase in that window is still sent. → **Accept the lag and document it in the proposal for DPO review; a consent-change event is out of scope for this change** (human)
