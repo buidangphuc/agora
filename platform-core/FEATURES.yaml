@@ -669,37 +669,6 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestUpFailsOnInvalidSQL.
-  - id: go-sdk.non-retryable-codes-are-not-retried
-    title: Non-retryable codes are not retried
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - When fn returns status.Error(codes.InvalidArgument, …) under a 3-attempt retry
-    - Then fn runs once
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/resilience
-      TestRetrySkipsNonRetryableCodes.
-  - id: go-sdk.open-breaker-rejects-calls
-    title: Open breaker rejects calls
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - When failures exceed the breaker threshold
-    - Then the next call returns the breaker-open error without running fn
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: Platform library behaviour with no user journey; verified by unit test TestBreakerOpensAfterFailures.
   - id: go-sdk.a-panicking-handler-returns-internal-and-the-server-keeps-serving
     title: A panicking handler returns Internal and the server keeps serving
     persona: guest
@@ -823,6 +792,21 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+  - id: go-sdk.an-sdk-release-does-not-re-sync-services
+    title: An SDK release does not re-sync services
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a change cuts a new go-sdk/vX.Y.Z tag
+    - Then the same change does not modify any team-*/third_party/go-sdk/VERSION
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Process rule from ADR-0016 Distribution; verified by review of the change diff.
   - id: go-sdk.headers-carry-trace-and-request-ids
     title: Headers carry trace and request ids
     persona: guest
@@ -997,22 +981,6 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
       TestAsServiceReplacesPrincipal.
-  - id: go-sdk.unreachable-flipt-returns-the-default
-    title: Unreachable Flipt returns the default
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - When Flipt is unreachable and BooleanEnabled(ctx, "checkout-enabled", true) is called
-    - Then it returns true within the eval timeout
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
-      TestUnreachableFliptReturnsDefault.
   - id: go-sdk.sync-works-on-a-fresh-checkout-without-generated-code
     title: Sync works on a fresh checkout without generated code
     persona: guest
@@ -1063,22 +1031,6 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
       TestPerCallServicePrincipal.
-  - id: go-sdk.in-memory-provider-toggles-a-flag-and-an-unknown-flag-does-not-fail
-    title: In-memory provider toggles a flag and an unknown flag does not fail
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - When a client over an in-memory provider with checkout-enabled=false evaluates it with default true
-    - Then it returns false, and an unknown flag returns its default rather than failing
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
-      TestNewWithProviderEvaluates.
   - id: go-sdk.transient-fetch-error-does-not-stop-the-loop
     title: Transient fetch error does not stop the loop
     persona: guest
@@ -1112,38 +1064,6 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax
       TestConsumerClientAcceptsOptions.
-  - id: go-sdk.anonymous-caller-with-the-public-scope-is-admitted
-    title: Anonymous caller with the public scope is admitted
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - When the anonymous principal holds listing.read and RequireScopesAllowAnonymous(ctx, "listing.read")
-      is called
-    - Then it returns the principal and no error
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/auth
-      TestRequireScopesAllowAnonymousAdmitsScopedAnonymous.
-  - id: go-sdk.anonymous-caller-without-the-scope-is-denied-not-unauthenticated
-    title: Anonymous caller without the scope is denied, not unauthenticated
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - When the anonymous principal lacks listing.write
-    - Then it returns PermissionDenied
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: Platform library behaviour with no user journey; verified by TestRequireScopesAllowAnonymousDeniesMissingScope.
   - id: go-sdk.re-sync-does-not-drop-a-service-exclusion
     title: Re-sync does not drop a service exclusion
     persona: guest
