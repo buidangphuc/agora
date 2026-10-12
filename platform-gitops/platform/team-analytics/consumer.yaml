@@ -34,7 +34,6 @@ spec:
         - name: consumer
           image: localhost:5001/team-analytics
           env:
-            - { name: KAFKA_ENABLED, value: "true" }
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ANALYTICS_TOPIC, value: "analytics.events" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }

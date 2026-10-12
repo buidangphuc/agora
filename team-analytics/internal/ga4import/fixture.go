@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/marcboeker/go-duckdb"
+	_ "github.com/marcboeker/go-duckdb" // registers the "duckdb" database/sql driver
 )
 
 // FixtureSource reads events_YYYYMMDD.parquet (GA4 export schema) from a directory.
@@ -25,7 +25,7 @@ func param(name, field string) string {
 // Extract aggregates the day's Parquet export with an in-memory DuckDB.
 func (f *FixtureSource) Extract(ctx context.Context, day time.Time) (*Extract, error) {
 	path := filepath.Join(f.dir, "events_"+day.Format("20060102")+".parquet")
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(path); err != nil { //nolint:gosec // the fixture directory is operator configuration, not request input
 		return nil, fmt.Errorf("export table events_%s not found: %w", day.Format("20060102"), err)
 	}
 	db, err := sql.Open("duckdb", "")
@@ -37,9 +37,10 @@ func (f *FixtureSource) Extract(ctx context.Context, day time.Time) (*Extract, e
 	src := "read_parquet('" + strings.ReplaceAll(path, "'", "''") + "')"
 
 	ex := &Extract{}
-	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM "+src).Scan(&ex.Events); err != nil {
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM "+src).Scan(&ex.Events); err != nil { //nolint:gosec // the fixture path is operator configuration, quoted and escaped
 		return nil, err
 	}
+	//nolint:gosec // fragments are package constants; the path is quoted and escaped
 	rows, err := db.QueryContext(ctx, `WITH e AS (
 	  SELECT user_pseudo_id, make_timestamp(event_timestamp) AS ts,
 	    CAST(`+param("ga_session_id", "int_value")+` AS VARCHAR) AS sid,
@@ -67,7 +68,7 @@ func (f *FixtureSource) Extract(ctx context.Context, day time.Time) (*Extract, e
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	drows, err := db.QueryContext(ctx, "SELECT event_name, count(*) FROM "+src+" GROUP BY event_name")
+	drows, err := db.QueryContext(ctx, "SELECT event_name, count(*) FROM "+src+" GROUP BY event_name") //nolint:gosec // fragments are package constants; the path is quoted and escaped
 	if err != nil {
 		return nil, err
 	}

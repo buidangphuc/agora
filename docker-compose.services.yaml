@@ -794,7 +794,6 @@ services:
     environment:
       - ENV=local
       - GRPC_PORT=50059
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CONSUMER_GROUP=team-analytics
       - KAFKA_ANALYTICS_TOPIC=analytics.events

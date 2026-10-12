@@ -1,0 +1,145 @@
+package store_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/buidangphuc/team-analytics/internal/store"
+	"github.com/buidangphuc/team-analytics/internal/store/fake"
+)
+
+// allowedDuckDB / allowedBigQuery are the intersection types the two engines
+// agree on (design.md). A column typed outside these sets is drift.
+var (
+	allowedDuckDB   = map[string]bool{"VARCHAR": true, "INTEGER": true, "BIGINT": true, "TIMESTAMP": true, "JSON": true, "BOOLEAN": true}
+	allowedBigQuery = map[string]bool{"STRING": true, "INT64": true, "TIMESTAMP": true, "JSON": true, "BOOL": true}
+)
+
+// TestSchemaParity is the DuckDB↔BigQuery parity guard for tracking_events.
+func TestSchemaParity(t *testing.T) {
+	if len(store.Schema) == 0 {
+		t.Fatal("store.Schema is empty")
+	}
+	seen := map[string]bool{}
+	for _, c := range store.Schema {
+		if c.Name == "" {
+			t.Fatalf("column with empty name: %+v", c)
+		}
+		if seen[c.Name] {
+			t.Fatalf("duplicate column %q", c.Name)
+		}
+		seen[c.Name] = true
+		if !allowedDuckDB[c.DuckDBType] {
+			t.Errorf("column %q: DuckDB type %q outside the shared intersection", c.Name, c.DuckDBType)
+		}
+		if !allowedBigQuery[c.BigQueryType] {
+			t.Errorf("column %q: BigQuery type %q outside the shared intersection", c.Name, c.BigQueryType)
+		}
+	}
+	for _, required := range []string{
+		"event_id", "event_type", "listing_id", "session_id", "page_path",
+		"occurred_at", "principal_id", "principal_type",
+	} {
+		if !seen[required] {
+			t.Errorf("canonical schema missing required column %q", required)
+		}
+	}
+}
+
+// TestOrderFactsSchemaParity is the DuckDB↔BigQuery parity guard for order_facts (ADR-0013).
+func TestOrderFactsSchemaParity(t *testing.T) {
+	if len(store.OrderFactsSchema) == 0 {
+		t.Fatal("store.OrderFactsSchema is empty")
+	}
+	seen := map[string]bool{}
+	for _, c := range store.OrderFactsSchema {
+		if c.Name == "" {
+			t.Fatalf("order_facts column with empty name: %+v", c)
+		}
+		if seen[c.Name] {
+			t.Fatalf("duplicate order_facts column %q", c.Name)
+		}
+		seen[c.Name] = true
+		if !allowedDuckDB[c.DuckDBType] {
+			t.Errorf("order_facts column %q: DuckDB type %q outside the shared intersection", c.Name, c.DuckDBType)
+		}
+		if !allowedBigQuery[c.BigQueryType] {
+			t.Errorf("order_facts column %q: BigQuery type %q outside the shared intersection", c.Name, c.BigQueryType)
+		}
+	}
+	for _, required := range []string{
+		"event_id", "order_id", "listing_id", "seller_id", "quantity", "unit_price", "currency", "occurred_at", "status", "buyer_id",
+	} {
+		if !seen[required] {
+			t.Errorf("canonical order_facts schema missing required column %q", required)
+		}
+	}
+}
+
+func TestColumnNamesMatchSchemaOrder(t *testing.T) {
+	names := store.ColumnNames()
+	if len(names) != len(store.Schema) {
+		t.Fatalf("ColumnNames len %d != Schema len %d", len(names), len(store.Schema))
+	}
+	for i, c := range store.Schema {
+		if names[i] != c.Name {
+			t.Errorf("ColumnNames[%d] = %q, want %q", i, names[i], c.Name)
+		}
+	}
+
+	factNames := store.OrderFactsColumnNames()
+	if len(factNames) != len(store.OrderFactsSchema) {
+		t.Fatalf("OrderFactsColumnNames len %d != OrderFactsSchema len %d", len(factNames), len(store.OrderFactsSchema))
+	}
+	for i, c := range store.OrderFactsSchema {
+		if factNames[i] != c.Name {
+			t.Errorf("OrderFactsColumnNames[%d] = %q, want %q", i, factNames[i], c.Name)
+		}
+	}
+}
+
+// TestFakeRoundTrip exercises the WarehouseWriter seam through the in-memory
+// fake: a batch written is a batch retrievable, in order.
+func TestFakeRoundTrip(t *testing.T) {
+	w := fake.New()
+	batch := []*store.TrackingRecord{
+		{EventID: "e1", EventType: "view", ListingID: "prod-1", OccurredAt: time.Unix(1, 0).UTC()},
+		{EventID: "e2", EventType: "click", ListingID: "prod-2", OccurredAt: time.Unix(2, 0).UTC()},
+	}
+	if err := w.Write(context.Background(), batch); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got := w.Rows()
+	if len(got) != 2 {
+		t.Fatalf("wrote 2 rows, fake has %d", len(got))
+	}
+	if got[0].EventID != "e1" || got[1].EventID != "e2" {
+		t.Errorf("row order not preserved: %q, %q", got[0].EventID, got[1].EventID)
+	}
+	if w.Batches() != 1 {
+		t.Errorf("expected 1 flush, got %d", w.Batches())
+	}
+	if err := w.Close(); err != nil || !w.Closed() {
+		t.Errorf("Close failed: err=%v closed=%v", err, w.Closed())
+	}
+}
+
+// TestWriterInterface asserts the fake (and, by the compile-time asserts in each
+// adapter file, the real adapters) satisfy the seam.
+func TestWriterInterface(_ *testing.T) {
+	var _ store.WarehouseWriter = fake.New()
+}
+
+// Scenario: Schema parity (new ecommerce columns exist in store.Schema; order is free)
+func TestSchemaParity_EcommerceColumnsPresent(t *testing.T) {
+	have := map[string]bool{}
+	for _, c := range store.Schema {
+		have[c.Name] = true
+	}
+	for _, n := range []string{"item_list_id", "position", "event_group_id", "transaction_id", "currency", "value"} {
+		if !have[n] {
+			t.Errorf("store.Schema missing %q", n)
+		}
+	}
+}

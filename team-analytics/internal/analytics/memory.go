@@ -1,0 +1,256 @@
+package analytics
+
+import (
+	"context"
+	"sort"
+	"time"
+)
+
+// Event is a single flattened warehouse row as the in-memory repository sees it.
+// It mirrors the subset of `tracking_events` (+ its properties bag) the seller
+// queries read, letting unit tests build fixtures without a live warehouse.
+type Event struct {
+	SellerID      string
+	EventType     string // "impression" | "view" | "add_to_cart" | "click"
+	TransactionID string // GA4 transaction_id; distinct non-empty ids are counted once
+	OrderID       string // non-empty marks a purchase/order
+	Revenue       int64  // minor units (0 when not an order line)
+	SKU           string
+	ListingID     string
+	Units         int64
+	OccurredAt    time.Time
+}
+
+// MemoryRepository is an in-memory Repository over a fixed set of Events, used
+// by the unit tests (and as a safe, warehouse-free fallback).
+type MemoryRepository struct {
+	events []Event
+}
+
+// NewMemoryRepository builds a repository over the given events.
+func NewMemoryRepository(events ...Event) *MemoryRepository {
+	return &MemoryRepository{events: events}
+}
+
+// inWindow reports whether e belongs to sellerID and falls in [from, to].
+func (e Event) inWindow(sellerID string, from, to time.Time) bool {
+	if e.SellerID != sellerID {
+		return false
+	}
+	t := e.OccurredAt.UTC()
+	if t.Before(from) || t.After(to) {
+		return false
+	}
+	return true
+}
+
+// SellerFunnel counts impressions/views/adds by event type and orders as the
+// distinct set of non-empty order_ids.
+func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from, to time.Time) (Funnel, error) {
+	var f Funnel
+	orders := map[string]struct{}{}
+	checkoutTx, purchaseTx := map[string]struct{}{}, map[string]struct{}{}
+	for _, e := range m.events {
+		if !e.inWindow(sellerID, from, to) {
+			continue
+		}
+		switch e.EventType {
+		case "impression":
+			f.Impressions++
+		case "view":
+			f.Views++
+		case "add_to_cart":
+			f.Adds++
+		case "begin_checkout":
+			countDistinct(&f.BeginCheckouts, checkoutTx, e.TransactionID)
+		case "purchase":
+			countDistinct(&f.Purchases, purchaseTx, e.TransactionID)
+		}
+		if e.OrderID != "" {
+			orders[e.OrderID] = struct{}{}
+		}
+	}
+	f.Orders = int64(len(orders))
+	return f, nil
+}
+
+// RevenueBreakdown aggregates revenue by UTC day (over order rows) and the
+// top-N SKUs by revenue.
+func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, from, to time.Time, topN int) (Breakdown, error) {
+	type dayAgg struct {
+		revenue int64
+		orders  map[string]struct{}
+	}
+	type skuAgg struct {
+		listingID string
+		revenue   int64
+		units     int64
+	}
+	days := map[string]*dayAgg{}
+	skus := map[string]*skuAgg{}
+
+	for _, e := range m.events {
+		if !e.inWindow(sellerID, from, to) {
+			continue
+		}
+		// Revenue-by-day is keyed on order rows (a purchase carries an order_id).
+		if e.OrderID != "" {
+			key := e.OccurredAt.UTC().Format("2006-01-02")
+			d := days[key]
+			if d == nil {
+				d = &dayAgg{orders: map[string]struct{}{}}
+				days[key] = d
+			}
+			d.revenue += e.Revenue
+			d.orders[e.OrderID] = struct{}{}
+		}
+		if e.SKU != "" {
+			s := skus[e.SKU]
+			if s == nil {
+				s = &skuAgg{listingID: e.ListingID}
+				skus[e.SKU] = s
+			}
+			s.revenue += e.Revenue
+			s.units += e.Units
+		}
+	}
+
+	var b Breakdown
+	for day, agg := range days {
+		b.Days = append(b.Days, DayRevenue{
+			Day:        day,
+			Revenue:    agg.revenue,
+			OrderCount: int64(len(agg.orders)),
+		})
+	}
+	sort.Slice(b.Days, func(i, j int) bool { return b.Days[i].Day < b.Days[j].Day })
+
+	for sku, agg := range skus {
+		b.TopSkus = append(b.TopSkus, TopSku{
+			SKU:       sku,
+			ListingID: agg.listingID,
+			Revenue:   agg.revenue,
+			UnitsSold: agg.units,
+		})
+	}
+	// Deterministic top-N: revenue desc, then SKU asc as a tiebreak.
+	sort.Slice(b.TopSkus, func(i, j int) bool {
+		if b.TopSkus[i].Revenue != b.TopSkus[j].Revenue {
+			return b.TopSkus[i].Revenue > b.TopSkus[j].Revenue
+		}
+		return b.TopSkus[i].SKU < b.TopSkus[j].SKU
+	})
+	if topN > 0 && len(b.TopSkus) > topN {
+		b.TopSkus = b.TopSkus[:topN]
+	}
+	return b, nil
+}
+
+// DemandForecast generates seasonal baseline quantile predictions over memory events.
+func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error) {
+	if horizonDays <= 0 {
+		horizonDays = 28
+	}
+	var totalUnits int64
+	for _, e := range m.events {
+		if e.SellerID == sellerID && (e.ListingID == listingID || e.SKU == listingID) {
+			totalUnits += e.Units
+		}
+	}
+	baseDaily := float64(totalUnits) / 14.0
+	if baseDaily <= 0 {
+		baseDaily = 2.0
+	}
+
+	points := make([]DailyPoint, horizonDays)
+	now := time.Now().UTC()
+	for i := 0; i < horizonDays; i++ {
+		dt := now.AddDate(0, 0, i+1).Format("2006-01-02")
+		p10 := baseDaily * 0.6
+		p50 := baseDaily
+		p90 := baseDaily * 1.5
+		if p10 < 0 {
+			p10 = 0
+		}
+		points[i] = DailyPoint{
+			Date: dt,
+			P10:  float64(int(p10*10)) / 10.0,
+			P50:  float64(int(p50*10)) / 10.0,
+			P90:  float64(int(p90*10)) / 10.0,
+		}
+	}
+
+	return ForecastResult{
+		SellerID:      sellerID,
+		ListingID:     listingID,
+		ModelVersion:  "memory_baseline_v1",
+		IsColdStart:   totalUnits == 0,
+		DailyForecast: points,
+	}, nil
+}
+
+// PlatformOrderSummary sums every order row with OccurredAt >= since.
+func (m *MemoryRepository) PlatformOrderSummary(_ context.Context, since time.Time) (OrderSummary, error) {
+	var s OrderSummary
+	orders := map[string]struct{}{}
+	for _, e := range m.events {
+		if e.OrderID == "" || e.OccurredAt.UTC().Before(since) {
+			continue
+		}
+		orders[e.OrderID] = struct{}{}
+		s.GMV += e.Revenue
+	}
+	s.OrderCount = int64(len(orders))
+	return s, nil
+}
+
+// RecentOrders groups order rows by order id, newest first.
+func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]RecentOrder, error) {
+	byID := map[string]*RecentOrder{}
+	for _, e := range m.events {
+		if e.OrderID == "" {
+			continue
+		}
+		o := byID[e.OrderID]
+		if o == nil {
+			o = &RecentOrder{OrderID: e.OrderID, SellerID: e.SellerID, PaidAt: e.OccurredAt.UTC()}
+			byID[e.OrderID] = o
+		}
+		o.Total += e.Revenue
+		if e.SellerID < o.SellerID {
+			o.SellerID = e.SellerID
+		}
+		if t := e.OccurredAt.UTC(); t.After(o.PaidAt) {
+			o.PaidAt = t
+		}
+	}
+	out := make([]RecentOrder, 0, len(byID))
+	for _, o := range byID {
+		out = append(out, *o)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].PaidAt.Equal(out[j].PaidAt) {
+			return out[i].PaidAt.After(out[j].PaidAt)
+		}
+		return out[i].OrderID < out[j].OrderID
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+// compile-time assertion that the fake satisfies the seam.
+var _ Repository = (*MemoryRepository)(nil)
+
+// countDistinct counts a row once per non-empty transaction id, and every row
+// with an empty id.
+func countDistinct(n *int64, seen map[string]struct{}, id string) {
+	if id != "" {
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+	}
+	*n++
+}

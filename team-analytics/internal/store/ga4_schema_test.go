@@ -1,0 +1,83 @@
+package store_test
+
+import (
+	"testing"
+
+	"github.com/buidangphuc/team-analytics/internal/store"
+)
+
+func colMap(cols []store.Column) map[string]store.Column {
+	m := map[string]store.Column{}
+	for _, c := range cols {
+		m[c.Name] = c
+	}
+	return m
+}
+
+// Scenario: Schema parity holds (GA4SessionsSchema is the single source, incl. export_date and ended_at)
+func TestSchemaParityHolds_GA4SessionsSchemaColumns(t *testing.T) {
+	m := colMap(store.GA4SessionsSchema)
+	if len(m) != len(store.GA4SessionsSchema) || len(m) == 0 {
+		t.Fatalf("GA4SessionsSchema empty or has duplicate names: %+v", store.GA4SessionsSchema)
+	}
+	for _, n := range []string{"export_date", "user_pseudo_id", "session_id", "source", "medium", "campaign", "landing_page", "ts", "ended_at"} {
+		if _, ok := m[n]; !ok {
+			t.Errorf("GA4SessionsSchema missing %q", n)
+		}
+	}
+	if c := m["export_date"]; c.DuckDBType != "DATE" || c.BigQueryType != "DATE" {
+		t.Errorf("export_date types = %q/%q, want DATE/DATE", c.DuckDBType, c.BigQueryType)
+	}
+	for _, n := range []string{"ts", "ended_at"} {
+		if c := m[n]; c.DuckDBType != "TIMESTAMP" || c.BigQueryType != "TIMESTAMP" {
+			t.Errorf("%s types = %q/%q, want TIMESTAMP", n, c.DuckDBType, c.BigQueryType)
+		}
+	}
+}
+
+// Scenario: Schema parity holds (GA4EventsDailySchema)
+func TestSchemaParityHolds_GA4EventsDailySchemaColumns(t *testing.T) {
+	m := colMap(store.GA4EventsDailySchema)
+	for _, n := range []string{"day", "event_name", "events"} {
+		if _, ok := m[n]; !ok {
+			t.Errorf("GA4EventsDailySchema missing %q", n)
+		}
+	}
+	if len(m) != 3 {
+		t.Errorf("GA4EventsDailySchema has %d columns, want 3", len(m))
+	}
+	if c := m["day"]; c.DuckDBType != "DATE" || c.BigQueryType != "DATE" {
+		t.Errorf("day types = %q/%q, want DATE", c.DuckDBType, c.BigQueryType)
+	}
+	if c := m["events"]; c.DuckDBType != "BIGINT" || c.BigQueryType != "INT64" {
+		t.Errorf("events types = %q/%q, want BIGINT/INT64", c.DuckDBType, c.BigQueryType)
+	}
+}
+
+// Scenario: Schema parity holds (ga4_import_runs: export_date, rows, finished_at)
+func TestSchemaParityHolds_GA4ImportRunsSchemaColumns(t *testing.T) {
+	m := colMap(store.GA4ImportRunsSchema)
+	for _, n := range []string{"export_date", "rows", "finished_at"} {
+		if _, ok := m[n]; !ok {
+			t.Errorf("GA4ImportRunsSchema missing %q", n)
+		}
+	}
+	if store.GA4SessionsTableName != "ga4_sessions" || store.GA4EventsDailyTableName != "ga4_events_daily" || store.GA4ImportRunsTableName != "ga4_import_runs" {
+		t.Errorf("table name constants wrong: %q %q %q", store.GA4SessionsTableName, store.GA4EventsDailyTableName, store.GA4ImportRunsTableName)
+	}
+}
+
+// Scenario: Consent and client id are persisted (schema parity: tracking_events consent columns come from Schema)
+func TestConsentAndClientIdArePersisted_SchemaColumns(t *testing.T) {
+	m := colMap(store.Schema)
+	for _, n := range []string{"ga_client_id", "consent_version", "consent_analytics", "consent_marketing", "consent_personalization"} {
+		if _, ok := m[n]; !ok {
+			t.Errorf("Schema missing %q", n)
+		}
+	}
+	for _, n := range []string{"consent_analytics", "consent_marketing", "consent_personalization"} {
+		if c := m[n]; c.DuckDBType != "BOOLEAN" || c.BigQueryType != "BOOL" {
+			t.Errorf("%s types = %q/%q, want BOOLEAN/BOOL", n, c.DuckDBType, c.BigQueryType)
+		}
+	}
+}

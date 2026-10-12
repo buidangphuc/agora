@@ -1,38 +1,28 @@
-# Local dev + merge-gate targets for team-analytics (Kafka → warehouse worker).
+# Local dev + merge-gate targets for team-analytics (Kafka -> warehouse worker).
+#
+# The shared targets (build, run, test, lint, check, check-env, docker, proto)
+# come from make/go-service.mk, synced from platform-core (ADR-0016). `make check`
+# is the LOCAL MERGE-GATE CONTRACT: it must pass before a PR merges.
 
+SERVICE   := team-analytics
+GRPC_PORT := 50059
+BINARIES  := consumer ga4-relay ga4import
+
+# Load .env if present (for `make run`, `make ga4-relay`).
 ifneq (,$(wildcard ./.env))
 include .env
 export
 endif
 
-.PHONY: help proto tidy consumer ga4-relay check check-env test
+include make/go-service.mk
 
-help: ## Show this help
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
-proto: ## Generate Go code from the vendored proto module (needs buf)
-	buf generate
+.PHONY: tidy consumer ga4-relay
 
 tidy: ## Resolve deps + go.sum
 	go mod tidy
 
-consumer: ## Run the Kafka analytics consumer (needs KAFKA_ENABLED=true)
+consumer: ## Run the Kafka analytics consumer
 	go run ./cmd/consumer
 
 ga4-relay: ## Run the GA4 purchase relay (disabled unless GA4_API_SECRET + GA4_MEASUREMENT_ID are set)
 	go run ./cmd/ga4-relay
-
-check: check-env ## Merge gate: env-drift, gofmt, vet, tests
-	@echo ">> gofmt (report unformatted files)"
-	@unformatted=$$(gofmt -l .); \
-	  if [ -n "$$unformatted" ]; then echo "gofmt needs to run on:"; echo "$$unformatted"; exit 1; fi
-	@echo ">> go vet"
-	go vet ./...
-	@echo ">> go test"
-	go test ./...
-
-check-env: ## Verify .env.example matches internal/config fields
-	go test ./internal/config/ -run TestEnvExampleInSync -count=1
-
-test: ## Run all tests
-	go test ./...

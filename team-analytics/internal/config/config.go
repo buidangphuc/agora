@@ -1,8 +1,7 @@
-// Package config assembles one flat Settings value from per-capability struct
-// groups, populated from the environment with defaults — mirroring team-search's
-// config (and, one step back, team-ai's pydantic Settings). The `env`/`default`
-// struct tags are the single source of truth for loading AND the .env.example
-// drift gate (envcheck.go).
+// Package config holds team-analytics's settings: the SDK groups it uses plus
+// its own groups, bound from environment variables. The `env`/`default` struct
+// tags are the single source of truth for loading AND the .env.example drift
+// gate (TestEnvExampleInSync).
 package config
 
 import (
@@ -10,8 +9,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
 // Warehouse driver identifiers selected by WAREHOUSE_DRIVER.
@@ -20,44 +20,36 @@ const (
 	DriverBigQuery = "bigquery"
 )
 
-// Settings is the whole configuration surface, grouped by capability.
+// Settings is the whole configuration surface. Runtime and GRPC are embedded
+// because nothing else collides with their fields; the other groups are named.
+// The gRPC server serves the read-only query API and the health probes; GRPC
+// also carries SHUTDOWN_GRACE_SECONDS and SHUTDOWN_DRAIN_DELAY_SECONDS.
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Kafka         Kafka
-	Warehouse     Warehouse
-	Batch         Batch
-	Tracking      Tracking
-	Recs          Recs
-	Engagement    Engagement
-	GA4           GA4
-	Observability Observability
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	OTel       sdkconfig.OTel
+	Metrics    Metrics
+	Kafka      Kafka
+	Warehouse  Warehouse
+	Batch      Batch
+	Tracking   Tracking
+	Recs       Recs
+	Engagement Engagement
+	GA4        GA4
 }
 
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
-}
-
-// Server is the gRPC HEALTH server only (k8s probes). This worker serves no
-// business RPC/HTTP — its input is the Kafka topic.
-type Server struct {
-	Host              string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port              int     `env:"GRPC_PORT" default:"50059"`
-	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
-	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-	// MetricsAddr is the HTTP listen address of GET /metrics (empty disables it).
-	MetricsAddr string `env:"METRICS_ADDR" default:":9109"`
+// Metrics configures the HTTP listener of GET /metrics and the GA4 import trigger.
+type Metrics struct {
+	// Addr is the HTTP listen address (empty disables it).
+	Addr string `env:"METRICS_ADDR" default:":9109"`
 }
 
 // Kafka configures the analytics-events consumer (ADR-0002).
 type Kafka struct {
-	Enabled        bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers        string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
-	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
-	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
-	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
+	sdkconfig.Kafka        // KAFKA_BROKERS
+	ConsumerGroup   string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
+	AnalyticsTopic  string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
+	OrderTopic      string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
 	// ListingTopic feeds the listing -> seller / category / price table (ListingChanged). It is
 	// read by its own consumer group, from the earliest offset, so existing listings backfill.
 	// The group name was bumped from team-analytics-listing-sellers when category and price
@@ -147,32 +139,16 @@ type GA4 struct {
 	RelayProbePort     int    `env:"GA4_RELAY_PROBE_PORT" default:"8085"`
 }
 
-// Observability configures OpenTelemetry (ADR-0004). Exporter swappable.
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-analytics"`
-}
-
-// LoadSettings reads the environment into Settings, applies defaults, validates.
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
-	}
-	if err := s.Validate(); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
 // Validate enforces cross-field invariants and prod-safety.
-func (s *Settings) Validate() error {
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
+func (s Settings) Validate() error {
+	if err := s.GRPC.Validate(); err != nil {
+		return err
 	}
-	if s.Server.ShutdownGrace < 0 {
-		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
+	if s.Port > 65535 {
+		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
+	}
+	if s.ShutdownGraceSeconds < 0 {
+		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.ShutdownGraceSeconds)
 	}
 	if s.Batch.MaxSize <= 0 {
 		return fmt.Errorf("BATCH_MAX_SIZE must be > 0: %d", s.Batch.MaxSize)
@@ -234,92 +210,46 @@ func (s *Settings) Validate() error {
 }
 
 // GA4RelayEnabled reports whether the purchase relay has its credentials.
-func (s *Settings) GA4RelayEnabled() bool {
+func (s Settings) GA4RelayEnabled() bool {
 	return strings.TrimSpace(s.GA4.APISecret) != "" && strings.TrimSpace(s.GA4.MeasurementID) != ""
 }
 
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
-	return e == "prod" || e == "production"
-}
-
-// KafkaBrokers splits KAFKA_BROKERS into seed addresses.
-func (s *Settings) KafkaBrokers() []string { return splitCSV(s.Kafka.Brokers) }
-
-func splitCSV(v string) []string {
-	parts := strings.Split(v, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
+// Load reads Settings from the environment and validates it.
+//
+// The SDK binder replaces a string variable that is set but empty with its
+// default. This service has always honoured an explicit empty string (for
+// example GA4_ENDPOINT= or DUCKDB_PATH=, which Validate then rejects), so Load
+// restores it and validates again.
+func Load() (Settings, error) {
+	s, err := sdkconfig.Load[Settings]()
+	if err != nil {
+		return s, err
 	}
-	return out
-}
-
-// DeclaredEnvKeys returns every env key declared by Settings, in struct order.
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
+	honourExplicitEmpty(reflect.ValueOf(&s).Elem())
+	if err := s.Validate(); err != nil {
+		return s, err
 	}
-	return keys
+	return s, nil
 }
 
-func bindGroups(v reflect.Value) error {
+// honourExplicitEmpty sets every string field whose env variable is set to ""
+// back to "", recursing into nested groups.
+func honourExplicitEmpty(v reflect.Value) {
 	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
+	for i := range t.NumField() {
+		f, fv := t.Field(i), v.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		if tag, ok := f.Tag.Lookup("env"); ok {
+			key, _, _ := strings.Cut(tag, ",")
+			if val, set := os.LookupEnv(key); set && val == "" && fv.Kind() == reflect.String {
+				fv.SetString("")
 			}
-			raw := f.Tag.Get("default")
-			// An empty value of a non-string setting means "unset" (keeps the default).
-			if val, ok := os.LookupEnv(key); ok && (val != "" || group.Field(j).Kind() == reflect.String) {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
+			continue
+		}
+		if fv.Kind() == reflect.Struct {
+			honourExplicitEmpty(fv)
 		}
 	}
-	return nil
-}
-
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
 }

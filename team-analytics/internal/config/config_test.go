@@ -5,8 +5,19 @@ import (
 	"strings"
 	"testing"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+
 	"github.com/buidangphuc/team-analytics/internal/config"
 )
+
+// GRPC_PORT is required (no default) in the SDK settings; the Dockerfile and the
+// deploy manifests set it, so the tests do the same.
+func TestMain(m *testing.M) {
+	if err := os.Setenv("GRPC_PORT", "50059"); err != nil {
+		panic(err)
+	}
+	os.Exit(m.Run())
+}
 
 // TestEnvExampleInSync is the env-drift gate (`make check-env`).
 func TestEnvExampleInSync(t *testing.T) {
@@ -14,18 +25,18 @@ func TestEnvExampleInSync(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf(".env.example not found at %s: %v", path, err)
 	}
-	if err := config.CheckEnvExample(path); err != nil {
+	if err := sdkconfig.CheckEnvExample(path, config.Settings{}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestLoadDefaults(t *testing.T) {
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadSettings with defaults: %v", err)
+		t.Fatalf("Load with defaults: %v", err)
 	}
-	if s.Server.Port != 50059 {
-		t.Errorf("default GRPC_PORT = %d, want 50059", s.Server.Port)
+	if s.Port != 50059 {
+		t.Errorf("default GRPC_PORT = %d, want 50059", s.Port)
 	}
 	if s.Kafka.AnalyticsTopic != "analytics.events" {
 		t.Errorf("default KAFKA_ANALYTICS_TOPIC = %q, want analytics.events", s.Kafka.AnalyticsTopic)
@@ -40,7 +51,7 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestValidateRejectsUnknownDriver(t *testing.T) {
 	s := &config.Settings{}
-	s.Server.Port = 50059
+	s.Port = 50059
 	s.Batch.MaxSize = 1
 	s.Warehouse.Driver = "sqlite"
 	if err := s.Validate(); err == nil {
@@ -50,7 +61,7 @@ func TestValidateRejectsUnknownDriver(t *testing.T) {
 
 func TestValidateBigQueryRequiresTarget(t *testing.T) {
 	s := &config.Settings{}
-	s.Server.Port = 50059
+	s.Port = 50059
 	s.Batch.MaxSize = 1
 	s.Warehouse.Driver = config.DriverBigQuery
 	s.Warehouse.BigQueryDataset = "analytics"
@@ -62,7 +73,7 @@ func TestValidateBigQueryRequiresTarget(t *testing.T) {
 }
 
 func TestTrackingDefaultsAndValidation(t *testing.T) {
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +86,7 @@ func TestTrackingDefaultsAndValidation(t *testing.T) {
 		func(s *config.Settings) { s.Tracking.MissingListingMaxRatio = 1.1 },
 		func(s *config.Settings) { s.Tracking.MissingListingMaxRatio = -0.1 },
 	} {
-		bad := *s
+		bad := s
 		mut(&bad)
 		if err := bad.Validate(); err == nil {
 			t.Errorf("Validate accepted %+v", bad.Tracking)
@@ -84,14 +95,14 @@ func TestTrackingDefaultsAndValidation(t *testing.T) {
 }
 
 func TestRecsAttributionDefaultAndValidation(t *testing.T) {
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.Recs.AttributionWindowHours != 24 {
 		t.Errorf("attribution window default = %d, want 24", s.Recs.AttributionWindowHours)
 	}
-	bad := *s
+	bad := s
 	bad.Recs.AttributionWindowHours = 0
 	if err := bad.Validate(); err == nil {
 		t.Error("Validate accepted RECS_ATTRIBUTION_WINDOW_HOURS=0")
@@ -102,7 +113,7 @@ func TestRecsAttributionDefaultAndValidation(t *testing.T) {
 func TestInvalidGA4ReconcileThresholdIsRejectedAtStartup(t *testing.T) {
 	for _, v := range []string{"-1", "abc"} {
 		t.Setenv("GA4_RECONCILE_MAX_DIFF_RATIO", v)
-		_, err := config.LoadSettings()
+		_, err := config.Load()
 		if err == nil || !strings.Contains(err.Error(), "GA4_RECONCILE_MAX_DIFF_RATIO") {
 			t.Errorf("value %q: want error naming GA4_RECONCILE_MAX_DIFF_RATIO, got %v", v, err)
 		}
@@ -113,7 +124,7 @@ func TestInvalidGA4ReconcileThresholdIsRejectedAtStartup(t *testing.T) {
 func TestGA4SettingsDefaults(t *testing.T) {
 	t.Setenv("GA4_EXPORT_DATASET", "")
 	t.Setenv("GA4_RECONCILE_MAX_DIFF_RATIO", "")
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,8 +140,10 @@ func TestGA4SettingsDefaults(t *testing.T) {
 
 func clearRelayEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"GA4_API_SECRET", "GA4_MEASUREMENT_ID", "GA4_ENDPOINT",
-		"GA4_RELAY_CONSUMER_GROUP", "GA4_RELAY_DLQ_TOPIC", "GA4_RELAY_PROBE_PORT"} {
+	for _, k := range []string{
+		"GA4_API_SECRET", "GA4_MEASUREMENT_ID", "GA4_ENDPOINT",
+		"GA4_RELAY_CONSUMER_GROUP", "GA4_RELAY_DLQ_TOPIC", "GA4_RELAY_PROBE_PORT",
+	} {
 		t.Setenv(k, "") // registers restore of the original value
 		os.Unsetenv(k)  // truly unset, so empty-string semantics are not conflated with unset
 	}
@@ -140,9 +153,9 @@ func clearRelayEnv(t *testing.T) {
 func TestGA4RelayExplicitEmptyEndpointIsHonoured_DisabledWithoutSecret(t *testing.T) {
 	clearRelayEnv(t)
 	t.Setenv("GA4_ENDPOINT", "")
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadSettings (relay disabled): %v", err)
+		t.Fatalf("Load (relay disabled): %v", err)
 	}
 	if s.GA4.Endpoint != "" {
 		t.Errorf("explicit empty GA4_ENDPOINT = %q, want empty (no default substitution)", s.GA4.Endpoint)
@@ -152,9 +165,9 @@ func TestGA4RelayExplicitEmptyEndpointIsHonoured_DisabledWithoutSecret(t *testin
 // Scenario: Disabled without secret (defaults: nothing set -> disabled, MP URL, DLQ, probe port).
 func TestGA4RelayDefaults_DisabledWithoutSecret(t *testing.T) {
 	clearRelayEnv(t)
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
 	if s.GA4.APISecret != "" || s.GA4.MeasurementID != "" {
 		t.Errorf("secret/measurement id must default empty, got %q / %q", s.GA4.APISecret, s.GA4.MeasurementID)
@@ -197,9 +210,9 @@ func TestGA4RelayEnabled_RequiresSecretAndMeasurementID_DisabledWithoutSecret(t 
 			clearRelayEnv(t)
 			t.Setenv("GA4_API_SECRET", c.secret)
 			t.Setenv("GA4_MEASUREMENT_ID", c.mid)
-			s, err := config.LoadSettings()
+			s, err := config.Load()
 			if err != nil {
-				t.Fatalf("LoadSettings must succeed even when the relay is disabled: %v", err)
+				t.Fatalf("Load must succeed even when the relay is disabled: %v", err)
 			}
 			if got := s.GA4RelayEnabled(); got != c.want {
 				t.Errorf("GA4RelayEnabled() = %v, want %v", got, c.want)
@@ -217,9 +230,9 @@ func TestGA4RelayEnvOverrides_DisabledWithoutSecret(t *testing.T) {
 	t.Setenv("GA4_RELAY_DLQ_TOPIC", "custom.dlq")
 	t.Setenv("GA4_RELAY_CONSUMER_GROUP", "custom-group")
 	t.Setenv("GA4_RELAY_PROBE_PORT", "9090")
-	s, err := config.LoadSettings()
+	s, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
 	if s.GA4.APISecret != "s3cret" || s.GA4.MeasurementID != "G-ABC123" {
 		t.Errorf("secret/measurement id not loaded: %q / %q", s.GA4.APISecret, s.GA4.MeasurementID)
@@ -246,7 +259,7 @@ func TestGA4RelayValidate_EnabledRequiresUsableConfig_DisabledWithoutSecret(t *t
 			for k, v := range env {
 				t.Setenv(k, v)
 			}
-			if _, err := config.LoadSettings(); err == nil {
+			if _, err := config.Load(); err == nil {
 				t.Fatal("expected validation error for an enabled relay with unusable config")
 			}
 		})
@@ -259,7 +272,7 @@ func TestGA4RelayInvalidConfigErrorDoesNotContainSecret(t *testing.T) {
 	t.Setenv("GA4_API_SECRET", "TOP-SECRET-VALUE")
 	t.Setenv("GA4_MEASUREMENT_ID", "G-ABC123")
 	t.Setenv("GA4_RELAY_PROBE_PORT", "70000")
-	_, err := config.LoadSettings()
+	_, err := config.Load()
 	if err == nil {
 		t.Fatal("expected error")
 	}

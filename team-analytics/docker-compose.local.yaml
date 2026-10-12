@@ -6,7 +6,6 @@ services:
   team-analytics:
     build: .
     environment:
-      KAFKA_ENABLED: "true"
       KAFKA_BROKERS: "redpanda:9092"
       KAFKA_ANALYTICS_TOPIC: "analytics.events"
       KAFKA_CONSUMER_GROUP: "team-analytics"
