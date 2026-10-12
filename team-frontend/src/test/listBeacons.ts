@@ -34,6 +34,7 @@ export function beginBeaconCapture() {
   sessionStorage.clear();
   beaconQueue.flush();
   (window as { dataLayer?: unknown[] }).dataLayer = [];
+  document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
   const fetchMock = vi.fn(() => Promise.resolve(new Response(null)));
   vi.stubGlobal("navigator", { sendBeacon: undefined });
   vi.stubGlobal("fetch", fetchMock);
@@ -42,6 +43,7 @@ export function beginBeaconCapture() {
 }
 
 export function endBeaconCapture() {
+  document.cookie = "agora_consent=; Max-Age=0; Path=/";
   vi.useRealTimers();
   vi.unstubAllGlobals();
 }

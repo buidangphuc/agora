@@ -28,6 +28,7 @@ describe("track (shim over the analytics dispatcher)", () => {
   });
 
   afterEach(() => {
+    document.cookie = "agora_consent=; Max-Age=0; Path=/";
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -121,6 +122,7 @@ describe("track (shim over the analytics dispatcher)", () => {
   it("[Payload keys limited to schema] purchase dataLayer entry and beacon carry exactly the schema keys, no buyer PII", () => {
     const wire = captureWire();
     (window as { dataLayer?: unknown[] }).dataLayer = [];
+    document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
     track({
       type: "purchase",
       listingId: "l-1",
