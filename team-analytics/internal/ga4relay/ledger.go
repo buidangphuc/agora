@@ -78,3 +78,30 @@ func (l *sqlLedger) MarkSent(ctx context.Context, orderID string) error {
 		orderID, l.now().Add(ledgerTTL).UnixMicro())
 	return err
 }
+
+// Purger physically deletes expired rows and returns how many were removed.
+type Purger interface {
+	Purge(ctx context.Context) (int64, error)
+}
+
+func (l *memoryLedger) Purge(_ context.Context) (int64, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var n int64
+	now := l.now()
+	for k, exp := range l.m {
+		if !now.Before(exp) {
+			delete(l.m, k)
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (l *sqlLedger) Purge(ctx context.Context) (int64, error) {
+	res, err := l.db.ExecContext(ctx, `DELETE FROM ga4_relay_sent WHERE expires_micros <= ?`, l.now().UnixMicro())
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

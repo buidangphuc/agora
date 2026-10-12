@@ -49,3 +49,11 @@ func (s *sqlMappingStore) Delete(ctx context.Context, buyerID string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM ga4_relay_client_map WHERE buyer_id = ?`, buyerID)
 	return err
 }
+
+func (s *sqlMappingStore) Purge(ctx context.Context) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM ga4_relay_client_map WHERE expires_micros <= ?`, s.now().UnixMicro())
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

@@ -122,6 +122,11 @@ func realMain() error {
 			defer wg.Done()
 			c.loop(ctx, logger)
 		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			runPurger(ctx, purgeInterval, logger, c.purgers...)
+		}()
 		return nil
 	}
 	runErr := run(ctx, s, logger, d)
@@ -140,6 +145,37 @@ type relayConsumer struct {
 	analyticsTop string
 	orderTop     string
 	logger       *slog.Logger
+	purgers      []ga4relay.Purger
+}
+
+// purgeInterval is how often expired ledger and mapping rows are deleted.
+const purgeInterval = time.Hour
+
+// runPurger purges every purger immediately, then per interval, until ctx is done.
+func runPurger(ctx context.Context, interval time.Duration, logger *slog.Logger, purgers ...ga4relay.Purger) {
+	purge := func() {
+		for _, p := range purgers {
+			n, err := p.Purge(ctx)
+			if err != nil {
+				if ctx.Err() == nil {
+					logger.Warn("ga4 relay retention purge failed", slog.String("error", err.Error()))
+				}
+				continue
+			}
+			logger.Info("ga4 relay retention purge", slog.Int64("deleted", n))
+		}
+	}
+	purge()
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			purge()
+		}
+	}
 }
 
 func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger) (*relayConsumer, []func(), error) {
@@ -188,6 +224,7 @@ func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger)
 	return &relayConsumer{
 		client: client, mapping: ga4relay.NewMappingHandler(mappings), relay: relay,
 		analyticsTop: s.Kafka.AnalyticsTopic, orderTop: s.Kafka.OrderTopic, logger: logger,
+		purgers: []ga4relay.Purger{ledger.(ga4relay.Purger), mappings.(ga4relay.Purger)},
 	}, closers, nil
 }
 
