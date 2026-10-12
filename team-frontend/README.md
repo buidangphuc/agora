@@ -61,6 +61,16 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 
 `NEXT_PUBLIC_*` values are baked in at `next build`; changing them at runtime has no effect. `NEXT_PUBLIC_MEDIA_BASE_URL` is not in `.env.example`. Feature flags are evaluated server-side only.
 
+### GA4 via GTM
+
+No secret values are committed; set them per environment.
+
+- **`GA4_USER_ID_HMAC_KEY`**: server-only runtime secret, injected from Vault. Never `NEXT_PUBLIC_*`. Unset: `/api/analytics/identity` returns 204 and `user_id` is disabled.
+- **Build-time args**: `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_APP_ENV` (`staging` turns on `debug_mode`), `NEXT_PUBLIC_GATEWAY_URL`, `NEXT_PUBLIC_MEDIA_BASE_URL`. All are inlined at `next build` and also feed the Content-Security-Policy, so every environment needs its own image (`docker build --build-arg NEXT_PUBLIC_GTM_ID=... --build-arg NEXT_PUBLIC_APP_ENV=...`). Never promote a staging image to prod.
+- **GTM container**: import `analytics/gtm-container.json` into the environment's GTM workspace and fill the `GA4 Measurement ID` constant. It has two config tags: one on page load, and `ga4_identity` with `send_page_view` false.
+- **Identity flow**: `GET /api/analytics/identity` calls gateway `GET /api/session/principal` (verified bearer), then HMACs the principal into the GA4 `user_id`. Consent-gated: nothing is sent without analytics consent.
+- **CSP**: built at build time from the args above. Google hosts (GTM, GA4) are allowed only when `NEXT_PUBLIC_GTM_ID` is set; the gateway and media origins are always allowed. Dev adds `unsafe-eval` and `ws:` for HMR.
+
 ## 5. Run locally
 
 Root compose (from the repo root; service `team-frontend`, container `team-frontend-svc`, `:3000`; it needs the gateway at `:8080`, which has no `depends_on` link, so start it too):
