@@ -1305,7 +1305,7 @@ features:
       - "The job is a no-op when unconfigured"
     tags: [tracking, analytics, ga4]
     status: planned
-    # e2e: tracking/ga4_export_import.feature::The job is a no-op when unconfigured
+    notes: "add-ga4-export-import: no e2e: the consumer env is fixed by the stack, so unconfigured cannot be driven black-box; spec has no VERIFIED BY."
 
   - id: ga4-export-import.invalid-threshold-is-rejected-at-startup
     title: "Invalid threshold is rejected at startup"

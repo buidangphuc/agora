@@ -64,12 +64,6 @@ Feature: GA4 export import, attributed channel funnel and reconciliation
     Then the job exits with an error naming that date
     And the ga4_sessions rows of the fixture date are unchanged
 
-  Scenario: The job is a no-op when unconfigured
-    Given a GA4 fixture day with 3 sessions of 2 distinct users
-    When the ga4import job runs with GA4_EXPORT_DATASET unset
-    Then the job succeeds
-    And ga4_sessions holds exactly 0 rows for that date
-
   Scenario: Invalid threshold is rejected at startup
     When the ga4import job starts with GA4_RECONCILE_MAX_DIFF_RATIO=-1
     Then the job exits with an error naming GA4_RECONCILE_MAX_DIFF_RATIO

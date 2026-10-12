@@ -1,16 +1,17 @@
 """GA4 export import, attributed channel funnel and reconciliation (add-ga4-export-import).
 
-Black box. The job is run as a one-off process; by default a throwaway container of the
-team-analytics image that shares the data volume of the running service container:
+Black box. The import runs inside the consumer; the job is triggered with the thin CLI client:
 
-    docker run --rm --volumes-from <TEAM_ANALYTICS_CONTAINER> --entrypoint /ga4import <image> --date YYYY-MM-DD
+    docker exec <TEAM_ANALYTICS_CONTAINER> /ga4import --date YYYY-MM-DD
 
-with GA4_EXPORT_SOURCE=fixture, GA4_EXPORT_DATASET=fixture and GA4_EXPORT_FIXTURE_DIR=/data/ga4_fixture.
-Override with GA4_IMPORT_CMD (shell template, `{date}` substituted, env passed through the process
-environment) when the stack runs the job differently. The fixture is a Parquet file named
-`events_YYYYMMDD.parquet` in GA4 export schema (event_date, event_timestamp micros, event_name,
-user_pseudo_id, event_params[{key,value{string_value,int_value}}], traffic_source{name,medium,source})
-copied into the data volume. Warehouse state is read back with tii_support.warehouse_query.
+(exit 0 on HTTP 200 from the consumer's internal trigger, non-zero + stderr text otherwise).
+The consumer must run with GA4_EXPORT_SOURCE=fixture, GA4_EXPORT_DATASET=fixture and
+GA4_EXPORT_FIXTURE_DIR=/data/ga4_fixture (stack override must set them; the e2e cannot change the
+consumer's env). Override the command with GA4_IMPORT_CMD (shell template, `{date}` substituted).
+The fixture is a Parquet file named `events_YYYYMMDD.parquet` in GA4 export schema (event_date,
+event_timestamp micros, event_name, user_pseudo_id, event_params[{key,value{string_value,int_value}}],
+traffic_source{name,medium,source}) docker-cp'd into the consumer's /data. Warehouse state is read
+back with tii_support.warehouse_query.
 Spec scenario names are echoed by the feature scenarios.
 """
 
@@ -144,35 +145,21 @@ def _t(day: date, hh: int, mm: int) -> datetime:
 
 
 # ── job runner ───────────────────────────────────────────────────────────
-def _job_env(overrides: dict[str, str | None]) -> dict[str, str]:
-    env = {
-        "GA4_EXPORT_SOURCE": "fixture",
-        "GA4_EXPORT_DATASET": "fixture",
-        "GA4_EXPORT_FIXTURE_DIR": FIXTURE_DIR,
-    }
-    for k, v in overrides.items():
-        if v is None:
-            env.pop(k, None)
-        else:
-            env[k] = v
-    return env
-
-
 def _run_job(day: date | str, overrides: dict[str, str | None] | None = None) -> tuple[Any, float]:
-    env = _job_env(overrides or {})
+    """Run the thin CLI inside the consumer container. `overrides` only reach the CLI process
+    (e.g. GA4_RECONCILE_MAX_DIFF_RATIO); the consumer's own env is fixed by the stack."""
     iso = day if isinstance(day, str) else day.isoformat()
     template = os.getenv("GA4_IMPORT_CMD")
+    run_env = None
     if template:
         cmd = shlex.split(template.format(date=iso))
-        run_env = {**os.environ, **env}
+        run_env = {**os.environ, **{k: v for k, v in (overrides or {}).items() if v is not None}}
     else:
-        container = tii.analytics_container()
-        image = pe.docker("inspect", container, "--format", "{{.Config.Image}}").stdout.strip()
-        cmd = ["docker", "run", "--rm", "--volumes-from", container]
-        for k, v in env.items():
-            cmd += ["-e", f"{k}={v}"]
-        cmd += ["--entrypoint", "/ga4import", image, "--date", iso]
-        run_env = None
+        cmd = ["docker", "exec"]
+        for k, v in (overrides or {}).items():
+            if v is not None:
+                cmd += ["-e", f"{k}={v}"]
+        cmd += [tii.analytics_container(), "/ga4import", "--date", iso]
     t0 = time.monotonic()
     proc = subprocess.run(
         cmd, capture_output=True, text=True, timeout=JOB_TIMEOUT_S, env=run_env, check=False
@@ -338,11 +325,6 @@ def run_missing_table(world: World) -> None:
     missing = _fresh_date(set(_x(world)["g4_dates"]))
     _x(world)["g4_missing"] = missing
     _run(world, missing)
-
-
-@when("the ga4import job runs with GA4_EXPORT_DATASET unset")
-def run_unconfigured(world: World) -> None:
-    _run(world, _x(world)["g4_date"], {"GA4_EXPORT_DATASET": None})
 
 
 @when("the ga4import job starts with GA4_RECONCILE_MAX_DIFF_RATIO=-1")
