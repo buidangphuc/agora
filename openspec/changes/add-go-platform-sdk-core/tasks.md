@@ -152,8 +152,8 @@ type Func func(ctx context.Context) error                       // implements Co
 type Options struct { ShutdownGrace time.Duration; OnShutdown []func(); Closers []func(context.Context) error; Logger *slog.Logger }
 func Run(ctx context.Context, o Options, cs ...Component) error
 ```
-- [ ] 6.1 Tests first: `TestCheckerFailureFlipsStatus`, `TestDrainIsSticky`, `TestHangingCheckerFailsWithoutBlocking`; then implement healthx, promoting `team-domain/internal/bootstrap/lifecycle.go:198`.
-- [ ] 6.2 Tests first: `TestFailingComponentCancelsOthers`, `TestShutdownOrder`, `TestShutdownDeadline`; then implement lifecycle (errgroup + context). Verify green with `-race`.
+- [x] 6.1 Tests first: `TestCheckerFailureFlipsStatus`, `TestDrainIsSticky`, `TestHangingCheckerFailsWithoutBlocking`; then implement healthx, promoting `team-domain/internal/bootstrap/lifecycle.go:198`.
+- [x] 6.2 Tests first: `TestFailingComponentCancelsOthers`, `TestShutdownOrder`, `TestShutdownDeadline`; then implement lifecycle (errgroup + context). Verify green with `-race`.
 
 ## 7. pgx + migrate + testkit (wave 2)
 
