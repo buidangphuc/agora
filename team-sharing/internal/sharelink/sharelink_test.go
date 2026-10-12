@@ -1,16 +1,16 @@
-package service_test
+package sharelink_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/buidangphuc/team-sharing/internal/repository"
-	"github.com/buidangphuc/team-sharing/internal/service"
+	"github.com/buidangphuc/team-sharing/internal/sharelink"
+	"github.com/buidangphuc/team-sharing/internal/store"
 )
 
-func newService() *service.ShareService {
-	return service.NewShareService(repository.NewInMemoryShareLinkRepo())
+func newService() *sharelink.Service {
+	return sharelink.NewService(store.NewInMemoryShareLinkRepo())
 }
 
 // Create then Resolve returns the same target and UTM, and a non-empty short
@@ -49,7 +49,7 @@ func TestResolveUnknownReturnsNotFound(t *testing.T) {
 	svc := newService()
 
 	_, err := svc.ResolveShareLink(context.Background(), "does_not_exist")
-	if !errors.Is(err, service.ErrShareLinkNotFound) {
+	if !errors.Is(err, sharelink.ErrShareLinkNotFound) {
 		t.Fatalf("expected ErrShareLinkNotFound, got %v", err)
 	}
 }
@@ -80,13 +80,13 @@ func TestCreateAndResolveValidation(t *testing.T) {
 	svc := newService()
 	ctx := context.Background()
 
-	if _, err := svc.CreateShareLink(ctx, "", "", "id", nil); !errors.Is(err, service.ErrEmptyTargetType) {
+	if _, err := svc.CreateShareLink(ctx, "", "", "id", nil); !errors.Is(err, sharelink.ErrEmptyTargetType) {
 		t.Fatalf("expected ErrEmptyTargetType, got %v", err)
 	}
-	if _, err := svc.CreateShareLink(ctx, "", "listing", "", nil); !errors.Is(err, service.ErrEmptyTargetID) {
+	if _, err := svc.CreateShareLink(ctx, "", "listing", "", nil); !errors.Is(err, sharelink.ErrEmptyTargetID) {
 		t.Fatalf("expected ErrEmptyTargetID, got %v", err)
 	}
-	if _, err := svc.ResolveShareLink(ctx, ""); !errors.Is(err, service.ErrEmptyShortCode) {
+	if _, err := svc.ResolveShareLink(ctx, ""); !errors.Is(err, sharelink.ErrEmptyShortCode) {
 		t.Fatalf("expected ErrEmptyShortCode, got %v", err)
 	}
 }
@@ -115,7 +115,7 @@ func TestCreateWithNilUTM(t *testing.T) {
 
 func TestCreateShareLinkRecordsCreator(t *testing.T) {
 	ctx := context.Background()
-	svc := service.NewShareService(repository.NewInMemoryShareLinkRepo())
+	svc := sharelink.NewService(store.NewInMemoryShareLinkRepo())
 
 	owned, err := svc.CreateShareLink(ctx, "user-7", "listing", "l1", nil)
 	if err != nil || owned.CreatedBy != "user-7" {

@@ -1,9 +1,9 @@
-// This file holds the share-link use case: minting a short code for a target
+// Package sharelink holds the share-link use case: minting a short code for a target
 // (with UTM + synthesized Open Graph preview metadata) and resolving a short
 // code back to its target while counting the click. It mirrors the notification
-// service's layering — validate here, persist in the repository; the short-code
+// service's layering — validate here, persist in the store; the short-code
 // alphabet and OG defaults are the only domain specifics.
-package service
+package sharelink
 
 import (
 	"context"
@@ -12,19 +12,19 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/buidangphuc/team-sharing/internal/repository"
+	"github.com/buidangphuc/team-sharing/internal/store"
 )
 
-// Validation errors, mapped to InvalidArgument by the handler.
+// Validation errors, mapped to InvalidArgument by the rpc layer.
 var (
 	ErrEmptyTargetType = errors.New("target_type is required")
 	ErrEmptyTargetID   = errors.New("target_id is required")
 	ErrEmptyShortCode  = errors.New("short_code is required")
 )
 
-// ErrShareLinkNotFound is re-exported so the handler maps it without importing
-// the repository package directly.
-var ErrShareLinkNotFound = repository.ErrShareLinkNotFound
+// ErrShareLinkNotFound is re-exported so the rpc layer maps it without importing
+// the store package directly.
+var ErrShareLinkNotFound = store.ErrShareLinkNotFound
 
 const (
 	// base62Alphabet is the short-code alphabet: URL-safe, case-sensitive.
@@ -36,23 +36,24 @@ const (
 	createMaxAttempts = 5
 )
 
-// ShareService is the share-link use-case boundary.
-type ShareService struct {
-	repo repository.ShareLinkRepository
+// Service is the share-link use-case boundary.
+type Service struct {
+	repo store.ShareLinkRepository
 	// randCode is injectable so tests can force a collision; production uses
 	// the crypto/rand-backed generator.
 	randCode func() (string, error)
 }
 
-func NewShareService(repo repository.ShareLinkRepository) *ShareService {
-	return &ShareService{repo: repo, randCode: randBase62}
+// NewService returns a Service that stores links in repo.
+func NewService(repo store.ShareLinkRepository) *Service {
+	return &Service{repo: repo, randCode: randBase62}
 }
 
 // CreateShareLink mints a short code for the given target, stamps the UTM map and
 // a synthesized OG preview, and stores it. target_type/target_id are required;
 // utm may be nil (stored as empty). createdBy is the authenticated principal id
 // ("" for anonymous callers); the link itself is a public artifact.
-func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetType, targetID string, utm map[string]string) (*repository.ShareLink, error) {
+func (s *Service) CreateShareLink(ctx context.Context, createdBy, targetType, targetID string, utm map[string]string) (*store.ShareLink, error) {
 	if targetType == "" {
 		return nil, ErrEmptyTargetType
 	}
@@ -67,7 +68,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 		if err != nil {
 			return nil, err
 		}
-		link := &repository.ShareLink{
+		link := &store.ShareLink{
 			ShortCode:     code,
 			TargetType:    targetType,
 			TargetID:      targetID,
@@ -78,7 +79,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 			OgImageURL:    image,
 		}
 		stored, err := s.repo.Create(ctx, link)
-		if errors.Is(err, repository.ErrShortCodeExists) {
+		if errors.Is(err, store.ErrShortCodeExists) {
 			lastErr = err
 			continue // collision — try a fresh code
 		}
@@ -92,7 +93,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 
 // ResolveShareLink looks up a short code, counts the click, and returns the
 // target + UTM + OG metadata. Returns ErrShareLinkNotFound for unknown codes.
-func (s *ShareService) ResolveShareLink(ctx context.Context, shortCode string) (*repository.ShareLink, error) {
+func (s *Service) ResolveShareLink(ctx context.Context, shortCode string) (*store.ShareLink, error) {
 	if shortCode == "" {
 		return nil, ErrEmptyShortCode
 	}
@@ -113,9 +114,9 @@ func defaultOgMeta(targetType, targetID string) (title, desc, image string) {
 // string.
 func randBase62() (string, error) {
 	b := make([]byte, shortCodeLen)
-	max := big.NewInt(int64(len(base62Alphabet)))
+	limit := big.NewInt(int64(len(base62Alphabet)))
 	for i := range b {
-		n, err := rand.Int(rand.Reader, max)
+		n, err := rand.Int(rand.Reader, limit)
 		if err != nil {
 			return "", err
 		}

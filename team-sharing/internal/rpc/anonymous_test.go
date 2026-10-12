@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -33,7 +32,7 @@ func create(t *testing.T, h *rpc.Handler, md metadata.MD) (string, error) {
 
 func TestCreateAnonymousStoresEmptyCreator(t *testing.T) {
 	repo := store.NewInMemoryShareLinkRepo()
-	h := rpc.NewHandler(sharelink.NewService(repo), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := rpc.NewHandler(sharelink.NewService(repo), slog.New(slog.DiscardHandler))
 
 	cases := map[string]struct {
 		md   metadata.MD

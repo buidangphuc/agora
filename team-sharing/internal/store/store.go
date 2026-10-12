@@ -1,4 +1,6 @@
-package repository
+// Package store persists share links: a Postgres implementation for deployed
+// runs and an in-memory one for ENV=local without a database and for tests.
+package store
 
 import (
 	"context"
@@ -48,14 +50,17 @@ type ShareLinkRepository interface {
 
 // ── Postgres implementation ──
 
+// PostgresShareLinkRepo stores links in the share_links table.
 type PostgresShareLinkRepo struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresShareLinkRepo returns a repo backed by pool.
 func NewPostgresShareLinkRepo(pool *pgxpool.Pool) *PostgresShareLinkRepo {
 	return &PostgresShareLinkRepo{pool: pool}
 }
 
+// Create inserts the link, or returns ErrShortCodeExists on a code collision.
 func (r *PostgresShareLinkRepo) Create(ctx context.Context, link *ShareLink) (*ShareLink, error) {
 	raw, err := json.Marshal(nonNilUTM(link.UTM))
 	if err != nil {
@@ -85,6 +90,7 @@ func (r *PostgresShareLinkRepo) Create(ctx context.Context, link *ShareLink) (*S
 	return stored, nil
 }
 
+// Resolve increments click_count and returns the updated row.
 func (r *PostgresShareLinkRepo) Resolve(ctx context.Context, shortCode string) (*ShareLink, error) {
 	const q = `
 		UPDATE share_links
@@ -117,15 +123,18 @@ func (r *PostgresShareLinkRepo) Resolve(ctx context.Context, shortCode string) (
 
 // ── In-memory implementation ──
 
+// InMemoryShareLinkRepo keeps links in process memory; they are lost on restart.
 type InMemoryShareLinkRepo struct {
 	mu     sync.Mutex
 	byCode map[string]*ShareLink
 }
 
+// NewInMemoryShareLinkRepo returns an empty in-memory repo.
 func NewInMemoryShareLinkRepo() *InMemoryShareLinkRepo {
 	return &InMemoryShareLinkRepo{byCode: make(map[string]*ShareLink)}
 }
 
+// Create stores a copy of the link, or returns ErrShortCodeExists on a code collision.
 func (r *InMemoryShareLinkRepo) Create(_ context.Context, link *ShareLink) (*ShareLink, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -139,6 +148,7 @@ func (r *InMemoryShareLinkRepo) Create(_ context.Context, link *ShareLink) (*Sha
 	return cloneLink(stored), nil
 }
 
+// Resolve increments click_count and returns a copy of the stored link.
 func (r *InMemoryShareLinkRepo) Resolve(_ context.Context, shortCode string) (*ShareLink, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

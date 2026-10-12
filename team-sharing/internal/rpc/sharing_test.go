@@ -1,21 +1,25 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
 	sharingv1 "github.com/buidangphuc/team-sharing/generated/platform/sharing/v1"
-	"github.com/buidangphuc/team-sharing/internal/handler"
-	"github.com/buidangphuc/team-sharing/internal/interceptor"
-	"github.com/buidangphuc/team-sharing/internal/repository"
-	"github.com/buidangphuc/team-sharing/internal/service"
+	"github.com/buidangphuc/team-sharing/internal/rpc"
+	"github.com/buidangphuc/team-sharing/internal/sharelink"
+	"github.com/buidangphuc/team-sharing/internal/store"
 )
 
-func newHandler() *handler.SharingHandler {
-	return handler.NewSharingHandler(service.NewShareService(repository.NewInMemoryShareLinkRepo()))
+func quietLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
+func newHandler() *rpc.Handler {
+	return rpc.NewHandler(sharelink.NewService(store.NewInMemoryShareLinkRepo()), quietLogger())
 }
 
 // The full gRPC surface: CreateShareLink returns a short code, ResolveShareLink
@@ -76,12 +80,12 @@ func TestHandlerCreateInvalidArgument(t *testing.T) {
 // The creator is the gateway-forwarded principal, never a request field or the
 // legacy x-user-id header; anonymous callers can still create and resolve.
 func TestHandlerCreateAttributesPrincipal(t *testing.T) {
-	repo := repository.NewInMemoryShareLinkRepo()
-	h := handler.NewSharingHandler(service.NewShareService(repo))
+	repo := store.NewInMemoryShareLinkRepo()
+	h := rpc.NewHandler(sharelink.NewService(repo), quietLogger())
 	req := &sharingv1.CreateShareLinkRequest{TargetType: "listing", TargetId: "l1"}
 
-	user := interceptor.ContextWithPrincipal(context.Background(),
-		interceptor.Principal{ID: "user-1", Type: "user"})
+	user := auth.WithPrincipal(context.Background(),
+		auth.Principal{ID: "user-1", Type: "user"})
 	resp, err := h.CreateShareLink(user, req)
 	if err != nil {
 		t.Fatal(err)
@@ -91,8 +95,8 @@ func TestHandlerCreateAttributesPrincipal(t *testing.T) {
 		t.Fatalf("created_by = %q", link.CreatedBy)
 	}
 
-	anon := interceptor.ContextWithPrincipal(context.Background(),
-		interceptor.Principal{ID: "anonymous", Type: "anonymous"})
+	anon := auth.WithPrincipal(context.Background(),
+		auth.Principal{ID: "anonymous", Type: "anonymous"})
 	resp, err = h.CreateShareLink(anon, req)
 	if err != nil {
 		t.Fatalf("anonymous create should be allowed: %v", err)
