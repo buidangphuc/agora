@@ -56,15 +56,15 @@ func main() {
 type Settings struct {
 	config.Runtime            // embed groups whose field names do not collide
 	config.GRPC
-	Postgres config.Postgres  // name the groups that both have Enabled
+	Postgres config.Postgres  // name groups whose field names collide (OTel and Postgres both used to have Enabled)
 	OTel     config.OTel
 }
 func (s Settings) Validate() error { return s.Postgres.Validate() } // Load calls it
 ```
 
-- `DATABASE_ENABLED` defaults to true, so an enabled database without `DATABASE_URL` fails at load (`Postgres.Validate`). `GRPC_PORT` has no default and is required.
+- `DATABASE_URL` is required: an empty one fails at load (`Postgres.Validate`). `GRPC_PORT` has no default and is required. Capabilities every deploy runs get no enable flag; only real toggles such as `OTEL_ENABLED` have one.
 - `.env.example` lists every key once as `KEY=value`. Optional keys are written `KEY=` with no value. Commented lines are ignored by the drift check. The test lives in `internal/config` and reads `../../.env.example` with `config.CheckEnvExample`.
-- `GRPC_REFLECTION_ENABLED` needs real generated descriptors. Keep it false for hand-built service descriptions.
+- Reflection is always on. A hand-built service description (as in `examples/hello`) has no descriptor, so reflection cannot describe its methods.
 
 ### Explicit wiring, no DI container
 
@@ -79,11 +79,9 @@ func Run(ctx context.Context, s config.Settings) error {
 	if err != nil { return err }
 	stack.Push(shutdown)
 	health := healthx.New(healthx.DefaultInterval, logger)
-	if s.Postgres.Enabled {
-		// pool, err := pgx.Open(...): unreachable => warn and go on only when ENV=local,
-		//   otherwise return errors.Join(err, stack.Close(ctx))
-		// health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
-	}
+	// pool, err := pgx.Open(...): unreachable => warn and go on only when ENV=local,
+	//   otherwise return errors.Join(err, stack.Close(ctx))
+	// health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, rpc.NewHandler(logger))
 	return lifecycle.Run(ctx, lifecycle.Options{

@@ -16,7 +16,7 @@ func TestMigrationsApply(t *testing.T) {
 	if err := migrate.Up(context.Background(), url, migrations.Files); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	pool, err := pgx.Open(context.Background(), config.Postgres{Enabled: true, URL: url})
+	pool, err := pgx.Open(context.Background(), config.Postgres{URL: url})
 	if err != nil {
 		t.Fatal(err)
 	}

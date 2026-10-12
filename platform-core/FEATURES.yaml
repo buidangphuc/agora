@@ -352,8 +352,8 @@ features:
     services:
     - platform-core
     acceptance:
-    - When a settings struct whose Validate() error delegates to config.Postgres.Validate() is loaded with
-      DATABASE_ENABLED=true and no DATABASE_URL
+    - When a settings struct whose Validate() error delegates to config.Postgres.Validate() is loaded without
+      DATABASE_URL
     - Then Load returns an error naming DATABASE_URL
     tags:
     - go-sdk

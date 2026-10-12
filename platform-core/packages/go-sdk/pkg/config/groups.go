@@ -21,7 +21,6 @@ func (r Runtime) IsLocal() bool { return r.Env == "local" || r.Env == "test" }
 type GRPC struct {
 	Host                 string  `env:"GRPC_HOST" default:"0.0.0.0"`
 	Port                 int     `env:"GRPC_PORT,required"`
-	ReflectionEnabled    bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
 	ShutdownGraceSeconds float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
 	// DrainDelaySeconds is how long to keep serving after health reports
 	// NOT_SERVING, so probes and load balancers notice before the server stops.
@@ -43,15 +42,14 @@ func (g GRPC) DrainDelay() time.Duration {
 
 // Postgres holds the database settings.
 type Postgres struct {
-	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
 	URL      string `env:"DATABASE_URL"`
 	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
 }
 
-// Validate rejects an enabled database without a URL.
+// Validate rejects an empty URL: the database is always on, with no enable flag.
 func (p Postgres) Validate() error {
-	if p.Enabled && p.URL == "" {
-		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
+	if p.URL == "" {
+		return errors.New("DATABASE_URL is required")
 	}
 	return nil
 }

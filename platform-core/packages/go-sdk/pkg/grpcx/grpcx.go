@@ -39,7 +39,7 @@ type ServerOptions struct {
 
 // NewServer returns a gRPC server with the otelgrpc stats handler, the chain
 // request id, recovery, logging and auth (outermost first), the health service
-// and, when Config.ReflectionEnabled, reflection.
+// and reflection.
 func NewServer(o ServerOptions) *grpc.Server {
 	logger := o.Logger
 	if logger == nil {
@@ -75,9 +75,7 @@ func NewServer(o ServerOptions) *grpc.Server {
 	srv := grpc.NewServer(append(opts, o.Extra...)...)
 
 	grpc_health_v1.RegisterHealthServer(srv, o.Health.Server())
-	if o.Config.ReflectionEnabled {
-		reflection.Register(srv)
-	}
+	reflection.Register(srv)
 	return srv
 }
 

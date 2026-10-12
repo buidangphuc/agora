@@ -40,17 +40,15 @@ func Run(ctx context.Context, s config.Settings) error {
 
 	health := healthx.New(healthx.DefaultInterval, logger)
 
-	if s.Postgres.Enabled {
-		pool, err := pgx.Open(ctx, s.Postgres)
-		switch {
-		case err == nil:
-			health.Register("postgres", pgx.Checker(pool))
-			stack.Push(func(context.Context) error { pool.Close(); return nil })
-		case s.IsLocal():
-			logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
-		default:
-			return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
-		}
+	pool, err := pgx.Open(ctx, s.Postgres)
+	switch {
+	case err == nil:
+		health.Register("postgres", pgx.Checker(pool))
+		stack.Push(func(context.Context) error { pool.Close(); return nil })
+	case s.IsLocal():
+		logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
+	default:
+		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})

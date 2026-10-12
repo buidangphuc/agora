@@ -83,7 +83,7 @@ func start(t *testing.T, methods map[string]grpc.MethodHandler) env {
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	srv := grpcx.NewServer(grpcx.ServerOptions{
-		Config: config.GRPC{ReflectionEnabled: true},
+		Config: config.GRPC{},
 		Logger: logger,
 		Health: healthx.New(time.Second, logger),
 	})
@@ -355,5 +355,13 @@ func TestServeListenerServesAndStops(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatalf("Run = %v", err)
+	}
+}
+
+func TestReflectionAlwaysRegistered(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: config.GRPC{}, Logger: logger, Health: healthx.New(time.Second, logger)})
+	if _, ok := srv.GetServiceInfo()["grpc.reflection.v1.ServerReflection"]; !ok {
+		t.Fatalf("reflection not registered; services = %v", srv.GetServiceInfo())
 	}
 }

@@ -22,7 +22,7 @@ Owns: `team-sharing/**`, `platform-core/docs/ADR/0016-go-service-convention-and-
 
 Owns: `platform-core/packages/go-sdk/**`, `platform-core/docs/ADR/0016-go-service-convention-and-sdk.md`, `platform-core/FEATURES.yaml` (one entry's acceptance lines), `team-sharing/**`.
 
-- [ ] 2.1 SDK: remove `Postgres.Enabled` (`DATABASE_ENABLED`) and `GRPC.ReflectionEnabled` (`GRPC_REFLECTION_ENABLED`). `Postgres.Validate` rejects an empty URL. `grpcx.NewServer` always registers reflection. Update the tests (rename `TestLoadRunsValidate` scenario input), `examples/hello` (`.env.example`, app wiring) and the ADR/README env tables. Verify `make -C platform-core/packages/go-sdk check`.
-- [ ] 2.2 Update the acceptance lines (not the title) of the FEATURES entry "Enabled database without a URL fails validation" in `platform-core/FEATURES.yaml` to match the modified scenario.
+- [x] 2.1 SDK: remove `Postgres.Enabled` (`DATABASE_ENABLED`) and `GRPC.ReflectionEnabled` (`GRPC_REFLECTION_ENABLED`). `Postgres.Validate` rejects an empty URL. `grpcx.NewServer` always registers reflection. Update the tests (rename `TestLoadRunsValidate` scenario input), `examples/hello` (`.env.example`, app wiring) and the ADR/README env tables. Verify `make -C platform-core/packages/go-sdk check`.
+- [x] 2.2 Update the acceptance lines (not the title) of the FEATURES entry "Enabled database without a URL fails validation" in `platform-core/FEATURES.yaml` to match the modified scenario.
 - [ ] 2.3 (orchestrator) Tag `go-sdk/v0.1.1` on the 2.1 commit and push the tag.
 - [ ] 2.4 team-sharing: re-sync to `go-sdk/v0.1.1`, drop `DATABASE_ENABLED` from Settings use, `.env.example`, README and tests. The database is always opened; the local in-memory fallback still triggers on an unreachable database with `ENV=local`. Verify `make -C team-sharing check`.

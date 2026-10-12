@@ -47,10 +47,12 @@ func settings(port int) config.Settings {
 	return config.Settings{
 		Runtime: sdkconfig.Runtime{Env: "test", LogLevel: "error", LogJSON: true},
 		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 5},
+		// Nothing listens here; ENV=test tolerates that, so these tests run without Postgres.
+		Postgres: sdkconfig.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"},
 	}
 }
 
-// startApp runs app.Run on a free loopback port with the database disabled.
+// startApp runs app.Run on a free loopback port with an unreachable database (ENV=test).
 func startApp(t *testing.T) *running {
 	t.Helper()
 	port := freePort(t)
@@ -162,7 +164,7 @@ func TestBoomIsRecovered(t *testing.T) {
 func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
 	s := settings(freePort(t))
 	s.Env = "prod"
-	s.Postgres = sdkconfig.Postgres{Enabled: true, URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"}
+	s.Postgres = sdkconfig.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"}
 
 	if err := app.Run(context.Background(), s); err == nil {
 		t.Fatal("Run succeeded with an unreachable database in ENV=prod")
