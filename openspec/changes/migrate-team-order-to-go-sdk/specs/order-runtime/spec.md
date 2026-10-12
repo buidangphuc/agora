@@ -32,7 +32,7 @@ It SHALL declare no enable flags for always-on capabilities.
 
 Migration `0008` SHALL change the `processed_events` primary key to `(consumer, event_id)` and backfill `consumer` for existing rows with `team-order.payment`.
 
-#### Scenario: Existing processed rows keep deduplicating after the migration
+#### Scenario: Existing processed rows are not applied again after the migration
 - **WHEN** a row processed before `0008` exists and the same event arrives after it
 - **THEN** it is recognised as already processed, not applied again
 - **VERIFIED BY**: `team-order/internal/store` `TestMigration0008KeepsExistingDedupe`
