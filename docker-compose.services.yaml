@@ -299,18 +299,16 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
       # verified-purchase check: engagement calls team-order to confirm a delivered order (no cross-DB join)
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       # Follow feed: consume listing.events into seller_listings (DLQ listing.events.dlq).
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CONSUMER_GROUP=team-engagement-feed
       - KAFKA_LISTING_TOPIC=listing.events
       # Engagement fact events: outbox relayer publishes to engagement.events (efe D4).
       - ENGAGEMENT_EVENTS_TOPIC=engagement.events
-      - ENGAGEMENT_OUTBOX_RELAY_INTERVAL=500ms
+      - OUTBOX_POLL_INTERVAL=500ms
       - GRPC_PORT=50054
       - ENV=local
 
