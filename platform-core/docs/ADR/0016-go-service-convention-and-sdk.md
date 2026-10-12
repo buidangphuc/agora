@@ -23,8 +23,9 @@ internal/app/            # composition root; has `const service = "<name>"`
 internal/config/         # Settings struct, Validate, Load; its test checks ../../.env.example
 internal/rpc/            # transport (package rpc): handlers, error table; no business logic
 internal/<domain>/       # business logic, one package per concept; never imports grpc or codes
-internal/store/          # only if the service has Postgres: queries and migrations/
+internal/store/          # only if the service has Postgres: queries
 internal/events/         # only if the service publishes or consumes events
+migrations/              # only if the service has Postgres: NNNN_name.up/down.sql and embed.go
 .env.example             # at the service root, next to go.mod
 ```
 
@@ -67,7 +68,7 @@ func (s Settings) Validate() error { return s.Postgres.Validate() } // Load call
 
 ### Explicit wiring, no DI container
 
-`internal/app.Run(ctx, settings) error` builds each dependency in order and passes it to the next constructor. No DI container, no reflection, no service locator. Build order: logger (then `slog.SetDefault`), telemetry, health, migrations, pool, server, `lifecycle.Run`. Register each closer on a `lifecycle.Stack` right after opening the resource. Closers run in reverse order, on shutdown (`Closers: {stack.Close}`) and on an early failure.
+`internal/app.Run(ctx, settings) error` builds each dependency in order and passes it to the next constructor. No DI container, no reflection, no service locator. Build order: logger (then `slog.SetDefault`), telemetry, health, pool, server, `lifecycle.Run`. Register each closer on a `lifecycle.Stack` right after opening the resource. Closers run in reverse order, on shutdown (`Closers: {stack.Close}`) and on an early failure.
 
 ```go
 func Run(ctx context.Context, s config.Settings) error {
@@ -81,7 +82,6 @@ func Run(ctx context.Context, s config.Settings) error {
 	if s.Postgres.Enabled {
 		// pool, err := pgx.Open(...): unreachable => warn and go on only when ENV=local,
 		//   otherwise return errors.Join(err, stack.Close(ctx))
-		// migrate.Up(ctx, url, fsys): failure ALWAYS returns errors.Join(err, stack.Close(ctx))
 		// health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
 	}
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
@@ -95,7 +95,7 @@ func Run(ctx context.Context, s config.Settings) error {
 
 `examples/hello/internal/app/app.go` is the full version.
 
-- Migrations: files `NNNN_name.up.sql` / `.down.sql` (four digits) in `internal/store/migrations`, embedded and passed through `fs.Sub(files, "migrations")` to `migrate.Up`. They run only when the database is enabled, once `pgx.Open` has shown the database is reachable and before health and the server start. An unreachable database is tolerated only with `ENV=local` (warning, no checker). A migration failure fails boot in every environment, `ENV=local` included.
+- Migrations: golang-migrate files `NNNN_name.up.sql` / `.down.sql` (four digits for new services; an existing service keeps its numbering) in `<repo>/migrations/`, applied by the deploy migrate job (`docker-compose.services.yaml`: `<svc>-migrate`), **not at boot**. A root package `migrations` (`migrations/embed.go`, `//go:embed *.sql`, exported `Files embed.FS`) embeds them so tests and an optional `migrate up` subcommand can pass `migrations.Files` to `migrate.Up`. `app.Run` only opens the pool. An unreachable database is tolerated only with `ENV=local` (warning, no checker); elsewhere it fails boot. A service applies migrations at boot only if its own ADR says so.
 - Health: one `healthx.Health`, interval `healthx.DefaultInterval`, a component (`lifecycle.Func(health.Run)`), `OnShutdown: health.Drain`. A checker is named after its dependency (`"postgres"`).
 
 ### Run(ctx) error and lifecycle

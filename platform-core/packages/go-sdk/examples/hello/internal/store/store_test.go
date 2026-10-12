@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/store"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/migrations"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
@@ -13,11 +13,7 @@ import (
 
 func TestMigrationsApply(t *testing.T) {
 	url := testkit.Postgres(t)
-	fsys, err := store.Migrations()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := migrate.Up(context.Background(), url, fsys); err != nil {
+	if err := migrate.Up(context.Background(), url, migrations.Files); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	pool, err := pgx.Open(context.Background(), config.Postgres{Enabled: true, URL: url})

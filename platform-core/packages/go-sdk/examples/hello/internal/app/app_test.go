@@ -4,9 +4,7 @@ import (
 	"context"
 	"net"
 	"strconv"
-	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"google.golang.org/grpc"
@@ -21,7 +19,6 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/app"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 type running struct {
@@ -169,16 +166,5 @@ func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
 
 	if err := app.Run(context.Background(), s); err == nil {
 		t.Fatal("Run succeeded with an unreachable database in ENV=prod")
-	}
-}
-
-func TestMigrationFailureFailsBootLocally(t *testing.T) {
-	s := settings(freePort(t))
-	s.Postgres = sdkconfig.Postgres{Enabled: true, URL: testkit.Postgres(t)}
-	bad := fstest.MapFS{"0001_bad.up.sql": {Data: []byte("THIS IS NOT SQL")}}
-
-	err := app.RunWith(context.Background(), s, bad)
-	if err == nil || !strings.Contains(err.Error(), "migrate") {
-		t.Fatalf("err = %v, want a migrate error even with ENV=%s", err, s.Env)
 	}
 }
