@@ -17,9 +17,8 @@ resources:
     memory: 256Mi
 # ENV is required and has no default: each env overlay sets it (envs/<env>/services/
 # team-promotion.yaml); the local app (argocd/apps/team-promotion.yaml) sets "local".
-# KAFKA_BROKERS (and FLIPT_ADDR, when flags are enabled) are required in strict envs.
+# KAFKA_BROKERS is required in strict envs.
 env:
-  FEATURE_FLAGS_ENABLED: "false"
   FLIPT_ADDR: "flipt:9000"
   KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
   PROMOTION_EVENTS_TOPIC: "promotion.events"

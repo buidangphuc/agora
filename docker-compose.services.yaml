@@ -367,7 +367,6 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
-      - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
       - FEATURE_FLAGS_EVAL_TIMEOUT=500ms
       - KAFKA_BROKERS=redpanda:9092

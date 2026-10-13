@@ -94,8 +94,7 @@ drifts from the declared keys in either direction. The Makefile auto-loads `.env
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` uses `localhost:4317` |
 | `OTEL_SERVICE_NAME` | `team-promotion` | |
-| `FEATURE_FLAGS_ENABLED` | `true` | a real toggle (gitops runs it `false`): `false` skips Flipt and flags return the caller default |
-| `FLIPT_ADDR` | `localhost:9000` locally | Flipt gRPC endpoint; required in a strict `ENV` when flags are enabled |
+| `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC endpoint; flags have no on/off switch, and an unreachable Flipt makes every flag return the caller default |
 | `FEATURE_FLAGS_EVAL_TIMEOUT` | `500ms` | Go duration |
 | `KAFKA_BROKERS` | `localhost:9092` locally | comma-separated; required in a strict `ENV` |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
