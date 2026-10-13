@@ -202,6 +202,7 @@ check_file() { # check_file <kind> <relfile>
   local kind="$1" f="$2" rb rh red green verdict why
   if why=$(exempt_reason "$f"); then
     run_test "$WT_HEAD" "$kind" "$f"; rh=$?
+    if [ $rh -eq 98 ]; then RESULTS+=("$f|n/a|n/a|SKIP (no Test funcs)"); return; fi
     if [ $rh -eq 0 ]; then verdict="EXEMPT ($why)"; green=yes; else verdict="FAIL: red at head"; green=no; FAIL=1; fi
     RESULTS+=("$f|red@base=skip|green@head=$green|$verdict"); return
   fi

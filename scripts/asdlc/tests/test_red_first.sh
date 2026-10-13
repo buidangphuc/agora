@@ -150,5 +150,13 @@ OUT=$("$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 0 ] && echo "$OUT" | grep -q "impl=0" && ok "(j) metrics are non-impl" || bad "(j) expected exit 0 got $RC"
 
+# (k) an exempted helper-only _test.go (no Test funcs, e.g. a vendored SDK fake) is skipped, not failed
+new_repo "$T/k"
+printf 'package calc\n\nfunc helperOnly() int { return 1 }\n' > helpers_test.go
+git add -A && git commit -q -m "vendor helper" -m "Red-First-Exempt: helpers_test.go -- vendored helper, no tests"
+OUT=$("$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 0 ] && echo "$OUT" | grep -q "SKIP (no Test funcs)" && ok "(k) exempted helper-only test file skipped" || bad "(k) expected exit 0 got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS
