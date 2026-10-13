@@ -183,7 +183,7 @@ def three_model_world(root: Path, monkeypatch) -> dict[str, str]:
     """One governed world in which ALS, GBDT and two-tower can all pass.
 
     The catalogue is 8 listings (``gb-00..gb-07``), so a top-10 retrieval returns the whole catalogue:
-    the two-tower coverage floor holds whatever the towers learn. The ALS dataset and the ranking dataset
+    a top-10 retrieval covers it all whatever the towers learn. The ALS dataset and the ranking dataset
     use the same listings; ranking impressions come from tests/ranker_fixture.
     """
     from tests import ranker_fixture as fx

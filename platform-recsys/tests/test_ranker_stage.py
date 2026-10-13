@@ -26,7 +26,7 @@ from recsys.publish import publish_generation
 from recsys.ranker import contract, gbdt, stage, training
 from tests import ranker_fixture as fx
 from tests.fakes import FakeQdrantClient, FakeRedis
-from tests.pipeline_fixture import GBDT, newest, outcome, registered_models, seed_strong, versions
+from tests.pipeline_fixture import GBDT, newest, outcome, registered_models, seed_strong, seed_weak, versions
 
 
 def _settings(tmp_path, reg, signal=True, **kw) -> Settings:
@@ -204,3 +204,42 @@ def test_the_training_columns_follow_the_contract(tmp_path, reg):
     written = pd.read_parquet(tmp_path / "r.parquet")
     assert list(contract.RANKING_FEATURES) == [c for c in written.columns if c in contract.RANKING_FEATURES]
     assert (written["item_attributes.price"] > 0).all() and training.CTR_COL == 6
+
+
+def test_below_baseline_is_structurally_rejected(tmp_path, reg, monkeypatch):
+    # RAT-62: holdout ndcg@10 < baseline_ndcg@10 x 1.01 -> register_rejected, policy not evaluated
+    # A model that scores everything alike cannot beat the fixed-weight baseline by 1 %.
+    monkeypatch.setattr(stage, "_fit", lambda *_a, **_k: gbdt.Model([], 0.1))
+    result = _run(_settings(tmp_path, reg))
+    m = result.summary["metrics"]
+    assert m["ndcg@10"] < m["baseline_ndcg@10"] * 1.01, m
+    assert result.decision.outcome == "rejected" and result.artifact is None
+    assert result.reason.startswith("below fixed-weight baseline"), result.reason
+    v = newest(reg, GBDT)
+    assert outcome(reg, GBDT, v) == "rejected"
+    assert reg.tags(GBDT, v)["gate.reason"].startswith("below fixed-weight baseline")
+    assert reg.aliases(GBDT) == {}
+
+
+def test_below_baseline_rejection_skips_the_policy_even_with_a_weak_champion(tmp_path, reg, monkeypatch):
+    # RAT-62: the policy would promote over a weak champion; the structural check comes first
+    old = seed_weak(reg, GBDT)
+    monkeypatch.setattr(stage, "_fit", lambda *_a, **_k: gbdt.Model([], 0.1))
+    result = _run(_settings(tmp_path, reg))
+    assert result.decision.outcome == "rejected"
+    assert result.reason.startswith("below fixed-weight baseline"), result.reason
+    assert reg.aliases(GBDT) == {"champion": old[GBDT]}
+
+
+def test_at_or_above_the_baseline_threshold_the_policy_decides(tmp_path, reg):
+    # RAT-62: ndcg@10 >= baseline x 1.01 is not a structural rejection; the policy decides
+    result = _run(_settings(tmp_path, reg))
+    m = result.summary["metrics"]
+    assert m["ndcg@10"] >= m["baseline_ndcg@10"] * 1.01, m
+    assert result.decision.outcome == "promotable"
+    assert reg.tags(GBDT, result.decision.version)["gate.outcome"] == "promotable"
+    # a policy rejection of such a candidate carries a policy reason, not the baseline one
+    seed_strong(reg, GBDT)
+    again = _run(_settings(tmp_path, reg), "gen-2")
+    assert again.decision.outcome == "rejected"
+    assert not again.reason.startswith("below fixed-weight baseline") and "ndcg@10" in again.reason
