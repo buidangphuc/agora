@@ -20,8 +20,8 @@ import time
 
 import pandas as pd
 import pytest
-
 from modelregistry import RegistryUnavailable
+
 from recsys import registry_client as rc
 
 LINEAGE = {"data_version": "als_interactions@v1", "eval_protocol": "p1"}
@@ -40,12 +40,20 @@ class _Frame:
 class _Als:
     def __init__(self, n_users: int = 50, n_items: int = 20) -> None:
         self.item_factors = _Frame(
-            pd.DataFrame({"listing_id": [f"l-{i:03d}" for i in range(n_items)],
-                          "features": [[0.1 * i, 0.2, 0.3] for i in range(n_items)]})
+            pd.DataFrame(
+                {
+                    "listing_id": [f"l-{i:03d}" for i in range(n_items)],
+                    "features": [[0.1 * i, 0.2, 0.3] for i in range(n_items)],
+                }
+            )
         )
         self.user_factors = _Frame(
-            pd.DataFrame({"user_key": [f"u-{i:04d}" for i in range(1, n_users + 1)],
-                          "features": [[0.5, 0.6, 0.7]] * n_users}),
+            pd.DataFrame(
+                {
+                    "user_key": [f"u-{i:04d}" for i in range(1, n_users + 1)],
+                    "features": [[0.5, 0.6, 0.7]] * n_users,
+                }
+            ),
             boom=True,
         )
         self.rank = 3
@@ -57,7 +65,10 @@ def _all_files_text(root) -> str:
 
 def test_model_names():
     assert (rc.ALS_MODEL, rc.GBDT_MODEL, rc.TWO_TOWER_MODEL) == (
-        "recsys-als", "recsys-gbdt", "recsys-two-tower")
+        "recsys-als",
+        "recsys-gbdt",
+        "recsys-two-tower",
+    )
 
 
 # --- RAT-19: reachability pre-flight --------------------------------------------------------------
@@ -171,12 +182,19 @@ def test_als_artifact_is_item_factors_only(tmp_path):
 # --- RAT-58: drift sketches round trip through the champion run -----------------------------------
 def test_drift_sketches_artifact_round_trip(reg, tmp_path):
     # RAT-58: the first run's version is champion; the next run reads its sketches as baseline
-    sketches = {k: [float(i) for i in range(101)] for k in ("weight", "user_items", "item_users", "top_score")}
+    sketches = {
+        k: [float(i) for i in range(101)] for k in ("weight", "user_items", "item_users", "top_score")
+    }
     run_id = rc.start_run("recsys-als-g1", HYPER)
     rc.write_drift_sketches(run_id, sketches)
     assert [f.path for f in reg.client.list_artifacts(run_id)] == ["drift_sketches.json"]
-    d = rc.evaluate(rc.ALS_MODEL, run_id, {"ndcg@10": 0.1, "coverage@10": 0.5},
-                    rc.build_als_artifact(_Als(), tmp_path / "als"), LINEAGE)
+    d = rc.evaluate(
+        rc.ALS_MODEL,
+        run_id,
+        {"ndcg@10": 0.1, "coverage@10": 0.5},
+        rc.build_als_artifact(_Als(), tmp_path / "als"),
+        LINEAGE,
+    )
     from modelregistry import apply
 
     apply(rc.ALS_MODEL, d.version)

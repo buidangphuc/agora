@@ -72,7 +72,10 @@ def test_max_dataset_age_bounds():
 def test_holdout_fraction_bounds():
     # RAT-44: strictly inside (0, 1); default 0.1
     assert config.load_settings(environ={}).two_tower_holdout_fraction == 0.1
-    assert config.load_settings(environ={"TWO_TOWER_HOLDOUT_FRACTION": "0.25"}).two_tower_holdout_fraction == 0.25
+    assert (
+        config.load_settings(environ={"TWO_TOWER_HOLDOUT_FRACTION": "0.25"}).two_tower_holdout_fraction
+        == 0.25
+    )
     for bad in ("0", "1", "1.5", "-0.1"):
         with pytest.raises(ValueError):
             config.load_settings(environ={"TWO_TOWER_HOLDOUT_FRACTION": bad})

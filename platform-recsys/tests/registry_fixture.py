@@ -45,7 +45,11 @@ class RegEnv:
         return d
 
     def add_version(
-        self, model: str, metrics: dict[str, float], protocol: str | None = "p1", alias: str | None = "champion"
+        self,
+        model: str,
+        metrics: dict[str, float],
+        protocol: str | None = "p1",
+        alias: str | None = "champion",
     ) -> int:
         rid = self.new_run()
         for k, v in metrics.items():
