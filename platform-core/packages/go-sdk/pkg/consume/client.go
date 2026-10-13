@@ -2,10 +2,17 @@ package consume
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
+
+// DefaultMaxPollRecords is the poll size when Options.MaxPollRecords or
+// BatchOptions.MaxPollRecords is zero.
+const DefaultMaxPollRecords = 500
 
 // commitTimeout bounds the offset commit that follows a fetch. The commit uses
 // a context detached from the run context so that a graceful shutdown still
@@ -14,15 +21,43 @@ const commitTimeout = 10 * time.Second
 
 // groupClient is the part of *kgo.Client the loops use; a test seam.
 type groupClient interface {
-	PollFetches(context.Context) kgo.Fetches
+	PollRecords(context.Context, int) kgo.Fetches
 	CommitRecords(context.Context, ...*kgo.Record) error
 	AllowRebalance()
 }
 
-// groupName returns the consumer group of client, "" when it has none.
-func groupName(client *kgo.Client) string {
+// clientGroup returns the consumer group of client. It fails for a nil client
+// and for a group-less one (kafkax.NewConsumerClient with an empty group):
+// offsets can only be committed to a group.
+func clientGroup(client *kgo.Client) (string, error) {
+	if client == nil {
+		return "", errors.New("consume: client is nil")
+	}
 	g, _ := client.OptValue(kgo.ConsumerGroup).(string)
-	return g
+	if g == "" {
+		return "", errors.New("consume: client has no consumer group; build it with kafkax.NewConsumerClient and a non-empty group")
+	}
+	return g, nil
+}
+
+// lostGeneration reports whether err says the member no longer belongs to the
+// group generation it committed under: a rebalance (or a session timeout)
+// replaced it while the fetch was handled.
+func lostGeneration(err error) bool {
+	return errors.Is(err, kerr.UnknownMemberID) || errors.Is(err, kerr.IllegalGeneration) || errors.Is(err, kerr.RebalanceInProgress)
+}
+
+// commitFetch commits done. A commit that fails because the member lost its
+// generation is logged and swallowed: the group has already given the
+// partitions to another member, which redelivers the uncommitted records, and
+// the loop must go on to rejoin rather than die. Any other error is returned.
+func commitFetch(ctx context.Context, log *slog.Logger, done handled, c groupClient) error {
+	err := done.commit(ctx, c)
+	if err != nil && lostGeneration(err) {
+		log.WarnContext(ctx, "consume: commit lost its generation; records will be redelivered", "err", err)
+		return nil
+	}
+	return err
 }
 
 type partitionKey struct {

@@ -24,17 +24,21 @@ import (
 // batch is dead-lettered; the handler must be idempotent.
 //
 // The ctx carries a "consume batch" span linked to the span of every record
-// (a batch has no single parent). When all records share one x-request-id it is
+// (a batch has no single parent). When all records share one valid x-request-id it is
 // also set on ctx; otherwise read it from Record.Headers.
 type BatchHandler func(ctx context.Context, records []Record) error
 
 // BatchOptions tunes the batch loop. Zero fields take the defaults noted.
 type BatchOptions struct {
-	DLQTopic    string        // required; NewBatchConsumer fails when empty
-	MaxAttempts int           // handler attempts per batch before it is dead-lettered (default 5)
-	BaseBackoff time.Duration // delay after the first failure, doubling (default 100ms)
-	MaxBackoff  time.Duration // backoff ceiling (default 30s)
-	Logger      *slog.Logger  // default slog.Default()
+	DLQTopic string // required; NewBatchConsumer fails when empty
+	// MaxPollRecords caps the records of one poll, which is one batch (default
+	// 500). Rebalances are blocked while a batch is handled, so an unbounded
+	// batch could outlast the group's rebalance timeout.
+	MaxPollRecords int
+	MaxAttempts    int           // handler attempts per batch before it is dead-lettered (default 5)
+	BaseBackoff    time.Duration // delay after the first failure, doubling (default 100ms)
+	MaxBackoff     time.Duration // backoff ceiling (default 30s)
+	Logger         *slog.Logger  // default slog.Default()
 }
 
 // BatchConsumer dispatches each fetched batch from a consumer-group client.
@@ -48,12 +52,14 @@ type BatchConsumer struct {
 
 // NewBatchConsumer binds client, which must have auto-commit disabled (as
 // kafkax.NewConsumerClient does), to h and dlq. It fails when client, h or dlq
-// is nil or BatchOptions.DLQTopic is empty.
+// is nil, BatchOptions.DLQTopic is empty or client has no consumer group (its
+// commits would fail).
 func NewBatchConsumer(client *kgo.Client, h BatchHandler, dlq DLQProducer, o BatchOptions) (*BatchConsumer, error) {
-	if client == nil {
-		return nil, errors.New("consume: client is nil")
+	group, err := clientGroup(client)
+	if err != nil {
+		return nil, err
 	}
-	return newBatchConsumer(client, groupName(client), h, dlq, o)
+	return newBatchConsumer(client, group, h, dlq, o)
 }
 
 func newBatchConsumer(client groupClient, group string, h BatchHandler, dlq DLQProducer, o BatchOptions) (*BatchConsumer, error) {
@@ -64,6 +70,9 @@ func newBatchConsumer(client groupClient, group string, h BatchHandler, dlq DLQP
 		return nil, errors.New("consume: dead-letter producer is nil")
 	case o.DLQTopic == "":
 		return nil, errors.New("consume: BatchOptions.DLQTopic is required")
+	}
+	if o.MaxPollRecords <= 0 {
+		o.MaxPollRecords = DefaultMaxPollRecords
 	}
 	if o.MaxAttempts <= 0 {
 		o.MaxAttempts = 5
@@ -89,7 +98,7 @@ func newBatchConsumer(client groupClient, group string, h BatchHandler, dlq DLQP
 func (c *BatchConsumer) Run(ctx context.Context) error {
 	defer c.client.AllowRebalance()
 	for {
-		fetches := c.client.PollFetches(ctx)
+		fetches := c.client.PollRecords(ctx, c.opts.MaxPollRecords)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
@@ -119,7 +128,7 @@ func (c *BatchConsumer) fetch(ctx context.Context, fetches kgo.Fetches) error {
 	for _, r := range recs {
 		done.add(r)
 	}
-	if err := done.commit(ctx, c.client); err != nil {
+	if err := commitFetch(ctx, c.opts.Logger, done, c.client); err != nil {
 		return fmt.Errorf("consume: commit batch of %d: %w", len(recs), err)
 	}
 	return nil
@@ -171,7 +180,11 @@ func batchContext(ctx context.Context, recs []*kgo.Record) (context.Context, tra
 		if sc := trace.SpanContextFromContext(rc); sc.IsValid() {
 			links = append(links, trace.Link{SpanContext: sc})
 		}
-		ids[headerValue(rec, kafkax.HeaderRequestID)] = struct{}{}
+		id := headerValue(rec, kafkax.HeaderRequestID)
+		if !reqctx.ValidRequestID(id) {
+			id = ""
+		}
+		ids[id] = struct{}{}
 	}
 	if len(ids) == 1 {
 		for id := range ids {

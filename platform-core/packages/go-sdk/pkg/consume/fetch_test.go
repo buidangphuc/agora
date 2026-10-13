@@ -63,7 +63,7 @@ func TestFetchErrorDoesNotStopLoop(t *testing.T) {
 	}
 
 	// The first poll reports a fetch error; later polls are the real client.
-	c.client = injectingClient{client, func(ctx context.Context) kgo.Fetches {
+	c.client = injectingClient{client, func(ctx context.Context, n int) kgo.Fetches {
 		injected := false
 		var f kgo.Fetches
 		once.Do(func() {
@@ -76,7 +76,7 @@ func TestFetchErrorDoesNotStopLoop(t *testing.T) {
 		if injected {
 			return f
 		}
-		return client.PollFetches(ctx)
+		return client.PollRecords(ctx, n)
 	}}
 
 	const wait = 25 * time.Second
@@ -105,13 +105,13 @@ func TestFetchErrorDoesNotStopLoop(t *testing.T) {
 	}
 }
 
-// injectingClient replaces PollFetches of the embedded client.
+// injectingClient replaces PollRecords of the embedded client.
 type injectingClient struct {
 	*kgo.Client
-	poll func(context.Context) kgo.Fetches
+	poll func(context.Context, int) kgo.Fetches
 }
 
-func (c injectingClient) PollFetches(ctx context.Context) kgo.Fetches { return c.poll(ctx) }
+func (c injectingClient) PollRecords(ctx context.Context, n int) kgo.Fetches { return c.poll(ctx, n) }
 
 func produceOne(t *testing.T, brokers, topic, value string) {
 	t.Helper()

@@ -3,11 +3,14 @@ package consume
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -236,7 +239,7 @@ func TestRecordCarriesPartitionTimestampAndDuplicateHeaders(t *testing.T) {
 	for _, h := range d.Headers {
 		hs[h.Key] = string(h.Value)
 	}
-	if hs[HeaderSourcePartition] != "3" || hs[HeaderSourceOffset] != "42" || hs[HeaderSourceGroup] != "billing" || hs[HeaderSourceTopic] != "orders" {
+	if hs[kafkax.HeaderDLQSourcePartition] != "3" || hs[kafkax.HeaderDLQSourceOffset] != "42" || hs[kafkax.HeaderDLQSourceGroup] != "billing" || hs[kafkax.HeaderDLQSourceTopic] != "orders" {
 		t.Fatalf("dlq headers = %v", hs)
 	}
 }
@@ -299,5 +302,130 @@ func TestConstructorsRejectInvalidArguments(t *testing.T) {
 	}
 	if _, err := NewBatchConsumer(nil, bh, nopDLQ{}, BatchOptions{DLQTopic: "d"}); err == nil {
 		t.Error("NewBatchConsumer accepted a nil client")
+	}
+}
+
+func TestPollIsBoundedByMaxPollRecords(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		set  int
+		want int
+	}{{"default", 0, 500}, {"custom", 7, 7}} {
+		t.Run(tc.name, func(t *testing.T) {
+			fc := newFakeClient(fetchOf("orders", span{partition: 0, from: 0, count: 1}))
+			o, bo := fastOpts(), fastBatchOpts()
+			o.MaxPollRecords, bo.MaxPollRecords = tc.set, tc.set
+			c, err := newConsumer(fc, "g", func(context.Context, Record) error { return nil }, nopDLQ{}, o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := runUntil(t, c.Run, func() { fc.waitForEvent(t, "commit", 1) }); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got := fc.maxPolls(); len(got) == 0 || got[0] != tc.want {
+				t.Fatalf("Consumer polls = %v, want max %d", got, tc.want)
+			}
+
+			fb := newFakeClient(fetchOf("orders", span{partition: 0, from: 0, count: 1}))
+			b, err := newBatchConsumer(fb, "g", func(context.Context, []Record) error { return nil }, nopDLQ{}, bo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := runUntil(t, b.Run, func() { fb.waitForEvent(t, "commit", 1) }); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got := fb.maxPolls(); len(got) == 0 || got[0] != tc.want {
+				t.Fatalf("BatchConsumer polls = %v, want max %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestLostGenerationCommitIsLoggedAndLoopContinues(t *testing.T) {
+	for _, lost := range []error{kerr.UnknownMemberID, kerr.IllegalGeneration, kerr.RebalanceInProgress} {
+		t.Run(lost.Error(), func(t *testing.T) {
+			wrapped := fmt.Errorf("commit: %w", lost)
+
+			fc := newFakeClient(
+				fetchOf("orders", span{partition: 0, from: 0, count: 2}),
+				fetchOf("orders", span{partition: 0, from: 0, count: 2}), // redelivered after the rebalance
+			)
+			fc.commitErrs = []error{wrapped}
+			sink := &logSink{}
+			seen := 0
+			o := fastOpts()
+			o.Logger = slog.New(sink)
+			c, _ := newConsumer(fc, "g", func(context.Context, Record) error { seen++; return nil }, nopDLQ{}, o)
+			if err := runUntil(t, c.Run, func() { fc.waitForEvent(t, "commit", 2) }); err != nil {
+				t.Fatalf("Consumer.Run = %v, want nil: a lost generation is not fatal", err)
+			}
+			if seen != 4 || !sink.has("consume: commit lost its generation; records will be redelivered") {
+				t.Fatalf("handled %d records, logged = %v; want 4 and the lost-generation log", seen, sink.msgs)
+			}
+
+			fb := newFakeClient(
+				fetchOf("orders", span{partition: 0, from: 0, count: 2}),
+				fetchOf("orders", span{partition: 0, from: 0, count: 2}),
+			)
+			fb.commitErrs = []error{wrapped}
+			bsink := &logSink{}
+			bo := fastBatchOpts()
+			bo.Logger = slog.New(bsink)
+			b, _ := newBatchConsumer(fb, "g", func(context.Context, []Record) error { return nil }, nopDLQ{}, bo)
+			if err := runUntil(t, b.Run, func() { fb.waitForEvent(t, "commit", 2) }); err != nil {
+				t.Fatalf("BatchConsumer.Run = %v, want nil", err)
+			}
+			if !bsink.has("consume: commit lost its generation; records will be redelivered") {
+				t.Fatalf("logged = %v, want the lost-generation log", bsink.msgs)
+			}
+		})
+	}
+}
+
+func TestOtherCommitErrorsStayFatal(t *testing.T) {
+	boom := errors.New("broker unreachable")
+	fc := newFakeClient(fetchOf("orders", span{partition: 0, from: 0, count: 1}))
+	fc.commitErrs = []error{boom}
+	c, _ := newConsumer(fc, "g", func(context.Context, Record) error { return nil }, nopDLQ{}, fastOpts())
+	if err := c.Run(context.Background()); !errors.Is(err, boom) {
+		t.Fatalf("Consumer.Run = %v, want the commit error", err)
+	}
+	fb := newFakeClient(fetchOf("orders", span{partition: 0, from: 0, count: 1}))
+	fb.commitErrs = []error{boom}
+	b, _ := newBatchConsumer(fb, "g", func(context.Context, []Record) error { return nil }, nopDLQ{}, fastBatchOpts())
+	if err := b.Run(context.Background()); !errors.Is(err, boom) {
+		t.Fatalf("BatchConsumer.Run = %v, want the commit error", err)
+	}
+}
+
+func TestConstructorsRejectGroupLessClient(t *testing.T) {
+	client, err := kgo.NewClient(kgo.SeedBrokers("127.0.0.1:1"), kgo.ConsumeTopics("orders"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := NewConsumer(client, func(context.Context, Record) error { return nil }, nopDLQ{}, fastOpts()); err == nil {
+		t.Error("NewConsumer accepted a group-less client")
+	}
+	if _, err := NewBatchConsumer(client, func(context.Context, []Record) error { return nil }, nopDLQ{}, fastBatchOpts()); err == nil {
+		t.Error("NewBatchConsumer accepted a group-less client")
+	}
+}
+
+func TestInvalidRequestIDHeaderIsNotTrusted(t *testing.T) {
+	for _, bad := range []string{"has space", "line\nbreak", strings.Repeat("a", 129), ""} {
+		rec := &kgo.Record{Headers: []kgo.RecordHeader{{Key: kafkax.HeaderRequestID, Value: []byte(bad)}}}
+		if got := reqctx.RequestID(recordContext(context.Background(), rec)); got != "" {
+			t.Errorf("request id %q reached the handler context as %q", bad, got)
+		}
+		ctx, span := batchContext(context.Background(), []*kgo.Record{rec})
+		span.End()
+		if got := reqctx.RequestID(ctx); got != "" {
+			t.Errorf("batch: request id %q reached the context as %q", bad, got)
+		}
+	}
+	rec := &kgo.Record{Headers: []kgo.RecordHeader{{Key: kafkax.HeaderRequestID, Value: []byte("req-1.a_b")}}}
+	if got := reqctx.RequestID(recordContext(context.Background(), rec)); got != "req-1.a_b" {
+		t.Errorf("valid request id = %q", got)
 	}
 }

@@ -61,3 +61,17 @@ func TestCheckerReportsPingResult(t *testing.T) {
 		t.Fatalf("down: %v, want the ping error", err)
 	}
 }
+
+func TestHeaderNamesAreKebabCase(t *testing.T) {
+	want := map[string]string{
+		HeaderEventID: "event-id", HeaderEventType: "event-type", HeaderRequestID: "x-request-id",
+		HeaderTraceparent: "traceparent", HeaderDLQError: "dlq-error", HeaderDLQSourceTopic: "dlq-source-topic",
+		HeaderDLQSourcePartition: "dlq-source-partition", HeaderDLQSourceOffset: "dlq-source-offset",
+		HeaderDLQSourceGroup: "dlq-source-group",
+	}
+	for got, w := range want {
+		if got != w {
+			t.Errorf("header %q, want %q", got, w)
+		}
+	}
+}

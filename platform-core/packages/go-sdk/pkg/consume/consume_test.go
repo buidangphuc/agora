@@ -125,8 +125,8 @@ func TestPermanentErrorGoesToDLQ(t *testing.T) {
 	for _, x := range r.Headers {
 		h[x.Key] = string(x.Value)
 	}
-	if h["x-h"] != "hv" || h["source-topic"] != "orders" || h["error"] == "" ||
-		h[consume.HeaderSourcePartition] != "0" || h[consume.HeaderSourceOffset] != "0" || h[consume.HeaderSourceGroup] != "g-perm" {
+	if h["x-h"] != "hv" || h[kafkax.HeaderDLQSourceTopic] != "orders" || h[kafkax.HeaderDLQError] == "" ||
+		h[kafkax.HeaderDLQSourcePartition] != "0" || h[kafkax.HeaderDLQSourceOffset] != "0" || h[kafkax.HeaderDLQSourceGroup] != "g-perm" {
 		t.Fatalf("dlq headers = %v", h)
 	}
 	mu.Lock()

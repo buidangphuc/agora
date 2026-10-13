@@ -124,8 +124,8 @@ Findings N1–N17 are in `review.md` ("Re-review"). Same rules as "Review fixes"
 
 Owns: `pkg/kafkax/**`, `pkg/consume/**`, `pkg/reqctx/**`, `pkg/grpcx/requestid.go`, `pkg/grpcx/requestid_test.go` (if any).
 
-- [ ] 17.1 N6 one kebab-case header constant set in `kafkax` (`HeaderEventID`, `HeaderEventType`, `HeaderRequestID`, `HeaderTraceparent`, `HeaderDLQError`, `HeaderDLQSourceTopic`, `HeaderDLQSourcePartition`, `HeaderDLQSourceOffset`, `HeaderDLQSourceGroup`); consume uses them. N13 `reqctx.ValidRequestID`, used by grpcx request-id interceptor and consume.
-- [ ] 17.2 N4 `Options.MaxPollRecords`/`BatchOptions.MaxPollRecords` (default 500) with `PollRecords`; a commit error caused by a lost generation is logged and the loop continues; N7 constructors reject a group-less client.
+- [x] 17.1 N6 one kebab-case header constant set in `kafkax` (`HeaderEventID`, `HeaderEventType`, `HeaderRequestID`, `HeaderTraceparent`, `HeaderDLQError`, `HeaderDLQSourceTopic`, `HeaderDLQSourcePartition`, `HeaderDLQSourceOffset`, `HeaderDLQSourceGroup`); consume uses them. N13 `reqctx.ValidRequestID`, used by grpcx request-id interceptor and consume.
+- [x] 17.2 N4 `Options.MaxPollRecords`/`BatchOptions.MaxPollRecords` (default 500) with `PollRecords`; a commit error caused by a lost generation is logged and the loop continues; N7 constructors reject a group-less client.
 
 ## 18. grpcx, postgres, resilience, lifecycle, config, flags, docs (wave 5)
 

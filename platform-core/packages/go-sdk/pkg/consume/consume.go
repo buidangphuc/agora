@@ -16,19 +16,6 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
-const (
-	// HeaderError carries the last handler error on a dead-letter record.
-	HeaderError = "error"
-	// HeaderSourceTopic carries the topic a dead-letter record came from.
-	HeaderSourceTopic = "source-topic"
-	// HeaderSourcePartition carries the partition a dead-letter record came from.
-	HeaderSourcePartition = "source-partition"
-	// HeaderSourceOffset carries the offset a dead-letter record had on its source partition.
-	HeaderSourceOffset = "source-offset"
-	// HeaderSourceGroup carries the consumer group that dead-lettered the record.
-	HeaderSourceGroup = "source-group"
-)
-
 // Header is one record header. A record may carry several with the same key.
 type Header struct {
 	Key   string
@@ -79,11 +66,15 @@ func Permanent(err error) error {
 
 // Options tunes the loop. Zero fields take the defaults noted.
 type Options struct {
-	DLQTopic    string        // required; NewConsumer fails when empty
-	MaxAttempts int           // handler attempts per record (default 5)
-	BaseBackoff time.Duration // delay after the first failure, doubling (default 100ms)
-	MaxBackoff  time.Duration // backoff ceiling (default 30s)
-	Logger      *slog.Logger  // default slog.Default()
+	DLQTopic string // required; NewConsumer fails when empty
+	// MaxPollRecords caps the records of one poll, and so of one commit
+	// (default 500). Rebalances are blocked while a poll is handled, so an
+	// unbounded poll could outlast the group's rebalance timeout.
+	MaxPollRecords int
+	MaxAttempts    int           // handler attempts per record (default 5)
+	BaseBackoff    time.Duration // delay after the first failure, doubling (default 100ms)
+	MaxBackoff     time.Duration // backoff ceiling (default 30s)
+	Logger         *slog.Logger  // default slog.Default()
 }
 
 // DLQProducer publishes a built dead-letter record. *kafkax.Producer satisfies it.
@@ -102,12 +93,14 @@ type Consumer struct {
 
 // NewConsumer binds client, which must have auto-commit disabled (as
 // kafkax.NewConsumerClient does), to h and dlq. It fails when client, h or dlq
-// is nil or Options.DLQTopic is empty.
+// is nil, Options.DLQTopic is empty or client has no consumer group (its
+// commits would fail).
 func NewConsumer(client *kgo.Client, h Handler, dlq DLQProducer, o Options) (*Consumer, error) {
-	if client == nil {
-		return nil, errors.New("consume: client is nil")
+	group, err := clientGroup(client)
+	if err != nil {
+		return nil, err
 	}
-	return newConsumer(client, groupName(client), h, dlq, o)
+	return newConsumer(client, group, h, dlq, o)
 }
 
 func newConsumer(client groupClient, group string, h Handler, dlq DLQProducer, o Options) (*Consumer, error) {
@@ -118,6 +111,9 @@ func newConsumer(client groupClient, group string, h Handler, dlq DLQProducer, o
 		return nil, errors.New("consume: dead-letter producer is nil")
 	case o.DLQTopic == "":
 		return nil, errors.New("consume: Options.DLQTopic is required")
+	}
+	if o.MaxPollRecords <= 0 {
+		o.MaxPollRecords = DefaultMaxPollRecords
 	}
 	if o.MaxAttempts <= 0 {
 		o.MaxAttempts = 5
@@ -138,7 +134,8 @@ func newConsumer(client groupClient, group string, h Handler, dlq DLQProducer, o
 // neither handled nor dead-lettered. In that case Run returns the error without
 // committing that record, so a restart in the same group delivers it again.
 //
-// Offsets are committed once per fetch, after every record of it was handled or
+// Each poll returns at most Options.MaxPollRecords records. Offsets are
+// committed once per fetch, after every record of it was handled or
 // dead-lettered, never earlier. Run relies on kgo.BlockRebalanceOnPoll (set by
 // kafkax.NewConsumerClient): rebalances wait until the fetch is committed and
 // Run calls AllowRebalance, so a revoked partition is never committed after its
@@ -146,7 +143,7 @@ func newConsumer(client groupClient, group string, h Handler, dlq DLQProducer, o
 func (c *Consumer) Run(ctx context.Context) error {
 	defer c.client.AllowRebalance()
 	for {
-		fetches := c.client.PollFetches(ctx)
+		fetches := c.client.PollRecords(ctx, c.opts.MaxPollRecords)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
@@ -166,6 +163,14 @@ func (c *Consumer) Run(ctx context.Context) error {
 // after you poll until you call AllowRebalances, you can be sure that you commit
 // records that your member currently owns" (kgo.BlockRebalanceOnPoll; see also
 // kgo.DisableAutoCommit and Client.CommitRecords on committing across rebalances).
+//
+// The same docs warn that a blocked rebalance puts the member "at risk of
+// waiting so long that the group member is kicked from the group because it
+// exceeded the rebalance timeout", and recommend "PollRecords rather than
+// PollFetches so that you can bound how many records you process at once":
+// Run therefore polls at most Options.MaxPollRecords records. If the member is
+// kicked anyway, the commit fails with a lost-generation error; that is logged
+// and the loop goes on, since the new owner redelivers the uncommitted records.
 func (c *Consumer) fetch(ctx context.Context, fetches kgo.Fetches) error {
 	defer c.client.AllowRebalance()
 	for _, fe := range fetches.Errors() {
@@ -183,7 +188,7 @@ func (c *Consumer) fetch(ctx context.Context, fetches kgo.Fetches) error {
 		done.add(rec)
 	}
 	// Records handled before a failure are committed; the failed record never is.
-	if err := done.commit(ctx, c.client); err != nil && failure == nil {
+	if err := commitFetch(ctx, c.opts.Logger, done, c.client); err != nil && failure == nil {
 		return fmt.Errorf("consume: commit offsets: %w", err)
 	}
 	return failure
@@ -254,10 +259,11 @@ func toRecord(rec *kgo.Record) Record {
 
 // recordContext derives the handler context of rec from ctx: the W3C trace
 // context from the global propagator (kafkax.Producer injects it on produce)
-// and the request id from the x-request-id header.
+// and the request id from the x-request-id header when it is valid
+// (reqctx.ValidRequestID); it ends up in logs, so a malformed one is dropped.
 func recordContext(ctx context.Context, rec *kgo.Record) context.Context {
 	ctx = otel.GetTextMapPropagator().Extract(ctx, kotel.NewRecordCarrier(rec))
-	if id := headerValue(rec, kafkax.HeaderRequestID); id != "" {
+	if id := headerValue(rec, kafkax.HeaderRequestID); reqctx.ValidRequestID(id) {
 		ctx = reqctx.WithRequestID(ctx, id)
 	}
 	return ctx
@@ -276,13 +282,13 @@ func deadLetter(topic, group string, rec *kgo.Record, cause error) *kgo.Record {
 	headers := make([]kgo.RecordHeader, 0, len(rec.Headers)+5)
 	headers = append(headers, rec.Headers...)
 	headers = append(headers,
-		kgo.RecordHeader{Key: HeaderError, Value: []byte(cause.Error())},
-		kgo.RecordHeader{Key: HeaderSourceTopic, Value: []byte(rec.Topic)},
-		kgo.RecordHeader{Key: HeaderSourcePartition, Value: []byte(strconv.FormatInt(int64(rec.Partition), 10))},
-		kgo.RecordHeader{Key: HeaderSourceOffset, Value: []byte(strconv.FormatInt(rec.Offset, 10))},
+		kgo.RecordHeader{Key: kafkax.HeaderDLQError, Value: []byte(cause.Error())},
+		kgo.RecordHeader{Key: kafkax.HeaderDLQSourceTopic, Value: []byte(rec.Topic)},
+		kgo.RecordHeader{Key: kafkax.HeaderDLQSourcePartition, Value: []byte(strconv.FormatInt(int64(rec.Partition), 10))},
+		kgo.RecordHeader{Key: kafkax.HeaderDLQSourceOffset, Value: []byte(strconv.FormatInt(rec.Offset, 10))},
 	)
 	if group != "" {
-		headers = append(headers, kgo.RecordHeader{Key: HeaderSourceGroup, Value: []byte(group)})
+		headers = append(headers, kgo.RecordHeader{Key: kafkax.HeaderDLQSourceGroup, Value: []byte(group)})
 	}
 	return &kgo.Record{Topic: topic, Key: rec.Key, Value: rec.Value, Headers: headers}
 }

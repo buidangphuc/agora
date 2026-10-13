@@ -13,11 +13,29 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
+// Record header names. They are the one set every package of the SDK uses
+// (the outbox relayer stamps the first four, the consumers read them and stamp
+// the dead-letter ones), all lower-case kebab-case.
 const (
-	// HeaderTraceparent is the W3C trace-context record header.
-	HeaderTraceparent = "traceparent"
+	// HeaderEventID carries the id of the event an outbox record was built from.
+	HeaderEventID = "event-id"
+	// HeaderEventType carries the type of that event.
+	HeaderEventType = "event-type"
 	// HeaderRequestID carries the request id from reqctx.
 	HeaderRequestID = reqctx.MetadataRequestID
+	// HeaderTraceparent is the W3C trace-context record header.
+	HeaderTraceparent = "traceparent"
+
+	// HeaderDLQError carries the last handler error on a dead-letter record.
+	HeaderDLQError = "dlq-error"
+	// HeaderDLQSourceTopic carries the topic a dead-letter record came from.
+	HeaderDLQSourceTopic = "dlq-source-topic"
+	// HeaderDLQSourcePartition carries the partition a dead-letter record came from.
+	HeaderDLQSourcePartition = "dlq-source-partition"
+	// HeaderDLQSourceOffset carries the offset a dead-letter record had on its source partition.
+	HeaderDLQSourceOffset = "dlq-source-offset"
+	// HeaderDLQSourceGroup carries the consumer group that dead-lettered the record.
+	HeaderDLQSourceGroup = "dlq-source-group"
 )
 
 // DefaultDeliveryTimeout bounds how long a produced record may wait for a broker

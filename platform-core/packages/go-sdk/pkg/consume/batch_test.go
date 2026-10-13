@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/twmb/franz-go/pkg/kgo"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 )
 
 type batchDLQ struct {
@@ -91,7 +93,7 @@ func TestBatchPermanentGoesToDLQ(t *testing.T) {
 		for _, h := range r.Headers {
 			hs[h.Key] = string(h.Value)
 		}
-		if r.Topic != "orders.dlq" || hs[HeaderError] != "poison" || hs[HeaderSourceTopic] != "orders" || hs["x-h"] != "hv" {
+		if r.Topic != "orders.dlq" || hs[kafkax.HeaderDLQError] != "poison" || hs[kafkax.HeaderDLQSourceTopic] != "orders" || hs["x-h"] != "hv" {
 			t.Fatalf("dlq record %d = topic %q headers %v", i, r.Topic, hs)
 		}
 	}

@@ -44,8 +44,11 @@ type fakeClient struct {
 	script  []kgo.Fetches
 	events  []string
 	commits [][]*kgo.Record
-	revoke  bool // a rebalance wants to revoke; applied by AllowRebalance
-	changed chan struct{}
+	revoke  bool  // a rebalance wants to revoke; applied by AllowRebalance
+	polls   []int // the max records asked of each poll
+	// commitErrs are returned, in order, by the first CommitRecords calls.
+	commitErrs []error
+	changed    chan struct{}
 }
 
 func newFakeClient(fetches ...kgo.Fetches) *fakeClient {
@@ -60,8 +63,9 @@ func (f *fakeClient) event(e string) {
 	}
 }
 
-func (f *fakeClient) PollFetches(ctx context.Context) kgo.Fetches {
+func (f *fakeClient) PollRecords(ctx context.Context, maxRecords int) kgo.Fetches {
 	f.mu.Lock()
+	f.polls = append(f.polls, maxRecords)
 	if len(f.script) > 0 {
 		next := f.script[0]
 		f.script = f.script[1:]
@@ -79,6 +83,11 @@ func (f *fakeClient) CommitRecords(_ context.Context, rs ...*kgo.Record) error {
 	defer f.mu.Unlock()
 	f.commits = append(f.commits, append([]*kgo.Record(nil), rs...))
 	f.event("commit")
+	if len(f.commitErrs) > 0 {
+		err := f.commitErrs[0]
+		f.commitErrs = f.commitErrs[1:]
+		return err
+	}
 	return nil
 }
 
@@ -98,6 +107,13 @@ func (f *fakeClient) requestRevoke() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.revoke = true
+}
+
+// maxPolls returns the max records asked of each poll so far.
+func (f *fakeClient) maxPolls() []int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int(nil), f.polls...)
 }
 
 func (f *fakeClient) snapshot() (events []string, commits [][]*kgo.Record) {
