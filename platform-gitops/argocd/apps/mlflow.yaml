@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlflow
+  namespace: argocd
+  annotations:
+    # MLflow tracking + model registry (needs postgres, minio, vault)
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+    targetRevision: main
+    path: platform/mlflow
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
