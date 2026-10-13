@@ -216,7 +216,7 @@ var (
 )
 
 func TestStatusMapsKnownErrors(t *testing.T) {
-	table := grpcx.NewErrorTable(grpcx.Rule{Target: errNotFound, Code: codes.NotFound}, grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
+	table := mustTable(t, grpcx.Rule{Target: errNotFound, Code: codes.NotFound}, grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
@@ -230,7 +230,7 @@ func TestStatusMapsKnownErrors(t *testing.T) {
 }
 
 func TestStatusUsesRuleMessage(t *testing.T) {
-	table := grpcx.NewErrorTable(grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists, Message: "that name is already in use"})
+	table := mustTable(t, grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists, Message: "that name is already in use"})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("insert pq: duplicate key: %w", errTaken), table)
@@ -241,7 +241,7 @@ func TestStatusUsesRuleMessage(t *testing.T) {
 }
 
 func TestStatusDefaultsToSentinelText(t *testing.T) {
-	table := grpcx.NewErrorTable(grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
+	table := mustTable(t, grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
@@ -255,14 +255,14 @@ func TestStatusFirstMatchingRuleWins(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 	both := fmt.Errorf("x: %w", errors.Join(errNotFound, errTaken))
 	for range 50 {
-		table := grpcx.NewErrorTable(
+		table := mustTable(t,
 			grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists},
 			grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
 		if got := status.Code(grpcx.Status(context.Background(), logger, both, table)); got != codes.AlreadyExists {
 			t.Fatalf("code = %v, want AlreadyExists (first rule)", got)
 		}
 	}
-	rev := grpcx.NewErrorTable(
+	rev := mustTable(t,
 		grpcx.Rule{Target: errNotFound, Code: codes.NotFound},
 		grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
 	if got := status.Code(grpcx.Status(context.Background(), logger, both, rev)); got != codes.NotFound {
@@ -285,7 +285,7 @@ func TestStatusMapsContextErrorsWithoutErrorLog(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			logs := &syncBuffer{}
 			logger := slog.New(slog.NewJSONHandler(logs, nil))
-			err := grpcx.Status(context.Background(), logger, c.err, grpcx.NewErrorTable())
+			err := grpcx.Status(context.Background(), logger, c.err, mustTable(t))
 			st, _ := status.FromError(err)
 			if st.Code() != c.want {
 				t.Fatalf("code = %v, want %v", st.Code(), c.want)
@@ -304,7 +304,7 @@ func TestStatusHidesUnknownErrors(t *testing.T) {
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 
-	err := grpcx.Status(context.Background(), logger, errors.New("pq: password=secret"), grpcx.NewErrorTable())
+	err := grpcx.Status(context.Background(), logger, errors.New("pq: password=secret"), mustTable(t))
 	st, _ := status.FromError(err)
 	if st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("got %v, want Internal %q", err, "internal error")
@@ -421,12 +421,12 @@ func TestStatusPassesThroughGRPCStatus(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	in := status.Error(codes.Unauthenticated, "authentication required")
 
-	out := grpcx.Status(context.Background(), logger, in, grpcx.NewErrorTable())
+	out := grpcx.Status(context.Background(), logger, in, mustTable(t))
 	if out != in { //nolint:errorlint // identity is the point: the error must be returned unchanged
 		t.Fatalf("got %v, want the same error", out)
 	}
 	// An Unknown status is not trusted: it is hidden like any other error.
-	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), grpcx.NewErrorTable())
+	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), mustTable(t))
 	if st, _ := status.FromError(unk); st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("Unknown status leaked: %v", unk)
 	}
@@ -470,4 +470,30 @@ func mustHealth(logger *slog.Logger) *healthx.Health {
 		panic(err)
 	}
 	return h
+}
+
+func mustTable(t *testing.T, rules ...grpcx.Rule) grpcx.ErrorTable {
+	t.Helper()
+	table, err := grpcx.NewErrorTable(rules...)
+	if err != nil {
+		t.Fatalf("NewErrorTable: %v", err)
+	}
+	return table
+}
+
+func TestNewErrorTableRejectsBadRules(t *testing.T) {
+	cases := map[string]grpcx.Rule{
+		"nil target": {Target: nil, Code: codes.NotFound},
+		"codes.OK":   {Target: errNotFound, Code: codes.OK},
+	}
+	for name, r := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := grpcx.NewErrorTable(grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists}, r); err == nil {
+				t.Fatal("NewErrorTable: want an error")
+			}
+		})
+	}
+	if _, err := grpcx.NewErrorTable(); err != nil {
+		t.Fatalf("empty table: %v", err)
+	}
 }

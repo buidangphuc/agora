@@ -222,3 +222,15 @@ func TestInternalAndPlainErrorsAreNotRetried(t *testing.T) {
 		}
 	}
 }
+
+func TestDoRejectsZeroPolicy(t *testing.T) {
+	called := false
+	err := resilience.Do(context.Background(), func(context.Context) error { called = true; return nil },
+		retry(t, fastRetry), resilience.Policy{})
+	if err == nil {
+		t.Fatal("Do with a zero Policy: want an error, not a panic")
+	}
+	if called {
+		t.Error("fn ran although a policy was invalid")
+	}
+}

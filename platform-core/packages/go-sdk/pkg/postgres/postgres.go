@@ -65,31 +65,41 @@ func Checker(pool *pgxpool.Pool) func(context.Context) error {
 	return pool.Ping
 }
 
+// rollbackTimeout bounds the rollback that releases the connection when fn
+// fails, panics or exits its goroutine.
+const rollbackTimeout = 5 * time.Second
+
 // WithTx runs fn in a transaction: commit when fn returns nil, rollback
-// otherwise. If fn panics the transaction is rolled back, so the connection
-// returns to the pool, and the panic propagates.
+// otherwise. A deferred rollback also runs when fn panics or calls
+// runtime.Goexit, so the connection always returns to the pool; a panic
+// propagates. The rollback uses a context that survives the cancellation of ctx
+// and is bounded by a timeout, so a cancelled request still releases its
+// connection and a dead server cannot block the caller forever.
 func WithTx(ctx context.Context, pool *pgxpool.Pool, fn func(pgx.Tx) error) (err error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
+	committed := false
 	defer func() {
-		if r := recover(); r != nil {
-			// Roll back with a ctx that survives cancellation: the panic may come
-			// from a cancelled request and the connection must still be released.
-			_ = tx.Rollback(context.WithoutCancel(ctx))
-			panic(r)
+		if committed {
+			return
+		}
+		rbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+		defer cancel()
+		rbErr := tx.Rollback(rbCtx)
+		// A failed rollback must not hide the error that caused it; on a panic or
+		// Goexit there is no error to join to and the unwinding continues.
+		if rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) && err != nil {
+			err = errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
 		}
 	}()
 	if err := fn(tx); err != nil {
-		// A failed rollback must not hide the error that caused it.
-		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
-			return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
-		}
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
+	committed = true
 	return nil
 }

@@ -113,10 +113,15 @@ func New(ctx context.Context, c config.Flags, logger *slog.Logger) (*Client, err
 	return cl, nil
 }
 
-// NewWithProvider builds a Client that evaluates through p. An evaluation
-// error falls back to the caller's default. Closing the Client shuts p down.
-func NewWithProvider(p openfeature.FeatureProvider, timeout time.Duration) (*Client, error) {
-	return newClient(context.Background(), p, timeout, slog.Default())
+// NewWithProvider builds a Client that evaluates through p, with the same
+// leading arguments as New: ctx bounds the provider setup and logger (nil means
+// slog.Default()) receives the evaluation warnings. An evaluation error falls
+// back to the caller's default. Closing the Client shuts p down.
+func NewWithProvider(ctx context.Context, p openfeature.FeatureProvider, timeout time.Duration, logger *slog.Logger) (*Client, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return newClient(ctx, p, timeout, logger)
 }
 
 func newClient(ctx context.Context, p openfeature.FeatureProvider, timeout time.Duration, logger *slog.Logger) (*Client, error) {

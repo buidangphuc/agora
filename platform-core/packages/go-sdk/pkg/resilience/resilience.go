@@ -111,10 +111,15 @@ func Breaker(o BreakerOptions) (Policy, error) {
 }
 
 // Do runs fn under policies, the first being the outermost. It stops as soon
-// as ctx is done, including while waiting between attempts.
+// as ctx is done, including while waiting between attempts. It returns an error
+// without calling fn when a policy is the zero Policy: build policies with Retry
+// or Breaker.
 func Do(ctx context.Context, fn func(ctx context.Context) error, policies ...Policy) error {
 	ps := make([]failsafe.Policy[any], len(policies))
 	for i, p := range policies {
+		if p.p == nil {
+			return fmt.Errorf("resilience: policy %d is the zero Policy; build it with Retry or Breaker", i)
+		}
 		ps[i] = p.p
 	}
 	return failsafe.With(ps...).WithContext(ctx).Run(func() error { return fn(ctx) })

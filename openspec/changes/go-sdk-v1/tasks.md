@@ -131,7 +131,7 @@ Owns: `pkg/kafkax/**`, `pkg/consume/**`, `pkg/reqctx/**`, `pkg/grpcx/requestid.g
 
 Owns: `pkg/grpcx/**` except request id files, `pkg/postgres/**`, `pkg/resilience/**`, `pkg/lifecycle/**`, `pkg/config/**`, `pkg/flags/**`, `examples/**`, `platform-core/templates/_service-go/**`, `openspec/changes/go-sdk-v1/specs/**`.
 
-- [ ] 18.1 N14 `NewErrorTable(rules ...Rule) (ErrorTable, error)` rejecting nil targets and `codes.OK`; `flags.NewWithProvider` aligned with `New` (ctx, logger, error). N10 deferred rollback with timeout. N11 zero Policy error. N8 `lifecycle.Options.CloseGrace`. N17 `KAFKA_BROKERS`/`FLIPT_ADDR` required when strict. N16 comments. N12 spec wording.
+- [x] 18.1 N14 `NewErrorTable(rules ...Rule) (ErrorTable, error)` rejecting nil targets and `codes.OK`; `flags.NewWithProvider` aligned with `New` (ctx, logger, error). N10 deferred rollback with timeout. N11 zero Policy error. N8 `lifecycle.Options.CloseGrace`. N17 `KAFKA_BROKERS`/`FLIPT_ADDR` required when strict. N16 comments. N12 spec wording.
 
 ## 19. outbox (wave 6, after 17 is merged)
 

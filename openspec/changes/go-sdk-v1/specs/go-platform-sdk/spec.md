@@ -34,7 +34,7 @@ New package `idempotency` SHALL export `MDKey = "idempotency-key"` and `Validate
 
 ### Requirement: Error rules are ordered and can fix the client message
 
-`grpcx.ErrorTable` SHALL be an ordered list built with `grpcx.NewErrorTable(rules ...grpcx.Rule)`, where `Rule{Target error; Code codes.Code; Message string}`. `grpcx.Status` SHALL use the first rule whose Target matches with `errors.Is`, so the order is the precedence. A matching rule with a Message SHALL use it as the status message; an empty Message SHALL send `Target.Error()`, never the wrapped chain. `context.Canceled` and `context.DeadlineExceeded` SHALL map to `Canceled` and `DeadlineExceeded` and be logged at Info. Unmatched errors keep becoming Internal with the fixed internal message.
+`grpcx.ErrorTable` SHALL be an ordered list built with `grpcx.NewErrorTable(rules ...grpcx.Rule) (ErrorTable, error)`, which SHALL return an error for a rule with a nil `Target` or with `codes.OK`, where `Rule{Target error; Code codes.Code; Message string}`. `grpcx.Status` SHALL use the first rule whose Target matches with `errors.Is`, so the order is the precedence. A matching rule with a Message SHALL use it as the status message; an empty Message SHALL send `Target.Error()`, never the wrapped chain. `context.Canceled` and `context.DeadlineExceeded` SHALL map to `Canceled` and `DeadlineExceeded` and be logged at Info. Unmatched errors keep becoming Internal with the fixed internal message.
 
 #### Scenario: Rule message replaces wrapped error text
 - **WHEN** `fmt.Errorf("listing 7: %w", ErrNotFound)` matches `Rule{Target: ErrNotFound, Code: NotFound, Message: "not_found"}`
@@ -55,6 +55,11 @@ New package `idempotency` SHALL export `MDKey = "idempotency-key"` and `Validate
 - **WHEN** the error is `context.Canceled` or wraps `context.DeadlineExceeded`
 - **THEN** the status is Canceled or DeadlineExceeded and nothing is logged at error level
 - **VERIFIED BY**: `TestStatusMapsContextErrorsWithoutErrorLog`
+
+#### Scenario: Bad rules are rejected
+- **WHEN** `NewErrorTable` receives a rule with a nil `Target` or with `codes.OK`
+- **THEN** it returns an error
+- **VERIFIED BY**: `TestNewErrorTableRejectsBadRules`
 
 ### Requirement: Local-only database fallback
 
@@ -124,7 +129,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Flags degrade on setup failure and evaluate with a context
 
-`flags.NewOrDisabled(ctx, c, logger) (Evaluator, func(context.Context) error)` SHALL return the Flipt-backed evaluator, or `Disabled()` with a warning when setup fails; the closer is always safe to call. `Evaluator.BooleanEnabled(ctx, flag, def, opts ...EvalOption) bool` SHALL use the id of the principal in ctx as the targeting key (`anonymous` without one) unless `WithTargetingKey` overrides it, SHALL add `WithAttributes` to the evaluation context, and SHALL return def on any error or timeout. `Close` SHALL shut down only the client's own provider, not other clients.
+`flags.NewOrDisabled(ctx, c, logger) (Evaluator, func(context.Context) error)` SHALL return the Flipt-backed evaluator, or `Disabled()` with a warning when setup fails; the closer is always safe to call. `flags.NewWithProvider(ctx, p, timeout, logger) (*Client, error)` SHALL take the same leading arguments as `flags.New`. `Evaluator.BooleanEnabled(ctx, flag, def, opts ...EvalOption) bool` SHALL use the id of the principal in ctx as the targeting key (`anonymous` without one) unless `WithTargetingKey` overrides it, SHALL add `WithAttributes` to the evaluation context, and SHALL return def on any error or timeout. `Close` SHALL shut down only the client's own provider, not other clients.
 
 #### Scenario: Setup failure does not stop the service
 - **WHEN** flags are enabled with an empty `FLIPT_ADDR`
@@ -287,7 +292,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Consumers pass context, commit once per fetch and validate their input
 
-`consume.NewConsumer(client, h, dlq, o) (*Consumer, error)` and `NewBatchConsumer` SHALL return an error for a nil client, handler or DLQ producer and for an empty `DLQTopic`. The handler context SHALL carry the W3C trace context and `x-request-id` of the record; a batch handler context SHALL carry a span linked to each record's span. Offsets SHALL be committed once per fetch, after every record of it is handled or dead-lettered, and never for a fetch whose dead-lettering failed. `consume.Record` SHALL carry `Partition`, `Timestamp` and `Headers []Header`, which keeps duplicate header keys.
+`consume.NewConsumer(client, h, dlq, o) (*Consumer, error)` and `NewBatchConsumer` SHALL return an error for a nil client, handler or DLQ producer and for an empty `DLQTopic`. The handler context SHALL carry the W3C trace context and `x-request-id` of the record; a batch handler context SHALL carry a span linked to each record's span. Offsets SHALL be committed once per fetch, after every record of it is handled or dead-lettered. When handling or dead-lettering a record fails, the records before it in the fetch SHALL still be committed and the failed record and those after it SHALL NOT, so a restart redelivers from the failed record. `consume.Record` SHALL carry `Partition`, `Timestamp` and `Headers []Header`, which keeps duplicate header keys.
 
 #### Scenario: Trace and request id reach the handler
 - **WHEN** a record carries `traceparent` and `x-request-id` headers
@@ -370,7 +375,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Settings load from environment with the services' existing tags
 
-`config.Load[T]()` SHALL populate a settings struct from environment variables. It reads `env:"NAME"` and `default:"value"` tags, the tag names the services use today, and recurses into nested structs without prefixing. It SHALL return an error naming every variable that fails to parse or is marked `required` and unset. After parsing, `Load` SHALL call `Validate() error` on `T` when it has one, and on every nested or embedded group that has one, and SHALL return all their errors joined. `config.Postgres.Validate()` SHALL reject an empty `URL`: the database has no enable flag. `config.Runtime.Validate()` SHALL reject an empty `ENV`. The SDK SHALL provide the embeddable groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Kafka`, `Outbox` and `Flags`. Their variable names and defaults SHALL be `ENV` (required, no default), `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_PORT` (required), `SHUTDOWN_GRACE` (`10s`), `SHUTDOWN_DRAIN_DELAY` (`0s`), `DATABASE_URL`, `DB_MAX_CONNS`, `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `KAFKA_BROKERS`, `OUTBOX_POLL_INTERVAL` (`1s`), `OUTBOX_BATCH_SIZE`, `OUTBOX_CLAIM_LOCK` (`60s`), `OUTBOX_MAX_ATTEMPTS`, `FEATURE_FLAGS_ENABLED`, `FLIPT_ADDR` and `FEATURE_FLAGS_EVAL_TIMEOUT` (`500ms`). Every duration SHALL be a `time.Duration` field read as a Go duration, and no key carries a unit suffix. There is no `GRPC_REFLECTION_ENABLED` and no `DATABASE_ENABLED`. `Runtime.IsLocal()` SHALL be true only for an explicit `ENV` of `local` or `test`.
+`config.Load[T]()` SHALL populate a settings struct from environment variables. It reads `env:"NAME"` and `default:"value"` tags, the tag names the services use today, and recurses into nested structs without prefixing. It SHALL return an error naming every variable that fails to parse or is marked `required` and unset. After parsing, `Load` SHALL call `Validate() error` on `T` when it has one, and on every nested or embedded group that has one, and SHALL return all their errors joined. `config.Postgres.Validate()` SHALL reject an empty `URL`: the database has no enable flag. `config.Runtime.Validate()` SHALL reject an empty `ENV`. The SDK SHALL provide the embeddable groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Kafka`, `Outbox` and `Flags`. Their variable names and defaults SHALL be `ENV` (required, no default), `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_PORT` (required), `SHUTDOWN_GRACE` (`10s`), `SHUTDOWN_DRAIN_DELAY` (`0s`), `DATABASE_URL`, `DB_MAX_CONNS`, `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `KAFKA_BROKERS` (no tag default), `OUTBOX_POLL_INTERVAL` (`1s`), `OUTBOX_BATCH_SIZE`, `OUTBOX_CLAIM_LOCK` (`60s`), `OUTBOX_MAX_ATTEMPTS`, `FEATURE_FLAGS_ENABLED`, `FLIPT_ADDR` (no tag default) and `FEATURE_FLAGS_EVAL_TIMEOUT` (`500ms`). Every duration SHALL be a `time.Duration` field read as a Go duration, and no key carries a unit suffix. `KAFKA_BROKERS`, and `FLIPT_ADDR` while `FEATURE_FLAGS_ENABLED` is true, SHALL be required when `Runtime.IsStrict()` and default to `localhost:9092` and `localhost:9000` otherwise. `Load` SHALL enforce this by calling `ResolveFor(Runtime)` on `config.Kafka` and `config.Flags` with the `Runtime` it finds in the settings struct (embedded or a named field; the zero `Runtime`, so the local behaviour, when there is none); a `Settings` type needs nothing beyond holding `Runtime` and the group. There is no `GRPC_REFLECTION_ENABLED` and no `DATABASE_ENABLED`. `Runtime.IsLocal()` SHALL be true only for an explicit `ENV` of `local` or `test`.
 
 #### Scenario: Defaults apply and env overrides them
 - **WHEN** a struct embedding `config.Runtime` and `config.GRPC` is loaded with only `ENV=local`, `GRPC_PORT=50065` and `LOG_LEVEL=debug` set
@@ -402,6 +407,11 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 - **THEN** the fields hold 90s, 250ms and 1.5s, then the defaults 60s, 500ms and 0s
 - **VERIFIED BY**: `TestMessagingGroupOverrides`, `TestMessagingGroupDefaults` and `TestDrainDelay`
 
+#### Scenario: Deployed environments require the broker and Flipt addresses
+- **WHEN** `ENV=prod` and `KAFKA_BROKERS` or `FLIPT_ADDR` (with flags enabled) is unset or empty, and again with `ENV=local`
+- **THEN** `Load` returns an error naming each missing variable, and for `local` fills `localhost:9092` and `localhost:9000`
+- **VERIFIED BY**: `TestStrictEnvRequiresKafkaAndFlipt`, `TestStrictEnvRejectsEmptyKafkaBrokers`, `TestStrictEnvIgnoresFliptWhenFlagsDisabled` and `TestLocalEnvKeepsKafkaAndFliptDefaults`
+
 ### Requirement: Health reflects dependency checks and drains on shutdown
 
 `healthx.New(interval, logger) (*Health, error)` SHALL wrap the gRPC health server and SHALL return an error when interval is not positive. `Register(name, check func(ctx) error)` SHALL add checkers. `Run(ctx)` SHALL poll all checkers every interval, each bounded by the interval, and set the overall status to SERVING when all pass and NOT_SERVING when any fails. It SHALL log state transitions only. `Drain()` SHALL set NOT_SERVING permanently.
@@ -428,7 +438,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Components run and stop as one unit
 
-`lifecycle.Run(ctx, opts, components...)` SHALL start every component's `Run(ctx) error` in an errgroup. It SHALL return when ctx is cancelled or any component returns. On return it SHALL first call the `OnShutdown` hooks (for example health drain), then cancel the components, wait for them, then call the closers in reverse registration order; components and closers SHALL share one `ShutdownGrace` budget, so the worst case after the drain delay is one grace period. It SHALL return the first non-context error. `Options.DrainDelay` (default 0, from `SHUTDOWN_DRAIN_DELAY` via `config.GRPC.DrainDelay`) SHALL be waited after the hooks and before cancelling components, so probes observe NOT_SERVING. `lifecycle.Stack` SHALL collect closers during wiring: `Push(f)` registers, `Close(ctx)` runs them once in reverse order and joins errors, so a composition root can release what it opened when a later step fails.
+`lifecycle.Run(ctx, opts, components...)` SHALL start every component's `Run(ctx) error` in an errgroup. It SHALL return when ctx is cancelled or any component returns. On return it SHALL first call the `OnShutdown` hooks (for example health drain), then cancel the components, wait for them, then call the closers in reverse registration order; components and closers SHALL share one `ShutdownGrace` budget, so the worst case after the drain delay is one grace period. `Options.CloseGrace` SHALL reserve part of that budget for the closers: the components SHALL get `ShutdownGrace` minus `CloseGrace` to stop and the closers SHALL receive a context that is still live afterwards. Zero means a fifth of `ShutdownGrace`, at most 2s. It SHALL return the first non-context error. `Options.DrainDelay` (default 0, from `SHUTDOWN_DRAIN_DELAY` via `config.GRPC.DrainDelay`) SHALL be waited after the hooks and before cancelling components, so probes observe NOT_SERVING. `lifecycle.Stack` SHALL collect closers during wiring: `Push(f)` registers, `Close(ctx)` runs them once in reverse order and joins errors, so a composition root can release what it opened when a later step fails.
 
 #### Scenario: A failing component stops the others
 - **WHEN** one of two components returns an error
@@ -462,7 +472,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Postgres pool fails fast and is probed
 
-`postgres.Open(ctx, cfg config.Postgres)` SHALL parse the URL, apply `MaxConns`, create the pool and ping it within 5s. It SHALL return an error if the ping fails. `postgres.Checker(pool)` SHALL return a health check that pings. `postgres.WithTx(ctx, pool, fn)` SHALL commit when `fn` returns nil and roll back when it returns an error or panics, without leaking the connection.
+`postgres.Open(ctx, cfg config.Postgres)` SHALL parse the URL, apply `MaxConns`, create the pool and ping it within 5s. It SHALL return an error if the ping fails. `postgres.Checker(pool)` SHALL return a health check that pings. `postgres.WithTx(ctx, pool, fn)` SHALL commit when `fn` returns nil and roll back, in a deferred step with a bounded timeout that ignores the cancellation of ctx, when it returns an error, panics or calls `runtime.Goexit`, without leaking the connection.
 
 #### Scenario: Unreachable database fails at open
 - **WHEN** `Open` targets a closed port
@@ -479,9 +489,14 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 - **THEN** the panic propagates, no row is committed and the pool is not exhausted
 - **VERIFIED BY**: `TestWithTxPanicDoesNotLeakConnection`
 
+#### Scenario: WithTx rolls back when fn exits its goroutine
+- **WHEN** `fn` calls `runtime.Goexit` inside a transaction on a one-connection pool
+- **THEN** no row is committed and the connection can be acquired again
+- **VERIFIED BY**: `TestWithTxGoexitRollsBack`
+
 ### Requirement: Retries and circuit breaking use shared policies
 
-`resilience` SHALL expose `Retry(opts) (Policy, error)` and `Breaker(opts) (Policy, error)` built on failsafe-go behind an opaque `Policy` type, plus `Do(ctx, fn, policies...)`. Zero-value options SHALL take defaults (3 attempts, 100ms to 5s backoff, breaker threshold 5, open delay 30s) and negative values SHALL be rejected with an error. Retries SHALL use exponential backoff with jitter. `Retryable(err)` SHALL be an allow-list: only gRPC `Unavailable`, `ResourceExhausted`, `Aborted` and `DeadlineExceeded` are retried; plain errors, `Internal` and context cancellation are not.
+`resilience` SHALL expose `Retry(opts) (Policy, error)` and `Breaker(opts) (Policy, error)` built on failsafe-go behind an opaque `Policy` type, plus `Do(ctx, fn, policies...)`, which SHALL return an error without calling `fn` when a policy is the zero `Policy`. Zero-value options SHALL take defaults (3 attempts, 100ms to 5s backoff, breaker threshold 5, open delay 30s) and negative values SHALL be rejected with an error. Retries SHALL use exponential backoff with jitter. `Retryable(err)` SHALL be an allow-list: only gRPC `Unavailable`, `ResourceExhausted`, `Aborted` and `DeadlineExceeded` are retried; plain errors, `Internal` and context cancellation are not.
 
 #### Scenario: Non-retryable codes are not retried
 - **WHEN** `fn` returns `status.Error(codes.InvalidArgument, …)` under a 3-attempt retry
@@ -507,6 +522,16 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 - **WHEN** failures exceed the breaker threshold
 - **THEN** the next call returns the breaker-open error without running `fn`
 - **VERIFIED BY**: `TestBreakerOpensAfterFailures`
+
+#### Scenario: Closers keep a live context
+- **WHEN** a component ignores cancellation for the whole grace period
+- **THEN** it is abandoned after `ShutdownGrace` minus `CloseGrace` and the closers still receive about `CloseGrace` of time
+- **VERIFIED BY**: `TestCloseGraceReservesTimeForClosers` and `TestDefaultCloseGraceKeepsClosersAlive`
+
+#### Scenario: A zero Policy is an error, not a panic
+- **WHEN** `Do` receives `resilience.Policy{}`
+- **THEN** it returns an error and does not call `fn`
+- **VERIFIED BY**: `TestDoRejectsZeroPolicy`
 
 ### Requirement: gRPC servers share one interceptor chain and safe errors
 

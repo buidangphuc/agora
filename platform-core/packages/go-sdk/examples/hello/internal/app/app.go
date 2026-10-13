@@ -55,7 +55,11 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
-	rpc.Register(srv, rpc.NewHandler(logger))
+	handler, err := rpc.NewHandler(logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("build handler: %w", err), stack.Close(ctx))
+	}
+	rpc.Register(srv, handler)
 
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace,

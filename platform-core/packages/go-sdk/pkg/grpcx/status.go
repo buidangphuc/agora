@@ -3,6 +3,7 @@ package grpcx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 
@@ -27,9 +28,21 @@ type ErrorTable struct {
 	rules []Rule
 }
 
-// NewErrorTable returns a table that tries rules in the given order.
-func NewErrorTable(rules ...Rule) ErrorTable {
-	return ErrorTable{rules: slices.Clone(rules)}
+var errOKRule = errors.New("a rule must not map an error to codes.OK")
+
+// NewErrorTable returns a table that tries rules in the given order. It
+// returns an error for a rule with a nil Target, which would match nothing, or
+// with codes.OK, which would report a failure as success.
+func NewErrorTable(rules ...Rule) (ErrorTable, error) {
+	for i, r := range rules {
+		if r.Target == nil {
+			return ErrorTable{}, fmt.Errorf("grpcx: error rule %d has a nil Target", i)
+		}
+		if r.Code == codes.OK {
+			return ErrorTable{}, fmt.Errorf("grpcx: error rule %d: %w", i, errOKRule)
+		}
+	}
+	return ErrorTable{rules: slices.Clone(rules)}, nil
 }
 
 // Status converts err to a gRPC status error. An error that already is a gRPC

@@ -69,7 +69,7 @@ func TestNewWithProviderEvaluates(t *testing.T) {
 			Variants:       map[string]any{"on": true, "off": false},
 		},
 	})
-	c, err := flags.NewWithProvider(p, time.Second)
+	c, err := flags.NewWithProvider(context.Background(), p, time.Second, quiet)
 	if err != nil {
 		t.Fatalf("NewWithProvider: %v", err)
 	}
@@ -128,7 +128,7 @@ func (r *recorder) context() openfeature.FlattenedContext {
 
 func TestTargetingKeyFromPrincipal(t *testing.T) {
 	r := &recorder{}
-	c, err := flags.NewWithProvider(r, time.Second)
+	c, err := flags.NewWithProvider(context.Background(), r, time.Second, quiet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestTargetingKeyFromPrincipal(t *testing.T) {
 
 func TestEvalOptionsOverrideKeyAndAddAttributes(t *testing.T) {
 	r := &recorder{}
-	c, err := flags.NewWithProvider(r, time.Second)
+	c, err := flags.NewWithProvider(context.Background(), r, time.Second, quiet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,9 +164,9 @@ func TestEvalOptionsOverrideKeyAndAddAttributes(t *testing.T) {
 
 func TestCloseKeepsOtherClientWorking(t *testing.T) {
 	on := func() *flags.Client {
-		c, err := flags.NewWithProvider(memprovider.NewInMemoryProvider(map[string]memprovider.InMemoryFlag{
+		c, err := flags.NewWithProvider(context.Background(), memprovider.NewInMemoryProvider(map[string]memprovider.InMemoryFlag{
 			"f": {State: memprovider.Enabled, DefaultVariant: "on", Variants: map[string]any{"on": true, "off": false}},
-		}), time.Second)
+		}), time.Second, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -193,7 +193,7 @@ func TestEvaluationWarningIsRateLimited(t *testing.T) {
 	prev := slog.Default()
 	slog.SetDefault(slog.New(h))
 	t.Cleanup(func() { slog.SetDefault(prev) })
-	cl, err := flags.NewWithProvider(&recorder{err: true}, time.Second)
+	cl, err := flags.NewWithProvider(context.Background(), &recorder{err: true}, time.Second, nil) // nil logger: slog.Default, set above
 	if err != nil {
 		t.Fatal(err)
 	}

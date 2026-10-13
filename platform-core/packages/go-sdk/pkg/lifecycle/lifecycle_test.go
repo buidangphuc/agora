@@ -126,8 +126,9 @@ func TestShutdownDeadline(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Run = %v, want DeadlineExceeded", err)
 	}
-	if time.Since(start) < 50*time.Millisecond {
-		t.Fatal("Run returned before the grace period elapsed")
+	// The default CloseGrace reserves a fifth of the grace for the closers.
+	if time.Since(start) < 40*time.Millisecond {
+		t.Fatal("Run returned before the components' share of the grace period elapsed")
 	}
 	if !closed {
 		t.Fatal("closer did not run after the deadline")
@@ -411,5 +412,58 @@ func TestHTTPReturnsListenError(t *testing.T) {
 	srv := &http.Server{Addr: l.Addr().String(), ReadHeaderTimeout: time.Second}
 	if err := lifecycle.HTTP(srv, time.Second).Run(context.Background()); err == nil {
 		t.Fatal("Run = nil on an address in use, want an error")
+	}
+}
+
+func TestCloseGraceReservesTimeForClosers(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	const grace, reserve = 600 * time.Millisecond, 300 * time.Millisecond
+
+	stubborn := lifecycle.Func(func(context.Context) error { <-release; return nil })
+	var closerBudget time.Duration
+	closer := func(ctx context.Context) error {
+		dl, ok := ctx.Deadline()
+		if !ok {
+			t.Error("closer context has no deadline")
+		}
+		closerBudget = time.Until(dl)
+		return ctx.Err()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runAsync(ctx, lifecycle.Options{
+		ShutdownGrace: grace,
+		CloseGrace:    reserve,
+		Closers:       []func(context.Context) error{closer},
+	}, stubborn)
+
+	start := time.Now()
+	cancel()
+	err := result(t, done)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Run = %v, want DeadlineExceeded", err)
+	}
+	if took := time.Since(start); took > grace+grace/2 {
+		t.Fatalf("shutdown took %v, want about %v", took, grace)
+	}
+	if closerBudget < reserve*2/3 {
+		t.Fatalf("closer got %v, want about the %v reserve", closerBudget, reserve)
+	}
+}
+
+func TestDefaultCloseGraceKeepsClosersAlive(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	stubborn := lifecycle.Func(func(context.Context) error { <-release; return nil })
+	var closerErr error
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runAsync(ctx, lifecycle.Options{
+		ShutdownGrace: time.Second,
+		Closers:       []func(context.Context) error{func(ctx context.Context) error { closerErr = ctx.Err(); return nil }},
+	}, stubborn)
+	cancel()
+	_ = result(t, done)
+	if closerErr != nil {
+		t.Fatalf("closer context already done (%v) after the components used the grace", closerErr)
 	}
 }

@@ -16,6 +16,14 @@ import (
 // embedded struct field), and joins all the errors. Embedded groups that each
 // define Validate do not promote it to T, so the walk is what reaches them.
 //
+// Some groups depend on the environment: Kafka and Flags implement
+// ResolveFor(Runtime), which Load calls with the Runtime it finds in T
+// (embedded or a named field; the zero Runtime, so local behaviour, when T has
+// none). KAFKA_BROKERS, and FLIPT_ADDR while flags are enabled, are therefore
+// required when Runtime.IsStrict and default to localhost otherwise. A Settings
+// type needs nothing beyond embedding or holding Runtime and the group; one that
+// wraps its groups in unexported or non-struct fields must call ResolveFor itself.
+//
 // A string field tagged keepempty:"true" stays empty when its variable is set
 // to the empty string, instead of taking its default. Unset still applies the
 // default.
@@ -31,6 +39,9 @@ func Load[T any]() (T, error) {
 		return v, nameVariables(err, reflect.TypeFor[T]())
 	}
 	keepEmpty(reflect.ValueOf(&v).Elem())
+	if err := resolveAll(reflect.ValueOf(&v).Elem()); err != nil {
+		return v, err
+	}
 	if err := validateAll(reflect.ValueOf(v)); err != nil {
 		return v, err
 	}
@@ -38,6 +49,47 @@ func Load[T any]() (T, error) {
 }
 
 type validator interface{ Validate() error }
+
+// resolver is implemented by pointer to groups whose rules depend on Runtime.
+type resolver interface{ ResolveFor(Runtime) error }
+
+// resolveAll finds the Runtime in v and calls ResolveFor on every group below v
+// that has one, joining the errors.
+func resolveAll(v reflect.Value) error {
+	var rt Runtime
+	rtType := reflect.TypeFor[Runtime]()
+	var find func(reflect.Value) bool
+	find = func(v reflect.Value) bool {
+		if v.Type() == rtType {
+			rt = v.Interface().(Runtime)
+			return true
+		}
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() && v.Field(i).Kind() == reflect.Struct && find(v.Field(i)) {
+				return true
+			}
+		}
+		return false
+	}
+	find(v)
+
+	var errs []error
+	var walk func(reflect.Value)
+	walk = func(v reflect.Value) {
+		if r, ok := v.Addr().Interface().(resolver); ok {
+			if err := r.ResolveFor(rt); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() && v.Field(i).Kind() == reflect.Struct {
+				walk(v.Field(i))
+			}
+		}
+	}
+	walk(v)
+	return errors.Join(errs...)
+}
 
 // validateAll runs Validate on v and on every struct field below it, joining
 // the errors. A promoted Validate and the group it comes from report the same

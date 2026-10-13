@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
 	"testing"
 	"time"
 
@@ -146,5 +147,40 @@ func TestOpenOrLocalNilLogger(t *testing.T) {
 	pool, err := postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: "local"}, nil)
 	if err != nil || pool != nil {
 		t.Fatalf("pool=%v err=%v; want nil, nil", pool, err)
+	}
+}
+
+func TestWithTxGoexitRollsBack(t *testing.T) {
+	pool, err := postgres.Open(context.Background(), config.Postgres{URL: testkit.Postgres(t), MaxConns: 1})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	if _, err := pool.Exec(context.Background(), "CREATE TABLE items (id int PRIMARY KEY)"); err != nil {
+		t.Fatalf("create table: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = postgres.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(context.Background(), "INSERT INTO items VALUES (1)"); err != nil {
+				t.Errorf("insert: %v", err)
+			}
+			runtime.Goexit()
+			return nil
+		})
+	}()
+	<-done
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("the connection was not released after Goexit: %v", err)
+	}
+	conn.Release()
+	if n := countItems(t, pool); n != 0 {
+		t.Fatalf("items = %d, want the Goexit transaction rolled back", n)
 	}
 }

@@ -30,10 +30,16 @@ func (f Func) Run(ctx context.Context) error { return f(ctx) }
 type Options struct {
 	// ShutdownGrace is the one budget shared by stopping the components and
 	// running the closers: both must finish within ShutdownGrace of the
-	// components being cancelled, and the closers receive a context with the
-	// time that is left (already expired if the components used it all).
-	// Zero means 10s.
+	// components being cancelled. Zero means 10s.
 	ShutdownGrace time.Duration
+	// CloseGrace is the part of ShutdownGrace reserved for the closers: the
+	// components get ShutdownGrace minus CloseGrace to stop, so a component that
+	// uses all its time still leaves the closers a live context. Zero means a
+	// fifth of ShutdownGrace, at most 2s. A value of ShutdownGrace or more is
+	// capped at half of it. A component with its own force-stop timer (such as
+	// grpcx.Serve with GRPC.ShutdownGrace) should use a budget no longer than
+	// ShutdownGrace minus CloseGrace, or the closers can run while it still serves.
+	CloseGrace time.Duration
 	// OnShutdown hooks run first on shutdown, before components are cancelled
 	// (for example healthx Drain).
 	OnShutdown []func()
@@ -49,8 +55,9 @@ type Options struct {
 // Run starts every component and returns when ctx is cancelled or any
 // component returns. It then runs the OnShutdown hooks, cancels the components,
 // waits for them and runs the closers in reverse order, all within one
-// ShutdownGrace. The worst case from cancellation to return is therefore
-// DrainDelay + ShutdownGrace plus whatever the closers ignore of their context.
+// ShutdownGrace, of which CloseGrace is kept for the closers. The worst case
+// from cancellation to return is therefore DrainDelay + ShutdownGrace plus
+// whatever the closers ignore of their context.
 // It returns the first error that is not context.Canceled, or a wrapped
 // context.DeadlineExceeded if the components outlived the grace period.
 func Run(ctx context.Context, o Options, cs ...Component) error {
@@ -61,6 +68,14 @@ func Run(ctx context.Context, o Options, cs ...Component) error {
 	grace := o.ShutdownGrace
 	if grace <= 0 {
 		grace = defaultGrace
+	}
+
+	closeGrace := o.CloseGrace
+	switch {
+	case closeGrace <= 0:
+		closeGrace = min(grace/5, 2*time.Second)
+	case closeGrace >= grace:
+		closeGrace = grace / 2
 	}
 
 	// Components outlive ctx so the shutdown hooks can run before they are cancelled.
@@ -106,12 +121,15 @@ func Run(ctx context.Context, o Options, cs ...Component) error {
 	shutCtx, cancelShut := context.WithTimeout(context.WithoutCancel(ctx), grace)
 	defer cancelShut()
 
+	compGrace := grace - closeGrace
+	compTimer := time.NewTimer(compGrace)
+	defer compTimer.Stop()
 	var deadline error
 	select {
 	case <-allDone:
-	case <-shutCtx.Done():
-		deadline = fmt.Errorf("lifecycle: components still running after %s: %w", grace, context.DeadlineExceeded)
-		logger.ErrorContext(ctx, "lifecycle: components did not stop within the grace period", "grace", grace)
+	case <-compTimer.C:
+		deadline = fmt.Errorf("lifecycle: components still running after %s: %w", compGrace, context.DeadlineExceeded)
+		logger.ErrorContext(ctx, "lifecycle: components did not stop within the grace period", "grace", compGrace)
 	}
 
 	var closeErr error

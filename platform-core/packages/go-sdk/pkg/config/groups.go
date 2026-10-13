@@ -87,9 +87,24 @@ type OTel struct {
 }
 
 // Kafka holds the broker settings. Kafka has no enable flag: a service that
-// imports kafkax needs it.
+// imports kafkax needs it. KAFKA_BROKERS has no tag default: Load fills
+// localhost:9092 for a local ENV and rejects an unset or empty value when
+// Runtime.IsStrict (see Load).
 type Kafka struct {
-	Brokers string `env:"KAFKA_BROKERS" default:"localhost:9092"`
+	Brokers string `env:"KAFKA_BROKERS"`
+}
+
+// ResolveFor is called by Load with the service's Runtime. In a strict
+// environment it rejects an empty Brokers; otherwise it fills the local default.
+func (k *Kafka) ResolveFor(rt Runtime) error {
+	if k.Brokers != "" {
+		return nil
+	}
+	if rt.IsStrict() {
+		return errors.New("KAFKA_BROKERS is required when ENV is staging or prod")
+	}
+	k.Brokers = defaultKafkaBrokers
+	return nil
 }
 
 // BrokerList splits Brokers on commas, trimming blanks and dropping empty entries.
@@ -115,11 +130,32 @@ type Outbox struct {
 // Flags holds the feature-flag settings. Enabled stays a flag because some
 // environments run without Flipt.
 type Flags struct {
-	Enabled   bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	FliptAddr string `env:"FLIPT_ADDR" default:"localhost:9000"`
+	Enabled bool `env:"FEATURE_FLAGS_ENABLED" default:"true"`
+	// FliptAddr has no tag default: Load fills localhost:9000 for a local ENV
+	// and, when Enabled, rejects an unset value when Runtime.IsStrict.
+	FliptAddr string `env:"FLIPT_ADDR"`
 	// EvalTimeout bounds one flag evaluation.
 	EvalTimeout time.Duration `env:"FEATURE_FLAGS_EVAL_TIMEOUT" default:"500ms"`
 }
+
+// ResolveFor is called by Load with the service's Runtime. With flags enabled
+// in a strict environment it rejects an empty FliptAddr; otherwise it fills the
+// local default.
+func (f *Flags) ResolveFor(rt Runtime) error {
+	if f.FliptAddr != "" {
+		return nil
+	}
+	if f.Enabled && rt.IsStrict() {
+		return errors.New("FLIPT_ADDR is required when ENV is staging or prod and feature flags are enabled")
+	}
+	f.FliptAddr = defaultFliptAddr
+	return nil
+}
+
+const (
+	defaultKafkaBrokers = "localhost:9092"
+	defaultFliptAddr    = "localhost:9000"
+)
 
 // PositiveDuration parses raw, a Go duration such as "20s" or "15m", for the
 // variable key. An empty (or blank) raw value returns def; an unparsable or
