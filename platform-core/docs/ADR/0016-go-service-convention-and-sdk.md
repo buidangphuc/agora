@@ -115,7 +115,7 @@ func (h *Handler) Greet(ctx context.Context, in *wrapperspb.StringValue) (*wrapp
 	}
 	msg, err := greeter.Greet(in.GetValue())
 	if err != nil {
-		return nil, grpcx.Status(ctx, h.logger, err, h.errs) // h.errs = grpcx.NewErrorTable(grpcx.Rule{Target: greeter.ErrEmptyName, Code: codes.InvalidArgument})
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs) // h.errs built once in NewHandler: grpcx.NewErrorTable(grpcx.Rule{Target: greeter.ErrEmptyName, Code: codes.InvalidArgument}) returns (ErrorTable, error)
 	}
 	return wrapperspb.String(msg + " (caller " + p.ID + ")"), nil
 }
