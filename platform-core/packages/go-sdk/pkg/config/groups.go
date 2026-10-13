@@ -123,8 +123,7 @@ type Outbox struct {
 	PollInterval time.Duration `env:"OUTBOX_POLL_INTERVAL" default:"1s"`
 	BatchSize    int           `env:"OUTBOX_BATCH_SIZE" default:"100"`
 	// ClaimLock is how long a claimed row stays leased to one relayer.
-	ClaimLock   time.Duration `env:"OUTBOX_CLAIM_LOCK" default:"60s"`
-	MaxAttempts int           `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+	ClaimLock time.Duration `env:"OUTBOX_CLAIM_LOCK" default:"60s"`
 }
 
 // Flags holds the feature-flag settings. Enabled stays a flag because some

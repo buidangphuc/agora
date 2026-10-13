@@ -83,6 +83,8 @@ func NewStore(pool *pgxpool.Pool, table string) (*Store, error) {
 // UpgradeSQL, or by hand with the steps below, which keep the existing events
 // in their old order and take no long lock. Stop the v0 relayers (or let them
 // drain the pending rows) before switching to v1: a v0 relayer ignores seq.
+// Purge published rows first (Store.Purge): they need no ordered numbers, and
+// every Backfill batch sorts all rows that are still unnumbered.
 //
 //  1. Add the columns and the sequence (instant, no rewrite):
 //
@@ -92,22 +94,31 @@ func NewStore(pool *pgxpool.Pool, table string) (*Store, error) {
 //     CREATE SEQUENCE IF NOT EXISTS <table>_seq_seq OWNED BY <table>.seq;
 //
 //  2. Number the existing rows by (created_at, event_id), in batches of 10000,
-//     and repeat the statement until it reports 0 rows. It continues from the
-//     sequence, so the numbering is global and ordered:
+//     and repeat the statement until updated is 0. Each batch takes its numbers
+//     from the sequence in that order and locks its rows, so concurrent runs
+//     cannot number a row twice or out of order:
 //
-//     WITH b AS (SELECT event_id, row_number() OVER (ORDER BY created_at, event_id) AS rn
-//     FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id LIMIT 10000),
-//     u AS (UPDATE <table> t SET seq = (SELECT last_value FROM <table>_seq_seq) + b.rn FROM b
-//     WHERE t.event_id = b.event_id RETURNING t.seq)
-//     SELECT count(*) AS updated, setval('<table>_seq_seq', max(seq)) FROM u;
+//     WITH b AS MATERIALIZED (SELECT event_id, nextval('<table>_seq_seq') AS n FROM
+//     (SELECT event_id FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id LIMIT 10000 FOR UPDATE) x),
+//     u AS (UPDATE <table> t SET seq = b.n FROM b WHERE t.event_id = b.event_id AND t.seq IS NULL RETURNING 1)
+//     SELECT count(*) AS updated FROM u;
 //
-//  3. Give new rows a number, then run step 2 once more until 0 rows (rows
-//     inserted by a v0 writer since the last batch):
+//  3. Switch, in one transaction. It blocks writers to the table briefly, numbers
+//     the rows a v0 writer inserted since the last batch the same way, and
+//     gives new rows a number. After it commits no row is left without a seq:
 //
+//     BEGIN;
+//     LOCK TABLE <table> IN SHARE ROW EXCLUSIVE MODE;
+//     WITH b AS MATERIALIZED (SELECT event_id, nextval('<table>_seq_seq') AS n FROM
+//     (SELECT event_id FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id) x)
+//     UPDATE <table> t SET seq = b.n FROM b WHERE t.event_id = b.event_id;
 //     ALTER TABLE <table> ALTER COLUMN seq SET DEFAULT nextval('<table>_seq_seq');
+//     COMMIT;
 //
-//  4. Make seq NOT NULL without a long ACCESS EXCLUSIVE scan:
+//  4. Make seq NOT NULL without a long ACCESS EXCLUSIVE scan. The first
+//     statement lets a run that was interrupted start over:
 //
+//     ALTER TABLE <table> DROP CONSTRAINT IF EXISTS <table>_seq_nn;
 //     ALTER TABLE <table> ADD CONSTRAINT <table>_seq_nn CHECK (seq IS NOT NULL) NOT VALID;
 //     ALTER TABLE <table> VALIDATE CONSTRAINT <table>_seq_nn;
 //     ALTER TABLE <table> ALTER COLUMN seq SET NOT NULL;
@@ -124,7 +135,9 @@ func NewStore(pool *pgxpool.Pool, table string) (*Store, error) {
 //
 // seq orders events: created_at is the transaction start, so events enqueued in
 // one transaction tie on it. The old principal column is no longer written and
-// may stay or be dropped.
+// may stay or be dropped. Rows a v0 relayer parked as failed block their
+// aggregates under v1: requeue or delete them before deploying v1
+// (Store.RequeueParked).
 func SchemaSQL(table string) (string, error) {
 	if err := checkTable(table); err != nil {
 		return "", err
@@ -157,20 +170,28 @@ CREATE INDEX IF NOT EXISTS %[1]s_pending_idx ON %[1]s (seq) WHERE status = 'pend
 
 // Upgrade is the migration of a table created by an SDK older than v1, as
 // ordered steps. UpgradeSQL documents them; the SchemaSQL godoc explains each.
-// Run the steps in this order, each statement on its own (the index statements
-// cannot run inside a transaction), and stop the v0 relayers first:
+// Stop the v0 relayers first, Purge published rows, then run:
 //
-//	Prepare, then Backfill until it reports 0 rows, then Switch,
-//	then Backfill until it reports 0 rows again, then Finish.
+//	Prepare, each statement on its own;
+//	Backfill until its first result column (updated) is 0;
+//	Switch, all statements in one transaction;
+//	Finish, each statement on its own (the index statements cannot run inside
+//	a transaction).
+//
+// Do not run Backfill after Switch: no row is left without a seq by then.
 type Upgrade struct {
 	// Prepare adds the columns and the sequence.
 	Prepare []string
-	// Backfill numbers one batch of rows and returns "updated" rows in its
-	// single result row; run it until updated is 0.
+	// Backfill numbers one batch of rows, oldest first, from the sequence and
+	// returns "updated" rows in its single result row; run it until updated is 0.
+	// Concurrent runs are safe: each batch locks its rows.
 	Backfill string
-	// Switch gives new rows a number by default.
+	// Switch locks the table against writers, numbers every row that is still
+	// without a seq, and gives new rows a number by default. Run its statements
+	// in one transaction.
 	Switch []string
-	// Finish makes seq NOT NULL, creates the indexes and drops claim_idx.
+	// Finish makes seq NOT NULL, creates the indexes and drops claim_idx. It can
+	// be run again after an interruption.
 	Finish []string
 }
 
@@ -187,14 +208,19 @@ func UpgradeSQL(table string) (Upgrade, error) {
 			f(`ALTER TABLE <table> ADD COLUMN IF NOT EXISTS seq         BIGINT`),
 			f(`CREATE SEQUENCE IF NOT EXISTS <table>_seq_seq OWNED BY <table>.seq`),
 		},
-		Backfill: f(`WITH b AS (SELECT event_id, row_number() OVER (ORDER BY created_at, event_id) AS rn
-      FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id LIMIT 10000),
-u AS (UPDATE <table> t SET seq = (SELECT last_value FROM <table>_seq_seq) + b.rn FROM b WHERE t.event_id = b.event_id RETURNING t.seq)
-SELECT count(*) AS updated, setval('<table>_seq_seq', max(seq)) FROM u`),
+		Backfill: f(`WITH b AS MATERIALIZED (SELECT event_id, nextval('<table>_seq_seq') AS n FROM
+  (SELECT event_id FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id LIMIT 10000 FOR UPDATE) x),
+u AS (UPDATE <table> t SET seq = b.n FROM b WHERE t.event_id = b.event_id AND t.seq IS NULL RETURNING 1)
+SELECT count(*) AS updated FROM u`),
 		Switch: []string{
+			f(`LOCK TABLE <table> IN SHARE ROW EXCLUSIVE MODE`),
+			f(`WITH b AS MATERIALIZED (SELECT event_id, nextval('<table>_seq_seq') AS n FROM
+  (SELECT event_id FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id) x)
+UPDATE <table> t SET seq = b.n FROM b WHERE t.event_id = b.event_id`),
 			f(`ALTER TABLE <table> ALTER COLUMN seq SET DEFAULT nextval('<table>_seq_seq')`),
 		},
 		Finish: []string{
+			f(`ALTER TABLE <table> DROP CONSTRAINT IF EXISTS <table>_seq_nn`),
 			f(`ALTER TABLE <table> ADD CONSTRAINT <table>_seq_nn CHECK (seq IS NOT NULL) NOT VALID`),
 			f(`ALTER TABLE <table> VALIDATE CONSTRAINT <table>_seq_nn`),
 			f(`ALTER TABLE <table> ALTER COLUMN seq SET NOT NULL`),
@@ -260,7 +286,8 @@ func scanPending(row pgx.Row) (pending, error) {
 const claimableCond = `status = 'pending' AND available_at <= now() AND (locked_until IS NULL OR locked_until <= now())`
 
 // claim leases up to batch rows for lock and returns them grouped by
-// aggregate, each group in seq order.
+// aggregate, each group in seq order, with the aggregate the next scan should
+// start after (nil to start from the beginning).
 //
 // Order is per aggregate: only an aggregate's head (its oldest unpublished row)
 // may be claimed, and only when the head is pending, due and unleased. An
@@ -273,14 +300,15 @@ const claimableCond = `status = 'pending' AND available_at <= now() AND (locked_
 // (aggregate_type, aggregate_id, seq) WHERE status <> 'published': one index
 // probe per aggregate, never one per row, so work grows with the number of
 // aggregates that have unpublished rows, not with their backlog. Heads are
-// visited in aggregate key order; the scan is lazy and stops once batch
-// claimable heads were found. Heads are locked with FOR UPDATE SKIP LOCKED, so
-// concurrent relayers never share an aggregate: a relayer that does not get the
-// head does not touch the run.
-func (s *Store) claim(ctx context.Context, batch int, lock time.Duration) (_ []pending, err error) {
+// visited in aggregate key order starting after the cursor, then wrapping to the
+// start; the scan is lazy and stops once batch claimable heads were found, so a
+// busy low key cannot starve a high one. Heads are locked with FOR UPDATE SKIP
+// LOCKED, so concurrent relayers never share an aggregate: a relayer that does
+// not get the head does not touch the run.
+func (s *Store) claim(ctx context.Context, batch int, lock time.Duration, after *aggKey) (_ []pending, next *aggKey, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("claim outbox rows: %w", err)
+		return nil, nil, fmt.Errorf("claim outbox rows: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -289,25 +317,12 @@ func (s *Store) claim(ctx context.Context, batch int, lock time.Duration) (_ []p
 	}()
 	lockSecs := lock.Seconds()
 
-	idRows, err := tx.Query(ctx, headsSQL(s.table), batch)
+	ids, next, err := s.findHeads(ctx, tx, batch, after)
 	if err != nil {
-		return nil, fmt.Errorf("find outbox heads: %w", err)
-	}
-	var ids []string
-	for idRows.Next() {
-		var id string
-		if err := idRows.Scan(&id); err != nil {
-			idRows.Close()
-			return nil, fmt.Errorf("scan outbox head: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	idRows.Close()
-	if err := idRows.Err(); err != nil {
-		return nil, fmt.Errorf("find outbox heads: %w", err)
+		return nil, nil, err
 	}
 	if len(ids) == 0 {
-		return nil, tx.Commit(ctx)
+		return nil, next, tx.Commit(ctx)
 	}
 
 	headRows, err := tx.Query(ctx, `
@@ -317,27 +332,27 @@ func (s *Store) claim(ctx context.Context, batch int, lock time.Duration) (_ []p
 			FOR UPDATE SKIP LOCKED)
 		RETURNING `+claimCols, ids, lockSecs)
 	if err != nil {
-		return nil, fmt.Errorf("lock outbox heads: %w", err)
+		return nil, nil, fmt.Errorf("lock outbox heads: %w", err)
 	}
 	var heads []pending
 	for headRows.Next() {
 		p, err := scanPending(headRows)
 		if err != nil {
 			headRows.Close()
-			return nil, fmt.Errorf("scan outbox row: %w", err)
+			return nil, nil, fmt.Errorf("scan outbox row: %w", err)
 		}
 		heads = append(heads, p)
 	}
 	headRows.Close()
 	if err := headRows.Err(); err != nil {
-		return nil, fmt.Errorf("lock outbox heads: %w", err)
+		return nil, nil, fmt.Errorf("lock outbox heads: %w", err)
 	}
 
 	out := heads
 	if perHead := (batch+len(heads)-1)/max(len(heads), 1) - 1; perHead > 0 && len(heads) > 0 {
 		runs, err := s.runs(ctx, tx, heads, perHead, lockSecs)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		out = out[:0:0]
 		for i, h := range heads {
@@ -348,30 +363,93 @@ func (s *Store) claim(ctx context.Context, batch int, lock time.Duration) (_ []p
 			extra := out[batch:]
 			out = out[:batch]
 			if err := s.unlock(ctx, tx, extra); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("claim outbox rows: %w", err)
+		return nil, nil, fmt.Errorf("claim outbox rows: %w", err)
 	}
-	return out, nil
+	return out, next, nil
 }
 
-// headsSQL is the skip scan that finds up to $1 claimable aggregate heads. It
-// is a function of the table so a test can EXPLAIN exactly what claim runs.
-func headsSQL(table string) string {
+// findHeads returns the event ids of up to batch claimable heads, scanning
+// after the cursor first and wrapping to the start, and the aggregate of the
+// last head found (nil when there is none, so the next scan starts over).
+func (s *Store) findHeads(ctx context.Context, tx pgx.Tx, batch int, after *aggKey) (ids []string, last *aggKey, err error) {
+	scan := func(mode headMode, limit int, args ...any) error {
+		rows, err := tx.Query(ctx, headsSQL(s.table, mode), append([]any{limit}, args...)...)
+		if err != nil {
+			return fmt.Errorf("find outbox heads: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			var k aggKey
+			if err := rows.Scan(&id, &k.typ, &k.id); err != nil {
+				return fmt.Errorf("scan outbox head: %w", err)
+			}
+			ids, last = append(ids, id), &k
+		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("find outbox heads: %w", err)
+		}
+		return nil
+	}
+	if after == nil {
+		return ids, last, scan(scanAll, batch)
+	}
+	if err := scan(scanAfter, batch, after.typ, after.id); err != nil {
+		return nil, nil, err
+	}
+	if len(ids) < batch {
+		if err := scan(scanThrough, batch-len(ids), after.typ, after.id); err != nil {
+			return nil, nil, err
+		}
+	}
+	return ids, last, nil
+}
+
+// headMode bounds the head scan by the cursor.
+type headMode int
+
+const (
+	scanAll     headMode = iota // every aggregate
+	scanAfter                   // aggregates after the cursor ($2, $3)
+	scanThrough                 // aggregates up to and including the cursor ($2, $3)
+)
+
+// headsSQL is the skip scan that finds up to $1 claimable aggregate heads, as
+// (event_id, aggregate_type, aggregate_id). It is a function of the table so a
+// test can EXPLAIN exactly what claim runs.
+//
+// The scan after a cursor starts at an index boundary. The scan up to a cursor
+// (the wrap-around) must not use an upper bound in the index probe: a row
+// comparison bounds only the leading column, so the probe past the last wanted
+// aggregate would read the whole tail of the index, backlog included. It stops
+// instead from the outside, by not stepping from a head at or past the cursor,
+// and drops the one head it read beyond it.
+func headsSQL(table string, mode headMode) string {
+	const key = `(aggregate_type, aggregate_id)`
+	var seedBound, stepFilter, endWhere string
+	switch mode {
+	case scanAfter:
+		seedBound = ` AND ` + key + ` > ($2, $3)`
+	case scanThrough:
+		stepFilter = ` WHERE (h.aggregate_type, h.aggregate_id) < ($2, $3)`
+		endWhere = ` AND ` + key + ` <= ($2, $3)`
+	}
 	headSQL := `SELECT event_id, aggregate_type, aggregate_id, seq, status, available_at, locked_until FROM ` + table + `
 		WHERE status <> 'published'`
 	return `
 		WITH RECURSIVE heads AS (
-			(` + headSQL + ` ORDER BY aggregate_type, aggregate_id, seq LIMIT 1)
+			(` + headSQL + seedBound + ` ORDER BY aggregate_type, aggregate_id, seq LIMIT 1)
 			UNION ALL
 			SELECT n.* FROM heads h CROSS JOIN LATERAL (
-				` + headSQL + ` AND (aggregate_type, aggregate_id) > (h.aggregate_type, h.aggregate_id)
-				ORDER BY aggregate_type, aggregate_id, seq LIMIT 1) n
+				` + headSQL + ` AND ` + key + ` > (h.aggregate_type, h.aggregate_id)
+				ORDER BY aggregate_type, aggregate_id, seq LIMIT 1) n` + stepFilter + `
 		)
-		SELECT event_id FROM heads WHERE ` + claimableCond + ` LIMIT $1`
+		SELECT event_id, aggregate_type, aggregate_id FROM heads WHERE ` + claimableCond + endWhere + ` LIMIT $1`
 }
 
 // runs finds, per head, up to limit rows right behind it that are claimable,
@@ -496,6 +574,18 @@ func (s *Store) release(ctx context.Context, eventIDs []string) error {
 	return nil
 }
 
+// deferRows ends the lease on rows that were claimed but cannot be attempted
+// and holds them back until at, without counting an attempt.
+func (s *Store) deferRows(ctx context.Context, eventIDs []string, at time.Time) error {
+	if len(eventIDs) == 0 {
+		return nil
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE `+s.table+` SET locked_until = NULL, available_at = $2 WHERE event_id = ANY($1) AND status = 'pending'`, eventIDs, at); err != nil {
+		return fmt.Errorf("defer outbox rows: %w", err)
+	}
+	return nil
+}
+
 func (s *Store) markPublished(ctx context.Context, eventID string) error {
 	q := `UPDATE ` + s.table + `
 		SET status = 'published', published_at = now(), locked_until = NULL, error = NULL
@@ -542,7 +632,7 @@ type Stats struct {
 	Pending int64
 	// BackingOff counts pending rows waiting out a retry delay.
 	BackingOff int64
-	// Parked counts rows parked as failed by a non-retriable publish error.
+	// Parked counts rows parked as failed by a permanent record error.
 	Parked int64
 }
 
@@ -551,7 +641,7 @@ type Stats struct {
 func (s Stats) Blocked() int64 { return s.BackingOff + s.Parked }
 
 // Stats counts the unpublished rows. Export Parked as a gauge and alert on it:
-// a parked row blocks its aggregate until Requeue. It reads every unpublished
+// a parked row blocks its aggregate until Requeue or RequeueParked. It reads every unpublished
 // row, so call it on a metrics interval, not per request.
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	var st Stats
@@ -581,4 +671,33 @@ func (s *Store) Requeue(ctx context.Context, eventID string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// RequeueFilter selects the parked rows RequeueParked puts back in line. Both
+// fields narrow the selection; the zero filter selects every parked row.
+type RequeueFilter struct {
+	// Topic matches the row's own Row.Topic exactly. Rows that publish to the
+	// relayer's default topic have none, so select them by ErrorContains.
+	Topic string
+	// ErrorContains matches rows whose recorded publish error contains this
+	// text, case-sensitively.
+	ErrorContains string
+}
+
+// RequeueParked requeues every parked (failed) row that matches the filter, as
+// Requeue does for one row: status pending, attempts reset to 0, no delay, no
+// lease, error cleared. Published rows and rows that are only backing off are
+// left alone. It returns the number of rows requeued. Use it after fixing the
+// cause of a parked burst, for example to put back every row that a broker size
+// limit rejected, or to clear the failed rows a v0 relayer left behind.
+func (s *Store) RequeueParked(ctx context.Context, f RequeueFilter) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `UPDATE `+s.table+`
+		SET status = 'pending', attempts = 0, available_at = now(), locked_until = NULL, error = NULL
+		WHERE status = 'failed'
+		  AND ($1 = '' OR topic = $1)
+		  AND ($2 = '' OR strpos(COALESCE(error, ''), $2) > 0)`, f.Topic, f.ErrorContains)
+	if err != nil {
+		return 0, fmt.Errorf("requeue parked outbox rows: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }

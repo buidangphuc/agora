@@ -26,7 +26,7 @@ All under `pkg/`.
 | `pagination` | `Clamp` and opaque offset page tokens. |
 | `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection always on), serving that drains, and `Status` with an ordered `ErrorTable` (`NewErrorTable(Rule{Target, Code, Message}...) (ErrorTable, error)`, which rejects nil targets and `codes.OK`; first match wins; an empty `Message` sends the sentinel's text). Incoming `x-request-id` is kept only if it is at most 128 characters of `[A-Za-z0-9._-]`. |
 | `kafkax` | franz-go producer (30s default delivery timeout) and consumer clients with trace and request-id headers; a group client uses `BlockRebalanceOnPoll`; an empty group gives a group-less reader; `Checker` for health. |
-| `outbox` | Transactional outbox table (`SchemaSQL`), idempotent `EnqueueTx`, `Purge`, and a relayer that publishes through `Publisher.PublishRecord`, in order per aggregate, with capped-backoff retry (transient errors never park) and parking of non-retriable errors (`Store.Requeue`, `Store.Stats`). Rows carry the `kafkax` headers `event-id`, `event-type`, `x-request-id` and `traceparent` and an optional per-row topic. |
+| `outbox` | Transactional outbox table (`SchemaSQL`), idempotent `EnqueueTx`, `Purge`, and a relayer that publishes through `Publisher.PublishRecord`, in order per aggregate, with capped-backoff retry (transient errors never park) and parking of record-level errors only (`Permanent`, `Store.Requeue`, `Store.RequeueParked`, `Store.Stats`). Rows carry the `kafkax` headers `event-id`, `event-type`, `x-request-id` and `traceparent` and an optional per-row topic. |
 | `consume` | `NewConsumer` and `NewBatchConsumer` (both return an error) with DLQ and `Permanent`; the handler ctx carries the trace and request id; one commit per fetch; `Record{Topic, Partition, Offset, Timestamp, Key, Value, Headers []Header}`; `NewDedupe` and `Dedupe` (`Seen`, `Processed`). |
 | `upstream` | `NewClient`: lazy gRPC client with principal and request-id propagation, round_robin balancing, `AsService`, per-call service principal, `WithDialOptions`. |
 | `resilience` | `Retry` and `Breaker` return `(Policy, error)` with safe defaults for zero options; `Do`; `Retryable` is an allow-list. `Policy` is opaque. |
@@ -103,6 +103,7 @@ v1 changes API and configuration on purpose; there are no deprecated aliases. Th
 | `SHUTDOWN_DRAIN_DELAY_SECONDS` (`GRPC.DrainDelaySeconds float64`, method `DrainDelay()`) | `SHUTDOWN_DRAIN_DELAY` (`GRPC.DrainDelay`) | `0s` |
 | `OUTBOX_CLAIM_LOCK_SECONDS` (`Outbox.ClaimLockSeconds int`) | `OUTBOX_CLAIM_LOCK` (`Outbox.ClaimLock`) | `60s` |
 | `FEATURE_FLAGS_EVAL_TIMEOUT_MS` (`Flags.EvalTimeoutMS int`) | `FEATURE_FLAGS_EVAL_TIMEOUT` (`Flags.EvalTimeout`) | `500ms` |
+| `OUTBOX_MAX_ATTEMPTS` (`Outbox.MaxAttempts int`) | removed: the relayer has no attempt limit; use `RelayerOptions.AlertAfter` | |
 
   `OUTBOX_POLL_INTERVAL` was already a Go duration. The `ShutdownGrace()` and `DrainDelay()` methods are gone: read the fields. Reflection is always on and the database has no enable flag; neither `GRPC_REFLECTION_ENABLED` nor `DATABASE_ENABLED` exists.
 
@@ -121,8 +122,8 @@ v1 changes API and configuration on purpose; there are no deprecated aliases. Th
 | `consume` | (batch consumer new) | `NewBatchConsumer(...) (*BatchConsumer, error)`; a failing batch retries `BatchOptions.MaxAttempts` times (default 5), then goes to the DLQ |
 | `outbox` | `Publisher.Publish(ctx, topic, key, value)` | `Publisher.PublishRecord(ctx, *kgo.Record)`; `kafkax.Producer` satisfies both. Records carry the `kafkax` header constants `event-id`, `event-type`, `x-request-id` and `traceparent` (stored at enqueue); the v0 names `event_id` and `event_type` are gone, and the outbox has no header constants of its own. |
 | `outbox` | any order; a failed row did not hold back later rows | per aggregate in order: a row is not claimed while an older unpublished row of the same aggregate exists (a parked row blocks its aggregate until `Store.Requeue`). One pass publishes up to `BatchSize` consecutive rows of an aggregate and stops that aggregate at its first failure; an aggregate whose head is parked or backing off is never scanned. The relay batch is bounded by half the claim lock, and each mark has its own `RelayerOptions.MarkTimeout`. |
-| `outbox` | any publish error counted toward `MaxAttempts`, then parked | transient errors (broker, timeout, unrecognised) retry forever with capped exponential backoff and never park; a non-retriable Kafka error (record too large, authorization, unknown topic) parks at once. `Config.MaxAttempts` is no longer consulted by the relayer. A row with no topic is logged at ERROR and released without an attempt. |
-| `outbox` | `NewStore(pool, table) *Store` and `NewRelayer(...) *Relayer` panic or do not validate; `SchemaSQL(table) string` | `NewStore(pool, table) (*Store, error)`, `NewRelayer(...) (*Relayer, error)` (nil store or publisher, negative or inconsistent options are errors), `SchemaSQL(table) (string, error)`; new `Store.Requeue(ctx, eventID)`, `Store.Stats(ctx)`. Table names are at most 41 characters. |
+| `outbox` | any publish error counted toward `MaxAttempts`, then parked | every error retries forever with capped exponential backoff, logged at ERROR once `RelayerOptions.AlertAfter` (default 10) attempts have failed; only an error permanent for the record parks at once: `MessageTooLarge`, `RecordListTooLarge`, `CorruptMessage`, `InvalidRecord`, `InvalidTimestamp`, or any error a custom `Publisher` wraps in `outbox.Permanent`. Unknown topic, authorization and other topic or cluster errors retry, so one missing topic cannot park every aggregate. `Store.RequeueParked(ctx, RequeueFilter{Topic, ErrorContains})` requeues parked rows in bulk. The head scan rotates through the aggregates (cursor with wrap-around), so a busy key cannot starve the others. A budget that expires mid-publish releases the row without counting an attempt. A row with no topic is logged at ERROR and pushed back by one `ClaimLock`, without an attempt. `NewRelayer` rejects `3*MarkTimeout >= ClaimLock/2`; the default `MarkTimeout` is the smaller of 10s and `ClaimLock/8`. |
+| `outbox` | `NewStore(pool, table) *Store` and `NewRelayer(...) *Relayer` panic or do not validate; `SchemaSQL(table) string` | `NewStore(pool, table) (*Store, error)`, `NewRelayer(...) (*Relayer, error)` (nil store or publisher, negative or inconsistent options are errors), `SchemaSQL(table) (string, error)`; new `Store.Requeue(ctx, eventID)`, `Store.Stats(ctx)`, `Store.RequeueParked`. Table names are at most 41 characters. |
 | `outbox` | `Row` had no topic | optional `Row.Topic` overrides `RelayerOptions.Topic`; an empty `EventID` returns `ErrEmptyEventID`; new `Store.Purge(ctx, olderThan)`. The `principal` column is no longer written. |
 | `resilience` | `Retry(o) failsafe.Policy[any]`, `Breaker(o) failsafe.Policy[any]`, `Do(ctx, fn, ...failsafe.Policy[any])` | `Retry(o) (Policy, error)`, `Breaker(o) (Policy, error)`, `Do(ctx, fn, ...Policy)` with an SDK `Policy`. Zero options now take defaults (3 attempts, 100ms to 5s backoff, breaker threshold 5, delay 30s); negative values are rejected; `Do` returns an error for a zero `Policy`. |
 | `resilience` | `Retryable` was a deny-list: plain errors and Internal were retried | allow-list: only Unavailable, ResourceExhausted, Aborted and DeadlineExceeded are retried; everything else is not. Pass `RetryOptions.RetryIf` to change that. |
@@ -135,7 +136,13 @@ v1 changes API and configuration on purpose; there are no deprecated aliases. Th
 
 A v0 table needs the columns `topic`, `traceparent` and `seq`, two new indexes, and loses `claim_idx`. `outbox.SchemaSQL(table)` creates a table for a service that has none; applied to a v0 table it fails on the `seq` index and changes nothing that matters. Do not add `seq` as `BIGSERIAL`: that rewrites the table under ACCESS EXCLUSIVE and numbers the old rows in heap order, so a retried row (rewritten by an update) would move behind newer events of its aggregate.
 
-Stop the v0 relayers (or let them drain the pending rows) before switching to v1: a v0 relayer ignores `seq`. v0 writers may keep inserting until step 3. Then run these steps, each statement on its own; `outbox.UpgradeSQL(table)` returns the same statements and the order:
+Before you start, in this order:
+
+1. Stop the v0 relayers (or let them drain the pending rows): a v0 relayer ignores `seq`.
+2. Deal with rows a v0 relayer parked. v0 parked a row as `failed` after `OUTBOX_MAX_ATTEMPTS` attempts; v1 never sends a `failed` row but keeps it as the head of its aggregate, so it blocks every later event of that aggregate. List them with `SELECT event_id, aggregate_type, aggregate_id, attempts, error FROM <table> WHERE status = 'failed'`. Fix the cause, then either `DELETE` the rows you will not send or put the rest back, which works on the v0 table as it is: `UPDATE <table> SET status = 'pending', attempts = 0, available_at = now(), locked_until = NULL, error = NULL WHERE status = 'failed'`. After the migration, `Store.RequeueParked(ctx, outbox.RequeueFilter{})` does the same for the rows v1 parks later, and can be narrowed by topic or error text.
+3. `Store.Purge` the published rows you do not need, or `DELETE FROM <table> WHERE status = 'published'`. Published rows need no ordered numbers, and every Backfill batch sorts all rows that are still unnumbered, so fewer rows means faster batches.
+
+Then run these steps; `outbox.UpgradeSQL(table)` returns the same statements and the order (`Prepare` and `Finish` statement by statement, `Backfill` until `updated` is 0, `Switch` in one transaction):
 
 ```sql
 -- 1. columns and sequence (instant)
@@ -144,17 +151,26 @@ ALTER TABLE <table> ADD COLUMN IF NOT EXISTS traceparent TEXT;
 ALTER TABLE <table> ADD COLUMN IF NOT EXISTS seq         BIGINT;
 CREATE SEQUENCE IF NOT EXISTS <table>_seq_seq OWNED BY <table>.seq;
 
--- 2. number the old rows by (created_at, event_id), 10000 at a time; repeat until updated = 0
-WITH b AS (SELECT event_id, row_number() OVER (ORDER BY created_at, event_id) AS rn
-           FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id LIMIT 10000),
-     u AS (UPDATE <table> t SET seq = (SELECT last_value FROM <table>_seq_seq) + b.rn FROM b
-           WHERE t.event_id = b.event_id RETURNING t.seq)
-SELECT count(*) AS updated, setval('<table>_seq_seq', max(seq)) FROM u;
+-- 2. number the old rows by (created_at, event_id), 10000 at a time; repeat until updated = 0.
+--    Numbers come from the sequence in that order and each batch locks its rows,
+--    so two runs at once cannot number a row twice or out of order.
+WITH b AS MATERIALIZED (SELECT event_id, nextval('<table>_seq_seq') AS n FROM
+       (SELECT event_id FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id LIMIT 10000 FOR UPDATE) x),
+     u AS (UPDATE <table> t SET seq = b.n FROM b WHERE t.event_id = b.event_id AND t.seq IS NULL RETURNING 1)
+SELECT count(*) AS updated FROM u;
 
--- 3. new rows get a number; then repeat step 2 once more until updated = 0
+-- 3. switch, one transaction: block writers, number the rows a v0 writer inserted since
+--    the last batch, give new rows a number. No row is left without a seq afterwards.
+BEGIN;
+LOCK TABLE <table> IN SHARE ROW EXCLUSIVE MODE;
+WITH b AS MATERIALIZED (SELECT event_id, nextval('<table>_seq_seq') AS n FROM
+       (SELECT event_id FROM <table> WHERE seq IS NULL ORDER BY created_at, event_id) x)
+UPDATE <table> t SET seq = b.n FROM b WHERE t.event_id = b.event_id;
 ALTER TABLE <table> ALTER COLUMN seq SET DEFAULT nextval('<table>_seq_seq');
+COMMIT;
 
--- 4. NOT NULL without a long scan under ACCESS EXCLUSIVE
+-- 4. NOT NULL without a long scan under ACCESS EXCLUSIVE (the first line makes a rerun safe)
+ALTER TABLE <table> DROP CONSTRAINT IF EXISTS <table>_seq_nn;
 ALTER TABLE <table> ADD CONSTRAINT <table>_seq_nn CHECK (seq IS NOT NULL) NOT VALID;
 ALTER TABLE <table> VALIDATE CONSTRAINT <table>_seq_nn;
 ALTER TABLE <table> ALTER COLUMN seq SET NOT NULL;
@@ -167,9 +183,11 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS <table>_pending_idx ON <table> (seq) WHE
 DROP INDEX CONCURRENTLY IF EXISTS <table>_claim_idx;
 ```
 
+Do not run step 2 again after step 3. The switch blocks inserts into the table for as long as it takes to number the rows still unnumbered, normally a moment; v0 writers wait on that lock and then get a `seq` from the new default.
+
 `seq` orders events: `created_at` is the transaction start, so events enqueued in one transaction tie on it. The old `principal` column may stay or be dropped. Deploy v1 once step 5 is done.
 
-Parked rows: alert on `Store.Stats(ctx).Parked` (a parked row blocks its aggregate). After fixing the cause, `Store.Requeue(ctx, eventID)` resets the row's attempts and status; do not edit rows by hand.
+Parked rows: alert on `Store.Stats(ctx).Parked` (a parked row blocks its aggregate). After fixing the cause, `Store.Requeue(ctx, eventID)` resets one row; `Store.RequeueParked(ctx, outbox.RequeueFilter{Topic: ..., ErrorContains: ...})` resets every parked row that matches. Do not edit rows by hand. Only an error permanent for the record parks a row (`MessageTooLarge`, `RecordListTooLarge`, `CorruptMessage`, `InvalidRecord`, `InvalidTimestamp`, or one a custom `Publisher` wraps in `outbox.Permanent`); everything else retries and is logged at ERROR after `RelayerOptions.AlertAfter` attempts.
 
 ### From v0.1.1
 

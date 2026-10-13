@@ -12,12 +12,16 @@
 // one aggregate (a row lock on the aggregate) when that matters. Across
 // aggregates there is no order.
 //
-// A transient publish error (broker down, timeout) is retried with a capped
-// backoff and never parks the row. A non-retriable error (record too large,
-// unknown topic, authorization) parks it: the relayer logs it at ERROR and its
-// aggregate stays blocked until Store.Requeue (or deleting the row). Watch
-// Store.Stats: Parked above zero needs a person. Call Store.Purge periodically
-// to delete old published rows.
+// A publish error is retried with a capped backoff and never parks the row,
+// unless it is permanent for the record: the broker rejected the record itself
+// (message or request too large, corrupt, invalid record or timestamp) or a
+// custom Publisher wrapped the error in Permanent. Errors about the topic or the
+// cluster (unknown topic, authorization) retry too, with an ERROR log once
+// RelayerOptions.AlertAfter attempts have failed, because fixing them needs no
+// change to the rows. A parked row is logged at ERROR and blocks its aggregate
+// until Store.Requeue, Store.RequeueParked (bulk, by topic or error text) or
+// deleting the row. Watch Store.Stats: Parked above zero needs a person. Call
+// Store.Purge periodically to delete old published rows.
 //
 // A table made by an SDK older than v1 must be migrated first; see SchemaSQL.
 package outbox

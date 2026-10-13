@@ -145,7 +145,7 @@ func TestConcurrentRelayersPublishOnce(t *testing.T) {
 		enqueue(t, pool, s, fmt.Sprintf("e%03d", i))
 	}
 	pub := &recorder{}
-	opts := outbox.RelayerOptions{Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}}
+	opts := outbox.RelayerOptions{Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute}}
 	a, b := mustRelayer(t, s, pub, opts), mustRelayer(t, s, pub, opts)
 
 	var wg sync.WaitGroup
@@ -192,7 +192,7 @@ func TestTransientFailureBacksOffAndNeverParks(t *testing.T) {
 	enqueue(t, pool, s, "good")
 	pub := &recorder{failKeys: map[string]bool{"agg-bad": true}}
 	r := mustRelayer(t, s, pub, outbox.RelayerOptions{
-		Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3},
+		Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute},
 		BaseBackoff: time.Minute, MaxBackoff: time.Hour,
 	})
 
@@ -239,7 +239,7 @@ func TestTransientFailureBacksOffAndNeverParks(t *testing.T) {
 		t.Fatalf("backoff did not double: %+v", st2)
 	}
 
-	// MaxAttempts is 3, yet a transient error keeps retrying: it never parks.
+	// A transient error keeps retrying however often: it never parks.
 	// The delay is capped at MaxBackoff (1h) once the doubling reaches it.
 	for want := 3; want <= 8; want++ {
 		release()
@@ -267,7 +267,7 @@ func TestNonRetriableErrorParksAndRequeueResumes(t *testing.T) {
 	enqueueAgg(t, pool, s, "B", "b1")
 	pub := &recorder{failErr: fmt.Errorf("kafkax: produce: %w", kerr.MessageTooLarge)}
 	pub.setFailIDs("a1")
-	r := relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 10})
+	r := relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute})
 
 	rep, err := r.RelayOnce(ctx)
 	if err != nil || rep.Parked != 1 || rep.Retried != 0 || rep.Published != 1 {
@@ -310,8 +310,16 @@ func TestPublishErrorClassification(t *testing.T) {
 		park bool
 	}{
 		{"record too large", kerr.MessageTooLarge, true},
-		{"authorization", kerr.TopicAuthorizationFailed, true},
-		{"unknown topic", fmt.Errorf("produce: %w", kerr.UnknownTopicOrPartition), true},
+		{"record list too large", kerr.RecordListTooLarge, true},
+		{"corrupt message", kerr.CorruptMessage, true},
+		{"invalid record", kerr.InvalidRecord, true},
+		{"invalid timestamp", kerr.InvalidTimestamp, true},
+		{"wrapped record error", fmt.Errorf("kafkax: produce: %w", kerr.MessageTooLarge), true},
+		{"custom permanent", outbox.Permanent(errors.New("schema rejected")), true},
+		{"topic authorization", kerr.TopicAuthorizationFailed, false},
+		{"cluster authorization", kerr.ClusterAuthorizationFailed, false},
+		{"unknown topic", fmt.Errorf("produce: %w", kerr.UnknownTopicOrPartition), false},
+		{"invalid topic", kerr.InvalidTopicException, false},
 		{"leader moved", kerr.NotLeaderForPartition, false},
 		{"request timed out", kerr.RequestTimedOut, false},
 		{"client record timeout", kgo.ErrRecordTimeout, false},
@@ -327,6 +335,125 @@ func TestPublishErrorClassification(t *testing.T) {
 				t.Fatalf("report = %+v (err %v), want park=%v", rep, err, tc.park)
 			}
 		})
+	}
+	if outbox.Permanent(nil) != nil {
+		t.Fatal("Permanent(nil) must be nil")
+	}
+	cause := errors.New("x")
+	if !errors.Is(outbox.Permanent(cause), cause) {
+		t.Fatal("Permanent must keep the cause reachable")
+	}
+}
+
+func TestRepeatedTransientFailureLogsErrorAfterAlertAfter(t *testing.T) {
+	ctx := context.Background()
+	pool, s := newStore(t)
+	enqueueAgg(t, pool, s, "A", "a1")
+	pub := &recorder{}
+	pub.setFailIDs("a1")
+	var logs bytes.Buffer
+	r := mustRelayer(t, s, pub, outbox.RelayerOptions{
+		Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute},
+		BaseBackoff: time.Minute, MaxBackoff: time.Hour, AlertAfter: 2,
+		Logger: slog.New(slog.NewTextHandler(&logs, nil)),
+	})
+	for attempt := 1; attempt <= 3; attempt++ {
+		if _, err := pool.Exec(ctx, `UPDATE `+table+` SET available_at = now()`); err != nil {
+			t.Fatal(err)
+		}
+		if rep, err := r.RelayOnce(ctx); err != nil || rep.Retried != 1 {
+			t.Fatalf("attempt %d = %+v, %v", attempt, rep, err)
+		}
+		hasErr := strings.Contains(logs.String(), "level=ERROR")
+		if want := attempt > 2; hasErr != want {
+			t.Fatalf("after attempt %d: ERROR logged = %v, want %v\n%s", attempt, hasErr, want, logs.String())
+		}
+	}
+	if !strings.Contains(logs.String(), "a1") {
+		t.Fatalf("ERROR log does not name the event: %s", logs.String())
+	}
+}
+
+func TestRequeueParkedFiltersByTopicAndError(t *testing.T) {
+	ctx := context.Background()
+	pool, s := newStore(t)
+	insert := func(id, agg, topic, status, errText string) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `INSERT INTO `+table+` (event_id, aggregate_type, aggregate_id, event_type, payload, topic, status, attempts, error)
+			VALUES ($1::text, 'Agg', $2, 'T', convert_to($1::text, 'UTF8'), NULLIF($3, ''), $4, 3, $5)`, id, agg, topic, status, errText); err != nil {
+			t.Fatal(err)
+		}
+	}
+	insert("p1", "A", "orders", "failed", "kafka: message too large")
+	insert("p2", "B", "orders", "failed", "kafka: corrupt message")
+	insert("p3", "C", "billing", "failed", "kafka: message too large")
+	insert("p4", "D", "", "failed", "kafka: message too large")
+	insert("done", "E", "orders", "published", "")
+	insert("wait", "F", "orders", "pending", "retrying")
+
+	state := func() map[string]string {
+		t.Helper()
+		rows, err := pool.Query(ctx, `SELECT event_id, status || ':' || attempts FROM `+table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		out := map[string]string{}
+		for rows.Next() {
+			var id, st string
+			if err := rows.Scan(&id, &st); err != nil {
+				t.Fatal(err)
+			}
+			out[id] = st
+		}
+		return out
+	}
+	n, err := s.RequeueParked(ctx, outbox.RequeueFilter{Topic: "orders", ErrorContains: "too large"})
+	if err != nil || n != 1 {
+		t.Fatalf("topic+error requeue = %d, %v; want 1 (p1)", n, err)
+	}
+	if st := state(); st["p1"] != "pending:0" || st["p2"] != "failed:3" || st["p3"] != "failed:3" {
+		t.Fatalf("state = %v", st)
+	}
+	if n, err = s.RequeueParked(ctx, outbox.RequeueFilter{ErrorContains: "too large"}); err != nil || n != 2 {
+		t.Fatalf("error-only requeue = %d, %v; want 2 (p3, p4)", n, err)
+	}
+	if n, err = s.RequeueParked(ctx, outbox.RequeueFilter{}); err != nil || n != 1 {
+		t.Fatalf("empty filter = %d, %v; want the last parked row (p2)", n, err)
+	}
+	st := state()
+	if st["done"] != "published:3" || st["wait"] != "pending:3" || st["p2"] != "pending:0" {
+		t.Fatalf("final state = %v; published and pending rows must be untouched", st)
+	}
+	if n, err = s.RequeueParked(ctx, outbox.RequeueFilter{}); err != nil || n != 0 {
+		t.Fatalf("nothing parked = %d, %v", n, err)
+	}
+}
+
+func TestHeadScanCursorServesEveryAggregate(t *testing.T) {
+	ctx := context.Background()
+	pool, s := newStore(t)
+	const aggs, batch, depth = 10, 3, 6
+	for i := range aggs {
+		ids := make([]string, depth)
+		for j := range ids {
+			ids[j] = fmt.Sprintf("e%02d-%d", i, j)
+		}
+		enqueueAgg(t, pool, s, fmt.Sprintf("a%02d", i), ids...)
+	}
+	pub := &recorder{}
+	r := relayer(t, s, pub, config.Outbox{BatchSize: batch, ClaimLock: time.Minute})
+	for range (aggs+batch-1)/batch + 1 {
+		if _, err := r.RelayOnce(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	served := map[string]bool{}
+	for _, k := range pub.keys {
+		served[k] = true
+	}
+	if len(served) != aggs {
+		t.Fatalf("%d of %d aggregates published within %d passes: %v", len(served), aggs, (aggs+batch-1)/batch+1, pub.keys)
 	}
 }
 
@@ -377,6 +504,9 @@ func TestConstructorsRejectBadInput(t *testing.T) {
 		"negative backoff":  {s, pub, outbox.RelayerOptions{BaseBackoff: -time.Second}},
 		"max below base":    {s, pub, outbox.RelayerOptions{BaseBackoff: time.Minute, MaxBackoff: time.Second}},
 		"negative mark tmo": {s, pub, outbox.RelayerOptions{MarkTimeout: -time.Second}},
+		"negative alert":    {s, pub, outbox.RelayerOptions{AlertAfter: -1}},
+		// Three marks (published, failed, released) must fit well inside the lease.
+		"marks outlast lease": {s, pub, outbox.RelayerOptions{Config: config.Outbox{ClaimLock: 10 * time.Second}, MarkTimeout: 2 * time.Second}},
 	} {
 		if _, err := outbox.NewRelayer(tc.s, tc.p, tc.o); err == nil {
 			t.Errorf("NewRelayer(%s) did not fail", name)
@@ -384,6 +514,11 @@ func TestConstructorsRejectBadInput(t *testing.T) {
 	}
 	if _, err := outbox.NewRelayer(s, pub, outbox.RelayerOptions{}); err != nil {
 		t.Errorf("zero options must take defaults: %v", err)
+	}
+	for _, lock := range []time.Duration{time.Second, 5 * time.Second, time.Minute, time.Hour} {
+		if _, err := outbox.NewRelayer(s, pub, outbox.RelayerOptions{Config: config.Outbox{ClaimLock: lock}}); err != nil {
+			t.Errorf("default MarkTimeout must fit ClaimLock %v: %v", lock, err)
+		}
 	}
 	_ = pool
 }
@@ -416,6 +551,13 @@ func TestRowWithoutTopicIsNotAnAttempt(t *testing.T) {
 	}
 	if got := pub.eventIDs(); !slices.Equal(got, []string{"b1"}) {
 		t.Fatalf("published = %v, want [b1]", got)
+	}
+	// The misconfigured row is pushed back, not re-claimed (and re-logged) every pass.
+	if rep, err := r.RelayOnce(ctx); err != nil || rep.Claimed != 0 {
+		t.Fatalf("second pass = %+v, %v; want the topic-less row left alone", rep, err)
+	}
+	if n := strings.Count(logs.String(), "level=ERROR"); n != 1 {
+		t.Fatalf("%d ERROR logs after two passes, want 1: %s", n, logs.String())
 	}
 }
 
@@ -484,7 +626,7 @@ func TestOrderPerAggregate(t *testing.T) {
 	enqueueAgg(t, pool, s, "A", "a1", "a2", "a3", "a4", "a5")
 	enqueueAgg(t, pool, s, "B", "b1", "b2")
 	pub := &recorder{}
-	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 3, ClaimLock: time.Minute, MaxAttempts: 3}), 20)
+	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 3, ClaimLock: time.Minute}), 20)
 
 	var a, b []string
 	for _, id := range pub.eventIDs() {
@@ -506,7 +648,7 @@ func TestFailingRowBlocksItsAggregateOnly(t *testing.T) {
 	enqueueAgg(t, pool, s, "B", "b1")
 	pub := &recorder{}
 	pub.setFailIDs("a1")
-	r := relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 5})
+	r := relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute})
 
 	rep, err := r.RelayOnce(ctx)
 	if err != nil || rep.Retried != 1 || rep.Published != 1 {
@@ -550,7 +692,7 @@ func TestPublishedRecordCarriesHeaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	pub := &recorder{}
-	relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}).RelayOnce(ctx) //nolint:errcheck // asserted via the recorder
+	relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute}).RelayOnce(ctx) //nolint:errcheck // asserted via the recorder
 	if len(pub.recs) != 1 {
 		t.Fatalf("published %d records", len(pub.recs))
 	}
@@ -582,7 +724,7 @@ func TestRowTopicOverridesRelayerTopic(t *testing.T) {
 	}
 	enqueue(t, pool, s, "e2")
 	pub := &recorder{}
-	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}), 5)
+	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute}), 5)
 	topics := map[string]string{}
 	for _, rec := range pub.recs {
 		topics[header(rec, kafkax.HeaderEventID)] = rec.Topic
@@ -610,7 +752,7 @@ func TestRelayBatchBoundedUnderBlockingPublisher(t *testing.T) {
 	enqueue(t, pool, s, "e2")
 	enqueue(t, pool, s, "e3")
 	const lock = 4
-	r := relayer(t, s, &recorder{block: true}, config.Outbox{BatchSize: 10, ClaimLock: lock * time.Second, MaxAttempts: 5})
+	r := relayer(t, s, &recorder{block: true}, config.Outbox{BatchSize: 10, ClaimLock: lock * time.Second})
 
 	start := time.Now()
 	if _, err := r.RelayOnce(ctx); err != nil {
@@ -623,6 +765,12 @@ func TestRelayBatchBoundedUnderBlockingPublisher(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE locked_until IS NOT NULL`).Scan(&locked); err != nil || locked != 0 {
 		t.Fatalf("%d rows still leased after the batch (err %v)", locked, err)
 	}
+	// The budget ran out, the broker did not fail: no attempt is counted and no
+	// backoff is set, so the next pass takes the rows again at once.
+	var attempts, delayed int
+	if err := pool.QueryRow(ctx, `SELECT coalesce(sum(attempts), 0), count(*) FILTER (WHERE available_at > now() + interval '1 second') FROM `+table).Scan(&attempts, &delayed); err != nil || attempts != 0 || delayed != 0 {
+		t.Fatalf("attempts = %d, delayed rows = %d (err %v); an expired budget must count neither", attempts, delayed, err)
+	}
 }
 
 func TestPurgeDeletesOnlyOldPublishedRows(t *testing.T) {
@@ -632,7 +780,7 @@ func TestPurgeDeletesOnlyOldPublishedRows(t *testing.T) {
 		enqueue(t, pool, s, id)
 	}
 	pub := &recorder{failIDs: map[string]bool{"pending": true}}
-	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 5}), 5)
+	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute}), 5)
 	if _, err := pool.Exec(ctx, `UPDATE `+table+` SET published_at = now() - interval '48 hours' WHERE event_id = 'old'`); err != nil {
 		t.Fatal(err)
 	}
@@ -668,11 +816,9 @@ func openPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// TestUpgradeSQLKeepsOrderOfAV0Table applies the documented v0 to v1 migration
-// to a table made by the v0 SchemaSQL, with a retried row whose heap position
-// no longer matches its age, and checks the numbering follows created_at.
-func TestUpgradeSQLKeepsOrderOfAV0Table(t *testing.T) {
-	ctx := context.Background()
+// v0Table creates a table as the v0 SchemaSQL made it and returns a pool on it.
+func v0Table(t *testing.T) *pgxpool.Pool {
+	t.Helper()
 	pool := openPool(t)
 	for _, q := range []string{
 		`CREATE TABLE ` + table + ` (
@@ -685,17 +831,113 @@ func TestUpgradeSQLKeepsOrderOfAV0Table(t *testing.T) {
 		`CREATE INDEX ` + table + `_claim_idx ON ` + table + ` (available_at, created_at) WHERE status = 'pending'`,
 		`CREATE INDEX ` + table + `_status_idx ON ` + table + ` (status)`,
 	} {
-		if _, err := pool.Exec(ctx, q); err != nil {
+		if _, err := pool.Exec(context.Background(), q); err != nil {
 			t.Fatal(err)
 		}
 	}
+	return pool
+}
+
+// v0Insert adds a row the way a v0 writer does: no seq, created hoursAgo hours ago.
+func v0Insert(t *testing.T, pool *pgxpool.Pool, agg, id string, hoursAgo int) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `INSERT INTO `+table+` (event_id, aggregate_type, aggregate_id, event_type, payload, created_at)
+		VALUES ($1::text, 'Agg', $2, 'T', convert_to($1::text, 'UTF8'), now() - ($3 * interval '1 hour'))`, id, agg, hoursAgo); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// backfillUntilDone runs the Backfill statement until it reports 0 rows. The
+// first result column is the number of rows updated.
+func backfillUntilDone(t *testing.T, pool *pgxpool.Pool, q string) {
+	t.Helper()
+	for range 20 {
+		rows, err := pool.Query(context.Background(), q)
+		if err != nil {
+			t.Errorf("backfill: %v", err)
+			return
+		}
+		var updated int64
+		if rows.Next() {
+			vals, err := rows.Values()
+			if err != nil {
+				rows.Close()
+				t.Errorf("backfill: %v", err)
+				return
+			}
+			updated, _ = vals[0].(int64)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			t.Errorf("backfill: %v", err)
+			return
+		}
+		if updated == 0 {
+			return
+		}
+	}
+	t.Error("backfill did not finish")
+}
+
+// runEach runs each statement on its own, as Prepare and Finish require.
+func runEach(t *testing.T, pool *pgxpool.Pool, stmts []string) {
+	t.Helper()
+	for _, q := range stmts {
+		if _, err := pool.Exec(context.Background(), q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+}
+
+// inOneTx runs statements in a single transaction, as Upgrade.Switch requires.
+func inOneTx(t *testing.T, pool *pgxpool.Pool, stmts []string) {
+	t.Helper()
+	err := postgres.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
+		for _, q := range stmts {
+			if _, err := tx.Exec(context.Background(), q); err != nil {
+				return fmt.Errorf("%s: %w", q, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seqOrder(t *testing.T, pool *pgxpool.Pool) (order []string, distinct, nulls int) {
+	t.Helper()
+	ctx := context.Background()
+	if err := pool.QueryRow(ctx, `SELECT count(DISTINCT seq), count(*) FILTER (WHERE seq IS NULL) FROM `+table).Scan(&distinct, &nulls); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := pool.Query(ctx, `SELECT event_id FROM `+table+` ORDER BY seq`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		order = append(order, id)
+	}
+	return order, distinct, nulls
+}
+
+// TestUpgradeSQLKeepsOrderOfAV0Table applies the documented v0 to v1 migration
+// to a table made by the v0 SchemaSQL, with a retried row whose heap position
+// no longer matches its age, and rows a v0 writer inserted between the last
+// Backfill and Switch. Every row is numbered in creation order, new rows go after
+// them, and the relayer publishes in that order.
+func TestUpgradeSQLKeepsOrderOfAV0Table(t *testing.T) {
+	ctx := context.Background()
+	pool := v0Table(t)
 	// a1 is the oldest. A v0 retry rewrote it, which moves it to the end of the
 	// heap; BIGSERIAL numbering in heap order would put it last.
 	for i, id := range []string{"a1", "a2", "a3", "a4"} {
-		if _, err := pool.Exec(ctx, `INSERT INTO `+table+` (event_id, aggregate_type, aggregate_id, event_type, payload, created_at)
-			VALUES ($1::text, 'Agg', 'a', 'T', convert_to($1::text, 'UTF8'), now() - ($2 * interval '1 hour'))`, id, 10-i); err != nil {
-			t.Fatal(err)
-		}
+		v0Insert(t, pool, "a", id, 20-i)
 	}
 	if _, err := pool.Exec(ctx, `UPDATE `+table+` SET attempts = 1, error = 'retried' WHERE event_id = 'a1'`); err != nil {
 		t.Fatal(err)
@@ -714,51 +956,25 @@ func TestUpgradeSQLKeepsOrderOfAV0Table(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := func(stmts ...string) {
-		t.Helper()
-		for _, q := range stmts {
-			if _, err := pool.Exec(ctx, q); err != nil {
-				t.Fatalf("%s: %v", q, err)
-			}
-		}
+	runEach(t, pool, up.Prepare)
+	backfillUntilDone(t, pool, up.Backfill)
+	// A v0 writer that is still running inserts rows without a seq; l2 is
+	// inserted first but is the newer of the two.
+	v0Insert(t, pool, "a", "l2", 4)
+	v0Insert(t, pool, "a", "l1", 5)
+	inOneTx(t, pool, up.Switch)
+	if order, _, nulls := seqOrder(t, pool); nulls != 0 {
+		t.Fatalf("%d rows without seq after Switch (order %v)", nulls, order)
 	}
-	backfill := func() {
-		t.Helper()
-		for range 10 {
-			var updated int64
-			var seq *int64
-			if err := pool.QueryRow(ctx, up.Backfill).Scan(&updated, &seq); err != nil {
-				t.Fatalf("backfill: %v", err)
-			}
-			if updated == 0 {
-				return
-			}
-		}
-		t.Fatal("backfill did not finish")
-	}
-	run(up.Prepare...)
-	backfill()
-	run(up.Switch...)
-	// A v0 writer that was still running inserts a row without a seq.
-	run(`INSERT INTO ` + table + ` (event_id, aggregate_type, aggregate_id, event_type, payload) VALUES ('a5', 'Agg', 'a', 'T', 'a5')`)
-	backfill()
-	run(up.Finish...)
+	// Rows written after Switch, by a v1 writer, take later numbers.
+	s := mustStore(t, pool)
+	enqueueAgg(t, pool, s, "a", "n1", "n2")
+	runEach(t, pool, up.Finish)
 
-	rows, err := pool.Query(ctx, `SELECT event_id FROM `+table+` ORDER BY seq`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	var order []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			t.Fatal(err)
-		}
-		order = append(order, id)
-	}
-	if !slices.Equal(order, []string{"a1", "a2", "a3", "a4", "a5"}) {
-		t.Fatalf("order by seq = %v, want creation order", order)
+	want := []string{"a1", "a2", "a3", "a4", "l1", "l2", "n1", "n2"}
+	order, distinct, nulls := seqOrder(t, pool)
+	if !slices.Equal(order, want) || distinct != len(want) || nulls != 0 {
+		t.Fatalf("order by seq = %v (distinct %d, null %d), want %v with unique numbers", order, distinct, nulls, want)
 	}
 	var notNull bool
 	var claimIdx int
@@ -767,14 +983,96 @@ func TestUpgradeSQLKeepsOrderOfAV0Table(t *testing.T) {
 		t.Fatalf("seq not null = %v, claim_idx left = %d (err %v)", notNull, claimIdx, err)
 	}
 	// The migrated table is a v1 table: SchemaSQL is a no-op and the relayer
-	// publishes the old rows in order, then a new one after them.
-	run(ddl)
-	s := mustStore(t, pool)
-	enqueueAgg(t, pool, s, "a", "a6")
+	// publishes the rows in order.
+	if _, err := pool.Exec(ctx, ddl); err != nil {
+		t.Fatal(err)
+	}
 	pub := &recorder{}
 	drain(t, relayer(t, s, pub, config.Outbox{BatchSize: 3, ClaimLock: time.Minute}), 10)
-	if got := pub.eventIDs(); !slices.Equal(got, []string{"a1", "a2", "a3", "a4", "a5", "a6"}) {
-		t.Fatalf("published = %v", got)
+	if got := pub.eventIDs(); !slices.Equal(got, want) {
+		t.Fatalf("published = %v, want %v", got, want)
+	}
+}
+
+// TestConcurrentBackfillsNeverDuplicate runs four Backfill loops at once on a
+// table larger than one batch whose rows are in the reverse of creation order on
+// disk, then Switch on rows that arrived meanwhile: numbers are unique and follow
+// creation order.
+func TestConcurrentBackfillsNeverDuplicate(t *testing.T) {
+	ctx := context.Background()
+	pool := v0Table(t)
+	const first, later = 25000, 3000
+	if _, err := pool.Exec(ctx, `INSERT INTO `+table+` (event_id, aggregate_type, aggregate_id, event_type, payload, created_at)
+		SELECT 'e' || lpad(g::text, 6, '0'), 'Agg', 'a', 'T', 'x', now() - (g * interval '1 minute') FROM generate_series(1, $1) g`, first); err != nil {
+		t.Fatal(err)
+	}
+	up, err := outbox.UpgradeSQL(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runEach(t, pool, up.Prepare)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			backfillUntilDone(t, pool, up.Backfill)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	// created_at falls as g rises, so creation order is descending g.
+	check := func(total int, want func(i int) string) {
+		t.Helper()
+		order, distinct, nulls := seqOrder(t, pool)
+		if len(order) != total || distinct != total || nulls != 0 {
+			t.Fatalf("rows = %d, distinct seq = %d, null = %d; want %d, %d, 0", len(order), distinct, nulls, total, total)
+		}
+		for i, id := range order {
+			if id != want(i) {
+				t.Fatalf("position %d = %s, want %s", i, id, want(i))
+			}
+		}
+	}
+	check(first, func(i int) string { return fmt.Sprintf("e%06d", first-i) })
+
+	if _, err := pool.Exec(ctx, `INSERT INTO `+table+` (event_id, aggregate_type, aggregate_id, event_type, payload, created_at)
+		SELECT 'l' || lpad(g::text, 6, '0'), 'Agg', 'a', 'T', 'x', now() - (g * interval '1 second') FROM generate_series(1, $1) g`, later); err != nil {
+		t.Fatal(err)
+	}
+	inOneTx(t, pool, up.Switch)
+	check(first+later, func(i int) string {
+		if i < first {
+			return fmt.Sprintf("e%06d", first-i)
+		}
+		return fmt.Sprintf("l%06d", later-(i-first))
+	})
+}
+
+// TestUpgradeFinishCanBeRerun re-runs Finish after an interrupted run left its
+// temporary constraint behind.
+func TestUpgradeFinishCanBeRerun(t *testing.T) {
+	ctx := context.Background()
+	pool := v0Table(t)
+	v0Insert(t, pool, "a", "a1", 2)
+	up, err := outbox.UpgradeSQL(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runEach(t, pool, up.Prepare)
+	backfillUntilDone(t, pool, up.Backfill)
+	inOneTx(t, pool, up.Switch)
+	if _, err := pool.Exec(ctx, `ALTER TABLE `+table+` ADD CONSTRAINT `+table+`_seq_nn CHECK (seq IS NOT NULL) NOT VALID`); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		for _, q := range up.Finish {
+			if _, err := pool.Exec(ctx, q); err != nil {
+				t.Fatalf("%s: %v", q, err)
+			}
+		}
 	}
 }
 
@@ -908,10 +1206,10 @@ func TestConcurrentRelayersKeepAggregateOrder(t *testing.T) {
 
 // explain runs EXPLAIN (ANALYZE, BUFFERS) on the claim's head scan and returns
 // the rows its index scans produced and the buffers it touched.
-func explain(t *testing.T, pool *pgxpool.Pool, limit int) (indexRows, buffers float64, plan string) {
+func explain(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) (indexRows, buffers float64, plan string) {
 	t.Helper()
 	var raw []byte
-	err := pool.QueryRow(context.Background(), `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) `+outbox.HeadsSQL(table), limit).Scan(&raw)
+	err := pool.QueryRow(context.Background(), `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) `+sql, args...).Scan(&raw)
 	if err != nil {
 		t.Fatalf("explain: %v", err)
 	}
@@ -975,13 +1273,13 @@ func TestParkedBacklogDoesNotSlowOtherAggregates(t *testing.T) {
 	if _, err := pool.Exec(ctx, `ANALYZE `+table); err != nil {
 		t.Fatal(err)
 	}
-	smallRows, smallBuf, plan := explain(t, pool, 100)
+	smallRows, smallBuf, plan := explain(t, pool, outbox.HeadsSQL(table), 100)
 
 	insertBacklog(30000)
 	if _, err := pool.Exec(ctx, `ANALYZE `+table); err != nil {
 		t.Fatal(err)
 	}
-	bigRows, bigBuf, _ := explain(t, pool, 100)
+	bigRows, bigBuf, _ := explain(t, pool, outbox.HeadsSQL(table), 100)
 	t.Logf("head scan, 1k backlog: %v index rows, %v buffers; 31k backlog: %v index rows, %v buffers\n%s", smallRows, smallBuf, bigRows, bigBuf, plan)
 
 	if want := float64(others + 1 + 1); bigRows != smallRows || bigRows > want {
@@ -989,6 +1287,14 @@ func TestParkedBacklogDoesNotSlowOtherAggregates(t *testing.T) {
 	}
 	if bigBuf > smallBuf*1.5+20 {
 		t.Fatalf("buffers grew with the backlog: %v -> %v", smallBuf, bigBuf)
+	}
+
+	// The cursor scans, which a relayer runs after its first pass, read no more.
+	for name, q := range map[string]string{"after": outbox.HeadsAfterSQL(table), "through": outbox.HeadsThroughSQL(table)} {
+		rows, buf, _ := explain(t, pool, q, 100, "Agg", "agg-o10")
+		if rows > bigRows || buf > smallBuf*1.5+20 {
+			t.Fatalf("%s scan read %v index rows and %v buffers with a 31k backlog (full scan: %v, %v)", name, rows, buf, bigRows, smallBuf)
+		}
 	}
 
 	pub := &recorder{}

@@ -23,7 +23,7 @@ func TestMessagingGroupDefaults(t *testing.T) {
 	if got := s.Kafka.BrokerList(); !slices.Equal(got, []string{"localhost:9092"}) {
 		t.Errorf("BrokerList = %v", got)
 	}
-	want := config.Outbox{PollInterval: time.Second, BatchSize: 100, ClaimLock: time.Minute, MaxAttempts: 10}
+	want := config.Outbox{PollInterval: time.Second, BatchSize: 100, ClaimLock: time.Minute}
 	if s.Outbox != want {
 		t.Errorf("Outbox = %+v, want %+v", s.Outbox, want)
 	}
@@ -36,7 +36,6 @@ func TestMessagingGroupDefaults(t *testing.T) {
 func TestMessagingGroupOverrides(t *testing.T) {
 	t.Setenv("KAFKA_BROKERS", " a:1, ,b:2 ")
 	t.Setenv("OUTBOX_POLL_INTERVAL", "250ms")
-	t.Setenv("OUTBOX_MAX_ATTEMPTS", "3")
 	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
 	t.Setenv("OUTBOX_CLAIM_LOCK", "90s")
 	t.Setenv("FEATURE_FLAGS_EVAL_TIMEOUT", "250ms")
@@ -48,7 +47,7 @@ func TestMessagingGroupOverrides(t *testing.T) {
 	if got := s.Kafka.BrokerList(); !slices.Equal(got, []string{"a:1", "b:2"}) {
 		t.Errorf("BrokerList = %v", got)
 	}
-	if s.Outbox.PollInterval != 250*time.Millisecond || s.Outbox.MaxAttempts != 3 {
+	if s.Outbox.PollInterval != 250*time.Millisecond {
 		t.Errorf("Outbox = %+v", s.Outbox)
 	}
 	if s.Flags.Enabled {
