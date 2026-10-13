@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/url"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -14,27 +15,43 @@ import (
 )
 
 // keepTB lets the shared container outlive the test that first asks for it:
-// its cleanups are dropped, and testcontainers' reaper removes the container
-// when the test process exits.
+// its cleanups are dropped, and testcontainers' reaper (Ryuk) removes the
+// container when the test process exits.
 type keepTB struct{ testing.TB }
 
 func (keepTB) Cleanup(func()) {}
 
-var (
-	sharedOnce sync.Once
-	sharedURL  string
-)
+// sharedPostgres is the once-per-binary container behind SharedPostgres.
+type sharedPostgres struct {
+	once sync.Once
+	url  string
+}
+
+var shared sharedPostgres
 
 // SharedPostgres returns the connection URL of one Postgres container shared by the
 // whole test binary, started on first use. Isolate tests with Schema. Docker handling
-// matches Postgres.
+// matches Postgres: without Docker every caller skips, and with GO_SDK_REQUIRE_DOCKER
+// set every caller fails, not just the first.
+//
+// The container is never terminated by the test that started it. It is removed by
+// testcontainers' reaper (Ryuk) when the test process exits, so it leaks when the
+// reaper is disabled (TESTCONTAINERS_RYUK_DISABLED=true).
 func SharedPostgres(t testing.TB) string {
 	t.Helper()
-	sharedOnce.Do(func() { sharedURL = Postgres(keepTB{t}) })
-	if sharedURL == "" {
+	return shared.get(t, Postgres)
+}
+
+func (s *sharedPostgres) get(t testing.TB, start func(testing.TB) string) string {
+	t.Helper()
+	s.once.Do(func() { s.url = start(keepTB{t}) })
+	if s.url == "" {
+		if os.Getenv(requireDockerEnv) != "" {
+			t.Fatalf("shared postgres did not start and %s is set", requireDockerEnv)
+		}
 		t.Skip("shared postgres did not start")
 	}
-	return sharedURL
+	return s.url
 }
 
 // Schema creates a fresh schema on the server at dsn and returns a DSN whose

@@ -6,31 +6,86 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	flipt "github.com/open-feature/go-sdk-contrib/providers/flipt/pkg/provider"
 	"github.com/open-feature/go-sdk/openfeature"
+	"github.com/open-feature/go-sdk/openfeature/isolated"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
-// domain names the OpenFeature provider binding for this SDK.
-const domain = "go-sdk"
-
-var domainSeq atomic.Uint64
+// warnEvery is the minimum gap between two evaluation-failure warnings for the
+// same flag, so a down Flipt does not log once per request.
+const warnEvery = time.Minute
 
 // Evaluator is the surface handlers depend on, so tests can substitute a fake.
 type Evaluator interface {
 	// BooleanEnabled returns the flag value, or def on any error or timeout.
-	BooleanEnabled(ctx context.Context, flag string, def bool) bool
+	// The targeting key defaults to the principal id in ctx; see EvalOption.
+	BooleanEnabled(ctx context.Context, flag string, def bool, opts ...EvalOption) bool
 }
 
-// Client is the OpenFeature-backed Evaluator.
+// EvalOption adjusts the evaluation context of one BooleanEnabled call.
+type EvalOption func(*evalOptions)
+
+type evalOptions struct {
+	targetingKey string
+	attributes   map[string]any
+}
+
+// WithTargetingKey overrides the targeting key, which otherwise is the id of
+// the principal in ctx.
+func WithTargetingKey(key string) EvalOption {
+	return func(o *evalOptions) { o.targetingKey = key }
+}
+
+// WithAttributes adds attributes to the evaluation context for targeting rules.
+// Repeated options merge; a later value wins.
+func WithAttributes(attrs map[string]any) EvalOption {
+	return func(o *evalOptions) {
+		if o.attributes == nil {
+			o.attributes = make(map[string]any, len(attrs))
+		}
+		for k, v := range attrs {
+			o.attributes[k] = v
+		}
+	}
+}
+
+// evalContext builds the OpenFeature evaluation context: the targeting key is
+// the principal id from ctx unless overridden, and "anonymous" without one.
+func evalContext(ctx context.Context, opts []EvalOption) openfeature.EvaluationContext {
+	var o evalOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	key := o.targetingKey
+	if key == "" {
+		key = auth.TypeAnonymous
+		if p, ok := auth.FromContext(ctx); ok && p.ID != "" {
+			key = p.ID
+		}
+	}
+	attrs := o.attributes
+	if attrs == nil {
+		attrs = map[string]any{}
+	}
+	return openfeature.NewEvaluationContext(key, attrs)
+}
+
+// Client is the OpenFeature-backed Evaluator. Each Client owns a private
+// OpenFeature API instance, so closing one never affects another.
 type Client struct {
-	of      *openfeature.Client // nil when flags are disabled
+	api     *openfeature.EvaluationAPI // nil when flags are disabled
+	of      *openfeature.Client        // nil when flags are disabled
 	logger  *slog.Logger
 	timeout time.Duration
+
+	mu       sync.Mutex
+	lastWarn map[string]time.Time
 }
 
 var _ Evaluator = (*Client)(nil)
@@ -50,25 +105,27 @@ func New(ctx context.Context, c config.Flags, logger *slog.Logger) (*Client, err
 		return nil, errors.New("FLIPT_ADDR is required when feature flags are enabled")
 	}
 	provider := flipt.NewProvider(flipt.WithAddress(dialTarget(c.FliptAddr)))
-	if err := openfeature.SetNamedProviderAndWait(domain, provider); err != nil {
+	cl, err := newClient(ctx, provider, time.Duration(c.EvalTimeoutMS)*time.Millisecond, logger)
+	if err != nil {
 		return nil, err
 	}
 	logger.InfoContext(ctx, "feature flags enabled", "flipt_addr", c.FliptAddr)
-	return &Client{
-		of:      openfeature.NewClient(domain),
-		logger:  logger,
-		timeout: time.Duration(c.EvalTimeoutMS) * time.Millisecond,
-	}, nil
+	return cl, nil
 }
 
-// NewWithProvider builds a Client that evaluates through p, bound under a domain
-// unique to this client. An evaluation error falls back to the caller's default.
+// NewWithProvider builds a Client that evaluates through p. An evaluation
+// error falls back to the caller's default. Closing the Client shuts p down.
 func NewWithProvider(p openfeature.FeatureProvider, timeout time.Duration) (*Client, error) {
-	d := fmt.Sprintf("%s-%d", domain, domainSeq.Add(1))
-	if err := openfeature.SetNamedProviderAndWait(d, p); err != nil {
-		return nil, err
+	return newClient(context.Background(), p, timeout, slog.Default())
+}
+
+func newClient(ctx context.Context, p openfeature.FeatureProvider, timeout time.Duration, logger *slog.Logger) (*Client, error) {
+	api := isolated.NewAPI()
+	if err := api.SetProviderAndWait(ctx, p); err != nil {
+		_ = api.Shutdown(ctx)
+		return nil, fmt.Errorf("flags: set provider: %w", err)
 	}
-	return &Client{of: openfeature.NewClient(d), logger: slog.Default(), timeout: timeout}, nil
+	return &Client{api: api, of: api.NewClient(), logger: logger, timeout: timeout}, nil
 }
 
 // dialTarget makes a bare host:port parseable by the provider, which runs
@@ -83,14 +140,18 @@ func dialTarget(addr string) string {
 
 type disabled struct{}
 
-func (disabled) BooleanEnabled(_ context.Context, _ string, def bool) bool { return def }
+func (disabled) BooleanEnabled(_ context.Context, _ string, def bool, _ ...EvalOption) bool {
+	return def
+}
 
 // Disabled returns an Evaluator that always yields the caller's default.
 func Disabled() Evaluator { return disabled{} }
 
 // BooleanEnabled evaluates a boolean flag within the eval timeout, returning
-// def on any error.
-func (c *Client) BooleanEnabled(ctx context.Context, flag string, def bool) bool {
+// def on any error (fail open to the caller's default). The targeting key is the
+// principal id in ctx ("anonymous" without one); opts can override it and add
+// attributes. A failing evaluation is logged at most once a minute per flag.
+func (c *Client) BooleanEnabled(ctx context.Context, flag string, def bool, opts ...EvalOption) bool {
 	if c == nil || c.of == nil {
 		return def
 	}
@@ -99,22 +160,39 @@ func (c *Client) BooleanEnabled(ctx context.Context, flag string, def bool) bool
 		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
-	val, err := c.of.BooleanValue(ctx, flag, def, openfeature.NewEvaluationContext("system", map[string]any{}))
+	val, err := c.of.BooleanValue(ctx, flag, def, evalContext(ctx, opts))
 	if err != nil {
-		c.logger.WarnContext(ctx, "feature flag evaluation failed; using default",
-			"flag", flag, "default", def, "err", err)
+		if c.shouldWarn(flag) {
+			c.logger.WarnContext(ctx, "feature flag evaluation failed; using default",
+				"flag", flag, "default", def, "err", err)
+		}
 		return def
 	}
 	return val
 }
 
-// Close shuts the provider down. Safe on a disabled client.
-func (c *Client) Close(_ context.Context) error {
-	if c == nil || c.of == nil {
+// shouldWarn reports whether a failure for flag is due a log line now.
+func (c *Client) shouldWarn(flag string) bool {
+	now := time.Now()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if last, ok := c.lastWarn[flag]; ok && now.Sub(last) < warnEvery {
+		return false
+	}
+	if c.lastWarn == nil {
+		c.lastWarn = make(map[string]time.Time)
+	}
+	c.lastWarn[flag] = now
+	return true
+}
+
+// Close shuts down this client's provider only; other clients and the global
+// OpenFeature API are untouched. Safe on a disabled client.
+func (c *Client) Close(ctx context.Context) error {
+	if c == nil || c.api == nil {
 		return nil
 	}
-	openfeature.Shutdown()
-	return nil
+	return c.api.Shutdown(ctx)
 }
 
 // NewOrDisabled builds the Flipt-backed Evaluator, or, when setup fails, logs

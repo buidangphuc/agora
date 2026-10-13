@@ -65,8 +65,15 @@ func WithDialOptions(opts ...grpc.DialOption) Option {
 	return func(o *options) { o.dialOptions = append(o.dialOptions, opts...) }
 }
 
+// defaultServiceConfig balances calls across every address the resolver
+// returns (for example every pod behind a headless Service) instead of the
+// gRPC default, pick_first, which pins the client to one of them.
+const defaultServiceConfig = `{"loadBalancingConfig":[{"round_robin":{}}]}`
+
 // Dial creates a lazily connecting plaintext gRPC client with otelgrpc, the
-// request id forwarded, and the principal forwarded or replaced (AsService).
+// request id forwarded, the principal forwarded or replaced (AsService), and
+// round_robin load balancing. Override the balancer with
+// WithDialOptions(grpc.WithDefaultServiceConfig(...)).
 func Dial(addr string, opts ...Option) (*grpc.ClientConn, error) {
 	o := options{timeout: DefaultTimeout}
 	for _, opt := range opts {
@@ -74,6 +81,7 @@ func Dial(addr string, opts ...Option) (*grpc.ClientConn, error) {
 	}
 	dial := append([]grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(defaultServiceConfig),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(o.unary()),
 		grpc.WithChainStreamInterceptor(o.stream()),

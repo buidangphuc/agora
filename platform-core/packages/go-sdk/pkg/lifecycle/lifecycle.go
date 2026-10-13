@@ -28,8 +28,11 @@ func (f Func) Run(ctx context.Context) error { return f(ctx) }
 
 // Options configures Run.
 type Options struct {
-	// ShutdownGrace bounds how long components get to stop after cancellation
-	// and is also the budget handed to the closers. Zero means 10s.
+	// ShutdownGrace is the one budget shared by stopping the components and
+	// running the closers: both must finish within ShutdownGrace of the
+	// components being cancelled, and the closers receive a context with the
+	// time that is left (already expired if the components used it all).
+	// Zero means 10s.
 	ShutdownGrace time.Duration
 	// OnShutdown hooks run first on shutdown, before components are cancelled
 	// (for example healthx Drain).
@@ -45,7 +48,9 @@ type Options struct {
 
 // Run starts every component and returns when ctx is cancelled or any
 // component returns. It then runs the OnShutdown hooks, cancels the components,
-// waits for them up to ShutdownGrace and runs the closers in reverse order.
+// waits for them and runs the closers in reverse order, all within one
+// ShutdownGrace. The worst case from cancellation to return is therefore
+// DrainDelay + ShutdownGrace plus whatever the closers ignore of their context.
 // It returns the first error that is not context.Canceled, or a wrapped
 // context.DeadlineExceeded if the components outlived the grace period.
 func Run(ctx context.Context, o Options, cs ...Component) error {
@@ -98,21 +103,20 @@ func Run(ctx context.Context, o Options, cs ...Component) error {
 	}
 	cancelComps()
 
+	shutCtx, cancelShut := context.WithTimeout(context.WithoutCancel(ctx), grace)
+	defer cancelShut()
+
 	var deadline error
-	timer := time.NewTimer(grace)
-	defer timer.Stop()
 	select {
 	case <-allDone:
-	case <-timer.C:
+	case <-shutCtx.Done():
 		deadline = fmt.Errorf("lifecycle: components still running after %s: %w", grace, context.DeadlineExceeded)
 		logger.ErrorContext(ctx, "lifecycle: components did not stop within the grace period", "grace", grace)
 	}
 
-	closeCtx, cancelClose := context.WithTimeout(context.WithoutCancel(ctx), grace)
-	defer cancelClose()
 	var closeErr error
 	for i := len(o.Closers) - 1; i >= 0; i-- {
-		if err := o.Closers[i](closeCtx); err != nil {
+		if err := o.Closers[i](shutCtx); err != nil {
 			logger.ErrorContext(ctx, "lifecycle: closer failed", "err", err)
 			closeErr = errors.Join(closeErr, err)
 		}
@@ -205,21 +209,44 @@ func StopAfter(primary Component, dependents ...Component) Component {
 	})
 }
 
+// EveryOption configures Every.
+type EveryOption func(*everyOptions)
+
+type everyOptions struct {
+	runAtStart bool
+	logger     *slog.Logger
+}
+
+// RunAtStart makes Every call fn once immediately instead of waiting for the
+// first interval.
+func RunAtStart() EveryOption { return func(o *everyOptions) { o.runAtStart = true } }
+
+// WithLogger sets the logger for failed runs. Default slog.Default().
+func WithLogger(l *slog.Logger) EveryOption { return func(o *everyOptions) { o.logger = l } }
+
 // Every returns a Component that calls fn every interval, and once at start
-// when runAtStart is true. A returned error is logged and the worker keeps
-// running; Run returns nil when ctx ends. fn receives ctx and should return
-// when it is cancelled.
-func Every(interval time.Duration, runAtStart bool, fn func(context.Context) error, logger *slog.Logger) Component {
+// with RunAtStart. A returned error is logged and the worker keeps running;
+// Run returns nil when ctx ends. fn receives ctx and should return when it is
+// cancelled. It returns an error when interval is not positive.
+func Every(interval time.Duration, fn func(context.Context) error, opts ...EveryOption) (Component, error) {
+	if interval <= 0 {
+		return nil, fmt.Errorf("lifecycle: Every interval must be positive, got %s", interval)
+	}
+	var o everyOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	logger := o.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return Func(func(ctx context.Context) error {
-		if logger == nil {
-			logger = slog.Default()
-		}
 		tick := func() {
 			if err := fn(ctx); err != nil && ctx.Err() == nil {
 				logger.ErrorContext(ctx, "lifecycle: periodic task failed", "err", err)
 			}
 		}
-		if runAtStart && ctx.Err() == nil {
+		if o.runAtStart && ctx.Err() == nil {
 			tick()
 		}
 		t := time.NewTicker(interval)
@@ -232,7 +259,7 @@ func Every(interval time.Duration, runAtStart bool, fn func(context.Context) err
 				tick()
 			}
 		}
-	})
+	}), nil
 }
 
 // HTTP returns a Component that serves srv until ctx ends and then calls

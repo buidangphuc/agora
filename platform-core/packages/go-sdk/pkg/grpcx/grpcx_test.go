@@ -85,7 +85,7 @@ func start(t *testing.T, methods map[string]grpc.MethodHandler) env {
 	srv := grpcx.NewServer(grpcx.ServerOptions{
 		Config: config.GRPC{},
 		Logger: logger,
-		Health: healthx.New(time.Second, logger),
+		Health: mustHealth(logger),
 	})
 	srv.RegisterService(testDesc(methods), testSvc(nil))
 
@@ -346,7 +346,7 @@ func dialWhenUp(t *testing.T, addr string) *grpc.ClientConn {
 func TestServeStopsGracefullyOnCancel(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 5}
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)}), testSvc(nil))
 
 	cancel, done := runServe(t, srv, c)
@@ -372,7 +372,7 @@ func TestServeForcesStopAfterGrace(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 0.2}
 	started := make(chan struct{})
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{
 		"Hang": unary("Hang", func(ctx context.Context, _ *wrapperspb.StringValue) (proto.Message, error) {
 			close(started)
@@ -434,7 +434,7 @@ func TestStatusPassesThroughGRPCStatus(t *testing.T) {
 
 func TestServeListenerServesAndStops(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
-	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)}), testSvc(nil))
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -458,8 +458,16 @@ func TestServeListenerServesAndStops(t *testing.T) {
 
 func TestReflectionAlwaysRegistered(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: config.GRPC{}, Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: config.GRPC{}, Logger: logger, Health: mustHealth(logger)})
 	if _, ok := srv.GetServiceInfo()["grpc.reflection.v1.ServerReflection"]; !ok {
 		t.Fatalf("reflection not registered; services = %v", srv.GetServiceInfo())
 	}
+}
+
+func mustHealth(logger *slog.Logger) *healthx.Health {
+	h, err := healthx.New(time.Second, logger)
+	if err != nil {
+		panic(err)
+	}
+	return h
 }

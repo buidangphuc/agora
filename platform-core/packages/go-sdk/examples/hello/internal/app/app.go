@@ -38,7 +38,10 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("init health: %w", err), stack.Close(ctx))
+	}
 
 	pool, err := pgx.Open(ctx, s.Postgres)
 	switch {

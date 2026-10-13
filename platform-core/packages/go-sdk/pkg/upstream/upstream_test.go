@@ -3,11 +3,14 @@ package upstream
 import (
 	"context"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/resolver/manual"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -189,5 +192,51 @@ func TestDialOptionsApplied(t *testing.T) {
 	invoke(buyerCtx(), t, withBufconn(echoServer(t)), WithDialOptions(icpt))
 	if len(seen) != 1 || seen[0] != "/test.v1.Test/Echo" {
 		t.Errorf("interceptor saw %v, want one call to /test.v1.Test/Echo", seen)
+	}
+}
+
+func TestDefaultsToRoundRobin(t *testing.T) {
+	var hits [2]atomic.Int64
+	listeners := map[string]*bufconn.Listener{}
+	var addrs []resolver.Address
+	for i := range hits {
+		srv := grpc.NewServer(grpc.UnknownServiceHandler(func(_ any, ss grpc.ServerStream) error {
+			hits[i].Add(1)
+			if err := ss.RecvMsg(new(wrapperspb.StringValue)); err != nil {
+				return err
+			}
+			return ss.SendMsg(wrapperspb.String("ok"))
+		}))
+		lis := bufconn.Listen(1 << 20)
+		go func() { _ = srv.Serve(lis) }()
+		t.Cleanup(srv.Stop)
+		addr := "backend-" + string(rune('a'+i))
+		listeners[addr] = lis
+		addrs = append(addrs, resolver.Address{Addr: addr})
+	}
+	r := manual.NewBuilderWithScheme("rr")
+	r.InitialState(resolver.State{Addresses: addrs})
+
+	conn, err := Dial("rr:///svc", WithDialOptions(
+		grpc.WithResolvers(r),
+		grpc.WithContextDialer(func(_ context.Context, addr string) (net.Conn, error) { return listeners[addr].Dial() }),
+	))
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	for range 200 {
+		if hits[0].Load() > 0 && hits[1].Load() > 0 {
+			break
+		}
+		// WaitForReady rides out the window before both subchannels are connected.
+		err := conn.Invoke(context.Background(), "/test.v1.Test/Echo", wrapperspb.String("x"), new(wrapperspb.StringValue), grpc.WaitForReady(true))
+		if err != nil {
+			t.Fatalf("Invoke: %v", err)
+		}
+	}
+	if hits[0].Load() == 0 || hits[1].Load() == 0 {
+		t.Errorf("calls per backend = %d and %d, want both used (round_robin)", hits[0].Load(), hits[1].Load())
 	}
 }

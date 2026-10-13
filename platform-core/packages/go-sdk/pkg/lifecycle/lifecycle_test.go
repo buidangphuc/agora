@@ -181,7 +181,6 @@ func TestDrainDelayHoldsComponents(t *testing.T) {
 		OnShutdown: []func(){func() { hookAt = time.Now() }},
 	}, comp)
 
-	time.Sleep(20 * time.Millisecond)
 	cancel()
 	if err := result(t, done); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -196,16 +195,18 @@ func TestStopAfterOrdersShutdown(t *testing.T) {
 	var order []string
 	mark := func(s string) { mu.Lock(); order = append(order, s); mu.Unlock() }
 
+	primaryCancelled := make(chan struct{})
+	finishDraining := make(chan struct{})
+	depStarted := make(chan context.Context, 1)
 	primary := lifecycle.Func(func(ctx context.Context) error {
 		<-ctx.Done()
-		time.Sleep(50 * time.Millisecond) // draining in-flight work
+		close(primaryCancelled)
+		<-finishDraining // draining in-flight work
 		mark("primary stopped")
 		return nil
 	})
 	dependent := lifecycle.Func(func(ctx context.Context) error {
-		if ctx.Err() != nil {
-			t.Error("dependent context cancelled together with the parent")
-		}
+		depStarted <- ctx
 		<-ctx.Done()
 		mark("dependent stopped")
 		return ctx.Err()
@@ -214,8 +215,13 @@ func TestStopAfterOrdersShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- lifecycle.StopAfter(primary, dependent).Run(ctx) }()
-	time.Sleep(20 * time.Millisecond)
+	depCtx := <-depStarted
 	cancel()
+	<-primaryCancelled
+	if depCtx.Err() != nil {
+		t.Error("dependent context cancelled together with the parent")
+	}
+	close(finishDraining)
 
 	if err := result(t, done); err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatalf("StopAfter = %v", err)
@@ -227,13 +233,22 @@ func TestStopAfterOrdersShutdown(t *testing.T) {
 	}
 }
 
+func mustEvery(t *testing.T, d time.Duration, fn func(context.Context) error, opts ...lifecycle.EveryOption) lifecycle.Component {
+	t.Helper()
+	c, err := lifecycle.Every(d, fn, append(opts, lifecycle.WithLogger(quiet()))...)
+	if err != nil {
+		t.Fatalf("Every: %v", err)
+	}
+	return c
+}
+
 func TestEveryKeepsRunningAfterError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var mu sync.Mutex
 	calls := 0
 	second := make(chan struct{})
-	c := lifecycle.Every(5*time.Millisecond, true, func(context.Context) error {
+	c := mustEvery(t, 5*time.Millisecond, func(context.Context) error {
 		mu.Lock()
 		defer mu.Unlock()
 		calls++
@@ -241,7 +256,7 @@ func TestEveryKeepsRunningAfterError(t *testing.T) {
 			close(second)
 		}
 		return errors.New("boom")
-	}, quiet())
+	}, lifecycle.RunAtStart())
 	done := make(chan error, 1)
 	go func() { done <- c.Run(ctx) }()
 	select {
@@ -257,19 +272,66 @@ func TestEveryKeepsRunningAfterError(t *testing.T) {
 
 func TestEveryWaitsForFirstTickWithoutRunAtStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	called := make(chan struct{}, 1)
-	c := lifecycle.Every(time.Hour, false, func(context.Context) error { called <- struct{}{}; return nil }, quiet())
+	defer cancel()
+	const interval = 50 * time.Millisecond
+	called := make(chan time.Time, 1)
+	c := mustEvery(t, interval, func(context.Context) error { called <- time.Now(); return nil })
 	done := make(chan error, 1)
+	start := time.Now()
 	go func() { done <- c.Run(ctx) }()
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case at := <-called:
+		if at.Sub(start) < interval {
+			t.Errorf("fn ran %v after start, want >= %v without RunAtStart", at.Sub(start), interval)
+		}
+	case <-time.After(wait):
+		t.Fatal("fn never ran")
+	}
 	cancel()
 	if err := result(t, done); err != nil {
 		t.Fatalf("Run = %v", err)
 	}
-	select {
-	case <-called:
-		t.Error("fn ran although runAtStart is false and no tick elapsed")
-	default:
+}
+
+func TestEveryRejectsNonPositiveInterval(t *testing.T) {
+	for _, d := range []time.Duration{0, -time.Second} {
+		c, err := lifecycle.Every(d, func(context.Context) error { return nil })
+		if err == nil || c != nil {
+			t.Errorf("Every(%v) = %v, %v; want nil and an error", d, c, err)
+		}
+	}
+}
+
+func TestShutdownWorstCaseIsOneGrace(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	const grace = 300 * time.Millisecond
+
+	stubborn := lifecycle.Func(func(context.Context) error { <-release; return nil })
+	var closerBudget time.Duration
+	slowCloser := func(ctx context.Context) error {
+		dl, ok := ctx.Deadline()
+		if !ok {
+			t.Error("closer context has no deadline")
+		}
+		closerBudget = time.Until(dl)
+		<-ctx.Done() // a closer that would run until told to stop
+		return ctx.Err()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runAsync(ctx, lifecycle.Options{
+		ShutdownGrace: grace,
+		Closers:       []func(context.Context) error{slowCloser},
+	}, stubborn)
+
+	start := time.Now()
+	cancel()
+	_ = result(t, done)
+	if total := time.Since(start); total > grace+grace/2 {
+		t.Fatalf("shutdown took %v, want about one grace (%v), not two", total, grace)
+	}
+	if closerBudget > grace/4 {
+		t.Fatalf("closer got %v after components used the grace, want the remainder", closerBudget)
 	}
 }
 
@@ -282,12 +344,14 @@ func TestHTTPShutsDownGracefully(t *testing.T) {
 	_ = l.Close()
 
 	started := make(chan struct{})
+	shutdownBegan := make(chan struct{})
 	release := make(chan struct{})
 	srv := &http.Server{Addr: addr, Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		close(started)
 		<-release
 		_, _ = w.Write([]byte("done"))
 	}), ReadHeaderTimeout: time.Second}
+	srv.RegisterOnShutdown(func() { close(shutdownBegan) })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -319,7 +383,11 @@ func TestHTTPShutsDownGracefully(t *testing.T) {
 		t.Fatal("request never reached the handler")
 	}
 	cancel()
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-shutdownBegan:
+	case <-time.After(wait):
+		t.Fatal("server shutdown never began")
+	}
 	select {
 	case err := <-done:
 		t.Fatalf("Run returned %v while a request was in flight", err)

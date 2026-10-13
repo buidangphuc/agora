@@ -99,9 +99,9 @@ Owns: `pkg/grpcx/**`, `pkg/auth/**`, `pkg/idempotency/**`, `examples/hello/inter
 
 Owns: `pkg/resilience/**`, `pkg/flags/**`, `pkg/lifecycle/**`, `pkg/healthx/**`, `pkg/upstream/**`, `pkg/testkit/**`.
 
-- [ ] 14.1 M9 safe defaults and validation; M10 allow-list `Retryable`; M11 opaque `Policy`.
-- [ ] 14.2 M13 evaluation context (targeting key from `auth.FromContext` by default, attributes optional); m12 rate-limited evaluation warning, `Close` shuts down only this client's provider.
-- [ ] 14.3 m4 `Every` with options and interval validation, `healthx.New` rejects a non-positive interval; m18 one shared shutdown deadline; m14 default `round_robin` service config; m17 testkit Fatal in every caller under `GO_SDK_REQUIRE_DOCKER`, Ryuk documented.
+- [x] 14.1 M9 safe defaults and validation; M10 allow-list `Retryable`; M11 opaque `Policy`.
+- [x] 14.2 M13 evaluation context (targeting key from `auth.FromContext` by default, attributes optional); m12 rate-limited evaluation warning, `Close` shuts down only this client's provider.
+- [x] 14.3 m4 `Every` with options and interval validation, `healthx.New` rejects a non-positive interval; m18 one shared shutdown deadline; m14 default `round_robin` service config; m17 testkit Fatal in every caller under `GO_SDK_REQUIRE_DOCKER`, Ryuk documented.
 
 ## 15. renames, durations, docs and spec (wave 4)
 
