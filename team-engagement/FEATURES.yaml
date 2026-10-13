@@ -474,3 +474,105 @@ features:
     status: automated
     covered_by: "engagement/rvp_reviews_pagination.feature::A malformed cursor is rejected"
     notes: "needs rebuild"
+
+  - id: engagement.no-always-on-enable-flags
+    title: team-engagement declares no always-on enable flags
+    persona: admin
+    priority: P2
+    summary: >-
+      team-engagement has no enable flag for the database, Kafka, the outbox relayer or reflection.
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - WHEN the declared env keys of the service settings are listed
+      - THEN none of DATABASE_ENABLED, KAFKA_ENABLED, OUTBOX_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Configuration check with no UI. Unit-verified by TestNoEnableFlagsDeclared in team-engagement/internal/config (change migrate-team-engagement-to-go-sdk, capability engagement-runtime).
+
+  - id: engagement.boot-fails-when-database-unreachable
+    title: team-engagement fails boot on an unreachable database when deployed
+    persona: admin
+    priority: P2
+    summary: >-
+      team-engagement refuses to start when DATABASE_URL points at an unreachable database, before any port opens.
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - WHEN the service starts with ENV=staging and an unreachable DATABASE_URL
+      - THEN boot returns an error before any port opens
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational boot check with no UI. Unit-verified by TestBootFailsWhenDatabaseUnreachableDeployed in team-engagement/internal/app. The service has no in-memory mode, so the rule holds in every ENV.
+
+  - id: engagement.outbox-relay-isolates-failures
+    title: team-engagement outbox rows are relayed and a failing row does not block others
+    persona: admin
+    priority: P2
+    summary: >-
+      The go-sdk relayer publishes engagement facts; a row whose publish fails permanently is parked, and the rows of other aggregates still go out.
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - WHEN two rows of different aggregates are enqueued and publishing the first fails with an error that is permanent for the record
+      - THEN the second is published, and the first is parked at once with its error kept (a transient failure is retried with backoff and never parked)
+    tags: [system, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Needs a Postgres container and a fake producer. Unit-verified by TestOutboxRelayedViaSDK in team-engagement/internal/app. Rows left unpublished in the old outbox table are copied by migration 0011 and relayed with their envelopes intact (TestLegacyOutboxRowsRelayedAfterMigration in team-engagement/internal/store); published rows older than 7 days are deleted by the retention job over outbox.Store.Purge (TestRetentionDeletesOnlyOldPublishedRows in team-engagement/internal/events).
+
+  - id: engagement.outbox-upgrade-keeps-order
+    title: team-engagement outbox upgrade keeps creation order
+    persona: admin
+    priority: P2
+    summary: >-
+      The go-sdk v1 outbox migrations number the rows of an existing v0 table by creation time, so the relayer keeps the order of each aggregate.
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - WHEN the v1 outbox migrations are applied to a v0 engagement_outbox_events table that holds rows, including a retried row and several rows of one aggregate
+      - THEN every row gets a seq in (created_at, event_id) order, the v1 indexes exist, and the SDK relayer publishes that aggregate in creation order
+    tags: [system, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Needs a Postgres container. Unit-verified by TestOutboxUpgradeKeepsCreationOrder in team-engagement/internal/store; the CONCURRENTLY migrations also apply through golang-migrate (testPool uses migrate.Up).
+
+  - id: engagement.consumer-no-commit-on-dlq-failure
+    title: team-engagement consumer does not commit when the DLQ produce fails
+    persona: admin
+    priority: P2
+    summary: >-
+      The listing.events consumer never commits past a record it could neither handle nor park on the dead-letter topic.
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - WHEN handling a record fails permanently and the DLQ produce also fails
+      - THEN the consumer stops with an error and the record is redelivered after restart
+    tags: [system, durability]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Needs a Redpanda container. Unit-verified by TestConsumerDoesNotCommitOnDLQFailure in team-engagement/internal/events.
+
+  - id: engagement.existing-suites-do-not-regress
+    title: team-engagement existing suites do not regress and no assertion is weakened
+    persona: admin
+    priority: P2
+    summary: >-
+      The existing unit and integration suites moved with their packages and pass, with unchanged assertions except removed-flag fields, auth message text and the go-sdk v1 outbox semantics (no attempt limit, order per aggregate only).
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - WHEN make check runs after the restructure
+      - THEN every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields and the go-sdk v1 outbox semantics
+    tags: [system]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Gate, not a runtime behaviour: team-engagement make check (vet, lint, race tests with Docker, env drift).

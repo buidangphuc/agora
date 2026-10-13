@@ -19,9 +19,14 @@ team-engagement SHALL wire go-sdk v0.2.1 in its `internal/app` composition root 
 team-engagement's Kafka publishing and consuming SHALL go through SDK `kafkax`, `outbox` and `consume` where the proposal says so.
 
 #### Scenario: team-engagement outbox rows are relayed and a failing row does not block others
-- **WHEN** two rows are enqueued and publishing the first fails
-- **THEN** the second is published, and the first is retried with backoff and parked after `OUTBOX_MAX_ATTEMPTS`
+- **WHEN** two rows of different aggregates are enqueued and publishing the first fails with an error that is permanent for the record
+- **THEN** the second is published, and the first is parked at once with its error kept (a transient failure is retried with backoff and never parked)
 - **VERIFIED BY**: `team-engagement/internal/app` `TestOutboxRelayedViaSDK` (testkit Postgres)
+
+#### Scenario: team-engagement outbox upgrade keeps creation order
+- **WHEN** the v1 outbox migrations are applied to a v0 `engagement_outbox_events` table that holds rows, including a retried row and several rows of one aggregate
+- **THEN** every row gets a `seq` in `(created_at, event_id)` order, the v1 indexes exist, and the SDK relayer publishes that aggregate in creation order
+- **VERIFIED BY**: `team-engagement/internal/store` `TestOutboxUpgradeKeepsCreationOrder` (testkit Postgres)
 
 #### Scenario: team-engagement consumer does not commit when the DLQ produce fails
 - **WHEN** handling a record fails permanently and the DLQ produce also fails
@@ -30,9 +35,9 @@ team-engagement's Kafka publishing and consuming SHALL go through SDK `kafkax`, 
 
 ### Requirement: team-engagement behaviour is unchanged
 
-All existing tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged) and removed-flag fields.
+All existing tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged), removed-flag fields and the go-sdk v1 outbox semantics (no attempt limit, order per aggregate only).
 
 #### Scenario: team-engagement existing suites do not regress and no assertion is weakened
 - **WHEN** `make check` runs after the restructure
-- **THEN** every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields
+- **THEN** every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields and the go-sdk v1 outbox semantics
 - **VERIFIED BY**: `team-engagement` `make check`

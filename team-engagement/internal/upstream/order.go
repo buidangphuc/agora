@@ -12,9 +12,9 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	sdkupstream "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 )
@@ -23,23 +23,14 @@ import (
 // and allows a service principal holding order.read; the caller's user principal
 // is deliberately not forwarded (the order may belong to someone else).
 const (
-	servicePrincipalID     = "service-team-engagement"
-	servicePrincipalType   = "service"
-	servicePrincipalScopes = "order.read"
+	servicePrincipalID    = "service-team-engagement"
+	servicePrincipalScope = "order.read"
 )
 
-// serviceMetadata returns the outgoing x-principal-* metadata for team-order calls.
-func serviceMetadata() metadata.MD {
-	return metadata.Pairs(
-		"x-principal-id", servicePrincipalID,
-		"x-principal-type", servicePrincipalType,
-		"x-principal-scopes", servicePrincipalScopes,
-	)
-}
-
-// servicePrincipalInterceptor replaces any outgoing principal with the service one.
-func servicePrincipalInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	return invoker(metadata.NewOutgoingContext(ctx, serviceMetadata()), method, req, reply, cc, opts...)
+// asService makes the call to team-order present the service principal, instead of
+// the caller's. The SDK dialer replaces any principal on the outgoing context.
+func asService(ctx context.Context) context.Context {
+	return sdkupstream.WithServicePrincipal(ctx, servicePrincipalID, servicePrincipalScope)
 }
 
 // ErrOrderNotFound means team-order has no such order.
@@ -58,7 +49,10 @@ func NewOrderClient(addr string, callTimeout time.Duration) (*OrderClient, error
 	if addr == "" {
 		return nil, nil
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(servicePrincipalInterceptor))
+	if callTimeout <= 0 {
+		callTimeout = DefaultCallTimeout
+	}
+	conn, err := sdkupstream.NewClient(addr, sdkupstream.WithTimeout(callTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("dial team-order at %s: %w", addr, err)
 	}
@@ -80,7 +74,7 @@ func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, or
 	if c == nil || c.svc == nil || orderID == "" {
 		return false, "", nil
 	}
-	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	callCtx, cancel := boundedCtx(asService(ctx), c.timeout)
 	defer cancel()
 	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
@@ -116,7 +110,7 @@ func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buye
 	if orderID == "" {
 		return "", "", ErrOrderNotFound
 	}
-	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	callCtx, cancel := boundedCtx(asService(ctx), c.timeout)
 	defer cancel()
 	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
@@ -124,7 +118,7 @@ func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buye
 			return "", "", ErrOrderNotFound
 		}
 		slog.ErrorContext(ctx, "get order parties: cannot read order from team-order",
-			slog.String("order_id", orderID), slog.String("grpc_code", status.Code(err).String()), slog.Any("err", err))
+			"order_id", orderID, "grpc_code", status.Code(err).String(), "err", err)
 		return "", "", fmt.Errorf("get order %s: %w", orderID, err)
 	}
 	order := resp.GetOrder()
