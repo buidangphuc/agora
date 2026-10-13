@@ -4,9 +4,9 @@ Code track only: every scenario gets a `not-testable` entry in `platform-core/FE
 
 Owns: `pkg/auth/**`, `pkg/jwtx/**` (new), `pkg/idempotency/**` (new).
 
-- [ ] 1.1 Principal type constants, `RequireService`, `RequireUser`; tests `TestRequireServiceRejectsUser`, `TestRequireUserRejectsServiceAndAnonymous`. Model the claim fields on `team-identity/internal/token/jwt.go` and `team-gateway/internal/token/{jwt,jwks}.go` (read only).
-- [ ] 1.2 `jwtx.Claims`, `jwtx.JWKS`, `jwtx.JWK`; `TestClaimsJSONContract`. Use `github.com/golang-jwt/jwt/v5` `RegisteredClaims` only if already in the SDK module graph; otherwise plain fields with RFC 7519 names.
-- [ ] 1.3 `idempotency.MDKey`, `idempotency.Validate`; `TestValidateRule` (rule from `team-gateway/internal/edge/forward.go` and `team-order/internal/order/idempotency.go`).
+- [x] 1.1 Principal type constants, `RequireService`, `RequireUser`; tests `TestRequireServiceRejectsUser`, `TestRequireUserRejectsServiceAndAnonymous`. Model the claim fields on `team-identity/internal/token/jwt.go` and `team-gateway/internal/token/{jwt,jwks}.go` (read only).
+- [x] 1.2 `jwtx.Claims`, `jwtx.JWKS`, `jwtx.JWK`; `TestClaimsJSONContract`. Use `github.com/golang-jwt/jwt/v5` `RegisteredClaims` only if already in the SDK module graph; otherwise plain fields with RFC 7519 names.
+- [x] 1.3 `idempotency.MDKey`, `idempotency.Validate`; `TestValidateRule` (rule from `team-gateway/internal/edge/forward.go` and `team-order/internal/order/idempotency.go`).
 
 ## 2. grpcx rules (wave 1)
 

@@ -20,7 +20,14 @@ const (
 	MDPrincipalScopes = "x-principal-scopes"
 )
 
-const anonymous = "anonymous"
+// Principal types carried in x-principal-type and the JWT typ claim.
+const (
+	TypeUser      = "user"
+	TypeService   = "service"
+	TypeAnonymous = "anonymous"
+)
+
+const anonymous = TypeAnonymous
 
 // Principal is the caller identity forwarded by the gateway.
 type Principal struct {
@@ -99,6 +106,31 @@ func RequireScopes(ctx context.Context, scopes ...string) (Principal, error) {
 		}
 	}
 	return p, nil
+}
+
+// RequireService is RequireScopes for service-to-service methods: the caller
+// must be a service principal. A user caller gets PermissionDenied before any
+// scope is checked.
+func RequireService(ctx context.Context, scopes ...string) (Principal, error) {
+	return requireType(ctx, TypeService, scopes)
+}
+
+// RequireUser returns the caller when it is an authenticated user principal.
+// A service caller gets PermissionDenied; no or anonymous caller gets
+// Unauthenticated.
+func RequireUser(ctx context.Context) (Principal, error) {
+	return requireType(ctx, TypeUser, nil)
+}
+
+func requireType(ctx context.Context, typ string, scopes []string) (Principal, error) {
+	p, err := RequirePrincipal(ctx)
+	if err != nil {
+		return Principal{}, err
+	}
+	if p.Type != typ {
+		return Principal{}, status.Error(codes.PermissionDenied, "principal type not allowed")
+	}
+	return RequireScopes(ctx, scopes...)
 }
 
 // RequireScopesAllowAnonymous is RequireScopes for public methods: an anonymous
