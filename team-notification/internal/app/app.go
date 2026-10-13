@@ -17,7 +17,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-notification/internal/config"
 	"github.com/buidangphuc/team-notification/internal/events"

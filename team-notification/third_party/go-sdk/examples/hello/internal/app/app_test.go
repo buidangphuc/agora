@@ -46,7 +46,7 @@ func freePort(t *testing.T) int {
 func settings(port int) config.Settings {
 	return config.Settings{
 		Runtime: sdkconfig.Runtime{Env: "test", LogLevel: "error", LogJSON: true},
-		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 5},
+		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 5 * time.Second},
 		// Nothing listens here; ENV=test tolerates that, so these tests run without Postgres.
 		Postgres: sdkconfig.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"},
 	}

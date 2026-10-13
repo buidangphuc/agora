@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // processedEventsTable is the existing dedupe ledger (migration 004). Its columns

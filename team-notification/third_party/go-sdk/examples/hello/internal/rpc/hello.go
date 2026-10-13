@@ -29,11 +29,12 @@ type Handler struct {
 }
 
 // NewHandler returns a Handler that maps domain errors with its error table.
-func NewHandler(logger *slog.Logger) *Handler {
-	return &Handler{
-		logger: logger,
-		errs:   grpcx.ErrorTable{greeter.ErrEmptyName: codes.InvalidArgument},
+func NewHandler(logger *slog.Logger) (*Handler, error) {
+	errs, err := grpcx.NewErrorTable(grpcx.Rule{Target: greeter.ErrEmptyName, Code: codes.InvalidArgument})
+	if err != nil {
+		return nil, fmt.Errorf("error table: %w", err)
 	}
+	return &Handler{logger: logger, errs: errs}, nil
 }
 
 // Greet greets the caller-supplied name. It requires an authenticated principal.
