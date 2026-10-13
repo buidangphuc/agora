@@ -64,10 +64,10 @@ Migrations are applied by the `team-referral-migrate` job in the root `docker-co
 
 | Var | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
+| `ENV` | required | No default: an unset `ENV` fails at load. `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
 | `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
-| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | `10s`, `0s` | Go durations. Shutdown drains health first, then stops within the grace period. |
 | `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | Postgres. A missing `DATABASE_URL` fails at load. |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 
