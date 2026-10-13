@@ -1,32 +1,25 @@
 ## Why
 
-The SDK grew helpers that only one or two services need, or none. Every SDK tag then pulls every service into a re-sync, which is the cost the team wants to avoid (v0.2.3 and its 15-service re-sync were withdrawn on 2026-10-13).
+Every SDK tag pulled every service into a re-sync (v0.2.3 and its 15-service re-sync were withdrawn on 2026-10-13). ADR-0016 had no rule for what belongs in the SDK or when a service moves to a new tag.
 
-Usage across the 16 migrated services:
-
-- `resilience`: imported by no service.
-- `flags`: imported by team-order and team-promotion only. Before the migration both had their own `internal/featureflags`.
-- `auth.RequireScopesAllowAnonymous` (v0.2.2): vendored by no service. team-domain, team-search and team-analytics keep their local `requireScopes` (a few lines each).
-- `flags.NewWithProvider` (v0.2.1): used by no service.
+`auth.RequireScopesAllowAnonymous` (v0.2.2) is vendored by no service. team-domain, team-search and team-analytics keep their local `requireScopes`, a service-specific authorization choice rather than shared infrastructure.
 
 initiative: go-platform-sdk
 
 ## What Changes
 
-- **BREAKING** Remove `pkg/flags` and the `config.Flags` group. Feature flags are service code again (team-order, team-promotion own `internal/featureflags`).
-- **BREAKING** Remove `pkg/resilience`. A service that needs retry or breaking uses failsafe-go directly.
 - **BREAKING** Remove `auth.RequireScopesAllowAnonymous`.
-- `go mod tidy` drops `open-feature/*` and `failsafe-go` from the SDK module.
-- ADR-0016 gains an admission rule (what may enter the SDK) and a bump rule (a service moves to a newer tag only when it uses something the tag adds; an SDK release never re-syncs services). The phase-4 "connection SDK" list (redisx, ratelimit, quota, mongox, blobx, queue, tasks, webhooks) is dropped: each lands only when the admission rule holds.
-- Released as `go-sdk/v0.3.0`, local tag.
+- ADR-0016 states what belongs in the SDK: business-agnostic infrastructure (logging, tracing, config, connections to databases, brokers and queues, shared policies such as rate limiting, feature flags, retry). Business rules and service-specific helpers stay in services; the split need not be perfect.
+- ADR-0016 bump rule: a service moves to a newer tag only when it uses something the tag adds; a change that cuts an SDK tag never re-syncs services; every SDK tag is cut only after the owner approves it.
+- No version is tagged by this change; the next tag is proposed to the owner first.
 
 ## Non-goals
 
-Re-syncing any service to v0.3.0. Services stay on the tag they vendor. team-order and team-promotion stop importing `pkg/flags` in their own migration changes while staying on v0.2.1.
+Re-syncing any service. Services stay on the tag they vendor.
 
 ## Impact
 
-`platform-core/packages/go-sdk` (`pkg/flags`, `pkg/resilience`, `pkg/auth`, `pkg/config`, `go.mod`, README), `platform-core/docs/ADR/0016-go-service-convention-and-sdk.md`, `platform-core/README.md`, `platform-core/FEATURES.yaml`.
+`platform-core/packages/go-sdk` (`pkg/auth`, README), `platform-core/docs/ADR/0016-go-service-convention-and-sdk.md`, `platform-core/README.md`, `platform-core/FEATURES.yaml`.
 
 ## Non-functional requirements
 
@@ -41,4 +34,3 @@ internal; unchanged.
 | Asset | Threat (STRIDE) | Mitigation |
 |---|---|---|
 | Public RPCs | Elevation of privilege: a service drops its anonymous scope check when `RequireScopesAllowAnonymous` goes away | No service vendors it; team-domain, team-search and team-analytics keep their local `requireScopes` and its tests |
-| Feature-flag evaluation | Denial of service: Flipt outage blocks requests | team-order and team-promotion keep the fail-open client with the same timeout, now as service code |

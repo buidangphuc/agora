@@ -1,7 +1,7 @@
 # go-sdk
 
 Shared platform layer for Go services: config, logging, tracing, auth, health,
-lifecycle, Postgres, migrations and the gRPC server chain.
+lifecycle, Postgres, migrations, retries and the gRPC server chain.
 
 Design and rules: [ADR-0016](../../docs/ADR/0016-go-service-convention-and-sdk.md).
 Module: `github.com/buidangphuc/platform-core/packages/go-sdk`.
@@ -22,6 +22,7 @@ All under `pkg/`.
 | `pgx` | Pool open with ping, health checker, `WithTx`. |
 | `migrate` | golang-migrate runner over a service's `migrations/` directory. |
 | `testkit` | Postgres container fixture for tests. |
+| `resilience` | Retry and circuit-breaker policies on failsafe-go. |
 | `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection), serving that drains, and the error-to-status table. |
 
 `examples/hello` wires all of the above and is the reference service.

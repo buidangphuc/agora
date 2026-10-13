@@ -28,18 +28,6 @@ It SHALL fail without changes if the tag does not exist. A service SHALL move to
 
 ## REMOVED Requirements
 
-### Requirement: Retries and circuit breaking use shared policies
-**Reason**: no service imports `pkg/resilience`; one-off retry needs use failsafe-go directly.
-**Migration**: none; no consumer.
-
-### Requirement: Feature flags fail open to defaults
-**Reason**: only team-order and team-promotion evaluate flags; the client is service code again.
-**Migration**: team-order and team-promotion own `internal/featureflags` with the same fail-open behaviour and env names.
-
-### Requirement: Flags can be built over any provider
-**Reason**: removed with `pkg/flags`.
-**Migration**: the service-local `internal/featureflags` keeps a provider seam for tests.
-
 ### Requirement: Scope checks can admit scoped anonymous callers
 **Reason**: a few lines that three services already keep locally; no service vendors it.
 **Migration**: none; services keep their local `requireScopes`.

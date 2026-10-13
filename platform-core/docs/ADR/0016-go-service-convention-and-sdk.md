@@ -136,14 +136,15 @@ Matched errors keep their code, and errors that already are gRPC status errors (
 | Concurrency | x/sync/errgroup | Standard way to run components and stop all on first error. |
 | Postgres | pgx v5 | Already used by the services; pool, tx and ping built in. |
 | Migrations | golang-migrate v4 | Matches the existing `NNN_name.up.sql` files. |
+| Resilience | failsafe-go | Composable retry and breaker policies; replaces the hand-written breaker. |
 | Integration tests | testcontainers-go | Real Postgres in tests. Fakes have hidden real bugs before. |
 | Lint | golangci-lint v2 | One shared config, pinned as a Go tool in the SDK module. |
 
-Telemetry uses the OpenTelemetry Go SDK with OTLP/gRPC exporters and `otelgrpc` (ADR-0004). Retry, circuit breaking and feature flags are service-level choices (for example failsafe-go, OpenFeature), not SDK packages.
+Telemetry uses the OpenTelemetry Go SDK with OTLP/gRPC exporters and `otelgrpc` (ADR-0004).
 
 ### What goes into the SDK
 
-Code enters the SDK only when all three hold: it is substantial, at least three services need it, and it is hard to get right in each service. A small helper (a few lines, used by one or two services) stays in the service. Packages that fail this test are removed, as `flags`, `resilience` and `RequireScopesAllowAnonymous` were. Connection packages (redis, rate limit, quota, mongo, blob, queue, tasks, webhooks) land only when this rule holds.
+The SDK holds infrastructure that knows nothing about any service's business: logging, tracing, config, auth metadata, health, lifecycle, and connections to databases, brokers and queues, plus shared policies such as rate limiting, retry and feature flags. Business rules, domain types and service-specific helpers stay in the service. The split does not need to be perfect; when in doubt, keep code in the service until a second service needs it.
 
 ### Borrowed from other frameworks
 
@@ -161,6 +162,7 @@ The SDK is distributed the way ADR-0001 distributes proto.
 - The script checks the tag first and swaps the vendored directory in only after it is fully exported. A failed run changes nothing.
 - An SDK change is a new tag. The vendored copy is never edited in place.
 - A service moves to a newer tag only in a change that uses something the tag adds. A change that cuts an SDK tag never re-syncs services.
+- Every new tag is proposed to the SDK owner (contents and reason) and cut only after approval.
 - `templates/go-service/Dockerfile` copies `third_party/` before `go mod download` so the replace resolves in the image build.
 
 ### Out of scope
@@ -169,7 +171,7 @@ AI concerns (LLM clients, RAG, Langfuse) stay in the Python services. This ADR c
 
 ## Open question
 
-Task store: River (Postgres-backed) or RabbitMQ (ADR-0002) for background tasks. A task package enters the SDK only when the admission rule holds; until then each service picks its own.
+Task store: River (Postgres-backed) or RabbitMQ (ADR-0002) for background tasks. A task package belongs in the SDK as infrastructure; the store choice is made when the first service needs it.
 
 ## Consequences
 

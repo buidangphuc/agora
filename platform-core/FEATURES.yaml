@@ -669,6 +669,37 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test TestUpFailsOnInvalidSQL.
+  - id: go-sdk.non-retryable-codes-are-not-retried
+    title: Non-retryable codes are not retried
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When fn returns status.Error(codes.InvalidArgument, …) under a 3-attempt retry
+    - Then fn runs once
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/resilience
+      TestRetrySkipsNonRetryableCodes.
+  - id: go-sdk.open-breaker-rejects-calls
+    title: Open breaker rejects calls
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When failures exceed the breaker threshold
+    - Then the next call returns the breaker-open error without running fn
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by unit test TestBreakerOpensAfterFailures.
   - id: go-sdk.a-panicking-handler-returns-internal-and-the-server-keeps-serving
     title: A panicking handler returns Internal and the server keeps serving
     persona: guest
@@ -981,6 +1012,22 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
       TestAsServiceReplacesPrincipal.
+  - id: go-sdk.unreachable-flipt-returns-the-default
+    title: Unreachable Flipt returns the default
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When Flipt is unreachable and BooleanEnabled(ctx, "checkout-enabled", true) is called
+    - Then it returns true within the eval timeout
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
+      TestUnreachableFliptReturnsDefault.
   - id: go-sdk.sync-works-on-a-fresh-checkout-without-generated-code
     title: Sync works on a fresh checkout without generated code
     persona: guest
@@ -1031,6 +1078,22 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/upstream
       TestPerCallServicePrincipal.
+  - id: go-sdk.in-memory-provider-toggles-a-flag-and-an-unknown-flag-does-not-fail
+    title: In-memory provider toggles a flag and an unknown flag does not fail
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a client over an in-memory provider with checkout-enabled=false evaluates it with default true
+    - Then it returns false, and an unknown flag returns its default rather than failing
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/flags
+      TestNewWithProviderEvaluates.
   - id: go-sdk.transient-fetch-error-does-not-stop-the-loop
     title: Transient fetch error does not stop the loop
     persona: guest
