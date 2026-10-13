@@ -29,8 +29,7 @@ env:
   ORDER_EVENTS_TOPIC: "order.events"
   OUTBOX_POLL_INTERVAL: "1s"
   OUTBOX_BATCH_SIZE: "100"
-  OUTBOX_CLAIM_LOCK_SECONDS: "60"
-  OUTBOX_MAX_ATTEMPTS: "10"
+  OUTBOX_CLAIM_LOCK: "60s"
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50055; only the

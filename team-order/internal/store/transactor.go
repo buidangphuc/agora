@@ -2,14 +2,13 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // Unit is what the transactional part of one delivery of a consumed event may
@@ -47,32 +46,26 @@ type PostgresTransactor struct {
 // NewPostgresTransactor binds the transactor to pool. orders supplies the status
 // compare-and-set (and the outbox rows it writes).
 func NewPostgresTransactor(pool *pgxpool.Pool, orders *PostgresOrderRepository) *PostgresTransactor {
-	return &PostgresTransactor{pool: pool, orders: orders, dedupe: consume.NewDedupe("")}
+	return &PostgresTransactor{pool: pool, orders: orders, dedupe: consume.Dedupe{}}
 }
 
 // InTx implements Transactor.
 func (t *PostgresTransactor) InTx(ctx context.Context, fn func(Unit) error) error {
-	return sdkpgx.WithTx(ctx, t.pool, func(tx pgx.Tx) error {
+	return postgres.WithTx(ctx, t.pool, func(tx pgx.Tx) error {
 		return fn(pgUnit{tx: tx, orders: t.orders})
 	})
 }
 
-// Processed implements Transactor with a SELECT on the ledger table.
+// Processed implements Transactor through consume.Dedupe.Processed, a read of
+// the ledger that records nothing.
 func (t *PostgresTransactor) Processed(ctx context.Context, consumer, eventID string) (bool, error) {
-	var seen bool
-	err := t.pool.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM processed_events WHERE consumer = $1 AND event_id = $2)`,
-		consumer, eventID).Scan(&seen)
-	if err != nil {
-		return false, fmt.Errorf("read processed_events %s/%s: %w", consumer, eventID, err)
-	}
-	return seen, nil
+	return t.dedupe.Processed(ctx, t.pool, consumer, eventID)
 }
 
 // MarkProcessed implements Transactor through consume.Dedupe.Seen in its own
 // transaction.
 func (t *PostgresTransactor) MarkProcessed(ctx context.Context, consumer, eventID string) error {
-	return sdkpgx.WithTx(ctx, t.pool, func(tx pgx.Tx) error {
+	return postgres.WithTx(ctx, t.pool, func(tx pgx.Tx) error {
 		_, err := t.dedupe.Seen(ctx, tx, consumer, eventID)
 		return err
 	})

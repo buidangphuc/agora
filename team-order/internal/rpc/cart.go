@@ -5,7 +5,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -118,13 +117,7 @@ func (h *CartHandler) Reorder(ctx context.Context, req *orderv1.ReorderRequest) 
 	}
 	items, subtotal, err := h.svc.Reorder(ctx, principal.ID, req.GetOrderId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		if errors.Is(err, order.ErrReorderNotOwner) {
-			return nil, status.Error(codes.PermissionDenied, "cannot reorder another user's order")
-		}
-		return nil, internalErr(h.logger, "reorder", err)
+		return nil, fail(ctx, h.logger, "reorder", err, ruleOrderNotFound, ruleReorderNotOwner)
 	}
 	return &orderv1.ReorderResponse{Cart: toWireCart(principal.ID, items, subtotal)}, nil
 }

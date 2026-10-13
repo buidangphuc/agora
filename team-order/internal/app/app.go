@@ -20,7 +20,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-order/internal/config"
 	"github.com/buidangphuc/team-order/internal/events"
@@ -38,20 +38,19 @@ const service = "team-order"
 // Everything opened goes on the stack; closers run in reverse order on shutdown
 // and on an early failure.
 //
-// Storage: an unreachable database fails boot in a strict ENV (staging, stage,
-// prod, production), see Settings.RequireDurableStorage. Elsewhere (ENV=local)
-// the in-memory repositories keep the service usable; orders, carts and sagas
-// then live only for the process, and the outbox relayer and the payment
-// consumer, which need Postgres, do not run.
+// Storage: an unreachable database fails boot unless ENV is local or test
+// (postgres.OpenOrLocal). There the in-memory repositories keep the service
+// usable; orders, carts and sagas then live only for the process, and the outbox
+// relayer and the payment consumer, which need Postgres, do not run.
 //
-// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY_SECONDS passes, the gRPC
+// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY passes, the gRPC
 // server stops, then the relayer, the payment consumer and the reservation
 // sweeper stop (lifecycle.StopAfter), then the Kafka clients, upstream
 // connections and the pool close.
 //
 // Migrations are not applied here: the compose job team-order-migrate does it.
 func Run(ctx context.Context, s config.Settings) error {
-	if err := s.Validate(); err != nil {
+	if err := s.Postgres.Validate(); err != nil {
 		return fmt.Errorf("team-order owns the orders DB: %w", err)
 	}
 	logger := logx.New(s.Runtime, service)
@@ -65,34 +64,29 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
-
-	pool, err := pgx.Open(ctx, s.Postgres)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
 	if err != nil {
-		// Fail fast before any port opens: staging/prod must never fall back to the
-		// in-memory repositories (orders would vanish on restart).
-		if derr := s.RequireDurableStorage(false); derr != nil {
-			return errors.Join(derr, fmt.Errorf("open database: %w", err), stack.Close(ctx))
-		}
-		logger.WarnContext(ctx, "database unreachable: running with IN-MEMORY repositories, orders, carts and sagas are NOT durable and are lost on restart",
-			"env", s.Env, "err", err)
-		pool = nil
+		return errors.Join(fmt.Errorf("init health: %w", err), stack.Close(ctx))
+	}
+
+	// Fail fast before any port opens: outside ENV=local/test the service never
+	// falls back to the in-memory repositories (orders would vanish on restart).
+	pool, err := postgres.OpenOrLocal(ctx, s.Postgres, s.Runtime, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
+	}
+	if pool == nil {
+		logger.WarnContext(ctx, "running with IN-MEMORY repositories: orders, carts and sagas are NOT durable and are lost on restart",
+			"env", s.Env)
 	} else {
 		stack.Push(func(context.Context) error { pool.Close(); return nil })
-		health.Register("postgres", pgx.Checker(pool))
+		health.Register("postgres", postgres.Checker(pool))
 	}
 
 	// Feature flags: a flag-system outage must not stop the service, so a client
 	// that cannot be set up degrades to the fail-open defaults.
-	var featureFlags flags.Evaluator
-	flagClient, err := flags.New(ctx, s.Flags, logger)
-	if err != nil {
-		logger.WarnContext(ctx, "feature flags unavailable; failing open to defaults", "err", err)
-		featureFlags = flags.Disabled()
-	} else {
-		featureFlags = flagClient
-		stack.Push(flagClient.Close)
-	}
+	featureFlags, closeFlags := flags.NewOrDisabled(ctx, s.Flags, logger)
+	stack.Push(closeFlags)
 
 	// Upstream clients dial lazily: an unreachable peer fails the call, not the boot.
 	upstreamClients, err := upstream.Dial(s.Upstream.DomainAddr, s.Upstream.IdentityAddr)
@@ -157,8 +151,8 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
@@ -223,9 +217,16 @@ func newWorkers(
 	}
 	stack.Push(func(context.Context) error { producer.Close(); return nil })
 
-	relayer := outbox.NewRelayer(outbox.NewStore(pool, store.OutboxTable), producer, outbox.RelayerOptions{
+	queue, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		return nil, fmt.Errorf("outbox store: %w", err)
+	}
+	relayer, err := outbox.NewRelayer(queue, producer, outbox.RelayerOptions{
 		Topic: s.Events.OrderTopic, Config: s.Outbox, Logger: logger,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("outbox relayer: %w", err)
+	}
 
 	consumerClient, err := kafkax.NewConsumerClient(s.Kafka, s.Events.ConsumerGroup, []string{s.Events.PaymentTopic})
 	if err != nil {
@@ -238,35 +239,37 @@ func newWorkers(
 		consumerOpts = append(consumerOpts, events.WithVoucherCommitter(promo.Voucher))
 	}
 	handler := events.NewPaymentConsumer(store.NewPostgresTransactor(pool, orders), logger, consumerOpts...)
-	paymentConsumer := consume.NewConsumer(consumerClient, handler.Handle, producer, consume.Options{
+	paymentConsumer, err := consume.NewConsumer(consumerClient, handler.Handle, producer, consume.Options{
 		DLQTopic: s.Events.PaymentDLQ, Logger: logger,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("payment consumer: %w", err)
+	}
 
-	return []lifecycle.Component{relayer, paymentConsumer, reservationSweeper(orderSvc, sweepInterval, logger)}, nil
+	sweeper, err := reservationSweeper(orderSvc, sweepInterval, logger)
+	if err != nil {
+		return nil, err
+	}
+	return []lifecycle.Component{relayer, paymentConsumer, sweeper}, nil
 }
 
 // reservationSweeper releases stock held by reservations past their TTL (AD3) on a
 // fixed interval until ctx is cancelled, so a crashed checkout never leaks
-// inventory. A sweep error is transient (a DB blip): it is logged and retried on
-// the next tick.
-func reservationSweeper(svc *order.Service, interval time.Duration, logger *slog.Logger) lifecycle.Component {
-	return lifecycle.Func(func(ctx context.Context) error {
-		t := time.NewTicker(interval)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return nil
-			case now := <-t.C:
-				released, err := svc.SweepExpiredReservations(ctx, now)
-				if err != nil {
-					logger.WarnContext(ctx, "reservation sweep failed", "err", err)
-					continue
-				}
-				if released > 0 {
-					logger.InfoContext(ctx, "released expired reservations", "released", released)
-				}
-			}
+// inventory. A sweep error is transient (a DB blip): lifecycle.Every logs it and
+// runs again on the next tick.
+func reservationSweeper(svc *order.Service, interval time.Duration, logger *slog.Logger) (lifecycle.Component, error) {
+	sweeper, err := lifecycle.Every(interval, func(ctx context.Context) error {
+		released, err := svc.SweepExpiredReservations(ctx, time.Now())
+		if err != nil {
+			return fmt.Errorf("reservation sweep: %w", err)
 		}
-	})
+		if released > 0 {
+			logger.InfoContext(ctx, "released expired reservations", "released", released)
+		}
+		return nil
+	}, lifecycle.WithLogger(logger))
+	if err != nil {
+		return nil, fmt.Errorf("reservation sweeper: %w", err)
+	}
+	return sweeper, nil
 }

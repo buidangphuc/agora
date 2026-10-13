@@ -11,7 +11,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 
 // Settings is the whole configuration surface. Runtime and GRPC are embedded SDK
 // groups; the others are named because their field names collide (Enabled).
+// sdkconfig.Load validates every group, so Settings has no Validate of its own.
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
@@ -53,10 +53,11 @@ type Events struct {
 // Reservation tunes the stock-reservation lifetime and the reservation sweeper.
 // Both are Go duration strings ("20s", "1m", "15m"); read them through
 // ReservationTTL and ReservationSweepInterval, which never fail: an unusable value
-// falls back to the default with a warning so a typo cannot stop the service.
+// falls back to the default with a warning so a typo cannot stop the service. An
+// explicitly empty variable is kept empty (keepempty) so it gets that warning too.
 type Reservation struct {
-	TTL           string `env:"RESERVATION_TTL" default:"15m"`
-	SweepInterval string `env:"RESERVATION_SWEEP_INTERVAL" default:"1m"`
+	TTL           string `env:"RESERVATION_TTL" default:"15m" keepempty:"true"`
+	SweepInterval string `env:"RESERVATION_SWEEP_INTERVAL" default:"1m" keepempty:"true"`
 }
 
 // DefaultReservationTTL is used when RESERVATION_TTL is empty or unusable. It
@@ -67,34 +68,10 @@ const DefaultReservationTTL = 15 * time.Minute
 // or unusable.
 const DefaultReservationSweepInterval = time.Minute
 
-// Load reads Settings from the environment, applies defaults and runs Validate.
-// It is the entry point of cmd/server and cmd/resync-commits.
+// Load reads Settings from the environment, applies defaults and validates every
+// group. It is the entry point of cmd/server and cmd/resync-commits.
 func Load() (Settings, error) {
-	s, err := sdkconfig.Load[Settings]()
-	if err != nil {
-		return s, err
-	}
-	// The binder treats an empty value like an unset one and applies the default.
-	// For the reservation durations an explicitly empty value must instead reach
-	// positiveDuration, which falls back with a warning naming the variable.
-	for key, field := range map[string]*string{
-		"RESERVATION_TTL":            &s.Reservation.TTL,
-		"RESERVATION_SWEEP_INTERVAL": &s.Reservation.SweepInterval,
-	} {
-		if v, ok := os.LookupEnv(key); ok && v == "" {
-			*field = ""
-		}
-	}
-	return s, nil
-}
-
-// Validate checks the SDK groups that carry their own rules: a positive
-// GRPC_PORT and a non-empty DATABASE_URL. sdkconfig.Load calls it after parsing.
-func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
-	return s.Postgres.Validate()
+	return sdkconfig.Load[Settings]()
 }
 
 // ReservationTTL parses RESERVATION_TTL, the lifetime of a checkout's stock hold
@@ -111,49 +88,15 @@ func (s *Settings) ReservationSweepInterval() (time.Duration, string) {
 	return positiveDuration("RESERVATION_SWEEP_INTERVAL", s.Reservation.SweepInterval, DefaultReservationSweepInterval)
 }
 
+// positiveDuration is sdkconfig.PositiveDuration that falls back to def with a
+// warning instead of failing, for a value that is empty or not a positive duration.
 func positiveDuration(key, raw string, def time.Duration) (time.Duration, string) {
-	raw = strings.TrimSpace(raw)
-	d, err := time.ParseDuration(raw)
-	if err != nil || d <= 0 {
-		return def, fmt.Sprintf("invalid %s %q (want a positive Go duration such as 20s or 15m); using default %s", key, raw, def)
+	d, err := sdkconfig.PositiveDuration(key, raw, def)
+	if strings.TrimSpace(raw) == "" {
+		err = fmt.Errorf("%s is empty: want a positive Go duration such as 20s or 15m", key)
+	}
+	if err != nil {
+		return def, fmt.Sprintf("%v; using default %s", err, def)
 	}
 	return d, ""
-}
-
-// IsProd reports whether this is a production environment (case-insensitive).
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Env))
-	return e == "prod" || e == "production"
-}
-
-// durableStorageEnvs are the ENV values (trimmed, lowercase) in which the service
-// must never run on in-memory repositories. Anything else (local, test, unknown)
-// is non-strict, matching the "local" default.
-var durableStorageEnvs = []string{"staging", "stage", "prod", "production"}
-
-// RequiresDurableStorage reports whether ENV names a staging/production environment.
-func (s *Settings) RequiresDurableStorage() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Env))
-	for _, strict := range durableStorageEnvs {
-		if e == strict {
-			return true
-		}
-	}
-	return false
-}
-
-// RequireDurableStorage is the boot guard against the silent in-memory fallback:
-// in a strict ENV it fails when no database pool was obtained, so an unreachable
-// database refuses to boot instead of serving orders that vanish on restart.
-// Other environments always pass.
-func (s *Settings) RequireDurableStorage(dbAvailable bool) error {
-	if !s.RequiresDurableStorage() {
-		return nil
-	}
-	if dbAvailable {
-		return nil
-	}
-	return fmt.Errorf(
-		"refusing to start with in-memory storage: ENV=%q requires a database (strict for ENV in %s) but the database pool is not available; set DATABASE_URL to a reachable database",
-		s.Env, strings.Join(durableStorageEnvs, ", "))
 }

@@ -1727,6 +1727,57 @@ features:
     notes: >-
       Operational check with no UI. Verified by TestMigration0008KeepsPreviousReleaseInsertWorking in team-order/internal/store (Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
 
+  - id: order.outbox-upgrade-keeps-event-order
+    title: Events pending before the outbox upgrade are relayed in creation order
+    persona: admin
+    priority: P2
+    summary: >-
+      The v1 outbox migrations number existing rows by creation order and build the v1 indexes.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN the migrations run on a table in the previous schema that holds rows of one aggregate, one of them retried, and the SDK relayer then runs
+      - THEN every row has a unique seq in creation order, the v1 indexes are valid, and the events of the aggregate are published oldest first
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestOutboxUpgradeMigrationsKeepEventOrder in team-order/internal/store (Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.env-required
+    title: A deployment without ENV fails at load
+    persona: admin
+    priority: P2
+    summary: >-
+      ENV has no default under go-sdk v1.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN the settings are loaded with ENV unset or empty
+      - THEN loading fails with an error naming ENV
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestLoadRequiresEnv in team-order/internal/config (change migrate-team-order-to-go-sdk, capability order-runtime).
+
+  - id: order.boot-fails-without-database-outside-local
+    title: An unreachable database refuses the boot outside local and test
+    persona: admin
+    priority: P2
+    summary: >-
+      Only ENV local and test may fall back to in-memory repositories.
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - WHEN the database is unreachable and ENV is staging, stage, prod, production or dev
+      - THEN Run returns an error before any port opens
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational check with no UI. Verified by TestBootFailsWhenDatabaseUnreachableOutsideLocal in team-order/internal/app (change migrate-team-order-to-go-sdk, capability order-runtime).
+
   - id: order.existing-suites-stay-green
     title: team-order existing suites do not regress and no assertion is weakened
     persona: admin

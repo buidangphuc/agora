@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // ErrShipmentNotFound is returned when no shipment matches the lookup.
@@ -114,7 +115,7 @@ type PostgresShipmentRepository struct {
 // NewPostgresShipmentRepository returns the Postgres ShipmentRepository.
 func NewPostgresShipmentRepository(pool *pgxpool.Pool, opts ...ShipmentRepoOption) *PostgresShipmentRepository {
 	cfg := newShipmentRepoConfig(opts)
-	return &PostgresShipmentRepository{pool: pool, queue: outbox.NewStore(pool, OutboxTable), shippedOutbox: cfg.shippedOutbox}
+	return &PostgresShipmentRepository{pool: pool, queue: mustQueue(pool), shippedOutbox: cfg.shippedOutbox}
 }
 
 const (
@@ -161,50 +162,47 @@ func (r *PostgresShipmentRepository) CreateShipment(ctx context.Context, s Shipm
 	s.CreatedAt = time.Now()
 	s.UpdatedAt = time.Now()
 
-	tx, err := r.pool.Begin(ctx)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		const qShipment = `INSERT INTO shipments (` + shipmentColumns + `)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		if _, err := tx.Exec(ctx, qShipment, s.ID, s.OrderID, s.Carrier, s.TrackingCode, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
+			return fmt.Errorf("insert shipment: %w", err)
+		}
+
+		for i := range s.Checkpoints {
+			cp := &s.Checkpoints[i]
+			if cp.ID == "" {
+				cp.ID = uuid.NewString()
+			}
+			cp.ShipmentID = s.ID
+			if cp.Timestamp.IsZero() {
+				cp.Timestamp = time.Now()
+			}
+			cp.CreatedAt = time.Now()
+
+			const qCp = `INSERT INTO shipment_checkpoints (` + checkpointColumns + `)
+				VALUES ($1, $2, $3, $4, $5, $6)`
+			if _, err := tx.Exec(ctx, qCp, cp.ID, cp.ShipmentID, cp.Timestamp, cp.Location, cp.Description, cp.CreatedAt); err != nil {
+				return fmt.Errorf("insert checkpoint: %w", err)
+			}
+		}
+
+		// The OrderShipped outbox row commits with the shipment (ADR-0013); a build or
+		// enqueue failure rolls the shipment back too.
+		if r.shippedOutbox != nil {
+			row, err := r.shippedOutbox(s)
+			if err != nil {
+				return fmt.Errorf("build order shipped outbox row: %w", err)
+			}
+			if err := r.queue.EnqueueTx(ctx, tx, row); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
-		return Shipment{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	const qShipment = `INSERT INTO shipments (` + shipmentColumns + `)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	if _, err := tx.Exec(ctx, qShipment, s.ID, s.OrderID, s.Carrier, s.TrackingCode, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
-		return Shipment{}, fmt.Errorf("insert shipment: %w", err)
-	}
-
-	for i := range s.Checkpoints {
-		cp := &s.Checkpoints[i]
-		if cp.ID == "" {
-			cp.ID = uuid.NewString()
-		}
-		cp.ShipmentID = s.ID
-		if cp.Timestamp.IsZero() {
-			cp.Timestamp = time.Now()
-		}
-		cp.CreatedAt = time.Now()
-
-		const qCp = `INSERT INTO shipment_checkpoints (` + checkpointColumns + `)
-			VALUES ($1, $2, $3, $4, $5, $6)`
-		if _, err := tx.Exec(ctx, qCp, cp.ID, cp.ShipmentID, cp.Timestamp, cp.Location, cp.Description, cp.CreatedAt); err != nil {
-			return Shipment{}, fmt.Errorf("insert checkpoint: %w", err)
-		}
-	}
-
-	// The OrderShipped outbox row commits with the shipment (ADR-0013); a build or
-	// enqueue failure rolls the shipment back too.
-	if r.shippedOutbox != nil {
-		row, err := r.shippedOutbox(s)
-		if err != nil {
-			return Shipment{}, fmt.Errorf("build order shipped outbox row: %w", err)
-		}
-		if err := r.queue.EnqueueTx(ctx, tx, row); err != nil {
-			return Shipment{}, err
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return Shipment{}, fmt.Errorf("commit tx: %w", err)
+		return Shipment{}, err
 	}
 	return s, nil
 }

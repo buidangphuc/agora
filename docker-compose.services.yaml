@@ -331,7 +331,7 @@ services:
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
       - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
-      - FEATURE_FLAGS_EVAL_TIMEOUT_MS=500
+      - FEATURE_FLAGS_EVAL_TIMEOUT=500ms
       # PaymentSettled consumer (AD4/AD1): consume payment.events, drive order→PAID
       # idempotently, park poison records on the DLQ. Keys read by internal/config.
       - KAFKA_BROKERS=redpanda:9092
@@ -344,8 +344,7 @@ services:
       - ORDER_EVENTS_TOPIC=order.events
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
-      - OUTBOX_CLAIM_LOCK_SECONDS=60
-      - OUTBOX_MAX_ATTEMPTS=10
+      - OUTBOX_CLAIM_LOCK=60s
       - UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061
       - GRPC_PORT=50055
       - ENV=local

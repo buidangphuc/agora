@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // ErrReservationLost is returned by PlaceOrders when a reservation it must bind is
@@ -66,34 +68,32 @@ func (r *PostgresOrderRepository) PlaceOrders(ctx context.Context, sagaID string
 	if len(placed) == 0 {
 		return nil, nil
 	}
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }() // no-op after Commit
-
-	now := time.Now()
-	out := make([]Order, 0, len(placed))
-	for _, p := range placed {
-		o := p.Order
-		prepareOrder(&o, now)
-		if err := insertOrderTx(ctx, tx, &o); err != nil {
-			return nil, err
+	var out []Order
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		now := time.Now()
+		out = make([]Order, 0, len(placed))
+		for _, p := range placed {
+			o := p.Order
+			prepareOrder(&o, now)
+			if err := insertOrderTx(ctx, tx, &o); err != nil {
+				return err
+			}
+			if err := bindReservationsTx(ctx, tx, o.ID, p.ReservationIDs); err != nil {
+				return err
+			}
+			out = append(out, o)
 		}
-		if err := bindReservationsTx(ctx, tx, o.ID, p.ReservationIDs); err != nil {
-			return nil, err
+		ct, err := tx.Exec(ctx, completeSagaSQL, sagaID, int32(SagaStatusCompleted), int32(SagaStatusPending))
+		if err != nil {
+			return fmt.Errorf("complete saga %s: %w", sagaID, err)
 		}
-		out = append(out, o)
-	}
-	ct, err := tx.Exec(ctx, completeSagaSQL, sagaID, int32(SagaStatusCompleted), int32(SagaStatusPending))
+		if ct.RowsAffected() != 1 {
+			return fmt.Errorf("%w: checkout attempt %s is no longer pending", ErrReservationLost, sagaID)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("complete saga %s: %w", sagaID, err)
-	}
-	if ct.RowsAffected() != 1 {
-		return nil, fmt.Errorf("%w: checkout attempt %s is no longer pending", ErrReservationLost, sagaID)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit tx: %w", err)
+		return nil, err
 	}
 	return out, nil
 }

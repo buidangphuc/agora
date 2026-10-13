@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 )
 
@@ -11,6 +13,18 @@ import (
 // Rows are written in the transaction of the change they announce through the
 // go-sdk outbox store; the go-sdk relayer publishes them to order.events.
 const OutboxTable = "order_outbox_events"
+
+// mustQueue returns the go-sdk outbox store over OutboxTable. outbox.NewStore
+// fails only for a nil pool or an invalid table name, and OutboxTable is a
+// constant, so a failure is a programming error at construction, like
+// regexp.MustCompile.
+func mustQueue(pool *pgxpool.Pool) *outbox.Store {
+	q, err := outbox.NewStore(pool, OutboxTable)
+	if err != nil {
+		panic("store: outbox store: " + err.Error())
+	}
+	return q
+}
 
 // OutboxRow is one order event to persist in the SAME transaction as the write it
 // announces. Payload is the fully marshalled platform.events.v1.EventEnvelope

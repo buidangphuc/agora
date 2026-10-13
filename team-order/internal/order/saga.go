@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/resilience"
+
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-order/internal/store"
 )
@@ -367,29 +369,32 @@ func (s *Service) releaseOrPark(ctx context.Context, res store.Reservation) (rel
 
 // releaseReservationWithRetry calls ReleaseStock up to maxAttempts with backoff,
 // keyed by the reservation's original id (team-domain restores the stored
-// quantity once; the quantity sent is ignored).
+// quantity once; the quantity sent is ignored). Every error is retried: the
+// release is idempotent on the reservation id, and a parked release is swept
+// later, so giving up early only delays the stock coming back.
 func (s *Service) releaseReservationWithRetry(ctx context.Context, res store.Reservation) error {
-	var lastErr error
-	for attempt := 1; attempt <= s.releaseCfg.maxAttempts; attempt++ {
+	policy, err := resilience.Retry(resilience.RetryOptions{
+		MaxAttempts: s.releaseCfg.maxAttempts,
+		BaseDelay:   s.releaseCfg.backoff,
+		MaxDelay:    s.releaseCfg.backoff * time.Duration(s.releaseCfg.maxAttempts),
+		RetryIf:     func(err error) bool { return err != nil },
+	})
+	if err != nil {
+		return fmt.Errorf("release stock: %w", err)
+	}
+	err = resilience.Do(ctx, func(ctx context.Context) error {
 		_, err := s.domainClient.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
 			ListingId:     res.ListingID,
 			VariantId:     res.VariantID,
 			Quantity:      res.Quantity,
 			ReservationId: res.ID,
 		})
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		if attempt < s.releaseCfg.maxAttempts {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("release cancelled: %w", ctx.Err())
-			case <-time.After(s.releaseCfg.backoff * time.Duration(attempt)):
-			}
-		}
+		return err
+	}, policy)
+	if err != nil {
+		return fmt.Errorf("release stock after %d attempts: %w", s.releaseCfg.maxAttempts, err)
 	}
-	return fmt.Errorf("release stock after %d attempts: %w", s.releaseCfg.maxAttempts, lastErr)
+	return nil
 }
 
 // SweepExpiredReservations is the team-order sweep. Each tick it:

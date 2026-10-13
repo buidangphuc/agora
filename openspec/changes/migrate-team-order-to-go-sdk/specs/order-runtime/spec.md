@@ -47,6 +47,29 @@ Migration `0008` SHALL change the `processed_events` primary key to `(consumer, 
 - **THEN** it succeeds, because a unique index on `event_id` is kept alongside the new primary key
 - **VERIFIED BY**: `TestMigration0008KeepsPreviousReleaseInsertWorking`
 
+### Requirement: The outbox table is upgraded for go-sdk v1 without losing event order
+
+Migrations `0009` to `0018` SHALL implement `outbox.UpgradeSQL` for `order_outbox_events`: add `topic`, `traceparent` and `seq`, number the existing rows by `(created_at, event_id)`, switch the default in one transaction, enforce NOT NULL without a long lock, and build the v1 indexes, each `CREATE` or `DROP INDEX CONCURRENTLY` in its own file.
+
+#### Scenario: Events pending before the upgrade are relayed in creation order
+- **WHEN** the migrations run on a table in the previous schema that holds rows of one aggregate, one of them retried, and the SDK relayer then runs
+- **THEN** every row has a unique `seq` in creation order, the v1 indexes are valid, and the events of the aggregate are published oldest first
+- **VERIFIED BY**: `team-order/internal/store` `TestOutboxUpgradeMigrationsKeepEventOrder` (testkit Postgres)
+
+### Requirement: Settings follow go-sdk v1
+
+`ENV` SHALL be required with no default, and an unreachable database SHALL fail boot unless `ENV` is `local` or `test`.
+
+#### Scenario: A deployment without ENV fails at load
+- **WHEN** the settings are loaded with `ENV` unset or empty
+- **THEN** loading fails with an error naming `ENV`
+- **VERIFIED BY**: `team-order/internal/config` `TestLoadRequiresEnv`
+
+#### Scenario: An unreachable database refuses the boot outside local and test
+- **WHEN** the database is unreachable and `ENV` is `staging`, `stage`, `prod`, `production` or `dev`
+- **THEN** `Run` returns an error before any port opens
+- **VERIFIED BY**: `team-order/internal/app` `TestBootFailsWhenDatabaseUnreachableOutsideLocal`
+
 ### Requirement: team-order behaviour is unchanged
 
 All existing tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged).

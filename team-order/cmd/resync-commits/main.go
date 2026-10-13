@@ -21,7 +21,7 @@ import (
 	"syscall"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-order/internal/config"
 	"github.com/buidangphuc/team-order/internal/order"
@@ -50,7 +50,7 @@ func run() (int, error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgx.Open(ctx, settings.Postgres)
+	pool, err := postgres.Open(ctx, settings.Postgres)
 	if err != nil {
 		return 1, fmt.Errorf("open database (there is no durable order_reservations table to re-sync without it): %w", err)
 	}

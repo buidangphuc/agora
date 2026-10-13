@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // ErrOrderNotFound is returned when no order has the requested id.
@@ -163,7 +163,7 @@ type PostgresOrderRepository struct {
 // builders given as options write their rows through the go-sdk outbox store.
 func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &PostgresOrderRepository{pool: pool, queue: outbox.NewStore(pool, OutboxTable), paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox}
+	return &PostgresOrderRepository{pool: pool, queue: mustQueue(pool), paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox}
 }
 
 const (
@@ -200,17 +200,11 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
 
-	tx, err := r.pool.Begin(ctx)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		return insertOrderTx(ctx, tx, &order)
+	})
 	if err != nil {
-		return Order{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if err := insertOrderTx(ctx, tx, &order); err != nil {
 		return Order{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Order{}, fmt.Errorf("commit tx: %w", err)
 	}
 	return order, nil
 }
@@ -379,7 +373,7 @@ func statusInts(st []OrderStatus) []int32 {
 // UpdateOrderStatusFrom runs the compare-and-set in its own transaction.
 func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error) {
 	var o Order
-	err := sdkpgx.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		var err error
 		o, err = r.UpdateOrderStatusFromTx(ctx, tx, id, to, allowedFrom, trackingNumber)
 		return err

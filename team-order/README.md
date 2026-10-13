@@ -77,7 +77,7 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | team-identity (`UPSTREAM_IDENTITY_ADDR`) | `ListAddresses` | `CreateOrder` shipping address (matched by `address_id`, else default, else first; lookup errors are ignored and the address stays empty) |
 | team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | voucher hold, commit on settle, release on saga failure |
 
-`ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the caller's principal unchanged (`internal/upstream/domain.go`: go-sdk `upstream.Dial` forwards the principal and request id and bounds each call to 5s; the client wrappers mark the six service RPCs with `upstream.WithServicePrincipal`).
+`ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the caller's principal unchanged (`internal/upstream/domain.go`: go-sdk `upstream.NewClient` forwards the principal and request id and bounds each call to 5s; the client wrappers mark the six service RPCs with `upstream.WithServicePrincipal`).
 
 ## Events
 
@@ -91,7 +91,7 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | produce | `payment.events.dlq` (`PAYMENT_EVENTS_DLQ_TOPIC`) | original record | original key | Poison records, or records that exhausted retries |
 
 - The payment consumer is go-sdk `consume.Consumer`: it commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process with backoff, and stops with an error (no commit, so the record is redelivered after restart) when the dead-letter produce fails. A delivery runs in this order: a read of `processed_events` skips an event already processed; one Postgres transaction applies the PAID compare-and-set with its outbox row and commits; then the voucher commit to team-promotion; only after it succeeds is the event marked processed (`consume.Dedupe`, key `(consumer, event_id)`, consumer `team-order.payment`) in its own small transaction. A failed voucher commit therefore leaves the order PAID with its outbox row and the event unprocessed; the redelivery finds the order PAID (the transition is a no-op) and retries the voucher commit, which is idempotent on the order id. A failed transition rolls back and nothing is marked. It runs only with Postgres.
-- The outbox relayer is go-sdk `outbox.Relayer` over `order_outbox_events`: it claims rows with a lease, publishes the stored envelope verbatim, retries with backoff (1s doubling to 5m), and parks a row (`status='failed'`) after `OUTBOX_MAX_ATTEMPTS`. It runs only with Postgres.
+- The outbox relayer is go-sdk `outbox.Relayer` over `order_outbox_events`: it claims rows with a lease, publishes the stored envelope verbatim, publishes the events of one aggregate in `seq` order, retries every transient publish error forever with capped backoff (logged at ERROR after 10 failed attempts; there is no attempt limit), and parks a row (`status='failed'`) at once only for an error that is permanent for the record (message too large, corrupt or invalid record). A parked row blocks later events of its aggregate until it is requeued (`Store.Requeue`, `Store.RequeueParked`). It runs only with Postgres.
 - The relayer, the consumer and the reservation sweeper stop after the gRPC server (`lifecycle.StopAfter`), so in-flight RPCs that enqueue outbox rows are drained first.
 - There are no enable flags: with Postgres, Kafka is always on.
 - Event ids are deterministic UUIDv5s (per order for paid and cancelled, per shipment for shipped, per return for `ReturnRefunded`, namespace `agora/team-order/order.events/<Type>`). Consumers in this workspace include team-analytics (`OrderPaidEvent`), team-notification (`order.events`) and team-payment (consumer group `team-payment.settlement`: `OrderPaidEvent` credits the seller, `OrderCancelled` with `previous_status = ORDER_STATUS_PAID` refunds what remains of the payment and deducts the seller, `ReturnRefunded` refunds the return). Consumers filter on `EventEnvelope.type`, so ones that do not handle `OrderCancelled` or `ReturnRefunded` ignore them.
@@ -111,10 +111,23 @@ Postgres `order_db` (compose credentials `order_svc` / `order_pass`, shared Post
 | 0006 | `order_outbox_events` (status `pending` / `published` / `failed`) |
 | 0007 | `order_sagas.idempotency_key` + unique `(buyer_id, idempotency_key)`, `orders.paid_at`, `orders_status_check` (`NOT VALID`; validate with `ALTER TABLE orders VALIDATE CONSTRAINT orders_status_check` after `SELECT count(*) FROM orders WHERE status NOT BETWEEN 1 AND 5` returns 0) |
 | 0008 | `processed_events` primary key becomes `(consumer, event_id)`; existing rows get consumer `team-order.payment`. A unique index on `event_id` is kept so pods of the previous release (`ON CONFLICT (event_id)`) keep working; while it exists an event id is recorded once across consumers. Idempotent |
+| 0009-0018 | go-sdk v1 outbox upgrade of `order_outbox_events` (`outbox.UpgradeSQL`): add `topic`, `traceparent`, `seq` (0009); number existing rows by `(created_at, event_id)` (0010); switch in one transaction, new rows take `seq` from the sequence (0011); NOT NULL without a long lock (0012-0014); v1 indexes and drop of the v0 claim index, one `CONCURRENTLY` statement per file (0015-0018). Forward-only: the down files are no-ops or undo only their own step |
 
 The service does **not** migrate on boot. Compose applies migrations with the one-shot `team-order-migrate` job (`migrate/migrate:v4.17.1`, `up`, idempotent), which `team-order` depends on. Standalone, run golang-migrate against `migrations/` yourself.
 
-`DATABASE_URL` is required. If the database is unreachable at boot, a strict `ENV` (`staging`, `stage`, `prod`, `production`) refuses to start (`Settings.RequireDurableStorage`); any other `ENV` (`local`) falls back to in-memory repositories and the saga store, and the Kafka consumer, relayer and sweeper do not start.
+`DATABASE_URL` is required. If the database is unreachable at boot, any `ENV` other than `local` or `test` refuses to start (go-sdk `postgres.OpenOrLocal`); `local` and `test` fall back to in-memory repositories and the saga store, and the Kafka consumer, relayer and sweeper do not start.
+
+### Deploying the outbox upgrade (go-sdk v1)
+
+Migrations 0009-0018 upgrade `order_outbox_events` for the v1 relayer. A v0 relayer ignores `seq` and the v1 relayer needs it, so do this in order:
+
+1. Stop the v0 `team-order` relayers (scale to zero), or let them drain the pending rows.
+2. Deal with the rows a v0 relayer parked. List them with `SELECT event_id, aggregate_id, attempts, error FROM order_outbox_events WHERE status = 'failed'`. v1 never sends a `failed` row but keeps it as the head of its aggregate, so it blocks every later event of that order. Fix the cause, then `DELETE` the rows you will not send or put the rest back: `UPDATE order_outbox_events SET status = 'pending', attempts = 0, available_at = now(), locked_until = NULL, error = NULL WHERE status = 'failed'`. After the upgrade, `Store.RequeueParked` does the same for rows v1 parks later.
+3. Purge published rows you do not need (`DELETE FROM order_outbox_events WHERE status = 'published'`): every backfill batch sorts all rows that are still unnumbered.
+4. Run the migrate job (`team-order-migrate`). Each `CREATE`/`DROP INDEX CONCURRENTLY` is a file of its own because golang-migrate runs a file as one statement and `CONCURRENTLY` cannot run inside a transaction. If an index build fails, drop the invalid index (`\d order_outbox_events` shows it) and rerun the job; every step is idempotent. Do not rerun 0010 after 0011 has run.
+5. Deploy the v1 release.
+
+Alert on `Store.Stats(ctx).Parked`: a parked row blocks its order's later events.
 
 ## Configuration
 
@@ -122,12 +135,12 @@ Read by `internal/config/config.go` (go-sdk config groups; struct tags are the s
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | Strict values (`staging`, `stage`, `prod`, `production`) refuse the in-memory fallback |
+| `ENV` | none (required) | `local`, `test`, `staging` or `prod`. Only `local` and `test` allow the in-memory fallback; `KAFKA_BROKERS` and `FLIPT_ADDR` are required when `ENV` is `staging`, `stage`, `prod` or `production` |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / none | `GRPC_PORT` is required (the image sets 50055) |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | |
-| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0` | Wait after health reports NOT_SERVING before stopping |
+| `SHUTDOWN_GRACE` | `10s` | Go duration |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Go duration: wait after health reports NOT_SERVING before stopping |
 | `DATABASE_URL` | empty | Required (loading fails otherwise) |
 | `DB_MAX_CONNS` | `10` | |
 | `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | |
@@ -137,17 +150,16 @@ Read by `internal/config/config.go` (go-sdk config groups; struct tags are the s
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | |
 | `OTEL_SERVICE_NAME` | empty | Defaults to `team-order` |
 | `FEATURE_FLAGS_ENABLED` | `true` | `false` makes every flag return its default |
-| `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC address |
-| `FEATURE_FLAGS_EVAL_TIMEOUT_MS` | `500` | |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `FLIPT_ADDR` | `localhost:9000` (local, test) | Flipt gRPC address; required in staging and prod |
+| `FEATURE_FLAGS_EVAL_TIMEOUT` | `500ms` | Go duration |
+| `KAFKA_BROKERS` | `localhost:9092` (local, test) | Comma-separated; required in staging and prod |
 | `ORDER_PAYMENT_CONSUMER_GROUP` | `team-order.payment` | |
 | `PAYMENT_EVENTS_TOPIC` | `payment.events` | |
 | `PAYMENT_EVENTS_DLQ_TOPIC` | `payment.events.dlq` | |
 | `ORDER_EVENTS_TOPIC` | `order.events` | |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Go duration |
 | `OUTBOX_BATCH_SIZE` | `100` | |
-| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `OUTBOX_CLAIM_LOCK` | `60s` | Go duration. `OUTBOX_MAX_ATTEMPTS` is gone: the relayer has no attempt limit |
 | `RESERVATION_TTL` | `15m` | Go duration: stock-hold lifetime before the sweep releases it; also how long an unfinished checkout attempt may stay pending. Empty, invalid or non-positive falls back to the default with a WARN; boot never fails |
 | `RESERVATION_SWEEP_INTERVAL` | `1m` | Go duration: sweep cadence. Same fallback rule |
 
@@ -155,7 +167,7 @@ Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `
 
 ### Feature flag: checkout kill-switch
 
-Boolean flag `checkout-enabled` (`internal/rpc/order.go`), evaluated through go-sdk `flags` (OpenFeature with the Flipt provider) at the start of `CreateOrder`. It **fails open**: if Flipt is disabled, unreachable at boot, errors, or exceeds `FEATURE_FLAGS_EVAL_TIMEOUT_MS`, checkout stays enabled. Only an explicit OFF in Flipt returns `FailedPrecondition: checkout is temporarily unavailable`. Flip it in the Flipt UI; no redeploy is needed.
+Boolean flag `checkout-enabled` (`internal/rpc/order.go`), evaluated through go-sdk `flags` (OpenFeature with the Flipt provider) at the start of `CreateOrder`. It **fails open**: if Flipt is disabled, unreachable at boot, errors, or exceeds `FEATURE_FLAGS_EVAL_TIMEOUT`, checkout stays enabled. Only an explicit OFF in Flipt returns `FailedPrecondition: checkout is temporarily unavailable`. Flip it in the Flipt UI; no redeploy is needed.
 
 ## Run locally
 

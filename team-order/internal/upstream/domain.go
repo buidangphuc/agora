@@ -29,7 +29,7 @@ type Clients struct {
 // as the forwarded end user (reads on behalf of a buyer) or as this service with
 // exactly ONE scope chosen per call (least privilege): stock mutations carry
 // only listing.write (team-domain), voucher saga RPCs only promotion.reserve
-// (team-promotion). go-sdk's upstream.Dial forwards the caller's principal and
+// (team-promotion). go-sdk's upstream.NewClient forwards the caller's principal and
 // the request id and bounds each call; the per-call service principal comes from
 // upstream.WithServicePrincipal, applied by the two client wrappers below.
 const (
@@ -44,7 +44,7 @@ const callTimeout = 5 * time.Second
 
 // dial opens a lazily connecting go-sdk client to addr.
 func dial(addr string) (*grpc.ClientConn, error) {
-	return sdkupstream.Dial(addr, sdkupstream.WithTimeout(callTimeout))
+	return sdkupstream.NewClient(addr, sdkupstream.WithTimeout(callTimeout))
 }
 
 // asStock marks ctx so the call presents team-order's own service principal with

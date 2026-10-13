@@ -12,6 +12,7 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/flags"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/idempotency"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
@@ -60,7 +61,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	}
 	// Only a user places an order; checked before the kill-switch and before
 	// anything is reserved.
-	if principal.Type != principalTypeUser {
+	if principal.Type != auth.TypeUser {
 		return nil, status.Error(codes.PermissionDenied, "only a user can place an order")
 	}
 
@@ -103,12 +104,6 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 
 	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.ID, shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), order.WithIdempotencyKey(idemKey))
 	if err != nil {
-		if errors.Is(err, order.ErrEmptyCart) {
-			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
-		}
-		if errors.Is(err, order.ErrSelfPurchase) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "cannot buy your own listing", err)
-		}
 		if errors.Is(err, order.ErrVoucherRejected) {
 			// Invalid/expired voucher: reject the checkout with the promotion-supplied
 			// reason (never silently drop the voucher and charge full price).
@@ -116,17 +111,8 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 			h.logger.WarnContext(ctx, "voucher rejected", "buyer_id", principal.ID, "error", err)
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
-		if errors.Is(err, order.ErrInsufficientStock) {
-			return nil, clientErr(h.logger, codes.ResourceExhausted, "stock reservation failed: insufficient stock", err)
-		}
-		if errors.Is(err, order.ErrCheckoutInProgress) {
-			// Same key, first attempt still running: retryable, not a failure.
-			return nil, clientErr(h.logger, codes.Aborted, "checkout with this idempotency key is in progress; retry", err)
-		}
-		if errors.Is(err, order.ErrReservationLost) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "item no longer reserved; please retry checkout", err)
-		}
-		return nil, internalErr(h.logger, "create order", err)
+		return nil, fail(ctx, h.logger, "create order", err,
+			ruleEmptyCart, ruleSelfPurchase, ruleInsufficientStock, ruleCheckoutInProgress, ruleReservationLost)
 	}
 
 	wireOrders := make([]*orderv1.Order, 0, len(orders))
@@ -144,7 +130,7 @@ func idempotencyKeyFromContext(ctx context.Context) (string, error) {
 	if !ok {
 		return "", nil
 	}
-	vals := md.Get(order.IdempotencyKeyMetadata)
+	vals := md.Get(idempotency.MDKey)
 	switch len(vals) {
 	case 0:
 		return "", nil
@@ -182,10 +168,7 @@ func (h *OrderHandler) GetOrder(ctx context.Context, req *orderv1.GetOrderReques
 	}
 	o, err := h.svc.GetOrder(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
+		return nil, fail(ctx, h.logger, "get order", err, ruleOrderNotFound)
 	}
 	if !canViewOrder(principal, o) {
 		return nil, status.Error(codes.PermissionDenied, "cannot view another user's order")
@@ -242,10 +225,7 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 
 	existing, err := h.svc.GetOrder(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
+		return nil, fail(ctx, h.logger, "get order", err, ruleOrderNotFound)
 	}
 
 	// Actor class (spec order-lifecycle-guards): the seller, or an admin acting as
@@ -257,15 +237,8 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 
 	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), order.ActorSeller, store.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrOrderNotFound):
-			return nil, status.Error(codes.NotFound, "order not found")
-		case errors.Is(err, order.ErrActorForbidden):
-			return nil, clientErr(h.logger, codes.PermissionDenied, "this status change is not allowed for the seller", err)
-		case errors.Is(err, order.ErrInvalidStatus):
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid order status transition", err)
-		}
-		return nil, internalErr(h.logger, "update order status", err)
+		return nil, fail(ctx, h.logger, "update order status", err,
+			ruleOrderNotFound, ruleActorForbidden, ruleInvalidStatus("invalid order status transition"))
 	}
 	return &orderv1.UpdateOrderStatusResponse{Order: toWireOrder(updated)}, nil
 }
@@ -282,10 +255,7 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 
 	existing, err := h.svc.GetOrder(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
+		return nil, fail(ctx, h.logger, "get order", err, ruleOrderNotFound)
 	}
 
 	if existing.BuyerID != principal.ID {
@@ -294,10 +264,7 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 
 	cancelled, err := h.svc.CancelOrder(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, order.ErrInvalidStatus) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
-		}
-		return nil, internalErr(h.logger, "cancel order", err)
+		return nil, fail(ctx, h.logger, "cancel order", err, ruleInvalidStatus("order cannot be cancelled in its current status"))
 	}
 	return &orderv1.CancelOrderResponse{Order: toWireOrder(cancelled.Order)}, nil
 }
@@ -313,10 +280,7 @@ func (h *OrderHandler) GetSagaState(ctx context.Context, req *orderv1.GetSagaSta
 	}
 	ord, err := h.svc.GetOrder(ctx, req.GetOrderId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Errorf(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
+		return nil, fail(ctx, h.logger, "get order", err, ruleOrderNotFound)
 	}
 	// Owner-or-admin only: the saga view exposes another buyer's order state.
 	if !isAdminOrUser(principal, ord.BuyerID) {
@@ -375,10 +339,7 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	}
 	cancelled, err := h.svc.CancelOrder(ctx, req.GetOrderId())
 	if err != nil {
-		if errors.Is(err, order.ErrInvalidStatus) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
-		}
-		return nil, internalErr(h.logger, "force fail cancel order", err)
+		return nil, fail(ctx, h.logger, "force fail cancel order", err, ruleInvalidStatus("order cannot be cancelled in its current status"))
 	}
 	sagaState, err := h.sagaStateOf(ctx, cancelled.Order)
 	if err != nil {
@@ -418,25 +379,9 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 
 	ret, err := h.svc.CreateReturnRequest(ctx, principal.ID, req.GetOrderId(), req.GetReason(), req.GetRefundAmount())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		if errors.Is(err, order.ErrUnauthorizedReturn) {
-			return nil, clientErr(h.logger, codes.PermissionDenied, "only the buyer can request a return for this order", err)
-		}
-		if errors.Is(err, order.ErrInvalidReturnReason) {
-			return nil, clientErr(h.logger, codes.InvalidArgument, "return reason is required", err)
-		}
-		if errors.Is(err, order.ErrInvalidRefundAmount) {
-			return nil, clientErr(h.logger, codes.InvalidArgument, "invalid refund amount", err)
-		}
-		if errors.Is(err, order.ErrOrderCannotBeReturned) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be returned in its current status", err)
-		}
-		if errors.Is(err, order.ErrNothingToReturn) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "order has no returnable amount left", err)
-		}
-		return nil, internalErr(h.logger, "create return request", err)
+		return nil, fail(ctx, h.logger, "create return request", err,
+			ruleOrderNotFound, ruleUnauthorizedReturn, ruleInvalidReturnReason, ruleInvalidRefundAmount,
+			ruleOrderCannotBeReturned, ruleNothingToReturn)
 	}
 
 	return &orderv1.CreateReturnRequestResponse{
@@ -456,10 +401,7 @@ func (h *OrderHandler) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 
 	ret, err := h.svc.GetReturnRequest(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrReturnNotFound) {
-			return nil, status.Error(codes.NotFound, "return request not found")
-		}
-		return nil, internalErr(h.logger, "get return request", err)
+		return nil, fail(ctx, h.logger, "get return request", err, ruleReturnNotFound)
 	}
 
 	if !isAdminOrUser(principal, ret.BuyerID, ret.SellerID) {
@@ -486,10 +428,7 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 
 	existing, err := h.svc.GetReturnRequest(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrReturnNotFound) {
-			return nil, status.Error(codes.NotFound, "return request not found")
-		}
-		return nil, internalErr(h.logger, "get return request", err)
+		return nil, fail(ctx, h.logger, "get return request", err, ruleReturnNotFound)
 	}
 
 	// Only seller or admin can approve/reject/refund return request
@@ -499,16 +438,8 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 
 	updated, err := h.svc.UpdateReturnStatus(ctx, req.GetId(), store.ReturnStatus(req.GetStatus()))
 	if err != nil {
-		if errors.Is(err, order.ErrInvalidReturnStatus) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "invalid return status transition", err)
-		}
-		if errors.Is(err, order.ErrNotPaidOnline) {
-			return nil, clientErr(h.logger, codes.FailedPrecondition, order.ErrNotPaidOnline.Error(), err)
-		}
-		if errors.Is(err, store.ErrReturnNotFound) {
-			return nil, status.Error(codes.NotFound, "return request not found")
-		}
-		return nil, internalErr(h.logger, "update return status", err)
+		return nil, fail(ctx, h.logger, "update return status", err,
+			ruleInvalidReturnStatus, ruleNotPaidOnline, ruleReturnNotFound)
 	}
 
 	return &orderv1.UpdateReturnStatusResponse{
@@ -528,10 +459,7 @@ func (h *OrderHandler) ListOrderReturns(ctx context.Context, req *orderv1.ListOr
 	}
 	o, err := h.svc.GetOrder(ctx, req.GetOrderId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
+		return nil, fail(ctx, h.logger, "get order", err, ruleOrderNotFound)
 	}
 	if !isAdminOrUser(principal, o.BuyerID, o.SellerID) {
 		return nil, status.Error(codes.PermissionDenied, "cannot list the returns of another user's order")
@@ -561,10 +489,7 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 
 	ord, err := h.svc.GetOrder(ctx, req.GetOrderId())
 	if err != nil {
-		if errors.Is(err, store.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		return nil, internalErr(h.logger, "get order", err)
+		return nil, fail(ctx, h.logger, "get order", err, ruleOrderNotFound)
 	}
 
 	if !isAdminOrUser(principal, ord.SellerID) {
@@ -573,13 +498,8 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 
 	shipment, err := h.svc.CreateShipment(ctx, req.GetOrderId(), req.GetCarrier(), req.GetTrackingCode())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrOrderNotFound):
-			return nil, status.Error(codes.NotFound, "order not found")
-		case errors.Is(err, order.ErrInvalidStatus):
-			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be shipped in its current status", err)
-		}
-		return nil, internalErr(h.logger, "create shipment", err)
+		return nil, fail(ctx, h.logger, "create shipment", err,
+			ruleOrderNotFound, ruleInvalidStatus("order cannot be shipped in its current status"))
 	}
 
 	return &orderv1.CreateShipmentResponse{
@@ -595,10 +515,7 @@ func (h *OrderHandler) GetShipmentTracking(ctx context.Context, req *orderv1.Get
 
 	shipment, err := h.svc.GetShipmentTracking(ctx, req.GetTrackingCode(), req.GetOrderId(), req.GetShipmentId())
 	if err != nil {
-		if errors.Is(err, store.ErrShipmentNotFound) {
-			return nil, status.Error(codes.NotFound, "shipment not found")
-		}
-		return nil, internalErr(h.logger, "get shipment tracking", err)
+		return nil, fail(ctx, h.logger, "get shipment tracking", err, ruleShipmentNotFound)
 	}
 
 	return &orderv1.GetShipmentTrackingResponse{
@@ -722,15 +639,12 @@ func canViewOrder(p auth.Principal, o store.Order) bool {
 	if isAdminOrUser(p, o.BuyerID, o.SellerID) {
 		return true
 	}
-	return p.Type == principalTypeService && p.HasScope("order.read")
+	return p.Type == auth.TypeService && p.HasScope("order.read")
 }
 
 const (
 	scopeAdmin      = "admin"
 	scopeOrderAdmin = "order.admin"
-
-	principalTypeUser    = "user"
-	principalTypeService = "service"
 )
 
 // flagCheckoutEnabled is the boolean emergency kill-switch for the checkout /

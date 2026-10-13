@@ -48,10 +48,10 @@ spec:
             ORDER_EVENTS_TOPIC: "order.events"
             OUTBOX_POLL_INTERVAL: "1s"
             OUTBOX_BATCH_SIZE: "100"
-            OUTBOX_CLAIM_LOCK_SECONDS: "60"
-            OUTBOX_MAX_ATTEMPTS: "10"
+            OUTBOX_CLAIM_LOCK: "60s"
             FLIPT_ADDR: "flipt:9000"
             FEATURE_FLAGS_ENABLED: "true"
+            ENV: "local"
           secrets:
             enabled: true
   syncPolicy:

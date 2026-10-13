@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 var (
@@ -153,7 +154,7 @@ type PostgresReturnRepository struct {
 // NewPostgresReturnRepository returns the Postgres return repository over pool.
 func NewPostgresReturnRepository(pool *pgxpool.Pool, opts ...ReturnRepoOption) *PostgresReturnRepository {
 	cfg := newReturnRepoConfig(opts)
-	return &PostgresReturnRepository{pool: pool, queue: outbox.NewStore(pool, OutboxTable), refundedOutbox: cfg.refundedOutbox}
+	return &PostgresReturnRepository{pool: pool, queue: mustQueue(pool), refundedOutbox: cfg.refundedOutbox}
 }
 
 const returnColumns = `id, order_id, buyer_id, seller_id, reason, refund_amount, status, created_at, updated_at`
@@ -194,36 +195,33 @@ func (r *PostgresReturnRepository) CreateReturn(ctx context.Context, ret OrderRe
 // that its amount fits what is left of the order total.
 func (r *PostgresReturnRepository) CreateReturnCapped(ctx context.Context, ret OrderReturn, orderTotal int64) (OrderReturn, error) {
 	prepareReturn(&ret)
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return OrderReturn{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// The order row lock serialises every capped create of this order, so the sum
-	// below always sees the returns committed before it.
-	var locked string
-	if err := tx.QueryRow(ctx, `SELECT id FROM orders WHERE id = $1 FOR UPDATE`, ret.OrderID).Scan(&locked); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return OrderReturn{}, ErrOrderNotFound
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		// The order row lock serialises every capped create of this order, so the sum
+		// below always sees the returns committed before it.
+		var locked string
+		if err := tx.QueryRow(ctx, `SELECT id FROM orders WHERE id = $1 FOR UPDATE`, ret.OrderID).Scan(&locked); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrOrderNotFound
+			}
+			return fmt.Errorf("lock order %q: %w", ret.OrderID, err)
 		}
-		return OrderReturn{}, fmt.Errorf("lock order %q: %w", ret.OrderID, err)
-	}
-	var taken int64
-	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(refund_amount), 0) FROM order_returns WHERE order_id = $1 AND status <> $2`,
-		ret.OrderID, int32(ReturnStatusRejected)).Scan(&taken); err != nil {
-		return OrderReturn{}, fmt.Errorf("sum returns of order %q: %w", ret.OrderID, err)
-	}
-	amount, err := returnRemainder(ret.RefundAmount, orderTotal, taken)
+		var taken int64
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(refund_amount), 0) FROM order_returns WHERE order_id = $1 AND status <> $2`,
+			ret.OrderID, int32(ReturnStatusRejected)).Scan(&taken); err != nil {
+			return fmt.Errorf("sum returns of order %q: %w", ret.OrderID, err)
+		}
+		amount, err := returnRemainder(ret.RefundAmount, orderTotal, taken)
+		if err != nil {
+			return err
+		}
+		ret.RefundAmount = amount
+		if _, err := tx.Exec(ctx, insertReturnSQL, ret.ID, ret.OrderID, ret.BuyerID, ret.SellerID, ret.Reason, ret.RefundAmount, int32(ret.Status), ret.CreatedAt, ret.UpdatedAt); err != nil {
+			return fmt.Errorf("insert return request: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return OrderReturn{}, err
-	}
-	ret.RefundAmount = amount
-	if _, err := tx.Exec(ctx, insertReturnSQL, ret.ID, ret.OrderID, ret.BuyerID, ret.SellerID, ret.Reason, ret.RefundAmount, int32(ret.Status), ret.CreatedAt, ret.UpdatedAt); err != nil {
-		return OrderReturn{}, fmt.Errorf("insert return request: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return OrderReturn{}, fmt.Errorf("commit tx: %w", err)
 	}
 	return ret, nil
 }
@@ -290,48 +288,45 @@ func (r *PostgresReturnRepository) ListReturnsByOrder(ctx context.Context, order
 // TransitionReturn is a compare-and-set of the return status from `from` to `to`;
 // a won APPROVED -> REFUNDED writes the ReturnRefunded outbox row in the same transaction.
 func (r *PostgresReturnRepository) TransitionReturn(ctx context.Context, id string, from, to ReturnStatus) (OrderReturn, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return OrderReturn{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// The status condition is decided by this UPDATE itself (row lock), never by
-	// an earlier read: of concurrent transitions of one return, one wins.
-	const q = `UPDATE order_returns SET status = $3, updated_at = now()
-		WHERE id = $1 AND status = $2 RETURNING ` + returnColumns
 	var ret OrderReturn
-	if err := scanReturn(tx.QueryRow(ctx, q, id, int32(from), int32(to)), &ret); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			var exists bool
-			if qerr := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM order_returns WHERE id = $1)`, id).Scan(&exists); qerr != nil {
-				return OrderReturn{}, fmt.Errorf("check return %q: %w", id, qerr)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		// The status condition is decided by this UPDATE itself (row lock), never by
+		// an earlier read: of concurrent transitions of one return, one wins.
+		const q = `UPDATE order_returns SET status = $3, updated_at = now()
+			WHERE id = $1 AND status = $2 RETURNING ` + returnColumns
+		if err := scanReturn(tx.QueryRow(ctx, q, id, int32(from), int32(to)), &ret); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				var exists bool
+				if qerr := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM order_returns WHERE id = $1)`, id).Scan(&exists); qerr != nil {
+					return fmt.Errorf("check return %q: %w", id, qerr)
+				}
+				if !exists {
+					return ErrReturnNotFound
+				}
+				return ErrReturnStatusConflict
 			}
-			if !exists {
-				return OrderReturn{}, ErrReturnNotFound
-			}
-			return OrderReturn{}, ErrReturnStatusConflict
+			return fmt.Errorf("transition return %q: %w", id, err)
 		}
-		return OrderReturn{}, fmt.Errorf("transition return %q: %w", id, err)
-	}
 
-	// Domain fact (ADR-0013): ReturnRefunded commits or rolls back with the won
-	// APPROVED -> REFUNDED compare-and-set, so it is written once per return.
-	if from == ReturnStatusApproved && to == ReturnStatusRefunded && r.refundedOutbox != nil {
-		var currency string
-		if err := tx.QueryRow(ctx, `SELECT currency FROM orders WHERE id = $1`, ret.OrderID).Scan(&currency); err != nil {
-			return OrderReturn{}, fmt.Errorf("read currency of order %q: %w", ret.OrderID, err)
+		// Domain fact (ADR-0013): ReturnRefunded commits or rolls back with the won
+		// APPROVED -> REFUNDED compare-and-set, so it is written once per return.
+		if from == ReturnStatusApproved && to == ReturnStatusRefunded && r.refundedOutbox != nil {
+			var currency string
+			if err := tx.QueryRow(ctx, `SELECT currency FROM orders WHERE id = $1`, ret.OrderID).Scan(&currency); err != nil {
+				return fmt.Errorf("read currency of order %q: %w", ret.OrderID, err)
+			}
+			row, err := r.refundedOutbox(ret, currency)
+			if err != nil {
+				return fmt.Errorf("build return refunded outbox row: %w", err)
+			}
+			if err := r.queue.EnqueueTx(ctx, tx, row); err != nil {
+				return err
+			}
 		}
-		row, err := r.refundedOutbox(ret, currency)
-		if err != nil {
-			return OrderReturn{}, fmt.Errorf("build return refunded outbox row: %w", err)
-		}
-		if err := r.queue.EnqueueTx(ctx, tx, row); err != nil {
-			return OrderReturn{}, err
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return OrderReturn{}, fmt.Errorf("commit tx: %w", err)
+		return nil
+	})
+	if err != nil {
+		return OrderReturn{}, err
 	}
 	return ret, nil
 }
