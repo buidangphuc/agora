@@ -171,6 +171,8 @@ func TestConsumerClientAcceptsOptions(t *testing.T) {
 		}
 		got = f.Records()
 	}
+	// The client blocks rebalances after a poll; Close waits for them to be allowed.
+	client.AllowRebalance()
 	if string(got[0].Value) != "v" {
 		t.Errorf("value = %q, want v", got[0].Value)
 	}

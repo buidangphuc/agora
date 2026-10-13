@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -22,56 +21,21 @@ func (d *batchDLQ) PublishRecord(_ context.Context, r *kgo.Record) error {
 	return nil
 }
 
-func scriptedFetch(topic string, values ...string) kgo.Fetches {
-	recs := make([]*kgo.Record, len(values))
-	for i, v := range values {
-		recs[i] = &kgo.Record{
-			Topic: topic, Partition: 0, Offset: int64(i), Key: []byte("k"), Value: []byte(v),
-			Headers: []kgo.RecordHeader{{Key: "x-h", Value: []byte("hv")}},
-		}
-	}
-	return kgo.Fetches{{Topics: []kgo.FetchTopic{{Topic: topic, Partitions: []kgo.FetchPartition{{Partition: 0, Records: recs}}}}}}
-}
-
-// newScriptedBatch returns a consumer that serves one fetch, then blocks until
-// ctx ends. commits counts CommitUncommittedOffsets calls.
-func newScriptedBatch(h BatchHandler, dlq DLQProducer, commits *chan struct{}) *BatchConsumer {
-	served := false
-	c := NewBatchConsumer(nil, h, dlq, BatchOptions{DLQTopic: "orders.dlq", BaseBackoff: time.Millisecond, MaxBackoff: 5 * time.Millisecond})
-	c.poll = func(ctx context.Context) kgo.Fetches {
-		if !served {
-			served = true
-			return scriptedFetch("orders", "v0", "v1")
-		}
-		<-ctx.Done()
-		return nil
-	}
-	c.commit = func(context.Context) error { *commits <- struct{}{}; return nil }
-	return c
-}
-
-func runBatch(t *testing.T, c *BatchConsumer, until func() bool) {
+func scriptedBatch(t *testing.T, h BatchHandler, dlq DLQProducer) (*BatchConsumer, *fakeClient) {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- c.Run(ctx) }()
-	deadline := time.After(10 * time.Second)
-	for !until() {
-		select {
-		case <-deadline:
-			cancel()
-			t.Fatal("condition not reached")
-		case <-time.After(2 * time.Millisecond):
-		}
+	fc := newFakeClient(fetchOf("orders", span{
+		partition: 0, from: 0, count: 2,
+		headers: []kgo.RecordHeader{{Key: "x-h", Value: []byte("hv")}},
+	}))
+	c, err := newBatchConsumer(fc, "g", h, dlq, fastBatchOpts())
+	if err != nil {
+		t.Fatal(err)
 	}
-	cancel()
-	if err := <-done; err != nil {
-		t.Fatalf("Run: %v", err)
-	}
+	return c, fc
 }
 
 func TestBatchRetriesWithoutCommit(t *testing.T) {
-	commits := make(chan struct{}, 10)
+	var fcRef *fakeClient
 	var mu sync.Mutex
 	var seen [][]string
 	h := func(_ context.Context, rs []Record) error {
@@ -83,43 +47,46 @@ func TestBatchRetriesWithoutCommit(t *testing.T) {
 		}
 		seen = append(seen, vs)
 		if len(seen) == 1 {
-			if len(commits) != 0 {
+			if _, commits := fcRef.snapshot(); len(commits) != 0 {
 				t.Error("committed before the handler succeeded")
 			}
 			return errors.New("transient")
 		}
 		return nil
 	}
-	c := newScriptedBatch(h, &batchDLQ{}, &commits)
-	runBatch(t, c, func() bool { return len(commits) == 1 })
+	c, fc := scriptedBatch(t, h, &recordingDLQ{})
+	fcRef = fc
+	if err := runUntil(t, c.Run, func() { fc.waitForEvent(t, "commit", 1) }); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(seen) != 2 || len(seen[0]) != 2 || seen[0][0] != "v0" || seen[1][1] != "v1" || seen[1][0] != "v0" {
+	if len(seen) != 2 || len(seen[0]) != 2 || seen[0][0] != "p0-o0" || seen[1][1] != "p0-o1" || seen[1][0] != "p0-o0" {
 		t.Fatalf("handler saw %v, want the same two records twice", seen)
 	}
-	if len(commits) != 1 {
+	if _, commits := fc.snapshot(); len(commits) != 1 {
 		t.Fatalf("commits = %d, want exactly 1 after success", len(commits))
 	}
 }
 
 func TestBatchPermanentGoesToDLQ(t *testing.T) {
-	commits := make(chan struct{}, 10)
-	dlq := &batchDLQ{}
+	dlq := &recordingDLQ{}
 	calls := 0
 	h := func(context.Context, []Record) error { calls++; return Permanent(errors.New("poison")) }
-	c := newScriptedBatch(h, dlq, &commits)
-	runBatch(t, c, func() bool { return len(commits) == 1 })
+	c, fc := scriptedBatch(t, h, dlq)
+	if err := runUntil(t, c.Run, func() { fc.waitForEvent(t, "commit", 1) }); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
 
 	if calls != 1 {
 		t.Fatalf("handler calls = %d, want 1 (permanent is not retried)", calls)
 	}
-	dlq.mu.Lock()
-	defer dlq.mu.Unlock()
-	if len(dlq.recs) != 2 {
-		t.Fatalf("dlq records = %d, want 2", len(dlq.recs))
+	recs := dlq.records()
+	if len(recs) != 2 {
+		t.Fatalf("dlq records = %d, want 2", len(recs))
 	}
-	for i, r := range dlq.recs {
+	for i, r := range recs {
 		hs := map[string]string{}
 		for _, h := range r.Headers {
 			hs[h.Key] = string(h.Value)

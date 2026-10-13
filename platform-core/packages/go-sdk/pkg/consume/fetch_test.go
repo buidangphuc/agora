@@ -15,10 +15,6 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
 
-type nopDLQ struct{}
-
-func (nopDLQ) PublishRecord(context.Context, *kgo.Record) error { return nil }
-
 // logSink records the messages Run logs.
 type logSink struct {
 	mu   sync.Mutex
@@ -57,14 +53,17 @@ func TestFetchErrorDoesNotStopLoop(t *testing.T) {
 
 	sink := &logSink{}
 	got := make(chan string, 1)
-	c := NewConsumer(client, func(_ context.Context, r Record) error {
+	var once sync.Once
+	c, err := NewConsumer(client, func(_ context.Context, r Record) error {
 		got <- string(r.Value)
 		return nil
 	}, nopDLQ{}, Options{DLQTopic: "orders.dlq", Logger: slog.New(sink)})
+	if err != nil {
+		t.Fatalf("NewConsumer: %v", err)
+	}
 
 	// The first poll reports a fetch error; later polls are the real client.
-	var once sync.Once
-	c.poll = func(ctx context.Context) kgo.Fetches {
+	c.client = injectingClient{client, func(ctx context.Context) kgo.Fetches {
 		injected := false
 		var f kgo.Fetches
 		once.Do(func() {
@@ -78,7 +77,7 @@ func TestFetchErrorDoesNotStopLoop(t *testing.T) {
 			return f
 		}
 		return client.PollFetches(ctx)
-	}
+	}}
 
 	const wait = 25 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), wait)
@@ -105,6 +104,14 @@ func TestFetchErrorDoesNotStopLoop(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 }
+
+// injectingClient replaces PollFetches of the embedded client.
+type injectingClient struct {
+	*kgo.Client
+	poll func(context.Context) kgo.Fetches
+}
+
+func (c injectingClient) PollFetches(ctx context.Context) kgo.Fetches { return c.poll(ctx) }
 
 func produceOne(t *testing.T, brokers, topic, value string) {
 	t.Helper()

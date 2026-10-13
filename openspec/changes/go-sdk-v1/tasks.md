@@ -85,8 +85,8 @@ Owns: `pkg/outbox/**`.
 
 Owns: `pkg/consume/**`, `pkg/kafkax/**`.
 
-- [ ] 12.1 M4 constructors return `(…, error)` and validate; m10 `NewDedupe` validates and returns an error, executor interface for `Seen`/`Processed`; m11 `Record` Partition/Timestamp/`Headers []Header`, DLQ source partition/offset/group headers.
-- [ ] 12.2 M1 per-record ctx with trace and request id (span links for batches); M2 commit once per fetch with rebalance safety (test: revoke mid-fetch does not rewind or double-commit); M3 `BatchOptions.MaxAttempts` (default 5) then DLQ; M5 default `RecordDeliveryTimeout` 30s in `NewProducer`; m13 Close doc, `kafkax.Checker`.
+- [x] 12.1 M4 constructors return `(…, error)` and validate; m10 `NewDedupe` validates and returns an error, executor interface for `Seen`/`Processed`; m11 `Record` Partition/Timestamp/`Headers []Header`, DLQ source partition/offset/group headers.
+- [x] 12.2 M1 per-record ctx with trace and request id (span links for batches); M2 commit once per fetch with rebalance safety (test: revoke mid-fetch does not rewind or double-commit); M3 `BatchOptions.MaxAttempts` (default 5) then DLQ; M5 default `RecordDeliveryTimeout` 30s in `NewProducer`; m13 Close doc, `kafkax.Checker`.
 
 ## 13. grpcx, auth, idempotency (wave 3)
 
