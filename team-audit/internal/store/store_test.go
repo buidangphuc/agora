@@ -7,7 +7,7 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
@@ -19,11 +19,11 @@ import (
 // work against the schema they create.
 func TestMigrationsApplyAndPostgresRoundtrip(t *testing.T) {
 	ctx := context.Background()
-	url := testkit.Postgres(t)
+	url := testkit.Schema(t, testkit.SharedPostgres(t))
 	if err := migrate.Up(ctx, url, fs.FS(migrations.Files)); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	pool, err := pgx.Open(ctx, config.Postgres{URL: url})
+	pool, err := postgres.Open(ctx, config.Postgres{URL: url})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,8 +11,11 @@ import (
 )
 
 func TestInternalErrorIsGenericAndNotLeaked(t *testing.T) {
-	h := NewHandler(nil, slog.New(slog.DiscardHandler))
-	err := h.mapErr(context.Background(), errors.New("pq: password authentication failed for user audit"))
+	h, err := NewHandler(nil, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = h.mapErr(context.Background(), errors.New("pq: password authentication failed for user audit"))
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("got %v, want Internal", status.Code(err))
 	}

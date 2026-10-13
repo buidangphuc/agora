@@ -33,14 +33,19 @@ func asAnonymous() context.Context {
 	return auth.WithPrincipal(context.Background(), auth.Principal{ID: "anonymous", Type: "anonymous"})
 }
 
-func newAuditHandler() *rpc.Handler {
-	return rpc.NewHandler(audit.NewService(store.NewInMemoryAuditRepo()), slog.New(slog.DiscardHandler))
+func newAuditHandler(t *testing.T) *rpc.Handler {
+	t.Helper()
+	h, err := rpc.NewHandler(audit.NewService(store.NewInMemoryAuditRepo()), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }
 
 // The gRPC surface pages newest-first: page 1 hands back a next_cursor that page
 // 2 consumes, and the trail is walked from most-recent to oldest without gaps.
 func TestQueryAuditLogCursorPaging(t *testing.T) {
-	h := newAuditHandler()
+	h := newAuditHandler(t)
 	ctx := asAdmin()
 	svcCtx := asService("svc-order")
 
@@ -88,7 +93,7 @@ func TestQueryAuditLogCursorPaging(t *testing.T) {
 // WriteAuditEvent is fire-and-forget (empty response) and rejects a missing
 // action with InvalidArgument.
 func TestWriteAuditEventValidation(t *testing.T) {
-	h := newAuditHandler()
+	h := newAuditHandler(t)
 	ctx := asService("svc-order")
 
 	if _, err := h.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{Action: ""}); code(err) != codes.InvalidArgument {
@@ -119,7 +124,7 @@ func storedActors(t *testing.T, h *rpc.Handler) []string {
 }
 
 func TestWriteAuditEventRequiresAuthentication(t *testing.T) {
-	h := newAuditHandler()
+	h := newAuditHandler(t)
 	for name, ctx := range map[string]context.Context{"no principal": context.Background(), "anonymous": asAnonymous()} {
 		_, err := h.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{Action: "x"})
 		if code(err) != codes.Unauthenticated {
@@ -132,7 +137,7 @@ func TestWriteAuditEventRequiresAuthentication(t *testing.T) {
 }
 
 func TestWriteAuditEventRejectsNonServiceCallers(t *testing.T) {
-	h := newAuditHandler()
+	h := newAuditHandler(t)
 	noScope := auth.WithPrincipal(context.Background(), auth.Principal{ID: "svc-x", Type: "service", Scopes: []string{"promotion.reserve"}})
 	userWithScope := auth.WithPrincipal(context.Background(), auth.Principal{ID: "u1", Type: "user", Scopes: []string{"audit.write"}})
 	for name, ctx := range map[string]context.Context{
@@ -152,7 +157,7 @@ func TestWriteAuditEventRejectsNonServiceCallers(t *testing.T) {
 }
 
 func TestWriteAuditEventServicePrincipalMayActOnBehalf(t *testing.T) {
-	h := newAuditHandler()
+	h := newAuditHandler(t)
 	if _, err := h.WriteAuditEvent(asService("svc-order"), &auditv1.WriteAuditEventRequest{ActorId: "buyer-3", Action: "order.paid"}); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -166,7 +171,7 @@ func TestWriteAuditEventServicePrincipalMayActOnBehalf(t *testing.T) {
 }
 
 func TestQueryAuditLogAdminOnly(t *testing.T) {
-	h := newAuditHandler()
+	h := newAuditHandler(t)
 	if _, err := h.WriteAuditEvent(asService("svc-order"), &auditv1.WriteAuditEventRequest{Action: "x"}); err != nil {
 		t.Fatalf("write: %v", err)
 	}

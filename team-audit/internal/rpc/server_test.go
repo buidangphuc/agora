@@ -27,12 +27,16 @@ func startServer(t *testing.T) auditv1.AuditServiceClient {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
 	lis := bufconn.Listen(1024 * 1024)
-	srv := grpcx.NewServer(grpcx.ServerOptions{
-		Config: config.GRPC{},
-		Logger: logger,
-		Health: healthx.New(healthx.DefaultInterval, logger),
-	})
-	rpc.Register(srv, rpc.NewHandler(audit.NewService(store.NewInMemoryAuditRepo()), logger))
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := rpc.NewHandler(audit.NewService(store.NewInMemoryAuditRepo()), logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: config.GRPC{}, Logger: logger, Health: health})
+	rpc.Register(srv, handler)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
 	conn, err := grpc.NewClient("passthrough:///bufnet",
