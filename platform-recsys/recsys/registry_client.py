@@ -50,6 +50,8 @@ _ALLOWED_PARAMS = frozenset(
     }
 )
 _METRIC_RE = re.compile(r"^[a-z][a-z0-9_]*(@\d+)?$")
+_REASON_RE = re.compile(r"^[A-Za-z0-9 _.:@<=()/%+-]{1,200}$")
+_USER_KEY_RE = re.compile(r"u-\d{4}")
 _RUN_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 # Item-side artifact files only.
 _ALLOWED_ARTIFACT_FILES = frozenset(
@@ -105,6 +107,12 @@ def _check_metrics(metrics: Mapping[str, Any]) -> None:
             raise PayloadRejected(f"metric name {k!r} is not allow-listed")
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             raise PayloadRejected(f"metric {k!r} must be numeric")
+
+
+def _check_reason(reason: Any) -> None:
+    """A rejection reason becomes a registry tag: short, a bounded charset, never a user key."""
+    if not isinstance(reason, str) or not _REASON_RE.fullmatch(reason) or _USER_KEY_RE.search(reason):
+        raise PayloadRejected("rejection reason is not allow-listed (length, charset or user key)")
 
 
 def _check_lineage(lineage: Mapping[str, Any]) -> None:
@@ -173,6 +181,7 @@ def evaluate(
 
 def register_rejected(model: str, run_id: str, reason: str, lineage: Mapping[str, Any]) -> Decision:
     """Register a version as rejected without evaluating the policy (a structural rejection)."""
+    _check_reason(reason)
     _check_lineage(lineage)
     return modelregistry.register_rejected(model, run_id, reason, lineage)
 
@@ -184,6 +193,7 @@ def apply(model: str, version: int) -> Decision:
 
 def mark_rejected(model: str, version: int, reason: str) -> None:
     """Record a stage or publish failure on an evaluated version; touches no alias."""
+    _check_reason(reason)
     modelregistry.mark_rejected(model, version, reason)
 
 

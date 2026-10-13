@@ -358,8 +358,13 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
             try:
                 gbdt = ranker_stage.run_stage(settings, ranker_inputs, model_version)
             except Exception as exc:
-                _mark_rejected(promotable, f"gbdt stage failed: {type(exc).__name__}: {exc}")
-                log.error("gbdt stage of %s failed, candidates rejected: %s", model_version, exc)
+                _mark_rejected(promotable, f"gbdt stage failed: {type(exc).__name__}")
+                log.error(
+                    "gbdt stage of %s failed, candidates rejected: %s",
+                    model_version,
+                    type(exc).__name__,
+                    exc_info=True,
+                )
                 raise
             summary["gbdt"] = gbdt.summary
             if gbdt.decision.outcome == "promotable":
@@ -371,8 +376,13 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
                 pairs = two_tower_stage.collect_pairs(triples, settings.two_tower_max_pairs)
                 two_tower = two_tower_stage.run_stage(settings, two_tower_inputs, pairs, model_version)
             except Exception as exc:
-                _mark_rejected(promotable, f"two-tower stage failed: {type(exc).__name__}: {exc}")
-                log.error("two-tower stage of %s failed, candidates rejected: %s", model_version, exc)
+                _mark_rejected(promotable, f"two-tower stage failed: {type(exc).__name__}")
+                log.error(
+                    "two-tower stage of %s failed, candidates rejected: %s",
+                    model_version,
+                    type(exc).__name__,
+                    exc_info=True,
+                )
                 raise
             if two_tower.decision is None:
                 summary["two_tower"] = {"decision": "skipped", "reason": two_tower.reason}
@@ -408,7 +418,12 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
             )
         except Exception as exc:
             _mark_rejected(promotable, f"publish failed: {type(exc).__name__}")
-            log.error("publish of %s failed, candidates rejected: %s", model_version, exc)
+            log.error(
+                "publish of %s failed, candidates rejected: %s",
+                model_version,
+                type(exc).__name__,
+                exc_info=True,
+            )
             raise
         _apply_all(promotable)
         if ranker_ships:

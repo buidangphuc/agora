@@ -39,6 +39,30 @@ def _numeric(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _safe_metrics(stored) -> dict[str, float]:
+    """Numeric metrics whose name passes the registry_client allow-list; the rest are dropped."""
+    out: dict[str, float] = {}
+    for k, v in stored.items():
+        if not _numeric(v):
+            continue
+        try:
+            registry_client._check_metrics({k: v})
+        except registry_client.PayloadRejected:
+            log.warning("dropping a non-allow-listed metric name from the Redis meta")
+            continue
+        out[k] = float(v)
+    return out
+
+
+def _safe_protocol(protocol) -> bool:
+    try:
+        registry_client._check_reason(protocol)
+    except registry_client.PayloadRejected:
+        log.warning("dropping an invalid eval_protocol from the Redis meta")
+        return False
+    return True
+
+
 def migrate(settings, redis_client=None) -> dict[str, str]:
     """Seed every model that has a Redis champion. Returns ``{model: "seeded" | "skipped: <why>"}``.
 
@@ -62,9 +86,9 @@ def migrate(settings, redis_client=None) -> dict[str, str]:
             outcome[model] = f"skipped: the meta of Redis champion {version} is not valid JSON"
             log.warning("%s: %s", model, outcome[model])
             continue
-        metrics = {k: float(v) for k, v in stored.items() if _numeric(v)}
+        metrics = _safe_metrics(stored)
         protocol = stored.get("eval_protocol")
-        lineage = {"eval_protocol": protocol} if protocol else {}
+        lineage = {"eval_protocol": protocol} if protocol and _safe_protocol(protocol) else {}
         try:
             modelregistry.seed(model, metrics, lineage, f"migrated from the Redis champion {version}")
         except GateError as exc:  # the model already has versions: leave it alone

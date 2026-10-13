@@ -138,7 +138,7 @@ def _evaluate_context(settings: Settings, matrix: training.Matrix, split: traini
     try:
         with_ctx = evaluate_variant(settings, matrix, split, with_context=True)
     except Exception as exc:  # noqa: BLE001 - context never fails the run
-        log.warning("context evaluation failed: %s", exc)
+        log.warning("context evaluation failed: %s", type(exc).__name__, exc_info=True)
         return {
             "context_features": "disabled",
             "context_reason": "evaluation_failed",
@@ -222,8 +222,8 @@ def run_stage(settings: Settings, inputs: RankerInputs, model_version: str) -> R
     if len(matrix.frame) == 0 or split.train_lists == 0 or split.test_lists == 0:
         return reject(
             f"no usable rows: {matrix.counts['rows']} rows after the point-in-time join "
-            f"({matrix.counts['rows_dropped_no_snapshot']} dropped for lack of an earlier snapshot), "
-            f"{split.train_lists} train and {split.test_lists} holdout impressions"
+            f"({matrix.counts['rows_dropped_no_snapshot']} dropped for lack of an earlier snapshot) "
+            f"and {split.train_lists} train and {split.test_lists} holdout impressions"
         )
 
     # ── evaluation: train on the split, judge on the holdout ─────────────────
