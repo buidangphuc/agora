@@ -56,3 +56,62 @@ Owns: `pkg/testkit/**`.
 Owns: `platform-core/tools/sync-go-sdk_test.sh`, `platform-core/tools/testdata/sync-fixture/**` (new).
 
 - [x] 8.1 The sync test copies a minimal fixture service (`go.mod`, one `proto/` file with `buf.gen.yaml`, a `main.go` importing a stable SDK package) instead of `team-sharing`, so a breaking SDK change does not fail the test until a real service adopts it. Every existing assertion of the test is kept. Verify `bash platform-core/tools/sync-go-sdk_test.sh`.
+
+## Review fixes
+
+Findings and fixes are listed in `review.md` (ids B*, M*, m*). Every packet: a red test for each correctness finding it owns (named `Test<Behaviour>`), then the fix; replace `time.Sleep` synchronisation in the tests it owns; godoc for every changed exported identifier; SDK `go build ./... && go vet ./... && go test -race ./<owned pkgs>/...` and `go tool golangci-lint run ./...` pass. A packet may touch `examples/**` or `platform-core/templates/_service-go/**` only to keep them compiling against its own API change. `go.mod`/`go.sum`: only packet 13; others report a needed dependency.
+
+## 9. config (wave 3)
+
+Owns: `pkg/config/**`, `examples/hello/internal/config/**`, `examples/hello/.env.example`.
+
+- [ ] 9.1 B1: `ENV` required (no default); `IsLocal` true only for explicit `local`/`test`; tests for unset ENV.
+- [ ] 9.2 M8: `Load` calls `Validate()` on every nested/embedded group and joins the errors; test with `GRPC` and `Postgres` embedded together.
+
+## 10. postgres pool (wave 3)
+
+Owns: `pkg/pgx/**` (renamed in packet 15).
+
+- [ ] 10.1 M7 `WithTx` rolls back on panic (test with a panicking fn, pool not exhausted); m6 warm-up ctx; m7 nil logger.
+
+## 11. outbox (wave 3)
+
+Owns: `pkg/outbox/**`.
+
+- [ ] 11.1 B2: `Publisher` is `PublishRecord(ctx, *kgo.Record) error`; records carry headers `event_id`, `event_type`, `x-request-id` and the `traceparent` stored at enqueue; per-row nullable `topic` column (relayer topic is the default); use or drop `principal` (document which). Schema change is additive (`ADD COLUMN IF NOT EXISTS` in `SchemaSQL`, plus a note for services' migrations).
+- [ ] 11.2 M5 relay batch ctx shorter than the claim lock; M6 head-of-line per aggregate (test: a failing older row blocks newer rows of the same aggregate but not other aggregates); m9 reject empty EventID, `Purge(ctx, olderThan)`.
+
+## 12. consume and kafkax (wave 3)
+
+Owns: `pkg/consume/**`, `pkg/kafkax/**`.
+
+- [ ] 12.1 M4 constructors return `(…, error)` and validate; m10 `NewDedupe` validates and returns an error, executor interface for `Seen`/`Processed`; m11 `Record` Partition/Timestamp/`Headers []Header`, DLQ source partition/offset/group headers.
+- [ ] 12.2 M1 per-record ctx with trace and request id (span links for batches); M2 commit once per fetch with rebalance safety (test: revoke mid-fetch does not rewind or double-commit); M3 `BatchOptions.MaxAttempts` (default 5) then DLQ; M5 default `RecordDeliveryTimeout` 30s in `NewProducer`; m13 Close doc, `kafkax.Checker`.
+
+## 13. grpcx, auth, idempotency (wave 3)
+
+Owns: `pkg/grpcx/**`, `pkg/auth/**`, `pkg/idempotency/**`, `examples/hello/internal/rpc/**`, `platform-core/templates/_service-go/internal/rpc/**`, `go.mod`, `go.sum`.
+
+- [ ] 13.1 M14 ordered error table; m3 default message is the sentinel text; M12 context errors map to Canceled/DeadlineExceeded without an ERROR log; m8 request-id validation.
+- [ ] 13.2 m15 `type PrincipalType string` for `Principal.Type` and the constants; `idempotency.ErrInvalidKey`.
+
+## 14. resilience, flags, lifecycle, healthx, upstream, testkit (wave 3)
+
+Owns: `pkg/resilience/**`, `pkg/flags/**`, `pkg/lifecycle/**`, `pkg/healthx/**`, `pkg/upstream/**`, `pkg/testkit/**`.
+
+- [ ] 14.1 M9 safe defaults and validation; M10 allow-list `Retryable`; M11 opaque `Policy`.
+- [ ] 14.2 M13 evaluation context (targeting key from `auth.FromContext` by default, attributes optional); m12 rate-limited evaluation warning, `Close` shuts down only this client's provider.
+- [ ] 14.3 m4 `Every` with options and interval validation, `healthx.New` rejects a non-positive interval; m18 one shared shutdown deadline; m14 default `round_robin` service config; m17 testkit Fatal in every caller under `GO_SDK_REQUIRE_DOCKER`, Ryuk documented.
+
+## 15. renames, durations, docs and spec (wave 4)
+
+Owns: everything under `platform-core/packages/go-sdk/**`, `platform-core/templates/_service-go/**`, `platform-core/docs/ADR/0016-go-service-convention-and-sdk.md`, `openspec/changes/go-sdk-v1/specs/**`.
+
+- [ ] 15.1 m5 rename package `pkg/pgx` to `pkg/postgres`; m14 rename `upstream.Dial` to `upstream.NewClient`; update every SDK caller, examples and the template.
+- [ ] 15.2 m1 every duration env var is a Go duration with a key without unit suffix (e.g. `SHUTDOWN_GRACE`, `OUTBOX_CLAIM_LOCK`, `FEATURE_FLAGS_EVAL_TIMEOUT`); list old → new keys in the SDK README "Upgrading to v1" section.
+- [ ] 15.3 m16 evaluate moving testkit/tooling to its own module; do it only if `sync-go-sdk.sh`, `check-go-sdk-vendor.sh` and the template smoke test keep passing, else document the decision in the README.
+- [ ] 15.4 m2 add MODIFIED/REMOVED requirement deltas in `specs/go-platform-sdk/spec.md` so the spec matches the code (reflection always on, no `DATABASE_ENABLED`, new signatures, ordering, headers, renames); README package table and an "Upgrading to v1" section; ADR-0016 snippets.
+
+## 16. Close review fixes (orchestrator)
+
+- [ ] 16.1 FEATURES entries for new scenarios; full SDK tests with `-race`, lint, template smoke, sync test, `ci_local`; re-run the staff review on the result.
