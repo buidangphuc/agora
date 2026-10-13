@@ -1737,7 +1737,7 @@ features:
     services: [team-order]
     acceptance:
       - WHEN the migrations run on a table in the previous schema that holds rows of one aggregate, one of them retried, and the SDK relayer then runs
-      - THEN every row has a unique seq in creation order, the v1 indexes are valid, and the events of the aggregate are published oldest first
+      - THEN every row has a unique seq in creation order and no row is left without one, the v1 indexes are valid, the v0 claim index is not left behind, and the events of the aggregate are published oldest first
     tags: [system, runtime]
     status: not-testable
     covered_by: null
