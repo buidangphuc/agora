@@ -26,4 +26,4 @@ Owns: `team-chat/**`, the team-chat blocks of `docker-compose*.yaml` and `platfo
 - [x] 3.1 Sync `go-sdk/v1.0.0` into team-chat only and fix every breaking change (package renames, ErrorTable, constructors returning errors, ENV required, renamed duration env keys and removed `OUTBOX_MAX_ATTEMPTS`, outbox `PublishRecord`, consume Record and DLQ headers, .env.example, compose and gitops).
 - [x] 3.2 Outbox table: forward-only migrations implementing `outbox.UpgradeSQL` (Prepare, Backfill, Switch in one transaction, Finish; `CONCURRENTLY` statements in their own migration files), a test that applies them to a table in the previous schema with rows and checks order, and a README deploy note (stop v0 relayers, purge published rows, requeue or delete v0 `failed` rows).
 - [x] 3.3 Replace local copies with SDK packages where the SDK now has them (as in the earlier task list, against v1). Sites left local get a one-line reason in the report.
-- [ ] 3.4 Verify `make check`, `docker build`, red_first, openspec validate.
+- [x] 3.4 Verify `make check`, `docker build`, red_first, openspec validate.
