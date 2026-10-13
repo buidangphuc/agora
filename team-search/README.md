@@ -4,14 +4,16 @@ Search and discovery read-model for the Agora marketplace (Go). It owns the Open
 `listings`, a projection built by consuming `listing.events` (CQRS, ADR-0005), and the
 `platform.search.v1.SearchService` gRPC API: lexical, semantic and hybrid (RRF) listing search,
 facets, prefix suggest, and per-user saved searches. Saved searches live in this service's own
-Postgres database (`search_db`) when `DATABASE_ENABLED=true`, and in memory otherwise.
+Postgres database (`search_db`). With `ENV=local` an unreachable database falls back to an in-memory store.
 
+The service is built on go-sdk v1.0.0 (ADR-0016, vendored in `third_party/go-sdk`). `internal/app` is the
+composition root with one entry per binary (`RunServer`, `RunIndexer`); both load the same `Settings`.
 Two binaries ship in one image (`Dockerfile`):
 
 | Binary | Entry | Role | Compose service |
 |---|---|---|---|
 | `/server` (default) | `cmd/server` | gRPC query API on `:50052` | `team-search` (container `team-search-svc`) |
-| `/indexer` | `cmd/indexer` | Kafka consumer that writes the index; requires `KAFKA_ENABLED=true` | `team-search-indexer` |
+| `/indexer` | `cmd/indexer` | Kafka consumer that writes the index | `team-search-indexer` |
 
 The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`.
 
@@ -86,7 +88,7 @@ principal `service-team-search`, scope `ai.classify`, 2 s deadline; empty = no c
 | Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
 | Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
 
-Handling (`internal/consumer/listing.go`):
+Handling (`internal/events/listing.go`):
 
 - Version guard: the document version is the envelope `occurred_at` in nanoseconds. Every
   whole-document write (upsert and delete) is one `scripted_upsert` guarded on `_source.version`
@@ -109,9 +111,10 @@ Handling (`internal/consumer/listing.go`):
   re-embed; delete on `CHANGE_TYPE_DELETED`.
 - `ListingPricingChanged`: partial update of `price` (promotional price if on sale) and `currency`.
 - `ListingStatusChanged`: delete on `REJECTED`, otherwise partial update of `status`.
-- Offsets are committed only after a record is handled or parked. Up to 5 attempts per record
-  with exponential backoff (100 ms base, 30 s cap), then the DLQ. If the DLQ write fails the
-  indexer exits without committing.
+- The consumer is the SDK `consume.Consumer`. Offsets are committed once per fetch, only after every
+  record of it is handled or parked. Up to 5 attempts per record with exponential backoff (100 ms base, 30 s cap),
+  then the DLQ; a parked record carries the `dlq-error`, `dlq-source-topic`, `dlq-source-partition`, `dlq-source-offset` and `dlq-source-group` headers. If the DLQ write fails
+  the indexer exits without committing, so the record is redelivered after the restart.
 
 ## Data
 
@@ -123,9 +126,11 @@ Handling (`internal/consumer/listing.go`):
 - Migrations are not applied by the service. In root compose, the `team-search-migrate`
   one-shot (golang-migrate) runs them and `team-search` depends on it. Standalone, run
   golang-migrate against `DATABASE_URL`.
-- `DATABASE_ENABLED=true` uses the Postgres repository (pgx; the DB is pinged at startup and
-  the server fails to start if it is unreachable). `false` uses an in-memory repository and logs
-  a warning: saved searches are lost on restart and not shared between replicas.
+- The database is always on (no enable flag). The server opens a pgx pool and pings it at startup,
+  and registers a `postgres` health check. If it is unreachable the server fails to start, except
+  with `ENV=local` (or `test`), where it uses an in-memory repository and logs a warning: saved
+  searches are lost on restart and not shared between replicas.
+- Health: `grpc.health.v1` follows two checks, `postgres` and `opensearch`; reflection is always on.
 
 ## Configuration
 
@@ -134,13 +139,13 @@ if `.env.example` and the config structs drift in either direction.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `prod`/`production` counts as prod |
+| `ENV` | none | required: `local`, `test`, `staging` or `prod`; `local` and `test` tolerate an unreachable database; `staging`, `stage`, `prod` and `production` also require `KAFKA_BROKERS` |
 | `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50052` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | |
+| `GRPC_PORT` | none | required, positive; the image sets `50052`, `.env.example` too |
+| `SHUTDOWN_GRACE` | `10s` | Go duration |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Go duration: pause after health reports NOT_SERVING, before the server stops |
 | `OPENSEARCH_URL` | `http://localhost:9200` | required non-empty |
 | `OPENSEARCH_INDEX` | `listings` | |
 | `MODEL_SERVER_URL` | `http://localhost:8100` | modelserve base URL (embed, rerank); 2 s HTTP client timeout |
@@ -152,14 +157,13 @@ if `.env.example` and the config structs drift in either direction.
 | `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_MIN_SCORE` | `0.65` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
-| `KAFKA_ENABLED` | `false` | the indexer refuses to start unless true; the server does not use Kafka |
-| `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
+| `KAFKA_BROKERS` | `localhost:9092` for `local`/`test`; none otherwise | comma-separated; required when `ENV` is strict |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
 | `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; invalid or non-positive falls back to the default with a WARN |
 | `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; same fallback |
-| `DATABASE_ENABLED` | `false` | Postgres vs in-memory saved searches; used by the server only |
-| `DATABASE_URL` | `""` | required when `DATABASE_ENABLED=true`; `.env.example` supplies a local value |
+| `DATABASE_URL` | none | required (both binaries load it; only the server opens it); `.env.example` supplies a local value |
+| `DB_MAX_CONNS` | `10` | pgx pool size |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` sets `http://localhost:4317`; the code default is empty |
 | `OTEL_SERVICE_NAME` | `team-search` | |
@@ -167,7 +171,7 @@ if `.env.example` and the config structs drift in either direction.
 ## Run locally
 
 Whole stack (root of the repo): `docker compose up -d --build`. This starts `team-search-migrate`,
-`team-search` and `team-search-indexer` with `DATABASE_ENABLED=true`, OpenSearch and Redpanda.
+`team-search` and `team-search-indexer`, with OpenSearch and Redpanda.
 The root compose files do not define a modelserve service, and `MODEL_SERVER_URL` is not set
 for team-search there, so embeds fail and hybrid search degrades to lexical (new documents are
 indexed with `vector_pending=true`). To get semantic results, run `platform-modelserve`
@@ -181,7 +185,7 @@ docker compose -f docker-compose.local.yaml up -d   # OpenSearch 2.15 on :9200 o
 # Redpanda: from platform-core/infra, or use the root stack
 cp .env.example .env
 make proto                                          # generated/ is gitignored
-KAFKA_ENABLED=true make indexer                     # Kafka -> OpenSearch
+make indexer                                  # Kafka -> OpenSearch
 make server                                         # gRPC on :50052
 ```
 
@@ -201,10 +205,10 @@ grpcurl -plaintext localhost:50052 grpc.health.v1.Health/Check
 | `make server` / `make indexer` | `go run` the binaries |
 | `make test` | `go test ./...` |
 | `make check-env` | `.env.example` vs config drift gate |
-| `make check` | merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
+| `make check` | merge gate from `make/go-service.mk`: `go vet`, `golangci-lint`, `go test -race` (Docker required: Redpanda tests must run, not skip), `check-env` |
 
-`go.mod` is Go 1.22; `franz-go` is pinned to v1.18.0 because newer tags require Go 1.25. The
-Docker build uses `golang:1.22`.
+The vendored SDK, `make/go-service.mk` and `.golangci.yml` come from `platform-core/tools/sync-go-sdk.sh`;
+never edit `third_party/go-sdk` by hand.
 
 ## Spec and verification
 
@@ -233,7 +237,7 @@ Docker build uses `golang:1.22`.
 
 - `generated/` is gitignored; run `make proto` before building or testing, or the packages do not compile.
 - `proto/` is vendored from platform-core (ADR-0001). Never edit it here; change the contract in platform-core and re-vendor.
-- Compose passes `DATABASE_*` to the indexer too, but the indexer never opens Postgres.
+- The indexer never opens Postgres, but it loads the same `Settings`, so it still needs `DATABASE_URL` and `GRPC_PORT` set (compose and the image do).
 - The index mapping is created once; changing a field's type (for example the vector dimension) needs a new index and a replay of the topic. Adding fields does not: `EnsureIndex` puts `additiveMapping` onto an existing index at boot (`stock`, `created_at`, `facet_tags`, nested `skus`, `tags_pending`, ...), idempotently.
 - Tags and nested SKUs (`facet_tags`, `skus`) are written only from events indexed after the classifier was enabled. To backfill existing listings (or to pick up tags promoted in team-ai later), replay the topic: stop the indexer, move the consumer group `team-search-indexer` back to the earliest offset (for example `rpk group seek team-search-indexer --to start`), start it. The version guard makes the replay idempotent. `team-search-migrate` is golang-migrate for the saved-search Postgres only and plays no part.
 - A classifier failure does not fail the event: the document gets `tags_pending` and keeps its stored tags (`writeScript`); a replay fixes it once team-ai is back.
@@ -245,7 +249,7 @@ Docker build uses `golang:1.22`.
 - `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
 - Root compose has no modelserve and does not set `MODEL_SERVER_URL` for team-search (see Run locally).
 - Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
-- With `DATABASE_ENABLED=false` (local/test only; staging/production refuse to boot), saved searches are in memory only.
+- With `ENV=local` and no reachable database, saved searches are in memory only; every other `ENV` refuses to boot.
 
 ## References
 

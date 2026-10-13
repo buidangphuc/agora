@@ -12,13 +12,13 @@ import (
 
 func searchBody(t *testing.T, filters map[string]string) map[string]any {
 	t.Helper()
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits":{"total":{"value":0},"hits":[]},"aggregations":{}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits":{"total":{"value":0},"hits":[]},"aggregations":{}}`, &sent)
 	if _, err := idx.Search(context.Background(), "", filters, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
 		t.Fatalf("Search: %v", err)
 	}
 	var body map[string]any
-	if err := json.Unmarshal([]byte(cap.body), &body); err != nil {
+	if err := json.Unmarshal([]byte(sent.body), &body); err != nil {
 		t.Fatal(err)
 	}
 	return body
@@ -65,7 +65,7 @@ func TestSearch_MalformedAttrFilterMatchesNothing(t *testing.T) {
 }
 
 func TestSearch_DynamicFacetsParsedPerGroup(t *testing.T) {
-	var cap capturedRequest
+	var sent capturedRequest
 	resp := `{
 	  "hits": {"total": {"value": 3}, "hits": []},
 	  "aggregations": {
@@ -79,7 +79,7 @@ func TestSearch_DynamicFacetsParsedPerGroup(t *testing.T) {
 	      {"key": "color:den", "doc_count": 1, "listings": {"doc_count": 1}}]}}}
 	  }
 	}`
-	idx := fakeOpenSearch(t, 200, resp, &cap)
+	idx := fakeOpenSearch(t, 200, resp, &sent)
 	res, err := idx.Search(context.Background(), "", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -101,8 +101,8 @@ func TestSearch_DynamicFacetsParsedPerGroup(t *testing.T) {
 }
 
 func TestSearch_EmptyResultHasNonNilDynamicFacets(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits":{"total":{"value":0},"hits":[]},"aggregations":{}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits":{"total":{"value":0},"hits":[]},"aggregations":{}}`, &sent)
 	res, err := idx.Search(context.Background(), "", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -113,14 +113,14 @@ func TestSearch_EmptyResultHasNonNilDynamicFacets(t *testing.T) {
 }
 
 func TestUpsert_ScriptKeepsStoredTagsWhenClassifierFailed(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &sent)
 	if err := idx.Upsert(context.Background(), index.ListingDoc{ID: "l1", Version: 5, TagsPending: true}); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"oldFacetTags", "oldSkus", "tags_pending", `"tags_pending":true`} {
-		if !strings.Contains(cap.body, want) {
-			t.Errorf("write request lacks %q: %s", want, cap.body)
+		if !strings.Contains(sent.body, want) {
+			t.Errorf("write request lacks %q: %s", want, sent.body)
 		}
 	}
 }

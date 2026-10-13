@@ -1,4 +1,5 @@
 # Per-service, per-env overlay for team-search in prod. Sets ENV so the service's strict-ENV boot
-# guards engage (config reads ENV; "production" => IsProd()). Merged over the baseline env map.
+# guards engage (config reads ENV; staging and production are strict: KAFKA_BROKERS is required, set in
+# the baseline env map). Merged over the baseline env map.
 env:
   ENV: "production"

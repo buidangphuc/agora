@@ -136,6 +136,19 @@ func New(url, name string) (*OpenSearchIndex, error) {
 	return &OpenSearchIndex{client: client, name: name, now: time.Now}, nil
 }
 
+// Ping reports whether the cluster answers; it backs the OpenSearch health checker.
+func (o *OpenSearchIndex) Ping(ctx context.Context) error {
+	res, err := opensearchapi.PingRequest{}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("ping opensearch: %w", err)
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("ping opensearch: %s", res.Status())
+	}
+	return nil
+}
+
 // indexMapping: title as search_as_you_type powers both full-text and prefix
 // suggestions; status/currency/category_id are keyword filters; price is numeric;
 // embedding is a dense vector supporting Lucene k-NN similarity (ADR-0005).

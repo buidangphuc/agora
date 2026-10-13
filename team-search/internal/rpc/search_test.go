@@ -1,0 +1,181 @@
+package rpc_test
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
+	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
+	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
+	"github.com/buidangphuc/team-search/internal/config"
+	"github.com/buidangphuc/team-search/internal/index"
+	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
+)
+
+type mockIndex struct {
+	docs          []index.ListingDoc
+	lastMinRating int32
+	lastFilters   map[string]string
+	searchCalls   int
+}
+
+func (m *mockIndex) EnsureIndex(_ context.Context) error { return nil }
+func (m *mockIndex) Upsert(_ context.Context, doc index.ListingDoc) error {
+	m.docs = append(m.docs, doc)
+	return nil
+}
+
+func (m *mockIndex) PartialUpdate(_ context.Context, _ string, _ map[string]interface{}) error {
+	return nil
+}
+func (m *mockIndex) Delete(_ context.Context, _ string, _ int64) error         { return nil }
+func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
+func (m *mockIndex) UpdateStock(context.Context, string, int32, int64) error   { return nil }
+func (m *mockIndex) Search(_ context.Context, _ string, filters map[string]string, _ string, _, _ int64, minRating int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
+	m.lastMinRating = minRating
+	m.lastFilters = filters
+	m.searchCalls++
+	return index.SearchResult{
+		Hits: []index.Hit{
+			{ListingID: "listing_1", Score: 1.5},
+			{ListingID: "listing_2", Score: 1.2},
+		},
+		Total: 2,
+		Facets: index.Facets{
+			Categories:  []index.FacetBucket{{Key: "cat_phones", Count: 2}},
+			PriceRanges: []index.FacetBucket{{Key: "0-100000", Count: 1}, {Key: "1000000+", Count: 1}},
+			Ratings:     []index.FacetBucket{{Key: "4", Count: 2}, {Key: "3", Count: 2}},
+			Sellers:     []index.FacetBucket{{Key: "seller_1", Count: 2}},
+			Tags:        []index.AttributeFacet{{Group: "connectivity", Buckets: []index.FacetBucket{{Key: "bluetooth-5-3", Count: 2}}}},
+			SKUs:        []index.AttributeFacet{{Group: "color", Buckets: []index.FacetBucket{{Key: "xanh-navy", Count: 1}, {Key: "den", Count: 1}}}},
+		},
+	}, nil
+}
+
+func (m *mockIndex) SearchVector(_ context.Context, _ []float32, _ map[string]string, _ string, _, _ int64, _ int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
+	return index.SearchResult{
+		Hits: []index.Hit{
+			{ListingID: "vec_listing_1", Score: 0.9},
+		},
+		Total: 1,
+	}, nil
+}
+
+func (m *mockIndex) Suggest(_ context.Context, _ string, _ int) ([]string, error) {
+	return []string{"iPhone 15", "iPhone 15 Pro", "iPhone 15 Pro Max"}, nil
+}
+
+// contextWithPrincipal injects a resolved Principal the way the gateway does:
+// as x-principal-* metadata run through the service's unary interceptor. The
+// interceptor's context setter is unexported, so tests reach it via this path.
+func contextWithPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
+	md := metadata.Pairs(
+		"x-principal-id", p.GetId(),
+		"x-principal-type", "user",
+		"x-principal-scopes", strings.Join(p.GetScopes(), ","),
+	)
+	ctx = metadata.NewIncomingContext(ctx, md)
+	var out context.Context
+	_, _ = auth.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
+		func(c context.Context, _ any) (any, error) {
+			out = c
+			return nil, nil
+		})
+	return out
+}
+
+func TestSearchHandler(t *testing.T) {
+	h := rpc.NewSearchHandler(&mockIndex{}, store.NewInMemorySavedSearchRepository())
+	principal := &commonv1.Principal{
+		Id:     "buyer_1",
+		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
+		Scopes: []string{"search:read"},
+	}
+	ctx := contextWithPrincipal(context.Background(), principal)
+
+	t.Run("SearchListings", func(t *testing.T) {
+		res, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{
+			Query: "iPhone",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error searching: %v", err)
+		}
+		if len(res.Hits) != 2 {
+			t.Errorf("expected 2 hits, got %d", len(res.Hits))
+		}
+		if res.Page.Total != 2 {
+			t.Errorf("expected total 2, got %d", res.Page.Total)
+		}
+	})
+
+	t.Run("SearchListings maps facets", func(t *testing.T) {
+		res, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "iPhone"})
+		if err != nil {
+			t.Fatalf("unexpected error searching: %v", err)
+		}
+		f := res.GetFacets()
+		if f == nil {
+			t.Fatal("expected non-nil facets")
+		}
+		if len(f.GetCategories()) != 1 || f.GetCategories()[0].GetKey() != "cat_phones" || f.GetCategories()[0].GetCount() != 2 {
+			t.Errorf("categories facet mismatch: %+v", f.GetCategories())
+		}
+		if len(f.GetPriceRanges()) != 2 || f.GetPriceRanges()[0].GetKey() != "0-100000" {
+			t.Errorf("price_ranges facet mismatch: %+v", f.GetPriceRanges())
+		}
+		if f.GetRatings() == nil || len(f.GetRatings()) != 0 {
+			t.Errorf("ratings facet must be an empty list (D9): %+v", f.GetRatings())
+		}
+		if len(f.GetSellers()) != 1 || f.GetSellers()[0].GetKey() != "seller_1" {
+			t.Errorf("sellers facet mismatch: %+v", f.GetSellers())
+		}
+		if g := f.GetTags(); len(g) != 1 || g[0].GetGroup() != "connectivity" || g[0].GetBuckets()[0].GetKey() != "bluetooth-5-3" || g[0].GetBuckets()[0].GetCount() != 2 {
+			t.Errorf("tags facet mismatch: %+v", g)
+		}
+		if g := f.GetSkus(); len(g) != 1 || g[0].GetGroup() != "color" || len(g[0].GetBuckets()) != 2 || g[0].GetBuckets()[0].GetKey() != "xanh-navy" {
+			t.Errorf("skus facet mismatch: %+v", g)
+		}
+	})
+
+	t.Run("Suggest", func(t *testing.T) {
+		res, err := h.Suggest(ctx, &searchv1.SuggestRequest{
+			Query: "iPh",
+			Limit: 5,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error suggesting: %v", err)
+		}
+		if len(res.Suggestions) != 3 {
+			t.Errorf("expected 3 suggestions, got %d", len(res.Suggestions))
+		}
+	})
+
+	t.Run("SearchListings with Engine and SearchMode", func(t *testing.T) {
+		embed := &retrieval.MockEmbedClient{Dim: 4}
+		eng := retrieval.NewEngine(&mockIndex{}, embed, nil, config.Retrieval{
+			EnableHybridSearch: true,
+			HybridRRFK:         60,
+			HybridFusionWindow: 200,
+		})
+		hEngine := rpc.NewSearchHandlerWithEngine(&mockIndex{}, eng, store.NewInMemorySavedSearchRepository())
+
+		res, err := hEngine.SearchListings(ctx, &searchv1.SearchListingsRequest{
+			Query:      "iPhone",
+			SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID,
+		})
+		if err != nil {
+			t.Fatalf("SearchListings hybrid error: %v", err)
+		}
+		if len(res.Hits) == 0 {
+			t.Errorf("expected non-empty hits from hybrid engine")
+		}
+	})
+}
