@@ -56,8 +56,8 @@ func NewRelayer(s *Store, p Publisher, o RelayerOptions) *Relayer {
 	if o.Config.BatchSize <= 0 {
 		o.Config.BatchSize = 100
 	}
-	if o.Config.ClaimLockSeconds <= 0 {
-		o.Config.ClaimLockSeconds = 60
+	if o.Config.ClaimLock <= 0 {
+		o.Config.ClaimLock = time.Minute
 	}
 	if o.Config.MaxAttempts <= 0 {
 		o.Config.MaxAttempts = 10
@@ -116,12 +116,12 @@ func (r *Relayer) Run(ctx context.Context) error {
 // lease and cause a second relayer to publish the same rows. Marking a row done
 // is not bound by the budget or by ctx cancellation.
 func (r *Relayer) RelayOnce(ctx context.Context) (Report, error) {
-	rows, err := r.store.claim(ctx, r.opt.Config.BatchSize, r.opt.Config.ClaimLockSeconds)
+	rows, err := r.store.claim(ctx, r.opt.Config.BatchSize, r.opt.Config.ClaimLock)
 	if err != nil {
 		return Report{}, err
 	}
 	rep := Report{Claimed: len(rows)}
-	budget := time.Duration(r.opt.Config.ClaimLockSeconds) * time.Second / 2
+	budget := r.opt.Config.ClaimLock / 2
 	pubCtx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	// Marks outlive both the budget and a shutdown, or a delivered row would be

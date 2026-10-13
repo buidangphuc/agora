@@ -43,12 +43,13 @@ func (r Runtime) IsStrict() bool {
 
 // GRPC holds the gRPC listener settings.
 type GRPC struct {
-	Host                 string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port                 int     `env:"GRPC_PORT,required"`
-	ShutdownGraceSeconds float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-	// DrainDelaySeconds is how long to keep serving after health reports
-	// NOT_SERVING, so probes and load balancers notice before the server stops.
-	DrainDelaySeconds float64 `env:"SHUTDOWN_DRAIN_DELAY_SECONDS" default:"0"`
+	Host string `env:"GRPC_HOST" default:"0.0.0.0"`
+	Port int    `env:"GRPC_PORT,required"`
+	// ShutdownGrace is the graceful shutdown deadline, a Go duration such as "10s".
+	ShutdownGrace time.Duration `env:"SHUTDOWN_GRACE" default:"10s"`
+	// DrainDelay is how long to keep serving after health reports NOT_SERVING,
+	// so probes and load balancers notice before the server stops.
+	DrainDelay time.Duration `env:"SHUTDOWN_DRAIN_DELAY" default:"0s"`
 }
 
 // Validate rejects a missing or non-positive port. An empty GRPC_PORT= parses
@@ -63,16 +64,6 @@ func (g GRPC) Validate() error {
 
 // Addr returns the host:port the server listens on.
 func (g GRPC) Addr() string { return net.JoinHostPort(g.Host, strconv.Itoa(g.Port)) }
-
-// ShutdownGrace returns the graceful shutdown deadline.
-func (g GRPC) ShutdownGrace() time.Duration {
-	return time.Duration(g.ShutdownGraceSeconds * float64(time.Second))
-}
-
-// DrainDelay returns the pause between draining health and stopping components.
-func (g GRPC) DrainDelay() time.Duration {
-	return time.Duration(g.DrainDelaySeconds * float64(time.Second))
-}
 
 // Postgres holds the database settings.
 type Postgres struct {
@@ -114,18 +105,20 @@ func (k Kafka) BrokerList() []string {
 
 // Outbox holds the outbox relayer settings.
 type Outbox struct {
-	PollInterval     time.Duration `env:"OUTBOX_POLL_INTERVAL" default:"1s"`
-	BatchSize        int           `env:"OUTBOX_BATCH_SIZE" default:"100"`
-	ClaimLockSeconds int           `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
-	MaxAttempts      int           `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+	PollInterval time.Duration `env:"OUTBOX_POLL_INTERVAL" default:"1s"`
+	BatchSize    int           `env:"OUTBOX_BATCH_SIZE" default:"100"`
+	// ClaimLock is how long a claimed row stays leased to one relayer.
+	ClaimLock   time.Duration `env:"OUTBOX_CLAIM_LOCK" default:"60s"`
+	MaxAttempts int           `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
 }
 
 // Flags holds the feature-flag settings. Enabled stays a flag because some
 // environments run without Flipt.
 type Flags struct {
-	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
-	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
+	Enabled   bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
+	FliptAddr string `env:"FLIPT_ADDR" default:"localhost:9000"`
+	// EvalTimeout bounds one flag evaluation.
+	EvalTimeout time.Duration `env:"FEATURE_FLAGS_EVAL_TIMEOUT" default:"500ms"`
 }
 
 // PositiveDuration parses raw, a Go duration such as "20s" or "15m", for the

@@ -125,14 +125,14 @@ func grpcMethod(ctx context.Context) string {
 
 // Serve returns a component that listens on c.Addr() and serves srv. When its
 // context ends it calls GracefulStop and, if that has not finished within
-// c.ShutdownGrace(), Stop.
+// c.ShutdownGrace, Stop.
 func Serve(srv *grpc.Server, c config.GRPC) lifecycle.Component {
 	return lifecycle.Func(func(ctx context.Context) error {
 		lis, err := net.Listen("tcp", c.Addr())
 		if err != nil {
 			return fmt.Errorf("grpcx: listen %s: %w", c.Addr(), err)
 		}
-		return ServeListener(srv, lis, c.ShutdownGrace()).Run(ctx)
+		return ServeListener(srv, lis, c.ShutdownGrace).Run(ctx)
 	})
 }
 

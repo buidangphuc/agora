@@ -56,8 +56,8 @@ func Run(ctx context.Context, s config.Settings) error {
 	rpc.Register(srv, rpc.NewHandler(logger))
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,

@@ -345,7 +345,7 @@ func dialWhenUp(t *testing.T, addr string) *grpc.ClientConn {
 
 func TestServeStopsGracefullyOnCancel(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
-	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 5}
+	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGrace: 5 * time.Second}
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)}), testSvc(nil))
 
@@ -370,7 +370,7 @@ func TestServeStopsGracefullyOnCancel(t *testing.T) {
 
 func TestServeForcesStopAfterGrace(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
-	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 0.2}
+	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGrace: 200 * time.Millisecond}
 	started := make(chan struct{})
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{

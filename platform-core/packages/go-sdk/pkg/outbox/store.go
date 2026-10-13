@@ -151,18 +151,18 @@ func (s *Store) Purge(ctx context.Context, olderThan time.Duration) (int64, erro
 	return tag.RowsAffected(), nil
 }
 
-// claim leases up to batch pending, available, unlocked rows for lockSeconds.
+// claim leases up to batch pending, available, unlocked rows for lock.
 // Order is per aggregate: a row is never claimed while an older row of the same
 // aggregate is unpublished, whether that row is backing off, leased by another
 // relayer or parked as failed. So a pass claims at most one row per aggregate.
 // FOR UPDATE SKIP LOCKED keeps concurrent relayers off each other's rows. The
 // outer ORDER BY is needed because UPDATE ... RETURNING does not keep the
 // subquery order.
-func (s *Store) claim(ctx context.Context, batch, lockSeconds int) ([]pending, error) {
+func (s *Store) claim(ctx context.Context, batch int, lock time.Duration) ([]pending, error) {
 	q := `
 		WITH claimed AS (
 			UPDATE ` + s.table + `
-			SET locked_until = now() + ($2 * interval '1 second')
+			SET locked_until = now() + ($2::float8 * interval '1 second')
 			WHERE event_id IN (
 				SELECT c.event_id FROM ` + s.table + ` c
 				WHERE c.status = 'pending'
@@ -182,7 +182,7 @@ func (s *Store) claim(ctx context.Context, batch, lockSeconds int) ([]pending, e
 		)
 		SELECT event_id, aggregate_id, event_type, payload, topic, request_id, traceparent, attempts FROM claimed
 		ORDER BY seq`
-	rows, err := s.pool.Query(ctx, q, batch, lockSeconds)
+	rows, err := s.pool.Query(ctx, q, batch, lock.Seconds())
 	if err != nil {
 		return nil, fmt.Errorf("claim outbox rows: %w", err)
 	}

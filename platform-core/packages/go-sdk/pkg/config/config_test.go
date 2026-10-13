@@ -33,7 +33,7 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	if s.Host != "0.0.0.0" {
 		t.Errorf("Host = %q, want 0.0.0.0", s.Host)
 	}
-	if got := s.ShutdownGrace(); got != 10*time.Second {
+	if got := s.ShutdownGrace; got != 10*time.Second {
 		t.Errorf("ShutdownGrace = %v, want 10s", got)
 	}
 	if got := s.Addr(); got != "0.0.0.0:50065" {
@@ -165,10 +165,10 @@ func TestDatabaseURLRequiredEvenWithLegacyDisableFlag(t *testing.T) {
 func TestDrainDelay(t *testing.T) {
 	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "1")
-	t.Setenv("SHUTDOWN_DRAIN_DELAY_SECONDS", "1.5")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY", "1500ms")
 	s, err := config.Load[svcSettings]()
-	if err != nil || s.DrainDelay() != 1500*time.Millisecond {
-		t.Fatalf("DrainDelay = %v, %v", s.DrainDelay(), err)
+	if err != nil || s.DrainDelay != 1500*time.Millisecond {
+		t.Fatalf("DrainDelay = %v, %v", s.DrainDelay, err)
 	}
 }
 

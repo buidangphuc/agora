@@ -20,7 +20,7 @@ import (
 var quiet = slog.New(slog.DiscardHandler)
 
 func TestUnreachableFliptReturnsDefault(t *testing.T) {
-	cfg := config.Flags{Enabled: true, FliptAddr: "127.0.0.1:1", EvalTimeoutMS: 300}
+	cfg := config.Flags{Enabled: true, FliptAddr: "127.0.0.1:1", EvalTimeout: 300 * time.Millisecond}
 	c, err := flags.New(context.Background(), cfg, quiet)
 	if err != nil {
 		t.Fatalf("New: %v", err)

@@ -105,7 +105,7 @@ func New(ctx context.Context, c config.Flags, logger *slog.Logger) (*Client, err
 		return nil, errors.New("FLIPT_ADDR is required when feature flags are enabled")
 	}
 	provider := flipt.NewProvider(flipt.WithAddress(dialTarget(c.FliptAddr)))
-	cl, err := newClient(ctx, provider, time.Duration(c.EvalTimeoutMS)*time.Millisecond, logger)
+	cl, err := newClient(ctx, provider, c.EvalTimeout, logger)
 	if err != nil {
 		return nil, err
 	}

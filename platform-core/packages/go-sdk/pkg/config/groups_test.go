@@ -22,11 +22,11 @@ func TestMessagingGroupDefaults(t *testing.T) {
 	if got := s.Kafka.BrokerList(); !slices.Equal(got, []string{"localhost:9092"}) {
 		t.Errorf("BrokerList = %v", got)
 	}
-	want := config.Outbox{PollInterval: time.Second, BatchSize: 100, ClaimLockSeconds: 60, MaxAttempts: 10}
+	want := config.Outbox{PollInterval: time.Second, BatchSize: 100, ClaimLock: time.Minute, MaxAttempts: 10}
 	if s.Outbox != want {
 		t.Errorf("Outbox = %+v, want %+v", s.Outbox, want)
 	}
-	wantFlags := config.Flags{Enabled: true, FliptAddr: "localhost:9000", EvalTimeoutMS: 500}
+	wantFlags := config.Flags{Enabled: true, FliptAddr: "localhost:9000", EvalTimeout: 500 * time.Millisecond}
 	if s.Flags != wantFlags {
 		t.Errorf("Flags = %+v, want %+v", s.Flags, wantFlags)
 	}

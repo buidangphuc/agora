@@ -109,7 +109,7 @@ func TestConcurrentRelayersPublishOnce(t *testing.T) {
 		enqueue(t, pool, s, fmt.Sprintf("e%03d", i))
 	}
 	pub := &recorder{}
-	opts := outbox.RelayerOptions{Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3}}
+	opts := outbox.RelayerOptions{Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}}
 	a, b := outbox.NewRelayer(s, pub, opts), outbox.NewRelayer(s, pub, opts)
 
 	var wg sync.WaitGroup
@@ -156,7 +156,7 @@ func TestFailingRowBacksOffThenParks(t *testing.T) {
 	enqueue(t, pool, s, "good")
 	pub := &recorder{failKeys: map[string]bool{"agg-bad": true}}
 	r := outbox.NewRelayer(s, pub, outbox.RelayerOptions{
-		Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3},
+		Topic: "t", Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3},
 		BaseBackoff: time.Minute, MaxBackoff: time.Hour,
 	})
 
@@ -316,7 +316,7 @@ func TestOrderPerAggregate(t *testing.T) {
 	enqueueAgg(t, pool, s, "A", "a1", "a2", "a3", "a4", "a5")
 	enqueueAgg(t, pool, s, "B", "b1", "b2")
 	pub := &recorder{}
-	drain(t, relayer(s, pub, config.Outbox{BatchSize: 3, ClaimLockSeconds: 60, MaxAttempts: 3}), 20)
+	drain(t, relayer(s, pub, config.Outbox{BatchSize: 3, ClaimLock: time.Minute, MaxAttempts: 3}), 20)
 
 	var a, b []string
 	for _, id := range pub.eventIDs() {
@@ -338,7 +338,7 @@ func TestFailingRowBlocksItsAggregateOnly(t *testing.T) {
 	enqueueAgg(t, pool, s, "B", "b1")
 	pub := &recorder{}
 	pub.setFailIDs("a1")
-	r := relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 5})
+	r := relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 5})
 
 	rep, err := r.RelayOnce(ctx)
 	if err != nil || rep.Retried != 1 || rep.Published != 1 {
@@ -372,7 +372,7 @@ func TestParkedRowBlocksItsAggregate(t *testing.T) {
 	enqueueAgg(t, pool, s, "A", "a1", "a2")
 	pub := &recorder{}
 	pub.setFailIDs("a1")
-	r := relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 1})
+	r := relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 1})
 	if rep, _ := r.RelayOnce(ctx); rep.Parked != 1 {
 		t.Fatalf("a1 not parked: %+v", rep)
 	}
@@ -406,7 +406,7 @@ func TestPublishedRecordCarriesHeaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	pub := &recorder{}
-	relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3}).RelayOnce(ctx) //nolint:errcheck // asserted via the recorder
+	relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}).RelayOnce(ctx) //nolint:errcheck // asserted via the recorder
 	if len(pub.recs) != 1 {
 		t.Fatalf("published %d records", len(pub.recs))
 	}
@@ -438,7 +438,7 @@ func TestRowTopicOverridesRelayerTopic(t *testing.T) {
 	}
 	enqueue(t, pool, s, "e2")
 	pub := &recorder{}
-	drain(t, relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3}), 5)
+	drain(t, relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}), 5)
 	topics := map[string]string{}
 	for _, rec := range pub.recs {
 		topics[header(rec, "event_id")] = rec.Topic
@@ -466,7 +466,7 @@ func TestRelayBatchBoundedUnderBlockingPublisher(t *testing.T) {
 	enqueue(t, pool, s, "e2")
 	enqueue(t, pool, s, "e3")
 	const lock = 4
-	r := relayer(s, &recorder{block: true}, config.Outbox{BatchSize: 10, ClaimLockSeconds: lock, MaxAttempts: 5})
+	r := relayer(s, &recorder{block: true}, config.Outbox{BatchSize: 10, ClaimLock: lock * time.Second, MaxAttempts: 5})
 
 	start := time.Now()
 	if _, err := r.RelayOnce(ctx); err != nil {
@@ -488,7 +488,7 @@ func TestPurgeDeletesOnlyOldPublishedRows(t *testing.T) {
 		enqueue(t, pool, s, id)
 	}
 	pub := &recorder{failIDs: map[string]bool{"pending": true}}
-	drain(t, relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 5}), 5)
+	drain(t, relayer(s, pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 5}), 5)
 	if _, err := pool.Exec(ctx, `UPDATE `+table+` SET published_at = now() - interval '48 hours' WHERE event_id = 'old'`); err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +538,7 @@ func TestSchemaSQLUpgradesTableFromOldSchema(t *testing.T) {
 		t.Fatalf("upgrade: %v", err)
 	}
 	pub := &recorder{}
-	drain(t, relayer(outbox.NewStore(pool, table), pub, config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3}), 3)
+	drain(t, relayer(outbox.NewStore(pool, table), pub, config.Outbox{BatchSize: 10, ClaimLock: time.Minute, MaxAttempts: 3}), 3)
 	if got := pub.eventIDs(); !slices.Equal(got, []string{"legacy"}) {
 		t.Fatalf("published = %v, want the pre-upgrade row", got)
 	}
