@@ -40,7 +40,9 @@ require (
 require connectrpc.com/grpcreflect v1.3.0
 
 require (
+	github.com/bits-and-blooms/bitset v1.24.6 // indirect
 	github.com/caarlos0/env/v11 v11.4.1 // indirect
+	github.com/failsafe-go/failsafe-go v0.9.8 // indirect
 	github.com/twmb/franz-go/plugin/kotel v1.7.1 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 )

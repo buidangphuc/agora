@@ -11,6 +11,7 @@ import (
 )
 
 func TestGatewayConfig(t *testing.T) {
+	t.Setenv("ENV", "local")
 	os.Setenv("JWKS_URL", "http://team-identity:50063/.well-known/jwks.json")
 	os.Setenv("HTTP_PORT", "9090")
 	defer func() {
@@ -82,6 +83,7 @@ func TestValidateRefusesReflectionInStrictEnv(t *testing.T) {
 }
 
 func TestEdgeDefaults(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("JWKS_URL", "http://identity/jwks")
 	cfg, err := config.Load()
 	if err != nil {

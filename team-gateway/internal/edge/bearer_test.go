@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
+
 	orderv1 "github.com/buidangphuc/team-gateway/generated/platform/order/v1"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
 	searchv1 "github.com/buidangphuc/team-gateway/generated/platform/search/v1"
@@ -73,16 +75,14 @@ func mint(t *testing.T, key *rsa.PrivateKey, kid string, exp time.Time) string {
 // mintSID is mint with a `sid` (session id) claim.
 func mintSID(t *testing.T, key *rsa.PrivateKey, kid string, exp time.Time, sid string) string {
 	t.Helper()
-	claims := &token.Claims{
+	claims := &token.Claims{Claims: jwtx.Claims{
 		Type:      "user",
 		Scopes:    []string{"order.read", "search:read"},
 		SessionID: sid,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "user-1",
-			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
-			ExpiresAt: jwt.NewNumericDate(exp),
-		},
-	}
+		Subject:   "user-1",
+		IssuedAt:  time.Now().Add(-2 * time.Hour).Unix(),
+		ExpiresAt: exp.Unix(),
+	}}
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tok.Header["kid"] = kid
 	s, err := tok.SignedString(key)

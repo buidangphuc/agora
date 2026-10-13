@@ -12,19 +12,42 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
 )
 
-// Claims are the platform's JWT claims: a Principal (sub/type/scopes) + name.
+// Claims are the platform's JWT claims (jwtx.Claims: a Principal sub/typ/scopes
+// plus name and the `sid` session id the edge checks against the revocation
+// denylist, ADR-0003 addendum), made a jwt.Claims so the library validates exp
+// and nbf. The wire format is jwtx's, shared with team-identity.
 type Claims struct {
-	Name   string   `json:"name"`
-	Type   string   `json:"typ"` // "user" | "service" | "anonymous"
-	Scopes []string `json:"scopes"`
-	// SessionID is the `sid` claim: the id of the identity session the token was
-	// issued for. Empty on service tokens. The edge checks it against the
-	// revocation denylist (ADR-0003 addendum).
-	SessionID string `json:"sid,omitempty"`
-	jwt.RegisteredClaims
+	jwtx.Claims
 }
+
+func numericDate(sec int64) *jwt.NumericDate {
+	if sec == 0 {
+		return nil
+	}
+	return jwt.NewNumericDate(time.Unix(sec, 0))
+}
+
+// GetExpirationTime implements jwt.Claims.
+func (c Claims) GetExpirationTime() (*jwt.NumericDate, error) { return numericDate(c.ExpiresAt), nil }
+
+// GetIssuedAt implements jwt.Claims.
+func (c Claims) GetIssuedAt() (*jwt.NumericDate, error) { return numericDate(c.IssuedAt), nil }
+
+// GetNotBefore implements jwt.Claims.
+func (c Claims) GetNotBefore() (*jwt.NumericDate, error) { return numericDate(c.NotBefore), nil }
+
+// GetIssuer implements jwt.Claims.
+func (c Claims) GetIssuer() (string, error) { return c.Issuer, nil }
+
+// GetSubject implements jwt.Claims.
+func (c Claims) GetSubject() (string, error) { return c.Subject, nil }
+
+// GetAudience implements jwt.Claims.
+func (c Claims) GetAudience() (jwt.ClaimStrings, error) { return jwt.ClaimStrings(c.Audience), nil }
 
 // Verifier verifies RS256 tokens against a cached JWKS keyset fetched from
 // team-identity. It never holds a private key.

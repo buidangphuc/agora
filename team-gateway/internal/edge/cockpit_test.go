@@ -21,6 +21,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
+
 	analyticsv1 "github.com/buidangphuc/team-gateway/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-gateway/internal/edge"
 	"github.com/buidangphuc/team-gateway/internal/token"
@@ -53,15 +55,13 @@ func newCockpitFixture(t *testing.T) *cockpitFixture {
 
 func (f *cockpitFixture) token(t *testing.T, scopes ...string) string {
 	t.Helper()
-	claims := &token.Claims{
-		Type:   "user",
-		Scopes: scopes,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "user-1",
-			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-time.Minute)),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
-	}
+	claims := &token.Claims{Claims: jwtx.Claims{
+		Type:      "user",
+		Scopes:    scopes,
+		Subject:   "user-1",
+		IssuedAt:  time.Now().Add(-time.Minute).Unix(),
+		ExpiresAt: time.Now().Add(time.Hour).Unix(),
+	}}
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tok.Header["kid"] = "kid-1"
 	s, err := tok.SignedString(f.key)

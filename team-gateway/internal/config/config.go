@@ -149,7 +149,7 @@ func (s Settings) Validate() error {
 	if s.Server.ShutdownGrace < 0 {
 		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
 	}
-	if s.IsStrictEnv() && s.Edge.ReflectionEnabled {
+	if s.IsStrict() && s.Edge.ReflectionEnabled {
 		return fmt.Errorf("EDGE_REFLECTION_ENABLED must not be true when ENV=%s", s.Env)
 	}
 	return nil
@@ -180,14 +180,4 @@ func splitCSV(v string) []string {
 func (s Settings) IsProd() bool {
 	e := strings.ToLower(strings.TrimSpace(s.Env))
 	return e == "prod" || e == "production"
-}
-
-// IsStrictEnv reports staging or production: environments where dev-only
-// switches must refuse to boot.
-func (s Settings) IsStrictEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(s.Env)) {
-	case "staging", "stage", "prod", "production":
-		return true
-	}
-	return false
 }

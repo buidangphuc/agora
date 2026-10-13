@@ -12,6 +12,7 @@ import (
 func TestReflectionRejectedInProd(t *testing.T) {
 	t.Setenv("JWKS_URL", "http://identity/jwks")
 	t.Setenv("ENV", "production")
+	t.Setenv("KAFKA_BROKERS", "k1:9092")
 	t.Setenv("EDGE_REFLECTION_ENABLED", "true")
 
 	_, err := config.Load()
@@ -29,6 +30,7 @@ func TestReflectionRejectedInProd(t *testing.T) {
 // KAFKA_ENABLED=false in an old environment is ignored, and the brokers still
 // come from KAFKA_BROKERS.
 func TestKafkaHasNoEnableFlag(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("JWKS_URL", "http://identity/jwks")
 	t.Setenv("KAFKA_ENABLED", "false")
 	t.Setenv("KAFKA_BROKERS", "k1:9092, k2:9092")

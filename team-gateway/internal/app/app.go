@@ -161,7 +161,7 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	// down never stops the gateway starting (revocations just are not enforced,
 	// logged, and visible on gateway_revocation_consumer_up).
 	list := revocation.NewDenylist()
-	consumer := revocation.NewConsumer(s.BrokerList(), s.Identity.Topic, list, logger)
+	consumer := revocation.NewConsumer(s.Kafka, s.Identity.Topic, list, logger)
 	e.WithRevocations(list)
 	if err := revocation.RegisterMetrics(consumer); err != nil {
 		logger.WarnContext(ctx, "revocation metrics not registered", "err", err)

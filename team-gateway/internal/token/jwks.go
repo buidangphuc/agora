@@ -16,21 +16,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
 )
-
-// jwk is a single RSA public key in JWK form (RFC 7517/7518).
-type jwk struct {
-	Kty string `json:"kty"`
-	Use string `json:"use"`
-	Alg string `json:"alg"`
-	Kid string `json:"kid"`
-	N   string `json:"n"`
-	E   string `json:"e"`
-}
-
-type jwksDoc struct {
-	Keys []jwk `json:"keys"`
-}
 
 // keySet is a TTL-cached JWKS keyset fetched from a URL, indexed by kid.
 type keySet struct {
@@ -134,7 +122,7 @@ func fetchJWKS(ctx context.Context, client *http.Client, url string) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("token: read JWKS body: %w", err)
 	}
-	var doc jwksDoc
+	var doc jwtx.JWKS
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, fmt.Errorf("token: decode JWKS: %w", err)
 	}
@@ -152,7 +140,7 @@ func fetchJWKS(ctx context.Context, client *http.Client, url string) (map[string
 	return out, nil
 }
 
-func parseRSAJWK(k jwk) (*rsa.PublicKey, error) {
+func parseRSAJWK(k jwtx.JWK) (*rsa.PublicKey, error) {
 	nb, err := base64.RawURLEncoding.DecodeString(k.N)
 	if err != nil {
 		return nil, fmt.Errorf("decode n: %w", err)

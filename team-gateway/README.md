@@ -121,9 +121,9 @@ internal/config/      Settings (SDK groups + gateway groups), Validate, Load; it
 internal/edge/        Connect handlers, policy, auth resolution, rate limits, collector, cockpit, SSE
 internal/events/      analytics producer (kafkax producer behind AnalyticsPublisher)
 internal/revocation/  identity.events consumer and session denylist
-internal/token/       RS256 JWT verification, JWKS cache
+internal/token/       RS256 JWT verification (jwtx wire types), JWKS cache
 internal/upstream/    gRPC clients to the upstream services
-third_party/go-sdk    vendored go-sdk/v0.2.1
+third_party/go-sdk    vendored go-sdk/v1.0.0
 ```
 
 `app.Run` builds, in order: logger (`logx`), telemetry (`otelx`: tracer, meter, W3C propagator),
@@ -140,12 +140,21 @@ Not adopted, and why:
   to forward `x-principal-*` (AGENTS.md rule 5).
 - `healthx`: it flips a gRPC health status on dependency checks. `/healthz` is a plain HTTP `200`
   that deliberately ignores dependencies (the edge fails open without Kafka or JWKS).
-- `upstream`: it forwards the principal and request id from the gRPC server context and bounds
-  every unary call at 2 s by default. The edge builds that metadata itself, sets per-RPC
-  deadlines (`CALL_TIMEOUT_SECONDS`, `AI_CALL_TIMEOUT_SECONDS`), retries reads, and caps the
-  reconnect backoff (`DIAL_TIMEOUT_SECONDS`), so `internal/upstream` stays.
-- `kafkax.NewConsumerClient`: it requires a consumer group; the revocation consumer must read
-  every partition from the earliest offset without one, so it keeps its own franz-go client.
+- `upstream.NewClient`: its interceptors rewrite the outgoing principal metadata from the gRPC
+  server context (and drop it when there is none), bound every unary call at 2 s and balance with
+  round_robin. The edge builds `x-principal-*` itself (anonymous callers included), sets per-RPC
+  deadlines (`CALL_TIMEOUT_SECONDS`, `AI_CALL_TIMEOUT_SECONDS`) and caps the reconnect backoff
+  (`DIAL_TIMEOUT_SECONDS`), so `internal/upstream` stays.
+- `lifecycle.HTTP`: when the grace period runs out it returns the shutdown deadline error, which
+  exits the process non-zero; the edge's own `serve` closes the leftover connections and exits 0,
+  and treats a zero grace as "close at once" (the SDK reads it as 10 s).
+- The JWKS cache, the rate limiter and the revocation denylist are edge-only and stay local.
+
+Adopted from the SDK: `auth` (principal metadata keys, `TypeAnonymous`), `idempotency`
+(`MDKey`, `Validate`), `reqctx` (request-id key), `jwtx` (claims and JWKS wire types, shared with
+team-identity), `resilience` (`callRead`: retry only on `Unavailable`, 50 ms doubling backoff with
+jitter), `kafkax` (producer and the group-less `NewConsumerClient("")` of the revocation
+consumer), `config` (`Runtime.IsStrict`).
 
 ## Data
 
@@ -156,13 +165,14 @@ None. The gateway has no database, no migrations and no local state beyond in-me
 
 Loaded by `config.Load` (`internal/config/config.go`, go-sdk `config.Load[Settings]`) with the
 listed defaults: the SDK groups `Runtime` (`ENV`, `LOG_*`), `Kafka` (`KAFKA_BROKERS`) and `OTel`
-(`OTEL_*`) next to the gateway's own groups. `.env.example` mirrors them; `make check-env`
+(`OTEL_*`) next to the gateway's own groups. `KAFKA_BROKERS` defaults to `localhost:9092` only
+when `ENV` is `local` or `test`; in a strict `ENV` it is required. `.env.example` mirrors them; `make check-env`
 (`TestEnvExampleInSync`) fails if the two drift in either direction. This table is not covered by
 that gate.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | `prod` / `production` marks production |
+| `ENV` | none, **required** | `local` or `test` for development; `staging`, `stage`, `prod`, `production` are strict (reflection refused, `KAFKA_BROKERS` required) |
 | `LOG_LEVEL` | `info` | Log level |
 | `LOG_JSON` | `true` | JSON logs |
 | `HTTP_HOST` | `0.0.0.0` | Listen host |
@@ -196,13 +206,13 @@ that gate.
 | `RATE_LIMIT_RPS` | `20` | Per principal or per IP |
 | `RATE_LIMIT_BURST` | `40` | |
 | `CALL_TIMEOUT_SECONDS` | `5` | Deadline per unary upstream call (not applied to `StreamChat`) |
-| `RETRY_MAX` | `2` | Retries for idempotent reads on `Unavailable` |
+| `RETRY_MAX` | `2` | Retries for idempotent reads on `Unavailable` (50 ms backoff, doubling, with jitter) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins; credentials allowed; methods GET, POST, OPTIONS |
 | `PROMETHEUS_URL` | `http://prometheus:9090` | Cockpit. Empty disables the source. |
 | `JAEGER_QUERY_URL` | `http://jaeger:16686` | Cockpit traces. Empty disables the source. |
 | `JAEGER_UI_URL` | `http://localhost:16686` | Browser-facing base for trace links |
 | `TRUSTED_PROXIES` | empty | CIDRs, bare IPs or hostnames whose `X-Forwarded-For` is believed. Hostnames are re-resolved every 30 s; an unresolvable name trusts nobody. Empty trusts nobody: `x-client-ip` is the socket peer. The client is the rightmost XFF entry that is not itself trusted. Audit data only, never authorization. A malformed entry fails startup. |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated; used by the analytics producer and the revocation consumer. Kafka has no enable flag: every deploy runs it. |
+| `KAFKA_BROKERS` | `localhost:9092` for a local or test `ENV`, **required** in a strict one | Comma-separated; used by the analytics producer and the revocation consumer. Kafka has no enable flag: every deploy runs it. |
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
 | `IDENTITY_EVENTS_TOPIC` | `identity.events` | Revocation source |
 | `OTEL_ENABLED` | `false` | Tracer and meter providers; also needed for the gRPC RED metrics and revocation gauges |

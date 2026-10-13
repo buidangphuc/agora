@@ -11,6 +11,9 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
+
 	eventsv1 "github.com/buidangphuc/team-gateway/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-gateway/generated/platform/identity/v1"
 )
@@ -60,10 +63,10 @@ type Stats struct {
 // revocations between them). Kafka being down never blocks startup: Run keeps
 // retrying in the background and the gateway fails open meanwhile.
 type Consumer struct {
-	brokers []string
-	topic   string
-	list    *Denylist
-	logger  *slog.Logger
+	kafka  sdkconfig.Kafka
+	topic  string
+	list   *Denylist
+	logger *slog.Logger
 
 	up  atomic.Bool
 	mu  sync.Mutex
@@ -71,11 +74,11 @@ type Consumer struct {
 }
 
 // NewConsumer builds a consumer (it does not connect until Run).
-func NewConsumer(brokers []string, topic string, list *Denylist, logger *slog.Logger) *Consumer {
+func NewConsumer(kafka sdkconfig.Kafka, topic string, list *Denylist, logger *slog.Logger) *Consumer {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Consumer{brokers: brokers, topic: topic, list: list, logger: logger, lag: map[int32]int64{}}
+	return &Consumer{kafka: kafka, topic: topic, list: list, logger: logger, lag: map[int32]int64{}}
 }
 
 // Stats returns the current gauge values.
@@ -105,11 +108,8 @@ func (c *Consumer) Run(ctx context.Context) {
 }
 
 func (c *Consumer) runOnce(ctx context.Context) error {
-	cl, err := kgo.NewClient(
-		kgo.SeedBrokers(c.brokers...),
-		kgo.ConsumeTopics(c.topic),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
-	)
+	// An empty group: every partition from the earliest offset, nothing committed.
+	cl, err := kafkax.NewConsumerClient(c.kafka, "", []string{c.topic})
 	if err != nil {
 		return fmt.Errorf("kafka client: %w", err)
 	}
@@ -121,7 +121,7 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 	go c.pruneLoop(probeCtx)
 
 	c.logger.InfoContext(ctx, "revocation consumer started (no consumer group, from earliest offset)",
-		"brokers", c.brokers, "topic", c.topic)
+		"brokers", c.kafka.BrokerList(), "topic", c.topic)
 
 	for {
 		fetches := cl.PollFetches(ctx)
