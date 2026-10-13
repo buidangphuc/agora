@@ -1408,7 +1408,7 @@ features:
     services:
     - platform-core
     acceptance:
-    - "When flags are enabled with an empty FLIPT_ADDR"
+    - "When the provider cannot be set up because FLIPT_ADDR is empty"
     - "Then the evaluator returns caller defaults and the closer returns nil"
     tags:
     - go-sdk
@@ -2330,21 +2330,36 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestHeadScanCursorServesEveryAggregate"
-  - id: go-sdk.deployed-environments-require-the-broker-and-flipt-addresses
-    title: "Deployed environments require the broker and Flipt addresses"
+  - id: go-sdk.deployed-environments-require-the-broker-address
+    title: "Deployed environments require the broker address"
     persona: guest
     priority: P2
     entry_route: /
     services:
     - platform-core
     acceptance:
-    - "When ENV=prod and KAFKA_BROKERS or FLIPT_ADDR (with flags enabled) is unset or empty, and again with ENV=local"
-    - "Then Load returns an error naming each missing variable, and for local fills localhost:9092 and localhost:9000"
+    - "When ENV=prod and KAFKA_BROKERS is unset or empty, and again with ENV=local"
+    - "Then Load returns an error naming KAFKA_BROKERS and not FLIPT_ADDR, and for local fills localhost:9092"
     tags:
     - go-sdk
     - unit
     status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by TestStrictEnvRequiresKafkaAndFlipt, TestStrictEnvRejectsEmptyKafkaBrokers, TestStrictEnvIgnoresFliptWhenFlagsDisabled and TestLocalEnvKeepsKafkaAndFliptDefaults"
+    notes: "Platform library behaviour with no user journey; verified by TestStrictEnvRequiresKafka, TestStrictEnvRejectsEmptyKafkaBrokers and TestLocalEnvKeepsKafkaDefault"
+  - id: go-sdk.feature-flags-have-no-switch
+    title: "Feature flags have no on/off switch"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When settings with a Flags group load under ENV=local and ENV=prod without FLIPT_ADDR, and again with FEATURE_FLAGS_ENABLED=false set"
+    - "Then FliptAddr is localhost:9000 in both, FEATURE_FLAGS_ENABLED is not read, and an unreachable Flipt only makes evaluations return the caller default"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestFlagsAlwaysPointAtFlipt, TestMessagingGroupDefaults and TestUnreachableFliptReturnsDefault"
   - id: go-sdk.withtx-rolls-back-when-fn-exits-its-goroutine
     title: "WithTx rolls back when fn exits its goroutine"
     persona: guest

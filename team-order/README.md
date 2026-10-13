@@ -135,7 +135,7 @@ Read by `internal/config/config.go` (go-sdk config groups; struct tags are the s
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | none (required) | `local`, `test`, `staging` or `prod`. Only `local` and `test` allow the in-memory fallback; `KAFKA_BROKERS` and `FLIPT_ADDR` are required when `ENV` is `staging`, `stage`, `prod` or `production` |
+| `ENV` | none (required) | `local`, `test`, `staging` or `prod`. Only `local` and `test` allow the in-memory fallback; `KAFKA_BROKERS` is required when `ENV` is `staging`, `stage`, `prod` or `production` |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / none | `GRPC_PORT` is required (the image sets 50055) |
@@ -149,8 +149,7 @@ Read by `internal/config/config.go` (go-sdk config groups; struct tags are the s
 | `OTEL_ENABLED` | `false` | Installs the OTLP tracer and meter providers (go-sdk `otelx`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | |
 | `OTEL_SERVICE_NAME` | empty | Defaults to `team-order` |
-| `FEATURE_FLAGS_ENABLED` | `true` | `false` makes every flag return its default |
-| `FLIPT_ADDR` | `localhost:9000` (local, test) | Flipt gRPC address; required in staging and prod |
+| `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC address; flags have no on/off switch, and an unreachable Flipt makes every flag return its default |
 | `FEATURE_FLAGS_EVAL_TIMEOUT` | `500ms` | Go duration |
 | `KAFKA_BROKERS` | `localhost:9092` (local, test) | Comma-separated; required in staging and prod |
 | `ORDER_PAYMENT_CONSUMER_GROUP` | `team-order.payment` | |

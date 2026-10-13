@@ -123,11 +123,11 @@ func TestNoEnableFlagsDeclared(t *testing.T) {
 	}
 }
 
-// TestFeatureFlagsToggleKept: FEATURE_FLAGS_ENABLED is a real toggle (gitops runs
-// promotion with it false), so it stays declared and defaults to on.
-func TestFeatureFlagsToggleKept(t *testing.T) {
-	if !slices.Contains(config.DeclaredEnvKeys(), "FEATURE_FLAGS_ENABLED") {
-		t.Fatal("FEATURE_FLAGS_ENABLED must stay declared")
+// TestNoFeatureFlagsSwitch: flags always evaluate through Flipt and fall back to
+// code defaults, so there is no FEATURE_FLAGS_ENABLED to declare.
+func TestNoFeatureFlagsSwitch(t *testing.T) {
+	if slices.Contains(config.DeclaredEnvKeys(), "FEATURE_FLAGS_ENABLED") {
+		t.Fatal("FEATURE_FLAGS_ENABLED is declared; flags have no on/off switch")
 	}
 	t.Setenv("ENV", "test")
 	t.Setenv("DATABASE_URL", "postgres://x/y")
@@ -136,14 +136,13 @@ func TestFeatureFlagsToggleKept(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Flags.Enabled {
-		t.Error("FEATURE_FLAGS_ENABLED must default to true")
+	if cfg.Flags.FliptAddr != "localhost:9000" {
+		t.Errorf("FliptAddr = %q, want the default localhost:9000", cfg.Flags.FliptAddr)
 	}
 }
 
-// ENV has no default, and a deployed ENV must name its Kafka brokers and, with
-// flags enabled, its Flipt address: a silent localhost default there would boot
-// a pod that cannot publish or evaluate.
+// ENV has no default, and a deployed ENV must name its Kafka brokers: a silent
+// localhost default there would boot a pod that cannot publish.
 func TestEnvRequiredAndStrictEnvNeedsBrokers(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("GRPC_PORT", "50061")
@@ -155,20 +154,12 @@ func TestEnvRequiredAndStrictEnvNeedsBrokers(t *testing.T) {
 
 	t.Setenv("ENV", "staging")
 	t.Setenv("KAFKA_BROKERS", "")
-	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
 	if _, err := config.Load(); err == nil {
 		t.Error("ENV=staging without KAFKA_BROKERS accepted, want error")
 	}
 
 	t.Setenv("KAFKA_BROKERS", "redpanda:9092")
-	t.Setenv("FEATURE_FLAGS_ENABLED", "true")
-	t.Setenv("FLIPT_ADDR", "")
-	if _, err := config.Load(); err == nil {
-		t.Error("ENV=staging with flags enabled and no FLIPT_ADDR accepted, want error")
-	}
-
-	t.Setenv("FLIPT_ADDR", "flipt:9000")
 	if _, err := config.Load(); err != nil {
-		t.Errorf("ENV=staging with brokers and Flipt set: %v", err)
+		t.Errorf("ENV=staging with brokers set: %v", err)
 	}
 }

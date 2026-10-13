@@ -27,7 +27,7 @@ func TestMessagingGroupDefaults(t *testing.T) {
 	if s.Outbox != want {
 		t.Errorf("Outbox = %+v, want %+v", s.Outbox, want)
 	}
-	wantFlags := config.Flags{Enabled: true, FliptAddr: "localhost:9000", EvalTimeout: 500 * time.Millisecond}
+	wantFlags := config.Flags{FliptAddr: "localhost:9000", EvalTimeout: 500 * time.Millisecond}
 	if s.Flags != wantFlags {
 		t.Errorf("Flags = %+v, want %+v", s.Flags, wantFlags)
 	}
@@ -36,7 +36,7 @@ func TestMessagingGroupDefaults(t *testing.T) {
 func TestMessagingGroupOverrides(t *testing.T) {
 	t.Setenv("KAFKA_BROKERS", " a:1, ,b:2 ")
 	t.Setenv("OUTBOX_POLL_INTERVAL", "250ms")
-	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
+	t.Setenv("FLIPT_ADDR", "flipt:9000")
 	t.Setenv("OUTBOX_CLAIM_LOCK", "90s")
 	t.Setenv("FEATURE_FLAGS_EVAL_TIMEOUT", "250ms")
 
@@ -50,8 +50,8 @@ func TestMessagingGroupOverrides(t *testing.T) {
 	if s.Outbox.PollInterval != 250*time.Millisecond {
 		t.Errorf("Outbox = %+v", s.Outbox)
 	}
-	if s.Flags.Enabled {
-		t.Error("Flags.Enabled = true, want false")
+	if s.Flags.FliptAddr != "flipt:9000" {
+		t.Errorf("FliptAddr = %q, want flipt:9000", s.Flags.FliptAddr)
 	}
 	if s.Outbox.ClaimLock != 90*time.Second || s.Flags.EvalTimeout != 250*time.Millisecond {
 		t.Errorf("durations = %v, %v", s.Outbox.ClaimLock, s.Flags.EvalTimeout)
@@ -64,46 +64,50 @@ type deployedSettings struct {
 	Flags config.Flags
 }
 
-func TestStrictEnvRequiresKafkaAndFlipt(t *testing.T) {
+func TestStrictEnvRequiresKafka(t *testing.T) {
 	for _, env := range []string{"staging", "prod", "production"} {
 		t.Run(env, func(t *testing.T) {
 			t.Setenv("ENV", env)
 			_, err := config.Load[deployedSettings]()
-			if err == nil {
-				t.Fatal("Load: want an error for the unset KAFKA_BROKERS and FLIPT_ADDR")
+			if err == nil || !strings.Contains(err.Error(), "KAFKA_BROKERS") {
+				t.Fatalf("Load: err = %v, want one naming KAFKA_BROKERS", err)
 			}
-			for _, key := range []string{"KAFKA_BROKERS", "FLIPT_ADDR"} {
-				if !strings.Contains(err.Error(), key) {
-					t.Errorf("error %q does not name %s", err, key)
-				}
+			if strings.Contains(err.Error(), "FLIPT_ADDR") {
+				t.Errorf("error %q names FLIPT_ADDR; flags need no setting to boot", err)
 			}
 			t.Setenv("KAFKA_BROKERS", "k:9092")
-			t.Setenv("FLIPT_ADDR", "flipt:9000")
 			if _, err := config.Load[deployedSettings](); err != nil {
-				t.Fatalf("Load with both set: %v", err)
+				t.Fatalf("Load with brokers set: %v", err)
 			}
 		})
 	}
 }
 
-func TestStrictEnvIgnoresFliptWhenFlagsDisabled(t *testing.T) {
-	t.Setenv("ENV", "prod")
-	t.Setenv("KAFKA_BROKERS", "k:9092")
-	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
-	if _, err := config.Load[deployedSettings](); err != nil {
-		t.Fatalf("Load: %v", err)
+func TestFlagsAlwaysPointAtFlipt(t *testing.T) {
+	for _, env := range []string{"local", "prod"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("KAFKA_BROKERS", "k:9092")
+			s, err := config.Load[deployedSettings]()
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if s.Flags.FliptAddr != "localhost:9000" {
+				t.Errorf("FliptAddr = %q, want the default localhost:9000", s.Flags.FliptAddr)
+			}
+		})
 	}
 }
 
-func TestLocalEnvKeepsKafkaAndFliptDefaults(t *testing.T) {
+func TestLocalEnvKeepsKafkaDefault(t *testing.T) {
 	for _, env := range []string{"local", "test"} {
 		t.Setenv("ENV", env)
 		s, err := config.Load[deployedSettings]()
 		if err != nil {
 			t.Fatalf("Load(%s): %v", env, err)
 		}
-		if s.Kafka.Brokers != "localhost:9092" || s.Flags.FliptAddr != "localhost:9000" {
-			t.Errorf("%s: Brokers=%q FliptAddr=%q, want the localhost defaults", env, s.Kafka.Brokers, s.Flags.FliptAddr)
+		if s.Kafka.Brokers != "localhost:9092" {
+			t.Errorf("%s: Brokers=%q, want the localhost default", env, s.Kafka.Brokers)
 		}
 	}
 }
@@ -111,7 +115,6 @@ func TestLocalEnvKeepsKafkaAndFliptDefaults(t *testing.T) {
 func TestStrictEnvRejectsEmptyKafkaBrokers(t *testing.T) {
 	t.Setenv("ENV", "prod")
 	t.Setenv("KAFKA_BROKERS", "")
-	t.Setenv("FLIPT_ADDR", "flipt:9000")
 	if _, err := config.Load[deployedSettings](); err == nil {
 		t.Fatal("Load: want an error for an empty KAFKA_BROKERS")
 	}

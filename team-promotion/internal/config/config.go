@@ -21,8 +21,6 @@ type Settings struct {
 	Server   sdkconfig.GRPC
 	Database sdkconfig.Postgres
 	OTel     sdkconfig.OTel
-	// Flags keeps its Enabled switch: gitops runs promotion with
-	// FEATURE_FLAGS_ENABLED=false because no Flipt is deployed there.
 	Flags    sdkconfig.Flags
 	Kafka    sdkconfig.Kafka
 	Events   Events

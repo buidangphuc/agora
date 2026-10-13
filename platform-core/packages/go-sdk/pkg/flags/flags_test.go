@@ -20,7 +20,7 @@ import (
 var quiet = slog.New(slog.DiscardHandler)
 
 func TestUnreachableFliptReturnsDefault(t *testing.T) {
-	cfg := config.Flags{Enabled: true, FliptAddr: "127.0.0.1:1", EvalTimeout: 300 * time.Millisecond}
+	cfg := config.Flags{FliptAddr: "127.0.0.1:1", EvalTimeout: 300 * time.Millisecond}
 	c, err := flags.New(context.Background(), cfg, quiet)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -43,20 +43,10 @@ func TestDisabledReturnsDefault(t *testing.T) {
 	if !flags.Disabled().BooleanEnabled(context.Background(), "x", true) {
 		t.Error("Disabled() = false, want default true")
 	}
-	c, err := flags.New(context.Background(), config.Flags{Enabled: false}, quiet)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	if c.BooleanEnabled(context.Background(), "x", false) {
-		t.Error("disabled client = true, want default false")
-	}
-	if err := c.Close(context.Background()); err != nil {
-		t.Errorf("Close: %v", err)
-	}
 }
 
-func TestEnabledRequiresAddr(t *testing.T) {
-	if _, err := flags.New(context.Background(), config.Flags{Enabled: true}, quiet); err == nil {
+func TestNewRejectsEmptyAddr(t *testing.T) {
+	if _, err := flags.New(context.Background(), config.Flags{}, quiet); err == nil {
 		t.Fatal("New with empty FLIPT_ADDR: want error")
 	}
 }
@@ -85,7 +75,7 @@ func TestNewWithProviderEvaluates(t *testing.T) {
 }
 
 func TestNewOrDisabledDegrades(t *testing.T) {
-	ev, closeFn := flags.NewOrDisabled(context.Background(), config.Flags{Enabled: true}, quiet)
+	ev, closeFn := flags.NewOrDisabled(context.Background(), config.Flags{}, quiet)
 	if ev == nil || closeFn == nil {
 		t.Fatal("NewOrDisabled returned a nil evaluator or closer")
 	}

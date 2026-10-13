@@ -16,11 +16,10 @@ import (
 // embedded struct field), and joins all the errors. Embedded groups that each
 // define Validate do not promote it to T, so the walk is what reaches them.
 //
-// Some groups depend on the environment: Kafka and Flags implement
-// ResolveFor(Runtime), which Load calls with the Runtime it finds in T
-// (embedded or a named field; the zero Runtime, so local behaviour, when T has
-// none). KAFKA_BROKERS, and FLIPT_ADDR while flags are enabled, are therefore
-// required when Runtime.IsStrict and default to localhost otherwise. A Settings
+// Some groups depend on the environment: Kafka implements ResolveFor(Runtime),
+// which Load calls with the Runtime it finds in T (embedded or a named field;
+// the zero Runtime, so local behaviour, when T has none). KAFKA_BROKERS is
+// therefore required when Runtime.IsStrict and defaults to localhost otherwise. A Settings
 // type needs nothing beyond embedding or holding Runtime and the group; one that
 // wraps its groups in unexported or non-struct fields must call ResolveFor itself.
 //

@@ -132,7 +132,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 `flags.NewOrDisabled(ctx, c, logger) (Evaluator, func(context.Context) error)` SHALL return the Flipt-backed evaluator, or `Disabled()` with a warning when setup fails; the closer is always safe to call. `flags.NewWithProvider(ctx, p, timeout, logger) (*Client, error)` SHALL take the same leading arguments as `flags.New`. `Evaluator.BooleanEnabled(ctx, flag, def, opts ...EvalOption) bool` SHALL use the id of the principal in ctx as the targeting key (`anonymous` without one) unless `WithTargetingKey` overrides it, SHALL add `WithAttributes` to the evaluation context, and SHALL return def on any error or timeout. `Close` SHALL shut down only the client's own provider, not other clients.
 
 #### Scenario: Setup failure does not stop the service
-- **WHEN** flags are enabled with an empty `FLIPT_ADDR`
+- **WHEN** the provider cannot be set up because `FLIPT_ADDR` is empty
 - **THEN** the evaluator returns caller defaults and the closer returns nil
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/flags` `TestNewOrDisabledDegrades`
 
@@ -422,10 +422,15 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 - **THEN** the fields hold 90s, 250ms and 1.5s, then the defaults 60s, 500ms and 0s
 - **VERIFIED BY**: `TestMessagingGroupOverrides`, `TestMessagingGroupDefaults` and `TestDrainDelay`
 
-#### Scenario: Deployed environments require the broker and Flipt addresses
-- **WHEN** `ENV=prod` and `KAFKA_BROKERS` or `FLIPT_ADDR` (with flags enabled) is unset or empty, and again with `ENV=local`
-- **THEN** `Load` returns an error naming each missing variable, and for `local` fills `localhost:9092` and `localhost:9000`
-- **VERIFIED BY**: `TestStrictEnvRequiresKafkaAndFlipt`, `TestStrictEnvRejectsEmptyKafkaBrokers`, `TestStrictEnvIgnoresFliptWhenFlagsDisabled` and `TestLocalEnvKeepsKafkaAndFliptDefaults`
+#### Scenario: Deployed environments require the broker address
+- **WHEN** `ENV=prod` and `KAFKA_BROKERS` is unset or empty, and again with `ENV=local`
+- **THEN** `Load` returns an error naming `KAFKA_BROKERS` and not `FLIPT_ADDR`, and for `local` fills `localhost:9092`
+- **VERIFIED BY**: `TestStrictEnvRequiresKafka`, `TestStrictEnvRejectsEmptyKafkaBrokers` and `TestLocalEnvKeepsKafkaDefault`
+
+#### Scenario: Feature flags have no on/off switch
+- **WHEN** settings with a `Flags` group load under `ENV=local` and `ENV=prod` without `FLIPT_ADDR`, and again with `FEATURE_FLAGS_ENABLED=false` set
+- **THEN** `FliptAddr` is `localhost:9000` in both, the variable `FEATURE_FLAGS_ENABLED` is not read, and an unreachable Flipt only makes evaluations return the caller default
+- **VERIFIED BY**: `TestFlagsAlwaysPointAtFlipt`, `TestMessagingGroupDefaults` and `TestUnreachableFliptReturnsDefault`
 
 ### Requirement: Health reflects dependency checks and drains on shutdown
 

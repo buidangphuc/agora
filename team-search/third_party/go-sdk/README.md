@@ -94,7 +94,8 @@ v1 changes API and configuration on purpose; there are no deprecated aliases. Th
 
 - `ENV` is required and has no default; it used to default to `local`. An unset `ENV` now fails `Load`, and `IsLocal()` is true only for `local` or `test`. Add `ENV=` to every deployment and to `.env.example`. `OpenOrLocal` falls back to a nil pool only when `IsLocal()`.
 - `Load` calls `Validate()` on every nested or embedded group and joins the errors. A `Settings` that wrapped `Postgres.Validate()` by hand can drop it; one that embeds several groups no longer needs to pick which `Validate` is promoted.
-- `KAFKA_BROKERS` and, with flags enabled, `FLIPT_ADDR` lose their tag defaults and are required when `ENV` is staging, stage, prod or production (`Runtime.IsStrict`); a local or test `ENV` still gets `localhost:9092` and `localhost:9000`. `Load` applies this through `ResolveFor(Runtime)` on `Kafka` and `Flags`, using the `Runtime` embedded in (or held by) your `Settings`; add `KAFKA_BROKERS` and `FLIPT_ADDR` to every deployment that uses them.
+- `KAFKA_BROKERS` loses its tag default and is required when `ENV` is staging, stage, prod or production (`Runtime.IsStrict`); a local or test `ENV` still gets `localhost:9092`. `Load` applies this through `ResolveFor(Runtime)` on `Kafka`, using the `Runtime` embedded in (or held by) your `Settings`; add `KAFKA_BROKERS` to every deployment that uses it.
+- `FEATURE_FLAGS_ENABLED` and `config.Flags.Enabled` are removed: flags have no on/off switch. A service always evaluates through Flipt at `FLIPT_ADDR` (default `localhost:9000`), and an unreachable Flipt makes every evaluation return the default written in code. Drop the variable from env files and manifests; set `FLIPT_ADDR` where Flipt runs.
 - Every duration is a Go duration (`time.Duration` fields, values like `30s` or `500ms`) and the keys lose their unit suffix. Defaults keep their value.
 
 | Old key (field) | New key (field) | Default |

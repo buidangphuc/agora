@@ -18,7 +18,6 @@ resources:
 env:
   UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
   FLIPT_ADDR: "flipt:9000"
-  FEATURE_FLAGS_ENABLED: "true"
   UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
   UPSTREAM_IDENTITY_ADDR: "team-identity:50053"
   # PaymentSettled consumer (AD4/AD1) + order.events outbox relayer (ADR-0013).
