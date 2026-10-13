@@ -1,0 +1,2 @@
+-- 0008 down — intentionally a no-op: forward-only. Dropping seq would lose the event order
+-- (and the v1 relayer needs it); the extra nullable columns and the sequence are harmless to v0.

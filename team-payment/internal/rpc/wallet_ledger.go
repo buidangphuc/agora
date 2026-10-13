@@ -1,0 +1,135 @@
+package rpc
+
+import (
+	"context"
+	"errors"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+
+	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
+	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
+	"github.com/buidangphuc/team-payment/internal/store"
+)
+
+// ── Seller Wallet Ledger RPCs ─────────────────────────────────────────
+
+// sellerAccess is the ownership gate for every wallet RPC. The request seller_id is
+// never trusted on its own: only a user principal may act on its own wallet (an
+// empty seller_id means "my wallet"). Reads (adminRead) are also allowed for a
+// principal holding the admin scope; payouts are owner-only, so no one else can
+// move a seller's money. Service principals are not owners.
+func sellerAccess(ctx context.Context, requested string, adminRead bool) (string, error) {
+	principal, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return "", err
+	}
+	isUser := principal.Type == auth.TypeUser
+	if requested == "" || requested == principal.ID {
+		if isUser {
+			return principal.ID, nil
+		}
+		if requested == "" {
+			return "", status.Error(codes.InvalidArgument, "seller_id is required")
+		}
+	}
+	if adminRead && requested != "" && principal.HasScope("admin") {
+		return requested, nil
+	}
+	return "", status.Error(codes.PermissionDenied, "not allowed to access this seller's wallet")
+}
+
+// requirePayoutScope gates payouts on the seller scope, on top of sellerAccess:
+// a buyer acting on their own wallet still may not request a payout.
+func requirePayoutScope(ctx context.Context) error {
+	principal, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return err
+	}
+	if !principal.HasScope("listing.write") {
+		return status.Error(codes.PermissionDenied, "listing.write scope is required to request a payout")
+	}
+	return nil
+}
+
+// GetWalletBalance is the get wallet balance operation of PaymentHandler.
+func (h *PaymentHandler) GetWalletBalance(ctx context.Context, req *paymentv1.GetWalletBalanceRequest) (*paymentv1.GetWalletBalanceResponse, error) {
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	balance, err := h.svc.GetWalletBalance(ctx, sellerID)
+	if err != nil {
+		return nil, grpcx.Status(ctx, h.logger, err, grpcx.ErrorTable{})
+	}
+
+	return &paymentv1.GetWalletBalanceResponse{Balance: balance}, nil
+}
+
+// ListLedgerEntries is the list ledger entries operation of PaymentHandler.
+func (h *PaymentHandler) ListLedgerEntries(ctx context.Context, req *paymentv1.ListLedgerEntriesRequest) (*paymentv1.ListLedgerEntriesResponse, error) {
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, next, total, err := h.svc.ListLedgerEntries(ctx, sellerID, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
+	if err != nil {
+		return nil, grpcx.Status(ctx, h.logger, err, ledgerErrs)
+	}
+
+	wireEntries := make([]*paymentv1.WalletEntry, 0, len(entries))
+	for _, e := range entries {
+		wireEntries = append(wireEntries, toWireLedgerEntry(e))
+	}
+
+	return &paymentv1.ListLedgerEntriesResponse{
+		Entries: wireEntries,
+		Page: &commonv1.PageResponse{
+			NextCursor: next,
+			Total:      total,
+		},
+	}, nil
+}
+
+// RequestWalletPayout is the request wallet payout operation of PaymentHandler.
+func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1.RequestWalletPayoutRequest) (*paymentv1.RequestWalletPayoutResponse, error) {
+	sellerID, err := sellerAccess(ctx, req.GetSellerId(), false)
+	if err != nil {
+		return nil, err
+	}
+	if err := requirePayoutScope(ctx); err != nil {
+		return nil, err
+	}
+	if req.GetAmount() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+
+	entry, err := h.svc.RequestWalletPayout(ctx, sellerID, req.GetAmount())
+	if err != nil {
+		if held := (*store.FundsOnHoldError)(nil); errors.As(err, &held) {
+			// "amount is held until <RFC3339> (refund window)": the instant only, no amounts.
+			return nil, status.Error(codes.FailedPrecondition, held.Error())
+		}
+		return nil, grpcx.Status(ctx, h.logger, err, walletPayoutErrs)
+	}
+
+	return &paymentv1.RequestWalletPayoutResponse{Entry: toWireLedgerEntry(entry)}, nil
+}
+
+func toWireLedgerEntry(e store.LedgerEntry) *paymentv1.WalletEntry {
+	return &paymentv1.WalletEntry{
+		Id:          e.ID,
+		SellerId:    e.SellerID,
+		Type:        e.Type,
+		Amount:      e.Amount,
+		Status:      e.Status,
+		CreatedAt:   timestamppb.New(e.CreatedAt),
+		ReferenceId: e.ReferenceID,
+	}
+}

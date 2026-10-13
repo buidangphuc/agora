@@ -1,25 +1,24 @@
 // Package pgtest gives Postgres-backed tests a fresh, throw-away schema with the repo's
-// migrations applied, so they exercise the real SQL and constraints. Tests skip, naming
-// the reason, when TEST_DATABASE_URL is not set, e.g.:
-//
-//	docker run -d --rm --name pg-payment -e POSTGRES_PASSWORD=pg -p 127.0.0.1:55491:5432 postgres:16-alpine
-//	TEST_DATABASE_URL=postgres://postgres:pg@127.0.0.1:55491/postgres?sslmode=disable go test ./...
-//
-// Each pool gets its own schema (dropped on cleanup), so packages running in parallel
-// against one database never see each other's rows.
+// migrations applied, so they exercise the real SQL and constraints. The server is the
+// SDK testkit's shared container (one per test binary); each pool gets its own schema,
+// dropped on cleanup, so packages running in parallel never see each other's rows.
 package pgtest
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+
+	"github.com/buidangphuc/team-payment/migrations"
 )
 
 // MigrationsDir is the absolute path of team-payment's migrations directory.
@@ -39,10 +38,11 @@ func UpFiles(t *testing.T) []string {
 	return files
 }
 
-// Apply executes one migration file on the pool.
+// Apply executes one migration file on the pool. Partial-apply tests use it; a test that
+// applies every migration uses Pool, which goes through migrate.Up.
 func Apply(t *testing.T, pool *pgxpool.Pool, file string) {
 	t.Helper()
-	sqlText, err := os.ReadFile(file)
+	sqlText, err := os.ReadFile(file) //nolint:gosec // file comes from the repo migrations glob
 	if err != nil {
 		t.Fatalf("read %s: %v", file, err)
 	}
@@ -51,49 +51,54 @@ func Apply(t *testing.T, pool *pgxpool.Pool, file string) {
 	}
 }
 
-// EmptyPool returns a pool over a fresh schema with no migrations applied.
-func EmptyPool(t *testing.T) *pgxpool.Pool {
+// SchemaURL returns a DSN over a fresh schema of the shared Postgres, with no migrations
+// applied. The schema search path ends in public, where the uuid-ossp extension lives.
+func SchemaURL(t *testing.T) string {
 	t.Helper()
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set: Postgres-backed test skipped (set it to run)")
-	}
+	dsn := testkit.SharedPostgres(t)
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, url)
+	admin, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect admin pool: %v", err)
 	}
+	defer admin.Close()
 	// 0001 creates uuid-ossp; create it once in public so a per-test schema neither owns
 	// it (DROP SCHEMA CASCADE would drop it) nor races another package creating it.
 	_, _ = admin.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public`)
-	schema := "t_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
-		admin.Close()
-		t.Fatalf("create schema: %v", err)
-	}
-	cfg, err := pgxpool.ParseConfig(url)
+
+	schemaDSN := testkit.Schema(t, dsn)
+	u, err := url.Parse(schemaDSN)
 	if err != nil {
 		t.Fatalf("parse url: %v", err)
 	}
-	cfg.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	q := u.Query()
+	q.Set("search_path", q.Get("search_path")+",public")
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// EmptyPool returns a pool over a fresh schema with no migrations applied.
+func EmptyPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), SchemaURL(t))
 	if err != nil {
 		t.Fatalf("connect pool: %v", err)
 	}
-	t.Cleanup(func() {
-		pool.Close()
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE")
-		admin.Close()
-	})
+	t.Cleanup(pool.Close)
 	return pool
 }
 
 // Pool returns a pool over a fresh schema with every migration applied.
 func Pool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool := EmptyPool(t)
-	for _, f := range UpFiles(t) {
-		Apply(t, pool, f)
+	dsn := SchemaURL(t)
+	if err := migrate.Up(context.Background(), dsn, migrations.Files); err != nil {
+		t.Fatalf("migrate up: %v", err)
 	}
+	pool, err := pgxpool.New(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("connect pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
 	return pool
 }

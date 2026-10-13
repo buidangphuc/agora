@@ -376,13 +376,11 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       # Transactional-outbox relayer (AD4): settle writes payment=PAID + a
       # PaymentSettled outbox row in one tx; the relayer drains it to
-      # payment.events. Keys read by internal/bootstrap/kafka.go::kafkaConfigFromEnv.
-      - KAFKA_ENABLED=true
+      # payment.events. The relayer and the settlement consumer are always on.
       - KAFKA_BROKERS=redpanda:9092
       - PAYMENT_EVENTS_TOPIC=payment.events
       # Seller ledger consumer of order.events (OrderPaidEvent credit, OrderCancelled
