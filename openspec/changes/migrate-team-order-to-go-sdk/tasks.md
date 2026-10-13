@@ -17,3 +17,14 @@ Owns: same as `## 1`.
 - [x] 2.2 Restore the voucher flow per the proposal (transition and outbox in one transaction, then the voucher commit, then mark processed). Red first: `TestVoucherCommitFailureKeepsOrderPaidAndRetriesCommit`. Remove `TestVoucherCommitFailureRollsBackAndRedeliveryCommitsOnce`, which encoded the rejected behaviour.
 - [x] 2.3 `0008` keeps a unique index on `event_id`. Red first: `TestMigration0008KeepsPreviousReleaseInsertWorking`. Remove the rollout warning from the README.
 - [x] 2.4 Add FEATURES entries for the two new scenarios. Verify `make check`, `features-check`, `spec_sync --strict` and `red_first`.
+
+## 3. Use existing SDK packages instead of local copies
+
+Behaviour, wire messages and env names stay the same; existing tests keep their assertions. Where a switch would change a client-visible message or a retry rule, leave that site and note it in the report.
+
+Owns: `team-order/**` except `third_party/**`.
+
+- [ ] 3.1 Use `pgx.WithTx` for hand-rolled transactions. Verify `make check`.
+- [ ] 3.2 Full-apply migration tests use `migrate.Up` (partial from/to tests keep raw SQL). Verify `make check`.
+- [ ] 3.3 `releaseReservationWithRetry` uses `resilience.Do(ctx, fn, resilience.Retry(...))` if the retried error set stays the same. Verify `make check`.
+- [ ] 3.4 Use `grpcx.Status` + `ErrorTable` where the client message stays identical. Verify `make check`.
