@@ -196,3 +196,57 @@ features:
     covered_by: "security/promotion_access.feature::A seller cannot read another seller's entitlements"
     notes: >-
       A seller may read their own entitlements (the seller plans page relies on it); the spec was corrected to match.
+
+  # Change migrate-team-promotion-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: promotion-runtime.team-promotion-declares-no-always-on-enable-flags
+    title: team-promotion declares no always-on enable flags
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - When the declared env keys of team-promotion's Settings are listed
+      - Then none of DATABASE_ENABLED, KAFKA_ENABLED, OUTBOX_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [promotion-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-promotion-to-go-sdk: not producible end to end; verified by team-promotion/internal/config TestNoEnableFlagsDeclared."
+
+  - id: promotion-runtime.team-promotion-fails-boot-on-an-unreachable-database-when-deployed
+    title: team-promotion fails boot on an unreachable database when deployed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - When team-promotion starts with ENV=staging and an unreachable DATABASE_URL
+      - Then boot returns an error before any port opens
+    tags: [promotion-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-promotion-to-go-sdk: not producible end to end; verified by team-promotion/internal/app TestBootFailsWhenDatabaseUnreachableDeployed."
+
+  - id: promotion-runtime.team-promotion-publish-failures-are-returned-not-swallowed
+    title: team-promotion publish failures are returned, not swallowed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - When publishing an event fails
+      - Then the caller receives the error and nothing is logged as published
+    tags: [promotion-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-promotion-to-go-sdk: not producible end to end; verified by team-promotion/internal/events TestPublishFailureIsReturned."
+
+  - id: promotion-runtime.team-promotion-existing-suites-do-not-regress-and-no-assertion-is-weakened
+    title: team-promotion existing suites do not regress and no assertion is weakened
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - When make check runs after the restructure
+      - Then every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields
+    tags: [promotion-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-promotion-to-go-sdk: not producible end to end; verified by team-promotion `make check`."
