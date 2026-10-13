@@ -49,7 +49,8 @@ def mlflow_url() -> str:
 
 @dataclass(frozen=True)
 class Hit:
-    where: str  # param | metric | tag | run_name | artifact_name | artifact_content
+    # param | metric | tag | run_name | artifact_name | artifact_content | model_* | version_* | job_stdout
+    where: str
     run_id: str
     detail: str  # key or artifact path
     key: str  # the user key that was found
@@ -60,6 +61,8 @@ class ScanReport:
     runs: int = 0
     artifact_files: int = 0
     artifact_paths: list[str] = field(default_factory=list)
+    registry_objects: int = 0
+    text_sources: int = 0
     hits: list[Hit] = field(default_factory=list)
 
 
@@ -295,3 +298,68 @@ class MlflowRegistry:
                 content = self.read_artifact(run_id, path)
                 check("artifact_content", run_id, path, content.decode("utf-8", "replace"))
         return report
+
+    # ── registry-side scan: model tags / descriptions, version tags / descriptions ──
+    def registered_model(self, name: str) -> dict:
+        return self._call("GET", "/api/2.0/mlflow/registered-models/get", params={"name": name})[
+            "registered_model"
+        ]
+
+    def scan_registry(
+        self, user_keys: list[str], report: ScanReport | None = None, names: list[str] | None = None
+    ) -> ScanReport:
+        """Look for any of `user_keys` in the registered models and their versions.
+
+        Covers the registered-model name, description, tags and aliases and, for every version,
+        its tags (gate.reason, lineage.*, ...), description, source and run link.
+        """
+        report = report if report is not None else ScanReport()
+        pattern = re.compile("|".join(re.escape(k) for k in sorted(set(user_keys))))
+
+        def check(where: str, detail: str, text: str) -> None:
+            for m in pattern.finditer(text):
+                report.hits.append(Hit(where, "", detail, m.group(0)))
+
+        for name in names if names is not None else self.registered_models():
+            model = self.registered_model(name)
+            report.registry_objects += 1
+            check("model_name", name, name)
+            check("model_description", name, model.get("description") or "")
+            for t in model.get("tags") or []:
+                check("model_tag", f"{name}:{t['key']}", f"{t['key']}={t['value']}")
+            for a in model.get("aliases") or []:
+                check("model_alias", name, f"{a['alias']}={a.get('version', '')}")
+            for v in self.versions(name):
+                report.registry_objects += 1
+                detail = f"{name}@v{v['version']}"
+                check("version_description", detail, v.get("description") or "")
+                check("version_source", detail, f"{v.get('source', '')} {v.get('run_id', '')}")
+                for key, value in self.tags(v).items():
+                    check("version_tag", f"{detail}:{key}", f"{key}={value}")
+        return report
+
+    @staticmethod
+    def scan_text(
+        report: ScanReport, where: str, detail: str, text: str, user_keys: list[str]
+    ) -> None:
+        """Add a hit for every user key found in free text (e.g. a job's stdout)."""
+        pattern = re.compile("|".join(re.escape(k) for k in sorted(set(user_keys))))
+        report.text_sources += 1
+        for m in pattern.finditer(text):
+            report.hits.append(Hit(where, "", detail, m.group(0)))
+
+    # ── scratch registered model (negative control of the registry scan) ──
+    def create_scratch_version_with_tag(self, name: str, key: str, value: str) -> None:
+        run_id = self.create_scratch_run()
+        source = self.run(run_id)["info"]["artifact_uri"]
+        self._call("POST", "/api/2.0/mlflow/registered-models/create", body={"name": name})
+        version = self._call(
+            "POST",
+            "/api/2.0/mlflow/model-versions/create",
+            body={"name": name, "source": source, "run_id": run_id},
+        )["model_version"]["version"]
+        self._call(
+            "POST",
+            "/api/2.0/mlflow/model-versions/set-tag",
+            body={"name": name, "version": version, "key": key, "value": value},
+        )

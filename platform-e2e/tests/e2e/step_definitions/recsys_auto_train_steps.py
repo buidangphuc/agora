@@ -333,7 +333,7 @@ def recommend_identical(world: World) -> None:
 
 # ── PII scan (RAT-25, RAT-49) ─────────────────────────────────────────────
 @then(
-    "a scan of every run's params, metrics, tags, run name and artifacts finds no fixture user key"
+    "a scan of every run's params, metrics, tags, run name and artifacts, of the registry's model and version tags and descriptions and of the job's stdout finds no fixture user key"
 )
 def scan_finds_nothing(world: World) -> None:
     registry = _registry(world)
@@ -342,9 +342,16 @@ def scan_finds_nothing(world: World) -> None:
     ]
     run_ids += registry.run_ids_since(_ctx(world)["t0_ms"])
     report = registry.scan_runs(run_ids, _FIXTURE_USER_KEYS)
-    # The scan must have looked at the job's runs: params/metrics/tags and real artifact files.
+    registry.scan_registry(_FIXTURE_USER_KEYS, report)
+    run = _ctx(world).get("result")
+    if run is not None:
+        registry.scan_text(report, "job_stdout", "job stdout", run.log, _FIXTURE_USER_KEYS)
+    # The scan must have looked at the job's runs (params/metrics/tags, real artifact files), the
+    # registered models and their versions, and the job's output.
     assert report.runs >= 2, f"the scan only covered {report.runs} run(s)"
     assert report.artifact_files >= 1, "the scan found no artifact file to read"
+    assert report.registry_objects >= 2, "the scan found no registered model version to read"
+    assert report.text_sources >= 1, "the job's stdout was not scanned"
     assert not report.hits, f"user keys found in MLflow: {report.hits[:10]}"
     _ctx(world)["scan"] = report
 
@@ -366,10 +373,28 @@ def scratch_run(world: World, key: str) -> None:
     _ctx(world)["scratch"] = run_id
 
 
+@given(parsers.parse('a scratch registered model version with "{key}" in a version tag'))
+def scratch_version_tag(world: World, key: str) -> None:
+    registry = _registry(world)
+    name = "recsys-e2e-pii-control"
+    world.add_cleanup(lambda: registry.delete_model(name))
+    registry.create_scratch_version_with_tag(name, "gate.reason", f"planted {key}")
+    _ctx(world)["scratch_model"] = name
+
+
 @when("the PII scan runs on that run for the fixture user keys")
 def scan_scratch(world: World) -> None:
     ctx = _ctx(world)
-    ctx["scratch_report"] = _registry(world).scan_runs([ctx["scratch"]], _FIXTURE_USER_KEYS)
+    registry = _registry(world)
+    ctx["scratch_report"] = registry.scan_runs([ctx["scratch"]], _FIXTURE_USER_KEYS)
+    if "scratch_model" in ctx:
+        registry.scan_registry(_FIXTURE_USER_KEYS, ctx["scratch_report"], [ctx["scratch_model"]])
+
+
+@then(parsers.parse('the scan reports "{key}" in a model version tag'))
+def scan_reports_version_tag(world: World, key: str) -> None:
+    hits = _ctx(world)["scratch_report"].hits
+    assert any(h.where == "version_tag" and h.key == key for h in hits), f"no tag hit: {hits}"
 
 
 @then(parsers.parse('the scan reports "{key}" in a param and in an artifact'))

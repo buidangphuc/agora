@@ -68,15 +68,17 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
     When the recsys job runs
     Then the job exits with code 0
     And the newest version of "recsys-als" is tagged "gate.outcome" "promoted"
-    And a scan of every run's params, metrics, tags, run name and artifacts finds no fixture user key
+    And a scan of every run's params, metrics, tags, run name and artifacts, of the registry's model and version tags and descriptions and of the job's stdout finds no fixture user key
     And no artifact is named like user factors
 
   # Support scenario (negative control of the scan used above): it needs no recsys code, so it is
   # expected to pass before the change is implemented. It proves the scan CAN fail.
   Scenario: PII scan negative control
     Given a scratch MLflow run with "u-0001" logged as a param and as artifact text
+    And a scratch registered model version with "u-0001" in a version tag
     When the PII scan runs on that run for the fixture user keys
     Then the scan reports "u-0001" in a param and in an artifact
+    And the scan reports "u-0001" in a model version tag
 
   Scenario: Nightly chain registers all three models
     Given the recsys serving state and the recsys registry are reset

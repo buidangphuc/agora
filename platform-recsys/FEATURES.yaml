@@ -1594,11 +1594,27 @@ features:
     preconditions:
       login: guest
     acceptance:
-      - "When `recsys-two-tower` has no `champion` and the candidate scores `coverage@10=0.49`"
-      - "Then the version is tagged `gate.outcome=rejected` with a `gate.reason` naming the `coverage@10` floor of 0.5"
+      - "When `recsys-two-tower` has no `champion` and the candidate scores `recall@10=0`"
+      - "Then the version is tagged `gate.outcome=rejected` with a `gate.reason` naming the `recall@10` floor of 0.000001"
     tags: [recsys, unit]
     status: not-testable
-    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_two_tower.py::test_first_candidate_below_floor_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_two_tower.py::test_first_candidate_with_zero_recall_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-62-a-model-below-the-fixed-weight-baseline-is-structurally-reje
+    title: "RAT-62 A model below the fixed-weight baseline is structurally rejected"
+    persona: guest
+    priority: P1
+    summary: "A model below the fixed-weight baseline is structurally rejected"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT candidate's holdout `ndcg@10` is 0.2000 and the fixed-weight ranker scores `baseline_ndcg@10=0.2000` on the same holdout (below 0.2020 = baseline x 1.01)"
+      - "Then the version is registered with `gate.outcome=rejected` through `register_rejected`, its `gate.reason` starts `below fixed-weight baseline`, the policy is not evaluated and the generation ships without a ranker artifact"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_ranker_stage.py::test_below_baseline_is_structurally_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
 
   - id: recsys.rat-40-an-equal-gbdt-model-does-not-churn-the-champion
     title: "RAT-40 An equal GBDT model does not churn the champion"
@@ -1626,7 +1642,7 @@ features:
     preconditions:
       login: guest
     acceptance:
-      - "When the GBDT candidate has `ndcg@10=0.2010` against a champion at `0.2000` with `recall@10` at 0.95 times the champion's, and the two-tower candidate has `recall@10=0.2010` against `0.2000` with `coverage@10` 0.8 times the champion's and at least 0.5"
+      - "When the GBDT candidate has `ndcg@10=0.2010` against a champion at `0.2000` with `recall@10` at 0.95 times the champion's, and the two-tower candidate has `recall@10=0.2010` against `0.2000` with `coverage@10` 0.8 times the champion's and `recall@10` above 0"
       - "Then both versions are tagged `gate.outcome=promotable`"
     tags: [recsys, unit]
     status: not-testable
