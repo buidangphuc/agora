@@ -20,6 +20,11 @@ import (
 // RSA public key at /.well-known/jwks.json so the edge can verify RS256 tokens by
 // kid. It runs alongside gRPC and is drained on shutdown. No auth, no business
 // logic.
+//
+// It stays local rather than lifecycle.HTTP: that returns an error when its grace
+// runs out, which would turn a slow JWKS shutdown into a non-zero exit of the
+// whole service; here a failed shutdown is only logged and the exit code is
+// unchanged.
 func jwksServer(s config.Settings, signer *token.Signer, logger *slog.Logger) lifecycle.Component {
 	return lifecycle.Func(func(ctx context.Context) error {
 		addr := net.JoinHostPort(s.Host, strconv.Itoa(s.JWT.JWKSHTTPPort))

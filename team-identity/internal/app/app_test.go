@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"net"
 	"strconv"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
@@ -54,12 +56,12 @@ func settings(t *testing.T, env string, db sdkconfig.Postgres) config.Settings {
 	t.Helper()
 	return config.Settings{
 		Runtime:  sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 5},
+		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGrace: 5 * time.Second},
 		Postgres: db,
 		Kafka:    sdkconfig.Kafka{Brokers: "127.0.0.1:1"},
 		Events:   config.Events{IdentityTopic: "identity.events"},
 		Outbox: sdkconfig.Outbox{
-			PollInterval: 50 * time.Millisecond, BatchSize: 10, ClaimLockSeconds: 5, MaxAttempts: 2,
+			PollInterval: 50 * time.Millisecond, BatchSize: 10, ClaimLock: 5 * time.Second,
 		},
 		JWT: config.JWT{PrivateKey: signingKeyPEM(t), KID: "test-kid", JWKSHTTPPort: freePort(t), TTLSeconds: 3600},
 	}
@@ -88,9 +90,11 @@ func TestBootFailsWhenDatabaseUnreachableDeployed(t *testing.T) {
 	_ = l.Close()
 }
 
-// recordingPublisher fails every publish for one key and records each call.
+// recordingPublisher fails every publish for one key (transiently) or for
+// another (permanently, as a too-large record would) and records each call.
 type recordingPublisher struct {
 	failKey string
+	permKey string
 
 	mu    sync.Mutex
 	calls []publishCall
@@ -101,12 +105,15 @@ type publishCall struct {
 	at         time.Time
 }
 
-func (p *recordingPublisher) Publish(_ context.Context, topic string, key, _ []byte) error {
+func (p *recordingPublisher) PublishRecord(_ context.Context, r *kgo.Record) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.calls = append(p.calls, publishCall{topic: topic, key: string(key), at: time.Now()})
-	if string(key) == p.failKey {
+	p.calls = append(p.calls, publishCall{topic: r.Topic, key: string(r.Key), at: time.Now()})
+	switch string(r.Key) {
+	case p.failKey:
 		return context.DeadlineExceeded
+	case p.permKey:
+		return outbox.Permanent(errors.New("record too large"))
 	}
 	return nil
 }
@@ -145,15 +152,19 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 	}
 	defer pool.Close()
 
-	// Two rows enqueued by the SDK store, as RevokeSession does: the first
-	// cannot be published, the second can.
-	store := outbox.NewStore(pool, outboxTable)
+	// Three rows enqueued by the SDK store, as RevokeSession does: the first
+	// cannot be published for now, the second never, the third can.
+	store, err := outbox.NewStore(pool, outboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range []outbox.Row{
 		{EventID: "evt-bad", AggregateType: "Session", AggregateID: "user-bad", EventType: "T", Payload: []byte("a")},
+		{EventID: "evt-perm", AggregateType: "Session", AggregateID: "user-perm", EventType: "T", Payload: []byte("c")},
 		{EventID: "evt-good", AggregateType: "Session", AggregateID: "user-good", EventType: "T", Payload: []byte("b")},
 	} {
 		if err := store.EnqueueTx(ctx, tx, r); err != nil {
@@ -164,7 +175,7 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pub := &recordingPublisher{failKey: "user-bad"}
+	pub := &recordingPublisher{failKey: "user-bad", permKey: "user-perm"}
 	s := settings(t, "local", sdkconfig.Postgres{URL: url})
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
@@ -178,32 +189,44 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 		}
 	})
 
+	// v1 has no attempt ceiling: a transient failure is retried behind a backoff
+	// for as long as it lasts, and only a permanent error parks a row.
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		if st, _, _ := rowState(t, pool, "evt-bad"); st == "failed" {
-			break
+		if st, _, _ := rowState(t, pool, "evt-perm"); st == "failed" {
+			if _, attempts, _ := rowState(t, pool, "evt-bad"); attempts >= 2 {
+				break
+			}
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("evt-bad was not parked in time")
+			t.Fatal("evt-perm was not parked and evt-bad retried in time")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// The failing row did not block the other one.
+	// The failing rows did not block the other one.
 	if st, _, _ := rowState(t, pool, "evt-good"); st != "published" {
 		t.Errorf("evt-good status = %q, want published", st)
 	}
 	if got := len(pub.callsFor("user-good")); got != 1 {
 		t.Errorf("evt-good published %d times, want 1", got)
 	}
-	// The failing row was retried behind a backoff, then parked at MaxAttempts.
+	// The permanent error parked the row at the first attempt.
+	st, _, lastErr := rowState(t, pool, "evt-perm")
+	if st != "failed" || lastErr == nil || *lastErr == "" {
+		t.Errorf("evt-perm = status %q error %v, want failed with a message", st, lastErr)
+	}
+	if got := len(pub.callsFor("user-perm")); got != 1 {
+		t.Errorf("evt-perm published %d times, want 1", got)
+	}
+	// The transient failure is retried behind a backoff and stays pending.
 	st, attempts, lastErr := rowState(t, pool, "evt-bad")
-	if st != "failed" || attempts != s.Outbox.MaxAttempts || lastErr == nil || *lastErr == "" {
-		t.Errorf("evt-bad = status %q attempts %d error %v, want failed, %d, a message", st, attempts, lastErr, s.Outbox.MaxAttempts)
+	if st != "pending" || attempts < 2 || lastErr == nil || *lastErr == "" {
+		t.Errorf("evt-bad = status %q attempts %d error %v, want pending, 2 or more, a message", st, attempts, lastErr)
 	}
 	bad := pub.callsFor("user-bad")
-	if len(bad) != s.Outbox.MaxAttempts {
-		t.Fatalf("evt-bad was published %d times, want %d", len(bad), s.Outbox.MaxAttempts)
+	if len(bad) < 2 {
+		t.Fatalf("evt-bad was published %d times, want at least 2", len(bad))
 	}
 	if gap := bad[1].at.Sub(bad[0].at); gap < 900*time.Millisecond {
 		t.Errorf("retry came after %v, want a backoff of about 1s", gap)

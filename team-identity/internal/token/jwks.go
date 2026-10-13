@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"math/big"
 	"net/http"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
 )
 
 // JWKSPath is the conventional well-known location of the JWKS document.
@@ -22,30 +24,15 @@ type PublicKey struct {
 	Key *rsa.PublicKey
 }
 
-// jwk is a single RSA public key in JWK form (RFC 7517 / 7518).
-type jwk struct {
-	Kty string `json:"kty"`
-	Use string `json:"use"`
-	Alg string `json:"alg"`
-	Kid string `json:"kid"`
-	N   string `json:"n"`
-	E   string `json:"e"`
-}
-
-// JWKS is the published key set: a `keys` array of RSA public JWKs.
-type JWKS struct {
-	Keys []jwk `json:"keys"`
-}
-
 // BuildJWKS renders the given public keys as a JWKS document. Only public key
 // material (modulus `n` + exponent `e`) is emitted — never a private key.
-func BuildJWKS(keys ...PublicKey) JWKS {
-	out := JWKS{Keys: make([]jwk, 0, len(keys))}
+func BuildJWKS(keys ...PublicKey) jwtx.JWKS {
+	out := jwtx.JWKS{Keys: make([]jwtx.JWK, 0, len(keys))}
 	for _, k := range keys {
 		if k.Key == nil {
 			continue
 		}
-		out.Keys = append(out.Keys, jwk{
+		out.Keys = append(out.Keys, jwtx.JWK{
 			Kty: "RSA",
 			Use: "sig",
 			Alg: "RS256",

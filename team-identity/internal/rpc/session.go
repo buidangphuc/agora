@@ -66,7 +66,7 @@ func (h *SessionHandler) ListSessions(
 	}
 	items, err := h.repo.ListSessions(ctx, principal.ID)
 	if err != nil {
-		return nil, internalErr(h.logger, "list sessions", err)
+		return nil, internalErr(ctx, h.logger, "list sessions", err)
 	}
 	wire := make([]*identityv1.Session, 0, len(items))
 	for _, s := range items {
@@ -111,7 +111,7 @@ func (h *SessionHandler) RevokeSession(
 		if errors.Is(err, store.ErrSessionNotFound) {
 			return nil, status.Error(codes.NotFound, "session not found")
 		}
-		return nil, internalErr(h.logger, "revoke session", err)
+		return nil, internalErr(ctx, h.logger, "revoke session", err)
 	}
 	return &identityv1.RevokeSessionResponse{}, nil
 }
@@ -131,7 +131,7 @@ func (h *SessionHandler) ListLoginHistory(
 
 	events, total, err := h.repo.ListLoginHistory(ctx, principal.ID, limit, offset)
 	if err != nil {
-		return nil, internalErr(h.logger, "list login history", err)
+		return nil, internalErr(ctx, h.logger, "list login history", err)
 	}
 
 	wire := make([]*identityv1.LoginEvent, 0, len(events))

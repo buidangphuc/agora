@@ -18,7 +18,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-identity/internal/config"
 	"github.com/buidangphuc/team-identity/internal/identity"
@@ -42,7 +42,7 @@ type Options struct {
 // telemetry, health, database, publisher, domain, server. Everything opened goes
 // on the stack; closers run in reverse order on shutdown and on an early failure.
 //
-// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY_SECONDS passes, the gRPC
+// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY passes, the gRPC
 // server stops, then the outbox relayer stops, then the publisher and the pool
 // close.
 //
@@ -78,14 +78,17 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	if err != nil {
 		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
 	}
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
-	health.Register("postgres", pgx.Checker(pool))
+	health.Register("postgres", postgres.Checker(pool))
 
 	// SessionRevoked rows are written in the revoke transaction (see
 	// store.PostgresSessionRepository) and published by the relayer below.
@@ -99,8 +102,12 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 		publisher = producer
 	}
 
+	outboxStore, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox store: %w", err), stack.Close(ctx))
+	}
 	users := store.NewPostgresUserRepository(pool)
-	sessions := store.NewPostgresSessionRepository(pool)
+	sessions := store.NewPostgresSessionRepository(pool, outboxStore)
 	ttl := time.Duration(s.JWT.TTLSeconds) * time.Second
 	authSvc := identity.NewAuthService(users, signer, ttl).WithSessions(sessions)
 
@@ -120,15 +127,18 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 		Profile: rpc.NewProfileHandler(users, logger),
 	})
 
-	relayer := outbox.NewRelayer(outbox.NewStore(pool, store.OutboxTable), publisher, outbox.RelayerOptions{
+	relayer, err := outbox.NewRelayer(outboxStore, publisher, outbox.RelayerOptions{
 		Topic:  s.Events.IdentityTopic,
 		Config: s.Outbox,
 		Logger: logger,
 	})
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox relayer: %w", err), stack.Close(ctx))
+	}
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,

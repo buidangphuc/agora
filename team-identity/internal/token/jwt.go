@@ -13,20 +13,43 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
 )
 
-// Claims are the platform's JWT claims: a Principal (sub/type/scopes) + display
-// name, over the standard registered claims (exp/iat). Unchanged from ADR-0003.
-type Claims struct {
-	Name   string   `json:"name"`
-	Type   string   `json:"typ"` // "user" | "service" | "anonymous"
-	Scopes []string `json:"scopes"`
-	// SessionID (`sid`) ties the token to a row in team-identity's sessions
-	// table so a revoked session can be recognised. Empty for tokens minted
-	// without a session (service tokens, legacy callers).
-	SessionID string `json:"sid,omitempty"`
-	jwt.RegisteredClaims
+// Claims are the platform's JWT claims (jwtx.Claims, shared with the verifier at
+// the edge) made usable by golang-jwt: Principal fields + display name over the
+// standard registered claims. Unchanged from ADR-0003. SessionID (`sid`) ties the
+// token to a row in team-identity's sessions table so a revoked session can be
+// recognised; it is empty for tokens minted without a session.
+type Claims struct{ jwtx.Claims }
+
+// The methods below make Claims a jwt.Claims. Zero times are absent claims.
+
+func numericDate(sec int64) *jwt.NumericDate {
+	if sec == 0 {
+		return nil
+	}
+	return jwt.NewNumericDate(time.Unix(sec, 0))
 }
+
+// GetExpirationTime implements jwt.Claims.
+func (c Claims) GetExpirationTime() (*jwt.NumericDate, error) { return numericDate(c.ExpiresAt), nil }
+
+// GetIssuedAt implements jwt.Claims.
+func (c Claims) GetIssuedAt() (*jwt.NumericDate, error) { return numericDate(c.IssuedAt), nil }
+
+// GetNotBefore implements jwt.Claims.
+func (c Claims) GetNotBefore() (*jwt.NumericDate, error) { return numericDate(c.NotBefore), nil }
+
+// GetIssuer implements jwt.Claims.
+func (c Claims) GetIssuer() (string, error) { return c.Issuer, nil }
+
+// GetSubject implements jwt.Claims.
+func (c Claims) GetSubject() (string, error) { return c.Subject, nil }
+
+// GetAudience implements jwt.Claims.
+func (c Claims) GetAudience() (jwt.ClaimStrings, error) { return jwt.ClaimStrings(c.Audience), nil }
 
 // Signer holds the parsed RSA private key and the key id it stamps into every
 // token header. It is the only thing that can mint a platform token.
@@ -68,17 +91,15 @@ func (s *Signer) Sign(subject, name, principalType string, scopes []string, ttl 
 // SignWithSession is Sign plus a `sid` claim carrying the session id.
 func (s *Signer) SignWithSession(subject, name, principalType string, scopes []string, sessionID string, ttl time.Duration) (string, error) {
 	now := time.Now()
-	claims := Claims{
+	claims := Claims{jwtx.Claims{
 		Name:      name,
 		Type:      principalType,
 		Scopes:    scopes,
 		SessionID: sessionID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   subject,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
-		},
-	}
+		Subject:   subject,
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(ttl).Unix(),
+	}}
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tok.Header["kid"] = s.kid
 	signed, err := tok.SignedString(s.key)

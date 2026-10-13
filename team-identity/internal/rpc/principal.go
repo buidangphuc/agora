@@ -11,13 +11,6 @@ import (
 	"github.com/buidangphuc/team-identity/internal/identity"
 )
 
-// Principal types the gateway forwards in x-principal-type.
-const (
-	principalTypeUser      = "user"
-	principalTypeService   = "service"
-	principalTypeAnonymous = "anonymous"
-)
-
 // Gateway-computed audit metadata. It is never part of the principal and never
 // used for authorization.
 const (
@@ -31,13 +24,13 @@ func wirePrincipal(p auth.Principal) *commonv1.Principal {
 	return &commonv1.Principal{Id: p.ID, Type: wirePrincipalType(p.Type), Scopes: p.Scopes}
 }
 
-func wirePrincipalType(t string) commonv1.PrincipalType {
+func wirePrincipalType(t auth.PrincipalType) commonv1.PrincipalType {
 	switch t {
-	case principalTypeUser:
+	case auth.TypeUser:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	case principalTypeService:
+	case auth.TypeService:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
-	case principalTypeAnonymous:
+	case auth.TypeAnonymous:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
 	default:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED

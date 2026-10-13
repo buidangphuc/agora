@@ -72,16 +72,10 @@ func Load() (Settings, error) {
 	return sdkconfig.Load[Settings]()
 }
 
-// Validate enforces cross-field invariants and prod-safety. sdkconfig.Load calls
-// it after parsing. Defining it hides the embedded GRPC.Validate, so it is called
-// here.
+// Validate enforces the service's own invariants and prod-safety. sdkconfig.Load
+// validates every SDK group (Runtime, GRPC, Postgres, ...) by itself and then
+// calls this.
 func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
-	if err := s.Postgres.Validate(); err != nil {
-		return fmt.Errorf("team-identity owns identity_db: %w", err)
-	}
 	if strings.TrimSpace(s.JWT.PrivateKey) == "" {
 		return errors.New("JWT_PRIVATE_KEY is required (PEM-encoded RSA private key)")
 	}
@@ -96,7 +90,7 @@ func (s Settings) Validate() error {
 			return fmt.Errorf("SEED_ADMIN_PASSWORD is required and must be at least %d characters when SEED_ADMIN_ENABLED=true", MinSeedAdminPasswordLen)
 		}
 	}
-	if s.PasswordReset.ExposeToken && s.RequiresHardenedSecrets() {
+	if s.PasswordReset.ExposeToken && s.IsStrict() {
 		return fmt.Errorf("PASSWORD_RESET_EXPOSE_TOKEN must not be enabled when ENV is %q (staging or production)", s.Env)
 	}
 	if s.Port > 65535 {
@@ -109,23 +103,6 @@ func (s Settings) Validate() error {
 		return fmt.Errorf("JWT_TTL_SECONDS must be > 0: %d", s.JWT.TTLSeconds)
 	}
 	return nil
-}
-
-// hardenedSecretEnvs are the deployed environments that must not run on the
-// committed development signing key; anything else ("local", "test", unknown) is
-// non-strict.
-var hardenedSecretEnvs = []string{"staging", "stage", "prod", "production"}
-
-// RequiresHardenedSecrets reports whether ENV names a deployed environment
-// (staging / production) that must not run on development secrets.
-func (s Settings) RequiresHardenedSecrets() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Env))
-	for _, strict := range hardenedSecretEnvs {
-		if e == strict {
-			return true
-		}
-	}
-	return false
 }
 
 // IsProd reports whether ENV names production (case-insensitive).

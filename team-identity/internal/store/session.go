@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // OutboxTable is the transactional-outbox table the revoke writes to; the
@@ -78,9 +79,10 @@ type PostgresSessionRepository struct {
 	outbox *outbox.Store
 }
 
-// NewPostgresSessionRepository builds the repository over the shared pool.
-func NewPostgresSessionRepository(pool *pgxpool.Pool) *PostgresSessionRepository {
-	return &PostgresSessionRepository{pool: pool, outbox: outbox.NewStore(pool, OutboxTable)}
+// NewPostgresSessionRepository builds the repository over the shared pool; ob is
+// the outbox store over OutboxTable that RevokeSession enqueues through.
+func NewPostgresSessionRepository(pool *pgxpool.Pool, ob *outbox.Store) *PostgresSessionRepository {
+	return &PostgresSessionRepository{pool: pool, outbox: ob}
 }
 
 const sessionColumns = `id, user_id, device, ip, created_at, last_seen, revoked`
@@ -132,33 +134,26 @@ func (r *PostgresSessionRepository) ListSessions(ctx context.Context, userID str
 
 // RevokeSession implements SessionRepository.RevokeSession in Postgres.
 func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID, userID string, ev EnqueueFn) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	const q = `UPDATE sessions SET revoked = true WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
-	var s Session
-	if err := scanSession(tx.QueryRow(ctx, q, sessionID, userID), &s); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrSessionNotFound
+	return postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		const q = `UPDATE sessions SET revoked = true WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
+		var s Session
+		if err := scanSession(tx.QueryRow(ctx, q, sessionID, userID), &s); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrSessionNotFound
+			}
+			return fmt.Errorf("revoke session: %w", err)
 		}
-		return fmt.Errorf("revoke session: %w", err)
-	}
-	if ev != nil {
-		row, err := ev(s)
-		if err != nil {
-			return err
+		if ev != nil {
+			row, err := ev(s)
+			if err != nil {
+				return err
+			}
+			if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
+				return err
+			}
 		}
-		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
-			return err
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit tx: %w", err)
-	}
-	return nil
+		return nil
+	})
 }
 
 // RecordLogin implements SessionRepository.RecordLogin in Postgres.

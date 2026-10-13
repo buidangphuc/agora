@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
@@ -17,14 +18,19 @@ import (
 	"github.com/buidangphuc/team-identity/migrations"
 )
 
-// fakePublisher is an outbox.Publisher whose result is configurable.
+// fakePublisher is an outbox.Publisher whose result is configurable: err for
+// every record, or errFor[key] for the records of one aggregate.
 type fakePublisher struct {
-	err   error
-	calls int
+	err    error
+	errFor map[string]error
+	calls  int
 }
 
-func (p *fakePublisher) Publish(_ context.Context, _ string, _, _ []byte) error {
+func (p *fakePublisher) PublishRecord(_ context.Context, r *kgo.Record) error {
 	p.calls++
+	if err, ok := p.errFor[string(r.Key)]; ok {
+		return err
+	}
 	return p.err
 }
 
@@ -47,7 +53,11 @@ func newOutboxFixture(t *testing.T) *outboxFixture {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	return &outboxFixture{pool: pool, store: outbox.NewStore(pool, store.OutboxTable)}
+	st, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		t.Fatalf("outbox store: %v", err)
+	}
+	return &outboxFixture{pool: pool, store: st}
 }
 
 func (f *outboxFixture) enqueue(t *testing.T, row outbox.Row) {
@@ -65,14 +75,19 @@ func (f *outboxFixture) enqueue(t *testing.T, row outbox.Row) {
 	}
 }
 
-func (f *outboxFixture) relayer(pub outbox.Publisher) *outbox.Relayer {
-	return outbox.NewRelayer(f.store, pub, outbox.RelayerOptions{
+func (f *outboxFixture) relayer(t *testing.T, pub outbox.Publisher) *outbox.Relayer {
+	t.Helper()
+	r, err := outbox.NewRelayer(f.store, pub, outbox.RelayerOptions{
 		Topic:  "identity.events",
-		Config: config.Outbox{BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10},
+		Config: config.Outbox{BatchSize: 10, ClaimLock: time.Minute},
 		// BaseBackoff 1s and MaxBackoff 1m, as the old relayer test used.
 		BaseBackoff: time.Second,
 		MaxBackoff:  time.Minute,
 	})
+	if err != nil {
+		t.Fatalf("outbox relayer: %v", err)
+	}
+	return r
 }
 
 type rowState struct {
@@ -98,7 +113,7 @@ func TestRelayer_MarksPublishedOnSuccess(t *testing.T) {
 	f.enqueue(t, outbox.Row{EventID: "e1", AggregateType: "Session", AggregateID: "l1", EventType: "T", Payload: []byte("env")})
 	prod := &fakePublisher{}
 
-	rep, err := f.relayer(prod).RelayOnce(context.Background())
+	rep, err := f.relayer(t, prod).RelayOnce(context.Background())
 	if err != nil {
 		t.Fatalf("RelayOnce: %v", err)
 	}
@@ -119,7 +134,7 @@ func TestRelayer_RetriesWithBackoffOnFailure(t *testing.T) {
 	prod := &fakePublisher{err: errors.New("broker unavailable")}
 
 	before := time.Now()
-	rep, err := f.relayer(prod).RelayOnce(context.Background())
+	rep, err := f.relayer(t, prod).RelayOnce(context.Background())
 	if err != nil {
 		t.Fatalf("RelayOnce: %v", err)
 	}
@@ -140,21 +155,20 @@ func TestRelayer_RetriesWithBackoffOnFailure(t *testing.T) {
 	}
 }
 
-func TestRelayer_ParksPoisonRowPastMaxAttempts(t *testing.T) {
+// v1 has no attempt ceiling: every error is retried with backoff, and only an
+// error permanent for the record (outbox.Permanent) parks the row at once. A
+// parked row does not block the other aggregates.
+func TestRelayer_ParksPermanentErrorRowWithoutBlockingOthers(t *testing.T) {
 	f := newOutboxFixture(t)
-	// Two rows: a poison row already at the attempt ceiling, and a healthy row.
-	// The poison row is parked without blocking the healthy one.
 	f.enqueue(t, outbox.Row{EventID: "poison", AggregateType: "Session", AggregateID: "l1", EventType: "T", Payload: []byte("a")})
 	f.enqueue(t, outbox.Row{EventID: "ok", AggregateType: "Session", AggregateID: "l2", EventType: "T", Payload: []byte("b")})
-	// attempt 10 == MaxAttempts
-	if _, err := f.pool.Exec(context.Background(), `UPDATE `+store.OutboxTable+` SET attempts = 9 WHERE event_id = 'poison'`); err != nil {
-		t.Fatal(err)
-	}
-	// Producer fails for both, so the healthy row (attempts 0) retries and the
-	// poison one parks.
-	prod := &fakePublisher{err: errors.New("still down")}
+	// The poison record can never be published; the other one fails for now.
+	prod := &fakePublisher{errFor: map[string]error{
+		"l1": outbox.Permanent(errors.New("record too large")),
+		"l2": errors.New("still down"),
+	}}
 
-	rep, err := f.relayer(prod).RelayOnce(context.Background())
+	rep, err := f.relayer(t, prod).RelayOnce(context.Background())
 	if err != nil {
 		t.Fatalf("RelayOnce: %v", err)
 	}
@@ -180,27 +194,28 @@ func TestRelayer_ParksPoisonRowPastMaxAttempts(t *testing.T) {
 // Regression: UPDATE ... RETURNING does not preserve the claim subquery's ORDER BY,
 // so two events for one aggregate in the same batch could be relayed newest-first
 // (a consumer replaying a user's events out of order). Rows are inserted so the
-// physical order is the reverse of created_at; the relay must still publish them
-// oldest-first.
+// physical order is the reverse of seq; the relay must still publish them in seq
+// order, oldest-first.
 func TestRelayPublishesInCreationOrder(t *testing.T) {
 	f := newOutboxFixture(t)
 	ctx := context.Background()
 
 	base := time.Now().Add(-time.Minute)
-	// Inserted newer-first so heap order disagrees with created_at.
+	// Inserted newer-first so heap order disagrees with seq (and created_at).
 	for _, r := range []struct {
 		id  string
 		age time.Duration
-	}{{"evt-updated", 2 * time.Second}, {"evt-created", 0}} {
+		seq int64
+	}{{"evt-updated", 2 * time.Second, 2}, {"evt-created", 0, 1}} {
 		if _, err := f.pool.Exec(ctx, `INSERT INTO `+store.OutboxTable+`
-			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at)
-			VALUES ($1, 'Session', 'user-1', 'T', $3, '', 'pending', 0, $2, $2)`, r.id, base.Add(r.age), []byte(r.id)); err != nil {
+			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at, seq)
+			VALUES ($1, 'Session', 'user-1', 'T', $3, '', 'pending', 0, $2, $2, $4)`, r.id, base.Add(r.age), []byte(r.id), r.seq); err != nil {
 			t.Fatalf("insert %s: %v", r.id, err)
 		}
 	}
 
 	pub := &orderPublisher{}
-	if _, err := f.relayer(pub).RelayOnce(ctx); err != nil {
+	if _, err := f.relayer(t, pub).RelayOnce(ctx); err != nil {
 		t.Fatalf("relay: %v", err)
 	}
 	if len(pub.payloads) != 2 || pub.payloads[0] != "evt-created" || pub.payloads[1] != "evt-updated" {
@@ -211,7 +226,7 @@ func TestRelayPublishesInCreationOrder(t *testing.T) {
 // orderPublisher records the payloads in the order they are published.
 type orderPublisher struct{ payloads []string }
 
-func (p *orderPublisher) Publish(_ context.Context, _ string, _, value []byte) error {
-	p.payloads = append(p.payloads, string(value))
+func (p *orderPublisher) PublishRecord(_ context.Context, r *kgo.Record) error {
+	p.payloads = append(p.payloads, string(r.Value))
 	return nil
 }

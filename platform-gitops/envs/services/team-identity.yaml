@@ -20,6 +20,8 @@ resources:
     cpu: 250m
     memory: 256Mi
 env:
+  # ENV has no default; staging and prod overlays override it.
+  ENV: "local"
   # JWKS HTTP listener (ADR-0006): identity is otherwise gRPC-only. It publishes
   # its RSA public key(s) at GET /.well-known/jwks.json on this port for the edge.
   JWKS_HTTP_PORT: "50063"
@@ -28,8 +30,7 @@ env:
   IDENTITY_EVENTS_TOPIC: "identity.events"
   OUTBOX_POLL_INTERVAL: "1s"
   OUTBOX_BATCH_SIZE: "100"
-  OUTBOX_CLAIM_LOCK_SECONDS: "60"
-  OUTBOX_MAX_ATTEMPTS: "10"
+  OUTBOX_CLAIM_LOCK: "60s"
   # First-admin seed is intentionally NOT configured here (default off; enforced by
   # scripts/check_identity_seed.py). Create the first admin out of band.
 secrets:

@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // ErrAddressNotFound is returned when an address does not exist or is owned by another user.
@@ -93,68 +95,60 @@ func (r *PostgresAddressRepository) Create(ctx context.Context, a Address) (Addr
 		a.ID = uuid.NewString()
 	}
 
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return Address{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// If this is the first address or marked default, reset other defaults
-	if a.IsDefault {
-		if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, a.UserID); err != nil {
-			return Address{}, fmt.Errorf("reset default: %w", err)
-		}
-	} else {
-		// Check if user has any existing addresses; if none, make this default
-		var count int64
-		_ = tx.QueryRow(ctx, `SELECT count(*) FROM user_addresses WHERE user_id = $1`, a.UserID).Scan(&count)
-		if count == 0 {
-			a.IsDefault = true
-		}
-	}
-
-	const q = `INSERT INTO user_addresses (id, user_id, recipient_name, phone, street, ward, district, city, is_default)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING ` + addressColumns
 	var out Address
-	if err := scanAddress(tx.QueryRow(ctx, q, a.ID, a.UserID, a.RecipientName, a.Phone, a.Street, a.Ward, a.District, a.City, a.IsDefault), &out); err != nil {
-		return Address{}, fmt.Errorf("create address: %w", err)
-	}
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		// If this is the first address or marked default, reset other defaults
+		if a.IsDefault {
+			if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, a.UserID); err != nil {
+				return fmt.Errorf("reset default: %w", err)
+			}
+		} else {
+			// Check if user has any existing addresses; if none, make this default
+			var count int64
+			_ = tx.QueryRow(ctx, `SELECT count(*) FROM user_addresses WHERE user_id = $1`, a.UserID).Scan(&count)
+			if count == 0 {
+				a.IsDefault = true
+			}
+		}
 
-	if err := tx.Commit(ctx); err != nil {
-		return Address{}, fmt.Errorf("commit tx: %w", err)
+		const q = `INSERT INTO user_addresses (id, user_id, recipient_name, phone, street, ward, district, city, is_default)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			RETURNING ` + addressColumns
+		if err := scanAddress(tx.QueryRow(ctx, q, a.ID, a.UserID, a.RecipientName, a.Phone, a.Street, a.Ward, a.District, a.City, a.IsDefault), &out); err != nil {
+			return fmt.Errorf("create address: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Address{}, err
 	}
 	return out, nil
 }
 
 // Update implements AddressRepository.Update in Postgres.
 func (r *PostgresAddressRepository) Update(ctx context.Context, a Address) (Address, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return Address{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if a.IsDefault {
-		if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, a.UserID); err != nil {
-			return Address{}, fmt.Errorf("reset default: %w", err)
-		}
-	}
-
-	const q = `UPDATE user_addresses
-		SET recipient_name = $3, phone = $4, street = $5, ward = $6, district = $7, city = $8, is_default = $9, updated_at = now()
-		WHERE id = $1 AND user_id = $2
-		RETURNING ` + addressColumns
 	var out Address
-	if err := scanAddress(tx.QueryRow(ctx, q, a.ID, a.UserID, a.RecipientName, a.Phone, a.Street, a.Ward, a.District, a.City, a.IsDefault), &out); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return Address{}, ErrAddressNotFound
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		if a.IsDefault {
+			if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, a.UserID); err != nil {
+				return fmt.Errorf("reset default: %w", err)
+			}
 		}
-		return Address{}, fmt.Errorf("update address: %w", err)
-	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return Address{}, fmt.Errorf("commit tx: %w", err)
+		const q = `UPDATE user_addresses
+			SET recipient_name = $3, phone = $4, street = $5, ward = $6, district = $7, city = $8, is_default = $9, updated_at = now()
+			WHERE id = $1 AND user_id = $2
+			RETURNING ` + addressColumns
+		if err := scanAddress(tx.QueryRow(ctx, q, a.ID, a.UserID, a.RecipientName, a.Phone, a.Street, a.Ward, a.District, a.City, a.IsDefault), &out); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				return ErrAddressNotFound
+			}
+			return fmt.Errorf("update address: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Address{}, err
 	}
 	return out, nil
 }
@@ -174,27 +168,23 @@ func (r *PostgresAddressRepository) Delete(ctx context.Context, id, userID strin
 
 // SetDefault implements AddressRepository.SetDefault in Postgres.
 func (r *PostgresAddressRepository) SetDefault(ctx context.Context, id, userID string) (Address, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return Address{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, userID); err != nil {
-		return Address{}, fmt.Errorf("reset default: %w", err)
-	}
-
-	const q = `UPDATE user_addresses SET is_default = true, updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING ` + addressColumns
 	var out Address
-	if err := scanAddress(tx.QueryRow(ctx, q, id, userID), &out); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return Address{}, ErrAddressNotFound
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, userID); err != nil {
+			return fmt.Errorf("reset default: %w", err)
 		}
-		return Address{}, fmt.Errorf("set default: %w", err)
-	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return Address{}, fmt.Errorf("commit tx: %w", err)
+		const q = `UPDATE user_addresses SET is_default = true, updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING ` + addressColumns
+		if err := scanAddress(tx.QueryRow(ctx, q, id, userID), &out); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				return ErrAddressNotFound
+			}
+			return fmt.Errorf("set default: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Address{}, err
 	}
 	return out, nil
 }

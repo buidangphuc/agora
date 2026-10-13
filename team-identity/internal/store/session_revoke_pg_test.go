@@ -23,7 +23,11 @@ func TestRevokeSessionIsAtomicWithOutbox_Postgres(t *testing.T) {
 		t.Fatalf("seed user: %v", err)
 	}
 
-	repo := NewPostgresSessionRepository(pool)
+	ob, err := outbox.NewStore(pool, OutboxTable)
+	if err != nil {
+		t.Fatalf("outbox store: %v", err)
+	}
+	repo := NewPostgresSessionRepository(pool, ob)
 	sess, err := repo.CreateSession(ctx, Session{UserID: "u-revoke", Device: "d", IP: "1.1.1.1"})
 	if err != nil {
 		t.Fatalf("create session: %v", err)

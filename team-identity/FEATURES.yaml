@@ -564,7 +564,7 @@ features:
     services: [team-identity]
     acceptance:
       - "When two rows are enqueued and publishing the first fails"
-      - "Then the second is published, and the first is retried with backoff and parked after OUTBOX_MAX_ATTEMPTS"
+      - "Then the second is published, and the first is retried with backoff and stays pending (go-sdk v1 has no attempt limit; only a permanent publish error parks a row)"
     tags: [identity-runtime, unit]
     status: not-testable
     notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/app TestOutboxRelayedViaSDK (testkit Postgres)."
@@ -582,3 +582,31 @@ features:
     tags: [identity-runtime, unit]
     status: not-testable
     notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity `make check`."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.outbox-table-upgrades-from-v0-keeping-event-order
+    title: "team-identity outbox table upgrades from v0 keeping event order"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When the migrations are applied to a v0 identity_outbox_events table that holds rows, including a retried row of an aggregate with newer events"
+      - "Then seq numbers the rows by created_at and event_id, the v1 indexes exist, and the SDK relayer publishes each aggregate in creation order"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/migrations TestOutboxUpgradeKeepsOrderOfExistingRows (testkit Postgres)."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.tokens-and-jwks-keep-their-wire-shape
+    title: "team-identity tokens and JWKS keep their wire shape"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When identity issues a token and serves its JWKS"
+      - "Then the token payload decodes into jwtx.Claims with the same claim names and numeric exp and iat, and the JWKS JSON is byte-identical to the previous document"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/token TestIssuedTokenDecodesIntoJWTXClaims and TestJWKSEndpointJSONShape."

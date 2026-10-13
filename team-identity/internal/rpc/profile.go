@@ -49,7 +49,7 @@ func (h *ProfileHandler) GetPublicProfiles(
 	if err != nil {
 		return nil, err
 	}
-	if principal.Type != principalTypeService {
+	if principal.Type != auth.TypeService {
 		return nil, status.Error(codes.PermissionDenied, "service principal required")
 	}
 	if !principal.HasScope(scopeIdentityRead) {

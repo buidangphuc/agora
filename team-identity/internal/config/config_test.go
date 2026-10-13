@@ -19,6 +19,7 @@ func TestEnvExampleInSync(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "dev-rsa-private-key-pem")
@@ -93,6 +94,7 @@ func TestSeedAdminValidation(t *testing.T) {
 }
 
 func TestSeedAdminDefaultsOff(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "pem")
@@ -107,6 +109,7 @@ func TestSeedAdminDefaultsOff(t *testing.T) {
 }
 
 func TestSeedAdminLoadFailsFast(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "pem")
@@ -118,6 +121,7 @@ func TestSeedAdminLoadFailsFast(t *testing.T) {
 }
 
 func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50053")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("JWT_PRIVATE_KEY", "pem")
@@ -130,6 +134,7 @@ func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
 		t.Fatal("PASSWORD_RESET_EXPOSE_TOKEN must default to false")
 	}
 	t.Setenv("PASSWORD_RESET_EXPOSE_TOKEN", "true")
+	t.Setenv("KAFKA_BROKERS", "kafka:9092") // required in the deployed ENVs below
 	if _, err := Load(); err != nil {
 		t.Fatalf("local env should allow it: %v", err)
 	}
@@ -144,5 +149,26 @@ func TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd(t *testing.T) {
 		if _, err := Load(); err != nil {
 			t.Fatalf("ENV=%s should allow it: %v", env, err)
 		}
+	}
+}
+
+// ENV has no default, and a deployed ENV must name Kafka: neither falls back to
+// a local value any more.
+func TestLoadRequiresENVAndKafkaWhenDeployed(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50053")
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("JWT_PRIVATE_KEY", "pem")
+	t.Setenv("JWT_KID", "k")
+	t.Setenv("ENV", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("Load without ENV = %v, want an ENV error", err)
+	}
+	t.Setenv("ENV", "staging")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "KAFKA_BROKERS") {
+		t.Fatalf("Load in staging without KAFKA_BROKERS = %v, want a KAFKA_BROKERS error", err)
+	}
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	if _, err := Load(); err != nil {
+		t.Fatalf("Load in staging with KAFKA_BROKERS: %v", err)
 	}
 }

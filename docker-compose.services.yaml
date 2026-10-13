@@ -211,8 +211,7 @@ services:
       - IDENTITY_EVENTS_TOPIC=identity.events
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
-      - OUTBOX_CLAIM_LOCK_SECONDS=60
-      - OUTBOX_MAX_ATTEMPTS=10
+      - OUTBOX_CLAIM_LOCK=60s
       # Local-only first-admin seed (dev password; override via SEED_ADMIN_PASSWORD).
       # Deployment manifests must NOT enable this (platform-gitops check).
       - SEED_ADMIN_ENABLED=true

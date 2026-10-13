@@ -34,7 +34,7 @@ func PublicKeyFingerprint(pub *rsa.PublicKey) (string, error) {
 // fingerprint). Other environments always pass. The key material is never
 // logged or included in the error.
 func (s Settings) RequireNonDevSigningKey(kid string, pub *rsa.PublicKey) error {
-	if !s.RequiresHardenedSecrets() {
+	if !s.IsStrict() {
 		return nil
 	}
 	if strings.EqualFold(strings.TrimSpace(kid), DevJWTKID) {
