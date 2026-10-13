@@ -3,11 +3,14 @@ package upstream
 import (
 	"context"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/resolver/manual"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -44,9 +47,9 @@ func echoServer(t *testing.T) *bufconn.Listener {
 
 func invoke(ctx context.Context, t *testing.T, opts ...Option) metadata.MD {
 	t.Helper()
-	conn, err := Dial("passthrough:///bufnet", opts...)
+	conn, err := NewClient("passthrough:///bufnet", opts...)
 	if err != nil {
-		t.Fatalf("Dial: %v", err)
+		t.Fatalf("NewClient: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	var hdr metadata.MD
@@ -135,9 +138,9 @@ func TestBoundedRespectsParentDeadline(t *testing.T) {
 }
 
 func TestPerCallServicePrincipal(t *testing.T) {
-	conn, err := Dial("passthrough:///bufnet", withBufconn(echoServer(t)))
+	conn, err := NewClient("passthrough:///bufnet", withBufconn(echoServer(t)))
 	if err != nil {
-		t.Fatalf("Dial: %v", err)
+		t.Fatalf("NewClient: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	call := func(ctx context.Context) metadata.MD {
@@ -177,5 +180,63 @@ func TestPerCallServicePrincipalIgnoresIncomingMetadata(t *testing.T) {
 	hdr := invoke(ctx, t, withBufconn(echoServer(t)))
 	if got := hdr.Get(auth.MDPrincipalID); len(got) != 1 || got[0] != "buyer-9" {
 		t.Errorf("principal id = %v, want [buyer-9]", got)
+	}
+}
+
+func TestDialOptionsApplied(t *testing.T) {
+	var seen []string
+	icpt := grpc.WithChainUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		seen = append(seen, method)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	})
+	invoke(buyerCtx(), t, withBufconn(echoServer(t)), WithDialOptions(icpt))
+	if len(seen) != 1 || seen[0] != "/test.v1.Test/Echo" {
+		t.Errorf("interceptor saw %v, want one call to /test.v1.Test/Echo", seen)
+	}
+}
+
+func TestDefaultsToRoundRobin(t *testing.T) {
+	var hits [2]atomic.Int64
+	listeners := map[string]*bufconn.Listener{}
+	var addrs []resolver.Address
+	for i := range hits {
+		srv := grpc.NewServer(grpc.UnknownServiceHandler(func(_ any, ss grpc.ServerStream) error {
+			hits[i].Add(1)
+			if err := ss.RecvMsg(new(wrapperspb.StringValue)); err != nil {
+				return err
+			}
+			return ss.SendMsg(wrapperspb.String("ok"))
+		}))
+		lis := bufconn.Listen(1 << 20)
+		go func() { _ = srv.Serve(lis) }()
+		t.Cleanup(srv.Stop)
+		addr := "backend-" + string(rune('a'+i))
+		listeners[addr] = lis
+		addrs = append(addrs, resolver.Address{Addr: addr})
+	}
+	r := manual.NewBuilderWithScheme("rr")
+	r.InitialState(resolver.State{Addresses: addrs})
+
+	conn, err := NewClient("rr:///svc", WithDialOptions(
+		grpc.WithResolvers(r),
+		grpc.WithContextDialer(func(_ context.Context, addr string) (net.Conn, error) { return listeners[addr].Dial() }),
+	))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	for range 200 {
+		if hits[0].Load() > 0 && hits[1].Load() > 0 {
+			break
+		}
+		// WaitForReady rides out the window before both subchannels are connected.
+		err := conn.Invoke(context.Background(), "/test.v1.Test/Echo", wrapperspb.String("x"), new(wrapperspb.StringValue), grpc.WaitForReady(true))
+		if err != nil {
+			t.Fatalf("Invoke: %v", err)
+		}
+	}
+	if hits[0].Load() == 0 || hits[1].Load() == 0 {
+		t.Errorf("calls per backend = %d and %d, want both used (round_robin)", hits[0].Load(), hits[1].Load())
 	}
 }
