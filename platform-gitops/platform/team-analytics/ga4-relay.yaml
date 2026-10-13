@@ -85,6 +85,7 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           env:
+            - { name: ENV, value: "local" }
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }
             - { name: GA4_RELAY_CONSUMER_GROUP, value: "team-analytics.ga4-relay" }

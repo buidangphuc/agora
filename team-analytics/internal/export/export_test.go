@@ -3,7 +3,6 @@ package export_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -12,8 +11,8 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/export"
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
+	"github.com/buidangphuc/team-analytics/internal/store"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
 )
 
 // fileExporter writes body to dst, or fails with err.
@@ -96,7 +95,7 @@ func TestRun_FailuresDoNotStopTheLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		export.Run(ctx, e, path, 5*time.Millisecond, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		export.Run(ctx, e, path, 5*time.Millisecond, slog.New(slog.DiscardHandler))
 		close(done)
 	}()
 	deadline := time.Now().Add(2 * time.Second)
@@ -114,7 +113,7 @@ func TestCycle_WritesEveryFileBesideTheTrackingFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tracking_events.parquet")
 	e := &fileExporter{body: "x-"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatalf("Cycle: %v", err)
 	}
 	for _, name := range []string{"tracking_events", "tracking_events_resolved", "engagement_facts", "order_facts", "listing_sellers"} {
@@ -136,7 +135,7 @@ func TestCycle_OneFailureDoesNotBlockTheOthers(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := &fileExporter{body: "x-", failRel: "engagement_facts"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err == nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err == nil {
 		t.Fatal("want the failure reported")
 	}
 	for _, name := range []string{"tracking_events", "tracking_events_resolved", "order_facts"} {
@@ -166,17 +165,17 @@ func openWriter(t *testing.T) *duckdb.Writer {
 func TestExport_ExportedFileHasEcommerceColumns(t *testing.T) {
 	ctx := context.Background()
 	w := openWriter(t)
-	rec := &warehouse.TrackingRecord{
+	rec := &store.TrackingRecord{
 		EventID: "e-1", EventType: "purchase", ListingID: "l-1", SessionID: "s-1",
 		OccurredAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
 		Currency:   "VND", Value: 500000, TransactionID: "o-1",
 		ItemListID: "home_feed", EventGroupID: "g-1", Position: 3,
 	}
-	if err := w.Write(ctx, []*warehouse.TrackingRecord{rec}); err != nil {
+	if err := w.Write(ctx, []*store.TrackingRecord{rec}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
-	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+	if err := export.Once(ctx, w, store.TableName, path); err != nil {
 		t.Fatalf("Once: %v", err)
 	}
 
@@ -207,14 +206,14 @@ func TestExport_ExportedFileHasEcommerceColumns(t *testing.T) {
 func TestExport_FailedExportKeepsPreviousFile(t *testing.T) {
 	ctx := context.Background()
 	w := openWriter(t)
-	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+	if err := w.Write(ctx, []*store.TrackingRecord{{
 		EventID: "e-1", EventType: "purchase", OccurredAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
 		TransactionID: "o-1", Currency: "VND", Value: 500000,
 	}}); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
-	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+	if err := export.Once(ctx, w, store.TableName, path); err != nil {
 		t.Fatalf("first export: %v", err)
 	}
 	before, err := os.ReadFile(path)
@@ -245,7 +244,7 @@ func TestCycle_ImportOfAFixtureDayProducesSessions_WritesGA4Files(t *testing.T) 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tracking_events.parquet")
 	e := &fileExporter{body: "x-"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatalf("Cycle: %v", err)
 	}
 	for _, name := range []string{"ga4_sessions", "tracking_events_attributed"} {
@@ -265,7 +264,7 @@ func TestCycle_ImportOfAFixtureDayProducesSessions_GA4FailureIsIsolated(t *testi
 		t.Fatal(err)
 	}
 	e := &fileExporter{body: "x-", failRel: "ga4_sessions"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err == nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err == nil {
 		t.Fatal("want the failure reported")
 	}
 	if got, _ := os.ReadFile(old); string(got) != "old" {
@@ -288,7 +287,7 @@ func TestExport_ImportOfAFixtureDayProducesSessions_RealRelations(t *testing.T) 
 	 (DATE '2026-10-01', '333.444', 's3', 'bing', 'organic', '', 'https://agora.test/p/2', TIMESTAMP '2026-10-01 09:00:00', TIMESTAMP '2026-10-01 09:10:00')`); err != nil {
 		t.Fatalf("seed ga4_sessions: %v", err)
 	}
-	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+	if err := w.Write(ctx, []*store.TrackingRecord{{
 		EventID: "e-1", EventType: "view", ListingID: "l-1", SessionID: "x",
 		OccurredAt: time.Date(2026, 10, 1, 10, 5, 0, 0, time.UTC), GaClientID: "111.222",
 	}}); err != nil {
@@ -353,7 +352,7 @@ func TestExport_ExportedFileHasConsentAndContextColumns(t *testing.T) {
 	if _, err := w.DB().ExecContext(ctx, sessionSeed); err != nil {
 		t.Fatalf("seed ga4_sessions: %v", err)
 	}
-	if err := w.Write(ctx, []*warehouse.TrackingRecord{{
+	if err := w.Write(ctx, []*store.TrackingRecord{{
 		EventID: "e-1", EventType: "view", ListingID: "l-1", SessionID: "x",
 		OccurredAt: time.Date(2026, 10, 1, 10, 5, 0, 0, time.UTC), GaClientID: "111.222",
 		ConsentPersonalization: true, ConsentVersion: 2, ItemListID: "home_feed", Position: 4,
@@ -361,7 +360,7 @@ func TestExport_ExportedFileHasConsentAndContextColumns(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
-	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+	if err := export.Once(ctx, w, store.TableName, path); err != nil {
 		t.Fatalf("Once: %v", err)
 	}
 	parquetHasCols(t, w, path, contextCols)
@@ -386,14 +385,14 @@ func TestExport_UnmatchedEventHasEmptySessionContext(t *testing.T) {
 		t.Fatalf("seed ga4_sessions: %v", err)
 	}
 	at := time.Date(2026, 10, 1, 10, 5, 0, 0, time.UTC)
-	if err := w.Write(ctx, []*warehouse.TrackingRecord{
+	if err := w.Write(ctx, []*store.TrackingRecord{
 		{EventID: "e-empty", EventType: "view", ListingID: "l-1", SessionID: "x", OccurredAt: at, GaClientID: ""},
 		{EventID: "e-nomatch", EventType: "view", ListingID: "l-2", SessionID: "y", OccurredAt: at, GaClientID: "999.000"},
 	}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
-	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+	if err := export.Once(ctx, w, store.TableName, path); err != nil {
 		t.Fatalf("Once: %v", err)
 	}
 	parquetHasCols(t, w, path, []string{"session_source", "session_medium", "session_campaign"})
@@ -416,7 +415,7 @@ func TestExport_NeverReadsGA4AsInteractionSource(t *testing.T) {
 		t.Fatalf("seed ga4_sessions: %v", err)
 	}
 	path := filepath.Join(t.TempDir(), "tracking_events.parquet")
-	if err := export.Once(ctx, w, warehouse.TableName, path); err != nil {
+	if err := export.Once(ctx, w, store.TableName, path); err != nil {
 		t.Fatalf("Once: %v", err)
 	}
 	parquetHasCols(t, w, path, contextCols)

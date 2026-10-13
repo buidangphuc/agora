@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
 )
 
 // ledgerContract runs the same Ledger behaviour against every implementation.

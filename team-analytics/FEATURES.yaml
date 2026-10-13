@@ -2059,3 +2059,57 @@ features:
     tags: [tracking, analytics, ga4-purchase-relay, unit]
     status: not-testable
     notes: "add-ga4-purchase-relay: unit-verified: team-frontend/src/lib/analytics/map.test.ts 'does not map purchase with empty transaction_id to GA4'. Not producible end to end (the UI always creates an order id)."
+
+  # Change migrate-team-analytics-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: analytics-runtime.declares-no-always-on-enable-flags
+    title: team-analytics declares no always-on enable flags
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-analytics]
+    acceptance:
+      - When the declared env keys of team-analytics's Settings are listed
+      - Then none of DATABASE_ENABLED, KAFKA_ENABLED, OUTBOX_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [analytics-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-analytics-to-go-sdk: not producible end to end; verified by team-analytics/internal/config TestNoEnableFlagsDeclared. team-analytics has no Postgres or outbox, so DATABASE_ENABLED and OUTBOX_ENABLED never existed here; KAFKA_ENABLED and GRPC_REFLECTION_ENABLED were removed."
+
+  - id: analytics-runtime.fails-boot-on-an-unreachable-database-when-deployed
+    title: team-analytics fails boot on an unreachable database when deployed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-analytics]
+    acceptance:
+      - When team-analytics starts with ENV=staging and a warehouse that cannot be opened
+      - Then app.RunConsumer returns an error before any port opens
+    tags: [analytics-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-analytics-to-go-sdk: not producible end to end; verified by team-analytics/internal/app TestBootFailsWhenDatabaseUnreachableDeployed. team-analytics has no DATABASE_URL: its database is the warehouse (DuckDB file or BigQuery), which fails boot in every environment."
+
+  - id: analytics-runtime.consumer-does-not-commit-when-the-dlq-produce-fails
+    title: team-analytics consumer does not commit when the DLQ produce fails
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-analytics]
+    acceptance:
+      - When handling an engagement record fails permanently and the DLQ produce also fails
+      - Then no offset is committed and the record is redelivered to the next consumer of the group
+    tags: [analytics-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-analytics-to-go-sdk: not producible end to end; verified by team-analytics/internal/events TestConsumerDoesNotCommitOnDLQFailure (testkit Redpanda). The engagement loop retries the batch in place with a 1s pause instead of stopping."
+
+  - id: analytics-runtime.existing-suites-do-not-regress-and-no-assertion-is-weakened
+    title: team-analytics existing suites do not regress and no assertion is weakened
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-analytics]
+    acceptance:
+      - When make check runs after the restructure
+      - Then every pre-existing test passes and no assertion is removed or loosened beyond removed-flag fields
+    tags: [analytics-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-analytics-to-go-sdk: not producible end to end; verified by team-analytics `make check`."

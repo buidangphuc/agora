@@ -1,3 +1,5 @@
+// Package observability holds the process metrics: the GA4 reconciliation gauge
+// and the Prometheus text endpoint that serves it.
 package observability
 
 import (

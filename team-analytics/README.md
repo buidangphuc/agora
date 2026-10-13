@@ -4,19 +4,19 @@ Analytics bounded context: a Go worker that consumes `analytics.events`, `order.
 
 ## 1. Contract
 
-Served: `platform.analytics.v1.AnalyticsQueryService` (`proto/platform/analytics/v1/analytics.proto`), plus the standard gRPC Health service and optional reflection. The query service is registered only when `WAREHOUSE_DRIVER=duckdb`; with `bigquery` only Health is served (`cmd/consumer/main.go`).
+Served: `platform.analytics.v1.AnalyticsQueryService` (`proto/platform/analytics/v1/analytics.proto`), plus the standard gRPC Health service and reflection (always on). The query service is registered only when `WAREHOUSE_DRIVER=duckdb`; with `bigquery` only Health is served (`internal/app/consumer.go`). The health status follows the DuckDB handle (a `duckdb` checker); `SHUTDOWN_DRAIN_DELAY` delays the stop after health reports NOT_SERVING.
 
-| RPC | Authorization (`internal/query/service.go`) |
+| RPC | Authorization (`internal/rpc/service.go`) |
 |---|---|
 | `GetSellerFunnel` | `requireSellerAccess`: no or anonymous principal -> `Unauthenticated`; `admin` scope -> allowed; a `user` principal whose id equals `seller_id` -> allowed; otherwise `PermissionDenied` |
 | `GetRevenueBreakdown` | same as above |
 | `GetDemandForecast` | same as above |
-| `GetPlatformOrderSummary` | `admin` scope only (`RequireScopes`) |
+| `GetPlatformOrderSummary` | `admin` scope only (`requireAdmin`) |
 | `ListRecentOrders` | `admin` scope only |
 | `GetRecommendationPerformance` | Admin only. Over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`), one row per (`placement_id`, `model_version`) seen on impression events. An impression is the triple (`impression_id`, `placement_id`, `model_version`), so a reused id keeps its placements apart. A click counts only on a listing the impression showed, at or before the click, and goes to exactly one impression (latest event; the click's own placement/model must match if it carries them). Add-to-carts (beacons) and purchases (PAID `order_facts` lines whose `buyer_id` is the click's `user_key`; purchase beacons are ignored) are credited once, to the earliest click at most `RECS_ATTRIBUTION_WINDOW_HOURS` earlier. `ctr` = clicks / item impressions; `conversion_rate` = purchases credited to *mature* clicks / mature clicks (a click is mature when its attribution window closed by the report end; 0 without mature clicks, so use a `window_hours` above the attribution window). Also the per-placement share of impressions with `model_version` `serving-fallback`. DuckDB only. |
 | `GetTrackingQualityReport` | `admin` scope only |
 
-Trust model (ADR-0003): the gateway verifies the token and forwards a resolved Principal as gRPC metadata `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`), `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` reads these headers and does no verification, so the service trusts any caller that can reach `:50059` (see Known gaps).
+Trust model (ADR-0003): the gateway verifies the token and forwards a resolved Principal as gRPC metadata `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`), `x-principal-scopes` (comma-separated). the SDK `auth` interceptor (installed by `grpcx.NewServer`) reads these headers and does no verification, so the service trusts any caller that can reach `:50059` (see Known gaps).
 
 | RPC | Behavior |
 |---|---|
@@ -37,15 +37,17 @@ Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Up
 | Consume | `order.events` (`KAFKA_ORDER_TOPIC`) | `platform.order.v1.OrderPaidEvent` | One `order_facts` row per line item, `event_id` = `<envelope event_id>-<item index>`, status `PAID`, `buyer_id` = `OrderPaidEvent.buyer_id` (empty -> NULL), currency defaults to `VND` |
 | Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id, category_id, price` in `listing_sellers` (DuckDB only). Deletes keep the row. |
 | Consume | `engagement.events` (`ENGAGEMENT_EVENTS_TOPIC`) | `platform.engagement.v1.FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated` | One `engagement_facts` row per envelope, `event_id` = envelope `event_id`, `fact` = `favorite_added`, `favorite_removed`, `seller_followed`, `seller_unfollowed` or `review_created`. Own group `team-analytics.engagement` (`ENGAGEMENT_CONSUMER_GROUP`). DuckDB only. |
-| Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with an `error` header | Only for an undecodable engagement record or an unknown envelope `type`; the consumer then commits past it. |
+| Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with the kafkax `dlq-error`, `dlq-source-topic`, `dlq-source-partition`, `dlq-source-offset` and `dlq-source-group` headers | An undecodable engagement record or an unknown envelope `type` (the consumer then commits past it), or a whole engagement batch the warehouse still cannot write after the SDK batch consumer's 5 attempts. |
+| Produce | `listing.events.analytics.dlq` (`KAFKA_LISTING_DLQ_TOPIC`) | the original record, with the same `dlq-*` headers | A listing batch the warehouse still cannot write after the SDK batch consumer's 5 attempts. |
+| Produce | `analytics.ga4-relay.dlq` (`GA4_RELAY_DLQ_TOPIC`) | the original order record, with the same `dlq-*` headers; `dlq-error` is the reason (`invalid`, `4xx`, `exhausted`) | A record the GA4 relay cannot send. |
 
 The code does not use the Kafka record key.
 
-- `analytics.events` and `order.events` are read by one consumer group (`KAFKA_CONSUMER_GROUP`). `listing.events` is read by its own group (`KAFKA_LISTING_CONSUMER_GROUP`) that starts from the earliest offset, so listings created before the consumer existed are backfilled (`internal/consumer/listing.go`); records are upserted, then offsets are committed. Envelopes of any other type are skipped; an undecodable record is logged and skipped (`internal/consumer/consumer.go`).
-- `engagement.events` is read by its own group (`internal/consumer/engagement.go`). Each polled batch is mapped, bad records are republished to the DLQ, good rows are written in one transaction (idempotent on `event_id`, `ingested_at` set at write time), then offsets are committed. A failed write or DLQ publish retries the batch and commits nothing.
-- Tracking event types mapped (`internal/consumer/tracking.go`): `view`, `click`, `add_to_cart`, `impression`, `remove_from_cart`, `begin_checkout`, `apply_promotion`, `search_filter`, `favorite`, `share`, `view_cart`, `add_shipping_info`, `add_payment_info`, `purchase`; anything else is stored as `unspecified`.
+- `analytics.events` and `order.events` are read by one consumer group (`KAFKA_CONSUMER_GROUP`). `listing.events` is read by its own group (`KAFKA_LISTING_CONSUMER_GROUP`) that starts from the earliest offset, so listings created before the consumer existed are backfilled (`internal/events/listing.go`); each polled batch is upserted by the SDK batch consumer (a failed upsert retries the same batch with backoff), then offsets are committed. Envelopes of any other type are skipped; an undecodable record is logged and skipped (`internal/events/consumer.go`).
+- `engagement.events` is read by its own group (`internal/events/engagement.go`). Each polled batch is mapped, bad records are republished to the DLQ, good rows are written in one transaction (idempotent on `event_id`, `ingested_at` set at write time), then offsets are committed. The batch runs through the SDK batch consumer: a failed write or DLQ publish retries the same batch with backoff and commits nothing, and a batch that still fails after 5 attempts is dead-lettered whole.
+- Tracking event types mapped (`internal/events/tracking.go`): `view`, `click`, `add_to_cart`, `impression`, `remove_from_cart`, `begin_checkout`, `apply_promotion`, `search_filter`, `favorite`, `share`, `view_cart`, `add_shipping_info`, `add_payment_info`, `purchase`; anything else is stored as `unspecified`.
 - Delivery is at-least-once: auto-commit is off and offsets are committed only after a successful batch write. Batches flush at `BATCH_MAX_SIZE` rows or every `BATCH_FLUSH_INTERVAL_SECONDS`, and on shutdown (best effort, 5s). A failed flush keeps the records in memory for retry.
-- Appends are idempotent on `event_id`: the DuckDB writer inserts with an anti-join (`INSERT ... SELECT ... WHERE NOT EXISTS (same event_id)`), one transaction per batch, so redelivered events and duplicates inside a batch are skipped (`internal/warehouse/duckdb/duckdb.go`). An anti-join is used rather than a unique index because existing volumes may already hold duplicates. The BigQuery adapter passes `event_id` as the insert id, which is best-effort deduplication only.
+- Appends are idempotent on `event_id`: the DuckDB writer inserts with an anti-join (`INSERT ... SELECT ... WHERE NOT EXISTS (same event_id)`), one transaction per batch, so redelivered events and duplicates inside a batch are skipped (`internal/store/duckdb/duckdb.go`). An anti-join is used rather than a unique index because existing volumes may already hold duplicates. The BigQuery adapter passes `event_id` as the insert id, which is best-effort deduplication only.
 
 ## 3. Data
 
@@ -53,7 +55,7 @@ Database-per-service; there are no SQL migration files.
 
 | Object | Notes |
 |---|---|
-| `tracking_events` | Columns defined in `internal/warehouse/warehouse.go` (`Schema`): event and session ids, `event_type`, `listing_id`, `occurred_at`, principal id/type, `properties` JSON, placement/impression/model_version, GA4-style commerce fields (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_*`, `shipping_tier`, `payment_type`) |
+| `tracking_events` | Columns defined in `internal/store/warehouse.go` (`Schema`): event and session ids, `event_type`, `listing_id`, `occurred_at`, principal id/type, `properties` JSON, placement/impression/model_version, GA4-style commerce fields (`currency`, `value`, `price`, `quantity`, `transaction_id`, `coupon`, `item_*`, `shipping_tier`, `payment_type`) |
 | `order_facts` | `event_id`, `order_id`, `listing_id`, `variant_id`, `seller_id`, `quantity`, `unit_price`, `currency`, `occurred_at`, `status`, `buyer_id` (nullable; NULL for rows ingested before the column existed) |
 | `engagement_facts` | `event_id`, `fact`, `user_id`, `listing_id`, `seller_id`, `rating` (NULL except `review_created`), `occurred_at`, `ingested_at`. DuckDB only. |
 | `favorites_current` | View: `user_id`, `listing_id`, `occurred_at` for the pairs whose latest favourite fact is `favorite_added`. Ties on `occurred_at` resolve by `event_id` order. |
@@ -69,19 +71,19 @@ Database-per-service; there are no SQL migration files.
 
 ## 4. Configuration
 
-Loaded by reflection from the `env`/`default` tags in `internal/config/config.go`. `.env.example` must list exactly these keys: `make check-env` (`TestEnvExampleInSync`) fails on drift in either direction.
+Loaded by the SDK `config` package from the `env`/`default` tags of `internal/config` (SDK groups `Runtime`, `GRPC`, `Kafka`, `OTel` plus the service groups). There are no enable flags: Kafka, the warehouse and reflection are always on. A string setting tagged `keepempty` keeps its empty value when its variable is set to an empty string, so `DUCKDB_PATH=` is rejected. Durations are Go durations (`10s`, `500ms`). `.env.example` must list exactly these keys: `make check-env` (`TestEnvExampleInSync`) fails on drift in either direction.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | Read into settings; nothing uses it |
+| `ENV` | none (required) | `local` and `test` count as local (SDK `Runtime.IsLocal`); `staging`, `stage`, `prod` and `production` are strict |
 | `LOG_LEVEL` | `info` | `debug`, `warn`, `error`, else info |
 | `LOG_JSON` | `true` | JSON vs text slog output |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50059` | 1 to 65535 |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | Validated but unused; shutdown calls `GracefulStop` with no timeout |
-| `KAFKA_ENABLED` | `false` | The process exits with an error unless `true` |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `GRPC_PORT` | none (required) | 1 to 65535; the image sets `50059` for all three binaries |
+| `SHUTDOWN_GRACE` | `10s` | Budget for components to stop and for the closers |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Pause between health NOT_SERVING and stopping the components |
+| `METRICS_ADDR` | `:9109` | HTTP listener of `GET /metrics` and `POST /internal/ga4import`; empty disables it |
+| `KAFKA_BROKERS` | `localhost:9092` when `ENV` is local, required in a strict `ENV` | Comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-analytics` | |
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
 | `KAFKA_ORDER_TOPIC` | `order.events` | |
@@ -90,6 +92,7 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `ENGAGEMENT_CONSUMER_GROUP` | `team-analytics.engagement` | Own group; must not be empty |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Source of the `listing_sellers` mapping |
 | `KAFKA_LISTING_CONSUMER_GROUP` | `team-analytics-listing-attrs` | Own group, earliest offset. Renamed when `category_id` and `price` were added so the topic is replayed once and existing rows are backfilled; keep an explicit override in step |
+| `KAFKA_LISTING_DLQ_TOPIC` | `listing.events.analytics.dlq` | Receives a listing batch the warehouse still cannot write after 5 attempts |
 | `WAREHOUSE_DRIVER` | `duckdb` | `duckdb` or `bigquery` |
 | `DUCKDB_PATH` | `/data/analytics.duckdb` | Required for `duckdb` |
 | `BIGQUERY_PROJECT` | empty | Required for `bigquery` |
@@ -103,9 +106,9 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `TRACKING_LAG_P95_MAX_SECONDS` | `300` | `DEGRADED` (`lagging`) when p95 ingest lag exceeds it; must be > 0 |
 | `TRACKING_MISSING_LISTING_MAX_RATIO` | `0.05` | `DEGRADED` (`incomplete`) when a listing-scoped type's share of events without `listing_id` exceeds it; 0 to 1 |
 | `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` credits an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
-| `OTEL_ENABLED` | `false` | Inert: no tracing code reads it |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | Inert |
-| `OTEL_SERVICE_NAME` | `team-analytics` | Inert |
+| `OTEL_ENABLED` | `false` | Installs the OTLP tracer and meter providers (SDK `otelx`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | OTLP/gRPC endpoint |
+| `OTEL_SERVICE_NAME` | empty (falls back to `team-analytics`) | |
 
 ## 5. Run locally
 
@@ -116,22 +119,26 @@ docker compose up -d --build                                # whole stack
 docker compose --profile jobs run --rm platform-recsys      # trains from the Parquet export
 ```
 
-The `team-analytics` service in `docker-compose.services.yaml` sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, `DUCKDB_PATH=/data/analytics.duckdb`, `PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, `PARQUET_EXPORT_INTERVAL_SECONDS=300` on the `analytics_data` volume. It publishes no host port; the gateway reaches it at `team-analytics-svc:50059`. The root compose does not set `KAFKA_ORDER_TOPIC`, so the default `order.events` applies.
+The `team-analytics` service in `docker-compose.services.yaml` sets `KAFKA_BROKERS=redpanda:9092`, `DUCKDB_PATH=/data/analytics.duckdb`, `PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, `PARQUET_EXPORT_INTERVAL_SECONDS=300` on the `analytics_data` volume. It publishes no host port; the gateway reaches it at `team-analytics-svc:50059`. The root compose does not set `KAFKA_ORDER_TOPIC`, so the default `order.events` applies.
 
-Standalone: `docker-compose.local.yaml` runs only this worker against the platform-core Redpanda on the external `platform-core_default` network (DuckDB on the `analytics-data` volume; no Parquet export configured). Without Docker: `cp .env.example .env`, `make proto`, then `KAFKA_ENABLED=true make consumer` (needs CGO and a C toolchain for DuckDB, and a writable `DUCKDB_PATH`; the default `/data/...` usually is not).
+Standalone: `docker-compose.local.yaml` runs only this worker against the platform-core Redpanda on the external `platform-core_default` network (DuckDB on the `analytics-data` volume; no Parquet export configured). Without Docker: `cp .env.example .env`, `make proto`, then `GRPC_PORT=50059 make consumer` (needs CGO and a C toolchain for DuckDB, and a writable `DUCKDB_PATH`; the default `/data/...` usually is not).
+
+## 5a. Layout
+
+`cmd/{consumer,ga4-relay,ga4import}/main.go` only create the signal context, load `config.Load()` and call `app.RunConsumer`, `app.RunGA4Relay` or `app.RunGA4Import`. `internal/app` is the composition root; `internal/rpc` is the gRPC transport (`Service` handlers, error mapping through `grpcx.Status`); `internal/analytics` the read model (repositories); `internal/store` the warehouse seam and adapters (`duckdb`, `bigquery`, `fake`); `internal/events` the Kafka mapping, batcher and consumer loops. The listing and engagement consumers run on `consume.BatchConsumer` (one handler call and one commit per fetch). The tracking/order consumer (`internal/events/consumer.go`) and the GA4 relay loop (`internal/app/ga4relay.go`) keep their own loops on `kafkax.NewConsumerClient`: the first buffers records across polls and commits only once the buffers are flushed (size, timer or shutdown), the second commits per record and retries a record until it is sent, which a batch DLQ after a few attempts would turn into dropped purchases. Both call `AllowRebalance` themselves, as the SDK client blocks rebalances after every poll.
 
 ## 6. Build, test and lint
 
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`) |
-| `make tidy` | `go mod tidy` (the Dockerfile also runs it in the image) |
-| `make check` | Merge gate: `check-env`, `gofmt -l` (fails on unformatted files), `go vet ./...`, `go test ./...` |
+| `make tidy` | `go mod tidy` |
+| `make check` | Merge gate (`make/go-service.mk`): `go vet`, `golangci-lint`, `go test -race` with Docker tests required (the DLQ test starts Redpanda), `check-env` |
 | `make check-env` | `.env.example` vs `internal/config` drift gate |
-| `make test` | `go test ./...` |
-| `docker build -t team-analytics:latest .` | `golang:1.23`, `CGO_ENABLED=1`, runs on `distroless/cc-debian12:nonroot`; `/data` is pre-created and owned by nonroot |
+| `make test` | `go test -race ./...` |
+| `make docker` | `golang:1.26-bookworm`, `CGO_ENABLED=1`, three binaries, runs on `distroless/cc-debian12:nonroot`; `/data` is pre-created and owned by nonroot |
 
-There is no CI workflow in this directory; `make check` is the gate. Go is 1.23 (`go.mod`).
+There is no CI workflow in this directory; `make check` is the gate. Go is 1.26 (`go.mod`). The SDK is vendored in `third_party/go-sdk` (`VERSION`); bump it with `platform-core/tools/sync-go-sdk.sh`.
 
 ## 7. Spec and verification
 
@@ -146,14 +153,13 @@ There is no CI workflow in this directory; `make check` is the gate. Go is 1.23 
 - DuckDB needs CGO. The image is glibc-based distroless, not the static image the pure-Go services use. The data volume must be writable by `nonroot`.
 - Only one process can open the DuckDB file; read the Parquet export instead of opening `analytics.duckdb` from outside.
 - `*.duckdb` and `*.parquet` are gitignored.
-- `internal/query/memory.go` is an in-memory repository used by unit tests only; it is not wired into the binary.
+- `internal/analytics/memory.go` is an in-memory repository used by unit tests only; it is not wired into the binary.
 
 ## 9. Known gaps
 
 - Trusted principal metadata: any caller that reaches `:50059` can set `x-principal-*` and act as a seller or admin. Protection relies on network policy (ADR-0010); this service does no token or mTLS check.
 - BigQuery has no query path and no Parquet export; with `WAREHOUSE_DRIVER=bigquery` the five RPCs are not registered (Health only).
 - Deduplication on `event_id` is exact in DuckDB only; BigQuery relies on best-effort insert-id deduplication.
-- `OTEL_*`, `ENV` and `SHUTDOWN_GRACE_SECONDS` are declared but unused; the `internal/interceptor` package comment mentions a `tracing.go` that does not exist.
 - The demand forecast is a flat baseline with no seasonality or recency; its mean and std-dev are per order line over all history.
 - Root `AGENTS.md`, `.env.example` and `proto/README.md` still say this service has "no business RPC, health only"; the code serves `AnalyticsQueryService`. Out of scope for this README and needs a separate fix.
 - An undecodable record is skipped after a warning; there is no dead-letter topic.

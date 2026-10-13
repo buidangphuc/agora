@@ -1,0 +1,302 @@
+package rpc_test
+
+import (
+	"context"
+	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
+	"github.com/buidangphuc/team-analytics/internal/analytics"
+	"github.com/buidangphuc/team-analytics/internal/rpc"
+	"github.com/buidangphuc/team-analytics/internal/store"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
+)
+
+func ts(t time.Time) *timestamppb.Timestamp { return timestamppb.New(t) }
+
+// fixtures: two sellers, three days, so tests can assert scoping + aggregation.
+func newRepo() *analytics.MemoryRepository {
+	d1 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
+	return analytics.NewMemoryRepository(
+		// seller-1, day 1: funnel signals + one order (sku-a).
+		analytics.Event{SellerID: "seller-1", EventType: "impression", OccurredAt: d1},
+		analytics.Event{SellerID: "seller-1", EventType: "impression", OccurredAt: d1},
+		analytics.Event{SellerID: "seller-1", EventType: "view", OccurredAt: d1},
+		analytics.Event{SellerID: "seller-1", EventType: "add_to_cart", OccurredAt: d1},
+		analytics.Event{SellerID: "seller-1", OrderID: "o-1", Revenue: 1000, SKU: "sku-a", ListingID: "lst-a", Units: 2, OccurredAt: d1},
+		// seller-1, day 2: two orders, one repeats sku-a (higher revenue), one sku-b.
+		analytics.Event{SellerID: "seller-1", EventType: "view", OccurredAt: d2},
+		analytics.Event{SellerID: "seller-1", OrderID: "o-2", Revenue: 3000, SKU: "sku-a", ListingID: "lst-a", Units: 1, OccurredAt: d2},
+		analytics.Event{SellerID: "seller-1", OrderID: "o-3", Revenue: 500, SKU: "sku-b", ListingID: "lst-b", Units: 5, OccurredAt: d2},
+		// seller-2 noise on the same days — must never leak into seller-1 results.
+		analytics.Event{SellerID: "seller-2", EventType: "impression", OccurredAt: d1},
+		analytics.Event{SellerID: "seller-2", OrderID: "o-9", Revenue: 99999, SKU: "sku-z", ListingID: "lst-z", Units: 9, OccurredAt: d2},
+	)
+}
+
+// Happy-path funnel: impressions/views/adds by event type + distinct orders.
+func TestGetSellerFunnel_HappyPath(t *testing.T) {
+	svc := rpc.NewService(newRepo())
+	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+
+	resp, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
+		SellerId: "seller-1", From: ts(from), To: ts(to),
+	})
+	if err != nil {
+		t.Fatalf("GetSellerFunnel: %v", err)
+	}
+	if got := resp.GetImpressions(); got != 2 {
+		t.Errorf("impressions = %d, want 2", got)
+	}
+	if got := resp.GetViews(); got != 2 {
+		t.Errorf("views = %d, want 2", got)
+	}
+	if got := resp.GetAdds(); got != 1 {
+		t.Errorf("adds = %d, want 1", got)
+	}
+	if got := resp.GetOrders(); got != 3 {
+		t.Errorf("orders = %d, want 3 (o-1,o-2,o-3)", got)
+	}
+}
+
+// Happy-path revenue breakdown: per-day totals + top SKUs ordered by revenue.
+func TestGetRevenueBreakdown_HappyPath(t *testing.T) {
+	svc := rpc.NewService(newRepo())
+	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+
+	resp, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{
+		SellerId: "seller-1", From: ts(from), To: ts(to),
+	})
+	if err != nil {
+		t.Fatalf("GetRevenueBreakdown: %v", err)
+	}
+
+	// Days: 2026-09-01 => 1000/1 order, 2026-09-02 => 3500/2 orders, sorted asc.
+	if len(resp.GetDays()) != 2 {
+		t.Fatalf("days = %d, want 2", len(resp.GetDays()))
+	}
+	if d := resp.GetDays()[0]; d.GetDay() != "2026-09-01" || d.GetRevenue() != 1000 || d.GetOrderCount() != 1 {
+		t.Errorf("day[0] = %+v, want 2026-09-01/1000/1", d)
+	}
+	if d := resp.GetDays()[1]; d.GetDay() != "2026-09-02" || d.GetRevenue() != 3500 || d.GetOrderCount() != 2 {
+		t.Errorf("day[1] = %+v, want 2026-09-02/3500/2", d)
+	}
+
+	// Top SKUs: sku-a (1000+3000=4000, 3 units) ranks above sku-b (500, 5 units).
+	if len(resp.GetTopSkus()) != 2 {
+		t.Fatalf("top_skus = %d, want 2", len(resp.GetTopSkus()))
+	}
+	if s := resp.GetTopSkus()[0]; s.GetSku() != "sku-a" || s.GetRevenue() != 4000 || s.GetUnitsSold() != 3 || s.GetListingId() != "lst-a" {
+		t.Errorf("top_skus[0] = %+v, want sku-a/4000/3/lst-a", s)
+	}
+	if s := resp.GetTopSkus()[1]; s.GetSku() != "sku-b" || s.GetRevenue() != 500 || s.GetUnitsSold() != 5 {
+		t.Errorf("top_skus[1] = %+v, want sku-b/500/5", s)
+	}
+}
+
+// Empty range: a window with no events yields zeroed funnel + empty breakdown,
+// no panics. Uses a window that predates all fixtures.
+func TestEmptyRange(t *testing.T) {
+	svc := rpc.NewService(newRepo())
+	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+
+	f, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
+		SellerId: "seller-1", From: ts(from), To: ts(to),
+	})
+	if err != nil {
+		t.Fatalf("GetSellerFunnel: %v", err)
+	}
+	if f.GetImpressions() != 0 || f.GetViews() != 0 || f.GetAdds() != 0 || f.GetOrders() != 0 {
+		t.Errorf("funnel = %+v, want all zero", f)
+	}
+
+	b, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{
+		SellerId: "seller-1", From: ts(from), To: ts(to),
+	})
+	if err != nil {
+		t.Fatalf("GetRevenueBreakdown: %v", err)
+	}
+	if len(b.GetDays()) != 0 || len(b.GetTopSkus()) != 0 {
+		t.Errorf("breakdown = %+v, want empty days and top_skus", b)
+	}
+}
+
+// Cross-seller isolation: seller-2's high-revenue order/impression must not
+// appear in seller-1's results.
+func TestSellerIsolation(t *testing.T) {
+	svc := rpc.NewService(newRepo())
+
+	f, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-2"})
+	if err != nil {
+		t.Fatalf("GetSellerFunnel: %v", err)
+	}
+	if f.GetImpressions() != 1 || f.GetOrders() != 1 {
+		t.Errorf("seller-2 funnel = %+v, want impressions=1 orders=1", f)
+	}
+
+	b, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{SellerId: "seller-2"})
+	if err != nil {
+		t.Fatalf("GetRevenueBreakdown: %v", err)
+	}
+	for _, s := range b.GetTopSkus() {
+		if s.GetSku() == "sku-a" || s.GetSku() == "sku-b" {
+			t.Errorf("seller-2 breakdown leaked seller-1 sku %q", s.GetSku())
+		}
+	}
+	// seller-2 has exactly one SKU worth 99999.
+	if len(b.GetTopSkus()) != 1 || b.GetTopSkus()[0].GetRevenue() != 99999 {
+		t.Errorf("seller-2 top_skus = %+v, want single sku-z/99999", b.GetTopSkus())
+	}
+}
+
+// Missing seller_id is rejected with InvalidArgument (anonymous/empty input
+// handled without a panic or a wrong-owner leak).
+func TestMissingSellerID(t *testing.T) {
+	svc := rpc.NewService(newRepo())
+
+	if _, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "  "}); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("GetSellerFunnel empty seller: err = %v, want InvalidArgument", err)
+	}
+	if _, err := svc.GetRevenueBreakdown(adminCtx(t), &analyticsv1.GetRevenueBreakdownRequest{}); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("GetRevenueBreakdown missing seller: err = %v, want InvalidArgument", err)
+	}
+}
+
+// A nil repository must be reported as Unavailable, not panic.
+func TestNilRepository(t *testing.T) {
+	svc := rpc.NewService(nil)
+	if _, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-1"}); status.Code(err) != codes.Unavailable {
+		t.Errorf("nil repo funnel: err = %v, want Unavailable", err)
+	}
+}
+
+func TestGetDemandForecast_HappyPath(t *testing.T) {
+	svc := rpc.NewService(newRepo())
+	resp, err := svc.GetDemandForecast(adminCtx(t), &analyticsv1.GetDemandForecastRequest{
+		SellerId:     "seller-1",
+		ListingId:    "lst-a",
+		HorizonDays:  14,
+		LeadTimeDays: 3,
+	})
+	if err != nil {
+		t.Fatalf("GetDemandForecast: %v", err)
+	}
+	if resp.GetSellerId() != "seller-1" || resp.GetListingId() != "lst-a" {
+		t.Errorf("resp seller/listing = %s/%s, want seller-1/lst-a", resp.GetSellerId(), resp.GetListingId())
+	}
+	if len(resp.GetDailyForecasts()) != 14 {
+		t.Fatalf("daily_forecasts len = %d, want 14", len(resp.GetDailyForecasts()))
+	}
+	if resp.GetSuggestedReorderPoint() <= 0 {
+		t.Errorf("suggested_reorder_point = %v, want > 0", resp.GetSuggestedReorderPoint())
+	}
+	if resp.GetSafetyStock() <= 0 {
+		t.Errorf("safety_stock = %v, want > 0", resp.GetSafetyStock())
+	}
+}
+
+// ---- funnel-distinct: begin_checkout / purchase projection ----
+
+type funnelEv struct {
+	typ, txn string
+}
+
+// memEvents builds MemoryRepository events. Event has no TransactionID field
+// yet (implementer adds it in memory.go); set it via reflection so the failure
+// is a behavioural red, not a compile error.
+func memFunnelRepo(t *testing.T, evs []funnelEv) analytics.Repository {
+	t.Helper()
+	d := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	var out []analytics.Event
+	for _, e := range evs {
+		ev := analytics.Event{SellerID: "seller-1", EventType: e.typ, OccurredAt: d}
+		if e.txn != "" {
+			f := reflect.ValueOf(&ev).Elem().FieldByName("TransactionID")
+			if !f.IsValid() {
+				t.Fatalf("analytics.Event has no TransactionID field")
+			}
+			f.SetString(e.txn)
+		}
+		out = append(out, ev)
+	}
+	return analytics.NewMemoryRepository(out...)
+}
+
+func duckFunnelRepo(t *testing.T, evs []funnelEv) analytics.Repository {
+	t.Helper()
+	ctx := context.Background()
+	w, err := duckdb.Open(ctx, "")
+	if err != nil {
+		t.Fatalf("duckdb.Open: %v", err)
+	}
+	t.Cleanup(func() { w.Close() })
+	d := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	var recs []*store.TrackingRecord
+	for i, e := range evs {
+		recs = append(recs, &store.TrackingRecord{
+			EventID: fmt.Sprintf("e%d", i), EventType: e.typ, OccurredAt: d,
+			ListingID: "lst-a", TransactionID: e.txn,
+		})
+	}
+	if err := w.Write(ctx, recs); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := w.UpsertListingSellers(ctx, []*store.ListingSellerRecord{
+		{ListingID: "lst-a", SellerID: "seller-1", UpdatedAt: d},
+	}); err != nil {
+		t.Fatalf("UpsertListingSellers: %v", err)
+	}
+	return analytics.NewDuckDBRepository(w.DB())
+}
+
+func TestGetSellerFunnel_CheckoutPurchase(t *testing.T) {
+	repos := map[string]func(*testing.T, []funnelEv) analytics.Repository{
+		"memory": memFunnelRepo, "duckdb": duckFunnelRepo,
+	}
+	cases := []struct {
+		name          string
+		evs           []funnelEv
+		wantBC, wantP int64
+	}{
+		{"Funnel projects checkout and purchase", []funnelEv{
+			{"begin_checkout", ""}, {"begin_checkout", ""}, {"purchase", "o-1"},
+		}, 2, 1},
+		{"Funnel purchases count distinct transaction ids", []funnelEv{
+			{"purchase", "o-1"}, {"purchase", "o-1"}, {"purchase", "o-1"}, {"purchase", "o-2"},
+		}, 0, 2},
+		{"Funnel purchases count distinct transaction ids: empty ids each count", []funnelEv{
+			{"purchase", ""}, {"purchase", ""}, {"purchase", "o-1"}, {"purchase", "o-1"},
+		}, 0, 3},
+	}
+	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+	for rn, mk := range repos {
+		for _, c := range cases {
+			t.Run(rn+"/"+c.name, func(t *testing.T) {
+				svc := rpc.NewService(mk(t, c.evs))
+				resp, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
+					SellerId: "seller-1", From: ts(from), To: ts(to),
+				})
+				if err != nil {
+					t.Fatalf("GetSellerFunnel: %v", err)
+				}
+				if got := resp.GetBeginCheckouts(); got != c.wantBC {
+					t.Errorf("begin_checkouts = %d, want %d", got, c.wantBC)
+				}
+				if got := resp.GetPurchases(); got != c.wantP {
+					t.Errorf("purchases = %d, want %d", got, c.wantP)
+				}
+			})
+		}
+	}
+}

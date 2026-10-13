@@ -20,7 +20,7 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-analytics/generated/platform/order/v1"
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
 )
 
 // Required interface (implemented in relay*.go by the implementer):
@@ -107,8 +107,10 @@ type rig struct {
 func newRig(t *testing.T) *rig {
 	t.Helper()
 	clk := &fakeClock{t: time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)}
-	g := &rig{snd: &fakeSender{}, dlq: &fakeDLQ{}, com: &fakeCommitter{}, clk: clk,
-		maps: NewMemoryMappingStore(clk.Now), ledger: NewMemoryLedger(clk.Now)}
+	g := &rig{
+		snd: &fakeSender{}, dlq: &fakeDLQ{}, com: &fakeCommitter{}, clk: clk,
+		maps: NewMemoryMappingStore(clk.Now), ledger: NewMemoryLedger(clk.Now),
+	}
 	g.rebuild()
 	return g
 }
@@ -339,8 +341,10 @@ func TestRelay_PayloadCarriesNoPersonalData(t *testing.T) { // Scenario: Payload
 	}))
 	defer srv.Close()
 	g := newRig(t)
-	g.r = NewRelay(RelayConfig{Mappings: g.maps, Ledger: g.ledger, DLQ: g.dlq, Committer: g.com, Now: g.clk.Now,
-		Sender: NewClient(ClientConfig{Endpoint: srv.URL + "/mp/collect", MeasurementID: "G-TEST", APISecret: "s3cret"})})
+	g.r = NewRelay(RelayConfig{
+		Mappings: g.maps, Ledger: g.ledger, DLQ: g.dlq, Committer: g.com, Now: g.clk.Now,
+		Sender: NewClient(ClientConfig{Endpoint: srv.URL + "/mp/collect", MeasurementID: "G-TEST", APISecret: "s3cret"}),
+	})
 	g.mapBuyer(t, "b1", "222.2")
 	g.handle(t, paidMsg(t, paid("o1", "b1", 100, nil, item("l1", "", 1, 100)), 1))
 	for _, bad := range []string{"buyer_id", "user_id", "email", "phone", "b1"} {

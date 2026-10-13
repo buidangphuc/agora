@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
 )
 
 func mappingContract(t *testing.T, mk func(t *testing.T, clk *fakeClock) MappingStore) {
@@ -16,10 +16,10 @@ func mappingContract(t *testing.T, mk func(t *testing.T, clk *fakeClock) Mapping
 		s := mk(t, &fakeClock{t: start})
 		_ = s.Put(ctx, "b1", "111.1")
 		_ = s.Put(ctx, "b1", "222.2")
-		if id, ok := mustGet(t, s, "b1"); !ok || id != "222.2" {
+		if id, ok := mustGet(ctx, t, s, "b1"); !ok || id != "222.2" {
 			t.Fatalf("got %q,%v", id, ok)
 		}
-		if _, ok := mustGet(t, s, "b2"); ok {
+		if _, ok := mustGet(ctx, t, s, "b2"); ok {
 			t.Fatal("b2 must have no mapping")
 		}
 	})
@@ -29,7 +29,7 @@ func mappingContract(t *testing.T, mk func(t *testing.T, clk *fakeClock) Mapping
 		if err := s.Delete(ctx, "b1"); err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := mustGet(t, s, "b1"); ok {
+		if _, ok := mustGet(ctx, t, s, "b1"); ok {
 			t.Fatal("mapping still present")
 		}
 		if err := s.Delete(ctx, "nobody"); err != nil {
@@ -41,11 +41,11 @@ func mappingContract(t *testing.T, mk func(t *testing.T, clk *fakeClock) Mapping
 		s := mk(t, clk)
 		_ = s.Put(ctx, "b1", "222.2")
 		clk.Advance(29 * 24 * time.Hour)
-		if _, ok := mustGet(t, s, "b1"); !ok {
+		if _, ok := mustGet(ctx, t, s, "b1"); !ok {
 			t.Fatal("expired before 30 days")
 		}
 		clk.Advance(2 * 24 * time.Hour)
-		if _, ok := mustGet(t, s, "b1"); ok {
+		if _, ok := mustGet(ctx, t, s, "b1"); ok {
 			t.Fatal("still present after 30 days")
 		}
 	})
@@ -56,7 +56,7 @@ func mappingContract(t *testing.T, mk func(t *testing.T, clk *fakeClock) Mapping
 		clk.Advance(20 * 24 * time.Hour)
 		_ = s.Put(ctx, "b1", "222.2")
 		clk.Advance(20 * 24 * time.Hour)
-		if _, ok := mustGet(t, s, "b1"); !ok {
+		if _, ok := mustGet(ctx, t, s, "b1"); !ok {
 			t.Fatal("ttl not refreshed by Put")
 		}
 	})
@@ -105,7 +105,7 @@ func TestMappingStoreDuckDB_SurvivesReopen(t *testing.T) { // Scenario: Latest c
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id, ok := mustGet(t, s2, "b1"); !ok || id != "222.2" {
+	if id, ok := mustGet(ctx, t, s2, "b1"); !ok || id != "222.2" {
 		t.Fatalf("after reopen got %q,%v", id, ok)
 	}
 }

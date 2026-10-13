@@ -28,7 +28,7 @@ No RPC, proto or event payload changes.
 
 ## Impact
 
-- **Repo:** `team-analytics`, its compose block, and `platform-gitops/{argocd/apps,envs/services}/team-analytics.yaml`.
+- **Repo:** `team-analytics`, its compose block, and `platform-gitops/argocd/apps/team-analytics.yaml` and `platform-gitops/platform/team-analytics/*.yaml`.
 - **Capability:** `analytics-runtime` (new).
 
 ## Non-functional requirements
