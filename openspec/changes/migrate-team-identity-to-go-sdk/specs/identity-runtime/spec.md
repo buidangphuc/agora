@@ -37,6 +37,11 @@ Tokens issued by team-identity SHALL decode into SDK `jwtx.Claims`, and its JWKS
 - **THEN** the token payload decodes into `jwtx.Claims` with the same claim names and numeric `exp` and `iat`, and the JWKS JSON is byte-identical to the previous document
 - **VERIFIED BY**: `team-identity/internal/token` `TestIssuedTokenDecodesIntoJWTXClaims`, `TestJWKSEndpointJSONShape`
 
+#### Scenario: team-identity rejects an invalid signing key or an empty key id
+- **WHEN** the signer is built from a value that is not a PEM key, or with a blank `kid`
+- **THEN** construction fails, so no token is issued without a key id the JWKS can serve
+- **VERIFIED BY**: `team-identity/internal/token` `TestNewSignerRejectsBadInput`
+
 ### Requirement: team-identity behaviour is unchanged
 
 All existing tests SHALL move with their packages and pass, with unchanged assertions except auth status message text (codes unchanged), removed-flag fields, and the outbox attempt-limit assertions, which follow go-sdk v1 (retry without limit, park only on a permanent error).
