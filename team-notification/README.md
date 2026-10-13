@@ -7,16 +7,30 @@ compose stack. Bounded context: notifications. It owns the `notification_db` dat
 
 It sends nothing outside the inbox: no email, push or SMS exists in the code.
 
+The service is built on go-sdk v0.2.1 (ADR-0016, vendored in `third_party/go-sdk`). Layout:
+
+| Path | Role |
+|---|---|
+| `cmd/server` | Process: signals, settings, exit code. |
+| `internal/app` | Composition root: builds and runs everything (`app.Run`). |
+| `internal/config` | `Settings`, built on SDK `config`. |
+| `internal/rpc` | gRPC transport: decodes requests, reads the caller, maps errors. |
+| `internal/notification` | Use cases: alert subscriptions and preferences. |
+| `internal/store` | Postgres repositories (with in-memory twins for tests) and the consumer state. |
+| `internal/events` | The listing, chat and order consumers and their SDK consume wiring. |
+| `internal/upstream` | Outbound gRPC to team-domain and team-identity (sender names). |
+
 ## Contract
 
 Service `platform.notification.v1.NotificationService` (proto vendored in `proto/platform/notification/`).
 The service is reached through `team-gateway`, which forwards a resolved Principal as
-`x-principal-id`, `x-principal-type` and `x-principal-scopes` metadata (ADR-0003).
+`x-principal-id`, `x-principal-type` and `x-principal-scopes` metadata (ADR-0003); the SDK auth
+interceptor reads it.
 
-**Authorization rule for every RPC** (`callerUserID`, `internal/handler/notification.go`): no principal, an
+**Authorization rule for every RPC** (`callerUserID`, `internal/rpc/notification.go`): no principal, an
 anonymous principal or an empty id gives `Unauthenticated`; a non-user (service) principal gives
-`PermissionDenied`; otherwise the principal id is the user and every query is scoped to it. No RPC calls
-`RequireScopes`, so no scope is checked.
+`PermissionDenied`; otherwise the principal id is the user and every query is scoped to it. No RPC checks
+a scope.
 
 | RPC | Behaviour |
 |---|---|
@@ -26,14 +40,16 @@ anonymous principal or an empty id gives `Unauthenticated`; a non-user (service)
 | `SubscribeAlert` | `listing_id` and a non-`UNSPECIFIED` `AlertType` are required. Idempotent per (user, listing, type). |
 | `UnsubscribeAlert` | Idempotent; a missing or foreign id is a no-op success. |
 | `ListAlertSubscriptions` | Caller's subscriptions. |
-| `GetNotificationPrefs` | Stored prefs, or defaults when the user has none (`service.DefaultPrefs`). |
+| `GetNotificationPrefs` | Stored prefs, or defaults when the user has none (`notification.DefaultPrefs`). |
 | `UpdateNotificationPrefs` | Upserts `type_enabled` (keyed by `NotificationType` enum name) and `digest_freq`. |
 
-The alert and prefs RPCs return `Unimplemented` when no database pool was created (see Known gaps).
-The gRPC server also registers reflection and the standard health service.
+Errors that are not a known validation or not-found case become `Internal` with the message
+`internal error`; the cause is logged (`grpcx.Status`). The gRPC server also registers reflection and the
+standard health service; health follows a Postgres ping and drains before shutdown.
 
-**Consumes (outbound gRPC)**, only for chat sender names (`internal/upstream/names.go`). It calls as a
-service principal `service-team-notification` with scopes `listing.read,identity.read`:
+**Consumes (outbound gRPC)**, only for chat sender names (`internal/upstream/names.go`). It calls through
+SDK `upstream.Dial` with a per-call service principal `service-team-notification` and scopes
+`listing.read,identity.read`:
 
 | Upstream | RPC | Env |
 |---|---|---|
@@ -54,16 +70,22 @@ Consumed only (it produces no events except dead-letter records). Each record va
 | `chat.events` | `platform.chat.v1.ChatMessage` | One `CHAT` notification to `recipient_id` (never the sender; skipped if `recipient_id` is empty). Link `/chat/{thread_id}`. | `chat.events.dlq` |
 | `order.events` | `platform.order.v1.OrderShipped` | One `ORDER` notification to `buyer_id` with carrier and tracking code. Link `/account/orders/{order_id}`. Other order event types are ignored. | `order.events.dlq` |
 
-Delivery discipline (`internal/consumer/`): auto-commit is off, and an offset advances only after the record
-is applied or dead-lettered. A transient error is retried; an `ErrPermanent` error (bad envelope or payload,
-missing ids) goes to the DLQ. Chat and order notifications honour the recipient's `type_enabled` pref (a type
-with no stored setting counts as enabled). Listing alerts do not check prefs.
+Delivery discipline: each consumer is an SDK `consume.Consumer` (`events.NewRunner`) and a lifecycle
+component that stops after the gRPC server. Auto-commit is off, and an offset advances only after the
+record is applied or dead-lettered. A transient error is retried (5 attempts, backoff from 100 ms); an
+`ErrPermanent` error (bad envelope or payload, missing ids) goes to the DLQ at once. When a record can be
+neither handled nor dead-lettered, the consumer stops with an error without committing, the service
+exits, and the record is redelivered after restart. Chat and order notifications honour the recipient's
+`type_enabled` pref (a type with no stored setting counts as enabled). Listing alerts do not check prefs.
+A dead-lettered record keeps its key and value and carries the SDK's `dlq-*` headers (cause, source topic,
+partition, offset and group).
 
-Idempotency: a ledger keyed by (`consumer`, `event_id`) in `processed_events`, recorded after the effect
-succeeds. Consumer names: `team-notification.listing`, `team-notification.chat`, `team-notification.order`.
+Idempotency: a ledger keyed by (`consumer`, `event_id`) in `processed_events` (SDK `consume.Dedupe` on the
+existing table: `Processed` reads, `Seen` records), recorded after the effect succeeds. Consumer names: `team-notification.listing`,
+`team-notification.chat`, `team-notification.order`.
 
-The consumers start only when `KAFKA_ENABLED=true` and a database pool exists. Brokers and the enable flag are
-shared by all three; topic, DLQ and group are per consumer.
+Kafka has no enable flag: the three consumers always run. Brokers are shared (`KAFKA_BROKERS`); topic, DLQ
+and group are per consumer.
 
 ## Data
 
@@ -79,113 +101,106 @@ Database `notification_db` on the shared Postgres (user `notification_svc`). Mig
 | 004 | `processed_events`, `listing_last_seen` | Durable consumer state: dedupe ledger `(consumer, event_id)`, and last `price` (BIGINT) and `stock` (INT) per listing, each nullable (null means unknown prior). |
 
 Consumer state is durable, so a restart neither re-notifies a redelivered event nor loses the price and stock
-baseline. In-memory variants (`InMemoryDeduper`, `InMemoryPriceStateStore`, `InMemoryStockStateStore`) are the
-code defaults and are used in unit tests only; `cmd/server/main.go` always wires the Postgres ones.
+baseline. In-memory variants (`InMemoryDeduper`, `InMemoryPriceStateStore`, `InMemoryStockStateStore`) are used
+in unit tests only; `internal/app` always wires the Postgres ones.
+
+The pool is opened with a ping. Outside `ENV=local` or `test` an unreachable database fails boot (non-nil error, port
+never opened). With `ENV=local` (or `test`) the service logs a warning and starts on a lazily connecting pool: calls that
+need the database fail with `Internal` until it is up, and health reports `NOT_SERVING`.
 
 ## Configuration
 
-Read from the environment. Only the variables below are read by code.
+Read from the environment into `config.Settings`; `.env.example` lists every key and a test keeps the two in
+sync (`make check-env`). `GRPC_PORT` and `DATABASE_URL` are required and have no defaults.
 
-| Variable | Default | Read in |
+| Variable | Default | Notes |
 |---|---|---|
-| `GRPC_PORT` | `50058` | `internal/config` |
-| `DATABASE_URL` | `postgres://notification_svc:notification_pass@localhost:5440/notification_db?sslmode=disable` | `internal/config` |
-| `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | `internal/config` |
-| `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | `internal/config` |
-| `KAFKA_ENABLED` | `false` | `internal/bootstrap/kafka.go` |
-| `KAFKA_BROKERS` | `localhost:9092` (comma-separated) | `internal/bootstrap/kafka.go` |
-| `LISTING_EVENTS_TOPIC` / `LISTING_EVENTS_DLQ_TOPIC` | `listing.events` / `listing.events.dlq` | same |
-| `NOTIFICATION_LISTING_CONSUMER_GROUP` | `team-notification.listing` | same |
-| `CHAT_EVENTS_TOPIC` / `CHAT_EVENTS_DLQ_TOPIC` | `chat.events` / `chat.events.dlq` | same |
-| `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | same |
-| `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | same |
-| `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | same |
+| `ENV` | required | `local` or `test` allow starting without the database; `staging`, `stage`, `prod`, `production` also require `KAFKA_BROKERS`. |
+| `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | |
+| `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Compose and the Dockerfile set `50058`. |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | `10s`, `0s` | Go durations. |
+| `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | |
+| `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | |
+| `KAFKA_BROKERS` | `localhost:9092` locally, required otherwise | Comma-separated; the only broker setting. |
+| `LISTING_EVENTS_TOPIC` / `LISTING_EVENTS_DLQ_TOPIC` | `listing.events` / `listing.events.dlq` | |
+| `NOTIFICATION_LISTING_CONSUMER_GROUP` | `team-notification.listing` | |
+| `CHAT_EVENTS_TOPIC` / `CHAT_EVENTS_DLQ_TOPIC` | `chat.events` / `chat.events.dlq` | |
+| `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | |
+| `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | |
+| `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | |
+| `UPSTREAM_DOMAIN_ADDR`, `UPSTREAM_IDENTITY_ADDR` | `localhost:50051`, `localhost:50053` | |
 
-`.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_REFLECTION_ENABLED`,
-`SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DB_MAX_CONNS`, `OTEL_*`. The code does not read any of these
-(logging is always JSON via `log/slog`; the gRPC listener binds all interfaces; reflection is always on).
-`config.go` also reads `KAFKA_BROKER` into a field nothing uses. There is no `.env.example` drift gate in this
-repository.
+There are no enable flags: the database, Kafka and gRPC reflection are always on.
 
 ## Run locally
 
 Root compose (shared Postgres, Redpanda, migrate job, service), from the repo root:
 
 ```bash
-docker compose up -d --build team-notification   # pulls in postgres, redpanda-init and team-notification-migrate
+docker compose -f docker-compose.services.yaml up -d --build team-notification   # pulls in postgres, redpanda-init and team-notification-migrate
 ```
 
-The service container sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, the topic, group and DLQ
-names, and `UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051` / `UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053`. It
-publishes no host port; the gateway reaches it at `team-notification-svc:50058`. There is no `--profile jobs`
-component.
+The service container sets `KAFKA_BROKERS=redpanda:9092`, the topic, group and DLQ names, and
+`UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051` / `UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053`. It
+publishes no host port; the gateway reaches it at `team-notification-svc:50058`.
 
-Standalone (needs a reachable Postgres with the migrations applied, and `generated/` present):
+Standalone (needs a reachable Postgres with the migrations applied, a broker, and `generated/` present):
 
 ```bash
-buf generate                                      # see Gotchas
+make proto                                        # buf generate; see Gotchas
+export GRPC_PORT=50058
 export DATABASE_URL=postgres://notification_svc:notification_pass@localhost:<host-port>/notification_db?sslmode=disable
-go run ./cmd/server
+export KAFKA_BROKERS=<host:port>                  # the root compose Redpanda exposes 19092 on the host
+make run
 ```
-
-Set `KAFKA_ENABLED=true` and `KAFKA_BROKERS=<host:port>` to run the consumers (the root compose Redpanda
-exposes `19092` on the host per `AGENTS.md`).
 
 ## Build, test and lint
 
 ```bash
-buf generate                  # once, and after any proto change
-go build ./...
-go vet ./...
-gofmt -l .                    # must print nothing
-go test -race ./...
-TEST_DATABASE_URL=postgres://... go test ./internal/consumer/...   # also runs durable_state_pg_test.go
+make proto    # once, and after any proto change
+make check    # vet + lint + test (Docker) + check-env
+make docker   # builds the image (generates stubs first)
 ```
 
-Without `TEST_DATABASE_URL` the Postgres consumer-state test is skipped; apply `migrations/*.up.sql` to that
-database first. This repository has no Makefile and no CI config of its own; the commands above are the
-local gate. `Dockerfile` builds `./cmd/server` into a distroless image (`golang:1.22`); it expects `generated/`
-to exist in the build context.
+`make check` needs Docker: the app, consumer and consumer-state tests start Postgres and Redpanda with the SDK
+`testkit` (`GO_SDK_REQUIRE_DOCKER=1` makes a missing Docker a failure, not a skip).
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (11 features: center, alerts, alerts-delivery, unread-badge,
+- Feature manifest: `FEATURES.yaml` (15 features: center, alerts, alerts-delivery, unread-badge,
   per-user-isolation, chat-message, chat-preferences, order-shipped, chat-sender-name, state-survives-restart,
-  chat-outbox-delivery). Each has a `covered_by` scenario in `platform-e2e`.
+  chat-outbox-delivery, and four `notification-runtime.*` entries). Each user-facing one has a `covered_by`
+  scenario in `platform-e2e`; the runtime ones are `not-testable` and name their unit tests.
 - Verify coverage: `make -C platform-e2e features-check`; verify a change:
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
-  Related changes: `notify-chat-and-shipment`, `notification-delivery-hardening`.
+  Related changes: `notify-chat-and-shipment`, `notification-delivery-hardening`,
+  `migrate-team-notification-to-go-sdk`.
 
 ## Gotchas
 
-- `generated/` is gitignored (root `.gitignore`). Run `buf generate` (uses `buf.gen.yaml`, input `proto/`, remote
+- `generated/` is gitignored (root `.gitignore`). Run `make proto` (uses `buf.gen.yaml`, input `proto/`, remote
   plugins from buf.build, so it needs network access) before building or testing.
 - `proto/` is vendored from `platform-core` (ADR-0001). Never edit it here; change the contract in platform-core.
-- The consumers do not run without `KAFKA_ENABLED=true` and a database pool.
+- `third_party/go-sdk` is a vendored copy: update it with `platform-core/tools/sync-go-sdk.sh`, never by hand.
 - The chat consumer ignores the event's `sender_name` and looks the name up itself.
 
 ## Known gaps
 
-- **Wrong default Postgres port.** `DATABASE_URL` defaults and `.env.example` use `localhost:5440`, but
-  `AGENTS.md` assigns `5441` to postgres-notification (`5440` is postgres-promotion). In root compose the
-  service uses `postgres:5432` and is unaffected.
+- **Wrong default Postgres port.** `.env.example` uses `localhost:5440`, but `AGENTS.md` assigns `5441` to
+  postgres-notification (`5440` is postgres-promotion). In root compose the service uses `postgres:5432` and is
+  unaffected.
 - **No digest delivery.** `digest_freq` is stored and `PrefsService.BundleDigest` / `ListUsersByDigestFreq`
   exist, but nothing calls them: no scheduler runs and no digest notification is ever produced. The code comment
   says wiring the cron is out of scope.
 - **`promotion.events` is not consumed.** The topic is created by `redpanda-init`, but no code references it.
   `NOTIFICATION_TYPE_PROMOTION` notifications are never produced by this service.
-- **No scope checks.** Handlers only require a user principal; `RequireScopes` exists in
-  `internal/interceptor/auth.go` but is not used. The service trusts the gateway-forwarded principal metadata.
-- **"Mock mode" is not a real mode.** `main.go` logs "running in mock mode" only when `pgxpool.New` fails (a
-  malformed `DATABASE_URL`). An unreachable database does not fail pool creation (connections are lazy). With a
-  nil pool the alert, prefs and consumer wiring is skipped and the inbox repository dereferences the nil pool on
-  first use.
-- **Inert settings.** No OpenTelemetry is wired (no otel import); the variables listed above as unread are
-  ignored. `testify` is an indirect dependency only.
+- **The dedupe mark is not in the effect's transaction.** The ledger is written after the effect (as before),
+  so a crash between the two can notify twice; the SDK pattern is to mark inside the effect's transaction.
 - **Listing alerts ignore preferences.** Only chat and order notifications check `type_enabled`.
 
 ## Links
 
 - Repo rules and port map: [`../AGENTS.md`](../AGENTS.md)
-- ADRs in `../platform-core/docs/ADR/`: `0001-proto-distribution`, `0002-async-broker`, `0003-auth-model`
+- ADRs in `../platform-core/docs/ADR/`: `0001-proto-distribution`, `0002-async-broker`, `0003-auth-model`,
+  `0016-go-service-convention-and-sdk`
