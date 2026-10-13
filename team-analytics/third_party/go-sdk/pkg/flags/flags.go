@@ -90,26 +90,23 @@ type Client struct {
 
 var _ Evaluator = (*Client)(nil)
 
-// New builds a Client. With c.Enabled false it never contacts Flipt and every
-// evaluation returns the caller's default. A returned error means the provider
-// could not be set up; callers may degrade to Disabled().
+// New builds a Client that evaluates through Flipt at c.FliptAddr. An
+// unreachable Flipt is not an error: every evaluation then returns the caller's
+// default. A returned error means the provider could not be set up; callers may
+// degrade to Disabled().
 func New(ctx context.Context, c config.Flags, logger *slog.Logger) (*Client, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	if !c.Enabled {
-		logger.InfoContext(ctx, "feature flags disabled; evaluations return defaults")
-		return &Client{logger: logger}, nil
-	}
 	if c.FliptAddr == "" {
-		return nil, errors.New("FLIPT_ADDR is required when feature flags are enabled")
+		return nil, errors.New("FLIPT_ADDR is empty")
 	}
 	provider := flipt.NewProvider(flipt.WithAddress(dialTarget(c.FliptAddr)))
 	cl, err := newClient(ctx, provider, c.EvalTimeout, logger)
 	if err != nil {
 		return nil, err
 	}
-	logger.InfoContext(ctx, "feature flags enabled", "flipt_addr", c.FliptAddr)
+	logger.InfoContext(ctx, "feature flags evaluate through Flipt", "flipt_addr", c.FliptAddr)
 	return cl, nil
 }
 

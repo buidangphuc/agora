@@ -126,35 +126,16 @@ type Outbox struct {
 	ClaimLock time.Duration `env:"OUTBOX_CLAIM_LOCK" default:"60s"`
 }
 
-// Flags holds the feature-flag settings. Enabled stays a flag because some
-// environments run without Flipt.
+// Flags holds the feature-flag settings. There is no on/off switch: a service
+// always evaluates through Flipt, and an unreachable Flipt makes every
+// evaluation return the default written in code.
 type Flags struct {
-	Enabled bool `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	// FliptAddr has no tag default: Load fills localhost:9000 for a local ENV
-	// and, when Enabled, rejects an unset value when Runtime.IsStrict.
-	FliptAddr string `env:"FLIPT_ADDR"`
+	FliptAddr string `env:"FLIPT_ADDR" default:"localhost:9000"`
 	// EvalTimeout bounds one flag evaluation.
 	EvalTimeout time.Duration `env:"FEATURE_FLAGS_EVAL_TIMEOUT" default:"500ms"`
 }
 
-// ResolveFor is called by Load with the service's Runtime. With flags enabled
-// in a strict environment it rejects an empty FliptAddr; otherwise it fills the
-// local default.
-func (f *Flags) ResolveFor(rt Runtime) error {
-	if f.FliptAddr != "" {
-		return nil
-	}
-	if f.Enabled && rt.IsStrict() {
-		return errors.New("FLIPT_ADDR is required when ENV is staging or prod and feature flags are enabled")
-	}
-	f.FliptAddr = defaultFliptAddr
-	return nil
-}
-
-const (
-	defaultKafkaBrokers = "localhost:9092"
-	defaultFliptAddr    = "localhost:9000"
-)
+const defaultKafkaBrokers = "localhost:9092"
 
 // PositiveDuration parses raw, a Go duration such as "20s" or "15m", for the
 // variable key. An empty (or blank) raw value returns def; an unparsable or
