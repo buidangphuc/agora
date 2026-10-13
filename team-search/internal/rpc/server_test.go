@@ -52,7 +52,7 @@ func (f *fakeIndex) Delete(context.Context, string, int64) error               {
 func (f *fakeIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
 func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error   { return nil }
 
-func (f *fakeIndex) Search(_ context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+func (f *fakeIndex) Search(_ context.Context, query string, filters map[string]string, _ string, _, _ int64, _ int32, _ searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	var matched []index.Hit
 	for _, d := range f.docs {
 		if query != "" && !strings.Contains(strings.ToLower(d.Title+" "+d.Description), strings.ToLower(query)) {
@@ -74,7 +74,7 @@ func (f *fakeIndex) Search(_ context.Context, query string, filters map[string]s
 	return index.SearchResult{Hits: matched[from:end], Total: total}, nil
 }
 
-func (f *fakeIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+func (f *fakeIndex) SearchVector(ctx context.Context, _ []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	return f.Search(ctx, "", filters, categoryID, minPrice, maxPrice, minRating, sortBy, from, size)
 }
 
@@ -94,7 +94,11 @@ func (f *fakeIndex) Suggest(_ context.Context, prefix string, limit int) ([]stri
 func startServer(t *testing.T, idx index.Index) searchv1.SearchServiceClient {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
-	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(healthx.DefaultInterval, logger)})
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: health})
 	rpc.Register(srv, rpc.NewSearchHandler(idx, store.NewInMemorySavedSearchRepository()))
 
 	lis, err := net.Listen("tcp", "localhost:0")

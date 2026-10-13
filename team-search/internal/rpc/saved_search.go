@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+
 	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 
@@ -28,6 +30,31 @@ const (
 	scopeSearchRead  = "search:read"
 	scopeSearchWrite = "search:write"
 )
+
+// savedSearchErrors is the table grpcx.Status applies to a saved-search store
+// error: a missing (or foreign) row is NotFound with the same text as before.
+var savedSearchErrors = mustErrorTable(grpcx.Rule{
+	Target: store.ErrSavedSearchNotFound, Code: codes.NotFound, Message: "saved search not found",
+})
+
+func mustErrorTable(rules ...grpcx.Rule) grpcx.ErrorTable {
+	t, err := grpcx.NewErrorTable(rules...)
+	if err != nil {
+		panic(err) // a static table: a bad rule is a programming error caught by every test run
+	}
+	return t
+}
+
+// savedSearchError maps a store error to its gRPC status. A not-found goes
+// through grpcx.Status; any other failure stays Internal with internalMsg, which
+// grpcx.Status would replace with "internal error" and re-code a deadline or
+// cancellation, so those keep the handler's own text and code.
+func savedSearchError(ctx context.Context, err error, internalMsg string) error {
+	if errors.Is(err, store.ErrSavedSearchNotFound) {
+		return grpcx.Status(ctx, nil, err, savedSearchErrors)
+	}
+	return status.Error(codes.Internal, internalMsg)
+}
 
 // callerID resolves the authenticated owner of a saved-search call. Identity is
 // a precondition, checked BEFORE scopes, so the outcome for an anonymous caller
@@ -147,10 +174,7 @@ func (h *SearchHandler) DeleteSavedSearch(
 		return nil, status.Error(codes.InvalidArgument, "id required")
 	}
 	if err := h.saved.Delete(ctx, req.GetId(), userID); err != nil {
-		if errors.Is(err, store.ErrSavedSearchNotFound) {
-			return nil, status.Error(codes.NotFound, "saved search not found")
-		}
-		return nil, status.Error(codes.Internal, "delete saved search failed")
+		return nil, savedSearchError(ctx, err, "delete saved search failed")
 	}
 	return &searchv1.DeleteSavedSearchResponse{}, nil
 }
@@ -173,10 +197,7 @@ func (h *SearchHandler) RunSavedSearch(
 	}
 	saved, err := h.saved.Get(ctx, req.GetId(), userID)
 	if err != nil {
-		if errors.Is(err, store.ErrSavedSearchNotFound) {
-			return nil, status.Error(codes.NotFound, "saved search not found")
-		}
-		return nil, status.Error(codes.Internal, "load saved search failed")
+		return nil, savedSearchError(ctx, err, "load saved search failed")
 	}
 	filters, err := parseFilters(saved.FiltersJSON)
 	if err != nil {

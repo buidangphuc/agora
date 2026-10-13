@@ -96,9 +96,12 @@ func (s Settings) TombstonePurgeInterval() (time.Duration, string) {
 	return positiveDuration("TOMBSTONE_PURGE_INTERVAL", s.Tombstone.PurgeInterval, DefaultTombstonePurgeInterval)
 }
 
+// positiveDuration keeps the fallback-with-warning behaviour on top of
+// sdkconfig.PositiveDuration, which returns an error instead. It passes a zero
+// default so an empty value is rejected too, not silently defaulted.
 func positiveDuration(key, raw string, def time.Duration) (time.Duration, string) {
 	raw = strings.TrimSpace(raw)
-	d, err := time.ParseDuration(raw)
+	d, err := sdkconfig.PositiveDuration(key, raw, 0)
 	if err != nil || d <= 0 {
 		return def, fmt.Sprintf("invalid %s %q (want a positive Go duration such as 30s or 336h); using default %s", key, raw, def)
 	}
@@ -109,20 +112,15 @@ func positiveDuration(key, raw string, def time.Duration) (time.Duration, string
 // It is the single entry point used by both binaries.
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }
 
-// Validate runs after parsing; sdkconfig.Load calls it. It delegates to the SDK
-// groups and adds this service's own checks.
+// Validate runs after parsing; sdkconfig.Load calls it. Load already validates
+// every SDK group (ENV, GRPC, Postgres), so this holds only the service's own
+// checks. Settings declares it because two embedded groups have a Validate.
 func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
-	if err := s.Postgres.Validate(); err != nil {
-		return err
-	}
 	if strings.TrimSpace(s.OpenSearch.URL) == "" {
 		return errors.New("OPENSEARCH_URL is required")
 	}
-	if s.ShutdownGraceSeconds < 0 {
-		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.ShutdownGraceSeconds)
+	if s.ShutdownGrace < 0 {
+		return fmt.Errorf("SHUTDOWN_GRACE must be >= 0: %v", s.ShutdownGrace)
 	}
 	return nil
 }

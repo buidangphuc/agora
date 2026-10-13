@@ -89,6 +89,16 @@ func produce(t *testing.T, brokers, topic string, key, value []byte) {
 	}
 }
 
+// newConsumer is events.NewConsumerWithDLQ failing the test on a build error.
+func newConsumer(t *testing.T, client *kgo.Client, dlq consume.DLQProducer, h events.Handler, o consume.Options) *events.Consumer {
+	t.Helper()
+	c, err := events.NewConsumerWithDLQ(client, dlq, h, o)
+	if err != nil {
+		t.Fatalf("new consumer: %v", err)
+	}
+	return c
+}
+
 // run starts the consumer and returns a stop func that cancels it and returns
 // Run's result, and the channel Run's result arrives on by itself.
 func run(c *events.Consumer) (stop func() error, done <-chan error) {
@@ -114,7 +124,7 @@ func TestProcessRecord_ParksToDLQAfterMaxAttempts(t *testing.T) {
 		mu.Unlock()
 		return errors.New("sink down")
 	}
-	c := events.NewConsumerWithDLQ(consumerClient(t, brokers, "g-park", topic), dlq, h, fastOpts(topic))
+	c := newConsumer(t, consumerClient(t, brokers, "g-park", topic), dlq, h, fastOpts(topic))
 	stop, done := run(c)
 	produce(t, brokers, topic, []byte("k"), []byte("v"))
 
@@ -152,7 +162,7 @@ func TestProcessRecord_DLQFailureBlocksAdvance(t *testing.T) {
 	const topic = "listing.events"
 	dlq := newFakeDLQ(errors.New("dlq unreachable"))
 	h := func(_ context.Context, _, _ []byte) error { return errors.New("sink down") }
-	c := events.NewConsumerWithDLQ(consumerClient(t, brokers, "g-block", topic), dlq, h, fastOpts(topic))
+	c := newConsumer(t, consumerClient(t, brokers, "g-block", topic), dlq, h, fastOpts(topic))
 	_, done := run(c)
 	produce(t, brokers, topic, []byte("k"), []byte("v"))
 
@@ -179,7 +189,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 
 	failing := func(_ context.Context, _, _ []byte) error { return errors.New("sink down") }
 	first := consumerClient(t, brokers, group, topic)
-	c := events.NewConsumerWithDLQ(first, newFakeDLQ(errors.New("dlq unreachable")), failing, fastOpts(topic))
+	c := newConsumer(t, first, newFakeDLQ(errors.New("dlq unreachable")), failing, fastOpts(topic))
 	_, done := run(c)
 	produce(t, brokers, topic, []byte("k"), []byte("v"))
 	select {
@@ -194,7 +204,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 
 	got := make(chan string, 1)
 	ok := func(_ context.Context, _, value []byte) error { got <- string(value); return nil }
-	second := events.NewConsumerWithDLQ(consumerClient(t, brokers, group, topic), newFakeDLQ(nil), ok, fastOpts(topic))
+	second := newConsumer(t, consumerClient(t, brokers, group, topic), newFakeDLQ(nil), ok, fastOpts(topic))
 	stop, done2 := run(second)
 	defer func() { _ = stop() }()
 	select {
@@ -217,7 +227,7 @@ func TestProcessRecord_SuccessNoDLQ(t *testing.T) {
 	dlq := newFakeDLQ(nil)
 	handled := make(chan struct{}, 4)
 	h := func(_ context.Context, _, _ []byte) error { handled <- struct{}{}; return nil }
-	c := events.NewConsumerWithDLQ(consumerClient(t, brokers, "g-ok", topic), dlq, h, fastOpts(topic))
+	c := newConsumer(t, consumerClient(t, brokers, "g-ok", topic), dlq, h, fastOpts(topic))
 	stop, done := run(c)
 	produce(t, brokers, topic, []byte("k"), []byte("v"))
 	select {
@@ -258,7 +268,7 @@ func TestProcessRecord_RecoversBeforeDLQ(t *testing.T) {
 		recovered <- struct{}{}
 		return nil
 	}
-	c := events.NewConsumerWithDLQ(consumerClient(t, brokers, "g-recover", topic), dlq, h, fastOpts(topic))
+	c := newConsumer(t, consumerClient(t, brokers, "g-recover", topic), dlq, h, fastOpts(topic))
 	stop, done := run(c)
 	produce(t, brokers, topic, []byte("k"), []byte("v"))
 	select {
@@ -308,7 +318,7 @@ func TestProcessRecord_MalformedStockEventReachesDLQ(t *testing.T) {
 	})
 	idx := &stockOnlyIndex{}
 	dlq := newFakeDLQ(nil)
-	c := events.NewConsumerWithDLQ(consumerClient(t, brokers, "g-stock", topic), dlq, events.ListingEventHandler(idx), fastOpts(topic))
+	c := newConsumer(t, consumerClient(t, brokers, "g-stock", topic), dlq, events.ListingEventHandler(idx), fastOpts(topic))
 	stop, done := run(c)
 	produce(t, brokers, topic, []byte("l1"), value)
 	select {
@@ -328,5 +338,18 @@ func TestProcessRecord_MalformedStockEventReachesDLQ(t *testing.T) {
 	defer idx.mu.Unlock()
 	if idx.calls != 0 {
 		t.Errorf("malformed stock event was applied %d times", idx.calls)
+	}
+}
+
+// The SDK now reports a bad consumer instead of panicking later: a nil client
+// or an empty dead-letter topic is an error from the constructor.
+func TestNewConsumerWithDLQ_RejectsInvalidInput(t *testing.T) {
+	t.Parallel()
+	h := func(context.Context, []byte, []byte) error { return nil }
+	if _, err := events.NewConsumerWithDLQ(nil, newFakeDLQ(nil), h, fastOpts("listing.events")); err == nil {
+		t.Error("a nil client must be an error")
+	}
+	if _, err := events.NewConsumerWithDLQ(nil, newFakeDLQ(nil), h, consume.Options{}); err == nil {
+		t.Error("an empty DLQTopic must be an error")
 	}
 }

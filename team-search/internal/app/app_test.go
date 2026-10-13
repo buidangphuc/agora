@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
@@ -27,7 +28,7 @@ func freePort(t *testing.T) int {
 func baseSettings(env string, port int) config.Settings {
 	return config.Settings{
 		Runtime:    sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		GRPC:       sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 10},
+		GRPC:       sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 10 * time.Second},
 		Postgres:   sdkconfig.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?sslmode=disable"},
 		OpenSearch: config.OpenSearch{URL: "http://127.0.0.1:1", Index: "listings"},
 	}

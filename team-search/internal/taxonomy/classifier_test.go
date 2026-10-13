@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	aiv1 "github.com/buidangphuc/team-search/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-search/internal/taxonomy"
@@ -48,7 +49,7 @@ func serve(t *testing.T, f *fakeAI, timeout time.Duration) *taxonomy.GRPCClassif
 	aiv1.RegisterAIServiceServer(srv, f)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := upstream.NewClient(lis.Addr().String(), upstream.AsService("service-team-search", "ai.classify"))
 	if err != nil {
 		t.Fatal(err)
 	}

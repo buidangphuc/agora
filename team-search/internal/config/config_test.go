@@ -10,9 +10,10 @@ import (
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
-// setRequiredEnv sets the keys that have no default: GRPC_PORT and DATABASE_URL.
+// setRequiredEnv sets the keys that have no default: ENV, GRPC_PORT and DATABASE_URL.
 func setRequiredEnv(t *testing.T) {
 	t.Helper()
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50052")
 	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
 }
@@ -54,6 +55,7 @@ func TestValidateRequiresOpenSearchURL(t *testing.T) {
 
 // The database is always on: DATABASE_URL is required and an empty one fails the load.
 func TestDatabaseConfig(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50052")
 	t.Setenv("DATABASE_URL", "")
 	if _, err := Load(); err == nil {
@@ -141,5 +143,50 @@ func TestSemanticMinScoreDefault(t *testing.T) {
 	}
 	if s.Retrieval.SemanticMinScore != 0.65 {
 		t.Errorf("default HYBRID_SEMANTIC_MIN_SCORE = %v, want 0.65", s.Retrieval.SemanticMinScore)
+	}
+}
+
+// go-sdk v1: ENV has no default. A deployment that forgets it must fail at load
+// instead of running as local.
+func TestLoadRequiresEnv(t *testing.T) {
+	setRequiredEnv(t)
+	os.Unsetenv("ENV")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("Load without ENV = %v, want an error naming ENV", err)
+	}
+}
+
+// go-sdk v1: KAFKA_BROKERS has no default in a deployed environment, where a
+// silent localhost:9092 would hide a missing setting. Local keeps the default.
+func TestKafkaBrokersRequiredWhenStrict(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("ENV", "staging")
+	os.Unsetenv("KAFKA_BROKERS")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "KAFKA_BROKERS") {
+		t.Fatalf("staging without KAFKA_BROKERS = %v, want an error naming KAFKA_BROKERS", err)
+	}
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	if _, err := Load(); err != nil {
+		t.Fatalf("staging with KAFKA_BROKERS: %v", err)
+	}
+	t.Setenv("ENV", "local")
+	os.Unsetenv("KAFKA_BROKERS")
+	s, err := Load()
+	if err != nil || s.Kafka.Brokers != "localhost:9092" {
+		t.Fatalf("local default brokers = %q, %v", s.Kafka.Brokers, err)
+	}
+}
+
+// The shutdown windows are Go durations under keys without a unit suffix.
+func TestShutdownDurationsAreGoDurations(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("SHUTDOWN_GRACE", "25s")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY", "500ms")
+	s, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ShutdownGrace != 25*time.Second || s.DrainDelay != 500*time.Millisecond {
+		t.Fatalf("grace=%s drain=%s", s.ShutdownGrace, s.DrainDelay)
 	}
 }

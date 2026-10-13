@@ -22,7 +22,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-search/internal/config"
 	"github.com/buidangphuc/team-search/internal/events"
@@ -54,11 +54,14 @@ func RunServer(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
 	// Saved searches live in Postgres. The database opens before OpenSearch so a
 	// deployed environment without it fails boot first.
-	saved, err := selectSavedSearchRepository(ctx, s, logger, health, &stack, pgx.Open)
+	saved, err := selectSavedSearchRepository(ctx, s, logger, health, &stack, postgres.Open)
 	if err != nil {
 		return errors.Join(err, stack.Close(ctx))
 	}
@@ -73,8 +76,8 @@ func RunServer(ctx context.Context, s config.Settings) error {
 	rpc.Register(srv, rpc.NewSearchHandlerWithEngine(rm.index, rm.engine, saved))
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
@@ -118,7 +121,10 @@ func RunIndexer(ctx context.Context, s config.Settings) error {
 	}
 	logger.InfoContext(ctx, "tombstone purge configured",
 		"tombstone_ttl", ttl.String(), "tombstone_purge_interval", interval.String())
-	purge := tombstone.Loop{Purger: rm.index, TTL: ttl, Interval: interval, Logger: logger}
+	purge, err := tombstone.Loop{Purger: rm.index, TTL: ttl, Interval: interval, Logger: logger}.Component()
+	if err != nil {
+		return errors.Join(fmt.Errorf("tombstone purge: %w", err), stack.Close(ctx))
+	}
 
 	logger.InfoContext(ctx, "indexer consuming",
 		"topic", s.Events.ListingTopic,
@@ -127,10 +133,10 @@ func RunIndexer(ctx context.Context, s config.Settings) error {
 		"opensearch_index", s.OpenSearch.Index)
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
+		ShutdownGrace: s.ShutdownGrace,
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, lifecycle.Func(cons.Run), lifecycle.Func(func(ctx context.Context) error { purge.Run(ctx); return nil }))
+	}, lifecycle.Func(cons.Run), purge)
 }
 
 // readModel is what both binaries open: the OpenSearch index and the retrieval
@@ -190,7 +196,7 @@ func selectSavedSearchRepository(ctx context.Context, s config.Settings, logger 
 	switch {
 	case err == nil:
 		db := stdlib.OpenDBFromPool(pool)
-		health.Register("postgres", pgx.Checker(pool))
+		health.Register("postgres", postgres.Checker(pool))
 		stack.Push(func(context.Context) error { _ = db.Close(); pool.Close(); return nil })
 		logger.InfoContext(ctx, "saved searches backed by postgres")
 		return store.NewPostgresSavedSearchRepository(db), nil

@@ -23,7 +23,7 @@ type capturedRequest struct {
 
 // fakeOpenSearch is an httptest server that captures the last request and replies
 // with a caller-supplied status/body. A "/" info probe is answered generically.
-func fakeOpenSearch(t *testing.T, status int, respBody string, cap *capturedRequest) *index.OpenSearchIndex {
+func fakeOpenSearch(t *testing.T, status int, respBody string, sent *capturedRequest) *index.OpenSearchIndex {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
@@ -32,10 +32,10 @@ func fakeOpenSearch(t *testing.T, status int, respBody string, cap *capturedRequ
 			return
 		}
 		b, _ := io.ReadAll(r.Body)
-		cap.method = r.Method
-		cap.path = r.URL.Path
-		cap.query = r.URL.RawQuery
-		cap.body = string(b)
+		sent.method = r.Method
+		sent.path = r.URL.Path
+		sent.query = r.URL.RawQuery
+		sent.body = string(b)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, respBody)
@@ -52,42 +52,42 @@ func fakeOpenSearch(t *testing.T, status int, respBody string, cap *capturedRequ
 // D1: Upsert is one scripted_upsert guarded on _source.version, not an
 // external-version index request.
 func TestUpsert_IsGuardedScriptedUpsert(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"result":"created"}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"result":"created"}`, &sent)
 
 	if err := idx.Upsert(context.Background(), index.ListingDoc{ID: "l1", Title: "Phone", Version: 42}); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
-	if cap.path != "/listings/_update/l1" {
-		t.Errorf("expected the update API, got %s %s", cap.method, cap.path)
+	if sent.path != "/listings/_update/l1" {
+		t.Errorf("expected the update API, got %s %s", sent.method, sent.path)
 	}
-	if strings.Contains(cap.query, "version_type") {
-		t.Errorf("external versioning must be gone, got query %q", cap.query)
+	if strings.Contains(sent.query, "version_type") {
+		t.Errorf("external versioning must be gone, got query %q", sent.query)
 	}
 	for _, want := range []string{`"scripted_upsert":true`, `"kind":"upsert"`, `"version":42`, `"title":"Phone"`} {
-		if !strings.Contains(cap.body, want) {
-			t.Errorf("expected %s in body, got %s", want, cap.body)
+		if !strings.Contains(sent.body, want) {
+			t.Errorf("expected %s in body, got %s", want, sent.body)
 		}
 	}
-	if strings.Contains(cap.body, `"rating"`) {
-		t.Errorf("rating must no longer be written (D9): %s", cap.body)
+	if strings.Contains(sent.body, `"rating"`) {
+		t.Errorf("rating must no longer be written (D9): %s", sent.body)
 	}
 }
 
 // D5: Delete writes the tombstone through the same script with the delete's version.
 func TestDelete_WritesVersionedTombstone(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &sent)
 
 	if err := idx.Delete(context.Background(), "l1", 77); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
-	if cap.method != http.MethodPost || cap.path != "/listings/_update/l1" {
-		t.Errorf("expected a scripted update, got %s %s", cap.method, cap.path)
+	if sent.method != http.MethodPost || sent.path != "/listings/_update/l1" {
+		t.Errorf("expected a scripted update, got %s %s", sent.method, sent.path)
 	}
 	for _, want := range []string{`"scripted_upsert":true`, `"kind":"delete"`, `"version":77`, `"now":`} {
-		if !strings.Contains(cap.body, want) {
-			t.Errorf("expected %s in body, got %s", want, cap.body)
+		if !strings.Contains(sent.body, want) {
+			t.Errorf("expected %s in body, got %s", want, sent.body)
 		}
 	}
 }
@@ -95,8 +95,8 @@ func TestDelete_WritesVersionedTombstone(t *testing.T) {
 // AD2 / SA-H5: a partial update must NOT doc_as_upsert (which resurrected
 // tombstoned listings); it uses a scripted version guard instead.
 func TestPartialUpdate_NoUpsertUsesVersionGuardScript(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"result":"updated"}`, &sent)
 
 	err := idx.PartialUpdate(context.Background(), "l1", map[string]interface{}{
 		"status":  "published",
@@ -105,14 +105,14 @@ func TestPartialUpdate_NoUpsertUsesVersionGuardScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PartialUpdate: %v", err)
 	}
-	if strings.Contains(cap.body, "doc_as_upsert") {
-		t.Errorf("partial update must not use doc_as_upsert (resurrects tombstones): %s", cap.body)
+	if strings.Contains(sent.body, "doc_as_upsert") {
+		t.Errorf("partial update must not use doc_as_upsert (resurrects tombstones): %s", sent.body)
 	}
-	if !strings.Contains(cap.body, "script") {
-		t.Errorf("expected a scripted update with version guard, got: %s", cap.body)
+	if !strings.Contains(sent.body, "script") {
+		t.Errorf("expected a scripted update with version guard, got: %s", sent.body)
 	}
-	if !strings.Contains(cap.body, `"version":99`) {
-		t.Errorf("expected version param 99 in script params, got: %s", cap.body)
+	if !strings.Contains(sent.body, `"version":99`) {
+		t.Errorf("expected version param 99 in script params, got: %s", sent.body)
 	}
 }
 
@@ -121,7 +121,7 @@ func TestPartialUpdate_NoUpsertUsesVersionGuardScript(t *testing.T) {
 // stable fixed order regardless of JSON map iteration. D9: no ratings
 // aggregation is requested and the ratings facet is an empty list.
 func TestSearch_ParsesFacetAggregations(t *testing.T) {
-	var cap capturedRequest
+	var sent capturedRequest
 	respBody := `{
       "hits": {"total": {"value": 3}, "hits": [{"_id": "a1", "_score": 1.0, "_source": {"id": "a1"}}]},
       "aggregations": {
@@ -131,7 +131,7 @@ func TestSearch_ParsesFacetAggregations(t *testing.T) {
         "ratings": {"buckets": {"1": {"doc_count": 3}, "4": {"doc_count": 2}, "3": {"doc_count": 3}, "2": {"doc_count": 3}}}
       }
     }`
-	idx := fakeOpenSearch(t, 200, respBody, &cap)
+	idx := fakeOpenSearch(t, 200, respBody, &sent)
 
 	res, err := idx.Search(context.Background(), "phone", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
 	if err != nil {
@@ -139,12 +139,12 @@ func TestSearch_ParsesFacetAggregations(t *testing.T) {
 	}
 
 	for _, want := range []string{`"aggs"`, "category_id", "seller_id", "price_ranges"} {
-		if !strings.Contains(cap.body, want) {
-			t.Errorf("expected agg request body to contain %q, got: %s", want, cap.body)
+		if !strings.Contains(sent.body, want) {
+			t.Errorf("expected agg request body to contain %q, got: %s", want, sent.body)
 		}
 	}
-	if strings.Contains(cap.body, "ratings") {
-		t.Errorf("the ratings aggregation must be gone (D9): %s", cap.body)
+	if strings.Contains(sent.body, "ratings") {
+		t.Errorf("the ratings aggregation must be gone (D9): %s", sent.body)
 	}
 
 	if len(res.Facets.Categories) != 2 || res.Facets.Categories[0].Key != "cat_phones" || res.Facets.Categories[0].Count != 2 {
@@ -179,8 +179,8 @@ func TestSearch_ParsesFacetAggregations(t *testing.T) {
 // F2: an empty result set must yield empty — never nil — facet buckets, and the
 // fixed price buckets are still present with zero counts (no nil-panic).
 func TestSearch_EmptyResultSafeFacets(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 
 	res, err := idx.Search(context.Background(), "nomatch", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
 	if err != nil {
@@ -206,22 +206,22 @@ func TestSearch_EmptyResultSafeFacets(t *testing.T) {
 // F2: min_rating adds a rating>=N range filter, constraining the matched set the
 // facets count over.
 func TestSearch_MinRatingAddsFilter(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 
 	if _, err := idx.Search(context.Background(), "", nil, "", 0, 0, 4, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
 		t.Fatalf("Search: %v", err)
 	}
-	if !strings.Contains(cap.body, "rating") {
-		t.Errorf("expected a rating filter in the query body, got: %s", cap.body)
+	if !strings.Contains(sent.body, "rating") {
+		t.Errorf("expected a rating filter in the query body, got: %s", sent.body)
 	}
 }
 
 // AD2 / SA-H5: a partial update for a deleted (tombstoned) listing returns 404
 // from OpenSearch and must be a no-op — the doc is NOT recreated.
 func TestPartialUpdate_TombstonedListingNotResurrected(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, http.StatusNotFound, `{"error":"document_missing_exception"}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, http.StatusNotFound, `{"error":"document_missing_exception"}`, &sent)
 
 	err := idx.PartialUpdate(context.Background(), "deleted-1", map[string]interface{}{
 		"status":  "published",
@@ -235,48 +235,48 @@ func TestPartialUpdate_TombstonedListingNotResurrected(t *testing.T) {
 // Visibility default: with no status filter a status=published clause is added,
 // so drafts/rejected/unspecified listings never match (hits, total and facets).
 func TestSearch_DefaultsToPublishedOnly(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 	if _, err := idx.Search(context.Background(), "phone", map[string]string{"seller_id": "s1"}, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
 		t.Fatalf("Search: %v", err)
 	}
-	if !strings.Contains(cap.body, `{"term":{"status":"published"}}`) {
-		t.Errorf("expected published clause, got %s", cap.body)
+	if !strings.Contains(sent.body, `{"term":{"status":"published"}}`) {
+		t.Errorf("expected published clause, got %s", sent.body)
 	}
 }
 
 func TestSearchVector_DefaultsToPublishedOnly(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 	if _, err := idx.SearchVector(context.Background(), []float32{0.1}, nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
 		t.Fatalf("SearchVector: %v", err)
 	}
-	if !strings.Contains(cap.body, `{"term":{"status":"published"}}`) {
-		t.Errorf("expected published clause in knn filter, got %s", cap.body)
+	if !strings.Contains(sent.body, `{"term":{"status":"published"}}`) {
+		t.Errorf("expected published clause in knn filter, got %s", sent.body)
 	}
 }
 
 // An explicit status is used as is (the handler authorises it); no second clause.
 func TestSearch_ExplicitStatusReplacesDefault(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 	if _, err := idx.Search(context.Background(), "", map[string]string{"status": "draft", "seller_id": "A"}, "", 0, 0, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10); err != nil {
 		t.Fatalf("Search: %v", err)
 	}
-	if strings.Contains(cap.body, `"status":"published"`) || !strings.Contains(cap.body, `"status":"draft"`) {
-		t.Errorf("expected only the draft status clause, got %s", cap.body)
+	if strings.Contains(sent.body, `"status":"published"`) || !strings.Contains(sent.body, `"status":"draft"`) {
+		t.Errorf("expected only the draft status clause, got %s", sent.body)
 	}
 }
 
 // Suggestions are public: titles of non-published listings must not leak.
 func TestSuggest_PublishedOnly(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 	if _, err := idx.Suggest(context.Background(), "iph", 5); err != nil {
 		t.Fatalf("Suggest: %v", err)
 	}
-	if !strings.Contains(cap.body, `{"term":{"status":"published"}}`) {
-		t.Errorf("expected published clause in suggest, got %s", cap.body)
+	if !strings.Contains(sent.body, `{"term":{"status":"published"}}`) {
+		t.Errorf("expected published clause in suggest, got %s", sent.body)
 	}
 }
 
@@ -285,8 +285,8 @@ func TestSuggest_PublishedOnly(t *testing.T) {
 func TestSortNewest_BothLegsUseCreatedAtThenID(t *testing.T) {
 	const want = `"sort":[{"created_at":{"missing":"_last","order":"desc","unmapped_type":"date"}},{"id":{"order":"asc"}}]`
 	for _, leg := range []string{"lexical", "vector"} {
-		var cap capturedRequest
-		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+		var sent capturedRequest
+		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 		var err error
 		if leg == "lexical" {
 			_, err = idx.Search(context.Background(), "x", nil, "", 0, 0, 0, searchv1.SortBy_SORT_BY_NEWEST, 0, 10)
@@ -296,8 +296,8 @@ func TestSortNewest_BothLegsUseCreatedAtThenID(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(cap.body, want) || strings.Contains(cap.body, `"_id"`) {
-			t.Errorf("%s sort body: %s", leg, cap.body)
+		if !strings.Contains(sent.body, want) || strings.Contains(sent.body, `"_id"`) {
+			t.Errorf("%s sort body: %s", leg, sent.body)
 		}
 	}
 }
@@ -306,8 +306,8 @@ func TestSortNewest_BothLegsUseCreatedAtThenID(t *testing.T) {
 // knn.filter), never a raw term on a non-existent field.
 func TestInStock_BecomesStockRangeInBothLegs(t *testing.T) {
 	for _, leg := range []string{"lexical", "vector"} {
-		var cap capturedRequest
-		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+		var sent capturedRequest
+		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 		f := map[string]string{"in_stock": "true"}
 		var err error
 		if leg == "lexical" {
@@ -318,25 +318,25 @@ func TestInStock_BecomesStockRangeInBothLegs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(cap.body, `{"range":{"stock":{"gt":0}}}`) {
-			t.Errorf("%s: no stock range clause: %s", leg, cap.body)
+		if !strings.Contains(sent.body, `{"range":{"stock":{"gt":0}}}`) {
+			t.Errorf("%s: no stock range clause: %s", leg, sent.body)
 		}
-		if strings.Contains(cap.body, `"in_stock"`) {
-			t.Errorf("%s: in_stock leaked as a raw term: %s", leg, cap.body)
+		if strings.Contains(sent.body, `"in_stock"`) {
+			t.Errorf("%s: in_stock leaked as a raw term: %s", leg, sent.body)
 		}
-		if leg == "vector" && !strings.Contains(cap.body, `"knn":{"embedding":{"filter":{"bool":{"filter":[`) {
-			t.Errorf("vector: filter not inside knn.filter: %s", cap.body)
+		if leg == "vector" && !strings.Contains(sent.body, `"knn":{"embedding":{"filter":{"bool":{"filter":[`) {
+			t.Errorf("vector: filter not inside knn.filter: %s", sent.body)
 		}
 	}
 }
 
 // D3: stock is decoded from _source with presence (absent stays nil).
 func TestSearch_DecodesStockFromSource(t *testing.T) {
-	var cap capturedRequest
+	var sent capturedRequest
 	idx := fakeOpenSearch(t, 200, `{"hits":{"total":{"value":3},"hits":[
 	  {"_id":"a","_source":{"id":"a","stock":4}},
 	  {"_id":"b","_source":{"id":"b","stock":0}},
-	  {"_id":"c","_source":{"id":"c"}}]}}`, &cap)
+	  {"_id":"c","_source":{"id":"c"}}]}}`, &sent)
 	for _, leg := range []string{"lexical", "vector"} {
 		var res index.SearchResult
 		var err error
@@ -363,8 +363,8 @@ func TestFilters_SameClausesInBothLegs(t *testing.T) {
 		"tag.connectivity": "bluetooth-5-3", "sku.color": "den",
 	}
 	run := func(vector bool) string {
-		var cap capturedRequest
-		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+		var sent capturedRequest
+		idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 		var err error
 		if vector {
 			_, err = idx.SearchVector(context.Background(), []float32{0.1}, f, "c1", 100, 900, 0, searchv1.SortBy_SORT_BY_UNSPECIFIED, 0, 10)
@@ -374,7 +374,7 @@ func TestFilters_SameClausesInBothLegs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return cap.body
+		return sent.body
 	}
 	vec := run(true)
 	for _, want := range []string{
@@ -396,14 +396,14 @@ func TestFilters_SameClausesInBothLegs(t *testing.T) {
 
 // FacetsForIDs aggregates over exactly the given ids under the same filters.
 func TestFacetsForIDs_RestrictsToIDsAndFilters(t *testing.T) {
-	var cap capturedRequest
-	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &cap)
+	var sent capturedRequest
+	idx := fakeOpenSearch(t, 200, `{"hits": {"total": {"value": 0}, "hits": []}}`, &sent)
 	if _, err := idx.FacetsForIDs(context.Background(), []string{"a", "b"}, map[string]string{"seller_id": "s1"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{`"terms":{"id":["a","b"]}`, `{"term":{"seller_id":"s1"}}`, `{"term":{"status":"published"}}`, `"size":0`, `"price_ranges"`} {
-		if !strings.Contains(cap.body, want) {
-			t.Errorf("missing %s in %s", want, cap.body)
+		if !strings.Contains(sent.body, want) {
+			t.Errorf("missing %s in %s", want, sent.body)
 		}
 	}
 }

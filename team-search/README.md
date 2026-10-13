@@ -6,7 +6,7 @@ Search and discovery read-model for the Agora marketplace (Go). It owns the Open
 facets, prefix suggest, and per-user saved searches. Saved searches live in this service's own
 Postgres database (`search_db`). With `ENV=local` an unreachable database falls back to an in-memory store.
 
-The service is built on go-sdk v0.2.1 (ADR-0016, vendored in `third_party/go-sdk`). `internal/app` is the
+The service is built on go-sdk v1.0.0 (ADR-0016, vendored in `third_party/go-sdk`). `internal/app` is the
 composition root with one entry per binary (`RunServer`, `RunIndexer`); both load the same `Settings`.
 Two binaries ship in one image (`Dockerfile`):
 
@@ -111,9 +111,9 @@ Handling (`internal/events/listing.go`):
   re-embed; delete on `CHANGE_TYPE_DELETED`.
 - `ListingPricingChanged`: partial update of `price` (promotional price if on sale) and `currency`.
 - `ListingStatusChanged`: delete on `REJECTED`, otherwise partial update of `status`.
-- The consumer is the SDK `consume.Consumer`. Offsets are committed per record, only after it is
-  handled or parked. Up to 5 attempts per record with exponential backoff (100 ms base, 30 s cap),
-  then the DLQ; a parked record carries `error` and `source-topic` headers. If the DLQ write fails
+- The consumer is the SDK `consume.Consumer`. Offsets are committed once per fetch, only after every
+  record of it is handled or parked. Up to 5 attempts per record with exponential backoff (100 ms base, 30 s cap),
+  then the DLQ; a parked record carries the `dlq-error`, `dlq-source-topic`, `dlq-source-partition`, `dlq-source-offset` and `dlq-source-group` headers. If the DLQ write fails
   the indexer exits without committing, so the record is redelivered after the restart.
 
 ## Data
@@ -139,13 +139,13 @@ if `.env.example` and the config structs drift in either direction.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `local` and `test` tolerate an unreachable database |
+| `ENV` | none | required: `local`, `test`, `staging` or `prod`; `local` and `test` tolerate an unreachable database; `staging`, `stage`, `prod` and `production` also require `KAFKA_BROKERS` |
 | `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` | `0.0.0.0` | |
 | `GRPC_PORT` | none | required, positive; the image sets `50052`, `.env.example` too |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | |
-| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0` | pause after health reports NOT_SERVING, before the server stops |
+| `SHUTDOWN_GRACE` | `10s` | Go duration |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Go duration: pause after health reports NOT_SERVING, before the server stops |
 | `OPENSEARCH_URL` | `http://localhost:9200` | required non-empty |
 | `OPENSEARCH_INDEX` | `listings` | |
 | `MODEL_SERVER_URL` | `http://localhost:8100` | modelserve base URL (embed, rerank); 2 s HTTP client timeout |
@@ -157,7 +157,7 @@ if `.env.example` and the config structs drift in either direction.
 | `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_MIN_SCORE` | `0.65` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
-| `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
+| `KAFKA_BROKERS` | `localhost:9092` for `local`/`test`; none otherwise | comma-separated; required when `ENV` is strict |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
 | `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; invalid or non-positive falls back to the default with a WARN |

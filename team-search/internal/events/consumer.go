@@ -41,18 +41,25 @@ func NewConsumer(k config.Kafka, group, topic string, h Handler, o consume.Optio
 	if o.DLQTopic == "" {
 		o.DLQTopic = topic + DLQSuffix
 	}
-	c := NewConsumerWithDLQ(client, dlq, h, o)
+	c, err := NewConsumerWithDLQ(client, dlq, h, o)
+	if err != nil {
+		client.Close()
+		dlq.Close()
+		return nil, err
+	}
 	c.closer = dlq.Close
 	return c, nil
 }
 
 // NewConsumerWithDLQ is NewConsumer over a caller-built client (auto-commit
-// disabled) and dead-letter producer, for tests that need to fake the DLQ.
-func NewConsumerWithDLQ(client *kgo.Client, dlq consume.DLQProducer, h Handler, o consume.Options) *Consumer {
-	return &Consumer{
-		loop:   consume.NewConsumer(client, adapt(h), dlq, o),
-		client: client,
+// disabled) and dead-letter producer, for tests that need to fake the DLQ. It
+// fails when the SDK rejects the options (DLQTopic is required) or the client.
+func NewConsumerWithDLQ(client *kgo.Client, dlq consume.DLQProducer, h Handler, o consume.Options) (*Consumer, error) {
+	loop, err := consume.NewConsumer(client, adapt(h), dlq, o)
+	if err != nil {
+		return nil, fmt.Errorf("consume loop: %w", err)
 	}
+	return &Consumer{loop: loop, client: client}, nil
 }
 
 // Run polls until ctx ends (it then returns nil) or a record cannot be resolved.

@@ -26,7 +26,11 @@ func failOpener(context.Context, sdkconfig.Postgres) (*pgxpool.Pool, error) {
 func selectRepo(s config.Settings, open app.PoolOpener) (store.SavedSearchRepository, error) {
 	var stack lifecycle.Stack
 	defer func() { _ = stack.Close(context.Background()) }()
-	return app.SelectSavedSearchRepository(context.Background(), s, quiet, healthx.New(healthx.DefaultInterval, quiet), &stack, open)
+	health, err := healthx.New(healthx.DefaultInterval, quiet)
+	if err != nil {
+		return nil, err
+	}
+	return app.SelectSavedSearchRepository(context.Background(), s, quiet, health, &stack, open)
 }
 
 // Local development stays usable without Postgres: an unreachable database falls
