@@ -5,9 +5,9 @@ name: services-ci
 on:
   push:
     branches: [main]
-    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
+    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-finetune/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
   pull_request:
-    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
+    paths: ["team-ai/**", "platform-recsys/**", "platform-modelserve/**", "platform-finetune/**", "platform-core/packages/py-modelregistry/**", ".github/workflows/services-ci.yml"]
   workflow_dispatch:
 
 permissions:
@@ -102,6 +102,30 @@ jobs:
         run: make test-host
       - name: Run offline evaluation CLI
         run: make eval
+
+  # Offline tests only: no GPU, dataset or network. The `dev` extra resolves in about a minute with uv
+  # (pip's resolver hangs on dvc/sagemaker/triton); `modelregistry` comes from [tool.uv.sources]. mlflow is
+  # pinned to the range py-modelregistry's mlflow-skinny needs, else the extra pulls an incompatible mlflow.
+  platform-finetune:
+    name: platform-finetune Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: platform-finetune
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: platform-finetune/pyproject.toml
+      - name: Install (dev + cpu extras)
+        run: uv pip install --system -e '.[dev,cpu]' 'mlflow>=3.2,<3.3'
+      - name: Run offline tests
+        run: python -m pytest tests -q
 
   platform-modelserve:
     name: platform-modelserve Lint, Test & Conformance

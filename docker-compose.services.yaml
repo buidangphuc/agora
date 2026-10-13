@@ -734,6 +734,26 @@ services:
       - redis
       - mlflow
 
+  # Weekly fine-tuning job (add-platform-finetune) — a batch, not a server:
+  #   docker compose --profile jobs run --rm platform-finetune
+  # Trains on a GPU in the cluster (CronJob platform/finetune); here it runs on CPU. Tracks to the agora
+  # MLflow, artifacts to MinIO, and publishes through the shared py-modelregistry gate. py-modelregistry
+  # is outside the build context, hence the named additional context.
+  platform-finetune:
+    build:
+      context: ./platform-finetune
+      additional_contexts:
+        modelregistry: ./platform-core/packages/py-modelregistry
+    image: platform-finetune:local
+    profiles: ["jobs"]
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5050
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    depends_on:
+      - mlflow
+
   # Feature materialisation job (featurestore-materialization) — a batch, not a server:
   #   docker compose --profile featurestore run --rm featurestore-job
   # Reads the Parquet that team-analytics exports to the shared volume, writes an
