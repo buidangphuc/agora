@@ -72,7 +72,7 @@ Owns: `pkg/config/**`, `examples/hello/internal/config/**`, `examples/hello/.env
 
 Owns: `pkg/pgx/**` (renamed in packet 15).
 
-- [ ] 10.1 M7 `WithTx` rolls back on panic (test with a panicking fn, pool not exhausted); m6 warm-up ctx; m7 nil logger.
+- [x] 10.1 M7 `WithTx` rolls back on panic (test with a panicking fn, pool not exhausted); m6 warm-up ctx; m7 nil logger.
 
 ## 11. outbox (wave 3)
 

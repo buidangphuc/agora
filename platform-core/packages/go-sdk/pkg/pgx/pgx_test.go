@@ -106,3 +106,45 @@ func TestOpenOrLocalFallsBackOnlyLocally(t *testing.T) {
 		}
 	}
 }
+
+func TestWithTxPanicDoesNotLeakConnection(t *testing.T) {
+	pool := openPool(t) // MaxConns: 4
+
+	for i := 0; i < 8; i++ { // more panics than connections
+		func() {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Error("WithTx must re-panic (or the pool is exhausted)")
+				}
+			}()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = sdkpgx.WithTx(ctx, pool, func(tx jpgx.Tx) error {
+				if _, err := tx.Exec(ctx, "INSERT INTO items VALUES (1)"); err != nil {
+					return err
+				}
+				panic("boom")
+			})
+		}()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := pool.Ping(ctx); err != nil {
+		t.Fatalf("pool exhausted after panics: %v", err)
+	}
+	if n := countItems(t, pool); n != 0 {
+		t.Fatalf("rows after panics = %d, want 0", n)
+	}
+	if got := pool.Stat().AcquiredConns(); got != 0 {
+		t.Fatalf("acquired conns = %d, want 0", got)
+	}
+}
+
+func TestOpenOrLocalNilLogger(t *testing.T) {
+	c := config.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?connect_timeout=1", MaxConns: 2}
+	pool, err := sdkpgx.OpenOrLocal(context.Background(), c, config.Runtime{Env: "local"}, nil)
+	if err != nil || pool != nil {
+		t.Fatalf("pool=%v err=%v; want nil, nil", pool, err)
+	}
+}

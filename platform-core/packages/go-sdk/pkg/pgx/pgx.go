@@ -26,14 +26,15 @@ func Open(ctx context.Context, c config.Postgres) (*pgxpool.Pool, error) {
 		cfg.MaxConns = c.MaxConns
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
-	defer cancel()
-
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	// The pool's background warm-up and health checks use the ctx given to
+	// NewWithConfig, so it must outlive this call; Close stops them.
+	pool, err := pgxpool.NewWithConfig(context.WithoutCancel(ctx), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create pool: %w", err)
 	}
-	if err := pool.Ping(ctx); err != nil {
+	pingCtx, cancel := context.WithTimeout(ctx, pingTimeout)
+	defer cancel()
+	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
@@ -43,7 +44,7 @@ func Open(ctx context.Context, c config.Postgres) (*pgxpool.Pool, error) {
 // OpenOrLocal is Open with a local-only fallback. It returns the pool when the
 // database is reachable. When it is not, it returns (nil, nil) and logs a
 // warning if rt.IsLocal(), so the caller can use an in-memory store; in any
-// other environment it returns the error.
+// other environment it returns the error. A nil logger means slog.Default().
 func OpenOrLocal(ctx context.Context, c config.Postgres, rt config.Runtime, logger *slog.Logger) (*pgxpool.Pool, error) {
 	pool, err := Open(ctx, c)
 	if err == nil {
@@ -51,6 +52,9 @@ func OpenOrLocal(ctx context.Context, c config.Postgres, rt config.Runtime, logg
 	}
 	if !rt.IsLocal() {
 		return nil, err
+	}
+	if logger == nil {
+		logger = slog.Default()
 	}
 	logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
 	return nil, nil //nolint:nilnil // contract: a nil pool means "run without a database"
@@ -61,12 +65,22 @@ func Checker(pool *pgxpool.Pool) func(context.Context) error {
 	return pool.Ping
 }
 
-// WithTx runs fn in a transaction: commit when fn returns nil, rollback otherwise.
-func WithTx(ctx context.Context, pool *pgxpool.Pool, fn func(jpgx.Tx) error) error {
+// WithTx runs fn in a transaction: commit when fn returns nil, rollback
+// otherwise. If fn panics the transaction is rolled back, so the connection
+// returns to the pool, and the panic propagates.
+func WithTx(ctx context.Context, pool *pgxpool.Pool, fn func(jpgx.Tx) error) (err error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			// Roll back with a ctx that survives cancellation: the panic may come
+			// from a cancelled request and the connection must still be released.
+			_ = tx.Rollback(context.WithoutCancel(ctx))
+			panic(r)
+		}
+	}()
 	if err := fn(tx); err != nil {
 		// A failed rollback must not hide the error that caused it.
 		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, jpgx.ErrTxClosed) {
