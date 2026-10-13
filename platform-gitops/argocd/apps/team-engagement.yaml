@@ -37,6 +37,8 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
+            ENV: "local"
+            GRPC_PORT: "50054"
             UPSTREAM_ORDER_ADDR: "team-order:50055"
             KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
             KAFKA_CONSUMER_GROUP: "team-engagement-feed"

@@ -1,0 +1,5 @@
+# Per-service, per-env overlay for team-engagement in staging. Sets ENV: go-sdk v1 requires it and
+# treats a strict ENV (staging, prod) as "no silent fallbacks" (KAFKA_BROKERS required). Merged over the
+# baseline env map.
+env:
+  ENV: "staging"
