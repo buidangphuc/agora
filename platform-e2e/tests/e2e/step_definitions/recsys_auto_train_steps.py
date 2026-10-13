@@ -20,6 +20,7 @@ import time
 
 from pytest_bdd import given, parsers, then, when
 
+from src.api import rank_signal
 from src.api.mlflow_registry import RECSYS_MODELS, STRONG, WEAK, MlflowRegistry
 from src.api.recsys_job import (
     RESET,
@@ -120,6 +121,21 @@ def seed_champion(world: World, kind: str, model: str) -> None:
 def seed_three_weak(world: World) -> None:
     for model in RECSYS_MODELS:
         seed_champion(world, "weak", model)
+
+
+@given("the stack's ranking events are seeded so that clicks depend on item price")
+def seed_price_dependent_ranking_events(world: World) -> None:
+    """D13 fixture: the chain reads real events, so the events carry a signal the trainer can learn.
+
+    A feature snapshot is taken first (impressions are joined to the snapshot before them), then
+    impression lists whose clicks depend on price are posted through the gateway and the step waits
+    until the analytics Parquet export, which the featurestore reads, holds them. The events are
+    tagged with the impression id prefix `rat34-`; the event log is append-only.
+    """
+    rank_signal.materialize_now(os.getenv("DC_WRAPPER", DC_WRAPPER_DEFAULT))
+    already = rank_signal.exported_count()
+    posted = rank_signal.seed_price_dependent_events()
+    rank_signal.wait_exported(already + posted)
 
 
 @given("the recsys registry is down")

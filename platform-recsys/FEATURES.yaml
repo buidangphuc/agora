@@ -2323,8 +2323,9 @@ features:
       - "When the featurestore dataset job finishes and then the recsys job runs on the compose stack with the `jobs` profile against seeded weak champions"
       - "Then MLflow on :5050 shows a new version of each of `recsys-als`, `recsys-gbdt` and `recsys-two-tower` tagged `gate.outcome=promoted`, and the job exits 0"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Nightly chain registers all three models. Scenario id RAT-34; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Nightly chain registers all three models"
+    notes: "recsys-auto-train: the fixture seeds price-dependent impression/click events (impression ids prefixed rat34-) through the gateway so the GBDT genuinely beats the fixed-weight baseline."
 
   - id: recsys.rat-36-a-manifest-without-the-mlflow-uri-is-rejected-by-the-manifes
     title: "RAT-36 A manifest without the MLflow URI is rejected by the manifest check"
