@@ -25,9 +25,3 @@ It SHALL fail without changes if the tag does not exist. A service SHALL move to
 - **WHEN** a change cuts a new `go-sdk/vX.Y.Z` tag
 - **THEN** the same change does not modify any `team-*/third_party/go-sdk/VERSION`
 - **VERIFIED BY**: review of the change diff (not-testable)
-
-## REMOVED Requirements
-
-### Requirement: Scope checks can admit scoped anonymous callers
-**Reason**: a few lines that three services already keep locally; no service vendors it.
-**Migration**: none; services keep their local `requireScopes`.

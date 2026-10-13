@@ -1127,6 +1127,38 @@ features:
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax
       TestConsumerClientAcceptsOptions.
+  - id: go-sdk.anonymous-caller-with-the-public-scope-is-admitted
+    title: Anonymous caller with the public scope is admitted
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the anonymous principal holds listing.read and RequireScopesAllowAnonymous(ctx, "listing.read")
+      is called
+    - Then it returns the principal and no error
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/auth
+      TestRequireScopesAllowAnonymousAdmitsScopedAnonymous.
+  - id: go-sdk.anonymous-caller-without-the-scope-is-denied-not-unauthenticated
+    title: Anonymous caller without the scope is denied, not unauthenticated
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the anonymous principal lacks listing.write
+    - Then it returns PermissionDenied
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: Platform library behaviour with no user journey; verified by TestRequireScopesAllowAnonymousDeniesMissingScope.
   - id: go-sdk.re-sync-does-not-drop-a-service-exclusion
     title: Re-sync does not drop a service exclusion
     persona: guest

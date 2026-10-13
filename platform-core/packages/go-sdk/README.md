@@ -16,7 +16,7 @@ All under `pkg/`.
 | `config` | `Load[T]()` from env tags (calls `Validate()` if defined), groups `Runtime`, `GRPC`, `Postgres`, `OTel`, and the `CheckEnvExample` drift check. |
 | `logx` | slog setup that adds request id, principal id and trace id from the context. |
 | `otelx` | OTLP/gRPC tracer and meter providers; a no-op when disabled; always sets the W3C propagator. |
-| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match). |
+| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match), `RequireScopesAllowAnonymous` (public methods: a scoped anonymous caller passes). |
 | `healthx` | Checker registry polled in the background; flips the gRPC health status; `Drain()` on shutdown. |
 | `lifecycle` | Runs `Run(ctx) error` components together with an ordered, deadline-bound shutdown (optional drain delay), and `Stack` for closers. |
 | `pgx` | Pool open with ping, health checker, `WithTx`. |

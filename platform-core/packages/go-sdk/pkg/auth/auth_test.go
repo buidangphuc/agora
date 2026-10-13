@@ -150,3 +150,25 @@ func TestWithPrincipalSetsReqctx(t *testing.T) {
 		t.Fatalf("reqctx principal = %q", got)
 	}
 }
+
+func TestRequireScopesAllowAnonymousAdmitsScopedAnonymous(t *testing.T) {
+	anon := run(incoming(auth.MDPrincipalID, "anonymous", auth.MDPrincipalType, "anonymous", auth.MDPrincipalScopes, "listing.read"), t)
+	p, err := auth.RequireScopesAllowAnonymous(anon, "listing.read")
+	if err != nil {
+		t.Fatalf("scoped anonymous: %v", err)
+	}
+	if !p.Anonymous() {
+		t.Fatalf("principal = %+v, want anonymous", p)
+	}
+	if _, err := auth.RequireScopesAllowAnonymous(context.Background(), "listing.read"); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("no principal: code = %v, want Unauthenticated", status.Code(err))
+	}
+}
+
+func TestRequireScopesAllowAnonymousDeniesMissingScope(t *testing.T) {
+	anon := run(incoming(auth.MDPrincipalID, "anonymous", auth.MDPrincipalScopes, "listing.read"), t)
+	_, err := auth.RequireScopesAllowAnonymous(anon, "listing.read", "listing.write")
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
+	}
+}
