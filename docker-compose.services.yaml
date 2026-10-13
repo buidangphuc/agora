@@ -598,9 +598,9 @@ services:
       context: ./team-ai
       dockerfile: Dockerfile
       args:
-        # recs: qdrant-client for the trained-recommendations reader (RECS_BACKEND=qdrant) and the RAG store.
+        # qdrant-client is core (trained-recommendations reader + RAG store).
         # ai: llama-index + the qdrant vector store. kafka: aiokafka (+ snappy) for the listing indexer.
-        UV_EXTRAS: "recs ai kafka"
+        UV_EXTRAS: "ai kafka"
     image: team-ai:local
     container_name: team-ai-svc
     depends_on:
@@ -612,58 +612,42 @@ services:
         condition: service_healthy
     environment:
       - ENVIRONMENT=local
-      - PORT=8000
-      - GRPC_ENABLED=true
       - GRPC_HOST=0.0.0.0
       - GRPC_PORT=50060
-      - DATABASE_ENABLED=false
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      # team-ai owns no database here (DATABASE_ENABLED=false) and must not hold listing's creds
-      # (AGENTS.md rule 3). Settings still require the fields: placeholders, override via .env
-      # (see .env.example).
-      - POSTGRES_USER=${TEAM_AI_POSTGRES_USER:-team_ai_svc}
-      - POSTGRES_PASSWORD=${TEAM_AI_POSTGRES_PASSWORD:-team-ai-local-placeholder}
-      - POSTGRES_DB=${TEAM_AI_POSTGRES_DB:-team_ai_db}
-      - REDIS_ENABLED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # Internal tag routes (/api/v1/ai/tags/*, tag-routes-authz): a service token for reads, an admin
-      # token for explore/promote. Local placeholders only; override via .env (see .env.example).
-      - AUTH_BEARER_TOKEN=${TEAM_AI_SERVICE_TOKEN:-agora-local-team-ai-service}
-      - AUTH_ROLES=ai.classify
-      - AUTH_ADMIN_BEARER_TOKEN=${TEAM_AI_ADMIN_TOKEN:-agora-local-team-ai-admin}
-      # Promoted/explored tags survive restarts (tag-taxonomy-persistence): Redis DB 5, tagtax:v1:*.
-      - TAXONOMY_PERSISTENCE_ENABLED=true
+      # Internal tag routes (/api/v1/ai/tags/*, tag-routes-authz): a service key (scope ai.classify) for
+      # reads and an admin key (admin|ai.classify) for explore/promote. team-ai stores only sha256 hashes
+      # and compose cannot hash, so the default holds the hashes of the local tokens
+      # agora-local-team-ai-service / agora-local-team-ai-admin. Override the whole value via
+      # TEAM_AI_AUTH_API_KEYS in .env (see .env.example).
+      - AUTH_API_KEYS=${TEAM_AI_AUTH_API_KEYS:-team-ai-service:ai.classify:83f245da1bcaead8711fd273279db20d6cd78c19ae9ed28bf911c18f0c256573,team-ai-admin:admin|ai.classify:0a7196c2b14008bbb9d4959f7ed61f859292c7b64c706c0c5a701cde5d8bef1b}
+      # Promoted/explored tags always survive restarts (tag-taxonomy-persistence): Redis DB 5, tagtax:v1:*.
+      # The gRPC rate limit, the per-principal HTTP rate limit and the chat quota are always on, in this Redis.
       - CHAT_BACKEND=mock
       # Recommendations (serve-recommendations-teamai) — reuses GRPC_PORT, no new
       # port. Served from what the platform-recsys job (below, profile "jobs")
       # writes to Qdrant + Redis; until it has run, Recommend answers empty and the
-      # home row stays hidden. RECS_BACKEND=memory is the offline/dev fixture.
-      - RECS_ENABLED=true
-      - RECS_BACKEND=qdrant
+      # home row stays hidden.
       - RECS_QDRANT_URL=http://qdrant:6333
       - RECS_QDRANT_COLLECTION=item_als_vectors
       - RECS_CACHE_PREFIX=recs
       - RECS_CACHE_SCHEMA_VERSION=v1
-      - RECS_CACHE_TTL_SECONDS=86400
       # Online item features from platform-featurestore (its own Redis DB 2), recs-serving-safeguards.
       - RECS_FEATURESTORE_REDIS_URL=redis://redis:6379/2
       # Nearline position-debiased CTR written by platform-recsys-nearline (add-recsys-nearline-signals),
       # read per request for GBDT placements; an outage leaves the request on prior CTRs.
       - RECS_NEARLINE_REDIS_URL=redis://redis:6379/0
       - RECS_RETRIEVE_TIMEOUT_MS=15
-      # Shopping assistant grounding (assistant-rag-default-on): ON by default. The listing indexer feeds a
+      # Shopping assistant grounding (assistant-rag-default-on): ON by default. RAG_ENABLED also starts the Kafka
+      # listing indexer and requires RAG_QDRANT_URL, RAG_EMBED_SERVER_URL and KAFKA_BROKERS. The indexer feeds a
       # Qdrant RAG collection (embedded through modelserve-router -> tei-fake, below) and ShoppingAssistant
       # answers with real listings. Turn it off (demo catalog) with platform-e2e/compose/rag-off.override.yaml.
       - RAG_ENABLED=true
-      - RAG_BACKEND=qdrant
       - RAG_QDRANT_URL=http://qdrant:6333
       - RAG_QDRANT_COLLECTION=rag_documents
-      - RAG_EMBED_BACKEND=model_server
       - RAG_EMBED_SERVER_URL=http://modelserve-router:8100
       - RAG_EMBED_DIM=384
-      - LISTING_INDEXER_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
     ports:
       - "${TEAM_AI_HOST_PORT:-8001}:8000"   # override when 8001 is taken on the host

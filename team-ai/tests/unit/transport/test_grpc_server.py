@@ -1,172 +1,148 @@
-"""End-to-end gRPC: real in-process server + client through the interceptors.
-
-Covers Search (RAG mapping), Chat (streaming), and auth/scope enforcement.
-Uses a fake RAG service and the mock chat streamer — no ML, no network.
-"""
+"""build_grpc_server: interceptor order, registrations, health and reflection."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from typing import Any
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import grpc
 import pytest
+from grpc_health.v1 import health_pb2, health_pb2_grpc
 
-from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
-from app.transport.grpc._pb.platform.search.v1 import search_pb2, search_pb2_grpc
-from app.transport.grpc.chat_stream import build_chat_streamer
+from app.core import grpc_metrics
+from app.modules.platform.rate_limit.service import RateLimitResult
+from app.transport.grpc.context import current_principal
+from app.transport.grpc.registry import GrpcServiceRegistration
 from app.transport.grpc.server import build_grpc_server
-from tests.factories import build_test_settings
+from tests.factories import allow_all_limiter
 
-_AUTH = (("authorization", "bearer secret"),)
-
-
-class _FakeRag:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, Any, Any]] = []
-
-    async def search(self, query: str, *, top_k=None, filters=None):
-        self.calls.append((query, top_k, filters))
-        return [
-            SimpleNamespace(
-                node=SimpleNamespace(metadata={"document_id": "listing-1"}),
-                score=0.91,
-            )
-        ]
+ECHO = "/t.Svc/Echo"
+OPEN = "/t.Svc/Open"
+SERVICE = "t.Svc"
+PRINCIPAL_MD = (
+    ("x-principal-id", "u1"),
+    ("x-principal-type", "user"),
+    ("x-principal-scopes", "listing.read"),
+)
 
 
-def _settings(**overrides):
-    base = {
-        "AUTH_BEARER_TOKEN": "secret",
-        "AUTH_ROLES": "search:read,chat:read",
-        "GRPC_BEARER_FALLBACK_ENABLED": True,
-        "GRPC_REFLECTION_ENABLED": False,
-        "CHAT_BACKEND": "mock",
-    }
-    base.update(overrides)
-    return build_test_settings(**base)
+async def _echo(request: bytes, context: grpc.aio.ServicerContext) -> bytes:
+    principal = current_principal()
+    return (principal.id if principal else "none").encode()
 
 
-async def _start(settings, *, rag=None):
-    server = build_grpc_server(
-        settings=settings,
-        rag_provider=lambda: rag,
-        chat_streamer=build_chat_streamer(settings),
+def _registration(*, limited: frozenset[str] = frozenset()) -> GrpcServiceRegistration:
+    handler = grpc.method_handlers_generic_handler(
+        SERVICE,
+        {
+            "Echo": grpc.unary_unary_rpc_method_handler(_echo),
+            "Open": grpc.unary_unary_rpc_method_handler(_echo),
+        },
     )
-    port = server.add_insecure_port("localhost:0")
+    return GrpcServiceRegistration(
+        service_name=SERVICE,
+        register=lambda server: server.add_generic_rpc_handlers((handler,)),
+        rate_limited_methods=limited,
+    )
+
+
+class _Limiter:
+    def __init__(self, result: RateLimitResult) -> None:
+        self.result = result
+        self.keys: list[str] = []
+
+    async def check(self, key: str) -> RateLimitResult:
+        self.keys.append(key)
+        return self.result
+
+
+@asynccontextmanager
+async def _serving(**kwargs) -> AsyncIterator[grpc.aio.Channel]:
+    kwargs.setdefault("registrations", (_registration(),))
+    kwargs.setdefault("rate_limiter", allow_all_limiter())
+    server = build_grpc_server(**kwargs)
+    port = server.add_insecure_port("127.0.0.1:0")
     await server.start()
-    return server, port
-
-
-async def test_search_maps_rag_hits():
-    rag = _FakeRag()
-    server, port = await _start(_settings(), rag=rag)
     try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = search_pb2_grpc.SearchServiceStub(channel)
-            resp = await stub.SearchListings(
-                search_pb2.SearchListingsRequest(query="nha pho quan 1"),
-                metadata=_AUTH,
-            )
-        assert [h.listing_id for h in resp.hits] == ["listing-1"]
-        assert resp.hits[0].score == pytest.approx(0.91)
-        assert rag.calls[0][0] == "nha pho quan 1"
+        async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as channel:
+            yield channel
     finally:
         await server.stop(None)
 
 
-async def test_search_unavailable_when_rag_disabled():
-    server, port = await _start(_settings(), rag=None)
-    try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = search_pb2_grpc.SearchServiceStub(channel)
-            with pytest.raises(grpc.aio.AioRpcError) as exc:
-                await stub.SearchListings(
-                    search_pb2.SearchListingsRequest(query="x"), metadata=_AUTH
-                )
-        assert exc.value.code() == grpc.StatusCode.UNAVAILABLE
-    finally:
-        await server.stop(None)
-
-
-async def test_missing_token_is_unauthenticated():
-    server, port = await _start(_settings(), rag=_FakeRag())
-    try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = search_pb2_grpc.SearchServiceStub(channel)
-            with pytest.raises(grpc.aio.AioRpcError) as exc:
-                await stub.SearchListings(search_pb2.SearchListingsRequest(query="x"))
-        assert exc.value.code() == grpc.StatusCode.UNAUTHENTICATED
-    finally:
-        await server.stop(None)
-
-
-async def test_scope_enforced():
-    # principal has only chat:read, not search:read
-    server, port = await _start(_settings(AUTH_ROLES="chat:read"), rag=_FakeRag())
-    try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = search_pb2_grpc.SearchServiceStub(channel)
-            with pytest.raises(grpc.aio.AioRpcError) as exc:
-                await stub.SearchListings(
-                    search_pb2.SearchListingsRequest(query="x"), metadata=_AUTH
-                )
-        assert exc.value.code() == grpc.StatusCode.PERMISSION_DENIED
-        assert "insufficient_scope" in exc.value.details()
-    finally:
-        await server.stop(None)
-
-
-async def test_chat_streams_tokens_then_done():
-    server, port = await _start(_settings(), rag=_FakeRag())
-    try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = chat_pb2_grpc.ChatServiceStub(channel)
-            chunks = [
-                chunk
-                async for chunk in stub.StreamChat(
-                    chat_pb2.StreamChatRequest(session_id="s1", message="hello world"),
-                    metadata=_AUTH,
-                )
-            ]
-        assert chunks[-1].done is True
-        streamed = "".join(c.delta for c in chunks)
-        assert "hello" in streamed and "world" in streamed
-    finally:
-        await server.stop(None)
-
-
-async def test_bearer_ignored_on_grpc_by_default():
-    server, port = await _start(
-        _settings(GRPC_BEARER_FALLBACK_ENABLED=False), rag=_FakeRag()
+def _unary(channel: grpc.aio.Channel, path: str):
+    return channel.unary_unary(
+        path, request_serializer=bytes, response_deserializer=bytes
     )
-    try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = search_pb2_grpc.SearchServiceStub(channel)
-            with pytest.raises(grpc.aio.AioRpcError) as exc:
-                await stub.SearchListings(
-                    search_pb2.SearchListingsRequest(query="x"), metadata=_AUTH
-                )
-        assert exc.value.code() == grpc.StatusCode.UNAUTHENTICATED
-    finally:
-        await server.stop(None)
 
 
-async def test_gateway_principal_unaffected_by_fallback_flag():
-    server, port = await _start(
-        _settings(GRPC_BEARER_FALLBACK_ENABLED=False), rag=_FakeRag()
+async def test_registered_service_receives_forwarded_principal():
+    async with _serving() as channel:
+        reply = await _unary(channel, ECHO)(b"", metadata=PRINCIPAL_MD)
+
+    assert reply == b"u1"
+
+
+async def test_health_is_serving_without_metadata():
+    async with _serving() as channel:
+        stub = health_pb2_grpc.HealthStub(channel)
+        reply = await stub.Check(health_pb2.HealthCheckRequest())
+
+    assert reply.status == health_pb2.HealthCheckResponse.SERVING
+
+
+async def test_health_watch_writes_serving_once():
+    async with _serving() as channel:
+        stub = health_pb2_grpc.HealthStub(channel)
+        first = await stub.Watch(health_pb2.HealthCheckRequest()).read()
+
+    assert first.status == health_pb2.HealthCheckResponse.SERVING
+
+
+async def test_missing_principal_is_unauthenticated():
+    async with _serving() as channel:
+        with pytest.raises(grpc.aio.AioRpcError) as exc:
+            await _unary(channel, ECHO)(b"")
+
+    assert exc.value.code() == grpc.StatusCode.UNAUTHENTICATED
+
+
+async def test_tracing_runs_before_auth_so_rejected_calls_are_counted():
+    grpc_metrics.reset()
+    async with _serving() as channel:
+        with pytest.raises(grpc.aio.AioRpcError):
+            await _unary(channel, ECHO)(b"")
+
+    assert "teamai_grpc_requests_total 1" in grpc_metrics.render()
+
+
+async def test_rate_limit_runs_after_auth_and_only_on_registered_methods():
+    limiter = _Limiter(
+        RateLimitResult(allowed=False, remaining=0, retry_after_seconds=7)
     )
-    forwarded = (
-        ("x-principal-id", "buyer-1"),
-        ("x-principal-type", "user"),
-        ("x-principal-scopes", "search:read"),
-    )
-    try:
-        async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
-            stub = search_pb2_grpc.SearchServiceStub(channel)
-            resp = await stub.SearchListings(
-                search_pb2.SearchListingsRequest(query="x"), metadata=forwarded
-            )
-        assert [h.listing_id for h in resp.hits] == ["listing-1"]
-    finally:
-        await server.stop(None)
+    async with _serving(
+        registrations=(_registration(limited=frozenset({ECHO})),),
+        rate_limiter=limiter,
+    ) as channel:
+        with pytest.raises(grpc.aio.AioRpcError) as exc:
+            await _unary(channel, ECHO)(b"", metadata=PRINCIPAL_MD)
+        open_reply = await _unary(channel, OPEN)(b"", metadata=PRINCIPAL_MD)
+
+    assert exc.value.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+    assert dict(exc.value.trailing_metadata())["retry-after"] == "7"
+    assert limiter.keys == ["user:u1"]
+    assert open_reply == b"u1"
+
+
+async def test_reflection_lists_registered_services_and_health():
+    from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
+
+    async with _serving() as channel:
+        stub = reflection_pb2_grpc.ServerReflectionStub(channel)
+        call = stub.ServerReflectionInfo(
+            iter([reflection_pb2.ServerReflectionRequest(list_services="")])
+        )
+        reply = await call.read()
+
+    names = {s.name for s in reply.list_services_response.service}
+    assert {SERVICE, "grpc.health.v1.Health"} <= names

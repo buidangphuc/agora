@@ -1,0 +1,43 @@
+# Local golden path: the API plus the Redis it requires.
+#
+#   make docker-run              # api + redis
+#   make docker-run-langfuse     # + the self-hosted Langfuse overlay
+#     (ops/compose/langfuse.yaml layers the tracing stack on top)
+
+x-redis-env: &redis-env
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-platform:local
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
+      AUTH_API_KEYS: "${AUTH_API_KEYS:-local-user:admin:2a61522f4af871304802321c6a35fcf5d0aa49e2d9dc4aedf9cf1c7fdb78b906}"
+      <<: *redis-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ai-platform
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - ai-platform
+
+networks:
+  ai-platform:

@@ -71,7 +71,7 @@ const EMPTY_RESULT: RecommendationsResult = {
  * Fetch a ranked set of recommendations for the caller and hydrate each into a
  * product card, together with the response's request/placement/model ids for
  * attribution. Returns an empty result when the service is unavailable (e.g.
- * `RECS_ENABLED=false`) so callers can hide the row instead of erroring the
+ * the recommendation collection is not ready) so callers can hide the row instead of erroring the
  * whole page.
  */
 export async function getRecommendations(

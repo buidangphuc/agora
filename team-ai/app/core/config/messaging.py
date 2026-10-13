@@ -1,50 +1,24 @@
-"""Messaging settings: queue, tasks + worker, outbox, webhooks."""
+"""Messaging settings: the listing.events Kafka consumer."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class MessagingSettingsMixin(BaseModel):
-    # Queue gateway
-    QUEUE_ENABLED: bool = False
-    QUEUE_BACKEND: str = "memory"
-    QUEUE_NAME: str = "completions"
-    SQS_QUEUE_URL: str = ""
-    SQS_REGION: str = "ap-southeast-1"
-    SQS_ENDPOINT_URL: str = ""
-    SQS_VISIBILITY_TIMEOUT_SECONDS: int = Field(default=0, ge=0)
-    RABBITMQ_URL: str = ""
+    # Declared by AISettingsMixin; annotated here so the rule below can read it.
+    RAG_ENABLED: bool
 
-    # Async task store + service
-    TASKS_ENABLED: bool = False
-    TASK_STORE_BACKEND: str = "memory"
-    TASK_REDIS_PREFIX: str = "tasks"
-    TASK_TTL_SECONDS: int = Field(default=86_400, gt=0)
-    TASKS_LEASE_SECONDS: int = Field(default=300, gt=0)
-    TASKS_DISPATCH_BACKEND: str = "queue"
-
-    # Polling worker
-    WORKER_MAX_CONCURRENT: int = Field(default=10, gt=0)
-    WORKER_MAX_ATTEMPTS: int = Field(default=3, gt=0)
-    WORKER_POLL_INTERVAL_SECONDS: float = Field(default=0.5, ge=0)
-    WORKER_RECEIVE_BATCH_SIZE: int = Field(default=10, gt=0)
-    WORKER_RECEIVE_WAIT_SECONDS: float = Field(default=1.0, ge=0)
-
-    # Outbox (transactional event publication)
-    OUTBOX_ENABLED: bool = False
-    OUTBOX_BACKEND: str = "postgres"
-
-    # Webhook delivery
-    WEBHOOKS_ENABLED: bool = False
-    WEBHOOK_SIGNING_SECRET: str = ""
-    WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS: int = Field(default=300, gt=0)
-    WEBHOOK_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
-
-    # listing.events -> RAG indexer (Kafka consumer; needs the `kafka` extra and RAG_ENABLED)
-    LISTING_INDEXER_ENABLED: bool = False
+    # listing.events -> RAG indexer (Kafka consumer; runs with RAG_ENABLED and needs
+    # the `kafka` extra)
     KAFKA_BROKERS: str = "localhost:9092"  # comma-separated bootstrap servers
-    LISTING_INDEXER_TOPIC: str = "listing.events"
-    LISTING_INDEXER_GROUP: str = "team-ai-indexer"
+    LISTING_INDEXER_TOPIC: str = Field(default="listing.events", min_length=1)
+    LISTING_INDEXER_GROUP: str = Field(default="team-ai-indexer", min_length=1)
     LISTING_INDEXER_MAX_ATTEMPTS: int = Field(default=5, gt=0)
     LISTING_INDEXER_BASE_BACKOFF_SECONDS: float = Field(default=0.1, ge=0)
+
+    @model_validator(mode="after")
+    def _rag_needs_kafka_brokers(self) -> MessagingSettingsMixin:
+        if self.RAG_ENABLED and not self.KAFKA_BROKERS:
+            raise ValueError("RAG_ENABLED requires KAFKA_BROKERS")
+        return self

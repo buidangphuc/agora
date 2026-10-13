@@ -57,6 +57,6 @@ Feature: One serving pointer decides the Redis lists and the Qdrant vectors (ser
     When `python -m recsys rollback` runs
     Then similar items through the gateway are read from the first model's collection
 
-  Scenario: The team-ai container does not hold listing's credentials
+  Scenario: The team-ai container does not hold database credentials
     When the running team-ai container's environment is inspected
-    Then none of its POSTGRES values is a listing service credential
+    Then it holds no database credentials

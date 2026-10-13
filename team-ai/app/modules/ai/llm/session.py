@@ -3,7 +3,7 @@
 A *turn* here is one exchange (user message + assistant reply). Histories are
 scoped by ``(principal_id, session_id)`` so one user cannot read another's session
 by guessing an id. Callers store *redacted* user text and append only after a fully
-successful reply.
+successful reply. The Redis store borrows the shared client and never closes it.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Turn:
     user: str
     assistant: str
@@ -49,7 +49,7 @@ class InMemorySessionStore:
     def __init__(
         self,
         *,
-        ttl_seconds: float,
+        ttl_seconds: int,
         max_turns: int,
         max_chars: int,
         clock: Callable[[], float] = time.monotonic,
@@ -95,19 +95,12 @@ class RedisSessionStore:
         max_turns: int,
         max_chars: int,
         prefix: str = "chat:session",
-        owns_client: bool = False,
     ) -> None:
         self._redis = redis
-        self._owns_client = owns_client
         self._ttl = ttl_seconds
         self._max_turns = max_turns
         self._max_chars = max_chars
         self._prefix = prefix
-
-    async def aclose(self) -> None:
-        """Close the Redis client, but only if this store created it."""
-        if self._owns_client:
-            await self._redis.aclose()
 
     def key(self, principal_id: str, session_id: str) -> str:
         # Escape ':' so (a, b:c) and (a:b, c) can never collide.

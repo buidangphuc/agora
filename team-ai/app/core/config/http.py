@@ -1,5 +1,5 @@
 """HTTP request/response middleware settings: CORS, trusted hosts, body limit,
-security headers, gzip, request timeout."""
+request timeout."""
 
 from __future__ import annotations
 
@@ -12,17 +12,20 @@ class HttpSettingsMixin(BaseModel):
     TRUSTED_HOSTS: str = "*"
     MAX_REQUEST_BODY_BYTES: int = Field(default=10 * 1024 * 1024, gt=0)
 
-    SECURITY_HEADERS_ENABLED: bool = False
-    SECURITY_HSTS_ENABLED: bool = False
-    SECURITY_HSTS_MAX_AGE_SECONDS: int = Field(default=31_536_000, ge=0)
-
-    GZIP_ENABLED: bool = False
-    GZIP_MIN_SIZE: int = Field(default=1024, ge=0)
-    GZIP_COMPRESS_LEVEL: int = Field(default=5, ge=1, le=9)
-
-    REQUEST_TIMEOUT_ENABLED: bool = False
     REQUEST_TIMEOUT_SECONDS: int = Field(default=30, gt=0)
     REQUEST_TIMEOUT_EXCLUDE_PATTERNS: str = "/stream,/sse"
+
+    # Server-sent events (completions stream). The heartbeat keeps proxies from
+    # closing an idle connection; the deadlines bound how long a stream may wait
+    # on the model: before the first chunk (JSON 504) and between chunks (an
+    # ``event: error`` with code ``stream_timeout``).
+    SSE_HEARTBEAT_SECONDS: float = Field(default=15, gt=0)
+    STREAM_FIRST_TOKEN_TIMEOUT_SECONDS: float = Field(default=30, gt=0)
+    STREAM_IDLE_TIMEOUT_SECONDS: float = Field(default=30, gt=0)
+
+    # Upper bound for each readiness dependency check; checks run concurrently,
+    # so the probe takes at most about this long however many are registered.
+    HEALTH_CHECK_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0)
 
     @computed_field
     @property

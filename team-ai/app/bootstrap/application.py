@@ -1,18 +1,25 @@
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 
 from app.api.router import build_api_router
-from app.bootstrap.addons import BootstrapAddon, default_resource_addons
+from app.bootstrap.addons.base import BootstrapAddon, default_resource_addons
+from app.bootstrap.grpc import (
+    GrpcServicesFactory,
+    default_grpc_services_factory,
+    serve_grpc,
+)
 from app.bootstrap.middleware import install_core_middlewares
-from app.bootstrap.resources import (
-    ApplicationResources,
-    close_application_resources,
-    open_application_resources,
-    recommendation_provider,
+from app.bootstrap.resources import ApplicationResources, build_health_service
+from app.bootstrap.services import (
+    CompletionGuardsFactory,
+    CompletionHandlerFactory,
+    default_completion_guards_factory,
+    default_completion_handler_factory,
+    open_runtime,
 )
 from app.bootstrap.state import get_in_flight_tracker
 from app.core.config import Settings, get_settings
@@ -20,14 +27,19 @@ from app.core.errors import register_exception_handlers
 from app.core.health import HealthService
 from app.core.logging import configure_logging
 from app.core.middleware import InFlightTracker
-from app.modules.business.completions.pipeline import CompletionPipeline
-from app.modules.business.completions.ports import CompletionHandler
+from app.core.telemetry import require_otel
 
 
 def create_app(
     *,
     settings: Settings | None = None,
-    completion_handler: CompletionHandler | None = None,
+    completion_handler_factory: CompletionHandlerFactory = (
+        default_completion_handler_factory
+    ),
+    completion_guards_factory: CompletionGuardsFactory = (
+        default_completion_guards_factory
+    ),
+    grpc_services_factory: GrpcServicesFactory = default_grpc_services_factory,
     init_resources: bool = True,
     resource_addons: tuple[BootstrapAddon, ...] = (),
 ) -> FastAPI:
@@ -49,6 +61,9 @@ def create_app(
             resolved_settings,
             init_resources=init_resources,
             addons=addons,
+            completion_handler_factory=completion_handler_factory,
+            completion_guards_factory=completion_guards_factory,
+            grpc_services_factory=grpc_services_factory,
         ),
         docs_url=docs_url,
         redoc_url=redoc_url,
@@ -57,16 +72,13 @@ def create_app(
     )
     app.state.settings = resolved_settings
     app.state.health_service = HealthService(check_external_dependencies=False)
-    app.state.in_flight_tracker = (
-        InFlightTracker() if resolved_settings.GRACEFUL_SHUTDOWN_ENABLED else None
-    )
-    resources = ApplicationResources()
-    if completion_handler is not None:
-        resources.completion_pipeline = CompletionPipeline(completion_handler)
-    app.state.resources = resources
+    app.state.in_flight_tracker = InFlightTracker()
+    app.state.resources = ApplicationResources()
     install_core_middlewares(app, resolved_settings)
     register_exception_handlers(app)
     app.include_router(build_api_router(resolved_settings))
+    if resolved_settings.otel_enabled:
+        _instrument_fastapi(app)
     return app
 
 
@@ -75,76 +87,54 @@ def _build_lifespan(
     *,
     init_resources: bool,
     addons: tuple[BootstrapAddon, ...],
+    completion_handler_factory: CompletionHandlerFactory,
+    completion_guards_factory: CompletionGuardsFactory,
+    grpc_services_factory: GrpcServicesFactory = default_grpc_services_factory,
 ):
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        grpc_server = None
-        try:
-            await open_application_resources(
-                app,
-                settings,
+        async with open_runtime(
+            settings,
+            init_resources=init_resources,
+            addons=addons,
+            completion_handler_factory=completion_handler_factory,
+            completion_guards_factory=completion_guards_factory,
+        ) as resources:
+            app.state.resources = resources
+            health_service = build_health_service(
+                resources,
                 init_resources=init_resources,
-                addons=addons,
             )
-            if init_resources and settings.GRPC_ENABLED:
-                grpc_server = await _start_grpc_server(app, settings)
-            yield
-        finally:
-            if grpc_server is not None:
-                from app.transport.grpc.chat_stream import close_chat_streamer
-                from app.transport.grpc.server import stop_grpc_server
-
-                await stop_grpc_server(grpc_server, settings.GRPC_GRACE_SECONDS)
-                await close_chat_streamer(getattr(app.state, "chat_streamer", None))
-            await _drain_in_flight(app, settings.GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS)
-            if init_resources and settings.LANGFUSE_ENABLED:
-                await asyncio.to_thread(_flush_langfuse_client)
-            await close_application_resources(app)
+            app.state.health_service = health_service
+            async with AsyncExitStack() as stack:
+                if init_resources:
+                    # Entered last, so it stops first: before the runtime closes.
+                    app.state.grpc_port = await stack.enter_async_context(
+                        serve_grpc(
+                            resources,
+                            settings,
+                            services_factory=grpc_services_factory,
+                        )
+                    )
+                try:
+                    yield
+                finally:
+                    health_service.begin_draining()
+                    await _drain_in_flight(
+                        app, settings.GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS
+                    )
+                    if init_resources and settings.langfuse_enabled:
+                        await asyncio.to_thread(_flush_langfuse_client)
+        app.state.resources = ApplicationResources()
+        app.state.health_service = HealthService(check_external_dependencies=False)
 
     return lifespan
-
-
-async def _start_grpc_server(app: FastAPI, settings: Settings):
-    """Start the platform-contract gRPC server alongside the FastAPI app.
-
-    The gateway routes AIService/SearchService/ChatService here over gRPC; the
-    HTTP app stays up only for health/completions. The RAG service (may be None
-    when RAG is disabled) is read lazily from the opened resources.
-    """
-    from loguru import logger
-
-    from app.transport.grpc.chat_stream import build_chat_streamer
-    from app.transport.grpc.server import build_grpc_server
-
-    chat_streamer = build_chat_streamer(
-        settings,
-        quota_provider=lambda: getattr(app.state.resources, "quota", None),
-    )
-    app.state.chat_streamer = chat_streamer  # closed on shutdown (lifespan)
-    server = build_grpc_server(
-        settings=settings,
-        rag_provider=lambda: getattr(app.state.resources, "rag_service", None),
-        chat_streamer=chat_streamer,
-        recommendation_provider=recommendation_provider(app),
-    )
-    bind = f"{settings.GRPC_HOST}:{settings.GRPC_PORT}"
-    server.add_insecure_port(bind)
-    await server.start()
-    logger.info(
-        "grpc.server.started bind={} reflection={}",
-        bind,
-        settings.GRPC_REFLECTION_ENABLED,
-    )
-    return server
 
 
 async def _drain_in_flight(app: FastAPI, timeout_seconds: int) -> None:
     if timeout_seconds <= 0:
         return
-    tracker = get_in_flight_tracker(app)
-    if tracker is None:
-        return
-    await tracker.wait_idle(timeout=timeout_seconds)
+    await get_in_flight_tracker(app).wait_idle(timeout=timeout_seconds)
 
 
 def _flush_langfuse_client() -> None:
@@ -152,6 +142,13 @@ def _flush_langfuse_client() -> None:
         from langfuse import get_client
     except ImportError:
         return
-    client = get_client()
-    if client is not None and hasattr(client, "flush"):
-        client.flush()
+    get_client().flush()
+
+
+def _instrument_fastapi(app: FastAPI) -> None:
+    # Needs the app object, so it cannot live in the addon; the providers the
+    # addon installs globally at startup are picked up lazily.
+    require_otel()
+    from app.core.telemetry_otel import instrument_fastapi
+
+    instrument_fastapi(app)

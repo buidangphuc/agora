@@ -41,7 +41,7 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **team-notification**| Go | In-app notification center | :50058 |
 | **team-gateway** | Go | Connect edge: verify JWT once, rate-limit/CORS, forward to services | :8080 (HTTP) |
 | **team-frontend** | TS | Next.js 14 App Router SSR; consumer home + `/seller` area + auth | :3000 |
-| **team-ai** | Python | FastAPI AI service (RAG/completions/magic-listing) | :8000 |
+| **team-ai** | Python | FastAPI + gRPC AI service (AIService, ChatService, RecommendationService, SearchListings; :50060 gRPC) | :8000 |
 | **team-analytics** | Go | Kafka worker (§6c): `analytics.events` → analytics warehouse (DB-per-service; no business RPC, health only) | :50059 |
 | **team-promotion** | Go | Shop/platform vouchers + flash-sale campaigns; checkout redemption (reserve→commit/release); emits `promotion.events` | :50061 |
 | **team-referral** | Go | Referral codes + invite tracking (owns its DB) | :50062 |

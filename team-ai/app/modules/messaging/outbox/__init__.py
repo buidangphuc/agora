@@ -1,1 +1,0 @@
-"""Generic transactional outbox primitives."""

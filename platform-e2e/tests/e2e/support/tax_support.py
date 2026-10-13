@@ -4,11 +4,13 @@ The tag routes (`/api/v1/ai/tags/*`) are internal, not routed by the gateway, so
 call the running team-ai container directly on the host port compose publishes (8001 -> 8000):
 
     TEAM_AI_URL            default http://localhost:8001
-    TEAM_AI_SERVICE_TOKEN  bearer of the read-only service principal (scope ai.classify)
-    TEAM_AI_ADMIN_TOKEN    bearer of the admin principal (AUTH_ADMIN_BEARER_TOKEN), for explore/promote
+    TEAM_AI_SERVICE_TOKEN  bearer of the service key (scope ai.classify) in team-ai's AUTH_API_KEYS
+    TEAM_AI_ADMIN_TOKEN    bearer of the admin key (scopes admin, ai.classify), for explore/promote
 
-Since change tag-routes-authz every tag route needs one of them; the defaults are the local-dev values the
-compose stack gives team-ai (design.md "Deployment needs").
+Since change tag-routes-authz every tag route needs one of them. team-ai stores only sha256 digests
+(`AUTH_API_KEYS`); the defaults are the local tokens whose digests docker-compose.services.yaml gives
+team-ai as the default of `TEAM_AI_AUTH_API_KEYS`. With other tokens, hash them
+(`team-ai/scripts/hash_api_key.py`) and set the same pair on both sides.
 
 team-ai keeps the taxonomy in process memory and promotion cannot be undone, so every run mints
 its own wattage (hence its own `cong-suat-<W>w` slug) that no other test or run uses.

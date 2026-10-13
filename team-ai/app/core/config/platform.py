@@ -1,64 +1,71 @@
-"""Platform-layer settings: auth, rate limit, cache, objects, idempotency."""
+"""Platform-layer settings: auth, rate limit, quota."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, computed_field
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Self
+
+from pydantic import BaseModel, Field, model_validator
+
+
+@dataclass(frozen=True)
+class ApiKey:
+    """One configured API key: who it authenticates as and the SHA-256 of the token."""
+
+    subject: str
+    scopes: tuple[str, ...]
+    digest: bytes
+
+
+@lru_cache(maxsize=8)
+def parse_api_keys(raw: str) -> tuple[ApiKey, ...]:
+    """Parse ``AUTH_API_KEYS``: comma-separated ``subject:scope|scope:sha256hex``.
+
+    The subject is everything before the first ``:``, the digest everything after
+    the last one, so scopes may themselves contain ``:`` (``tasks:read``).
+    Cached by the raw string, so a ``model_copy`` with new keys never goes stale.
+    """
+    keys: list[ApiKey] = []
+    for entry in (part.strip() for part in raw.split(",")):
+        if not entry:
+            continue
+        fields = entry.split(":")
+        subject, scopes_part, digest_hex = fields[0], ":".join(fields[1:-1]), fields[-1]
+        try:
+            digest = bytes.fromhex(digest_hex)
+        except ValueError:
+            digest = b""
+        if len(fields) < 3 or not subject.strip() or len(digest) != 32:
+            raise ValueError(
+                "AUTH_API_KEYS entries must look like "
+                "'subject:scope|scope:sha256hex' (64 hex chars; scopes may be empty)"
+            )
+        scopes = tuple(s.strip() for s in scopes_part.split("|") if s.strip())
+        keys.append(ApiKey(subject=subject.strip(), scopes=scopes, digest=digest))
+    return tuple(keys)
 
 
 class PlatformSettingsMixin(BaseModel):
     # Auth / identity
-    AUTH_BEARER_TOKEN: str = ""
-    AUTH_SUBJECT: str = "local-user"
-    AUTH_ROLES: str = ""
-    # Second static token for the tag taxonomy routes: resolves to a service principal
-    # holding ``admin`` + ``ai.classify``. Empty = no admin access (fail closed).
-    AUTH_ADMIN_BEARER_TOKEN: str = ""
-    AUTH_ADMIN_SUBJECT: str = "tag-admin"
+    # Comma-separated ``subject:scope|scope:sha256hex`` entries (see parse_api_keys).
+    # Several entries may share a subject (overlap rotation). Hash tokens with
+    # ``python -m scripts.hash_api_key``.
+    AUTH_API_KEYS: str = ""
 
-    # Rate limit (2 layers: IP + principal)
-    RATE_LIMIT_ENABLED: bool = False
-    RATE_LIMIT_BACKEND: str = "memory"
+    # Per-principal rate limit on HTTP and gRPC, always on, counted in Redis.
     RATE_LIMIT_WINDOW_SECONDS: int = Field(default=60, gt=0)
     RATE_LIMIT_REDIS_PREFIX: str = "rate-limit"
-    RATE_LIMIT_IP_ENABLED: bool = True
-    RATE_LIMIT_IP_PER_MINUTE: int = Field(default=600, gt=0)
-    RATE_LIMIT_PRINCIPAL_ENABLED: bool = True
     RATE_LIMIT_PRINCIPAL_PER_MINUTE: int = Field(default=60, gt=0)
-    RATE_LIMIT_EXCLUDE_PATHS: str = "/healthz,/readyz"
 
-    # Cache
-    CACHE_ENABLED: bool = False
-    CACHE_BACKEND: str = "memory"
-    CACHE_PREFIX: str = "app"
-    CACHE_DEFAULT_TTL_SECONDS: float = Field(default=300, gt=0)
+    # Chat reply quota, always on, counted in Redis under this key prefix.
+    QUOTA_REDIS_PREFIX: str = Field(default="quota", min_length=1)
 
-    # Object storage
-    OBJECTS_ENABLED: bool = False
-    OBJECT_BACKEND: str = "memory"
-    OBJECT_PREFIX: str = "app"
-    OBJECT_S3_BUCKET: str = ""
-    OBJECT_S3_REGION: str = "ap-southeast-1"
-    OBJECT_S3_ENDPOINT_URL: str = ""
+    @model_validator(mode="after")
+    def _validate_api_keys(self) -> Self:
+        parse_api_keys(self.AUTH_API_KEYS)  # a bad entry fails at boot
+        return self
 
-    # Idempotency (sync endpoints only)
-    IDEMPOTENCY_ENABLED: bool = False
-    IDEMPOTENCY_BACKEND: str = "postgres"
-    IDEMPOTENCY_TTL_SECONDS: int = Field(default=86_400, gt=0)
-    IDEMPOTENCY_IN_PROGRESS_TIMEOUT_SECONDS: int = Field(default=60, gt=0)
-    IDEMPOTENCY_KEY_MAX_LENGTH: int = Field(default=64, gt=0)
-
-    # Durable quota / entitlement counters
-    QUOTA_ENABLED: bool = False
-    QUOTA_BACKEND: str = "memory"
-
-    @computed_field
     @property
-    def auth_roles(self) -> list[str]:
-        return [v.strip() for v in self.AUTH_ROLES.split(",") if v.strip()]
-
-    @computed_field
-    @property
-    def rate_limit_exclude_patterns(self) -> list[str]:
-        return [
-            v.strip() for v in self.RATE_LIMIT_EXCLUDE_PATHS.split(",") if v.strip()
-        ]
+    def auth_api_keys(self) -> tuple[ApiKey, ...]:
+        return parse_api_keys(self.AUTH_API_KEYS)

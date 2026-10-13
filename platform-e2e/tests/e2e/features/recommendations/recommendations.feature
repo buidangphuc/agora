@@ -5,12 +5,12 @@ Feature: "Gợi ý cho bạn" recommendations row (surface-recommendations)
   SIMILAR_ITEMS, seeded with the current listing). It is populated from team-ai
   (RecommendationService/Recommend) through the gateway using the caller's
   session — never a client-side mock and never a direct browser call to team-ai.
-  When the service is UNAVAILABLE (e.g. RECS_ENABLED=false) the page still
+  When the service is UNAVAILABLE (e.g. the vector collection is missing) the page still
   renders and the row is hidden rather than erroring.
 
   # Depends on serve-recommendations-teamai (team-ai answers Recommend) and the
   # gateway RecommendationForwarder; green run needs the live stack + team-ai
-  # RECS_ENABLED=true with the training-job Qdrant/Redis data.
+  # with the training-job Qdrant/Redis data.
 
   @needsBuyer
   Scenario: Recommend routes through the gateway to team-ai

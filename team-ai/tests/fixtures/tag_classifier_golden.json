@@ -1,0 +1,4734 @@
+{
+ "source": "team-ai@f9c8d167",
+ "cases": [
+  {
+   "name": "classify_e2e_spu",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Tai nghe Bluetooth 5.3 chống ồn ANC sạc nhanh 65W GaN",
+      "category_id": "cat-electronics"
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-fastcharge-65w",
+        "name": "Sạc nhanh 65W GaN",
+        "slug": "sac-nhanh-65w-gan",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "65w",
+         "gan 65w",
+         "sac 65w",
+         "power delivery 65w",
+         "pd 65w"
+        ],
+        "occurrence_count": 51,
+        "search_volume": 1640,
+        "conversion_lift": 0.15
+       }
+      ],
+      "candidate_tags": [
+       {
+        "tag_id": "cand-cong-suat-65w",
+        "name": "Công suất 65W",
+        "slug": "cong-suat-65w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "suggested_facet_filters": {
+       "connectivity": [
+        "bluetooth-5-3"
+       ],
+       "feature": [
+        "chong-on-chu-dong-anc"
+       ],
+       "power": [
+        "sac-nhanh-65w-gan"
+       ]
+      },
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "classify_category_hint_discount",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Áo thun cotton 100% oversize chống tia UV",
+      "description": "Chống ồn ANC gaming 144hz",
+      "category_id": "cat-electronics",
+      "top_k": 30
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-display-144hz",
+        "name": "Tần số quét 144Hz",
+        "slug": "tan-so-quet-144hz",
+        "facet_group": "display",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "144hz",
+         "144 hz",
+         "man hinh 144hz",
+         "tan so quet 144"
+        ],
+        "occurrence_count": 39,
+        "search_volume": 1820,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-gaming",
+        "name": "Chuyên Gaming",
+        "slug": "chuyen-gaming",
+        "facet_group": "usage",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 0.98,
+        "is_canonical": true,
+        "synonyms": [
+         "gaming",
+         "choi game",
+         "game thu",
+         "esports",
+         "esport"
+        ],
+        "occurrence_count": 78,
+        "search_volume": 3400,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-anti-uv",
+        "name": "Chống tia UV UPF50+",
+        "slug": "chong-tia-uv-upf50",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "upf50+",
+         "chong uv",
+         "chong tia uv",
+         "tia uv",
+         "chong nang",
+         "chong tia cuc tim",
+         "upf 50"
+        ],
+        "occurrence_count": 42,
+        "search_volume": 1500,
+        "conversion_lift": 0.17
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "feature": [
+        "chong-on-chu-dong-anc",
+        "chong-tia-uv-upf50"
+       ],
+       "display": [
+        "tan-so-quet-144hz"
+       ],
+       "usage": [
+        "chuyen-gaming"
+       ],
+       "material": [
+        "100-cotton-premium"
+       ],
+       "style": [
+        "form-rong-oversize"
+       ]
+      },
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "classify_without_category_hint",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Áo thun cotton 100% oversize chống tia UV",
+      "description": "Chống ồn ANC gaming 144hz",
+      "top_k": 30
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-display-144hz",
+        "name": "Tần số quét 144Hz",
+        "slug": "tan-so-quet-144hz",
+        "facet_group": "display",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "144hz",
+         "144 hz",
+         "man hinh 144hz",
+         "tan so quet 144"
+        ],
+        "occurrence_count": 39,
+        "search_volume": 1820,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-anti-uv",
+        "name": "Chống tia UV UPF50+",
+        "slug": "chong-tia-uv-upf50",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "upf50+",
+         "chong uv",
+         "chong tia uv",
+         "tia uv",
+         "chong nang",
+         "chong tia cuc tim",
+         "upf 50"
+        ],
+        "occurrence_count": 42,
+        "search_volume": 1500,
+        "conversion_lift": 0.17
+       },
+       {
+        "tag_id": "tag-gaming",
+        "name": "Chuyên Gaming",
+        "slug": "chuyen-gaming",
+        "facet_group": "usage",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 0.98,
+        "is_canonical": true,
+        "synonyms": [
+         "gaming",
+         "choi game",
+         "game thu",
+         "esports",
+         "esport"
+        ],
+        "occurrence_count": 78,
+        "search_volume": 3400,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "feature": [
+        "chong-on-chu-dong-anc",
+        "chong-tia-uv-upf50"
+       ],
+       "display": [
+        "tan-so-quet-144hz"
+       ],
+       "material": [
+        "100-cotton-premium"
+       ],
+       "usage": [
+        "chuyen-gaming"
+       ],
+       "style": [
+        "form-rong-oversize"
+       ]
+      },
+      "category_id": "cat-general",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "classify_short_synonym_false_positive",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Áo thun s màu den mua ngay",
+      "category_id": "cat-fashion",
+      "top_k": 30
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-col-black-matte",
+        "name": "Màu Đen Nhám",
+        "slug": "den-nham",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "den nham",
+         "matte black",
+         "den",
+         "mau den",
+         "black"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 7200,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-size-s",
+        "name": "Size S",
+        "slug": "size-s",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size s",
+         "s",
+         "co s"
+        ],
+        "occurrence_count": 220,
+        "search_volume": 2500,
+        "conversion_lift": 0.12
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "color": [
+        "den-nham"
+       ],
+       "size": [
+        "size-s"
+       ]
+      },
+      "category_id": "cat-fashion",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "classify_emergent_patterns",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Củ sạc 120W pin dự phòng 20000mAh",
+      "description": "Bộ nhớ 256GB RAM 16GB ram 1tb",
+      "category_id": "cat-electronics",
+      "top_k": 30
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-cap-256gb",
+        "name": "Bộ nhớ 256GB",
+        "slug": "256gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "256gb",
+         "256g",
+         "256 gb",
+         "rom 256gb"
+        ],
+        "occurrence_count": 340,
+        "search_volume": 6800,
+        "conversion_lift": 0.24
+       },
+       {
+        "tag_id": "tag-cap-1tb",
+        "name": "Bộ nhớ 1TB",
+        "slug": "1tb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "1tb",
+         "1 tb",
+         "1024gb",
+         "rom 1tb"
+        ],
+        "occurrence_count": 95,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       }
+      ],
+      "candidate_tags": [
+       {
+        "tag_id": "cand-ram-16gb",
+        "name": "RAM 16GB",
+        "slug": "ram-16gb",
+        "facet_group": "ram",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.94,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-256gb",
+        "name": "Bộ nhớ 256GB",
+        "slug": "bo-nho-256gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-16gb",
+        "name": "Bộ nhớ 16GB",
+        "slug": "bo-nho-16gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-1tb",
+        "name": "Bộ nhớ 1TB",
+        "slug": "bo-nho-1tb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-dung-luong-20000mah",
+        "name": "Dung lượng 20000mAh",
+        "slug": "dung-luong-20000mah",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.9,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-cong-suat-120w",
+        "name": "Công suất 120W",
+        "slug": "cong-suat-120w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "suggested_facet_filters": {
+       "capacity": [
+        "256gb",
+        "1tb"
+       ]
+      },
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "classify_material_keywords",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Áo sơ mi linen quần denim khung titan",
+      "description": "Cốc ceramic và lụa satin",
+      "top_k": 30
+     },
+     "response": {
+      "canonical_tags": [],
+      "candidate_tags": [
+       {
+        "tag_id": "cand-vai-linen-tu-nhien",
+        "name": "Vải Linen Tự Nhiên",
+        "slug": "vai-linen-tu-nhien",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "exploring",
+        "confidence": 0.85,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-lua-satin-cao-cap",
+        "name": "Lụa Satin Cao Cấp",
+        "slug": "lua-satin-cao-cap",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "exploring",
+        "confidence": 0.85,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-chat-lieu-denim-ben",
+        "name": "Chất liệu Denim Bền",
+        "slug": "chat-lieu-denim-ben",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "exploring",
+        "confidence": 0.85,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-khung-titanium",
+        "name": "Khung Titanium",
+        "slug": "khung-titanium",
+        "facet_group": "material",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.85,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-gom-su-ceramic",
+        "name": "Gốm Sứ Ceramic",
+        "slug": "gom-su-ceramic",
+        "facet_group": "material",
+        "category_id": "cat-home",
+        "status": "exploring",
+        "confidence": 0.85,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "suggested_facet_filters": {},
+      "category_id": "cat-general",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "classify_without_candidates_top_k",
+   "steps": [
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Điện thoại gaming 144hz 256gb sạc 65w bluetooth 5.3 ipx7 chống ồn",
+      "category_id": "cat-electronics",
+      "top_k": 3,
+      "include_candidates": false
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-waterproof-ipx7",
+        "name": "Chống nước IPX7",
+        "slug": "chong-nuoc-ipx7",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "ipx7",
+         "ipx-7",
+         "chong nuoc ipx7",
+         "khang nuoc ipx7"
+        ],
+        "occurrence_count": 45,
+        "search_volume": 890,
+        "conversion_lift": 0.12
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "connectivity": [
+        "bluetooth-5-3"
+       ],
+       "feature": [
+        "chong-on-chu-dong-anc",
+        "chong-nuoc-ipx7"
+       ]
+      },
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "sku_two_variants_color_capacity",
+   "steps": [
+    {
+     "op": "classify_sku_hierarchy",
+     "request": {
+      "spu_title": "iPhone 15 Pro Max Khung Titanium Chống nước IPX7",
+      "category_id": "cat-electronics",
+      "variants": [
+       {
+        "variant_id": "var-01",
+        "name": "Titan Tự Nhiên / 256GB",
+        "sku_code": "IP15PM-NAT-256",
+        "price": 29990000,
+        "stock": 12,
+        "options": {
+         "color": "Titan Tự Nhiên",
+         "capacity": "256GB"
+        }
+       },
+       {
+        "variant_id": "var-02",
+        "name": "Xanh Navy / 512GB",
+        "sku_code": "IP15PM-NAV-512",
+        "price": 34990000,
+        "stock": 5,
+        "options": {
+         "color": "Xanh Navy",
+         "capacity": "512GB"
+        }
+       }
+      ]
+     },
+     "response": {
+      "spu_title": "iPhone 15 Pro Max Khung Titanium Chống nước IPX7",
+      "category_id": "cat-electronics",
+      "spu_canonical_tags": [
+       {
+        "tag_id": "tag-waterproof-ipx7",
+        "name": "Chống nước IPX7",
+        "slug": "chong-nuoc-ipx7",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "ipx7",
+         "ipx-7",
+         "chong nuoc ipx7",
+         "khang nuoc ipx7"
+        ],
+        "occurrence_count": 45,
+        "search_volume": 890,
+        "conversion_lift": 0.12
+       }
+      ],
+      "sku_results": [
+       {
+        "variant_id": "var-01",
+        "sku_code": "IP15PM-NAT-256",
+        "name": "Titan Tự Nhiên / 256GB",
+        "price": 29990000,
+        "stock": 12,
+        "is_in_stock": true,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-cap-256gb",
+          "name": "Bộ nhớ 256GB",
+          "slug": "256gb",
+          "facet_group": "capacity",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "256gb",
+           "256g",
+           "256 gb",
+           "rom 256gb"
+          ],
+          "occurrence_count": 340,
+          "search_volume": 6800,
+          "conversion_lift": 0.24
+         },
+         {
+          "tag_id": "tag-col-titan-natural",
+          "name": "Màu Titan Tự Nhiên",
+          "slug": "titan-tu-nhien",
+          "facet_group": "color",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "titan tu nhien",
+           "natural titanium",
+           "mau titan",
+           "titan xam"
+          ],
+          "occurrence_count": 120,
+          "search_volume": 5600,
+          "conversion_lift": 0.28
+         }
+        ],
+        "inherited_spu_tags": [
+         {
+          "tag_id": "tag-waterproof-ipx7",
+          "name": "Chống nước IPX7",
+          "slug": "chong-nuoc-ipx7",
+          "facet_group": "feature",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "ipx7",
+           "ipx-7",
+           "chong nuoc ipx7",
+           "khang nuoc ipx7"
+          ],
+          "occurrence_count": 45,
+          "search_volume": 890,
+          "conversion_lift": 0.12
+         }
+        ],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-waterproof-ipx7",
+          "name": "Chống nước IPX7",
+          "slug": "chong-nuoc-ipx7",
+          "facet_group": "feature",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "ipx7",
+           "ipx-7",
+           "chong nuoc ipx7",
+           "khang nuoc ipx7"
+          ],
+          "occurrence_count": 45,
+          "search_volume": 890,
+          "conversion_lift": 0.12
+         },
+         {
+          "tag_id": "tag-cap-256gb",
+          "name": "Bộ nhớ 256GB",
+          "slug": "256gb",
+          "facet_group": "capacity",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "256gb",
+           "256g",
+           "256 gb",
+           "rom 256gb"
+          ],
+          "occurrence_count": 340,
+          "search_volume": 6800,
+          "conversion_lift": 0.24
+         },
+         {
+          "tag_id": "tag-col-titan-natural",
+          "name": "Màu Titan Tự Nhiên",
+          "slug": "titan-tu-nhien",
+          "facet_group": "color",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "titan tu nhien",
+           "natural titanium",
+           "mau titan",
+           "titan xam"
+          ],
+          "occurrence_count": 120,
+          "search_volume": 5600,
+          "conversion_lift": 0.28
+         }
+        ],
+        "variant_facets": {
+         "capacity": "256gb",
+         "color": "titan-tu-nhien"
+        }
+       },
+       {
+        "variant_id": "var-02",
+        "sku_code": "IP15PM-NAV-512",
+        "name": "Xanh Navy / 512GB",
+        "price": 34990000,
+        "stock": 5,
+        "is_in_stock": true,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-cap-512gb",
+          "name": "Bộ nhớ 512GB",
+          "slug": "512gb",
+          "facet_group": "capacity",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "512gb",
+           "512g",
+           "512 gb",
+           "rom 512gb"
+          ],
+          "occurrence_count": 180,
+          "search_volume": 3900,
+          "conversion_lift": 0.2
+         },
+         {
+          "tag_id": "tag-col-navy",
+          "name": "Màu Xanh Navy",
+          "slug": "xanh-navy",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "xanh navy",
+           "navy",
+           "xanh dam",
+           "xanh bien dam",
+           "blue navy"
+          ],
+          "occurrence_count": 150,
+          "search_volume": 3100,
+          "conversion_lift": 0.14
+         }
+        ],
+        "inherited_spu_tags": [
+         {
+          "tag_id": "tag-waterproof-ipx7",
+          "name": "Chống nước IPX7",
+          "slug": "chong-nuoc-ipx7",
+          "facet_group": "feature",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "ipx7",
+           "ipx-7",
+           "chong nuoc ipx7",
+           "khang nuoc ipx7"
+          ],
+          "occurrence_count": 45,
+          "search_volume": 890,
+          "conversion_lift": 0.12
+         }
+        ],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-waterproof-ipx7",
+          "name": "Chống nước IPX7",
+          "slug": "chong-nuoc-ipx7",
+          "facet_group": "feature",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "ipx7",
+           "ipx-7",
+           "chong nuoc ipx7",
+           "khang nuoc ipx7"
+          ],
+          "occurrence_count": 45,
+          "search_volume": 890,
+          "conversion_lift": 0.12
+         },
+         {
+          "tag_id": "tag-cap-512gb",
+          "name": "Bộ nhớ 512GB",
+          "slug": "512gb",
+          "facet_group": "capacity",
+          "category_id": "cat-electronics",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "512gb",
+           "512g",
+           "512 gb",
+           "rom 512gb"
+          ],
+          "occurrence_count": 180,
+          "search_volume": 3900,
+          "conversion_lift": 0.2
+         },
+         {
+          "tag_id": "tag-col-navy",
+          "name": "Màu Xanh Navy",
+          "slug": "xanh-navy",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "xanh navy",
+           "navy",
+           "xanh dam",
+           "xanh bien dam",
+           "blue navy"
+          ],
+          "occurrence_count": 150,
+          "search_volume": 3100,
+          "conversion_lift": 0.14
+         }
+        ],
+        "variant_facets": {
+         "capacity": "512gb",
+         "color": "xanh-navy"
+        }
+       }
+      ],
+      "spu_facet_filters": {
+       "feature": [
+        "chong-nuoc-ipx7"
+       ],
+       "capacity": [
+        "256gb",
+        "512gb"
+       ],
+       "color": [
+        "titan-tu-nhien",
+        "xanh-navy"
+       ]
+      },
+      "nested_opensearch_doc": {
+       "title": "iPhone 15 Pro Max Khung Titanium Chống nước IPX7",
+       "category_id": "cat-electronics",
+       "price_min": 29990000,
+       "price_max": 34990000,
+       "total_stock": 17,
+       "is_in_stock": true,
+       "spu_tags": [
+        "chong-nuoc-ipx7"
+       ],
+       "spu_facets": {
+        "feature": [
+         "chong-nuoc-ipx7"
+        ],
+        "capacity": [
+         "256gb",
+         "512gb"
+        ],
+        "color": [
+         "titan-tu-nhien",
+         "xanh-navy"
+        ]
+       },
+       "variants": [
+        {
+         "variant_id": "var-01",
+         "sku_code": "IP15PM-NAT-256",
+         "name": "Titan Tự Nhiên / 256GB",
+         "price": 29990000,
+         "stock": 12,
+         "is_in_stock": true,
+         "facets": {
+          "capacity": "256gb",
+          "color": "titan-tu-nhien"
+         },
+         "tags": [
+          "chong-nuoc-ipx7",
+          "256gb",
+          "titan-tu-nhien"
+         ]
+        },
+        {
+         "variant_id": "var-02",
+         "sku_code": "IP15PM-NAV-512",
+         "name": "Xanh Navy / 512GB",
+         "price": 34990000,
+         "stock": 5,
+         "is_in_stock": true,
+         "facets": {
+          "capacity": "512gb",
+          "color": "xanh-navy"
+         },
+         "tags": [
+          "chong-nuoc-ipx7",
+          "512gb",
+          "xanh-navy"
+         ]
+        }
+       ]
+      },
+      "total_skus_processed": 2,
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "sku_variant_without_name",
+   "steps": [
+    {
+     "op": "classify_sku_hierarchy",
+     "request": {
+      "spu_title": "Áo thun cotton 100% oversize",
+      "spu_description": "Chống tia UV",
+      "category_id": "cat-fashion",
+      "variants": [
+       {
+        "name": "",
+        "sku_code": "AT-DEN-L",
+        "price": 199000,
+        "stock": 3,
+        "options": {
+         "size": "L",
+         "color": "Đen"
+        }
+       }
+      ]
+     },
+     "response": {
+      "spu_title": "Áo thun cotton 100% oversize",
+      "category_id": "cat-fashion",
+      "spu_canonical_tags": [
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-anti-uv",
+        "name": "Chống tia UV UPF50+",
+        "slug": "chong-tia-uv-upf50",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "upf50+",
+         "chong uv",
+         "chong tia uv",
+         "tia uv",
+         "chong nang",
+         "chong tia cuc tim",
+         "upf 50"
+        ],
+        "occurrence_count": 42,
+        "search_volume": 1500,
+        "conversion_lift": 0.17
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       }
+      ],
+      "sku_results": [
+       {
+        "variant_id": "var-1",
+        "sku_code": "AT-DEN-L",
+        "name": "",
+        "price": 199000,
+        "stock": 3,
+        "is_in_stock": true,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-col-black-matte",
+          "name": "Màu Đen Nhám",
+          "slug": "den-nham",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "den nham",
+           "matte black",
+           "den",
+           "mau den",
+           "black"
+          ],
+          "occurrence_count": 280,
+          "search_volume": 7200,
+          "conversion_lift": 0.19
+         },
+         {
+          "tag_id": "tag-size-l",
+          "name": "Size L",
+          "slug": "size-l",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size l",
+           "l",
+           "co l"
+          ],
+          "occurrence_count": 350,
+          "search_volume": 5100,
+          "conversion_lift": 0.22
+         }
+        ],
+        "inherited_spu_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-anti-uv",
+          "name": "Chống tia UV UPF50+",
+          "slug": "chong-tia-uv-upf50",
+          "facet_group": "feature",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "upf50+",
+           "chong uv",
+           "chong tia uv",
+           "tia uv",
+           "chong nang",
+           "chong tia cuc tim",
+           "upf 50"
+          ],
+          "occurrence_count": 42,
+          "search_volume": 1500,
+          "conversion_lift": 0.17
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         }
+        ],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-anti-uv",
+          "name": "Chống tia UV UPF50+",
+          "slug": "chong-tia-uv-upf50",
+          "facet_group": "feature",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "upf50+",
+           "chong uv",
+           "chong tia uv",
+           "tia uv",
+           "chong nang",
+           "chong tia cuc tim",
+           "upf 50"
+          ],
+          "occurrence_count": 42,
+          "search_volume": 1500,
+          "conversion_lift": 0.17
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         },
+         {
+          "tag_id": "tag-col-black-matte",
+          "name": "Màu Đen Nhám",
+          "slug": "den-nham",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "den nham",
+           "matte black",
+           "den",
+           "mau den",
+           "black"
+          ],
+          "occurrence_count": 280,
+          "search_volume": 7200,
+          "conversion_lift": 0.19
+         },
+         {
+          "tag_id": "tag-size-l",
+          "name": "Size L",
+          "slug": "size-l",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size l",
+           "l",
+           "co l"
+          ],
+          "occurrence_count": 350,
+          "search_volume": 5100,
+          "conversion_lift": 0.22
+         }
+        ],
+        "variant_facets": {
+         "color": "den-nham",
+         "size": "size-l"
+        }
+       }
+      ],
+      "spu_facet_filters": {
+       "material": [
+        "100-cotton-premium"
+       ],
+       "feature": [
+        "chong-tia-uv-upf50"
+       ],
+       "style": [
+        "form-rong-oversize"
+       ],
+       "color": [
+        "den-nham"
+       ],
+       "size": [
+        "size-l"
+       ]
+      },
+      "nested_opensearch_doc": {
+       "title": "Áo thun cotton 100% oversize",
+       "category_id": "cat-fashion",
+       "price_min": 199000,
+       "price_max": 199000,
+       "total_stock": 3,
+       "is_in_stock": true,
+       "spu_tags": [
+        "100-cotton-premium",
+        "chong-tia-uv-upf50",
+        "form-rong-oversize"
+       ],
+       "spu_facets": {
+        "material": [
+         "100-cotton-premium"
+        ],
+        "feature": [
+         "chong-tia-uv-upf50"
+        ],
+        "style": [
+         "form-rong-oversize"
+        ],
+        "color": [
+         "den-nham"
+        ],
+        "size": [
+         "size-l"
+        ]
+       },
+       "variants": [
+        {
+         "variant_id": "var-1",
+         "sku_code": "AT-DEN-L",
+         "name": "",
+         "price": 199000,
+         "stock": 3,
+         "is_in_stock": true,
+         "facets": {
+          "color": "den-nham",
+          "size": "size-l"
+         },
+         "tags": [
+          "100-cotton-premium",
+          "chong-tia-uv-upf50",
+          "form-rong-oversize",
+          "den-nham",
+          "size-l"
+         ]
+        }
+       ]
+      },
+      "total_skus_processed": 1,
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "sku_non_positive_price_and_stock",
+   "steps": [
+    {
+     "op": "classify_sku_hierarchy",
+     "request": {
+      "spu_title": "Áo thun cotton 100% oversize",
+      "category_id": "cat-fashion",
+      "variants": [
+       {
+        "variant_id": "v-a",
+        "name": "Size M",
+        "price": 0,
+        "stock": 0
+       },
+       {
+        "variant_id": "v-b",
+        "name": "Size XL trắng",
+        "price": 150000,
+        "stock": 0
+       },
+       {
+        "variant_id": "v-c",
+        "name": "Size S",
+        "price": 120000,
+        "stock": 7
+       }
+      ]
+     },
+     "response": {
+      "spu_title": "Áo thun cotton 100% oversize",
+      "category_id": "cat-fashion",
+      "spu_canonical_tags": [
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       }
+      ],
+      "sku_results": [
+       {
+        "variant_id": "v-a",
+        "sku_code": "",
+        "name": "Size M",
+        "price": 0,
+        "stock": 0,
+        "is_in_stock": false,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-size-m",
+          "name": "Size M",
+          "slug": "size-m",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size m",
+           "m",
+           "co m"
+          ],
+          "occurrence_count": 310,
+          "search_volume": 4600,
+          "conversion_lift": 0.2
+         }
+        ],
+        "inherited_spu_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         }
+        ],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         },
+         {
+          "tag_id": "tag-size-m",
+          "name": "Size M",
+          "slug": "size-m",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size m",
+           "m",
+           "co m"
+          ],
+          "occurrence_count": 310,
+          "search_volume": 4600,
+          "conversion_lift": 0.2
+         }
+        ],
+        "variant_facets": {
+         "size": "size-m"
+        }
+       },
+       {
+        "variant_id": "v-b",
+        "sku_code": "",
+        "name": "Size XL trắng",
+        "price": 150000,
+        "stock": 0,
+        "is_in_stock": false,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-col-white-pearl",
+          "name": "Màu Trắng Ngọc Trai",
+          "slug": "trang-ngoc-trai",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "trang ngoc trai",
+           "trang",
+           "pearl white",
+           "mau trang",
+           "white"
+          ],
+          "occurrence_count": 190,
+          "search_volume": 4400,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-size-xl",
+          "name": "Size XL",
+          "slug": "size-xl",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size xl",
+           "xl",
+           "co xl"
+          ],
+          "occurrence_count": 280,
+          "search_volume": 3800,
+          "conversion_lift": 0.18
+         }
+        ],
+        "inherited_spu_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         }
+        ],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         },
+         {
+          "tag_id": "tag-col-white-pearl",
+          "name": "Màu Trắng Ngọc Trai",
+          "slug": "trang-ngoc-trai",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "trang ngoc trai",
+           "trang",
+           "pearl white",
+           "mau trang",
+           "white"
+          ],
+          "occurrence_count": 190,
+          "search_volume": 4400,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-size-xl",
+          "name": "Size XL",
+          "slug": "size-xl",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size xl",
+           "xl",
+           "co xl"
+          ],
+          "occurrence_count": 280,
+          "search_volume": 3800,
+          "conversion_lift": 0.18
+         }
+        ],
+        "variant_facets": {
+         "color": "trang-ngoc-trai",
+         "size": "size-xl"
+        }
+       },
+       {
+        "variant_id": "v-c",
+        "sku_code": "",
+        "name": "Size S",
+        "price": 120000,
+        "stock": 7,
+        "is_in_stock": true,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-size-s",
+          "name": "Size S",
+          "slug": "size-s",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size s",
+           "s",
+           "co s"
+          ],
+          "occurrence_count": 220,
+          "search_volume": 2500,
+          "conversion_lift": 0.12
+         }
+        ],
+        "inherited_spu_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         }
+        ],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-cotton-100",
+          "name": "100% Cotton Premium",
+          "slug": "100-cotton-premium",
+          "facet_group": "material",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "100% cotton",
+           "cotton 100",
+           "cotton 100%",
+           "pure cotton",
+           "cotton tu nhien"
+          ],
+          "occurrence_count": 112,
+          "search_volume": 2900,
+          "conversion_lift": 0.16
+         },
+         {
+          "tag_id": "tag-oversize",
+          "name": "Form Rộng Oversize",
+          "slug": "form-rong-oversize",
+          "facet_group": "style",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 0.95,
+          "is_canonical": true,
+          "synonyms": [
+           "oversize",
+           "form rong",
+           "dang rong",
+           "loose fit",
+           "form thung"
+          ],
+          "occurrence_count": 98,
+          "search_volume": 4100,
+          "conversion_lift": 0.21
+         },
+         {
+          "tag_id": "tag-size-s",
+          "name": "Size S",
+          "slug": "size-s",
+          "facet_group": "size",
+          "category_id": "cat-fashion",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "size s",
+           "s",
+           "co s"
+          ],
+          "occurrence_count": 220,
+          "search_volume": 2500,
+          "conversion_lift": 0.12
+         }
+        ],
+        "variant_facets": {
+         "size": "size-s"
+        }
+       }
+      ],
+      "spu_facet_filters": {
+       "material": [
+        "100-cotton-premium"
+       ],
+       "style": [
+        "form-rong-oversize"
+       ],
+       "size": [
+        "size-m",
+        "size-s",
+        "size-xl"
+       ],
+       "color": [
+        "trang-ngoc-trai"
+       ]
+      },
+      "nested_opensearch_doc": {
+       "title": "Áo thun cotton 100% oversize",
+       "category_id": "cat-fashion",
+       "price_min": 120000,
+       "price_max": 150000,
+       "total_stock": 7,
+       "is_in_stock": true,
+       "spu_tags": [
+        "100-cotton-premium",
+        "form-rong-oversize"
+       ],
+       "spu_facets": {
+        "material": [
+         "100-cotton-premium"
+        ],
+        "style": [
+         "form-rong-oversize"
+        ],
+        "size": [
+         "size-m",
+         "size-s",
+         "size-xl"
+        ],
+        "color": [
+         "trang-ngoc-trai"
+        ]
+       },
+       "variants": [
+        {
+         "variant_id": "v-a",
+         "sku_code": "",
+         "name": "Size M",
+         "price": 0,
+         "stock": 0,
+         "is_in_stock": false,
+         "facets": {
+          "size": "size-m"
+         },
+         "tags": [
+          "100-cotton-premium",
+          "form-rong-oversize",
+          "size-m"
+         ]
+        },
+        {
+         "variant_id": "v-b",
+         "sku_code": "",
+         "name": "Size XL trắng",
+         "price": 150000,
+         "stock": 0,
+         "is_in_stock": false,
+         "facets": {
+          "color": "trang-ngoc-trai",
+          "size": "size-xl"
+         },
+         "tags": [
+          "100-cotton-premium",
+          "form-rong-oversize",
+          "trang-ngoc-trai",
+          "size-xl"
+         ]
+        },
+        {
+         "variant_id": "v-c",
+         "sku_code": "",
+         "name": "Size S",
+         "price": 120000,
+         "stock": 7,
+         "is_in_stock": true,
+         "facets": {
+          "size": "size-s"
+         },
+         "tags": [
+          "100-cotton-premium",
+          "form-rong-oversize",
+          "size-s"
+         ]
+        }
+       ]
+      },
+      "total_skus_processed": 3,
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "sku_all_zero_price",
+   "steps": [
+    {
+     "op": "classify_sku_hierarchy",
+     "request": {
+      "spu_title": "Ốp lưng điện thoại",
+      "variants": [
+       {
+        "name": "Đen nhám",
+        "price": 0,
+        "stock": 0
+       }
+      ]
+     },
+     "response": {
+      "spu_title": "Ốp lưng điện thoại",
+      "category_id": "cat-general",
+      "spu_canonical_tags": [],
+      "sku_results": [
+       {
+        "variant_id": "var-1",
+        "sku_code": "",
+        "name": "Đen nhám",
+        "price": 0,
+        "stock": 0,
+        "is_in_stock": false,
+        "sku_specific_tags": [
+         {
+          "tag_id": "tag-col-black-matte",
+          "name": "Màu Đen Nhám",
+          "slug": "den-nham",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "den nham",
+           "matte black",
+           "den",
+           "mau den",
+           "black"
+          ],
+          "occurrence_count": 280,
+          "search_volume": 7200,
+          "conversion_lift": 0.19
+         }
+        ],
+        "inherited_spu_tags": [],
+        "all_effective_tags": [
+         {
+          "tag_id": "tag-col-black-matte",
+          "name": "Màu Đen Nhám",
+          "slug": "den-nham",
+          "facet_group": "color",
+          "category_id": "all",
+          "status": "promoted",
+          "confidence": 1.0,
+          "is_canonical": true,
+          "synonyms": [
+           "den nham",
+           "matte black",
+           "den",
+           "mau den",
+           "black"
+          ],
+          "occurrence_count": 280,
+          "search_volume": 7200,
+          "conversion_lift": 0.19
+         }
+        ],
+        "variant_facets": {
+         "color": "den-nham"
+        }
+       }
+      ],
+      "spu_facet_filters": {
+       "color": [
+        "den-nham"
+       ]
+      },
+      "nested_opensearch_doc": {
+       "title": "Ốp lưng điện thoại",
+       "category_id": "",
+       "price_min": 0,
+       "price_max": 0,
+       "total_stock": 0,
+       "is_in_stock": false,
+       "spu_tags": [],
+       "spu_facets": {
+        "color": [
+         "den-nham"
+        ]
+       },
+       "variants": [
+        {
+         "variant_id": "var-1",
+         "sku_code": "",
+         "name": "Đen nhám",
+         "price": 0,
+         "stock": 0,
+         "is_in_stock": false,
+         "facets": {
+          "color": "den-nham"
+         },
+         "tags": [
+          "den-nham"
+         ]
+        }
+       ]
+      },
+      "total_skus_processed": 1,
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "explore_candidate_reaching_min_frequency",
+   "steps": [
+    {
+     "op": "explore_tags",
+     "request": {
+      "batch_listings": [
+       {
+        "listing_id": "a",
+        "title": "Sạc nhanh GaN công suất 77W Anker",
+        "category_id": "cat-electronics"
+       },
+       {
+        "listing_id": "b",
+        "title": "Củ sạc laptop 77W Baseus",
+        "category_id": "cat-electronics"
+       },
+       {
+        "listing_id": "c",
+        "title": "Cáp sạc 91W",
+        "category_id": "cat-electronics"
+       }
+      ],
+      "min_frequency": 2,
+      "min_confidence": 0.8
+     },
+     "response": {
+      "total_processed": 3,
+      "discovered_candidates": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "clusters_found": 2,
+      "new_candidate_count": 1
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "status": "exploring"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total": 1,
+      "canonical_count": 25,
+      "candidate_count": 1
+     }
+    },
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Sạc công suất 77W",
+      "category_id": "cat-electronics"
+     },
+     "response": {
+      "canonical_tags": [],
+      "candidate_tags": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "suggested_facet_filters": {},
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "explore_lone_wattage_not_registered",
+   "steps": [
+    {
+     "op": "explore_tags",
+     "request": {
+      "batch_listings": [
+       {
+        "listing_id": "z",
+        "title": "Sạc 91W siêu nhanh",
+        "category_id": "cat-electronics"
+       }
+      ],
+      "min_frequency": 2
+     },
+     "response": {
+      "total_processed": 1,
+      "discovered_candidates": [],
+      "clusters_found": 1,
+      "new_candidate_count": 0
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "status": "exploring"
+     },
+     "response": {
+      "tags": [],
+      "total": 0,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "explore_variants_repeat_and_confidence",
+   "steps": [
+    {
+     "op": "explore_tags",
+     "request": {
+      "batch_listings": [
+       {
+        "listing_id": "p",
+        "title": "Laptop gaming",
+        "category_id": "cat-electronics",
+        "variants": [
+         {
+          "name": "16GB RAM / 512GB",
+          "sku_code": "X-512",
+          "options": {
+           "ram": "16gb ram"
+          }
+         },
+         {
+          "name": "8gb ram",
+          "options": {}
+         }
+        ]
+       },
+       {
+        "listing_id": "q",
+        "title": "Máy tính bảng 512gb",
+        "category_id": "cat-electronics"
+       }
+      ],
+      "min_frequency": 1,
+      "min_confidence": 0.9
+     },
+     "response": {
+      "total_processed": 2,
+      "discovered_candidates": [
+       {
+        "tag_id": "cand-bo-nho-16gb",
+        "name": "Bộ nhớ 16GB",
+        "slug": "bo-nho-16gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-512gb",
+        "name": "Bộ nhớ 512GB",
+        "slug": "bo-nho-512gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-ram-16gb",
+        "name": "RAM 16GB",
+        "slug": "ram-16gb",
+        "facet_group": "ram",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.94,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-8gb",
+        "name": "Bộ nhớ 8GB",
+        "slug": "bo-nho-8gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-ram-8gb",
+        "name": "RAM 8GB",
+        "slug": "ram-8gb",
+        "facet_group": "ram",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.94,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "clusters_found": 5,
+      "new_candidate_count": 5
+     }
+    },
+    {
+     "op": "explore_tags",
+     "request": {
+      "batch_listings": [
+       {
+        "listing_id": "q",
+        "title": "Máy tính bảng 512gb",
+        "category_id": "cat-electronics"
+       }
+      ],
+      "min_frequency": 1,
+      "min_confidence": 0.9
+     },
+     "response": {
+      "total_processed": 1,
+      "discovered_candidates": [
+       {
+        "tag_id": "cand-bo-nho-512gb",
+        "name": "Bộ nhớ 512GB",
+        "slug": "bo-nho-512gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 3,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "clusters_found": 1,
+      "new_candidate_count": 0
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "status": "exploring"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "cand-bo-nho-16gb",
+        "name": "Bộ nhớ 16GB",
+        "slug": "bo-nho-16gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-512gb",
+        "name": "Bộ nhớ 512GB",
+        "slug": "bo-nho-512gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 3,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-ram-16gb",
+        "name": "RAM 16GB",
+        "slug": "ram-16gb",
+        "facet_group": "ram",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.94,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-bo-nho-8gb",
+        "name": "Bộ nhớ 8GB",
+        "slug": "bo-nho-8gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.92,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "cand-ram-8gb",
+        "name": "RAM 8GB",
+        "slug": "ram-8gb",
+        "facet_group": "ram",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.94,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total": 5,
+      "canonical_count": 25,
+      "candidate_count": 5
+     }
+    }
+   ]
+  },
+  {
+   "name": "promote_exploring_with_synonyms_and_facet_override",
+   "steps": [
+    {
+     "op": "explore_tags",
+     "request": {
+      "batch_listings": [
+       {
+        "listing_id": "a",
+        "title": "Sạc nhanh GaN công suất 77W Anker",
+        "category_id": "cat-electronics"
+       },
+       {
+        "listing_id": "b",
+        "title": "Củ sạc laptop 77W Baseus",
+        "category_id": "cat-electronics"
+       },
+       {
+        "listing_id": "c",
+        "title": "Cáp sạc 91W",
+        "category_id": "cat-electronics"
+       }
+      ],
+      "min_frequency": 2,
+      "min_confidence": 0.8
+     },
+     "response": {
+      "total_processed": 3,
+      "discovered_candidates": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "clusters_found": 2,
+      "new_candidate_count": 1
+     }
+    },
+    {
+     "op": "promote_tags",
+     "request": {
+      "tag_slugs": [
+       "cong-suat-77w"
+      ],
+      "target_category_id": "cat-electronics",
+      "target_facet_group": "feature",
+      "add_synonyms": [
+       "sac 77w",
+       "gan 77w"
+      ]
+     },
+     "response": {
+      "promoted_tags": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sac 77w",
+         "gan 77w"
+        ],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total_promoted": 1,
+      "active_canonical_count": 26
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "status": "promoted",
+      "facet_group": "feature",
+      "category_id": "cat-electronics"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-waterproof-ipx7",
+        "name": "Chống nước IPX7",
+        "slug": "chong-nuoc-ipx7",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "ipx7",
+         "ipx-7",
+         "chong nuoc ipx7",
+         "khang nuoc ipx7"
+        ],
+        "occurrence_count": 45,
+        "search_volume": 890,
+        "conversion_lift": 0.12
+       },
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sac 77w",
+         "gan 77w"
+        ],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total": 3,
+      "canonical_count": 26,
+      "candidate_count": 0
+     }
+    },
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Củ sạc gan 77w Anker",
+      "category_id": "cat-electronics"
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sac 77w",
+         "gan 77w"
+        ],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "feature": [
+        "cong-suat-77w"
+       ]
+      },
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "promote_then_classify_unmatched_emergent",
+   "steps": [
+    {
+     "op": "explore_tags",
+     "request": {
+      "batch_listings": [
+       {
+        "listing_id": "a",
+        "title": "Sạc nhanh GaN công suất 77W Anker",
+        "category_id": "cat-electronics"
+       },
+       {
+        "listing_id": "b",
+        "title": "Củ sạc laptop 77W Baseus",
+        "category_id": "cat-electronics"
+       },
+       {
+        "listing_id": "c",
+        "title": "Cáp sạc 91W",
+        "category_id": "cat-electronics"
+       }
+      ],
+      "min_frequency": 2,
+      "min_confidence": 0.8
+     },
+     "response": {
+      "total_processed": 3,
+      "discovered_candidates": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "clusters_found": 2,
+      "new_candidate_count": 1
+     }
+    },
+    {
+     "op": "promote_tags",
+     "request": {
+      "tag_slugs": [
+       "cong-suat-77w"
+      ]
+     },
+     "response": {
+      "promoted_tags": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [],
+        "occurrence_count": 2,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total_promoted": 1,
+      "active_canonical_count": 26
+     }
+    },
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Củ sạc 77w Anker",
+      "category_id": "cat-electronics"
+     },
+     "response": {
+      "canonical_tags": [],
+      "candidate_tags": [
+       {
+        "tag_id": "cand-cong-suat-77w",
+        "name": "Công suất 77W",
+        "slug": "cong-suat-77w",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "exploring",
+        "confidence": 0.88,
+        "is_canonical": false,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "suggested_facet_filters": {},
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "promote_existing_canonical_adds_synonyms",
+   "steps": [
+    {
+     "op": "promote_tags",
+     "request": {
+      "tag_slugs": [
+       "bluetooth-5-3"
+      ],
+      "add_synonyms": [
+       "bt53",
+       "blutooth 5.3"
+      ]
+     },
+     "response": {
+      "promoted_tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3",
+         "bt53",
+         "blutooth 5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       }
+      ],
+      "total_promoted": 1,
+      "active_canonical_count": 25
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "category_id": "cat-electronics",
+      "facet_group": "connectivity"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3",
+         "bt53",
+         "blutooth 5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       }
+      ],
+      "total": 1,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    },
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Loa bt53 mini",
+      "category_id": "cat-electronics"
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3",
+         "bt53",
+         "blutooth 5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "connectivity": [
+        "bluetooth-5-3"
+       ]
+      },
+      "category_id": "cat-electronics",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "promote_unknown_slug",
+   "steps": [
+    {
+     "op": "promote_tags",
+     "request": {
+      "tag_slugs": [
+       "mua-he-sale",
+       "khuyen-mai"
+      ],
+      "target_category_id": "cat-fashion",
+      "target_facet_group": "style",
+      "add_synonyms": [
+       "sale he"
+      ]
+     },
+     "response": {
+      "promoted_tags": [
+       {
+        "tag_id": "tag-mua-he-sale",
+        "name": "Mua He Sale",
+        "slug": "mua-he-sale",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sale he"
+        ],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "tag-khuyen-mai",
+        "name": "Khuyen Mai",
+        "slug": "khuyen-mai",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sale he"
+        ],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total_promoted": 2,
+      "active_canonical_count": 27
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "category_id": "cat-fashion",
+      "status": "promoted",
+      "facet_group": "style"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       },
+       {
+        "tag_id": "tag-mua-he-sale",
+        "name": "Mua He Sale",
+        "slug": "mua-he-sale",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sale he"
+        ],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       },
+       {
+        "tag_id": "tag-khuyen-mai",
+        "name": "Khuyen Mai",
+        "slug": "khuyen-mai",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sale he"
+        ],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total": 3,
+      "canonical_count": 27,
+      "candidate_count": 0
+     }
+    },
+    {
+     "op": "classify_tags",
+     "request": {
+      "title": "Áo thun sale he",
+      "category_id": "cat-fashion"
+     },
+     "response": {
+      "canonical_tags": [
+       {
+        "tag_id": "tag-khuyen-mai",
+        "name": "Khuyen Mai",
+        "slug": "khuyen-mai",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "sale he"
+        ],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "candidate_tags": [],
+      "suggested_facet_filters": {
+       "style": [
+        "khuyen-mai"
+       ]
+      },
+      "category_id": "cat-fashion",
+      "execution_time_ms": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "promote_unknown_slug_defaults",
+   "steps": [
+    {
+     "op": "promote_tags",
+     "request": {
+      "tag_slugs": [
+       "hang-moi-ve"
+      ]
+     },
+     "response": {
+      "promoted_tags": [
+       {
+        "tag_id": "tag-hang-moi-ve",
+        "name": "Hang Moi Ve",
+        "slug": "hang-moi-ve",
+        "facet_group": "feature",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total_promoted": 1,
+      "active_canonical_count": 26
+     }
+    },
+    {
+     "op": "list_tags",
+     "request": {
+      "facet_group": "feature",
+      "category_id": "cat-appliances"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-inverter-saving",
+        "name": "Công nghệ Inverter Tiết Kiệm Điện",
+        "slug": "cong-nghe-inverter-tiet-kiem-dien",
+        "facet_group": "feature",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "inverter",
+         "tiet kiem dien",
+         "bien tan inverter",
+         "ecobubble inverter"
+        ],
+        "occurrence_count": 87,
+        "search_volume": 3200,
+        "conversion_lift": 0.25
+       },
+       {
+        "tag_id": "tag-air-fryer-oilfree",
+        "name": "Không dầu Rapid Air",
+        "slug": "khong-dau-rapid-air",
+        "facet_group": "feature",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 0.96,
+        "is_canonical": true,
+        "synonyms": [
+         "rapid air",
+         "khong dau",
+         "it dau mo",
+         "giam 80% dau"
+        ],
+        "occurrence_count": 48,
+        "search_volume": 2800,
+        "conversion_lift": 0.2
+       },
+       {
+        "tag_id": "tag-hang-moi-ve",
+        "name": "Hang Moi Ve",
+        "slug": "hang-moi-ve",
+        "facet_group": "feature",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [],
+        "occurrence_count": 1,
+        "search_volume": 0,
+        "conversion_lift": 0.0
+       }
+      ],
+      "total": 3,
+      "canonical_count": 26,
+      "candidate_count": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "list_all",
+   "steps": [
+    {
+     "op": "list_tags",
+     "request": {},
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-waterproof-ipx7",
+        "name": "Chống nước IPX7",
+        "slug": "chong-nuoc-ipx7",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "ipx7",
+         "ipx-7",
+         "chong nuoc ipx7",
+         "khang nuoc ipx7"
+        ],
+        "occurrence_count": 45,
+        "search_volume": 890,
+        "conversion_lift": 0.12
+       },
+       {
+        "tag_id": "tag-fastcharge-65w",
+        "name": "Sạc nhanh 65W GaN",
+        "slug": "sac-nhanh-65w-gan",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "65w",
+         "gan 65w",
+         "sac 65w",
+         "power delivery 65w",
+         "pd 65w"
+        ],
+        "occurrence_count": 51,
+        "search_volume": 1640,
+        "conversion_lift": 0.15
+       },
+       {
+        "tag_id": "tag-display-144hz",
+        "name": "Tần số quét 144Hz",
+        "slug": "tan-so-quet-144hz",
+        "facet_group": "display",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "144hz",
+         "144 hz",
+         "man hinh 144hz",
+         "tan so quet 144"
+        ],
+        "occurrence_count": 39,
+        "search_volume": 1820,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-gaming",
+        "name": "Chuyên Gaming",
+        "slug": "chuyen-gaming",
+        "facet_group": "usage",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 0.98,
+        "is_canonical": true,
+        "synonyms": [
+         "gaming",
+         "choi game",
+         "game thu",
+         "esports",
+         "esport"
+        ],
+        "occurrence_count": 78,
+        "search_volume": 3400,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-cap-128gb",
+        "name": "Bộ nhớ 128GB",
+        "slug": "128gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "128gb",
+         "128g",
+         "128 gb",
+         "rom 128gb"
+        ],
+        "occurrence_count": 210,
+        "search_volume": 4200,
+        "conversion_lift": 0.15
+       },
+       {
+        "tag_id": "tag-cap-256gb",
+        "name": "Bộ nhớ 256GB",
+        "slug": "256gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "256gb",
+         "256g",
+         "256 gb",
+         "rom 256gb"
+        ],
+        "occurrence_count": 340,
+        "search_volume": 6800,
+        "conversion_lift": 0.24
+       },
+       {
+        "tag_id": "tag-cap-512gb",
+        "name": "Bộ nhớ 512GB",
+        "slug": "512gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "512gb",
+         "512g",
+         "512 gb",
+         "rom 512gb"
+        ],
+        "occurrence_count": 180,
+        "search_volume": 3900,
+        "conversion_lift": 0.2
+       },
+       {
+        "tag_id": "tag-cap-1tb",
+        "name": "Bộ nhớ 1TB",
+        "slug": "1tb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "1tb",
+         "1 tb",
+         "1024gb",
+         "rom 1tb"
+        ],
+        "occurrence_count": 95,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-col-titan-natural",
+        "name": "Màu Titan Tự Nhiên",
+        "slug": "titan-tu-nhien",
+        "facet_group": "color",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "titan tu nhien",
+         "natural titanium",
+         "mau titan",
+         "titan xam"
+        ],
+        "occurrence_count": 120,
+        "search_volume": 5600,
+        "conversion_lift": 0.28
+       },
+       {
+        "tag_id": "tag-col-navy",
+        "name": "Màu Xanh Navy",
+        "slug": "xanh-navy",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "xanh navy",
+         "navy",
+         "xanh dam",
+         "xanh bien dam",
+         "blue navy"
+        ],
+        "occurrence_count": 150,
+        "search_volume": 3100,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-col-black-matte",
+        "name": "Màu Đen Nhám",
+        "slug": "den-nham",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "den nham",
+         "matte black",
+         "den",
+         "mau den",
+         "black"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 7200,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-col-white-pearl",
+        "name": "Màu Trắng Ngọc Trai",
+        "slug": "trang-ngoc-trai",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "trang ngoc trai",
+         "trang",
+         "pearl white",
+         "mau trang",
+         "white"
+        ],
+        "occurrence_count": 190,
+        "search_volume": 4400,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-size-s",
+        "name": "Size S",
+        "slug": "size-s",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size s",
+         "s",
+         "co s"
+        ],
+        "occurrence_count": 220,
+        "search_volume": 2500,
+        "conversion_lift": 0.12
+       },
+       {
+        "tag_id": "tag-size-m",
+        "name": "Size M",
+        "slug": "size-m",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size m",
+         "m",
+         "co m"
+        ],
+        "occurrence_count": 310,
+        "search_volume": 4600,
+        "conversion_lift": 0.2
+       },
+       {
+        "tag_id": "tag-size-l",
+        "name": "Size L",
+        "slug": "size-l",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size l",
+         "l",
+         "co l"
+        ],
+        "occurrence_count": 350,
+        "search_volume": 5100,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-size-xl",
+        "name": "Size XL",
+        "slug": "size-xl",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size xl",
+         "xl",
+         "co xl"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 3800,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       },
+       {
+        "tag_id": "tag-anti-uv",
+        "name": "Chống tia UV UPF50+",
+        "slug": "chong-tia-uv-upf50",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "upf50+",
+         "chong uv",
+         "chong tia uv",
+         "tia uv",
+         "chong nang",
+         "chong tia cuc tim",
+         "upf 50"
+        ],
+        "occurrence_count": 42,
+        "search_volume": 1500,
+        "conversion_lift": 0.17
+       },
+       {
+        "tag_id": "tag-co-gian-4-chieu",
+        "name": "Co giãn 4 chiều",
+        "slug": "co-gian-4-chieu",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "co gian 4 chieu",
+         "4-way stretch",
+         "co gian tot",
+         "dan hoi cao"
+        ],
+        "occurrence_count": 65,
+        "search_volume": 1200,
+        "conversion_lift": 0.11
+       },
+       {
+        "tag_id": "tag-inverter-saving",
+        "name": "Công nghệ Inverter Tiết Kiệm Điện",
+        "slug": "cong-nghe-inverter-tiet-kiem-dien",
+        "facet_group": "feature",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "inverter",
+         "tiet kiem dien",
+         "bien tan inverter",
+         "ecobubble inverter"
+        ],
+        "occurrence_count": 87,
+        "search_volume": 3200,
+        "conversion_lift": 0.25
+       },
+       {
+        "tag_id": "tag-stainless-steel-304",
+        "name": "Inox 304 Cao Cấp",
+        "slug": "inox-304-cao-cap",
+        "facet_group": "material",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "inox 304",
+         "thep khong gi 304",
+         "sus 304",
+         "stainless steel 304"
+        ],
+        "occurrence_count": 55,
+        "search_volume": 1100,
+        "conversion_lift": 0.13
+       },
+       {
+        "tag_id": "tag-air-fryer-oilfree",
+        "name": "Không dầu Rapid Air",
+        "slug": "khong-dau-rapid-air",
+        "facet_group": "feature",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 0.96,
+        "is_canonical": true,
+        "synonyms": [
+         "rapid air",
+         "khong dau",
+         "it dau mo",
+         "giam 80% dau"
+        ],
+        "occurrence_count": 48,
+        "search_volume": 2800,
+        "conversion_lift": 0.2
+       }
+      ],
+      "total": 25,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "list_by_category",
+   "steps": [
+    {
+     "op": "list_tags",
+     "request": {
+      "category_id": "cat-fashion"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-col-navy",
+        "name": "Màu Xanh Navy",
+        "slug": "xanh-navy",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "xanh navy",
+         "navy",
+         "xanh dam",
+         "xanh bien dam",
+         "blue navy"
+        ],
+        "occurrence_count": 150,
+        "search_volume": 3100,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-col-black-matte",
+        "name": "Màu Đen Nhám",
+        "slug": "den-nham",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "den nham",
+         "matte black",
+         "den",
+         "mau den",
+         "black"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 7200,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-col-white-pearl",
+        "name": "Màu Trắng Ngọc Trai",
+        "slug": "trang-ngoc-trai",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "trang ngoc trai",
+         "trang",
+         "pearl white",
+         "mau trang",
+         "white"
+        ],
+        "occurrence_count": 190,
+        "search_volume": 4400,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-size-s",
+        "name": "Size S",
+        "slug": "size-s",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size s",
+         "s",
+         "co s"
+        ],
+        "occurrence_count": 220,
+        "search_volume": 2500,
+        "conversion_lift": 0.12
+       },
+       {
+        "tag_id": "tag-size-m",
+        "name": "Size M",
+        "slug": "size-m",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size m",
+         "m",
+         "co m"
+        ],
+        "occurrence_count": 310,
+        "search_volume": 4600,
+        "conversion_lift": 0.2
+       },
+       {
+        "tag_id": "tag-size-l",
+        "name": "Size L",
+        "slug": "size-l",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size l",
+         "l",
+         "co l"
+        ],
+        "occurrence_count": 350,
+        "search_volume": 5100,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-size-xl",
+        "name": "Size XL",
+        "slug": "size-xl",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size xl",
+         "xl",
+         "co xl"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 3800,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       },
+       {
+        "tag_id": "tag-anti-uv",
+        "name": "Chống tia UV UPF50+",
+        "slug": "chong-tia-uv-upf50",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "upf50+",
+         "chong uv",
+         "chong tia uv",
+         "tia uv",
+         "chong nang",
+         "chong tia cuc tim",
+         "upf 50"
+        ],
+        "occurrence_count": 42,
+        "search_volume": 1500,
+        "conversion_lift": 0.17
+       },
+       {
+        "tag_id": "tag-co-gian-4-chieu",
+        "name": "Co giãn 4 chiều",
+        "slug": "co-gian-4-chieu",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "co gian 4 chieu",
+         "4-way stretch",
+         "co gian tot",
+         "dan hoi cao"
+        ],
+        "occurrence_count": 65,
+        "search_volume": 1200,
+        "conversion_lift": 0.11
+       }
+      ],
+      "total": 11,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "list_by_facet_group",
+   "steps": [
+    {
+     "op": "list_tags",
+     "request": {
+      "facet_group": "color"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-col-titan-natural",
+        "name": "Màu Titan Tự Nhiên",
+        "slug": "titan-tu-nhien",
+        "facet_group": "color",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "titan tu nhien",
+         "natural titanium",
+         "mau titan",
+         "titan xam"
+        ],
+        "occurrence_count": 120,
+        "search_volume": 5600,
+        "conversion_lift": 0.28
+       },
+       {
+        "tag_id": "tag-col-navy",
+        "name": "Màu Xanh Navy",
+        "slug": "xanh-navy",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "xanh navy",
+         "navy",
+         "xanh dam",
+         "xanh bien dam",
+         "blue navy"
+        ],
+        "occurrence_count": 150,
+        "search_volume": 3100,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-col-black-matte",
+        "name": "Màu Đen Nhám",
+        "slug": "den-nham",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "den nham",
+         "matte black",
+         "den",
+         "mau den",
+         "black"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 7200,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-col-white-pearl",
+        "name": "Màu Trắng Ngọc Trai",
+        "slug": "trang-ngoc-trai",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "trang ngoc trai",
+         "trang",
+         "pearl white",
+         "mau trang",
+         "white"
+        ],
+        "occurrence_count": 190,
+        "search_volume": 4400,
+        "conversion_lift": 0.16
+       }
+      ],
+      "total": 4,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "list_by_status_promoted",
+   "steps": [
+    {
+     "op": "list_tags",
+     "request": {
+      "status": "promoted"
+     },
+     "response": {
+      "tags": [
+       {
+        "tag_id": "tag-bt-53",
+        "name": "Bluetooth 5.3",
+        "slug": "bluetooth-5-3",
+        "facet_group": "connectivity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "bluetooth 5.3",
+         "bt 5.3",
+         "bt5.3",
+         "bluetooth v5.3"
+        ],
+        "occurrence_count": 84,
+        "search_volume": 1250,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-anc",
+        "name": "Chống ồn chủ động (ANC)",
+        "slug": "chong-on-chu-dong-anc",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "anc",
+         "chong on",
+         "active noise cancelling",
+         "khu tieng on"
+        ],
+        "occurrence_count": 62,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-waterproof-ipx7",
+        "name": "Chống nước IPX7",
+        "slug": "chong-nuoc-ipx7",
+        "facet_group": "feature",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "ipx7",
+         "ipx-7",
+         "chong nuoc ipx7",
+         "khang nuoc ipx7"
+        ],
+        "occurrence_count": 45,
+        "search_volume": 890,
+        "conversion_lift": 0.12
+       },
+       {
+        "tag_id": "tag-fastcharge-65w",
+        "name": "Sạc nhanh 65W GaN",
+        "slug": "sac-nhanh-65w-gan",
+        "facet_group": "power",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "65w",
+         "gan 65w",
+         "sac 65w",
+         "power delivery 65w",
+         "pd 65w"
+        ],
+        "occurrence_count": 51,
+        "search_volume": 1640,
+        "conversion_lift": 0.15
+       },
+       {
+        "tag_id": "tag-display-144hz",
+        "name": "Tần số quét 144Hz",
+        "slug": "tan-so-quet-144hz",
+        "facet_group": "display",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "144hz",
+         "144 hz",
+         "man hinh 144hz",
+         "tan so quet 144"
+        ],
+        "occurrence_count": 39,
+        "search_volume": 1820,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-gaming",
+        "name": "Chuyên Gaming",
+        "slug": "chuyen-gaming",
+        "facet_group": "usage",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 0.98,
+        "is_canonical": true,
+        "synonyms": [
+         "gaming",
+         "choi game",
+         "game thu",
+         "esports",
+         "esport"
+        ],
+        "occurrence_count": 78,
+        "search_volume": 3400,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-cap-128gb",
+        "name": "Bộ nhớ 128GB",
+        "slug": "128gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "128gb",
+         "128g",
+         "128 gb",
+         "rom 128gb"
+        ],
+        "occurrence_count": 210,
+        "search_volume": 4200,
+        "conversion_lift": 0.15
+       },
+       {
+        "tag_id": "tag-cap-256gb",
+        "name": "Bộ nhớ 256GB",
+        "slug": "256gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "256gb",
+         "256g",
+         "256 gb",
+         "rom 256gb"
+        ],
+        "occurrence_count": 340,
+        "search_volume": 6800,
+        "conversion_lift": 0.24
+       },
+       {
+        "tag_id": "tag-cap-512gb",
+        "name": "Bộ nhớ 512GB",
+        "slug": "512gb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "512gb",
+         "512g",
+         "512 gb",
+         "rom 512gb"
+        ],
+        "occurrence_count": 180,
+        "search_volume": 3900,
+        "conversion_lift": 0.2
+       },
+       {
+        "tag_id": "tag-cap-1tb",
+        "name": "Bộ nhớ 1TB",
+        "slug": "1tb",
+        "facet_group": "capacity",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "1tb",
+         "1 tb",
+         "1024gb",
+         "rom 1tb"
+        ],
+        "occurrence_count": 95,
+        "search_volume": 2100,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-col-titan-natural",
+        "name": "Màu Titan Tự Nhiên",
+        "slug": "titan-tu-nhien",
+        "facet_group": "color",
+        "category_id": "cat-electronics",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "titan tu nhien",
+         "natural titanium",
+         "mau titan",
+         "titan xam"
+        ],
+        "occurrence_count": 120,
+        "search_volume": 5600,
+        "conversion_lift": 0.28
+       },
+       {
+        "tag_id": "tag-col-navy",
+        "name": "Màu Xanh Navy",
+        "slug": "xanh-navy",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "xanh navy",
+         "navy",
+         "xanh dam",
+         "xanh bien dam",
+         "blue navy"
+        ],
+        "occurrence_count": 150,
+        "search_volume": 3100,
+        "conversion_lift": 0.14
+       },
+       {
+        "tag_id": "tag-col-black-matte",
+        "name": "Màu Đen Nhám",
+        "slug": "den-nham",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "den nham",
+         "matte black",
+         "den",
+         "mau den",
+         "black"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 7200,
+        "conversion_lift": 0.19
+       },
+       {
+        "tag_id": "tag-col-white-pearl",
+        "name": "Màu Trắng Ngọc Trai",
+        "slug": "trang-ngoc-trai",
+        "facet_group": "color",
+        "category_id": "all",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "trang ngoc trai",
+         "trang",
+         "pearl white",
+         "mau trang",
+         "white"
+        ],
+        "occurrence_count": 190,
+        "search_volume": 4400,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-size-s",
+        "name": "Size S",
+        "slug": "size-s",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size s",
+         "s",
+         "co s"
+        ],
+        "occurrence_count": 220,
+        "search_volume": 2500,
+        "conversion_lift": 0.12
+       },
+       {
+        "tag_id": "tag-size-m",
+        "name": "Size M",
+        "slug": "size-m",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size m",
+         "m",
+         "co m"
+        ],
+        "occurrence_count": 310,
+        "search_volume": 4600,
+        "conversion_lift": 0.2
+       },
+       {
+        "tag_id": "tag-size-l",
+        "name": "Size L",
+        "slug": "size-l",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size l",
+         "l",
+         "co l"
+        ],
+        "occurrence_count": 350,
+        "search_volume": 5100,
+        "conversion_lift": 0.22
+       },
+       {
+        "tag_id": "tag-size-xl",
+        "name": "Size XL",
+        "slug": "size-xl",
+        "facet_group": "size",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "size xl",
+         "xl",
+         "co xl"
+        ],
+        "occurrence_count": 280,
+        "search_volume": 3800,
+        "conversion_lift": 0.18
+       },
+       {
+        "tag_id": "tag-cotton-100",
+        "name": "100% Cotton Premium",
+        "slug": "100-cotton-premium",
+        "facet_group": "material",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "100% cotton",
+         "cotton 100",
+         "cotton 100%",
+         "pure cotton",
+         "cotton tu nhien"
+        ],
+        "occurrence_count": 112,
+        "search_volume": 2900,
+        "conversion_lift": 0.16
+       },
+       {
+        "tag_id": "tag-oversize",
+        "name": "Form Rộng Oversize",
+        "slug": "form-rong-oversize",
+        "facet_group": "style",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "oversize",
+         "form rong",
+         "dang rong",
+         "loose fit",
+         "form thung"
+        ],
+        "occurrence_count": 98,
+        "search_volume": 4100,
+        "conversion_lift": 0.21
+       },
+       {
+        "tag_id": "tag-anti-uv",
+        "name": "Chống tia UV UPF50+",
+        "slug": "chong-tia-uv-upf50",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "upf50+",
+         "chong uv",
+         "chong tia uv",
+         "tia uv",
+         "chong nang",
+         "chong tia cuc tim",
+         "upf 50"
+        ],
+        "occurrence_count": 42,
+        "search_volume": 1500,
+        "conversion_lift": 0.17
+       },
+       {
+        "tag_id": "tag-co-gian-4-chieu",
+        "name": "Co giãn 4 chiều",
+        "slug": "co-gian-4-chieu",
+        "facet_group": "feature",
+        "category_id": "cat-fashion",
+        "status": "promoted",
+        "confidence": 0.95,
+        "is_canonical": true,
+        "synonyms": [
+         "co gian 4 chieu",
+         "4-way stretch",
+         "co gian tot",
+         "dan hoi cao"
+        ],
+        "occurrence_count": 65,
+        "search_volume": 1200,
+        "conversion_lift": 0.11
+       },
+       {
+        "tag_id": "tag-inverter-saving",
+        "name": "Công nghệ Inverter Tiết Kiệm Điện",
+        "slug": "cong-nghe-inverter-tiet-kiem-dien",
+        "facet_group": "feature",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "inverter",
+         "tiet kiem dien",
+         "bien tan inverter",
+         "ecobubble inverter"
+        ],
+        "occurrence_count": 87,
+        "search_volume": 3200,
+        "conversion_lift": 0.25
+       },
+       {
+        "tag_id": "tag-stainless-steel-304",
+        "name": "Inox 304 Cao Cấp",
+        "slug": "inox-304-cao-cap",
+        "facet_group": "material",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 1.0,
+        "is_canonical": true,
+        "synonyms": [
+         "inox 304",
+         "thep khong gi 304",
+         "sus 304",
+         "stainless steel 304"
+        ],
+        "occurrence_count": 55,
+        "search_volume": 1100,
+        "conversion_lift": 0.13
+       },
+       {
+        "tag_id": "tag-air-fryer-oilfree",
+        "name": "Không dầu Rapid Air",
+        "slug": "khong-dau-rapid-air",
+        "facet_group": "feature",
+        "category_id": "cat-appliances",
+        "status": "promoted",
+        "confidence": 0.96,
+        "is_canonical": true,
+        "synonyms": [
+         "rapid air",
+         "khong dau",
+         "it dau mo",
+         "giam 80% dau"
+        ],
+        "occurrence_count": 48,
+        "search_volume": 2800,
+        "conversion_lift": 0.2
+       }
+      ],
+      "total": 25,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "list_by_status_exploring_empty",
+   "steps": [
+    {
+     "op": "list_tags",
+     "request": {
+      "status": "exploring"
+     },
+     "response": {
+      "tags": [],
+      "total": 0,
+      "canonical_count": 25,
+      "candidate_count": 0
+     }
+    }
+   ]
+  }
+ ]
+}

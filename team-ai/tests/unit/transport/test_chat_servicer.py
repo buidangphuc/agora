@@ -1,199 +1,243 @@
-"""ChatServicer: deadline plumbing and error -> gRPC status mapping."""
+"""ChatService servicer: scopes, session bound, streaming and error mapping over a real channel."""
 
 from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import grpc
 import pytest
 
-from app.core.resilience import CircuitBreakerPolicy, FailureKind
-from app.modules.ai.llm.router import ModelRouter
-from app.modules.ai.llm.testing import Script, ScriptedProvider, StatusError
-from app.transport.grpc._pb.platform.chat.v1 import chat_pb2
-from app.transport.grpc.chat_stream import (
-    ChainExhausted,
+from app.modules.business.chat.echo import EchoChatService
+from app.modules.business.chat.errors import (
     ChatDeadlineExceeded,
-    LLMRouterChatStreamer,
-    StreamInterrupted,
+    ChatError,
+    ChatInterrupted,
+    ChatModelRateLimited,
+    ChatModelUnavailable,
+    ChatQuotaExhausted,
 )
-from app.transport.grpc.servicers.chat import ChatServicer
-from tests.factories import build_test_settings
+from app.modules.business.chat.ports import ChatService
+from app.modules.platform.rate_limit.service import RateLimitResult
+from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
+from app.transport.grpc.server import build_grpc_server
+from app.transport.grpc.servicers.chat import (
+    MAX_SESSION_ID_LEN,
+    chat_service_registration,
+)
+from tests.factories import allow_all_limiter
 
 
-@pytest.fixture(autouse=True)
-def _caller_with_ai_use():
-    """StreamChat requires ``ai:use``; bind a signed-in caller that holds it."""
-    from app.modules.platform.identity.schemas import Principal
-    from app.transport.grpc.context import bind_principal, reset_principal
-
-    token = bind_principal(Principal(id="caller", type="user", scopes=("ai:use",)))
-    yield
-    reset_principal(token)
+def _md(principal_id: str = "u1", *scopes: str, ptype: str = "user"):
+    return (
+        ("x-principal-id", principal_id),
+        ("x-principal-type", ptype),
+        ("x-principal-scopes", ",".join(scopes)),
+    )
 
 
-class _Aborted(Exception):
-    def __init__(self, code: grpc.StatusCode, details: str) -> None:
-        super().__init__(details)
-        self.code = code
-        self.details = details
-
-
-class _FakeContext:
-    def __init__(self, time_remaining: float | None = None) -> None:
-        self._remaining = time_remaining
-
-    def time_remaining(self) -> float | None:
-        return self._remaining
-
-    async def abort(self, code: grpc.StatusCode, details: str = ""):
-        raise _Aborted(code, details)
-
-
-class _ScriptedStreamer:
-    """Yields deltas then raises ``error`` (or finishes); records kwargs."""
-
-    def __init__(self, deltas=(), error: Exception | None = None) -> None:
-        self._deltas = deltas
+class _FailingChat:
+    def __init__(self, error: Exception, deltas: tuple[str, ...] = ()) -> None:
         self._error = error
-        self.kwargs: dict = {}
+        self._deltas = deltas
 
-    async def astream(self, message: str, **kwargs):
-        self.kwargs = {"message": message, **kwargs}
+    async def stream(self, message: str, **kwargs) -> AsyncIterator[str]:
         for delta in self._deltas:
             yield delta
-        if self._error is not None:
-            raise self._error
+        raise self._error
 
 
-async def _drain(servicer: ChatServicer, context: _FakeContext):
-    request = chat_pb2.StreamChatRequest(session_id="s1", message="hello")
-    return [r async for r in servicer.StreamChat(request, context)]  # type: ignore[arg-type]
+class _RecordingChat:
+    def __init__(self) -> None:
+        self.kwargs: dict = {}
+
+    async def stream(self, message: str, **kwargs) -> AsyncIterator[str]:
+        self.kwargs = kwargs
+        yield "ok "
 
 
-async def test_servicer_passes_remaining_deadline_and_ids_to_the_streamer():
-    streamer = _ScriptedStreamer(("a", "b"))
+@asynccontextmanager
+async def _serving(
+    chat: ChatService, *, require_ai_use: bool = False, rate_limiter=None
+) -> AsyncIterator[chat_pb2_grpc.ChatServiceStub]:
+    server = build_grpc_server(
+        registrations=(chat_service_registration(chat, require_ai_use=require_ai_use),),
+        rate_limiter=rate_limiter or allow_all_limiter(),
+    )
+    port = server.add_insecure_port("127.0.0.1:0")
+    await server.start()
+    try:
+        async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as channel:
+            yield chat_pb2_grpc.ChatServiceStub(channel)
+    finally:
+        await server.stop(None)
 
-    responses = await _drain(ChatServicer(streamer), _FakeContext(time_remaining=12.5))
 
-    assert [r.delta for r in responses] == ["a", "b", ""]
-    assert responses[-1].done is True
-    assert streamer.kwargs["deadline_seconds"] == 12.5
-    assert streamer.kwargs["session_id"] == "s1"
-    assert "request_id" in streamer.kwargs
+async def _collect(stub, message: str = "hi", *, session_id: str = "s1", md=None):
+    call = stub.StreamChat(
+        chat_pb2.StreamChatRequest(session_id=session_id, message=message),
+        metadata=md or _md(),
+    )
+    return [(r.delta, r.done) async for r in call], call
 
 
-async def test_servicer_passes_no_deadline_when_the_caller_has_none():
-    streamer = _ScriptedStreamer(("a",))
+async def _fails(stub, **kwargs) -> grpc.aio.AioRpcError:
+    with pytest.raises(grpc.aio.AioRpcError) as exc:
+        await _collect(stub, **kwargs)
+    return exc.value
 
-    await _drain(ChatServicer(streamer), _FakeContext(time_remaining=None))
 
-    assert streamer.kwargs["deadline_seconds"] is None
+def test_stream_chat_is_rate_limited():
+    registration = chat_service_registration(EchoChatService(), require_ai_use=False)
+
+    assert registration.service_name == "platform.chat.v1.ChatService"
+    assert registration.rate_limited_methods == frozenset(
+        {"/platform.chat.v1.ChatService/StreamChat"}
+    )
+
+
+class _BurstLimiter:
+    """Allows ``limit`` calls, then rejects with a 7s retry-after."""
+
+    def __init__(self, limit: int) -> None:
+        self._remaining = limit
+
+    async def check(self, key: str) -> RateLimitResult:
+        if self._remaining > 0:
+            self._remaining -= 1
+            return RateLimitResult(allowed=True, remaining=self._remaining)
+        return RateLimitResult(allowed=False, remaining=0, retry_after_seconds=7)
+
+
+async def test_stream_chat_burst_over_the_limit_is_resource_exhausted():
+    async with _serving(EchoChatService(), rate_limiter=_BurstLimiter(2)) as stub:
+        for _ in range(2):
+            responses, _ = await _collect(stub, "hi")
+            assert responses[-1] == ("", True)
+
+        error = await _fails(stub, message="hi")
+
+    assert error.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+    assert dict(error.trailing_metadata())["retry-after"] == "7"
+
+
+async def test_mock_backend_streams_echo_then_done():
+    async with _serving(EchoChatService()) as stub:
+        responses, _ = await _collect(stub, "hi")
+
+    assert responses == [("echo: ", False), ("hi ", False), ("", True)]
+
+
+async def test_requires_ai_use_when_flag_on():
+    async with _serving(EchoChatService(), require_ai_use=True) as stub:
+        error = await _fails(stub)
+        assert error.code() == grpc.StatusCode.PERMISSION_DENIED
+        assert error.details() == "insufficient_scope: missing ['ai:use']"
+
+        responses, _ = await _collect(stub, md=_md("u1", "ai:use"))
+        assert responses[-1] == ("", True)
+
+
+async def test_session_id_too_long_is_invalid_argument():
+    async with _serving(EchoChatService()) as stub:
+        error = await _fails(stub, session_id="x" * (MAX_SESSION_ID_LEN + 1))
+
+    assert error.code() == grpc.StatusCode.INVALID_ARGUMENT
+    assert error.details() == "session_id must be at most 128 characters"
+
+
+async def test_session_id_at_the_limit_is_accepted():
+    async with _serving(EchoChatService()) as stub:
+        responses, _ = await _collect(stub, session_id="x" * MAX_SESSION_ID_LEN)
+
+    assert responses[-1] == ("", True)
+
+
+async def test_forwards_principal_request_id_and_deadline():
+    chat = _RecordingChat()
+    async with _serving(chat) as stub:
+        call = stub.StreamChat(
+            chat_pb2.StreamChatRequest(session_id="s9", message="hi"),
+            metadata=_md("u42"),
+            timeout=30,
+        )
+        _ = [r async for r in call]
+
+    assert chat.kwargs["principal_id"] == "u42"
+    assert chat.kwargs["session_id"] == "s9"
+    assert chat.kwargs["request_id"]
+    assert 0 < chat.kwargs["deadline_seconds"] <= 31
+
+
+async def test_anonymous_principal_maps_to_empty_id():
+    chat = _RecordingChat()
+    async with _serving(chat) as stub:
+        await _collect(stub, md=_md("anonymous", ptype="anonymous"))
+
+    assert chat.kwargs["principal_id"] == ""
+    assert chat.kwargs["deadline_seconds"] is None
 
 
 @pytest.mark.parametrize(
-    ("error", "code"),
+    ("error", "code", "message"),
     [
-        (ChainExhausted(FailureKind.SERVER, 3), grpc.StatusCode.UNAVAILABLE),
-        (ChainExhausted(FailureKind.TIMEOUT, 2), grpc.StatusCode.UNAVAILABLE),
-        (ChainExhausted(None, 0), grpc.StatusCode.UNAVAILABLE),
         (
-            ChainExhausted(FailureKind.RATE_LIMITED, 2),
-            grpc.StatusCode.RESOURCE_EXHAUSTED,
+            ChatDeadlineExceeded(),
+            grpc.StatusCode.DEADLINE_EXCEEDED,
+            "deadline exceeded",
         ),
-        (StreamInterrupted(FailureKind.SERVER), grpc.StatusCode.UNAVAILABLE),
-        (ChatDeadlineExceeded("late"), grpc.StatusCode.DEADLINE_EXCEEDED),
+        (ChatQuotaExhausted(), grpc.StatusCode.RESOURCE_EXHAUSTED, "quota exceeded"),
+        (
+            ChatModelRateLimited(),
+            grpc.StatusCode.RESOURCE_EXHAUSTED,
+            "model rate limited",
+        ),
+        (ChatModelUnavailable(), grpc.StatusCode.UNAVAILABLE, "model unavailable"),
+        (ChatInterrupted(), grpc.StatusCode.UNAVAILABLE, "model unavailable"),
+        (ChatError("secret detail"), grpc.StatusCode.INTERNAL, "internal error"),
+        (RuntimeError("secret detail"), grpc.StatusCode.INTERNAL, "internal error"),
     ],
 )
-async def test_errors_map_to_grpc_status(error, code):
-    servicer = ChatServicer(_ScriptedStreamer((), error))
+async def test_errors_map_to_fixed_status_and_message(error, code, message):
+    async with _serving(_FailingChat(error)) as stub:
+        failure = await _fails(stub)
 
-    with pytest.raises(_Aborted) as info:
-        await _drain(servicer, _FakeContext())
-
-    assert info.value.code is code
-    assert info.value.details in {
-        "model unavailable",
-        "model rate limited",
-        "deadline exceeded",
-    }
+    assert failure.code() == code
+    assert failure.details() == message
+    assert "secret" not in (failure.debug_error_string() or "")
 
 
-async def test_stream_interrupted_aborts_after_the_partial_deltas():
-    servicer = ChatServicer(
-        _ScriptedStreamer(("x", "y"), StreamInterrupted(FailureKind.TIMEOUT))
-    )
-    seen: list[str] = []
-    request = chat_pb2.StreamChatRequest(session_id="s", message="hello")
+async def test_failure_after_deltas_has_no_done_chunk():
+    async with _serving(_FailingChat(ChatInterrupted(), ("a ", "b "))) as stub:
+        call = stub.StreamChat(
+            chat_pb2.StreamChatRequest(session_id="s", message="hi"),
+            metadata=_md(),
+        )
+        seen: list[tuple[str, bool]] = []
+        with pytest.raises(grpc.aio.AioRpcError) as exc:
+            async for r in call:
+                seen.append((r.delta, r.done))
 
-    with pytest.raises(_Aborted) as info:
-        async for response in servicer.StreamChat(request, _FakeContext()):  # type: ignore[arg-type]
-            seen.append(response.delta)
-
-    assert seen == ["x", "y"]  # no done=True after a failure
-    assert info.value.code is grpc.StatusCode.UNAVAILABLE
-
-
-async def test_upstream_is_cancelled_at_the_grpc_deadline_with_real_streamer():
-    provider = ScriptedProvider().queue("a", Script(hang=True))
-    router = ModelRouter(
-        build_test_settings(CHAT_MODEL="a", CHAT_FALLBACK_MODELS="b"),
-        model_builder=provider.builder,
-        breaker_policy=CircuitBreakerPolicy(failure_threshold=3),
-    )
-    streamer = LLMRouterChatStreamer(router, first_token_timeout_seconds=30)
-
-    with pytest.raises(_Aborted) as info:
-        await _drain(ChatServicer(streamer), _FakeContext(time_remaining=0.1))
-
-    assert info.value.code is grpc.StatusCode.DEADLINE_EXCEEDED
-    assert provider.calls_to("a")[0].cancelled is True
-    assert provider.calls_to("b") == []
+    assert seen == [("a ", False), ("b ", False)]
+    assert exc.value.code() == grpc.StatusCode.UNAVAILABLE
 
 
-async def test_chain_failure_with_real_streamer_maps_429_to_resource_exhausted():
-    provider = ScriptedProvider()
-    provider.queue("a", Script(fail_at=0, error=StatusError(429)))
-    router = ModelRouter(
-        build_test_settings(CHAT_MODEL="a", CHAT_FALLBACK_MODELS=""),
-        model_builder=provider.builder,
-    )
-    streamer = LLMRouterChatStreamer(router)
+async def test_quota_exhausted_sets_retry_after_trailer():
+    async with _serving(_FailingChat(ChatQuotaExhausted(30))) as stub:
+        failure = await _fails(stub)
 
-    with pytest.raises(_Aborted) as info:
-        await _drain(ChatServicer(streamer), _FakeContext(time_remaining=5))
-
-    assert info.value.code is grpc.StatusCode.RESOURCE_EXHAUSTED
+    assert dict(failure.trailing_metadata() or ())["retry-after"] == "30"
 
 
-async def test_exception_text_never_reaches_the_client_and_is_logged(caplog_loguru):
-    secret = "sk-live-TOPSECRET provider said: user phone 0912345678"
-    servicer = ChatServicer(_ScriptedStreamer(("x",), RuntimeError(secret)))
+async def test_retry_after_trailer_absent_without_a_value():
+    async with _serving(_FailingChat(ChatQuotaExhausted(None))) as stub:
+        failure = await _fails(stub)
 
-    with pytest.raises(_Aborted) as info:
-        await _drain(servicer, _FakeContext())
-
-    assert info.value.code is grpc.StatusCode.INTERNAL
-    assert info.value.details == "internal error"
-    assert "TOPSECRET" not in info.value.details
-    # The original exception is kept server-side, tagged with the request id.
-    assert any(
-        "grpc.StreamChat.error" in line and "RuntimeError" in line
-        for line in caplog_loguru
-    )
+    assert "retry-after" not in dict(failure.trailing_metadata() or ())
 
 
-async def test_chain_failure_message_carries_no_provider_text():
-    provider = ScriptedProvider()
-    provider.queue(
-        "a", Script(fail_at=0, error=StatusError(500, "upstream said: sk-abc leaked"))
-    )
-    router = ModelRouter(
-        build_test_settings(CHAT_MODEL="a", CHAT_FALLBACK_MODELS=""),
-        model_builder=provider.builder,
-    )
-    streamer = LLMRouterChatStreamer(router, max_attempts=1)
+async def test_other_errors_set_no_retry_after_trailer():
+    async with _serving(_FailingChat(ChatModelRateLimited())) as stub:
+        failure = await _fails(stub)
 
-    with pytest.raises(_Aborted) as info:
-        await _drain(ChatServicer(streamer), _FakeContext(time_remaining=5))
-
-    assert info.value.code is grpc.StatusCode.UNAVAILABLE
-    assert info.value.details == "model unavailable"
+    assert "retry-after" not in dict(failure.trailing_metadata() or ())

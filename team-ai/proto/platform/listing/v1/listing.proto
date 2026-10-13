@@ -360,5 +360,3 @@ message ListingStatusChanged {
   string listing_id = 1;
   ListingStatus status = 2;
 }
-
-

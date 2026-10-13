@@ -266,10 +266,11 @@ def ssa_first_second_gone(world: World) -> None:
         assert not left, f"collections of {version} remain: {left}"
 
 
-@then("none of its POSTGRES values is a listing service credential")
-def ssa_no_listing_credentials(world: World) -> None:
+@then("it holds no database credentials")
+def ssa_no_database_credentials(world: World) -> None:
+    """team-ai owns no database (the rewrite has no DATABASE_*/POSTGRES_* settings), so none are given."""
     env = world.state.extra["ssa_env"]
-    postgres = {k: v for k, v in env.items() if k.startswith("POSTGRES_")}
-    assert postgres, f"team-ai has no POSTGRES_* env at all: {sorted(env)}"
-    leaked = {k: v for k, v in postgres.items() if "listing" in v.lower()}
-    assert not leaked, f"team-ai holds listing's credentials: {sorted(leaked)}"
+    held = sorted(k for k in env if k.startswith(("POSTGRES_", "DATABASE_", "DB_")))
+    assert not held, f"team-ai holds database settings: {held}"
+    leaked = sorted(k for k, v in env.items() if "listing_pass" in v or "listing_svc" in v)
+    assert not leaked, f"team-ai holds listing's credentials: {leaked}"

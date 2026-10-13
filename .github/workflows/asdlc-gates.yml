@@ -209,12 +209,15 @@ jobs:
           echo "## Mutation (advisory, threshold ${THRESHOLD}%)" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
+      - uses: astral-sh/setup-uv@v5
       - name: Python (mutmut)
         run: |
           [ -s py.txt ] || { echo "- python: no changed team-ai modules" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
-          cd team-ai && pip install -r requirements.txt -e ".[dev]" mutmut
-          mutmut run --paths-to-mutate "$(sed 's#team-ai/##g; s/ /,/g; s/,$//' ../py.txt)" || true
-          mutmut results | tee ../mut-py.txt || true
+          cd team-ai
+          uv sync --dev --all-extras
+          uv run --all-extras python -m scripts.gen_proto
+          uv run --all-extras --with mutmut mutmut run --paths-to-mutate "$(sed 's#team-ai/##g; s/ /,/g; s/,$//' ../py.txt)" || true
+          uv run --all-extras --with mutmut mutmut results | tee ../mut-py.txt || true
           k=$(grep -c "Killed" ../mut-py.txt || true); s=$(grep -c "Survived" ../mut-py.txt || true)
           t=$((k+s)); sc=$([ "$t" -gt 0 ] && echo $((100*k/t)) || echo 0)
           echo "- python mutmut: score ${sc}% (${k}/${t})" >> "$GITHUB_STEP_SUMMARY"

@@ -7,4 +7,3 @@ services:
   team-ai:
     environment:
       RAG_ENABLED: "false"
-      LISTING_INDEXER_ENABLED: "false"

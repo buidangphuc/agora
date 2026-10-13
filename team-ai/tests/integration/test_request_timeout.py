@@ -10,7 +10,6 @@ from tests.factories import build_test_settings
 
 def _settings(*, timeout_seconds: int = 1) -> Settings:
     return build_test_settings(
-        REQUEST_TIMEOUT_ENABLED=True,
         REQUEST_TIMEOUT_SECONDS=timeout_seconds,
     )
 

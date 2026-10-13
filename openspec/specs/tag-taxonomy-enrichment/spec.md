@@ -110,7 +110,7 @@ The `/search` page SHALL render one filter group per `facets.skus` and `facets.t
 
 ### Requirement: Tag routes require an authenticated principal
 
-Every tag route of team-ai (`POST /api/v1/ai/tags/classify`, `/classify-sku-hierarchy`, `/explore`, `/promote` and `GET /api/v1/ai/tags`) SHALL require a bearer token that team-ai verifies itself. The read routes (`classify`, `classify-sku-hierarchy`, list) SHALL accept a principal holding scope `ai.classify` or `admin`; the mutating routes (`explore`, `promote`) SHALL accept only a principal holding scope `admin`. A request without a valid token SHALL be refused with 401 and a valid token that lacks the scope with 403, and a refused request SHALL NOT change the taxonomy. A user's JWT SHALL NOT be accepted (only the gateway verifies JWTs).
+Every tag route of team-ai (`POST /api/v1/ai/tags/classify`, `/classify-sku-hierarchy`, `/explore`, `/promote` and `GET /api/v1/ai/tags`) SHALL require a bearer token that team-ai verifies itself against its `AUTH_API_KEYS`: comma-separated `subject:scope|scope:sha256hex` entries, where the digest is the sha256 of the raw token, so no raw token is configured. The read routes (`classify`, `classify-sku-hierarchy`, list) SHALL accept a principal holding scope `ai.classify` or `admin`; the mutating routes (`explore`, `promote`) SHALL accept only a principal holding scope `admin`. A request without a valid token SHALL be refused with 401 and a valid token that lacks the scope with 403, and a refused request SHALL NOT change the taxonomy. A user's JWT SHALL NOT be accepted (only the gateway verifies JWTs).
 
 #### Scenario: Anonymous tag requests are refused
 
@@ -132,15 +132,15 @@ Every tag route of team-ai (`POST /api/v1/ai/tags/classify`, `/classify-sku-hier
 - **WHEN** an admin principal explores a batch and promotes the discovered candidate
 - **THEN** both answer 200 and the tag is promoted and canonical
 
-#### Scenario: Admin access is off unless configured and strong
+#### Scenario: Admin access needs an admin key, and placeholder keys are refused in production
 
-- **WHEN** `AUTH_ADMIN_BEARER_TOKEN` is unset, or outside dev/local/test is weak or equal to `AUTH_BEARER_TOKEN`
-- **THEN** no principal holds `admin` on the REST routes, and startup refuses the weak or equal configuration
-- **VERIFIED BY**: team-ai/tests/unit/modules/test_tag_routes_authz.py › test_admin_token_unset_grants_no_admin, test_weak_or_shared_admin_token_is_refused_outside_local. Not verifiable end to end: the stack runs with the local environment and a configured admin token (design.md).
+- **WHEN** no `AUTH_API_KEYS` entry carries the `admin` scope, or outside dev/local/test `AUTH_API_KEYS` is empty or has an entry hashing a known placeholder token
+- **THEN** no principal holds `admin` on the REST routes, and startup refuses the empty or placeholder configuration
+- **VERIFIED BY**: team-ai/tests/integration/test_tag_routes.py (`test_service_key_gets_only_the_read_routes`, `test_admin_key_gets_all_routes`) and team-ai/tests/unit/core/test_config.py (`test_production_rejects_api_keys_hashing_a_known_weak_token`). Not verifiable end to end: the stack runs with the local environment and configured keys (design.md).
 
 ### Requirement: Tag taxonomy survives a restart
 
-When taxonomy persistence is enabled, team-ai SHALL store its canonical tags and exploring candidates in Redis and load them at startup, so that a tag promoted through `POST /api/v1/ai/tags/promote` is still canonical, and an explored candidate still a candidate, after team-ai restarts. A promotion SHALL be durable before it is acknowledged: if the store cannot be written the call SHALL answer 503 and leave the taxonomy unchanged. The REST routes and gRPC `ClassifyTags` SHALL answer from the same registry. A store outage at startup SHALL NOT stop the service, which serves the seed taxonomy until the store can be read. With persistence disabled the registry stays in memory.
+team-ai SHALL always store its canonical tags and exploring candidates in Redis and load them at startup, so that a tag promoted through `POST /api/v1/ai/tags/promote` is still canonical, and an explored candidate still a candidate, after team-ai restarts. A promotion SHALL be durable before it is acknowledged: if the store cannot be written the call SHALL answer 503 and leave the taxonomy unchanged. The REST routes and gRPC `ClassifyTags` SHALL answer from the same registry. A store outage at startup SHALL NOT stop the service, which serves the seed taxonomy until the store can be read.
 
 #### Scenario: Promoted and exploring tags survive a restart
 
@@ -151,22 +151,22 @@ When taxonomy persistence is enabled, team-ai SHALL store its canonical tags and
 
 - **WHEN** the taxonomy store cannot be written during `promote`
 - **THEN** the call answers 503 and the tag is still only a candidate
-- **VERIFIED BY**: team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py › test_promote_is_refused_and_unchanged_when_the_store_write_fails. Not verifiable end to end: failing Redis would break every service sharing the stack (design.md).
+- **VERIFIED BY**: team-ai/tests/unit/modules/tag_classifier/test_curation.py › test_promote_persists_before_applying_and_drops_the_candidate. Not verifiable end to end: failing Redis would break every service sharing the stack (design.md).
 
 #### Scenario: A store outage at startup serves the seed taxonomy
 
 - **WHEN** the store cannot be read at startup and later recovers
 - **THEN** the service starts with the seed taxonomy, and the next `promote` or `explore` loads the stored state before applying its change
-- **VERIFIED BY**: team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py › test_startup_outage_serves_seed_then_loads_before_the_next_mutation. Not verifiable end to end: same reason (design.md).
+- **VERIFIED BY**: team-ai/tests/unit/modules/tag_classifier/test_curation.py (`test_explore_persistence_is_best_effort`) and team-ai/tests/unit/modules/tag_classifier/test_store.py. Not verifiable end to end: same reason (design.md).
 
 #### Scenario: REST and gRPC share one registry
 
 - **WHEN** a tag is promoted through the REST route
 - **THEN** gRPC `ClassifyTags` returns it for a matching title, and a restart restores it for both
-- **VERIFIED BY**: team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py › test_rest_promotion_is_seen_by_grpc_classify_and_survives_a_new_process. Not verifiable end to end: the gateway does not route `ClassifyTags` (internal, service principal only).
+- **VERIFIED BY**: team-ai/tests/integration/test_taxonomy_restart.py › test_promoted_tag_and_candidates_survive_restart. Not verifiable end to end: the gateway does not route `ClassifyTags` (internal, service principal only).
 
-#### Scenario: Persistence is off unless enabled
+#### Scenario: Persistence is always on, in its own database
 
-- **WHEN** `TAXONOMY_PERSISTENCE_ENABLED` is false
-- **THEN** nothing is written to Redis and a restart returns to the seed taxonomy, and enabling it without `REDIS_ENABLED` or on the same Redis database as `REDIS_DATABASE` fails startup
-- **VERIFIED BY**: team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py › test_disabled_persistence_writes_nothing, test_enabling_persistence_requires_redis_on_another_database. Not verifiable end to end: the stack runs with persistence on (design.md).
+- **WHEN** team-ai starts with the default settings
+- **THEN** the taxonomy is stored in Redis database `TAXONOMY_REDIS_DATABASE` (default 5), and setting it to the same database as `REDIS_DATABASE` fails startup
+- **VERIFIED BY**: team-ai/tests/unit/core/test_taxonomy_settings.py. Not verifiable end to end: the stack always runs with persistence on.

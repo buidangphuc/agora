@@ -4,7 +4,6 @@ import logging
 from time import perf_counter
 from uuid import uuid4
 
-from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.request_context import get_request_id
@@ -146,45 +145,6 @@ class RequestBodyTooLarge(Exception):
     pass
 
 
-class SecurityHeadersMiddleware:
-    def __init__(
-        self,
-        app: ASGIApp,
-        *,
-        hsts_enabled: bool = False,
-        hsts_max_age_seconds: int = 31536000,
-    ) -> None:
-        if hsts_max_age_seconds < 0:
-            raise ValueError("hsts_max_age_seconds must not be negative")
-        self.app = app
-        self.hsts_enabled = hsts_enabled
-        self.hsts_max_age_seconds = hsts_max_age_seconds
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        async def send_with_headers(message: Message) -> None:
-            if message["type"] == "http.response.start":
-                headers = MutableHeaders(scope=message)
-                headers.setdefault("x-content-type-options", "nosniff")
-                headers.setdefault("x-frame-options", "DENY")
-                headers.setdefault("referrer-policy", "no-referrer")
-                headers.setdefault(
-                    "permissions-policy",
-                    "camera=(), microphone=(), geolocation=()",
-                )
-                if self.hsts_enabled:
-                    headers.setdefault(
-                        "strict-transport-security",
-                        (f"max-age={self.hsts_max_age_seconds}; includeSubDomains"),
-                    )
-            await send(message)
-
-        await self.app(scope, receive, send_with_headers)
-
-
 class InFlightTracker:
     def __init__(self) -> None:
         self._count = 0
@@ -290,100 +250,6 @@ class RequestTimeoutMiddleware:
                     (b"content-length", str(len(body)).encode("ascii")),
                     (b"x-request-id", request_id.encode("utf-8")),
                 ],
-            }
-        )
-        await send({"type": "http.response.body", "body": body})
-
-
-class IPRateLimitMiddleware:
-    """Per-IP rate limit middleware.
-
-    Runs before auth so it protects every endpoint (anonymous traffic too).
-    The limiter is looked up lazily from ``app.state.resources.ip_rate_limiter``
-    so the middleware can be installed during ``create_app`` while the actual
-    limiter is built during lifespan.
-    """
-
-    def __init__(
-        self,
-        app: ASGIApp,
-        *,
-        exclude_patterns: tuple[str, ...] = (),
-    ) -> None:
-        self.app = app
-        self.exclude_patterns = exclude_patterns
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        path = scope.get("path", "")
-        if self._is_excluded(path):
-            await self.app(scope, receive, send)
-            return
-
-        limiter = self._lookup_limiter(scope)
-        if limiter is None:
-            await self.app(scope, receive, send)
-            return
-
-        client_ip = self._extract_client_ip(scope)
-        result = await limiter.check(client_ip)
-        if result.allowed:
-            await self.app(scope, receive, send)
-            return
-
-        await self._send_rate_limited(scope, send, result.retry_after_seconds)
-
-    def _is_excluded(self, path: str) -> bool:
-        return any(pattern in path for pattern in self.exclude_patterns)
-
-    def _lookup_limiter(self, scope: Scope):
-        starlette_app = scope.get("app")
-        if starlette_app is None:
-            return None
-        resources = getattr(starlette_app.state, "resources", None)
-        if resources is None:
-            return None
-        return resources.ip_rate_limiter
-
-    def _extract_client_ip(self, scope: Scope) -> str:
-        for header_name, header_value in scope.get("headers", []):
-            if header_name == b"x-forwarded-for":
-                return header_value.decode("latin-1").split(",")[0].strip()
-        client = scope.get("client")
-        if client is None:
-            return "unknown"
-        return client[0]
-
-    async def _send_rate_limited(
-        self,
-        scope: Scope,
-        send: Send,
-        retry_after_seconds: int | None,
-    ) -> None:
-        request_id = _request_id_from_scope(scope)
-        payload = {
-            "error": {
-                "code": "rate_limit_exceeded",
-                "message": "Too many requests from this client",
-                "request_id": request_id,
-            }
-        }
-        body = json.dumps(payload).encode("utf-8")
-        headers = [
-            (b"content-type", b"application/json"),
-            (b"content-length", str(len(body)).encode("ascii")),
-            (b"x-request-id", request_id.encode("utf-8")),
-        ]
-        if retry_after_seconds is not None:
-            headers.append((b"retry-after", str(retry_after_seconds).encode("ascii")))
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 429,
-                "headers": headers,
             }
         )
         await send({"type": "http.response.body", "body": body})

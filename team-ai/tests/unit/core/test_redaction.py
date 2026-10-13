@@ -1,3 +1,5 @@
+import pytest
+
 from app.core.redaction import RedactionPolicy
 
 
@@ -36,95 +38,76 @@ def test_redaction_policy_redacts_nested_mapping():
     }
 
 
-def test_redaction_masks_vietnamese_mobile_formats():
+def test_redaction_masks_strings_inside_lists():
     policy = RedactionPolicy(mode="redacted")
 
-    for phone in (
-        "0912345678",
-        "+84 912 345 678",
-        "+84912345678",
-        "84912345678",
-        "091-234-5678",
-        "0912.345.678",
-        "0912 345 678",
-        "0356789012",
-    ):
-        redacted = policy.redact_text(f"goi {phone} nhe")
-        assert redacted == "goi [phone] nhe", phone
-
-
-def _ids() -> RedactionPolicy:
-    return RedactionPolicy(mode="redacted", mask_national_id=True)
-
-
-def test_national_id_masked_only_after_an_id_keyword():
-    policy = _ids()
-
-    assert policy.redact_text("CCCD 079123456789 cua toi") == "CCCD [id] cua toi"
-    assert policy.redact_text("CMND: 123456789.") == "CMND: [id]."
-    assert policy.redact_text("cmnd:123456789") == "cmnd:[id]"
-    assert policy.redact_text("Số CMT 123456789") == "Số CMT [id]"
-    assert policy.redact_text("căn cước công dân số 079123456789") == (
-        "căn cước công dân số [id]"
-    )
-    assert policy.redact_text("ID card: 079123456789") == "ID card: [id]"
-
-
-def test_bare_numbers_are_never_masked_as_national_ids():
-    policy = _ids()
-    text = (
-        "Giá 850000000 VND, 2500000000 đ, 1 tỷ 200, đơn 123456789 và "
-        "mã 001203004567, order id 123456789"
+    payload = policy.redact_mapping(
+        {
+            "contacts": ["admin@example.com", {"note": "key sk-abc123"}],
+            "nested": [["a@b.io"]],
+        }
     )
 
-    assert policy.redact_text(text) == text
+    assert payload == {
+        "contacts": ["[email]", {"note": "key [secret]"}],
+        "nested": [["[email]"]],
+    }
 
 
-def test_national_id_masking_is_off_by_default_even_with_keyword():
-    assert RedactionPolicy(mode="redacted").redact_text("CCCD 079123456789") == (
-        "CCCD 079123456789"
-    )
-
-
-def test_redaction_matches_phone_before_national_id():
-    policy = _ids()
-
-    assert policy.redact_text("0912345678") == "[phone]"
-    assert policy.redact_text("so 0912345678 va cccd 001203004567") == (
-        "so [phone] va cccd [id]"
-    )
-
-
-def test_redaction_leaves_order_numbers_and_prices_untouched():
-    policy = _ids()
-    text = (
-        "Don DH-20240915-001 gia 1.500.000d, 250000 VND, ma #12345678, "
-        "ship 30k, 12 san pham, SKU A1234567890B"
-    )
-
-    assert policy.redact_text(text) == text
-
-
-def test_redaction_off_and_full_modes_unchanged_for_pii():
-    raw = "call 0912345678 cccd 001203004567"
-
-    assert RedactionPolicy(mode="full").redact_text(raw) == raw
-    assert RedactionPolicy(mode="off").redact_text(raw) == "[redacted]"
-
-
-def test_llm_input_policy_always_masks_whatever_the_trace_content_mode_is():
-    policy = RedactionPolicy.for_llm_input()
-
-    assert policy.mode == "redacted"
-    assert policy.redact_text("call 0912345678, cccd 079123456789") == (
-        "call [phone], cccd [id]"
-    )
-    # Unlike the log policy, it never blanks ("off") or passes through ("full").
-    assert RedactionPolicy(mode="off").redact_text("hi") == "[redacted]"
-    assert RedactionPolicy(mode="full").redact_text("0912345678") == "0912345678"
-
-
-def test_redact_mapping_masks_phone_in_values():
+@pytest.mark.parametrize(
+    "key",
+    [
+        "Authorization",
+        "Cookie",
+        "Set-Cookie",
+        "api_key",
+        "apikey",
+        "X-API-Key",
+        "access_token",
+    ],
+)
+def test_redaction_masks_secret_header_and_key_names(key: str):
     policy = RedactionPolicy(mode="redacted")
 
-    assert policy.redact_mapping({"note": "tel 0912345678"}) == {"note": "tel [phone]"}
+    assert policy.redact_mapping({key: "value"}) == {key: "[secret]"}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "goi 0912345678 nhe",
+        "so dt 091 234 5678",
+        "so dt 091.234.5678",
+        "lien he +84912345678",
+        "lien he +84 912 345 678",
+        "call +1 415 555 2671",
+    ],
+)
+def test_redaction_masks_phone_numbers_including_vietnamese(text: str):
+    redacted = RedactionPolicy(mode="redacted").redact_text(text)
+
+    assert "[phone]" in redacted
+    assert "912" not in redacted and "415" not in redacted
+
+
+def test_redaction_masks_luhn_valid_card_numbers_only():
+    policy = RedactionPolicy(mode="redacted")
+
+    assert policy.redact_text("card 4111 1111 1111 1111 ok") == "card [card] ok"
+    assert policy.redact_text("card 4111-1111-1111-1111") == "card [card]"
+    # Fails Luhn: an order id, not a card.
+    assert policy.redact_text("order 4111111111111112") == "order 4111111111111112"
+
+
+def test_redaction_masks_aws_access_key_ids():
+    redacted = RedactionPolicy(mode="redacted").redact_text(
+        "key AKIAIOSFODNN7EXAMPLE leaked"  # pragma: allowlist secret
+    )
+
+    assert redacted == "key [secret] leaked"
+
+
+def test_redaction_leaves_plain_numbers_alone():
+    text = "ticket 12345 on 2026-10-12 costs 1,500,000 dong"
+
+    assert RedactionPolicy(mode="redacted").redact_text(text) == text

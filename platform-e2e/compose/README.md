@@ -12,7 +12,7 @@ the overlays you need to its `-f` list.
 | `order-inventory.override.yaml` | order / inventory features | 20 s reservation TTL, 2 s sweep |
 | `payment-ledger.override.yaml` | payment ledger features | short ledger windows |
 | `search-tombstones.override.yaml` | search read-model features | 30 s tombstone TTL |
-| `llm-fake.override.yaml` | `ai/llm_*.feature`, `ops/boot_guard_ai.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |
+| `llm-fake.override.yaml` | `ai/llm_*.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |
 | `modelserve.override.yaml` | `modelserve/*.feature`, `search/hybrid_*.feature` | `tei-fake` and `modelserve-router` now live in the base compose (team-ai's RAG default needs them); this overlay publishes their host ports, names the images `agora-*`, sets `MAX_QUEUE_DEPTH=10` and points team-search and its indexer at the router (`MODEL_SERVER_URL`, `ENABLE_RERANKER=true`) |
 | `rag-off.override.yaml` | `ai/assistant_grounding.feature` (demo-catalog scenario, `@destructive`) | team-ai with `RAG_ENABLED=false` and the listing indexer off; applied by the scenario itself, never part of the standing stack |
 | `llm-fake-langfuse.override.yaml` | `ai/llm_tracing.feature` only | turns Langfuse on in team-ai, pointed at the fake's ingestion endpoint |
@@ -29,11 +29,11 @@ on `127.0.0.1:${LLM_FAKE_HOST_PORT:-18099}` and switches team-ai to:
 |---|---|
 | `CHAT_BACKEND` / `CHAT_MODEL` / `CHAT_FALLBACK_MODELS` | `llm_router` / `openai:primary` / `openai:fb1,openai:fb2` |
 | `OPENAI_BASE_URL` / `OPENAI_API_KEY` | `http://llm-fake:8099/v1` / `fake` |
-| `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` / `LLM_MAX_ATTEMPTS` | 2 / 3 |
-| `LLM_BREAKER_THRESHOLD` / `LLM_BREAKER_COOLDOWN_SECONDS` | 2 / 5 |
+| `CHAT_FIRST_TOKEN_TIMEOUT_SECONDS` / `LLM_MAX_RETRIES` | 2 / 1 (the default: the SDK's own retry; the chain walks each target once) |
+| `LLM_BREAKER_FAILURE_THRESHOLD` / `LLM_BREAKER_COOLDOWN_SECONDS` | 1000 standing, 2 with `llm-fake-breaker.override.yaml` / 5 |
 | `CHAT_SYSTEM_PROMPT` / `CHAT_HISTORY_MAX_TURNS` | a fixed e2e prompt / 4 |
-| `QUOTA_ENABLED` / `QUOTA_BACKEND` / `QUOTA_CHAT_REPLIES_PER_WINDOW` | true / memory / 15 (design says 30, see the file header) |
-| `GRPC_RATE_LIMIT_ENABLED` / `RATE_LIMIT_PRINCIPAL_PER_MINUTE` | true / 20 |
+| `QUOTA_CHAT_REPLIES_PER_WINDOW` | 15 (design says 30, see the file header); the quota is always on, counted in Redis |
+| `RATE_LIMIT_PRINCIPAL_PER_MINUTE` | 20; the gRPC and per-principal HTTP rate limits are always on, in Redis |
 
 Bring it up (stack already running, wrapper already carrying the overlay):
 

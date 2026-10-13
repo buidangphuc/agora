@@ -1,13 +1,43 @@
+import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.core.config import Settings
-from app.core.resilience import CircuitBreakerPolicy, FailureKind
+from app.core.config.runtime import Environment
+from app.core.errors import ServiceUnavailableError
+from app.core.resilience import BreakerState, CircuitBreakerPolicy
 from app.modules.ai.llm.router import ModelRouter
 from tests.factories import build_test_settings
 
 
+class _StatusError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"status {status_code}")
+        self.status_code = status_code
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
 def _settings(**overrides: object) -> Settings:
     return build_test_settings(**overrides)
+
+
+def _fallback_router(
+    clock: _Clock | None = None, *, threshold: int = 2, cooldown: float = 30.0
+) -> ModelRouter:
+    return ModelRouter(
+        _settings(CHAT_MODEL="primary", CHAT_FALLBACK_MODELS="secondary"),
+        model_builder=lambda target: FakeListChatModel(responses=[target]),
+        breaker_policy=CircuitBreakerPolicy(
+            failure_threshold=threshold, cooldown_seconds=cooldown
+        ),
+        clock=clock,
+    )
 
 
 def test_model_router_uses_fake_model_when_default_model_is_empty():
@@ -37,7 +67,20 @@ def test_model_router_uses_judge_model_when_configured():
     assert created == ["openai:gpt-4.1"]
 
 
-def test_model_router_lists_primary_then_all_fallback_targets_in_order():
+def test_model_router_builds_each_target_once():
+    created: list[str] = []
+
+    def build(target: str):
+        created.append(target)
+        return FakeListChatModel(responses=[target])
+
+    router = ModelRouter(_settings(CHAT_MODEL="primary"), model_builder=build)
+
+    assert router.model_for("primary") is router.model_for("primary")
+    assert created == ["primary"]
+
+
+def test_model_router_chain_is_primary_then_every_fallback_in_order():
     router = ModelRouter(
         _settings(
             CHAT_MODEL="openai:gpt-4.1-mini",
@@ -45,150 +88,174 @@ def test_model_router_lists_primary_then_all_fallback_targets_in_order():
         )
     )
 
-    assert router.fallback_models("default") == [
+    assert router.chain("default") == (
         "openai:gpt-4.1-mini",
         "anthropic:claude-sonnet-4-5",
         "openai:gpt-4.1",
-    ]
-    assert router.fallback_models("judge") == ["openai:gpt-4.1-mini"]
+    )
 
 
-def test_model_router_switches_to_secondary_after_primary_counted_failures():
+def test_model_router_chain_drops_duplicates_and_judge_has_no_fallbacks():
     router = ModelRouter(
         _settings(
-            CHAT_MODEL="openai:gpt-4.1-mini",
-            CHAT_FALLBACK_MODELS="anthropic:claude-sonnet-4-5, openai:gpt-4.1",
+            CHAT_MODEL="a",
+            CHAT_FALLBACK_MODELS="b, a, b, c",
+            JUDGE_CHAT_MODEL="j",
         )
     )
 
-    assert router.current_target("default") == "openai:gpt-4.1-mini"
-    router.record_error("openai:gpt-4.1-mini", status_code=429)
-    router.record_error("openai:gpt-4.1-mini", status_code=503)
-    assert router.current_target("default") == "openai:gpt-4.1-mini"
-
-    router.record_error("openai:gpt-4.1-mini", error=TimeoutError())
-
-    assert router.current_target("default") == "anthropic:claude-sonnet-4-5"
+    assert router.chain("default") == ("a", "b", "c")
+    assert router.chain("judge") == ("j",)
 
 
-def test_model_router_does_not_count_request_caused_4xx():
-    router = ModelRouter(
-        _settings(CHAT_MODEL="primary", CHAT_FALLBACK_MODELS="secondary"),
-        breaker_policy=CircuitBreakerPolicy(failure_threshold=1),
-    )
+def test_deterministic_4xx_never_trips_failover():
+    router = _fallback_router(threshold=1)
 
-    for status in (400, 401, 404, 422):
-        router.record_error("primary", status_code=status)
+    for status in (400, 401, 413, 422):
+        router.record_error("primary", error=_StatusError(status))
 
-    assert router.eligible_targets("default") == ["primary", "secondary"]
+    assert router.select_target("default") == "primary"
 
 
-def test_model_router_ignores_targets_outside_the_chain():
-    router = ModelRouter(
-        _settings(CHAT_MODEL="primary", CHAT_FALLBACK_MODELS="secondary"),
-        breaker_policy=CircuitBreakerPolicy(failure_threshold=1),
-    )
+def test_transient_errors_trip_failover_including_timeouts():
+    router = _fallback_router(threshold=3)
 
-    router.record_error("stranger", status_code=500)
+    router.record_error("primary", error=_StatusError(429))
+    router.record_error("primary", error=TimeoutError())
+    assert router.select_target("default") == "primary"
+    router.record_error("primary", error=_StatusError(503))
 
-    assert router.eligible_targets("default") == ["primary", "secondary"]
+    assert router.select_target("default") == "secondary"
 
 
-def test_model_router_resets_failure_count_on_success():
-    router = ModelRouter(
-        _settings(CHAT_MODEL="primary", CHAT_FALLBACK_MODELS="secondary"),
-        breaker_policy=CircuitBreakerPolicy(failure_threshold=2),
-    )
+def test_primary_is_probed_after_cooldown_and_recovers_on_success():
+    clock = _Clock()
+    router = _fallback_router(clock, threshold=1, cooldown=30.0)
+    router.record_error("primary", error=TimeoutError())
+    assert router.select_target("default") == "secondary"
 
-    router.record_error("primary", status_code=429)
+    clock.now += 31
+    assert router.select_target("default") == "primary"  # the single probe
+    assert router.select_target("default") == "secondary"  # others still fail over
+
     router.record_success("primary")
-    router.record_error("primary", status_code=429)
 
-    assert router.current_target("default") == "primary"
-
-
-class _Clock:
-    def __init__(self) -> None:
-        self.now = 0.0
-
-    def __call__(self) -> float:
-        return self.now
+    assert router.select_target("default") == "primary"
 
 
-def _three_target_router(clock: _Clock) -> ModelRouter:
+def test_failed_probe_keeps_failing_over_for_another_cooldown():
+    clock = _Clock()
+    router = _fallback_router(clock, threshold=1, cooldown=30.0)
+    router.record_error("primary", error=TimeoutError())
+    clock.now += 31
+    assert router.select_target("default") == "primary"
+
+    router.record_error("primary", error=_StatusError(503))
+
+    assert router.select_target("default") == "secondary"
+    clock.now += 31
+    assert router.select_target("default") == "primary"
+
+
+def test_router_without_secondary_never_blocks_the_primary():
+    router = ModelRouter(
+        _settings(CHAT_MODEL="primary"),
+        breaker_policy=CircuitBreakerPolicy(failure_threshold=1),
+    )
+
+    router.record_error("primary", error=TimeoutError())
+
+    assert router.select_target("default") == "primary"
+    assert router.try_acquire("primary") is True
+
+
+def test_each_chain_target_has_its_own_breaker():
+    router = _fallback_router(threshold=1)
+
+    router.record_error("secondary", error=_StatusError(429))
+
+    assert router.select_target("default") == "primary"
+    assert router._breakers[("default", "primary")].state is BreakerState.CLOSED
+    assert router._breakers[("default", "secondary")].state is BreakerState.OPEN
+
+
+def _chain_router(clock: _Clock | None = None) -> ModelRouter:
     return ModelRouter(
         _settings(CHAT_MODEL="a", CHAT_FALLBACK_MODELS="b, c"),
-        breaker_policy=CircuitBreakerPolicy(failure_threshold=2, cooldown_seconds=30),
+        model_builder=lambda target: FakeListChatModel(responses=[target]),
+        breaker_policy=CircuitBreakerPolicy(failure_threshold=1, cooldown_seconds=30),
         clock=clock,
     )
 
 
-def test_model_router_has_one_breaker_per_target_with_three_targets():
-    router = _three_target_router(_Clock())
+def test_select_target_walks_past_every_open_breaker():
+    router = _chain_router()
+    router.record_error("a", error=TimeoutError())
+    assert router.select_target("default") == "b"
 
-    router.record_error("a", status_code=500)
-    router.record_error("a", status_code=500)
-    assert router.eligible_targets("default") == ["b", "c"]
-
-    router.record_error("b", error=ConnectionError())
-    router.record_error("b", error=ConnectionError())
-    assert router.eligible_targets("default") == ["c"]
-    assert router.current_target("default") == "c"
-
-    router.record_error("c", status_code=429)
-    router.record_error("c", status_code=429)
-    # Everything open: current_target degrades to the primary rather than "".
-    assert router.eligible_targets("default") == []
-    assert router.current_target("default") == "a"
+    router.record_error("b", error=TimeoutError())
+    assert router.select_target("default") == "c"
 
 
-def test_model_router_half_open_admits_one_probe_then_recovers():
+def test_select_target_raises_when_every_breaker_is_open():
+    router = _chain_router()
+    for target in ("a", "b", "c"):
+        router.record_error(target, error=TimeoutError())
+
+    with pytest.raises(ServiceUnavailableError):
+        router.select_target("default")
+
+
+def test_try_acquire_admits_the_probe_of_a_recovering_earlier_target():
     clock = _Clock()
-    router = _three_target_router(clock)
-    router.record_error("a", status_code=500)
-    router.record_error("a", status_code=500)
-    assert router.breaker_state("a") == "open"
+    router = _chain_router(clock)
+    router.record_error("a", error=TimeoutError())
+    clock.now += 31
 
-    clock.now = 31
-    # Peeking does not consume the probe.
-    assert router.eligible_targets("default") == ["a", "b", "c"]
-    assert router.eligible_targets("default") == ["a", "b", "c"]
-    assert router.try_acquire("a") is True
-    assert router.try_acquire("a") is False  # second caller is not a probe
-    assert router.eligible_targets("default") == ["b", "c"]
-
-    router.record_success("a")
-
-    assert router.breaker_state("a") == "closed"
-    assert router.eligible_targets("default") == ["a", "b", "c"]
+    assert router.try_acquire("a") is True  # the single probe
+    assert router.try_acquire("a") is False
 
 
-def test_model_router_failed_probe_reopens_for_fresh_cooldown():
-    clock = _Clock()
-    router = _three_target_router(clock)
-    router.record_error("a", status_code=500)
-    router.record_error("a", status_code=500)
-    clock.now = 31
-    assert router.try_acquire("a") is True
+def test_model_router_resets_failure_count_on_success():
+    router = _fallback_router(threshold=2)
 
-    kind = router.record_error("a", error=TimeoutError())
+    router.record_error("primary", error=TimeoutError())
+    router.record_success("primary")
+    router.record_error("primary", error=TimeoutError())
 
-    assert kind is FailureKind.TIMEOUT
-    assert router.breaker_state("a") == "open"
-    clock.now = 60  # < 31 + 30
-    assert router.eligible_targets("default") == ["b", "c"]
-    clock.now = 62
-    assert router.eligible_targets("default") == ["a", "b", "c"]
+    assert router.select_target("default") == "primary"
 
 
-def test_model_router_cancelled_attempt_frees_the_probe_without_judging():
-    clock = _Clock()
-    router = _three_target_router(clock)
-    router.record_error("a", status_code=500)
-    router.record_error("a", status_code=500)
-    clock.now = 31
-    assert router.try_acquire("a") is True
+def test_judge_falls_back_to_chat_model_with_warning_in_local_env():
+    from loguru import logger
 
-    router.record_error("a", kind=FailureKind.CANCELLED)
+    messages: list[str] = []
+    sink_id = logger.add(messages.append, level="WARNING")
+    try:
+        router = ModelRouter(_settings(CHAT_MODEL="primary", ENVIRONMENT="test"))
+        assert router.primary_target("judge") == "primary"
+        router.primary_target("judge")
+    finally:
+        logger.remove(sink_id)
 
-    assert router.try_acquire("a") is True
+    assert len(messages) == 1  # warned once, not per call
+    assert "JUDGE_CHAT_MODEL" in messages[0]
+
+
+def test_judge_equal_to_production_model_is_rejected_outside_local_env():
+    router = ModelRouter(
+        _settings(CHAT_MODEL="primary").model_copy(
+            update={"ENVIRONMENT": Environment.PRODUCTION}
+        )
+    )
+
+    with pytest.raises(ValueError, match="JUDGE_CHAT_MODEL"):
+        router.primary_target("judge")
+
+
+def test_judge_with_no_models_configured_does_not_raise_in_production():
+    router = ModelRouter(
+        _settings().model_copy(update={"ENVIRONMENT": Environment.PRODUCTION})
+    )
+
+    assert router.primary_target("judge") == ""

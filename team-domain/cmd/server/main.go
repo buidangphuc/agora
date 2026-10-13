@@ -2,8 +2,8 @@
 //
 // It reuses the shared bootstrap: load settings -> init tracer -> open resources
 // (Postgres + health) -> build the gRPC server -> serve -> graceful drain ->
-// close resources. This mirrors team-ai's scripts/run_grpc.py so there is one
-// resource-lifecycle path, not a second ad-hoc one.
+// close resources, so there is one resource-lifecycle path, not a second
+// ad-hoc one.
 package main
 
 import (

@@ -1,8 +1,7 @@
 @recommendations @ai
 Feature: Recommendation serving degrades, cold-starts and identifies itself (recs-serving-safeguards)
   team-ai answers Recommend even when its cache is down, cold-starts from the producer's popular
-  list, refuses an in-process catalogue outside local, serves Recommend from every gRPC entrypoint,
-  stamps each response with the placement and a fresh request id, and ranks with online features.
+  list, stamps each response with the placement and a fresh request id, and ranks with online features.
 
   # Destructive scenarios stop the stack's Redis, rewrite serving / feature-store keys (saved and
   # restored exactly in teardown), or start throwaway containers. They run in the serial lane.
@@ -18,17 +17,6 @@ Feature: Recommendation serving degrades, cold-starts and identifies itself (rec
     Given a buyer is logged in
     When the serving generation's popular list is L and a buyer with no recommendations of their own requests homepage recommendations
     Then the returned listing ids are the first items of L, in L's order
-
-  @destructive
-  Scenario: Production refuses the memory recommendation backend
-    When the team-ai image is started with ENVIRONMENT=production, RECS_ENABLED=true and RECS_BACKEND=memory
-    Then the process exits non-zero and its log names RECS_BACKEND
-
-  @destructive
-  Scenario: The standalone gRPC server answers Recommend
-    Given a buyer is logged in
-    When team-ai is started with scripts/run_grpc.py and a buyer requests recommendations through a gateway pointed at it
-    Then the call succeeds instead of answering unimplemented
 
   Scenario: Two calls get distinct request ids and the served placement
     Given a buyer is logged in

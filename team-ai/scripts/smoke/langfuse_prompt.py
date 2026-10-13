@@ -22,12 +22,7 @@ async def run_smoke(
     subject: str,
 ) -> dict[str, object]:
     settings = get_settings()
-    if not settings.LANGFUSE_ENABLED:
-        raise RuntimeError(
-            "LANGFUSE_ENABLED is false; set it to true in .env before running "
-            "the Langfuse prompt smoke."
-        )
-    if not settings.LANGFUSE_PUBLIC_KEY or not settings.LANGFUSE_SECRET_KEY:
+    if not settings.langfuse_enabled:
         raise RuntimeError(
             "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY must be set in .env "
             "before running the Langfuse prompt smoke."
@@ -42,6 +37,7 @@ async def run_smoke(
     template = (
         "You are smoke-testing the Langfuse prompt registry. Subject: {{subject}}."
     )
+    assert tracker.client is not None
     created = tracker.client.create_prompt(
         name=prompt_name,
         prompt=template,

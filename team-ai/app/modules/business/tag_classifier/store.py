@@ -1,28 +1,24 @@
-"""Durable storage for the tag taxonomy registry (change tag-taxonomy-persistence).
+"""Durable storage for the tag taxonomy overlay.
 
 Two hashes, ``<prefix>:v1:canonical`` and ``<prefix>:v1:candidates``, each ``slug -> TagItem JSON``.
 A write touches only the tags it changed, in one MULTI, so replicas promoting different tags do not
 overwrite each other. Only changed tags are stored: the code seed stays the base layer.
 """
 
-from __future__ import annotations
-
 from collections.abc import Awaitable, Sequence
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import Protocol, cast
 
 from loguru import logger
+from redis.asyncio import Redis
 
 from app.modules.business.tag_classifier.schemas import TagItem
-
-if TYPE_CHECKING:
-    from redis.asyncio import Redis
 
 FORMAT_VERSION = "v1"
 
 
 class TaxonomyStore(Protocol):
-    async def load(self) -> tuple[list[TagItem], list[TagItem]]:
-        """``(canonical, candidates)`` as last saved."""
+    async def load(self) -> tuple[dict[str, TagItem], dict[str, TagItem]]:
+        """``(canonical overlay, candidates)`` as last saved, each keyed by slug."""
         ...
 
     async def save(
@@ -30,29 +26,29 @@ class TaxonomyStore(Protocol):
         *,
         canonical: Sequence[TagItem] = (),
         candidates: Sequence[TagItem] = (),
-        remove_candidates: Sequence[str] = (),
+        drop_candidates: Sequence[str] = (),
     ) -> None:
         """Upsert the given tags and delete the given candidate slugs atomically."""
         ...
 
 
 class RedisTaxonomyStore:
-    def __init__(self, redis: Redis, *, prefix: str = "tagtax") -> None:
+    def __init__(self, redis: Redis, *, prefix: str) -> None:
         self._redis = redis
         self._canonical_key = f"{prefix}:{FORMAT_VERSION}:canonical"
         self._candidates_key = f"{prefix}:{FORMAT_VERSION}:candidates"
 
-    async def load(self) -> tuple[list[TagItem], list[TagItem]]:
+    async def load(self) -> tuple[dict[str, TagItem], dict[str, TagItem]]:
         canonical = await self._read(self._canonical_key)
         candidates = await self._read(self._candidates_key)
         return canonical, candidates
 
-    async def _read(self, key: str) -> list[TagItem]:
+    async def _read(self, key: str) -> dict[str, TagItem]:
         raw = await cast("Awaitable[dict[str, str]]", self._redis.hgetall(key))
-        tags: list[TagItem] = []
+        tags: dict[str, TagItem] = {}
         for slug, payload in raw.items():
             try:
-                tags.append(TagItem.model_validate_json(payload))
+                tags[slug] = TagItem.model_validate_json(payload)
             except ValueError:
                 # One unreadable entry must not hide the rest of the taxonomy.
                 logger.error(
@@ -65,9 +61,9 @@ class RedisTaxonomyStore:
         *,
         canonical: Sequence[TagItem] = (),
         candidates: Sequence[TagItem] = (),
-        remove_candidates: Sequence[str] = (),
+        drop_candidates: Sequence[str] = (),
     ) -> None:
-        if not (canonical or candidates or remove_candidates):
+        if not (canonical or candidates or drop_candidates):
             return
         async with self._redis.pipeline(transaction=True) as pipe:
             if canonical:
@@ -80,6 +76,6 @@ class RedisTaxonomyStore:
                     self._candidates_key,
                     mapping={t.slug: t.model_dump_json() for t in candidates},
                 )
-            if remove_candidates:
-                pipe.hdel(self._candidates_key, *remove_candidates)
+            if drop_candidates:
+                pipe.hdel(self._candidates_key, *drop_candidates)
             await pipe.execute()

@@ -4,7 +4,7 @@ Black box through the gateway with the Connect streaming envelope (see
 tests/e2e/support/pear_edge_support.py). The model provider is the LLM fake: the directive
 `[[fake primary=hang fb1=hang fb2=hang]]` makes every provider call hang, so the stream is still
 open when the token expires or its session is revoked. team-ai's own first-token timeout is 2 s
-per target with 3 attempts (llm-fake overlay), so without the gateway's cut the stream would
+per target and the chain has 3 targets (llm-fake overlay), so without the gateway's cut the stream would
 end after about 6 s with `unavailable`, never `unauthenticated`.
 
 Expiry uses a token signed with the LOCAL dev identity key (exp set short). Revocation uses real
@@ -30,7 +30,7 @@ from tests.e2e.support.edge_tokens import sign_dev_token
 from tests.e2e.support.world import World
 
 HOLD = "[[fake primary=hang fb1=hang fb2=hang]]"
-# team-ai's chain (2 s first-token timeout x 3 attempts) ends a held stream after about 6 s.
+# team-ai's chain (2 s first-token timeout x 3 targets) ends a held stream after about 6 s.
 PROVIDER_GIVES_UP_S = 5.0
 REVOKE_CUT_S = 4.0
 LIVE_CONSUMER_S = 30.0

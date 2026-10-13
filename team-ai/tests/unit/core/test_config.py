@@ -4,7 +4,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from tests.factories import build_test_settings
+from tests.factories import api_key_entry, build_test_settings, sha256_hex
+
+PROD_KEYS = api_key_entry("svc", "prod-token-with-enough-entropy", "admin")
 
 
 def test_settings_defaults_are_local_safe():
@@ -12,38 +14,15 @@ def test_settings_defaults_are_local_safe():
 
     assert settings.PROJECT_NAME == "AI Solution Engineering Platform"
     assert settings.API_V1_PREFIX == "/api/v1"
-    assert settings.POSTGRES_URL.startswith("postgresql+asyncpg://")
     assert settings.CHAT_MODEL == ""
-    assert settings.LANGFUSE_ENABLED is False
+    assert settings.langfuse_enabled is False
     assert settings.LANGFUSE_PUBLIC_KEY == ""
     assert settings.LANGFUSE_SECRET_KEY == ""
     assert settings.LANGFUSE_BASE_URL == "https://cloud.langfuse.com"
     assert settings.LANGFUSE_PROMPT_CACHE_TTL_SECONDS == 60
-    # Minimal-core template: every addon capability is opt-in by default.
-    assert settings.IDEMPOTENCY_ENABLED is False
-    assert settings.QUOTA_ENABLED is False
-    assert settings.QUOTA_BACKEND == "memory"
-    assert settings.DATABASE_ENABLED is False
-    assert settings.MONGO_ENABLED is False
-    assert settings.MONGODB_URI == "mongodb://localhost:27017"
-    assert settings.MONGODB_DATABASE == "app"
-    assert settings.REDIS_ENABLED is False
-    assert settings.QUEUE_ENABLED is False
-    assert settings.TASKS_ENABLED is False
-    assert settings.RATE_LIMIT_ENABLED is False
-    assert settings.CACHE_ENABLED is False
-    assert settings.CACHE_BACKEND == "memory"
-    assert settings.WEBHOOKS_ENABLED is False
-    assert settings.WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS == 300
-    assert settings.WEBHOOK_TIMEOUT_SECONDS == 10
-    assert settings.SECURITY_HEADERS_ENABLED is False
-    assert settings.SECURITY_HSTS_ENABLED is False
-    assert settings.SECURITY_HSTS_MAX_AGE_SECONDS == 31536000
+    assert settings.QUOTA_REDIS_PREFIX == "quota"
     assert settings.CHAT_FALLBACK_MODELS == ""
     assert settings.JUDGE_CHAT_MODEL == ""
-    assert settings.AUTH_SUBJECT == "local-user"
-    assert settings.auth_roles == []
-    assert settings.GRPC_BEARER_FALLBACK_ENABLED is False
     assert "API_KEY_PEPPER" not in Settings.model_fields
     assert "API_KEY_BOOTSTRAP_TOKEN" not in Settings.model_fields
 
@@ -51,16 +30,14 @@ def test_settings_defaults_are_local_safe():
 def test_settings_redacts_secret_values():
     settings = build_test_settings(
         REDIS_PASSWORD="redis-secret",  # pragma: allowlist secret
-        AUTH_BEARER_TOKEN="bearer-secret",  # pragma: allowlist secret
         LANGFUSE_SECRET_KEY="langfuse-secret",  # pragma: allowlist secret
     )
 
     summary = settings.redacted_summary()
 
     assert summary["REDIS_PASSWORD"] == "***"
-    assert summary["AUTH_BEARER_TOKEN"] == "***"
+    assert summary["AUTH_API_KEYS"] == "***"
     assert summary["LANGFUSE_SECRET_KEY"] == "***"
-    assert summary["POSTGRES_URL"] == "***"
     assert summary["ENVIRONMENT"] == "test"
 
 
@@ -110,7 +87,6 @@ def test_settings_keeps_model_selection_minimal():
     assert "JOB_BACKEND" not in Settings.model_fields
     assert "LLM_CACHE_BACKEND" not in Settings.model_fields
     assert "OBSERVABILITY_BACKEND" not in Settings.model_fields
-    assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in Settings.model_fields
     assert "EXPERIMENT_TRACKER_BACKEND" not in Settings.model_fields
 
 
@@ -125,38 +101,57 @@ def test_chat_model_accepts_langchain_provider_model_targets_without_allowlist()
 # chat model. Drops the cosmetic strip check.
 
 
-def test_worker_and_sqs_tuning_values_are_validated():
-    with pytest.raises(ValidationError):
-        build_test_settings(WORKER_MAX_ATTEMPTS=0)
-
-    with pytest.raises(ValidationError):
-        build_test_settings(SQS_VISIBILITY_TIMEOUT_SECONDS=-1)
-
-
-def test_cache_and_webhook_settings_are_validated():
-    # Backend string is intentionally not allow-listed at the config layer —
-    # the corresponding factory raises on unknown values. The numeric tuning
-    # values are still validated here.
-    with pytest.raises(ValidationError):
-        build_test_settings(CACHE_DEFAULT_TTL_SECONDS=0)
-
-    with pytest.raises(ValidationError):
-        build_test_settings(WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS=0)
-
-    with pytest.raises(ValidationError):
-        build_test_settings(WEBHOOK_TIMEOUT_SECONDS=0)
+def test_auth_api_keys_are_required_outside_dev_and_test():
+    with pytest.raises(ValidationError, match="AUTH_API_KEYS"):
+        build_test_settings(
+            ENVIRONMENT="prod",
+            AUTH_API_KEYS="",
+        )
 
 
-def test_auth_bearer_token_is_required_outside_dev_and_test():
-    with pytest.raises(ValidationError):
-        build_test_settings(ENVIRONMENT="prod", AUTH_BEARER_TOKEN="")
+def test_auth_api_keys_are_parsed_into_subject_scopes_and_digest():
+    settings = build_test_settings(
+        AUTH_API_KEYS=", ".join(
+            (
+                api_key_entry("alice", "t1", "tasks:read", "admin"),
+                api_key_entry("bob", "t2"),
+            )
+        )
+    )
+
+    alice, bob = settings.auth_api_keys
+    assert (alice.subject, alice.scopes) == ("alice", ("tasks:read", "admin"))
+    assert alice.digest == bytes.fromhex(sha256_hex("t1"))
+    assert (bob.subject, bob.scopes) == ("bob", ())
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "alice",  # no fields
+        "alice:admin",  # no digest
+        ":admin:" + "a" * 64,  # empty subject
+        "alice:admin:nothex" + "0" * 57,  # digest not hex
+        "alice:admin:" + "a" * 63,  # digest wrong length
+    ],
+)
+def test_malformed_auth_api_keys_fail_fast(bad):
+    with pytest.raises(ValidationError, match="AUTH_API_KEYS"):
+        build_test_settings(AUTH_API_KEYS=bad)
+
+
+def test_auth_api_keys_default_to_no_keys_and_no_scopes():
+    settings = build_test_settings(AUTH_API_KEYS="")
+
+    assert settings.auth_api_keys == ()
+    assert Settings.model_fields["AUTH_API_KEYS"].default == ""
 
 
 def test_production_rejects_openapi_docs():
     with pytest.raises(ValidationError, match="DOCS_ENABLED must be false"):
         build_test_settings(
             ENVIRONMENT="prod",
-            AUTH_BEARER_TOKEN="prod-token-with-enough-entropy",
+            AUTH_API_KEYS=PROD_KEYS,
             DOCS_ENABLED=True,
             CORS_ALLOW_ORIGINS="https://app.example.com",
             TRUSTED_HOSTS="api.example.com",
@@ -167,7 +162,7 @@ def test_production_rejects_wildcard_cors_and_trusted_hosts():
     for field in ("CORS_ALLOW_ORIGINS", "TRUSTED_HOSTS"):
         values = {
             "ENVIRONMENT": "prod",
-            "AUTH_BEARER_TOKEN": "prod-token-with-enough-entropy",
+            "AUTH_API_KEYS": PROD_KEYS,
             "DOCS_ENABLED": False,
             "CORS_ALLOW_ORIGINS": "https://app.example.com",
             "TRUSTED_HOSTS": "api.example.com",
@@ -177,12 +172,12 @@ def test_production_rejects_wildcard_cors_and_trusted_hosts():
             build_test_settings(**values)
 
 
-def test_production_rejects_default_or_weak_auth_tokens():
-    for token in ("change-me-local-bearer-token", "short-token"):
-        with pytest.raises(ValidationError, match="AUTH_BEARER_TOKEN"):
+def test_production_rejects_api_keys_hashing_a_known_weak_token():
+    for token in ("change-me-local-bearer-token", "test-token"):
+        with pytest.raises(ValidationError, match="AUTH_API_KEYS"):
             build_test_settings(
                 ENVIRONMENT="prod",
-                AUTH_BEARER_TOKEN=token,  # pragma: allowlist secret
+                AUTH_API_KEYS=api_key_entry("svc", token, "admin"),
                 DOCS_ENABLED=False,
                 CORS_ALLOW_ORIGINS="https://app.example.com",
                 TRUSTED_HOSTS="api.example.com",
@@ -192,19 +187,13 @@ def test_production_rejects_default_or_weak_auth_tokens():
 def test_production_accepts_locked_down_runtime_settings():
     settings = build_test_settings(
         ENVIRONMENT="production",
-        AUTH_BEARER_TOKEN="prod-token-with-enough-entropy",
+        AUTH_API_KEYS=PROD_KEYS,
         DOCS_ENABLED=False,
         CORS_ALLOW_ORIGINS="https://app.example.com",
         TRUSTED_HOSTS="api.example.com",
     )
 
     assert settings.ENVIRONMENT == "production"
-
-
-def test_auth_roles_are_parsed_from_comma_separated_string():
-    settings = build_test_settings(AUTH_ROLES="admin, developer, , viewer")
-
-    assert settings.auth_roles == ["admin", "developer", "viewer"]
 
 
 def test_cors_and_trusted_hosts_are_parsed_from_comma_separated_strings():
@@ -228,50 +217,24 @@ def test_max_request_body_bytes_must_be_positive():
 def test_env_example_includes_app_settings_defaults():
     env_example = Path(".env.example").read_text(encoding="utf-8")
 
-    public_key_line = (
-        "LANGFUSE_PUBLIC_KEY=lf_pk_local_ai_platform"  # pragma: allowlist secret
-    )
-    secret_key_line = (
-        "LANGFUSE_SECRET_KEY=lf_sk_local_ai_platform"  # pragma: allowlist secret
-    )
-
-    assert "LANGFUSE_ENABLED=true" in env_example
-    assert public_key_line in env_example
-    assert secret_key_line in env_example
+    assert "LANGFUSE_PUBLIC_KEY=\n" in env_example
+    assert "LANGFUSE_SECRET_KEY=\n" in env_example
     assert "LANGFUSE_BASE_URL=http://localhost:3000" in env_example
-    assert "AUTH_BEARER_TOKEN=change-me-local-bearer-token" in env_example
-    assert "AUTH_SUBJECT=local-user" in env_example
+    assert "AUTH_API_KEYS=local-user:admin:" in env_example
+    assert "AUTH_BEARER_TOKEN" not in env_example
     assert "CHAT_MODEL=" in env_example
     assert "CORS_ALLOW_ORIGINS=*" in env_example
     assert "TRUSTED_HOSTS=*" in env_example
     assert "MAX_REQUEST_BODY_BYTES=10485760" in env_example
-    assert "IDEMPOTENCY_ENABLED=false" in env_example
-    assert "QUOTA_ENABLED=false" in env_example
-    assert "QUOTA_BACKEND=memory" in env_example
-    assert "DATABASE_ENABLED=false" in env_example
-    assert "REDIS_ENABLED=false" in env_example
-    assert "QUEUE_ENABLED=false" in env_example
-    assert "TASKS_ENABLED=false" in env_example
-    assert "SQS_ENDPOINT_URL=" in env_example
-    assert "SQS_VISIBILITY_TIMEOUT_SECONDS=0" in env_example
-    assert "WORKER_MAX_ATTEMPTS=3" in env_example
-    assert "CACHE_ENABLED=false" in env_example
-    assert "CACHE_BACKEND=memory" in env_example
-    assert "CACHE_PREFIX=app" in env_example
-    assert "CACHE_DEFAULT_TTL_SECONDS=300" in env_example
-    assert "WEBHOOKS_ENABLED=false" in env_example
-    assert "WEBHOOK_SIGNING_SECRET=" in env_example
-    assert "WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS=300" in env_example
-    assert "WEBHOOK_TIMEOUT_SECONDS=10" in env_example
-    assert "SECURITY_HEADERS_ENABLED=false" in env_example
-    assert "SECURITY_HSTS_ENABLED=false" in env_example
-    assert "SECURITY_HSTS_MAX_AGE_SECONDS=31536000" in env_example
+    assert "REDIS_HOST=redis" in env_example
     assert "CHAT_FALLBACK_MODELS=" in env_example
     assert "JUDGE_CHAT_MODEL=" in env_example
 
 
 def test_env_langfuse_example_carries_compose_only_overrides():
-    langfuse_example = Path(".env.langfuse.example").read_text(encoding="utf-8")
+    langfuse_example = Path("ops/compose/langfuse.env.example").read_text(
+        encoding="utf-8"
+    )
     project_id_line = (
         "LANGFUSE_INIT_PROJECT_ID=local-ai-platform"  # pragma: allowlist secret
     )
@@ -281,114 +244,26 @@ def test_env_langfuse_example_carries_compose_only_overrides():
     assert "LANGFUSE_NEXTAUTH_URL=http://localhost:3000" in langfuse_example
 
 
-def test_grpc_bearer_fallback_defaults_off_and_is_allowed_locally():
-    assert build_test_settings().GRPC_BEARER_FALLBACK_ENABLED is False
+def test_streaming_deadlines_have_safe_defaults_and_bounds():
+    settings = build_test_settings()
+
+    assert settings.SSE_HEARTBEAT_SECONDS > 0
+    assert settings.STREAM_FIRST_TOKEN_TIMEOUT_SECONDS > 0
+    assert settings.STREAM_IDLE_TIMEOUT_SECONDS > 0
+    for name in (
+        "SSE_HEARTBEAT_SECONDS",
+        "STREAM_FIRST_TOKEN_TIMEOUT_SECONDS",
+        "STREAM_IDLE_TIMEOUT_SECONDS",
+    ):
+        with pytest.raises(ValidationError):
+            build_test_settings(**{name: 0})
+
+
+def test_llm_chain_deadline_must_cover_one_call_timeout():
     settings = build_test_settings(
-        ENVIRONMENT="local", GRPC_BEARER_FALLBACK_ENABLED=True
+        LLM_TIMEOUT_SECONDS=30, LLM_CHAIN_DEADLINE_SECONDS=30
     )
-    assert settings.GRPC_BEARER_FALLBACK_ENABLED is True
+    assert settings.LLM_CHAIN_DEADLINE_SECONDS == 30
 
-
-def test_grpc_bearer_fallback_refused_outside_local():
-    with pytest.raises(ValidationError, match="GRPC_BEARER_FALLBACK_ENABLED"):
-        build_test_settings(
-            ENVIRONMENT="prod",
-            AUTH_BEARER_TOKEN="prod-token-with-enough-entropy",
-            DOCS_ENABLED=False,
-            CORS_ALLOW_ORIGINS="https://app.example.com",
-            TRUSTED_HOSTS="api.example.com",
-            GRPC_BEARER_FALLBACK_ENABLED=True,
-        )
-
-
-def test_grpc_rate_limit_is_opt_in_and_redis_backend_needs_redis():
-    assert build_test_settings().GRPC_RATE_LIMIT_ENABLED is False
-    # Off: the backend/redis combination is not checked.
-    build_test_settings(RATE_LIMIT_BACKEND="redis", REDIS_ENABLED=False)
-    with pytest.raises(ValidationError, match="requires REDIS_ENABLED"):
-        build_test_settings(
-            GRPC_RATE_LIMIT_ENABLED=True,
-            RATE_LIMIT_BACKEND="redis",
-            REDIS_ENABLED=False,
-        )
-
-
-_PROD = {
-    "ENVIRONMENT": "production",
-    "AUTH_BEARER_TOKEN": "prod-token-with-enough-entropy",
-    "DOCS_ENABLED": False,
-    "CORS_ALLOW_ORIGINS": "https://app.example.com",
-    "TRUSTED_HOSTS": "api.example.com",
-}
-
-
-def test_production_refuses_a_per_process_grpc_rate_limiter():
-    with pytest.raises(ValidationError, match="RATE_LIMIT_BACKEND"):
-        build_test_settings(
-            **_PROD, GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory"
-        )
-
-
-def test_production_accepts_the_redis_grpc_rate_limiter_and_memory_when_off():
-    build_test_settings(
-        **_PROD,
-        GRPC_RATE_LIMIT_ENABLED=True,
-        RATE_LIMIT_BACKEND="redis",
-        REDIS_ENABLED=True,
-    )
-    build_test_settings(**_PROD, GRPC_RATE_LIMIT_ENABLED=False)
-
-
-def test_local_allows_the_memory_grpc_rate_limiter():
-    build_test_settings(GRPC_RATE_LIMIT_ENABLED=True, RATE_LIMIT_BACKEND="memory")
-
-
-def test_llm_trace_content_defaults_to_redacted_and_full_is_local_only():
-    assert build_test_settings().LLM_TRACE_CONTENT == "redacted"
-    build_test_settings(LLM_TRACE_CONTENT="full")  # local/test is fine
-    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
-        build_test_settings(**_PROD, LLM_TRACE_CONTENT="full")
-    build_test_settings(**_PROD, LLM_TRACE_CONTENT="off")
-    with pytest.raises(ValidationError, match="LLM_TRACE_CONTENT"):
-        build_test_settings(LLM_TRACE_CONTENT="verbose")
-
-
-def test_memory_recs_backend_is_refused_outside_local():
-    for env in ("production", "prod"):
-        with pytest.raises(ValidationError, match="RECS_BACKEND"):
-            build_test_settings(
-                ENVIRONMENT=env,
-                DOCS_ENABLED=False,
-                CORS_ALLOW_ORIGINS="https://x.example",
-                TRUSTED_HOSTS="x.example",
-                AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
-                RECS_ENABLED=True,
-                RECS_BACKEND="memory",
-            )
-
-
-def test_memory_recs_backend_is_allowed_locally_or_when_disabled():
-    for env in ("dev", "local", "test"):
-        build_test_settings(ENVIRONMENT=env, RECS_ENABLED=True, RECS_BACKEND="memory")
-    build_test_settings(
-        ENVIRONMENT="production",
-        DOCS_ENABLED=False,
-        CORS_ALLOW_ORIGINS="https://x.example",
-        TRUSTED_HOSTS="x.example",
-        AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
-        RECS_ENABLED=False,
-        RECS_BACKEND="memory",
-    )
-    build_test_settings(
-        ENVIRONMENT="production",
-        DOCS_ENABLED=False,
-        CORS_ALLOW_ORIGINS="https://x.example",
-        TRUSTED_HOSTS="x.example",
-        AUTH_BEARER_TOKEN="x" * 32,  # pragma: allowlist secret
-        RECS_ENABLED=True,
-        RECS_BACKEND="qdrant",
-    )
-
-
-def test_featurestore_redis_url_is_off_by_default():
-    assert build_test_settings().RECS_FEATURESTORE_REDIS_URL == ""
+    with pytest.raises(ValidationError, match="LLM_CHAIN_DEADLINE_SECONDS"):
+        build_test_settings(LLM_TIMEOUT_SECONDS=60, LLM_CHAIN_DEADLINE_SECONDS=30)

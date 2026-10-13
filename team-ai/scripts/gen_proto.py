@@ -2,8 +2,8 @@
 
 The proto module under ``proto/`` is a pinned copy of platform-core's contract
 (ADR-0001: vendor + generate locally; platform-core never writes here). Generated
-code lands under ``app/transport/grpc/_pb/`` and is committed so the service runs
-without a toolchain.
+code lands under ``app/transport/grpc/_pb/`` and is git-ignored: run this (or
+``make proto``) after checkout; the Dockerfile does it in its ``protogen`` stage.
 
 The proto root package is ``platform.*`` (kept by decision), which collides with
 Python's stdlib ``platform`` module. We avoid the shadow WITHOUT protoletariat by

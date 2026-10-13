@@ -161,7 +161,6 @@ def ai_env(roc):
     env = _env(roc["ai"])
     recsys = _one(_docs("platform/recsys/cronjob.yaml"), "ConfigMap", "recsys-config")["data"]
     services = _services()
-    assert env["RECS_ENABLED"] == "true" and env["RECS_BACKEND"] == "qdrant"
     q = re.fullmatch(r"http://([a-z0-9-]+):(\d+)", env["RECS_QDRANT_URL"])
     assert q and q[1] == "qdrant" and "qdrant" in services, env["RECS_QDRANT_URL"]
     assert int(q[2]) in {p["port"] for p in services["qdrant"]["spec"]["ports"]}
@@ -174,7 +173,7 @@ def ai_env(roc):
     assert env["RECS_FEATURESTORE_REDIS_URL"] == fs["data"]["FEATURESTORE_REDIS_URL"]
     assert env["RECS_CACHE_PREFIX"] == recsys["RECS_CACHE_PREFIX"]
     assert env["RECS_CACHE_SCHEMA_VERSION"] == recsys["RECS_SCHEMA_VERSION"]
-    assert env["REDIS_ENABLED"] == "true" and env["REDIS_HOST"] == recsys["REDIS_HOST"] == "valkey"
+    assert env["REDIS_HOST"] == recsys["REDIS_HOST"] == "valkey"
     # No secret literals: only the recs/redis non-secret keys were added.
     assert not [k for k in env if re.search(r"PASSWORD|TOKEN|SECRET|API_KEY", k) and env[k]]
     # The local cluster renders the inline block of the Application, so it must carry the same.

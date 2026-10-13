@@ -9,14 +9,14 @@ Feature: Each target has a breaker that counts transient failures and recovers
   Scenario: Repeated 5xx opens the primary's breaker
     Given a freshly registered buyer for the LLM checks
     And every fake target is healthy and the primary's breaker is closed
-    When the primary answers 500 for LLM_BREAKER_THRESHOLD consecutive chat requests and then becomes healthy
+    When the primary answers 500 for LLM_BREAKER_FAILURE_THRESHOLD consecutive chat requests and then becomes healthy
     Then the next chat request made within the cooldown is served by the first fallback without the primary being called
 
   @destructive
   Scenario: A request-caused 400 does not open the breaker
     Given a freshly registered buyer for the LLM checks
     And every fake target is healthy and the primary's breaker is closed
-    When the primary answers 400 for LLM_BREAKER_THRESHOLD consecutive chat requests and then becomes healthy
+    When the primary answers 400 for LLM_BREAKER_FAILURE_THRESHOLD consecutive chat requests and then becomes healthy
     Then the next chat request is served by the primary
 
   @destructive

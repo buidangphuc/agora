@@ -13,7 +13,7 @@ import {
  *   SIMILAR_ITEMS.
  *
  * Renders nothing when the list is empty (service unavailable or no results),
- * so the page still renders cleanly when RECS_ENABLED=false (Rule: graceful
+ * so the page still renders cleanly when recommendations are unavailable (Rule: graceful
  * degradation).
  */
 export async function RecommendationsRow({

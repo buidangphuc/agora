@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 
 from app.bootstrap.application import create_app
 from app.core.config import Settings
@@ -11,6 +11,7 @@ from app.modules.business.completions.schemas import (
     CompletionResult,
     CompletionStreamChunk,
 )
+from tests.factories import api_client_for
 
 
 class RecordingCompletionHandler:
@@ -48,28 +49,25 @@ async def test_create_completion_requires_authentication(client: AsyncClient):
     assert response.status_code == 401
 
 
-async def test_create_completion_requires_injected_handler(client: AsyncClient):
+async def test_create_completion_uses_default_scaffold_handler(client: AsyncClient):
     response = await client.post(
         "/api/v1/completions",
         headers=await _auth_headers(client),
         json={"messages": [{"role": "user", "content": "hello"}]},
     )
 
-    assert response.status_code == 501
-    assert response.json()["error"]["code"] == "completion_handler_not_configured"
+    assert response.status_code == 200
+    assert "hello" in response.json()["content"]
 
 
 async def test_create_completion_calls_injected_handler(test_settings: Settings):
     handler = RecordingCompletionHandler()
     app = create_app(
-        completion_handler=handler,
+        completion_handler_factory=lambda resources, settings: handler,
         settings=test_settings,
         init_resources=False,
     )
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as client:
+    async with api_client_for(app) as client:
         response = await client.post(
             "/api/v1/completions",
             headers=await _auth_headers(client),
@@ -92,14 +90,11 @@ async def test_create_completion_calls_injected_handler(test_settings: Settings)
 async def test_stream_completion_calls_injected_handler(test_settings: Settings):
     handler = RecordingCompletionHandler()
     app = create_app(
-        completion_handler=handler,
+        completion_handler_factory=lambda resources, settings: handler,
         settings=test_settings,
         init_resources=False,
     )
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as client:
+    async with api_client_for(app) as client:
         async with client.stream(
             "POST",
             "/api/v1/completions/stream",
@@ -118,65 +113,29 @@ async def test_stream_completion_calls_injected_handler(test_settings: Settings)
     assert handler.stream_requests[0].messages[-1].content == "hello"
 
 
-async def test_task_completion_submit_and_poll(test_settings: Settings):
-    settings = test_settings.model_copy(
-        update={
-            # Async tasks are opt-in on the template — enable the stack here.
-            "QUEUE_ENABLED": True,
-            "TASKS_ENABLED": True,
-            "QUEUE_BACKEND": "memory",
-            "TASK_STORE_BACKEND": "memory",
-        }
-    )
+async def test_create_app_applies_guards_from_factory(test_settings: Settings):
+    from app.modules.business.completions.guards import GuardrailViolation
+
+    class _BlockEverything:
+        async def check_input(self, request: CompletionRequest) -> None:
+            raise GuardrailViolation("blocked")
+
+        async def check_output(
+            self, request: CompletionRequest, result: CompletionResult
+        ) -> None:
+            return None
+
     app = create_app(
-        completion_handler=RecordingCompletionHandler(),
-        settings=settings,
-        init_resources=True,
+        completion_guards_factory=lambda resources, settings: (_BlockEverything(),),
+        settings=test_settings,
+        init_resources=False,
     )
+    async with api_client_for(app) as client:
+        response = await client.post(
+            "/api/v1/completions",
+            headers=await _auth_headers(client),
+            json={"messages": [{"role": "user", "content": "hello"}]},
+        )
 
-    async with app.router.lifespan_context(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            submit = await client.post(
-                "/api/v1/completions/tasks",
-                headers=await _auth_headers(client),
-                json={"messages": [{"role": "user", "content": "hello"}]},
-            )
-            task_id = submit.json()["task_id"]
-            poll = await client.get(
-                f"/api/v1/completions/tasks/{task_id}",
-                headers=await _auth_headers(client),
-            )
-
-    assert submit.status_code == 202
-    assert submit.json()["status"] == "queued"
-    assert poll.status_code == 200
-    assert poll.json()["id"] == task_id
-    assert poll.json()["type"] == "completion"
-
-
-async def test_task_completion_returns_503_when_tasks_disabled(
-    test_settings: Settings,
-):
-    settings = test_settings.model_copy(update={"TASKS_ENABLED": False})
-    app = create_app(
-        completion_handler=RecordingCompletionHandler(),
-        settings=settings,
-        init_resources=True,
-    )
-
-    async with app.router.lifespan_context(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            response = await client.post(
-                "/api/v1/completions/tasks",
-                headers=await _auth_headers(client),
-                json={"messages": [{"role": "user", "content": "hello"}]},
-            )
-
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "task_service_not_configured"
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "guardrail_input_violation"

@@ -3,8 +3,7 @@
 Catches the common mistake of adding a new Settings field but forgetting to
 document it in .env.example (or removing a field but leaving stale lines).
 
-Computed fields (POSTGRES_URL, etc.) and underscore-prefixed pydantic internals
-are skipped.
+Computed fields and underscore-prefixed pydantic internals are skipped.
 """
 
 from __future__ import annotations

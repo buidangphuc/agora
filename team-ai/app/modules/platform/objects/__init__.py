@@ -1,1 +1,0 @@
-"""Generic object gateway primitives."""
