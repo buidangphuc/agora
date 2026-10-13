@@ -63,7 +63,7 @@ def run_tuning():
             run_id = _train_eval_one(cm, name)
         except Exception as e:   # one broken variant must not cost the others their results
             log.error(f"variant '{name}' failed: {e!r}")
-            results.append({"variant": name, "run_id": None, "passed": False, "objective": None,
+            results.append({"variant": name, "run_id": None, "objective": None,
                             "metrics": {}, "dir": str(run_dir), "error": repr(e)})
             continue
 
@@ -71,7 +71,6 @@ def run_tuning():
         scalar = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
         if paths.TRAIN_STATS.exists():
             scalar.update({k: v for k, v in json.loads(paths.TRAIN_STATS.read_text()).items() if v is not None})
-        passed = _gate_passed(cm, metrics)
 
         # snapshot model + metrics so this variant can be promoted after the loop
         shutil.copytree(paths.MODEL_DIR, run_dir / "model")
@@ -80,7 +79,6 @@ def run_tuning():
         results.append({
             "variant": name,
             "run_id": run_id,
-            "passed": passed,
             "objective": scalar.get(objective),
             "metrics": scalar,
             "dir": str(run_dir),
@@ -114,10 +112,7 @@ def _train_eval_one(cm, variant):
         mlflow.set_tracking_uri(cm.tracking_uri())
 
     ModelTrainer(cm.trainer()).train()
-    run_id = None
-    if use_mlflow:
-        last = mlflow.last_active_run()
-        run_id = last.info.run_id if last else None
+    run_id = json.loads(paths.TRAIN_STATS.read_text()).get("run_id") if use_mlflow else None  # the trainer's run
 
     ModelEvaluation(cm.evaluation()).evaluate()
 
@@ -131,20 +126,10 @@ def _train_eval_one(cm, variant):
     return run_id
 
 
-def _gate_passed(cm, metrics) -> bool:
-    # In the loop a failing gate must NOT abort the other variants, so swallow GateFailed.
-    from datascience.gate import GateFailed, QualityGate
-
-    try:
-        return QualityGate(cm.gate()).check(metrics)
-    except GateFailed:
-        return False
-
-
 def _print_ranking(objective, results):
     log.info(f"===== tuning ranking (by {objective}) =====")
     for i, r in enumerate(results, 1):
         val = f"{r['objective']:.4f}" if r["objective"] is not None else "n/a"
-        gate = "ERROR" if "error" in r else "PASS" if r["passed"] else "FAIL"
-        log.info(f"  {i}. {r['variant']:<20} {objective}={val}  gate={gate}")
+        status = "ERROR" if "error" in r else "ok"
+        log.info(f"  {i}. {r['variant']:<20} {objective}={val}  {status}")
     log.info("promote the winner with:  python main.py promote <variant>")

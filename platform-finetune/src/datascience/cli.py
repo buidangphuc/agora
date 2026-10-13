@@ -1,10 +1,12 @@
 """Unified CLI. Server-friendly: each stage runs independently, `--gpu` selects
-the device, exit codes propagate (a failing gate exits non-zero).
+the device. Exit codes: 0 done (a registry-rejected model included), 1 registry unreachable or an
+unexpected error, 2 config/policy error (PolicyError).
 
   python main.py run [--only train | --from eval] [--gpu 0]
   python main.py ingest | validate | transform | train | eval | sanity [--gpu 0]
   python main.py tune                  # train+eval+rank the variants in experiments.yaml
-  python main.py promote <variant>     # version the chosen variant into the registry
+  python main.py promote <variant>     # submit the chosen variant to the shared registry
+  (stage lifecycle: python -m modelregistry promote|rollback finetune-classifier ...)
   python main.py infer --text "..."
   python main.py infer --input-file in.jsonl --output-file out.jsonl --batch-size 32
 """
@@ -12,6 +14,7 @@ the device, exit codes propagate (a failing gate exits non-zero).
 import argparse
 import json
 import os
+import sys
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,16 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
     sv = sub.add_parser("serve", help="run an inference endpoint")
     sv.add_argument("--backend", choices=["local", "triton"], default="local")
     sv.add_argument("--port", type=int, default=8080)
-    ps = sub.add_parser("promote-stage", help="point staging/production at a registered version")
-    ps.add_argument("name", help="registry model name (registry.name in params.yaml)")
-    ps.add_argument("version", help="registered version, e.g. v3 (or 3)")
-    ps.add_argument("--to", dest="stage", choices=["staging", "production"], required=True)
-    rb = sub.add_parser("rollback", help="restore the previous version for a stage")
-    rb.add_argument("name")
-    rb.add_argument("--stage", choices=["staging", "production"], default="production")
-    sp = sub.add_parser("stage-path", help="print the model dir a stage points at (for deploy tooling)")
-    sp.add_argument("name")
-    sp.add_argument("stage", choices=["staging", "production"])
+    for removed in ("promote-stage", "rollback", "stage-path"):
+        rp = sub.add_parser(removed, help="removed: use `python -m modelregistry`")
+        rp.add_argument("rest", nargs="*")
     dp = sub.add_parser("deploy", help="deploy to a managed endpoint")
     dp.add_argument("--target", choices=["sagemaker-triton"], default="sagemaker-triton")
     sub.add_parser("analyze", help="sweep Triton configs with Model Analyzer (prod-class GPU host)")
@@ -67,8 +63,22 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv=None):
+def main(argv=None) -> int:
+    """Run a command; returns the process exit code (see the module docstring)."""
     args = build_parser().parse_args(argv)
+    try:
+        _dispatch(args)
+    except SystemExit:
+        raise
+    except Exception as e:  # noqa: BLE001 - the exit code is the contract
+        from modelregistry import PolicyError
+
+        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+        return 2 if isinstance(e, PolicyError) else 1
+    return 0
+
+
+def _dispatch(args):
     if args.gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
@@ -144,19 +154,12 @@ def main(argv=None):
         from datascience.perf.cli import dispatch
 
         dispatch(args)
-    elif cmd == "promote-stage":
-        from datascience.registry.stages import assign_stage
-
-        assign_stage(args.name, args.version, args.stage)
-    elif cmd == "rollback":
-        from datascience.registry.stages import rollback
-
-        rollback(args.name, args.stage)
-    elif cmd == "stage-path":
-        from datascience.registry.stages import stage_path
-
-        print(stage_path(args.name, args.stage))
+    elif cmd in ("promote-stage", "rollback", "stage-path"):
+        raise SystemExit(
+            f"`{cmd}` was removed: the registry is shared. Use `python -m modelregistry promote "
+            "finetune-classifier <version>` or `python -m modelregistry rollback finetune-classifier`."
+        )
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,3 +1,5 @@
+# NOT PORTED: GLiNER-shaped serving code kept for reference only. It is not wired into the
+# platform deploy and the offline suite never imports it (see README).
 """CPU/local GLiNER endpoint: FastAPI wrapping the Predictor — NO Triton.
 
 This is the cheap TEST path (serving.device: cpu): it exposes the SAME request/response
@@ -34,18 +36,10 @@ def _resolve_weights(sv):
     source = os.environ.get("MODEL_SOURCE") or sv.get("model_source")
     if source != "registry":
         return None
-    reg = sv.get("registry") or {}
-    version = os.environ.get("MODEL_VERSION") or sv.get("model_version") or "latest"
-    # Infra coords come from the environment first (pick a `.env.<env>` file: test/staging),
-    # falling back to serving.yaml. Keeps real bucket names out of the committed config.
-    bucket = os.environ.get("S3_BUCKET") or reg.get("s3_bucket")
-    prefix = os.environ.get("S3_PREFIX") or reg.get("s3_prefix")
-    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or reg.get("region")
-    from datascience.registry.s3 import S3Registry
-
-    r = S3Registry(bucket=bucket, prefix=prefix, region=region, name=reg.get("name") or "GlinerNER")
-    log.info(f"pulling weights from S3 registry: {r.name} version={version}")
-    return r.pull(version, paths.REGISTRY_CACHE)
+    raise NotImplementedError(
+        "model_source: registry (S3 pull) was removed with the local registry; the shared MLflow "
+        "registry (py-modelregistry) is the model store and serving is NOT PORTED"
+    )
 
 
 def _load_predictor():

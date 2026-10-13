@@ -4,6 +4,7 @@ Everything is absolute (derived from the project root), so the pipeline behaves
 identically no matter which directory you launch it from.
 """
 
+import os
 from pathlib import Path
 
 # .../src/datascience/constants/paths.py -> parents[3] = repo root
@@ -55,8 +56,8 @@ MME_TARS = ARTIFACTS / "mme_tars"              # per-model .tar.gz for SageMaker
 # Perf platform: tuned results bound to hardware -> <PERF_DIR>/<role>/<hw_id>/<workload>.json
 PERF_DIR = ARTIFACTS / "perf"
 
-# Tracking: hardcoded, absolute sqlite. Override silently via MLFLOW_TRACKING_URI env.
-MLFLOW_URI = f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}"
+# Tracking + registry: the platform MLflow server from MLFLOW_TRACKING_URI; absolute local sqlite when unset.
+MLFLOW_URI = os.environ.get("MLFLOW_TRACKING_URI") or f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}"
 
 
 def ensure_dirs() -> None:

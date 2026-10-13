@@ -1,3 +1,5 @@
+# NOT PORTED: GLiNER-shaped serving code kept for reference only. It is not wired into the
+# platform deploy and the offline suite never imports it (see README).
 """Triton serving-config tuning — SEPARATE from model tuning (tune/).
 
 This tunes serving PARAMS (instance_group, dynamic_batching, ...) against REAL traffic, so

@@ -1,4 +1,4 @@
-# Base EXPERIMENT config: data + model + task + fine-tune + training + metrics + gate + tracking
+# Base EXPERIMENT config: data + model + task + fine-tune + training + metrics + tracking
 # + registry. One run of `train` = one experiment; MLflow versions its hyperparams + metrics.
 # Vary these PER-VARIANT in experiments.yaml and run `tune` to compare. Serving knobs live in
 # serving.yaml; GPU targets in hardware.yaml; paths in constants/paths.py.
@@ -54,18 +54,12 @@ training:
 
 metrics:
   compute: [accuracy, macro_f1, micro_f1]   # accuracy|macro_f1|micro_f1|pr_auc|mcc
-  objective: macro_f1        # what the gate reads (the trainer keeps the lowest-eval_loss checkpoint)
+  objective: macro_f1        # what the publish gate reads (py-modelregistry policy `finetune-classifier`) (the trainer keeps the lowest-eval_loss checkpoint)
   per_class: true            # per-class P/R/F1 + confusion matrix
   error_dump: true           # write misclassified examples
   bootstrap_ci: true         # metric +/- 95% CI on test
   calibration: true          # ECE + temperature scaling (fit on val, saved)
   slice_field: null          # opt-in: per-segment metrics by this field
-
-gate:
-  enabled: true
-  on_fail: error             # error (exit != 0) | warn
-  rules:
-    - {metric: macro_f1, min: 0.5}
 
 tracking:
   backend: mlflow            # mlflow | tensorboard | none
@@ -74,9 +68,7 @@ tracking:
   log_histograms: false      # TB-only: weight + gradient histograms every N steps (debug convergence)
 
 registry:
-  name: TopicLLM
-  remote:
-    backend: none            # none | mlflow | sagemaker (remote not built yet)
+  name: finetune-classifier  # model name in the shared registry; gate thresholds live in py-modelregistry policies.yaml
 
 # Opt-in: apply the training-throughput config tuned for this box (`datascience perf tune train`).
 # A result tuned on a different GPU stops training with a hardware-mismatch error.

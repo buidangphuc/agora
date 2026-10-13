@@ -1,3 +1,3 @@
 from datascience.cli import main
 
-main()
+raise SystemExit(main())

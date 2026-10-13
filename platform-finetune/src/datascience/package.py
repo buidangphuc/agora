@@ -1,3 +1,5 @@
+# NOT PORTED: GLiNER-shaped serving code kept for reference only. It is not wired into the
+# platform deploy and the offline suite never imports it (see README).
 """Package the trained GLiNER model into a Triton python-backend Multi-Model Endpoint
 (MME) repository — one model dir per real model, one tar each.
 

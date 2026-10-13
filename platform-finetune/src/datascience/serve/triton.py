@@ -1,3 +1,5 @@
+# NOT PORTED: GLiNER-shaped serving code kept for reference only. It is not wired into the
+# platform deploy and the offline suite never imports it (see README).
 """Run Triton locally via docker-compose, serving the model_repository.
 
 On a GPU/Linux box this is the real serving path; on a non-GPU box Docker runs

@@ -173,8 +173,12 @@ class ModelTrainer:
 
         report_to = []
         if cfg.tracking_backend == "mlflow":
+            import mlflow
+
             os.environ["MLFLOW_TRACKING_URI"] = cfg.mlflow_uri
             os.environ["MLFLOW_EXPERIMENT_NAME"] = cfg.experiment_name
+            mlflow.set_tracking_uri(cfg.mlflow_uri)
+            mlflow.set_experiment(cfg.experiment_name)
             report_to.append("mlflow")
         # TB can be the primary backend OR run alongside mlflow (opt-in); histograms need it.
         if cfg.tracking_backend == "tensorboard" or cfg.tensorboard or cfg.log_histograms:
@@ -209,8 +213,18 @@ class ModelTrainer:
         if last_ckpt:
             log.info(f"resuming from checkpoint: {last_ckpt}")
         reset_peak_mem()
+        run_id = None
         try:
-            out = trainer.train(resume_from_checkpoint=last_ckpt)
+            if cfg.tracking_backend == "mlflow":
+                # the trainer owns the MLflow run: HF's callback attaches to the active run, and the
+                # run id travels in train_stats.json to the registry submit
+                import mlflow
+
+                with mlflow.start_run() as run:
+                    run_id = run.info.run_id
+                    out = trainer.train(resume_from_checkpoint=last_ckpt)
+            else:
+                out = trainer.train(resume_from_checkpoint=last_ckpt)
         except KeyboardInterrupt:
             log.warning("interrupted — last checkpoint kept for resume")
             raise
@@ -224,6 +238,7 @@ class ModelTrainer:
             atomic_write_json(paths.MODEL_DIR / QUANT_SCHEME_FILE, {"scheme": qat})
         log.info(f"best model saved -> {paths.MODEL_DIR} (method={cfg.finetune.method})")
         # what `tune` and `perf report` show next to quality: this run's speed and memory
-        atomic_write_json(paths.TRAIN_STATS, {"samples_per_s": out.metrics.get("train_samples_per_second"),
+        atomic_write_json(paths.TRAIN_STATS, {"run_id": run_id,
+                                              "samples_per_s": out.metrics.get("train_samples_per_second"),
                                               "runtime_s": out.metrics.get("train_runtime"),
                                               "peak_mem_gb": peak_mem_gb()})

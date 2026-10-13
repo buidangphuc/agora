@@ -30,3 +30,9 @@ recsys-two-tower:
     coverage@10: 0.8
   floors:
     recall@10: 0.000001
+
+finetune-classifier:
+  primary: macro_f1
+  min_relative_improvement: 0.01
+  floors:
+    macro_f1: 0.5

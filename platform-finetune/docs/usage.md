@@ -40,7 +40,7 @@ Use your own data: set `ingestion.dataset_name: null` in `config/params.yaml` an
 | `serve` | run an endpoint (`--backend local` or `triton`) |
 | `deploy` | deploy to a SageMaker Triton endpoint |
 | `analyze` | sweep Triton serving configs on real traffic (Model Analyzer) |
-| `promote-stage` · `rollback` · `stage-path` | move / restore / resolve staging & production pointers |
+| `promote-stage` · `rollback` · `stage-path` | removed: use `python -m modelregistry promote/rollback finetune-classifier` |
 | `perf fingerprint` | this box's `hw_id` + whether it matches the train / infer target |
 | `perf tune infer --entry m:f` | backend × precision × batch sweep, quality-guarded, worst length bucket |
 | `perf tune train --entry m:f` | precision / TF32 / compile / checkpointing / workers, auto max-fit batch, effective batch constant |

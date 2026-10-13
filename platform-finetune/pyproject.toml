@@ -44,6 +44,7 @@ dev = [
   "tensorboard",           # opt-in TB scalar logs + histograms
   # tracking + data versioning
   "mlflow",
+  "modelregistry",         # shared model registry + publish gate (platform-core path dependency, see uv.sources)
   "dvc",
   # optimize / package (ONNX export)
   "optimum[onnxruntime]",
@@ -66,6 +67,9 @@ dev = [
   "sagemaker",
   "pynvml",
 ]
+
+[tool.uv.sources]
+modelregistry = { path = "../platform-core/packages/py-modelregistry" }
 
 [project.scripts]
 datascience = "datascience.cli:main"

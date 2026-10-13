@@ -1,14 +1,8 @@
-# Local MinIO, MLflow & Opik via Docker Compose
+# Ops
 
-- MinIO Console: http://localhost:9001 (user/pass in `.env` or `minioadmin/minioadmin`)
-- S3 endpoint: http://localhost:9000
-- MLflow UI: http://localhost:5000
+Serving and Triton build files live here (`serve-cpu/`, `triton/`). They are NOT PORTED to the
+platform yet (see the repo README).
 
-Start all services:
-```bash
-docker compose -f ops/docker-compose.yml up -d --build
-```
-
-MinIO buckets will be created automatically: `mlflow`, `dvc`.
-
-All data and configuration will be stored in folders specified by environment variables in the `.env` file.
+The local MinIO/MLflow compose stack was dropped. Tracking and the model registry use the platform
+MLflow server: set `MLFLOW_TRACKING_URI` (the fixed sqlite default in `constants/paths.py` is used
+only when it is unset).

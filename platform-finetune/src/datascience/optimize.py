@@ -1,3 +1,5 @@
+# NOT PORTED: GLiNER-shaped serving code kept for reference only. It is not wired into the
+# platform deploy and the offline suite never imports it (see README).
 """OPTIMIZE — export GLiNER → ONNX + int8 for the cheap CPU serving path, GUARDED by a
 parity gate so quantization can't silently degrade quality.
 

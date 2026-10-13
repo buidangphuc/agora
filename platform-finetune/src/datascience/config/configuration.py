@@ -7,7 +7,6 @@ from datascience.entity.config_entity import (
     DataTransformationConfig,
     DataValidationConfig,
     FinetuneConfig,
-    GateConfig,
     ModelEvaluationConfig,
     ModelTrainerConfig,
     RegistryConfig,
@@ -17,7 +16,7 @@ from datascience.model import QAT_SCHEMES
 from datascience.utils.common import read_yaml
 
 _REQUIRED_SECTIONS = [
-    "ingestion", "data", "model", "task", "finetune", "training", "metrics", "gate", "tracking", "registry",
+    "ingestion", "data", "model", "task", "finetune", "training", "metrics", "tracking", "registry",
 ]
 _VALID_METRICS = {"accuracy", "macro_f1", "micro_f1", "mcc", "pr_auc"}   # see metrics.compute_scalar_metrics
 _FINETUNE_METHODS = ("full", "lora", "qlora", "qat")
@@ -61,12 +60,6 @@ class ConfigurationManager:
                 raise ValueError(f"finetune.method qat needs finetune.qat.scheme in {list(QAT_SCHEMES)}, got {scheme!r}")
         if "{text}" not in self.params.task.prompt_template:
             raise ValueError("task.prompt_template must contain {text}")
-
-        if self.params.gate.on_fail not in ("error", "warn"):
-            raise ValueError("gate.on_fail must be 'error' or 'warn'")
-        for r in self.params.gate.rules:
-            if "metric" not in r or "min" not in r:
-                raise ValueError(f"each gate rule needs 'metric' and 'min': {dict(r)}")
 
     def tracking_uri(self) -> str:
         # Env wins so CI/prod can point elsewhere; default is the fixed sqlite.
@@ -164,14 +157,8 @@ class ConfigurationManager:
             task=self.task(),
         )
 
-    def gate(self) -> GateConfig:
-        g = self.params.gate
-        return GateConfig(enabled=g.enabled, on_fail=g.on_fail, rules=[dict(r) for r in g.rules])
-
     def registry(self) -> RegistryConfig:
-        r = self.params.registry
-        s3 = dict(r.remote.s3) if r.remote.get("s3") else None
-        return RegistryConfig(name=r.name, remote_backend=r.remote.backend, remote_s3=s3)
+        return RegistryConfig(name=self.params.registry.name)
 
     def serving(self):
         """The serving.yaml ConfigBox (.optimize / .triton / .sagemaker / .local).

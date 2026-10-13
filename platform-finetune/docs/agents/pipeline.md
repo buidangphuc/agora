@@ -12,8 +12,8 @@ Three layers share one package (`src/datascience`, imported as `datascience`):
    - FastAPI CPU serve (`serve/local.py`)
    - Triton python-backend MME (`package.py`)
    - SageMaker deploy (`serve/deploy_sagemaker.py`)
-   - S3 registry with local versions (`registry/`)
-   - staging/production pointers with rollback (`registry/stages.py`)
+   - shared MLflow registry through py-modelregistry (`registry/__init__.py`: `publish`, `preflight`)
+   - champion/previous aliases and rollback via `python -m modelregistry`
 3. **GPU perf platform** (`perf/`): tuning for training throughput, inference, profiling and kernel autotuning. It is task-agnostic and **bound to hardware** (see the "Perf platform" section).
 
 **Known broken (serving and packaging only):** `serve/local.py`, `package.py`, `optimize.py` and `serve_analyzer` are still GLiNER-shaped. For example `Predictor(..., onnx=True)` and `ev.flat_ner` / `ev.max_width` no longer exist. Train, eval, infer, tune and perf work. Do not build on those four files before they are ported.
@@ -29,9 +29,7 @@ Three layers share one package (`src/datascience`, imported as `datascience`):
   - `perf.yaml`: perf grids, objectives and constraints.
 - `components/` holds stage logic. `pipeline/stages.py` wires config to components. `cli.py` dispatches and imports the training stack only for stage commands.
 - `registry/`:
-  - `base.register`: local always, remote through `_REMOTE_BACKENDS` (`s3`), and records `train_hw`.
-  - `s3.py`: push (training side) and pull (serving side).
-  - `stages.py`: `promote-stage`, `rollback`, `stage-path`.
+  - `publish`: submits the saved model to py-modelregistry (model `finetune-classifier`) with lineage `data_version`, `train_hw` (`cpu` without a GPU), `eval_protocol`. `preflight` runs before any stage.
 - `perf/`:
   - `hw.py`: fingerprint and role binding.
   - `store.py`: hardware-bound results.
@@ -58,8 +56,8 @@ Three layers share one package (`src/datascience`, imported as `datascience`):
 - **Fine-tune, don't train from scratch.** To change architecture, swap `model.base_model`.
 - **No leakage.** `val` selects, `test` is touched once, and label names come from TRAIN only.
 - **Objective reports, loss selects.** The trainer keeps the best checkpoint on `eval_loss`. `metrics.objective` is what evaluation reports and what the gate and `tune` ranking read by NAME, so they stay task-agnostic.
-- **Storage always; promotion gated.** A model is always saved to disk. Only a model that passes the gate enters the registry. Stage pointers move only through `promote-stage`, and `rollback` restores the previous holder.
-- **Lineage.** Both register sites (`pipeline/stages.py`, `tune/promote.py`) pass metrics and `data_version`. The tune path also passes the MLflow `run_id` and a config snapshot. `registry.base.register` adds `train_hw` centrally.
+- **Storage always; promotion gated.** A model is always saved to disk, then submitted to the shared registry; the gate (policy `finetune-classifier` in py-modelregistry `policies.yaml`) decides `champion`. A rejection is recorded on the version and exits 0. Exit codes: 0 done, 1 registry unreachable or unexpected, 2 PolicyError. Rollback: `python -m modelregistry rollback finetune-classifier`.
+- **Lineage.** Both register sites (`pipeline/stages.py`, `tune/promote.py`) pass the trainer's MLflow `run_id` (in `train_stats.json`), scalar metrics and the lineage tags above.
 - **Tracking ≠ registry.** MLflow logs metrics and curves, with perf runs in experiment `perf`. The registry is the model store.
 
 ## Fine-tune methods vs quantization schemes
@@ -113,5 +111,4 @@ Three layers share one package (`src/datascience`, imported as `datascience`):
 
 - Monitoring and retrain triggers.
 - CI/CD (there is no workflow on `main`).
-- Remote registry backends beyond s3.
 - The serving hooks listed under "Not wired yet".

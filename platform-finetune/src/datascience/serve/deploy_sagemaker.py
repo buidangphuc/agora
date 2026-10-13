@@ -1,3 +1,5 @@
+# NOT PORTED: GLiNER-shaped serving code kept for reference only. It is not wired into the
+# platform deploy and the offline suite never imports it (see README).
 """Deploy the GLiNER Triton python-backend Multi-Model Endpoint (MME) to SageMaker.
 
 Runs on AWS (boto3 + creds). Ports `gliner_multimodel_triton/zip_deploy_sagemaker.py`

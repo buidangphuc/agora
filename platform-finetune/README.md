@@ -36,10 +36,22 @@ make test                               # offline, no GPU
 
 ## Status
 
-Built: fine-tune methods, S3 registry with staging/production pointers and rollback, GPU perf platform with PTQ
+Built: fine-tune methods, shared MLflow registry gate (champion/previous, rollback via `python -m modelregistry`), GPU perf platform with PTQ
 schemes. GPU smoke passed on a V100 on 2026-10-12; int4-wo, fp8 and bf16 are unverified (need sm_80+).
 **Broken:** serving/packaging (`serve/local.py`, `package.py`, `optimize.py`, `serve_analyzer` are still GLiNER-shaped).
 **Deferred:** wiring tuned perf configs into package/serve, production monitoring, CI/CD.
+
+## Not ported
+
+These serving files are GLiNER-shaped, carry a `NOT PORTED` header, and are neither deployed nor
+imported by the pipeline, the CLI entry points or the tests: `serve/local.py`, `package.py`, `optimize.py`,
+`serve_analyzer.py`, `serve/triton.py`, `serve/deploy_sagemaker.py`.
+
+## Registry
+
+Models are published to the shared registry (py-modelregistry on MLflow, model `finetune-classifier`;
+policy in `platform-core/packages/py-modelregistry/src/modelregistry/policies.yaml`). Set
+`MLFLOW_TRACKING_URI`. Promote or roll back with `python -m modelregistry promote|rollback finetune-classifier`.
 
 ## Docs
 

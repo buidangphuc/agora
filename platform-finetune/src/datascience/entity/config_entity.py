@@ -99,14 +99,5 @@ class ModelEvaluationConfig:
 
 
 @dataclass
-class GateConfig:
-    enabled: bool
-    on_fail: str                  # "error" | "warn"
-    rules: list                   # [{metric, min}, ...]
-
-
-@dataclass
 class RegistryConfig:
-    name: str
-    remote_backend: str           # none | mlflow | sagemaker | s3
-    remote_s3: dict = None        # {bucket, prefix, region} when remote_backend == s3
+    name: str                     # registered model name in the shared registry

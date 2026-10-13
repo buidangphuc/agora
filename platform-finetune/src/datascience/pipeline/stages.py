@@ -1,7 +1,7 @@
 """Pipeline stages: thin wrappers wiring config -> component, plus the runner.
 
 Each stage is independently runnable (the CLI / DVC call them by name). The
-`evaluate` stage also runs the gate and, on pass, versions the model locally.
+`evaluate` stage submits the saved model to the shared registry, whose gate decides promotion.
 """
 
 import json
@@ -15,8 +15,6 @@ from datascience.components.model_evaluation import ModelEvaluation
 from datascience.components.model_trainer import ModelTrainer
 from datascience.config.configuration import ConfigurationManager
 from datascience.constants import paths
-from datascience.gate import QualityGate
-from datascience.utils.io import read_data_version
 
 
 def _cm():
@@ -46,14 +44,8 @@ def run_evaluate():
     ModelEvaluation(cm.evaluation()).evaluate()
 
     metrics = json.loads(paths.METRICS_FILE.read_text())
-    if QualityGate(cm.gate()).check(metrics):  # raises GateFailed if on_fail=error
-        scalar = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
-        metadata = {
-            "base_model": cm.trainer().base_model,
-            "dataset": cm.ingestion().dataset_name,
-            "data_version": read_data_version(),
-        }
-        registry.register(paths.MODEL_DIR, scalar, metadata, cm.registry())
+    run_id = json.loads(paths.TRAIN_STATS.read_text()).get("run_id") if paths.TRAIN_STATS.exists() else None
+    registry.publish(cm, run_id, metrics, paths.MODEL_DIR)  # model is on disk; a rejection is not an error
 
 
 def run_sanity():
@@ -72,6 +64,7 @@ _STAGES = [
 
 
 def run_all(only=None, frm=None, to=None):
+    registry.preflight()  # before any stage: exit 1 if the registry is unreachable
     names = [n for n, _ in _STAGES]
     if only:
         if only not in names:
