@@ -545,6 +545,7 @@ services:
     image: team-gateway:local
     container_name: team-gateway-svc
     environment:
+      - ENV=local
       - HTTP_PORT=8080
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
       - UPSTREAM_LISTING_ADDR=team-domain-svc:50051
