@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -10,6 +11,16 @@ from recsys import __main__ as entry
 from recsys.config import ConfigError, Settings
 from recsys.dataset import manifest_path_for, resolve_dataset
 from tests.dataset_fixture import sample_rows, write_dataset
+from tests.pipeline_fixture import forbid_spark
+
+# INTERFACE ASSUMPTION (RAT-22..RAT-24): ``resolve_dataset(settings, now=None)`` raises ConfigError naming
+# MAX_DATASET_AGE_MINUTES when the newest snapshot's manifest ``as_of`` is older than the setting (0 = off);
+# ``now`` (timezone-aware) is injectable so the tests never read the wall clock.
+NOW = datetime(2026, 10, 13, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _stamp(age_minutes: float) -> str:
+    return (NOW - timedelta(minutes=age_minutes)).strftime("%Y%m%dT%H%M%SZ")
 
 
 def test_latest_snapshot_under_dataset_dir_wins(tmp_path):
@@ -72,19 +83,71 @@ def test_lineage_is_copied_from_the_manifest(tmp_path):
     assert len(ds.lineage["sha256"]) == 64
 
 
-def test_main_exits_2_naming_dataset_dir_and_registers_nothing(tmp_path, monkeypatch, caplog):
-    import recsys.pipeline as pipeline
-
+def test_main_exits_2_naming_dataset_dir_and_registers_nothing(tmp_path, reg, monkeypatch, caplog):
     monkeypatch.setenv("DATASET_DIR", str(tmp_path))
     monkeypatch.delenv("DATASET_PATH", raising=False)
-    # Must refuse before any Spark or registry work.
-    monkeypatch.setattr(pipeline, "build_spark", lambda *_: pytest.fail("Spark started without a dataset"))
-    monkeypatch.setattr(
-        pipeline, "ModelRegistry", lambda *_a, **_k: pytest.fail("registry touched without a dataset")
-    )
+    # Must refuse before any Spark work, and register nothing in the model registry.
+    forbid_spark(monkeypatch)
     with caplog.at_level(logging.ERROR):
         assert entry.main([]) == 2
     assert f"DATASET_DIR={tmp_path}" in caplog.text
+    assert not reg.client.search_registered_models()
+
+
+# --- RAT-22 / RAT-23 / RAT-24: the freshness guard ---------------------------------------------------
+def test_stale_dataset_is_refused_naming_the_setting(tmp_path):
+    # RAT-22 (unit level): 26 h old with MAX_DATASET_AGE_MINUTES=1500
+    write_dataset(tmp_path, sample_rows(), as_of=_stamp(26 * 60))
+    with pytest.raises(ConfigError, match="MAX_DATASET_AGE_MINUTES"):
+        resolve_dataset(Settings(dataset_dir=str(tmp_path), max_dataset_age_minutes=1500), now=NOW)
+
+
+def test_age_guard_boundary(tmp_path):
+    # RAT-23: 1499 minutes old with a 1500 window trains; the window itself is inclusive; one more is refused
+    for age, ok in ((1499, True), (1500, True), (1501, False)):
+        d = tmp_path / f"age-{age}"
+        write_dataset(d, sample_rows(), as_of=_stamp(age))
+        cfg = Settings(dataset_dir=str(d), max_dataset_age_minutes=1500)
+        if ok:
+            assert resolve_dataset(cfg, now=NOW).manifest["as_of"] == _stamp(age)
+        else:
+            with pytest.raises(ConfigError, match="MAX_DATASET_AGE_MINUTES"):
+                resolve_dataset(cfg, now=NOW)
+
+
+def test_age_guard_disabled(tmp_path):
+    # RAT-24: 0 switches the check off, however old the snapshot is
+    write_dataset(tmp_path, sample_rows(), as_of=_stamp(30 * 24 * 60))
+    ds = resolve_dataset(Settings(dataset_dir=str(tmp_path), max_dataset_age_minutes=0), now=NOW)
+    assert ds.manifest["as_of"] == _stamp(30 * 24 * 60)
+
+
+def test_age_guard_judges_the_newest_snapshot(tmp_path):
+    # RAT-22/23: an old snapshot beside a fresh one does not trip the guard (the newest is what trains)
+    write_dataset(tmp_path, sample_rows(), as_of=_stamp(5 * 24 * 60))
+    fresh = write_dataset(tmp_path, sample_rows(), as_of=_stamp(10))
+    ds = resolve_dataset(Settings(dataset_dir=str(tmp_path), max_dataset_age_minutes=60), now=NOW)
+    assert ds.path == str(fresh)
+
+
+def test_age_guard_applies_to_an_explicit_dataset_path(tmp_path):
+    # RAT-22: DATASET_PATH pins a file, it does not exempt it from the guard
+    old = write_dataset(tmp_path / "pinned", sample_rows(), as_of=_stamp(26 * 60))
+    with pytest.raises(ConfigError, match="MAX_DATASET_AGE_MINUTES"):
+        resolve_dataset(Settings(dataset_path=str(old), max_dataset_age_minutes=1500), now=NOW)
+
+
+def test_main_refuses_a_stale_dataset_with_exit_2_before_spark(tmp_path, reg, monkeypatch, caplog):
+    # RAT-22 (job level): exit 2, Spark never starts, no model version registered
+    write_dataset(tmp_path, sample_rows(), as_of="20200101T000000Z")  # years old, real clock
+    monkeypatch.setenv("DATASET_DIR", str(tmp_path))
+    monkeypatch.delenv("DATASET_PATH", raising=False)
+    monkeypatch.setenv("MAX_DATASET_AGE_MINUTES", "1500")
+    forbid_spark(monkeypatch)
+    with caplog.at_level(logging.ERROR):
+        assert entry.main([]) == 2
+    assert "MAX_DATASET_AGE_MINUTES" in caplog.text
+    assert not reg.client.search_registered_models()
 
 
 def _with_extra_columns(parquet, manifest_path):

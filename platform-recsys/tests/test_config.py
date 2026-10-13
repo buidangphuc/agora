@@ -79,3 +79,30 @@ def test_holdout_fraction_bounds():
     for bad in ("0", "1", "1.5", "-0.1"):
         with pytest.raises(ValueError):
             config.load_settings(environ={"TWO_TOWER_HOLDOUT_FRACTION": bad})
+
+
+@pytest.mark.parametrize(
+    ("env", "value"),
+    [
+        ("TWO_TOWER_HOLDOUT_FRACTION", "0"),  # RAT-44: ValueError from validate()
+        ("TWO_TOWER_HOLDOUT_FRACTION", "1.5"),
+        ("MAX_DATASET_AGE_MINUTES", "-5"),  # RAT-48
+        ("MAX_DATASET_AGE_MINUTES", "abc"),  # a non-numeric value fails while the environment is read
+        ("MLFLOW_TRACKING_URI", ""),  # RAT-21: ConfigError from validate_for_training()
+    ],
+)
+def test_config_errors_exit_2_before_spark(tmp_path, monkeypatch, env, value):
+    # follow-up from group A: BOTH the ValueError of validate() and the ConfigError of validate_for_training()
+    # end the job with exit 2, and Spark never starts (a started Spark raises a BaseException here)
+    from recsys import __main__ as entry
+    from tests.dataset_fixture import sample_rows, write_dataset
+    from tests.pipeline_fixture import forbid_spark
+
+    write_dataset(tmp_path, sample_rows())  # a valid dataset: only the setting under test is wrong
+    monkeypatch.setenv("DATASET_DIR", str(tmp_path))
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"file:{tmp_path / 'store'}")
+    monkeypatch.setenv(env, value)
+    forbid_spark(monkeypatch)
+
+    assert entry.main([]) == 2
+    assert not (tmp_path / "store").exists()  # nothing was registered

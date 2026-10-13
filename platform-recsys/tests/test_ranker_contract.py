@@ -62,3 +62,14 @@ def test_the_artifact_carries_the_contract():
     assert art["features"] == list(contract.RANKING_FEATURES)
     assert art["feature_views"] == contract.FEATURE_VIEWS and art["format"] == "agora-gbdt/1"
     assert set(art["defaults"]) == set(contract.RANKING_FEATURES)
+
+
+def test_the_ranker_package_is_wired_to_the_shared_registry_only():
+    # RAT-40..42 / task 1.5: no Redis champion key, no scoped registry, no old model name in ranker/
+    root = pathlib.Path(contract.__file__).parent
+    text = "\n".join(p.read_text() for p in root.glob("*.py"))
+    for gone in ("GBDT_CHAMPION_KEY", "scoped(", "recsys-gbdt-ranker", "recs:model:", "ModelRegistry"):
+        assert gone not in text, f"{gone!r} is still referenced under recsys/ranker"
+    from recsys import registry_client
+
+    assert registry_client.GBDT_MODEL == "recsys-gbdt"

@@ -13,9 +13,9 @@ from recsys.config import Settings
 from recsys.load import qdrant as qdrant_load
 from recsys.load import redis_cache
 from recsys.publish import RollbackRefused, publish_generation, rollback
-from recsys.registry.metadata import ModelMetadata
-from recsys.registry.registry import ModelRegistry
 from tests.fakes import FakeQdrantClient, FakeRedis
+
+ALS = "recsys-als"
 
 DIM = 4
 SETTINGS = Settings(als_rank=DIM, top_n=3, redis_host="redis.invalid")
@@ -100,12 +100,21 @@ def _gen_keys(redis_client, gen):
     return {k for k in redis_client.scan_iter(match=f"recs:v1:gen:{gen}:*")}
 
 
-def _registry_with(redis_client, *versions):
-    reg = ModelRegistry(redis_client=redis_client)
-    for v in versions:
-        reg.register_model(ModelMetadata(model_name="als", model_version=v, model_type="als", metrics={}))
-        reg.evaluate_and_promote(v, force=True)
-    return reg
+def _registry_with(reg, *generations):
+    """``recsys-als`` versions (with an artifact), one per generation, built in order: the last is
+    champion and the one before it is ``previous``. ``lineage.model_version`` names the generation.
+
+    INTERFACE ASSUMPTION: rollback finds the version a generation was built from through the lineage tag
+    ``lineage.model_version`` (the pipeline writes it; see tests/pipeline_fixture.py).
+    """
+    ids = {}
+    for g in generations:
+        ids[g] = reg.add_version(ALS, {"ndcg@10": 0.1, "coverage@10": 0.5}, alias=None)
+        reg.client.set_model_version_tag(ALS, str(ids[g]), "lineage.model_version", g)
+    reg.client.set_registered_model_alias(ALS, "champion", str(ids[generations[-1]]))
+    if len(generations) > 1:
+        reg.client.set_registered_model_alias(ALS, "previous", str(ids[generations[-2]]))
+    return ids
 
 
 # ── publish ──────────────────────────────────────────────────────────────────────────────────────
@@ -286,13 +295,14 @@ def test_lua_switch_moves_all_three_keys_together():
 # ── rollback ─────────────────────────────────────────────────────────────────────────────────────
 
 
-def test_rollback_restores_the_previous_generation(redis_client, qdrant):
+def test_rollback_moves_registry_champion(reg, redis_client, qdrant):
+    # RAT-31: serving g2 / previous g1 -> serving g1 / previous g2, and recsys-als@champion names g1's version
     _publish(redis_client, qdrant, "g1")
     _publish(redis_client, qdrant, "g2")
-    registry = _registry_with(redis_client, "g1", "g2")
-    assert registry.get_champion_version() == "g2"
+    ids = _registry_with(reg, "g1", "g2")
+    assert reg.aliases(ALS)["champion"] == ids["g2"]
 
-    out = rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+    out = rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
 
     assert out == {"serving": "g1", "previous": "g2"}
     assert redis_client.get("recs:v1:serving") == "g1"
@@ -302,57 +312,60 @@ def test_rollback_restores_the_previous_generation(redis_client, qdrant):
         "item_als_vectors": "item_als_vectors__g1",
         "user_als_vectors": "user_als_vectors__g1",
     }
-    assert registry.get_champion_version() == "g1"
-    assert registry.get_model("g1").status == "champion"
-    assert registry.get_model("g2").status == "archived"
+    assert reg.aliases(ALS) == {"champion": ids["g1"], "previous": ids["g2"]}
+    assert reg.tags(ALS, ids["g1"])["lineage.model_version"] == "g1"
 
 
-def test_rollback_twice_goes_forward_again(redis_client, qdrant):
+def test_rollback_twice_goes_forward_again(reg, redis_client, qdrant):
     _publish(redis_client, qdrant, "g1")
     _publish(redis_client, qdrant, "g2")
-    registry = _registry_with(redis_client, "g1", "g2")
-    rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
-    rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+    ids = _registry_with(reg, "g1", "g2")
+    rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
+    rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
 
     assert redis_client.get("recs:v1:serving") == "g2"
-    assert registry.get_champion_version() == "g2"
+    assert reg.aliases(ALS) == {"champion": ids["g2"], "previous": ids["g1"]}  # a swap: twice is a round trip
 
 
-def test_rollback_without_a_previous_generation_is_refused_and_changes_nothing(redis_client, qdrant):
+def test_rollback_without_previous_refused(reg, redis_client, qdrant):
+    # RAT-32: no previous generation -> refused (exit 2 at the command), no alias and no pointer changes
     _publish(redis_client, qdrant, "g1")
-    registry = _registry_with(redis_client, "g1")
+    ids = _registry_with(reg, "g1")
     before_aliases = _aliases(qdrant)
+    registry_before = reg.aliases(ALS)
 
     with pytest.raises(RollbackRefused, match="no previous generation"):
-        rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+        rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
 
     assert redis_client.get("recs:v1:serving") == "g1"
     assert redis_client.get("recs:v1:model_version") == "g1"
     assert _aliases(qdrant) == before_aliases
-    assert registry.get_champion_version() == "g1"
+    assert reg.aliases(ALS) == registry_before == {"champion": ids["g1"]}
 
 
-def test_rollback_is_refused_when_the_previous_keys_expired(redis_client, qdrant):
+def test_rollback_is_refused_when_the_previous_keys_expired(reg, redis_client, qdrant):
     _publish(redis_client, qdrant, "g1")
     _publish(redis_client, qdrant, "g2")
-    registry = _registry_with(redis_client, "g1", "g2")
+    ids = _registry_with(reg, "g1", "g2")
     redis_client.delete(*_gen_keys(redis_client, "g1"))
 
     with pytest.raises(RollbackRefused, match="no keys left"):
-        rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+        rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
     assert redis_client.get("recs:v1:serving") == "g2"
     assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g2"
+    assert reg.aliases(ALS)["champion"] == ids["g2"]
 
 
-def test_rollback_is_refused_when_the_previous_collection_is_gone(redis_client, qdrant):
+def test_rollback_is_refused_when_the_previous_collection_is_gone(reg, redis_client, qdrant):
     _publish(redis_client, qdrant, "g1")
     _publish(redis_client, qdrant, "g2")
-    registry = _registry_with(redis_client, "g1", "g2")
+    ids = _registry_with(reg, "g1", "g2")
     qdrant.delete_collection(collection_name="user_als_vectors__g1")
 
     with pytest.raises(RollbackRefused, match="no Qdrant collections"):
-        rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+        rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
     assert redis_client.get("recs:v1:serving") == "g2"
+    assert reg.aliases(ALS)["champion"] == ids["g2"]
 
 
 # ── command ──────────────────────────────────────────────────────────────────────────────────────
@@ -368,13 +381,15 @@ def _main_with(monkeypatch, redis_client, qdrant, argv):
     return entry.main(argv)
 
 
-def test_command_rollback_exit_codes(monkeypatch):
+def test_command_rollback_exit_codes(reg, monkeypatch):
     redis_client, qdrant = FakeRedis(), FakeQdrantClient()
     _publish(redis_client, qdrant, "g1")
+    _registry_with(reg, "g1")
     assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
     assert redis_client.store["recs:v1:serving"] == "g1"
 
     _publish(redis_client, qdrant, "g2")
+    _registry_with(reg, "g1", "g2")  # the registry is in step with serving: g2 built the champion
     assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 0
     assert redis_client.store["recs:v1:serving"] == "g1"
 
@@ -416,35 +431,32 @@ def test_swap_is_a_compare_and_set_on_serving(redis_client):
     assert redis_cache.swap_generations(SETTINGS, "g2", client=redis_client) == ("g2", "g1")
 
 
-def test_rollback_rerun_after_a_crash_converges_on_the_restored_model(redis_client, qdrant):
+def test_rollback_rerun_after_a_crash_converges_on_the_restored_model(reg, redis_client, qdrant):
     _publish(redis_client, qdrant, "g1")
     _publish(redis_client, qdrant, "g2")
-    registry = _registry_with(redis_client, "g1", "g2")
+    ids = _registry_with(reg, "g1", "g2")
 
     # Crash: the aliases and the pointers moved, restore_champion never ran.
     qdrant_load.activate_aliases(SETTINGS, "g1", client=qdrant)
     assert redis_cache.swap_generations(SETTINGS, "g2", client=redis_client) == ("g2", "g1")
-    assert registry.get_champion_version() == "g2"
+    assert reg.aliases(ALS)["champion"] == ids["g2"]
 
     # The re-run (a retry of the same rollback) converges; it must not swap back to g2.
-    if True:
-        out = rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
-        assert out["serving"] == "g1"
-        assert redis_client.get("recs:v1:serving") == "g1"
-        assert redis_client.get("recs:v1:previous") == "g2"
-        assert redis_client.get("recs:v1:model_version") == "g1"
-        assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
-        assert _aliases(qdrant)["user_als_vectors"] == "user_als_vectors__g1"
-        assert registry.get_champion_version() == "g1"
-        assert registry.get_model("g1").status == "champion"
-        assert registry.get_model("g2").status == "archived"
+    out = rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
+    assert out["serving"] == "g1"
+    assert redis_client.get("recs:v1:serving") == "g1"
+    assert redis_client.get("recs:v1:previous") == "g2"
+    assert redis_client.get("recs:v1:model_version") == "g1"
+    assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
+    assert _aliases(qdrant)["user_als_vectors"] == "user_als_vectors__g1"
+    assert reg.aliases(ALS) == {"champion": ids["g1"], "previous": ids["g2"]}
 
 
-def test_rollback_with_a_stale_read_does_not_swap_back(redis_client, qdrant):
+def test_rollback_with_a_stale_read_does_not_swap_back(reg, redis_client, qdrant):
     """Serving moves between the pointer read and the swap: the CAS refuses, rollback converges."""
     _publish(redis_client, qdrant, "g1")
     _publish(redis_client, qdrant, "g2")
-    registry = _registry_with(redis_client, "g1", "g2")
+    ids = _registry_with(reg, "g1", "g2")
 
     real = redis_cache.pointers
     state = {"n": 0}
@@ -459,12 +471,12 @@ def test_rollback_with_a_stale_read_does_not_swap_back(redis_client, qdrant):
     import unittest.mock as mock
 
     with mock.patch.object(redis_cache, "pointers", stale_pointers):
-        out = rollback(SETTINGS, registry, redis_client=redis_client, qdrant_client=qdrant)
+        out = rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
 
     assert out["serving"] == "g1"
     assert redis_client.get("recs:v1:serving") == "g1"
     assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
-    assert registry.get_champion_version() == "g1"
+    assert reg.aliases(ALS)["champion"] == ids["g1"]
 
 
 class _CountingQdrant(FakeQdrantClient):

@@ -203,6 +203,75 @@ def test_drift_sketches_artifact_round_trip(reg, tmp_path):
     assert baseline == sketches
 
 
+# --- review follow-ups from group A ---------------------------------------------------------------
+SKETCH = [float(i) for i in range(101)]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"u-0001": SKETCH},  # keyed by a user id
+        {"weight": {"u-0001": 0.3}},  # a per-user mapping
+        {"weight": ["u-0001", "u-0002"]},  # non-numeric values
+        {"weight": [1.0, "2.0"]},
+        {"weight": [1.0, float("nan")]},  # not finite: not JSON either
+        {"weight": 3.0},  # a scalar, not a sketch
+        {"weight": [[1.0], [2.0]]},  # nested
+        {"top_users": SKETCH},  # not one of the four sketched features
+    ],
+)
+def test_drift_sketches_non_numeric_or_user_keyed_refused(monkeypatch, closed_port_url_fx, bad):
+    # RAT-26 / RAT-25 (follow-up): refused BEFORE any MLflow call: the URI is a dead port, so a call would
+    # surface as RegistryUnavailable instead of PayloadRejected
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    with pytest.raises(rc.PayloadRejected):
+        rc.write_drift_sketches("run-id", bad)
+
+
+def test_numeric_drift_sketches_are_accepted(reg):
+    run_id = rc.start_run("recsys-als-g1", HYPER)
+    rc.write_drift_sketches(run_id, {"weight": SKETCH, "top_score": SKETCH})
+    assert [f.path for f in reg.client.list_artifacts(run_id)] == ["drift_sketches.json"]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"data_version": {"u-0001": 1}},  # a mapping keyed by a user id
+        {"data_version": ["a", "b"]},  # a list
+        {"data_version": ("a",)},  # a tuple
+        {"data_version": {"nested": {"u-0001": 1}}},
+    ],
+)
+def test_non_scalar_lineage_refused(tmp_path, monkeypatch, closed_port_url_fx, bad):
+    # follow-up: lineage becomes MLflow tags, so only scalars may cross the adapter
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    d = tmp_path / "art"
+    d.mkdir()
+    (d / "item_factors.parquet").write_bytes(b"x")
+    with pytest.raises(rc.PayloadRejected):
+        rc.evaluate(rc.ALS_MODEL, "run-id", {"ndcg@10": 0.1}, d, {**LINEAGE, **bad})
+
+
+def test_artifact_dir_containing_a_symlink_refused(tmp_path, monkeypatch, closed_port_url_fx):
+    # follow-up: a symlink named like an allowed file would upload whatever it points at (e.g. user data)
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    secret = tmp_path / "users.txt"
+    secret.write_text("u-0001 u-0002")
+    d = tmp_path / "art"
+    d.mkdir()
+    (d / "item_factors.parquet").symlink_to(secret)
+    with pytest.raises(rc.PayloadRejected):
+        rc.evaluate(rc.ALS_MODEL, "run-id", {"ndcg@10": 0.1}, d, LINEAGE)
+
+    other = tmp_path / "art2"
+    other.mkdir()
+    (other / "item_factors.parquet").write_bytes(b"x")
+    (other / "linked").symlink_to(tmp_path, target_is_directory=True)  # a symlinked directory
+    with pytest.raises(rc.PayloadRejected):
+        rc.evaluate(rc.ALS_MODEL, "run-id", {"ndcg@10": 0.1}, other, LINEAGE)
+
+
 def test_baseline_none_without_champion_or_artifact(reg):
     # RAT-58 / RAT-59: no champion -> None; seeded champion without artifact -> None
     assert rc.champion_drift_baseline() is None
