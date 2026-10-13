@@ -16,7 +16,7 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
@@ -78,7 +78,7 @@ func (r *recorder) setFailIDs(ids ...string) {
 func newStore(t *testing.T) (*pgxpool.Pool, *outbox.Store) {
 	t.Helper()
 	ctx := context.Background()
-	pool, err := sdkpgx.Open(ctx, config.Postgres{URL: testkit.Postgres(t), MaxConns: 8})
+	pool, err := postgres.Open(ctx, config.Postgres{URL: testkit.Postgres(t), MaxConns: 8})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -91,7 +91,7 @@ func newStore(t *testing.T) (*pgxpool.Pool, *outbox.Store) {
 
 func enqueue(t *testing.T, pool *pgxpool.Pool, s *outbox.Store, id string) {
 	t.Helper()
-	err := sdkpgx.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
 		return s.EnqueueTx(context.Background(), tx, outbox.Row{
 			EventID: id, AggregateType: "Agg", AggregateID: "agg-" + id, EventType: "T", Payload: []byte(id),
 		})
@@ -224,7 +224,7 @@ func TestEnqueueRollsBackWithTx(t *testing.T) {
 	ctx := context.Background()
 	pool, s := newStore(t)
 	boom := errors.New("boom")
-	err := sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
 		if err := s.EnqueueTx(ctx, tx, outbox.Row{EventID: "e1", AggregateType: "A", AggregateID: "a", EventType: "T", Payload: []byte("x")}); err != nil {
 			return err
 		}
@@ -256,7 +256,7 @@ func TestEnqueueDuplicateIsNoop(t *testing.T) {
 	ctx := context.Background()
 	pool, s := newStore(t)
 	row := outbox.Row{EventID: "dup", AggregateType: "Agg", AggregateID: "agg-dup", EventType: "T", Payload: []byte("p")}
-	err := sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
 		for range 2 {
 			if err := s.EnqueueTx(ctx, tx, row); err != nil {
 				return err
@@ -278,7 +278,7 @@ func TestEnqueueDuplicateIsNoop(t *testing.T) {
 
 func enqueueAgg(t *testing.T, pool *pgxpool.Pool, s *outbox.Store, agg string, ids ...string) {
 	t.Helper()
-	err := sdkpgx.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
 		for _, id := range ids {
 			if err := s.EnqueueTx(context.Background(), tx, outbox.Row{
 				EventID: id, AggregateType: "Agg", AggregateID: agg, EventType: "T", Payload: []byte(id),
@@ -399,7 +399,7 @@ func TestPublishedRecordCarriesHeaders(t *testing.T) {
 		TraceFlags: trace.FlagsSampled,
 	})
 	eqCtx := reqctx.WithRequestID(trace.ContextWithSpanContext(ctx, sc), "req-42")
-	err := sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
 		return s.EnqueueTx(eqCtx, tx, outbox.Row{EventID: "e1", AggregateType: "Agg", AggregateID: "agg-1", EventType: "Thing.Created", Payload: []byte("p")})
 	})
 	if err != nil {
@@ -430,7 +430,7 @@ func TestPublishedRecordCarriesHeaders(t *testing.T) {
 func TestRowTopicOverridesRelayerTopic(t *testing.T) {
 	ctx := context.Background()
 	pool, s := newStore(t)
-	err := sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
 		return s.EnqueueTx(ctx, tx, outbox.Row{EventID: "e1", AggregateType: "A", AggregateID: "a", EventType: "T", Payload: []byte("p"), Topic: "other"})
 	})
 	if err != nil {
@@ -451,7 +451,7 @@ func TestRowTopicOverridesRelayerTopic(t *testing.T) {
 func TestEnqueueRejectsEmptyEventID(t *testing.T) {
 	ctx := context.Background()
 	pool, s := newStore(t)
-	err := sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
 		return s.EnqueueTx(ctx, tx, outbox.Row{AggregateType: "A", AggregateID: "a", EventType: "T", Payload: []byte("p")})
 	})
 	if !errors.Is(err, outbox.ErrEmptyEventID) {
@@ -516,7 +516,7 @@ func TestPurgeDeletesOnlyOldPublishedRows(t *testing.T) {
 
 func TestSchemaSQLUpgradesTableFromOldSchema(t *testing.T) {
 	ctx := context.Background()
-	pool, err := sdkpgx.Open(ctx, config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
+	pool, err := postgres.Open(ctx, config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
 	if err != nil {
 		t.Fatal(err)
 	}

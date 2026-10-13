@@ -32,7 +32,7 @@ type options struct {
 	dialOptions []grpc.DialOption
 }
 
-// Option configures Dial.
+// Option configures NewClient.
 type Option func(*options)
 
 // AsService makes every call present the service principal id with scopes,
@@ -70,11 +70,11 @@ func WithDialOptions(opts ...grpc.DialOption) Option {
 // gRPC default, pick_first, which pins the client to one of them.
 const defaultServiceConfig = `{"loadBalancingConfig":[{"round_robin":{}}]}`
 
-// Dial creates a lazily connecting plaintext gRPC client with otelgrpc, the
+// NewClient creates a lazily connecting plaintext gRPC client with otelgrpc, the
 // request id forwarded, the principal forwarded or replaced (AsService), and
 // round_robin load balancing. Override the balancer with
 // WithDialOptions(grpc.WithDefaultServiceConfig(...)).
-func Dial(addr string, opts ...Option) (*grpc.ClientConn, error) {
+func NewClient(addr string, opts ...Option) (*grpc.ClientConn, error) {
 	o := options{timeout: DefaultTimeout}
 	for _, opt := range opts {
 		opt(&o)

@@ -11,13 +11,13 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func dedupePool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool, err := sdkpgx.Open(context.Background(), config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
+	pool, err := postgres.Open(context.Background(), config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

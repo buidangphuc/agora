@@ -47,9 +47,9 @@ func echoServer(t *testing.T) *bufconn.Listener {
 
 func invoke(ctx context.Context, t *testing.T, opts ...Option) metadata.MD {
 	t.Helper()
-	conn, err := Dial("passthrough:///bufnet", opts...)
+	conn, err := NewClient("passthrough:///bufnet", opts...)
 	if err != nil {
-		t.Fatalf("Dial: %v", err)
+		t.Fatalf("NewClient: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	var hdr metadata.MD
@@ -138,9 +138,9 @@ func TestBoundedRespectsParentDeadline(t *testing.T) {
 }
 
 func TestPerCallServicePrincipal(t *testing.T) {
-	conn, err := Dial("passthrough:///bufnet", withBufconn(echoServer(t)))
+	conn, err := NewClient("passthrough:///bufnet", withBufconn(echoServer(t)))
 	if err != nil {
-		t.Fatalf("Dial: %v", err)
+		t.Fatalf("NewClient: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	call := func(ctx context.Context) metadata.MD {
@@ -217,12 +217,12 @@ func TestDefaultsToRoundRobin(t *testing.T) {
 	r := manual.NewBuilderWithScheme("rr")
 	r.InitialState(resolver.State{Addresses: addrs})
 
-	conn, err := Dial("rr:///svc", WithDialOptions(
+	conn, err := NewClient("rr:///svc", WithDialOptions(
 		grpc.WithResolvers(r),
 		grpc.WithContextDialer(func(_ context.Context, addr string) (net.Conn, error) { return listeners[addr].Dial() }),
 	))
 	if err != nil {
-		t.Fatalf("Dial: %v", err)
+		t.Fatalf("NewClient: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 

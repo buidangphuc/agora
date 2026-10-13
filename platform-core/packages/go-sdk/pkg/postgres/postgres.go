@@ -1,4 +1,4 @@
-package pgx
+package postgres
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	jpgx "github.com/jackc/pgx/v5"
+	pgx "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
@@ -68,7 +68,7 @@ func Checker(pool *pgxpool.Pool) func(context.Context) error {
 // WithTx runs fn in a transaction: commit when fn returns nil, rollback
 // otherwise. If fn panics the transaction is rolled back, so the connection
 // returns to the pool, and the panic propagates.
-func WithTx(ctx context.Context, pool *pgxpool.Pool, fn func(jpgx.Tx) error) (err error) {
+func WithTx(ctx context.Context, pool *pgxpool.Pool, fn func(pgx.Tx) error) (err error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -83,7 +83,7 @@ func WithTx(ctx context.Context, pool *pgxpool.Pool, fn func(jpgx.Tx) error) (er
 	}()
 	if err := fn(tx); err != nil {
 		// A failed rollback must not hide the error that caused it.
-		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, jpgx.ErrTxClosed) {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
 			return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
 		}
 		return err

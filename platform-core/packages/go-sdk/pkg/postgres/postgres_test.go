@@ -1,4 +1,4 @@
-package pgx_test
+package postgres_test
 
 import (
 	"context"
@@ -7,17 +7,17 @@ import (
 	"testing"
 	"time"
 
-	jpgx "github.com/jackc/pgx/v5"
+	pgx "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func openPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool, err := sdkpgx.Open(context.Background(), config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
+	pool, err := postgres.Open(context.Background(), config.Postgres{URL: testkit.Postgres(t), MaxConns: 4})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -39,7 +39,7 @@ func countItems(t *testing.T, pool *pgxpool.Pool) int {
 
 func TestOpenFailsOnUnreachableDB(t *testing.T) {
 	start := time.Now()
-	pool, err := sdkpgx.Open(context.Background(), config.Postgres{
+	pool, err := postgres.Open(context.Background(), config.Postgres{
 		URL:      "postgres://u:p@127.0.0.1:1/db?sslmode=disable",
 		MaxConns: 2,
 	})
@@ -59,7 +59,7 @@ func TestWithTxRollsBackOnError(t *testing.T) {
 	pool := openPool(t)
 	boom := errors.New("boom")
 
-	err := sdkpgx.WithTx(context.Background(), pool, func(tx jpgx.Tx) error {
+	err := postgres.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(context.Background(), "INSERT INTO items VALUES (1)"); err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func TestWithTxRollsBackOnError(t *testing.T) {
 func TestWithTxCommits(t *testing.T) {
 	pool := openPool(t)
 
-	err := sdkpgx.WithTx(context.Background(), pool, func(tx jpgx.Tx) error {
+	err := postgres.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(context.Background(), "INSERT INTO items VALUES (1)")
 		return err
 	})
@@ -86,7 +86,7 @@ func TestWithTxCommits(t *testing.T) {
 	if n := countItems(t, pool); n != 1 {
 		t.Fatalf("rows after commit = %d, want 1", n)
 	}
-	if err := sdkpgx.Checker(pool)(context.Background()); err != nil {
+	if err := postgres.Checker(pool)(context.Background()); err != nil {
 		t.Fatalf("Checker: %v", err)
 	}
 }
@@ -95,12 +95,12 @@ func TestOpenOrLocalFallsBackOnlyLocally(t *testing.T) {
 	c := config.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?connect_timeout=1", MaxConns: 2}
 	logger := slog.New(slog.DiscardHandler)
 
-	pool, err := sdkpgx.OpenOrLocal(context.Background(), c, config.Runtime{Env: "dev"}, logger)
+	pool, err := postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: "dev"}, logger)
 	if err == nil || pool != nil {
 		t.Errorf("dev: pool=%v err=%v; want nil pool and an error", pool, err)
 	}
 	for _, env := range []string{"local", "test"} {
-		pool, err = sdkpgx.OpenOrLocal(context.Background(), c, config.Runtime{Env: env}, logger)
+		pool, err = postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: env}, logger)
 		if err != nil || pool != nil {
 			t.Errorf("%s: pool=%v err=%v; want nil, nil", env, pool, err)
 		}
@@ -119,7 +119,7 @@ func TestWithTxPanicDoesNotLeakConnection(t *testing.T) {
 			}()
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			_ = sdkpgx.WithTx(ctx, pool, func(tx jpgx.Tx) error {
+			_ = postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
 				if _, err := tx.Exec(ctx, "INSERT INTO items VALUES (1)"); err != nil {
 					return err
 				}
@@ -143,7 +143,7 @@ func TestWithTxPanicDoesNotLeakConnection(t *testing.T) {
 
 func TestOpenOrLocalNilLogger(t *testing.T) {
 	c := config.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?connect_timeout=1", MaxConns: 2}
-	pool, err := sdkpgx.OpenOrLocal(context.Background(), c, config.Runtime{Env: "local"}, nil)
+	pool, err := postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: "local"}, nil)
 	if err != nil || pool != nil {
 		t.Fatalf("pool=%v err=%v; want nil, nil", pool, err)
 	}
