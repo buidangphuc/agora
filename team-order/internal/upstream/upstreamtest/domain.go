@@ -124,12 +124,14 @@ func (d *Domain) Sweep() int {
 	return n
 }
 
+// GetListing is the in-memory team-domain GetListing RPC.
 func (d *Domain) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), Stock: d.stock[req.GetId()]}}, nil
 }
 
+// ReserveStock is the in-memory team-domain ReserveStock RPC.
 func (d *Domain) ReserveStock(_ context.Context, req *listingv1.ReserveStockRequest, _ ...grpc.CallOption) (*listingv1.ReserveStockResponse, error) {
 	if d.ReserveErr != nil {
 		if err := d.ReserveErr(req); err != nil {
@@ -161,6 +163,7 @@ func (d *Domain) ReserveStock(_ context.Context, req *listingv1.ReserveStockRequ
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
 
+// CommitReservation is the in-memory team-domain CommitReservation RPC.
 func (d *Domain) CommitReservation(_ context.Context, req *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
 	id := req.GetReservationId()
 	if d.CommitErr != nil {
@@ -188,6 +191,7 @@ func (d *Domain) CommitReservation(_ context.Context, req *listingv1.CommitReser
 	return &listingv1.CommitReservationResponse{}, nil
 }
 
+// ReleaseStock is the in-memory team-domain ReleaseStock RPC.
 func (d *Domain) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, _ ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
 	id := req.GetReservationId()
 	d.mu.Lock()

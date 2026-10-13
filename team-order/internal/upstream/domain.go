@@ -1,22 +1,26 @@
+// Package upstream dials the services team-order calls (team-domain,
+// team-identity, team-promotion) with go-sdk's upstream.Dial and applies
+// team-order's per-method service-principal scopes.
 package upstream
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
+
+	sdkupstream "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
-	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 )
 
+// Clients holds the connections to team-domain and team-identity.
 type Clients struct {
 	conns []*grpc.ClientConn
 	// Listing wraps the listing client so ReserveStock/CommitReservation/ReleaseStock are always
-	// marked AsService (team-order's own principal, scope listing.write only).
+	// marked as the service (team-order's own principal, scope listing.write only).
 	Listing DomainClient
 	Address identityv1.AddressServiceClient
 }
@@ -25,108 +29,50 @@ type Clients struct {
 // as the forwarded end user (reads on behalf of a buyer) or as this service with
 // exactly ONE scope chosen per call (least privilege): stock mutations carry
 // only listing.write (team-domain), voucher saga RPCs only promotion.reserve
-// (team-promotion). Unmarked background calls get read-only defaults.
+// (team-promotion). go-sdk's upstream.NewClient forwards the caller's principal and
+// the request id and bounds each call; the per-call service principal comes from
+// upstream.WithServicePrincipal, applied by the two client wrappers below.
 const (
-	servicePrincipalID   = "service-team-order"
-	servicePrincipalType = "service"
-	stockServiceScope    = "listing.write"
-	promotionScope       = "promotion.reserve"
-	defaultServiceScopes = "listing.read"
-	mdPrincipalIDKey     = "x-principal-id"
-	mdPrincipalTypeKey   = "x-principal-type"
-	mdPrincipalScopesKey = "x-principal-scopes"
-	mdAuthorizationKey   = "authorization"
+	servicePrincipalID = "service-team-order"
+	stockServiceScope  = "listing.write"
+	promotionScope     = "promotion.reserve"
 )
 
-// methodScopes is the safety net for RPCs that must never carry the forwarded
-// end-user principal even if a caller forgot to mark the context.
-var methodScopes = map[string]string{
-	listingv1.ListingService_ReserveStock_FullMethodName:         stockServiceScope,
-	listingv1.ListingService_ReleaseStock_FullMethodName:         stockServiceScope,
-	listingv1.ListingService_CommitReservation_FullMethodName:    stockServiceScope,
-	promotionv1.VoucherService_ValidateAndReserve_FullMethodName: promotionScope,
-	promotionv1.VoucherService_CommitReservation_FullMethodName:  promotionScope,
-	promotionv1.VoucherService_ReleaseReservation_FullMethodName: promotionScope,
+// callTimeout bounds one unary upstream call. It matches the gateway's request
+// budget, so the SDK bound never cuts a call shorter than the caller would wait.
+const callTimeout = 5 * time.Second
+
+// dial opens a lazily connecting go-sdk client to addr.
+func dial(addr string) (*grpc.ClientConn, error) {
+	return sdkupstream.NewClient(addr, sdkupstream.WithTimeout(callTimeout))
 }
 
-type asServiceKey struct{}
-
-// AsService marks ctx so the client interceptor presents team-order's own service
-// principal with only the stock scope (listing.write) instead of the end user's
-// forwarded principal. Other incoming metadata (x-request-id, trace headers) is
-// still forwarded.
-func AsService(ctx context.Context) context.Context {
-	return asServiceWithScope(ctx, stockServiceScope)
+// asStock marks ctx so the call presents team-order's own service principal with
+// only the stock scope (listing.write) instead of the end user's forwarded
+// principal. The request id and trace headers are still forwarded.
+func asStock(ctx context.Context) context.Context {
+	return sdkupstream.WithServicePrincipal(ctx, servicePrincipalID, stockServiceScope)
 }
 
-// asServiceWithPromotion is AsService for the voucher saga RPCs on team-promotion:
-// same principal id/type, but the single scope promotion.reserve (never together
-// with listing.write).
-func asServiceWithPromotion(ctx context.Context) context.Context {
-	return asServiceWithScope(ctx, promotionScope)
+// asPromotion is asStock for the voucher saga RPCs on team-promotion: same
+// principal id, but the single scope promotion.reserve (never together with
+// listing.write).
+func asPromotion(ctx context.Context) context.Context {
+	return sdkupstream.WithServicePrincipal(ctx, servicePrincipalID, promotionScope)
 }
 
-func asServiceWithScope(ctx context.Context, scope string) context.Context {
-	return context.WithValue(ctx, asServiceKey{}, scope)
-}
-
-// IsService reports whether ctx was marked with AsService.
-func IsService(ctx context.Context) bool {
-	return serviceScope(ctx) != ""
-}
-
-// serviceScope returns the one scope a marked call presents ("" when unmarked).
-func serviceScope(ctx context.Context) string {
-	v, _ := ctx.Value(asServiceKey{}).(string)
-	return v
-}
-
-func forwardMetadataInterceptor() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		var outMD metadata.MD
-		if inMD, ok := metadata.FromIncomingContext(ctx); ok {
-			outMD = inMD.Copy()
-		} else {
-			outMD = metadata.MD{}
-		}
-
-		scope := serviceScope(ctx)
-		if scope == "" {
-			scope = methodScopes[method]
-		}
-		if scope != "" {
-			// Marked RPC: never forward the buyer. Replace the principal wholesale.
-			outMD.Delete(mdAuthorizationKey)
-			outMD.Set(mdPrincipalIDKey, servicePrincipalID)
-			outMD.Set(mdPrincipalTypeKey, servicePrincipalType)
-			outMD.Set(mdPrincipalScopesKey, scope)
-		} else if len(outMD.Get(mdPrincipalIDKey)) == 0 {
-			// Unmarked background call with no caller: read-only service identity.
-			outMD.Set(mdPrincipalIDKey, servicePrincipalID)
-			outMD.Set(mdPrincipalTypeKey, servicePrincipalType)
-			outMD.Set(mdPrincipalScopesKey, defaultServiceScopes)
-		}
-		// Otherwise: forward exactly the caller's principal, scopes untouched
-		// (never widen a buyer's scopes).
-
-		ctx = metadata.NewOutgoingContext(ctx, outMD)
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-}
-
+// Dial opens the lazy clients to team-domain and team-identity.
 func Dial(domainAddr, identityAddr string) (*Clients, error) {
-	insec := grpc.WithTransportCredentials(insecure.NewCredentials())
-	interceptor := grpc.WithUnaryInterceptor(forwardMetadataInterceptor())
 	c := &Clients{}
 
-	domainConn, err := grpc.NewClient(domainAddr, insec, interceptor)
+	domainConn, err := dial(domainAddr)
 	if err != nil {
 		return nil, fmt.Errorf("dial domain %s: %w", domainAddr, err)
 	}
 	c.conns = append(c.conns, domainConn)
 	c.Listing = NewServiceStockClient(listingv1.NewListingServiceClient(domainConn))
 
-	identityConn, err := grpc.NewClient(identityAddr, insec, interceptor)
+	identityConn, err := dial(identityAddr)
 	if err != nil {
 		c.Close()
 		return nil, fmt.Errorf("dial identity %s: %w", identityAddr, err)
@@ -137,6 +83,7 @@ func Dial(domainAddr, identityAddr string) (*Clients, error) {
 	return c, nil
 }
 
+// Close closes every connection.
 func (c *Clients) Close() {
 	for _, conn := range c.conns {
 		if conn != nil {
@@ -155,7 +102,7 @@ type DomainClient interface {
 	CommitReservation(ctx context.Context, req *listingv1.CommitReservationRequest, opts ...grpc.CallOption) (*listingv1.CommitReservationResponse, error)
 }
 
-// serviceStockClient marks exactly the stock-changing RPCs AsService and leaves
+// serviceStockClient marks exactly the stock-changing RPCs service-principal and leaves
 // every other call (GetListing) untouched, so a buyer's read still forwards the
 // buyer principal while stock changes carry team-order's own authority.
 type serviceStockClient struct {
@@ -176,13 +123,13 @@ func NewServiceStockClient(inner DomainClient) DomainClient {
 }
 
 func (c serviceStockClient) ReserveStock(ctx context.Context, req *listingv1.ReserveStockRequest, opts ...grpc.CallOption) (*listingv1.ReserveStockResponse, error) {
-	return c.DomainClient.ReserveStock(AsService(ctx), req, opts...)
+	return c.DomainClient.ReserveStock(asStock(ctx), req, opts...)
 }
 
 func (c serviceStockClient) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, opts ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
-	return c.DomainClient.ReleaseStock(AsService(ctx), req, opts...)
+	return c.DomainClient.ReleaseStock(asStock(ctx), req, opts...)
 }
 
 func (c serviceStockClient) CommitReservation(ctx context.Context, req *listingv1.CommitReservationRequest, opts ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
-	return c.DomainClient.CommitReservation(AsService(ctx), req, opts...)
+	return c.DomainClient.CommitReservation(asStock(ctx), req, opts...)
 }
