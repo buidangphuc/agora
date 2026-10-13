@@ -1,17 +1,4 @@
-.PHONY: proto build test tidy run
+SERVICE := team-verification
+GRPC_PORT := 50064
 
-# Regenerate Go stubs from the vendored proto into ./generated.
-proto:
-	buf generate
-
-build:
-	go build ./...
-
-test:
-	go test ./...
-
-tidy:
-	go mod tidy
-
-run:
-	go run ./cmd/server
+include make/go-service.mk

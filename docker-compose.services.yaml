@@ -503,7 +503,6 @@ services:
       team-verification-migrate:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
       - GRPC_PORT=50064
       - ENV=local
