@@ -526,3 +526,87 @@ features:
     status: automated
     covered_by: "security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
     notes: "green after rebuild: security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.declares-no-always-on-enable-flags
+    title: "team-identity declares no always-on enable flags"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When the declared env keys of team-identity's Settings are listed"
+      - "Then none of DATABASE_ENABLED, KAFKA_ENABLED, OUTBOX_ENABLED and GRPC_REFLECTION_ENABLED is declared"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/config TestNoEnableFlagsDeclared."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.fails-boot-on-an-unreachable-database-when-deployed
+    title: "team-identity fails boot on an unreachable database when deployed"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When team-identity starts with ENV=staging and an unreachable DATABASE_URL"
+      - "Then boot returns an error before any port opens"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/app TestBootFailsWhenDatabaseUnreachableDeployed."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.outbox-rows-are-relayed-and-a-failing-row-does-not-block-others
+    title: "team-identity outbox rows are relayed and a failing row does not block others"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When two rows are enqueued and publishing the first fails"
+      - "Then the second is published, and the first is retried with backoff and stays pending (go-sdk v1 has no attempt limit; only a permanent publish error parks a row)"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/app TestOutboxRelayedViaSDK (testkit Postgres)."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.existing-suites-do-not-regress-and-no-assertion-is-weakened
+    title: "team-identity existing suites do not regress and no assertion is weakened"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When make check runs after the restructure"
+      - "Then every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity `make check`."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.outbox-table-upgrades-from-v0-keeping-event-order
+    title: "team-identity outbox table upgrades from v0 keeping event order"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When the migrations are applied to a v0 identity_outbox_events table that holds rows, including a retried row of an aggregate with newer events"
+      - "Then seq numbers the rows by created_at and event_id, the v1 indexes exist, and the SDK relayer publishes each aggregate in creation order"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/migrations TestOutboxUpgradeKeepsOrderOfExistingRows (testkit Postgres)."
+
+  # Change migrate-team-identity-to-go-sdk: runtime behaviour with no UI journey; not-testable and names its unit/integration test.
+  - id: identity-runtime.tokens-and-jwks-keep-their-wire-shape
+    title: "team-identity tokens and JWKS keep their wire shape"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When identity issues a token and serves its JWKS"
+      - "Then the token payload decodes into jwtx.Claims with the same claim names and numeric exp and iat, and the JWKS JSON is byte-identical to the previous document"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/token TestIssuedTokenDecodesIntoJWTXClaims and TestJWKSEndpointJSONShape."
