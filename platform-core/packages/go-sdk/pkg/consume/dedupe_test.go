@@ -74,3 +74,54 @@ func TestDedupeRollsBackWithTx(t *testing.T) {
 		t.Fatal("rolled-back handling must leave the event unseen")
 	}
 }
+
+func TestDedupeProcessedIsReadOnly(t *testing.T) {
+	ctx := context.Background()
+	pool := dedupePool(t)
+	d := consume.NewDedupe("")
+
+	if seen(t, pool, d, "a", "e1") {
+		t.Fatal("first mark reported seen")
+	}
+	check := func(q consume.Querier, consumer, id string, want bool) {
+		t.Helper()
+		got, err := d.Processed(ctx, q, consumer, id)
+		if err != nil {
+			t.Fatalf("Processed(%s, %s): %v", consumer, id, err)
+		}
+		if got != want {
+			t.Fatalf("Processed(%s, %s) = %v, want %v", consumer, id, got, want)
+		}
+	}
+	check(pool, "a", "e1", true)
+	check(pool, "b", "e1", false)
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	check(tx, "a", "e1", true)
+	check(tx, "b", "e1", false)
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+
+	var n int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM processed_events").Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("rows = %d, want 1: Processed must not insert", n)
+	}
+}
+
+func TestDedupeProcessedReturnsErrors(t *testing.T) {
+	pool := dedupePool(t)
+
+	if _, err := consume.NewDedupe("missing_table").Processed(context.Background(), pool, "a", "e1"); err == nil {
+		t.Fatal("missing table: want an error")
+	}
+	if _, err := consume.NewDedupe("bad name;").Processed(context.Background(), pool, "a", "e1"); err == nil {
+		t.Fatal("invalid table name: want an error")
+	}
+}

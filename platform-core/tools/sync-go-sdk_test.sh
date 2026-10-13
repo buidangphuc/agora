@@ -131,4 +131,37 @@ PY
   pass "service-local lint block is preserved"
 fi
 
+# 8. A fresh service that does not import the SDK keeps the go-sdk require
+# through go mod tidy, so the first SDK import builds without editing go.mod.
+# A second sync leaves exactly one require.
+NEW="$TMP/fresh-require"
+mkdir -p "$NEW"
+printf 'module example.com/fresh\n\ngo 1.25\n' > "$NEW/go.mod"
+printf 'package main\n\nfunc main() {}\n' > "$NEW/main.go"
+bash "$SYNC" "$TAG" "$NEW" >"$TMP/out6.log" 2>&1 || { cat "$TMP/out6.log"; fail "sync of a service without SDK imports failed"; }
+grep -Eq "^[[:space:]]*(require[[:space:]]+)?$SDK_MOD[[:space:]]+v0\.0\.0-00010101000000-000000000000" "$NEW/go.mod" \
+  || fail "go.mod lost the go-sdk require after sync"
+grep -q "$SDK_MOD => ./third_party/go-sdk" "$NEW/go.mod" || fail "go.mod has no replace for the SDK"
+mkdir -p "$NEW/internal/uses"
+printf 'package uses\n\nimport _ "%s/pkg/reqctx"\n' "$SDK_MOD" > "$NEW/internal/uses/uses.go"
+cp "$NEW/go.mod" "$TMP/fresh.go.mod.before"
+(cd "$NEW" && go build ./...) || fail "go build fails after adding an SDK import"
+cmp -s "$NEW/go.mod" "$TMP/fresh.go.mod.before" || fail "building with an SDK import edited go.mod"
+bash "$SYNC" "$TAG" "$NEW" >"$TMP/out7.log" 2>&1 || { cat "$TMP/out7.log"; fail "second sync of the fresh service failed"; }
+[ "$(grep -c "$SDK_MOD v0.0.0-00010101000000-000000000000" "$NEW/go.mod")" = 1 ] || fail "require duplicated after second sync"
+pass "sync keeps the go-sdk require for a service without SDK imports"
+
+# 9. A service that already imports the SDK gets no internal/sdkimport; the
+# fresh service of test 8 keeps its own.
+[ -f "$NEW/internal/sdkimport/sdkimport.go" ] || fail "fresh service has no internal/sdkimport"
+USES="$TMP/uses-sdk"
+mkdir -p "$USES/internal/app"
+printf 'module example.com/uses\n\ngo 1.25\n' > "$USES/go.mod"
+printf 'package app\n\nimport _ "%s/pkg/reqctx"\n' "$SDK_MOD" > "$USES/internal/app/app.go"
+bash "$SYNC" "$TAG" "$USES" >"$TMP/out8.log" 2>&1 || { cat "$TMP/out8.log"; fail "sync of a service that imports the SDK failed"; }
+[ ! -e "$USES/internal/sdkimport" ] || fail "internal/sdkimport created for a service that imports the SDK"
+grep -q "$SDK_MOD v0.0.0-00010101000000-000000000000" "$USES/go.mod" || fail "go.mod lost the go-sdk require"
+(cd "$USES" && go build ./...) || fail "go build fails for the service that imports the SDK"
+pass "no sdkimport package for a service that imports the SDK"
+
 echo "all sync-go-sdk tests passed"

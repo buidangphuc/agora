@@ -71,13 +71,20 @@ func (p *Producer) Close() { p.client.Close() }
 // NewConsumerClient joins group on topics with auto-commit disabled, so the
 // caller commits offsets only after a record is handled or dead-lettered. opts
 // are applied after the defaults, for example kgo.AllowAutoTopicCreation.
+//
+// With an empty group it builds a group-less client instead: it reads every
+// partition of topics from the start, and nothing is committed, so no consumer
+// group appears on the broker.
 func NewConsumerClient(c config.Kafka, group string, topics []string, opts ...kgo.Opt) (*kgo.Client, error) {
 	base := []kgo.Opt{
 		kgo.SeedBrokers(c.BrokerList()...),
-		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topics...),
-		kgo.DisableAutoCommit(),
 		kgo.WithHooks(hooks(group)...),
+	}
+	if group == "" {
+		base = append(base, kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	} else {
+		base = append(base, kgo.ConsumerGroup(group), kgo.DisableAutoCommit())
 	}
 	client, err := kgo.NewClient(append(base, opts...)...)
 	if err != nil {
