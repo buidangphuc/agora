@@ -36,3 +36,12 @@ All existing tests SHALL move with their packages and pass, with unchanged asser
 - **WHEN** `make check` runs after the restructure
 - **THEN** every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields
 - **VERIFIED BY**: `team-payment` `make check`
+
+### Requirement: Boot validation names every invalid setting
+
+team-payment's `Settings.Validate` SHALL report every invalid setting in one error rather than only the first, so a refused boot names each offending key. Any error still refuses to start.
+
+#### Scenario: Invalid hold window is named even without a database URL
+- **WHEN** `DATABASE_URL` is empty and `PAYOUT_HOLD_WINDOW` is invalid
+- **THEN** Validate's error mentions both `DATABASE_URL` and `PAYOUT_HOLD_WINDOW`
+- **VERIFIED BY**: `TestValidateNamesEveryInvalidSetting`

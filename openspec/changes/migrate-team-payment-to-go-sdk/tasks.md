@@ -8,3 +8,11 @@ Owns: `team-payment/**`, the team-payment blocks in `docker-compose.services.yam
 - [x] 1.2 Write the spec tests first and see them red.
 - [x] 1.3 Restructure per the proposal. Move the existing tests with their packages. Verify `make check` (Docker).
 - [x] 1.4 Remove the flags from Settings, `.env.example`, the README, compose and gitops. Add the FEATURES entries. Verify `features-check`, `spec_sync --strict`, `openspec validate --strict`, `red_first`, and `make docker` (then remove the image).
+
+## 2. Boot validation reports every invalid key
+
+Owns: `team-payment/internal/config/**`, and the box ticks.
+
+- [ ] 2.1 Write `TestValidateNamesEveryInvalidSetting` first and see it red (an empty `DATABASE_URL` plus an invalid `PAYOUT_HOLD_WINDOW`, and `MOCK_PAYMENTS=true` in production).
+- [ ] 2.2 Make `Settings.Validate` collect every error with `errors.Join` (GRPC, Postgres, payout hold keys, mock-payments guard) instead of returning the first. Verify `make check` (Docker).
+- [ ] 2.3 Add the `not-testable` FEATURES entry. Verify `features-check`, `spec_sync --strict`, `openspec validate --strict`, `red_first`.

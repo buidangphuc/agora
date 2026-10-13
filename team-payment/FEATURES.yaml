@@ -1384,3 +1384,16 @@ features:
     tags: [payment-runtime, unit]
     status: not-testable
     notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment `make check`."
+
+  - id: payment-runtime.invalid-hold-window-is-named-even-without-a-database-url
+    title: "Invalid hold window is named even without a database URL"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When `DATABASE_URL` is empty and `PAYOUT_HOLD_WINDOW` is invalid"
+      - "Then Validate's error mentions both `DATABASE_URL` and `PAYOUT_HOLD_WINDOW`"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/config TestValidateNamesEveryInvalidSetting."
