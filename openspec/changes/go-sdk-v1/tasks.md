@@ -145,3 +145,20 @@ Owns: `pkg/outbox/**`, `platform-core/packages/go-sdk/README.md` (outbox and hea
 ## 20. Close re-review (orchestrator)
 
 - [ ] 20.1 Merge, full checks, FEATURES, third staff pass on the outbox and consume changes only.
+
+## Third-pass fixes
+
+Findings P1–P13 are in `review.md` ("Third pass"). Same rules as "Review fixes"; red tests first.
+
+## 21. outbox (wave 7)
+
+Owns: `pkg/outbox/**`, `pkg/config/**` (P13 only), README outbox/migration/config-key sections.
+
+- [ ] 21.1 P1 migration fix with the leftover-row test; P8; P9; P4 pre-deploy step in README.
+- [ ] 21.2 P2 record-level parking only, ERROR log after N transient attempts, `Store.RequeueParked`; P3 cursor with a starvation test; P5; P6; P7; P13.
+
+## 22. consume (wave 7)
+
+Owns: `pkg/consume/**`.
+
+- [ ] 22.1 P10, P11, P12.

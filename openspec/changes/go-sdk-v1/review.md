@@ -66,3 +66,23 @@ All first-round findings fixed except where noted below. Owner decisions: park o
 | N15 | minor | store.go:108 | unused `claim_idx` | drop from SchemaSQL; migration note |
 | N16 | minor | examples/hello config.go:8-9; template config.go.tmpl:8-9 | stale "Enabled field" comment | fix |
 | N17 | minor | groups.go:92,119 | `KAFKA_BROKERS`, `FLIPT_ADDR` default to localhost | required when `IsStrict()` (Validate) |
+
+## Third pass (2026-10-13, after packets 17–19): outbox and consume
+
+Claim design verified correct under concurrent relayers. Owner rule still applies: fix every finding; park only errors that are permanent for the record.
+
+| id | rank | where | problem | fix |
+|---|---|---|---|---|
+| P1 | blocker | outbox/store.go:190-196; godoc 94-107; README 138,147-155 | Backfill after Switch numbers leftover rows `last_value + rn` and `setval(max)`: duplicates and moves the sequence back; older leftover rows ordered after newer ones; concurrent Backfills duplicate | Backfill numbers with `nextval` in (created_at, event_id) order, no setval; Switch = one tx: `LOCK TABLE t IN SHARE ROW EXCLUSIVE MODE`, number remaining NULL rows with nextval, `SET DEFAULT nextval`, COMMIT; drop "Backfill again"; test with a leftover NULL row plus an insert after Switch |
+| P2 | major | outbox/relayer.go:260-268 | topic/cluster-level errors (UnknownTopicOrPartition, TopicAuthorizationFailed, ClusterAuthorizationFailed, InvalidTopic) park every aggregate head on the topic | park only record-level errors (MessageTooLarge, RecordListTooLarge, CorruptMessage, InvalidRecord, InvalidTimestamp); retry the rest with backoff, ERROR log after N attempts; `Store.RequeueParked(ctx, filter)` bulk requeue (by topic and/or error substring) |
+| P3 | major | outbox/store.go:363-375 | head scan has no cursor; high keys starve under overload | in-memory (aggregate_type, aggregate_id) cursor in Relayer, wrap-around scan |
+| P4 | major | README 134-171 | v0 `failed` rows block their aggregates after upgrade | pre-deploy step: list `status='failed'` rows, Requeue or delete |
+| P5 | minor | relayer.go:179-191 | budget expiry counts an attempt | release the in-flight row when only the budget expired |
+| P6 | minor | relayer.go:56-98 | marks can outlast the lease | reject `3*MarkTimeout >= ClaimLock/2` |
+| P7 | minor | relayer.go:172-177 | topic-less row re-claimed every pass | push `available_at` without counting an attempt |
+| P8 | minor | store.go:198 | Finish not re-runnable | `DROP CONSTRAINT IF EXISTS` first |
+| P9 | minor | store.go:190 | Backfill sorts all unnumbered rows per batch | README: Purge published rows first; published rows need no ordered numbers |
+| P10 | minor | consume client.go:46-48 | StaleMemberEpoch, FencedMemberEpoch, FencedInstanceID stop Run | add to lost-generation set |
+| P11 | minor | consume.go:281-293 | unbounded `dlq-error`; stale `dlq-*` headers on replay | truncate to 4 KiB; strip existing `dlq-*` headers |
+| P12 | minor | consume.go:67-78 | a poll can outlast the rebalance timeout | document the budget; stop handling the rest of a fetch once the generation is lost |
+| P13 | minor | config/groups.go:127 | `OUTBOX_MAX_ATTEMPTS` read and ignored | remove the key (README, tests) |
