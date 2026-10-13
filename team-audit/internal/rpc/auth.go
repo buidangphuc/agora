@@ -14,13 +14,11 @@ const (
 	scopeAdmin = "admin"
 	// scopeAuditWrite is the scope a service principal must hold to append audit events.
 	scopeAuditWrite = "audit.write"
-
-	principalTypeService = "service"
 )
 
 // isService reports whether p is a service (not a user) principal.
 func isService(p auth.Principal) bool {
-	return !p.Anonymous() && p.Type == principalTypeService
+	return !p.Anonymous() && p.Type == auth.TypeService
 }
 
 // requireAdmin authenticates the caller and requires the admin scope:

@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pagination"
+
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
 	"github.com/buidangphuc/team-audit/internal/store"
 )
@@ -56,12 +58,7 @@ func (s *Service) Write(ctx context.Context, actorID, action, targetType, target
 // Query returns audit events matching the filter, newest first, and the total
 // count of matches (before paging). pageSize is clamped to [1, MaxPageSize].
 func (s *Service) Query(ctx context.Context, actorID, targetType string, pageSize, offset int) ([]*auditv1.AuditEvent, int64, error) {
-	if pageSize <= 0 {
-		pageSize = DefaultPageSize
-	}
-	if pageSize > MaxPageSize {
-		pageSize = MaxPageSize
-	}
+	pageSize = pagination.Clamp(pageSize, DefaultPageSize, MaxPageSize)
 	if offset < 0 {
 		offset = 0
 	}

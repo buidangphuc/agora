@@ -1,0 +1,4 @@
+# Per-service, per-env overlay for team-audit in staging. ENV is required (no default) and a
+# non-local value makes an unreachable database fail boot instead of falling back to memory.
+env:
+  ENV: "staging"

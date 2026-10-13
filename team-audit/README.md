@@ -2,7 +2,7 @@
 
 Go gRPC service that owns the **append-only audit trail** bounded context: who (`actor_id`) did what (`action`) to which target (`target_type` + `target_id`), with free-form string metadata. It is a deployed service (compose: `team-audit-svc`, gRPC `:50066`, no host port published) with its own Postgres database `audit_db` (Rule 3, database per service). It has no upstream dependencies and publishes or consumes no events. The gateway exposes both RPCs to the web API (`team-gateway/internal/edge/audit.go`, `UPSTREAM_AUDIT_ADDR=team-audit-svc:50066`).
 
-Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-audit`. The platform layer (config, logging, tracing, auth, health, lifecycle, Postgres, gRPC server chain) is [go-sdk](../platform-core/packages/go-sdk/README.md) v0.1.1, vendored in `third_party/go-sdk` (see `third_party/go-sdk/VERSION`) by `platform-core/tools/sync-go-sdk.sh`; never edit it by hand. Layout follows [ADR-0016](../platform-core/docs/ADR/0016-go-service-convention-and-sdk.md):
+Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-audit`. The platform layer (config, logging, tracing, auth, health, lifecycle, Postgres, gRPC server chain) is [go-sdk](../platform-core/packages/go-sdk/README.md) v1.0.0, vendored in `third_party/go-sdk` (see `third_party/go-sdk/VERSION`) by `platform-core/tools/sync-go-sdk.sh`; never edit it by hand. Layout follows [ADR-0016](../platform-core/docs/ADR/0016-go-service-convention-and-sdk.md):
 
 | Path | Role |
 |---|---|
@@ -54,10 +54,10 @@ Migrations are applied only by the compose one-shot `team-audit-migrate` (golang
 
 | Var | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
+| `ENV` | required, no default | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
 | `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
-| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | `10s`, `0s` | Shutdown drains health first, then stops within the grace period. |
 | `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | Postgres. A missing `DATABASE_URL` fails at load. |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 

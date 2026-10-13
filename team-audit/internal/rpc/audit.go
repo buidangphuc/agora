@@ -27,12 +27,13 @@ type Handler struct {
 }
 
 // NewHandler returns a Handler that maps domain errors with its error table.
-func NewHandler(svc *audit.Service, logger *slog.Logger) *Handler {
-	return &Handler{
-		svc:    svc,
-		logger: logger,
-		errs:   grpcx.ErrorTable{audit.ErrEmptyAction: codes.InvalidArgument},
+// The caller sees the sentinel's own text ("action is required").
+func NewHandler(svc *audit.Service, logger *slog.Logger) (*Handler, error) {
+	errs, err := grpcx.NewErrorTable(grpcx.Rule{Target: audit.ErrEmptyAction, Code: codes.InvalidArgument})
+	if err != nil {
+		return nil, err
 	}
+	return &Handler{svc: svc, logger: logger, errs: errs}, nil
 }
 
 // Register adds the audit service to s.
