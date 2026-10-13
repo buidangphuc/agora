@@ -15,6 +15,8 @@ from tests.e2e.support.world import World
 
 # the image the agora stack builds (compose project "agora"); override for other stacks
 IMAGE = os.environ.get("SEARCH_BOOT_IMAGE", "agora-team-search:local")
+# go-sdk v1 requires brokers for a strict ENV; set so the database check is what fails.
+BROKERS = "redpanda:9092"
 UNREACHABLE_DB = "postgres://u:p@127.0.0.1:1/db?sslmode=disable"
 FALLBACK_MARKER = "saved searches use an in-memory store"
 
@@ -37,7 +39,9 @@ def team_search_image(world: World) -> None:
 
 @when("it is started with ENV production and no DATABASE_URL")
 def start_production(world: World) -> None:
-    world.state.extra["boot"] = _run({"ENV": "production", "GRPC_PORT": "50052"})
+    world.state.extra["boot"] = _run(
+        {"ENV": "production", "GRPC_PORT": "50052", "KAFKA_BROKERS": BROKERS}
+    )
 
 
 @then("the process exits non-zero")
@@ -55,7 +59,14 @@ def log_names_database(world: World) -> None:
 
 @then("the same image with ENV production and an unreachable database exits non-zero")
 def production_unreachable(world: World) -> None:
-    proc = _run({"ENV": "production", "GRPC_PORT": "50052", "DATABASE_URL": UNREACHABLE_DB})
+    proc = _run(
+        {
+            "ENV": "production",
+            "GRPC_PORT": "50052",
+            "KAFKA_BROKERS": BROKERS,
+            "DATABASE_URL": UNREACHABLE_DB,
+        }
+    )
     log = proc.stdout + proc.stderr
     assert proc.returncode != 0 and "open database" in log, log
 
