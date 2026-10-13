@@ -78,8 +78,8 @@ Owns: `pkg/pgx/**` (renamed in packet 15).
 
 Owns: `pkg/outbox/**`.
 
-- [ ] 11.1 B2: `Publisher` is `PublishRecord(ctx, *kgo.Record) error`; records carry headers `event_id`, `event_type`, `x-request-id` and the `traceparent` stored at enqueue; per-row nullable `topic` column (relayer topic is the default); use or drop `principal` (document which). Schema change is additive (`ADD COLUMN IF NOT EXISTS` in `SchemaSQL`, plus a note for services' migrations).
-- [ ] 11.2 M5 relay batch ctx shorter than the claim lock; M6 head-of-line per aggregate (test: a failing older row blocks newer rows of the same aggregate but not other aggregates); m9 reject empty EventID, `Purge(ctx, olderThan)`.
+- [x] 11.1 B2: `Publisher` is `PublishRecord(ctx, *kgo.Record) error`; records carry headers `event_id`, `event_type`, `x-request-id` and the `traceparent` stored at enqueue; per-row nullable `topic` column (relayer topic is the default); use or drop `principal` (document which). Schema change is additive (`ADD COLUMN IF NOT EXISTS` in `SchemaSQL`, plus a note for services' migrations).
+- [x] 11.2 M5 relay batch ctx shorter than the claim lock; M6 head-of-line per aggregate (test: a failing older row blocks newer rows of the same aggregate but not other aggregates); m9 reject empty EventID, `Purge(ctx, olderThan)`.
 
 ## 12. consume and kafkax (wave 3)
 
