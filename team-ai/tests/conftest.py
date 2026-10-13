@@ -53,6 +53,23 @@ def memory_backends(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(listing_indexer_module, "supervise", idle_consumer)
 
+    # Tests that call the real RAG builder get an in-memory Qdrant, never a server
+    # on RAG_QDRANT_URL (a local dev stack may be listening there).
+    def memory_qdrant_backend(*, url: str, collection: str):
+        from qdrant_client import AsyncQdrantClient, QdrantClient
+
+        from app.modules.ai.rag.qdrant import build_qdrant_backend
+
+        return build_qdrant_backend(
+            client=QdrantClient(location=":memory:"),
+            aclient=AsyncQdrantClient(location=":memory:"),
+            collection=collection,
+        )
+
+    monkeypatch.setattr(
+        "app.modules.ai.rag.qdrant.connect_qdrant_backend", memory_qdrant_backend
+    )
+
 
 @pytest.fixture()
 def test_settings() -> Settings:
