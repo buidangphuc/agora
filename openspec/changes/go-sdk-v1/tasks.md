@@ -42,9 +42,9 @@ Owns: `pkg/consume/**`, `pkg/kafkax/**`, `go.mod`, `go.sum`, `platform-core/tool
 
 Owns: `pkg/testkit/**`.
 
-- [ ] 6.1 `FreePort`, `Eventually`, `Recorder` (+`FailOn`); `TestRecorderFailOn`.
-- [ ] 6.2 `SharedPostgres`, `Schema`; `TestSchemaIsolation`.
-- [ ] 6.3 `Produce`, `ReadAll` over `Redpanda`; a round-trip test.
+- [x] 6.1 `FreePort`, `Eventually`, `Recorder` (+`FailOn`); `TestRecorderFailOn`.
+- [x] 6.2 `SharedPostgres`, `Schema`; `TestSchemaIsolation`.
+- [x] 6.3 `Produce`, `ReadAll` over `Redpanda`; a round-trip test.
 
 ## 7. Close (orchestrator)
 
