@@ -13,3 +13,15 @@ Owns: `team-domain/**`; for 1.8 also the team-domain entries in `platform-gitops
 - [x] 1.7 Drop `KAFKA_ENABLED` and `OUTBOX_ENABLED`: always wire the Kafka publisher and the relayer, and remove the strict-config `KAFKA_ENABLED=false` check, the no-op publisher path in app wiring (keep `NoopPublisher` only if tests use it) and both keys from `.env.example`, README and tests. Add `TestNoEnableFlagsDeclared` (Settings declares none of `DATABASE_ENABLED`, `KAFKA_ENABLED`, `OUTBOX_ENABLED`, `GRPC_REFLECTION_ENABLED`). Verify `make check`.
 - [x] 1.8 Re-sync to `go-sdk/v0.1.1` (after the orchestrator tags it): drop `DATABASE_ENABLED` and `GRPC_REFLECTION_ENABLED` uses; `TestBootRequiresDatabase` now covers a missing `DATABASE_URL`; retitle the FEATURES entry to "Missing database URL is rejected". Remove `KAFKA_ENABLED` from `platform-gitops/argocd/apps/team-domain.yaml` and `platform-gitops/envs/services/team-domain.yaml` and from the team-domain block in `docker-compose.services.yaml`, and `OUTBOX_ENABLED` there too. Verify `make check`, `features-check`, `spec_sync --strict`.
 - [x] 1.9 (orchestrator) Rebuild team-domain from this branch in the local stack and run its automated platform-e2e features.
+
+## 2. Use existing SDK packages instead of local copies
+
+Behaviour, wire messages and env names stay the same; existing tests keep their assertions. Where a switch would change a client-visible message or a retry rule, leave that site and note it in the report.
+
+Owns: `team-domain/**` except `third_party/**` (domain: the re-sync writes `third_party/**`).
+
+- [ ] 2.1 Re-sync to the existing tag `go-sdk/v0.2.1` (`platform-core/tools/sync-go-sdk.sh go-sdk/v0.2.1 team-domain`); do not touch other services. Verify `make check`.
+- [ ] 2.2 Replace the own outbox store, relayer and Kafka producer (`internal/store/outbox_pg.go`, `internal/events/relayer.go`, `internal/events/publisher.go` client setup) with SDK `outbox.NewStore`/`NewRelayer` and `kafkax.NewProducer`; use `config.Kafka`/`config.Outbox` keeping the current env names via tags; replace `afterServer` with `lifecycle.StopAfter`. Compare the existing outbox table with `outbox.SchemaSQL`; if they differ add a forward-only migration that keeps the previous release working. Verify `make check`.
+- [ ] 2.3 Use `pgx.WithTx` for hand-rolled `Begin/Commit/Rollback` blocks. Verify `make check`.
+- [ ] 2.4 Tests that apply every migration use `migrate.Up` instead of globbing `*.up.sql`. Verify `make check`.
+- [ ] 2.5 Use `grpcx.Status` + `ErrorTable` where the client message stays identical. Verify `make check`.
