@@ -7,14 +7,14 @@ import (
 	"strconv"
 )
 
-// Clamp returns the page size to use: def when size is not positive, max when
-// size is above max, size otherwise.
-func Clamp(size, def, max int) int {
+// Clamp returns the page size to use: def when size is not positive, limit
+// when size is above limit, size otherwise.
+func Clamp(size, def, limit int) int {
 	switch {
 	case size <= 0:
 		return def
-	case size > max:
-		return max
+	case size > limit:
+		return limit
 	default:
 		return size
 	}

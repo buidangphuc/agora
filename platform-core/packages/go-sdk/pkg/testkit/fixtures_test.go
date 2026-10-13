@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
@@ -93,7 +92,6 @@ func TestProduceReadAllRoundTrip(t *testing.T) {
 	}
 	want := map[string]string{"k1": "v1", "k2": "v2"}
 	for _, r := range got {
-		var _ *kgo.Record = r
 		if want[string(r.Key)] != string(r.Value) {
 			t.Fatalf("record %s=%s unexpected", r.Key, r.Value)
 		}

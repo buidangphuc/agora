@@ -48,5 +48,5 @@ Owns: `pkg/testkit/**`.
 
 ## 7. Close (orchestrator)
 
-- [ ] 7.1 Merge packets, `go mod tidy`, full SDK tests; SDK README table lists every package; ADR-0016 package list; FEATURES entries; `ci_local`.
+- [x] 7.1 Merge packets, `go mod tidy`, full SDK tests; SDK README table lists every package; ADR-0016 package list; FEATURES entries; `ci_local`.
 - [ ] 7.2 Propose `go-sdk/v1.0.0` to the owner with the change list; tag only after approval.

@@ -117,7 +117,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 #### Scenario: Permanent batch failure goes to the DLQ
 - **WHEN** h returns `Permanent(err)`
-- **THEN** every record is on the DLQ with `error` and `source_topic` headers and the batch is committed
+- **THEN** every record is on the DLQ with `error` and `source-topic` headers and the batch is committed
 - **VERIFIED BY**: `TestBatchPermanentGoesToDLQ`
 
 ### Requirement: Dedupe can be checked without writing

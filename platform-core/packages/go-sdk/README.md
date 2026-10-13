@@ -13,27 +13,35 @@ All under `pkg/`.
 | Package | What it does |
 |---|---|
 | `reqctx` | Request-id and principal-id accessors on `context.Context`. |
-| `config` | `Load[T]()` from env tags (calls `Validate()` if defined), groups `Runtime`, `GRPC`, `Postgres`, `OTel`, and the `CheckEnvExample` drift check. |
+| `config` | `Load[T]()` from env tags (calls `Validate()` if defined; `keepempty:"true"` keeps an explicitly empty value), groups `Runtime` (`IsLocal`, `IsStrict`), `GRPC`, `Postgres`, `OTel`, `Kafka`, `Outbox`, `Flags`, `PositiveDuration`, and the `CheckEnvExample` drift check. |
 | `logx` | slog setup that adds request id, principal id and trace id from the context. |
 | `otelx` | OTLP/gRPC tracer and meter providers; a no-op when disabled; always sets the W3C propagator. |
-| `auth` | Principal from `x-principal-*` metadata, unary and stream interceptors, `RequirePrincipal`, `RequireScopes` (exact match), `RequireScopesAllowAnonymous` (public methods: a scoped anonymous caller passes). |
+| `auth` | Principal from `x-principal-*` metadata, interceptors, type constants, `RequirePrincipal`, `RequireScopes` (exact match), `RequireScopesAllowAnonymous`, `RequireService`, `RequireUser`. |
+| `jwtx` | JWT claims and JWKS wire types shared by issuer and verifier. |
+| `idempotency` | The `idempotency-key` metadata key and its validation rule. |
 | `healthx` | Checker registry polled in the background; flips the gRPC health status; `Drain()` on shutdown. |
-| `lifecycle` | Runs `Run(ctx) error` components together with an ordered, deadline-bound shutdown (optional drain delay), and `Stack` for closers. |
-| `pgx` | Pool open with ping, health checker, `WithTx`. |
+| `lifecycle` | Runs `Run(ctx) error` components with an ordered, deadline-bound shutdown, `Stack` for closers, `StopAfter`, `Every` (ticker worker) and `HTTP` (graceful HTTP server). |
+| `pgx` | Pool open with ping, `OpenOrLocal` (in-memory fallback only when local), health checker, `WithTx`. |
 | `migrate` | golang-migrate runner over a service's `migrations/` directory. |
-| `testkit` | Postgres container fixture for tests. |
-| `resilience` | Retry and circuit-breaker policies on failsafe-go. |
-| `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection), serving that drains, and the error-to-status table. |
+| `pagination` | `Clamp` and opaque offset page tokens. |
+| `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection), serving that drains, and `Status` with an `ErrorTable` of `Rule{Code, Message}`. |
+| `kafkax` | franz-go producer and consumer clients with trace and request-id headers; an empty group gives a group-less reader. |
+| `outbox` | Transactional outbox table, idempotent `EnqueueTx`, and a relayer with retry and park. |
+| `consume` | Per-record and batch consumers with DLQ and `Permanent`; `Dedupe` (`Seen`, `Processed`). |
+| `upstream` | gRPC client dial with principal and request-id propagation, `AsService`, per-call service principal, `WithDialOptions`. |
+| `resilience` | Retry (with `RetryIf`) and circuit-breaker policies on failsafe-go. |
+| `flags` | OpenFeature client over Flipt that fails open; `NewOrDisabled`. |
+| `testkit` | Postgres and Redpanda containers, `SharedPostgres` + `Schema`, `FreePort`, `Eventually`, `Recorder`, `Produce`/`ReadAll`. |
 
 `examples/hello` wires all of the above and is the reference service.
 
 ## How a service adopts it
 
-1. Pick a release tag, for example `go-sdk/v0.1.0`.
+1. Pick a release tag, for example `go-sdk/v1.0.0`.
 2. From the repo root, sync the SDK into the service:
 
    ```sh
-   platform-core/tools/sync-go-sdk.sh go-sdk/v0.1.0 team-<svc>
+   platform-core/tools/sync-go-sdk.sh go-sdk/v1.0.0 team-<svc>
    ```
 
    This writes `third_party/go-sdk` (with `VERSION`), adds the `replace` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml` (lines between `# BEGIN service-local` and `# END service-local` in the service's file are kept), pins the golangci-lint `tool` directive to the SDK's version, and runs `go mod tidy`. It fails without changes if the tag does not exist. If the tag has no `.golangci.yml`, it prints a warning and skips that file.

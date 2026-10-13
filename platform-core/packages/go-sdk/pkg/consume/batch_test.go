@@ -25,8 +25,10 @@ func (d *batchDLQ) PublishRecord(_ context.Context, r *kgo.Record) error {
 func scriptedFetch(topic string, values ...string) kgo.Fetches {
 	recs := make([]*kgo.Record, len(values))
 	for i, v := range values {
-		recs[i] = &kgo.Record{Topic: topic, Partition: 0, Offset: int64(i), Key: []byte("k"), Value: []byte(v),
-			Headers: []kgo.RecordHeader{{Key: "x-h", Value: []byte("hv")}}}
+		recs[i] = &kgo.Record{
+			Topic: topic, Partition: 0, Offset: int64(i), Key: []byte("k"), Value: []byte(v),
+			Headers: []kgo.RecordHeader{{Key: "x-h", Value: []byte("hv")}},
+		}
 	}
 	return kgo.Fetches{{Topics: []kgo.FetchTopic{{Topic: topic, Partitions: []kgo.FetchPartition{{Partition: 0, Records: recs}}}}}}
 }
