@@ -10,11 +10,18 @@
 #   2. copies make/go-service.mk to <service>/make/go-service.mk
 #   3. copies .golangci.yml from the SDK at the tag to <service>/.golangci.yml
 #      (skipped with a warning when the tag has no such file)
+#      and points its goimports local-prefixes at the service's module path;
+#      the lines between `# BEGIN service-local` and `# END service-local` in
+#      the service's existing file are kept byte for byte
 #   4. ensures go.mod has the replace to ./third_party/go-sdk
 #   5. adds a `tool` directive for golangci-lint at the version the SDK pins
 #      (go get -tool), so `go tool golangci-lint` works; skipped with a
 #      warning when the SDK at the tag has no such directive
-#   6. runs go mod tidy
+#   6. runs `buf generate` when the service has a buf.gen.yaml, because the
+#      generated stubs are not committed and go mod tidy needs them
+#   7. ensures go.mod requires the SDK at the placeholder version used with the
+#      replace, and keeps it through tidy (see sync_require)
+#   8. runs go mod tidy
 #
 # The tag and every service directory are checked before anything changes. If a
 # step fails after that, the service is restored to its previous state.
@@ -27,9 +34,13 @@ CORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO="${SDK_REPO:-$(git -C "$CORE_DIR" rev-parse --show-toplevel)}"
 SDK_PATH="platform-core/packages/go-sdk"
 SDK_MOD="github.com/buidangphuc/platform-core/packages/go-sdk"
+SDK_PLACEHOLDER="v0.0.0-00010101000000-000000000000"
+SDK_PREFIX="github.com/buidangphuc/platform-core"
 LINT_MOD="github.com/golangci/golangci-lint/v2"
 LINT_PKG="$LINT_MOD/cmd/golangci-lint"
 MK_SRC="$CORE_DIR/make/go-service.mk"
+LOCAL_BEGIN="# BEGIN service-local"
+LOCAL_END="# END service-local"
 
 usage() { echo "usage: $(basename "$0") <tag> <service-dir>..." >&2; exit 2; }
 die() { echo "error: $*" >&2; exit 1; }
@@ -69,12 +80,14 @@ sync_one() {
   [ ! -f "$svc/go.sum" ] || cp "$svc/go.sum" "$backup/go.sum"
   [ ! -f "$svc/.golangci.yml" ] || cp "$svc/.golangci.yml" "$backup/golangci.yml"
   [ ! -f "$svc/make/go-service.mk" ] || cp "$svc/make/go-service.mk" "$backup/go-service.mk"
-  local had_old=0
+  local had_old=0 had_import=0
+  [ ! -e "$svc/internal/sdkimport" ] || had_import=1
   if [ -d "$tp/go-sdk" ]; then had_old=1; mv "$tp/go-sdk" "$backup/go-sdk"; fi
 
   restore() {
     rm -rf "$tp/go-sdk"
     [ "$had_old" = 0 ] || mv "$backup/go-sdk" "$tp/go-sdk"
+    [ "$had_import" = 1 ] || rm -rf "$svc/internal/sdkimport"
     cp "$backup/go.mod" "$svc/go.mod"
     [ ! -f "$backup/go.sum" ] || cp "$backup/go.sum" "$svc/go.sum"
     for pair in "golangci.yml:.golangci.yml" "go-service.mk:make/go-service.mk"; do
@@ -90,6 +103,8 @@ sync_one() {
       && sync_lint_config "$svc" \
       && (cd "$svc" && go mod edit -replace="$SDK_MOD=./third_party/go-sdk") \
       && sync_lint_tool "$svc" \
+      && sync_generate "$svc" \
+      && sync_require "$svc" \
       && (cd "$svc" && go mod tidy); }; then
     echo "error: sync failed for $svc; restoring previous state" >&2
     rm -rf "$stage"
@@ -100,7 +115,31 @@ sync_one() {
 
 sync_lint_config() {
   if [ -f "$1/third_party/go-sdk/.golangci.yml" ]; then
-    cp "$1/third_party/go-sdk/.golangci.yml" "$1/.golangci.yml"
+    local mod
+    mod="$(awk '$1=="module"{print $2; exit}' "$1/go.mod")"
+    [ -n "$mod" ] || { echo "error: no module line in $1/go.mod" >&2; return 1; }
+    # The SDK's own prefix is the module that import groups should separate out.
+    local out="$WORK/golangci.$RANDOM"
+    sed "s#^\([[:space:]]*- \)$SDK_PREFIX\$#\1$mod#" \
+      "$1/third_party/go-sdk/.golangci.yml" > "$out"
+    # Keep the service-local block of the previous file (none on a first sync).
+    if [ -f "$1/.golangci.yml" ] && grep -q "$LOCAL_BEGIN" "$1/.golangci.yml"; then
+      if grep -q "$LOCAL_BEGIN" "$out"; then
+        awk -v old="$1/.golangci.yml" -v b="$LOCAL_BEGIN" -v e="$LOCAL_END" '
+          BEGIN { f = 0; while ((getline l < old) > 0) {
+                    if (index(l, e)) f = 0
+                    if (f) keep[n++] = l
+                    if (index(l, b)) f = 1 }
+                  f = 0 }
+          index($0, b) { print; for (i = 0; i < n; i++) print keep[i]; f = 1; next }
+          index($0, e) { f = 0 }
+          !f { print }
+        ' "$out" > "$out.merged" && mv "$out.merged" "$out"
+      else
+        echo "warning: $TAG has no service-local block; the old one is dropped" >&2
+      fi
+    fi
+    mv "$out" "$1/.golangci.yml"
   else
     echo "warning: $TAG has no .golangci.yml in the SDK; skipping it" >&2
   fi
@@ -116,6 +155,42 @@ sync_lint_tool() {
   ver="$(awk -v m="$LINT_MOD" '$1==m {print $2; exit}' "$gomod")"
   [ -n "$ver" ] || { echo "error: $LINT_MOD not required in SDK go.mod" >&2; return 1; }
   (cd "$1" && go get -tool "$LINT_PKG@$ver")
+}
+
+# Require the SDK at the placeholder version the replace points away from, and
+# keep the require through go mod tidy. Tidy drops a require nothing imports, so
+# a fresh service would lose it and fail to build at its first SDK import. A
+# `// indirect` marker does not help: tidy removes an unused one too. So the
+# script writes internal/sdkimport, a package that blank-imports a small SDK
+# package; that import makes the require used, and it survives any later tidy.
+# The file is written only when no service .go file (outside third_party and
+# generated) imports the SDK. An existing file is left alone, so a second sync changes nothing.
+sync_require() {
+  (cd "$1" && go mod edit -require="$SDK_MOD@$SDK_PLACEHOLDER") || return 1
+  local f="$1/internal/sdkimport/sdkimport.go"
+  [ ! -e "$f" ] || return 0
+  # A service that already imports the SDK needs no keeper package.
+  if grep -rqs --include='*.go' --exclude-dir=third_party --exclude-dir=generated \
+      "\"$SDK_MOD[/\"]" "$1"; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$f")"
+  cat > "$f" <<GO
+// Package sdkimport keeps the go-sdk requirement in go.mod. go mod tidy drops a
+// require that nothing imports, and sync-go-sdk.sh vendors the SDK before the
+// service imports it. Delete this package once the service imports the SDK
+// itself.
+package sdkimport
+
+import _ "$SDK_MOD/pkg/reqctx"
+GO
+}
+
+# Generate the proto stubs (gitignored, absent in a fresh checkout).
+sync_generate() {
+  [ -f "$1/buf.gen.yaml" ] || return 0
+  command -v buf >/dev/null || { echo "error: buf not found; install it to generate stubs" >&2; return 1; }
+  (cd "$1" && buf generate)
 }
 
 for svc in "${SERVICES[@]}"; do

@@ -83,9 +83,9 @@ func start(t *testing.T, methods map[string]grpc.MethodHandler) env {
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	srv := grpcx.NewServer(grpcx.ServerOptions{
-		Config: config.GRPC{ReflectionEnabled: true},
+		Config: config.GRPC{},
 		Logger: logger,
-		Health: healthx.New(time.Second, logger),
+		Health: mustHealth(logger),
 	})
 	srv.RegisterService(testDesc(methods), testSvc(nil))
 
@@ -161,6 +161,33 @@ func TestRequestIDPropagates(t *testing.T) {
 	}
 }
 
+func TestRequestIDRejectsOversizedOrBadCharset(t *testing.T) {
+	e := start(t, map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)})
+
+	bad := map[string]string{
+		"too long": strings.Repeat("a", 129),
+		"space":    "a b",
+		"slash":    "a/b",
+	}
+	for name, id := range bad {
+		var hdr metadata.MD
+		ctx := metadata.AppendToOutgoingContext(context.Background(), reqctx.MetadataRequestID, id)
+		got, err := call(ctx, e.conn, "Ping", "", grpc.Header(&hdr))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got == id || got == "" || hdr.Get(reqctx.MetadataRequestID)[0] != got {
+			t.Errorf("%s: id %q was kept or header mismatch (got %q, hdr %v)", name, id, got, hdr)
+		}
+	}
+	for _, id := range []string{strings.Repeat("a", 128), "Abc-1_2.3"} {
+		ctx := metadata.AppendToOutgoingContext(context.Background(), reqctx.MetadataRequestID, id)
+		if got, err := call(ctx, e.conn, "Ping", ""); err != nil || got != id {
+			t.Errorf("valid id %q: got %q, %v", id, got, err)
+		}
+	}
+}
+
 func TestLoggingRecordsCallWithoutPayload(t *testing.T) {
 	e := start(t, map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)})
 
@@ -189,12 +216,12 @@ var (
 )
 
 func TestStatusMapsKnownErrors(t *testing.T) {
-	table := grpcx.ErrorTable{errNotFound: codes.NotFound, errTaken: codes.AlreadyExists}
+	table := mustTable(t, grpcx.Rule{Target: errNotFound, Code: codes.NotFound}, grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
 	st, _ := status.FromError(err)
-	if st.Code() != codes.NotFound || st.Message() != "lookup 7: thing not found" {
+	if st.Code() != codes.NotFound || st.Message() != "thing not found" {
 		t.Fatalf("got %v", err)
 	}
 	if err := grpcx.Status(context.Background(), logger, nil, table); err != nil {
@@ -202,11 +229,82 @@ func TestStatusMapsKnownErrors(t *testing.T) {
 	}
 }
 
+func TestStatusUsesRuleMessage(t *testing.T) {
+	table := mustTable(t, grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists, Message: "that name is already in use"})
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+
+	err := grpcx.Status(context.Background(), logger, fmt.Errorf("insert pq: duplicate key: %w", errTaken), table)
+	st, _ := status.FromError(err)
+	if st.Code() != codes.AlreadyExists || st.Message() != "that name is already in use" {
+		t.Fatalf("got %v, want AlreadyExists with the rule message", err)
+	}
+}
+
+func TestStatusDefaultsToSentinelText(t *testing.T) {
+	table := mustTable(t, grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+
+	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
+	st, _ := status.FromError(err)
+	if st.Code() != codes.NotFound || st.Message() != "thing not found" {
+		t.Fatalf("got %v, want NotFound with the sentinel text only", err)
+	}
+}
+
+func TestStatusFirstMatchingRuleWins(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	both := fmt.Errorf("x: %w", errors.Join(errNotFound, errTaken))
+	for range 50 {
+		table := mustTable(t,
+			grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists},
+			grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
+		if got := status.Code(grpcx.Status(context.Background(), logger, both, table)); got != codes.AlreadyExists {
+			t.Fatalf("code = %v, want AlreadyExists (first rule)", got)
+		}
+	}
+	rev := mustTable(t,
+		grpcx.Rule{Target: errNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
+	if got := status.Code(grpcx.Status(context.Background(), logger, both, rev)); got != codes.NotFound {
+		t.Fatalf("code = %v, want NotFound (first rule)", got)
+	}
+}
+
+func TestStatusMapsContextErrorsWithoutErrorLog(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want codes.Code
+	}{
+		"canceled":          {context.Canceled, codes.Canceled},
+		"deadline":          {context.DeadlineExceeded, codes.DeadlineExceeded},
+		"wrapped canceled":  {fmt.Errorf("pq: query: %w", context.Canceled), codes.Canceled},
+		"wrapped deadline":  {fmt.Errorf("rpc: %w", context.DeadlineExceeded), codes.DeadlineExceeded},
+		"joined wins first": {errors.Join(errNotFound, context.Canceled), codes.Canceled},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			logs := &syncBuffer{}
+			logger := slog.New(slog.NewJSONHandler(logs, nil))
+			err := grpcx.Status(context.Background(), logger, c.err, mustTable(t))
+			st, _ := status.FromError(err)
+			if st.Code() != c.want {
+				t.Fatalf("code = %v, want %v", st.Code(), c.want)
+			}
+			if strings.Contains(st.Message(), "pq:") || strings.Contains(st.Message(), "rpc:") {
+				t.Errorf("message leaks the wrapped chain: %q", st.Message())
+			}
+			if strings.Contains(logs.String(), `"level":"ERROR"`) {
+				t.Errorf("context error logged at ERROR: %s", logs.String())
+			}
+		})
+	}
+}
+
 func TestStatusHidesUnknownErrors(t *testing.T) {
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 
-	err := grpcx.Status(context.Background(), logger, errors.New("pq: password=secret"), grpcx.ErrorTable{})
+	err := grpcx.Status(context.Background(), logger, errors.New("pq: password=secret"), mustTable(t))
 	st, _ := status.FromError(err)
 	if st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("got %v, want Internal %q", err, "internal error")
@@ -247,8 +345,8 @@ func dialWhenUp(t *testing.T, addr string) *grpc.ClientConn {
 
 func TestServeStopsGracefullyOnCancel(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
-	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 5}
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: healthx.New(time.Second, logger)})
+	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGrace: 5 * time.Second}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)}), testSvc(nil))
 
 	cancel, done := runServe(t, srv, c)
@@ -272,9 +370,9 @@ func TestServeStopsGracefullyOnCancel(t *testing.T) {
 
 func TestServeForcesStopAfterGrace(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
-	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 0.2}
+	c := config.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGrace: 200 * time.Millisecond}
 	started := make(chan struct{})
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: c, Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{
 		"Hang": unary("Hang", func(ctx context.Context, _ *wrapperspb.StringValue) (proto.Message, error) {
 			close(started)
@@ -323,12 +421,12 @@ func TestStatusPassesThroughGRPCStatus(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	in := status.Error(codes.Unauthenticated, "authentication required")
 
-	out := grpcx.Status(context.Background(), logger, in, grpcx.ErrorTable{})
+	out := grpcx.Status(context.Background(), logger, in, mustTable(t))
 	if out != in { //nolint:errorlint // identity is the point: the error must be returned unchanged
 		t.Fatalf("got %v, want the same error", out)
 	}
 	// An Unknown status is not trusted: it is hidden like any other error.
-	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), grpcx.ErrorTable{})
+	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), mustTable(t))
 	if st, _ := status.FromError(unk); st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("Unknown status leaked: %v", unk)
 	}
@@ -336,7 +434,7 @@ func TestStatusPassesThroughGRPCStatus(t *testing.T) {
 
 func TestServeListenerServesAndStops(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
-	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(time.Second, logger)})
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: mustHealth(logger)})
 	srv.RegisterService(testDesc(map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)}), testSvc(nil))
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -355,5 +453,47 @@ func TestServeListenerServesAndStops(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatalf("Run = %v", err)
+	}
+}
+
+func TestReflectionAlwaysRegistered(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: config.GRPC{}, Logger: logger, Health: mustHealth(logger)})
+	if _, ok := srv.GetServiceInfo()["grpc.reflection.v1.ServerReflection"]; !ok {
+		t.Fatalf("reflection not registered; services = %v", srv.GetServiceInfo())
+	}
+}
+
+func mustHealth(logger *slog.Logger) *healthx.Health {
+	h, err := healthx.New(time.Second, logger)
+	if err != nil {
+		panic(err)
+	}
+	return h
+}
+
+func mustTable(t *testing.T, rules ...grpcx.Rule) grpcx.ErrorTable {
+	t.Helper()
+	table, err := grpcx.NewErrorTable(rules...)
+	if err != nil {
+		t.Fatalf("NewErrorTable: %v", err)
+	}
+	return table
+}
+
+func TestNewErrorTableRejectsBadRules(t *testing.T) {
+	cases := map[string]grpcx.Rule{
+		"nil target": {Target: nil, Code: codes.NotFound},
+		"codes.OK":   {Target: errNotFound, Code: codes.OK},
+	}
+	for name, r := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := grpcx.NewErrorTable(grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists}, r); err == nil {
+				t.Fatal("NewErrorTable: want an error")
+			}
+		})
+	}
+	if _, err := grpcx.NewErrorTable(); err != nil {
+		t.Fatalf("empty table: %v", err)
 	}
 }

@@ -95,16 +95,24 @@ func BuildListingChangedEnvelope(
 // are no longer published inline on the request path: every write records its
 // event in the transactional outbox, and the relayer (internal/events/relayer.go)
 // drains those rows to Kafka via the RawProducer.ProduceRaw path. This interface
-// therefore only exposes Close, so bootstrap can hold either a real KafkaPublisher
-// or a NoopPublisher and tear it down uniformly.
+// therefore only exposes Close, so a real KafkaPublisher or a NoopPublisher
+// can be torn down uniformly.
 type ListingPublisher interface {
 	Close()
 }
 
-// NoopPublisher is used when KAFKA_ENABLED=false: writes still succeed and their
-// outbox rows are recorded, but nothing is ever produced.
+// Publisher is what the relayer's producer needs plus the close handle: the real
+// KafkaPublisher, or a fake in tests.
+type Publisher interface {
+	RawProducer
+	ListingPublisher
+}
+
+// NoopPublisher is a ListingPublisher that produces nothing; tests use it where a
+// close handle is needed without a broker.
 type NoopPublisher struct{}
 
+// Close does nothing: there is no producer to flush.
 func (NoopPublisher) Close() {}
 
 // KafkaPublisher publishes to a Kafka/Redpanda topic via franz-go.
@@ -145,4 +153,5 @@ func (p *KafkaPublisher) Close() { p.client.Close() }
 var (
 	_ ListingPublisher = (*KafkaPublisher)(nil)
 	_ ListingPublisher = NoopPublisher{}
+	_ Publisher        = (*KafkaPublisher)(nil)
 )

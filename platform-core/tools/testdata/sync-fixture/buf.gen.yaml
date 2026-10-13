@@ -1,0 +1,16 @@
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/buidangphuc/sync-fixture/generated
+
+# Local plugin through `go run` (version from go.mod): no network plugin, no PATH setup.
+plugins:
+  - local: [go, run, google.golang.org/protobuf/cmd/protoc-gen-go]
+    out: generated
+    opt: paths=source_relative
+
+inputs:
+  - directory: proto

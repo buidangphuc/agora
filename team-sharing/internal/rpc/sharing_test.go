@@ -1,0 +1,108 @@
+package rpc_test
+
+import (
+	"context"
+	"log/slog"
+	"testing"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+
+	sharingv1 "github.com/buidangphuc/team-sharing/generated/platform/sharing/v1"
+	"github.com/buidangphuc/team-sharing/internal/rpc"
+	"github.com/buidangphuc/team-sharing/internal/sharelink"
+	"github.com/buidangphuc/team-sharing/internal/store"
+)
+
+func quietLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
+func newHandler() *rpc.Handler {
+	return rpc.NewHandler(sharelink.NewService(store.NewInMemoryShareLinkRepo()), quietLogger())
+}
+
+// The full gRPC surface: CreateShareLink returns a short code, ResolveShareLink
+// echoes the target, UTM and OG meta back through the proto messages.
+func TestHandlerCreateThenResolve(t *testing.T) {
+	h := newHandler()
+	ctx := context.Background()
+
+	createResp, err := h.CreateShareLink(ctx, &sharingv1.CreateShareLinkRequest{
+		TargetType: "listing",
+		TargetId:   "listing_42",
+		Utm:        map[string]string{"utm_campaign": "tet"},
+	})
+	if err != nil {
+		t.Fatalf("CreateShareLink: %v", err)
+	}
+	if createResp.GetShortCode() == "" {
+		t.Fatalf("expected non-empty short code")
+	}
+
+	resolveResp, err := h.ResolveShareLink(ctx, &sharingv1.ResolveShareLinkRequest{
+		ShortCode: createResp.GetShortCode(),
+	})
+	if err != nil {
+		t.Fatalf("ResolveShareLink: %v", err)
+	}
+	if resolveResp.GetTargetType() != "listing" || resolveResp.GetTargetId() != "listing_42" {
+		t.Fatalf("target mismatch: %+v", resolveResp)
+	}
+	if resolveResp.GetUtm()["utm_campaign"] != "tet" {
+		t.Fatalf("utm mismatch: %+v", resolveResp.GetUtm())
+	}
+	if resolveResp.GetOgMeta().GetTitle() == "" {
+		t.Fatalf("expected OG meta title in response")
+	}
+}
+
+// An unknown short code maps to gRPC NotFound.
+func TestHandlerResolveUnknownIsNotFound(t *testing.T) {
+	h := newHandler()
+
+	_, err := h.ResolveShareLink(context.Background(), &sharingv1.ResolveShareLinkRequest{ShortCode: "nope"})
+	if got := status.Code(err); got != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v (err=%v)", got, err)
+	}
+}
+
+// Missing target fields map to gRPC InvalidArgument.
+func TestHandlerCreateInvalidArgument(t *testing.T) {
+	h := newHandler()
+
+	_, err := h.CreateShareLink(context.Background(), &sharingv1.CreateShareLinkRequest{TargetType: "", TargetId: "x"})
+	if got := status.Code(err); got != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v (err=%v)", got, err)
+	}
+}
+
+// The creator is the gateway-forwarded principal, never a request field or the
+// legacy x-user-id header; anonymous callers can still create and resolve.
+func TestHandlerCreateAttributesPrincipal(t *testing.T) {
+	repo := store.NewInMemoryShareLinkRepo()
+	h := rpc.NewHandler(sharelink.NewService(repo), quietLogger())
+	req := &sharingv1.CreateShareLinkRequest{TargetType: "listing", TargetId: "l1"}
+
+	user := auth.WithPrincipal(context.Background(),
+		auth.Principal{ID: "user-1", Type: "user"})
+	resp, err := h.CreateShareLink(user, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, _ := repo.Resolve(context.Background(), resp.GetShortCode())
+	if link.CreatedBy != "user-1" {
+		t.Fatalf("created_by = %q", link.CreatedBy)
+	}
+
+	anon := auth.WithPrincipal(context.Background(),
+		auth.Principal{ID: "anonymous", Type: "anonymous"})
+	resp, err = h.CreateShareLink(anon, req)
+	if err != nil {
+		t.Fatalf("anonymous create should be allowed: %v", err)
+	}
+	link, _ = repo.Resolve(context.Background(), resp.GetShortCode())
+	if link.CreatedBy != "" {
+		t.Fatalf("anonymous created_by = %q", link.CreatedBy)
+	}
+}
