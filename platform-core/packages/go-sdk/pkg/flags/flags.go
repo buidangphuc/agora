@@ -64,7 +64,7 @@ func evalContext(ctx context.Context, opts []EvalOption) openfeature.EvaluationC
 	}
 	key := o.targetingKey
 	if key == "" {
-		key = auth.TypeAnonymous
+		key = string(auth.TypeAnonymous)
 		if p, ok := auth.FromContext(ctx); ok && p.ID != "" {
 			key = p.ID
 		}
