@@ -18,9 +18,9 @@ Owns: `pkg/grpcx/**`, `examples/**`, `platform-core/templates/_service-go/**`.
 
 Owns: `pkg/config/**`, `pkg/pgx/**`, `pkg/pagination/**` (new).
 
-- [ ] 3.1 `Runtime.IsStrict`, `PositiveDuration`, `keepempty`; `TestIsStrict`, `TestPositiveDuration`, `TestKeepEmpty`. `.env.example` drift check (`CheckEnvExample`) still works for `keepempty` fields.
-- [ ] 3.2 `pgx.OpenOrLocal`; `TestOpenOrLocalFallsBackOnlyLocally` (unreachable address, no container needed).
-- [ ] 3.3 `pagination`; `TestOffsetToken` plus a Clamp table test.
+- [x] 3.1 `Runtime.IsStrict`, `PositiveDuration`, `keepempty`; `TestIsStrict`, `TestPositiveDuration`, `TestKeepEmpty`. `.env.example` drift check (`CheckEnvExample`) still works for `keepempty` fields.
+- [x] 3.2 `pgx.OpenOrLocal`; `TestOpenOrLocalFallsBackOnlyLocally` (unreachable address, no container needed).
+- [x] 3.3 `pagination`; `TestOffsetToken` plus a Clamp table test.
 
 ## 4. lifecycle, flags, resilience, upstream (wave 1)
 

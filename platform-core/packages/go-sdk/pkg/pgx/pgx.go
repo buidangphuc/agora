@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	jpgx "github.com/jackc/pgx/v5"
@@ -37,6 +38,22 @@ func Open(ctx context.Context, c config.Postgres) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 	return pool, nil
+}
+
+// OpenOrLocal is Open with a local-only fallback. It returns the pool when the
+// database is reachable. When it is not, it returns (nil, nil) and logs a
+// warning if rt.IsLocal(), so the caller can use an in-memory store; in any
+// other environment it returns the error.
+func OpenOrLocal(ctx context.Context, c config.Postgres, rt config.Runtime, logger *slog.Logger) (*pgxpool.Pool, error) {
+	pool, err := Open(ctx, c)
+	if err == nil {
+		return pool, nil
+	}
+	if !rt.IsLocal() {
+		return nil, err
+	}
+	logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
+	return nil, nil //nolint:nilnil // contract: a nil pool means "run without a database"
 }
 
 // Checker returns a health check that pings the pool. It matches healthx.Check.

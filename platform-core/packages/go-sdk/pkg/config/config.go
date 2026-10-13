@@ -3,7 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -11,6 +13,10 @@ import (
 // Load fills a T from the process environment. The returned error names every
 // variable that failed to parse or is required and unset. When T has a
 // Validate() error method, Load calls it after parsing and returns its error.
+//
+// A string field tagged keepempty:"true" stays empty when its variable is set
+// to the empty string, instead of taking its default. Unset still applies the
+// default.
 //
 // A field with a default tag is never reported as unset: caarlos0/env applies
 // the default before it checks "required".
@@ -22,6 +28,7 @@ func Load[T any]() (T, error) {
 	if err != nil {
 		return v, nameVariables(err, reflect.TypeFor[T]())
 	}
+	keepEmpty(reflect.ValueOf(&v).Elem())
 	if val, ok := any(v).(interface{ Validate() error }); ok {
 		if err := val.Validate(); err != nil {
 			return v, err
@@ -68,4 +75,30 @@ func probeField(f envField) error {
 	st := reflect.StructOf([]reflect.StructField{{Name: "F", Type: f.typ, Tag: f.tag}})
 	ptr := reflect.New(st)
 	return env.ParseWithOptions(ptr.Interface(), env.Options{DefaultValueTagName: "default"})
+}
+
+// keepEmpty resets every string field tagged keepempty:"true" to "" when its
+// variable is set to the empty string, recursing into nested structs. The env
+// binder treats an empty value like an unset one and applies the default.
+func keepEmpty(v reflect.Value) {
+	t := v.Type()
+	for i := range t.NumField() {
+		f, fv := t.Field(i), v.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		if tag, ok := f.Tag.Lookup("env"); ok {
+			key, _, _ := strings.Cut(tag, ",")
+			if f.Tag.Get("keepempty") != "true" || fv.Kind() != reflect.String {
+				continue
+			}
+			if val, set := os.LookupEnv(key); set && val == "" {
+				fv.SetString("")
+			}
+			continue
+		}
+		if fv.Kind() == reflect.Struct {
+			keepEmpty(fv)
+		}
+	}
 }

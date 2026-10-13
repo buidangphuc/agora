@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -17,6 +18,17 @@ type Runtime struct {
 
 // IsLocal reports whether the service runs in a developer or test environment.
 func (r Runtime) IsLocal() bool { return r.Env == "local" || r.Env == "test" }
+
+// IsStrict reports whether the service runs in a deployed environment where
+// silent fallbacks are not allowed: staging, stage, prod or production, matched
+// case-insensitively.
+func (r Runtime) IsStrict() bool {
+	switch strings.ToLower(strings.TrimSpace(r.Env)) {
+	case "staging", "stage", "prod", "production":
+		return true
+	}
+	return false
+}
 
 // GRPC holds the gRPC listener settings.
 type GRPC struct {
@@ -103,4 +115,19 @@ type Flags struct {
 	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
 	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
 	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
+}
+
+// PositiveDuration parses raw, a Go duration such as "20s" or "15m", for the
+// variable key. An empty (or blank) raw value returns def; an unparsable or
+// non-positive value returns an error naming key.
+func PositiveDuration(key, raw string, def time.Duration) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return def, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("invalid %s %q: want a positive Go duration such as 20s or 15m", key, raw)
+	}
+	return d, nil
 }

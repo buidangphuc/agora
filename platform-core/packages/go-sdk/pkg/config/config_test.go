@@ -175,3 +175,72 @@ func TestEmptyGRPCPortFailsValidation(t *testing.T) {
 		t.Fatalf("err = %v, want one naming GRPC_PORT", err)
 	}
 }
+
+func TestIsStrict(t *testing.T) {
+	for env, want := range map[string]bool{
+		"PROD": true, "prod": true, "production": true, "staging": true, "stage": true, "Stage": true,
+		"dev": false, "local": false, "test": false, "": false,
+	} {
+		if got := (config.Runtime{Env: env}).IsStrict(); got != want {
+			t.Errorf("IsStrict(%q) = %v, want %v", env, got, want)
+		}
+	}
+}
+
+func TestPositiveDuration(t *testing.T) {
+	if _, err := config.PositiveDuration("X", "0s", time.Second); err == nil || !strings.Contains(err.Error(), "X") {
+		t.Errorf("zero duration: err = %v, want error naming X", err)
+	}
+	if _, err := config.PositiveDuration("X", "-5s", time.Second); err == nil {
+		t.Error("negative duration accepted")
+	}
+	if _, err := config.PositiveDuration("X", "soon", time.Second); err == nil || !strings.Contains(err.Error(), "X") {
+		t.Errorf("unparsable duration: err = %v", err)
+	}
+	if d, err := config.PositiveDuration("X", "", time.Second); err != nil || d != time.Second {
+		t.Errorf("empty = %v, %v; want 1s, nil", d, err)
+	}
+	if d, err := config.PositiveDuration("X", " 15m ", time.Second); err != nil || d != 15*time.Minute {
+		t.Errorf("15m = %v, %v", d, err)
+	}
+}
+
+type keepEmptySettings struct {
+	Name   string `env:"KE_NAME" default:"a" keepempty:"true"`
+	Plain  string `env:"KE_PLAIN" default:"p"`
+	Nested struct {
+		Inner string `env:"KE_INNER" default:"i" keepempty:"true"`
+	}
+}
+
+func TestKeepEmpty(t *testing.T) {
+	t.Setenv("KE_NAME", "")
+	t.Setenv("KE_PLAIN", "")
+	t.Setenv("KE_INNER", "")
+	s, err := config.Load[keepEmptySettings]()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if s.Name != "" || s.Nested.Inner != "" {
+		t.Errorf("keepempty fields = %q, %q; want empty", s.Name, s.Nested.Inner)
+	}
+	if s.Plain != "p" {
+		t.Errorf("Plain = %q, want default p", s.Plain)
+	}
+
+	for _, k := range []string{"KE_NAME", "KE_PLAIN", "KE_INNER"} {
+		os.Unsetenv(k)
+	}
+	s, err = config.Load[keepEmptySettings]()
+	if err != nil {
+		t.Fatalf("Load unset: %v", err)
+	}
+	if s.Name != "a" || s.Nested.Inner != "i" {
+		t.Errorf("unset keepempty fields = %q, %q; want defaults", s.Name, s.Nested.Inner)
+	}
+
+	keys := config.DeclaredEnvKeys(keepEmptySettings{})
+	if strings.Join(keys, ",") != "KE_INNER,KE_NAME,KE_PLAIN" {
+		t.Errorf("DeclaredEnvKeys = %v", keys)
+	}
+}

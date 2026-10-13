@@ -3,6 +3,7 @@ package pgx_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -87,5 +88,21 @@ func TestWithTxCommits(t *testing.T) {
 	}
 	if err := sdkpgx.Checker(pool)(context.Background()); err != nil {
 		t.Fatalf("Checker: %v", err)
+	}
+}
+
+func TestOpenOrLocalFallsBackOnlyLocally(t *testing.T) {
+	c := config.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?connect_timeout=1", MaxConns: 2}
+	logger := slog.New(slog.DiscardHandler)
+
+	pool, err := sdkpgx.OpenOrLocal(context.Background(), c, config.Runtime{Env: "dev"}, logger)
+	if err == nil || pool != nil {
+		t.Errorf("dev: pool=%v err=%v; want nil pool and an error", pool, err)
+	}
+	for _, env := range []string{"local", "test"} {
+		pool, err = sdkpgx.OpenOrLocal(context.Background(), c, config.Runtime{Env: env}, logger)
+		if err != nil || pool != nil {
+			t.Errorf("%s: pool=%v err=%v; want nil, nil", env, pool, err)
+		}
 	}
 }
