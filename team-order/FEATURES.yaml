@@ -1728,7 +1728,7 @@ features:
       Operational check with no UI. Verified by TestMigration0008KeepsPreviousReleaseInsertWorking in team-order/internal/store (Postgres) (change migrate-team-order-to-go-sdk, capability order-runtime).
 
   - id: order.outbox-upgrade-keeps-event-order
-    title: Events pending before the outbox upgrade are relayed in creation order
+    title: Events pending before the upgrade are relayed in creation order
     persona: admin
     priority: P2
     summary: >-
