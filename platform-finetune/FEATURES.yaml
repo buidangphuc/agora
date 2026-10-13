@@ -1,0 +1,862 @@
+# Feature manifest for platform-finetune (weekly fine-tune training job, capability owner).
+# Schema: platform-e2e/schemas/features.schema.json
+# One entry per spec scenario of add-platform-finetune (grouped by requirement via id/tag).
+
+repo: platform-finetune
+owner: platform-ml-team
+features:
+- id: platform-finetune.import.history-is-kept-and-the-local-stack-is-dropped
+  title: History is kept and the local stack is dropped
+  persona: guest
+  priority: P2
+  summary: 'The finetune pipeline is imported with history as platform-finetune: History is kept and the
+    local stack is dropped'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `git log --oneline -- platform-finetune` is run after the import
+  - Then it lists more than one commit from the MLOps history, and `platform-finetune/ops/docker-compose.yml`
+    does not exist
+  tags:
+  - platform-finetune
+  - import
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune pipeline is imported with history as platform-finetune):
+    static e2e, no stack and no browser: platform-e2e/tests/e2e/static/test_pft_import.py::test_history_kept_and_local_stack_dropped
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.import.broken-serving-files-are-marked-and-not-deployed
+  title: Broken serving files are marked and not deployed
+  persona: guest
+  priority: P2
+  summary: 'The finetune pipeline is imported with history as platform-finetune: Broken serving files
+    are marked and not deployed'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When the six serving files and the compose and gitops manifests are inspected
+  - Then each file's first lines contain `NOT PORTED`, and no compose service or gitops manifest references
+    any of them
+  tags:
+  - platform-finetune
+  - import
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune pipeline is imported with history as platform-finetune):
+    static e2e, no stack and no browser: platform-e2e/tests/e2e/static/test_pft_import.py::test_serving_files_marked_not_ported
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.import.the-offline-suite-does-not-import-the-not-ported-files
+  title: The offline suite does not import the not-ported files
+  persona: guest
+  priority: P2
+  summary: 'The finetune pipeline is imported with history as platform-finetune: The offline suite does
+    not import the not-ported files'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `pytest tests/` runs in `platform-finetune` and the imported module names are inspected
+  - Then none of `datascience.serve.local`, `datascience.package`, `datascience.optimize`, `datascience.serve_analyzer`,
+    `datascience.serve.triton` and `datascience.serve.deploy_sagemaker` is in `sys.modules`
+  tags:
+  - platform-finetune
+  - import
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune pipeline is imported with history as platform-finetune):
+    VERIFIED BY platform-finetune/tests/test_import_hygiene.py::test_not_ported_files_not_imported. Not
+    producible end to end: the offline suite runs the library against a local MLflow file store with a
+    stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.import.artifacts-are-not-committed
+  title: Artifacts are not committed
+  persona: guest
+  priority: P2
+  summary: 'The finetune pipeline is imported with history as platform-finetune: Artifacts are not committed'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `git ls-files platform-finetune/artifacts` is run
+  - Then it prints nothing
+  tags:
+  - platform-finetune
+  - import
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune pipeline is imported with history as platform-finetune):
+    static e2e, no stack and no browser: platform-e2e/tests/e2e/static/test_pft_import.py::test_artifacts_untracked
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.import.the-imported-history-has-no-secrets
+  title: The imported history has no secrets
+  persona: guest
+  priority: P2
+  summary: 'The finetune pipeline is imported with history as platform-finetune: The imported history
+    has no secrets'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When detect-secrets scans `platform-finetune` (tree and subtree history)
+  - Then it reports zero findings
+  tags:
+  - platform-finetune
+  - import
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune pipeline is imported with history as platform-finetune):
+    static e2e, no stack and no browser: platform-e2e/tests/e2e/static/test_pft_import.py::test_detect_secrets_zero_findings
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.policy.the-entry-has-the-agreed-values
+  title: The entry has the agreed values
+  persona: guest
+  priority: P2
+  summary: 'The finetune policy is declared in the shared policy file: The entry has the agreed values'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `policies.yaml` is loaded through py-modelregistry
+  - 'Then `finetune-classifier` has `primary` `macro_f1`, `min_relative_improvement` 0.01 and `floors`
+    `{macro_f1: 0.5}`'
+  tags:
+  - platform-finetune
+  - policy
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune policy is declared in the shared policy file): VERIFIED
+    BY platform-finetune/tests/test_policy.py::test_finetune_policy_values. Not producible end to end:
+    the offline suite runs the library against a local MLflow file store with a stubbed train stage; no
+    deployed stack path reaches it.'
+- id: platform-finetune.policy.the-policy-file-loads-with-every-entry
+  title: The policy file loads with every entry
+  persona: guest
+  priority: P2
+  summary: 'The finetune policy is declared in the shared policy file: The policy file loads with every
+    entry'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `policies.yaml` is loaded
+  - Then it loads without `PolicyError` and contains `recsys-als`, `recsys-gbdt`, `recsys-two-tower` and
+    `finetune-classifier`
+  tags:
+  - platform-finetune
+  - policy
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune policy is declared in the shared policy file): VERIFIED
+    BY platform-finetune/tests/test_policy.py::test_policies_file_loads_all_entries. Not producible end
+    to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.policy.the-gate-settings-are-gone-from-params-yaml
+  title: The gate settings are gone from params.yaml
+  persona: guest
+  priority: P2
+  summary: 'The finetune policy is declared in the shared policy file: The gate settings are gone from
+    params.yaml'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `config/params.yaml` is parsed
+  - Then it has no `gate.enabled` and no `gate.on_fail` key
+  tags:
+  - platform-finetune
+  - policy
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune policy is declared in the shared policy file): VERIFIED
+    BY platform-finetune/tests/test_policy.py::test_params_has_no_gate_switches. Not producible end to
+    end: the offline suite runs the library against a local MLflow file store with a stubbed train stage;
+    no deployed stack path reaches it.'
+- id: platform-finetune.policy.a-malformed-policy-path-is-a-config-error
+  title: A malformed policy path is a config error
+  persona: guest
+  priority: P2
+  summary: 'The finetune policy is declared in the shared policy file: A malformed policy path is a config
+    error'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `MODELREGISTRY_POLICIES` points to a file that does not exist and the pipeline reaches `submit`
+  - Then the process exits 2 with `PolicyError` and no version is created
+  tags:
+  - platform-finetune
+  - policy
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (The finetune policy is declared in the shared policy file): VERIFIED
+    BY platform-finetune/tests/test_cli_exit_codes.py::test_missing_policy_file_exits_2. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-promote.candidate-passing-floor-and-improvement-becomes-champion
+  title: Candidate passing floor and improvement becomes champion
+  persona: guest
+  priority: P2
+  summary: 'A passing candidate becomes champion through the shared gate: Candidate passing floor and
+    improvement becomes champion'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1=0.90` is submitted while champion v1 (`macro_f1=0.80`) was submitted
+    with the same `lineage.eval_protocol`
+  - Then `finetune-classifier` v2 has alias `champion`, v1 has alias `previous`, v2 carries tag `gate.outcome=promoted`,
+    and the process exits 0
+  tags:
+  - platform-finetune
+  - gate-promote
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A passing candidate becomes champion through the shared gate): VERIFIED
+    BY platform-finetune/tests/test_registry_gate.py::test_pass_moves_champion. Not producible end to
+    end: the offline suite runs the library against a local MLflow file store with a stubbed train stage;
+    no deployed stack path reaches it.'
+- id: platform-finetune.gate-promote.first-candidate-at-or-above-the-floor-becomes-the-first-champion
+  title: First candidate at or above the floor becomes the first champion
+  persona: guest
+  priority: P2
+  summary: 'A passing candidate becomes champion through the shared gate: First candidate at or above
+    the floor becomes the first champion'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1=0.55` is submitted and the model has no champion
+  - Then v1 has alias `champion` and tag `gate.outcome=promoted`
+  tags:
+  - platform-finetune
+  - gate-promote
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A passing candidate becomes champion through the shared gate): VERIFIED
+    BY platform-finetune/tests/test_registry_gate.py::test_first_candidate_meets_floor. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-promote.exactly-at-the-floor-passes
+  title: Exactly at the floor passes
+  persona: guest
+  priority: P2
+  summary: 'A passing candidate becomes champion through the shared gate: Exactly at the floor passes'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a first candidate with `macro_f1` equal to 0.5 is submitted
+  - Then it is promoted and becomes `champion`
+  tags:
+  - platform-finetune
+  - gate-promote
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A passing candidate becomes champion through the shared gate): VERIFIED
+    BY platform-finetune/tests/test_registry_gate.py::test_boundary_at_floor_passes. Not producible end
+    to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-promote.one-percent-better-passes-per-the-library-s-comparison-rule
+  title: One percent better passes per the library's comparison rule
+  persona: guest
+  priority: P2
+  summary: 'A passing candidate becomes champion through the shared gate: One percent better passes per
+    the library''s comparison rule'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When champion v1 has `macro_f1=0.5` and the same `lineage.eval_protocol`, and a candidate with `macro_f1`
+    equal to `0.5 * 1.01` (computed in the test) is submitted
+  - Then it is promoted and v2 has alias `champion`
+  tags:
+  - platform-finetune
+  - gate-promote
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A passing candidate becomes champion through the shared gate): VERIFIED
+    BY platform-finetune/tests/test_registry_gate.py::test_boundary_one_percent_passes. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-promote.a-candidate-that-is-not-promotable-never-moves-the-alias
+  title: A candidate that is not promotable never moves the alias
+  persona: guest
+  priority: P2
+  summary: 'A passing candidate becomes champion through the shared gate: A candidate that is not promotable
+    never moves the alias'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `apply` is called for a version tagged `gate.outcome=rejected`
+  - Then it is refused with `GateError` (exit 2) and alias `champion` is unchanged
+  tags:
+  - platform-finetune
+  - gate-promote
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A passing candidate becomes champion through the shared gate): VERIFIED
+    BY platform-finetune/tests/test_registry_gate.py::test_apply_refused_for_rejected_version. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-promote.both-register-sites-write-to-the-registry-at-runtime
+  title: Both register sites write to the registry at runtime
+  persona: guest
+  priority: P2
+  summary: 'A passing candidate becomes champion through the shared gate: Both register sites write to
+    the registry at runtime'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `run_evaluate` and `tune.promote.promote` each run against a local MLflow file store with a passing
+    metrics file
+  - Then each creates a new version of `finetune-classifier` whose source is the run passed by the trainer,
+    and no import of `registry.base`, `registry.local`, `registry.s3`, `registry.stages` or `gate` remains
+    in `src/datascience`
+  tags:
+  - platform-finetune
+  - gate-promote
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A passing candidate becomes champion through the shared gate): VERIFIED
+    BY platform-finetune/tests/test_registry_gate.py::test_register_sites_write_to_registry. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-reject.below-the-floor-is-rejected-and-champion-is-unchanged
+  title: Below the floor is rejected and champion is unchanged
+  persona: guest
+  priority: P2
+  summary: 'A failing candidate is saved and registered as rejected: Below the floor is rejected and champion
+    is unchanged'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1=0.40` is submitted while champion v1 exists
+  - Then v2 has tag `gate.outcome=rejected` and a `gate.reason` naming `macro_f1`, alias `champion` still
+    points to v1, the model directory exists on disk, and the process exits 0
+  tags:
+  - platform-finetune
+  - gate-reject
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A failing candidate is saved and registered as rejected): VERIFIED BY
+    platform-finetune/tests/test_registry_gate.py::test_below_floor_rejected_champion_unchanged. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-reject.first-candidate-below-the-floor-with-no-champion-is-rejected
+  title: First candidate below the floor with no champion is rejected
+  persona: guest
+  priority: P2
+  summary: 'A failing candidate is saved and registered as rejected: First candidate below the floor with
+    no champion is rejected'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1=0.40` is submitted and the model has no versions
+  - Then v1 has tag `gate.outcome=rejected`, the model has no `champion` alias, the model directory exists,
+    and the process exits 0
+  tags:
+  - platform-finetune
+  - gate-reject
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A failing candidate is saved and registered as rejected): VERIFIED BY
+    platform-finetune/tests/test_registry_gate.py::test_first_candidate_below_floor_no_champion. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-reject.not-improving-enough-is-rejected
+  title: Not improving enough is rejected
+  persona: guest
+  priority: P2
+  summary: 'A failing candidate is saved and registered as rejected: Not improving enough is rejected'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1` equal to `0.5 * 1.005` (computed in the test) is submitted while
+    champion v1 (`macro_f1=0.5`) has the same `lineage.eval_protocol`
+  - Then the new version is tagged `gate.outcome=rejected` and alias `champion` still points to v1
+  tags:
+  - platform-finetune
+  - gate-reject
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A failing candidate is saved and registered as rejected): VERIFIED BY
+    platform-finetune/tests/test_registry_gate.py::test_insufficient_improvement_rejected. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-reject.missing-or-nan-macro-f1-is-rejected-not-raised
+  title: Missing or NaN macro_f1 is rejected, not raised
+  persona: guest
+  priority: P2
+  summary: 'A failing candidate is saved and registered as rejected: Missing or NaN macro_f1 is rejected,
+    not raised'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate is submitted with metrics that lack `macro_f1`, and another with `macro_f1=NaN`
+  - Then each registers a version tagged `gate.outcome=rejected` with a reason naming `macro_f1`, alias
+    `champion` is unchanged, and nothing raises
+  tags:
+  - platform-finetune
+  - gate-reject
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A failing candidate is saved and registered as rejected): VERIFIED BY
+    platform-finetune/tests/test_registry_gate.py::test_missing_or_nan_primary_rejected. Not producible
+    end to end: the offline suite runs the library against a local MLflow file store with a stubbed train
+    stage; no deployed stack path reaches it.'
+- id: platform-finetune.gate-reject.a-below-floor-run-through-the-cli-exits-0
+  title: A below-floor run through the CLI exits 0
+  persona: guest
+  priority: P2
+  summary: 'A failing candidate is saved and registered as rejected: A below-floor run through the CLI
+    exits 0'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `python main.py run` finishes `evaluate` with a below-floor candidate against a local file-store
+    registry (training stage stubbed by a pre-built model and metrics file)
+  - Then the process exits 0, the version is `rejected`, and no `GateFailed` appears in the output
+  tags:
+  - platform-finetune
+  - gate-reject
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (A failing candidate is saved and registered as rejected): VERIFIED BY
+    platform-finetune/tests/test_cli_exit_codes.py::test_below_floor_run_exits_0. Not producible end to
+    end: the offline suite runs the library against a local MLflow file store with a stubbed train stage;
+    no deployed stack path reaches it.'
+- id: platform-finetune.fail-closed.submit-against-a-closed-port-fails-closed
+  title: Submit against a closed port fails closed
+  persona: guest
+  priority: P2
+  summary: 'An unreachable registry publishes nothing: Submit against a closed port fails closed'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `submit` is called with `MLFLOW_TRACKING_URI` set to a closed local port, after the model was
+    saved
+  - Then `RegistryUnavailable` is raised, the process exits 1 within 15 s, the model directory exists,
+    and the alias state read back from the file store is unchanged
+  tags:
+  - platform-finetune
+  - fail-closed
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (An unreachable registry publishes nothing): VERIFIED BY platform-finetune/tests/test_registry_gate.py::test_registry_unreachable_fails_closed.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.fail-closed.the-pre-flight-stops-the-job-before-training
+  title: The pre-flight stops the job before training
+  persona: guest
+  priority: P2
+  summary: 'An unreachable registry publishes nothing: The pre-flight stops the job before training'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `python main.py run` starts with `MLFLOW_TRACKING_URI` set to a closed local port
+  - Then the process exits 1 within 15 s and no stage (ingest, train) has started
+  tags:
+  - platform-finetune
+  - fail-closed
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (An unreachable registry publishes nothing): VERIFIED BY platform-finetune/tests/test_cli_exit_codes.py::test_preflight_unreachable_exits_1_before_training.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.fail-closed.an-unexpected-stage-exception-exits-1
+  title: An unexpected stage exception exits 1
+  persona: guest
+  priority: P2
+  summary: 'An unreachable registry publishes nothing: An unexpected stage exception exits 1'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a pipeline stage raises an unexpected exception in a `main.py run` subprocess
+  - Then the process exits 1 and no registry alias changes
+  tags:
+  - platform-finetune
+  - fail-closed
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (An unreachable registry publishes nothing): VERIFIED BY platform-finetune/tests/test_cli_exit_codes.py::test_stage_exception_exits_1.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.lineage.lineage-tags-are-present-on-promoted-and-rejected-versions
+  title: Lineage tags are present on promoted and rejected versions
+  persona: guest
+  priority: P2
+  summary: 'Every version carries lineage: Lineage tags are present on promoted and rejected versions'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When one passing and one failing candidate are submitted from a trainer-created run
+  - Then both versions have non-empty `lineage.data_version`, `lineage.train_hw` and a 12-character `lineage.eval_protocol`,
+    and each version's source run id equals the trainer's run id
+  tags:
+  - platform-finetune
+  - lineage
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (Every version carries lineage): VERIFIED BY platform-finetune/tests/test_registry_gate.py::test_lineage_tags_on_every_version.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.lineage.the-eval-protocol-id-is-stable-and-sensitive
+  title: The eval protocol id is stable and sensitive
+  persona: guest
+  priority: P2
+  summary: 'Every version carries lineage: The eval protocol id is stable and sensitive'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When the identifier is computed twice from the same dataset name, split, eval-set `data_version` and
+    metric config, and then once with a changed `metrics.compute` list
+  - Then the first two values are equal, the third differs, and each is 12 hex characters
+  tags:
+  - platform-finetune
+  - lineage
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (Every version carries lineage): VERIFIED BY platform-finetune/tests/test_registry_gate.py::test_eval_protocol_id_stable_and_sensitive.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.lineage.a-changed-eval-protocol-is-judged-on-the-floor-only
+  title: A changed eval protocol is judged on the floor only
+  persona: guest
+  priority: P2
+  summary: 'Every version carries lineage: A changed eval protocol is judged on the floor only'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1=0.90` and `lineage.eval_protocol=bbbbbbbbbbbb` is submitted while
+    champion v1 (`macro_f1=0.95`) was submitted with `lineage.eval_protocol=aaaaaaaaaaaa`
+  - Then the candidate is judged on the floor `macro_f1` 0.5 only and is promoted, its `gate.reason` starts
+    with `eval_protocol changed`, and v1 holds alias `previous`
+  tags:
+  - platform-finetune
+  - lineage
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (Every version carries lineage): VERIFIED BY platform-finetune/tests/test_registry_gate.py::test_eval_protocol_changed_floor_only.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.lineage.a-changed-eval-protocol-below-the-floor-is-rejected
+  title: A changed eval protocol below the floor is rejected
+  persona: guest
+  priority: P2
+  summary: 'Every version carries lineage: A changed eval protocol below the floor is rejected'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate with `macro_f1=0.40` and a different `lineage.eval_protocol` from champion v1 is
+    submitted
+  - Then it is tagged `gate.outcome=rejected`, its `gate.reason` names `macro_f1`, and alias `champion`
+    still points to v1
+  tags:
+  - platform-finetune
+  - lineage
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (Every version carries lineage): VERIFIED BY platform-finetune/tests/test_registry_gate.py::test_eval_protocol_changed_below_floor_rejected.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.lineage.a-cpu-only-host-records-cpu
+  title: A CPU-only host records cpu
+  persona: guest
+  priority: P2
+  summary: 'Every version carries lineage: A CPU-only host records cpu'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a candidate is submitted from a host with no GPU
+  - Then `lineage.train_hw` is `cpu`
+  tags:
+  - platform-finetune
+  - lineage
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (Every version carries lineage): VERIFIED BY platform-finetune/tests/test_registry_gate.py::test_train_hw_cpu_fallback.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.image-compose.the-service-is-in-the-jobs-profile-only
+  title: The service is in the jobs profile only
+  persona: guest
+  priority: P2
+  summary: 'The training image and compose job run the pipeline against agora infra: The service is in
+    the jobs profile only'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `docker compose -f docker-compose.services.yaml config --services` is run without profiles, and
+    then with `--profile jobs`
+  - Then `platform-finetune` is absent in the first output and present in the second, with `MLFLOW_TRACKING_URI`
+    equal to `http://mlflow:5050`
+  tags:
+  - platform-finetune
+  - image-compose
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The training image and compose job run the pipeline against agora infra):
+    static e2e, no stack and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_compose_service_in_jobs_profile
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.image-compose.the-image-builds-without-a-gpu
+  title: The image builds without a GPU
+  persona: guest
+  priority: P2
+  summary: 'The training image and compose job run the pipeline against agora infra: The image builds
+    without a GPU'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `docker build platform-finetune` runs on a host with no GPU
+  - Then the build exits 0 and the image entrypoint runs `python main.py run`
+  tags:
+  - platform-finetune
+  - image-compose
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The training image and compose job run the pipeline against agora infra):
+    static e2e, no stack and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_image_builds_cpu_host
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.cronjob.the-manifest-is-weekly-non-overlapping-and-bounded
+  title: The manifest is weekly, non-overlapping and bounded
+  persona: guest
+  priority: P2
+  summary: 'The weekly CronJob trains unattended on the GPU pool: The manifest is weekly, non-overlapping
+    and bounded'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When the CronJob manifest is rendered
+  - Then `schedule` is `0 4 * * 0`, `concurrencyPolicy` is `Forbid`, `backoffLimit` is 1, `restartPolicy`
+    is `Never`, and `MLFLOW_TRACKING_URI` targets the in-cluster `mlflow` Service
+  tags:
+  - platform-finetune
+  - cronjob
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The weekly CronJob trains unattended on the GPU pool): static e2e, no
+    stack and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_cronjob_weekly_forbid
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.cronjob.the-job-lands-on-a-gpu-node
+  title: The job lands on a GPU node
+  persona: guest
+  priority: P2
+  summary: 'The weekly CronJob trains unattended on the GPU pool: The job lands on a GPU node'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When the CronJob pod template is rendered
+  - Then it has the ADR-0011 GPU `nodeSelector` and `toleration`, and the container limit `nvidia.com/gpu`
+    is `1`
+  tags:
+  - platform-finetune
+  - cronjob
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The weekly CronJob trains unattended on the GPU pool): static e2e, no
+    stack and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_cronjob_gpu_pool (git,
+    file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway or the
+    UI.'
+- id: platform-finetune.cronjob.the-pod-is-isolated-and-unreachable
+  title: The pod is isolated and unreachable
+  persona: guest
+  priority: P2
+  summary: 'The weekly CronJob trains unattended on the GPU pool: The pod is isolated and unreachable'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When the NetworkPolicy and kustomization are rendered
+  - Then the policy has no ingress rule, egress allows only DNS, `mlflow`, MinIO and TCP 443 to `0.0.0.0/0`
+    with the cluster CIDRs in `except`, and no Service or Ingress exists for the job
+  tags:
+  - platform-finetune
+  - cronjob
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (The weekly CronJob trains unattended on the GPU pool): static e2e, no
+    stack and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_networkpolicy_egress_and_no_service
+    (git, file, kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway
+    or the UI.'
+- id: platform-finetune.cronjob.a-rejected-run-completes-and-an-outage-run-fails-by-exit-code
+  title: A rejected run completes and an outage run fails by exit code
+  persona: guest
+  priority: P2
+  summary: 'The weekly CronJob trains unattended on the GPU pool: A rejected run completes and an outage
+    run fails by exit code'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `main.py run` is executed in a subprocess with a rejected candidate, then with an unreachable
+    registry
+  - Then the exit codes are 0 and 1 respectively, and the champion alias is unchanged in both
+  tags:
+  - platform-finetune
+  - cronjob
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (The weekly CronJob trains unattended on the GPU pool): VERIFIED BY platform-finetune/tests/test_cli_exit_codes.py::test_rejected_exits_0_outage_exits_1.
+    Not producible end to end: the offline suite runs the library against a local MLflow file store with
+    a stubbed train stage; no deployed stack path reaches it.'
+- id: platform-finetune.ci.the-ci-job-exists-and-is-bounded
+  title: The CI job exists and is bounded
+  persona: guest
+  priority: P2
+  summary: 'CI runs the offline tests without a GPU or dataset: The CI job exists and is bounded'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When the workflow file is parsed
+  - Then a job `platform-finetune` runs `pytest` with working directory `platform-finetune`, has `timeout-minutes`
+    10 and no GPU runner label
+  tags:
+  - platform-finetune
+  - ci
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (CI runs the offline tests without a GPU or dataset): static e2e, no stack
+    and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_ci_job_offline (git, file,
+    kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway or the UI.'
+- id: platform-finetune.ci.the-suite-passes-with-the-network-blocked
+  title: The suite passes with the network blocked
+  persona: guest
+  priority: P2
+  summary: 'CI runs the offline tests without a GPU or dataset: The suite passes with the network blocked'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When `pytest tests/` runs in `platform-finetune` with network access disabled and no `artifacts/`
+    dataset
+  - Then all tests pass
+  tags:
+  - platform-finetune
+  - ci
+  - unit
+  status: not-testable
+  notes: 'add-platform-finetune (CI runs the offline tests without a GPU or dataset): VERIFIED BY platform-finetune/tests
+    full run via make -C platform-finetune test. Not producible end to end: the offline suite runs the
+    library against a local MLflow file store with a stubbed train stage; no deployed stack path reaches
+    it.'
+- id: platform-finetune.ci.a-missing-dependency-fails-the-job
+  title: A missing dependency fails the job
+  persona: guest
+  priority: P2
+  summary: 'CI runs the offline tests without a GPU or dataset: A missing dependency fails the job'
+  entry_route: /
+  services:
+  - platform-finetune
+  preconditions:
+    login: guest
+  acceptance:
+  - When a test imports a module that the CPU dev extras do not install
+  - Then the CI job fails with a non-zero status instead of skipping the test
+  tags:
+  - platform-finetune
+  - ci
+  - static
+  status: not-testable
+  notes: 'add-platform-finetune (CI runs the offline tests without a GPU or dataset): static e2e, no stack
+    and no browser: platform-e2e/tests/e2e/static/test_pft_deploy.py::test_ci_job_offline (git, file,
+    kustomize, compose, workflow reads). Not a .feature: nothing in it drives the gateway or the UI.'
