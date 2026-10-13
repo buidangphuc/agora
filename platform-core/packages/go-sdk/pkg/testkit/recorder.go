@@ -19,8 +19,9 @@ type Record struct {
 	Headers []kgo.RecordHeader
 }
 
-// Recorder is an in-memory publisher for tests. It implements outbox.Publisher
-// (Publish) and consume.DLQProducer (PublishRecord) and is safe for concurrent use.
+// Recorder is an in-memory publisher for tests. PublishRecord satisfies both
+// outbox.Publisher and consume.DLQProducer; Publish is a convenience for tests
+// that record a bare topic, key and value. It is safe for concurrent use.
 type Recorder struct {
 	mu      sync.Mutex
 	records []Record

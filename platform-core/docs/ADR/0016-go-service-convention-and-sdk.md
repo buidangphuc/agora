@@ -59,10 +59,10 @@ type Settings struct {
 	Postgres config.Postgres  // name groups whose field names collide (OTel and Postgres both used to have Enabled)
 	OTel     config.OTel
 }
-func (s Settings) Validate() error { return s.Postgres.Validate() } // Load calls it
+// no Validate needed: Load validates every group, embedded or named
 ```
 
-- `DATABASE_URL` is required: an empty one fails at load (`Postgres.Validate`). `GRPC_PORT` has no default and is required. Capabilities every deploy runs get no enable flag; only real toggles such as `OTEL_ENABLED` have one.
+- `Load` calls `Validate()` on every config group inside `Settings`, embedded or named, and joins the errors; `Settings` defines its own `Validate` only for cross-field checks. `ENV` is required and has no default (`local`, `test`, `staging`, `prod`): a service that forgets it fails at load instead of running as local. `DATABASE_URL` is required: an empty one fails at load (`Postgres.Validate`). `GRPC_PORT` has no default and is required. Durations are Go durations (`SHUTDOWN_GRACE=10s`, `OUTBOX_CLAIM_LOCK=60s`); keys carry no unit suffix. Capabilities every deploy runs get no enable flag; only real toggles such as `OTEL_ENABLED` have one.
 - `.env.example` lists every key once as `KEY=value`. Optional keys are written `KEY=` with no value. Commented lines are ignored by the drift check. The test lives in `internal/config` and reads `../../.env.example` with `config.CheckEnvExample`.
 - Reflection is always on. A hand-built service description (as in `examples/hello`) has no descriptor, so reflection cannot describe its methods.
 
@@ -78,14 +78,15 @@ func Run(ctx context.Context, s config.Settings) error {
 	shutdown, err := otelx.Init(ctx, s.OTel, service)
 	if err != nil { return err }
 	stack.Push(shutdown)
-	health := healthx.New(healthx.DefaultInterval, logger)
-	// pool, err := pgx.Open(...): unreachable => warn and go on only when ENV=local,
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil { return err }
+	// pool, err := postgres.Open(...): unreachable => warn and go on only when ENV=local,
 	//   otherwise return errors.Join(err, stack.Close(ctx))
-	// health.Register("postgres", pgx.Checker(pool)); stack.Push(closePool)
+	// health.Register("postgres", postgres.Checker(pool)); stack.Push(closePool)
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, rpc.NewHandler(logger))
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(), DrainDelay: s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace, DrainDelay: s.DrainDelay,
 		OnShutdown: []func(){health.Drain}, Closers: []func(context.Context) error{stack.Close}, Logger: logger,
 	}, grpcx.Serve(srv, s.GRPC), lifecycle.Func(health.Run))
 }
@@ -98,7 +99,7 @@ func Run(ctx context.Context, s config.Settings) error {
 
 ### Run(ctx) error and lifecycle
 
-Everything long-running (gRPC server, health poller, consumers, relays) is a component with `Run(ctx) error`. `lifecycle.Run` starts them in an errgroup, returns when the context ends or one fails, then shuts down in a fixed order: run `OnShutdown` hooks (drain health), wait `SHUTDOWN_DRAIN_DELAY_SECONDS` so probes and load balancers see NOT_SERVING, cancel components within `SHUTDOWN_GRACE_SECONDS`, then run the closers. `lifecycle.StopAfter(primary, dependents...)` keeps dependents (outbox relayer, sweeper) running until `primary` (the gRPC server) has returned, so in-flight RPCs that enqueue work are drained first.
+Everything long-running (gRPC server, health poller, consumers, relays) is a component with `Run(ctx) error`. `lifecycle.Run` starts them in an errgroup, returns when the context ends or one fails, then shuts down in a fixed order: run `OnShutdown` hooks (drain health), wait `SHUTDOWN_DRAIN_DELAY` so probes and load balancers see NOT_SERVING, cancel components and run the closers within one `SHUTDOWN_GRACE` budget. `lifecycle.StopAfter(primary, dependents...)` keeps dependents (outbox relayer, sweeper) running until `primary` (the gRPC server) has returned, so in-flight RPCs that enqueue work are drained first.
 
 `GracefulStop` waits for open streams, so a client holding a health `Watch` delays the stop until the grace period ends and the server is force-stopped. That is also how drain is tested: watch health, cancel, see NOT_SERVING while the stream is still open, then close the stream (`TestShutdownDrainsHealthFirst`).
 
@@ -114,13 +115,13 @@ func (h *Handler) Greet(ctx context.Context, in *wrapperspb.StringValue) (*wrapp
 	}
 	msg, err := greeter.Greet(in.GetValue())
 	if err != nil {
-		return nil, grpcx.Status(ctx, h.logger, err, h.errs) // h.errs = ErrorTable{greeter.ErrEmptyName: grpcx.Code(codes.InvalidArgument)}
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs) // h.errs = grpcx.NewErrorTable(grpcx.Rule{Target: greeter.ErrEmptyName, Code: codes.InvalidArgument})
 	}
 	return wrapperspb.String(msg + " (caller " + p.ID + ")"), nil
 }
 ```
 
-Matched errors keep their code, and errors that already are gRPC status errors (for example from `auth.RequirePrincipal`) pass through unchanged. Unknown errors are logged and returned as `codes.Internal` with the message `internal error`, so driver or upstream text never reaches callers.
+The table is ordered: the first `Rule` whose `Target` matches with `errors.Is` wins, and its `Message` (default: the sentinel's own text, never the wrapped chain) is what the caller sees. `context.Canceled` and `DeadlineExceeded` map to their gRPC codes and log at Info. Matched errors keep their code, and errors that already are gRPC status errors (for example from `auth.RequirePrincipal`) pass through unchanged. Unknown errors are logged and returned as `codes.Internal` with the message `internal error`, so driver or upstream text never reaches callers.
 
 ### Tests
 
@@ -134,7 +135,7 @@ Matched errors keep their code, and errors that already are gRPC status errors (
 | Config | caarlos0/env v11 | Reads the `env:`/`default:` tags the services already use. |
 | gRPC interceptors | go-grpc-middleware v2 | Maintained slog logging and recovery building blocks. |
 | Concurrency | x/sync/errgroup | Standard way to run components and stop all on first error. |
-| Postgres | pgx v5 | Already used by the services; pool, tx and ping built in. |
+| Postgres (`pkg/postgres`) | pgx v5 | Already used by the services; pool, tx and ping built in. |
 | Migrations | golang-migrate v4 | Matches the existing `NNN_name.up.sql` files. |
 | Resilience | failsafe-go | Composable retry and breaker policies; replaces the hand-written breaker. |
 | Integration tests | testcontainers-go | Real Postgres in tests. Fakes have hidden real bugs before. |

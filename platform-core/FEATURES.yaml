@@ -620,7 +620,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/pgx
+    notes: Platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/postgres
       TestOpenFailsOnUnreachableDB.
   - id: go-sdk.withtx-rolls-back-on-error
     title: WithTx rolls back on error
@@ -1309,7 +1309,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/pgx TestOpenOrLocalFallsBackOnlyLocally"
+    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/postgres TestOpenOrLocalFallsBackOnlyLocally"
   - id: go-sdk.strict-envs-are-recognised-and-dev-is-not
     title: "Strict envs are recognised and dev is not"
     persona: guest

@@ -107,10 +107,10 @@ Owns: `pkg/resilience/**`, `pkg/flags/**`, `pkg/lifecycle/**`, `pkg/healthx/**`,
 
 Owns: everything under `platform-core/packages/go-sdk/**`, `platform-core/templates/_service-go/**`, `platform-core/docs/ADR/0016-go-service-convention-and-sdk.md`, `openspec/changes/go-sdk-v1/specs/**`.
 
-- [ ] 15.1 m5 rename package `pkg/pgx` to `pkg/postgres`; m14 rename `upstream.Dial` to `upstream.NewClient`; update every SDK caller, examples and the template.
-- [ ] 15.2 m1 every duration env var is a Go duration with a key without unit suffix (e.g. `SHUTDOWN_GRACE`, `OUTBOX_CLAIM_LOCK`, `FEATURE_FLAGS_EVAL_TIMEOUT`); list old → new keys in the SDK README "Upgrading to v1" section.
-- [ ] 15.3 m16 evaluate moving testkit/tooling to its own module; do it only if `sync-go-sdk.sh`, `check-go-sdk-vendor.sh` and the template smoke test keep passing, else document the decision in the README.
-- [ ] 15.4 m2 add MODIFIED/REMOVED requirement deltas in `specs/go-platform-sdk/spec.md` so the spec matches the code (reflection always on, no `DATABASE_ENABLED`, new signatures, ordering, headers, renames); README package table and an "Upgrading to v1" section; ADR-0016 snippets.
+- [x] 15.1 m5 rename package `pkg/pgx` to `pkg/postgres`; m14 rename `upstream.Dial` to `upstream.NewClient`; update every SDK caller, examples and the template.
+- [x] 15.2 m1 every duration env var is a Go duration with a key without unit suffix (e.g. `SHUTDOWN_GRACE`, `OUTBOX_CLAIM_LOCK`, `FEATURE_FLAGS_EVAL_TIMEOUT`); list old → new keys in the SDK README "Upgrading to v1" section.
+- [x] 15.3 m16 evaluate moving testkit/tooling to its own module; do it only if `sync-go-sdk.sh`, `check-go-sdk-vendor.sh` and the template smoke test keep passing, else document the decision in the README.
+- [x] 15.4 m2 add MODIFIED/REMOVED requirement deltas in `specs/go-platform-sdk/spec.md` so the spec matches the code (reflection always on, no `DATABASE_ENABLED`, new signatures, ordering, headers, renames); README package table and an "Upgrading to v1" section; ADR-0016 snippets.
 
 ## 16. Close review fixes (orchestrator)
 
