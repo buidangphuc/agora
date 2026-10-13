@@ -3,6 +3,8 @@ package referral
 import (
 	"strconv"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pagination"
+
 	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
 )
 
@@ -12,20 +14,17 @@ const (
 )
 
 // decodePage resolves the effective (limit, offset) from a paginated request.
-// The cursor is an opaque decimal offset produced by encodeCursor; an empty or
-// unparseable cursor starts at offset 0. page_size is clamped to a sane range.
+// The cursor is an opaque decimal offset produced by encodeCursor (the SDK's
+// base64 token would change what clients already hold, so the encoding stays
+// local); an empty or unparseable cursor starts at offset 0. page_size is
+// clamped to a sane range.
 func decodePage(req *referralv1.ListReferralRewardsRequest) (limit, offset int) {
-	limit = defaultPageSize
+	var size int
 	if p := req.GetPage(); p != nil {
-		if ps := int(p.GetPageSize()); ps > 0 {
-			limit = ps
-		}
+		size = int(p.GetPageSize())
 		offset = decodeCursor(p.GetCursor())
 	}
-	if limit > maxPageSize {
-		limit = maxPageSize
-	}
-	return limit, offset
+	return pagination.Clamp(size, defaultPageSize, maxPageSize), offset
 }
 
 // encodeCursor turns a row offset into the opaque cursor clients echo back.

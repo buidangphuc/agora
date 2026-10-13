@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"google.golang.org/grpc"
@@ -29,18 +30,19 @@ type Handler struct {
 }
 
 // NewHandler returns a Handler that maps domain errors with its error table.
-func NewHandler(svc *referral.Service, logger *slog.Logger) *Handler {
-	return &Handler{
-		svc:    svc,
-		logger: logger,
-		errs: grpcx.ErrorTable{
-			referral.ErrEmptyUser:       codes.Unauthenticated,
-			referral.ErrEmptyCode:       codes.InvalidArgument,
-			referral.ErrCodeNotFound:    codes.NotFound,
-			referral.ErrSelfReferral:    codes.FailedPrecondition,
-			referral.ErrAlreadyRedeemed: codes.FailedPrecondition,
-		},
+// No rule sets a Message, so the client sees each sentinel's own text.
+func NewHandler(svc *referral.Service, logger *slog.Logger) (*Handler, error) {
+	errs, err := grpcx.NewErrorTable(
+		grpcx.Rule{Target: referral.ErrEmptyUser, Code: codes.Unauthenticated},
+		grpcx.Rule{Target: referral.ErrEmptyCode, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: referral.ErrCodeNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: referral.ErrSelfReferral, Code: codes.FailedPrecondition},
+		grpcx.Rule{Target: referral.ErrAlreadyRedeemed, Code: codes.FailedPrecondition},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error table: %w", err)
 	}
+	return &Handler{svc: svc, logger: logger, errs: errs}, nil
 }
 
 // Register adds the referral service to s.
