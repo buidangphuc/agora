@@ -249,7 +249,7 @@ def test_eval_protocol_id_stable_and_sensitive(reg, stage_env, tmp_artifacts):
     stage_env.run_evaluate({"macro_f1": 0.9}, cm=same)
     changed_metrics = _cm_with(tmp_artifacts, lambda p: p["metrics"].update(compute=["accuracy", "macro_f1"]))
     stage_env.run_evaluate({"macro_f1": 0.9}, cm=changed_metrics)
-    write_data_version(paths.DATA_VERSION, sha="fedcba654321")
+    write_data_version(paths.DATA_VERSION, sha="data-version-changed")
     stage_env.run_evaluate({"macro_f1": 0.9}, cm=same)
     changed_dataset = _cm_with(tmp_artifacts, lambda p: p["ingestion"].update(dataset_name="other/ds"))
     stage_env.run_evaluate({"macro_f1": 0.9}, cm=changed_dataset)

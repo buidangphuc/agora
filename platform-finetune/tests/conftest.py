@@ -128,7 +128,7 @@ def closed_port_url():
 
 
 def lineage(protocol="aaaaaaaaaaaa", **extra):
-    return {"data_version": "abc123def456", "train_hw": "cpu", "eval_protocol": protocol, **extra}
+    return {"data_version": "data-version-placeholder", "train_hw": "cpu", "eval_protocol": protocol, **extra}
 
 
 def submit_candidate(reg, metrics, protocol="aaaaaaaaaaaa"):
@@ -187,6 +187,6 @@ def stage_env(tmp_artifacts, reg, monkeypatch):
     return StageEnv()
 
 
-def write_data_version(path, sha="abc123def456"):
+def write_data_version(path, sha="data-version-placeholder"):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"sha256": sha, "n_rows": 10}))

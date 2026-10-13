@@ -61,7 +61,7 @@ def validate():
 def transform():
     _mark("transform")
     paths.DATA_VERSION.parent.mkdir(parents=True, exist_ok=True)
-    paths.DATA_VERSION.write_text(json.dumps({"sha256": "abc123def456", "n_rows": 10}))
+    paths.DATA_VERSION.write_text(json.dumps({"sha256": "data-version-placeholder", "n_rows": 10}))
 
 
 def train():
