@@ -31,6 +31,11 @@ from .two_tower import stage as two_tower_stage
 
 log = logging.getLogger("recsys.pipeline")
 
+# Former PROMOTION_* defaults; replaced by the registry gate in a later task group.
+_PRIMARY_METRIC = "ndcg@10"
+_MIN_RELATIVE_IMPROVEMENT = 0.01
+_MIN_COVERAGE_RATIO = 0.8
+
 
 def _collect_factors(factors_df, id_col: str):
     """Collect a factors DataFrame to (ids, vectors) on the driver, L2-normalized."""
@@ -317,10 +322,10 @@ def run(
         incumbent = registry.get_model(incumbent_version) if incumbent_version else None
         decision = registry.evaluate(
             model_version,
-            primary_metric=settings.promotion_primary_metric,
-            min_relative_improvement=settings.promotion_min_relative_improvement,
-            min_coverage_ratio=settings.promotion_min_coverage_ratio,
-            force=settings.promotion_force,
+            primary_metric=_PRIMARY_METRIC,
+            min_relative_improvement=_MIN_RELATIVE_IMPROVEMENT,
+            min_coverage_ratio=_MIN_COVERAGE_RATIO,
+            force=False,
         )
         promoted, reason = decision.promoted, decision.reason
 
@@ -330,12 +335,10 @@ def run(
             "decision": "promoted" if promoted else "rejected",
             "reason": reason,
             # The comparison the gate made, auditable from the run's own output.
-            "primary_metric": settings.promotion_primary_metric,
-            "candidate_value": metrics.get(settings.promotion_primary_metric),
+            "primary_metric": _PRIMARY_METRIC,
+            "candidate_value": metrics.get(_PRIMARY_METRIC),
             "incumbent_version": incumbent_version,
-            "incumbent_value": (
-                incumbent.metrics.get(settings.promotion_primary_metric) if incumbent else None
-            ),
+            "incumbent_value": (incumbent.metrics.get(_PRIMARY_METRIC) if incumbent else None),
             "metrics": metrics,
             "drift": drift,
             "items": len(item_ids),

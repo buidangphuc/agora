@@ -142,13 +142,13 @@ _FIELDS: list[tuple[str, str, str, Callable[[str], Any]]] = [
     ("drift_alert_threshold", "DRIFT_ALERT_THRESHOLD", "0.25", _as_float),
     # Optional Prometheus text file (node-exporter textfile collector) for each run's drift report.
     ("drift_metrics_path", "DRIFT_METRICS_PATH", "", _as_str),
-    # ── Model Registry & Promotion Gate ──────────────────────────────────────
-    ("promotion_primary_metric", "PROMOTION_PRIMARY_METRIC", "ndcg@10", _as_str),
-    ("promotion_min_relative_improvement", "PROMOTION_MIN_RELATIVE_IMPROVEMENT", "0.01", _as_float),
-    ("promotion_min_coverage_ratio", "PROMOTION_MIN_COVERAGE_RATIO", "0.8", _as_float),
-    # Operator override: promote (and publish) this run even if the gate rejects it,
-    # e.g. to repopulate Qdrant/Redis after they were reset. Never set it on a schedule.
-    ("promotion_force", "PROMOTION_FORCE", "false", _as_bool),
+    # ── Model registry (MLflow; py-modelregistry decides promotion) ──────────
+    # Required for training (validate_for_training); empty is a configuration error (exit 2).
+    ("mlflow_tracking_uri", "MLFLOW_TRACKING_URI", "", _as_str),
+    # Reject a dataset snapshot older than this many minutes; 0 = guard off.
+    ("max_dataset_age_minutes", "MAX_DATASET_AGE_MINUTES", "0", _as_int),
+    # The latest share of the Two-Tower pairs is the holdout its gate evaluates on.
+    ("two_tower_holdout_fraction", "TWO_TOWER_HOLDOUT_FRACTION", "0.1", _as_float),
     # ── Structural gate (before the metric gate; recsys-generations) ─────────
     # Reject a degenerate candidate: too few users with a list, too little of the catalogue
     # in any list, lists that are nearly identical across users. NaN/inf factors always reject.
@@ -226,10 +226,9 @@ class Settings:
     cache_prefix: str = "recs"
     cache_schema_version: str = "v1"
     cache_ttl_seconds: int = 172800
-    promotion_primary_metric: str = "ndcg@10"
-    promotion_min_relative_improvement: float = 0.01
-    promotion_min_coverage_ratio: float = 0.8
-    promotion_force: bool = False
+    mlflow_tracking_uri: str = ""
+    max_dataset_age_minutes: int = 0
+    two_tower_holdout_fraction: float = 0.1
     gate_min_user_coverage: float = 0.5
     gate_min_item_coverage: float = 0.05
     gate_max_list_overlap: float = 0.9
@@ -285,7 +284,18 @@ class Settings:
     def previous_key(self) -> str:
         return f"{self._prefix}:previous"
 
+    def validate_for_training(self) -> None:
+        """Inputs a training run cannot start without (the job exits 2)."""
+        if not self.mlflow_tracking_uri.strip():
+            raise ConfigError("MLFLOW_TRACKING_URI is required for training")
+
     def validate(self) -> None:
+        if self.max_dataset_age_minutes < 0:
+            raise ValueError(f"MAX_DATASET_AGE_MINUTES must be >= 0: {self.max_dataset_age_minutes}")
+        if not 0.0 < self.two_tower_holdout_fraction < 1.0:
+            raise ValueError(
+                f"TWO_TOWER_HOLDOUT_FRACTION must be within (0, 1): {self.two_tower_holdout_fraction}"
+            )
         if self.als_rank <= 0:
             raise ValueError(f"ALS_RANK must be > 0: {self.als_rank}")
         if self.als_max_iter <= 0:

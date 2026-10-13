@@ -27,6 +27,9 @@ log = logging.getLogger("recsys.ranker.stage")
 MODEL_NAME = "recsys-gbdt-ranker"
 NDCG_K = 10
 PRIMARY_METRIC = "ndcg@10"
+# Former PROMOTION_* defaults; replaced by the registry gate in a later task group.
+_MIN_RELATIVE_IMPROVEMENT = 0.01
+_MIN_COVERAGE_RATIO = 0.8
 
 
 @dataclass
@@ -248,8 +251,8 @@ def run_stage(
         return reject("no usable holdout: no held-out impression has a click or an add-to-cart")
     context.update(_evaluate_context(settings, matrix, split))
 
-    threshold = settings.promotion_min_relative_improvement
-    if not settings.promotion_force and not ndcg > baseline * (1.0 + threshold):
+    threshold = _MIN_RELATIVE_IMPROVEMENT
+    if not ndcg > baseline * (1.0 + threshold):
         return reject(
             f"{PRIMARY_METRIC} {ndcg:.4f} does not beat the fixed-weight baseline {baseline:.4f} "
             f"by the required {threshold:.2%}"
@@ -278,8 +281,8 @@ def run_stage(
         gbdt_version,
         primary_metric=PRIMARY_METRIC,
         min_relative_improvement=threshold,
-        min_coverage_ratio=settings.promotion_min_coverage_ratio,
-        force=settings.promotion_force,
+        min_coverage_ratio=_MIN_COVERAGE_RATIO,
+        force=False,
     )
     if not decision.promoted:
         reg.reject(decision)
