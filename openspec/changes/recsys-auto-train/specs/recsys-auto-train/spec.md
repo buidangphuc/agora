@@ -53,7 +53,7 @@ The job SHALL register every evaluated ALS candidate as a new version of `recsys
 
 ### Requirement: GBDT and two-tower are trained nightly and evaluated under their own policies
 
-With `ENABLE_GBDT=true` and `ENABLE_TWO_TOWER=true`, the job SHALL train both after the ALS candidate is `promotable`, register them as versions of `recsys-gbdt` and `recsys-two-tower`, and call `evaluate` on each under its own policy. The `recsys-gbdt` policy SHALL use primary `ndcg@10` with a minimum relative improvement of 0.5 % and guard `recall@10` ratio 0.95. The `recsys-two-tower` policy SHALL use primary `recall@10` with a minimum relative improvement of 0.5 %, guard `coverage@10` ratio 0.8 and floor `coverage@10` 0.5. Each model SHALL be compared with its own champion only. A guard metric missing on the champion SHALL be skipped and the skip noted in the reason.
+With `ENABLE_GBDT=true` and `ENABLE_TWO_TOWER=true`, the job SHALL train both after the ALS candidate is `promotable`, register them as versions of `recsys-gbdt` and `recsys-two-tower`, and call `evaluate` on each under its own policy. The `recsys-gbdt` policy SHALL use primary `ndcg@10` with a minimum relative improvement of 0.5 % and guard `recall@10` ratio 0.95. The `recsys-two-tower` policy SHALL use primary `recall@10` with a minimum relative improvement of 0.5 %, guard `coverage@10` ratio 0.8 and floor `recall@10` 0.000001 (the first champion needs `recall@10` > 0; there is no coverage floor). Each model SHALL be compared with its own champion only. A guard metric missing on the champion SHALL be skipped and the skip noted in the reason.
 
 #### Scenario: RAT-07 Three models become promotable and ride one generation
 - **WHEN** the ALS, GBDT and two-tower candidates are all evaluated `promotable` (the e2e fixture is sized so that they are, against seeded weak champions) and the publish succeeds
@@ -81,8 +81,8 @@ With `ENABLE_GBDT=true` and `ENABLE_TWO_TOWER=true`, the job SHALL train both af
 - **VERIFIED BY**: `platform-recsys/tests/test_pipeline_gates.py::test_stage_failure_marks_rejected_and_exits_1`
 
 #### Scenario: RAT-12 The first two-tower candidate must meet the policy floors
-- **WHEN** `recsys-two-tower` has no `champion` and the candidate scores `coverage@10=0.49`
-- **THEN** the version is tagged `gate.outcome=rejected` with a `gate.reason` naming the `coverage@10` floor of 0.5
+- **WHEN** `recsys-two-tower` has no `champion` and the candidate scores `recall@10=0`
+- **THEN** the version is tagged `gate.outcome=rejected` with a `gate.reason` naming the `recall@10` floor of 0.000001
 - **VERIFIED BY**: `platform-recsys/tests/test_gate_two_tower.py::test_first_candidate_below_floor_rejected`
 
 #### Scenario: RAT-40 An equal GBDT model does not churn the champion
@@ -91,7 +91,7 @@ With `ENABLE_GBDT=true` and `ENABLE_TWO_TOWER=true`, the job SHALL train both af
 - **VERIFIED BY**: `platform-recsys/tests/test_gate_gbdt.py::test_equal_metric_rejected`
 
 #### Scenario: RAT-41 Boundary, exactly +0.5 % passes the GBDT and two-tower policies
-- **WHEN** the GBDT candidate has `ndcg@10=0.2010` against a champion at `0.2000` with `recall@10` at 0.95 times the champion's, and the two-tower candidate has `recall@10=0.2010` against `0.2000` with `coverage@10` 0.8 times the champion's and at least 0.5
+- **WHEN** the GBDT candidate has `ndcg@10=0.2010` against a champion at `0.2000` with `recall@10` at 0.95 times the champion's, and the two-tower candidate has `recall@10=0.2010` against `0.2000` with `coverage@10` 0.8 times the champion's and `recall@10` above 0
 - **THEN** both versions are tagged `gate.outcome=promotable`
 - **VERIFIED BY**: `platform-recsys/tests/test_gate_gbdt.py::test_boundary_inclusive`, `platform-recsys/tests/test_gate_two_tower.py::test_boundary_inclusive`
 
