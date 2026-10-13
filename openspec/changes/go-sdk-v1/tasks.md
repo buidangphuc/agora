@@ -50,3 +50,9 @@ Owns: `pkg/testkit/**`.
 
 - [x] 7.1 Merge packets, `go mod tidy`, full SDK tests; SDK README table lists every package; ADR-0016 package list; FEATURES entries; `ci_local`.
 - [ ] 7.2 Propose `go-sdk/v1.0.0` to the owner with the change list; tag only after approval.
+
+## 8. Sync test fixture (wave 2)
+
+Owns: `platform-core/tools/sync-go-sdk_test.sh`, `platform-core/tools/testdata/sync-fixture/**` (new).
+
+- [ ] 8.1 The sync test copies a minimal fixture service (`go.mod`, one `proto/` file with `buf.gen.yaml`, a `main.go` importing a stable SDK package) instead of `team-sharing`, so a breaking SDK change does not fail the test until a real service adopts it. Every existing assertion of the test is kept. Verify `bash platform-core/tools/sync-go-sdk_test.sh`.
