@@ -29,6 +29,23 @@ func status(t *testing.T, h *healthx.Health) grpc_health_v1.HealthCheckResponse_
 	return resp.GetStatus()
 }
 
+func newHealth(t *testing.T) *healthx.Health {
+	t.Helper()
+	h, err := healthx.New(interval, quiet())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return h
+}
+
+func TestNewRejectsNonPositiveInterval(t *testing.T) {
+	for _, d := range []time.Duration{0, -time.Second} {
+		if h, err := healthx.New(d, quiet()); err == nil || h != nil {
+			t.Errorf("New(%v) = %v, %v; want nil and an error", d, h, err)
+		}
+	}
+}
+
 func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Helper()
 	end := time.Now().Add(deadline)
@@ -54,7 +71,7 @@ func start(t *testing.T, h *healthx.Health) {
 }
 
 func TestStartsServing(t *testing.T) {
-	h := healthx.New(interval, quiet())
+	h := newHealth(t)
 	if got := status(t, h); got != grpc_health_v1.HealthCheckResponse_SERVING {
 		t.Fatalf("initial status = %v, want SERVING", got)
 	}
@@ -62,7 +79,7 @@ func TestStartsServing(t *testing.T) {
 
 func TestCheckerFailureFlipsStatus(t *testing.T) {
 	var failing atomic.Bool
-	h := healthx.New(interval, quiet())
+	h := newHealth(t)
 	h.Register("db", func(context.Context) error {
 		if failing.Load() {
 			return errors.New("down")
@@ -83,7 +100,7 @@ func TestCheckerFailureFlipsStatus(t *testing.T) {
 }
 
 func TestDrainIsSticky(t *testing.T) {
-	h := healthx.New(interval, quiet())
+	h := newHealth(t)
 	var probes atomic.Int64
 	h.Register("ok", func(context.Context) error { probes.Add(1); return nil })
 	start(t, h)
@@ -100,7 +117,7 @@ func TestDrainIsSticky(t *testing.T) {
 }
 
 func TestHangingCheckerFailsWithoutBlocking(t *testing.T) {
-	h := healthx.New(interval, quiet())
+	h := newHealth(t)
 	var cancelled atomic.Bool
 	var healthy atomic.Int64
 	h.Register("hang", func(ctx context.Context) error {
@@ -122,7 +139,7 @@ func TestHangingCheckerFailsWithoutBlocking(t *testing.T) {
 }
 
 func TestCheckIgnoringContextStillFails(t *testing.T) {
-	h := healthx.New(interval, quiet())
+	h := newHealth(t)
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	h.Register("stuck", func(context.Context) error { <-release; return nil })
