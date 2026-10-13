@@ -1,0 +1,134 @@
+package rpc_test
+
+import (
+	"context"
+	"log/slog"
+	"net"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
+
+	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
+	"github.com/buidangphuc/team-chat/internal/chat"
+	"github.com/buidangphuc/team-chat/internal/rpc"
+	"github.com/buidangphuc/team-chat/internal/store"
+)
+
+func startServer(t *testing.T) chatv1.ChatServiceClient {
+	t.Helper()
+	logger := slog.New(slog.DiscardHandler)
+	repo := store.NewInMemoryChatRepository()
+	svc := chat.NewService(repo, logger)
+	h := rpc.NewChatHandler(svc, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{
+		Config: sdkconfig.GRPC{},
+		Logger: logger,
+		Health: health,
+	})
+	rpc.Register(srv, h)
+
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	go func() { _ = srv.Serve(lis) }()
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close(); srv.Stop() })
+	return chatv1.NewChatServiceClient(conn)
+}
+
+func userCtx(t *testing.T, id string) (context.Context, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	md := metadata.Pairs("x-principal-id", id, "x-principal-type", "user", "x-principal-scopes", "chat:read,chat:write")
+	return metadata.NewOutgoingContext(ctx, md), cancel
+}
+
+func TestChatThreadAndMessageLifecycle(t *testing.T) {
+	client := startServer(t)
+
+	buyerCtx, buyerCancel := userCtx(t, "buyer-123")
+	defer buyerCancel()
+
+	// 1. GetOrCreateThread by buyer
+	res, err := client.GetOrCreateThread(buyerCtx, &chatv1.GetOrCreateThreadRequest{
+		SellerId:  "seller-456",
+		ListingId: "listing-789",
+	})
+	if err != nil {
+		t.Fatalf("GetOrCreateThread: %v", err)
+	}
+	thread := res.GetThread()
+	if thread.GetBuyerId() != "buyer-123" || thread.GetSellerId() != "seller-456" {
+		t.Fatalf("unexpected thread parties: %+v", thread)
+	}
+
+	// 2. Send message from buyer
+	sendRes, err := client.SendMessage(buyerCtx, &chatv1.SendMessageRequest{
+		ThreadId: thread.GetId(),
+		Content:  "Xin chào shop, sản phẩm còn hàng không ạ?",
+	})
+	if err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	if sendRes.GetMessage().GetContent() != "Xin chào shop, sản phẩm còn hàng không ạ?" {
+		t.Fatalf("unexpected message content: %+v", sendRes.GetMessage())
+	}
+
+	// 3. Seller lists threads and sees unread count = 1
+	sellerCtx, sellerCancel := userCtx(t, "seller-456")
+	defer sellerCancel()
+
+	threadsList, err := client.ListThreads(sellerCtx, &chatv1.ListThreadsRequest{})
+	if err != nil {
+		t.Fatalf("ListThreads: %v", err)
+	}
+	if len(threadsList.GetThreads()) != 1 {
+		t.Fatalf("want 1 thread for seller, got %d", len(threadsList.GetThreads()))
+	}
+	if threadsList.GetThreads()[0].GetUnreadCountSeller() != 1 {
+		t.Fatalf("want unread seller count 1, got %d", threadsList.GetThreads()[0].GetUnreadCountSeller())
+	}
+
+	// 4. Seller replies to thread
+	_, err = client.SendMessage(sellerCtx, &chatv1.SendMessageRequest{
+		ThreadId: thread.GetId(),
+		Content:  "Chào bạn, sản phẩm vẫn còn sẵn hàng bạn nhé!",
+	})
+	if err != nil {
+		t.Fatalf("Seller SendMessage: %v", err)
+	}
+
+	// 5. Get messages for thread
+	msgsRes, err := client.GetThreadMessages(buyerCtx, &chatv1.GetThreadMessagesRequest{
+		ThreadId: thread.GetId(),
+	})
+	if err != nil {
+		t.Fatalf("GetThreadMessages: %v", err)
+	}
+	if len(msgsRes.GetMessages()) != 2 {
+		t.Fatalf("want 2 messages, got %d", len(msgsRes.GetMessages()))
+	}
+
+	// 6. Mark read
+	_, err = client.MarkThreadRead(buyerCtx, &chatv1.MarkThreadReadRequest{
+		ThreadId: thread.GetId(),
+	})
+	if err != nil {
+		t.Fatalf("MarkThreadRead: %v", err)
+	}
+}

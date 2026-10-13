@@ -3,20 +3,27 @@ package events_test
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
-	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-chat/generated/platform/events/v1"
 	"github.com/buidangphuc/team-chat/internal/events"
-	"github.com/buidangphuc/team-chat/internal/interceptor"
-	"github.com/buidangphuc/team-chat/internal/repository"
+	"github.com/buidangphuc/team-chat/internal/store"
+	"github.com/buidangphuc/team-chat/migrations"
 )
 
 type sent struct {
@@ -26,33 +33,39 @@ type sent struct {
 
 type fakeKafka struct {
 	mu   sync.Mutex
-	down bool
+	err  error
 	sent []sent
 }
 
-func (f *fakeKafka) Publish(_ context.Context, topic, key string, payload []byte) error {
+func (f *fakeKafka) PublishRecord(_ context.Context, rec *kgo.Record) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.down {
-		return errors.New("broker unavailable")
+	if f.err != nil {
+		return f.err
 	}
-	f.sent = append(f.sent, sent{topic, key, payload})
+	f.sent = append(f.sent, sent{rec.Topic, string(rec.Key), rec.Value})
 	return nil
 }
 
-func (f *fakeKafka) setDown(v bool) { f.mu.Lock(); f.down = v; f.mu.Unlock() }
-func (f *fakeKafka) count() int     { f.mu.Lock(); defer f.mu.Unlock(); return len(f.sent) }
+func (f *fakeKafka) setDown(v bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = nil
+	if v {
+		f.err = errors.New("broker unavailable")
+	}
+}
 
-func quietLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+// failWith makes every publish return err until setDown(false).
+func (f *fakeKafka) failWith(err error) { f.mu.Lock(); f.err = err; f.mu.Unlock() }
+func (f *fakeKafka) count() int         { f.mu.Lock(); defer f.mu.Unlock(); return len(f.sent) }
 
 func userCtx(id string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-	})
+	return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: "user"})
 }
 
 func TestBuildMessageOutboxRow(t *testing.T) {
-	msg := repository.ChatMessage{
+	msg := store.ChatMessage{
 		ID: "m1", ThreadID: "t1", SenderID: "seller-1", RecipientID: "buyer-1", SellerID: "seller-1",
 		Content: "hi", CreatedAt: time.Unix(1700000000, 0),
 	}
@@ -84,51 +97,100 @@ func TestBuildMessageOutboxRow(t *testing.T) {
 	}
 }
 
-func relayerFor(repo repository.OutboxRepository, k events.KafkaPublisher, max int) *events.Relayer {
-	return events.NewRelayer(repo, k, events.RelayerConfig{
-		Topic: "chat.events", MaxAttempts: max, BaseBackoff: time.Millisecond,
-	}, quietLogger())
+// newOutbox opens a migrated testkit Postgres and returns the pool with the
+// chat outbox store over it.
+func newOutbox(t *testing.T) (*pgxpool.Pool, *outbox.Store) {
+	t.Helper()
+	ctx := context.Background()
+	url := testkit.Postgres(t)
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := sdkpgx.Open(ctx, sdkconfig.Postgres{URL: url, MaxConns: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	s, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pool, s
 }
 
-func enqueue(t *testing.T, repo repository.OutboxRepository, id, thread string) {
+func relayerFor(t *testing.T, s *outbox.Store, k outbox.Publisher) *outbox.Relayer {
 	t.Helper()
-	if err := repo.Enqueue(context.Background(), repository.OutboxRow{
-		EventID: id, AggregateType: "ChatThread", AggregateID: thread, EventType: "T", Payload: []byte(id),
-	}); err != nil {
+	r, err := outbox.NewRelayer(s, k, outbox.RelayerOptions{
+		Topic:  "chat.events",
+		Config: sdkconfig.Outbox{BatchSize: 100, ClaimLock: time.Minute},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func enqueue(t *testing.T, pool *pgxpool.Pool, s *outbox.Store, id, thread string) {
+	t.Helper()
+	err := sdkpgx.WithTx(context.Background(), pool, func(tx pgx.Tx) error {
+		return s.EnqueueTx(context.Background(), tx, store.OutboxRow{
+			EventID: id, AggregateType: "ChatThread", AggregateID: thread, EventType: "T", Payload: []byte(id),
+		})
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestRelayerPublishesKeyedByThreadAndOnlyOnce(t *testing.T) {
-	repo := repository.NewInMemoryOutboxRepository()
-	k := &fakeKafka{}
-	enqueue(t, repo, "e1", "thread-A")
-	enqueue(t, repo, "e2", "thread-A")
-	r := relayerFor(repo, k, 3)
+// release lifts the retry backoff gate so the next sweep may claim a failed row
+// again, without waiting out the delay or depending on clock agreement with the
+// database.
+func release(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `UPDATE chat_outbox_events SET available_at = now() WHERE status = 'pending'`); err != nil {
+		t.Fatal(err)
+	}
+}
 
-	n, err := r.SweepClaims(context.Background())
-	if err != nil || n != 2 {
-		t.Fatalf("sweep = %d, %v; want 2", n, err)
+func sweep(t *testing.T, r *outbox.Relayer) int {
+	t.Helper()
+	rep, err := r.RelayOnce(context.Background())
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	return rep.Published
+}
+
+func TestRelayerPublishesKeyedByThreadAndOnlyOnce(t *testing.T) {
+	pool, s := newOutbox(t)
+	k := &fakeKafka{}
+	enqueue(t, pool, s, "e1", "thread-A")
+	enqueue(t, pool, s, "e2", "thread-A")
+	r := relayerFor(t, s, k)
+
+	if n := sweep(t, r); n != 2 {
+		t.Fatalf("sweep = %d; want 2", n)
 	}
 	if k.sent[0].topic != "chat.events" || k.sent[0].key != "thread-A" || string(k.sent[0].payload) != "e1" || string(k.sent[1].payload) != "e2" {
 		t.Fatalf("sent = %+v", k.sent)
 	}
-	if n, _ := r.SweepClaims(context.Background()); n != 0 || k.count() != 2 {
+	if n := sweep(t, r); n != 0 || k.count() != 2 {
 		t.Fatalf("published rows must not be re-sent: n=%d sent=%d", n, k.count())
 	}
 }
 
 // A message sent while Kafka is down is still delivered, once, after it recovers.
 func TestRelayerDeliversAfterKafkaRecovers(t *testing.T) {
-	repo := repository.NewInMemoryOutboxRepository()
+	pool, s := newOutbox(t)
 	k := &fakeKafka{}
 	k.setDown(true)
-	enqueue(t, repo, "e1", "thread-A")
-	r := relayerFor(repo, k, 10)
+	enqueue(t, pool, s, "e1", "thread-A")
+	r := relayerFor(t, s, k)
 
 	for i := 0; i < 3; i++ {
-		if n, err := r.SweepClaims(context.Background()); err != nil || n != 0 {
-			t.Fatalf("sweep while down = %d, %v", n, err)
+		release(t, pool)
+		if n := sweep(t, r); n != 0 {
+			t.Fatalf("sweep while down = %d", n)
 		}
 	}
 	if k.count() != 0 {
@@ -136,26 +198,58 @@ func TestRelayerDeliversAfterKafkaRecovers(t *testing.T) {
 	}
 
 	k.setDown(false)
-	if n, err := r.SweepClaims(context.Background()); err != nil || n != 1 {
-		t.Fatalf("sweep after recovery = %d, %v; want 1", n, err)
+	release(t, pool)
+	if n := sweep(t, r); n != 1 {
+		t.Fatalf("sweep after recovery = %d; want 1", n)
 	}
-	if n, _ := r.SweepClaims(context.Background()); n != 0 || k.count() != 1 {
+	if n := sweep(t, r); n != 0 || k.count() != 1 {
 		t.Fatalf("exactly one delivery expected: n=%d sent=%d", n, k.count())
 	}
 }
 
-func TestRelayerParksAfterMaxAttempts(t *testing.T) {
-	repo := repository.NewInMemoryOutboxRepository()
+// Since v1 there is no attempt limit: a transient publish error retries forever
+// and never parks the row, so the event goes out once Kafka is back.
+func TestRelayerNeverParksOnTransientErrors(t *testing.T) {
+	pool, s := newOutbox(t)
 	k := &fakeKafka{}
 	k.setDown(true)
-	enqueue(t, repo, "e1", "thread-A")
-	r := relayerFor(repo, k, 2)
+	enqueue(t, pool, s, "e1", "thread-A")
+	r := relayerFor(t, s, k)
 
-	for i := 0; i < 4; i++ {
-		_, _ = r.SweepClaims(context.Background())
+	for i := 0; i < 15; i++ {
+		release(t, pool)
+		sweep(t, r)
+	}
+	var status string
+	if err := pool.QueryRow(context.Background(), `SELECT status FROM chat_outbox_events WHERE event_id = 'e1'`).Scan(&status); err != nil || status != "pending" {
+		t.Fatalf("status = %q err=%v after 15 failures, want pending", status, err)
 	}
 	k.setDown(false)
-	if n, _ := r.SweepClaims(context.Background()); n != 0 || k.count() != 0 {
+	release(t, pool)
+	if n := sweep(t, r); n != 1 || k.count() != 1 {
+		t.Fatalf("delivery after recovery: n=%d sent=%d", n, k.count())
+	}
+}
+
+// A permanent record error parks the row at once, and a parked row is never
+// claimed again until it is requeued.
+func TestRelayerParksPermanentErrors(t *testing.T) {
+	pool, s := newOutbox(t)
+	k := &fakeKafka{}
+	k.failWith(outbox.Permanent(errors.New("record too large")))
+	enqueue(t, pool, s, "e1", "thread-A")
+	r := relayerFor(t, s, k)
+
+	sweep(t, r)
+	k.setDown(false)
+	release(t, pool)
+	if n := sweep(t, r); n != 0 || k.count() != 0 {
 		t.Fatalf("a parked row must not be claimed again: n=%d sent=%d", n, k.count())
+	}
+	if n, err := s.RequeueParked(context.Background(), outbox.RequeueFilter{}); err != nil || n != 1 {
+		t.Fatalf("requeue parked = %d, %v; want 1", n, err)
+	}
+	if n := sweep(t, r); n != 1 || k.count() != 1 {
+		t.Fatalf("after requeue: n=%d sent=%d", n, k.count())
 	}
 }

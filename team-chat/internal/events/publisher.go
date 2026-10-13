@@ -1,6 +1,7 @@
-// Package events publishes domain events to Kafka (ADR-0002, ADR-0013). team-chat
-// writes a chat.events EventEnvelope to its outbox in the message transaction; a
-// Relayer then produces it to Kafka keyed by thread id for per-thread ordering.
+// Package events builds team-chat's domain events (ADR-0002, ADR-0013). team-chat
+// writes a chat.events EventEnvelope to its outbox in the message transaction; the
+// SDK outbox relayer then produces it to Kafka keyed by thread id for per-thread
+// ordering.
 package events
 
 import (
@@ -9,23 +10,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
+	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-chat/generated/platform/events/v1"
-	"github.com/buidangphuc/team-chat/internal/interceptor"
-	"github.com/buidangphuc/team-chat/internal/repository"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
 // Discriminator types carried in EventEnvelope.Type
 const (
 	ChatMessageSentType = "platform.chat.v1.ChatMessage"
 )
-
-// ChatEventsTopic is the default Kafka topic for chat events.
-const ChatEventsTopic = "chat.events"
 
 // chatMessageNamespace seeds deterministic event ids so a message maps onto exactly
 // one outbox row (ON CONFLICT DO NOTHING) and one consumer-side dedupe key.
@@ -36,11 +36,11 @@ func ChatMessageEventID(messageID string) string {
 	return uuid.NewSHA1(chatMessageNamespace, []byte(messageID)).String()
 }
 
-// BuildMessageOutboxRow is the repository.MessageOutboxBuilder for team-chat: it
+// BuildMessageOutboxRow is the store.MessageOutboxBuilder for team-chat: it
 // wraps the message (with recipient_id) in an EventEnvelope keyed by thread id,
 // ready to commit in the same transaction as the message. The caller's principal
 // and request id are read from ctx.
-func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (repository.OutboxRow, error) {
+func BuildMessageOutboxRow(ctx context.Context, msg store.ChatMessage) (store.OutboxRow, error) {
 	occurredAt := msg.CreatedAt
 	if occurredAt.IsZero() {
 		occurredAt = time.Now()
@@ -59,9 +59,9 @@ func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (rep
 		SellerId:    msg.SellerID,
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal ChatMessage: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal ChatMessage: %w", err)
 	}
-	reqID, _ := interceptor.RequestIDFromContext(ctx)
+	reqID := reqctx.RequestID(ctx)
 	eventID := ChatMessageEventID(msg.ID)
 	envelope := &eventsv1.EventEnvelope{
 		EventId:    eventID,
@@ -70,14 +70,14 @@ func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (rep
 		RequestId:  reqID,
 		Payload:    payload,
 	}
-	if p, ok := interceptor.PrincipalFromContext(ctx); ok {
-		envelope.Principal = p
+	if p, ok := auth.FromContext(ctx); ok {
+		envelope.Principal = &commonv1.Principal{Id: p.ID, Type: wirePrincipalType(p.Type), Scopes: p.Scopes}
 	}
 	value, err := proto.Marshal(envelope)
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
-	return repository.OutboxRow{
+	return store.OutboxRow{
 		EventID:       eventID,
 		AggregateType: "ChatThread",
 		AggregateID:   msg.ThreadID,
@@ -87,42 +87,17 @@ func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (rep
 	}, nil
 }
 
-// KafkaPublisher sends byte payloads to a Kafka topic. The Relayer depends on it.
-type KafkaPublisher interface {
-	Publish(ctx context.Context, topic, key string, payload []byte) error
-}
-
-// KafkaProducer is the franz-go backed KafkaPublisher.
-type KafkaProducer struct {
-	client *kgo.Client
-}
-
-// NewKafkaProducer dials the brokers for producing.
-func NewKafkaProducer(brokers []string) (*KafkaProducer, error) {
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
-		kgo.ProducerLinger(0),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("kafka client: %w", err)
-	}
-	return &KafkaProducer{client: client}, nil
-}
-
-// Publish produces payload to topic keyed by key and waits for the ack.
-func (p *KafkaProducer) Publish(ctx context.Context, topic, key string, payload []byte) error {
-	rec := &kgo.Record{Topic: topic, Key: []byte(key), Value: payload}
-	if err := p.client.ProduceSync(ctx, rec).FirstErr(); err != nil {
-		return fmt.Errorf("produce to %s: %w", topic, err)
-	}
-	return nil
-}
-
-// Close flushes and shuts the client down.
-func (p *KafkaProducer) Close() {
-	if p != nil && p.client != nil {
-		p.client.Close()
+// wirePrincipalType maps the principal type the gateway forwards in metadata to
+// its wire enum.
+func wirePrincipalType(t auth.PrincipalType) commonv1.PrincipalType {
+	switch t {
+	case auth.TypeUser:
+		return commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	case auth.TypeService:
+		return commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+	case auth.TypeAnonymous:
+		return commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
+	default:
+		return commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED
 	}
 }
-
-var _ KafkaPublisher = (*KafkaProducer)(nil)
