@@ -135,17 +135,20 @@ def rollback(settings: Settings, redis_client=None, qdrant_client=None) -> dict:
 
     # A crash before the pointer swap leaves serving as it was, and a retry finds the registry swapped.
     moved: list[tuple[str, int, int | None]] = []
-    if not swapped_already:
+    if swapped_already:
+        log.info("registry already swapped by an earlier attempt: finishing the pointer swap")
+    else:
         _swap_registry(models, moved)
     try:
         qdrant_load.activate_aliases(settings, previous, client=qdrant_client)
         swapped = redis_cache.swap_generations(settings, serving, client=redis_client)
     except Exception:
         _undo_registry(moved)
+        _realign_aliases(settings, redis_client, qdrant_client)
         raise
     if swapped in (redis_cache.SWAP_NO_PREVIOUS, redis_cache.SWAP_STALE):  # serving moved since it was read
-        qdrant_load.activate_aliases(settings, serving, client=qdrant_client)
         _undo_registry(moved)
+        _realign_aliases(settings, redis_client, qdrant_client)
         raise RollbackRefused(f"serving changed while rolling back ({swapped}); nothing was changed")
     redis_cache.refresh_ttl(settings, {previous, serving}, client=redis_client)
     log.info("rolled back: serving=%s previous=%s models=%s", previous, serving, models)
@@ -217,6 +220,16 @@ def _swap_registry(models: list[str], moved: list[tuple[str, int, int | None]]) 
             raise registry_client.RegistryUnavailable(f"registry swap of {model} failed: {exc}") from exc
 
 
+def _realign_aliases(settings, redis_client, qdrant_client) -> None:
+    """Best effort: point the Qdrant aliases at the generation the pointer serves right now."""
+    try:
+        current, _ = redis_cache.pointers(settings, redis_client)
+        if current:
+            qdrant_load.activate_aliases(settings, current, client=qdrant_client)
+    except Exception as exc:  # noqa: BLE001
+        log.error("could not realign the Qdrant aliases with %s: %s", settings.serving_key, exc)
+
+
 def _undo_registry(moved: list[tuple[str, int, int | None]]) -> None:
     """Best effort: write the original aliases back, latest swap first."""
     while moved:
@@ -224,4 +237,11 @@ def _undo_registry(moved: list[tuple[str, int, int | None]]) -> None:
         try:
             registry_client.restore_aliases(model, champion, previous)
         except Exception as exc:  # noqa: BLE001 - keep restoring the rest, report what is left
-            log.error("could not restore %s (champion v%s, previous v%s): %s", model, champion, previous, exc)
+            log.error(
+                "could not restore %s: run `python -m modelregistry` rollback or set its aliases by hand "
+                "(champion=v%s, previous=v%s) before retrying: %s",
+                model,
+                champion,
+                previous,
+                exc,
+            )

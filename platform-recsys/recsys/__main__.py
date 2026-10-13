@@ -47,6 +47,9 @@ def _rollback(settings) -> int:
     except RegistryUnavailable as exc:
         log.error("rollback failed, the registry is unavailable: %s", exc)
         return EXIT_FAILED
+    except Exception:  # e.g. Redis or Qdrant failed mid-way: the registry was put back
+        log.exception("rollback failed, nothing was switched")
+        return EXIT_FAILED
     log.info("rolled back: %s", result)
     return 0
 

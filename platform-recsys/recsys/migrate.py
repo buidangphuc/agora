@@ -12,7 +12,7 @@ import json
 import logging
 
 import modelregistry
-from modelregistry import GateError
+from modelregistry import GateError, RegistryUnavailable
 
 from . import registry_client
 from .load import redis_cache
@@ -56,7 +56,12 @@ def migrate(settings, redis_client=None) -> dict[str, str]:
             outcome[model] = f"skipped: no meta for Redis champion {version}"
             log.warning("%s: %s", model, outcome[model])
             continue
-        stored = json.loads(raw).get("metrics") or {}
+        try:
+            stored = json.loads(raw).get("metrics") or {}
+        except (ValueError, AttributeError):
+            outcome[model] = f"skipped: the meta of Redis champion {version} is not valid JSON"
+            log.warning("%s: %s", model, outcome[model])
+            continue
         metrics = {k: float(v) for k, v in stored.items() if _numeric(v)}
         protocol = stored.get("eval_protocol")
         lineage = {"eval_protocol": protocol} if protocol else {}
@@ -66,6 +71,10 @@ def migrate(settings, redis_client=None) -> dict[str, str]:
             outcome[model] = f"skipped: {exc}"
             log.info("%s left alone: %s", model, exc)
             continue
+        except RegistryUnavailable:
+            raise
+        except Exception as exc:  # any other registry failure: nothing more is seeded
+            raise RegistryUnavailable(f"seeding {model} failed: {exc}") from exc
         outcome[model] = "seeded"
         log.info("%s seeded as v1 from the Redis champion %s", model, version)
     return outcome
