@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import logging
 
+from . import registry_client
 from .config import Settings
 from .load import qdrant as qdrant_load
 from .load import redis_cache
-from .registry.registry import ModelRegistry
 
 log = logging.getLogger("recsys.publish")
 
@@ -54,7 +54,7 @@ def publish_generation(
         qdrant_client = qdrant_load._connect(settings)
 
     cache_counts = redis_cache.load_cache(
-        settings, model_version, user_recs, item_recs, popular, client=redis_client
+        settings, model_version, user_recs, item_recs, popular, client=redis_client, legacy=False
     )
     qdrant_counts = qdrant_load.load_vectors(
         settings, model_version, item_rows, user_rows, client=qdrant_client
@@ -70,6 +70,7 @@ def publish_generation(
         ranker_key = redis_cache.load_ranker(settings, model_version, ranker_artifact, client=redis_client)
 
     qdrant_load.activate_aliases(settings, model_version, client=qdrant_client)
+    redis_cache.load_legacy_cache(settings, user_recs, item_recs, popular, client=redis_client)
     replaced = redis_cache.activate_generation(settings, model_version, client=redis_client)
 
     serving, previous = redis_cache.pointers(settings, redis_client)
@@ -106,14 +107,10 @@ def refresh_serving_ttl(settings: Settings, redis_client=None) -> int:
     return redis_cache.refresh_ttl(settings, keep, client=redis_client) if keep else 0
 
 
-def rollback(
-    settings: Settings,
-    registry: ModelRegistry,
-    redis_client=None,
-    qdrant_client=None,
-) -> dict:
-    """Make the previous generation the serving one. Raises RollbackRefused, changing nothing,
-    when there is no previous generation or its keys or collections are gone."""
+def rollback(settings: Settings, redis_client=None, qdrant_client=None) -> dict:
+    """Make the previous generation the serving one and keep the ``recsys-als`` aliases in step with it.
+    Raises RollbackRefused, changing nothing, when there is no previous generation or its keys or
+    collections are gone."""
     if redis_client is None:
         redis_client = redis_cache.connect(settings)
     if qdrant_client is None:
@@ -127,15 +124,14 @@ def rollback(
     if not qdrant_load.generation_present(settings, previous, client=qdrant_client):
         raise RollbackRefused(f"previous generation {previous} has no Qdrant collections left")
 
-    # Crash after the pointer swap but before the registry follow-up: serving already names the
-    # restored model while the registry still has the old champion. A restored model was a
-    # champion once; a publish that crashed before its promotion leaves serving on a model still
-    # marked "candidate".
-    # Converge on serving; never swap back.
-    champion = registry.get_champion_version()
-    restored = registry.get_model(serving) if serving else None
-    if serving and champion and champion != serving and restored and restored.status != "candidate":
-        return _converge(settings, registry, serving, redis_client, qdrant_client)
+    # Crash after the pointer swap but before the registry swap: serving already names the restored
+    # generation and the registry's ``previous`` alias names the version built for it, while ``champion``
+    # still names the old one. Converge on serving; never swap back.
+    if (
+        registry_client.champion_generation() != serving
+        and registry_client.alias_generation("previous") == serving
+    ):
+        return _converge(settings, serving, redis_client, qdrant_client)
 
     # Aliases first: moving them is idempotent, so a retry after a crash converges.
     qdrant_load.activate_aliases(settings, previous, client=qdrant_client)
@@ -144,17 +140,31 @@ def rollback(
         raise RollbackRefused("previous generation was cleared while rolling back")
     if swapped == redis_cache.SWAP_STALE:  # serving moved since we read it: already applied
         current, _ = redis_cache.pointers(settings, redis_client)
-        return _converge(settings, registry, current, redis_client, qdrant_client)
-    registry.restore_champion(previous)
+        return _converge(settings, current, redis_client, qdrant_client)
+    _sync_registry(previous)
     redis_cache.refresh_ttl(settings, {previous, serving} - {None, ""}, client=redis_client)
     log.info("rolled back: serving=%s previous=%s", previous, serving)
     return {"serving": previous, "previous": serving}
 
 
-def _converge(settings, registry, serving, redis_client, qdrant_client) -> dict:
-    """The swap already happened: make the aliases and the registry champion match ``serving``."""
+def _sync_registry(serving: str) -> None:
+    """Make the registry champion the version built for ``serving``: swap champion and previous once, and
+    only when the previous alias names that generation (a retry after a crash finds the champion in step
+    already and must not swap back)."""
+    if registry_client.champion_generation() == serving:
+        return
+    if registry_client.alias_generation("previous") == serving:
+        registry_client.rollback_champion()
+    else:
+        log.warning(
+            "recsys-als champion is not in step with serving %s; the registry is left as it is", serving
+        )
+
+
+def _converge(settings, serving, redis_client, qdrant_client) -> dict:
+    """The pointer swap already happened: make the aliases and the registry champion match ``serving``."""
     qdrant_load.activate_aliases(settings, serving, client=qdrant_client)
-    registry.restore_champion(serving)
+    _sync_registry(serving)
     _, previous = redis_cache.pointers(settings, redis_client)
     redis_cache.refresh_ttl(settings, {serving, previous} - {None, ""}, client=redis_client)
     log.info("rollback already applied: serving=%s previous=%s", serving, previous)

@@ -94,10 +94,12 @@ def load_cache(
     item_recs: dict[str, list[tuple[str, float]]],
     popular: list[tuple[str, float]],
     client=None,
+    legacy: bool = True,
 ) -> dict[str, int]:
     """Write the generation's per-user, per-item and popular keys. Returns counts.
 
-    Does NOT move any pointer: the generation stays invisible until ``activate_generation``.
+    Does NOT move any pointer: the generation stays invisible until ``activate_generation``. With
+    ``legacy=False`` the unscoped compatibility keys are left alone (see ``load_legacy_cache``).
     """
     if client is None:
         client = connect(settings)
@@ -105,27 +107,51 @@ def load_cache(
     ttl = settings.cache_ttl_seconds
     n_users = 0
     n_items = 0
+    write_legacy = legacy and settings.write_legacy_keys
 
     pipe = client.pipeline()
     for user_key, pairs in user_recs.items():
         body = _encode(pairs[: settings.top_n])
         pipe.set(settings.gen_user_key(model_version, user_key), body, ex=ttl)
-        if settings.write_legacy_keys:
+        if write_legacy:
             pipe.set(settings.user_cache_key(user_key), body, ex=ttl)
         n_users += 1
     for listing_id, pairs in item_recs.items():
         body = _encode(pairs[: settings.top_n])
         pipe.set(settings.gen_item_key(model_version, listing_id), body, ex=ttl)
-        if settings.write_legacy_keys:
+        if write_legacy:
             pipe.set(settings.item_cache_key(listing_id), body, ex=ttl)
         n_items += 1
     popular_body = _encode(popular[: settings.top_n])
     pipe.set(settings.gen_popular_key(model_version), popular_body, ex=ttl)
-    if settings.write_legacy_keys:
+    if write_legacy:
         pipe.set(settings.popular_cache_key, popular_body, ex=ttl)
     pipe.execute()
 
     return {"users": n_users, "items": n_items}
+
+
+def load_legacy_cache(
+    settings,
+    user_recs: dict[str, list[tuple[str, float]]],
+    item_recs: dict[str, list[tuple[str, float]]],
+    popular: list[tuple[str, float]],
+    client=None,
+) -> None:
+    """Write the unscoped compatibility keys (a no-op with RECS_WRITE_LEGACY_KEYS off). Old readers see
+    them live, so a publish writes them at the switch and not while the generation is still invisible."""
+    if not settings.write_legacy_keys:
+        return
+    if client is None:
+        client = connect(settings)
+    ttl = settings.cache_ttl_seconds
+    pipe = client.pipeline()
+    for user_key, pairs in user_recs.items():
+        pipe.set(settings.user_cache_key(user_key), _encode(pairs[: settings.top_n]), ex=ttl)
+    for listing_id, pairs in item_recs.items():
+        pipe.set(settings.item_cache_key(listing_id), _encode(pairs[: settings.top_n]), ex=ttl)
+    pipe.set(settings.popular_cache_key, _encode(popular[: settings.top_n]), ex=ttl)
+    pipe.execute()
 
 
 def load_ranker(settings, model_version: str, artifact: dict, client=None) -> str:

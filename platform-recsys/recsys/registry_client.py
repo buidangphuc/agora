@@ -7,6 +7,7 @@ allow-lists BEFORE any registry call, and the ALS artifact holds item factors on
 from __future__ import annotations
 
 import json
+import math
 import re
 import tempfile
 from collections.abc import Mapping
@@ -14,6 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import modelregistry
+from mlflow.entities import Param
+from mlflow.exceptions import MlflowException
 from modelregistry import Decision, RegistryUnavailable
 from modelregistry.client import Session
 
@@ -60,13 +63,26 @@ __all__ = [
     "Decision",
     "PayloadRejected",
     "RegistryUnavailable",
+    "alias_generation",
+    "apply",
     "build_als_artifact",
     "champion_drift_baseline",
+    "champion_generation",
+    "dataset_lineage",
     "evaluate",
+    "log_drift",
+    "mark_rejected",
     "preflight",
+    "register_rejected",
+    "rollback_champion",
+    "snapshot_lineage",
     "start_run",
     "write_drift_sketches",
 ]
+
+# The four distributions a drift sketch may describe (recsys.monitoring.generation.FEATURES).
+_SKETCH_FEATURES = ("weight", "user_items", "item_users", "top_score")
+_SCALARS = (str, int, float, bool, type(None))
 
 
 class PayloadRejected(ValueError):
@@ -89,8 +105,32 @@ def _check_metrics(metrics: Mapping[str, Any]) -> None:
             raise PayloadRejected(f"metric {k!r} must be numeric")
 
 
+def _check_lineage(lineage: Mapping[str, Any]) -> None:
+    """Lineage becomes MLflow tags: scalars only (a mapping or a list could carry per-user data)."""
+    for k, v in lineage.items():
+        if not isinstance(k, str) or not isinstance(v, _SCALARS):
+            raise PayloadRejected(f"lineage {k!r} must be a scalar")
+
+
+def _is_number(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _check_sketches(sketches: Mapping[str, Any]) -> None:
+    for k, v in sketches.items():
+        if k not in _SKETCH_FEATURES:
+            raise PayloadRejected(f"drift sketch {k!r} is not allow-listed")
+        if not isinstance(v, (list, tuple)) or not all(_is_number(x) and math.isfinite(x) for x in v):
+            raise PayloadRejected(f"drift sketch {k!r} must be a list of finite numbers")
+
+
 def _check_artifact_dir(artifact_dir: Path) -> None:
-    for p in Path(artifact_dir).rglob("*"):
+    root = Path(artifact_dir)
+    if root.is_symlink():
+        raise PayloadRejected("artifact directory must not be a symlink")
+    for p in root.rglob("*"):
+        if p.is_symlink():
+            raise PayloadRejected(f"artifact entry {p.name!r} is a symlink")
         if p.is_dir():
             raise PayloadRejected(f"artifact directory {p.name!r} is not allow-listed")
         if p.name not in _ALLOWED_ARTIFACT_FILES:
@@ -125,7 +165,82 @@ def evaluate(
     """Register a version of ``model`` and decide it against the policy. Moves no alias."""
     _check_metrics(metrics)
     _check_artifact_dir(Path(artifact_dir))
+    _check_lineage(lineage)
     return modelregistry.evaluate(model, run_id, metrics, artifact_dir, lineage)
+
+
+def register_rejected(model: str, run_id: str, reason: str, lineage: Mapping[str, Any]) -> Decision:
+    """Register a version as rejected without evaluating the policy (a structural rejection)."""
+    _check_lineage(lineage)
+    return modelregistry.register_rejected(model, run_id, reason, lineage)
+
+
+def apply(model: str, version: int) -> Decision:
+    """Move ``champion`` to a promotable version (after the generation was published)."""
+    return modelregistry.apply(model, version)
+
+
+def mark_rejected(model: str, version: int, reason: str) -> None:
+    """Record a stage or publish failure on an evaluated version; touches no alias."""
+    modelregistry.mark_rejected(model, version, reason)
+
+
+def rollback_champion(model: str = ALS_MODEL) -> Decision:
+    """Swap ``champion`` and ``previous`` (raises RollbackError without a previous)."""
+    return modelregistry.rollback(model)
+
+
+def champion_generation(model: str = ALS_MODEL) -> str | None:
+    """The generation id (``lineage.model_version`` tag) the champion was built for, or None."""
+    champ = modelregistry.get_champion(model)
+    if champ is None:
+        return None
+    return champ["tags"].get("lineage.model_version")
+
+
+def alias_generation(alias: str, model: str = ALS_MODEL) -> str | None:
+    """The generation id (``lineage.model_version`` tag) of the version ``alias`` names, or None."""
+    s = Session()
+    try:
+        mv = s.call(s.client.get_model_version_by_alias, model, alias)
+    except MlflowException as exc:
+        if "not found" in str(exc).lower() or getattr(exc, "error_code", "") == "RESOURCE_DOES_NOT_EXIST":
+            return None
+        raise
+    return mv.tags.get("lineage.model_version")
+
+
+def dataset_lineage(lineage: Mapping[str, Any]) -> dict[str, Any]:
+    """Scalar lineage of a governed dataset (name@version, as_of, sha256)."""
+    return {
+        "dataset": f"{lineage['name']}@v{lineage['version']}",
+        "dataset_as_of": lineage["as_of"],
+        "dataset_sha256": lineage["sha256"],
+    }
+
+
+def snapshot_lineage(prefix: str, lineage: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Scalar lineage of a feature snapshot (series): ``<prefix>`` = ``name:sha256`` entries."""
+    if not lineage:
+        return {}
+    entries = lineage.get("snapshots")
+    if entries is None:
+        entries = [lineage]
+    return {prefix: ",".join(f"{e['snapshot']}:{e['sha256']}" for e in entries)}
+
+
+def log_drift(run_id: str, record: Mapping[str, Any]) -> None:
+    """Record the drift verdict of the run as ``drift.*`` params (status, baseline, per-feature PSI)."""
+    params: dict[str, str] = {"drift.status": str(record["status"])}
+    if record.get("baseline_version") is not None:
+        params["drift.baseline_version"] = str(record["baseline_version"])
+    for name in _SKETCH_FEATURES:
+        res = (record.get("features") or {}).get(name)
+        if res:
+            params[f"drift.{name}.psi"] = str(res["psi"])
+            params[f"drift.{name}.level"] = str(res["drift_level"])
+    s = Session()
+    s.call(s.client.log_batch, run_id, params=[Param(k, v) for k, v in params.items()])
 
 
 def build_als_artifact(als: Any, out_dir: Path) -> Path:
@@ -139,6 +254,7 @@ def build_als_artifact(als: Any, out_dir: Path) -> Path:
 
 def write_drift_sketches(run_id: str, sketches: Mapping[str, Any]) -> None:
     """Log the drift sketches (aggregate quantiles) as a JSON artifact of the run."""
+    _check_sketches(sketches)
     s = Session()
     s.call(s.client.log_text, run_id, json.dumps(dict(sketches)), DRIFT_SKETCHES_FILE)
 

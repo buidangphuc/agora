@@ -4,6 +4,10 @@ Runnable via ``python -m recsys`` (in-process local[*] SparkSession) or under
 ``spark-submit recsys/__main__.py``. No request-serving surface — this is a
 scheduled batch job (a platform-gitops CronJob), not a long-running server.
 
+Exit codes (round-2 decision D4): 0 = completed, including a ``rejected`` decision; 1 = the registry is
+unavailable or an unexpected failure; 2 = usage or configuration error, policy, gate or rollback error,
+stale or missing dataset.
+
 ``python -m recsys rollback`` restores the previous generation instead of training: exit 0 on
 success, 2 (nothing changed) when there is no previous generation to restore.
 """
@@ -13,34 +17,48 @@ from __future__ import annotations
 import logging
 import sys
 
+from modelregistry import GateError, PolicyError, RegistryUnavailable, RollbackError
+
 from .config import ConfigError, load_settings
 from .pipeline import run
+
+EXIT_FAILED = 1
+EXIT_REFUSED = 2
+
+_REFUSALS = (ConfigError, PolicyError, GateError, RollbackError)
 
 
 def _rollback(settings) -> int:
     from .load import redis_cache  # noqa: PLC0415
     from .publish import RollbackRefused, rollback  # noqa: PLC0415
-    from .registry.registry import ModelRegistry  # noqa: PLC0415
 
     log = logging.getLogger("recsys")
     try:
         client = redis_cache.connect(settings)
         client.ping()
-    except Exception as exc:  # Redis holds the pointers and the registry: nothing to roll back without it
+    except Exception as exc:  # Redis holds the pointers: nothing to roll back without it
         log.error("rollback needs Redis: %s", exc)
-        return 1
+        return EXIT_FAILED
     try:
-        result = rollback(settings, ModelRegistry(redis_client=client), redis_client=client)
-    except RollbackRefused as exc:
+        result = rollback(settings, redis_client=client)
+    except (RollbackRefused, *_REFUSALS) as exc:
         log.error("rollback refused: %s", exc)
-        return 2
+        return EXIT_REFUSED
+    except RegistryUnavailable as exc:
+        log.error("rollback failed, the registry is unavailable: %s", exc)
+        return EXIT_FAILED
     log.info("rolled back: %s", result)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    settings = load_settings()
+    try:
+        settings = load_settings()
+    except ValueError as exc:  # a malformed or out-of-range setting (ConfigError is one)
+        logging.basicConfig(level=logging.INFO)
+        logging.getLogger("recsys").error("cannot start: %s", exc)
+        return EXIT_REFUSED
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -49,15 +67,18 @@ def main(argv: list[str] | None = None) -> int:
         return _rollback(settings)
     if argv:
         logging.getLogger("recsys").error("unknown command %r (only 'rollback' is supported)", argv[0])
-        return 2
+        return EXIT_REFUSED
     try:
         summary = run(settings)
-    except ConfigError as exc:
+    except _REFUSALS as exc:
         logging.getLogger("recsys").error("cannot start: %s", exc)
-        return 2
-    except Exception:  # e.g. a failed publish: the candidate was recorded as rejected
+        return EXIT_REFUSED
+    except RegistryUnavailable as exc:
+        logging.getLogger("recsys").error("registry unavailable: %s", exc)
+        return EXIT_FAILED
+    except Exception:  # e.g. a failed stage or publish: the candidates were recorded as rejected
         logging.getLogger("recsys").exception("batch failed")
-        return 1
+        return EXIT_FAILED
     logging.getLogger("recsys").info("done: %s", summary)
     return 0
 
