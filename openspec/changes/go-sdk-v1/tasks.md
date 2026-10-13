@@ -55,4 +55,4 @@ Owns: `pkg/testkit/**`.
 
 Owns: `platform-core/tools/sync-go-sdk_test.sh`, `platform-core/tools/testdata/sync-fixture/**` (new).
 
-- [ ] 8.1 The sync test copies a minimal fixture service (`go.mod`, one `proto/` file with `buf.gen.yaml`, a `main.go` importing a stable SDK package) instead of `team-sharing`, so a breaking SDK change does not fail the test until a real service adopts it. Every existing assertion of the test is kept. Verify `bash platform-core/tools/sync-go-sdk_test.sh`.
+- [x] 8.1 The sync test copies a minimal fixture service (`go.mod`, one `proto/` file with `buf.gen.yaml`, a `main.go` importing a stable SDK package) instead of `team-sharing`, so a breaking SDK change does not fail the test until a real service adopts it. Every existing assertion of the test is kept. Verify `bash platform-core/tools/sync-go-sdk_test.sh`.

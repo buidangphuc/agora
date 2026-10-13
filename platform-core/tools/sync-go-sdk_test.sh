@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test for tools/sync-go-sdk.sh. Runs against a throwaway clone of this repo
 # (so tags are created there, never in the real repo) and a scratch copy of
-# team-sharing. Run: bash platform-core/tools/sync-go-sdk_test.sh
+# testdata/sync-fixture, a minimal service that no SDK change can break. Run: bash platform-core/tools/sync-go-sdk_test.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,10 +29,10 @@ git clone -q --no-hardlinks "$REPO_ROOT" "$TMP/clone"
 git -C "$TMP/clone" tag "$TAG"
 export SDK_REPO="$TMP/clone"
 
-# 2. Scratch copy of team-sharing without generated stubs: the script must
+# 2. Scratch copy of the fixture service without generated stubs: the script must
 # produce them itself (buf generate), as a fresh checkout has none.
-SVC="$TMP/team-sharing"
-cp -R "$REPO_ROOT/team-sharing" "$SVC"
+SVC="$TMP/sync-fixture"
+cp -R "$SCRIPT_DIR/testdata/sync-fixture" "$SVC"
 rm -rf "$SVC/generated"
 SVC_MOD="$(awk '$1=="module"{print $2; exit}' "$SVC/go.mod")"
 
@@ -94,7 +94,7 @@ pass "unknown tag changes nothing"
 
 # 6. Fresh service without a prior copy: unknown tag leaves it untouched too.
 FRESH="$TMP/fresh"
-cp -R "$REPO_ROOT/team-sharing" "$FRESH"
+cp -R "$SCRIPT_DIR/testdata/sync-fixture" "$FRESH"
 rm -rf "$FRESH/third_party"
 before="$(tree_sum "$FRESH")"
 if bash "$SYNC" "$MISSING_TAG" "$FRESH" >/dev/null 2>&1; then fail "missing tag exited zero on fresh service"; fi
