@@ -20,18 +20,29 @@ const (
 	MDPrincipalScopes = "x-principal-scopes"
 )
 
-const anonymous = "anonymous"
+// PrincipalType is the kind of caller, carried in x-principal-type and the JWT
+// typ claim.
+type PrincipalType string
+
+// Principal types.
+const (
+	TypeUser      PrincipalType = "user"
+	TypeService   PrincipalType = "service"
+	TypeAnonymous PrincipalType = "anonymous"
+)
+
+const anonymous = TypeAnonymous
 
 // Principal is the caller identity forwarded by the gateway.
 type Principal struct {
 	ID     string
-	Type   string
+	Type   PrincipalType
 	Scopes []string
 }
 
 // Anonymous reports whether p is the gateway's anonymous principal.
 func (p Principal) Anonymous() bool {
-	return p.ID == "" || p.ID == anonymous || p.Type == anonymous
+	return p.ID == "" || p.ID == string(anonymous) || p.Type == anonymous
 }
 
 // HasScope reports whether p holds s by exact match.
@@ -101,6 +112,47 @@ func RequireScopes(ctx context.Context, scopes ...string) (Principal, error) {
 	return p, nil
 }
 
+// RequireService is RequireScopes for service-to-service methods: the caller
+// must be a service principal. A user caller gets PermissionDenied before any
+// scope is checked.
+func RequireService(ctx context.Context, scopes ...string) (Principal, error) {
+	return requireType(ctx, TypeService, scopes)
+}
+
+// RequireUser returns the caller when it is an authenticated user principal.
+// A service caller gets PermissionDenied; no or anonymous caller gets
+// Unauthenticated.
+func RequireUser(ctx context.Context) (Principal, error) {
+	return requireType(ctx, TypeUser, nil)
+}
+
+func requireType(ctx context.Context, typ PrincipalType, scopes []string) (Principal, error) {
+	p, err := RequirePrincipal(ctx)
+	if err != nil {
+		return Principal{}, err
+	}
+	if p.Type != typ {
+		return Principal{}, status.Error(codes.PermissionDenied, "principal type not allowed")
+	}
+	return RequireScopes(ctx, scopes...)
+}
+
+// RequireScopesAllowAnonymous is RequireScopes for public methods: an anonymous
+// principal passes when it holds every scope. It returns Unauthenticated only
+// when there is no principal, and PermissionDenied when any scope is missing.
+func RequireScopesAllowAnonymous(ctx context.Context, scopes ...string) (Principal, error) {
+	p, ok := FromContext(ctx)
+	if !ok {
+		return Principal{}, status.Error(codes.Unauthenticated, "authentication required")
+	}
+	for _, s := range scopes {
+		if !p.HasScope(s) {
+			return Principal{}, status.Error(codes.PermissionDenied, "missing scope")
+		}
+	}
+	return p, nil
+}
+
 func withMetadataPrincipal(ctx context.Context) context.Context {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -112,7 +164,7 @@ func withMetadataPrincipal(ctx context.Context) context.Context {
 	}
 	return WithPrincipal(ctx, Principal{
 		ID:     id,
-		Type:   first(md, MDPrincipalType),
+		Type:   PrincipalType(first(md, MDPrincipalType)),
 		Scopes: splitScopes(first(md, MDPrincipalScopes)),
 	})
 }

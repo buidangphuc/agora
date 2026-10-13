@@ -2,30 +2,54 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Runtime holds settings every service shares.
+// Runtime holds settings every service shares. ENV has no default: a service
+// that forgets it must fail at load, not run as local.
 type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
+	Env      string `env:"ENV,required"`
 	LogLevel string `env:"LOG_LEVEL" default:"info"`
 	LogJSON  bool   `env:"LOG_JSON" default:"true"`
 }
 
-// IsLocal reports whether the service runs in a developer or test environment.
+// Validate rejects an empty ENV. An empty ENV= counts as set, so "required"
+// alone lets it through.
+func (r Runtime) Validate() error {
+	if strings.TrimSpace(r.Env) == "" {
+		return errors.New("ENV is required (local, test, staging or prod)")
+	}
+	return nil
+}
+
+// IsLocal reports whether the service runs in a developer or test environment:
+// true only for an explicit ENV of "local" or "test".
 func (r Runtime) IsLocal() bool { return r.Env == "local" || r.Env == "test" }
+
+// IsStrict reports whether the service runs in a deployed environment where
+// silent fallbacks are not allowed: staging, stage, prod or production, matched
+// case-insensitively.
+func (r Runtime) IsStrict() bool {
+	switch strings.ToLower(strings.TrimSpace(r.Env)) {
+	case "staging", "stage", "prod", "production":
+		return true
+	}
+	return false
+}
 
 // GRPC holds the gRPC listener settings.
 type GRPC struct {
-	Host                 string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port                 int     `env:"GRPC_PORT,required"`
-	ShutdownGraceSeconds float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-	// DrainDelaySeconds is how long to keep serving after health reports
-	// NOT_SERVING, so probes and load balancers notice before the server stops.
-	DrainDelaySeconds float64 `env:"SHUTDOWN_DRAIN_DELAY_SECONDS" default:"0"`
+	Host string `env:"GRPC_HOST" default:"0.0.0.0"`
+	Port int    `env:"GRPC_PORT,required"`
+	// ShutdownGrace is the graceful shutdown deadline, a Go duration such as "10s".
+	ShutdownGrace time.Duration `env:"SHUTDOWN_GRACE" default:"10s"`
+	// DrainDelay is how long to keep serving after health reports NOT_SERVING,
+	// so probes and load balancers notice before the server stops.
+	DrainDelay time.Duration `env:"SHUTDOWN_DRAIN_DELAY" default:"0s"`
 }
 
 // Validate rejects a missing or non-positive port. An empty GRPC_PORT= parses
@@ -40,16 +64,6 @@ func (g GRPC) Validate() error {
 
 // Addr returns the host:port the server listens on.
 func (g GRPC) Addr() string { return net.JoinHostPort(g.Host, strconv.Itoa(g.Port)) }
-
-// ShutdownGrace returns the graceful shutdown deadline.
-func (g GRPC) ShutdownGrace() time.Duration {
-	return time.Duration(g.ShutdownGraceSeconds * float64(time.Second))
-}
-
-// DrainDelay returns the pause between draining health and stopping components.
-func (g GRPC) DrainDelay() time.Duration {
-	return time.Duration(g.DrainDelaySeconds * float64(time.Second))
-}
 
 // Postgres holds the database settings.
 type Postgres struct {
@@ -73,9 +87,24 @@ type OTel struct {
 }
 
 // Kafka holds the broker settings. Kafka has no enable flag: a service that
-// imports kafkax needs it.
+// imports kafkax needs it. KAFKA_BROKERS has no tag default: Load fills
+// localhost:9092 for a local ENV and rejects an unset or empty value when
+// Runtime.IsStrict (see Load).
 type Kafka struct {
-	Brokers string `env:"KAFKA_BROKERS" default:"localhost:9092"`
+	Brokers string `env:"KAFKA_BROKERS"`
+}
+
+// ResolveFor is called by Load with the service's Runtime. In a strict
+// environment it rejects an empty Brokers; otherwise it fills the local default.
+func (k *Kafka) ResolveFor(rt Runtime) error {
+	if k.Brokers != "" {
+		return nil
+	}
+	if rt.IsStrict() {
+		return errors.New("KAFKA_BROKERS is required when ENV is staging or prod")
+	}
+	k.Brokers = defaultKafkaBrokers
+	return nil
 }
 
 // BrokerList splits Brokers on commas, trimming blanks and dropping empty entries.
@@ -91,16 +120,53 @@ func (k Kafka) BrokerList() []string {
 
 // Outbox holds the outbox relayer settings.
 type Outbox struct {
-	PollInterval     time.Duration `env:"OUTBOX_POLL_INTERVAL" default:"1s"`
-	BatchSize        int           `env:"OUTBOX_BATCH_SIZE" default:"100"`
-	ClaimLockSeconds int           `env:"OUTBOX_CLAIM_LOCK_SECONDS" default:"60"`
-	MaxAttempts      int           `env:"OUTBOX_MAX_ATTEMPTS" default:"10"`
+	PollInterval time.Duration `env:"OUTBOX_POLL_INTERVAL" default:"1s"`
+	BatchSize    int           `env:"OUTBOX_BATCH_SIZE" default:"100"`
+	// ClaimLock is how long a claimed row stays leased to one relayer.
+	ClaimLock time.Duration `env:"OUTBOX_CLAIM_LOCK" default:"60s"`
 }
 
 // Flags holds the feature-flag settings. Enabled stays a flag because some
 // environments run without Flipt.
 type Flags struct {
-	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
-	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
+	Enabled bool `env:"FEATURE_FLAGS_ENABLED" default:"true"`
+	// FliptAddr has no tag default: Load fills localhost:9000 for a local ENV
+	// and, when Enabled, rejects an unset value when Runtime.IsStrict.
+	FliptAddr string `env:"FLIPT_ADDR"`
+	// EvalTimeout bounds one flag evaluation.
+	EvalTimeout time.Duration `env:"FEATURE_FLAGS_EVAL_TIMEOUT" default:"500ms"`
+}
+
+// ResolveFor is called by Load with the service's Runtime. With flags enabled
+// in a strict environment it rejects an empty FliptAddr; otherwise it fills the
+// local default.
+func (f *Flags) ResolveFor(rt Runtime) error {
+	if f.FliptAddr != "" {
+		return nil
+	}
+	if f.Enabled && rt.IsStrict() {
+		return errors.New("FLIPT_ADDR is required when ENV is staging or prod and feature flags are enabled")
+	}
+	f.FliptAddr = defaultFliptAddr
+	return nil
+}
+
+const (
+	defaultKafkaBrokers = "localhost:9092"
+	defaultFliptAddr    = "localhost:9000"
+)
+
+// PositiveDuration parses raw, a Go duration such as "20s" or "15m", for the
+// variable key. An empty (or blank) raw value returns def; an unparsable or
+// non-positive value returns an error naming key.
+func PositiveDuration(key, raw string, def time.Duration) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return def, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("invalid %s %q: want a positive Go duration such as 20s or 15m", key, raw)
+	}
+	return d, nil
 }

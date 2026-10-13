@@ -14,13 +14,18 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
+// requireDockerEnv makes the fixtures fail instead of skip when Docker is down.
+const requireDockerEnv = "GO_SDK_REQUIRE_DOCKER"
+
 const (
 	postgresImage = "postgres:17-alpine"
 	redpandaImage = "docker.redpanda.com/redpandadata/redpanda:v24.3.1"
 )
 
 // Postgres starts a dedicated Postgres container for the test and returns its
-// connection URL. The container is terminated when the test ends.
+// connection URL. The container is terminated when the test ends; if the process
+// dies first, testcontainers' reaper (Ryuk) removes it, so do not disable Ryuk
+// (TESTCONTAINERS_RYUK_DISABLED) on a shared machine.
 // Without Docker the test is skipped, unless GO_SDK_REQUIRE_DOCKER is set, which makes it fail.
 func Postgres(t testing.TB) string {
 	t.Helper()
@@ -150,10 +155,10 @@ func probeProduce(brokers string) error {
 func requireDocker(t testing.TB) {
 	t.Helper()
 	if err := dockerHealthy(context.Background()); err != nil {
-		if os.Getenv("GO_SDK_REQUIRE_DOCKER") == "" {
+		if os.Getenv(requireDockerEnv) == "" {
 			t.Skipf("docker unavailable: %v", err)
 		}
-		t.Fatalf("docker unavailable and GO_SDK_REQUIRE_DOCKER is set: %v", err)
+		t.Fatalf("docker unavailable and %s is set: %v", requireDockerEnv, err)
 	}
 }
 
