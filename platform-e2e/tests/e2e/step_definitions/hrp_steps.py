@@ -678,14 +678,12 @@ def replay(world: World) -> None:
     image = os.getenv("TS_IMAGE", "agora-team-search:local")
     env = {
         "ENV": "local",
-        "KAFKA_ENABLED": "true",
         "KAFKA_BROKERS": os.getenv("HRP_KAFKA_INTERNAL", "redpanda:9092"),
         "KAFKA_CONSUMER_GROUP": f"hrp-replay-{tag}",
         "OPENSEARCH_URL": os.getenv("HRP_OPENSEARCH_INTERNAL", "http://opensearch:9200"),
         "OPENSEARCH_INDEX": index,
         "MODEL_SERVER_URL": "http://modelserve-router:8100",
         "UPSTREAM_AI_ADDR": os.getenv("HRP_AI_INTERNAL", "team-ai-svc:50060"),
-        "DATABASE_ENABLED": "false",
     }
     args = ["run", "-d", "--name", name, "--network", network, "--entrypoint", "/indexer"]
     for key, value in env.items():

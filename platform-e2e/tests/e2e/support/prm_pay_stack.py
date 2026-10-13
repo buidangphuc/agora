@@ -129,9 +129,7 @@ class ScratchDb:
         """Run the team-payment image on the scratch database; returns once gRPC answers."""
         name = f"prm-pay-svc-{uuid.uuid4().hex[:8]}"
         env = {
-            "DATABASE_ENABLED": "true",
             "DATABASE_URL": f"postgres://{_pg_creds()}@{pg_host()}:5432/{self.name}?sslmode=disable",
-            "KAFKA_ENABLED": "false",
             "GRPC_PORT": str(GRPC_PORT),
             "ENV": "local",
             "MOCK_PAYMENTS": "true",

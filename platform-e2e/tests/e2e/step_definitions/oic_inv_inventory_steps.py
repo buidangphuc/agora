@@ -180,8 +180,7 @@ def start_domain_image(world: World, ttl: str, sweep: str) -> None:
     stack.docker(
         "run", "-d", "--name", name, "--network", stack.stack_network(),
         "-e", "ENV=local", "-e", "GRPC_PORT=50061",
-        "-e", "DATABASE_ENABLED=true", "-e", f"DATABASE_URL={url}",
-        "-e", "KAFKA_ENABLED=false", "-e", "OUTBOX_ENABLED=false",
+        "-e", f"DATABASE_URL={url}",
         "-e", f"RESERVATION_TTL={ttl}", "-e", f"RESERVATION_SWEEP_INTERVAL={sweep}",
         stack.image_name("team-domain"),
     )  # fmt: skip

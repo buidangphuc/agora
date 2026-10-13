@@ -123,7 +123,7 @@ def listing_appears_in_feed(world: World) -> None:
     ids = _poll_feed(world, lambda got: listing_id in got)
     assert listing_id in ids, (
         f"listing {listing_id} not in the follow feed within {_FEED_POLL_SECONDS}s (got {ids}) — "
-        "check team-engagement runs the listing.events consumer (KAFKA_ENABLED=true) and that "
+        "check team-engagement runs the listing.events consumer and that "
         "team-domain relayed the ListingChanged event"
     )
 
