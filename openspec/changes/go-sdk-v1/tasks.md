@@ -12,7 +12,7 @@ Owns: `pkg/auth/**`, `pkg/jwtx/**` (new), `pkg/idempotency/**` (new).
 
 Owns: `pkg/grpcx/**`, `examples/**`, `platform-core/templates/_service-go/**`.
 
-- [ ] 2.1 `ErrorTable map[error]Rule`, `Rule{Code, Message}`, `Code(c)`; `TestStatusUsesRuleMessage`, `TestStatusKeepsErrorTextWithoutMessage`; update existing grpcx tests, `examples/hello` and the template (`.tmpl` sources) to the new table shape. `platform-core/tools/template_smoke_test.sh` passes.
+- [x] 2.1 `ErrorTable map[error]Rule`, `Rule{Code, Message}`, `Code(c)`; `TestStatusUsesRuleMessage`, `TestStatusKeepsErrorTextWithoutMessage`; update existing grpcx tests, `examples/hello` and the template (`.tmpl` sources) to the new table shape. `platform-core/tools/template_smoke_test.sh` passes.
 
 ## 3. config, pgx, pagination (wave 1)
 

@@ -189,7 +189,7 @@ var (
 )
 
 func TestStatusMapsKnownErrors(t *testing.T) {
-	table := grpcx.ErrorTable{errNotFound: codes.NotFound, errTaken: codes.AlreadyExists}
+	table := grpcx.ErrorTable{errNotFound: grpcx.Code(codes.NotFound), errTaken: grpcx.Code(codes.AlreadyExists)}
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
@@ -199,6 +199,28 @@ func TestStatusMapsKnownErrors(t *testing.T) {
 	}
 	if err := grpcx.Status(context.Background(), logger, nil, table); err != nil {
 		t.Fatalf("nil error mapped to %v", err)
+	}
+}
+
+func TestStatusUsesRuleMessage(t *testing.T) {
+	table := grpcx.ErrorTable{errTaken: {Code: codes.AlreadyExists, Message: "that name is already in use"}}
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+
+	err := grpcx.Status(context.Background(), logger, fmt.Errorf("insert pq: duplicate key: %w", errTaken), table)
+	st, _ := status.FromError(err)
+	if st.Code() != codes.AlreadyExists || st.Message() != "that name is already in use" {
+		t.Fatalf("got %v, want AlreadyExists with the rule message", err)
+	}
+}
+
+func TestStatusKeepsErrorTextWithoutMessage(t *testing.T) {
+	table := grpcx.ErrorTable{errNotFound: grpcx.Code(codes.NotFound)}
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+
+	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
+	st, _ := status.FromError(err)
+	if st.Code() != codes.NotFound || st.Message() != "lookup 7: thing not found" {
+		t.Fatalf("got %v, want NotFound with the error text", err)
 	}
 }
 

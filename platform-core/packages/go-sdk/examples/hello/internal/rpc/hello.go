@@ -32,7 +32,7 @@ type Handler struct {
 func NewHandler(logger *slog.Logger) *Handler {
 	return &Handler{
 		logger: logger,
-		errs:   grpcx.ErrorTable{greeter.ErrEmptyName: codes.InvalidArgument},
+		errs:   grpcx.ErrorTable{greeter.ErrEmptyName: grpcx.Code(codes.InvalidArgument)},
 	}
 }
 
