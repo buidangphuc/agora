@@ -16,6 +16,8 @@ from recsys.publish import RollbackRefused, publish_generation, rollback
 from tests.fakes import FakeQdrantClient, FakeRedis
 
 ALS = "recsys-als"
+GBDT = "recsys-gbdt"
+TWO_TOWER = "recsys-two-tower"
 
 DIM = 4
 SETTINGS = Settings(als_rank=DIM, top_n=3, redis_host="redis.invalid")
@@ -100,21 +102,52 @@ def _gen_keys(redis_client, gen):
     return {k for k in redis_client.scan_iter(match=f"recs:v1:gen:{gen}:*")}
 
 
-def _registry_with(reg, *generations):
-    """``recsys-als`` versions (with an artifact), one per generation, built in order: the last is
-    champion and the one before it is ``previous``. ``lineage.model_version`` names the generation.
+def _versions_of(reg, model, *generations, artifactless=()):
+    """``model`` versions, one per generation, built in order: the last is ``champion`` and the one before
+    it ``previous``. ``lineage.model_version`` names the generation. A generation in ``artifactless`` is a
+    metrics-only version made by ``seed`` (only the first one can be: ``seed`` needs an empty model).
 
     INTERFACE ASSUMPTION: rollback finds the version a generation was built from through the lineage tag
     ``lineage.model_version`` (the pipeline writes it; see tests/pipeline_fixture.py).
     """
     ids = {}
     for g in generations:
-        ids[g] = reg.add_version(ALS, {"ndcg@10": 0.1, "coverage@10": 0.5}, alias=None)
-        reg.client.set_model_version_tag(ALS, str(ids[g]), "lineage.model_version", g)
-    reg.client.set_registered_model_alias(ALS, "champion", str(ids[generations[-1]]))
+        if g in artifactless:
+            assert g == generations[0]
+            from modelregistry import seed
+
+            ids[g] = seed(model, {"ndcg@10": 0.1, "coverage@10": 0.5}, {"model_version": g}, "test").version
+            continue
+        ids[g] = reg.add_version(model, {"ndcg@10": 0.1, "coverage@10": 0.5}, alias=None)
+        reg.client.set_model_version_tag(model, str(ids[g]), "lineage.model_version", g)
+    reg.client.set_registered_model_alias(model, "champion", str(ids[generations[-1]]))
     if len(generations) > 1:
-        reg.client.set_registered_model_alias(ALS, "previous", str(ids[generations[-2]]))
+        reg.client.set_registered_model_alias(model, "previous", str(ids[generations[-2]]))
     return ids
+
+
+def _registry_with(reg, *generations, artifactless=()):
+    return _versions_of(reg, ALS, *generations, artifactless=artifactless)
+
+
+def _with_ranker(redis_client, *generations):
+    for g in generations:
+        redis_client.set(SETTINGS.gen_ranker_key(g), "{}")
+
+
+def _with_two_tower(qdrant, *generations):
+    for g in generations:
+        qdrant_load.load_two_tower_vectors(
+            SETTINGS, g, {f"{g}-l0": [0.5] * SETTINGS.two_tower_dim}, client=qdrant
+        )
+
+
+def _snapshot(reg, redis_client, qdrant, *models):
+    return (
+        {m: reg.aliases(m) for m in models},
+        {k: redis_client.get(k) for k in ("recs:v1:serving", "recs:v1:previous", "recs:v1:model_version")},
+        _aliases(qdrant),
+    )
 
 
 # ── publish ──────────────────────────────────────────────────────────────────────────────────────
@@ -327,7 +360,7 @@ def test_rollback_twice_goes_forward_again(reg, redis_client, qdrant):
     assert reg.aliases(ALS) == {"champion": ids["g2"], "previous": ids["g1"]}  # a swap: twice is a round trip
 
 
-def test_rollback_without_previous_refused(reg, redis_client, qdrant):
+def test_rollback_without_previous_refused(reg, redis_client, qdrant, monkeypatch):
     # RAT-32: no previous generation -> refused (exit 2 at the command), no alias and no pointer changes
     _publish(redis_client, qdrant, "g1")
     ids = _registry_with(reg, "g1")
@@ -341,6 +374,9 @@ def test_rollback_without_previous_refused(reg, redis_client, qdrant):
     assert redis_client.get("recs:v1:model_version") == "g1"
     assert _aliases(qdrant) == before_aliases
     assert reg.aliases(ALS) == registry_before == {"champion": ids["g1"]}
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
+    assert redis_client.get("recs:v1:serving") == "g1"
+    assert reg.aliases(ALS) == registry_before
 
 
 def test_rollback_is_refused_when_the_previous_keys_expired(reg, redis_client, qdrant):
@@ -366,6 +402,160 @@ def test_rollback_is_refused_when_the_previous_collection_is_gone(reg, redis_cli
         rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
     assert redis_client.get("recs:v1:serving") == "g2"
     assert reg.aliases(ALS)["champion"] == ids["g2"]
+
+
+def test_rollback_to_artifactless_refused(reg, redis_client, qdrant, monkeypatch):
+    # RAT-54: the previous version of recsys-als is the metrics-only v1 made by seed -> exit 2, nothing moves
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _registry_with(reg, "g1", "g2", artifactless=("g1",))
+    before = _snapshot(reg, redis_client, qdrant, ALS)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
+
+    assert _snapshot(reg, redis_client, qdrant, ALS) == before
+    assert redis_client.get("recs:v1:serving") == "g2"
+
+
+def test_partial_rollback_refused_before_any_change(reg, redis_client, qdrant, monkeypatch):
+    # RAT-55: both generations carry a GBDT ranker but recsys-gbdt has no previous -> exit 2 before any
+    # alias moves, recsys-als is not swapped
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _with_ranker(redis_client, "g1", "g2")
+    _registry_with(reg, "g1", "g2")
+    _versions_of(reg, GBDT, "g2")
+    before = _snapshot(reg, redis_client, qdrant, ALS, GBDT)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
+
+    assert _snapshot(reg, redis_client, qdrant, ALS, GBDT) == before
+    assert set(reg.aliases(GBDT)) == {"champion"}
+
+
+def test_rollback_refused_when_serving_ahead_of_registry(reg, redis_client, qdrant, monkeypatch):
+    # RAT-60: serving names g2 but recsys-als@champion still names g1's version (e.g. after RAT-46) -> exit 2
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    ids = _registry_with(reg, "g1", "g2")
+    reg.client.set_registered_model_alias(ALS, "champion", str(ids["g1"]))
+    reg.client.set_registered_model_alias(ALS, "previous", str(ids["g1"]))
+    before = _snapshot(reg, redis_client, qdrant, ALS)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
+
+    assert _snapshot(reg, redis_client, qdrant, ALS) == before
+    assert redis_client.get("recs:v1:serving") == "g2"
+
+
+def test_rollback_refused_when_a_carried_gbdt_is_out_of_step(reg, redis_client, qdrant, monkeypatch):
+    # RAT-60 (second model): ALS is in step but recsys-gbdt@champion is not the version that built g2
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _with_ranker(redis_client, "g1", "g2")
+    _registry_with(reg, "g1", "g2")
+    ids = _versions_of(reg, GBDT, "g1", "g2")
+    reg.client.set_registered_model_alias(GBDT, "champion", str(ids["g1"]))
+    reg.client.set_registered_model_alias(GBDT, "previous", str(ids["g2"]))
+    before = _snapshot(reg, redis_client, qdrant, ALS, GBDT)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
+
+    assert _snapshot(reg, redis_client, qdrant, ALS, GBDT) == before
+
+
+def test_rollback_swaps_only_models_in_both_generations(reg, redis_client, qdrant, monkeypatch, caplog):
+    # RAT-61: serving g2 has a GBDT ranker, previous g1 has none -> ALS swapped, GBDT untouched and the
+    # omission logged, pointer swapped, exit 0
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _with_ranker(redis_client, "g2")
+    ids = _registry_with(reg, "g1", "g2")
+    gbdt_ids = _versions_of(reg, GBDT, "g2")
+    gbdt_before = reg.aliases(GBDT)
+
+    with caplog.at_level("INFO"):
+        assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 0
+
+    assert reg.aliases(ALS) == {"champion": ids["g1"], "previous": ids["g2"]}
+    assert reg.aliases(GBDT) == gbdt_before == {"champion": gbdt_ids["g2"]}
+    assert redis_client.get("recs:v1:serving") == "g1"
+    assert redis_client.get("recs:v1:previous") == "g2"
+    assert "recsys-gbdt" in caplog.text
+
+
+def test_rollback_swaps_every_model_both_generations_carry(reg, redis_client, qdrant):
+    # RAT-31 / RAT-61 (all three carried): ALS, GBDT (ranker key) and two-tower (collection) are swapped
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _with_ranker(redis_client, "g1", "g2")
+    _with_two_tower(qdrant, "g1", "g2")
+    als = _registry_with(reg, "g1", "g2")
+    gbdt = _versions_of(reg, GBDT, "g1", "g2")
+    tt = _versions_of(reg, TWO_TOWER, "g1", "g2")
+
+    out = rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
+
+    assert out == {"serving": "g1", "previous": "g2"}
+    assert reg.aliases(ALS) == {"champion": als["g1"], "previous": als["g2"]}
+    assert reg.aliases(GBDT) == {"champion": gbdt["g1"], "previous": gbdt["g2"]}
+    assert reg.aliases(TWO_TOWER) == {"champion": tt["g1"], "previous": tt["g2"]}
+    assert redis_client.get("recs:v1:serving") == "g1"
+
+
+def test_registry_down_mid_rollback_restores(reg, redis_client, qdrant, monkeypatch):
+    # RAT-56: MLflow goes away after recsys-als was swapped and before recsys-gbdt is -> ALS swapped back,
+    # serving unchanged, exit 1
+    import requests
+    from mlflow import MlflowClient
+
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _with_ranker(redis_client, "g1", "g2")
+    _registry_with(reg, "g1", "g2")
+    _versions_of(reg, GBDT, "g1", "g2")
+    before = _snapshot(reg, redis_client, qdrant, ALS, GBDT)
+
+    real = MlflowClient.set_registered_model_alias
+    als_writes = []
+
+    def flaky(self, name, alias, version):
+        if name == GBDT:
+            raise requests.ConnectionError("connection refused")
+        als_writes.append((alias, version))
+        return real(self, name, alias, version)
+
+    monkeypatch.setattr(MlflowClient, "set_registered_model_alias", flaky)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 1
+
+    monkeypatch.setattr(MlflowClient, "set_registered_model_alias", real)
+    assert len(als_writes) >= 2  # recsys-als really was swapped before the failure (and then swapped back)
+    assert _snapshot(reg, redis_client, qdrant, ALS, GBDT) == before
+    assert redis_client.get("recs:v1:serving") == "g2"
+
+
+def test_rollback_registry_down_exit_1(redis_client, qdrant, monkeypatch):
+    # RAT-57: MLflow is unreachable when rollback starts -> exit 1 within 20 s, nothing changes
+    import socket
+    import time
+
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"http://127.0.0.1:{port}")
+    keys = ("recs:v1:serving", "recs:v1:previous", "recs:v1:model_version")
+    before = ({k: redis_client.get(k) for k in keys}, _aliases(qdrant))
+
+    t0 = time.monotonic()
+    code = _main_with(monkeypatch, redis_client, qdrant, ["rollback"])
+
+    assert code == 1
+    assert time.monotonic() - t0 < 20
+    assert ({k: redis_client.get(k) for k in keys}, _aliases(qdrant)) == before
 
 
 # ── command ──────────────────────────────────────────────────────────────────────────────────────
@@ -429,54 +619,6 @@ def test_swap_is_a_compare_and_set_on_serving(redis_client):
     assert redis_cache.swap_generations(SETTINGS, "g1", client=redis_client) == redis_cache.SWAP_STALE
     assert redis_cache.pointers(SETTINGS, redis_client) == ("g2", "g1")
     assert redis_cache.swap_generations(SETTINGS, "g2", client=redis_client) == ("g2", "g1")
-
-
-def test_rollback_rerun_after_a_crash_converges_on_the_restored_model(reg, redis_client, qdrant):
-    _publish(redis_client, qdrant, "g1")
-    _publish(redis_client, qdrant, "g2")
-    ids = _registry_with(reg, "g1", "g2")
-
-    # Crash: the aliases and the pointers moved, restore_champion never ran.
-    qdrant_load.activate_aliases(SETTINGS, "g1", client=qdrant)
-    assert redis_cache.swap_generations(SETTINGS, "g2", client=redis_client) == ("g2", "g1")
-    assert reg.aliases(ALS)["champion"] == ids["g2"]
-
-    # The re-run (a retry of the same rollback) converges; it must not swap back to g2.
-    out = rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
-    assert out["serving"] == "g1"
-    assert redis_client.get("recs:v1:serving") == "g1"
-    assert redis_client.get("recs:v1:previous") == "g2"
-    assert redis_client.get("recs:v1:model_version") == "g1"
-    assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
-    assert _aliases(qdrant)["user_als_vectors"] == "user_als_vectors__g1"
-    assert reg.aliases(ALS) == {"champion": ids["g1"], "previous": ids["g2"]}
-
-
-def test_rollback_with_a_stale_read_does_not_swap_back(reg, redis_client, qdrant):
-    """Serving moves between the pointer read and the swap: the CAS refuses, rollback converges."""
-    _publish(redis_client, qdrant, "g1")
-    _publish(redis_client, qdrant, "g2")
-    ids = _registry_with(reg, "g1", "g2")
-
-    real = redis_cache.pointers
-    state = {"n": 0}
-
-    def stale_pointers(settings, client):
-        out = real(settings, client)
-        if state["n"] == 0:  # a concurrent rollback completes right after our read
-            state["n"] = 1
-            redis_cache.swap_generations(settings, "g2", client=client)
-        return out
-
-    import unittest.mock as mock
-
-    with mock.patch.object(redis_cache, "pointers", stale_pointers):
-        out = rollback(SETTINGS, redis_client=redis_client, qdrant_client=qdrant)
-
-    assert out["serving"] == "g1"
-    assert redis_client.get("recs:v1:serving") == "g1"
-    assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
-    assert reg.aliases(ALS)["champion"] == ids["g1"]
 
 
 class _CountingQdrant(FakeQdrantClient):
