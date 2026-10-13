@@ -42,3 +42,27 @@ Paths are under `platform-core/packages/go-sdk/`.
 | m18 | lifecycle | lifecycle.go:96-111 | worst-case shutdown = drain delay + 2 x grace | one shared deadline (or document) |
 
 Missing tests to add with the fixes: consumer rebalance/revoke, trace and request id on the consume side, relayer under broker outage and lease expiry, `WithTx` with a panicking fn, poison batch, `Load` with embedded groups, zero-value resilience options. Replace `time.Sleep` synchronisation in lifecycle_test.go:184,217,264,322 and consume_test.go:92,147.
+
+## Re-review (2026-10-13, after packets 9–15)
+
+All first-round findings fixed except where noted below. Owner decisions: park only non-retriable errors and add `Store.Requeue`; Kafka headers in kebab-case with one constant set in `kafkax`; every constructor that can be misconfigured returns `(T, error)`, no panics; `KAFKA_BROKERS` and `FLIPT_ADDR` required when `IsStrict()`.
+
+| id | rank | where | problem | fix |
+|---|---|---|---|---|
+| N1 | blocker | outbox/relayer.go:129 | one 10s mark timeout for the whole batch while publishing may run ClaimLock/2; rows published after 10s are not marked and are re-published | per-mark timeout; test with a slow publisher and a large ClaimLock |
+| N2 | blocker | outbox/store.go:78,107; README 131-143 | `ADD COLUMN seq BIGSERIAL` numbers existing rows in heap order (retried rows reorder) and rewrites the table under ACCESS EXCLUSIVE | stepwise migration: nullable `seq bigint`, backfill `row_number() OVER (ORDER BY created_at, event_id)`, sequence + setval + default, indexes `CONCURRENTLY`; doc "stop v0 relayers first"; SchemaSQL doc |
+| N3 | major | outbox/store.go:161-184; relayer.go:97-99 | claim probes every blocked row; backlog of one aggregate drains quadratically | claim each aggregate's consecutive run in one pass (stop at first failure, release the rest); keep blocked aggregates out of the scan; expose blocked/parked count |
+| N4 | major | consume.go:149; kafkax.go:105; consume.go:186-187 | unbounded fetch while rebalances are blocked; commit failure after losing the generation kills the consumer | `PollRecords` with `Options.MaxPollRecords` (default 500); lost-generation commit errors logged, not fatal |
+| N5 | major | relayer.go:193-203; doc.go:14-16 | transient broker errors count toward parking; recovery doc leaves attempts | park only non-retriable errors; transient retry forever with capped backoff; `Store.Requeue(ctx, eventID)` resets attempts |
+| N6 | major | consume.go:21-29; outbox/relayer.go:25-26 | mixed header naming, duplicated constants | kebab-case: `event-id`, `event-type`, `x-request-id`, `traceparent`, `dlq-error`, `dlq-source-topic`, `dlq-source-partition`, `dlq-source-offset`, `dlq-source-group`; one constant set in `kafkax` |
+| N7 | minor | consume.go:106-111 | group-less client accepted by NewConsumer, first commit fails | reject in constructor |
+| N8 | minor | lifecycle.go:106; grpcx.go:154 | Serve uses the whole grace, closers get an expired ctx | `Options.CloseGrace` reserve (components get grace minus reserve) |
+| N9 | minor | relayer.go:165-166 | missing topic consumes attempts and parks rows | `NewRelayer` validates and returns an error; a row with no resolvable topic is a config error logged at ERROR, not an attempt |
+| N10 | minor | postgres.go:76-83 | `runtime.Goexit` skips rollback; recover-path rollback has no timeout | unconditional deferred rollback with a timeout |
+| N11 | minor | resilience.go:115-120 | zero `Policy` panics in `Do` | `Do` returns an error for a zero Policy |
+| N12 | minor | delta spec.md:290 | wording says a fetch with a failed DLQ write is never committed; code commits records before it | fix spec wording |
+| N13 | minor | consume.go:260 | request id from Kafka headers not validated | `reqctx.ValidRequestID`, used by grpcx and consume |
+| N14 | minor | outbox.NewStore panics; NewRelayer/NewErrorTable don't validate; flags.NewWithProvider differs | constructors return `(T, error)`; `NewErrorTable` rejects `codes.OK` and nil targets |
+| N15 | minor | store.go:108 | unused `claim_idx` | drop from SchemaSQL; migration note |
+| N16 | minor | examples/hello config.go:8-9; template config.go.tmpl:8-9 | stale "Enabled field" comment | fix |
+| N17 | minor | groups.go:92,119 | `KAFKA_BROKERS`, `FLIPT_ADDR` default to localhost | required when `IsStrict()` (Validate) |

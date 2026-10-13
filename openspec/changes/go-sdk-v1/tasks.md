@@ -115,3 +115,33 @@ Owns: everything under `platform-core/packages/go-sdk/**`, `platform-core/templa
 ## 16. Close review fixes (orchestrator)
 
 - [ ] 16.1 FEATURES entries for new scenarios; full SDK tests with `-race`, lint, template smoke, sync test, `ci_local`; re-run the staff review on the result.
+
+## Re-review fixes
+
+Findings N1–N17 are in `review.md` ("Re-review"). Same rules as "Review fixes".
+
+## 17. kafkax headers, consume, reqctx (wave 5)
+
+Owns: `pkg/kafkax/**`, `pkg/consume/**`, `pkg/reqctx/**`, `pkg/grpcx/requestid.go`, `pkg/grpcx/requestid_test.go` (if any).
+
+- [ ] 17.1 N6 one kebab-case header constant set in `kafkax` (`HeaderEventID`, `HeaderEventType`, `HeaderRequestID`, `HeaderTraceparent`, `HeaderDLQError`, `HeaderDLQSourceTopic`, `HeaderDLQSourcePartition`, `HeaderDLQSourceOffset`, `HeaderDLQSourceGroup`); consume uses them. N13 `reqctx.ValidRequestID`, used by grpcx request-id interceptor and consume.
+- [ ] 17.2 N4 `Options.MaxPollRecords`/`BatchOptions.MaxPollRecords` (default 500) with `PollRecords`; a commit error caused by a lost generation is logged and the loop continues; N7 constructors reject a group-less client.
+
+## 18. grpcx, postgres, resilience, lifecycle, config, flags, docs (wave 5)
+
+Owns: `pkg/grpcx/**` except request id files, `pkg/postgres/**`, `pkg/resilience/**`, `pkg/lifecycle/**`, `pkg/config/**`, `pkg/flags/**`, `examples/**`, `platform-core/templates/_service-go/**`, `openspec/changes/go-sdk-v1/specs/**`.
+
+- [ ] 18.1 N14 `NewErrorTable(rules ...Rule) (ErrorTable, error)` rejecting nil targets and `codes.OK`; `flags.NewWithProvider` aligned with `New` (ctx, logger, error). N10 deferred rollback with timeout. N11 zero Policy error. N8 `lifecycle.Options.CloseGrace`. N17 `KAFKA_BROKERS`/`FLIPT_ADDR` required when strict. N16 comments. N12 spec wording.
+
+## 19. outbox (wave 6, after 17 is merged)
+
+Owns: `pkg/outbox/**`, `platform-core/packages/go-sdk/README.md` (outbox and header sections).
+
+- [ ] 19.1 N1 per-mark timeout; test with a slow publisher and a large ClaimLock.
+- [ ] 19.2 N2 stepwise, order-preserving migration in the SchemaSQL godoc and README (and `SchemaSQL` itself for fresh tables), "stop v0 relayers first"; N15 drop `claim_idx`.
+- [ ] 19.3 N3 claim an aggregate's consecutive run per pass, blocked aggregates out of the scan, blocked/parked counts exposed; a backlog test that bounds per-pass work.
+- [ ] 19.4 N5 park only non-retriable errors, transient errors retry with capped backoff; `Store.Requeue(ctx, eventID)`. N9 `NewStore`/`NewRelayer` return `(T, error)`; missing topic is not an attempt. N6 outbox uses the `kafkax` header constants.
+
+## 20. Close re-review (orchestrator)
+
+- [ ] 20.1 Merge, full checks, FEATURES, third staff pass on the outbox and consume changes only.
