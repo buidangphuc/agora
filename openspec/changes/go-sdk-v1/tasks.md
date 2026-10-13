@@ -162,3 +162,9 @@ Owns: `pkg/outbox/**`, `pkg/config/**` (P13 only), README outbox/migration/confi
 Owns: `pkg/consume/**`.
 
 - [x] 22.1 P10, P11, P12.
+
+## 23. flags without a switch (owner decision 2026-10-13)
+
+Owns: `pkg/config/groups.go`, `pkg/config/config.go`, `pkg/flags/**`, README configuration section.
+
+- [x] 23.1 Remove `FEATURE_FLAGS_ENABLED` / `Flags.Enabled`; `FLIPT_ADDR` defaults to `localhost:9000` in every `ENV` and is never required; verify `TestFlagsAlwaysPointAtFlipt`, `TestStrictEnvRequiresKafka`.
