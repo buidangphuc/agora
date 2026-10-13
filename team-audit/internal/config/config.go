@@ -1,26 +1,19 @@
+// Package config holds team-audit's settings: the SDK groups it uses, bound
+// from environment variables.
 package config
 
-import (
-	"os"
-	"strconv"
-)
+import sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
-type Config struct {
-	GRPCPort    int
-	DatabaseURL string
+// Settings is everything the service reads from the environment. Runtime and
+// GRPC are embedded because nothing else collides with their fields; Postgres
+// and OTel are named because both have an Enabled field.
+type Settings struct {
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
 }
 
-func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50066"))
-	return Config{
-		GRPCPort:    port,
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://audit_svc:audit_pass@localhost:5447/audit_db?sslmode=disable"),
-	}
-}
-
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return def
-}
+// Load reads Settings from the environment and validates it: sdkconfig.Load
+// calls Validate on every group, so Settings needs no Validate of its own.
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }
