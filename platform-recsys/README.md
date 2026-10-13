@@ -287,9 +287,12 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
   goes away right after the switch) the new generation is serving but the registry champion still names the old
   version; the job logs the models left unmoved, raises and exits 1. The versions stay promotable and the next run
   re-evaluates against the old champion; `rollback` refuses while serving and the registry are out of step.
-- **GBDT is no longer gated against the fixed-weight baseline**: the candidate is judged only against the GBDT
-  champion in the registry (same protocol, `PROMOTION_MIN_RELATIVE_IMPROVEMENT`); the earlier requirement to beat
-  the fixed-weight ranker (`0.15 * popularity + 0.10 * ctr`) on holdout NDCG@10 is gone.
+- **GBDT baseline check**: before the registry policy runs, a candidate whose holdout NDCG@10 is below the
+  fixed-weight baseline (`0.15 * popularity + 0.10 * ctr`) x 1.01 is registered as rejected (`gate.reason`
+  starts `below fixed-weight baseline`, with both values) and no artifact is produced; otherwise the policy
+  judges it against the GBDT champion.
+- **Two-Tower has no coverage floor**: `recsys-two-tower` keeps the `coverage@10` guard (0.8) and a trivial
+  `recall@10` floor (0.000001); coverage is not floored.
 - A user with fewer than two distinct listings is never a test user; with no test users the run is
   `skipped` and nothing is published, so very small datasets never publish.
 

@@ -29,6 +29,7 @@ log = logging.getLogger("recsys.ranker.stage")
 
 NDCG_K = 10
 PRIMARY_METRIC = "ndcg@10"
+BASELINE_MARGIN = 1.01
 
 
 @dataclass
@@ -244,6 +245,11 @@ def run_stage(settings: Settings, inputs: RankerInputs, model_version: str) -> R
     if scored_lists == 0:
         return reject("no usable holdout: no held-out impression has a click or an add-to-cart")
     context.update(_evaluate_context(settings, matrix, split))
+    if ndcg < baseline * BASELINE_MARGIN:
+        return reject(
+            f"below fixed-weight baseline: holdout {PRIMARY_METRIC} {ndcg:.6f} < "
+            f"baseline {baseline:.6f} x {BASELINE_MARGIN}"
+        )
 
     # ── the model that ships: refit on every row, CTR recomputed over all of them ──
     everything = np.arange(len(matrix.frame))

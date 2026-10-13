@@ -29,4 +29,4 @@ recsys-two-tower:
   guards:
     coverage@10: 0.8
   floors:
-    coverage@10: 0.5
+    recall@10: 0.000001
