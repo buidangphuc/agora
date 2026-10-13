@@ -4,3 +4,6 @@ resources:
   - externalsecret.yaml
   - postgres-mlflow.yaml
   - mlflow.yaml
+images:
+  - name: localhost:5001/platform-mlflow
+    newTag: latest  # TODO: push-images.sh writes the real sha tag once the image is built

@@ -27,7 +27,7 @@ metadata:
   name: vault-config-script
   namespace: vault
 data:
-  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification ga4-relay"
+  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification ga4-relay mlflow"
   config.sh: |
     #!/bin/sh
     set -e
@@ -93,6 +93,11 @@ data:
             AUTH_API_KEYS="team-ai-service:ai.classify:${svc_hash},team-ai-admin:admin|ai.classify:${adm_hash}" >/dev/null
           vault kv put "svc/team-ai-clients/tokens" SERVICE_TOKEN="$svc_tok" ADMIN_TOKEN="$adm_tok" >/dev/null
         fi
+      elif [ "$svc" = "mlflow" ]; then
+        # mlflow: dedicated postgres-mlflow backend (db) + MinIO artifact store (s3).
+        # Dev creds, as for the other services; seeded once, kept on re-runs.
+        vault kv put "svc/mlflow/db" POSTGRES_USER="mlflow" POSTGRES_PASSWORD="mlflow_pass" >/dev/null
+        vault kv put "svc/mlflow/s3" AWS_ACCESS_KEY_ID="minioadmin" AWS_SECRET_ACCESS_KEY="minioadmin" >/dev/null
       else
         # per-service env bag (services read DB differently: DATABASE_URL / DB_* / POSTGRES_*)
         vault kv put "svc/${svc}/config" \

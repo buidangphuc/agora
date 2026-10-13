@@ -21,11 +21,12 @@ spec:
       serviceAccountName: mlflow
       containers:
         - name: mlflow
-          image: ghcr.io/mlflow/mlflow:v3.2.0
+          # built from platform-core/infra/mlflow/Dockerfile (mlflow 3.2.0 + psycopg2 + boto3)
+          image: localhost:5001/platform-mlflow
+          imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:
             - >-
-              pip install --no-cache-dir psycopg2-binary boto3 &&
               exec mlflow server --host 0.0.0.0 --port 5050
               --backend-store-uri "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-mlflow.marketplace.svc:5432/mlflow"
               --artifacts-destination s3://mlflow-artifacts
@@ -86,6 +87,7 @@ spec:
         - podSelector:
             matchLabels:
               app: platform-recsys
+        # The finetune slice does not exist yet: its trainer pods must carry this label.
         - podSelector:
             matchLabels:
               app: platform-finetune
