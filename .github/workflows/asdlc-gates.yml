@@ -143,7 +143,8 @@ jobs:
             # uv-managed (uv.lock): the locked set with all extras + dev, as the service's own CI uses
             if [ -f "$d/uv.lock" ]; then
               (cd "$d" && uv export --frozen --all-extras --dev --no-emit-project --no-hashes -q) > "/tmp/req-$d.txt" &&
-                pip install -r "/tmp/req-$d.txt"
+                # install from inside "$d": uv.lock may hold relative path deps (e.g. ../platform-core/packages/...)
+                (cd "$d" && pip install -r "/tmp/req-$d.txt")
               continue
             fi
             [ -f "$d/requirements.txt" ] && pip install -r "$d/requirements.txt"
