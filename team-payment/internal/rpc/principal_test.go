@@ -11,14 +11,14 @@ import (
 // withPrincipal stores p in ctx the way the SDK auth interceptor does after reading
 // the gateway's x-principal-* metadata.
 func withPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
-	typ := ""
+	var typ auth.PrincipalType
 	switch p.GetType() {
 	case commonv1.PrincipalType_PRINCIPAL_TYPE_USER:
-		typ = "user"
+		typ = auth.TypeUser
 	case commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE:
-		typ = "service"
+		typ = auth.TypeService
 	case commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS:
-		typ = "anonymous"
+		typ = auth.TypeAnonymous
 	}
 	return auth.WithPrincipal(ctx, auth.Principal{ID: p.GetId(), Type: typ, Scopes: p.GetScopes()})
 }

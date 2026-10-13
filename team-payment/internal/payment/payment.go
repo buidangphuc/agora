@@ -148,7 +148,9 @@ func (s *Service) CreatePayment(
 	// 1. Fetch order details from team-order
 	orderResp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
-		return store.PaymentTransaction{}, "", fmt.Errorf("%w: %w", ErrOrderNotFound, err)
+		// %s of the text, not %w, for the cause: a team-order gRPC status in the chain would pass
+		// through grpcx.Status to our caller unchanged, with team-order's code and text.
+		return store.PaymentTransaction{}, "", fmt.Errorf("%w: %s", ErrOrderNotFound, err.Error())
 	}
 	order := orderResp.GetOrder()
 	if order == nil {
@@ -350,9 +352,9 @@ func (s *Service) OrderSellerID(ctx context.Context, orderID string) (string, er
 		// an unreachable team-order is not a missing order: say so (503), never 404
 		switch status.Code(err) {
 		case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
-			return "", fmt.Errorf("%w: %w", ErrOrderServiceUnavailable, err)
+			return "", fmt.Errorf("%w: %s", ErrOrderServiceUnavailable, err.Error())
 		}
-		return "", fmt.Errorf("%w: %w", ErrOrderNotFound, err)
+		return "", fmt.Errorf("%w: %s", ErrOrderNotFound, err.Error())
 	}
 	if resp.GetOrder() == nil {
 		return "", ErrOrderNotFound

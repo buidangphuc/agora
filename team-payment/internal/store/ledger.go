@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // Ledger entry types (mirrors WalletTransactionType, carried as strings on the wire).
@@ -191,31 +193,28 @@ func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntr
 	}
 	e = normalizeEntry(e)
 
-	tx, err := r.pool.Begin(ctx)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		if err := lockSeller(ctx, tx, e.SellerID); err != nil {
+			return err
+		}
+		var balance int64
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM wallet_ledger WHERE seller_id = $1`, e.SellerID).Scan(&balance); err != nil {
+			return fmt.Errorf("sum ledger balance: %w", err)
+		}
+		credits, err := loadHeldCredits(ctx, tx, e.SellerID, hold)
+		if err != nil {
+			return err
+		}
+		if err := checkWithdrawable(balance, -e.Amount, credits, hold); err != nil {
+			return err
+		}
+		if err := insertLedger(ctx, tx, e); err != nil {
+			return fmt.Errorf("insert ledger entry: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return LedgerEntry{}, fmt.Errorf("begin debit tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }() // no-op after Commit
-
-	if err := lockSeller(ctx, tx, e.SellerID); err != nil {
 		return LedgerEntry{}, err
-	}
-	var balance int64
-	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM wallet_ledger WHERE seller_id = $1`, e.SellerID).Scan(&balance); err != nil {
-		return LedgerEntry{}, fmt.Errorf("sum ledger balance: %w", err)
-	}
-	credits, err := loadHeldCredits(ctx, tx, e.SellerID, hold)
-	if err != nil {
-		return LedgerEntry{}, err
-	}
-	if err := checkWithdrawable(balance, -e.Amount, credits, hold); err != nil {
-		return LedgerEntry{}, err
-	}
-	if err := insertLedger(ctx, tx, e); err != nil {
-		return LedgerEntry{}, fmt.Errorf("insert ledger entry: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return LedgerEntry{}, fmt.Errorf("commit debit: %w", err)
 	}
 	return e, nil
 }

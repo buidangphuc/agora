@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // DBTX is the subset of pgxpool.Pool / pgx.Tx used by the transactional writer,
@@ -33,28 +34,22 @@ func NewPgTxWriter(pool *pgxpool.Pool, ob *outbox.Store) *PgTxWriter {
 
 // SettleTx opens a transaction, updates the payment status, enqueues the built
 // event on the SAME tx, and commits — so the payment row and the outbox row are
-// one atomic unit. Any error rolls both back (the deferred Rollback is a no-op
-// after a successful Commit).
+// one atomic unit. Any error rolls both back.
 func (w *PgTxWriter) SettleTx(ctx context.Context, id string, status PaymentStatus, providerRef string, ev SettleFn) (PaymentTransaction, error) {
-	tx, err := w.pool.Begin(ctx)
-	if err != nil {
-		return PaymentTransaction{}, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	updated, err := updatePaymentStatusTx(ctx, tx, id, status, providerRef)
+	var updated PaymentTransaction
+	err := postgres.WithTx(ctx, w.pool, func(tx pgx.Tx) error {
+		var err error
+		if updated, err = updatePaymentStatusTx(ctx, tx, id, status, providerRef); err != nil {
+			return err
+		}
+		row, err := ev(updated)
+		if err != nil {
+			return err
+		}
+		return w.outbox.EnqueueTx(ctx, tx, row)
+	})
 	if err != nil {
 		return PaymentTransaction{}, err
-	}
-	row, err := ev(updated)
-	if err != nil {
-		return PaymentTransaction{}, err
-	}
-	if err := w.outbox.EnqueueTx(ctx, tx, row); err != nil {
-		return PaymentTransaction{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return PaymentTransaction{}, fmt.Errorf("commit tx: %w", err)
 	}
 	return updated, nil
 }

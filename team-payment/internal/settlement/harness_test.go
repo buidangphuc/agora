@@ -113,7 +113,10 @@ func run(t *testing.T, apply settlement.Applier, reader *fakeReader, dlq *fakeDL
 	if opts.DLQTopic == "" {
 		opts.DLQTopic = settlement.DefaultDLQTopic
 	}
-	c := sdkconsume.NewConsumer(client, settlement.New(apply, quiet).Handle, dlq, opts)
+	c, err := sdkconsume.NewConsumer(client, settlement.New(apply, quiet).Handle, dlq, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -10,9 +11,12 @@ import (
 	"github.com/buidangphuc/team-payment/internal/config"
 )
 
-// baseEnv sets the keys Load requires: the database URL and the gRPC port.
+// baseEnv sets the keys Load requires: ENV, the database URL, the gRPC port and the brokers
+// (required when a test switches ENV to a strict value).
 func baseEnv(t *testing.T) {
 	t.Helper()
+	t.Setenv("ENV", "local")
+	t.Setenv("KAFKA_BROKERS", "redpanda:9092")
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
 	t.Setenv("GRPC_PORT", "50056")
 }
@@ -145,45 +149,67 @@ func TestPayoutHoldWindow(t *testing.T) {
 	}
 }
 
+// Boot validation (Load) joins the SDK group validation (ENV, GRPC_PORT, DATABASE_URL), the payout group's and
+// Settings.Validate's port range, so a refused boot names every invalid key, each once.
 func TestValidateNamesEveryInvalidSetting(t *testing.T) {
 	cases := []struct {
 		name string
-		s    config.Settings
+		env  map[string]string
 		keys []string
 	}{
 		{
 			name: "invalid hold window without a database url",
-			s:    config.Settings{GRPC: sdkconfig.GRPC{Port: 50056}, Payout: config.Payout{HoldDays: 7, HoldWindow: "soon"}},
+			env:  map[string]string{"ENV": "local", "GRPC_PORT": "50056", "DATABASE_URL": "", "PAYOUT_HOLD_WINDOW": "soon"},
 			keys: []string{"DATABASE_URL", "PAYOUT_HOLD_WINDOW"},
 		},
 		{
 			name: "bad port, hold days and hold window together",
-			s: config.Settings{
-				GRPC:     sdkconfig.GRPC{Port: 999999},
-				Postgres: sdkconfig.Postgres{URL: "postgres://u:p@localhost/db"},
-				Payout:   config.Payout{HoldDays: -1, HoldWindow: "soon"},
+			env: map[string]string{
+				"ENV": "local", "GRPC_PORT": "999999", "DATABASE_URL": "postgres://u:p@localhost/db",
+				"PAYOUT_HOLD_DAYS": "-1", "PAYOUT_HOLD_WINDOW": "soon",
 			},
 			keys: []string{"GRPC_PORT", "PAYOUT_HOLD_DAYS"},
+		},
+		{
+			name: "empty ENV with every other key invalid",
+			env: map[string]string{
+				"ENV": "", "GRPC_PORT": "0", "DATABASE_URL": "", "PAYOUT_HOLD_DAYS": "-1",
+			},
+			keys: []string{"ENV", "GRPC_PORT", "DATABASE_URL", "PAYOUT_HOLD_DAYS"},
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.s.Validate()
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			_, err := config.Load()
 			if err == nil {
-				t.Fatal("expected Validate to fail")
+				t.Fatal("expected Load to fail")
 			}
 			for _, k := range tc.keys {
-				if !strings.Contains(err.Error(), k) {
-					t.Errorf("error must name %s: %v", k, err)
+				if n := strings.Count(err.Error(), k); n != 1 {
+					t.Errorf("error must name %s exactly once, got %d: %v", k, n, err)
 				}
 			}
 		})
 	}
 }
 
+func TestLoadRequiresENV(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+	t.Setenv("GRPC_PORT", "50056")
+	t.Setenv("ENV", "")
+	os.Unsetenv("ENV")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("Load without ENV = %v, want an error naming ENV", err)
+	}
+}
+
 func TestLoadNamesMockPaymentsWithoutDatabaseURL(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("GRPC_PORT", "50056")
+	t.Setenv("KAFKA_BROKERS", "redpanda:9092")
 	t.Setenv("ENV", "production")
 	t.Setenv("MOCK_PAYMENTS", "true")
 	_, err := config.Load()

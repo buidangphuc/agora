@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pagination"
+
 	"github.com/buidangphuc/team-payment/internal/store"
 )
 
@@ -49,13 +51,7 @@ func (s *Service) ListLedgerEntries(
 		return nil, "", 0, ErrLedgerNotConfigured
 	}
 
-	limit := int(pageSize)
-	if limit <= 0 {
-		limit = defaultLedgerPageSize
-	}
-	if limit > maxLedgerPageSize {
-		limit = maxLedgerPageSize
-	}
+	limit := pagination.Clamp(int(pageSize), defaultLedgerPageSize, maxLedgerPageSize)
 
 	offset, err := decodeCursor(cursor)
 	if err != nil {

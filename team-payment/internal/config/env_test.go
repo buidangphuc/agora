@@ -35,6 +35,7 @@ func TestKafkaConfigDefaults(t *testing.T) {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
 	}
+	t.Setenv("ENV", "local")
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
 	t.Setenv("GRPC_PORT", "50056")
 	s, err := config.Load()

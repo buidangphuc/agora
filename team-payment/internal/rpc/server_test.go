@@ -86,7 +86,11 @@ func setupWireServer(t *testing.T) (paymentv1.PaymentServiceClient, *wireOrderCl
 		payment.WithSettlementLedger(store.NewInMemorySettlementLedger(paymentRepo, ledgerRepo)))
 	paymentHdl := rpc.NewPaymentHandler(paymentSvc, logger, rpc.WithMockPayments(true))
 
-	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(healthx.DefaultInterval, logger)})
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: health})
 	rpc.Register(srv, paymentHdl)
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

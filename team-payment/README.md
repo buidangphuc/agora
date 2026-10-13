@@ -11,7 +11,7 @@ or card is ever contacted. `method` values (COD, MoMo, bank, card) are labels on
 ## Contract
 
 Proto: `proto/platform/payment/v1/payment.proto`, service `platform.payment.v1.PaymentService`
-(10 RPCs). Plus `grpc.health.v1.Health` (SERVING while Postgres answers) and gRPC reflection, both always on. Layout: ADR-0016 on go-sdk v0.2.1 (`internal/app` composition root, `rpc`, `payment`, `store`, `events`, `settlement`).
+(10 RPCs). Plus `grpc.health.v1.Health` (SERVING while Postgres answers) and gRPC reflection, both always on. Layout: ADR-0016 on go-sdk v1.0.0 (`internal/app` composition root, `rpc`, `payment`, `store`, `events`, `settlement`).
 
 The service does not verify tokens. The gateway verifies the JWT (ADR-0006) and forwards
 `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`) and `x-principal-scopes`
@@ -58,9 +58,14 @@ call does not forward the caller's principal: `internal/upstream/order.go` sends
 - The outbox row is written in the same DB transaction as `status = PAID` (`PgTxWriter.SettleTx`).
 - Relayer (SDK `outbox.Relayer` over `payment_outbox_events`): polls every `OUTBOX_POLL_INTERVAL` (1s),
   claims up to `OUTBOX_BATCH_SIZE` (100) rows with `FOR UPDATE SKIP LOCKED` for
-  `OUTBOX_CLAIM_LOCK_SECONDS` (60), exponential backoff 1s doubling to 5m, parks a row as `failed`
-  after `OUTBOX_MAX_ATTEMPTS` (10) attempts. A failing row does not block the others. The relayer is
-  always on and runs until the gRPC server has stopped, so RPCs in flight still enqueue their rows.
+  `OUTBOX_CLAIM_LOCK` (60s), in `seq` (creation) order per order id: a row is not claimed while an
+  older unpublished row of the same order exists. A failed publish retries with capped exponential
+  backoff, forever (there is no attempt limit; after 10 failed attempts the relayer logs at ERROR
+  on every further attempt). Only an error that is permanent for the record (message too large,
+  corrupt or invalid record) parks the row as `failed`; a parked row blocks the later events of its
+  order until `outbox.Store.Requeue` / `RequeueParked` puts it back or it is deleted. A failing
+  row does not block other orders. The relayer is always on and runs until the gRPC server has
+  stopped, so RPCs in flight still enqueue their rows.
 - Enqueueing an event id that already exists is a no-op (the retried settle neither fails nor
   duplicates the event).
 
@@ -184,6 +189,7 @@ startup.
 | `0005_payout_ledger_link` | `payout_requests.ledger_entry_id` (nullable) | links a payout request to its ledger debit |
 | `0006_wallet_ledger_integrity` | `wallet_ledger.reference_id` + unique `(type, reference_id)`, type/sign CHECK, reference required for new settlement/refund rows (`NOT VALID`: legacy rows kept); `payment_transactions.refunded_amount` | settlement credit, refund deduction |
 | `0007_cumulative_refunds` | `payment_refunds`; `wallet_ledger.reference_id` widened to 96; LEGACY backfill and re-pointed legacy deductions; CHECKs `status <> 4 OR refunded_amount = amount` (`NOT VALID`) and `status <> 5 OR 0 < refunded_amount < amount` | refunds, refund deduction, hold-back |
+| `0008`-`0017` `outbox_v1_*` | `payment_outbox_events` upgraded to the go-sdk v1 shape (`topic`, `traceparent`, `seq`, v1 indexes, no `claim_idx`) | settle + relayer |
 
 The **wallet ledger is the single source of truth** for seller money:
 
@@ -224,6 +230,29 @@ expect zero rows.
   in reverse: `team-order` first, then the down migration. The new `RefundPayment` requires
   `refund_id`.
 
+### Upgrading the outbox table to go-sdk v1 (`0008`-`0017`)
+
+The migrations are forward-only (their `.down.sql` files are no-ops, except the index ones) and
+implement `outbox.UpgradeSQL` for `payment_outbox_events`. A v0 relayer ignores `seq`, so before
+applying them to a database that already holds rows:
+
+1. Stop the v0 `team-payment` relayers (scale the deployment to 0), or let them drain the pending rows.
+2. Deal with rows a v0 relayer parked. v0 parked a row as `failed` after `OUTBOX_MAX_ATTEMPTS`
+   attempts; v1 never sends a `failed` row but keeps it as the head of its order, so it blocks every
+   later `PaymentSettled` of that order. List them with
+   `SELECT event_id, aggregate_id, attempts, error FROM payment_outbox_events WHERE status = 'failed'`,
+   fix the cause, then `DELETE` the rows you will not send, or requeue the rest with
+   `UPDATE payment_outbox_events SET status='pending', attempts=0, available_at=now(), locked_until=NULL, error=NULL WHERE status='failed'`.
+   After the upgrade `outbox.Store.RequeueParked` does the same for rows v1 parks later.
+3. Purge published rows you do not need (`DELETE FROM payment_outbox_events WHERE status = 'published'`);
+   every backfill batch sorts the rows still unnumbered, so fewer rows means a faster upgrade.
+4. Run the `team-payment-migrate` job, then deploy v1. `0009` numbers existing rows by
+   `(created_at, event_id)` in batches of 10000, `0010` switches in one transaction (inserts wait
+   on its table lock for a moment), `0011`-`0013` make `seq` NOT NULL without a long lock, and
+   `0014`-`0017` each hold one `CREATE/DROP INDEX CONCURRENTLY` statement in a file of their own:
+   it cannot run in a transaction, and the runner sends a file as one query. If an index migration
+   fails, drop the invalid index (`\d payment_outbox_events` shows it as INVALID) and rerun the job.
+
 ## Configuration
 
 Read in `internal/config/config.go` on the go-sdk config groups. There are no enable flags: the
@@ -231,13 +260,13 @@ database, Kafka, the outbox relayer, the settlement consumer and reflection are 
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ENV` | `local` | Environment name (`prod`/`production` count as prod) |
+| `ENV` | required | `local`, `test`, `staging` or `prod`. A strict value (`staging`, `stage`, `prod`, `production`) also requires `KAFKA_BROKERS` and refuses `MOCK_PAYMENTS=true` |
 | `LOG_LEVEL` | `info` | Only `debug` changes behaviour; anything else is info |
 | `LOG_JSON` | `true` | JSON logs, else text |
 | `GRPC_HOST` | `0.0.0.0` | Bind host |
 | `GRPC_PORT` | none (the image sets `50056`) | Bind port, required (1-65535) |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | Graceful-stop timeout before forced stop |
-| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0` | Keep serving this long after health reports NOT_SERVING |
+| `SHUTDOWN_GRACE` | `10s` | Graceful-stop timeout before forced stop (Go duration) |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Keep serving this long after health reports NOT_SERVING (Go duration) |
 | `DATABASE_URL` | none | Required; an unreachable database fails boot in every environment |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `UPSTREAM_ORDER_ADDR` | `localhost:50055` | team-order gRPC address (insecure channel) |
@@ -247,15 +276,14 @@ database, Kafka, the outbox relayer, the settlement consumer and reflection are 
 | `OTEL_SERVICE_NAME` | empty (`team-payment`) | Service name of the traces |
 | `PAYOUT_HOLD_DAYS` | `7` | Payout hold window in days, 0-3650; `0` disables the hold. Invalid refuses startup |
 | `PAYOUT_HOLD_WINDOW` | empty | Optional Go duration (0 to 3650 days, e.g. `20s`) overriding `PAYOUT_HOLD_DAYS`; invalid refuses startup. The effective window is logged at startup |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated brokers |
+| `KAFKA_BROKERS` | `localhost:9092` in `local`/`test`, required otherwise | Comma-separated brokers |
 | `PAYMENT_EVENTS_TOPIC` | `payment.events` | Topic the relayer produces to |
 | `ORDER_EVENTS_TOPIC` | `order.events` | Topic the settlement consumer reads |
 | `PAYMENT_SETTLEMENT_CONSUMER_GROUP` | `team-payment.settlement` | Consumer group (new group starts at the latest offset) |
 | `PAYMENT_SETTLEMENT_DLQ_TOPIC` | `order.events.payment-settlement.dlq` | Dead-letter topic (not `order.events.dlq`, which is team-notification's) |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Relayer poll interval |
 | `OUTBOX_BATCH_SIZE` | `100` | Rows claimed per poll |
-| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | Lease on a claimed batch |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | Attempts before a row is parked `failed` |
+| `OUTBOX_CLAIM_LOCK` | `60s` | Lease on a claimed batch (Go duration) |
 
 `.env.example` documents every key; `internal/config` `TestEnvExampleInSync` (`make check-env`) fails
 when it drifts from `Settings`. The `.env.example` `DATABASE_URL` uses port
@@ -317,8 +345,8 @@ make docker    # builds team-payment:dev
 ```
 
 `make check` needs Docker: the Postgres and Redpanda tests start containers through the SDK
-`testkit` and fail, not skip, without it. Set `TEST_DATABASE_URL` to use your own Postgres for the
-store tests instead of a container.
+`testkit` and fail, not skip, without it. The Postgres tests share one container per test binary and
+get a schema each (`internal/pgtest`).
 
 The `Dockerfile` is the platform template (Go 1.26, static binary, distroless nonroot, `GRPC_PORT`
 default 50056). It copies `third_party/` before `go mod download`, and needs `generated/`.

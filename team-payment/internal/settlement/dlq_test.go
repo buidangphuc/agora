@@ -90,9 +90,12 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer client.Close()
-		c := sdkconsume.NewConsumer(client, h.Handle, dlq, sdkconsume.Options{
+		c, err := sdkconsume.NewConsumer(client, h.Handle, dlq, sdkconsume.Options{
 			DLQTopic: "order.events.payment-settlement.dlq", MaxAttempts: 2, BaseBackoff: time.Millisecond,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		return c.Run(ctx)
@@ -115,7 +118,10 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	c := sdkconsume.NewConsumer(client, h.Handle, up, sdkconsume.Options{DLQTopic: "dlq", MaxAttempts: 2, BaseBackoff: time.Millisecond})
+	c, err := sdkconsume.NewConsumer(client, h.Handle, up, sdkconsume.Options{DLQTopic: "dlq", MaxAttempts: 2, BaseBackoff: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
 	done := make(chan error, 1)
 	go func() { done <- c.Run(ctx) }()
 	deadline := time.Now().Add(30 * time.Second)

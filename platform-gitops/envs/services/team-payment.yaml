@@ -16,6 +16,7 @@ resources:
     cpu: 250m
     memory: 256Mi
 env:
+  ENV: "local"
   # payment.events outbox relayer (PaymentSettled -> team-order) and the settlement
   # consumer of order.events (OrderPaidEvent credit, OrderCancelled refund) -
   # port-payment-ledger-integrity. Both are always on.

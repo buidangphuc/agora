@@ -21,7 +21,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	sdkupstream "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	"github.com/buidangphuc/team-payment/internal/config"
@@ -58,7 +58,7 @@ type Options struct {
 // order client, domain, consumer, server. Everything opened goes on the stack; closers
 // run in reverse order on shutdown and on an early failure.
 //
-// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY_SECONDS passes, the gRPC server
+// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY passes, the gRPC server
 // stops, then the outbox relayer and the settlement consumer stop, then the Kafka
 // clients, the order connection and the pool close.
 //
@@ -90,15 +90,18 @@ func RunWith(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
 	// An unreachable database fails boot in every environment: there is no in-memory mode.
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	if err != nil {
 		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
 	}
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
-	health.Register("postgres", pgx.Checker(pool))
+	health.Register("postgres", postgres.Checker(pool))
 	logger.InfoContext(ctx, "connected to postgres")
 
 	newProducer := o.NewProducer
@@ -111,7 +114,7 @@ func RunWith(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(func(context.Context) error { producer.Close(); return nil })
 
-	orderConn, err := sdkupstream.Dial(s.Upstream.OrderAddr)
+	orderConn, err := sdkupstream.NewClient(s.Upstream.OrderAddr)
 	if err != nil {
 		return errors.Join(fmt.Errorf("order client: %w", err), stack.Close(ctx))
 	}
@@ -119,7 +122,10 @@ func RunWith(ctx context.Context, s config.Settings, o Options) error {
 
 	// Settle writes payment=PAID and the PaymentSettled outbox row in one transaction
 	// (AD4); the relayer publishes the row to payment.events.
-	outboxStore := outbox.NewStore(pool, outboxTable)
+	outboxStore, err := outbox.NewStore(pool, outboxTable)
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox store: %w", err), stack.Close(ctx))
+	}
 	ledger := store.NewPostgresLedgerRepository(pool)
 	svc := payment.NewService(
 		store.NewPostgresPaymentRepository(pool),
@@ -142,12 +148,18 @@ func RunWith(ctx context.Context, s config.Settings, o Options) error {
 		return errors.Join(fmt.Errorf("settlement consumer: %w", err), stack.Close(ctx))
 	}
 	stack.Push(func(context.Context) error { consumerClient.Close(); return nil })
-	consumer := consume.NewConsumer(consumerClient, settlement.New(svc, logger).Handle, producer,
+	consumer, err := consume.NewConsumer(consumerClient, settlement.New(svc, logger).Handle, producer,
 		consume.Options{DLQTopic: s.Events.SettlementDLQTopic, Logger: logger})
+	if err != nil {
+		return errors.Join(fmt.Errorf("settlement consumer: %w", err), stack.Close(ctx))
+	}
 
-	relayer := outbox.NewRelayer(outboxStore, producer, outbox.RelayerOptions{
+	relayer, err := outbox.NewRelayer(outboxStore, producer, outbox.RelayerOptions{
 		Topic: s.Events.PaymentTopic, Config: s.Outbox, Logger: logger,
 	})
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox relayer: %w", err), stack.Close(ctx))
+	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, rpc.NewPaymentHandler(svc, logger, rpc.WithMockPayments(s.Mock.MockPayments)))
@@ -155,8 +167,8 @@ func RunWith(ctx context.Context, s config.Settings, o Options) error {
 	// The relayer and the consumer run until the gRPC server has stopped, so in-flight
 	// RPCs that enqueue outbox rows are drained before they stop.
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,

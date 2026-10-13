@@ -39,6 +39,7 @@ spec:
           secrets:
             enabled: true
           env:
+            ENV: "local"
             MOCK_PAYMENTS: "true"   # local kind only; refused at boot in staging/prod
             # payment.events relayer + order.events settlement consumer (always on)
             KAFKA_BROKERS: "redpanda.marketplace.svc:9092"

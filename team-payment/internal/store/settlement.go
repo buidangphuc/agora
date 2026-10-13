@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 var (
@@ -271,63 +273,61 @@ func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID
 	if sellerID == "" {
 		return CreditResult{}, errors.New("seller id is required")
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return CreditResult{}, fmt.Errorf("begin credit tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// The payment row lock orders this credit against a concurrent refund of the same
-	// payment (lock order: payment row, then seller lock).
-	var t PaymentTransaction
-	if err := scanTransaction(tx.QueryRow(ctx, settledTxSQL+` FOR UPDATE`, orderID), &t); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return CreditResult{}, ErrNotSettled
+	var res CreditResult
+	err := postgres.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		// The payment row lock orders this credit against a concurrent refund of the same
+		// payment (lock order: payment row, then seller lock).
+		var t PaymentTransaction
+		if err := scanTransaction(tx.QueryRow(ctx, settledTxSQL+` FOR UPDATE`, orderID), &t); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotSettled
+			}
+			return fmt.Errorf("lock settled payment tx: %w", err)
 		}
-		return CreditResult{}, fmt.Errorf("lock settled payment tx: %w", err)
-	}
-	if t.Amount <= 0 {
-		return CreditResult{}, ErrInvalidAmount
-	}
-	if err := lockSeller(ctx, tx, sellerID); err != nil {
-		return CreditResult{}, err
-	}
-	credit, credited, err := insertLedgerOnce(ctx, tx, LedgerEntry{
-		SellerID:    sellerID,
-		Type:        LedgerTypeOrderSettlement,
-		Amount:      t.Amount,
-		Status:      LedgerStatusCompleted,
-		ReferenceID: t.ID,
+		if t.Amount <= 0 {
+			return ErrInvalidAmount
+		}
+		if err := lockSeller(ctx, tx, sellerID); err != nil {
+			return err
+		}
+		credit, credited, err := insertLedgerOnce(ctx, tx, LedgerEntry{
+			SellerID:    sellerID,
+			Type:        LedgerTypeOrderSettlement,
+			Amount:      t.Amount,
+			Status:      LedgerStatusCompleted,
+			ReferenceID: t.ID,
+		})
+		if err != nil {
+			return err
+		}
+		res = CreditResult{Transaction: t, Credit: credit, Credited: credited}
+		// Refunds that landed before the credit: the credit path books their deductions, for
+		// the seller the credit belongs to (one per refund, design D3).
+		refunds, err := listRefunds(ctx, tx, t.ID)
+		if err != nil {
+			return err
+		}
+		lockedOwner := credit.SellerID == sellerID
+		for _, r := range refunds {
+			if r.Amount <= 0 {
+				continue
+			}
+			if !lockedOwner {
+				if err := lockSeller(ctx, tx, credit.SellerID); err != nil {
+					return err
+				}
+				lockedOwner = true
+			}
+			_, deducted, err := insertLedgerOnce(ctx, tx, refundDeduction(credit.SellerID, r.ID, r.Amount))
+			if err != nil {
+				return err
+			}
+			res.Deducted = res.Deducted || deducted
+		}
+		return nil
 	})
 	if err != nil {
 		return CreditResult{}, err
-	}
-	res := CreditResult{Transaction: t, Credit: credit, Credited: credited}
-	// Refunds that landed before the credit: the credit path books their deductions, for
-	// the seller the credit belongs to (one per refund, design D3).
-	refunds, err := listRefunds(ctx, tx, t.ID)
-	if err != nil {
-		return CreditResult{}, err
-	}
-	lockedOwner := credit.SellerID == sellerID
-	for _, r := range refunds {
-		if r.Amount <= 0 {
-			continue
-		}
-		if !lockedOwner {
-			if err := lockSeller(ctx, tx, credit.SellerID); err != nil {
-				return CreditResult{}, err
-			}
-			lockedOwner = true
-		}
-		_, deducted, err := insertLedgerOnce(ctx, tx, refundDeduction(credit.SellerID, r.ID, r.Amount))
-		if err != nil {
-			return CreditResult{}, err
-		}
-		res.Deducted = res.Deducted || deducted
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return CreditResult{}, fmt.Errorf("commit credit: %w", err)
 	}
 	return res, nil
 }
@@ -337,12 +337,20 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 	if err := validateRefundRequest(req); err != nil {
 		return RefundResult{}, err
 	}
-	tx, err := s.pool.Begin(ctx)
+	var res RefundResult
+	err := postgres.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		var err error
+		res, err = applyRefundTx(ctx, tx, req)
+		return err
+	})
 	if err != nil {
-		return RefundResult{}, fmt.Errorf("begin refund tx: %w", err)
+		return RefundResult{}, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	return res, nil
+}
 
+// applyRefundTx is the body of ApplyRefund, run inside its transaction.
+func applyRefundTx(ctx context.Context, tx pgx.Tx, req RefundRequest) (RefundResult, error) {
 	// 1. The payment row lock serialises every refund path of this payment.
 	var t PaymentTransaction
 	if err := scanTransaction(tx.QueryRow(ctx, `SELECT `+txColumns+` FROM payment_transactions WHERE id = $1 FOR UPDATE`, req.PaymentID), &t); err != nil {
@@ -417,9 +425,6 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 			}
 			res.Deducted = deducted
 		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return RefundResult{}, fmt.Errorf("commit refund: %w", err)
 	}
 	return res, nil
 }

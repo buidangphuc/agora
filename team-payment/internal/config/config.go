@@ -54,7 +54,8 @@ type Mock struct {
 }
 
 // Payout holds the refund hold-back on seller payouts (seller-payout-holdback, design D9).
-// Money config fails closed: an invalid value refuses startup naming the key.
+// Money config fails closed: an invalid value refuses startup naming the key. sdkconfig.Load
+// validates it like every other group.
 type Payout struct {
 	// HoldDays is the hold window in whole days, 0-3650; 0 disables the hold.
 	HoldDays int `env:"PAYOUT_HOLD_DAYS" default:"7"`
@@ -87,6 +88,12 @@ func (p Payout) resolve() (time.Duration, error) {
 	return d, nil
 }
 
+// Validate is called by sdkconfig.Load on the payout group.
+func (p Payout) Validate() error {
+	_, err := p.resolve()
+	return err
+}
+
 // Load reads Settings from the environment, validates it and resolves the payout window.
 func Load() (Settings, error) {
 	s, err := sdkconfig.Load[Settings]()
@@ -100,17 +107,14 @@ func Load() (Settings, error) {
 	return s, nil
 }
 
-// Validate enforces the cross-field invariants; sdkconfig.Load calls it after parsing.
-// It reports every invalid setting at once, so a refused boot names each offending key.
+// Validate holds the one check no SDK group makes: the gRPC port range. sdkconfig.Load
+// validates every group (ENV, GRPC_PORT, DATABASE_URL, PAYOUT_*) and joins all the errors with
+// this one, so a refused boot names each offending key once.
 func (s Settings) Validate() error {
-	errs := []error{s.GRPC.Validate()}
 	if s.Port > 65535 {
-		errs = append(errs, fmt.Errorf("GRPC_PORT out of range: %d", s.Port))
+		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
 	}
-	errs = append(errs, s.Postgres.Validate())
-	_, err := s.Payout.resolve()
-	errs = append(errs, err)
-	return errors.Join(errs...)
+	return nil
 }
 
 // IsProd reports whether this is a production environment (case-insensitive).
@@ -119,28 +123,14 @@ func (s Settings) IsProd() bool {
 	return e == "prod" || e == "production"
 }
 
-// strictEnvs are the environments in which development conveniences are refused.
-var strictEnvs = []string{"staging", "stage", "prod", "production"}
-
-// IsStrictEnv reports whether ENV names a shared environment (staging / production).
-func (s Settings) IsStrictEnv() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Env))
-	for _, strict := range strictEnvs {
-		if e == strict {
-			return true
-		}
-	}
-	return false
-}
-
 // RequireNoMockPayments is the boot guard against mock settlement in a shared
 // environment: MOCK_PAYMENTS=true with a strict ENV (staging/stage/prod/production)
 // refuses to start. Other environments always pass.
 func (s Settings) RequireNoMockPayments() error {
-	if !s.Mock.MockPayments || !s.IsStrictEnv() {
+	if !s.Mock.MockPayments || !s.IsStrict() {
 		return nil
 	}
 	return fmt.Errorf(
 		"refusing to start: MOCK_PAYMENTS=true is not allowed when ENV=%q (strict for ENV in %s); unset MOCK_PAYMENTS",
-		s.Env, strings.Join(strictEnvs, ", "))
+		s.Env, "staging, stage, prod, production")
 }

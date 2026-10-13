@@ -21,8 +21,19 @@ func TestNoEnableFlagsDeclared(t *testing.T) {
 			t.Errorf("Settings still declares %s", k)
 		}
 	}
-	// The SDK Outbox group is in: its keys now reach the relayer.
-	if !slices.Contains(keys, "OUTBOX_MAX_ATTEMPTS") {
-		t.Error("Settings does not declare OUTBOX_MAX_ATTEMPTS")
+	// The relayer has no attempt limit: the SDK Outbox group no longer carries the key, and
+	// the renamed duration keys are the ones that reach the relayer.
+	if slices.Contains(keys, "OUTBOX_MAX_ATTEMPTS") {
+		t.Error("Settings still declares OUTBOX_MAX_ATTEMPTS")
+	}
+	for _, k := range []string{"OUTBOX_CLAIM_LOCK", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY"} {
+		if !slices.Contains(keys, k) {
+			t.Errorf("Settings does not declare %s", k)
+		}
+	}
+	for _, k := range []string{"OUTBOX_CLAIM_LOCK_SECONDS", "SHUTDOWN_GRACE_SECONDS", "SHUTDOWN_DRAIN_DELAY_SECONDS"} {
+		if slices.Contains(keys, k) {
+			t.Errorf("Settings still declares %s", k)
+		}
 	}
 }

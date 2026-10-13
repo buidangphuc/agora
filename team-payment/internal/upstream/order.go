@@ -30,7 +30,7 @@ type OrderClient interface {
 // service principal on every call.
 type orderClient struct{ cli orderv1.OrderServiceClient }
 
-// NewOrderClient wraps conn (from the SDK upstream.Dial) as an OrderClient that
+// NewOrderClient wraps conn (from the SDK upstream.NewClient) as an OrderClient that
 // calls team-order as team-payment's service principal.
 func NewOrderClient(conn grpc.ClientConnInterface) OrderClient {
 	return orderClient{cli: orderv1.NewOrderServiceClient(conn)}

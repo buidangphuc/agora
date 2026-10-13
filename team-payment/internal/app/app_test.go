@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"sync"
 	"testing"
@@ -16,11 +13,13 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	"github.com/buidangphuc/team-payment/internal/app"
 	"github.com/buidangphuc/team-payment/internal/config"
+	"github.com/buidangphuc/team-payment/migrations"
 )
 
 func freePort(t *testing.T) int {
@@ -36,7 +35,7 @@ func freePort(t *testing.T) int {
 func baseSettings(env string, port int) config.Settings {
 	return config.Settings{
 		Runtime: sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 10},
+		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 10 * time.Second},
 		Kafka:   sdkconfig.Kafka{Brokers: "unused:9092"},
 		Events: config.Events{
 			PaymentTopic: "payment.events", OrderTopic: "order.events",
@@ -61,25 +60,30 @@ func TestBootFailsWhenDatabaseUnreachableDeployed(t *testing.T) {
 	_ = l.Close()
 }
 
-// fakeProducer publishes to memory; a key in failKeys always fails.
+// fakeProducer publishes to memory. A key in failKeys fails with a record-level error (the
+// relayer parks the row); a key in retryKeys fails with a transient one (it retries).
 type fakeProducer struct {
-	mu       sync.Mutex
-	failKeys map[string]bool
-	ok       []string
+	mu        sync.Mutex
+	failKeys  map[string]bool
+	retryKeys map[string]bool
+	ok        []string
 }
 
-func (p *fakeProducer) Publish(_ context.Context, _ string, key, _ []byte) error {
+func (p *fakeProducer) PublishRecord(_ context.Context, r *kgo.Record) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.failKeys[string(key)] {
-		return errors.New("broker rejected the record")
+	switch key := string(r.Key); {
+	case p.failKeys[key]:
+		return outbox.Permanent(errors.New("broker rejected the record"))
+	case p.retryKeys[key]:
+		return errors.New("broker unavailable")
+	default:
+		p.ok = append(p.ok, key)
+		return nil
 	}
-	p.ok = append(p.ok, string(key))
-	return nil
 }
 
-func (p *fakeProducer) PublishRecord(context.Context, *kgo.Record) error { return nil }
-func (p *fakeProducer) Close()                                           {}
+func (p *fakeProducer) Close() {}
 
 func (p *fakeProducer) published() []string {
 	p.mu.Lock()
@@ -87,37 +91,25 @@ func (p *fakeProducer) published() []string {
 	return append([]string(nil), p.ok...)
 }
 
-func applyMigrations(t *testing.T, pool *pgxpool.Pool) {
-	t.Helper()
-	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("find migrations: %v (n=%d)", err, len(files))
-	}
-	sort.Strings(files)
-	for _, f := range files {
-		sql, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(sql)); err != nil {
-			t.Fatalf("apply %s: %v", filepath.Base(f), err)
-		}
-	}
-}
-
 func TestOutboxRelayedViaSDK(t *testing.T) {
 	url := testkit.Postgres(t)
 	ctx := context.Background()
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatal(err)
+	}
 	admin, err := pgxpool.New(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	applyMigrations(t, admin)
 
-	store := outbox.NewStore(admin, "payment_outbox_events")
+	store, err := outbox.NewStore(admin, "payment_outbox_events")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, r := range []outbox.Row{
 		{EventID: "e-fail", AggregateType: "Payment", AggregateID: "order-fail", EventType: "t", Payload: []byte("a")},
+		{EventID: "e-retry", AggregateType: "Payment", AggregateID: "order-retry", EventType: "t", Payload: []byte("c")},
 		{EventID: "e-ok", AggregateType: "Payment", AggregateID: "order-ok", EventType: "t", Payload: []byte("b")},
 	} {
 		tx, err := admin.Begin(ctx)
@@ -134,10 +126,10 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 
 	s := baseSettings("local", freePort(t))
 	s.Postgres = sdkconfig.Postgres{URL: url, MaxConns: 4}
-	// OUTBOX_* now reach the relayer: payment used to ignore them.
-	s.Outbox = sdkconfig.Outbox{PollInterval: 10 * time.Millisecond, BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3}
+	// OUTBOX_* reach the relayer.
+	s.Outbox = sdkconfig.Outbox{PollInterval: 10 * time.Millisecond, BatchSize: 10, ClaimLock: time.Minute}
 
-	prod := &fakeProducer{failKeys: map[string]bool{"order-fail": true}}
+	prod := &fakeProducer{failKeys: map[string]bool{"order-fail": true}, retryKeys: map[string]bool{"order-retry": true}}
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() {
@@ -154,17 +146,22 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 	}
 	deadline := time.Now().Add(40 * time.Second)
 	for {
-		st, att := status("e-fail")
-		if st == "failed" && att == 3 {
+		failed, _ := status("e-fail")
+		_, retries := status("e-retry")
+		if failed == "failed" && retries >= 2 {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("e-fail: status=%s attempts=%d, want parked failed after OUTBOX_MAX_ATTEMPTS=3", st, att)
+			t.Fatalf("e-fail status=%s, e-retry attempts=%d, want e-fail parked and e-retry retried", failed, retries)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 	if st, _ := status("e-ok"); st != "published" {
-		t.Fatalf("e-ok status = %s, want published despite the failing row", st)
+		t.Fatalf("e-ok status = %s, want published despite the failing rows", st)
+	}
+	// A transient error never parks the row: it stays pending and retries with backoff.
+	if st, _ := status("e-retry"); st != "pending" {
+		t.Fatalf("e-retry status = %s, want pending (transient errors never park)", st)
 	}
 	if got := prod.published(); len(got) != 1 || got[0] != "order-ok" {
 		t.Fatalf("published keys = %v, want [order-ok]", got)

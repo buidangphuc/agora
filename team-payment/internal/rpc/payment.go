@@ -11,15 +11,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-payment/internal/payment"
 	"github.com/buidangphuc/team-payment/internal/store"
 )
-
-// principalTypeUser is the forwarded principal type of an end user.
-const principalTypeUser = "user"
 
 // PaymentHandler is the PaymentService gRPC adapter.
 type PaymentHandler struct {
@@ -51,15 +48,6 @@ func NewPaymentHandler(svc *payment.Service, logger *slog.Logger, opts ...Option
 	return h
 }
 
-// internalError logs the cause and returns a fixed INTERNAL status, so storage,
-// SQL or upstream error text never reaches the caller.
-func (h *PaymentHandler) internalError(ctx context.Context, op string, err error) error {
-	reqID := reqctx.RequestID(ctx)
-	h.logger.ErrorContext(ctx, op+" failed",
-		"request_id", reqID, "err", err)
-	return status.Error(codes.Internal, "internal error")
-}
-
 // CreatePayment is the create payment operation of PaymentHandler.
 func (h *PaymentHandler) CreatePayment(ctx context.Context, req *paymentv1.CreatePaymentRequest) (*paymentv1.CreatePaymentResponse, error) {
 	principal, err := auth.RequirePrincipal(ctx)
@@ -72,16 +60,7 @@ func (h *PaymentHandler) CreatePayment(ctx context.Context, req *paymentv1.Creat
 
 	tx, url, err := h.svc.CreatePayment(ctx, req.GetOrderId(), principal.ID, store.PaymentMethod(req.GetMethod()))
 	if err != nil {
-		if errors.Is(err, payment.ErrOrderNotFound) {
-			return nil, status.Error(codes.NotFound, "order not found")
-		}
-		if errors.Is(err, payment.ErrNotOrderBuyer) {
-			return nil, status.Error(codes.PermissionDenied, "only the order's buyer can pay for it")
-		}
-		if errors.Is(err, payment.ErrInvalidOrderState) {
-			return nil, status.Error(codes.FailedPrecondition, "order is not in pending state")
-		}
-		return nil, h.internalError(ctx, "create payment", err)
+		return nil, grpcx.Status(ctx, h.logger, err, createErrs)
 	}
 
 	return &paymentv1.CreatePaymentResponse{
@@ -98,7 +77,7 @@ func requireBuyerOrAdmin(principal auth.Principal, buyerID string) error {
 	if principal.HasScope("admin") {
 		return nil
 	}
-	if principal.Type == principalTypeUser &&
+	if principal.Type == auth.TypeUser &&
 		buyerID != "" && principal.ID == buyerID {
 		return nil
 	}
@@ -112,18 +91,12 @@ func (h *PaymentHandler) requirePaymentReader(ctx context.Context, principal aut
 	if requireBuyerOrAdmin(principal, tx.BuyerID) == nil {
 		return nil
 	}
-	if principal.Type != principalTypeUser || principal.ID == "" {
+	if principal.Type != auth.TypeUser || principal.ID == "" {
 		return status.Error(codes.PermissionDenied, "not allowed to access this payment")
 	}
 	sellerID, err := h.svc.OrderSellerID(ctx, tx.OrderID)
 	if err != nil {
-		if errors.Is(err, payment.ErrOrderServiceUnavailable) {
-			return status.Error(codes.Unavailable, "order service unavailable")
-		}
-		if errors.Is(err, payment.ErrOrderNotFound) {
-			return status.Error(codes.NotFound, "order not found")
-		}
-		return h.internalError(ctx, "resolve order seller", err)
+		return grpcx.Status(ctx, h.logger, err, sellerLookupErrs)
 	}
 	if sellerID == "" || sellerID != principal.ID {
 		return status.Error(codes.PermissionDenied, "not allowed to access this payment")
@@ -143,10 +116,7 @@ func (h *PaymentHandler) GetPayment(ctx context.Context, req *paymentv1.GetPayme
 
 	tx, err := h.svc.GetPayment(ctx, req.GetId(), req.GetOrderId())
 	if err != nil {
-		if errors.Is(err, store.ErrTransactionNotFound) {
-			return nil, status.Error(codes.NotFound, "transaction not found")
-		}
-		return nil, h.internalError(ctx, "get payment", err)
+		return nil, grpcx.Status(ctx, h.logger, err, getErrs)
 	}
 	if err := h.requirePaymentReader(ctx, principal, tx); err != nil {
 		return nil, err
@@ -172,10 +142,7 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 
 	existing, err := h.svc.GetPayment(ctx, req.GetTransactionId(), "")
 	if err != nil {
-		if errors.Is(err, store.ErrTransactionNotFound) {
-			return nil, status.Error(codes.NotFound, "transaction not found")
-		}
-		return nil, h.internalError(ctx, "get payment", err)
+		return nil, grpcx.Status(ctx, h.logger, err, getErrs)
 	}
 	if err := requireBuyerOrAdmin(principal, existing.BuyerID); err != nil {
 		return nil, err
@@ -183,13 +150,7 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 
 	tx, success, msg, err := h.svc.ProcessMockPayment(ctx, req.GetTransactionId(), req.GetSimulateSuccess())
 	if err != nil {
-		if errors.Is(err, store.ErrTransactionNotFound) {
-			return nil, status.Error(codes.NotFound, "transaction not found")
-		}
-		if errors.Is(err, payment.ErrPaymentRefunded) {
-			return nil, status.Error(codes.FailedPrecondition, payment.ErrPaymentRefunded.Error())
-		}
-		return nil, h.internalError(ctx, "process mock payment", err)
+		return nil, grpcx.Status(ctx, h.logger, err, mockErrs)
 	}
 
 	return &paymentv1.ProcessMockPaymentResponse{
@@ -210,7 +171,7 @@ func (h *PaymentHandler) GetSellerWallet(ctx context.Context, req *paymentv1.Get
 
 	wallet, err := h.svc.GetSellerWallet(ctx, sellerID)
 	if err != nil {
-		return nil, h.internalError(ctx, "get seller wallet", err)
+		return nil, grpcx.Status(ctx, h.logger, err, grpcx.ErrorTable{})
 	}
 
 	return &paymentv1.GetSellerWalletResponse{
@@ -236,17 +197,11 @@ func (h *PaymentHandler) RequestPayout(ctx context.Context, req *paymentv1.Reque
 
 	payout, err := h.svc.RequestPayout(ctx, sellerID, req.GetAmount(), req.GetBankCode(), req.GetAccountNumber(), req.GetAccountName())
 	if err != nil {
-		if errors.Is(err, store.ErrInsufficientBalance) {
-			return nil, status.Error(codes.FailedPrecondition, "insufficient wallet balance")
-		}
-		if errors.Is(err, store.ErrInvalidAmount) {
-			return nil, status.Error(codes.InvalidArgument, "invalid payout amount")
-		}
 		if held := (*store.FundsOnHoldError)(nil); errors.As(err, &held) {
 			// "amount is held until <RFC3339> (refund window)": the instant only, no amounts.
 			return nil, status.Error(codes.FailedPrecondition, held.Error())
 		}
-		return nil, h.internalError(ctx, "request payout", err)
+		return nil, grpcx.Status(ctx, h.logger, err, payoutErrs)
 	}
 
 	return &paymentv1.RequestPayoutResponse{
@@ -263,7 +218,7 @@ func (h *PaymentHandler) ListPayoutHistory(ctx context.Context, req *paymentv1.L
 
 	payouts, err := h.svc.ListPayoutHistory(ctx, sellerID)
 	if err != nil {
-		return nil, h.internalError(ctx, "list payout history", err)
+		return nil, grpcx.Status(ctx, h.logger, err, grpcx.ErrorTable{})
 	}
 
 	wirePayouts := make([]*paymentv1.PayoutRequest, 0, len(payouts))
@@ -297,23 +252,14 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 	// approving a return): the order's seller, or a principal with the admin scope.
 	target, err := h.svc.FindTransaction(ctx, req.GetPaymentId())
 	if err != nil {
-		if errors.Is(err, store.ErrTransactionNotFound) {
-			return nil, status.Error(codes.NotFound, "transaction not found")
-		}
-		return nil, h.internalError(ctx, "refund payment", err)
+		return nil, grpcx.Status(ctx, h.logger, err, refundLookupErrs)
 	}
 	if !principal.HasScope("admin") {
 		sellerID, err := h.svc.OrderSellerID(ctx, target.OrderID)
 		if err != nil {
-			if errors.Is(err, payment.ErrOrderServiceUnavailable) {
-				return nil, status.Error(codes.Unavailable, "order service unavailable")
-			}
-			if errors.Is(err, payment.ErrOrderNotFound) {
-				return nil, status.Error(codes.NotFound, "order not found")
-			}
-			return nil, h.internalError(ctx, "resolve order seller", err)
+			return nil, grpcx.Status(ctx, h.logger, err, sellerLookupErrs)
 		}
-		if principal.Type != principalTypeUser ||
+		if principal.Type != auth.TypeUser ||
 			sellerID == "" || principal.ID != sellerID {
 			return nil, status.Error(codes.PermissionDenied, "only the order's seller or an admin can refund a payment")
 		}
@@ -321,22 +267,7 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 
 	tx, success, msg, err := h.svc.RefundPayment(ctx, target.ID, req.GetRefundId(), req.GetAmount(), req.GetReason())
 	if err != nil {
-		if errors.Is(err, store.ErrTransactionNotFound) {
-			return nil, status.Error(codes.NotFound, "transaction not found")
-		}
-		if errors.Is(err, payment.ErrExceedsRemainder) {
-			return nil, status.Error(codes.FailedPrecondition, "refund amount exceeds the refundable remainder")
-		}
-		if errors.Is(err, payment.ErrInvalidRefund) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
-		}
-		if errors.Is(err, payment.ErrRefundIDConflict) {
-			return nil, status.Error(codes.AlreadyExists, "refund_id was already used for another payment or amount")
-		}
-		if errors.Is(err, payment.ErrInvalidRefundID) || errors.Is(err, payment.ErrInvalidAmount) {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-		return nil, h.internalError(ctx, "refund payment", err)
+		return nil, grpcx.Status(ctx, h.logger, err, refundErrs)
 	}
 
 	return &paymentv1.RefundPaymentResponse{

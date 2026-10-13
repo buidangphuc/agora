@@ -9,10 +9,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 
 	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/payment"
 	"github.com/buidangphuc/team-payment/internal/store"
 )
 
@@ -28,7 +28,7 @@ func sellerAccess(ctx context.Context, requested string, adminRead bool) (string
 	if err != nil {
 		return "", err
 	}
-	isUser := principal.Type == principalTypeUser
+	isUser := principal.Type == auth.TypeUser
 	if requested == "" || requested == principal.ID {
 		if isUser {
 			return principal.ID, nil
@@ -65,7 +65,7 @@ func (h *PaymentHandler) GetWalletBalance(ctx context.Context, req *paymentv1.Ge
 
 	balance, err := h.svc.GetWalletBalance(ctx, sellerID)
 	if err != nil {
-		return nil, h.internalError(ctx, "get wallet balance", err)
+		return nil, grpcx.Status(ctx, h.logger, err, grpcx.ErrorTable{})
 	}
 
 	return &paymentv1.GetWalletBalanceResponse{Balance: balance}, nil
@@ -80,10 +80,7 @@ func (h *PaymentHandler) ListLedgerEntries(ctx context.Context, req *paymentv1.L
 
 	entries, next, total, err := h.svc.ListLedgerEntries(ctx, sellerID, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
 	if err != nil {
-		if errors.Is(err, payment.ErrInvalidPageToken) {
-			return nil, status.Error(codes.InvalidArgument, "invalid page cursor")
-		}
-		return nil, h.internalError(ctx, "list ledger entries", err)
+		return nil, grpcx.Status(ctx, h.logger, err, ledgerErrs)
 	}
 
 	wireEntries := make([]*paymentv1.WalletEntry, 0, len(entries))
@@ -115,17 +112,11 @@ func (h *PaymentHandler) RequestWalletPayout(ctx context.Context, req *paymentv1
 
 	entry, err := h.svc.RequestWalletPayout(ctx, sellerID, req.GetAmount())
 	if err != nil {
-		if errors.Is(err, store.ErrInvalidAmount) {
-			return nil, status.Error(codes.InvalidArgument, "amount must be positive")
-		}
-		if errors.Is(err, store.ErrInsufficientBalance) {
-			return nil, status.Error(codes.FailedPrecondition, "insufficient wallet balance")
-		}
 		if held := (*store.FundsOnHoldError)(nil); errors.As(err, &held) {
 			// "amount is held until <RFC3339> (refund window)": the instant only, no amounts.
 			return nil, status.Error(codes.FailedPrecondition, held.Error())
 		}
-		return nil, h.internalError(ctx, "request wallet payout", err)
+		return nil, grpcx.Status(ctx, h.logger, err, walletPayoutErrs)
 	}
 
 	return &paymentv1.RequestWalletPayoutResponse{Entry: toWireLedgerEntry(entry)}, nil

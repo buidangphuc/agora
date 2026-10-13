@@ -37,7 +37,7 @@ func TestServicePrincipalInterceptor_SetsServicePrincipal(t *testing.T) {
 	go func() { _ = gs.Serve(lis) }()
 	defer gs.Stop()
 
-	conn, err := sdkupstream.Dial(lis.Addr().String())
+	conn, err := sdkupstream.NewClient(lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}

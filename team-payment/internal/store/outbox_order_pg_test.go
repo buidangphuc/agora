@@ -2,60 +2,52 @@ package store
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 
 	"github.com/buidangphuc/team-payment/internal/pgtest"
 )
 
-// Regression: UPDATE ... RETURNING does not preserve the claim subquery's ORDER BY,
-// so two events for one aggregate in the same batch could be relayed newest-first
-// (a consumer diffing snapshots then misses a price drop). Rows are inserted so the
-// physical order is the reverse of created_at; the claim must still return them
-// oldest-first. Runs against a disposable Postgres (pgtest).
+// Regression: UPDATE ... RETURNING does not preserve the claim subquery's ORDER BY, and a
+// retried row is rewritten (it moves in the heap), so two events for one aggregate in the same
+// batch could be relayed newest-first (a consumer diffing snapshots then misses a price drop).
+// The first event is updated after both are enqueued, so its physical position is after the
+// second; the relayer must still publish them oldest-first (v1 orders by seq). Runs against a
+// disposable Postgres (pgtest).
 func TestClaimPendingKeepsCreationOrder_Postgres(t *testing.T) {
-	dsn := pgtest.URL(t)
+	pool := pgtest.Pool(t)
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
+	st, err := outbox.NewStore(pool, "payment_outbox_events")
 	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
+		t.Fatal(err)
 	}
-	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	ddl, err := os.ReadFile(filepath.Join("..", "..", "migrations", "0003_payment_outbox.up.sql"))
-	if err != nil {
-		t.Fatalf("read migration: %v", err)
-	}
-	if _, err := pool.Exec(ctx, string(ddl)); err != nil {
-		t.Fatalf("apply migration: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `DELETE FROM payment_outbox_events`); err != nil {
-		t.Fatalf("reset table: %v", err)
-	}
-
-	base := time.Now().Add(-time.Minute)
-	// Inserted newer-first so heap order disagrees with created_at.
-	for _, r := range []struct {
-		id  string
-		age time.Duration
-	}{{"evt-updated", 2 * time.Second}, {"evt-created", 0}} {
-		if _, err := pool.Exec(ctx, `INSERT INTO payment_outbox_events
-			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at)
-			VALUES ($1, 'Agg', 'agg-1', 'T', convert_to($1, 'UTF8'), '', 'pending', 0, $2, $2)`, r.id, base.Add(r.age)); err != nil {
-			t.Fatalf("insert %s: %v", r.id, err)
+	for _, id := range []string{"evt-created", "evt-updated"} {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
 		}
+		row := outbox.Row{EventID: id, AggregateType: "Agg", AggregateID: "agg-1", EventType: "T", Payload: []byte(id)}
+		if err := st.EnqueueTx(ctx, tx, row); err != nil {
+			t.Fatalf("enqueue %s: %v", id, err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The retry: rewrites the first row so it now sits after the second in the heap.
+	if _, err := pool.Exec(ctx, `UPDATE payment_outbox_events SET attempts = 1, available_at = now() WHERE event_id = 'evt-created'`); err != nil {
+		t.Fatal(err)
 	}
 
 	pub := &orderPublisher{}
-	rep, err := outbox.NewRelayer(outbox.NewStore(pool, "payment_outbox_events"), pub, outbox.RelayerOptions{Topic: "payment.events"}).RelayOnce(ctx)
+	rl, err := outbox.NewRelayer(st, pub, outbox.RelayerOptions{Topic: "payment.events"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep, err := rl.RelayOnce(ctx)
 	if err != nil {
 		t.Fatalf("relay: %v", err)
 	}
@@ -68,7 +60,7 @@ func TestClaimPendingKeepsCreationOrder_Postgres(t *testing.T) {
 // orderPublisher records the payload each row was published with, in order.
 type orderPublisher struct{ keys []string }
 
-func (p *orderPublisher) Publish(_ context.Context, _ string, _, value []byte) error {
-	p.keys = append(p.keys, string(value))
+func (p *orderPublisher) PublishRecord(_ context.Context, r *kgo.Record) error {
+	p.keys = append(p.keys, string(r.Value))
 	return nil
 }

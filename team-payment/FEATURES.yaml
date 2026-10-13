@@ -1354,10 +1354,36 @@ features:
     services: [team-payment]
     acceptance:
       - "When two rows are enqueued and publishing the first fails"
-      - "Then the second is published, and the first is retried with backoff and parked after `OUTBOX_MAX_ATTEMPTS`"
+      - "Then the second is published, and the first is retried with backoff and is never parked by a transient error (go-sdk v1 has no attempt limit; only an error permanent for the record parks a row)"
     tags: [payment-runtime, unit]
     status: not-testable
     notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/app TestOutboxRelayedViaSDK (testkit Postgres)."
+
+  - id: payment-runtime.team-payment-outbox-table-upgrades-to-the-go-sdk-v1-schema-in-creation-order
+    title: "Team-payment outbox table upgrades to the go-sdk v1 schema in creation order"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When the forward migrations 0008-0017 run on an outbox table of the previous schema that holds rows, including a retried row and rows of one order"
+      - "Then every row has a unique `seq` in `(created_at, event_id)` order, `seq` is NOT NULL with a default for new rows, the v1 indexes exist and the v0 claim index is gone, and the SDK relayer publishes an order's rows in creation order"
+    tags: [payment-runtime, integration]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/store TestOutboxUpgradeFromV0_Postgres (testkit Postgres)."
+
+  - id: payment-runtime.team-payment-keeps-its-client-visible-error-text-when-the-order-lookup-fails
+    title: "Team-payment keeps its client-visible error text when the order lookup fails"
+    persona: buyer
+    priority: P2
+    entry_route: /
+    services: [team-payment]
+    acceptance:
+      - "When team-order is down or refuses `GetOrder` during `GetPayment`, `RefundPayment` or `CreatePayment`"
+      - "Then the caller gets `Unavailable` \"order service unavailable\" or `NotFound` \"order not found\", never team-order's own code or text"
+    tags: [payment-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/rpc TestOrderLookupFailureKeepsClientText."
 
   - id: payment-runtime.team-payment-consumer-does-not-commit-when-the-dlq-produce-fails
     title: "Team-payment consumer does not commit when the DLQ produce fails"
@@ -1393,7 +1419,7 @@ features:
     services: [team-payment]
     acceptance:
       - "When `DATABASE_URL` is empty and `PAYOUT_HOLD_WINDOW` is invalid"
-      - "Then Validate's error mentions both `DATABASE_URL` and `PAYOUT_HOLD_WINDOW`"
+      - "Then the error of `Load` (SDK group validation plus `Settings.Validate`) mentions both `DATABASE_URL` and `PAYOUT_HOLD_WINDOW`, each once"
     tags: [payment-runtime, unit]
     status: not-testable
     notes: "migrate-team-payment-to-go-sdk: not producible end to end; verified by team-payment/internal/config TestValidateNamesEveryInvalidSetting."
