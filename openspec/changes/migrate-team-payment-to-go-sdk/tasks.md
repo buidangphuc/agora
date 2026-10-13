@@ -16,3 +16,13 @@ Owns: `team-payment/internal/config/**`, and the box ticks.
 - [x] 2.1 Write `TestValidateNamesEveryInvalidSetting` first and see it red (an empty `DATABASE_URL` plus an invalid `PAYOUT_HOLD_WINDOW`, and `MOCK_PAYMENTS=true` in production).
 - [x] 2.2 Make `Settings.Validate` collect every error with `errors.Join` (GRPC, Postgres, payout hold keys, mock-payments guard) instead of returning the first. Verify `make check` (Docker).
 - [x] 2.3 Add the `not-testable` FEATURES entry. Verify `features-check`, `spec_sync --strict`, `openspec validate --strict`, `red_first`.
+
+## 3. Use existing SDK packages instead of local copies
+
+Behaviour, wire messages and env names stay the same; existing tests keep their assertions. Where a switch would change a client-visible message or a retry rule, leave that site and note it in the report.
+
+Owns: `team-payment/**` except `third_party/**`.
+
+- [ ] 3.1 Use `pgx.WithTx` for hand-rolled transactions. Verify `make check`.
+- [ ] 3.2 Full-apply migration tests use `migrate.Up` (partial tests keep raw SQL). Verify `make check`.
+- [ ] 3.3 Use `grpcx.Status` + `ErrorTable` where the client message stays identical. Verify `make check`.
