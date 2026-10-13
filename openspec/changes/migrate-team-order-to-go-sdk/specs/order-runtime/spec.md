@@ -53,7 +53,7 @@ Migrations `0009` to `0018` SHALL implement `outbox.UpgradeSQL` for `order_outbo
 
 #### Scenario: Events pending before the upgrade are relayed in creation order
 - **WHEN** the migrations run on a table in the previous schema that holds rows of one aggregate, one of them retried, and the SDK relayer then runs
-- **THEN** every row has a unique `seq` in creation order, the v1 indexes are valid, and the events of the aggregate are published oldest first
+- **THEN** every row has a unique `seq` in creation order and no row is left without one, the v1 indexes are valid, the v0 claim index is not left behind, and the events of the aggregate are published oldest first
 - **VERIFIED BY**: `team-order/internal/store` `TestOutboxUpgradeMigrationsKeepEventOrder` (testkit Postgres)
 
 ### Requirement: Settings follow go-sdk v1
