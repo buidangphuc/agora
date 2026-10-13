@@ -3,9 +3,6 @@ package events_test
 import (
 	"context"
 	"errors"
-	"io/fs"
-	"sort"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,6 +15,7 @@ import (
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
@@ -34,36 +32,19 @@ const (
 	paymentDLQTopic     = "payment.events.dlq"
 )
 
-// orderDB starts Postgres with every migration applied.
+// orderDB opens a schema of the shared Postgres with every migration applied.
 func orderDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, testkit.Postgres(t))
+	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
+	if err := migrate.Up(ctx, dsn, migrations.Files); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(pool.Close)
-
-	entries, err := fs.ReadDir(migrations.Files, ".")
-	if err != nil {
-		t.Fatalf("read embedded migrations: %v", err)
-	}
-	var names []string
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".up.sql") {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		sqlBytes, err := fs.ReadFile(migrations.Files, n)
-		if err != nil {
-			t.Fatalf("read %s: %v", n, err)
-		}
-		if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
-			t.Fatalf("apply %s: %v", n, err)
-		}
-	}
 	return pool
 }
 
@@ -305,7 +286,11 @@ func TestPaymentEventNotLostWhenDLQFails(t *testing.T) {
 	}
 	runCtx, stop := context.WithTimeout(ctx, 90*time.Second)
 	defer stop()
-	runErr := consume.NewConsumer(first, handler.Handle, failingDLQ{}, opts).Run(runCtx)
+	failing, err := consume.NewConsumer(first, handler.Handle, failingDLQ{}, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runErr := failing.Run(runCtx)
 	first.Close()
 	if runErr == nil || runCtx.Err() != nil {
 		t.Fatalf("the consumer must stop with an error when the DLQ produce fails, got %v (ctx %v)", runErr, runCtx.Err())
@@ -325,7 +310,11 @@ func TestPaymentEventNotLostWhenDLQFails(t *testing.T) {
 	defer dlq.Close()
 	restartCtx, stopRestart := context.WithCancel(ctx)
 	done := make(chan error, 1)
-	go func() { done <- consume.NewConsumer(second, handler.Handle, dlq, opts).Run(restartCtx) }()
+	restarted, err := consume.NewConsumer(second, handler.Handle, dlq, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { done <- restarted.Run(restartCtx) }()
 	defer func() { stopRestart(); <-done }()
 
 	reader, err := kgo.NewClient(kgo.SeedBrokers(brokers), kgo.ConsumeTopics(paymentDLQTopic), kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))

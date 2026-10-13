@@ -41,6 +41,7 @@ func TestOutboxAndKafkaDefaults(t *testing.T) {
 	for _, k := range []string{"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "ORDER_EVENTS_TOPIC"} {
 		os.Unsetenv(k)
 	}
+	t.Setenv("ENV", "test")
 	t.Setenv("GRPC_PORT", "50055")
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	cfg, err := config.Load()
@@ -55,29 +56,30 @@ func TestOutboxAndKafkaDefaults(t *testing.T) {
 	}
 }
 
-func TestRequireDurableStorage(t *testing.T) {
-	cases := []struct {
-		env     string
-		pool    bool
-		wantErr bool
-	}{
-		{"local", false, false},
-		{"test", false, false},
-		{"", false, false},
-		{"staging", false, true},
-		{"staging", true, false},
-		{"prod", false, true},
-		{" Production ", false, true},
-		{"production", true, false},
+// ENV has no default: a deployment that forgets it fails at load instead of
+// running as local.
+func TestLoadRequiresEnv(t *testing.T) {
+	t.Setenv("ENV", "")
+	t.Setenv("GRPC_PORT", "50055")
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("Load without ENV = %v, want an error naming ENV", err)
 	}
-	for _, tc := range cases {
-		s := &config.Settings{
-			Runtime: sdkconfig.Runtime{Env: tc.env},
-		}
-		err := s.RequireDurableStorage(tc.pool)
-		if (err != nil) != tc.wantErr {
-			t.Errorf("ENV=%q pool=%v: err=%v wantErr=%v", tc.env, tc.pool, err, tc.wantErr)
-		}
+}
+
+// An explicitly empty duration key stays empty (keepempty), so it reaches the
+// fallback with a warning instead of silently taking the default.
+func TestExplicitlyEmptyReservationKeyWarns(t *testing.T) {
+	t.Setenv("ENV", "test")
+	t.Setenv("GRPC_PORT", "50055")
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("RESERVATION_TTL", "")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, w := cfg.ReservationTTL(); d != 15*time.Minute || !strings.Contains(w, "RESERVATION_TTL") {
+		t.Fatalf("ttl=%s warn=%q, want default with a warning naming the key", d, w)
 	}
 }
 
@@ -116,6 +118,7 @@ func TestReservationDurations(t *testing.T) {
 }
 
 func TestReservationDefaultsFromEnv(t *testing.T) {
+	t.Setenv("ENV", "test")
 	t.Setenv("GRPC_PORT", "50055")
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("RESERVATION_TTL", "banana")

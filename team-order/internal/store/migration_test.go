@@ -58,7 +58,7 @@ func execDown(t *testing.T, pool *pgxpool.Pool, name string) {
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool, err := pgxpool.New(context.Background(), testkit.Postgres(t))
+	pool, err := pgxpool.New(context.Background(), testkit.Schema(t, testkit.SharedPostgres(t)))
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -74,7 +74,7 @@ func seen(t *testing.T, pool *pgxpool.Pool, consumerName, eventID string) bool {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	already, err := consume.NewDedupe("").Seen(ctx, tx, consumerName, eventID)
+	already, err := consume.Dedupe{}.Seen(ctx, tx, consumerName, eventID)
 	if err != nil {
 		t.Fatalf("Seen(%s, %s): %v", consumerName, eventID, err)
 	}

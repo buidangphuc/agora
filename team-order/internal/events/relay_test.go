@@ -3,7 +3,6 @@ package events_test
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
@@ -11,11 +10,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
@@ -23,39 +24,26 @@ import (
 	"github.com/buidangphuc/team-order/internal/store"
 )
 
-type sent struct {
-	topic string
-	key   string
-	value []byte
-}
-
-// recorder is an outbox.Publisher that records what the relayer produced.
-type recorder struct {
-	mu   sync.Mutex
-	sent []sent
-	err  error
-}
-
-func (r *recorder) Publish(_ context.Context, topic string, key, value []byte) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.err != nil {
-		return r.err
-	}
-	r.sent = append(r.sent, sent{topic, string(key), value})
-	return nil
-}
-
-func (r *recorder) all() []sent {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return append([]sent(nil), r.sent...)
-}
-
-func newRelayer(pool *pgxpool.Pool, pub outbox.Publisher, cfg sdkconfig.Outbox, base time.Duration) *outbox.Relayer {
-	return outbox.NewRelayer(outbox.NewStore(pool, store.OutboxTable), pub, outbox.RelayerOptions{
+func newRelayer(t *testing.T, pool *pgxpool.Pool, pub outbox.Publisher, cfg sdkconfig.Outbox, base time.Duration) *outbox.Relayer {
+	t.Helper()
+	queue, err := outbox.NewStore(pool, store.OutboxTable)
+	require.NoError(t, err)
+	relayer, err := outbox.NewRelayer(queue, pub, outbox.RelayerOptions{
 		Topic: events.OrderEventsTopic, Config: cfg, BaseBackoff: base, MaxBackoff: base,
 	})
+	require.NoError(t, err)
+	return relayer
+}
+
+// permanentPublisher accepts every record but the one with key bad, which it fails
+// with an error no retry can fix.
+type permanentPublisher struct{ bad string }
+
+func (p permanentPublisher) PublishRecord(_ context.Context, r *kgo.Record) error {
+	if string(r.Key) == p.bad {
+		return outbox.Permanent(errors.New("record rejected by the broker"))
+	}
+	return nil
 }
 
 func sampleOrder() store.Order {
@@ -77,8 +65,8 @@ func TestRelayerPublishesAndMarksPublished(t *testing.T) {
 	ctx := context.Background()
 	pool := orderDB(t)
 	orders := store.NewPostgresOrderRepository(pool, store.WithPaidOutbox(events.BuildPaidOutboxRow))
-	pub := &recorder{}
-	relayer := newRelayer(pool, pub, sdkconfig.Outbox{BatchSize: 10}, 0)
+	pub := testkit.NewRecorder()
+	relayer := newRelayer(t, pool, pub, sdkconfig.Outbox{BatchSize: 10}, 0)
 
 	created, err := orders.CreateOrder(ctx, sampleOrder())
 	require.NoError(t, err)
@@ -88,46 +76,64 @@ func TestRelayerPublishesAndMarksPublished(t *testing.T) {
 	rep, err := relayer.RelayOnce(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 1, rep.Published)
-	got := pub.all()
+	got := pub.Records()
 	require.Len(t, got, 1)
-	assert.Equal(t, events.OrderEventsTopic, got[0].topic)
-	assert.Equal(t, created.ID, got[0].key)
+	assert.Equal(t, events.OrderEventsTopic, got[0].Topic)
+	assert.Equal(t, created.ID, string(got[0].Key))
 	var stored []byte
 	require.NoError(t, pool.QueryRow(ctx, `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1`, created.ID).Scan(&stored))
-	assert.Equal(t, stored, got[0].value)
+	assert.Equal(t, stored, got[0].Value)
 
 	rep, err = relayer.RelayOnce(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 0, rep.Published, "published rows are not re-sent")
-	assert.Len(t, pub.all(), 1)
+	assert.Len(t, pub.Records(), 1)
 }
 
+// go-sdk v1 retries every transient publish error forever with capped backoff
+// (OUTBOX_MAX_ATTEMPTS is gone), so a broker outage never parks a row; only an
+// error that is permanent for the record parks it, at once.
 func TestRelayerRetriesThenParks(t *testing.T) {
 	ctx := context.Background()
 	pool := orderDB(t)
-	require.NoError(t, sdkpgx.WithTx(ctx, pool, func(tx pgx.Tx) error {
-		return outbox.NewStore(pool, store.OutboxTable).EnqueueTx(ctx, tx, store.OutboxRow{
-			EventID: "e1", AggregateType: "Order", AggregateID: "o1", EventType: "t", Payload: []byte("x"),
-		})
-	}))
-	pub := &recorder{err: errors.New("broker down")}
-	relayer := newRelayer(pool, pub, sdkconfig.Outbox{MaxAttempts: 3}, time.Millisecond)
+	queue, err := outbox.NewStore(pool, store.OutboxTable)
+	require.NoError(t, err)
+	enqueue := func(id string) {
+		require.NoError(t, postgres.WithTx(ctx, pool, func(tx pgx.Tx) error {
+			return queue.EnqueueTx(ctx, tx, store.OutboxRow{
+				EventID: id, AggregateType: "Order", AggregateID: id, EventType: "t", Payload: []byte("x"),
+			})
+		}))
+	}
+	statusOf := func(id string) string {
+		var status string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM order_outbox_events WHERE event_id = $1`, id).Scan(&status))
+		return status
+	}
 
-	for i := 0; i < 3; i++ {
+	// A broker outage: claimed on every pass, never published, never parked.
+	enqueue("e1")
+	down := testkit.NewRecorder()
+	down.FailOn("e1")
+	relayer := newRelayer(t, pool, down, sdkconfig.Outbox{}, time.Millisecond)
+	for i := 0; i < 4; i++ {
 		time.Sleep(20 * time.Millisecond) // let the backoff gate open
 		rep, err := relayer.RelayOnce(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, 0, rep.Published)
 		assert.Equal(t, 1, rep.Claimed)
 	}
-	// Parked after MaxAttempts: no longer claimed.
-	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, "pending", statusOf("e1"), "a transient publish error must not park the row")
+
+	// A record the broker can never accept parks at once and is no longer claimed.
+	enqueue("e2")
+	time.Sleep(20 * time.Millisecond) // let the backoff gate of e1 open
+	relayer = newRelayer(t, pool, permanentPublisher{bad: "e2"}, sdkconfig.Outbox{}, time.Millisecond)
 	rep, err := relayer.RelayOnce(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 0, rep.Claimed)
-	var status string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM order_outbox_events WHERE event_id = 'e1'`).Scan(&status))
-	assert.Equal(t, "failed", status)
+	assert.Equal(t, 1, rep.Parked)
+	assert.Equal(t, "failed", statusOf("e2"))
+	assert.Equal(t, "published", statusOf("e1"), "the broker is back for the other rows")
 }
 
 // Regression: UPDATE ... RETURNING does not preserve the claim subquery's ORDER BY,
@@ -140,23 +146,25 @@ func TestClaimKeepsCreationOrder(t *testing.T) {
 	pool := orderDB(t)
 	base := time.Now().Add(-time.Minute)
 	// Inserted newer-first so heap order disagrees with created_at.
+	// seq is the creation order; created_at only ties inside one transaction.
 	for _, r := range []struct {
 		id  string
 		age time.Duration
-	}{{"evt-updated", 2 * time.Second}, {"evt-created", 0}} {
+		seq int64
+	}{{"evt-updated", 2 * time.Second, 2}, {"evt-created", 0, 1}} {
 		_, err := pool.Exec(ctx, `INSERT INTO order_outbox_events
-			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at)
-			VALUES ($1, 'Agg', 'agg-1', 'T', $2, '', 'pending', 0, $3, $3)`, r.id, []byte(r.id), base.Add(r.age))
+			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, seq, status, attempts, available_at, created_at)
+			VALUES ($1, 'Agg', 'agg-1', 'T', $2, '', $4, 'pending', 0, $3, $3)`, r.id, []byte(r.id), base.Add(r.age), r.seq)
 		require.NoError(t, err)
 	}
 
-	pub := &recorder{}
-	_, err := newRelayer(pool, pub, sdkconfig.Outbox{BatchSize: 10}, 0).RelayOnce(ctx)
+	pub := testkit.NewRecorder()
+	_, err := newRelayer(t, pool, pub, sdkconfig.Outbox{BatchSize: 10}, 0).RelayOnce(ctx)
 	require.NoError(t, err)
-	got := pub.all()
+	got := pub.Records()
 	require.Len(t, got, 2)
-	assert.Equal(t, "evt-created", string(got[0].value))
-	assert.Equal(t, "evt-updated", string(got[1].value))
+	assert.Equal(t, "evt-created", string(got[0].Value))
+	assert.Equal(t, "evt-updated", string(got[1].Value))
 }
 
 // The won claim to CANCELLED writes the row through the wired builder and the
@@ -177,24 +185,24 @@ func TestCancelledFactIsRelayedToOrderEvents(t *testing.T) {
 	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusCancelled, cancelFrom, "")
 	require.ErrorIs(t, err, store.ErrStatusConflict, "a lost claim")
 
-	pub := &recorder{}
-	rep, err := newRelayer(pool, pub, sdkconfig.Outbox{BatchSize: 10}, 0).RelayOnce(ctx)
+	pub := testkit.NewRecorder()
+	rep, err := newRelayer(t, pool, pub, sdkconfig.Outbox{BatchSize: 10}, 0).RelayOnce(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 2, rep.Published, "one OrderPaidEvent + one OrderCancelled, nothing for the lost claim")
 
-	var cancels []sent
-	for _, p := range pub.all() {
+	var cancels []testkit.Record
+	for _, p := range pub.Records() {
 		var env eventsv1.EventEnvelope
-		require.NoError(t, proto.Unmarshal(p.value, &env))
+		require.NoError(t, proto.Unmarshal(p.Value, &env))
 		if env.GetType() == events.OrderCancelledEventType {
 			cancels = append(cancels, p)
 		}
 	}
 	require.Len(t, cancels, 1)
-	assert.Equal(t, events.OrderEventsTopic, cancels[0].topic)
-	assert.Equal(t, created.ID, cancels[0].key)
+	assert.Equal(t, events.OrderEventsTopic, cancels[0].Topic)
+	assert.Equal(t, created.ID, string(cancels[0].Key))
 	var env eventsv1.EventEnvelope
-	require.NoError(t, proto.Unmarshal(cancels[0].value, &env))
+	require.NoError(t, proto.Unmarshal(cancels[0].Value, &env))
 	var ev orderv1.OrderCancelled
 	require.NoError(t, proto.Unmarshal(env.GetPayload(), &ev))
 	assert.Equal(t, orderv1.OrderStatus_ORDER_STATUS_PAID, ev.GetPreviousStatus())

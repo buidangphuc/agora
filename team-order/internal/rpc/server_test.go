@@ -150,7 +150,11 @@ func setupServer(t *testing.T) (orderv1.CartServiceClient, orderv1.OrderServiceC
 	cartHandler := rpc.NewCartHandler(cartSvc, logger)
 	orderHandler := rpc.NewOrderHandler(orderSvc, addrClient, logger)
 
-	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: healthx.New(healthx.DefaultInterval, logger)})
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Logger: logger, Health: health})
 	rpc.Register(srv, cartHandler, orderHandler)
 
 	lis, err := net.Listen("tcp", "localhost:0")

@@ -52,7 +52,11 @@ func TestPaymentConsumer_Run_PoisonRecordGoesToDLQ_ThenCommits(t *testing.T) {
 	}
 	runCtx, stop := context.WithCancel(ctx)
 	done := make(chan error, 1)
-	go func() { done <- consume.NewConsumer(client, handler.Handle, producer, opts).Run(runCtx) }()
+	loop, err := consume.NewConsumer(client, handler.Handle, producer, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { done <- loop.Run(runCtx) }()
 
 	deadline := time.Now().Add(90 * time.Second)
 	for orderStatus(t, orders, o.ID) != store.OrderStatusPaid {
@@ -91,10 +95,14 @@ func TestPaymentConsumer_Run_PoisonRecordGoesToDLQ_ThenCommits(t *testing.T) {
 	var redelivered atomic.Int32
 	quiet, stopQuiet := context.WithTimeout(ctx, 8*time.Second)
 	defer stopQuiet()
-	_ = consume.NewConsumer(again, func(context.Context, consume.Record) error {
+	check, err := consume.NewConsumer(again, func(context.Context, consume.Record) error {
 		redelivered.Add(1)
 		return nil
-	}, producer, opts).Run(quiet)
+	}, producer, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = check.Run(quiet)
 	if n := redelivered.Load(); n != 0 {
 		t.Fatalf("%d record(s) redelivered after both were handled or dead-lettered", n)
 	}

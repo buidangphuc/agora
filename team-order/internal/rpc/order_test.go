@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/flags"
 
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	"github.com/buidangphuc/team-order/internal/order"
@@ -20,7 +21,9 @@ import (
 // fakeFlags is a hand-rolled Evaluator for the checkout kill-switch tests.
 type fakeFlags struct{ enabled bool }
 
-func (f fakeFlags) BooleanEnabled(_ context.Context, _ string, _ bool) bool { return f.enabled }
+func (f fakeFlags) BooleanEnabled(_ context.Context, _ string, _ bool, _ ...flags.EvalOption) bool {
+	return f.enabled
+}
 
 type mockOrderServiceRepo struct {
 	orders map[string]store.Order
@@ -447,11 +450,10 @@ func TestOrderHandler_GetOrder_Authz(t *testing.T) {
 		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1"},
 	}}
 	h := rpc.NewOrderHandler(order.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
-	principal := func(id string, typ string, scopes ...string) context.Context {
+	principal := func(id string, typ auth.PrincipalType, scopes ...string) context.Context {
 		return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: typ, Scopes: scopes})
 	}
-	user := "user"
-	svc := "service"
+	user, svc := auth.TypeUser, auth.TypeService
 
 	cases := []struct {
 		name string
@@ -459,7 +461,7 @@ func TestOrderHandler_GetOrder_Authz(t *testing.T) {
 		want codes.Code
 	}{
 		{"no principal", context.Background(), codes.Unauthenticated},
-		{"anonymous", principal("anonymous", "anonymous"), codes.Unauthenticated},
+		{"anonymous", principal("anonymous", auth.TypeAnonymous), codes.Unauthenticated},
 		{"buyer", principal("buyer_1", user), codes.OK},
 		{"seller", principal("seller_1", user), codes.OK},
 		{"other user", principal("user_9", user, "order.read"), codes.PermissionDenied},

@@ -12,15 +12,15 @@ import (
 )
 
 // testDSN is the database a Postgres test runs against: TEST_DATABASE_URL when set
-// (a disposable database), otherwise a fresh Postgres container from go-sdk
-// testkit. Without Docker the test is skipped, or fails when GO_SDK_REQUIRE_DOCKER
-// is set (make check).
+// (a disposable database), otherwise a fresh schema of the Postgres container the
+// test binary shares (go-sdk testkit). Without Docker the test is skipped, or fails
+// when GO_SDK_REQUIRE_DOCKER is set (make check).
 func testDSN(t *testing.T) string {
 	t.Helper()
 	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
 		return dsn
 	}
-	return testkit.Postgres(t)
+	return testkit.Schema(t, testkit.SharedPostgres(t))
 }
 
 // pgPool opens the test database (see testDSN) with every migration applied.

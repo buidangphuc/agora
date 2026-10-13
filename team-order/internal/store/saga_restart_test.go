@@ -2,14 +2,15 @@ package store_test
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+
 	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/migrations"
 )
 
 // SA-M8 (durable saga state): a reservation written by one repository instance is
@@ -165,24 +166,11 @@ func TestReturnsAndShipments_PersistAcrossRestart_Postgres(t *testing.T) {
 	}
 }
 
+// applyMigrations applies every migration to the database pool is connected to, the
+// way the deploy migrate job does.
 func applyMigrations(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	dir := filepath.Join("..", "..", "migrations")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Skipf("cannot read migrations dir (%v); skipping", err)
-	}
-	for _, e := range entries {
-		name := e.Name()
-		if len(name) < 7 || name[len(name)-7:] != ".up.sql" {
-			continue
-		}
-		sqlBytes, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			t.Fatalf("read migration %s: %v", name, err)
-		}
-		if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
-			t.Fatalf("apply migration %s: %v", name, err)
-		}
+	if err := migrate.Up(ctx, pool.Config().ConnString(), migrations.Files); err != nil {
+		t.Fatalf("apply migrations: %v", err)
 	}
 }

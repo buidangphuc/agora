@@ -2,9 +2,7 @@ package app_test
 
 import (
 	"context"
-	"io/fs"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,6 +14,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	"github.com/buidangphuc/team-order/internal/app"
@@ -23,25 +22,14 @@ import (
 	"github.com/buidangphuc/team-order/migrations"
 )
 
-// freePort asks the kernel for an unused port and releases it for the service.
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
 func settings(t *testing.T, env, databaseURL string) config.Settings {
 	t.Helper()
 	return config.Settings{
 		Runtime:  sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 10},
+		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: testkit.FreePort(t), ShutdownGrace: 10 * time.Second},
 		Postgres: sdkconfig.Postgres{URL: databaseURL, MaxConns: 4},
 		Kafka:    sdkconfig.Kafka{Brokers: "127.0.0.1:1"},
-		Outbox:   sdkconfig.Outbox{PollInterval: 20 * time.Millisecond, BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10},
+		Outbox:   sdkconfig.Outbox{PollInterval: 20 * time.Millisecond, BatchSize: 10, ClaimLock: 60 * time.Second},
 		Events: config.Events{
 			ConsumerGroup: "team-order.payment",
 			PaymentTopic:  "payment.events",
@@ -67,10 +55,11 @@ func TestBootRequiresDatabaseURL(t *testing.T) {
 	_ = l.Close()
 }
 
-// Staging and production never fall back to the in-memory repositories: an
-// unreachable database refuses the boot before any port opens.
+// Only ENV=local and ENV=test may fall back to the in-memory repositories: in any
+// other environment (strict ones and also dev) an unreachable database refuses the
+// boot before any port opens.
 func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
-	for _, env := range []string{"staging", "stage", "prod", "production"} {
+	for _, env := range []string{"staging", "stage", "prod", "production", "dev"} {
 		t.Run(env, func(t *testing.T) {
 			s := settings(t, env, unreachableDB)
 			if err := app.Run(context.Background(), s); err == nil {
@@ -142,33 +131,16 @@ func TestBootFallsBackToMemoryInLocal(t *testing.T) {
 // SERVING, and stops cleanly with the pool closed after the workers.
 func TestBootWithDatabaseServesAndStopsCleanly(t *testing.T) {
 	ctx := context.Background()
-	url := testkit.Postgres(t)
+	url := testkit.Schema(t, testkit.SharedPostgres(t))
 
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
 	admin, err := pgxpool.New(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	entries, err := fs.ReadDir(migrations.Files, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".up.sql") {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		b, err := fs.ReadFile(migrations.Files, n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := admin.Exec(ctx, string(b)); err != nil {
-			t.Fatalf("apply %s: %v", n, err)
-		}
-	}
 
 	const appName = "team-order-shutdown-test"
 	s := settings(t, "local", url+"&application_name="+appName)
