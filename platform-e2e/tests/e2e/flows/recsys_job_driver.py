@@ -18,8 +18,8 @@ The live serving data (Redis DB 0 and the default collections) is never touched.
 Live plans (recsys-generation-publish) skip the namespace: they publish to the stack's own serving
 data (DB 0, the default collections and their aliases), optionally forgetting every generation first
 ("reset"), and leave what they published in place. A run may name a dataset variant ("@fixture") and
-a subcommand ("@command", e.g. rollback); "@legacy_champion" seeds an incumbent champion whose
-metrics carry no evaluation protocol (namespace plans only).
+a subcommand ("@command", e.g. rollback). No run forces a promotion: the registry (MLflow, reached
+at MLFLOW_TRACKING_URI) is reset or seeded by the caller, and namespace plans start from an empty one.
 
 Only the image's own dependencies are used (pandas, redis, qdrant-client).
 """
@@ -36,6 +36,7 @@ import time
 from datetime import datetime, timezone
 
 import pandas as pd
+import registry_support as registry
 from qdrant_client import QdrantClient
 from qdrant_client.models import DeleteAlias, DeleteAliasOperation
 from redis import Redis
@@ -124,16 +125,11 @@ def _write_dataset(rows: list[dict], root: str = WORK) -> str | None:
 #   good_a       4 of the 5 cluster items per user (4 users per cluster)
 #   better_b     all 5 cluster items per user (denser history, same users)
 #   third_c      4 items, rotated, 5 users per cluster (a different dataset again)
-#   regressing   good_a's data; the run is made to fail the metric gate (+10% needed, see below)
+#   regressing   good_a's data again: an equal score cannot clear the +1 % gate
 #   one_size     every user interacted with the same three items only (degenerate)
-# "Better" is engineered as in pipeline_eval_registry: the promotion gate is the lever, not luck. A
-# promoting variant runs with PROMOTION_MIN_RELATIVE_IMPROVEMENT=-0.25 (an equal-scoring retrain
-# passes), the regressing one with +0.10 (an equal-scoring retrain cannot pass).
-_FIXTURE_ENV = {
-    "better_b": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "-0.25"},
-    "third_c": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "-0.25"},
-    "regressing": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "0.10"},
-}
+# "Better" is genuine, not forced: the gate is the `recsys-als` policy (+1 % ndcg@10 over the champion),
+# `better_b` scores far above `good_a`, `regressing` is `good_a`'s own data again (an equal score
+# cannot clear +1 %), and a caller that needs `third_c` to promote seeds a weak champion first.
 _EVENT_CYCLE = ("view", "click", "add_to_cart", "click")
 
 
@@ -175,12 +171,14 @@ def _fixture_for(name: str) -> str | None:
 
 
 def _reset_live(redis: Redis, qdrant: QdrantClient) -> None:
-    """Forget every generation: pointers, gen keys, registry, aliases and generation collections.
+    """Forget every generation: pointers, gen keys, aliases and generation collections.
+
+    The MLflow registry is not touched here (callers reset or seed it).
 
     The unscoped v1 keys and any real (non-generation) collection are left alone, so team-ai's
     fallback and the first publish's legacy migration keep working.
     """
-    for pattern in (f"{PREFIX}:gen:*", "recs:model:*"):
+    for pattern in (f"{PREFIX}:gen:*",):
         for key in list(redis.scan_iter(pattern)):
             redis.delete(key)
     redis.delete(f"{PREFIX}:serving", f"{PREFIX}:previous")
@@ -195,28 +193,6 @@ def _reset_live(redis: Redis, qdrant: QdrantClient) -> None:
     for name in [c.name for c in qdrant.get_collections().collections]:
         if name.startswith((f"{ITEMS}__", f"{USERS}__")):
             qdrant.delete_collection(name)
-
-
-def _seed_legacy_champion(redis: Redis) -> None:
-    """An incumbent champion evaluated before evaluation protocols were stamped.
-
-    Written as the registry stores it (`recs:model:meta:<version>` plus the champion key): the
-    metrics carry no `eval_protocol`, and a score no honest holdout run could match.
-    """
-    version = "als-legacy-e2e"
-    meta = {
-        "model_name": "als",
-        "model_version": version,
-        "model_type": "als",
-        "status": "champion",
-        "metrics": {"ndcg@10": 0.99, "coverage@10": 1.0, "test_events": 3},
-        "parameters": {},
-        "git_commit": "",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "artifact_paths": {},
-    }
-    redis.set(f"recs:model:meta:{version}", json.dumps(meta))
-    redis.set("recs:model:champion", version)
 
 
 def _clean(redis: Redis, qdrant: QdrantClient) -> None:
@@ -244,22 +220,24 @@ def _points(qdrant: QdrantClient, name: str) -> dict:
     }
 
 
-def _snapshot(redis: Redis, qdrant: QdrantClient) -> dict:
-    models = {}
-    for key in redis.scan_iter("recs:model:meta:*"):
-        meta = json.loads(redis.get(key))
-        models[meta["model_version"]] = {
-            "status": meta.get("status"),
-            "metrics": meta.get("metrics"),
-            "parameters": meta.get("parameters"),
-        }
+def _snapshot(
+    redis: Redis,
+    qdrant: QdrantClient,
+    model_version: str | None = None,
+    before: dict[str, int] | None = None,
+) -> dict:
+    reg = registry.snapshot(model_version, before)
+    models = {
+        label: {k: m[k] for k in ("status", "metrics", "parameters")}
+        for label, m in reg["models"].items()
+    }
     gens: dict[str, int] = {}
     for key in redis.scan_iter(f"{PREFIX}:gen:*"):
         gen = key[len(f"{PREFIX}:gen:") :].split(":", 1)[0]
         gens[gen] = gens.get(gen, 0) + 1
     aliases = _aliases(qdrant)
     return {
-        "champion": redis.get("recs:model:champion"),
+        "champion": reg["champion"],
         "serving_model_version": redis.get("recs:v1:model_version"),
         # Generation publishing: the pointers, each generation's keys and collections, the aliases.
         "serving": redis.get(f"{PREFIX}:serving"),
@@ -289,12 +267,14 @@ def main() -> int:
             _reset_live(redis, qdrant)
     else:
         _clean(redis, qdrant)
+        registry.reset()  # a namespace plan starts without a champion, so its first run promotes
     base_env = {
         **os.environ,
         "WAREHOUSE_DRIVER": "duckdb",
         "REDIS_DATABASE": str(DB),
         "QDRANT_ITEM_COLLECTION": ITEMS,
         "QDRANT_USER_COLLECTION": USERS,
+        "MLFLOW_TRACKING_URI": registry.base(),
         "SPARK_MASTER": "local[1]",
         "ALS_RANK": "4",
         "ALS_MAX_ITER": "3",
@@ -320,10 +300,7 @@ def main() -> int:
             run_env = dict(raw_env)
             variant = run_env.pop("@fixture", None)
             command = run_env.pop("@command", None)
-            if run_env.pop("@legacy_champion", None):
-                _seed_legacy_champion(redis)
             if variant:
-                run_env = {**_FIXTURE_ENV.get(variant, {}), **run_env}
                 # An explicit version per run: the default one is the run clock to the second.
                 slug = variant.replace("_", "-")
                 run_env.setdefault("MODEL_VERSION", f"als-e2e-{slug}-{nonce}-{index}")
@@ -334,6 +311,7 @@ def main() -> int:
             if variant:
                 path = _fixture_for(variant)
                 env["DATASET_PATH"] = path or ""
+            before = registry.counts()
             proc = subprocess.run(
                 [sys.executable, "-m", "recsys", *([command] if command else [])],
                 env=env,
@@ -350,7 +328,12 @@ def main() -> int:
                 {
                     "exit_code": proc.returncode,
                     "summary": summary,
-                    "state": _snapshot(redis, qdrant),
+                    "state": _snapshot(
+                        redis,
+                        qdrant,
+                        (summary or {}).get("model_version") or env.get("MODEL_VERSION"),
+                        before,
+                    ),
                     "log_tail": out[-3000:],
                 }
             )

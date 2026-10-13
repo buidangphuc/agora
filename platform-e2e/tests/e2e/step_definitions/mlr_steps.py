@@ -166,7 +166,12 @@ def stores_distribution(world: World) -> None:
 
 def _two_runs(world: World, second_env: dict | None = None, first_env: dict | None = None) -> None:
     results = _steps(
-        world, [{"op": "recsys", "env": first_env or {}}, {"op": "recsys", "env": second_env or {}}]
+        world,
+        [
+            {"op": "recsys", "env": first_env or {}},
+            # the second run keeps the first run's champion: it is the drift baseline
+            {"op": "recsys", "env": second_env or {}, "keep_registry": True},
+        ],
     )
     assert all(r["exit_code"] == 0 for r in results), [r["log_tail"] for r in results]
     _ctx(world)["first"], _ctx(world)["last"] = results
@@ -228,7 +233,7 @@ def run_twice_with_prom(world: World) -> None:
     results = _steps(
         world,
         [{"op": "recsys", "env": {"DRIFT_METRICS_PATH": _PROM}},
-         {"op": "recsys", "env": {"DRIFT_METRICS_PATH": _PROM}, "read": [_PROM]}],
+         {"op": "recsys", "env": {"DRIFT_METRICS_PATH": _PROM}, "read": [_PROM], "keep_registry": True}],
     )  # fmt: skip
     assert all(r["exit_code"] == 0 for r in results), [r["log_tail"] for r in results]
     _ctx(world)["last"] = results[-1]

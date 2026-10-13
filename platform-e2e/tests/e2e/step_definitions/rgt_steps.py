@@ -194,7 +194,8 @@ def scores_agree(world: World) -> None:
     "the recsys job runs with the GBDT stage enabled and a promotion improvement threshold no model can reach"
 )
 def unreachable_threshold(world: World) -> None:
-    _ok(_run(world, [{"env": {"PROMOTION_MIN_RELATIVE_IMPROVEMENT": "10"}}]))
+    # A strong champion seeded in the registry (no promotion lever exists): the candidate is rejected.
+    _ok(_run(world, [{"seed": "strong", "seed_models": ["recsys-gbdt"]}]))
 
 
 @then(
@@ -204,16 +205,18 @@ def unreachable_threshold(world: World) -> None:
 def rejected(world: World) -> None:
     last = _ctx(world)["last"]
     meta = _gbdt_meta(last)
-    assert meta["status"] == "rejected" and "baseline" in meta["parameters"]["gate_reason"], meta
+    assert meta["status"] == "rejected" and "ndcg@10" in meta["parameters"]["gate_reason"], meta
     assert last["summary"]["gbdt"]["decision"] == "rejected"
     assert last["serving"] == last["model_version"] and last["summary"]["decision"] == "promoted"
-    assert last["rankers"] == {} and last["gbdt_champion"] is None
+    # the seeded strong champion (version 1) is still the champion, and the generation has no ranker
+    assert last["rankers"] == {} and last["gbdt_champion"] == "1", last["gbdt_champion"]
 
 
 # ── generations ─────────────────────────────────────────────────────────────
 @when("the recsys job promotes three generations in a row with the GBDT stage enabled")
 def three_generations(world: World) -> None:
-    _ok(_run(world, [{"env": {"PROMOTION_FORCE": "true"}}] * 3))
+    # Each step resets the registry, so every run promotes without a forcing lever.
+    _ok(_run(world, [{}] * 3))
 
 
 @then(

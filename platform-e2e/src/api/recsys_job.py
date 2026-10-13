@@ -91,6 +91,7 @@ def run_actions(actions: list[dict], *, buyer_id: str = "") -> list[JobResult]:
     try:
         shutil.copy(_RUNNER, work / "runner.py")
         shutil.copy(_DRIVER, work / "driver.py")
+        shutil.copy(_DRIVER.with_name("registry_support.py"), work / "registry_support.py")
         plan = {
             # keys read when driver.py is imported
             "namespace": "e2e_recsys_rat",

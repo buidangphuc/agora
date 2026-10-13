@@ -27,7 +27,7 @@ ITEM_ALIAS = "item_als_vectors"
 ALS = "recsys-als"
 # The registry is MLflow (recsys-auto-train). The gate is the `recsys-als` policy (+1 % ndcg@10 over
 # the champion): `better_b` genuinely scores far above `good_a` and `regressing` is `good_a`'s own
-# data again (an equal score cannot clear +1 %), so the old PROMOTION_* levers are not needed.
+# data again (an equal score cannot clear +1 %), so no forcing lever is needed.
 _MLFLOW_ENV = {"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK}
 _ORDINAL = {"first": 0, "second": 1, "third": 2}
 _FOLLOW_S = 10.0
