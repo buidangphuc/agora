@@ -19,6 +19,7 @@ T = TypeVar("T")
 CALL_TIMEOUT_S = 10
 OPERATION_DEADLINE_S = 12.0
 _TIMEOUT_ENV = "MLFLOW_HTTP_REQUEST_TIMEOUT"
+_RETRIES_ENV = "MLFLOW_HTTP_REQUEST_MAX_RETRIES"
 _CONN_RE = re.compile(
     r"max retries exceeded|connection|timed out|timeout|failed with exception|"
     r"too many (5\d\d|error)|temporarily unavailable|name resolution",
@@ -35,6 +36,13 @@ def _cap_timeout() -> None:
         value = None
     if value is None or value <= 0 or value > CALL_TIMEOUT_S:
         os.environ[_TIMEOUT_ENV] = str(CALL_TIMEOUT_S)
+    # No MLflow-internal retries: nothing may be retried after the operation deadline.
+    try:
+        retries = int(os.environ.get(_RETRIES_ENV, ""))
+    except ValueError:
+        retries = None
+    if retries is None or retries > 0:
+        os.environ[_RETRIES_ENV] = "0"
 
 
 def _translate(exc: Exception) -> Exception:

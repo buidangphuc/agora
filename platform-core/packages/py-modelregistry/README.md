@@ -29,6 +29,14 @@ Configuration is read at call time: `MLFLOW_TRACKING_URI`, `MLFLOW_HTTP_REQUEST_
 Each operation has a 12 s total deadline; when the registry does not answer the gate fails closed
 with `RegistryUnavailable`.
 
+A call in flight at the deadline may still land server-side. MLflow-internal retries are disabled
+(`MLFLOW_HTTP_REQUEST_MAX_RETRIES` is set to 0 when unset or higher). Metric names must not contain
+`_at_`, because it is decoded back to `@`.
+
+Rollback writes `previous` before `champion`; retrying a partially failed rollback is safe (the
+target is kept in the tag `gate.rollback_target`). `promote` is idempotent when retried. Recovery from
+a crashed `seed` (a pending v1 left behind) is a manual step.
+
 Metric names containing `@` are stored in MLflow as `_at_` (`ndcg@10` -> `ndcg_at_10`) and decoded
 when read; callers always use the `@` form.
 

@@ -199,14 +199,18 @@ def promote(model: str, version: int | str, force: bool = False,
     mv = _get_version(s, model, version)
     if force:
         assert reason is not None
-        _move_champion(s, model, version)
+        holder = _alias_version(s, model, CHAMPION)
+        if holder is None or str(holder.version) != str(mv.version):
+            _move_champion(s, model, version)
         _tag(s, model, version, "gate.forced", "true")
         _set_gate(s, model, version, "promoted", reason)
         return Decision(int(mv.version), "promoted", reason)
     policy = load_policy(model, policies_path)
     champ = _champion_info(s, model)
     if champ is not None and str(champ[0].version) == str(mv.version):
-        raise GateError(f"version {version} of {model!r} is already the champion")
+        # retry of a partially failed promote: only (re)write the outcome
+        _tag(s, model, mv.version, "gate.outcome", "promoted")
+        return Decision(int(mv.version), "promoted", mv.tags.get("gate.reason", ""))
     candidate = _run_metrics(s, mv.run_id)
     outcome, why = decide(policy, candidate, champ[1] if champ else None,
                           mv.tags.get("lineage.eval_protocol"),
@@ -232,8 +236,16 @@ def rollback(model: str) -> Decision:
     if PREVIOUS not in aliases or CHAMPION not in aliases:
         raise RollbackError(f"model {model!r} has no previous version to roll back to")
     old, new = str(aliases[CHAMPION]), str(aliases[PREVIOUS])
-    s.call(s.client.set_registered_model_alias, model, CHAMPION, new)
+    if old == new:
+        # partial rollback (previous written, champion not): recover the target from the tag
+        mv = _get_version(s, model, old)
+        new = mv.tags.get("gate.rollback_target", "")
+        if not new:
+            raise RollbackError(f"model {model!r} has no previous version to roll back to")
+    else:
+        _tag(s, model, old, "gate.rollback_target", new)
     s.call(s.client.set_registered_model_alias, model, PREVIOUS, old)
+    s.call(s.client.set_registered_model_alias, model, CHAMPION, new)
     reason = f"rollback from v{old}"
     _tag(s, model, new, "gate.reason", reason)
     return Decision(int(new), "promoted", reason)
@@ -242,6 +254,8 @@ def rollback(model: str) -> Decision:
 def seed(model: str, metrics: Mapping[str, float], lineage: Mapping[str, Any], reason: str,
          artifact_path: PathLike | None = None) -> Decision:
     """Create the first champion without the gate. Only for a model with no versions."""
+    if "'" in model or '"' in model:
+        raise ValueError(f"invalid model name {model!r}: quotes are not allowed")
     s = Session()
     existing = s.call(s.client.search_model_versions, f"name='{model}'", max_results=1)
     if existing:

@@ -27,7 +27,7 @@ line-length = 100
 
 [tool.ruff.lint.per-file-ignores]
 # test files are fixed (not editable by the implementer): style rules apply to src only
-"tests/**" = ["E", "I", "UP", "SIM", "FURB"]
+"tests/**" = ["I001", "FURB167", "UP035", "E501", "E741", "SIM105"]
 
 [tool.mypy]
 python_version = "3.10"
