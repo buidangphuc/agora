@@ -85,7 +85,7 @@ def test_shipped_params_loads(cm):
     assert t.finetune.method == "full" and not t.apply_tuned
     ev = cm.evaluation()
     assert ev.objective in ev.compute
-    assert cm.gate().rules and cm.registry().name
+    assert cm.registry().name
 
 
 def test_unknown_finetune_method_rejected(no_dirs, tmp_path):

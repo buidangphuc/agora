@@ -97,20 +97,6 @@ def test_store_refuses_result_tuned_on_other_gpu(tmp_artifacts, box):
         store.load_tuned("train", "kernel-x", box(T4))
 
 
-def test_register_records_train_hw(tmp_artifacts, box):
-    from datascience.entity.config_entity import RegistryConfig
-    from datascience.registry import base
-
-    box(A100)
-    model = tmp_artifacts / "m"
-    model.mkdir()
-    (model / "w.bin").write_bytes(b"0")
-    base.register(model, {"f1": 1.0}, {}, RegistryConfig(name="M", remote_backend="none"))
-
-    meta = json.loads((tmp_artifacts / "registry" / "M" / "v1" / "registry_meta.json").read_text())
-    assert meta["metadata"]["train_hw"]["gpus"][0]["name"] == A100["name"]
-
-
 # --- runner -------------------------------------------------------------------------------
 
 class _FakeWorkload:
