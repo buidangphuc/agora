@@ -83,7 +83,7 @@ With `ENABLE_GBDT=true` and `ENABLE_TWO_TOWER=true`, the job SHALL train both af
 #### Scenario: RAT-12 The first two-tower candidate must meet the policy floors
 - **WHEN** `recsys-two-tower` has no `champion` and the candidate scores `recall@10=0`
 - **THEN** the version is tagged `gate.outcome=rejected` with a `gate.reason` naming the `recall@10` floor of 0.000001
-- **VERIFIED BY**: `platform-recsys/tests/test_gate_two_tower.py::test_first_candidate_below_floor_rejected`
+- **VERIFIED BY**: `platform-recsys/tests/test_gate_two_tower.py::test_first_candidate_with_zero_recall_rejected`
 
 #### Scenario: RAT-40 An equal GBDT model does not churn the champion
 - **WHEN** the GBDT candidate's `ndcg@10` equals its champion's
