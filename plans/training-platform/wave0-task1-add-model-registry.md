@@ -11,16 +11,21 @@ Implement OpenSpec change `add-model-registry` test-first per its tasks.md; cont
 - platform-core/docs/ADR/0014-model-registry-promotion.md
 - platform-core/docs/ADR/0013-seller-demand-forecasting.md
 - platform-core/infra/docker-compose.yaml
+- platform-core/infra/mlflow/**
 - platform-core/packages/py-modelregistry/**
 - platform-core/tests/**
 - platform-core/FEATURES.yaml
 - platform-gitops/platform/mlflow/**
 - platform-gitops/argocd/apps/mlflow.yaml
+- platform-gitops/platform/infra/minio.yaml (mlflow-artifacts bucket)
+- platform-gitops/platform/vault-config/vault-config.yaml (mlflow paths + role)
 - platform-gitops/tests/test_mlflow_manifests.py
 - .github/workflows/services-ci.yml
 - platform-e2e/tests/e2e/features/model_registry/**
 - platform-e2e/tests/e2e/step_definitions/model_registry_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_model_registry.py
+- platform-e2e/pyproject.toml (add mlflow-skinny, boto3, pyyaml deps)
+- platform-e2e/uv.lock
 
 ## Read-only dependencies
 - openspec/changes/add-model-registry/** (frozen by LOCK.md digest)
