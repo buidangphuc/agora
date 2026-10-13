@@ -11,6 +11,9 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
+
 	eventsv1 "github.com/buidangphuc/team-gateway/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-gateway/generated/platform/identity/v1"
 )
@@ -60,10 +63,10 @@ type Stats struct {
 // revocations between them). Kafka being down never blocks startup: Run keeps
 // retrying in the background and the gateway fails open meanwhile.
 type Consumer struct {
-	brokers []string
-	topic   string
-	list    *Denylist
-	logger  *slog.Logger
+	kafka  sdkconfig.Kafka
+	topic  string
+	list   *Denylist
+	logger *slog.Logger
 
 	up  atomic.Bool
 	mu  sync.Mutex
@@ -71,11 +74,11 @@ type Consumer struct {
 }
 
 // NewConsumer builds a consumer (it does not connect until Run).
-func NewConsumer(brokers []string, topic string, list *Denylist, logger *slog.Logger) *Consumer {
+func NewConsumer(kafka sdkconfig.Kafka, topic string, list *Denylist, logger *slog.Logger) *Consumer {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Consumer{brokers: brokers, topic: topic, list: list, logger: logger, lag: map[int32]int64{}}
+	return &Consumer{kafka: kafka, topic: topic, list: list, logger: logger, lag: map[int32]int64{}}
 }
 
 // Stats returns the current gauge values.
@@ -94,8 +97,8 @@ func (c *Consumer) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		if err := c.runOnce(ctx); err != nil && ctx.Err() == nil {
 			c.up.Store(false)
-			c.logger.Warn("revocation consumer stopped; revocations are NOT enforced until it recovers (fail open)",
-				slog.String("topic", c.topic), slog.Any("err", err))
+			c.logger.WarnContext(ctx, "revocation consumer stopped; revocations are NOT enforced until it recovers (fail open)",
+				"topic", c.topic, "err", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -105,11 +108,8 @@ func (c *Consumer) Run(ctx context.Context) {
 }
 
 func (c *Consumer) runOnce(ctx context.Context) error {
-	cl, err := kgo.NewClient(
-		kgo.SeedBrokers(c.brokers...),
-		kgo.ConsumeTopics(c.topic),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
-	)
+	// An empty group: every partition from the earliest offset, nothing committed.
+	cl, err := kafkax.NewConsumerClient(c.kafka, "", []string{c.topic})
 	if err != nil {
 		return fmt.Errorf("kafka client: %w", err)
 	}
@@ -120,8 +120,8 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 	go c.probeLoop(probeCtx, cl)
 	go c.pruneLoop(probeCtx)
 
-	c.logger.Info("revocation consumer started (no consumer group, from earliest offset)",
-		slog.Any("brokers", c.brokers), slog.String("topic", c.topic))
+	c.logger.InfoContext(ctx, "revocation consumer started (no consumer group, from earliest offset)",
+		"brokers", c.kafka.BrokerList(), "topic", c.topic)
 
 	for {
 		fetches := cl.PollFetches(ctx)
@@ -129,13 +129,13 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 			return ctx.Err()
 		}
 		fetches.EachError(func(topic string, part int32, err error) {
-			c.logger.Warn("revocation consumer fetch error",
-				slog.String("topic", topic), slog.Int("partition", int(part)), slog.Any("err", err))
+			c.logger.WarnContext(ctx, "revocation consumer fetch error",
+				"topic", topic, "partition", int(part), "err", err)
 		})
 		fetches.EachRecord(func(r *kgo.Record) {
 			if err := Apply(c.list, r.Value); err != nil {
-				c.logger.Warn("revocation consumer skipped an undecodable record",
-					slog.Int("partition", int(r.Partition)), slog.Int64("offset", r.Offset), slog.Any("err", err))
+				c.logger.WarnContext(ctx, "revocation consumer skipped an undecodable record",
+					"partition", int(r.Partition), "offset", r.Offset, "err", err)
 			}
 		})
 		c.mu.Lock()
@@ -157,9 +157,9 @@ func (c *Consumer) probeLoop(ctx context.Context, cl *kgo.Client) {
 		ok := cl.Ping(pctx) == nil
 		if was := c.up.Swap(ok); was != ok && ctx.Err() == nil {
 			if ok {
-				c.logger.Info("revocation consumer connected to Kafka")
+				c.logger.InfoContext(ctx, "revocation consumer connected to Kafka")
 			} else {
-				c.logger.Warn("revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
+				c.logger.WarnContext(ctx, "revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
 			}
 		}
 	}

@@ -11,16 +11,19 @@ import (
 
 // ── VoucherService ──
 
+// VoucherForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type VoucherForwarder struct {
 	promotionv1connect.UnimplementedVoucherServiceHandler
 	client promotionv1.VoucherServiceClient
 	edge   *Edge
 }
 
+// NewVoucherForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewVoucherForwarder(client promotionv1.VoucherServiceClient, edge *Edge) *VoucherForwarder {
 	return &VoucherForwarder{client: client, edge: edge}
 }
 
+// CreateVoucher forwards the CreateVoucher RPC to the upstream service.
 func (f *VoucherForwarder) CreateVoucher(
 	ctx context.Context,
 	req *connect.Request[promotionv1.CreateVoucherRequest],
@@ -37,6 +40,7 @@ func (f *VoucherForwarder) CreateVoucher(
 	return connect.NewResponse(out), nil
 }
 
+// GetVoucher forwards the GetVoucher RPC to the upstream service.
 func (f *VoucherForwarder) GetVoucher(
 	ctx context.Context,
 	req *connect.Request[promotionv1.GetVoucherRequest],
@@ -53,6 +57,7 @@ func (f *VoucherForwarder) GetVoucher(
 	return connect.NewResponse(out), nil
 }
 
+// ListVouchers forwards the ListVouchers RPC to the upstream service.
 func (f *VoucherForwarder) ListVouchers(
 	ctx context.Context,
 	req *connect.Request[promotionv1.ListVouchersRequest],
@@ -69,6 +74,7 @@ func (f *VoucherForwarder) ListVouchers(
 	return connect.NewResponse(out), nil
 }
 
+// ValidateAndReserve forwards the ValidateAndReserve RPC to the upstream service.
 func (f *VoucherForwarder) ValidateAndReserve(
 	ctx context.Context,
 	req *connect.Request[promotionv1.ValidateAndReserveRequest],
@@ -93,16 +99,19 @@ func (f *VoucherForwarder) ValidateAndReserve(
 
 // ── FlashSaleService ──
 
+// FlashSaleForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type FlashSaleForwarder struct {
 	promotionv1connect.UnimplementedFlashSaleServiceHandler
 	client promotionv1.FlashSaleServiceClient
 	edge   *Edge
 }
 
+// NewFlashSaleForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewFlashSaleForwarder(client promotionv1.FlashSaleServiceClient, edge *Edge) *FlashSaleForwarder {
 	return &FlashSaleForwarder{client: client, edge: edge}
 }
 
+// CreateCampaign forwards the CreateCampaign RPC to the upstream service.
 func (f *FlashSaleForwarder) CreateCampaign(
 	ctx context.Context,
 	req *connect.Request[promotionv1.CreateCampaignRequest],
@@ -119,6 +128,7 @@ func (f *FlashSaleForwarder) CreateCampaign(
 	return connect.NewResponse(out), nil
 }
 
+// GetActiveFlashSale forwards the GetActiveFlashSale RPC to the upstream service.
 func (f *FlashSaleForwarder) GetActiveFlashSale(
 	ctx context.Context,
 	req *connect.Request[promotionv1.GetActiveFlashSaleRequest],
@@ -135,6 +145,7 @@ func (f *FlashSaleForwarder) GetActiveFlashSale(
 	return connect.NewResponse(out), nil
 }
 
+// ListActiveCampaigns forwards the ListActiveCampaigns RPC to the upstream service.
 func (f *FlashSaleForwarder) ListActiveCampaigns(
 	ctx context.Context,
 	req *connect.Request[promotionv1.ListActiveCampaignsRequest],
@@ -151,6 +162,7 @@ func (f *FlashSaleForwarder) ListActiveCampaigns(
 	return connect.NewResponse(out), nil
 }
 
+// GetFlashSaleStock forwards the GetFlashSaleStock RPC to the upstream service.
 func (f *FlashSaleForwarder) GetFlashSaleStock(
 	ctx context.Context,
 	req *connect.Request[promotionv1.GetFlashSaleStockRequest],
@@ -169,16 +181,19 @@ func (f *FlashSaleForwarder) GetFlashSaleStock(
 
 // ── SubscriptionService (seller subscription plans + entitlements) ──
 
+// SubscriptionForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type SubscriptionForwarder struct {
 	promotionv1connect.UnimplementedSubscriptionServiceHandler
 	client promotionv1.SubscriptionServiceClient
 	edge   *Edge
 }
 
+// NewSubscriptionForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewSubscriptionForwarder(client promotionv1.SubscriptionServiceClient, edge *Edge) *SubscriptionForwarder {
 	return &SubscriptionForwarder{client: client, edge: edge}
 }
 
+// ListPlans forwards the ListPlans RPC to the upstream service.
 func (f *SubscriptionForwarder) ListPlans(
 	ctx context.Context,
 	req *connect.Request[promotionv1.ListPlansRequest],
@@ -195,6 +210,7 @@ func (f *SubscriptionForwarder) ListPlans(
 	return connect.NewResponse(out), nil
 }
 
+// Subscribe forwards the Subscribe RPC to the upstream service.
 func (f *SubscriptionForwarder) Subscribe(
 	ctx context.Context,
 	req *connect.Request[promotionv1.SubscribeRequest],
@@ -211,6 +227,7 @@ func (f *SubscriptionForwarder) Subscribe(
 	return connect.NewResponse(out), nil
 }
 
+// GetEntitlements forwards the GetEntitlements RPC to the upstream service.
 func (f *SubscriptionForwarder) GetEntitlements(
 	ctx context.Context,
 	req *connect.Request[promotionv1.GetEntitlementsRequest],
@@ -229,16 +246,19 @@ func (f *SubscriptionForwarder) GetEntitlements(
 
 // ── SponsoredService ──
 
+// SponsoredForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type SponsoredForwarder struct {
 	promotionv1connect.UnimplementedSponsoredServiceHandler
 	client promotionv1.SponsoredServiceClient
 	edge   *Edge
 }
 
+// NewSponsoredForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewSponsoredForwarder(client promotionv1.SponsoredServiceClient, edge *Edge) *SponsoredForwarder {
 	return &SponsoredForwarder{client: client, edge: edge}
 }
 
+// CreateAdCampaign forwards the CreateAdCampaign RPC to the upstream service.
 func (f *SponsoredForwarder) CreateAdCampaign(
 	ctx context.Context,
 	req *connect.Request[promotionv1.CreateAdCampaignRequest],
@@ -255,6 +275,7 @@ func (f *SponsoredForwarder) CreateAdCampaign(
 	return connect.NewResponse(out), nil
 }
 
+// ListSponsoredSlots forwards the ListSponsoredSlots RPC to the upstream service.
 func (f *SponsoredForwarder) ListSponsoredSlots(
 	ctx context.Context,
 	req *connect.Request[promotionv1.ListSponsoredSlotsRequest],

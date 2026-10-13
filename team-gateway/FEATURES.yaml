@@ -63,9 +63,8 @@ features:
     priority: P2
     summary: >-
       Telemetry emission is best-effort: the beacon is fired asynchronously and
-      the gateway producer degrades to a no-op when Kafka is disabled
-      (KAFKA_ENABLED=false) or the broker is unavailable, so recording an event
-      never blocks or fails the buyer's browsing action.
+      the gateway logs and drops an event when the broker is unavailable, so
+      recording an event never blocks or fails the buyer's browsing action.
     entry_route: /
     related_routes: ["/listing/{id}"]
     services: [team-gateway]
@@ -1160,3 +1159,58 @@ features:
     tags: [tracking, consent, unit]
     status: not-testable
     notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go. Not producible end to end."
+
+  - id: gateway.reflection-rejected-in-prod
+    title: Reflection stays rejected in production
+    persona: admin
+    priority: P2
+    summary: >-
+      The gateway refuses to load settings with EDGE_REFLECTION_ENABLED=true in a strict ENV.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - WHEN the gateway loads settings with ENV=production and EDGE_REFLECTION_ENABLED=true
+      - THEN loading fails with an error naming EDGE_REFLECTION_ENABLED
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Operational boot check with no UI. Unit-verified by TestReflectionRejectedInProd in
+      team-gateway/internal/config (change migrate-team-gateway-to-go-sdk, capability
+      gateway-runtime). The running-image variant is ops.gateway-boot-guard-reflection.
+
+  - id: gateway.shutdown-drains-in-flight
+    title: Shutdown drains in-flight requests
+    persona: admin
+    priority: P2
+    summary: >-
+      On shutdown the HTTP server stops accepting connections and lets running requests finish
+      before it stops; the analytics publisher and the upstream connections close after it.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - WHEN a slow request is in flight and the gateway context is cancelled
+      - THEN the request completes before the HTTP server stops, and new connections are not accepted
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Needs a held request and a process-level cancel, with no UI. Unit-verified by
+      TestShutdownDrainsInFlightRequest in team-gateway/internal/app.
+
+  - id: gateway.existing-suites-stay-green
+    title: team-gateway existing suites do not regress and no assertion is weakened
+    persona: admin
+    priority: P2
+    summary: >-
+      The pre-existing unit suites pass with unchanged assertions after the go-sdk restructure.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - WHEN make check runs after the restructure
+      - THEN every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields
+    tags: [system, runtime]
+    status: not-testable
+    covered_by: null
+    notes: >-
+      Verified by team-gateway make check; no UI.

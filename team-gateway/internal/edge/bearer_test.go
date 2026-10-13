@@ -6,7 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
-	"io"
+	"errors"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -18,6 +18,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
 
 	orderv1 "github.com/buidangphuc/team-gateway/generated/platform/order/v1"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
@@ -73,16 +75,14 @@ func mint(t *testing.T, key *rsa.PrivateKey, kid string, exp time.Time) string {
 // mintSID is mint with a `sid` (session id) claim.
 func mintSID(t *testing.T, key *rsa.PrivateKey, kid string, exp time.Time, sid string) string {
 	t.Helper()
-	claims := &token.Claims{
+	claims := &token.Claims{Claims: jwtx.Claims{
 		Type:      "user",
 		Scopes:    []string{"order.read", "search:read"},
 		SessionID: sid,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "user-1",
-			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
-			ExpiresAt: jwt.NewNumericDate(exp),
-		},
-	}
+		Subject:   "user-1",
+		IssuedAt:  time.Now().Add(-2 * time.Hour).Unix(),
+		ExpiresAt: exp.Unix(),
+	}}
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tok.Header["kid"] = kid
 	s, err := tok.SignedString(key)
@@ -109,7 +109,7 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -119,7 +119,7 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	f.verifier = token.NewVerifier(jwks.URL, time.Minute)
 	e := edge.NewEdge(f.verifier, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000).
 		WithRevocations(f.denylist)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	sp, sh := searchv1connect.NewSearchServiceHandler(edge.NewSearchForwarder(spySearch{spy: f.search}, e), opts)
 	mux.Handle(sp, sh)
@@ -154,7 +154,8 @@ func (f *bearerFixture) call(t *testing.T, route, auth string) (connect.Code, *c
 	if err == nil {
 		return 0, nil
 	}
-	ce := err.(*connect.Error)
+	var ce *connect.Error
+	_ = errors.As(err, &ce)
 	return ce.Code(), ce
 }
 

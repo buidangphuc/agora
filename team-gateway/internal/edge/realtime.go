@@ -20,14 +20,17 @@ type RealtimeBroker struct {
 	clients map[string]map[chan []byte]struct{}
 }
 
+// GlobalBroker is the process-wide broker the SSE handler and publishers share.
 var GlobalBroker = NewRealtimeBroker()
 
+// NewRealtimeBroker returns an empty broker.
 func NewRealtimeBroker() *RealtimeBroker {
 	return &RealtimeBroker{
 		clients: make(map[string]map[chan []byte]struct{}),
 	}
 }
 
+// Subscribe registers a client on room and returns its event channel.
 func (b *RealtimeBroker) Subscribe(room string) chan []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -40,6 +43,7 @@ func (b *RealtimeBroker) Subscribe(room string) chan []byte {
 	return ch
 }
 
+// Unsubscribe removes a client registered by Subscribe and closes its channel.
 func (b *RealtimeBroker) Unsubscribe(room string, ch chan []byte) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -53,6 +57,7 @@ func (b *RealtimeBroker) Unsubscribe(room string, ch chan []byte) {
 	}
 }
 
+// Broadcast sends the event eventName with data to every client subscribed to room.
 func (b *RealtimeBroker) Broadcast(room string, eventName string, data interface{}) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -146,7 +151,7 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if room == "" {
 		room = "global"
 	}
-	code, msg, principal := h.authorizeRoom(r, room)
+	code, msg, principal := h.authorizeRoom(r, room) //nolint:contextcheck // JWKS refresh is deliberately detached from the request: one bounded fetch is shared by all callers
 	if code != 0 {
 		if code == http.StatusUnauthorized {
 			w.Header().Set("WWW-Authenticate", "Bearer")
@@ -172,6 +177,7 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer h.broker.Unsubscribe(room, ch)
 
 	// Send initial handshake ping
+	//nolint:gosec // G705: the response is text/event-stream, not HTML, and room is authorized by authorizeRoom and Go-quoted by %q.
 	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"room\":%q}\n\n", room)
 	flusher.Flush()
 

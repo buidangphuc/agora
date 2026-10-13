@@ -25,6 +25,7 @@ func NewRecommendationForwarder(client recommendationv1.RecommendationServiceCli
 	return &RecommendationForwarder{client: client, edge: edge}
 }
 
+// Recommend forwards the Recommend RPC to the upstream service.
 func (f *RecommendationForwarder) Recommend(
 	ctx context.Context,
 	req *connect.Request[recommendationv1.RecommendRequest],

@@ -17,10 +17,12 @@ type NotificationForwarder struct {
 	edge   *Edge
 }
 
+// NewNotificationForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewNotificationForwarder(client notificationv1.NotificationServiceClient, edge *Edge) *NotificationForwarder {
 	return &NotificationForwarder{client: client, edge: edge}
 }
 
+// ListNotifications forwards the ListNotifications RPC to the upstream service.
 func (f *NotificationForwarder) ListNotifications(
 	ctx context.Context, req *connect.Request[notificationv1.ListNotificationsRequest],
 ) (*connect.Response[notificationv1.ListNotificationsResponse], error) {
@@ -36,6 +38,7 @@ func (f *NotificationForwarder) ListNotifications(
 	return connect.NewResponse(out), nil
 }
 
+// MarkAsRead forwards the MarkAsRead RPC to the upstream service.
 func (f *NotificationForwarder) MarkAsRead(
 	ctx context.Context, req *connect.Request[notificationv1.MarkAsReadRequest],
 ) (*connect.Response[notificationv1.MarkAsReadResponse], error) {
@@ -51,6 +54,7 @@ func (f *NotificationForwarder) MarkAsRead(
 	return connect.NewResponse(out), nil
 }
 
+// GetUnreadCount forwards the GetUnreadCount RPC to the upstream service.
 func (f *NotificationForwarder) GetUnreadCount(
 	ctx context.Context, req *connect.Request[notificationv1.GetUnreadCountRequest],
 ) (*connect.Response[notificationv1.GetUnreadCountResponse], error) {
@@ -68,6 +72,7 @@ func (f *NotificationForwarder) GetUnreadCount(
 
 // ── Alert Subscriptions ──
 
+// SubscribeAlert forwards the SubscribeAlert RPC to the upstream service.
 func (f *NotificationForwarder) SubscribeAlert(
 	ctx context.Context, req *connect.Request[notificationv1.SubscribeAlertRequest],
 ) (*connect.Response[notificationv1.SubscribeAlertResponse], error) {
@@ -83,6 +88,7 @@ func (f *NotificationForwarder) SubscribeAlert(
 	return connect.NewResponse(out), nil
 }
 
+// UnsubscribeAlert forwards the UnsubscribeAlert RPC to the upstream service.
 func (f *NotificationForwarder) UnsubscribeAlert(
 	ctx context.Context, req *connect.Request[notificationv1.UnsubscribeAlertRequest],
 ) (*connect.Response[notificationv1.UnsubscribeAlertResponse], error) {
@@ -98,6 +104,7 @@ func (f *NotificationForwarder) UnsubscribeAlert(
 	return connect.NewResponse(out), nil
 }
 
+// ListAlertSubscriptions forwards the ListAlertSubscriptions RPC to the upstream service.
 func (f *NotificationForwarder) ListAlertSubscriptions(
 	ctx context.Context, req *connect.Request[notificationv1.ListAlertSubscriptionsRequest],
 ) (*connect.Response[notificationv1.ListAlertSubscriptionsResponse], error) {
@@ -115,6 +122,7 @@ func (f *NotificationForwarder) ListAlertSubscriptions(
 
 // ── Notification Preferences ──
 
+// GetNotificationPrefs forwards the GetNotificationPrefs RPC to the upstream service.
 func (f *NotificationForwarder) GetNotificationPrefs(
 	ctx context.Context, req *connect.Request[notificationv1.GetNotificationPrefsRequest],
 ) (*connect.Response[notificationv1.GetNotificationPrefsResponse], error) {
@@ -130,6 +138,7 @@ func (f *NotificationForwarder) GetNotificationPrefs(
 	return connect.NewResponse(out), nil
 }
 
+// UpdateNotificationPrefs forwards the UpdateNotificationPrefs RPC to the upstream service.
 func (f *NotificationForwarder) UpdateNotificationPrefs(
 	ctx context.Context, req *connect.Request[notificationv1.UpdateNotificationPrefsRequest],
 ) (*connect.Response[notificationv1.UpdateNotificationPrefsResponse], error) {

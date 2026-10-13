@@ -18,10 +18,12 @@ type AuthForwarder struct {
 	edge   *Edge
 }
 
+// NewAuthForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewAuthForwarder(client identityv1.AuthServiceClient, edge *Edge) *AuthForwarder {
 	return &AuthForwarder{client: client, edge: edge}
 }
 
+// Register forwards the Register RPC to the upstream service.
 func (f *AuthForwarder) Register(
 	ctx context.Context,
 	req *connect.Request[identityv1.RegisterRequest],
@@ -38,6 +40,7 @@ func (f *AuthForwarder) Register(
 	return connect.NewResponse(out), nil
 }
 
+// Login forwards the Login RPC to the upstream service.
 func (f *AuthForwarder) Login(
 	ctx context.Context,
 	req *connect.Request[identityv1.LoginRequest],

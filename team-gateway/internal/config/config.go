@@ -1,34 +1,29 @@
-// Package config assembles the gateway's flat Settings from per-capability
-// struct groups (same reflection loader + .env.example drift gate as the other
-// services). The gateway holds no business config — only where to listen and
-// which upstream services to route to.
+// Package config holds the gateway's Settings: go-sdk groups (Runtime, Kafka,
+// OTel) next to the gateway's own groups, loaded by sdk config.Load with the
+// .env.example drift gate (ADR-0016). The gateway holds no business config, only
+// where to listen and which upstream services to route to.
 package config
 
 import (
 	"errors"
 	"fmt"
-	"os"
-	"reflect"
-	"strconv"
 	"strings"
+
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
-// Settings is the whole configuration surface, grouped by capability.
+// Settings is the whole configuration surface, grouped by capability. Runtime
+// and Kafka are embedded (their field names do not collide); OTel is named.
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Upstream      Upstream
-	Auth          Auth
-	Edge          Edge
-	Events        Events
-	Identity      IdentityEvents
-	Observability Observability
-}
-
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
+	sdkconfig.Runtime
+	sdkconfig.Kafka
+	OTel     sdkconfig.OTel
+	Server   Server
+	Upstream Upstream
+	Auth     Auth
+	Edge     Edge
+	Events   Events
+	Identity IdentityEvents
 }
 
 // Server is the edge HTTP listener (serves Connect: gRPC + gRPC-web + JSON).
@@ -113,43 +108,29 @@ type Edge struct {
 }
 
 // Events configures the edge telemetry producer (ADR-0002) that emits browsing
-// TrackingEvents on the analytics topic. When KafkaEnabled is false the producer
-// is a no-op, so the collector still accepts beacons without a broker. This is
-// pure edge telemetry (validate → stamp → produce), not business config (Rule 2).
+// TrackingEvents on the analytics topic. Kafka brokers come from the SDK Kafka
+// group (KAFKA_BROKERS). Kafka has no enable flag: every deploy runs it. This is
+// pure edge telemetry (validate -> stamp -> produce), not business config (Rule 2).
 type Events struct {
-	KafkaEnabled   bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers        string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
 }
 
 // IdentityEvents configures the revocation consumer (ADR-0003 addendum): the
 // gateway reads identity.events (SessionRevoked) into an in-memory session
-// denylist. It reuses KAFKA_ENABLED / KAFKA_BROKERS from Events. The consumer
-// takes no group (every replica reads every partition from the earliest offset)
-// and is best-effort: Kafka being down never stops the gateway starting.
+// denylist, using the brokers of the SDK Kafka group. The consumer takes no
+// group (every replica reads every partition from the earliest offset) and is
+// best-effort: Kafka being down never stops the gateway starting.
 type IdentityEvents struct {
 	Topic string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
 }
 
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-gateway"`
+// Load reads the environment into Settings, applies defaults and validates.
+func Load() (Settings, error) {
+	return sdkconfig.Load[Settings]()
 }
 
-// LoadSettings reads the environment into Settings, applies defaults, validates.
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
-	}
-	if err := s.Validate(); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-func (s *Settings) Validate() error {
+// Validate rejects settings the gateway cannot run with.
+func (s Settings) Validate() error {
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("HTTP_PORT out of range: %d", s.Server.Port)
 	}
@@ -168,25 +149,20 @@ func (s *Settings) Validate() error {
 	if s.Server.ShutdownGrace < 0 {
 		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
 	}
-	if s.IsStrictEnv() && s.Edge.ReflectionEnabled {
-		return fmt.Errorf("EDGE_REFLECTION_ENABLED must not be true when ENV=%s", s.Runtime.Env)
+	if s.IsStrict() && s.Edge.ReflectionEnabled {
+		return fmt.Errorf("EDGE_REFLECTION_ENABLED must not be true when ENV=%s", s.Env)
 	}
 	return nil
 }
 
 // PublicScopesList returns the scopes granted to anonymous callers.
-func (s *Settings) PublicScopesList() []string {
+func (s Settings) PublicScopesList() []string {
 	return splitCSV(s.Auth.PublicScopes)
 }
 
 // CORSOriginsList returns the allowed CORS origins.
-func (s *Settings) CORSOriginsList() []string {
+func (s Settings) CORSOriginsList() []string {
 	return splitCSV(s.Edge.CORSOrigins)
-}
-
-// KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
-func (s *Settings) KafkaBrokers() []string {
-	return splitCSV(s.Events.Brokers)
 }
 
 func splitCSV(v string) []string {
@@ -200,83 +176,8 @@ func splitCSV(v string) []string {
 	return out
 }
 
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
+// IsProd reports ENV=prod or production.
+func (s Settings) IsProd() bool {
+	e := strings.ToLower(strings.TrimSpace(s.Env))
 	return e == "prod" || e == "production"
-}
-
-// IsStrictEnv reports staging or production: environments where dev-only
-// switches must refuse to boot.
-func (s *Settings) IsStrictEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(s.Runtime.Env)) {
-	case "staging", "stage", "prod", "production":
-		return true
-	}
-	return false
-}
-
-// DeclaredEnvKeys returns every env key declared by Settings, in struct order.
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
-}
-
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
-	}
-	return nil
-}
-
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
 }

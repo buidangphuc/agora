@@ -2,7 +2,6 @@ package edge
 
 import (
 	"bytes"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +16,7 @@ const consentBeacon = `{"type":"view","listingId":"l1","sessionId":"s","anonymou
 func trackWith(t *testing.T, body string, hdr map[string]string) (*httptest.ResponseRecorder, *mockAnalyticsPublisher) {
 	t.Helper()
 	pub := &mockAnalyticsPublisher{}
-	h := HandleTrack(&Edge{publicScopes: []string{"public"}}, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(&Edge{publicScopes: []string{"public"}}, pub, slog.New(slog.DiscardHandler))
 	req := httptest.NewRequest(http.MethodPost, "/api/track", bytes.NewReader([]byte(body)))
 	for k, v := range hdr {
 		req.Header.Set(k, v)

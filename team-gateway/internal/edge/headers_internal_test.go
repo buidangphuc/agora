@@ -3,6 +3,8 @@ package edge
 import (
 	"strings"
 	"testing"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/idempotency"
 )
 
 func TestValidIdempotencyKey(t *testing.T) {
@@ -16,8 +18,8 @@ func TestValidIdempotencyKey(t *testing.T) {
 		"khóa":                       false,
 		"with space and ~ symbols!?": true,
 	} {
-		if got := validIdempotencyKey(key); got != want {
-			t.Errorf("validIdempotencyKey(%q) = %v, want %v", key, got, want)
+		if got := idempotency.Validate(key) == nil; got != want {
+			t.Errorf("idempotency.Validate(%q) ok = %v, want %v", key, got, want)
 		}
 	}
 }
