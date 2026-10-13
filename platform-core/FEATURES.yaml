@@ -1565,3 +1565,708 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by platform-core/tools/sync-go-sdk_test.sh"
+  - id: go-sdk.a-rule-without-message-sends-the-sentinel-text-not-the-chain
+    title: "A rule without message sends the sentinel text, not the chain"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the same error matches Rule{Target: ErrNotFound, Code: NotFound}"
+    - "Then the message is the sentinel's own text, not listing 7: ..."
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestStatusDefaultsToSentinelText"
+  - id: go-sdk.the-first-matching-rule-wins
+    title: "The first matching rule wins"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When an error matches two rules of one table"
+    - "Then the status carries the code of the rule listed first, on every call"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestStatusFirstMatchingRuleWins"
+  - id: go-sdk.context-errors-are-not-internal-errors
+    title: "Context errors are not internal errors"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the error is context.Canceled or wraps context.DeadlineExceeded"
+    - "Then the status is Canceled or DeadlineExceeded and nothing is logged at error level"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestStatusMapsContextErrorsWithoutErrorLog"
+  - id: go-sdk.a-nil-logger-does-not-panic
+    title: "A nil logger does not panic"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When OpenOrLocal runs with a nil logger against an unreachable database with ENV=local"
+    - "Then it returns a nil pool and nil error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestOpenOrLocalNilLogger"
+  - id: go-sdk.the-first-call-waits-one-interval-unless-runatstart-is-set
+    title: "The first call waits one interval unless RunAtStart is set"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When Every runs without RunAtStart"
+    - "Then fn is not called before the first interval has passed"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestEveryWaitsForFirstTickWithoutRunAtStart"
+  - id: go-sdk.a-non-positive-interval-is-rejected
+    title: "A non-positive interval is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When Every gets an interval of zero or less"
+    - "Then it returns an error instead of a component"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestEveryRejectsNonPositiveInterval"
+  - id: go-sdk.the-targeting-key-comes-from-the-principal
+    title: "The targeting key comes from the principal"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a flag is evaluated with a principal in ctx and again without one"
+    - "Then the evaluation context key is the principal id, then anonymous"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestTargetingKeyFromPrincipal"
+  - id: go-sdk.options-override-the-key-and-add-attributes
+    title: "Options override the key and add attributes"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When WithTargetingKey(\"k\") and WithAttributes are passed"
+    - "Then the evaluation context carries key k and the attributes"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestEvalOptionsOverrideKeyAndAddAttributes"
+  - id: go-sdk.closing-one-client-keeps-another-working
+    title: "Closing one client keeps another working"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When one of two clients is closed"
+    - "Then the other still evaluates"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestCloseKeepsOtherClientWorking"
+  - id: go-sdk.a-poison-batch-is-dead-lettered-after-the-attempt-limit
+    title: "A poison batch is dead-lettered after the attempt limit"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When h keeps failing with a non-Permanent error"
+    - "Then after MaxAttempts tries the batch is on the DLQ and committed"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestPoisonBatchGoesToDLQAfterMaxAttempts"
+  - id: go-sdk.the-attempt-limit-has-a-default
+    title: "The attempt limit has a default"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When BatchOptions.MaxAttempts is zero"
+    - "Then the consumer uses 5 attempts"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestBatchDefaultMaxAttempts"
+  - id: go-sdk.an-invalid-table-name-is-rejected-at-construction
+    title: "An invalid table name is rejected at construction"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When NewDedupe gets a name that is not a plain identifier"
+    - "Then it returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestNewDedupeValidatesTable"
+  - id: go-sdk.calls-are-spread-across-resolved-addresses
+    title: "Calls are spread across resolved addresses"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the resolver returns two addresses and the client makes several calls"
+    - "Then both backends receive calls"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestDefaultsToRoundRobin"
+  - id: go-sdk.every-caller-fails-when-docker-is-required-and-missing
+    title: "Every caller fails when Docker is required and missing"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When GO_SDK_REQUIRE_DOCKER is set and Docker is unavailable"
+    - "Then each SharedPostgres call fails the test"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestSharedPostgresFailsEveryCallerWhenDockerRequired"
+  - id: go-sdk.rows-of-one-aggregate-publish-in-enqueue-order
+    title: "Rows of one aggregate publish in enqueue order"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When several rows of one aggregate are enqueued, some in the same transaction"
+    - "Then they are published in enqueue order"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/outbox TestOrderPerAggregate"
+  - id: go-sdk.a-failing-row-blocks-its-own-aggregate-only
+    title: "A failing row blocks its own aggregate only"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When an older row of aggregate A fails and rows of A and B are pending"
+    - "Then B's rows are published and A's newer rows wait"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestFailingRowBlocksItsAggregateOnly"
+  - id: go-sdk.a-parked-row-keeps-blocking-its-aggregate
+    title: "A parked row keeps blocking its aggregate"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a row of aggregate A is parked as failed"
+    - "Then newer rows of A are not claimed"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestParkedRowBlocksItsAggregate"
+  - id: go-sdk.published-records-carry-the-headers
+    title: "Published records carry the headers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a row is enqueued in a context with a request id and a trace"
+    - "Then the published record has event_id, event_type, x-request-id and traceparent headers"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestPublishedRecordCarriesHeaders"
+  - id: go-sdk.a-row-topic-overrides-the-relayer-topic
+    title: "A row topic overrides the relayer topic"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When one row names a topic and another does not"
+    - "Then the first goes to its topic and the second to the relayer's"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestRowTopicOverridesRelayerTopic"
+  - id: go-sdk.a-blocked-broker-cannot-outlive-the-claim-lock
+    title: "A blocked broker cannot outlive the claim lock"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the publisher blocks"
+    - "Then RelayOnce returns before the claim lock expires and the rows are released"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestRelayBatchBoundedUnderBlockingPublisher"
+  - id: go-sdk.empty-event-ids-are-rejected
+    title: "Empty event ids are rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When EnqueueTx gets a row with an empty EventID"
+    - "Then it returns ErrEmptyEventID and inserts nothing"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestEnqueueRejectsEmptyEventID"
+  - id: go-sdk.purge-removes-old-published-rows-only
+    title: "Purge removes old published rows only"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When Purge runs over published, pending and recent rows"
+    - "Then only published rows older than the duration are deleted"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestPurgeDeletesOnlyOldPublishedRows"
+  - id: go-sdk.the-schema-upgrades-an-old-table
+    title: "The schema upgrades an old table"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When SchemaSQL is applied to a table created by v0.2.1"
+    - "Then the new columns and indexes exist and old rows keep working"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestSchemaSQLUpgradesTableFromOldSchema"
+  - id: go-sdk.trace-and-request-id-reach-the-handler
+    title: "Trace and request id reach the handler"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a record carries traceparent and x-request-id headers"
+    - "Then the handler's context has that trace and that request id"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/consume TestTraceAndRequestIDReachHandlerContext"
+  - id: go-sdk.a-batch-span-links-to-its-records
+    title: "A batch span links to its records"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a batch of traced records is handled"
+    - "Then the batch span links to each record's span"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestBatchContextLinksRecordSpans"
+  - id: go-sdk.records-expose-partition-timestamp-and-duplicate-headers
+    title: "Records expose partition, timestamp and duplicate headers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a record has two headers with the same key"
+    - "Then Record.Headers holds both, and partition and timestamp are set"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestRecordCarriesPartitionTimestampAndDuplicateHeaders"
+  - id: go-sdk.a-revoked-partition-is-not-rewound-or-committed-twice
+    title: "A revoked partition is not rewound or committed twice"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a partition is revoked in the middle of a fetch"
+    - "Then its offsets are neither rewound nor committed twice"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestRevokeMidFetchDoesNotRewindOrDoubleCommit"
+  - id: go-sdk.a-failed-record-is-never-committed-and-rebalances-stay-possible
+    title: "A failed record is never committed and rebalances stay possible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a record fails and its dead-lettering also fails"
+    - "Then nothing is committed and AllowRebalance is still called"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestFailedRecordIsNeverCommittedAndRebalanceIsAllowed"
+  - id: go-sdk.a-failed-dlq-publish-commits-nothing
+    title: "A failed DLQ publish commits nothing"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the DLQ producer returns an error"
+    - "Then the fetch is not committed"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestDLQFailureCommitsNothing"
+  - id: go-sdk.constructors-reject-invalid-arguments
+    title: "Constructors reject invalid arguments"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a constructor gets a nil handler, a nil DLQ producer or an empty DLQTopic"
+    - "Then it returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestConstructorsRejectInvalidArguments"
+  - id: go-sdk.the-producer-has-a-delivery-timeout
+    title: "The producer has a delivery timeout"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a producer is built without options"
+    - "Then its record delivery timeout is 30s"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/kafkax TestProducerDefaultsRecordDeliveryTimeout"
+  - id: go-sdk.group-clients-block-rebalance-on-poll
+    title: "Group clients block rebalance on poll"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a group client is built"
+    - "Then a rebalance cannot complete until AllowRebalance is called"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestGroupConsumerClientBlocksRebalanceOnPoll"
+  - id: go-sdk.the-health-check-reports-the-ping-result
+    title: "The health check reports the ping result"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the pinger succeeds and then fails"
+    - "Then the checker returns nil, then that error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestCheckerReportsPingResult"
+  - id: go-sdk.constants-keep-their-wire-values
+    title: "Constants keep their wire values"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the constants are converted to strings"
+    - "Then they are user, service and anonymous"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/auth TestPrincipalTypeConstants"
+  - id: go-sdk.an-invalid-key-matches-errinvalidkey
+    title: "An invalid key matches ErrInvalidKey"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When Validate rejects a key"
+    - "Then errors.Is(err, ErrInvalidKey) is true"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/idempotency TestValidateReturnsErrInvalidKey"
+  - id: go-sdk.env-is-required
+    title: "ENV is required"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When ENV is unset, or set to the empty string"
+    - "Then Load returns an error naming ENV, and IsLocal() is true only for local and test"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestLoadRequiresEnv and TestIsLocalOnlyForExplicitLocalOrTest"
+  - id: go-sdk.every-embedded-group-is-validated
+    title: "Every embedded group is validated"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a struct embeds GRPC and Postgres and both are invalid"
+    - "Then Load returns one error naming GRPC_PORT and DATABASE_URL"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestLoadValidatesEveryEmbeddedGroup"
+  - id: go-sdk.durations-are-go-durations-with-suffix-free-keys
+    title: "Durations are Go durations with suffix-free keys"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When OUTBOX_CLAIM_LOCK=90s, FEATURE_FLAGS_EVAL_TIMEOUT=250ms and SHUTDOWN_DRAIN_DELAY=1500ms are set, and again with none set"
+    - "Then the fields hold 90s, 250ms and 1.5s, then the defaults 60s, 500ms and 0s"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestMessagingGroupOverrides, TestMessagingGroupDefaults and TestDrainDelay"
+  - id: go-sdk.a-non-positive-interval-is-rejected
+    title: "A non-positive interval is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When New gets an interval of zero or less"
+    - "Then it returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestNewRejectsNonPositiveInterval"
+  - id: go-sdk.components-and-closers-share-one-grace-period
+    title: "Components and closers share one grace period"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When components use part of the grace period and a closer would need more than what is left"
+    - "Then Run returns within one ShutdownGrace, not two"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestShutdownWorstCaseIsOneGrace"
+  - id: go-sdk.withtx-rolls-back-on-panic
+    title: "WithTx rolls back on panic"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When fn panics inside a transaction, repeatedly"
+    - "Then the panic propagates, no row is committed and the pool is not exhausted"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestWithTxPanicDoesNotLeakConnection"
+  - id: go-sdk.internal-and-plain-errors-are-not-retried
+    title: "Internal and plain errors are not retried"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When fn returns codes.Internal or a plain error"
+    - "Then fn runs once"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestInternalAndPlainErrorsAreNotRetried"
+  - id: go-sdk.zero-options-are-bounded
+    title: "Zero options are bounded"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When Retry(RetryOptions{}) and Breaker(BreakerOptions{}) are used"
+    - "Then retries stop after 3 attempts and the breaker does not panic"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestZeroValueRetryOptionsBounded and TestZeroValueBreakerOptionsDoNotPanic"
+  - id: go-sdk.invalid-options-are-rejected
+    title: "Invalid options are rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When an option value is negative"
+    - "Then the constructor returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestInvalidOptionsRejected"
+  - id: go-sdk.oversized-or-malformed-request-ids-are-replaced
+    title: "Oversized or malformed request ids are replaced"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a call sends an x-request-id longer than 128 characters or with a character outside [A-Za-z0-9._-]"
+    - "Then the handler sees a generated id instead"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestRequestIDRejectsOversizedOrBadCharset"
+  - id: go-sdk.reflection-is-always-on
+    title: "Reflection is always on"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a server is built without any reflection setting"
+    - "Then the reflection service is registered"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestReflectionAlwaysRegistered"
+  - id: go-sdk.an-unreachable-database-fails-boot-outside-local
+    title: "An unreachable database fails boot outside local"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the example boots with an unreachable database and ENV=prod"
+    - "Then app.Run returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestBootFailsWhenDatabaseUnreachableOutsideLocal"
