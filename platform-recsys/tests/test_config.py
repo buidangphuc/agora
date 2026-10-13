@@ -1,5 +1,7 @@
 """Config defaults, env overrides, validation, and cache-key contract."""
 
+import pytest
+
 from recsys import config
 
 
@@ -40,6 +42,37 @@ def test_cache_key_shapes_match_consumer_contract():
     assert s.model_version_cache_key == "recs:v1:model_version"
 
 
-def test_promotion_force_is_off_by_default_and_parsed():
-    assert config.load_settings(environ={}).promotion_force is False
-    assert config.load_settings(environ={"PROMOTION_FORCE": "true"}).promotion_force is True
+def test_promotion_settings_are_removed():
+    # RAT-35 / task 1.2: the registry decides; no env var can force a promotion.
+    names = set(config.env_names())
+    assert not {n for n in names if n.startswith("PROMOTION_")}
+    s = config.load_settings(environ={"PROMOTION_FORCE": "true"})
+    assert not any(a.startswith("promotion_") for a in vars(s))
+
+
+def test_mlflow_uri_required():
+    # RAT-21: unset or empty is a configuration error (the job exits 2 before Spark).
+    ok = config.load_settings(environ={"MLFLOW_TRACKING_URI": "http://mlflow:5050"})
+    assert ok.mlflow_tracking_uri == "http://mlflow:5050"
+    for env in ({}, {"MLFLOW_TRACKING_URI": ""}, {"MLFLOW_TRACKING_URI": "  "}):
+        with pytest.raises(config.ConfigError):
+            config.load_settings(environ=env).validate_for_training()
+
+
+def test_max_dataset_age_bounds():
+    # RAT-48 (negative), RAT-24 (0 = guard off, the default)
+    assert config.load_settings(environ={}).max_dataset_age_minutes == 0
+    assert config.load_settings(environ={"MAX_DATASET_AGE_MINUTES": "0"}).max_dataset_age_minutes == 0
+    assert config.load_settings(environ={"MAX_DATASET_AGE_MINUTES": "1500"}).max_dataset_age_minutes == 1500
+    for bad in ("-5", "abc", "1.5"):
+        with pytest.raises(ValueError):
+            config.load_settings(environ={"MAX_DATASET_AGE_MINUTES": bad})
+
+
+def test_holdout_fraction_bounds():
+    # RAT-44: strictly inside (0, 1); default 0.1
+    assert config.load_settings(environ={}).two_tower_holdout_fraction == 0.1
+    assert config.load_settings(environ={"TWO_TOWER_HOLDOUT_FRACTION": "0.25"}).two_tower_holdout_fraction == 0.25
+    for bad in ("0", "1", "1.5", "-0.1"):
+        with pytest.raises(ValueError):
+            config.load_settings(environ={"TWO_TOWER_HOLDOUT_FRACTION": bad})
