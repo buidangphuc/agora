@@ -39,7 +39,7 @@ Consumes: `team-order` `GetOrder` only (gRPC, dialed with the go-sdk `upstream` 
 
 ## 2. Events
 
-Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`; no review text) to `engagement.events` through a transactional outbox: each fact is written, as a full `platform.events.v1.EventEnvelope`, to `engagement_outbox_events` (go-sdk outbox shape, migration 0011) in the same transaction as the change; an idempotent no-op writes no fact. The go-sdk relayer (`outbox.Relayer`, tuned by `OUTBOX_*`) publishes the rows keyed by listing id (seller id for follows) and retries a failing row with backoff, parks it after `OUTBOX_MAX_ATTEMPTS`, and keeps publishing the rows behind it. A retention component deletes published rows older than 7 days once an hour; pending and parked rows are kept. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) through the go-sdk `consume.Consumer`; it is the only writer of `seller_listings` (the follow-feed source).
+Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`; no review text) to `engagement.events` through a transactional outbox: each fact is written, as a full `platform.events.v1.EventEnvelope`, to `engagement_outbox_events` (go-sdk outbox shape, migrations 0011 and 0012-0019) in the same transaction as the change; an idempotent no-op writes no fact. The go-sdk relayer (`outbox.Relayer`, tuned by `OUTBOX_*`) publishes the rows keyed by listing id (seller id for follows). Order is kept per aggregate (a listing id, or a seller id for follows): a row waits for the older unpublished rows of its aggregate, while other aggregates keep flowing. A publish error is retried with capped backoff and logged at ERROR after 10 failed attempts; only an error that is permanent for the record (for example a record too large) parks the row, and a parked row blocks its aggregate until `Store.Requeue` / `Store.RequeueParked`. There is no attempt limit. A job in `internal/app` (`lifecycle.Every` over `outbox.Store.Purge`) deletes published rows older than 7 days once an hour; pending and parked rows are kept. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) through the go-sdk `consume.Consumer`; it is the only writer of `seller_listings` (the follow-feed source).
 
 - `ListingChanged` with a `PUBLISHED` listing (created or updated): upsert `(seller_id, listing_id)`. `created_at` is the envelope's `occurred_at` and is kept on redelivery and later updates, so editing a listing does not bump it in the feed. A listing has one owning seller.
 - `ListingChanged` `DELETED`, or any non-published status; and `ListingStatusChanged` to a non-published status: remove the row. `ListingStatusChanged` to `PUBLISHED` is ignored (it carries no seller id; the matching `ListingChanged` upserts).
@@ -63,8 +63,20 @@ Own Postgres `engagement_db`, role `engagement_svc`. Tables by migration (`migra
 | 0009 | indexes for the newest-first follow feed on `seller_listings` |
 | 0010 | `outbox` (engagement facts, old shape: `seq`, advisory-lock relayer). Left in place, no longer written; a later cleanup change drops it |
 | 0011 | `engagement_outbox_events` (go-sdk outbox shape). Copies the rows still unpublished in `outbox`, in `seq` order, keeping `event_id`, with the payload rebuilt as the full `EventEnvelope`. Forward-only: its down refuses to drop a table holding unpublished events |
+| 0012-0019 | go-sdk v1 upgrade of `engagement_outbox_events`: 0012 adds `topic`, `traceparent`, `seq` and the sequence; 0013 numbers the existing rows by `(created_at, event_id)`; 0014 switches in one transaction (lock, number the stragglers, `seq` default); 0015 `seq` NOT NULL; 0016-0018 one `CREATE INDEX CONCURRENTLY` each (status, aggregate, pending); 0019 `DROP INDEX CONCURRENTLY` of the v0 claim index. Forward-only; the downs are no-ops. A file holding a `CONCURRENTLY` statement holds only that statement, so golang-migrate does not wrap it in a transaction |
 
 Migrations are applied by golang-migrate, never by the server. Root compose: the `team-engagement-migrate` one-shot runs before `team-engagement`. Standalone: `make migrate` (runs `migrate/migrate` in docker against `DATABASE_URL`, rewriting `localhost` to `host.docker.internal`).
+
+### Outbox upgrade (go-sdk v1): deploy note
+
+Deploying go-sdk v1 changes the shape of `engagement_outbox_events` (migrations 0012-0019). A v0 relayer ignores `seq`, so do these in order, per environment:
+
+1. Stop every v0 team-engagement instance, or let it drain the pending rows. Only then run the migrate job (`team-engagement-migrate`); it applies 0012-0019 and the v1 instances start after it.
+2. Park check before the migration: list the rows a v0 relayer parked, `SELECT event_id, aggregate_type, aggregate_id, attempts, error FROM engagement_outbox_events WHERE status = 'failed'`. v1 never sends a `failed` row but keeps it as the head of its aggregate, so it blocks every later event of that aggregate. Fix the cause, then either `DELETE` the rows you will not send or put them back: `UPDATE engagement_outbox_events SET status = 'pending', attempts = 0, available_at = now(), locked_until = NULL, error = NULL WHERE status = 'failed'`. After the upgrade, `outbox.Store.RequeueParked(ctx, outbox.RequeueFilter{})` does this for rows v1 parks later.
+3. Purge published rows you do not need before the migration (`DELETE FROM engagement_outbox_events WHERE status = 'published'`, or let the hourly job do it): they need no ordered numbers, and every backfill batch sorts all rows that are still unnumbered.
+4. If a `CREATE INDEX CONCURRENTLY` migration (0016-0018) fails, `DROP` the invalid index it left and apply the migration again. Do not apply 0013 again after 0014.
+
+The old `outbox` table (migration 0010) is not touched by the upgrade.
 
 ## 4. Configuration
 
@@ -72,25 +84,24 @@ Read by `internal/config/config.go`; `.env.example` is the template.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | Environment name |
+| `ENV` | none | Required: `local`, `test`, `staging`, `prod`. A staging or prod `ENV` also requires `KAFKA_BROKERS` to be set |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`/`warning`, `error` |
 | `LOG_JSON` | `true` | JSON logs (else text) |
 | `GRPC_HOST` | `0.0.0.0` | Bind host |
 | `GRPC_PORT` | none | Required, positive (`50054`; the Dockerfile sets it) |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | Graceful stop timeout |
-| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0` | Pause between health NOT_SERVING and the stop |
+| `SHUTDOWN_GRACE` | `10s` | Graceful stop timeout (Go duration) |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Pause between health NOT_SERVING and the stop |
 | `DATABASE_URL` | none | Required; an unreachable database fails boot in every ENV (the server has no in-memory mode). Standalone `postgresql://engagement_svc:engagement_pass@localhost:5436/engagement_db`; in root compose the host is `postgres:5432` |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `UPSTREAM_ORDER_ADDR` | empty | `team-order` gRPC address. Empty disables verified-purchase checks. Root compose sets `team-order-svc:50055` |
 | `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Per-call budget for upstream lookups, also capped by the request deadline |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seed brokers (root compose: `redpanda:9092`) |
+| `KAFKA_BROKERS` | `localhost:9092` for a local or test `ENV`, required otherwise | Comma-separated seed brokers (root compose: `redpanda:9092`) |
 | `KAFKA_CONSUMER_GROUP` | `team-engagement-feed` | Consumer group |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Topic; the DLQ is `<topic>.dlq` |
 | `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Outbox relay poll interval (Go duration; compose and gitops set `500ms`). Replaces `ENGAGEMENT_OUTBOX_RELAY_INTERVAL` |
 | `OUTBOX_BATCH_SIZE` | `100` | Rows claimed per pass |
-| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | Lease on claimed rows |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | Publish attempts before a row is parked |
+| `OUTBOX_CLAIM_LOCK` | `60s` | Lease on claimed rows (Go duration). Replaces `OUTBOX_CLAIM_LOCK_SECONDS`; `OUTBOX_MAX_ATTEMPTS` is gone, the relayer has no attempt limit |
 | `OTEL_ENABLED` | `false` | Tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-engagement` | Service name in traces |
