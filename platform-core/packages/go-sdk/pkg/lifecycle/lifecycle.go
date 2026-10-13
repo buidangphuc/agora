@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -201,5 +202,65 @@ func StopAfter(primary Component, dependents ...Component) Component {
 		mu.Lock()
 		defer mu.Unlock()
 		return errors.Join(append([]error{primaryErr}, errs...)...)
+	})
+}
+
+// Every returns a Component that calls fn every interval, and once at start
+// when runAtStart is true. A returned error is logged and the worker keeps
+// running; Run returns nil when ctx ends. fn receives ctx and should return
+// when it is cancelled.
+func Every(interval time.Duration, runAtStart bool, fn func(context.Context) error, logger *slog.Logger) Component {
+	return Func(func(ctx context.Context) error {
+		if logger == nil {
+			logger = slog.Default()
+		}
+		tick := func() {
+			if err := fn(ctx); err != nil && ctx.Err() == nil {
+				logger.ErrorContext(ctx, "lifecycle: periodic task failed", "err", err)
+			}
+		}
+		if runAtStart && ctx.Err() == nil {
+			tick()
+		}
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-t.C:
+				tick()
+			}
+		}
+	})
+}
+
+// HTTP returns a Component that serves srv until ctx ends and then calls
+// Shutdown bounded by grace (zero means 10s), so in-flight requests finish.
+// A serve error other than http.ErrServerClosed is returned at once; when the
+// grace period runs out the remaining connections are closed and the deadline
+// error is returned.
+func HTTP(srv *http.Server, grace time.Duration) Component {
+	return Func(func(ctx context.Context) error {
+		if grace <= 0 {
+			grace = defaultGrace
+		}
+		serveErr := make(chan error, 1)
+		go func() { serveErr <- srv.ListenAndServe() }()
+		select {
+		case err := <-serveErr:
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return err
+		case <-ctx.Done():
+		}
+		shutCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), grace)
+		defer cancel()
+		if err := srv.Shutdown(shutCtx); err != nil {
+			_ = srv.Close()
+			return fmt.Errorf("lifecycle: http shutdown: %w", err)
+		}
+		return nil
 	})
 }

@@ -179,3 +179,15 @@ func TestPerCallServicePrincipalIgnoresIncomingMetadata(t *testing.T) {
 		t.Errorf("principal id = %v, want [buyer-9]", got)
 	}
 }
+
+func TestDialOptionsApplied(t *testing.T) {
+	var seen []string
+	icpt := grpc.WithChainUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		seen = append(seen, method)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	})
+	invoke(buyerCtx(), t, withBufconn(echoServer(t)), WithDialOptions(icpt))
+	if len(seen) != 1 || seen[0] != "/test.v1.Test/Echo" {
+		t.Errorf("interceptor saw %v, want one call to /test.v1.Test/Echo", seen)
+	}
+}

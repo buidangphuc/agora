@@ -3,7 +3,10 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
+	"net"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
@@ -221,5 +224,124 @@ func TestStopAfterOrdersShutdown(t *testing.T) {
 	defer mu.Unlock()
 	if len(order) != 2 || order[0] != "primary stopped" || order[1] != "dependent stopped" {
 		t.Fatalf("shutdown order = %v, want primary then dependent", order)
+	}
+}
+
+func TestEveryKeepsRunningAfterError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var mu sync.Mutex
+	calls := 0
+	second := make(chan struct{})
+	c := lifecycle.Every(5*time.Millisecond, true, func(context.Context) error {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		if calls == 2 {
+			close(second)
+		}
+		return errors.New("boom")
+	}, quiet())
+	done := make(chan error, 1)
+	go func() { done <- c.Run(ctx) }()
+	select {
+	case <-second:
+	case <-time.After(wait):
+		t.Fatal("fn was not called again after its first error")
+	}
+	cancel()
+	if err := result(t, done); err != nil {
+		t.Fatalf("Run = %v, want nil after cancel", err)
+	}
+}
+
+func TestEveryWaitsForFirstTickWithoutRunAtStart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	called := make(chan struct{}, 1)
+	c := lifecycle.Every(time.Hour, false, func(context.Context) error { called <- struct{}{}; return nil }, quiet())
+	done := make(chan error, 1)
+	go func() { done <- c.Run(ctx) }()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	if err := result(t, done); err != nil {
+		t.Fatalf("Run = %v", err)
+	}
+	select {
+	case <-called:
+		t.Error("fn ran although runAtStart is false and no tick elapsed")
+	default:
+	}
+}
+
+func TestHTTPShutsDownGracefully(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := l.Addr().String()
+	_ = l.Close()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	srv := &http.Server{Addr: addr, Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		_, _ = w.Write([]byte("done"))
+	}), ReadHeaderTimeout: time.Second}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- lifecycle.HTTP(srv, wait).Run(ctx) }()
+
+	body := make(chan string, 1)
+	go func() {
+		var resp *http.Response
+		var err error
+		for range 100 {
+			resp, err = http.Get("http://" + addr)
+			if err == nil {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		if err != nil {
+			body <- "error: " + err.Error()
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b, _ := io.ReadAll(resp.Body)
+		body <- string(b)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(wait):
+		t.Fatal("request never reached the handler")
+	}
+	cancel()
+	time.Sleep(50 * time.Millisecond)
+	select {
+	case err := <-done:
+		t.Fatalf("Run returned %v while a request was in flight", err)
+	default:
+	}
+	close(release)
+	if got := <-body; got != "done" {
+		t.Errorf("response = %q, want done", got)
+	}
+	if err := result(t, done); err != nil {
+		t.Fatalf("Run = %v, want nil", err)
+	}
+}
+
+func TestHTTPReturnsListenError(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = l.Close() }()
+	srv := &http.Server{Addr: l.Addr().String(), ReadHeaderTimeout: time.Second}
+	if err := lifecycle.HTTP(srv, time.Second).Run(context.Background()); err == nil {
+		t.Fatal("Run = nil on an address in use, want an error")
 	}
 }

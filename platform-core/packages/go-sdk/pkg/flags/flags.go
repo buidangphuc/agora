@@ -116,3 +116,18 @@ func (c *Client) Close(_ context.Context) error {
 	openfeature.Shutdown()
 	return nil
 }
+
+// NewOrDisabled builds the Flipt-backed Evaluator, or, when setup fails, logs
+// a warning and returns Disabled() so the service starts with caller defaults.
+// The returned closer is never nil and is safe to call in either case.
+func NewOrDisabled(ctx context.Context, c config.Flags, logger *slog.Logger) (Evaluator, func(context.Context) error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	cl, err := New(ctx, c, logger)
+	if err != nil {
+		logger.WarnContext(ctx, "feature flags setup failed; evaluations return defaults", "err", err)
+		return Disabled(), func(context.Context) error { return nil }
+	}
+	return cl, cl.Close
+}

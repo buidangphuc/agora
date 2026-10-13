@@ -117,3 +117,28 @@ func TestRetryable(t *testing.T) {
 		}
 	}
 }
+
+func TestRetryIfOverridesDefault(t *testing.T) {
+	o := fastRetry
+	o.RetryIf = func(err error) bool { return status.Code(err) == codes.Unavailable }
+	calls := 0
+	err := resilience.Do(context.Background(), func(context.Context) error {
+		calls++
+		return status.Error(codes.DeadlineExceeded, "slow")
+	}, resilience.Retry(o))
+	if calls != 1 {
+		t.Errorf("fn ran %d times, want 1 (RetryIf rejects DeadlineExceeded)", calls)
+	}
+	if status.Code(err) != codes.DeadlineExceeded {
+		t.Errorf("err = %v, want DeadlineExceeded", err)
+	}
+
+	calls = 0
+	_ = resilience.Do(context.Background(), func(context.Context) error {
+		calls++
+		return status.Error(codes.Unavailable, "down")
+	}, resilience.Retry(o))
+	if calls != o.MaxAttempts {
+		t.Errorf("Unavailable ran %d times, want %d", calls, o.MaxAttempts)
+	}
+}

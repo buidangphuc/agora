@@ -59,6 +59,12 @@ func WithTimeout(d time.Duration) Option {
 	return func(o *options) { o.timeout = d }
 }
 
+// WithDialOptions appends opts after the SDK's own dial options, so they can
+// add to or override the defaults (extra interceptors, service config, ...).
+func WithDialOptions(opts ...grpc.DialOption) Option {
+	return func(o *options) { o.dialOptions = append(o.dialOptions, opts...) }
+}
+
 // Dial creates a lazily connecting plaintext gRPC client with otelgrpc, the
 // request id forwarded, and the principal forwarded or replaced (AsService).
 func Dial(addr string, opts ...Option) (*grpc.ClientConn, error) {

@@ -17,6 +17,8 @@ type RetryOptions struct {
 	MaxAttempts int
 	BaseDelay   time.Duration
 	MaxDelay    time.Duration
+	// RetryIf decides whether an error is retried. Nil keeps Retryable.
+	RetryIf func(error) bool
 }
 
 // BreakerOptions configures Breaker. The breaker opens after FailureThreshold
@@ -30,11 +32,15 @@ const jitterFactor = 0.25
 
 // Retry retries retryable errors with exponential backoff and jitter.
 func Retry(o RetryOptions) failsafe.Policy[any] {
+	retryIf := o.RetryIf
+	if retryIf == nil {
+		retryIf = Retryable
+	}
 	return retrypolicy.NewBuilder[any]().
 		WithMaxAttempts(o.MaxAttempts).
 		WithBackoff(o.BaseDelay, o.MaxDelay).
 		WithJitterFactor(jitterFactor).
-		HandleIf(func(_ any, err error) bool { return Retryable(err) }).
+		HandleIf(func(_ any, err error) bool { return retryIf(err) }).
 		ReturnLastFailure().
 		Build()
 }

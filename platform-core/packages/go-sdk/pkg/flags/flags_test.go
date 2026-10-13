@@ -78,3 +78,19 @@ func TestNewWithProviderEvaluates(t *testing.T) {
 		t.Error("unknown flag = true, want its default false")
 	}
 }
+
+func TestNewOrDisabledDegrades(t *testing.T) {
+	ev, closeFn := flags.NewOrDisabled(context.Background(), config.Flags{Enabled: true}, quiet)
+	if ev == nil || closeFn == nil {
+		t.Fatal("NewOrDisabled returned a nil evaluator or closer")
+	}
+	if !ev.BooleanEnabled(context.Background(), "x", true) {
+		t.Error("degraded evaluator = false, want caller default true")
+	}
+	if ev.BooleanEnabled(context.Background(), "x", false) {
+		t.Error("degraded evaluator = true, want caller default false")
+	}
+	if err := closeFn(context.Background()); err != nil {
+		t.Errorf("closer = %v, want nil", err)
+	}
+}

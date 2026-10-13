@@ -26,10 +26,10 @@ Owns: `pkg/config/**`, `pkg/pgx/**`, `pkg/pagination/**` (new).
 
 Owns: `pkg/lifecycle/**`, `pkg/flags/**`, `pkg/resilience/**`, `pkg/upstream/**`.
 
-- [ ] 4.1 `lifecycle.Every`, `lifecycle.HTTP`; `TestEveryKeepsRunningAfterError`, `TestHTTPShutsDownGracefully`.
-- [ ] 4.2 `flags.NewOrDisabled`; `TestNewOrDisabledDegrades`.
-- [ ] 4.3 `RetryOptions.RetryIf`; `TestRetryIfOverridesDefault`.
-- [ ] 4.4 `upstream.WithDialOptions`; `TestDialOptionsApplied`.
+- [x] 4.1 `lifecycle.Every`, `lifecycle.HTTP`; `TestEveryKeepsRunningAfterError`, `TestHTTPShutsDownGracefully`.
+- [x] 4.2 `flags.NewOrDisabled`; `TestNewOrDisabledDegrades`.
+- [x] 4.3 `RetryOptions.RetryIf`; `TestRetryIfOverridesDefault`.
+- [x] 4.4 `upstream.WithDialOptions`; `TestDialOptionsApplied`.
 
 ## 5. messaging and sync (wave 1)
 
