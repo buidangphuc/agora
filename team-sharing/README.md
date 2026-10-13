@@ -47,14 +47,14 @@ Migrations are in `migrations/` (`001_create_share_links`, `002_share_links_crea
 
 ## Configuration
 
-`internal/config` binds the SDK groups from env; `.env.example` lists every key and `TestEnvExampleInSync` fails when the two drift. `GRPC_PORT` is required (no default; the Dockerfile and compose set 50065).
+`internal/config` binds the SDK groups from env; `.env.example` lists every key and `TestEnvExampleInSync` fails when the two drift. `ENV` and `GRPC_PORT` are required (no default). The Dockerfile sets `GRPC_PORT=50065`; every deployment must set `ENV` (compose and gitops do).
 
 | Var | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
+| `ENV` | required | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
 | `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
-| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | `10s`, `0s` | Shutdown drains health first, then stops within the grace period. |
 | `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | Postgres. A missing `DATABASE_URL` fails at load. |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 

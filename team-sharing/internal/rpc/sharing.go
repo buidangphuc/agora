@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"google.golang.org/grpc"
@@ -26,17 +27,18 @@ type Handler struct {
 }
 
 // NewHandler returns a Handler that maps domain errors with its error table.
-func NewHandler(svc *sharelink.Service, logger *slog.Logger) *Handler {
-	return &Handler{
-		svc:    svc,
-		logger: logger,
-		errs: grpcx.ErrorTable{
-			sharelink.ErrEmptyTargetType:   codes.InvalidArgument,
-			sharelink.ErrEmptyTargetID:     codes.InvalidArgument,
-			sharelink.ErrEmptyShortCode:    codes.InvalidArgument,
-			sharelink.ErrShareLinkNotFound: codes.NotFound,
-		},
+// Each rule keeps the message clients saw before the table (the error text).
+func NewHandler(svc *sharelink.Service, logger *slog.Logger) (*Handler, error) {
+	errs, err := grpcx.NewErrorTable(
+		grpcx.Rule{Target: sharelink.ErrEmptyTargetType, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: sharelink.ErrEmptyTargetID, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: sharelink.ErrEmptyShortCode, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: sharelink.ErrShareLinkNotFound, Code: codes.NotFound},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error table: %w", err)
 	}
+	return &Handler{svc: svc, logger: logger, errs: errs}, nil
 }
 
 // Register adds the sharing service to s.

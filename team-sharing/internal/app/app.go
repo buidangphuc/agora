@@ -13,7 +13,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-sharing/internal/config"
 	"github.com/buidangphuc/team-sharing/internal/rpc"
@@ -41,30 +41,35 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("init health: %w", err), stack.Close(ctx))
+	}
 
 	// Share links live in Postgres. Outside ENV=local an unreachable database
-	// fails boot; locally the in-memory store keeps the service usable, and its
-	// links live only for the process.
+	// fails boot; locally OpenOrLocal returns a nil pool and the in-memory store
+	// keeps the service usable, its links living only for the process.
 	var links store.ShareLinkRepository = store.NewInMemoryShareLinkRepo()
-	pool, err := pgx.Open(ctx, s.Postgres)
-	switch {
-	case err == nil:
-		links = store.NewPostgresShareLinkRepo(pool)
-		health.Register("postgres", pgx.Checker(pool))
-		stack.Push(func(context.Context) error { pool.Close(); return nil })
-	case s.IsLocal():
-		logger.WarnContext(ctx, "database unreachable, using the in-memory store", "err", err)
-	default:
+	pool, err := postgres.OpenOrLocal(ctx, s.Postgres, s.Runtime, logger)
+	if err != nil {
 		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
+	}
+	if pool != nil {
+		links = store.NewPostgresShareLinkRepo(pool)
+		health.Register("postgres", postgres.Checker(pool))
+		stack.Push(func(context.Context) error { pool.Close(); return nil })
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
-	rpc.Register(srv, rpc.NewHandler(sharelink.NewService(links), logger))
+	handler, err := rpc.NewHandler(sharelink.NewService(links), logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("build handler: %w", err), stack.Close(ctx))
+	}
+	rpc.Register(srv, handler)
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
